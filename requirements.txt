@@ -1,0 +1,2 @@
+# IANA timezone data is required on Windows for scheduling and daylight saving.
+tzdata==2025.3 --hash=sha256:06a47e5700f3081aab02b2e513160914ff0694bce9947d6b76ebd6bf57cfc5d1

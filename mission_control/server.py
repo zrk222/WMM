@@ -657,6 +657,15 @@ class Handler(BaseHTTPRequestHandler):
         raise KeyError("Acquisition route not found")
 
 
+def check_timezone_support():
+    """Fail before startup if Windows lacks the declared timezone prerequisite."""
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+    try:
+        ZoneInfo('America/Toronto')
+    except ZoneInfoNotFoundError as exc:
+        raise Invalid('Timezone data is missing. Run python -m pip install --require-hashes -r requirements.txt, then restart WMM.') from exc
+
+
 def main():
     """Start the loopback-only local service and close its worker cleanly."""
     parser=argparse.ArgumentParser(description=__doc__)
@@ -664,6 +673,10 @@ def main():
     parser.add_argument("--database",type=Path,default=Path(__file__).resolve().parent/"data/mission-control.sqlite3")
     parser.add_argument("--operator",default="local-operator")
     args=parser.parse_args()
+    try:
+        check_timezone_support()
+    except Invalid as exc:
+        parser.error(str(exc))
     server=Server(("127.0.0.1",args.port),Store(args.database),args.operator)
     server.runner.start()
     server.audit_runner.start()

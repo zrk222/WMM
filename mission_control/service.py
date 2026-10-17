@@ -145,7 +145,9 @@ class Service:
 
     def bootstrap(self):
         """Return app choices and UI contracts with truthful local execution limits."""
+        from .credential_vault import namespace
         return {"apps":self.store.apps(),"fields":FIELDS,"labels":LABELS,"providers":PROVIDERS,
+                "workspace_instance_id":namespace(self.store.path),
                 "operator":self.operator,"mode":"LOCAL_WORKSTATION","external_writes":"EXPLICIT_ACTION_APPROVAL_REQUIRED","automatic_external_writes":False,"explicit_action_capability":"APP_STORE_PROMOTIONAL_TEXT_ONLY","authorized_spend_minor":0,"startup_build_id":getattr(self,"build_id",None)}
 
     def evidence(self,app_id,body):

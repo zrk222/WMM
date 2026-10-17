@@ -12,16 +12,21 @@ Install **Python 3.11 or newer**, clone this repository, and run:
 ```powershell
 git clone https://github.com/zrk222/WMM.git
 cd WMM
-python -X utf8 -m mission_control.server
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --require-hashes --only-binary :all: -r requirements.txt
+.\.venv\Scripts\python.exe -X utf8 -m mission_control.server
 ```
 
 Open **http://127.0.0.1:8765/**. On Windows you can also right-click
-`mission_control/launch.ps1` and run it with PowerShell. No pip install, API key,
-paid account, Node.js or cloud service is required for the core workspace.
+`mission_control/launch.ps1` and run it with PowerShell. It creates a private
+Python environment and installs the hash-pinned timezone data automatically.
+First setup needs internet access. No API key, paid account, Node.js or cloud
+service is required for the core workspace.
 Stop the foreground server with Ctrl+C. Data persists on your machine.
 
 Windows is the supported platform for protected credential connections and
-native agent discovery. The core server uses Python's standard library;
+native agent discovery. The core server uses Python's standard library plus
+the declared IANA timezone data package;
 macOS/Linux protected credential and native CLI integrations are not supported
 by this release. Do not deploy this workstation server to a public host or
 expose it through a reverse proxy. It intentionally binds only to loopback.
@@ -29,7 +34,7 @@ expose it through a reverse proxy. It intentionally binds only to loopback.
 To use another port or choose a local database location:
 
 ```powershell
-python -X utf8 -m mission_control.server --port 8766 --database ./data/workspace.sqlite3
+.\.venv\Scripts\python.exe -X utf8 -m mission_control.server --port 8766 --database ./data/workspace.sqlite3
 ```
 
 ## First campaign workflow
@@ -102,10 +107,13 @@ policy are enabled. Do not disable them to expose the app remotely.
 ## Development checks
 
 ```powershell
-python -X utf8 -m unittest discover -s tests -p "test_*.py"
-python tools/check_distribution.py
+.\.venv\Scripts\python.exe -X utf8 -m unittest discover -s tests -p "test_*.py"
+.\.venv\Scripts\python.exe tools/check_distribution.py
 ```
 
 Tests use synthetic data and temporary databases. They do not make purchases,
-publish posts or prove live provider integration. See [release scope](RELEASE-SCOPE.md)
+publish posts or prove live provider integration. The full test profile also
+requires FFmpeg and FFprobe on PATH and a supported Segoe UI font. These native
+tools are optional for normal non-video use; the CI profile installs them.
+See [release scope](RELEASE-SCOPE.md)
 and [security guidance](SECURITY.md). See [LICENSE](LICENSE) for local-use rights.

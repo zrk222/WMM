@@ -3,13 +3,39 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 from mission_control.common import Invalid
 from mission_control.server import Server
+from mission_control.server import check_timezone_support
 from mission_control.service import Service
 from mission_control.store import Store
 
 
 class DistributionTests(unittest.TestCase):
+    def test_launcher_workspace_identity_is_stable_and_path_scoped(self):
+        with tempfile.TemporaryDirectory() as folder:
+            first=Service(Store(Path(folder)/'one.sqlite3')).bootstrap()
+            reopened=Service(Store(Path(folder)/'one.sqlite3')).bootstrap()
+            other=Service(Store(Path(folder)/'two.sqlite3')).bootstrap()
+            self.assertEqual(first['workspace_instance_id'],reopened['workspace_instance_id'])
+            self.assertNotEqual(first['workspace_instance_id'],other['workspace_instance_id'])
+            self.assertRegex(first['workspace_instance_id'],r'^[a-f0-9]{24}$')
+            self.assertNotIn(folder,json.dumps(first))
+
+    def test_timezone_dependency_is_available_after_setup(self):
+        from datetime import datetime,timedelta
+        from zoneinfo import ZoneInfo
+        check_timezone_support()
+        zone=ZoneInfo('America/Toronto')
+        self.assertEqual(datetime(2026,7,1,12,tzinfo=zone).utcoffset(),timedelta(hours=-4))
+        self.assertEqual(datetime(2026,1,1,12,tzinfo=zone).utcoffset(),timedelta(hours=-5))
+
+    def test_missing_timezone_data_has_actionable_setup_error(self):
+        from zoneinfo import ZoneInfoNotFoundError
+        with patch('zoneinfo.ZoneInfo',side_effect=ZoneInfoNotFoundError('missing')):
+            with self.assertRaisesRegex(Invalid,'pip install --require-hashes'):
+                check_timezone_support()
+
     def test_fresh_install_needs_no_credentials_or_external_files(self):
         with tempfile.TemporaryDirectory() as folder:
             store=Store(Path(folder)/'workspace.sqlite3')
