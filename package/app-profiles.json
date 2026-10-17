@@ -1,0 +1,53 @@
+{
+  "schema": "growth.app-profiles.v1",
+  "apps": [
+    {
+      "app_id": "sample-one",
+      "name": "Example app one",
+      "status": "UNVERIFIED",
+      "website": "",
+      "release": "",
+      "bundle_id": "",
+      "store_app_id": "",
+      "audience_hypothesis": "",
+      "activation": "",
+      "retention": "",
+      "channel_hypotheses": [],
+      "plans": [],
+      "proof_required": [],
+      "excluded_claims": []
+    },
+    {
+      "app_id": "sample-two",
+      "name": "Example app two",
+      "status": "UNVERIFIED",
+      "website": "",
+      "release": "",
+      "bundle_id": "",
+      "store_app_id": "",
+      "audience_hypothesis": "",
+      "activation": "",
+      "retention": "",
+      "channel_hypotheses": [],
+      "plans": [],
+      "proof_required": [],
+      "excluded_claims": []
+    },
+    {
+      "app_id": "sample-three",
+      "name": "Example app three",
+      "status": "UNVERIFIED",
+      "website": "",
+      "release": "",
+      "bundle_id": "",
+      "store_app_id": "",
+      "audience_hypothesis": "",
+      "activation": "",
+      "retention": "",
+      "channel_hypotheses": [],
+      "plans": [],
+      "proof_required": [],
+      "excluded_claims": []
+    }
+  ]
+}

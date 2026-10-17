@@ -1,0 +1,19 @@
+name: Local application checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check clean distribution
+        run: python tools/check_distribution.py
+      - name: Run isolated synthetic regressions
+        run: python -X utf8 -m unittest discover -s tests -p "test_*.py"

@@ -1,0 +1,7 @@
+{
+  "schema": "growth.acquisition-profiles.v1",
+  "apps": [],
+  "authorized_spend_minor_units": 0,
+  "provider_execution": "NOT_RUN",
+  "future_app_template": {}
+}

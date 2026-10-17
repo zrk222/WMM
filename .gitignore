@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+!.env.example
+*.sqlite*
+*.db
+mission_control/data/
+data/
+artifacts/
+.factory/
+.forge/
+.prestige/
+node_modules/
+.wrangler/
+*.log
