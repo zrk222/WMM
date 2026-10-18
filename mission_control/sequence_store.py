@@ -119,6 +119,7 @@ class Sequences:
                 next_actions=['Review retained results or approve a new current sequence'])
             db.execute("UPDATE campaign_sequences SET state='CANCELLED',result=?,updated=? WHERE id=?",(canonical(result),now(),identity))
             changed=db.execute("UPDATE jobs SET status='CANCELLED',updated=? WHERE app_id=? AND status IN ('QUEUED','RUNNING') AND id IN (SELECT job_id FROM sequence_jobs WHERE run_id=? AND owned=1)",(now(),app_id,identity)).rowcount
+            db.execute("UPDATE experiment_tracking_runs SET status='CANCELLED',updated=? WHERE app_id=? AND status IN ('QUEUED','READING') AND job_id IN (SELECT job_id FROM sequence_jobs WHERE run_id=? AND owned=1)",(now(),app_id,identity))
             db.execute('INSERT INTO audit(app_id,action,detail,created) VALUES(?,?,?,?)',
                 (app_id,'sequence.cancelled',canonical(dict(run_id=identity,owned_jobs_stopped=changed)),now()))
             return public(decode(db.execute('SELECT * FROM campaign_sequences WHERE id=?',(identity,)).fetchone()))

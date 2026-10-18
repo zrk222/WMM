@@ -76,13 +76,15 @@ def current(store,row):
     with connection(store.path) as db:
         experiment=lookup(db,saved['app_id'],saved['experiment_id'])
         source=api.row(db,saved['app_id'],saved['source_id'])
-        job=db.execute('SELECT action,data,status FROM jobs WHERE id=? AND app_id=?',(saved['job_id'],saved['app_id'])).fetchone()
+        job=db.execute('SELECT id,app_id,action,data,status FROM jobs WHERE id=? AND app_id=?',(saved['job_id'],saved['app_id'])).fetchone()
     data=dict(tracking_run_id=saved['id'])
     if job is None or job['action']!='experiment_tracking' or json.loads(job['data'])!=data or job['status'] not in ('QUEUED','RUNNING'):
         raise Invalid('Tracking job identity or cancellation changed')
     expected=proposal(app,experiment,source)
     if expected!=saved['plan']['proposal'] or digest(operating_manifest(app))!=saved['plan']['policy_hash']:
         raise Invalid('App, experiment, policy or source changed; approve a current read')
+    from .tracking_resolution import guard_child
+    guard_child(store,saved,expected,job)
     return source
 
 

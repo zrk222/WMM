@@ -22,11 +22,11 @@ GOALS = {
 PRIORITY = {
     'app':('collect_sources','inspect_site'),
     'readiness':('inspect_site','collect_sources'),
-    'measurement':('refresh_analytics','collect_sources','inspect_site'),
+    'measurement':('inspect_tracking','refresh_analytics','collect_sources','inspect_site'),
     'cohort':('refresh_analytics','evaluate_experiment','collect_sources'),
     'asset':('collect_sources','inspect_site'),
     'store':('collect_sources','inspect_site'),
-    'experiment':('refresh_analytics','evaluate_experiment','inspect_site'),
+    'experiment':('inspect_tracking','refresh_analytics','evaluate_experiment','inspect_site'),
     'distribution':('inspect_site','collect_sources','refresh_analytics'),
     'billing':('collect_sources','refresh_analytics','inspect_site'),
     'retention':('refresh_analytics','evaluate_experiment'),
@@ -35,6 +35,12 @@ PRIORITY = {
 }
 
 TOOL_COPY = {
+    'inspect_tracking':dict(title='Have the agent check registered experiment tracking',
+        access='This app exact PostHog project, flag and aggregate query read permissions',
+        artifact='Native tracking receipt with experiment, release, locale and UTC window',
+        verifies='Returned flag configuration and aggregate assignment/exposure events',
+        limits='No SDK install, flag changes, rendered-view proof, campaign launch or causal lift; interrupted reads may repeat within the existing worker retry cap',
+        fallback='Review expected setup and connect the app-owned PostHog source; repair permissions or instrumentation, then approve a fresh read'),
     'reuse_observation':dict(title='Reuse the current saved public-site observation',
         access='This app exact native observation; no network or credential access',
         artifact='The existing source-hashed observation and its public repair codes',

@@ -19,11 +19,28 @@ def children(db, app_id, identities):
         return [dict(job_id=None, status='INVALID_CHILD_INDEX')]
     result = []
     for identity in identities:
-        row = db.execute('SELECT action,status FROM jobs WHERE app_id=? AND id=?',
+        row = db.execute('SELECT action,status,data FROM jobs WHERE app_id=? AND id=?',
                          (app_id, identity)).fetchone()
         state = row['status'] if row and row['action'] == 'sync' else 'MISSING'
+        if row and row['action']=='experiment_tracking':state=tracking_state(db,app_id,identity,row)
         result.append(dict(job_id=identity, status=state))
     return result
+
+
+def tracking_state(db,app_id,identity,job):
+    """Worker completion is insufficient: inspect the exact native tracking receipt."""
+    import json
+    from .common import Invalid
+    from .experiment_tracking import decode
+    try:
+        row=db.execute('SELECT * FROM experiment_tracking_runs WHERE app_id=? AND job_id=?',(app_id,identity)).fetchone()
+        if row is None:return 'MISSING'
+        saved=decode(row)
+        if json.loads(job['data'])!=dict(tracking_run_id=saved['id']):return 'MISSING'
+        if job['status'] in ('QUEUED','RUNNING'):return job['status']
+        if job['status']!='SUCCEEDED':return job['status']
+        return 'SUCCEEDED' if saved['status']=='OBSERVED' else 'BLOCKED'
+    except (Invalid,ValueError,TypeError):return 'MISSING'
 
 
 def state(states):

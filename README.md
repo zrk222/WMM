@@ -78,6 +78,14 @@ the setup, then approve the read-only check. Its project, flag and aggregate rea
 use the app's protected PostHog connection. Results and permission/setup failures
 remain available under **Saved tracking reads**. Stop a pending check at any time.
 
+The agent also proposes eligible tracking checks in **Review execution plan** and
+the evidence-resolution choices. Review the exact experiment, source, project,
+release, locale and observation window, then keep or remove actions before
+approval. The worker records a native tracking receipt before the parent action
+can finish. Dispatch and restart retain the original approval expiry. Stopping
+the owning sequence also stops its active tracking checks. Missing setup, no
+observations and permission failures remain resolution work rather than success.
+
 The key needs project, feature-flag and query read access. No write permission is
 used. Your app must separately implement the displayed assignment and exposure
 event contract. Counts deduplicate provider distinct IDs; they do not establish

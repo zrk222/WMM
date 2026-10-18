@@ -28,6 +28,9 @@ def source_guard(store,app_id,frozen,request_key=None):
         analytics_guard(store,app_id,p)
     if tool=='evaluate_experiment':
         experiment_guard(store,app_id,p)
+    if tool=='inspect_tracking':
+        from .tracking_resolution import validate
+        validate(store,app_id,p)
     if tool=='reuse_observation':
         reuse_guard(store,app_id,p,request_key)
 
@@ -132,6 +135,9 @@ def execute(store,app_id,data,on_job=None):
     frozen=data['envelope'];app=guard(store,app_id,frozen);source_guard(store,app_id,frozen,data['original_request']['request_key'])
     tools={'refresh_analytics':refresh_analytics,'evaluate_experiment':evaluate_experiment,'reuse_observation':reuse_observation}
     if frozen['tool']=='collect_sources':value=collect(store,app_id,frozen,data['original_request']['request_key'],on_job)
+    elif frozen['tool']=='inspect_tracking':
+        from .tracking_resolution import dispatch
+        value=dispatch(store,app_id,frozen,data['original_request']['request_key'],on_job)
     elif frozen['tool']=='inspect_site':value=inspect_site(store,app_id,frozen,app)
     else:value=tools[frozen['tool']](store,app_id,frozen)
     guard(store,app_id,frozen);source_guard(store,app_id,frozen,data['original_request']['request_key'])

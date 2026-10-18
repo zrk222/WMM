@@ -21,7 +21,7 @@ def link(db, app_id, run_id, job_id, owned) -> object:
     from .sequence_store import decode,ACTIVE
     row=db.execute('SELECT * FROM campaign_sequences WHERE id=? AND app_id=?',(run_id,app_id)).fetchone()
     job=db.execute('SELECT action,data FROM jobs WHERE id=? AND app_id=?',(job_id,app_id)).fetchone()
-    if row is None or job is None or job['action'] not in ('sync','resolution'):
+    if row is None or job is None or job['action'] not in ('sync','resolution','experiment_tracking'):
         raise Invalid('Sequence job ownership is unavailable for this app')
     run=decode(row)
     if run['state'] not in ACTIVE or iso_time(now())>iso_time(run['plan']['expires_at']):

@@ -45,7 +45,8 @@ def executable_options(app,collection,insights,experiments,reuse=None):
         if cohort['release']!=app['data'].get('release') or cohort['locale']!=app['data'].get('locale'):continue
         options.append(dict(tool='evaluate_experiment',ready=True,prerequisite='experiments',
             parameters={'experiment_id':test['id'],'definition_hash':test['hash'],'name':test['data']['name']}))
-    return options
+    from .tracking_resolution import options as tracking_options
+    return options+tracking_options(app,insights,experiments)
 
 
 def decorate(option):

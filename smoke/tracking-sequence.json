@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "approved-tracking-sequence-replay-expiry-cancellation-and-parent-truth",
+      "kind": "python",
+      "run": "import unittest; suite=unittest.defaultTestLoader.loadTestsFromName('tests.test_tracking_sequence'); assert suite.countTestCases()==13; result=unittest.TextTestRunner(verbosity=0).run(suite); assert result.wasSuccessful()"
+    }
+  ]
+}
