@@ -1,0 +1,13 @@
+{
+  "checks": [
+    {
+      "name": "approved-sequence-restart-cancellation-and-isolation",
+      "kind": "python",
+      "run": "import unittest; suite=unittest.defaultTestLoader.loadTestsFromNames(['tests.test_sequence_plan','tests.test_sequences','tests.test_sequence_runtime','tests.test_sequence_http']); assert suite.countTestCases() == 27; result=unittest.TextTestRunner(verbosity=1).run(suite); assert result.testsRun == 27 and result.wasSuccessful(); print('SEQUENCE_BEHAVIOR_PASS')",
+      "expect_exit": 0,
+      "expect_stdout": "SEQUENCE_BEHAVIOR_PASS",
+      "timeout_s": 120,
+      "must_fail_on_stub": true
+    }
+  ]
+}

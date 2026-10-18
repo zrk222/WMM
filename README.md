@@ -55,12 +55,28 @@ To use another port or choose a local database location:
 No private app details, notebook research, customer records, account credentials
 or operational databases are supplied. Example apps start unverified.
 
+### Approve a plan and follow its progress
+
+In **Pipeline**, choose **Review execution plan**. WMM proposes the available
+evidence actions from the app's current gaps and connected sources. Remove any
+actions you do not want, then approve the list. The local worker records each
+result, continues independent approved actions after a failed check, and resumes
+saved checkpoints when the service restarts. Keep WMM running for work to advance;
+closing the browser does not cancel it.
+
+Use **Inspect progress** to open the evidence or **Stop this plan** to cancel
+remaining work owned by that plan. Reads started elsewhere are retained. Approval
+expires after 30 minutes; changed app or source details can require fresh review.
+An ended run means its approved actions were attempted, not that the campaign is
+ready or published. Missing access leads to connection setup and another review.
+
 ## Capabilities and boundaries
 
 | Capability | Included behavior |
 | --- | --- |
 | App registry | Versioned local manifests, isolated workspaces, snapshots |
 | Twelve-stage pipeline | Readiness checks, missing-evidence remedies, durable preparation jobs |
+| Approved follow-through | Editable finite evidence-action lists, saved checkpoints, cancellation and result links |
 | Agent assistance | Supported native Codex/Claude discovery and BYOK setup, exact context review, saved drafts and typed action feedback |
 | Analytics | Optional PostHog, Microsoft Clarity and RevenueCat aggregate reads using your authorized keys |
 | ASA / AEO | App-specific worksheets, public-site observations, source-bound recommendations |

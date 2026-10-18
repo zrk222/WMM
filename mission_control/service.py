@@ -127,6 +127,10 @@ class Service:
         from .agent_feedback import reuse_candidate
         workspace['resolutions']=prepare_resolutions(app,records,workflow,preparation['collection'],workspace['insights'],workspace['experiments'],reuse_candidate(self.store,app))
         workspace['resolutions']['history']=Resolutions(self.store,self.operator).history(app_id)
+        from .sequence_plan import prepare as prepare_sequence
+        from .sequence_store import Sequences
+        workspace['sequences']=dict(proposal=prepare_sequence(app,workspace['resolutions'],preparation['collection']),
+                                   history=Sequences(self.store,self.operator).history(app_id))
         from .agent_access import AgentAccess
         workspace['agent_access']=AgentAccess(self.store).view(app_id)
         from .social_http import view as social_view

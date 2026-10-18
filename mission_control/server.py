@@ -150,7 +150,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.get_app(path)
         scripts=('/social-access.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
                  '/workflow-automation.js','/followup.js','/aeo.js','/public-store-readback.js',
-                 '/pmf-workflow.js','/pmf-research.js','/audit-runtime.js','/automatic-preparation.js',
+                 '/pmf-workflow.js','/pmf-research.js','/audit-runtime.js','/automatic-preparation.js','/campaign-sequence.js',
                  '/spytok-workflow.js','/production-feasibility.js','/spira-workflow.js','/journey-readiness.js')
         if path in scripts:
             return self.send(200,(STATIC/path[1:]).read_bytes(),"text/javascript; charset=utf-8")
@@ -163,14 +163,13 @@ class Handler(BaseHTTPRequestHandler):
     def get_app(self,path):
         """Resolve only the selected workspace, snapshot or validated image identifier."""
         parts=path.strip("/").split("/")
+        if len(parts)<3:raise KeyError(path)
         app_id=parts[2]
         store=self.server.service.store
         if len(parts)==3:
             return self.send(200,dict(self.server.service.workspace(app_id),identity=self.server.identities.public(self.session())))
         if len(parts)==6 and parts[3:5]==['social-access','flows']:
-            from .social_flows import Flows,public
-            if urlparse(self.path).query:raise Invalid('Use the exact social progress address')
-            return self.send(200,public(Flows(store,self.server.server_port).get(app_id,parts[5])))
+            return self.get_social_progress(app_id,parts[5])
         histories={('aeo','history'):'aeo',('attribution','history'):'attribution'}
         if tuple(parts[3:]) in histories:
             return self.get_history(app_id,histories[tuple(parts[3:])])
@@ -179,13 +178,22 @@ class Handler(BaseHTTPRequestHandler):
                   'measurement':lambda:self.get_measurement(app_id)}
         if len(parts)==4 and parts[3] in ordinary:
             return ordinary[parts[3]]()
-        if parts[3]=="files" and len(parts)==5:
-            store.app(app_id)
-            if not re.fullmatch(r"[a-f0-9-]+\.(?:png|jpg|jpeg)",parts[4]):
-                raise Invalid("Invalid asset identifier")
-            file=store.path.parent/"files"/app_id/parts[4]
-            return self.send(200,file.read_bytes(),mimetypes.guess_type(file.name)[0])
+        if parts[3:4]==['files']:return self.get_asset(parts)
         raise KeyError(path)
+
+    def get_social_progress(self,app_id,identity):
+        """Keep exact social progress validation separate from general app routing."""
+        from .social_flows import Flows,public
+        if urlparse(self.path).query:raise Invalid('Use the exact social progress address')
+        return self.send(200,public(Flows(self.server.service.store,self.server.server_port).get(app_id,identity)))
+
+    def get_asset(self,parts):
+        """Read only one validated image within the selected existing app."""
+        if len(parts)!=5:raise KeyError(self.path)
+        store=self.server.service.store;app_id=parts[2];store.app(app_id)
+        if not re.fullmatch(r"[a-f0-9-]+\.(?:png|jpg|jpeg)",parts[4]):raise Invalid('Invalid asset identifier')
+        file=store.path.parent/'files'/app_id/parts[4]
+        return self.send(200,file.read_bytes(),mimetypes.guess_type(file.name)[0])
 
     def get_history(self,app_id,kind):
         """Export only registered app-scoped histories through exact addresses."""
@@ -378,7 +386,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(201,CampaignInputs(service.store).start(app_id,data))
         routes={"records":lambda:service.evidence(app_id,data),"jobs":lambda:service.queue(app_id,data),
                 "reviews":lambda:service.prepare_review(app_id,data),"cohorts":lambda:service.cohort(app_id,data),"events":lambda:service.events(app_id,data)}
-        handlers={"resolutions":self.post_resolution,"release-selection":self.post_release_selection,"inspections":self.post_inspection,
+        handlers={"sequences":self.post_sequence,"resolutions":self.post_resolution,"release-selection":self.post_release_selection,"inspections":self.post_inspection,
                   "pmf-research":self.post_pmf_research,"followup":self.post_followup,"aeo":self.post_aeo,
                   "insights":self.post_insights,"storekit":self.post_storekit,"attribution":self.post_attribution,
                   "connections":self.post_connection,"experiments":self.post_experiment,"references":self.post_reference,"production":self.post_production,"rankings":self.post_ranking,"acquisition":self.post_acquisition,"access":self.post_access,"verified-reviews":self.post_verified_review,"provider-actions":self.post_provider_action,"learning":self.post_learning,"payments":self.post_payments}
@@ -392,6 +400,15 @@ class Handler(BaseHTTPRequestHandler):
         if key in exact:
             return self.send(200,exact[key]())
         raise KeyError("route")
+
+    def post_sequence(self,parts,data):
+        """Approve exact reviewed actions or stop owned work in the selected app only."""
+        from .sequence_store import Sequences
+        if urlparse(self.path).query:raise Invalid('Use the exact sequence action address')
+        service=Sequences(self.server.service.store,self.server.service.operator)
+        if len(parts)==5 and parts[4]=='approve':return self.send(201,service.approve(parts[2],data))
+        if len(parts)==6 and parts[5]=='cancel':return self.send(200,service.cancel(parts[2],parts[4],data))
+        raise Invalid('Use a current sequence approval or cancellation address')
 
     def post_resolution(self,parts,data):
         """Approve one exact app-bound read proposal; no arbitrary agent commands."""

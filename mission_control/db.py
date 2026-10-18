@@ -53,6 +53,11 @@ CREATE TABLE IF NOT EXISTS provider_action_events(id INTEGER PRIMARY KEY AUTOINC
 CREATE TABLE IF NOT EXISTS records(id TEXT PRIMARY KEY, app_id TEXT NOT NULL REFERENCES apps(id), kind TEXT NOT NULL, title TEXT NOT NULL, data TEXT NOT NULL, source TEXT NOT NULL, provenance TEXT NOT NULL, hash TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1, updated TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS record_app_kind ON records(app_id,kind);
 CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY, app_id TEXT NOT NULL REFERENCES apps(id), action TEXT NOT NULL, data TEXT NOT NULL, status TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, lease REAL NOT NULL DEFAULT 0, result TEXT, created TEXT NOT NULL, updated TEXT NOT NULL, request_key TEXT NOT NULL, UNIQUE(app_id,request_key));
+CREATE TABLE IF NOT EXISTS campaign_sequences(id TEXT PRIMARY KEY,app_id TEXT NOT NULL REFERENCES apps(id),plan TEXT NOT NULL,plan_hash TEXT NOT NULL,original_request TEXT NOT NULL,request_key TEXT NOT NULL,state TEXT NOT NULL,result TEXT NOT NULL,created TEXT NOT NULL,updated TEXT NOT NULL,UNIQUE(app_id,request_key));
+CREATE TABLE IF NOT EXISTS sequence_jobs(run_id TEXT NOT NULL REFERENCES campaign_sequences(id),app_id TEXT NOT NULL REFERENCES apps(id),job_id TEXT NOT NULL REFERENCES jobs(id),owned INTEGER NOT NULL CHECK(owned IN (0,1)),data_hash TEXT NOT NULL,PRIMARY KEY(run_id,job_id));
+CREATE INDEX IF NOT EXISTS sequence_job_lookup ON sequence_jobs(job_id,owned);
+CREATE UNIQUE INDEX IF NOT EXISTS sequence_job_owner ON sequence_jobs(job_id) WHERE owned=1;
+CREATE INDEX IF NOT EXISTS sequence_ready ON campaign_sequences(state,updated);
 CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY AUTOINCREMENT, app_id TEXT NOT NULL REFERENCES apps(id), action TEXT NOT NULL, detail TEXT NOT NULL, created TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS approvals(id TEXT PRIMARY KEY, app_id TEXT NOT NULL REFERENCES apps(id), packet TEXT NOT NULL, hash TEXT NOT NULL, preparer TEXT NOT NULL, checker TEXT, status TEXT NOT NULL, expires TEXT NOT NULL, created TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS growth_cohorts(app_id TEXT NOT NULL REFERENCES apps(id), id TEXT NOT NULL, data TEXT NOT NULL, hash TEXT NOT NULL, created TEXT NOT NULL, PRIMARY KEY(app_id,id));

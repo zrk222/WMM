@@ -72,7 +72,9 @@ def process(store,job,stop=None):
         return Experiments(store).evaluate(app["id"],job["data"]["experiment_id"],scheduled=job["data"])
     if job['action']=='resolution':
         from .resolution_tools import execute as resolve
-        return resolve(store,app['id'],job['data'])
+        from .sequence_jobs import callback
+        on_job=callback(store,job)
+        return resolve(store,app['id'],job['data'],on_job) if on_job is not None else resolve(store,app['id'],job['data'])
     if job["action"]=="pipeline":
         from .subscription_readiness import readiness
         from .connection_setup import Connections
@@ -107,25 +109,35 @@ def current_connection(store,app_id,data):
     return record
 
 
+def failed_result(job,error):
+    """Only already-permitted transient source reads get the existing bounded retry."""
+    result={'error':str(error),'next_action':'Review inputs or connection, then create a new run','external_execution':'NOT_RUN'}
+    if job['action']!='sync' or 'agent_policy_sha256' not in job['data'] or job['attempts']>=3:
+        return result,'BLOCKED',0
+    if not transient_read_error(error):return result,'BLOCKED',0
+    delay=5*job['attempts']
+    return dict(status='RETRY_WAIT',summary='Transient provider read failure; safe retry scheduled',
+        attempt=job['attempts'],retry_in_seconds=delay,
+        next_action='Worker will retry this same approved read within its three-attempt limit',
+        external_execution='READ_RETRY_PENDING'),'RUNNING',delay
+
+
 def run_once(store,stop=None):
     """Complete one leased job without overwriting cancellation or hiding failure."""
+    from .sequence_runtime import advance
+    from .sequence_jobs import guard_owned
+    progressed=advance(store)
     job=claim(store)
     if not job:
-        return False
+        return progressed
     retry_delay=0
     try:
+        guard_owned(store,job)
         result=process(store,job) if stop is None else process(store,job,stop)
+        guard_owned(store,job)
         status="SUCCEEDED"
     except Exception as exc:
-        result={"error":str(exc),"next_action":"Review inputs or connection, then create a new run","external_execution":"NOT_RUN"}
-        status="BLOCKED"
-        if job['action']=='sync' and 'agent_policy_sha256' in job['data'] and job['attempts']<3 and transient_read_error(exc):
-            retry_delay=5*job['attempts']
-            status='RUNNING'
-            result={'status':'RETRY_WAIT','summary':'Transient provider read failure; safe retry scheduled',
-                    'attempt':job['attempts'],'retry_in_seconds':retry_delay,
-                    'next_action':'Worker will retry this same approved read within its three-attempt limit',
-                    'external_execution':'READ_RETRY_PENDING'}
+        result,status,retry_delay=failed_result(job,exc)
     with connection(store.path) as db:
         changed=db.execute("UPDATE jobs SET status=?,result=?,lease=?,updated=? WHERE id=? AND status='RUNNING' AND attempts=?",(status,canonical(result),time.time()+retry_delay if retry_delay else 0,now(),job["id"],job["attempts"])).rowcount
         if changed:

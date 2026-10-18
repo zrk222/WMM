@@ -108,7 +108,10 @@ def feedback(store,app):
     for view in views:latest.setdefault(view['tool'],view)
     candidate=reuse_candidate(store,app,rows)
     public_reuse={k:v for k,v in (candidate or {}).items() if k!='url'}
+    from .sequence_store import feedback as sequence_feedback
+    sequence=sequence_feedback(store,app['id'])
     return dict(coverage='COMPLETE' if total<=LIMIT else 'PARTIAL_RECENT_WINDOW',inspected=len(rows),omitted=max(0,total-len(rows)),
-        latest=list(latest.values()),source_sha256=digest(views),reusable_public_observation=public_reuse or None,
+        latest=list(latest.values()),source_sha256=digest(dict(actions=views,sequence=sequence)),
+        sequence=sequence,reusable_public_observation=public_reuse or None,
         resolution='Use validated saved evidence for covered checks; pursue repair codes and remaining proof before repeating reads. Fresh rechecks require exact approval.',
         scope='Typed local action feedback only; no original requirement is automatically verified')

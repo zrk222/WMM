@@ -21,7 +21,7 @@ function stagePacketCard(output,jobId=null) {
 function automaticPreparationPanel() {
   const p=state.workspace.preparation;
   if(!p)return "";
-  return `<section class="panel" id="automatic-preparation"><div class="section-heading"><div><p class="eyebrow">PREPARED AUTOMATICALLY</p><h2>Your work is ready to inspect</h2></div>${button("Inspect current work","automatic-open")}</div><p>All 12 stages are prepared from this app’s current evidence. ${p.ready_count} meet local checks; ${p.needs.length} distinct evidence needs remain.</p><p class="description">No preparation run is required. Missing proof stays blocked. Publication and spending keep their approval controls.</p>${campaignCollectionPanel()}</section>`;
+  return `<section class="panel" id="automatic-preparation"><div class="section-heading"><div><p class="eyebrow">PREPARED AUTOMATICALLY</p><h2>Your work is ready to inspect</h2></div>${button("Inspect current work","automatic-open")}</div><p>All 12 stages are prepared from this app’s current evidence. ${p.ready_count} meet local checks; ${p.needs.length} distinct evidence needs remain.</p><p class="description">No preparation run is required. Missing proof stays blocked. Publication and spending keep their approval controls.</p>${campaignCollectionPanel()}</section>${sequencePanel()}`;
 }
 
 function campaignCollectionPanel() {
@@ -45,6 +45,7 @@ function openAutomaticPreparation() {
 }
 
 async function automaticPreparationAction(node) {
+  if(node.dataset.action.startsWith("automatic-sequence-"))return sequenceAction(node);
   if(node.dataset.action==="automatic-resolution-stage") {
     const app=state.app;await refresh();
     if(state.app===app)return openResolutionStage(Number(node.dataset.stage));

@@ -14,12 +14,23 @@ def enqueue_task(db,app_id,task):
     if binding is None or binding['version'] != task['data']['connection_version']:
         raise Invalid('Connection changed before collection; refresh')
     stamp = now()
-    db.execute('INSERT OR IGNORE INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)',
-               (uid(), app_id, 'sync', canonical(task['data']), 'QUEUED', stamp, stamp, task['request_key']))
-    saved = db.execute('SELECT action,data FROM jobs WHERE app_id=? AND request_key=?',
+    inserted=db.execute('INSERT OR IGNORE INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)',
+               (uid(), app_id, 'sync', canonical(task['data']), 'QUEUED', stamp, stamp, task['request_key'])).rowcount
+    saved = db.execute('SELECT id,action,data FROM jobs WHERE app_id=? AND request_key=?',
                        (app_id, task['request_key'])).fetchone()
     if saved['action'] != 'sync' or saved['data'] != canonical(task['data']):
         raise Invalid('Collection request identity conflicts with saved work')
+    return dict(job_id=saved['id'],created=bool(inserted))
+
+
+def register_task(db,app_id,task,on_job):
+    """Register both an original read and any currently reused replacement atomically."""
+    info=enqueue_task(db,app_id,task)
+    if on_job is None:return
+    on_job(db,app_id,info['job_id'],info['created'])
+    observed=task['job']
+    if observed is not None and observed['id']!=info['job_id']:
+        on_job(db,app_id,observed['id'],False)
 
 
 def task_options(app, record):
@@ -121,7 +132,7 @@ class CampaignInputs:
             plan['status']='COLLECTION_IN_PROGRESS' if any(a['status'] in ('QUEUED','RUNNING') for a in plan['artifacts']) else 'COLLECTION_RESULTS_AVAILABLE'
         return plan
 
-    def start(self, app_id, body):
+    def start(self, app_id, body, on_job=None):
         """Atomically enqueue only exact current fixed reads; replays preserve results."""
         if not isinstance(body, dict) or set(body) != {'manifest_version', 'source_hash'}:
             raise Invalid('Use the current campaign input collection proposal')
@@ -135,10 +146,10 @@ class CampaignInputs:
             if app is None or app['version'] != plan['manifest_version']:
                 raise Invalid('App changed before collection; refresh')
             for task in plan['tasks']:
-                enqueue_task(db,app_id,task)
+                register_task(db,app_id,task,on_job)
         return self.preview(app_id)
 
-    def retry(self, app_id, parameters, request_key):
+    def retry(self, app_id, parameters, request_key, on_job=None):
         """A separate exact approval can replace failed reads, never reset them."""
         from .source_retry import enqueue
         try:valid=str(uuid.UUID(request_key))==request_key
@@ -149,4 +160,11 @@ class CampaignInputs:
         with connection(self.store.path) as db:
             db.execute('BEGIN IMMEDIATE')
             plan=self.preview(app_id)
-            return enqueue(db,app_id,plan,parameters,request_key,enqueue_task)
+            def register(db,app_id,task):
+                info=enqueue_task(db,app_id,task)
+                if on_job is not None:on_job(db,app_id,info['job_id'],info['created'])
+                return info
+            result=enqueue(db,app_id,plan,parameters,request_key,register)
+            if on_job is not None:
+                for task in result['tasks']:on_job(db,app_id,task['job']['id'],False)
+            return result

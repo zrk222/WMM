@@ -7,7 +7,7 @@ READ_OPERATIONS = ('identity_inventory', 'reviews', 'subscription_catalog', 'rel
 def operating_manifest(app):
     """Bind expert operating rules and implemented capabilities to exact app intent."""
     return {
-        'schema':'growth.marketing-agent-manifest.v1', 'policy_version':4,
+        'schema':'growth.marketing-agent-manifest.v1', 'policy_version':5,
         'app_id':app['id'], 'manifest_version':app['version'],
         'release':app['data'].get('release'), 'locale':app['data'].get('locale'),
         'store_app_id':app['data'].get('store_app_id'),
@@ -18,6 +18,9 @@ def operating_manifest(app):
                                'provider_writes':[], 'spend_minor':0},
         'supported_resolution_tools':['collect_sources','inspect_site','refresh_analytics','evaluate_experiment','reuse_observation'],
         'resolution_approval_seconds':1800,
+        'sequence_contract':{'approval':'EXACT_ORDERED_ACTIONS','resume':'SAVED_CHECKPOINT',
+                             'completion':'EVIDENCE_REVIEW_REQUIRED','execution_mode':'LOCAL_SERVICE_REQUIRED',
+                             'cancellation':'STOP_OWNED_WORK_RETAIN_SHARED_READS'},
         'source_rules':['App-owned configured bindings only', 'Exact release and locale; no cross-app borrowing',
                         'Retain source hashes, versions, timestamps and coverage',
                         'Unknown evidence remains unknown; never invent rights, costs, metrics or success'],
