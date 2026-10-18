@@ -63,11 +63,15 @@ def result(summary,artifacts,next_actions,status='EVIDENCE_GATHERED'):
                 automatically_verified=False,external_writes=False,spend_minor=0)
 
 
-def collect(store,app_id,frozen):
+def collect(store,app_id,frozen,request_key=None):
     """Queue fixed child reads without inventing their completion or coverage."""
     from .campaign_inputs import CampaignInputs
-    queued=CampaignInputs(store).start(app_id,dict(manifest_version=frozen['manifest_version'],
-                source_hash=frozen['parameters']['collection_hash']))
+    service=CampaignInputs(store)
+    if 'retry_candidates' in frozen['parameters']:
+        queued=service.retry(app_id,frozen['parameters'],request_key)
+    else:
+        queued=service.start(app_id,dict(manifest_version=frozen['manifest_version'],
+                    source_hash=frozen['parameters']['collection_hash']))
     children=[t['job']['id'] for t in queued['tasks'] if t['job']]
     return dict(result('Provider source collection dispatched; inspect the child results',
         [dict(job_id=identity) for identity in children],
@@ -126,8 +130,9 @@ def execute(store,app_id,data):
     if set(data)!={'envelope','envelope_hash','original_request'} or digest(data['envelope'])!=data['envelope_hash']:
         raise Invalid('Resolution envelope integrity failed')
     frozen=data['envelope'];app=guard(store,app_id,frozen);source_guard(store,app_id,frozen,data['original_request']['request_key'])
-    tools={'collect_sources':collect,'refresh_analytics':refresh_analytics,'evaluate_experiment':evaluate_experiment,'reuse_observation':reuse_observation}
-    if frozen['tool']=='inspect_site':value=inspect_site(store,app_id,frozen,app)
+    tools={'refresh_analytics':refresh_analytics,'evaluate_experiment':evaluate_experiment,'reuse_observation':reuse_observation}
+    if frozen['tool']=='collect_sources':value=collect(store,app_id,frozen,data['original_request']['request_key'])
+    elif frozen['tool']=='inspect_site':value=inspect_site(store,app_id,frozen,app)
     else:value=tools[frozen['tool']](store,app_id,frozen)
     guard(store,app_id,frozen);source_guard(store,app_id,frozen,data['original_request']['request_key'])
     return value

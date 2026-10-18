@@ -1,0 +1,13 @@
+{
+  "checks": [
+    {
+      "name": "approved-source-retry-recovery-and-authority",
+      "kind": "python",
+      "run": "import unittest; suite=unittest.defaultTestLoader.loadTestsFromNames(['tests.test_source_retry','tests.test_source_retry_guards']); result=unittest.TextTestRunner(verbosity=1).run(suite); assert result.testsRun == 19 and result.wasSuccessful(); print('SOURCE_RETRY_BEHAVIOR_PASS')",
+      "expect_exit": 0,
+      "expect_stdout": "SOURCE_RETRY_BEHAVIOR_PASS",
+      "timeout_s": 120,
+      "must_fail_on_stub": true
+    }
+  ]
+}

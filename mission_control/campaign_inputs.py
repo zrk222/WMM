@@ -1,5 +1,6 @@
 """Agent-selected fixed provider reads, bound to current app and source versions."""
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+import uuid
 from .common import Invalid, canonical, digest, now, uid
 from .db import connection
 from .worker import json_job
@@ -105,11 +106,16 @@ class CampaignInputs:
         """Show derived sources and durable job status; do not request a provider."""
         hour = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H')
         plan = build_plan(self.store.app(app_id), self.store.records(app_id), hour)
+        from .source_retry import project
+        plan['retry_candidates']=[]
+        plan['next_collection_at']=(datetime.fromisoformat(hour+':00:00+00:00')+timedelta(hours=1)).isoformat()
         with connection(self.store.path) as db:
             for task in plan['tasks']:
                 row = db.execute('SELECT * FROM jobs WHERE app_id=? AND request_key=?',
                                  (app_id, task['request_key'])).fetchone()
                 task['job'] = json_job(row) if row else None
+                candidate=project(db,app_id,task,plan['operating_manifest']['recovery']['max_manual_source_retries'])
+                if candidate is not None:plan['retry_candidates'].append(candidate)
         plan['artifacts']=[dict(job_id=t['job']['id'],status=t['job']['status']) for t in plan['tasks'] if t['job']]
         if plan['artifacts']:
             plan['status']='COLLECTION_IN_PROGRESS' if any(a['status'] in ('QUEUED','RUNNING') for a in plan['artifacts']) else 'COLLECTION_RESULTS_AVAILABLE'
@@ -131,3 +137,16 @@ class CampaignInputs:
             for task in plan['tasks']:
                 enqueue_task(db,app_id,task)
         return self.preview(app_id)
+
+    def retry(self, app_id, parameters, request_key):
+        """A separate exact approval can replace failed reads, never reset them."""
+        from .source_retry import enqueue
+        try:valid=str(uuid.UUID(request_key))==request_key
+        except (ValueError,TypeError,AttributeError):valid=False
+        if not valid:
+            raise Invalid('Use the canonical source retry request identity')
+        self.store.app(app_id)
+        with connection(self.store.path) as db:
+            db.execute('BEGIN IMMEDIATE')
+            plan=self.preview(app_id)
+            return enqueue(db,app_id,plan,parameters,request_key,enqueue_task)

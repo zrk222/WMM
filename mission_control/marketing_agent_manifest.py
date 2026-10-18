@@ -7,7 +7,7 @@ READ_OPERATIONS = ('identity_inventory', 'reviews', 'subscription_catalog', 'rel
 def operating_manifest(app):
     """Bind expert operating rules and implemented capabilities to exact app intent."""
     return {
-        'schema':'growth.marketing-agent-manifest.v1', 'policy_version':3,
+        'schema':'growth.marketing-agent-manifest.v1', 'policy_version':4,
         'app_id':app['id'], 'manifest_version':app['version'],
         'release':app['data'].get('release'), 'locale':app['data'].get('locale'),
         'store_app_id':app['data'].get('store_app_id'),
@@ -33,6 +33,7 @@ def operating_manifest(app):
                        'Respect cost and quality guardrails; verified pause and rollback',
                        'Next experiment or rollout requires exact approval or an existing bounded grant'],
         'recovery':{'job_attempt_limit':3, 'lease_seconds':60, 'ambiguous_effect':'RECONCILE_BEFORE_RETRY',
+                    'max_manual_source_retries':3,
                     'failed_or_cancelled_collection':'PRESERVE_NO_SILENT_REPLAY'},
         'persistence':{'safe_transient_read_attempts':3, 'read_backoff_seconds':[5,10],
                        'never_retry_automatically':['Permission denial','Identity or source mismatch','Malformed evidence','External mutations'],

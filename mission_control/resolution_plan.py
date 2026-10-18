@@ -12,11 +12,26 @@ def website(app):
     except (ReadError,ValueError,TypeError):return None
 
 
+def collection_options(collection):
+    """Expose a separate exact retry approval without silently replaying failures."""
+    candidates=collection.get('retry_candidates',[])
+    exhausted=any(t.get('retry_limit_reached') for t in collection['tasks'])
+    options=[]
+    if candidates or exhausted:
+        options.append(dict(tool='collect_sources',
+            title='Retry failed provider source reads' if candidates else 'Source retry limit reached',
+            parameters={'collection_hash':collection['source_hash'],'retry_candidates':candidates},
+            ready=bool(candidates),prerequisite='connections',
+            fallback='Review source access; next collection window begins '+collection['next_collection_at']+
+                     '. Original receipts remain unchanged; no automatic replay is permitted.'))
+    options.append(dict(tool='collect_sources',parameters={'collection_hash':collection['source_hash']},
+                        ready=bool(collection['tasks']),prerequisite='connections'))
+    return options
+
+
 def executable_options(app,collection,insights,experiments,reuse=None):
     """Fixed typed options; no network, credentials, body counts or invented inputs."""
-    options=[dict(tool='collect_sources',parameters={'collection_hash':collection['source_hash']},
-                  ready=bool(collection['tasks']),prerequisite='connections'),
-             dict(tool='inspect_site',parameters={'url':website(app)},
+    options=collection_options(collection)+[dict(tool='inspect_site',parameters={'url':website(app)},
                   ready=website(app) is not None,prerequisite='app')]
     if reuse:
         options.append(dict(tool='reuse_observation',parameters={k:v for k,v in reuse.items() if k!='repair_codes'},ready=True,prerequisite='app'))
