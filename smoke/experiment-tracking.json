@@ -1,0 +1,13 @@
+{
+  "checks": [
+    {
+      "name": "exact-tracking-approval-isolation-cancellation-and-aggregate-boundaries",
+      "kind": "python",
+      "run": "import unittest; suite=unittest.defaultTestLoader.loadTestsFromNames(['tests.test_tracking_contract','tests.test_experiment_tracking','tests.test_tracking_http']); assert suite.countTestCases() == 30; result=unittest.TextTestRunner(verbosity=1).run(suite); assert result.testsRun == 30 and result.wasSuccessful(); print('TRACKING_BEHAVIOR_PASS')",
+      "expect_exit": 0,
+      "expect_stdout": "TRACKING_BEHAVIOR_PASS",
+      "timeout_s": 120,
+      "must_fail_on_stub": true
+    }
+  ]
+}

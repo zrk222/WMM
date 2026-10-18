@@ -150,7 +150,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.get_app(path)
         scripts=('/social-access.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
                  '/workflow-automation.js','/followup.js','/aeo.js','/public-store-readback.js',
-                 '/pmf-workflow.js','/pmf-research.js','/audit-runtime.js','/automatic-preparation.js','/campaign-sequence.js',
+                 '/pmf-workflow.js','/pmf-research.js','/audit-runtime.js','/automatic-preparation.js','/campaign-sequence.js','/experiment-tracking.js',
                  '/spytok-workflow.js','/production-feasibility.js','/spira-workflow.js','/journey-readiness.js')
         if path in scripts:
             return self.send(200,(STATIC/path[1:]).read_bytes(),"text/javascript; charset=utf-8")
@@ -386,7 +386,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(201,CampaignInputs(service.store).start(app_id,data))
         routes={"records":lambda:service.evidence(app_id,data),"jobs":lambda:service.queue(app_id,data),
                 "reviews":lambda:service.prepare_review(app_id,data),"cohorts":lambda:service.cohort(app_id,data),"events":lambda:service.events(app_id,data)}
-        handlers={"sequences":self.post_sequence,"resolutions":self.post_resolution,"release-selection":self.post_release_selection,"inspections":self.post_inspection,
+        handlers={"experiment-tracking":self.post_tracking,"sequences":self.post_sequence,"resolutions":self.post_resolution,"release-selection":self.post_release_selection,"inspections":self.post_inspection,
                   "pmf-research":self.post_pmf_research,"followup":self.post_followup,"aeo":self.post_aeo,
                   "insights":self.post_insights,"storekit":self.post_storekit,"attribution":self.post_attribution,
                   "connections":self.post_connection,"experiments":self.post_experiment,"references":self.post_reference,"production":self.post_production,"rankings":self.post_ranking,"acquisition":self.post_acquisition,"access":self.post_access,"verified-reviews":self.post_verified_review,"provider-actions":self.post_provider_action,"learning":self.post_learning,"payments":self.post_payments}
@@ -400,6 +400,16 @@ class Handler(BaseHTTPRequestHandler):
         if key in exact:
             return self.send(200,exact[key]())
         raise KeyError("route")
+
+    def post_tracking(self,parts,data):
+        """Prepare exact tracking reads, approve their owned jobs or stop one saved run."""
+        from .experiment_tracking import Tracking
+        if urlparse(self.path).query:raise Invalid('Use the exact tracking action address')
+        service=Tracking(self.server.service.store)
+        if len(parts)==5 and parts[4]=='prepare':return self.send(200,service.prepare(parts[2],data))
+        if len(parts)==5 and parts[4]=='approve':return self.send(201,service.approve(parts[2],data))
+        if len(parts)==6 and parts[5]=='cancel':return self.send(200,service.cancel(parts[2],parts[4],data))
+        raise Invalid('Use a current tracking proposal, approval or cancellation address')
 
     def post_sequence(self,parts,data):
         """Approve exact reviewed actions or stop owned work in the selected app only."""

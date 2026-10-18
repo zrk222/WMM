@@ -70,11 +70,8 @@ def process(store,job,stop=None):
         return Renders(store).execute(job,stop)
     if job["action"]=="experiment":
         return Experiments(store).evaluate(app["id"],job["data"]["experiment_id"],scheduled=job["data"])
-    if job['action']=='resolution':
-        from .resolution_tools import execute as resolve
-        from .sequence_jobs import callback
-        on_job=callback(store,job)
-        return resolve(store,app['id'],job['data'],on_job) if on_job is not None else resolve(store,app['id'],job['data'])
+    if job['action'] in ('resolution','experiment_tracking'):
+        return process_evidence_job(store,job)
     if job["action"]=="pipeline":
         from .subscription_readiness import readiness
         from .connection_setup import Connections
@@ -94,6 +91,17 @@ def process(store,job,stop=None):
         result=sync(binding,app["id"])
     current_connection(store,app["id"],job["data"])
     return result
+
+
+def process_evidence_job(store,job):
+    """Keep exact-approved tracking and resolution dispatch outside generic provider reads."""
+    if job['action']=='experiment_tracking':
+        from .experiment_tracking import Tracking
+        return Tracking(store).execute(job)
+    from .resolution_tools import execute as resolve
+    from .sequence_jobs import callback
+    on_job=callback(store,job)
+    return resolve(store,job['app_id'],job['data'],on_job) if on_job is not None else resolve(store,job['app_id'],job['data'])
 
 
 def current_connection(store,app_id,data):

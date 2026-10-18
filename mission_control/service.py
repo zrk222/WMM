@@ -131,6 +131,8 @@ class Service:
         from .sequence_store import Sequences
         workspace['sequences']=dict(proposal=prepare_sequence(app,workspace['resolutions'],preparation['collection']),
                                    history=Sequences(self.store,self.operator).history(app_id))
+        from .experiment_tracking import Tracking
+        workspace['experiment_tracking']=Tracking(self.store).list(app_id)
         from .agent_access import AgentAccess
         workspace['agent_access']=AgentAccess(self.store).view(app_id)
         from .social_http import view as social_view

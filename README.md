@@ -70,6 +70,22 @@ expires after 30 minutes; changed app or source details can require fresh review
 An ended run means its approved actions were attempted, not that the campaign is
 ready or published. Missing access leads to connection setup and another review.
 
+### Inspect experiment tracking
+
+In **Pipeline**, select **Inspect live tracking** for a registered experiment.
+WMM derives the expected PostHog flag key, variant split and event scope. Review
+the setup, then approve the read-only check. Its project, flag and aggregate reads
+use the app's protected PostHog connection. Results and permission/setup failures
+remain available under **Saved tracking reads**. Stop a pending check at any time.
+
+The key needs project, feature-flag and query read access. No write permission is
+used. Your app must separately implement the displayed assignment and exposure
+event contract. Counts deduplicate provider distinct IDs; they do not establish
+human views, complete instrumentation, conversion or causal lift. This release
+does not create flags, install the SDK or launch an A/B campaign. Reads can repeat
+under the existing worker recovery limit after an interruption; provider usage
+limits still apply. See [PostHog experiments](https://posthog.com/docs/experiments).
+
 ## Capabilities and boundaries
 
 | Capability | Included behavior |
