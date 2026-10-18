@@ -3,6 +3,7 @@ from .common import Invalid,digest
 from .db import connection
 from .store import decode
 from .feedback_artifacts import public_artifact,public_codes
+from .source_progress import read_state,valid_children
 
 TOOLS=('collect_sources','inspect_site','refresh_analytics','evaluate_experiment','reuse_observation')
 JOB_STATES=('QUEUED','RUNNING','SUCCEEDED','BLOCKED','FAILED','CANCELLED')
@@ -32,13 +33,7 @@ def valid_envelope(job,app):
 
 def child_state(store,app_id,children):
     """A queued parent is not proof that its app-owned child reads completed."""
-    if not isinstance(children,list) or not 0<len(children)<=12:return 'NEEDS_RESOLUTION'
-    if any(not isinstance(i,str) or len(i)>120 for i in children):return 'NEEDS_RESOLUTION'
-    with connection(store.path) as db:
-        rows=[db.execute('SELECT status FROM jobs WHERE app_id=? AND id=?',(app_id,i)).fetchone() for i in children]
-    states=[r['status'] if r else 'MISSING' for r in rows]
-    if any(s in ('MISSING','BLOCKED','FAILED','CANCELLED') for s in states):return 'NEEDS_RESOLUTION'
-    return 'EVIDENCE_GATHERED' if all(s=='SUCCEEDED' for s in states) else 'COLLECTING_SOURCES'
+    return read_state(store,app_id,children)
 
 
 def outcome(store,job):
@@ -68,9 +63,8 @@ def child_fingerprint(store,job):
     """Changed child reports invalidate planning even if their job status stays the same."""
     result=job.get('result') or {}
     identities=result.get('children',[]) if isinstance(result,dict) else []
-    if not isinstance(identities,list) or len(identities)>12:return 'INVALID_CHILD_INDEX'
-    if any(not isinstance(i,str) or len(i)>120 for i in identities):return 'INVALID_CHILD_INDEX'
-    if not identities:return digest([])
+    if isinstance(identities,list) and not identities:return digest([])
+    if not valid_children(identities):return 'INVALID_CHILD_INDEX'
     with connection(store.path) as db:
         rows=[db.execute('SELECT status,data,result FROM jobs WHERE app_id=? AND id=?',(job['app_id'],i)).fetchone() for i in identities]
     return digest([tuple(r) if r else None for r in rows])

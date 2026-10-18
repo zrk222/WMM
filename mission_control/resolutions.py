@@ -8,6 +8,7 @@ from .aeo_transport import public_url,origin
 from .marketing_agent_manifest import operating_manifest
 from .resolution_plan import prepare
 from .worker import json_job
+from .source_progress import children as source_children, state as child_state, explanation
 
 
 def request_body(body):
@@ -64,20 +65,16 @@ def summary(job,children=()):
     if state=='WAITING_FOR_SOURCES':
         states=[c['status'] for c in children]
         state=child_state(states)
+        message,next_actions=explanation(state,children)
+    else:
+        message=value.get('summary') or 'Approved evidence work: '+job['status']
+        next_actions=value.get('next_actions') or ['Review source access or choose the next permitted resolution']
     return dict(job_id=job['id'],issue_id=frozen['issue_id'],tool=frozen['tool'],status=state,
         job_status=job['status'],
-        summary=value.get('summary') or 'Approved evidence work: '+job['status'],
+        summary=message,
         artifacts=value.get('artifacts',[]),children=list(children),
-        next_actions=value.get('next_actions') or ['Review source access or choose the next permitted resolution'],
+        next_actions=next_actions,
         proof_status='PARTIAL' if state=='EVIDENCE_GATHERED' else 'NOT_VERIFIED',automatically_verified=False)
-
-
-def child_state(states):
-    """Missing receipts and failed children cannot become evidence success."""
-    if not states or 'MISSING' in states:return 'NEEDS_RESOLUTION'
-    if any(s in ('BLOCKED','FAILED','CANCELLED') for s in states):return 'NEEDS_RESOLUTION'
-    if all(s=='SUCCEEDED' for s in states):return 'EVIDENCE_GATHERED'
-    return 'COLLECTING_SOURCES'
 
 
 class Resolutions:
@@ -130,9 +127,7 @@ class Resolutions:
             jobs=[json_job(r) for r in db.execute("SELECT * FROM jobs WHERE app_id=? AND action='resolution' ORDER BY created DESC LIMIT 100",(app_id,))]
             result=[]
             for job in jobs:
-                children=[]
-                for identity in (job['result'] or {}).get('children',[]):
-                    row=db.execute('SELECT status FROM jobs WHERE app_id=? AND id=?',(app_id,identity)).fetchone()
-                    children.append(dict(job_id=identity,status=row['status'] if row else 'MISSING'))
+                identities=(job['result'] or {}).get('children',[])
+                children=source_children(db,app_id,identities) if identities or (job['result'] or {}).get('status')=='WAITING_FOR_SOURCES' else []
                 result.append(summary(job,children))
             return result
