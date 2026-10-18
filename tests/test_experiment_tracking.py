@@ -108,6 +108,12 @@ class ExperimentTrackingTests(unittest.TestCase):
         self.assertEqual(self.tracking.list('sample-one')[0]['status'],'INTEGRITY_REVIEW_REQUIRED')
 
     def test_source_version_and_app_drift_stop_before_and_after_io(self):
+        legacy=self.approve();plan=copy.deepcopy(legacy['plan']);proposal=plan['proposal']
+        proposal['expected_flag']['filters']['groups'][0]['properties']=[p for p in proposal['expected_flag']['filters']['groups'][0]['properties'] if p['key']!='wmm_locale']
+        proposal['proposal_hash']=digest({k:v for k,v in proposal.items() if k!='proposal_hash'})
+        with connection(self.store.path) as db:
+            db.execute('UPDATE experiment_tracking_runs SET plan=?,hash=? WHERE id=?',(canonical(plan),digest(plan),legacy['id']))
+        result,read=self.execute(legacy);read.assert_not_called();self.assertEqual(result['status'],'NEEDS_REVIEW')
         run=self.approve()
         with connection(self.store.path) as db:db.execute('UPDATE insight_sources SET version=version+1')
         result,read=self.execute(run);read.assert_not_called();self.assertEqual(result['status'],'NEEDS_REVIEW')

@@ -48,7 +48,7 @@ class TrackingContractTests(unittest.TestCase):
         groups=expected['filters']['groups'];self.assertEqual(len(groups),1)
         self.assertEqual(groups[0]['rollout_percentage'],100)
         self.assertEqual({p['key']:p['value'] for p in groups[0]['properties']},
-                         dict(wmm_app_id=self.app['id'],wmm_release=self.app['data']['release']))
+                         dict(wmm_app_id=self.app['id'],wmm_release=self.app['data']['release'],wmm_locale=self.app['data']['locale']))
         variants=expected['filters']['multivariate']['variants']
         self.assertEqual([v['key'] for v in variants],list(contract.ARMS))
         self.assertEqual(sum(v['rollout_percentage'] for v in variants),100)
@@ -69,12 +69,16 @@ class TrackingContractTests(unittest.TestCase):
 
     def test_query_filters_exact_scope_and_exports_only_aggregates(self):
         sql=contract.query(self.plan)
-        for key in ('app_id','release','locale','experiment_hash','starts_at','ends_at'):
+        for key in ('app_id','release','locale','experiment_hash'):
             self.assertIn(contract.literal(self.plan[key]),sql)
         self.assertIn('uniqExact(distinct_id)',sql)
         self.assertIn('HAVING uniqExact(arm) > 1',sql)
         self.assertNotIn('SELECT distinct_id FROM events',sql)
         self.assertNotIn('email',sql)
+        offset_plan={**self.plan,'starts_at':'2026-09-01T01:00:00.123456+01:00','ends_at':'2026-09-01T03:00:00.654321+02:00'}
+        timed=contract.query(offset_plan)
+        self.assertIn("timestamp >= toDateTime64('2026-09-01 00:00:00.123456', 6, 'UTC')",timed)
+        self.assertIn("timestamp < toDateTime64('2026-09-01 01:00:00.654321', 6, 'UTC')",timed)
         escaped=contract.literal("release'\\OR true")
         self.assertEqual(escaped,"'release\\'\\\\OR true'")
         for value in ('',None,'x'*201,'line\nbreak'):
@@ -115,6 +119,9 @@ class TrackingContractTests(unittest.TestCase):
         changed={**valid,'active':False,'archived':True}
         findings=provider.flag_findings(dict(count=1,results=[changed]),expected)
         self.assertEqual(len(findings),2);self.assertNotIn('PRIVATE',canonical(findings))
+        wrong_locale=copy.deepcopy(valid)
+        wrong_locale['filters']['groups'][0]['properties'][-1]['value']='fr-FR'
+        self.assertTrue(provider.flag_findings(dict(count=1,results=[wrong_locale]),expected))
         for invalid in ({'results':[],'count':1},{'results':[valid,valid],'count':2},
                         {'results':[{**valid,'key':'other'}],'count':1},{'next':'https://other','results':[]}):
             with self.assertRaises(Invalid):provider.flag_findings(invalid,expected)

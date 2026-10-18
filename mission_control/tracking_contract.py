@@ -1,5 +1,6 @@
 """Exact provider configuration and aggregate-only experiment tracking contracts."""
 import re
+from datetime import timezone
 from .common import Invalid,digest,iso_time
 from .insights_contract import project_scope
 
@@ -16,7 +17,8 @@ def expected_flag(app,experiment):
     identity=experiment['id']
     if not isinstance(identity,str) or not re.fullmatch(r'[a-f0-9-]{36}',identity):raise Invalid('Experiment identity is unsupported')
     properties=[dict(key='wmm_app_id',value=app['id'],operator='exact',type='person'),
-                dict(key='wmm_release',value=app['data']['release'],operator='exact',type='person')]
+                dict(key='wmm_release',value=app['data']['release'],operator='exact',type='person'),
+                dict(key='wmm_locale',value=app['data']['locale'],operator='exact',type='person')]
     return dict(key='wmm-'+identity,active=True,ensure_experience_continuity=True,
         filters=dict(groups=[dict(properties=properties,rollout_percentage=100)],
           multivariate=dict(variants=[dict(key='control',rollout_percentage=round((1-allocation)*100,10)),
@@ -63,14 +65,20 @@ def literal(value):
     return "'"+value.replace('\\','\\\\').replace("'","\\'")+"'"
 
 
+def instant(value):
+    """Preserve the declared absolute instant and microseconds independent of project timezone."""
+    stamp=iso_time(value).astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S.%f')
+    return f"toDateTime64({literal(stamp)}, 6, 'UTC')"
+
+
 def query(plan) -> str:
     """Build a fixed aggregate query without exporting subject identifiers."""
     filters=[f"properties.wmm_app_id = {literal(plan['app_id'])}",
              f"properties.wmm_experiment_hash = {literal(plan['experiment_hash'])}",
              f"properties.wmm_release = {literal(plan['release'])}",
              f"properties.wmm_locale = {literal(plan['locale'])}",
-             f"timestamp >= toDateTime({literal(plan['starts_at'])})",
-             f"timestamp < toDateTime({literal(plan['ends_at'])})","timestamp <= now()",
+             f"timestamp >= {instant(plan['starts_at'])}",
+             f"timestamp < {instant(plan['ends_at'])}","timestamp <= now()",
              'event IN ('+','.join(literal(e) for e in EVENTS)+')']
     return ('WITH scoped AS (SELECT distinct_id, properties.wmm_variant AS arm, event FROM events WHERE '+
         ' AND '.join(filters)+') SELECT arm, event, count() AS event_rows, uniqExact(distinct_id) AS subjects, '+
