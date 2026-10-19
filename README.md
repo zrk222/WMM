@@ -78,6 +78,16 @@ the setup, then approve the read-only check. Its project, flag and aggregate rea
 use the app's protected PostHog connection. Results and permission/setup failures
 remain available under **Saved tracking reads**. Stop a pending check at any time.
 
+The tracking review also offers a **browser integration package**. Its fixed
+module, config, example and guide include source hashes for the exact app release
+and experiment. Integrate it through the app repository's normal review process;
+downloading is not installation. It wraps an existing PostHog client with current
+consent and identified-user checks, fresh remote flags, same-origin IndexedDB
+assignment state and stable assignment/exposure event UUIDs. SDK acceptance is
+reported as **queued, not delivered**. DOM visibility is not proof of human
+attention. Native adapters, cross-device state, concurrent-test interference and
+a genuine provider pilot remain separate work.
+
 The agent also proposes eligible tracking checks in **Review execution plan** and
 the evidence-resolution choices. Review the exact experiment, source, project,
 release, locale and observation window, then keep or remove actions before

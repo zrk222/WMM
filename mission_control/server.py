@@ -41,7 +41,7 @@ class Server(ThreadingHTTPServer):
         super().__init__(address,Handler)
         self.service=Service(store,operator)
         source=Path(__file__).resolve().parent
-        files=sorted([*source.glob("*.py"),*source.glob("*.ps1"),*source.glob("static/*")])
+        files=sorted([*source.glob("*.py"),*source.glob("*.ps1"),*source.glob("static/*"),*source.glob("sdk/*.mjs")])
         self.service.build_id=digest({str(path.relative_to(source)):hashlib.sha256(path.read_bytes()).hexdigest() for path in files if path.is_file()})
         self.sessions={}
         self.identities=Identities()
@@ -173,13 +173,21 @@ class Handler(BaseHTTPRequestHandler):
         histories={('aeo','history'):'aeo',('attribution','history'):'attribution'}
         if tuple(parts[3:]) in histories:
             return self.get_history(app_id,histories[tuple(parts[3:])])
-        if parts[3:4]==["renders"]:return self.get_video(parts)
+        scoped={'renders':self.get_video,'experiment-tracking':self.get_instrumentation,'files':self.get_asset}
+        if parts[3] in scoped:return scoped[parts[3]](parts)
         ordinary={'export':lambda:self.send(200,store.export(app_id),filename=app_id+'-snapshot.json'),
                   'measurement':lambda:self.get_measurement(app_id)}
         if len(parts)==4 and parts[3] in ordinary:
             return ordinary[parts[3]]()
-        if parts[3:4]==['files']:return self.get_asset(parts)
         raise KeyError(path)
+
+    def get_instrumentation(self,parts):
+        """Download the exact reviewed app-owned package without provider or install authority."""
+        from .instrumentation import prepare,archive
+        if urlparse(self.path).query or len(parts)!=8 or parts[5]!='instrumentation':
+            raise Invalid('Use the current exact integration package address')
+        value=prepare(self.server.service.store,parts[2],parts[4],parts[6],parts[7])
+        return self.send(200,archive(value),'application/zip',filename='wmm-'+value['experiment_id']+'-instrumentation.zip')
 
     def get_social_progress(self,app_id,identity):
         """Keep exact social progress validation separate from general app routing."""

@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "current-package-hashes-route-boundaries-and-no-provider-effects",
+      "kind": "python",
+      "run": "import unittest; suite=unittest.defaultTestLoader.loadTestsFromNames(['tests.test_instrumentation','tests.test_instrumentation_http']); assert suite.countTestCases()==6; result=unittest.TextTestRunner(verbosity=0).run(suite); assert result.wasSuccessful()"
+    }
+  ]
+}

@@ -30,7 +30,34 @@ function trackingReviewVisible(app,token) {return state.app===app&&$("#modal").o
 
 /** Explain the exact target, scope and instrumentation gap before approval. */
 function trackingForm(plan) {
+  queueMicrotask(()=>{
+    if($("#tracking-form")?.dataset.proposal===plan.proposal_hash)
+      $("#tracking-error").insertAdjacentHTML("beforebegin",instrumentationDownloadControl(plan));
+  });
   modal("Review tracking check",`<form id="tracking-form" data-app="${esc(state.app)}" data-experiment="${esc(plan.experiment_id)}" data-source="${esc(plan.source_id)}" data-proposal="${esc(plan.proposal_hash)}" data-request="${crypto.randomUUID()}"><div class="modal-content" id="tracking-dialog"><p>WMM recommends this setup from the registered experiment. Approve up to three read-only requests per attempt: project identity, experiment flag and scoped aggregate events. An interruption can repeat reads under the existing three-attempt worker recovery limit. Provider usage limits still apply.</p><dl><dt>Project / release / locale</dt><dd>${esc(plan.project_id)} / ${esc(plan.release)} / ${esc(plan.locale)}</dd><dt>Expected experiment key</dt><dd>${esc(plan.flag_key)}</dd><dt>Observation window</dt><dd>${esc(plan.starts_at)} to ${esc(plan.ends_at)}</dd></dl><p>The expected setup includes two variants and continuity across authentication. Your app still needs to emit assignment and rendered-exposure events with this experiment hash. These checks do not install that instrumentation, publish, spend or establish a winner.</p><details><summary>Expected provider configuration and event contract</summary><pre>${esc(JSON.stringify({flag:plan.expected_flag,events:plan.events,experiment_hash:plan.experiment_hash,required_event_properties:["wmm_app_id","wmm_release","wmm_locale","wmm_experiment_hash","wmm_variant"]},null,2))}</pre></details><p>Approval lasts 30 minutes. Changes to this app, source or test require a fresh review.</p><p id="tracking-error" role="alert"></p></div><div class="modal-actions"><button class="button primary" type="submit">Approve read-only check</button>${button("Review source access","measurement-connections")}${button("Cancel","close")}</div></form>`,"REVIEW / APPROVE / NO PROVIDER WRITES");
+}
+
+/** Keep installation preparation explicit and separate from read approval. */
+function instrumentationDownloadControl(plan) {
+  return `<section><h3>Connect the app’s measurement</h3><p>Download an exact browser integration package for this app, release and experiment. It includes source hashes and consent/identity checks. Downloading does not install code, launch variants or verify delivery. Native app integration remains separate.</p>${button("Download browser integration package","automatic-tracking-package",`data-app="${esc(state.app)}" data-id="${esc(plan.experiment_id)}" data-source="${esc(plan.source_id)}" data-proposal="${esc(plan.proposal_hash)}"`)}</section>`;
+}
+
+/** Reject stale setup and surface download errors within the current review. */
+async function trackingPackage(node) {
+  const app=state.app,proposal=node.dataset.proposal;
+  const current=()=>state.app===app&&$("#tracking-form")?.dataset.proposal===proposal;
+  if(node.dataset.app!==app||!current())return;
+  node.disabled=true;
+  try {
+    const values=[app,"experiment-tracking",node.dataset.id,"instrumentation",node.dataset.source,proposal];
+    const response=await fetch("/api/apps/"+values.map(encodeURIComponent).join("/"));
+    if(!response.ok)throw Error((await response.json()).error||"Review the current app and tracking setup before downloading.");
+    const file=await response.blob();if(!current())return;
+    const address=URL.createObjectURL(file),link=document.createElement("a");
+    link.href=address;link.download="wmm-"+node.dataset.id+"-instrumentation.zip";link.click();
+    setTimeout(()=>URL.revokeObjectURL(address),1000);
+  } catch(error) {if(current())$("#tracking-error").textContent=error.message;}
+  finally {if(node.isConnected)node.disabled=false;}
 }
 
 /** Persist exact read consent without accepting commands or credentials. */
@@ -114,6 +141,7 @@ async function trackingAction(node) {
   if(action==="automatic-tracking-review")return trackingReview(id);
   if(action==="automatic-tracking-run")return trackingRun(id);
   if(action==="automatic-tracking-history")return trackingHistory();
+  if(action==="automatic-tracking-package")return trackingPackage(node);
   if(action==="automatic-tracking-reload") {await refresh();$("#modal").close();return render();}
   if(action==="automatic-tracking-cancel")await api(`/api/apps/${encodeURIComponent(app)}/experiment-tracking/${encodeURIComponent(id)}/cancel`,{cancel_run:true});
   await refresh();if(state.app===app)trackingRun(id);

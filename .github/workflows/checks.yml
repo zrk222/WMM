@@ -22,5 +22,9 @@ jobs:
         run: python -c "from zoneinfo import ZoneInfo; from mission_control.media_native import capability; ZoneInfo('America/Toronto'); assert capability()['status'] == 'READY', capability()"
       - name: Check clean distribution
         run: python tools/check_distribution.py
+      - name: Verify browser instrumentation logic
+        run: |
+          node --version
+          node --test tests/instrumentation.test.mjs
       - name: Run isolated synthetic regressions
         run: python -X utf8 -m unittest discover -s tests -p "test_*.py"
