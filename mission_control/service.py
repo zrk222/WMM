@@ -71,10 +71,14 @@ def validate_values(data):
 
 def validate_binding(data, app_id):
     """Require an app-specific environment name and a known read-only provider."""
-    if data["provider"] not in ("apple_ads","app_store"):
-        raise Invalid("Use Apple Ads or App Store Connect; answer-engine observations use import")
     if "_vault_namespace" in data:
         raise Invalid("Runtime protected scope cannot be supplied in evidence")
+    if data.get('provider')=='google_play':
+        from .play_contract import connection_metadata
+        connection_metadata(data)
+        return
+    if data["provider"] not in ("apple_ads","app_store"):
+        raise Invalid("Use Google Play, Apple Ads or App Store Connect; answer-engine observations use import")
     if data.get("credential_ref"):
         if not re.fullmatch(r"[a-f0-9-]{36}",str(data["credential_ref"])) or data.get("auth_mode") not in ("managed_key","disconnected"):
             raise Invalid("Protected connection metadata is invalid; use guided setup")
@@ -137,6 +141,8 @@ class Service:
         workspace['agent_access']=AgentAccess(self.store).view(app_id)
         from .social_http import view as social_view
         workspace['social_access']=social_view(self.store,app_id)
+        from .play_connections import PlayConnections
+        workspace['play']=PlayConnections(self.store).status(app_id)
         return workspace
 
     def cohort(self,app_id,body):
@@ -192,11 +198,22 @@ class Service:
         version=data.get('connection_version',binding['version'])
         if type(version) is not int or version!=binding['version']:
             raise Invalid('Connection changed; reopen the report from this workspace')
+        if binding['data'].get('provider')=='google_play':
+            data=self.play_sync_data(app_id,binding,data)
         if 'options' in data:
             report_options(binding['data']['provider'],data['options'])
             if data['options']['operation']=='subscription_catalog':
                 validate_catalog_scope(self.store.app(app_id),binding['data'])
         return {**data,'connection_version':version}
+
+    def play_sync_data(self,app_id,binding,data):
+        """Manual and agent reads require the same approved Android target and current app version."""
+        from .play_contract import require_target
+        app=self.store.app(app_id);require_target(app,binding['data'])
+        version=data.get('manifest_version',app['version'])
+        if type(version) is not int or version!=app['version']:
+            raise Invalid('App changed; reopen Google Play read setup')
+        return dict(data,manifest_version=version,options=data.get('options',{'operation':'play_releases'}))
 
     def cancel(self,app_id,job_id):
         """Cancel only an active job in the selected workspace."""

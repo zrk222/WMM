@@ -32,11 +32,11 @@ def credential(binding, app_id):
     return value
 
 
-def read_json(url, headers):
+def read_json(url, headers, timeout=15):
     """Read a fixed provider endpoint with bounded time and response size."""
     request=Request(url,headers=dict(headers,Accept="application/json"),method="GET")
     try:
-        with build_opener(NoRedirect()).open(request,timeout=15) as response:
+        with build_opener(NoRedirect()).open(request,timeout=min(15,timeout)) as response:
             raw=response.read(2097153)
     except HTTPError as exc:
         raise Invalid(f"Provider returned HTTP {exc.code}. Check permissions, token expiry and account identity; no data was fabricated.") from exc
@@ -95,6 +95,9 @@ def report_request(url,headers,body=None,timeout=15):
 def sync(binding, app_id):
     """Read the current scoped Ads inventory or the selected App Store identity."""
     provider=binding.get("provider")
+    if provider=='google_play':
+        from .provider_reports import read_report
+        return read_report(binding,app_id,{'operation':'play_releases'})
     if provider=="apple_ads":
         store,account,body=inventory_request(binding)
         headers={"Authorization":"Bearer "+credential(binding,app_id),"X-AP-Context":"adAccountId="+account}

@@ -1,0 +1,1 @@
+{"checks":[{"name":"source-bound-google-play-reads","kind":"python","run":"import unittest; s=unittest.TestSuite([unittest.defaultTestLoader.loadTestsFromName('tests.test_play_worker'),unittest.defaultTestLoader.loadTestsFromName('tests.test_play_collection')]); assert s.countTestCases()==18; r=unittest.TextTestRunner(verbosity=0).run(s); assert r.wasSuccessful()"}]}

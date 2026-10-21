@@ -4,6 +4,9 @@ from pathlib import Path
 import sqlite3
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS play_flows(id TEXT PRIMARY KEY,app_id TEXT NOT NULL REFERENCES apps(id),manifest_version INTEGER NOT NULL,connection_id TEXT,connection_version INTEGER NOT NULL,state_hash TEXT NOT NULL UNIQUE,secret_ref TEXT NOT NULL,config TEXT NOT NULL,status TEXT NOT NULL,expires REAL NOT NULL,created TEXT NOT NULL,updated TEXT NOT NULL,result TEXT);
+CREATE INDEX IF NOT EXISTS play_flow_app ON play_flows(app_id,created);
+CREATE TABLE IF NOT EXISTS play_retirements(app_id TEXT NOT NULL REFERENCES apps(id),reference TEXT NOT NULL,eligible REAL NOT NULL,PRIMARY KEY(app_id,reference));
 CREATE TABLE IF NOT EXISTS social_configs(app_id TEXT NOT NULL REFERENCES apps(id),provider TEXT NOT NULL,version INTEGER NOT NULL,data TEXT NOT NULL,secret_ref TEXT,status TEXT NOT NULL,created TEXT NOT NULL,updated TEXT NOT NULL,PRIMARY KEY(app_id,provider));
 CREATE TABLE IF NOT EXISTS social_flows(id TEXT PRIMARY KEY,app_id TEXT NOT NULL REFERENCES apps(id),provider TEXT NOT NULL,config_version INTEGER NOT NULL,state_hash TEXT NOT NULL UNIQUE,secret_ref TEXT,data TEXT NOT NULL,status TEXT NOT NULL,result TEXT,expires REAL NOT NULL,created TEXT NOT NULL,updated TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS social_connections(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,provider TEXT NOT NULL,config_version INTEGER NOT NULL,version INTEGER NOT NULL,subject_id TEXT NOT NULL,data TEXT NOT NULL,secret_ref TEXT,status TEXT NOT NULL,expires REAL,refresh_expires REAL,renewed_at REAL NOT NULL,lease TEXT,lease_until REAL NOT NULL,created TEXT NOT NULL,updated TEXT NOT NULL,PRIMARY KEY(app_id,id));

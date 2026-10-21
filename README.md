@@ -113,6 +113,7 @@ limits still apply. See [PostHog experiments](https://posthog.com/docs/experimen
 | Approved follow-through | Editable finite evidence-action lists, saved checkpoints, cancellation and result links |
 | Agent assistance | Supported native Codex/Claude discovery and BYOK setup, exact context review, saved drafts and typed action feedback |
 | Analytics | Optional PostHog, Microsoft Clarity and RevenueCat aggregate reads using your authorized keys |
+| Google Play | Guided Android package discovery, protected Desktop OAuth, queued release and subscription catalog reads |
 | ASA / AEO | App-specific worksheets, public-site observations, source-bound recommendations |
 | Creative work | Local assets, briefs, rankings; optional detected FFmpeg tools for supported rendering |
 | Experiments | Local A/B plans, schedules, evidence evaluation and retained learning |
@@ -137,6 +138,35 @@ in the apps you promote. Automatic aggregate reads run only while WMM is running
 For social OAuth, see [callback relay setup](callback_relay/README.md). No shared
 relay, developer app, login or provider account is bundled. Providers may require
 review before granting scopes. Saved local authorization cannot bypass that.
+
+### Google Play setup
+
+In **Connections → Google Play**, review the exact Android package and Play
+track. You can import an `app.json`, `AndroidManifest.xml`, `build.gradle` or
+`build.gradle.kts`; WMM reads explicit metadata without executing the project.
+Confirm build variants yourself. Android identity stays separate from the
+numeric Apple Store ID in App setup.
+
+Enable the Google Play Developer API in your own Google Cloud project, create
+a **Desktop app** OAuth client and select its downloaded JSON file. The account
+must have permission for the target app in Play Console. WMM opens Google's
+official consent URL with PKCE and returns to this running instance's actual
+loopback port. Keep WMM running until verification finishes. The required
+`androidpublisher` scope is broad; WMM's adapter permits only these two read
+operations, and cannot limit the scope Google grants. Restrict app access in
+Play Console. No shared OAuth client or Google account is included.
+
+A successful release read is required before the protected connection replaces
+existing access. Read releases or the subscription catalog from the panel;
+dated observations, queued jobs, errors, retry and reconnect controls remain
+available. Windows Credential Manager holds the client and refresh grant.
+Access on macOS/Linux is not implemented; there is no plaintext fallback.
+
+Release inventory excludes obsolete releases and does not prove country
+availability, rollout fraction or store readiness. Catalog reads do not test
+localized checkout, purchase or restore. Install Referrer, Android attribution
+and Google Play publication are separate, unfinished integrations. Automated
+tests simulate Google consent and responses; they do not verify your live app.
 
 Optional security/audit tools must already be installed and detected. They are
 not downloaded or executed merely by starting the core application.

@@ -35,6 +35,8 @@ def register_task(db,app_id,task,on_job):
 
 def task_options(app, record):
     """Use saved intent only; never guess a release from a human label."""
+    if record['data']['provider']=='google_play':
+        return [{'operation':'play_releases'},{'operation':'play_subscriptions'}]
     options = [None]
     if record['data']['provider'] == 'app_store':
         options += [{'operation':'reviews'}, {'operation':'subscription_catalog'}]
@@ -52,6 +54,11 @@ def task_options(app, record):
 
 def usable_binding(app, data):
     """A saved identity is not authority to borrow another app's source."""
+    if data.get('provider')=='google_play':
+        from .play_contract import require_target
+        try:require_target(app,data)
+        except Invalid:return False
+        return True
     return (data.get('provider') in ('app_store', 'apple_ads') and
             data.get('auth_mode') != 'disconnected' and
             bool(app['data'].get('store_app_id')) and
@@ -65,7 +72,7 @@ def derive_tasks(app, records, policy_hash):
     for record in bindings:
         data = record['data']
         if not usable_binding(app,data):
-            excluded.append({'connection_id':record['id'], 'reason':'Unsupported, disconnected or not bound to this app Store ID'})
+            excluded.append({'connection_id':record['id'], 'reason':"Unsupported, disconnected or not bound to this app's approved store target"})
             continue
         if len(tasks) >= 12:
             excluded.append({'connection_id':record['id'], 'reason':'Collection limit reached; additional sources remain uncollected'})

@@ -1,4 +1,4 @@
-"""Bounded native ES256 signing and server-only Apple credential renewal."""
+"""Native Apple signing and app-bound protected Apple/Google credential renewal."""
 import base64
 import ctypes
 from ctypes import wintypes
@@ -216,6 +216,8 @@ def credential(binding, app_id):
             CACHE.pop(name,None)
             raise Invalid("Protected key is missing for this database; reconnect through provider setup")
         clock=int(time.time())
+        if binding.get('provider')=='google_play':
+            return google_credential(binding,app_id,name,config,clock)
         cached=CACHE.get(name)
         if cached and cached[1]>clock+60:
             return cached[0]
@@ -225,6 +227,23 @@ def credential(binding, app_id):
             token,lifetime=exchange(config,token)
         CACHE[name]=(token,clock+lifetime)
         return token
+
+
+def google_credential(binding,app_id,name,config,clock):
+    """Validate protected app/target scope before reusing or renewing a Google bearer."""
+    from .play_contract import connection_metadata, SCOPE
+    from .play_auth import refresh
+    selected=connection_metadata(binding)
+    expected=dict(app_id=app_id,**selected,client_id=binding['client_id'])
+    if config.get('binding')!=expected or config.get('scopes')!=[SCOPE] or binding.get('auth_mode')!='managed_oauth':
+        raise Invalid('Protected Google grant does not match this app target; reconnect')
+    cached=CACHE.get(name)
+    if cached and cached[1]>clock+60:return cached[0]
+    grant=refresh(config)
+    if grant['refresh_token']!=config['refresh_token']:
+        Vault().put(name,dict(config,refresh_token=grant['refresh_token']))
+    CACHE[name]=(grant['access_token'],clock+grant['expires_in'])
+    return grant['access_token']
 
 
 def forget(name):

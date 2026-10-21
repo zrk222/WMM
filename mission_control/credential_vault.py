@@ -26,7 +26,7 @@ def namespace(database):
 def target(scope, app_id, provider, reference):
     """Validate every segment before native access; no arbitrary credential names."""
     identifier(app_id)
-    if provider not in ("app_store","apple_ads"):
+    if provider not in ("app_store","apple_ads","google_play"):
         raise Invalid("Choose a supported provider")
     if not re.fullmatch(r"[a-f0-9]{24}",str(scope)) or not re.fullmatch(r"[a-f0-9-]{36}",str(reference)):
         raise Invalid("Protected connection reference is invalid; reconnect through setup")

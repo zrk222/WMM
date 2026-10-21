@@ -15,6 +15,8 @@ def report_options(provider,options):
     if not isinstance(options,dict):
         raise Invalid("Choose a report operation")
     operation=options.get("operation")
+    if provider=='google_play':
+        return google_options(options)
     if operation == 'release_inventory':
         return release_options(provider, options)
     if operation in ("reviews", "subscription_catalog") and provider=="app_store" and set(options)=={"operation"}:
@@ -23,6 +25,14 @@ def report_options(provider,options):
         raise Invalid("Choose customer reviews or a dated Apple Ads campaign, keyword or search-term report")
     report_dates(options)
     campaign_ids(options["campaign_ids"])
+    return options
+
+
+def google_options(options):
+    """Google reads have one closed operation field and no edit or purchase parameters."""
+    from .play_contract import operation as play_operation
+    if set(options)!={'operation'}:raise Invalid('Use only the selected Google Play read operation')
+    play_operation(options['operation'])
     return options
 
 
@@ -70,6 +80,8 @@ def numeric_scope(binding,key):
 def read_report(binding,app_id,options):
     """Dispatch a validated app-scoped read; results never authorize external writes."""
     report_options(binding.get("provider"),options)
+    if binding.get('provider')=='google_play':
+        return google_report(binding,app_id,options)
     store_id=numeric_scope(binding,"store_app_id")
     headers={"Authorization":"Bearer "+credential(binding,app_id)}
     if binding["provider"]=="apple_ads":
@@ -89,6 +101,17 @@ def read_report(binding,app_id,options):
     return dict(report,provider=binding["provider"],app_id=app_id,store_app_id=store_id,
                 observed_at=now(),source_hash=digest(reader.hashes),page_source_hashes=reader.hashes,
                 request=options,external_writes=False,scope=("Catalog observation only; approval, prices, purchase and restore require separate verification" if options['operation']=='subscription_catalog' else "Provider observation only; installs do not prove paid or retained customers"))
+
+
+def google_report(binding,app_id,options):
+    """Read only a validated protected Google target, retaining typed source and coverage evidence."""
+    from .play_contract import connection_metadata
+    from .play_auth import PlayReader
+    from .play_reports import read
+    selected=connection_metadata(binding)
+    reader=PlayReader(selected,credential(binding,app_id))
+    report=read(selected,options['operation'],reader)
+    return dict(report,app_id=app_id,store_app_id=selected['package_name'],request=options)
 
 
 def review_record(row):

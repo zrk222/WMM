@@ -139,8 +139,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def get(self,path,token):
         """Serve the fixed UI routes and app-scoped read endpoints."""
-        if re.fullmatch(r'/social/callback/(facebook|instagram|tiktok|linkedin)',path):
-            return self.send(200,(STATIC/'social-callback.html').read_bytes(),'text/html; charset=utf-8')
+        callback=self.callback_page(path)
+        if callback:
+            return self.send(200,(STATIC/callback).read_bytes(),'text/html; charset=utf-8')
         if path=="/api/bootstrap":
             return self.send(200,dict(self.server.service.bootstrap(),csrf=token,identity=self.server.identities.public(token)))
         if path=="/api/weekly-review":
@@ -150,7 +151,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200,{"ledger":json.loads((root/"research-ledger.json").read_text(encoding="utf-8-sig")),"acquisition":json.loads((root/"acquisition-profiles.json").read_text(encoding="utf-8-sig"))})
         if path.startswith("/api/apps/"):
             return self.get_app(path)
-        scripts=('/social-access.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
+        scripts=('/google-play.js','/play-callback.js','/social-access.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
                  '/workflow-automation.js','/followup.js','/aeo.js','/public-store-readback.js',
                  '/pmf-workflow.js','/pmf-research.js','/audit-runtime.js','/automatic-preparation.js','/campaign-sequence.js','/experiment-tracking.js',
                  '/spytok-workflow.js','/production-feasibility.js','/spira-workflow.js','/journey-readiness.js')
@@ -169,6 +170,15 @@ class Handler(BaseHTTPRequestHandler):
         if query and not re.fullmatch(r'offset=(0|[1-9][0-9]{0,8})',query):
             raise Invalid('Use only the weekly review offset')
         return self.send(200,review(self.server.service,int(query.split('=')[1]) if query else 0))
+
+    def callback_page(self,path):
+        """Serve local callback assets without processing provider codes in a GET."""
+        if re.fullmatch(r'/social/callback/(facebook|instagram|tiktok|linkedin)',path):
+            return 'social-callback.html'
+        if path not in ('/','/index.html'):return None
+        query=parse_qs(urlparse(self.path).query,keep_blank_values=True,max_num_fields=20)
+        if 'state' in query and ('code' in query or 'error' in query):return 'play-callback.html'
+        return None
 
     def get_app(self,path):
         """Resolve only the selected workspace, snapshot or validated image identifier."""
@@ -311,6 +321,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200,callback(service.store,data,self.server.server_port))
         if parts[:2]==["api","identity"]:return self.post_identity(parts,data)
         ordinary={'/api/worker/retry':lambda:self.retry_worker(data),
+                  '/api/play/callback':lambda:self.play_callback(data),
                   '/api/apps':lambda:self.send(201,service.store.save_app(data.get('id'),data.get('data',{}),data.get('version'))),
                   '/api/restore':lambda:self.send(201,service.store.restore(data))}
         if path in ordinary:
@@ -321,8 +332,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def post_data(self,path,parts):
         """Keep original per-route byte limits and strict duplicate/nonfinite checks."""
-        raw=self.attribution_body(path,parts) if any(k in parts for k in ('attribution','agent-access','social-access','social')) else self.body(self.post_limit(path,parts))
-        strict=any(kind in parts for kind in ('attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
+        raw=self.attribution_body(path,parts) if any(k in parts for k in ('play','attribution','agent-access','social-access','social')) else self.body(self.post_limit(path,parts))
+        strict=any(kind in parts for kind in ('play','attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
         if strict:
             from .payment_signature import unique_pairs,bounded_tree
             data=json.loads(raw,object_pairs_hook=unique_pairs,parse_constant=lambda _:(_ for _ in ()).throw(Invalid('Nonfinite JSON is forbidden')))
@@ -349,6 +360,7 @@ class Handler(BaseHTTPRequestHandler):
     def post_limit(self,path,parts):
         """Bound protected setup independently from snapshots and ordinary records."""
         if "storekit" in parts:return 262144
+        if 'play' in parts:return 262144 if parts[-1]=='discover' else 24576
         if "attribution" in parts:return 2097152
         if any(kind in parts for kind in ('connections','payments','insights','release-selection','agent-access','social-access','social')):
             return 8192
@@ -404,7 +416,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(201,CampaignInputs(service.store).start(app_id,data))
         routes={"records":lambda:service.evidence(app_id,data),"jobs":lambda:service.queue(app_id,data),
                 "reviews":lambda:service.prepare_review(app_id,data),"cohorts":lambda:service.cohort(app_id,data),"events":lambda:service.events(app_id,data)}
-        handlers={"experiment-tracking":self.post_tracking,"sequences":self.post_sequence,"resolutions":self.post_resolution,"release-selection":self.post_release_selection,"inspections":self.post_inspection,
+        handlers={"play":self.post_play,"experiment-tracking":self.post_tracking,"sequences":self.post_sequence,"resolutions":self.post_resolution,"release-selection":self.post_release_selection,"inspections":self.post_inspection,
                   "pmf-research":self.post_pmf_research,"followup":self.post_followup,"aeo":self.post_aeo,
                   "insights":self.post_insights,"storekit":self.post_storekit,"attribution":self.post_attribution,
                   "connections":self.post_connection,"experiments":self.post_experiment,"references":self.post_reference,"production":self.post_production,"rankings":self.post_ranking,"acquisition":self.post_acquisition,"access":self.post_access,"verified-reviews":self.post_verified_review,"provider-actions":self.post_provider_action,"learning":self.post_learning,"payments":self.post_payments}
@@ -591,6 +603,16 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts)==6 and parts[5]=="disconnect":
             return self.send(200,connections.disconnect(parts[2],parts[4],data.get("version")))
         raise KeyError("Protected connection route not found")
+
+    def post_play(self,parts,data):
+        """Keep Play setup and reads inside the normal app/session/CSRF boundary."""
+        from .play_http import post
+        return self.send(200,post(self.server.service.store,parts[2],parts[4:],data,self.server.server_port))
+
+    def play_callback(self,data):
+        """Consume an exact single-use consent proof without accepting a return URL."""
+        from .play_http import finish
+        return self.send(200,finish(self.server.service.store,data,self.server.server_port))
 
     def post_inspection(self,parts,data):
         """Closed CSRF-protected native actions; no client results or arbitrary commands."""

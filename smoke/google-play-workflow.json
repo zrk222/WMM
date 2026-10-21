@@ -1,0 +1,1 @@
+{"checks":[{"name":"google-play-core-discovery-and-bounded-observations","kind":"python","run":"import unittest; s=unittest.defaultTestLoader.loadTestsFromName('tests.test_play_reports'); assert s.countTestCases()==14; r=unittest.TextTestRunner(verbosity=0).run(s); assert r.wasSuccessful()"}]}

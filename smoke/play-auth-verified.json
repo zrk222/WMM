@@ -1,0 +1,1 @@
+{"checks":[{"name":"protected-google-consent-lifecycle","kind":"python","run":"import unittest; s=unittest.TestSuite([unittest.defaultTestLoader.loadTestsFromName('tests.test_play_connections'),unittest.defaultTestLoader.loadTestsFromName('tests.test_play_storage')]); assert s.countTestCases()==26; r=unittest.TextTestRunner(verbosity=0).run(s); assert r.wasSuccessful()"}]}

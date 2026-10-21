@@ -1,0 +1,1 @@
+{"checks":[{"name":"google-play-http-boundaries","kind":"python","run":"import unittest; s=unittest.defaultTestLoader.loadTestsFromName('tests.test_play_http'); assert s.countTestCases()==5; r=unittest.TextTestRunner(verbosity=0).run(s); assert r.wasSuccessful()"}]}

@@ -38,6 +38,8 @@ def app_data(data):
     safe_data(data)
     validate_manifest(data)
     result = dict(data)
+    from .play_contract import manifest_target
+    result.update(manifest_target(result))
     result["name"] = required(data.get("name"), "App name", 100)
     for field in ("job", "audience", "activation", "release", "locale", "currency"):
         result[field] = str(data.get(field) or "").strip()
@@ -143,14 +145,6 @@ class Store:
 
     def export(self, app_id):
         """Build a hash-bound per-app snapshot with its referenced image bytes."""
-        from .learning_portable import export_learning
-        from .payment_portable import export_payments
-        from .storekit_portable import export_storekit
-        from .attribution_portable import export_attribution
-        from .aeo_portable import export_aeo
-        from .followup_portable import export_followup
-        from .pmf_portable import export_research
-        from .audit_portable import export_archives
         payload={"schema":"growth.snapshot.v1","app":self.app(app_id),"records":self.records(app_id)}
         payload["files"]=self._export_files(app_id,payload["records"])
         payload["ledger"]=Ledger(self.path).export(app_id)
@@ -165,17 +159,28 @@ class Store:
         with connection(self.path) as db:payload["rankings"]=export_rankings(db,app_id)
         with connection(self.path) as db:payload["acquisition"]=export_acquisition(db,app_id)
         payload["media"]=export_media(self,app_id)
-        with connection(self.path) as db:payload["learning"]=export_learning(db,app_id)
-        with connection(self.path) as db:payload["payments"]=export_payments(db,app_id)
-        with connection(self.path) as db:payload["storekit"]=export_storekit(db,app_id)
-        with connection(self.path) as db:payload["attribution"]=export_attribution(db,app_id)
-        with connection(self.path) as db:payload["aeo"]=export_aeo(db,app_id)
-        with connection(self.path) as db:payload["followup"]=export_followup(db,app_id)
-        with connection(self.path) as db:payload["pmf_research"]=export_research(db,app_id)
-        with connection(self.path) as db:payload["inspection_history"]=export_archives(db,app_id)
+        payload.update(self._export_observations(app_id))
         snapshot={"payload":payload,"sha256":digest(payload),"exported_at":now()}
         if len(canonical(snapshot).encode())>33554432:raise Invalid("Workspace exceeds the portable snapshot limit. Download rendered videos individually and use a full local workspace backup before migration.")
         return snapshot
+
+    def _export_observations(self,app_id):
+        """Keep existing portable sections and independent read transactions in declared order."""
+        from .learning_portable import export_learning
+        from .payment_portable import export_payments
+        from .storekit_portable import export_storekit
+        from .attribution_portable import export_attribution
+        from .aeo_portable import export_aeo
+        from .followup_portable import export_followup
+        from .pmf_portable import export_research
+        from .audit_portable import export_archives
+        readers={'learning':export_learning,'payments':export_payments,'storekit':export_storekit,
+                 'attribution':export_attribution,'aeo':export_aeo,'followup':export_followup,
+                 'pmf_research':export_research,'inspection_history':export_archives}
+        result={}
+        for name,reader in readers.items():
+            with connection(self.path) as db:result[name]=reader(db,app_id)
+        return result
 
     def _export_files(self,app_id,records):
         files={}

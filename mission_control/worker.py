@@ -111,6 +111,11 @@ def current_connection(store,app_id,data):
     record=next((r for r in store.records(app_id) if r["id"]==data.get("connection_id") and r["kind"]=="connection"),None)
     if record is None or type(data.get("connection_version")) is not int or record["version"]!=data["connection_version"]:
         raise Invalid("Connection changed or this older run lacks its version; reopen the report and rerun")
+    if record['data'].get('provider')=='google_play':
+        from .play_contract import require_target
+        if type(data.get('manifest_version')) is not int:
+            raise Invalid('Google Play read lacks its approved app version; reopen the read')
+        require_target(store.app(app_id),record['data'])
     if 'agent_policy_sha256' in data:
         from .marketing_agent_manifest import authorize_read
         authorize_read(store.app(app_id),record['data'],data)

@@ -420,7 +420,7 @@ function historicalForm(id) {
 }
 
 function connectionsView() {
-  return heading("Connect with clarity","Connect each app’s evidence, then verify actual access.")+socialPanel()+releaseInventoryPanel()+subscriptionPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyConnectionsView();
+  return heading("Connect with clarity","Connect each app’s evidence, then verify actual access.")+googlePlayPanel()+socialPanel()+releaseInventoryPanel()+subscriptionPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyConnectionsView();
 }
 
 function legacyConnectionsView() {
@@ -503,6 +503,8 @@ function appForm(isNew=false) {
   fields.push(...["brand_voice","brand_visual","brand_source","brand_boundaries"].map(key=>field(key,app.data[key]||"","textarea","Optional operator-supplied brand guidance; use a source and avoid unsupported promises",false)));
   fields.push(automationPreferenceFields(app.data));
   fields.push(field("store_app_id",app.data.store_app_id||"","text","Optional numeric App Store app ID; required for subscription catalog reads",false));
+  fields.push(field("android_package",app.data.android_package||"","text","Optional Android application ID. Google Play setup can discover it from your project metadata.",false));
+  fields.push(field("android_track",app.data.android_track||"","text","Set with the Android package, for example production or internal. Changes invalidate prior read scope.",false));
   fields.push(field("social_callback_base_url",app.data.social_callback_base_url||"","text","Optional verified HTTPS relay origin. Prefills official social callbacks; Mission Control stays private.",false));
   modal(isNew?"Add your app":"App setup",`<form id="app-form" data-new="${isNew}"><div class="modal-content">${notice("This creates an isolated growth workspace. It does not change your app, pricing or production accounts.")}<div class="form-grid">${fields.join("")}</div><div class="field-error" id="form-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Save app setup</button></div></form>`);
   if(!isNew) $("#field-id").readOnly=true;
@@ -684,6 +686,7 @@ function openJob(id) {
   if(state.workspace.resolutions?.history.some(r=>r.job_id===id))return openResolutionRun(id);
   const job=state.workspace.jobs.find(j=>j.id===id);
   if(!job)return toast("This run is outside the current history. Refresh the selected app.");
+  if(job.action==='sync'&&['play_releases','play_subscriptions'].includes(job.data.options?.operation))return playOpenJob(job);
   const outputs=job.result?.outputs || [];
   let content=notice("This run is saved locally. Prepared packets are not provider publication or measured acquisition.");
   if(job.result?.error) content+=notice(job.result.error,"error");
@@ -723,6 +726,7 @@ async function formSubmit(event) {
   const formId=form.getAttribute("id");
   if((formId||'').startsWith('agent-')) {event.preventDefault();return agentSubmit(form);}
   if((formId||'').startsWith('social-')) {event.preventDefault();return socialSubmit(form);}
+  if(formId==='play-setup-form') {event.preventDefault();return playSubmit(form);}
   if(formId==="aeo-form") {event.preventDefault();return aeoSubmit(form);}
   if(["storekit-setup-form","storekit-intake-form","storekit-disconnect-form"].includes(formId)) {
     event.preventDefault();
@@ -817,9 +821,10 @@ async function handleAction(node) {
   if(!currentWorkspace()&&!["reload","close","add-app"].includes(node.dataset.action))return toast("Wait for this app to load, then try again.");
   if(node.dataset.action.startsWith('agent-'))return agentAction(node);
   if(node.dataset.action.startsWith('social-'))return socialAction(node);
+  if(node.dataset.action.startsWith('play-'))return playAction(node);
   if(node.dataset.action.startsWith("subscriptions-"))return subscriptionAction(node);
   if(node.dataset.action.startsWith("followup-"))return followupAction(node);
-  if(node.dataset.action==="rerun-report"){const job=state.workspace.jobs.find(j=>j.id===node.dataset.id);if(!job)throw new Error("Reload this app's saved reports.");return reportForm(job.data.connection_id,job.data.options);}
+  if(node.dataset.action==="rerun-report"){const job=state.workspace.jobs.find(j=>j.id===node.dataset.id);if(!job)throw new Error("Reload this app's saved reports.");if(['play_releases','play_subscriptions'].includes(job.data.options?.operation))return playRetry(job);return reportForm(job.data.connection_id,job.data.options);}
   const action=node.dataset.action,id=node.dataset.id;
   if(action==="measurement-inspect")return measurementIntegrityInspect();
   if(action==="measurement-download")return download(`${state.app}-payment-comparison.json`,state.workspace.measurement_integrity);

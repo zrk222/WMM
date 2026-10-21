@@ -1,16 +1,20 @@
 """Versioned operating contract; supported execution is explicitly narrower than goal scope."""
 from .common import Invalid, digest
 
-READ_OPERATIONS = ('identity_inventory', 'reviews', 'subscription_catalog', 'release_inventory')
+APPLE_READ_OPERATIONS = ('identity_inventory', 'reviews', 'subscription_catalog', 'release_inventory')
+PLAY_READ_OPERATIONS = ('play_releases','play_subscriptions')
+READ_OPERATIONS = APPLE_READ_OPERATIONS + PLAY_READ_OPERATIONS
+PROVIDER_READS = {'app_store':APPLE_READ_OPERATIONS,'apple_ads':('identity_inventory',),'google_play':PLAY_READ_OPERATIONS}
 
 
 def operating_manifest(app):
     """Bind expert operating rules and implemented capabilities to exact app intent."""
     return {
-        'schema':'growth.marketing-agent-manifest.v1', 'policy_version':6,
+        'schema':'growth.marketing-agent-manifest.v1', 'policy_version':7,
         'app_id':app['id'], 'manifest_version':app['version'],
         'release':app['data'].get('release'), 'locale':app['data'].get('locale'),
         'store_app_id':app['data'].get('store_app_id'),
+        'android_package':app['data'].get('android_package'),'android_track':app['data'].get('android_track'),
         'promotion_release':app['data'].get('promotion_release') or {},
         'objective':app['data'].get('job') or None,
         'human_role':'APPROVE_OR_EDIT',
@@ -64,6 +68,10 @@ def authorize_read(app, binding, data):
 def authorize_source(policy,binding):
     """Verify provider, revocation and exact promoted app identity."""
     provider=binding.get('provider')
+    if provider=='google_play':
+        from .play_contract import require_target
+        require_target({'data':policy},binding)
+        return
     if (provider not in ('app_store','apple_ads') or binding.get('auth_mode') == 'disconnected' or
         not policy['store_app_id'] or binding.get('store_app_id') != str(policy['store_app_id'])):
         raise Invalid('Agent source is not authorized for this app identity')
@@ -74,8 +82,11 @@ def authorize_operation(policy,binding,data):
     provider=binding.get('provider')
     options=data.get('options')
     operation=options.get('operation') if isinstance(options,dict) else 'identity_inventory' if options is None else None
-    if operation not in READ_OPERATIONS or provider=='apple_ads' and operation!='identity_inventory':
+    allowed=PROVIDER_READS.get(provider,())
+    if operation not in allowed:
         raise Invalid('Agent operating manifest does not permit this provider operation')
+    if provider=='google_play' and (not isinstance(options,dict) or set(options)!={'operation'}):
+        raise Invalid('Google Play collection accepts only the fixed read operation')
     if operation=='release_inventory':
         authorize_release(policy,data)
 
