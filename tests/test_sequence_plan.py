@@ -25,9 +25,9 @@ class SequencePlanTests(unittest.TestCase):
 
     def test_prepare_and_choices_deduplicate_ready_current_targets_without_io(self):
         self.connected();w,p=self.current()
-        self.assertEqual(len(p['steps']),2)
-        self.assertEqual(len({s['id'] for s in p['steps']}),2)
-        self.assertEqual({s['tool'] for s in p['steps']},{'collect_sources','inspect_site'})
+        self.assertEqual(len(p['steps']),3)
+        self.assertEqual(len({s['id'] for s in p['steps']}),3)
+        self.assertEqual({s['tool'] for s in p['steps']},{'discover_setup','collect_sources','inspect_site'})
         self.assertFalse(p['external_writes']);self.assertEqual(p['spend_minor'],0)
         self.assertEqual(p['execution_mode'],'LOCAL_SERVICE_REQUIRED')
         self.assertEqual(p['proposal_hash'],digest({k:v for k,v in p.items() if k!='proposal_hash'}))
@@ -37,7 +37,7 @@ class SequencePlanTests(unittest.TestCase):
         plan=freeze(w['app'],w['resolutions'],p,body,run_id,'fixture-owner')
         self.assertEqual([s['id'] for s in plan['steps']],body['selected_steps'])
         keys=[s['data']['original_request']['request_key'] for s in plan['steps']]
-        self.assertEqual(keys,[str(uuid.uuid5(uuid.UUID(run_id),str(i))) for i in range(2)])
+        self.assertEqual(keys,[str(uuid.uuid5(uuid.UUID(run_id),str(i))) for i in range(3)])
         self.assertTrue(all(s['data']['envelope_hash']==digest(s['data']['envelope']) for s in plan['steps']))
         self.assertFalse(p['automatically_verified'])
 

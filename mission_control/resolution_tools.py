@@ -128,12 +128,29 @@ def reuse_observation(store,app_id,frozen):
          'Plan the next missing proof; explicitly approve a fresh recheck if the page changed'])
 
 
+def discover_setup(store,app_id,frozen):
+    """Produce a review draft; the approved read cannot approve its own suggestions."""
+    from .setup_discovery import SetupDiscovery
+    from .aeo_transport import public_url
+    app=store.app(app_id)
+    if frozen['parameters']!={'website':public_url(app['data'].get('website'))}:
+        raise Invalid('Setup discovery target changed; approve the saved app website')
+    row=SetupDiscovery(store).start(app_id,dict(app_id=app_id,app_version=app['version'],
+        app_hash=digest(app['data']),confirm_read=True))
+    available=row['state']=='PENDING'
+    return result('App setup suggestions collected for human review' if available else 'Public app source needs resolution',
+        [dict(kind='setup_proposal',id=row['id'],sha256=row['hash'])],
+        ['Open the saved draft, review sources and approve only selected fields',
+         'Collect separate proof for release, activation, ownership and product behavior'],
+        'EVIDENCE_GATHERED' if available else 'NEEDS_RESOLUTION')
+
+
 def execute(store,app_id,data,on_job=None):
     """Dispatch one immutable approved read; arbitrary tools never enter execution."""
     if set(data)!={'envelope','envelope_hash','original_request'} or digest(data['envelope'])!=data['envelope_hash']:
         raise Invalid('Resolution envelope integrity failed')
     frozen=data['envelope'];app=guard(store,app_id,frozen);source_guard(store,app_id,frozen,data['original_request']['request_key'])
-    tools={'refresh_analytics':refresh_analytics,'evaluate_experiment':evaluate_experiment,'reuse_observation':reuse_observation}
+    tools={'refresh_analytics':refresh_analytics,'evaluate_experiment':evaluate_experiment,'reuse_observation':reuse_observation,'discover_setup':discover_setup}
     if frozen['tool']=='collect_sources':value=collect(store,app_id,frozen,data['original_request']['request_key'],on_job)
     elif frozen['tool']=='inspect_tracking':
         from .tracking_resolution import dispatch

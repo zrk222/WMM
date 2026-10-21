@@ -139,6 +139,24 @@ For social OAuth, see [callback relay setup](callback_relay/README.md). No share
 relay, developer app, login or provider account is bundled. Providers may require
 review before granting scopes. Saved local authorization cannot bypass that.
 
+### Let the agent collect app setup details
+
+Save a public website in **App setup**, then choose **Discover app details**.
+The agent reads that saved source through the robots-first public inspector and
+creates a local draft. The same action is available in missing-evidence agent
+resolution options. Agent job results link directly to the draft review.
+
+Compare suggestions with saved values, edit as needed, check only the fields to
+change and choose **Approve selected changes**. Conflicts remain explicit. Apple
+Store IDs and Android packages are separate; confirm the Android track yourself.
+Website claims and page language do not prove ownership, readiness or tested
+locales. Release and activation evidence still need separate verification.
+
+Drafts expire after one hour and become stale when app setup changes. Up to 64
+drafts are retained per app; removing a draft preserves app details, connections
+and audit history. Missing or denied sources offer retry, edit, connection and
+evidence paths. No private login, publication or spending is performed.
+
 ### Google Play setup
 
 In **Connections → Google Play**, review the exact Android package and Play

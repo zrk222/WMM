@@ -18,7 +18,8 @@ class PlayCollectionTests(PlayFixture):
                                      ('app_store','identity_inventory'), ('app_store','reviews'), ('app_store','subscription_catalog')})
         self.assertEqual(self.store.app('sample-one')['data']['store_app_id'], '123')
         self.assertEqual(len(plan['tasks']), 5); self.assertFalse(plan['external_writes'])
-        self.assertEqual(plan['operating_manifest']['policy_version'], 7)
+        self.assertEqual(plan['operating_manifest']['policy_version'], 8)
+        self.assertIn('discover_setup', plan['operating_manifest']['supported_resolution_tools'])
         self.assertEqual(plan['operating_manifest']['supported_execution']['provider_writes'], [])
 
     def test_google_reads_do_not_require_an_apple_store_id(self):

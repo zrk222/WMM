@@ -151,7 +151,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200,{"ledger":json.loads((root/"research-ledger.json").read_text(encoding="utf-8-sig")),"acquisition":json.loads((root/"acquisition-profiles.json").read_text(encoding="utf-8-sig"))})
         if path.startswith("/api/apps/"):
             return self.get_app(path)
-        scripts=('/google-play.js','/play-callback.js','/social-access.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
+        scripts=('/setup-discovery.js','/google-play.js','/play-callback.js','/social-access.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
                  '/workflow-automation.js','/followup.js','/aeo.js','/public-store-readback.js',
                  '/pmf-workflow.js','/pmf-research.js','/audit-runtime.js','/automatic-preparation.js','/campaign-sequence.js','/experiment-tracking.js',
                  '/spytok-workflow.js','/production-feasibility.js','/spira-workflow.js','/journey-readiness.js')
@@ -193,13 +193,19 @@ class Handler(BaseHTTPRequestHandler):
         histories={('aeo','history'):'aeo',('attribution','history'):'attribution'}
         if tuple(parts[3:]) in histories:
             return self.get_history(app_id,histories[tuple(parts[3:])])
-        scoped={'renders':self.get_video,'experiment-tracking':self.get_instrumentation,'files':self.get_asset}
+        scoped={'renders':self.get_video,'experiment-tracking':self.get_instrumentation,'files':self.get_asset,'setup-discovery':self.get_setup_discovery}
         if parts[3] in scoped:return scoped[parts[3]](parts)
         ordinary={'export':lambda:self.send(200,store.export(app_id),filename=app_id+'-snapshot.json'),
                   'measurement':lambda:self.get_measurement(app_id)}
         if len(parts)==4 and parts[3] in ordinary:
             return ordinary[parts[3]]()
         raise KeyError(path)
+
+    def get_setup_discovery(self,parts):
+        """Expose local setup detail with no request target or network side effect."""
+        from .setup_http import get
+        if urlparse(self.path).query:raise Invalid('Use the exact setup proposal address')
+        return self.send(200,get(self.server.service.store,parts[2],parts[4:]))
 
     def get_instrumentation(self,parts):
         """Download the exact reviewed app-owned package without provider or install authority."""
@@ -332,8 +338,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def post_data(self,path,parts):
         """Keep original per-route byte limits and strict duplicate/nonfinite checks."""
-        raw=self.attribution_body(path,parts) if any(k in parts for k in ('play','attribution','agent-access','social-access','social')) else self.body(self.post_limit(path,parts))
-        strict=any(kind in parts for kind in ('play','attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
+        raw=self.attribution_body(path,parts) if any(k in parts for k in ('setup-discovery','play','attribution','agent-access','social-access','social')) else self.body(self.post_limit(path,parts))
+        strict=any(kind in parts for kind in ('setup-discovery','play','attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
         if strict:
             from .payment_signature import unique_pairs,bounded_tree
             data=json.loads(raw,object_pairs_hook=unique_pairs,parse_constant=lambda _:(_ for _ in ()).throw(Invalid('Nonfinite JSON is forbidden')))
@@ -362,7 +368,7 @@ class Handler(BaseHTTPRequestHandler):
         if "storekit" in parts:return 262144
         if 'play' in parts:return 262144 if parts[-1]=='discover' else 24576
         if "attribution" in parts:return 2097152
-        if any(kind in parts for kind in ('connections','payments','insights','release-selection','agent-access','social-access','social')):
+        if any(kind in parts for kind in ('setup-discovery','connections','payments','insights','release-selection','agent-access','social-access','social')):
             return 8192
         if "identity" in parts:return 512
         if path=="/api/worker/retry":return 512
@@ -416,7 +422,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(201,CampaignInputs(service.store).start(app_id,data))
         routes={"records":lambda:service.evidence(app_id,data),"jobs":lambda:service.queue(app_id,data),
                 "reviews":lambda:service.prepare_review(app_id,data),"cohorts":lambda:service.cohort(app_id,data),"events":lambda:service.events(app_id,data)}
-        handlers={"play":self.post_play,"experiment-tracking":self.post_tracking,"sequences":self.post_sequence,"resolutions":self.post_resolution,"release-selection":self.post_release_selection,"inspections":self.post_inspection,
+        handlers={"setup-discovery":self.post_setup_discovery,"play":self.post_play,"experiment-tracking":self.post_tracking,"sequences":self.post_sequence,"resolutions":self.post_resolution,"release-selection":self.post_release_selection,"inspections":self.post_inspection,
                   "pmf-research":self.post_pmf_research,"followup":self.post_followup,"aeo":self.post_aeo,
                   "insights":self.post_insights,"storekit":self.post_storekit,"attribution":self.post_attribution,
                   "connections":self.post_connection,"experiments":self.post_experiment,"references":self.post_reference,"production":self.post_production,"rankings":self.post_ranking,"acquisition":self.post_acquisition,"access":self.post_access,"verified-reviews":self.post_verified_review,"provider-actions":self.post_provider_action,"learning":self.post_learning,"payments":self.post_payments}
@@ -603,6 +609,11 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts)==6 and parts[5]=="disconnect":
             return self.send(200,connections.disconnect(parts[2],parts[4],data.get("version")))
         raise KeyError("Protected connection route not found")
+
+    def post_setup_discovery(self,parts,data):
+        """Use strict app-owned discover/apply/delete actions behind normal CSRF checks."""
+        from .setup_http import post
+        return self.send(200,post(self.server.service.store,parts[2],parts[4:],data))
 
     def post_play(self,parts,data):
         """Keep Play setup and reads inside the normal app/session/CSRF boundary."""

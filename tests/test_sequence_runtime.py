@@ -36,17 +36,21 @@ class SequenceRuntimeTests(unittest.TestCase):
         service,run=self.approve()
         with patch('mission_control.worker.sync',return_value={'fixture':True}) as sync, \
              patch('mission_control.worker.read_report',return_value={'fixture':True}) as report, \
-             patch('mission_control.aeo_workflows.PublicReader',CountingReader):
+             patch('mission_control.aeo_workflows.PublicReader',CountingReader), \
+             patch('mission_control.setup_discovery.PublicReader',CountingReader):
             self.assertTrue(run_once(self.store))
             reopened=Store(self.store.path);self.pump(reopened)
         row=Sequences(reopened).history('sample-one')[0]
         self.assertEqual(row['state'],'EVIDENCE_REVIEW_REQUIRED')
-        self.assertEqual(row['checkpoint'],2)
-        self.assertEqual(len(row['step_outcomes']),2)
+        self.assertEqual(row['checkpoint'],3)
+        self.assertEqual(len(row['step_outcomes']),3)
         self.assertEqual(sync.call_count+report.call_count,3)
-        self.assertEqual(len({o['job_id'] for o in row['step_outcomes']}),2)
+        self.assertEqual(len({o['job_id'] for o in row['step_outcomes']}),3)
         self.assertTrue(all(o['state']=='EVIDENCE_GATHERED' for o in row['step_outcomes']))
         self.assertFalse(row['automatically_verified'])
+        from mission_control.setup_discovery import SetupDiscovery
+        draft=SetupDiscovery(reopened).list('sample-one')['proposals'][0]
+        self.assertEqual(draft['currentness'],'PENDING')
 
     def test_owned_queued_sources_cancel_without_provider_calls(self):
         service,run=self.approve('collect_sources')

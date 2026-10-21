@@ -20,7 +20,7 @@ GOALS = {
 }
 
 PRIORITY = {
-    'app':('collect_sources','inspect_site'),
+    'app':('discover_setup','collect_sources','inspect_site'),
     'readiness':('inspect_site','collect_sources'),
     'measurement':('inspect_tracking','refresh_analytics','collect_sources','inspect_site'),
     'cohort':('refresh_analytics','evaluate_experiment','collect_sources'),
@@ -35,6 +35,12 @@ PRIORITY = {
 }
 
 TOOL_COPY = {
+    'discover_setup':dict(title='Have the agent collect app setup suggestions',
+        access='Saved public app website; robots-first, credential-free bounded read',
+        artifact='Expiring source-linked setup draft with conflicts and missing-input recovery',
+        verifies='Explicit metadata and official store IDs observed on that page only',
+        limits='No automatic manifest edits, ownership verification, product claims or readiness proof',
+        fallback='Review the saved website, retry a permitted public source, or connect app-owned evidence'),
     'inspect_tracking':dict(title='Have the agent check registered experiment tracking',
         access='This app exact PostHog project, flag and aggregate query read permissions',
         artifact='Native tracking receipt with experiment, release, locale and UTC window',

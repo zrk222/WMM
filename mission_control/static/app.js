@@ -508,6 +508,7 @@ function appForm(isNew=false) {
   fields.push(field("social_callback_base_url",app.data.social_callback_base_url||"","text","Optional verified HTTPS relay origin. Prefills official social callbacks; Mission Control stays private.",false));
   modal(isNew?"Add your app":"App setup",`<form id="app-form" data-new="${isNew}"><div class="modal-content">${notice("This creates an isolated growth workspace. It does not change your app, pricing or production accounts.")}<div class="form-grid">${fields.join("")}</div><div class="field-error" id="form-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Save app setup</button></div></form>`);
   if(!isNew) $("#field-id").readOnly=true;
+  if(!isNew) $("#app-form .modal-content").insertAdjacentHTML("afterbegin",`<section class="panel"><h3>Let the agent collect app details</h3><p>Read the saved public website, compare its suggestions and approve only the fields you want to change.</p>${button("Discover app details","setup-open")}</section>`);
 }
 
 const booleanFields=new Set(["authentic","rights_cleared","consent_review","refund_reconciliation","installed","fresh_install","signed_out","restore_tested","trial_eligibility_tested","mature","confirmed"]);
@@ -822,6 +823,7 @@ async function handleAction(node) {
   if(node.dataset.action.startsWith('agent-'))return agentAction(node);
   if(node.dataset.action.startsWith('social-'))return socialAction(node);
   if(node.dataset.action.startsWith('play-'))return playAction(node);
+  if(node.dataset.action.startsWith('setup-'))return setupAction(node);
   if(node.dataset.action.startsWith("subscriptions-"))return subscriptionAction(node);
   if(node.dataset.action.startsWith("followup-"))return followupAction(node);
   if(node.dataset.action==="rerun-report"){const job=state.workspace.jobs.find(j=>j.id===node.dataset.id);if(!job)throw new Error("Reload this app's saved reports.");if(['play_releases','play_subscriptions'].includes(job.data.options?.operation))return playRetry(job);return reportForm(job.data.connection_id,job.data.options);}

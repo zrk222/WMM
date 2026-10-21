@@ -143,6 +143,8 @@ class Service:
         workspace['social_access']=social_view(self.store,app_id)
         from .play_connections import PlayConnections
         workspace['play']=PlayConnections(self.store).status(app_id)
+        from .setup_discovery import SetupDiscovery
+        workspace['setup_discovery']=SetupDiscovery(self.store).list(app_id)
         return workspace
 
     def cohort(self,app_id,body):

@@ -122,6 +122,7 @@ function openResolutionIssue(id) {
 
 function resolutionRunDetails(row) {
   const actions=row.next_actions.map(a=>typeof a==="string"?a:a?.instruction||"Inspect this source finding in Evidence references before choosing the next action.");
+  if(row.artifacts.some(a=>a.kind==='setup_proposal')) actions.unshift('Open the collected app details using the review button below.');
   return `<p id="resolution-live-status" role="status" aria-live="polite">${esc(label(row.status))} · ${esc(row.summary)}</p><p>Proof status: ${esc(label(row.proof_status))}. This result has not automatically verified the original requirement.</p>${row.children.length?`<h3>Source work</h3><ul>${row.children.map(c=>`<li>${esc(label(c.status))} · ${esc(c.job_id)}</li>`).join("")}</ul>`:""}<h3>Next agent resolution steps</h3><ul>${actions.map(a=>`<li>${esc(a)}</li>`).join("")}</ul><details><summary>Evidence references</summary><ul>${row.artifacts.map(a=>`<li>${esc(a.kind||"source job")} · ${esc(a.id||a.job_id||a.experiment_id||a.source_id)}${a.sha256?` · ${esc(a.sha256)}`:""}</li>`).join("")||"<li>No accepted artifact is available yet.</li>"}</ul></details>`;
 }
 
@@ -130,6 +131,7 @@ function openResolutionRun(id) {
   if(!row)return toast("This saved resolution is not in the current history. Refresh the selected app.");
   modal("Agent evidence result",`<div class="modal-content"><div id="resolution-run-details">${resolutionRunDetails(row)}</div></div><div class="modal-actions">${button("Refresh progress","automatic-resolution-refresh",`data-id="${esc(id)}"`)}${button("Plan next agent step","agent-next-step")}${button("Review next resolution","automatic-resolution-issue",`data-id="${esc(row.issue_id)}"`)}${button("Review source access","measurement-connections")}${["QUEUED","RUNNING"].includes(row.job_status)?button("Cancel local run","cancel-job",`data-id="${esc(id)}"`):""}${button("Close","close")}</div>`,"EXECUTION / EVIDENCE / REMAINING PROOF");
   $("#modal-body").dataset.job=id;
+  for(const artifact of row.artifacts.filter(item=>item.kind==='setup_proposal')) $('#resolution-run-details').insertAdjacentHTML('beforeend',button('Review collected app details','setup-review',`data-id="${esc(artifact.id)}"`));
   const key=`${state.app}:${id}`;
   if(["QUEUED","RUNNING","COLLECTING_SOURCES","WAITING_FOR_SOURCES"].includes(row.status)&&state.resolutionPoll!==key) {
     state.resolutionPoll=key;
@@ -146,7 +148,7 @@ async function pollResolution(id,app) {
     if(!row)return;
     const target=$("#resolution-run-details");
     const value=JSON.stringify(row);
-    if(target&&target.dataset.observation!==value){target.innerHTML=resolutionRunDetails(row);target.dataset.observation=value;}
+    if(target&&target.dataset.observation!==value){target.innerHTML=resolutionRunDetails(row);target.dataset.observation=value;appendSetupReviewLinks(target,row);}
     if(!["QUEUED","RUNNING"].includes(row.job_status))$("#modal-body").querySelector('[data-action="cancel-job"]')?.remove();
     if(!["QUEUED","RUNNING","COLLECTING_SOURCES","WAITING_FOR_SOURCES"].includes(row.status))return;
   }

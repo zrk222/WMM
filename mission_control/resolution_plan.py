@@ -33,6 +33,8 @@ def executable_options(app,collection,insights,experiments,reuse=None):
     """Fixed typed options; no network, credentials, body counts or invented inputs."""
     options=collection_options(collection)+[dict(tool='inspect_site',parameters={'url':website(app)},
                   ready=website(app) is not None,prerequisite='app')]
+    options.append(dict(tool='discover_setup',parameters={'website':website(app)},
+                        ready=website(app) is not None,prerequisite='app'))
     if reuse:
         options.append(dict(tool='reuse_observation',parameters={k:v for k,v in reuse.items() if k!='repair_codes'},ready=True,prerequisite='app'))
     for source in insights['sources'][:3]:
