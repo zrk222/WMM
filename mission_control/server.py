@@ -143,6 +143,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200,(STATIC/'social-callback.html').read_bytes(),'text/html; charset=utf-8')
         if path=="/api/bootstrap":
             return self.send(200,dict(self.server.service.bootstrap(),csrf=token,identity=self.server.identities.public(token)))
+        if path=="/api/weekly-review":
+            return self.get_weekly_review()
         if path=="/api/research":
             root=Path(__file__).resolve().parents[1]/"package"
             return self.send(200,{"ledger":json.loads((root/"research-ledger.json").read_text(encoding="utf-8-sig")),"acquisition":json.loads((root/"acquisition-profiles.json").read_text(encoding="utf-8-sig"))})
@@ -159,6 +161,14 @@ class Handler(BaseHTTPRequestHandler):
             raise KeyError(path)
         file=STATIC/files[path]
         return self.send(200,file.read_bytes(),mimetypes.guess_type(file.name)[0]+"; charset=utf-8")
+
+    def get_weekly_review(self):
+        """Parse only the closed portfolio offset before a bounded saved-evidence read."""
+        from .weekly_inbox import review
+        query=urlparse(self.path).query
+        if query and not re.fullmatch(r'offset=(0|[1-9][0-9]{0,8})',query):
+            raise Invalid('Use only the weekly review offset')
+        return self.send(200,review(self.server.service,int(query.split('=')[1]) if query else 0))
 
     def get_app(self,path):
         """Resolve only the selected workspace, snapshot or validated image identifier."""
