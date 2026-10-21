@@ -1,6 +1,7 @@
 """Actionable packets, not fabricated marketing outcomes."""
 from .common import digest, now
 from .metrics import summarize
+from .weekly_controls import decision_controls
 
 
 def by_kind(records, kind):
@@ -26,7 +27,8 @@ def weekly(app, records, checklist,ledger_reports=()):
     missing=[s["title"] for s in checklist if s["status"]!="READY"]
     return {"app":app["data"]["name"],"metrics":metrics,"decision":"REPAIR_OR_COLLECT_EVIDENCE" if missing else "REVIEW_EXPERIMENT",
             "bottlenecks":missing,"next_action":missing[0] if missing else "Review mature cohorts and authorize the next bounded experiment",
-            "incremental_lift":"UNPROVEN","approved_spend_minor":0}
+            "incremental_lift":"UNPROVEN","approved_spend_minor":0,
+            "decision_controls":decision_controls(app,records,checklist)}
 
 
 def reflection(app, records, checklist,ledger_reports=()):
