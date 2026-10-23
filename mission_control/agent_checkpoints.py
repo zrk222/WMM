@@ -10,9 +10,10 @@ from .common import Invalid, canonical, digest, identifier, iso_time
 from .db import connection
 from .pmf_contract import exact
 from .review_access import member, exact_role
+from .operation_catalog import OPERATIONS as LOCAL_OPERATIONS
 
 
-OPERATIONS = ("READ_WORKSPACE", "RECOMPUTE_REPORT", "PREPARE_DRAFT")
+OPERATIONS = ("READ_WORKSPACE", "RECOMPUTE_REPORT", "PREPARE_DRAFT", *LOCAL_OPERATIONS)
 _READ = object()
 
 
@@ -78,6 +79,27 @@ def persist(db, row, state, actor, observed, evidence=None):
     return row
 
 
+def prepare_in_db(db,app_id,principal,body,observed):
+    """Share immutable preparation with adapters that already hold a writer transaction."""
+    packet=packet_data(db,app_id,principal,body,observed)
+    old=db.execute('SELECT data FROM agent_checkpoints WHERE app_id=? AND id=?',(app_id,body['id'])).fetchone()
+    if old:
+        row=json.loads(old['data'])
+        if row['hash']!=digest(packet):raise Invalid('Checkpoint identity is immutable')
+        return row
+    row=dict(packet=packet,hash=digest(packet),state='WAITING_REVIEW',revision=0,checker=None,checker_role_version=None,history=[])
+    return persist(db,row,'WAITING_REVIEW',principal,observed)
+
+
+def claim_in_db(db,app_id,identity,agent_id,revision,packet_hash,observed):
+    """Share exclusive current admission with a grant-bound effect dispatcher."""
+    row=read_row(db,app_id,identity,revision)
+    if row['state']!='APPROVED' or row['packet']['agent_id']!=agent_id or row['hash']!=packet_hash:
+        raise Invalid('Claim requires the approved agent, exact hash and current state')
+    current(db,row,observed)
+    return persist(db,row,'RUNNING',agent_id,observed)
+
+
 class Checkpoints:
     """Serialize trusted-service calls. Authentication and effect adapters are separate."""
 
@@ -89,16 +111,7 @@ class Checkpoints:
         """Create immutable intent; identical replay cannot resurrect authority."""
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
-            packet = packet_data(db, app_id, principal, body, self.clock())
-            old = db.execute("SELECT data FROM agent_checkpoints WHERE app_id=? AND id=?", (app_id, body["id"])).fetchone()
-            if old:
-                row = json.loads(old["data"])
-                if row["hash"] != digest(packet):
-                    raise Invalid("Checkpoint identity is immutable")
-                return row
-            row = dict(packet=packet, hash=digest(packet), state="WAITING_REVIEW", revision=0,
-                       checker=None, checker_role_version=None, history=[])
-            return persist(db, row, "WAITING_REVIEW", principal, self.clock())
+            return prepare_in_db(db,app_id,principal,body,self.clock())
 
     def inspect(self, app_id, identity):
         """Return durable state and derived availability without granting permission."""
@@ -127,11 +140,7 @@ class Checkpoints:
         """Admit once; an effect adapter must separately validate input and grants."""
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
-            row = read_row(db, app_id, identity, revision)
-            if row["state"] != "APPROVED" or row["packet"]["agent_id"] != agent_id or row["hash"] != packet_hash:
-                raise Invalid("Claim requires the approved agent, exact hash and current state")
-            current(db, row, self.clock())
-            return persist(db, row, "RUNNING", agent_id, self.clock())
+            return claim_in_db(db,app_id,identity,agent_id,revision,packet_hash,self.clock())
 
     def finish(self, app_id, identity, agent_id, revision, outcome, evidence_hash):
         """Record a receipt even after expiry; never authorize an automatic retry."""

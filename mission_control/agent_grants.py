@@ -9,6 +9,7 @@ from .db import connection
 from .operation_catalog import OPERATIONS,exact_keys,path_segment,request_data
 from .review_access import member,exact_role
 from .store import audit
+from . import agent_review_policy
 
 
 def token_digest(token):
@@ -20,12 +21,13 @@ def token_digest(token):
 
 def issue_data(body,observed):
     """Validate a finite exact operation scope and owner-selected lifetime/quota."""
-    exact_keys(body,('agent_id','manifest_version','operations','expires','max_calls'))
+    exact_keys(body,('agent_id','manifest_version','operations','expires','max_calls'),('review_operations',))
     path_segment(body['agent_id'])
     names=body['operations']
     if not isinstance(names,list) or not names or any(not isinstance(name,str) or name not in OPERATIONS for name in names):
         raise Invalid('Select only fixed local operation names')
     if len(names)!=len(set(names)):raise Invalid('Grant operations must be unique')
+    agent_review_policy.validate(body)
     if type(body['max_calls']) is not int or not 1<=body['max_calls']<=10000:
         raise Invalid('Use a call ceiling from 1 through 10000')
     if not observed<iso_time(body['expires'])<=observed+timedelta(hours=24):
@@ -45,7 +47,7 @@ def app_scope(db,app_id):
     return app['version'],digest(json.loads(app['data']))
 
 
-def current(db,row,envelope,observed):
+def current(db,row,envelope,observed,check_quota=True):
     """Check delegated scope, owner membership and quota before reserving admission."""
     if row['status']!='ACTIVE' or iso_time(row['expires'])<=observed:
         raise PermissionError('Agent grant is revoked or expired')
@@ -54,7 +56,23 @@ def current(db,row,envelope,observed):
     exact_role(db,row['app_id'],row['owner'],row['owner_version'],'OWNER')
     if app_scope(db,row['app_id'])!=(row['app_version'],row['app_hash']):
         raise PermissionError('Agent grant app scope changed; request a new grant')
-    if row['used']>=row['max_calls']:raise PermissionError('Agent grant call ceiling is exhausted')
+    if check_quota and row['used']>=row['max_calls']:raise PermissionError('Agent grant call ceiling is exhausted')
+
+
+def authenticated(db,token,envelope,observed,check_quota=True):
+    """Resolve delegated identity and current scope inside the admission transaction."""
+    request_data(envelope)
+    row=db.execute('SELECT * FROM agent_grants WHERE token_hash=?',(token_digest(token),)).fetchone()
+    if not row:raise PermissionError('Agent grant is unknown')
+    current(db,row,envelope,observed,check_quota=check_quota)
+    return row
+
+
+def consume(db,row,envelope,observed):
+    """Record one reserved attempt after all admission checks have passed."""
+    db.execute('UPDATE agent_grants SET used=used+1,updated=? WHERE id=?',(observed.isoformat(),row['id']))
+    audit(db,row['app_id'],'agent_grant.admitted',dict(grant_id=row['id'],agent_id=row['agent_id'],operation=envelope['operation'],attempt=row['used']+1))
+    return dict(grant_id=row['id'],agent_id=row['agent_id'],attempt=row['used']+1)
 
 
 class Grants:
@@ -78,14 +96,15 @@ class Grants:
                 app_version=version,app_hash=app_hash,operations=canonical(sorted(body['operations'])),token_hash=token_digest(token),
                 expires=iso_time(body['expires']).isoformat(),max_calls=body['max_calls'],used=0,status='ACTIVE',version=1,created=stamp,updated=stamp)
             db.execute('INSERT INTO agent_grants VALUES('+','.join('?' for _ in row)+')',tuple(row.values()))
+            agent_review_policy.save(db,identity,body)
             audit(db,app_id,'agent_grant.issued',dict(grant_id=identity,agent_id=body['agent_id'],owner=user['principal']))
-        return dict(grant=public(row),token=token,token_delivery='ONCE_ONLY')
+        return dict(grant=dict(public(row),review_operations=agent_review_policy.validate(body)),token=token,token_delivery='ONCE_ONLY')
 
     def list(self,app_id,user):
         """Owner-only operational metadata; snapshot imports cannot create grants."""
         with connection(self.store.path) as db:
             member(db,app_id,user['principal'],'OWNER')
-            return dict(grants=[public(row) for row in db.execute('SELECT * FROM agent_grants WHERE app_id=? ORDER BY created,id',(app_id,))])
+            return dict(grants=[dict(public(row),review_operations=agent_review_policy.operations(db,row['id'])) for row in db.execute('SELECT * FROM agent_grants WHERE app_id=? ORDER BY created,id',(app_id,))])
 
     def revoke(self,app_id,user,body):
         """Block future admissions with exact optimistic revision; do not claim cancellation."""
@@ -101,12 +120,8 @@ class Grants:
 
     def admit(self,token,envelope):
         """Consume one attempt atomically; a later business failure does not refund it."""
-        request_data(envelope);hashed=token_digest(token)
         with connection(self.store.path) as db:
             db.execute('BEGIN IMMEDIATE')
-            row=db.execute('SELECT * FROM agent_grants WHERE token_hash=?',(hashed,)).fetchone()
-            if not row:raise PermissionError('Agent grant is unknown')
-            current(db,row,envelope,self.clock())
-            db.execute('UPDATE agent_grants SET used=used+1,updated=? WHERE id=?',(self.clock().isoformat(),row['id']))
-            audit(db,row['app_id'],'agent_grant.admitted',dict(grant_id=row['id'],agent_id=row['agent_id'],operation=envelope['operation'],attempt=row['used']+1))
-            return dict(grant_id=row['id'],agent_id=row['agent_id'],attempt=row['used']+1)
+            row=authenticated(db,token,envelope,self.clock())
+            agent_review_policy.ordinary_dispatch(db,row['id'],envelope['operation'])
+            return consume(db,row,envelope,self.clock())

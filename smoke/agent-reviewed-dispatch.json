@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "exact-reviewed-local-dispatch",
+      "kind": "python",
+      "run": "import unittest; s=unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromName(n) for n in ['tests.test_agent_review_policy','tests.test_agent_review_dispatch']); assert s.countTestCases()==12; r=unittest.TextTestRunner().run(s); assert r.wasSuccessful()"
+    }
+  ]
+}
