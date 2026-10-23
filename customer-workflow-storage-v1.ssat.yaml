@@ -1,0 +1,51 @@
+name: customer-workflow-storage-v1
+language: python
+modules:
+- name: customer_workflow_store
+  path: mission_control/customer_workflow_store.py
+  language: python
+  functions:
+  - name: history
+    args:
+    - db
+    - app_id
+    returns: unknown
+  - name: app_scope
+    args:
+    - app
+    - data
+    returns: unknown
+  - name: restored_entry
+    args:
+    - app_id
+    - row
+    - observed
+    returns: unknown
+  - name: restore
+    args:
+    - db
+    - app_id
+    - rows
+    returns: unknown
+- name: test_customer_workflow_store
+  path: tests/test_customer_workflow_store.py
+  language: python
+  functions: []
+- name: test_customer_workflow_integration
+  path: tests/test_customer_workflow_integration.py
+  language: python
+  functions: []
+- name: test_customer_workflow
+  path: tests/test_customer_workflow.py
+  language: python
+  functions: []
+dependencies:
+- from: test_customer_workflow_store
+  to: customer_workflow_store
+- from: test_customer_workflow_store
+  to: test_customer_workflow
+- from: test_customer_workflow_integration
+  to: customer_workflow_store
+- from: test_customer_workflow_integration
+  to: test_customer_workflow
+invariants: []

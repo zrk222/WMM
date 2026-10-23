@@ -1,0 +1,187 @@
+name: subscription-variants-v1
+language: python
+modules:
+- name: experiments
+  path: mission_control/experiments.py
+  language: python
+  functions:
+  - name: definition_data
+    args:
+    - data
+    returns: unknown
+  - name: bind_variant
+    args:
+    - db
+    - app_id
+    - variant
+    returns: unknown
+  - name: bind_definition
+    args:
+    - db
+    - app_id
+    - data
+    - registered_at
+    returns: unknown
+  - name: decoded
+    args:
+    - row
+    returns: unknown
+  - name: lookup
+    args:
+    - db
+    - app_id
+    - experiment_id
+    returns: unknown
+  - name: evidence_reports
+    args:
+    - db
+    - app_id
+    - definition
+    - as_of
+    returns: unknown
+  - name: quality_findings
+    args:
+    - db
+    - app_id
+    - definition
+    - folder
+    returns: unknown
+  - name: asset_intact
+    args:
+    - folder
+    - data
+    returns: unknown
+  - name: action_state
+    args:
+    - db
+    - current
+    - body
+    returns: unknown
+  - name: observe_state
+    args:
+    - current
+    - body
+    returns: unknown
+  - name: decide_state
+    args:
+    - db
+    - current
+    - body
+    returns: unknown
+  - name: snapshot_data
+    args:
+    - items
+    returns: unknown
+  - name: validate_frozen
+    args:
+    - db
+    - app_id
+    - row
+    returns: unknown
+  - name: validate_frozen_variant
+    args:
+    - db
+    - app_id
+    - variant
+    returns: unknown
+  - name: validate_frozen_windows
+    args:
+    - row
+    returns: unknown
+  - name: restore_experiments
+    args:
+    - db
+    - app_id
+    - items
+    returns: unknown
+  - name: restore_history
+    args:
+    - db
+    - app_id
+    - row
+    returns: unknown
+  - name: restore_transition
+    args:
+    - db
+    - row
+    - version
+    - kind
+    - item
+    returns: unknown
+  - name: validate_assessment
+    args:
+    - current
+    - row
+    - item
+    returns: unknown
+- name: subscription_variants
+  path: mission_control/subscription_variants.py
+  language: python
+  functions:
+  - name: validate_configuration
+    args:
+    - value
+    returns: unknown
+  - name: bind_subscription
+    args:
+    - db
+    - app_id
+    - variant
+    - at
+    returns: unknown
+  - name: validate_frozen_subscription
+    args:
+    - db
+    - app_id
+    - variant
+    returns: unknown
+  - name: variant_findings
+    args:
+    - db
+    - app_id
+    - variant
+    - at
+    returns: unknown
+  - name: event_findings
+    args:
+    - events
+    - variant
+    returns: unknown
+  - name: event_binding
+    args:
+    - configuration
+    returns: unknown
+  - name: comparable_variants
+    args:
+    - control
+    - treatment
+    returns: unknown
+  - name: validate_horizons
+    args:
+    - variant
+    - analysis_at
+    returns: unknown
+  - name: variant_input
+    args:
+    - variant
+    returns: unknown
+- name: test_subscription_variants
+  path: tests/test_subscription_variants.py
+  language: python
+  functions: []
+- name: test_experiments
+  path: tests/test_experiments.py
+  language: python
+  functions: []
+dependencies:
+- from: experiments
+  to: subscription_variants
+- from: test_subscription_variants
+  to: experiments
+- from: test_subscription_variants
+  to: subscription_variants
+- from: test_subscription_variants
+  to: test_experiments
+- from: test_experiments
+  to: experiments
+invariants: []

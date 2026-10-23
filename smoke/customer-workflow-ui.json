@@ -1,0 +1,13 @@
+{
+  "checks": [
+    {
+      "name": "customer-workflow-node-behavior",
+      "kind": "command",
+      "run": [
+        "node",
+        "--test",
+        "tests/customer_workflow.test.cjs"
+      ]
+    }
+  ]
+}

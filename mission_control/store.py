@@ -174,9 +174,11 @@ class Store:
         from .followup_portable import export_followup
         from .pmf_portable import export_research
         from .audit_portable import export_archives
+        from .customer_workflow_store import history as export_customer_workflows
+        from .growth_review_store import history as export_growth_reviews
         readers={'learning':export_learning,'payments':export_payments,'storekit':export_storekit,
                  'attribution':export_attribution,'aeo':export_aeo,'followup':export_followup,
-                 'pmf_research':export_research,'inspection_history':export_archives}
+                 'pmf_research':export_research,'inspection_history':export_archives,'customer_workflows':export_customer_workflows,'growth_reviews':export_growth_reviews}
         result={}
         for name,reader in readers.items():
             with connection(self.path) as db:result[name]=reader(db,app_id)
@@ -212,10 +214,10 @@ class Store:
             raise Invalid("Snapshot contains another app's evidence")
         data = app_data(app["data"])
         files=self._restore_files(payload.get("files",[]),records)
-        self._commit_restore(app_id,data,records,files,payload.get("ledger"),payload.get("experiments"),payload.get("schedules"),payload.get("references"),payload.get("production"),payload.get("rankings"),payload.get("acquisition"),payload.get("media"),payload.get("learning"),payload.get("payments"),payload.get("storekit"),payload.get("capabilities"),payload.get("attribution"),payload.get("aeo"),payload.get("followup"),payload.get("pmf_research"),payload.get("inspection_history"))
+        self._commit_restore(app_id,data,records,files,payload.get("ledger"),payload.get("experiments"),payload.get("schedules"),payload.get("references"),payload.get("production"),payload.get("rankings"),payload.get("acquisition"),payload.get("media"),payload.get("learning"),payload.get("payments"),payload.get("storekit"),payload.get("capabilities"),payload.get("attribution"),payload.get("aeo"),payload.get("followup"),payload.get("pmf_research"),payload.get("inspection_history"),payload.get("customer_workflows"),payload.get("growth_reviews"))
         return self.app(app_id)
 
-    def _commit_restore(self,app_id,data,records,files,ledger=None,experiments=None,schedules=None,references=None,production=None,rankings=None,acquisition=None,media=None,learning=None,payments=None,storekit=None,capabilities=None,attribution=None,aeo=None,followup=None,pmf_research=None,inspection_history=None):
+    def _commit_restore(self,app_id,data,records,files,ledger=None,experiments=None,schedules=None,references=None,production=None,rankings=None,acquisition=None,media=None,learning=None,payments=None,storekit=None,capabilities=None,attribution=None,aeo=None,followup=None,pmf_research=None,inspection_history=None,customer_workflows=None,growth_reviews=None):
         """Commit records only after exclusive file writes, cleaning owned files on failure."""
         from .learning_portable import restore_learning
         from .payment_portable import restore_payments
@@ -225,6 +227,8 @@ class Store:
         from .followup_portable import restore_followup
         from .pmf_portable import restore_research
         from .audit_portable import restore_archives
+        from .customer_workflow_store import restore as restore_customer_workflows
+        from .growth_review_portable import restore as restore_growth_reviews
         folder=self.path.parent/"files"/app_id
         created=[]
         try:
@@ -246,6 +250,8 @@ class Store:
                 restore_followup(db,app_id,followup)
                 restore_research(db,app_id,pmf_research)
                 restore_archives(db,app_id,inspection_history)
+                restore_customer_workflows(db,app_id,customer_workflows)
+                restore_growth_reviews(db,app_id,growth_reviews)
                 video_files=restore_media(db,app_id,media)
                 self._write_media(app_id,video_files,created)
                 folder.mkdir(parents=True,exist_ok=True)

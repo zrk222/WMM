@@ -1,0 +1,30 @@
+name: benchmark-context-v1
+language: python
+modules:
+- name: benchmark_context
+  path: mission_control/benchmark_context.py
+  language: python
+  functions:
+  - name: benchmark_record
+    args:
+    - value
+    - as_of
+    returns: unknown
+  - name: observed_record
+    args:
+    - value
+    returns: unknown
+  - name: compare_benchmark
+    args:
+    - reference
+    - observed
+    - as_of
+    returns: unknown
+- name: test_benchmark_context
+  path: tests/test_benchmark_context.py
+  language: python
+  functions: []
+dependencies:
+- from: test_benchmark_context
+  to: benchmark_context
+invariants: []

@@ -1,0 +1,14 @@
+{
+  "checks": [
+    {
+      "name": "platform-field-and-surface-preflight",
+      "kind": "python",
+      "run": "from mission_control.aso_validation import surface_findings; assert surface_findings(\"iOS\",\"PRODUCT_PAGE_OPTIMIZATION\",[\"title\"])[0][\"code\"]==\"UNSUPPORTED_SURFACE\""
+    },
+    {
+      "name": "listing-boundary-and-research-integrity-suite",
+      "kind": "python",
+      "run": "import unittest; s=unittest.defaultTestLoader.loadTestsFromName(\"tests.test_aso_validation\"); assert s.countTestCases()==7; r=unittest.TextTestRunner(verbosity=1).run(s); assert r.wasSuccessful()"
+    }
+  ]
+}

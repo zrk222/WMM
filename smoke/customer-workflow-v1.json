@@ -1,0 +1,14 @@
+{
+  "checks": [
+    {
+      "name": "source-linked-proposal-remains-unverified-demand",
+      "kind": "python",
+      "run": "from tests.test_customer_workflow import proposal,OBSERVED; from mission_control.customer_workflow import workflow_readout; r=workflow_readout(proposal(),OBSERVED); assert r[\"status\"]==\"HYPOTHESIS_READY_FOR_REVIEW\" and r[\"demand_verified\"] is False"
+    },
+    {
+      "name": "source-expiry-linkage-and-privacy-suite",
+      "kind": "python",
+      "run": "import unittest; s=unittest.defaultTestLoader.loadTestsFromName(\"tests.test_customer_workflow\"); assert s.countTestCases()==6; r=unittest.TextTestRunner(verbosity=1).run(s); assert r.wasSuccessful()"
+    }
+  ]
+}

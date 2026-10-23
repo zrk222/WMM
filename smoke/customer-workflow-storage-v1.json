@@ -1,0 +1,14 @@
+{
+  "checks": [
+    {
+      "name": "storage-scope-rejects-another-app",
+      "kind": "python",
+      "run": "from mission_control.customer_workflow_store import app_scope; from mission_control.common import Invalid; from tests.test_customer_workflow import proposal; denied=False\ntry: app_scope({\"data\":{}},proposal())\nexcept Invalid: denied=True\nassert denied"
+    },
+    {
+      "name": "http-and-portable-customer-history",
+      "kind": "python",
+      "run": "import unittest; s=unittest.defaultTestLoader.loadTestsFromNames([\"tests.test_customer_workflow_store\",\"tests.test_customer_workflow_integration\"]); assert s.countTestCases()==8; r=unittest.TextTestRunner(verbosity=1).run(s); assert r.wasSuccessful()"
+    }
+  ]
+}

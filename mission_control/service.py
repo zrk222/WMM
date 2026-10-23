@@ -145,7 +145,13 @@ class Service:
         workspace['play']=PlayConnections(self.store).status(app_id)
         from .setup_discovery import SetupDiscovery
         workspace['setup_discovery']=SetupDiscovery(self.store).list(app_id)
+        workspace['subscription_growth']=self.subscription_review(app_id,expected=app)
         return workspace
+
+    def subscription_review(self,app_id,expected=None):
+        """Expose the integrated source-bound review without granting execution authority."""
+        from .subscription_review import review_status
+        return review_status(self.store,app_id,expected=expected)
 
     def cohort(self,app_id,body):
         """Register the selected app's immutable cohort observation contract."""

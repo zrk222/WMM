@@ -1,0 +1,25 @@
+name: customer-workflow-v1
+language: python
+modules:
+- name: customer_workflow
+  path: mission_control/customer_workflow.py
+  language: python
+  functions:
+  - name: workflow_data
+    args:
+    - value
+    - observed
+    returns: unknown
+  - name: workflow_readout
+    args:
+    - value
+    - observed
+    returns: unknown
+- name: test_customer_workflow
+  path: tests/test_customer_workflow.py
+  language: python
+  functions: []
+dependencies:
+- from: test_customer_workflow
+  to: customer_workflow
+invariants: []

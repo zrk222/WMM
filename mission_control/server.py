@@ -151,13 +151,13 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200,{"ledger":json.loads((root/"research-ledger.json").read_text(encoding="utf-8-sig")),"acquisition":json.loads((root/"acquisition-profiles.json").read_text(encoding="utf-8-sig"))})
         if path.startswith("/api/apps/"):
             return self.get_app(path)
-        scripts=('/setup-discovery.js','/google-play.js','/play-callback.js','/social-access.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
+        scripts=('/customer-workflow.js','/growth-review.js','/page-reporting.js','/setup-discovery.js','/google-play.js','/play-callback.js','/social-access.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
                  '/workflow-automation.js','/followup.js','/aeo.js','/public-store-readback.js',
                  '/pmf-workflow.js','/pmf-research.js','/audit-runtime.js','/automatic-preparation.js','/campaign-sequence.js','/experiment-tracking.js',
                  '/spytok-workflow.js','/production-feasibility.js','/spira-workflow.js','/journey-readiness.js')
         if path in scripts:
             return self.send(200,(STATIC/path[1:]).read_bytes(),"text/javascript; charset=utf-8")
-        files={"/":"index.html","/index.html":"index.html","/style.css":"style.css","/app.js":"app.js","/creative-ranking.js":"creative-ranking.js","/acquisition.js":"acquisition.js","/creative-rendering.js":"creative-rendering.js","/verified-review.js":"verified-review.js","/provider-actions.js":"provider-actions.js","/outcome-learning.js":"outcome-learning.js","/signed-payments.js":"signed-payments.js"}
+        files={"/":"index.html","/index.html":"index.html","/style.css":"style.css","/page-reporting.css":"page-reporting.css","/app.js":"app.js","/creative-ranking.js":"creative-ranking.js","/acquisition.js":"acquisition.js","/creative-rendering.js":"creative-rendering.js","/verified-review.js":"verified-review.js","/provider-actions.js":"provider-actions.js","/outcome-learning.js":"outcome-learning.js","/signed-payments.js":"signed-payments.js"}
         if path not in files:
             raise KeyError(path)
         file=STATIC/files[path]
@@ -186,6 +186,21 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts)<3:raise KeyError(path)
         app_id=parts[2]
         store=self.server.service.store
+        if parts[3:]==['subscription-growth']:
+            if urlparse(self.path).query:raise Invalid('Use the exact subscription review address')
+            return self.send(200,self.server.service.subscription_review(app_id))
+        if parts[3:]==['subscription-growth','history']:
+            if urlparse(self.path).query:raise Invalid('Use the exact growth review history address')
+            from .growth_review_store import GrowthReviews
+            return self.send(200,GrowthReviews(store).list(app_id))
+        if parts[3:]==['customer-workflows']:
+            if urlparse(self.path).query:raise Invalid('Use the exact customer workflow history address')
+            from .customer_workflow_store import CustomerWorkflows
+            return self.send(200,CustomerWorkflows(store).list(app_id))
+        if parts[3:]==['agent-operations']:
+            if urlparse(self.path).query:raise Invalid('Use the exact app operation discovery address')
+            from .agent_operations import discovery
+            return self.send(200,discovery(store.app(app_id)))
         if len(parts)==3:
             return self.send(200,dict(self.server.service.workspace(app_id),identity=self.server.identities.public(self.session())))
         if len(parts)==6 and parts[3:5]==['social-access','flows']:
@@ -339,7 +354,7 @@ class Handler(BaseHTTPRequestHandler):
     def post_data(self,path,parts):
         """Keep original per-route byte limits and strict duplicate/nonfinite checks."""
         raw=self.attribution_body(path,parts) if any(k in parts for k in ('setup-discovery','play','attribution','agent-access','social-access','social')) else self.body(self.post_limit(path,parts))
-        strict=any(kind in parts for kind in ('setup-discovery','play','attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
+        strict=any(kind in parts for kind in ('subscription-growth','customer-workflows','setup-discovery','play','attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
         if strict:
             from .payment_signature import unique_pairs,bounded_tree
             data=json.loads(raw,object_pairs_hook=unique_pairs,parse_constant=lambda _:(_ for _ in ()).throw(Invalid('Nonfinite JSON is forbidden')))
@@ -415,6 +430,14 @@ class Handler(BaseHTTPRequestHandler):
         if parts[3]=='agent-access':
             return self.send(200,self.agent_access(parts[2],parts[4:],data))
         app_id,action=parts[2:4]
+        if action=='subscription-growth':
+            if parts[4:]!=['entries'] or urlparse(self.path).query:raise Invalid('Use the exact growth review entry address')
+            from .growth_review_store import GrowthReviews
+            return self.send(201,GrowthReviews(service.store).save(app_id,data))
+        if action=='customer-workflows':
+            if len(parts)!=4 or urlparse(self.path).query:raise Invalid('Use the exact customer workflow creation address')
+            from .customer_workflow_store import CustomerWorkflows
+            return self.send(201,CustomerWorkflows(service.store).save(app_id,data))
         if action == 'campaign-inputs' and len(parts) == 4:
             from .campaign_inputs import CampaignInputs
             if urlparse(self.path).query:

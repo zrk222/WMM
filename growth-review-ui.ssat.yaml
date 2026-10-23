@@ -1,0 +1,138 @@
+name: growth-review-ui
+language: javascript
+modules:
+- name: growth_review
+  path: mission_control/static/growth-review.js
+  language: javascript
+  functions:
+  - name: review
+    args:
+    - state
+    returns: unknown
+  - name: history
+    args:
+    - state
+    returns: unknown
+  - name: selected
+    args:
+    - state
+    - id
+    returns: unknown
+  - name: metrics
+    args:
+    - value
+    returns: unknown
+  - name: panel
+    args:
+    - state
+    returns: unknown
+  - name: evidenceStates
+    args:
+    - value
+    returns: unknown
+  - name: historyList
+    args:
+    - rows
+    returns: unknown
+  - name: journeyList
+    args:
+    - rows
+    returns: unknown
+  - name: experimentList
+    args:
+    - rows
+    returns: unknown
+  - name: input
+    args:
+    - name
+    - label
+    - value=""
+    - type="text"
+    - hint=""
+    - required=true
+    returns: unknown
+  - name: select
+    args:
+    - name
+    - label
+    - options
+    returns: unknown
+  - name: listingFields
+    args:
+    - state
+    returns: unknown
+  - name: referenceFields
+    args:
+    - state
+    returns: unknown
+  - name: segmentFields
+    args: []
+    returns: unknown
+  - name: comparisonFields
+    args:
+    - state
+    returns: unknown
+  - name: noteFields
+    args:
+    - row
+    returns: unknown
+  - name: openForm
+    args:
+    - mode
+    - deps
+    - id=""
+    returns: unknown
+  - name: listingData
+    args:
+    - values
+    returns: unknown
+  - name: referenceData
+    args:
+    - values
+    returns: unknown
+  - name: comparisonData
+    args:
+    - values
+    - state
+    returns: unknown
+  - name: payload
+    args:
+    - form
+    - values
+    - state
+    returns: unknown
+  - name: submit
+    args:
+    - form
+    - deps
+    returns: unknown
+  - name: entryNotes
+    args:
+    - row
+    returns: unknown
+  - name: referenceNotes
+    args:
+    - value
+    returns: unknown
+  - name: comparisonNotes
+    args:
+    - row
+    returns: unknown
+  - name: report
+    args:
+    - state
+    - pageReports
+    - id=""
+    returns: unknown
+  - name: detail
+    args:
+    - id
+    - deps
+    returns: unknown
+  - name: action
+    args:
+    - node
+    - deps
+    returns: unknown
+dependencies: []
+invariants: []

@@ -7,6 +7,8 @@ from .db import connection
 from .ledger import opaque, report, eligible_events, funnel_counts, cohort_data
 from .experiment_analysis import METRICS, sample_plan, guardrail_data, analyze
 from .automation_policy import check_manifest_version
+from .subscription_variants import (bind_subscription, validate_frozen_subscription, variant_findings,
+                                    event_findings, comparable_variants, validate_horizons, variant_input)
 
 STATES={"PLANNED","OBSERVING","EVALUATED","DECIDED","CANCELLED"}
 
@@ -30,6 +32,8 @@ def definition_data(data):
 
 def bind_variant(db,app_id,variant):
     """Freeze current authentic asset and cohort hashes inside the selected app."""
+    if isinstance(variant,dict) and variant.get("variant_type")=="SUBSCRIPTION":
+        return bind_subscription(db,app_id,variant,now())
     if not isinstance(variant,dict) or set(variant)!={"cohort_id","asset_id"}:raise Invalid("Each variant needs a cohort and creative asset")
     cohort_id=opaque(variant["cohort_id"],"Cohort ID")
     cohort=db.execute("SELECT * FROM growth_cohorts WHERE app_id=? AND id=?",(app_id,cohort_id)).fetchone()
@@ -45,6 +49,8 @@ def bind_definition(db,app_id,data,registered_at):
     """Require comparable arms and freeze before any acquisition exposure starts."""
     result=definition_data(data)
     for arm in ("control","treatment"):result[arm]=bind_variant(db,app_id,data[arm])
+    comparable_variants(result["control"],result["treatment"])
+    for arm in ("control","treatment"):validate_horizons(result[arm],result["analysis_at"])
     c=result["control"]["cohort"];t=result["treatment"]["cohort"]
     fields=("release","platform","locale","currency","starts_at","ends_at","matures_at")
     if c["cohort_id"]==t["cohort_id"] or any(c[k]!=t[k] for k in fields):raise Invalid("Choose two different cohorts with identical release, locale and windows")
@@ -78,6 +84,11 @@ def evidence_reports(db,app_id,definition,as_of):
         reports[arm]=report(cohort,events,iso_time(as_of));reports[arm].pop("as_of",None)
         cutoff=iso_time(definition["analysis_at"])
         fixed=[e for e in events if iso_time(e["occurred_at"])<=cutoff]
+        if variant.get("variant_type")=="SUBSCRIPTION":
+            issues=event_findings(fixed,variant)
+            reports[arm]["subscription_variant_issues"]=issues
+            reports[arm]["subscription_proof_scope"]="Operator-tested configuration and eligibility; provider eligibility, assignment and entitlements are unverified"
+            if issues:reports[arm]["status"]="INCONCLUSIVE"
         counts=funnel_counts(fixed,iso_time(cohort["starts_at"]),iso_time(cohort["ends_at"]),iso_time(cohort["matures_at"]))
         reports[arm].update(counts)
         for metric,key in METRICS.items():
@@ -95,6 +106,9 @@ def quality_findings(db,app_id,definition,folder):
     app=json.loads(db.execute("SELECT data FROM apps WHERE id=?",(app_id,)).fetchone()[0])
     if app.get("release")!=definition["control"]["cohort"]["release"]:issues.append("App release changed after registration")
     for arm in ("control","treatment"):
+        if definition[arm].get("variant_type")=="SUBSCRIPTION":
+            issues.extend(arm+" "+issue for issue in variant_findings(db,app_id,definition[arm],now()))
+            continue
         row=db.execute("SELECT hash,data FROM records WHERE app_id=? AND id=?",(app_id,definition[arm]["asset_id"])).fetchone()
         if not row or row["hash"]!=definition[arm]["asset_hash"]:issues.append(arm+" creative evidence changed after registration")
         elif not asset_intact(folder,json.loads(row["data"])):issues.append(arm+" creative file is missing or changed")
@@ -250,7 +264,7 @@ def validate_frozen(db,app_id,row):
     for arm in ("control","treatment"):
         variant=data[arm]
         validate_frozen_variant(db,app_id,variant)
-        base[arm]={"cohort_id":variant["cohort_id"],"asset_id":variant["asset_id"]}
+        base[arm]=variant_input(variant)
     normalized=definition_data(base)
     normalized.update({arm:data[arm] for arm in ("control","treatment")})
     if digest(normalized)!=row["hash"] or digest(data)!=row["hash"]:raise Invalid("Experiment definition hash mismatch")
@@ -259,12 +273,19 @@ def validate_frozen(db,app_id,row):
 
 def validate_frozen_variant(db,app_id,variant):
     """Require exact historical source references inside this restored workspace."""
+    if isinstance(variant,dict) and variant.get("variant_type")=="SUBSCRIPTION":
+        return validate_frozen_subscription(db,app_id,variant)
     if set(variant)!={"cohort_id","cohort_hash","cohort","asset_id","asset_hash","creative_sha256"}:raise Invalid("Invalid frozen variant")
     cohort=cohort_data(variant["cohort"])
     stored=db.execute("SELECT hash FROM growth_cohorts WHERE app_id=? AND id=?",(app_id,variant["cohort_id"])).fetchone()
     if not stored or stored[0]!=digest(cohort) or variant["cohort_hash"]!=stored[0] or cohort["cohort_id"]!=variant["cohort_id"]:
         raise Invalid("Frozen cohort does not match restored source")
     if not db.execute("SELECT id FROM records WHERE app_id=? AND id=? AND kind='asset'",(app_id,variant["asset_id"])).fetchone():raise Invalid("Frozen creative source is absent")
+    validate_creative_hashes(variant)
+
+
+def validate_creative_hashes(variant):
+    """Check both historical image references without interpreting them as authority."""
     for key in ("asset_hash","creative_sha256"):
         if not re.fullmatch("[a-f0-9]{64}",str(variant[key])):raise Invalid("Invalid frozen source hash")
 
@@ -272,6 +293,8 @@ def validate_frozen_variant(db,app_id,variant):
 def validate_frozen_windows(row):
     """Preserve preregistration and comparable windows across portable restore."""
     d=row["data"];c=d["control"]["cohort"];t=d["treatment"]["cohort"]
+    comparable_variants(d["control"],d["treatment"])
+    for arm in ("control","treatment"):validate_horizons(d[arm],d["analysis_at"])
     fields=("release","platform","locale","currency","starts_at","ends_at","matures_at")
     if c["cohort_id"]==t["cohort_id"] or any(c[k]!=t[k] for k in fields):raise Invalid("Snapshot arms are not comparable")
     if c["observability"]!="OBSERVED" or t["observability"]!="OBSERVED":raise Invalid("Snapshot arms lack observed denominators")

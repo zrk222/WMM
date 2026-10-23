@@ -1,0 +1,129 @@
+name: subscription-growth
+language: python
+modules:
+- name: mission_control_ledger
+  path: mission_control/ledger.py
+  language: python
+  functions:
+  - name: opaque
+    args:
+    - value
+    - field
+    returns: unknown
+  - name: currency
+    args:
+    - value
+    returns: unknown
+  - name: cohort_data
+    args:
+    - data
+    returns: unknown
+  - name: event_data
+    args:
+    - row
+    - csv_mode
+    returns: unknown
+  - name: write_cohort
+    args:
+    - db
+    - app_id
+    - data
+    returns: unknown
+  - name: write_events
+    args:
+    - db
+    - app_id
+    - cohort_id
+    - events
+    returns: unknown
+  - name: csv_rows
+    args:
+    - text
+    returns: unknown
+  - name: restore_ledger
+    args:
+    - db
+    - app_id
+    - payload
+    returns: unknown
+  - name: validate_snapshot
+    args:
+    - payload
+    returns: unknown
+  - name: finance
+    args:
+    - events
+    - unit
+    returns: unknown
+  - name: apply_adjustment
+    args:
+    - event
+    - purchases
+    - refunds
+    - totals
+    - reversed_totals
+    - issues
+    returns: unknown
+  - name: report
+    args:
+    - cohort
+    - events
+    - as_of
+    returns: unknown
+  - name: eligible_events
+    args:
+    - events
+    - starts
+    - ends
+    returns: unknown
+  - name: funnel_counts
+    args:
+    - events
+    - starts
+    - ends
+    - maturity
+    returns: unknown
+  - name: observed_rate
+    args:
+    - total
+    - eligible
+    - available
+    returns: unknown
+- name: subscription_journey
+  path: mission_control/subscription_journey.py
+  language: python
+  functions:
+  - name: binding_data
+    args:
+    - value
+    returns: dict
+  - name: validate_event
+    args:
+    - event
+    returns: dict
+  - name: journey_report
+    args:
+    - cohort
+    - events
+    - as_of
+    returns: dict
+- name: test_subscription_journey
+  path: tests/test_subscription_journey.py
+  language: python
+  functions: []
+- name: test_ledger
+  path: tests/test_ledger.py
+  language: python
+  functions: []
+dependencies:
+- from: mission_control_ledger
+  to: subscription_journey
+- from: test_subscription_journey
+  to: test_ledger
+- from: test_subscription_journey
+  to: mission_control_ledger
+- from: test_subscription_journey
+  to: subscription_journey
+- from: test_ledger
+  to: mission_control_ledger
+invariants: []

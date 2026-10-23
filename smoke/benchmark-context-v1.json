@@ -1,0 +1,14 @@
+{
+  "checks": [
+    {
+      "name": "comparable-advisory-output-is-not-spend-authority",
+      "kind": "python",
+      "run": "from tests.test_benchmark_context import records,AS_OF; from mission_control.benchmark_context import compare_benchmark; r=compare_benchmark(*records(),AS_OF); assert r[\"status\"]==\"COMPARABLE_ADVISORY\" and r[\"spend_authority\"] is False"
+    },
+    {
+      "name": "benchmark-boundaries-and-source-integrity",
+      "kind": "python",
+      "run": "import unittest; s=unittest.defaultTestLoader.loadTestsFromName(\"tests.test_benchmark_context\"); assert s.countTestCases()==6; r=unittest.TextTestRunner(verbosity=1).run(s); assert r.wasSuccessful()"
+    }
+  ]
+}

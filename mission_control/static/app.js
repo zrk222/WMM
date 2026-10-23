@@ -51,7 +51,7 @@ async function refresh() {
     state.workspaceError=error.message;render();return;
   }
   if(state.app!==app||state.refreshGeneration!==generation)return;
-  state.workspace=workspace;state.workspaceError="";
+  state.workspace=workspace;state.workspaceError="";state.workspaceObservedAt=new Date().toISOString();
   localStorage.setItem("growth-app",app);
   $("#app-name").textContent=state.workspace.app.data.name;
   render();
@@ -77,8 +77,9 @@ function render() {
   $("#main").setAttribute("aria-busy","false");
   const views={weekly:weeklyView,overview:overview,workflow:guidedView,pipeline:pipelineView,evidence:evidenceView,results:resultsView,connections:connectionsView,agents:agentAccessView,activity:activityView,research:researchView};
   $("#main").innerHTML=views[state.view]();
-  if(state.view==="overview")$("#main").insertAdjacentHTML("afterbegin",guidedOverviewPanel());
+  if(state.view==="overview")$("#main .hero").insertAdjacentHTML("afterend",WMMPageReports.overviewStory()+guidedOverviewPanel());
   automationDecorateWorkflow();
+  WMMPageReports.decorate(state,document);
 }
 
 function summary() {
@@ -133,7 +134,7 @@ function flow() {
 function overview() {
   const w=state.workspace, next=w.stages.find(s=>s.status!=="READY") || w.stages[10];
   const recent=w.jobs.slice(0,3);
-  return `<section class="hero"><div><p class="eyebrow">LESS GUESSWORK. MORE USEFUL GROWTH.</p><h1>Your next move,<br>clearly.</h1><p>One workspace to prove your app, prepare its launch, and learn what earns lasting value.</p>${button("Prepare your pipeline →","run-all","","light")}</div><div class="hero-art" aria-hidden="true"><div class="orbit"></div><div class="orbit second"></div><div class="orbit third">↗</div></div></section>${summary()}${automaticPreparationPanel()}<div class="two-column"><section class="panel"><p class="eyebrow">YOUR NEXT BEST ACTION</p><h2>${esc(next.title)}</h2><div class="next-step"><div class="step-icon" aria-hidden="true">${next.id}</div><div><h3>${esc(next.missing[0] || "Review a mature experiment")}</h3><p>${esc(next.description)}</p>${button("Open this stage","stage",`data-id="${next.id}"`)}</div></div></section><section class="panel"><p class="eyebrow">RECENT RUNS</p><h2>Work you can inspect</h2>${recent.length?recent.map(job=>`<div class="next-step"><div><h3>${job.action==="pipeline"?"Pipeline preparation":job.action==="experiment"?"Experiment analysis":"Provider read"}</h3><p>${esc(new Date(job.created).toLocaleString())}</p>${status(job.status)} <button class="text-button" data-action="job" data-id="${esc(job.id)}">View result ↗</button></div></div>`).join(""):`<p class="description">Your first run will create a saved packet for every stage, including the evidence still needed.</p><button class="text-button" data-view="pipeline">Explore the pipeline ↗</button>`}</section></div><div class="section-heading"><div><h2>A clear path from plan to learning</h2><p>Twelve connected stages. Each one has a purpose.</p></div><button class="text-button" data-view="pipeline">View all stages →</button></div>${flow()}<div class="stage-grid">${w.stages.slice(0,3).map(stageCard).join("")}</div>`;
+  return `<section class="hero"><div><p class="eyebrow">WIZE MARKETING MACHINE</p><h1>A clearer next step<br>for your app.</h1><p>Bring your ideas and evidence together, prepare work you can review, and learn from the results you collect.</p><button type="button" class="button light" data-view="workflow">Find your next step →</button></div><div class="hero-art" aria-hidden="true"><div class="orbit"></div><div class="orbit second"></div><div class="orbit third">↗</div></div></section>${summary()}${automaticPreparationPanel()}<div class="two-column"><section class="panel"><p class="eyebrow">YOUR NEXT BEST ACTION</p><h2>${esc(next.title)}</h2><div class="next-step"><div class="step-icon" aria-hidden="true">${next.id}</div><div><h3>${esc(next.missing[0] || "Review a mature experiment")}</h3><p>${esc(next.description)}</p>${button("Open this stage","stage",`data-id="${next.id}"`)}</div></div></section><section class="panel"><p class="eyebrow">RECENT RUNS</p><h2>Work you can inspect</h2>${recent.length?recent.map(job=>`<div class="next-step"><div><h3>${job.action==="pipeline"?"Pipeline preparation":job.action==="experiment"?"Experiment analysis":"Provider read"}</h3><p>${esc(new Date(job.created).toLocaleString())}</p>${status(job.status)} <button class="text-button" data-action="job" data-id="${esc(job.id)}">View result ↗</button></div></div>`).join(""):`<p class="description">Your first run will create a saved packet for every stage, including the evidence still needed.</p><button class="text-button" data-view="pipeline">Explore the pipeline ↗</button>`}</section></div><div class="section-heading"><div><h2>A clear path from plan to learning</h2><p>Twelve connected stages. Each one has a purpose.</p></div><button class="text-button" data-view="pipeline">View all stages →</button></div>${flow()}<div class="stage-grid">${w.stages.slice(0,3).map(stageCard).join("")}</div>`;
 }
 
 function pipelineView() {
@@ -292,7 +293,12 @@ function money(value,currency) {
 function percent(value) {return value===null || value===undefined?"Unavailable":`${(value*100).toFixed(1)}%`;}
 
 function resultsView() {
-  return measurementIntegrityPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyResultsView();
+  return WMMGrowthReview.panel(state)+WMMCustomerWorkflow.panel(state)+measurementIntegrityPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyResultsView();
+}
+
+function growthReviewServices() {
+  return {state,modal,api,refresh,toast,openExperiment,uuid:()=>crypto.randomUUID(),FormData,document,
+    close:()=>$("#modal").close(),pageReports:WMMPageReports,browser:window};
 }
 
 function measurementIntegrityPanel() {
@@ -725,6 +731,8 @@ async function formSubmit(event) {
     event.preventDefault();toast("App changed. Wait for this app to load and reopen the form.");return;
   }
   const formId=form.getAttribute("id");
+  if(formId==="customer-workflow-form") {event.preventDefault();return WMMCustomerWorkflow.submit(form,growthReviewServices());}
+  if(formId==="growth-review-form") {event.preventDefault();return WMMGrowthReview.submit(form,growthReviewServices());}
   if((formId||'').startsWith('agent-')) {event.preventDefault();return agentSubmit(form);}
   if((formId||'').startsWith('social-')) {event.preventDefault();return socialSubmit(form);}
   if(formId==='play-setup-form') {event.preventDefault();return playSubmit(form);}
@@ -820,6 +828,8 @@ async function saveEvidence(data,form) {
 async function handleAction(node) {
   if(node.dataset.action==="retry-workspace")return refresh();
   if(!currentWorkspace()&&!["reload","close","add-app"].includes(node.dataset.action))return toast("Wait for this app to load, then try again.");
+  if(node.dataset.action.startsWith("growth-"))return WMMGrowthReview.action(node,growthReviewServices());
+  if(node.dataset.action.startsWith("customer-"))return WMMCustomerWorkflow.action(node,growthReviewServices());
   if(node.dataset.action.startsWith('agent-'))return agentAction(node);
   if(node.dataset.action.startsWith('social-'))return socialAction(node);
   if(node.dataset.action.startsWith('play-'))return playAction(node);
@@ -869,7 +879,10 @@ async function handleAction(node) {
 }
 
 document.addEventListener("click",async event=>{
-  const node=event.target.closest("[data-action],[data-view]");if(!node) return;
+  const node=event.target.closest("[data-action],[data-view],[data-report-page]");if(!node) return;
+  if(node.hasAttribute("data-report-page")) {
+    try{WMMPageReports.openReport(WMMPageReports.model(state),window);}catch(error){toast(error.message);}return;
+  }
   if(node.dataset.view) {state.weeklyGeneration=(state.weeklyGeneration||0)+1;state.weeklyLoading=false;state.view=node.dataset.view;render();$("#main").focus();return;}
   if(node.dataset.action?.startsWith('weekly-')){try{await weeklyAction(node);}catch(error){toast(error.message);}return;}
   try {await handleAction(node);} catch(error) {if($("#form-error")) $("#form-error").textContent=error.message;else toast(error.message);}

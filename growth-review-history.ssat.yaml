@@ -1,0 +1,317 @@
+name: growth-review-history
+language: python
+modules:
+- name: growth_review_contract
+  path: mission_control/growth_review_contract.py
+  language: python
+  functions:
+  - name: context_of
+    args:
+    - app
+    returns: object
+  - name: entry_hash
+    args:
+    - kind
+    - data
+    - context
+    returns: object
+  - name: entry_data
+    args:
+    - kind
+    - value
+    - context
+    - observed_at
+    returns: object
+  - name: scoped_source_data
+    args:
+    - kind
+    - value
+    - context
+    - observed_at
+    returns: object
+  - name: note_data
+    args:
+    - value
+    returns: object
+  - name: comparison_data
+    args:
+    - value
+    returns: object
+  - name: comparison_readout
+    args:
+    - data
+    - observed_at
+    returns: object
+  - name: entry_readout
+    args:
+    - row
+    - app_context
+    - observed_at
+    returns: object
+- name: growth_review_store
+  path: mission_control/growth_review_store.py
+  language: python
+  functions:
+  - name: decoded
+    args:
+    - row
+    returns: object
+  - name: history
+    args:
+    - db
+    - app_id
+    returns: object
+  - name: target_entry
+    args:
+    - db
+    - app_id
+    - value
+    returns: object
+  - name: freeze_comparison
+    args:
+    - db
+    - app_id
+    - value
+    - context
+    - stamp
+    returns: object
+  - name: current_readout
+    args:
+    - db
+    - row
+    - context
+    - stamp
+    returns: object
+  - name: replay_comparison
+    args:
+    - db
+    - app_id
+    - identity
+    - kind
+    - value
+    - context
+    returns: object
+- name: benchmark_ads
+  path: mission_control/benchmark_ads.py
+  language: python
+  functions:
+  - name: source_connection
+    args:
+    - db
+    - app
+    - job
+    - report
+    returns: object
+  - name: source_report
+    args:
+    - db
+    - app_id
+    - job_id
+    - source_hash
+    - as_of
+    returns: object
+  - name: report_identity
+    args:
+    - report
+    - job
+    - app_id
+    - source_hash
+    - as_of
+    returns: object
+  - name: report_rows
+    args:
+    - report
+    - binding
+    - options
+    returns: object
+  - name: report_window
+    args:
+    - options
+    returns: object
+  - name: count_value
+    args:
+    - value
+    returns: object
+  - name: report_currency
+    args:
+    - rows
+    returns: object
+  - name: spend_minor
+    args:
+    - value
+    - code
+    returns: object
+  - name: aggregate_metric
+    args:
+    - rows
+    - metric
+    - code
+    returns: object
+  - name: project_saved_ads
+    args:
+    - db
+    - app_id
+    - job_id
+    - source_hash
+    - metric
+    - segment
+    - as_of
+    returns: object
+- name: currency_units
+  path: mission_control/currency_units.py
+  language: python
+  functions:
+  - name: minor_units
+    args:
+    - code
+    returns: object
+- name: growth_review_portable
+  path: mission_control/growth_review_portable.py
+  language: python
+  functions:
+  - name: context_data
+    args:
+    - value
+    - app_id
+    returns: object
+  - name: projection_data
+    args:
+    - value
+    - request
+    - created
+    returns: object
+  - name: projection_truth
+    args:
+    - value
+    returns: object
+  - name: projection_state
+    args:
+    - value
+    returns: object
+  - name: projection_numerator
+    args:
+    - value
+    returns: object
+  - name: projection_observation
+    args:
+    - value
+    - request
+    returns: object
+  - name: stored_data
+    args:
+    - row
+    returns: object
+  - name: row_data
+    args:
+    - app_id
+    - row
+    - observed
+    returns: object
+  - name: linked_data
+    args:
+    - row
+    - entries
+    returns: object
+  - name: linked_reference
+    args:
+    - row
+    - entries
+    returns: object
+  - name: restore
+    args:
+    - db
+    - app_id
+    - rows
+    returns: object
+- name: subscription_review
+  path: mission_control/subscription_review.py
+  language: python
+  functions:
+  - name: subscription_experiments
+    args:
+    - store
+    - app
+    - observed_at
+    returns: object
+  - name: ads_sources
+    args:
+    - store
+    - app_id
+    - observed_at
+    returns: object
+  - name: review_issues
+    args:
+    - growth
+    - journeys
+    - experiments
+    - customer
+    - sources
+    returns: object
+  - name: recovery_issues
+    args:
+    - growth
+    - experiments
+    returns: object
+  - name: review_status
+    args:
+    - store
+    - app_id
+    - clock
+    - expected
+    returns: object
+- name: test_growth_review_store
+  path: tests/test_growth_review_store.py
+  language: python
+  functions: []
+- name: test_benchmark_ads
+  path: tests/test_benchmark_ads.py
+  language: python
+  functions: []
+- name: test_growth_review_portable
+  path: tests/test_growth_review_portable.py
+  language: python
+  functions: []
+- name: test_subscription_review
+  path: tests/test_subscription_review.py
+  language: python
+  functions: []
+dependencies:
+- from: growth_review_store
+  to: growth_review_contract
+- from: growth_review_store
+  to: benchmark_ads
+- from: benchmark_ads
+  to: currency_units
+- from: growth_review_portable
+  to: growth_review_contract
+- from: subscription_review
+  to: growth_review_store
+- from: subscription_review
+  to: growth_review_contract
+- from: subscription_review
+  to: benchmark_ads
+- from: test_growth_review_store
+  to: growth_review_store
+- from: test_growth_review_store
+  to: growth_review_contract
+- from: test_growth_review_store
+  to: test_benchmark_ads
+- from: test_benchmark_ads
+  to: benchmark_ads
+- from: test_benchmark_ads
+  to: currency_units
+- from: test_growth_review_portable
+  to: growth_review_store
+- from: test_growth_review_portable
+  to: growth_review_portable
+- from: test_growth_review_portable
+  to: test_benchmark_ads
+- from: test_growth_review_portable
+  to: growth_review_contract
+- from: test_subscription_review
+  to: test_benchmark_ads
+- from: test_subscription_review
+  to: growth_review_store
+- from: test_subscription_review
+  to: subscription_review
+invariants: []

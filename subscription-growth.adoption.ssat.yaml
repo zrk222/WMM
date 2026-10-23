@@ -1,0 +1,3374 @@
+name: subscription-growth
+language: python
+modules:
+- name: mission_control_acquisition_contract
+  path: mission_control/acquisition_contract.py
+  language: python
+  functions:
+  - name: exact
+    args:
+    - data
+    - fields
+    returns: unknown
+  - name: whole
+    args:
+    - value
+    - name
+    - low
+    - high
+    returns: unknown
+  - name: intent_definition
+    args:
+    - data
+    returns: unknown
+  - name: bind_intent
+    args:
+    - db
+    - store
+    - app_id
+    - data
+    returns: unknown
+  - name: bind_brief
+    args:
+    - db
+    - store
+    - app_id
+    - data
+    - analysis
+    returns: unknown
+  - name: intent_status
+    args:
+    - db
+    - store
+    - app_id
+    - row
+    returns: unknown
+  - name: queries_data
+    args:
+    - rows
+    returns: unknown
+  - name: panel_definition
+    args:
+    - data
+    - intent
+    returns: unknown
+  - name: observation_definition
+    args:
+    - data
+    - panel
+    - created
+    returns: unknown
+  - name: answer_outcomes
+    args:
+    - data
+    returns: unknown
+  - name: failed_outcomes
+    args:
+    - data
+    returns: unknown
+- name: mission_control_acquisition_portable
+  path: mission_control/acquisition_portable.py
+  language: python
+  functions:
+  - name: export_acquisition
+    args:
+    - db
+    - app_id
+    returns: unknown
+  - name: historical
+    args:
+    - db
+    - table
+    - app_id
+    - item_id
+    - value_hash
+    returns: unknown
+  - name: validate_intent
+    args:
+    - db
+    - app_id
+    - data
+    returns: unknown
+  - name: validate_intent_state
+    args:
+    - data
+    - d
+    returns: unknown
+  - name: validate_intent_brief
+    args:
+    - db
+    - app_id
+    - data
+    - d
+    - analysis
+    returns: unknown
+  - name: validate_records
+    args:
+    - data
+    - app_id
+    returns: unknown
+  - name: validate_record
+    args:
+    - row
+    - data
+    - app_id
+    - expected
+    - seen
+    returns: unknown
+  - name: validate_record_locale
+    args:
+    - row
+    - data
+    returns: unknown
+  - name: validate_panel
+    args:
+    - db
+    - app_id
+    - data
+    returns: unknown
+  - name: validate_observation
+    args:
+    - db
+    - app_id
+    - row
+    - seen
+    returns: unknown
+  - name: validate_report
+    args:
+    - db
+    - app_id
+    - data
+    returns: unknown
+  - name: report_observations
+    args:
+    - db
+    - app_id
+    - data
+    - p
+    - cutoff
+    returns: unknown
+  - name: restore_acquisition
+    args:
+    - db
+    - app_id
+    - payload
+    returns: unknown
+  - name: restore_rows
+    args:
+    - db
+    - app_id
+    - kind
+    - table
+    - groups
+    - seen
+    returns: unknown
+- name: mission_control_acquisition_workflows
+  path: mission_control/acquisition_workflows.py
+  language: python
+  functions:
+  - name: slot
+    args:
+    - data
+    returns: unknown
+  - name: panel_current
+    args:
+    - db
+    - store
+    - app_id
+    - panel
+    returns: unknown
+  - name: require_panel
+    args:
+    - db
+    - store
+    - app_id
+    - panel_id
+    returns: unknown
+  - name: partition_counts
+    args:
+    - panel
+    - observations
+    - partition
+    returns: unknown
+  - name: calculate
+    args:
+    - panel
+    - observations
+    - evaluated_at
+    returns: unknown
+  - name: observation_rows
+    args:
+    - db
+    - app_id
+    - panel_id
+    returns: unknown
+  - name: worksheet_rows
+    args:
+    - report
+    - app_id
+    returns: unknown
+- name: mission_control_action_contract
+  path: mission_control/action_contract.py
+  language: python
+  functions:
+  - name: connection_row
+    args:
+    - db
+    - app_id
+    - identity
+    returns: unknown
+  - name: sources
+    args:
+    - db
+    - app_id
+    - record_id
+    - connection_id
+    returns: unknown
+  - name: current
+    args:
+    - db
+    - row
+    returns: unknown
+  - name: find
+    args:
+    - db
+    - app_id
+    - identity
+    returns: unknown
+  - name: load
+    args:
+    - store
+    - app_id
+    - identity
+    - enforce_current=True
+    returns: unknown
+- name: mission_control_ads_reports
+  path: mission_control/ads_reports.py
+  language: python
+  functions:
+  - name: numeric
+    args:
+    - value
+    returns: unknown
+  - name: text
+    args:
+    - value
+    returns: unknown
+  - name: keyword_identity
+    args:
+    - keyword
+    - campaign
+    - account
+    - group
+    returns: unknown
+  - name: row_identity
+    args:
+    - row
+    - binding
+    - options
+    returns: unknown
+  - name: report_page
+    args:
+    - payload
+    - binding
+    - options
+    - offset
+    - previous_total
+    - page_check
+    - seen
+    returns: unknown
+  - name: read_keywords
+    args:
+    - reader
+    - binding
+    - options
+    - query
+    - page_check
+    returns: unknown
+- name: mission_control_aeo_contract
+  path: mission_control/aeo_contract.py
+  language: python
+  functions:
+  - name: require
+    args:
+    - condition
+    - message="Invalid AEO evidence"
+    returns: unknown
+  - name: fields
+    args:
+    - value
+    - names
+    returns: unknown
+  - name: string
+    args:
+    - value
+    - limit=2400
+    returns: unknown
+  - name: number
+    args:
+    - value
+    - maximum
+    returns: unknown
+  - name: sha
+    args:
+    - value
+    returns: unknown
+  - name: strings
+    args:
+    - value
+    - count
+    - length
+    returns: unknown
+  - name: url
+    args:
+    - value
+    returns: unknown
+  - name: resource
+    args:
+    - value
+    - target
+    - cap
+    returns: unknown
+  - name: policies
+    args:
+    - value
+    returns: unknown
+  - name: metadata
+    args:
+    - value
+    returns: unknown
+  - name: report
+    args:
+    - value
+    returns: unknown
+  - name: report_state
+    args:
+    - value
+    returns: unknown
+  - name: observed_state
+    args:
+    - value
+    returns: unknown
+  - name: repairs
+    args:
+    - value
+    returns: unknown
+  - name: metadata_repairs
+    args:
+    - source
+    - add
+    returns: unknown
+  - name: control_repairs
+    args:
+    - source
+    - add
+    returns: unknown
+- name: mission_control_aeo_inspection
+  path: mission_control/aeo_inspection.py
+  language: python
+  functions:
+  - name: fetch
+    args:
+    - reader
+    - url
+    - cap
+    - permit=None
+    returns: unknown
+  - name: safe_evidence
+    args:
+    - resource
+    returns: unknown
+  - name: sitemap_check
+    args:
+    - reader
+    - robots
+    - target
+    - maps
+    returns: unknown
+  - name: inspect_page
+    args:
+    - value
+    - reader=None
+    returns: unknown
+- name: mission_control_aeo_parse
+  path: mission_control/aeo_parse.py
+  language: python
+  functions:
+  - name: limited
+    args:
+    - value
+    returns: unknown
+  - name: declared_children
+    args:
+    - row
+    - depth
+    - types
+    returns: unknown
+  - name: json_types
+    args:
+    - raw
+    returns: unknown
+  - name: scoped_directives
+    args:
+    - value
+    - agent
+    returns: unknown
+  - name: known_directive
+    args:
+    - value
+    returns: unknown
+  - name: directives
+    args:
+    - values
+    - agent
+    returns: unknown
+  - name: page_metadata
+    args:
+    - resource
+    returns: unknown
+  - name: sitemap_membership
+    args:
+    - resource
+    - target
+    - complete=True
+    returns: unknown
+- name: mission_control_aeo_portable
+  path: mission_control/aeo_portable.py
+  language: python
+  functions:
+  - name: export_aeo
+    args:
+    - db
+    - app_id
+    returns: unknown
+  - name: restore_aeo
+    args:
+    - db
+    - app_id
+    - values
+    returns: unknown
+  - name: validate_row
+    args:
+    - db
+    - app_id
+    - row
+    returns: unknown
+- name: mission_control_aeo_robots
+  path: mission_control/aeo_robots.py
+  language: python
+  functions:
+  - name: normalized_path
+    args:
+    - value
+    returns: unknown
+  - name: rule_pattern
+    args:
+    - value
+    returns: unknown
+  - name: matches
+    args:
+    - pattern
+    - path
+    returns: unknown
+  - name: agent_group
+    args:
+    - state
+    - value
+    returns: unknown
+  - name: apply_directive
+    args:
+    - state
+    - key
+    - value
+    returns: unknown
+  - name: parse_rules
+    args:
+    - raw
+    returns: unknown
+  - name: matching_rules
+    args:
+    - groups
+    - agent
+    returns: unknown
+  - name: evaluate
+    args:
+    - groups
+    - path
+    - agent
+    returns: unknown
+  - name: policy
+    args:
+    - resource
+    - url
+    - agent
+    returns: unknown
+- name: mission_control_aeo_tls
+  path: mission_control/aeo_tls.py
+  language: python
+  functions:
+  - name: item
+    args:
+    - raw
+    - offset=0
+    returns: unknown
+  - name: certificate_times
+    args:
+    - raw
+    returns: unknown
+  - name: der_time
+    args:
+    - raw
+    - offset
+    returns: unknown
+  - name: trust_context
+    args: []
+    returns: unknown
+- name: mission_control_aeo_transport
+  path: mission_control/aeo_transport.py
+  language: python
+  functions:
+  - name: url_parts
+    args:
+    - value
+    returns: unknown
+  - name: hostname
+    args:
+    - value
+    returns: unknown
+  - name: url_path
+    args:
+    - value
+    returns: unknown
+  - name: public_url
+    args:
+    - value
+    returns: unknown
+  - name: origin
+    args:
+    - value
+    returns: unknown
+  - name: remaining
+    args:
+    - deadline
+    returns: unknown
+  - name: dns_lookup
+    args:
+    - host
+    - deadline
+    returns: unknown
+  - name: address
+    args:
+    - host
+    - deadline
+    returns: unknown
+  - name: response_headers
+    args:
+    - response
+    returns: unknown
+  - name: body_length
+    args:
+    - headers
+    - cap
+    returns: unknown
+  - name: response_body
+    args:
+    - response
+    - headers
+    - cap
+    - conn
+    - deadline
+    returns: unknown
+  - name: text
+    args:
+    - resource
+    returns: unknown
+  - name: evidence
+    args:
+    - resource
+    returns: unknown
+- name: mission_control_aeo_workflows
+  path: mission_control/aeo_workflows.py
+  language: python
+  functions:
+  - name: app_row
+    args:
+    - db
+    - app_id
+    returns: unknown
+  - name: binding
+    args:
+    - db
+    - store
+    - app_id
+    - body
+    returns: unknown
+  - name: intent_binding
+    args:
+    - db
+    - store
+    - app_id
+    - body
+    - target
+    returns: unknown
+  - name: decode
+    args:
+    - row
+    returns: unknown
+  - name: rows
+    args:
+    - db
+    - app_id
+    returns: unknown
+  - name: currentness
+    args:
+    - db
+    - store
+    - app_id
+    - row
+    returns: unknown
+  - name: insert
+    args:
+    - db
+    - row
+    - provenance
+    returns: unknown
+  - name: validate_data
+    args:
+    - data
+    - app_id
+    returns: unknown
+- name: mission_control_agent_access
+  path: mission_control/agent_access.py
+  language: python
+  functions:
+  - name: target
+    args:
+    - store
+    - app_id
+    - reference
+    returns: unknown
+  - name: decoded
+    args:
+    - row
+    returns: unknown
+  - name: queue_retirement
+    args:
+    - db
+    - app_id
+    - reference
+    - delay=0
+    returns: unknown
+  - name: detect
+    args:
+    - provider
+    returns: unknown
+- name: mission_control_agent_api
+  path: mission_control/agent_api.py
+  language: python
+  functions:
+  - name: request
+    args:
+    - profile
+    - key
+    - prompt
+    - max_tokens=2048
+    - alive=lambda:None
+    returns: unknown
+  - name: message
+    args:
+    - value
+    - anthropic
+    returns: unknown
+- name: mission_control_agent_commands
+  path: mission_control/agent_commands.py
+  language: python
+  functions:
+  - name: codex_args
+    args:
+    - executable
+    - folder
+    - model
+    returns: unknown
+  - name: claude_args
+    args:
+    - executable
+    - folder
+    - model
+    returns: unknown
+  - name: kimi_args
+    args:
+    - executable
+    - folder
+    - model
+    - prompt
+    returns: unknown
+  - name: arguments
+    args:
+    - provider
+    - executable
+    - folder
+    - model
+    - prompt
+    returns: unknown
+  - name: codex_output
+    args:
+    - text
+    returns: unknown
+  - name: codex_event
+    args:
+    - value
+    returns: unknown
+  - name: kimi_output
+    args:
+    - text
+    returns: unknown
+  - name: output
+    args:
+    - provider
+    - value
+    returns: unknown
+- name: mission_control_agent_context
+  path: mission_control/agent_context.py
+  language: python
+  functions:
+  - name: indexed
+    args:
+    - db
+    - sql
+    - app_id
+    returns: unknown
+  - name: saved_sources
+    args:
+    - store
+    - app_id
+    returns: unknown
+  - name: source
+    args:
+    - identity
+    - classification
+    - data
+    returns: unknown
+  - name: provider_source
+    args:
+    - identity
+    - view
+    returns: unknown
+  - name: stage_source
+    args:
+    - stage
+    returns: unknown
+  - name: snapshot
+    args:
+    - store
+    - app_id
+    returns: unknown
+- name: mission_control_agent_contract
+  path: mission_control/agent_contract.py
+  language: python
+  functions:
+  - name: exact
+    args:
+    - value
+    - keys
+    returns: unknown
+  - name: model_id
+    args:
+    - value
+    - required_model=False
+    returns: unknown
+  - name: profile
+    args:
+    - body
+    returns: unknown
+  - name: profile_endpoint
+    args:
+    - body
+    - entry
+    returns: unknown
+  - name: charge_consent
+    args:
+    - body
+    - entry
+    returns: unknown
+  - name: profile_identity
+    args:
+    - body
+    returns: unknown
+  - name: profile_secret
+    args:
+    - provider
+    - secret
+    returns: unknown
+  - name: bounded_text
+    args:
+    - value
+    - label
+    - limit
+    returns: unknown
+  - name: draft
+    args:
+    - value
+    - source_ids=SOURCE_IDS
+    returns: unknown
+  - name: draft_item
+    args:
+    - item
+    - source_ids
+    returns: unknown
+  - name: prompt
+    args:
+    - app
+    - task
+    - focus=''
+    - context=None
+    returns: unknown
+- name: mission_control_agent_economics
+  path: mission_control/agent_economics.py
+  language: python
+  functions:
+  - name: derive
+    args:
+    - store
+    - app
+    returns: unknown
+- name: mission_control_agent_feedback
+  path: mission_control/agent_feedback.py
+  language: python
+  functions:
+  - name: recent
+    args:
+    - store
+    - app_id
+    returns: unknown
+  - name: valid_envelope
+    args:
+    - job
+    - app
+    returns: unknown
+  - name: child_state
+    args:
+    - store
+    - app_id
+    - children
+    returns: unknown
+  - name: outcome
+    args:
+    - store
+    - job
+    returns: unknown
+  - name: observation
+    args:
+    - store
+    - app
+    - job
+    returns: unknown
+  - name: child_fingerprint
+    args:
+    - store
+    - job
+    returns: unknown
+  - name: selected_public_job
+    args:
+    - rows
+    - app
+    returns: unknown
+  - name: reuse_candidate
+    args:
+    - store
+    - app
+    - rows=None
+    - exclude_request_key=None
+    returns: unknown
+  - name: artifact_candidate
+    args:
+    - store
+    - app
+    - job
+    returns: unknown
+  - name: feedback
+    args:
+    - store
+    - app
+    returns: unknown
+- name: mission_control_agent_native
+  path: mission_control/agent_native.py
+  language: python
+  functions:
+  - name: candidates
+    args:
+    - tool
+    - home
+    returns: unknown
+  - name: locate
+    args:
+    - provider
+    - home=None
+    returns: unknown
+  - name: identity
+    args:
+    - provider
+    - home=None
+    returns: unknown
+  - name: run
+    args:
+    - provider
+    - frozen
+    - prompt
+    - model=''
+    - secret=None
+    - alive=lambda:None
+    returns: unknown
+- name: mission_control_agent_process
+  path: mission_control/agent_process.py
+  language: python
+  functions:
+  - name: environment
+    args:
+    - extra=None
+    returns: unknown
+  - name: wait
+    args:
+    - process
+    - output
+    - error
+    - alive
+    - timeout
+    returns: unknown
+  - name: capture
+    args:
+    - args
+    - input_text=''
+    - alive=lambda:None
+    - timeout=120
+    - folder=None
+    - extra_env=None
+    returns: unknown
+  - name: failure
+    args:
+    - value
+    returns: unknown
+- name: mission_control_agent_registry
+  path: mission_control/agent_registry.py
+  language: python
+  functions:
+  - name: catalog
+    args: []
+    returns: unknown
+- name: mission_control_agent_tasks
+  path: mission_control/agent_tasks.py
+  language: python
+  functions:
+  - name: request_key
+    args:
+    - value
+    returns: unknown
+  - name: selected
+    args:
+    - store
+    - app_id
+    - task
+    - connection_id
+    returns: unknown
+  - name: permitted
+    args:
+    - row
+    - mode
+    returns: unknown
+  - name: proposal
+    args:
+    - store
+    - app_id
+    - body
+    returns: unknown
+  - name: replay
+    args:
+    - row
+    - body
+    returns: unknown
+  - name: guard
+    args:
+    - store
+    - app_id
+    - frozen
+    returns: unknown
+  - name: guard_context
+    args:
+    - store
+    - app_id
+    - frozen
+    returns: unknown
+  - name: live_guard
+    args:
+    - store
+    - job
+    - stop=None
+    returns: unknown
+  - name: execute
+    args:
+    - store
+    - job
+    - stop=None
+    returns: unknown
+  - name: complete
+    args:
+    - db
+    - job
+    - result
+    - status
+    returns: unknown
+- name: mission_control_apple_ads_preflight
+  path: mission_control/apple_ads_preflight.py
+  language: python
+  functions:
+  - name: numeric_id
+    args:
+    - value
+    - label
+    returns: unknown
+  - name: inventory_request
+    args:
+    - binding
+    returns: unknown
+  - name: campaign_identity
+    args:
+    - row
+    - store
+    - account
+    returns: unknown
+  - name: pagination_numbers
+    args:
+    - value
+    returns: unknown
+  - name: validate_page
+    args:
+    - page
+    - count
+    returns: unknown
+  - name: shape_inventory
+    args:
+    - payload
+    - store
+    - account
+    returns: unknown
+- name: mission_control_attribution_aak
+  path: mission_control/attribution_aak.py
+  language: python
+  functions:
+  - name: compact_parts
+    args:
+    - value
+    - environment
+    returns: unknown
+  - name: validate_payload
+    args:
+    - payload
+    - app_id
+    - environment
+    returns: unknown
+  - name: outer_observations
+    args:
+    - data
+    - sequence
+    returns: unknown
+  - name: verified
+    args:
+    - raw
+    - app_id
+    - environment
+    returns: unknown
+- name: mission_control_attribution_adservices
+  path: mission_control/attribution_adservices.py
+  language: python
+  functions:
+  - name: transport
+    args:
+    - token
+    returns: unknown
+  - name: input_token
+    args:
+    - body
+    - clock=None
+    returns: unknown
+  - name: response_fields
+    args:
+    - data
+    - config
+    returns: unknown
+  - name: optional_claims
+    args:
+    - data
+    - facts
+    returns: unknown
+  - name: optional_strings
+    args:
+    - data
+    - facts
+    returns: unknown
+  - name: observation
+    args:
+    - data
+    - config
+    - token_hash
+    returns: unknown
+- name: mission_control_attribution_contract
+  path: mission_control/attribution_contract.py
+  language: python
+  functions:
+  - name: require
+    args:
+    - condition
+    - message
+    returns: unknown
+  - name: body
+    args:
+    - raw
+    returns: unknown
+  - name: integer
+    args:
+    - value
+    - lower
+    - upper
+    returns: unknown
+  - name: boolean
+    args:
+    - value
+    returns: unknown
+  - name: identifier
+    args:
+    - value
+    returns: unknown
+  - name: postback_id
+    args:
+    - value
+    returns: unknown
+  - name: source_id
+    args:
+    - value
+    returns: unknown
+  - name: environment_name
+    args:
+    - value
+    returns: unknown
+  - name: app_scope
+    args:
+    - value
+    - expected
+    returns: unknown
+  - name: base64_bytes
+    args:
+    - value
+    - cap
+    - url=False
+    returns: unknown
+  - name: conversions
+    args:
+    - data
+    - sequence
+    returns: unknown
+  - name: result
+    args:
+    - channel
+    - version
+    - signed
+    - unsigned
+    - app_id
+    - environment
+    - postback
+    - conversion
+    - sequence
+    - won
+    returns: unknown
+- name: mission_control_attribution_ingestion
+  path: mission_control/attribution_ingestion.py
+  language: python
+  functions:
+  - name: room
+    args:
+    - db
+    - app
+    returns: unknown
+  - name: failure
+    args:
+    - store
+    - app
+    - sid
+    - body_hash
+    - code="VERIFICATION_FAILED"
+    returns: unknown
+  - name: receipt
+    args:
+    - row
+    returns: unknown
+  - name: commit
+    args:
+    - db
+    - app
+    - current
+    - selected
+    - observation
+    - body_hash
+    - verification
+    returns: unknown
+- name: mission_control_attribution_keys
+  path: mission_control/attribution_keys.py
+  language: python
+  functions:
+  - name: skan_key
+    args:
+    - version
+    returns: unknown
+  - name: aak_key
+    args:
+    - kid
+    - environment
+    returns: unknown
+- name: mission_control_attribution_maps
+  path: mission_control/attribution_maps.py
+  language: python
+  functions:
+  - name: labels
+    args:
+    - rows
+    - coarse=False
+    returns: unknown
+  - name: declaration
+    args:
+    - body
+    returns: unknown
+  - name: mapping
+    args:
+    - db
+    - app
+    - mid
+    - version
+    - expected_hash
+    - channel=None
+    returns: unknown
+  - name: revision_allowed
+    args:
+    - previous
+    - data
+    returns: unknown
+- name: mission_control_attribution_native
+  path: mission_control/attribution_native.py
+  language: python
+  functions:
+  - name: require
+    args:
+    - condition
+    - message
+    returns: unknown
+  - name: public_point
+    args:
+    - spki
+    - curve
+    returns: unknown
+  - name: signature_integer
+    args:
+    - raw
+    - offset
+    - width
+    returns: unknown
+  - name: der_signature
+    args:
+    - raw
+    - curve
+    returns: unknown
+  - name: libraries
+    args: []
+    returns: unknown
+  - name: open_curve
+    args:
+    - dll
+    - handle
+    - curve
+    returns: unknown
+  - name: verify
+    args:
+    - spki
+    - curve
+    - message
+    - signature
+    returns: unknown
+- name: mission_control_attribution_portable
+  path: mission_control/attribution_portable.py
+  language: python
+  functions:
+  - name: require
+    args:
+    - value
+    - message
+    returns: unknown
+  - name: hash_text
+    args:
+    - value
+    returns: unknown
+  - name: row_data
+    args:
+    - row
+    - fields
+    - app
+    - hashed_id=False
+    returns: unknown
+  - name: native_observation
+    args:
+    - obs
+    - config
+    returns: unknown
+  - name: wire_conversions
+    args:
+    - unsigned
+    returns: unknown
+  - name: sources_data
+    args:
+    - rows
+    - app
+    returns: unknown
+  - name: maps_data
+    args:
+    - rows
+    - app
+    returns: unknown
+  - name: receipt_data
+    args:
+    - row
+    - app
+    - sources
+    - maps
+    - reads
+    returns: unknown
+  - name: read_data
+    args:
+    - rows
+    - app
+    - sources
+    returns: unknown
+  - name: failures_data
+    args:
+    - rows
+    - app
+    - sources
+    returns: unknown
+  - name: validate
+    args:
+    - data
+    - app
+    returns: unknown
+  - name: export_attribution
+    args:
+    - db
+    - app
+    returns: unknown
+  - name: restore_attribution
+    args:
+    - db
+    - app
+    - data
+    returns: unknown
+- name: mission_control_attribution_reporting
+  path: mission_control/attribution_reporting.py
+  language: python
+  functions:
+  - name: interpretation
+    args:
+    - observation
+    - versions
+    - conflict
+    returns: unknown
+  - name: group_record
+    args:
+    - rows
+    - maps
+    returns: unknown
+  - name: report
+    args:
+    - receipts
+    - maps
+    returns: unknown
+- name: mission_control_attribution_skan
+  path: mission_control/attribution_skan.py
+  language: python
+  functions:
+  - name: layout
+    args:
+    - version
+    returns: unknown
+  - name: optional_source
+    args:
+    - data
+    - version
+    - environment
+    returns: unknown
+  - name: validate
+    args:
+    - data
+    - version
+    - app_id
+    - environment
+    returns: unknown
+  - name: signed_fields
+    args:
+    - data
+    - version
+    returns: unknown
+  - name: message
+    args:
+    - signed
+    returns: unknown
+  - name: verified
+    args:
+    - raw
+    - app_id
+    - environment
+    returns: unknown
+- name: mission_control_attribution_sources
+  path: mission_control/attribution_sources.py
+  language: python
+  functions:
+  - name: checked
+    args:
+    - row
+    returns: unknown
+  - name: decimal
+    args:
+    - value
+    returns: unknown
+  - name: declaration
+    args:
+    - body
+    returns: unknown
+  - name: source
+    args:
+    - db
+    - app
+    - sid
+    - active=True
+    returns: unknown
+  - name: capacity
+    args:
+    - db
+    - app
+    - data
+    returns: unknown
+  - name: current_authority
+    args:
+    - db
+    - app
+    - sid
+    - original
+    - user
+    - role
+    returns: unknown
+- name: mission_control_audit_contract
+  path: mission_control/audit_contract.py
+  language: python
+  functions:
+  - name: exact
+    args:
+    - value
+    - fields
+    returns: unknown
+  - name: fixture_url
+    args:
+    - value
+    returns: unknown
+  - name: fixture_origin
+    args:
+    - value
+    returns: unknown
+  - name: target
+    args:
+    - value
+    - mode
+    - app
+    returns: unknown
+  - name: step
+    args:
+    - value
+    - index
+    - mode
+    - start
+    - app
+    returns: unknown
+  - name: step_value
+    args:
+    - item
+    - value
+    returns: unknown
+  - name: scope
+    args:
+    - body
+    - app
+    - tools
+    returns: unknown
+  - name: shape
+    args:
+    - mode
+    - viewport
+    returns: unknown
+- name: mission_control_audit_ecc
+  path: mission_control/audit_ecc.py
+  language: python
+  functions:
+  - name: contains
+    args:
+    - actual
+    - expected
+    returns: unknown
+  - name: native
+    args:
+    - value
+    - scenario
+    returns: unknown
+  - name: structure
+    args:
+    - data
+    returns: unknown
+  - name: check_urls
+    args:
+    - steps
+    - start
+    returns: unknown
+  - name: review
+    args:
+    - value
+    - frozen
+    - tools
+    returns: unknown
+- name: mission_control_audit_portable
+  path: mission_control/audit_portable.py
+  language: python
+  functions:
+  - name: archive_entry
+    args:
+    - app_id
+    - row
+    returns: unknown
+  - name: export_archives
+    args:
+    - db
+    - app_id
+    returns: unknown
+  - name: validate_frozen
+    args:
+    - app_id
+    - key
+    - frozen
+    returns: unknown
+  - name: archive_versions
+    args:
+    - frozen
+    returns: unknown
+  - name: validate_result
+    args:
+    - data
+    returns: unknown
+  - name: validate_review
+    args:
+    - data
+    returns: unknown
+  - name: validate_archives
+    args:
+    - app_id
+    - entries
+    returns: unknown
+  - name: validate_archive
+    args:
+    - app_id
+    - row
+    - seen
+    returns: unknown
+  - name: archive_identity
+    args:
+    - app_id
+    - row
+    - seen
+    returns: unknown
+  - name: restore_archives
+    args:
+    - db
+    - app_id
+    - entries
+    returns: unknown
+  - name: archive_detail
+    args:
+    - db
+    - app_id
+    - key
+    returns: unknown
+- name: mission_control_audit_runtime
+  path: mission_control/audit_runtime.py
+  language: python
+  functions:
+  - name: decoded
+    args:
+    - row
+    returns: unknown
+  - name: request_id
+    args:
+    - value
+    returns: unknown
+- name: mission_control_audit_tools
+  path: mission_control/audit_tools.py
+  language: python
+  functions:
+  - name: file_hash
+    args:
+    - path
+    returns: unknown
+  - name: installed
+    args:
+    - home
+    returns: unknown
+  - name: skills
+    args:
+    - home
+    returns: unknown
+  - name: capability
+    args:
+    - home=None
+    returns: unknown
+  - name: package_hash
+    args:
+    - package
+    returns: unknown
+  - name: restricted_environment
+    args: []
+    returns: unknown
+  - name: stop_owned
+    args:
+    - process
+    returns: unknown
+  - name: await_process
+    args:
+    - process
+    - output
+    - error
+    - alive
+    - timeout
+    returns: unknown
+  - name: invoke
+    args:
+    - tools
+    - scenario
+    - alive
+    - timeout=90
+    returns: unknown
+- name: mission_control_automatic_preparation
+  path: mission_control/automatic_preparation.py
+  language: python
+  functions:
+  - name: check_scope
+    args:
+    - app
+    - records
+    - reports
+    returns: unknown
+  - name: group_needs
+    args:
+    - outputs
+    returns: unknown
+  - name: source_binding
+    args:
+    - app
+    - records
+    - reports
+    - outputs
+    - catalog=None
+    - release=None
+    returns: unknown
+- name: mission_control_automation_policy
+  path: mission_control/automation_policy.py
+  language: python
+  functions:
+  - name: bounded_text
+    args:
+    - value
+    - name
+    - maximum
+    returns: unknown
+  - name: channels
+    args:
+    - data
+    returns: unknown
+  - name: preferences
+    args:
+    - data
+    returns: unknown
+  - name: validate_manifest
+    args:
+    - data
+    returns: unknown
+  - name: check_manifest_version
+    args:
+    - db
+    - app_id
+    - version
+    returns: unknown
+- name: mission_control_campaign_inputs
+  path: mission_control/campaign_inputs.py
+  language: python
+  functions:
+  - name: enqueue_task
+    args:
+    - db
+    - app_id
+    - task
+    returns: unknown
+  - name: register_task
+    args:
+    - db
+    - app_id
+    - task
+    - on_job
+    returns: unknown
+  - name: task_options
+    args:
+    - app
+    - record
+    returns: unknown
+  - name: usable_binding
+    args:
+    - app
+    - data
+    returns: unknown
+  - name: derive_tasks
+    args:
+    - app
+    - records
+    - policy_hash
+    returns: unknown
+  - name: build_plan
+    args:
+    - app
+    - records
+    - hour
+    returns: unknown
+- name: mission_control_catalog
+  path: mission_control/catalog.py
+  language: python
+  functions:
+  - name: stages
+    args: []
+    returns: unknown
+- name: mission_control_common
+  path: mission_control/common.py
+  language: python
+  functions:
+  - name: canonical
+    args:
+    - 'value: dict'
+    returns: str
+  - name: digest
+    args:
+    - value
+    returns: unknown
+  - name: now
+    args: []
+    returns: unknown
+  - name: uid
+    args: []
+    returns: unknown
+  - name: required
+    args:
+    - value
+    - name
+    - limit=4000
+    returns: unknown
+  - name: amount
+    args:
+    - value
+    - name
+    returns: unknown
+  - name: fraction
+    args:
+    - value
+    - name
+    returns: unknown
+  - name: identifier
+    args:
+    - value
+    returns: unknown
+  - name: safe_data
+    args:
+    - value
+    returns: unknown
+  - name: iso_time
+    args:
+    - value
+    returns: unknown
+- name: mission_control_connection_setup
+  path: mission_control/connection_setup.py
+  language: python
+  functions:
+  - name: configuration
+    args:
+    - body
+    returns: unknown
+  - name: identities
+    args:
+    - body
+    returns: unknown
+- name: mission_control_creative_analysis
+  path: mission_control/creative_analysis.py
+  language: python
+  functions:
+  - name: analysis_data
+    args:
+    - data
+    - capture
+    returns: unknown
+  - name: observations_data
+    args:
+    - data
+    returns: unknown
+  - name: timing_number
+    args:
+    - value
+    - name
+    - maximum
+    returns: unknown
+  - name: observation
+    args:
+    - row
+    - kind
+    - duration
+    returns: unknown
+  - name: observation_timing
+    args:
+    - row
+    - kind
+    - duration
+    returns: unknown
+  - name: decoded
+    args:
+    - row
+    returns: unknown
+  - name: latest
+    args:
+    - db
+    - table
+    - app_id
+    - item_id
+    returns: unknown
+  - name: append
+    args:
+    - db
+    - table
+    - app_id
+    - data
+    - body
+    - identity=None
+    returns: unknown
+  - name: capacity
+    args:
+    - db
+    - table
+    - app_id
+    - version
+    returns: unknown
+  - name: saved_items
+    args:
+    - db
+    - table
+    - app_id
+    returns: unknown
+- name: mission_control_creative_attention
+  path: mission_control/creative_attention.py
+  language: python
+  functions:
+  - name: age_bucket
+    args:
+    - data
+    returns: unknown
+  - name: comparable_key
+    args:
+    - data
+    returns: unknown
+  - name: freshness
+    args:
+    - data
+    - evaluated_at
+    returns: unknown
+  - name: velocity
+    args:
+    - source
+    returns: unknown
+  - name: unavailable
+    args:
+    - reason
+    - peers=None
+    returns: unknown
+  - name: peer_values
+    args:
+    - target
+    - sources
+    - evaluated_at
+    - mode
+    returns: unknown
+  - name: robust_attention
+    args:
+    - value
+    - peers
+    - discount
+    returns: unknown
+  - name: log_observation
+    args:
+    - value
+    returns: unknown
+  - name: attention
+    args:
+    - target
+    - sources
+    - evaluated_at
+    - mode="cumulative"
+    returns: unknown
+- name: mission_control_creative_briefs
+  path: mission_control/creative_briefs.py
+  language: python
+  functions:
+  - name: definition
+    args:
+    - data
+    returns: unknown
+  - name: evidence_ids
+    args:
+    - ids
+    - key
+    returns: unknown
+  - name: bound_record
+    args:
+    - db
+    - app_id
+    - item_id
+    - kind
+    - app
+    returns: unknown
+  - name: checked
+    args:
+    - data
+    - kind
+    returns: unknown
+  - name: route_checked
+    args:
+    - data
+    returns: unknown
+  - name: latest_proof
+    args:
+    - db
+    - app_id
+    - record
+    - app
+    returns: unknown
+  - name: critical_findings
+    args:
+    - db
+    - app_id
+    returns: unknown
+  - name: bind
+    args:
+    - db
+    - store
+    - app_id
+    - data
+    returns: unknown
+  - name: bind_proofs
+    args:
+    - db
+    - store
+    - app_id
+    - app
+    - data
+    returns: unknown
+  - name: asset_checked
+    args:
+    - store
+    - app_id
+    - data
+    returns: unknown
+  - name: compose
+    args:
+    - frozen
+    returns: unknown
+  - name: channel_copy
+    args:
+    - channel
+    - app
+    - data
+    - hooks
+    - claims
+    - destination
+    returns: unknown
+  - name: scene_beats
+    args:
+    - data
+    - hooks
+    - claims
+    - destination
+    returns: unknown
+  - name: stale_findings
+    args:
+    - db
+    - store
+    - app_id
+    - data
+    returns: unknown
+  - name: proof_identity
+    args:
+    - data
+    returns: unknown
+- name: mission_control_creative_library
+  path: mission_control/creative_library.py
+  language: python
+  functions:
+  - name: source_url
+    args:
+    - value
+    returns: unknown
+  - name: source_host
+    args:
+    - host
+    returns: unknown
+  - name: reference_data
+    args:
+    - data
+    returns: unknown
+  - name: reference_dates
+    args:
+    - data
+    returns: unknown
+  - name: date_order
+    args:
+    - data
+    returns: unknown
+  - name: identity
+    args:
+    - data
+    returns: unknown
+  - name: latest_capture
+    args:
+    - db
+    - app_id
+    - reference_id
+    returns: unknown
+  - name: append_capture
+    args:
+    - db
+    - app_id
+    - reference_id
+    - data
+    - version
+    returns: unknown
+  - name: write_reference
+    args:
+    - db
+    - app_id
+    - data
+    returns: unknown
+  - name: import_rows
+    args:
+    - body
+    returns: unknown
+  - name: csv_reference
+    args:
+    - row
+    returns: unknown
+  - name: export_library
+    args:
+    - store
+    - app_id
+    returns: unknown
+  - name: restore_library
+    args:
+    - db
+    - app_id
+    - items
+    returns: unknown
+  - name: library_snapshot
+    args:
+    - items
+    returns: unknown
+  - name: restore_reference
+    args:
+    - db
+    - app_id
+    - row
+    - seen
+    returns: unknown
+  - name: restore_capture
+    args:
+    - row
+    - item
+    - version
+    - previous
+    returns: unknown
+- name: mission_control_creative_portable
+  path: mission_control/creative_portable.py
+  language: python
+  functions:
+  - name: export_production
+    args:
+    - db
+    - app_id
+    returns: unknown
+  - name: history_rows
+    args:
+    - items
+    - app_id
+    returns: unknown
+  - name: history_item
+    args:
+    - item
+    - seen
+    returns: unknown
+  - name: validate_row
+    args:
+    - row
+    - app_id
+    - item_id
+    - version
+    returns: unknown
+  - name: captured_source
+    args:
+    - db
+    - app_id
+    - reference_id
+    - value_hash
+    returns: unknown
+  - name: restore_analysis
+    args:
+    - db
+    - app_id
+    - rows
+    returns: unknown
+  - name: brief_data
+    args:
+    - db
+    - app_id
+    - data
+    - stamp=None
+    returns: unknown
+  - name: frozen_records
+    args:
+    - data
+    - d
+    - app_id
+    returns: unknown
+  - name: insert
+    args:
+    - db
+    - table
+    - row
+    returns: unknown
+  - name: restore_production
+    args:
+    - db
+    - app_id
+    - payload
+    returns: unknown
+- name: mission_control_creative_rank_portable
+  path: mission_control/creative_rank_portable.py
+  language: python
+  functions:
+  - name: export_rankings
+    args:
+    - db
+    - app_id
+    returns: unknown
+  - name: rank_rows
+    args:
+    - items
+    - app_id
+    - kind
+    returns: unknown
+  - name: validate_report_row
+    args:
+    - row
+    - app_id
+    - item_id
+    - version
+    returns: unknown
+  - name: insert_rank
+    args:
+    - db
+    - table
+    - row
+    returns: unknown
+  - name: retained_row
+    args:
+    - db
+    - table
+    - app_id
+    - row
+    returns: unknown
+  - name: retained_pool
+    args:
+    - db
+    - app_id
+    - sources
+    - evaluated_at
+    returns: unknown
+  - name: retained_source
+    args:
+    - db
+    - app_id
+    - source
+    - evaluated_at
+    returns: unknown
+  - name: retained_captures
+    args:
+    - db
+    - app_id
+    - reference_id
+    - captures
+    - evaluated_at
+    returns: unknown
+  - name: report_data
+    args:
+    - db
+    - app_id
+    - data
+    returns: unknown
+  - name: retained_production
+    args:
+    - db
+    - app_id
+    - production
+    returns: unknown
+  - name: retained_reviews
+    args:
+    - db
+    - app_id
+    - reviews
+    returns: unknown
+  - name: restore_reviews
+    args:
+    - db
+    - app_id
+    - rows
+    returns: unknown
+  - name: restore_rankings
+    args:
+    - db
+    - app_id
+    - payload
+    returns: unknown
+- name: mission_control_creative_ranking
+  path: mission_control/creative_ranking.py
+  language: python
+  functions:
+  - name: bounded_integer
+    args:
+    - value
+    - name
+    - low
+    - high
+    returns: unknown
+  - name: policy_data
+    args:
+    - data
+    returns: unknown
+  - name: policy_weights
+    args:
+    - data
+    - weights
+    returns: unknown
+  - name: relevance_data
+    args:
+    - data
+    returns: unknown
+  - name: current_rows
+    args:
+    - db
+    - table
+    - app_id
+    returns: unknown
+  - name: source_pool
+    args:
+    - sources
+    - reference_ids
+    returns: unknown
+  - name: ranking_inputs
+    args:
+    - store
+    - app_id
+    - reference_ids
+    returns: unknown
+  - name: bind_inputs
+    args:
+    - app
+    - sources
+    - policies
+    - reviews
+    - reference_ids
+    - production=None
+    returns: unknown
+  - name: review_for
+    args:
+    - inputs
+    - source
+    returns: unknown
+  - name: rank_row
+    args:
+    - inputs
+    - source
+    - evaluated_at
+    returns: unknown
+  - name: partition
+    args:
+    - data
+    - cutoff
+    returns: unknown
+  - name: select_slate
+    args:
+    - rows
+    - policy
+    - baseline=False
+    returns: unknown
+  - name: selection_reason
+    args:
+    - row
+    - policy
+    - counts
+    - formats
+    - selected
+    returns: unknown
+  - name: calculate
+    args:
+    - inputs
+    - evaluated_at
+    returns: unknown
+  - name: production_row
+    args:
+    - inputs
+    - source
+    - row
+    - stamp
+    returns: unknown
+- name: mission_control_creative_rendering
+  path: mission_control/creative_rendering.py
+  language: python
+  functions:
+  - name: render_request
+    args:
+    - db
+    - store
+    - app_id
+    - body
+    returns: unknown
+  - name: current_request
+    args:
+    - db
+    - store
+    - app_id
+    - request
+    returns: unknown
+  - name: owned
+    args:
+    - db
+    - job
+    returns: unknown
+  - name: heartbeat
+    args:
+    - store
+    - job
+    - stop=None
+    returns: unknown
+  - name: folder_for
+    args:
+    - store
+    - app_id
+    returns: unknown
+  - name: artifact_file
+    args:
+    - store
+    - app_id
+    - render_id
+    returns: unknown
+  - name: render_rows
+    args:
+    - db
+    - app_id
+    returns: unknown
+- name: mission_control_credential_vault
+  path: mission_control/credential_vault.py
+  language: python
+  functions:
+  - name: namespace
+    args:
+    - database
+    returns: unknown
+  - name: target
+    args:
+    - scope
+    - app_id
+    - provider
+    - reference
+    returns: unknown
+- name: mission_control_db
+  path: mission_control/db.py
+  language: python
+  functions:
+  - name: connection
+    args:
+    - path
+    returns: unknown
+  - name: initialize
+    args:
+    - path
+    returns: unknown
+- name: mission_control_event_mapping
+  path: mission_control/event_mapping.py
+  language: python
+  functions:
+  - name: mapping
+    args:
+    - value
+    returns: unknown
+  - name: query
+    args:
+    - events
+    returns: unknown
+  - name: role_rows
+    args:
+    - events
+    - counts
+    returns: unknown
+  - name: matching_report
+    args:
+    - source
+    - reports
+    returns: unknown
+  - name: recent
+    args:
+    - data
+    returns: unknown
+  - name: coverage
+    args:
+    - source
+    - reports
+    returns: unknown
+- name: mission_control_experiment_analysis
+  path: mission_control/experiment_analysis.py
+  language: python
+  functions:
+  - name: sample_plan
+    args:
+    - baseline
+    - effect
+    - allocation
+    returns: unknown
+  - name: guardrail_data
+    args:
+    - data
+    returns: unknown
+  - name: wilson
+    args:
+    - count
+    - total
+    returns: unknown
+  - name: comparison
+    args:
+    - control
+    - treatment
+    - metric
+    returns: unknown
+  - name: sample_diagnostics
+    args:
+    - reports
+    - plan
+    - allocation
+    returns: unknown
+  - name: guardrail_findings
+    args:
+    - reports
+    - guardrails
+    returns: unknown
+  - name: analyze
+    args:
+    - definition
+    - reports
+    - overlap
+    - quality
+    returns: unknown
+- name: mission_control_experiment_schedules
+  path: mission_control/experiment_schedules.py
+  language: python
+  functions:
+  - name: configuration
+    args:
+    - body
+    returns: unknown
+  - name: schedule_audit
+    args:
+    - db
+    - app_id
+    - experiment_id
+    - operation
+    - detail
+    returns: unknown
+  - name: pause_queued
+    args:
+    - db
+    - row
+    returns: unknown
+  - name: disable
+    args:
+    - db
+    - row
+    - status
+    returns: unknown
+  - name: existing_job
+    args:
+    - db
+    - row
+    returns: unknown
+  - name: reconcile
+    args:
+    - db
+    - row
+    returns: unknown
+  - name: dispatch
+    args:
+    - db
+    - row
+    - experiment
+    returns: unknown
+  - name: check_scheduled
+    args:
+    - db
+    - current
+    - data
+    returns: unknown
+  - name: export_schedules
+    args:
+    - store
+    - app_id
+    returns: unknown
+  - name: restore_schedules
+    args:
+    - db
+    - app_id
+    - items
+    returns: unknown
+  - name: validate_restored_schedule
+    args:
+    - db
+    - app_id
+    - row
+    returns: unknown
+  - name: restored_limits
+    args:
+    - row
+    returns: unknown
+- name: mission_control_experiment_tracking
+  path: mission_control/experiment_tracking.py
+  language: python
+  functions:
+  - name: failure_result
+    args:
+    - error
+    returns: unknown
+  - name: decoded_fields
+    args:
+    - value
+    returns: unknown
+  - name: decode
+    args:
+    - row
+    returns: unknown
+  - name: public
+    args:
+    - row
+    returns: unknown
+  - name: feedback
+    args:
+    - store
+    - app_id
+    returns: unknown
+  - name: current
+    args:
+    - store
+    - row
+    returns: unknown
+  - name: identifier_fields
+    args:
+    - body
+    returns: unknown
+  - name: require_body
+    args:
+    - body
+    returns: unknown
+- name: mission_control_experiments
+  path: mission_control/experiments.py
+  language: python
+  functions:
+  - name: definition_data
+    args:
+    - data
+    returns: unknown
+  - name: bind_variant
+    args:
+    - db
+    - app_id
+    - variant
+    returns: unknown
+  - name: bind_definition
+    args:
+    - db
+    - app_id
+    - data
+    - registered_at
+    returns: unknown
+  - name: decoded
+    args:
+    - row
+    returns: unknown
+  - name: lookup
+    args:
+    - db
+    - app_id
+    - experiment_id
+    returns: unknown
+  - name: evidence_reports
+    args:
+    - db
+    - app_id
+    - definition
+    - as_of
+    returns: unknown
+  - name: quality_findings
+    args:
+    - db
+    - app_id
+    - definition
+    - folder
+    returns: unknown
+  - name: asset_intact
+    args:
+    - folder
+    - data
+    returns: unknown
+  - name: action_state
+    args:
+    - db
+    - current
+    - body
+    returns: unknown
+  - name: observe_state
+    args:
+    - current
+    - body
+    returns: unknown
+  - name: decide_state
+    args:
+    - db
+    - current
+    - body
+    returns: unknown
+  - name: snapshot_data
+    args:
+    - items
+    returns: unknown
+  - name: validate_frozen
+    args:
+    - db
+    - app_id
+    - row
+    returns: unknown
+  - name: validate_frozen_variant
+    args:
+    - db
+    - app_id
+    - variant
+    returns: unknown
+  - name: validate_frozen_windows
+    args:
+    - row
+    returns: unknown
+  - name: restore_experiments
+    args:
+    - db
+    - app_id
+    - items
+    returns: unknown
+  - name: restore_history
+    args:
+    - db
+    - app_id
+    - row
+    returns: unknown
+  - name: restore_transition
+    args:
+    - db
+    - row
+    - version
+    - kind
+    - item
+    returns: unknown
+  - name: validate_assessment
+    args:
+    - current
+    - row
+    - item
+    returns: unknown
+- name: mission_control_feedback_artifacts
+  path: mission_control/feedback_artifacts.py
+  language: python
+  functions:
+  - name: public_artifact
+    args:
+    - store
+    - app_id
+    - identity
+    - expected_hash
+    - target
+    returns: unknown
+  - name: public_codes
+    args:
+    - row
+    returns: unknown
+- name: mission_control_followup
+  path: mission_control/followup.py
+  language: python
+  functions:
+  - name: rows
+    args:
+    - db
+    - app_id
+    - kind
+    returns: unknown
+  - name: snapshot
+    args:
+    - db
+    - app_id
+    returns: unknown
+  - name: current_app
+    args:
+    - db
+    - app_id
+    returns: unknown
+  - name: context
+    args:
+    - app
+    - data
+    - task
+    - observed
+    - exclude=None
+    returns: unknown
+- name: mission_control_followup_eligibility
+  path: mission_control/followup_eligibility.py
+  language: python
+  functions:
+  - name: binding
+    args:
+    - app
+    - policy
+    - subject
+    - task
+    returns: unknown
+  - name: permission
+    args:
+    - policy
+    - subject
+    - task
+    - observed
+    returns: unknown
+  - name: calendar
+    args:
+    - subject
+    - observed
+    returns: unknown
+  - name: eligibility
+    args:
+    - app
+    - policy
+    - subject
+    - task
+    - handoffs
+    - observed
+    - exclude=None
+    returns: unknown
+- name: mission_control_followup_policy
+  path: mission_control/followup_policy.py
+  language: python
+  functions:
+  - name: zone
+    args:
+    - value
+    returns: unknown
+  - name: clock
+    args:
+    - value
+    returns: unknown
+  - name: boolean
+    args:
+    - value
+    - name
+    returns: unknown
+  - name: validate
+    args:
+    - kind
+    - data
+    - observed
+    returns: unknown
+  - name: policy
+    args:
+    - data
+    - observed
+    returns: unknown
+  - name: subject
+    args:
+    - data
+    - observed
+    returns: unknown
+  - name: task
+    args:
+    - data
+    - observed
+    returns: unknown
+- name: mission_control_followup_portable
+  path: mission_control/followup_portable.py
+  language: python
+  functions:
+  - name: export_followup
+    args:
+    - db
+    - app_id
+    returns: unknown
+  - name: validate_rows
+    args:
+    - app_id
+    - kind
+    - items
+    returns: unknown
+  - name: validate_metadata
+    args:
+    - app_id
+    - row
+    - identity
+    - ids
+    returns: unknown
+  - name: validate_handoff
+    args:
+    - value
+    returns: unknown
+  - name: restore_followup
+    args:
+    - db
+    - app_id
+    - data
+    returns: unknown
+- name: mission_control_guided_workflow
+  path: mission_control/guided_workflow.py
+  language: python
+  functions:
+  - name: tool
+    args:
+    - identity
+    returns: unknown
+  - name: primary
+    args:
+    - stage
+    - direct
+    - critical
+    returns: unknown
+  - name: step
+    args:
+    - stage
+    - app
+    - records
+    - reports
+    - catalog=None
+    - release=None
+    returns: unknown
+- name: mission_control_insights
+  path: mission_control/insights.py
+  language: python
+  functions:
+  - name: decoded
+    args:
+    - row
+    returns: unknown
+- name: mission_control_insights_contract
+  path: mission_control/insights_contract.py
+  language: python
+  functions:
+  - name: config
+    args:
+    - body
+    returns: unknown
+  - name: project_scope
+    args:
+    - body
+    returns: unknown
+  - name: validate_key
+    args:
+    - provider
+    - key
+    returns: unknown
+  - name: finite
+    args:
+    - value
+    returns: unknown
+  - name: text
+    args:
+    - value
+    - cap=200
+    returns: unknown
+  - name: shape_posthog
+    args:
+    - payload
+    - events=None
+    returns: unknown
+  - name: validate_event_count
+    args:
+    - row
+    - allowed=None
+    returns: unknown
+  - name: shape_clarity
+    args:
+    - payload
+    returns: unknown
+  - name: clarity_rows
+    args:
+    - metric
+    returns: unknown
+  - name: numeric_strings
+    args:
+    - row
+    returns: unknown
+  - name: shape_revenuecat
+    args:
+    - payload
+    returns: unknown
+- name: mission_control_insights_transport
+  path: mission_control/insights_transport.py
+  language: python
+  functions:
+  - name: request
+    args:
+    - url
+    - token
+    - body=None
+    returns: unknown
+  - name: read
+    args:
+    - config
+    - token
+    returns: unknown
+- name: mission_control_instrumentation
+  path: mission_control/instrumentation.py
+  language: python
+  functions:
+  - name: configuration
+    args:
+    - plan
+    returns: unknown
+  - name: bundle
+    args:
+    - plan
+    returns: object
+  - name: archive
+    args:
+    - value
+    returns: unknown
+  - name: prepare
+    args:
+    - store
+    - app_id
+    - experiment_id
+    - source_id
+    - proposal_hash
+    returns: unknown
+- name: mission_control_journey_readiness
+  path: mission_control/journey_readiness.py
+  language: python
+  functions:
+  - name: row_text
+    args:
+    - row
+    returns: unknown
+  - name: row_applicability
+    args:
+    - row
+    returns: unknown
+  - name: row_valid
+    args:
+    - row
+    returns: unknown
+  - name: candidate_valid
+    args:
+    - data
+    returns: unknown
+  - name: matrix_valid
+    args:
+    - data
+    returns: unknown
+  - name: derived
+    args:
+    - data
+    returns: unknown
+  - name: validate
+    args:
+    - data
+    returns: unknown
+  - name: result
+    args:
+    - data
+    returns: unknown
+  - name: complete
+    args:
+    - data
+    returns: unknown
+- name: mission_control_learning_contract
+  path: mission_control/learning_contract.py
+  language: python
+  functions:
+  - name: assessment
+    args:
+    - db
+    - store
+    - app_id
+    - experiment_id
+    - context=None
+    returns: unknown
+  - name: training
+    args:
+    - db
+    - store
+    - app_id
+    - experiment_id
+    - context=None
+    returns: unknown
+  - name: declare
+    args:
+    - body
+    returns: unknown
+  - name: active_id
+    args:
+    - db
+    - app_id
+    returns: unknown
+  - name: reserve_role
+    args:
+    - db
+    - app_id
+    - experiment_id
+    - role
+    - learning_id
+    returns: unknown
+  - name: source_current
+    args:
+    - db
+    - store
+    - row
+    - context=None
+    returns: unknown
+  - name: holdout
+    args:
+    - db
+    - store
+    - row
+    - request
+    returns: unknown
+  - name: overlap_subjects
+    args:
+    - db
+    - app_id
+    - train
+    - test
+    returns: unknown
+  - name: evaluation
+    args:
+    - db
+    - store
+    - row
+    - context=None
+    returns: unknown
+  - name: eligible
+    args:
+    - db
+    - store
+    - row
+    - checker=False
+    - context=None
+    returns: unknown
+- name: mission_control_learning_portable
+  path: mission_control/learning_portable.py
+  language: python
+  functions:
+  - name: collection
+    args:
+    - value
+    - limit
+    - name
+    returns: unknown
+  - name: exact
+    args:
+    - row
+    - keys
+    - app_id
+    returns: unknown
+  - name: export_learning
+    args:
+    - db
+    - app_id
+    returns: unknown
+  - name: frozen_link
+    args:
+    - db
+    - app_id
+    - row
+    returns: unknown
+  - name: frozen_design
+    args:
+    - db
+    - app_id
+    - data
+    - request
+    - variant
+    returns: unknown
+  - name: frozen_costs
+    args:
+    - db
+    - app_id
+    - data
+    - request
+    - variant
+    returns: unknown
+  - name: frozen_context
+    args:
+    - db
+    - app_id
+    - context
+    returns: unknown
+  - name: frozen_context_link
+    args:
+    - db
+    - app_id
+    - experiment_id
+    - arm
+    - link
+    returns: unknown
+  - name: frozen_data
+    args:
+    - db
+    - app_id
+    - data
+    - created
+    returns: unknown
+  - name: frozen_approval
+    args:
+    - approval
+    returns: unknown
+  - name: frozen_holdout
+    args:
+    - db
+    - app_id
+    - data
+    - created
+    returns: unknown
+  - name: frozen_holdout_brief
+    args:
+    - db
+    - app_id
+    - brief
+    returns: unknown
+  - name: frozen_evaluation
+    args:
+    - db
+    - app_id
+    - data
+    returns: unknown
+  - name: frozen_numeric
+    args:
+    - data
+    - result
+    returns: unknown
+  - name: restore_links
+    args:
+    - db
+    - app_id
+    - rows
+    returns: unknown
+  - name: restore_program
+    args:
+    - db
+    - app_id
+    - row
+    returns: unknown
+  - name: replay_edge
+    args:
+    - previous
+    - state
+    - value
+    returns: unknown
+  - name: restore_event
+    args:
+    - event
+    - app_id
+    - row
+    - stamp
+    returns: unknown
+  - name: validate_transition
+    args:
+    - previous
+    - state
+    - value
+    returns: unknown
+  - name: validate_decision
+    args:
+    - previous
+    - value
+    returns: unknown
+  - name: restore_roles
+    args:
+    - db
+    - app_id
+    - rows
+    - programs
+    returns: unknown
+  - name: partition_id
+    args:
+    - data
+    - role
+    returns: unknown
+  - name: partitions_complete
+    args:
+    - rows
+    - programs
+    returns: unknown
+  - name: restore_uses
+    args:
+    - db
+    - app_id
+    - rows
+    - programs
+    returns: unknown
+  - name: restore_learning
+    args:
+    - db
+    - app_id
+    - payload
+    returns: unknown
+- name: mission_control_ledger
+  path: mission_control/ledger.py
+  language: python
+  functions:
+  - name: opaque
+    args:
+    - value
+    - field
+    returns: unknown
+  - name: currency
+    args:
+    - value
+    returns: unknown
+  - name: cohort_data
+    args:
+    - data
+    returns: unknown
+  - name: event_data
+    args:
+    - row
+    - csv_mode=False
+    returns: unknown
+  - name: write_cohort
+    args:
+    - db
+    - app_id
+    - data
+    returns: unknown
+  - name: write_events
+    args:
+    - db
+    - app_id
+    - cohort_id
+    - events
+    returns: unknown
+  - name: csv_rows
+    args:
+    - text
+    returns: unknown
+  - name: restore_ledger
+    args:
+    - db
+    - app_id
+    - payload
+    returns: unknown
+  - name: validate_snapshot
+    args:
+    - payload
+    returns: unknown
+  - name: finance
+    args:
+    - events
+    - unit
+    returns: unknown
+  - name: apply_adjustment
+    args:
+    - event
+    - purchases
+    - refunds
+    - totals
+    - reversed_totals
+    - issues
+    returns: unknown
+  - name: report
+    args:
+    - cohort
+    - events
+    - as_of
+    returns: unknown
+  - name: eligible_events
+    args:
+    - events
+    - starts
+    - ends
+    returns: unknown
+  - name: funnel_counts
+    args:
+    - events
+    - starts
+    - ends
+    - maturity
+    returns: unknown
+  - name: observed_rate
+    args:
+    - total
+    - eligible
+    - available
+    returns: unknown
+- name: mission_control_marketing_agent_manifest
+  path: mission_control/marketing_agent_manifest.py
+  language: python
+  functions:
+  - name: operating_manifest
+    args:
+    - app
+    returns: unknown
+  - name: authorize_read
+    args:
+    - app
+    - binding
+    - data
+    returns: unknown
+  - name: authorize_source
+    args:
+    - policy
+    - binding
+    returns: unknown
+  - name: authorize_operation
+    args:
+    - policy
+    - binding
+    - data
+    returns: unknown
+  - name: authorize_release
+    args:
+    - policy
+    - data
+    returns: unknown
+dependencies: []
+invariants: []
