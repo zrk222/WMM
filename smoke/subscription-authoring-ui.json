@@ -1,0 +1,13 @@
+{
+  "checks": [
+    {
+      "name": "subscription-authoring-node",
+      "kind": "command",
+      "run": [
+        "node",
+        "--test",
+        "tests/subscription_authoring.test.cjs"
+      ]
+    }
+  ]
+}

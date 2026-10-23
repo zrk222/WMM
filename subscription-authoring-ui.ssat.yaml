@@ -1,0 +1,91 @@
+name: subscription-authoring-ui
+language: javascript
+modules:
+- name: subscription_authoring
+  path: mission_control/static/subscription-authoring.js
+  language: javascript
+  functions:
+  - name: current
+    args:
+    - state
+    returns: unknown
+  - name: sources
+    args:
+    - state
+    returns: unknown
+  - name: source
+    args:
+    - state
+    - id
+    returns: unknown
+  - name: panel
+    args:
+    - state
+    returns: unknown
+  - name: fields
+    args:
+    - mode
+    - state
+    - ui
+    returns: unknown
+  - name: billingFields
+    args:
+    - state
+    - ui
+    returns: unknown
+  - name: experimentFields
+    args:
+    - state
+    - ui
+    returns: unknown
+  - name: open
+    args:
+    - mode
+    - deps
+    returns: unknown
+  - name: billingData
+    args:
+    - values
+    returns: unknown
+  - name: variant
+    args:
+    - arm
+    - values
+    - state
+    - hashes
+    returns: unknown
+  - name: planData
+    args:
+    - values
+    - state
+    - hashes
+    returns: unknown
+  - name: payload
+    args:
+    - form
+    - values
+    - state
+    returns: unknown
+  - name: submit
+    args:
+    - form
+    - deps
+    returns: unknown
+  - name: report
+    args:
+    - state
+    - pages
+    - id
+    returns: unknown
+  - name: detail
+    args:
+    - id
+    - deps
+    returns: unknown
+  - name: action
+    args:
+    - node
+    - deps
+    returns: unknown
+dependencies: []
+invariants: []
