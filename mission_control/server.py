@@ -112,6 +112,9 @@ class Handler(BaseHTTPRequestHandler):
         """Return clear input errors and preserve existing state on operational failure."""
         try:
             path=urlparse(self.path).path
+            if write and path.startswith('/api/agent-operations/reviews/'):
+                from .agent_review_http import agent
+                return agent(self)
             if write and path=='/api/agent-operations/call':
                 from .agent_grant_http import call
                 return call(self)
@@ -357,7 +360,7 @@ class Handler(BaseHTTPRequestHandler):
     def post_data(self,path,parts):
         """Keep original per-route byte limits and strict duplicate/nonfinite checks."""
         raw=self.attribution_body(path,parts) if any(k in parts for k in ('setup-discovery','play','attribution','agent-access','social-access','social')) else self.body(self.post_limit(path,parts))
-        strict=any(kind in parts for kind in ('agent-grants','subscription-growth','customer-workflows','setup-discovery','play','attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
+        strict=any(kind in parts for kind in ('agent-reviews','agent-grants','subscription-growth','customer-workflows','setup-discovery','play','attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
         if strict:
             from .payment_signature import unique_pairs,bounded_tree
             data=json.loads(raw,object_pairs_hook=unique_pairs,parse_constant=lambda _:(_ for _ in ()).throw(Invalid('Nonfinite JSON is forbidden')))
@@ -448,7 +451,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(201,CampaignInputs(service.store).start(app_id,data))
         routes={"records":lambda:service.evidence(app_id,data),"jobs":lambda:service.queue(app_id,data),
                 "reviews":lambda:service.prepare_review(app_id,data),"cohorts":lambda:service.cohort(app_id,data),"events":lambda:service.events(app_id,data)}
-        handlers={"agent-grants":self.post_agent_grants,"setup-discovery":self.post_setup_discovery,"play":self.post_play,"experiment-tracking":self.post_tracking,"sequences":self.post_sequence,"resolutions":self.post_resolution,"release-selection":self.post_release_selection,"inspections":self.post_inspection,
+        handlers={"agent-reviews":self.post_agent_reviews,"agent-grants":self.post_agent_grants,"setup-discovery":self.post_setup_discovery,"play":self.post_play,"experiment-tracking":self.post_tracking,"sequences":self.post_sequence,"resolutions":self.post_resolution,"release-selection":self.post_release_selection,"inspections":self.post_inspection,
                   "pmf-research":self.post_pmf_research,"followup":self.post_followup,"aeo":self.post_aeo,
                   "insights":self.post_insights,"storekit":self.post_storekit,"attribution":self.post_attribution,
                   "connections":self.post_connection,"experiments":self.post_experiment,"references":self.post_reference,"production":self.post_production,"rankings":self.post_ranking,"acquisition":self.post_acquisition,"access":self.post_access,"verified-reviews":self.post_verified_review,"provider-actions":self.post_provider_action,"learning":self.post_learning,"payments":self.post_payments}
@@ -603,6 +606,13 @@ class Handler(BaseHTTPRequestHandler):
         from .agent_grant_http import owner
         user=self.server.identities.fresh(self.session())
         return self.send(200,owner(self.server.service.store,parts[2],parts[4:],user,data))
+
+    def post_agent_reviews(self,parts,data):
+        """Keep human approval outside bearer tools with fresh verified session identity."""
+        from .agent_review_http import human
+        if urlparse(self.path).query:raise Invalid('Use the exact human review address')
+        user=self.server.identities.fresh(self.session())
+        return self.send(200,human(self.server.service.store,parts[2],parts[4:],user,data))
 
     def post_access(self,parts,data):
         """Require fresh authenticated identity before app-scoped owner/member changes."""

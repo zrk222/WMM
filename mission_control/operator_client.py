@@ -110,7 +110,9 @@ class OperatorClient:
         payload=encode_body(body)
         headers={'Accept':'application/json','Origin':self.origin}
         if self.grant_token is not None:
-            if path!='/api/agent-operations/call':raise Invalid('Grant credentials may address only the scoped operation gateway')
+            from .agent_review_protocol import PATHS
+            if method!='POST' or path not in ('/api/agent-operations/call',*PATHS.values()):
+                raise Invalid('Grant credentials may address only fixed scoped operation gateways')
             headers['Authorization']='Bearer '+self.grant_token
         if payload is not None:
             headers.update({'Content-Type':'application/json','X-CSRF-Token':self.csrf or ''})
@@ -123,6 +125,13 @@ class OperatorClient:
             raise ClientError('HTTP_REJECTED','WMM rejected the operation; HTTP '+str(error.code)+'. Refresh current app/source data before retrying.',error.code) from error
         except (URLError,TimeoutError,OSError,HTTPException) as error:
             raise ClientError('TRANSPORT_UNAVAILABLE','The local WMM operation did not return a confirmed result. Inspect saved history before retrying a write.') from error
+
+    def review(self,action,body):
+        """Reviewed requests require a grant and never bootstrap a browser session."""
+        from .agent_review_protocol import validate
+        if self.grant_token is None:raise Invalid('Agent review actions require --use-grant')
+        path=validate(action,body);encode_body(body)
+        return self.request('POST',path,body)
 
 
 def encode_body(value):

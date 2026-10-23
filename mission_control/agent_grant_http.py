@@ -7,7 +7,7 @@ from .operation_runtime import execute
 CALL_PATH='/api/agent-operations/call'
 
 
-def gateway_token(handler):
+def gateway_token(handler,path=CALL_PATH):
     """Require unambiguous exact loopback headers and one bearer credential."""
     expected='127.0.0.1:'+str(handler.server.server_port)
     required={'Host':expected,'Origin':'http://'+expected}
@@ -15,7 +15,7 @@ def gateway_token(handler):
         if handler.headers.get_all(name)!=[value]:raise PermissionError('Use the exact local agent operation origin')
     auth=handler.headers.get_all('Authorization') or []
     if len(auth)!=1 or not auth[0].startswith('Bearer '):raise PermissionError('A scoped agent bearer grant is required')
-    if handler.path!=CALL_PATH:raise Invalid('Use the exact agent operation address')
+    if handler.path!=path:raise Invalid('Use the exact agent operation address')
     framing(handler)
     return auth[0][7:]
 

@@ -55,7 +55,7 @@ class ReviewedDispatchTests(unittest.TestCase):
         with self.assertRaises(Invalid):self.dispatch.prepare(self.token,'review-one',changed)
         replacement=self.issue_reviewed()
         with self.assertRaises(PermissionError):self.dispatch.inspect(replacement['token'],'sample-one','review-one')
-        with self.assertRaises(Invalid):self.dispatch.inspect(self.token,'sample-two','review-one')
+        with self.assertRaises(PermissionError):self.dispatch.inspect(self.token,'sample-two','review-one')
         self.assertEqual(self.dispatch.inspect(self.token,'sample-one','review-one')['envelope'],self.input)
 
     def test_revoked_grant_stale_checker_and_expiry_deny_before_effect(self):

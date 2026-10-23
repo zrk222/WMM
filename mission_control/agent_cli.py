@@ -10,10 +10,19 @@ from .operator_client import OperatorClient,ClientError,strict_json,MAX_BYTES,gr
 def parser():
     """Accept only a canonical local origin and operation data on stdin."""
     result=argparse.ArgumentParser(description='WMM trusted-local operation client; no human approval or provider-write commands.')
-    result.add_argument('command',choices=('catalog','call'))
+    result.add_argument('command',choices=('catalog','call','review-prepare','review-status','review-resume'))
     result.add_argument('--origin',help='Exact WMM origin, for example http://127.0.0.1:57599')
     result.add_argument('--use-grant',action='store_true',help='Use WMM_AGENT_GRANT from the process environment; never fall back to session authority')
     return result
+
+
+def operation_value(args,source):
+    """Validate the selected transport mode before reading or sending an operation."""
+    if not args.origin:raise Invalid('Operation commands require --origin http://127.0.0.1:PORT')
+    if args.command!='call' and not args.use_grant:raise Invalid('Reviewed request commands require --use-grant')
+    envelope=strict_json(source.read(MAX_BYTES+1))
+    client=OperatorClient(args.origin,grant_token=grant_environment(args.use_grant))
+    return client.call(envelope) if args.command=='call' else client.review(args.command.removeprefix('review-'),envelope)
 
 
 def main(argv=None,stdin=None,stdout=None,stderr=None):
@@ -26,10 +35,7 @@ def main(argv=None,stdin=None,stdout=None,stderr=None):
         if args.command=='catalog':
             value=catalog()
         else:
-            if not args.origin:
-                raise Invalid('call requires --origin http://127.0.0.1:PORT')
-            envelope=strict_json(source.read(MAX_BYTES+1))
-            value=OperatorClient(args.origin,grant_token=grant_environment(args.use_grant)).call(envelope)
+            value=operation_value(args,source)
         output.write(canonical(value)+'\n')
         return 0
     except Invalid as error:

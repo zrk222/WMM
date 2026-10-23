@@ -17,7 +17,7 @@ def argument_schema(rule):
     return dict(type='object',properties=properties,required=required,additionalProperties=False)
 
 
-def tool_definitions():
+def tool_definitions(include_reviews=False):
     """Describe effects without treating client-side hints as approval enforcement."""
     rows=[dict(name='wmm_catalog',description='Inspect fixed local operations, field requirements and remaining agent authority gaps.',
         inputSchema=dict(type='object',properties={},additionalProperties=False),
@@ -28,6 +28,9 @@ def tool_definitions():
             description=name+': '+rule['effect']+'. Local workspace only. Nested inputs use existing server validation. No automatic retry; inspect history after an unconfirmed write.',
             inputSchema=argument_schema(rule),
             annotations=dict(readOnlyHint=read,destructiveHint=not read,idempotentHint=read,openWorldHint=False)))
+    if include_reviews:
+        from .agent_review_protocol import tools
+        rows.extend(tools())
     return rows
 
 
@@ -36,6 +39,8 @@ def execute_tool(origin,name,arguments,grant_token=None):
     if name=='wmm_catalog':
         exact_keys(arguments,())
         return catalog()
+    if name.startswith('wmm_review_'):
+        return OperatorClient(origin,grant_token=grant_token).review(name.removeprefix('wmm_review_'),arguments)
     names={'wmm_'+operation.replace('.','_'):operation for operation in OPERATIONS}
     if name not in names:
         raise Invalid('Unknown or unauthorized WMM tool')
@@ -60,7 +65,7 @@ def create_server(origin,grant_token=None):
 
     @server.list_tools()
     async def list_tools():
-        return [Tool(**value) for value in tool_definitions()]
+        return [Tool(**value) for value in tool_definitions(include_reviews=grant_token is not None)]
 
     @server.call_tool()
     async def call_tool(name,arguments):

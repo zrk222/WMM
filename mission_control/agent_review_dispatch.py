@@ -3,7 +3,7 @@ from datetime import datetime,timezone
 import json
 from .common import Invalid,canonical,digest
 from .db import connection
-from .agent_grants import authenticated,consume
+from .agent_grants import authenticated,consume,token_digest
 from .agent_review_policy import operations
 from .agent_checkpoints import prepare_in_db,claim_in_db,read_row,persist
 from .operation_catalog import path_segment
@@ -19,6 +19,14 @@ def saved_request(db,app_id,identity):
     expected=digest(dict(grant_id=value['grant_id'],envelope=value['envelope']))
     if expected!=value['input_hash']:raise Invalid('Reviewed input integrity changed')
     return value
+
+
+def scoped_request(db,token,app_id,identity):
+    """Do not reveal request existence to a wrong token, app or replacement grant."""
+    row=db.execute('SELECT r.id FROM agent_review_requests r JOIN agent_grants g ON g.id=r.grant_id WHERE r.app_id=? AND r.id=? AND g.token_hash=?',
+        (app_id,identity,token_digest(token))).fetchone()
+    if not row:raise PermissionError('Reviewed request is unavailable to this grant')
+    return saved_request(db,app_id,identity)
 
 
 def grant_for_request(db,token,request,stamp,check_quota=True):
@@ -86,7 +94,7 @@ class ReviewedDispatch:
     def inspect(self,token,app_id,identity):
         """Current grant can inspect its receipt even after its call quota is exhausted."""
         with connection(self.service.store.path) as db:
-            request=saved_request(db,app_id,identity)
+            request=scoped_request(db,token,app_id,identity)
             grant_for_request(db,token,request,self.clock(),check_quota=False)
             return request_view(db,request)
 
@@ -94,7 +102,7 @@ class ReviewedDispatch:
         """Revalidate delegation and exclusively claim only the saved approved input."""
         with connection(self.service.store.path) as db:
             db.execute('BEGIN IMMEDIATE')
-            request=saved_request(db,app_id,identity)
+            request=scoped_request(db,token,app_id,identity)
             grant=grant_for_request(db,token,request,self.clock())
             view=request_view(db,request)
             if view['result'] is not None:raise Invalid('Reviewed request already has a receipt')

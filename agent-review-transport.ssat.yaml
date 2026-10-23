@@ -1,0 +1,236 @@
+name: agent-review-transport
+language: python
+modules:
+- name: agent_review_protocol
+  path: mission_control/agent_review_protocol.py
+  language: python
+  functions:
+  - name: validate
+    args:
+    - action
+    - body
+    returns: object
+  - name: schema
+    args:
+    - action
+    returns: object
+  - name: tools
+    args: []
+    returns: object
+- name: agent_review_http
+  path: mission_control/agent_review_http.py
+  language: python
+  functions:
+  - name: agent
+    args:
+    - handler
+    returns: object
+  - name: queue
+    args:
+    - store
+    - app_id
+    - user
+    - body
+    returns: object
+  - name: queue_item
+    args:
+    - view
+    returns: object
+  - name: human
+    args:
+    - store
+    - app_id
+    - action
+    - user
+    - body
+    returns: object
+- name: agent_grant_http
+  path: mission_control/agent_grant_http.py
+  language: python
+  functions:
+  - name: gateway_token
+    args:
+    - handler
+    - path
+    returns: object
+  - name: framing
+    args:
+    - handler
+    returns: object
+  - name: call
+    args:
+    - handler
+    returns: object
+  - name: owner
+    args:
+    - store
+    - app_id
+    - action
+    - user
+    - body
+    returns: object
+- name: operator_client
+  path: mission_control/operator_client.py
+  language: python
+  functions:
+  - name: origin_data
+    args:
+    - value
+    returns: object
+  - name: unique_pairs
+    args:
+    - pairs
+    returns: object
+  - name: invalid_constant
+    args:
+    - value
+    returns: object
+  - name: strict_json
+    args:
+    - raw
+    returns: object
+  - name: response_data
+    args:
+    - response
+    returns: object
+  - name: encode_body
+    args:
+    - value
+    returns: object
+  - name: grant_environment
+    args:
+    - enabled
+    returns: object
+- name: agent_cli
+  path: mission_control/agent_cli.py
+  language: python
+  functions:
+  - name: parser
+    args: []
+    returns: object
+  - name: operation_value
+    args:
+    - args
+    - source
+    returns: object
+  - name: main
+    args:
+    - argv
+    - stdin
+    - stdout
+    - stderr
+    returns: object
+- name: agent_mcp
+  path: mission_control/agent_mcp.py
+  language: python
+  functions:
+  - name: argument_schema
+    args:
+    - rule
+    returns: object
+  - name: tool_definitions
+    args:
+    - include_reviews
+    returns: object
+  - name: execute_tool
+    args:
+    - origin
+    - name
+    - arguments
+    - grant_token
+    returns: object
+  - name: create_server
+    args:
+    - origin
+    - grant_token
+    returns: object
+  - name: serve
+    args:
+    - origin
+    - grant_token
+    returns: object
+  - name: main
+    args:
+    - argv
+    returns: object
+- name: agent_review_dispatch
+  path: mission_control/agent_review_dispatch.py
+  language: python
+  functions:
+  - name: saved_request
+    args:
+    - db
+    - app_id
+    - identity
+    returns: object
+  - name: scoped_request
+    args:
+    - db
+    - token
+    - app_id
+    - identity
+    returns: object
+  - name: grant_for_request
+    args:
+    - db
+    - token
+    - request
+    - stamp
+    - check_quota
+    returns: object
+  - name: request_view
+    args:
+    - db
+    - request
+    returns: object
+  - name: run_operation
+    args:
+    - service
+    - envelope
+    returns: object
+  - name: result_receipt
+    args:
+    - value
+    returns: object
+- name: test_agent_review_dispatch
+  path: tests/test_agent_review_dispatch.py
+  language: python
+  functions: []
+- name: test_agent_review_http
+  path: tests/test_agent_review_http.py
+  language: python
+  functions: []
+- name: test_agent_review_clients
+  path: tests/test_agent_review_clients.py
+  language: python
+  functions: []
+dependencies:
+- from: agent_review_http
+  to: agent_grant_http
+- from: agent_review_http
+  to: operator_client
+- from: agent_review_http
+  to: agent_review_protocol
+- from: agent_review_http
+  to: agent_review_dispatch
+- from: agent_grant_http
+  to: operator_client
+- from: operator_client
+  to: agent_review_protocol
+- from: agent_cli
+  to: operator_client
+- from: agent_mcp
+  to: operator_client
+- from: agent_mcp
+  to: agent_review_protocol
+- from: agent_review_dispatch
+  to: operator_client
+- from: test_agent_review_dispatch
+  to: agent_review_dispatch
+- from: test_agent_review_http
+  to: operator_client
+- from: test_agent_review_http
+  to: agent_review_protocol
+- from: test_agent_review_clients
+  to: operator_client
+invariants: []
