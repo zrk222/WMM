@@ -4,7 +4,7 @@ import json
 import sys
 from .common import Invalid,canonical
 from .operation_catalog import catalog
-from .operator_client import OperatorClient,ClientError,strict_json,MAX_BYTES
+from .operator_client import OperatorClient,ClientError,strict_json,MAX_BYTES,grant_environment
 
 
 def parser():
@@ -12,6 +12,7 @@ def parser():
     result=argparse.ArgumentParser(description='WMM trusted-local operation client; no human approval or provider-write commands.')
     result.add_argument('command',choices=('catalog','call'))
     result.add_argument('--origin',help='Exact WMM origin, for example http://127.0.0.1:57599')
+    result.add_argument('--use-grant',action='store_true',help='Use WMM_AGENT_GRANT from the process environment; never fall back to session authority')
     return result
 
 
@@ -28,7 +29,7 @@ def main(argv=None,stdin=None,stdout=None,stderr=None):
             if not args.origin:
                 raise Invalid('call requires --origin http://127.0.0.1:PORT')
             envelope=strict_json(source.read(MAX_BYTES+1))
-            value=OperatorClient(args.origin).call(envelope)
+            value=OperatorClient(args.origin,grant_token=grant_environment(args.use_grant)).call(envelope)
         output.write(canonical(value)+'\n')
         return 0
     except Invalid as error:

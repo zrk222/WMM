@@ -77,8 +77,11 @@ def response_data(response):
 
 class OperatorClient:
     """Use existing trusted-local API semantics; this client grants no extra authority."""
-    def __init__(self,origin):
+    def __init__(self,origin,grant_token=None):
         self.origin=origin_data(origin)
+        if grant_token is not None and (not isinstance(grant_token,str) or not re.fullmatch(r'wmmg_[A-Za-z0-9_-]{43}',grant_token)):
+            raise Invalid('Use a valid WMM agent grant credential')
+        self.grant_token=grant_token
         self.csrf=None
         self.cookies=CookieJar()
         self.opener=build_opener(ProxyHandler({}),HTTPCookieProcessor(self.cookies),NoRedirect())
@@ -96,6 +99,8 @@ class OperatorClient:
         value=request_data(envelope)
         # Validate serialization and size before creating a session.
         encode_body(value['body'])
+        if self.grant_token is not None:
+            return self.request('POST','/api/agent-operations/call',envelope)
         if self.csrf is None:
             self.bootstrap()
         return self.request(value['method'],value['path'],value['body'])
@@ -104,6 +109,9 @@ class OperatorClient:
         """Execute one internal fixed route with exact origin, cookie and CSRF boundaries."""
         payload=encode_body(body)
         headers={'Accept':'application/json','Origin':self.origin}
+        if self.grant_token is not None:
+            if path!='/api/agent-operations/call':raise Invalid('Grant credentials may address only the scoped operation gateway')
+            headers['Authorization']='Bearer '+self.grant_token
         if payload is not None:
             headers.update({'Content-Type':'application/json','X-CSRF-Token':self.csrf or ''})
         request=Request(self.origin+path,data=payload,headers=headers,method=method)
@@ -128,3 +136,13 @@ def encode_body(value):
     if len(raw)>MAX_BYTES:
         raise Invalid('Operation input exceeds 16777216 bytes')
     return raw
+
+
+def grant_environment(enabled):
+    """Read an explicitly enabled host-supplied credential without command arguments."""
+    if not enabled:return None
+    import os
+    value=os.environ.get('WMM_AGENT_GRANT')
+    if not value or not re.fullmatch(r'wmmg_[A-Za-z0-9_-]{43}',value):
+        raise Invalid('--use-grant requires WMM_AGENT_GRANT in the process environment')
+    return value

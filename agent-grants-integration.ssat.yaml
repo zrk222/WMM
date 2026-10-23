@@ -1,0 +1,206 @@
+name: agent-grants
+language: python
+modules:
+- name: agent_grants
+  path: mission_control/agent_grants.py
+  language: python
+  functions:
+  - name: token_digest
+    args:
+    - token
+    returns: object
+  - name: issue_data
+    args:
+    - body
+    - observed
+    returns: object
+  - name: public
+    args:
+    - row
+    returns: object
+  - name: app_scope
+    args:
+    - db
+    - app_id
+    returns: object
+  - name: current
+    args:
+    - db
+    - row
+    - envelope
+    - observed
+    returns: object
+- name: agent_grant_http
+  path: mission_control/agent_grant_http.py
+  language: python
+  functions:
+  - name: gateway_token
+    args:
+    - handler
+    returns: object
+  - name: framing
+    args:
+    - handler
+    returns: object
+  - name: call
+    args:
+    - handler
+    returns: object
+  - name: owner
+    args:
+    - store
+    - app_id
+    - action
+    - user
+    - body
+    returns: object
+- name: operation_runtime
+  path: mission_control/operation_runtime.py
+  language: python
+  functions:
+  - name: execute
+    args:
+    - service
+    - envelope
+    returns: object
+- name: test_agent_grants
+  path: tests/test_agent_grants.py
+  language: python
+  functions: []
+- name: test_agent_grant_clients
+  path: tests/test_agent_grant_clients.py
+  language: python
+  functions: []
+- name: operator_client
+  path: mission_control/operator_client.py
+  language: python
+  functions:
+  - name: origin_data
+    args:
+    - value
+    returns: object
+  - name: unique_pairs
+    args:
+    - pairs
+    returns: object
+  - name: invalid_constant
+    args:
+    - value
+    returns: object
+  - name: strict_json
+    args:
+    - raw
+    returns: object
+  - name: response_data
+    args:
+    - response
+    returns: object
+  - name: encode_body
+    args:
+    - value
+    returns: object
+  - name: grant_environment
+    args:
+    - enabled
+    returns: object
+- name: agent_cli
+  path: mission_control/agent_cli.py
+  language: python
+  functions:
+  - name: parser
+    args: []
+    returns: object
+  - name: main
+    args:
+    - argv
+    - stdin
+    - stdout
+    - stderr
+    returns: object
+- name: agent_mcp
+  path: mission_control/agent_mcp.py
+  language: python
+  functions:
+  - name: argument_schema
+    args:
+    - rule
+    returns: object
+  - name: tool_definitions
+    args: []
+    returns: object
+  - name: execute_tool
+    args:
+    - origin
+    - name
+    - arguments
+    - grant_token
+    returns: object
+  - name: create_server
+    args:
+    - origin
+    - grant_token
+    returns: object
+  - name: serve
+    args:
+    - origin
+    - grant_token
+    returns: object
+  - name: main
+    args:
+    - argv
+    returns: object
+- name: server
+  path: mission_control/server.py
+  language: python
+  functions:
+  - name: media_range
+    args:
+    - value
+    - size
+    returns: object
+  - name: check_timezone_support
+    args: []
+    returns: object
+  - name: main
+    args: []
+    returns: object
+- name: db
+  path: mission_control/db.py
+  language: python
+  functions:
+  - name: connection
+    args:
+    - path
+    returns: object
+  - name: initialize
+    args:
+    - path
+    returns: object
+dependencies:
+- from: agent_grants
+  to: db
+- from: agent_grant_http
+  to: agent_grants
+- from: agent_grant_http
+  to: operator_client
+- from: agent_grant_http
+  to: operation_runtime
+- from: test_agent_grants
+  to: agent_grants
+- from: test_agent_grants
+  to: db
+- from: test_agent_grants
+  to: operator_client
+- from: test_agent_grants
+  to: server
+- from: agent_cli
+  to: operator_client
+- from: agent_mcp
+  to: operator_client
+- from: server
+  to: server
+- from: server
+  to: db
+- from: server
+  to: agent_grant_http
+invariants: []

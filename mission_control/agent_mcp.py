@@ -2,7 +2,7 @@
 import argparse
 from .common import Invalid,canonical
 from .operation_catalog import OPERATIONS,catalog,exact_keys,request_data
-from .operator_client import OperatorClient,ClientError,origin_data
+from .operator_client import OperatorClient,ClientError,origin_data,grant_environment
 
 
 def argument_schema(rule):
@@ -31,7 +31,7 @@ def tool_definitions():
     return rows
 
 
-def execute_tool(origin,name,arguments):
+def execute_tool(origin,name,arguments,grant_token=None):
     """Resolve only fixed tools; create an isolated in-memory HTTP session per call."""
     if name=='wmm_catalog':
         exact_keys(arguments,())
@@ -46,10 +46,10 @@ def execute_tool(origin,name,arguments):
     if 'operation' in arguments:
         raise Invalid('Tool name fixes the operation')
     request_data(envelope)
-    return OperatorClient(origin).call(envelope)
+    return OperatorClient(origin,grant_token=grant_token).call(envelope)
 
 
-def create_server(origin):
+def create_server(origin,grant_token=None):
     """Use the official SDK for MCP lifecycle, schemas and stdio protocol handling."""
     import anyio
     from mcp.server.lowlevel import Server
@@ -65,17 +65,17 @@ def create_server(origin):
     @server.call_tool()
     async def call_tool(name,arguments):
         try:
-            value=await anyio.to_thread.run_sync(execute_tool,origin,name,arguments)
+            value=await anyio.to_thread.run_sync(execute_tool,origin,name,arguments,grant_token)
             return dict(data=value)
         except ClientError as error:
             raise Invalid(canonical(dict(code=error.code,message=str(error),http_status=error.status))) from None
     return server
 
 
-def serve(origin):
+def serve(origin,grant_token=None):
     """Build a stdio runner; closing the client session terminates the adapter."""
     from mcp.server.stdio import stdio_server
-    server=create_server(origin)
+    server=create_server(origin,grant_token=grant_token)
     async def run():
         async with stdio_server() as (reader,writer):
             await server.run(reader,writer,server.create_initialization_options())
@@ -87,11 +87,12 @@ def main(argv=None):
     import sys
     parser=argparse.ArgumentParser(description='WMM optional MCP stdio server over fixed local operations.')
     parser.add_argument('--origin',required=True,help='Exact local WMM origin, e.g. http://127.0.0.1:57599')
+    parser.add_argument('--use-grant',action='store_true',help='Use WMM_AGENT_GRANT from the process environment')
     args=parser.parse_args(argv)
     try:
         origin_data(args.origin)
         import anyio
-        anyio.run(serve(args.origin))
+        anyio.run(serve(args.origin,grant_token=grant_environment(args.use_grant)))
         return 0
     except ImportError:
         print('MCP requires the optional dependencies in docs/requirements-mcp.txt; install them in your selected Python environment.',file=sys.stderr)
