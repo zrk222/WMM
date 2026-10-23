@@ -28,10 +28,11 @@ test("page_explainers covers exactly every top-level navigation view", () => {
     assert.ok(model.metrics.length >= 2 && model.metrics.every(m=>m.source && m.unit));
   }
 });
-test("overview_story explains what, how, outcomes and control without a growth promise", () => {
+test("overview_story names purpose, inputs, operations and delivered artifacts directly", () => {
   const html = reports.overviewStory();
-  for (const phrase of ["Start with your app","Prepare useful work","Learn and improve","What can you expect?","A saved plan","You control decisions","cannot guarantee"]) assert.ok(html.includes(phrase));
-  assert.equal((html.match(/<li>/g)||[]).length,3);
+  for (const phrase of ["preparing and measuring app marketing","Tell WMM about your app","Bring in the evidence","usage, purchase and refund events","account connections","Prepare and check the work","six creative briefs","conversion, acquisition cost and contribution","Take the deliverables","twelve stage packets","experiment plans","PDF reports","Start here"]) assert.ok(html.includes(phrase));
+  assert.equal((html.match(/<li>/g)||[]).length,4);
+  assert.ok(!/\b(?:may|might|could|helps|can)\b/i.test(html));
   assert.ok(!html.includes("guaranteed growth"));
   assert.ok(!html.includes("OAuth") && !html.includes("schema") && !html.includes("cohort"));
 });
