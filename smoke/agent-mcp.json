@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "mcp-stdio-two-client-conformance",
+      "kind": "python",
+      "run": "import unittest; from tests.test_agent_mcp import HAS_MCP; assert HAS_MCP, 'MCP SDK required for adapter acceptance'; s=unittest.defaultTestLoader.loadTestsFromName('tests.test_agent_mcp'); assert s.countTestCases()==6; r=unittest.TextTestRunner(verbosity=1).run(s); assert r.wasSuccessful() and not r.skipped"
+    }
+  ]
+}

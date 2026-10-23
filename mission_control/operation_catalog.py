@@ -1,4 +1,4 @@
-"""Fixed local upgrade operations shared by CLI and future protocol adapters."""
+"""Fixed local upgrade operations shared by CLI and MCP protocol adapters."""
 import copy
 import re
 from .common import Invalid,digest
@@ -36,7 +36,7 @@ def catalog():
         transport='EXACT_LOOPBACK_HTTP_WITH_IN_MEMORY_SESSION',
         authority='TRUSTED_LOCAL_CLIENT_ONLY; session possession is not authenticated human approval or a scoped agent grant.',
         denied=['human_approval','identity_login','credentials','provider_mutation','publish','spend','arbitrary_http','shell_execution'],
-        full_agent_operation=False,remaining=['Scoped authenticated agent identities/grants','Independent human checkpoint dispatch/resume','Full-domain operation coverage','MCP adapter and two-client conformance'])
+        full_agent_operation=False,remaining=['Scoped authenticated agent identities/grants','Independent human checkpoint dispatch/resume','Full-domain operation coverage','Full-domain CLI/MCP conformance'])
     return dict(value,catalog_sha256=digest(value))
 
 
