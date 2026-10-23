@@ -2,6 +2,7 @@
 from .common import digest
 from .marketing_agent_manifest import operating_manifest
 from .agent_feedback import TOOLS
+from .operation_catalog import catalog
 
 
 def discovery(app):
@@ -11,7 +12,7 @@ def discovery(app):
     tools = policy["supported_resolution_tools"]
     missing_feedback = sorted(set(tools) - set(TOOLS))
     value = {"schema": "growth.agent-operations.v1", "app_id": app["id"],
-        "manifest_version": app["version"], "app_hash": digest(app["data"]),
+        "manifest_version": app["version"], "app_hash": digest(app["data"]), "local_catalog": catalog(),
         "policy_sha256": digest(policy), "transport": "LOOPBACK_HTTP_JSON",
         "protocol_clients": "Any authorized local client implementing this versioned HTTP/JSON contract",
         "bootstrap": {"method": "GET", "path": "/api/bootstrap",

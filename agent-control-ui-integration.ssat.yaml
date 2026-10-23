@@ -1,0 +1,176 @@
+name: agent-control-ui-integration
+language: javascript
+modules:
+- name: agent_control
+  path: mission_control/static/agent-control.js
+  language: javascript
+  functions:
+  - name: identity
+    args:
+    - state
+    returns: unknown
+  - name: role
+    args:
+    - state
+    returns: unknown
+  - name: scope
+    args:
+    - state
+    returns: unknown
+  - name: same
+    args:
+    - saved
+    - state
+    returns: unknown
+  - name: requireScope
+    args:
+    - saved
+    - state
+    returns: unknown
+  - name: valid
+    args:
+    - ticket
+    - deps
+    returns: unknown
+  - name: clear
+    args: []
+    returns: unknown
+  - name: invalidate
+    args:
+    - state
+    returns: unknown
+  - name: panel
+    args:
+    - state
+    returns: unknown
+  - name: show
+    args:
+    - deps
+    - title
+    - kind
+    - data
+    - markup
+    - saved=scope(deps.state
+    returns: unknown
+  - name: reportButton
+    args: []
+    returns: unknown
+  - name: grantMarkup
+    args:
+    - data
+    returns: unknown
+  - name: load
+    args:
+    - deps
+    - kind
+    - body={}
+    returns: unknown
+  - name: queueMarkup
+    args:
+    - data
+    returns: unknown
+  - name: permissions
+    args:
+    - view
+    - state
+    returns: unknown
+  - name: detailMarkup
+    args:
+    - view
+    - state
+    returns: unknown
+  - name: inspect
+    args:
+    - deps
+    - id
+    returns: unknown
+  - name: grantForm
+    args:
+    - operations
+    returns: unknown
+  - name: newGrant
+    args:
+    - deps
+    returns: unknown
+  - name: issueBody
+    args:
+    - values
+    - operations
+    - saved
+    - now=Date.now(
+    returns: unknown
+  - name: validLimits
+    args:
+    - hours
+    - calls
+    returns: unknown
+  - name: tokenMarkup
+    args:
+    - issued
+    returns: unknown
+  - name: reconciliationForm
+    args: []
+    returns: unknown
+  - name: submit
+    args:
+    - form
+    - deps
+    returns: unknown
+  - name: formError
+    args:
+    - ticket
+    - form
+    - error
+    returns: unknown
+  - name: transition
+    args:
+    - deps
+    - command
+    returns: unknown
+  - name: report
+    args:
+    - ticket
+    - state
+    - reports
+    returns: unknown
+  - name: revoke
+    args:
+    - deps
+    returns: unknown
+  - name: revokeOpen
+    args:
+    - node
+    - deps
+    - ticket
+    returns: unknown
+  - name: reveal
+    args:
+    - ticket
+    returns: unknown
+  - name: savedAction
+    args:
+    - command
+    - node
+    - deps
+    returns: unknown
+  - name: action
+    args:
+    - node
+    - deps
+    returns: unknown
+- name: app
+  path: mission_control/static/app.js
+  language: javascript
+  functions: []
+- name: agent_operations
+  path: mission_control/agent_operations.py
+  language: python
+  functions: []
+- name: server
+  path: mission_control/server.py
+  language: python
+  functions: []
+dependencies:
+- from: server
+  to: agent_operations
+invariants: []

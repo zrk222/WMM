@@ -62,6 +62,7 @@ function currentWorkspace() {
 }
 
 function render() {
+  WMMAgentControl.invalidate(state);
   $("#edit-app").disabled=!currentWorkspace();
   document.querySelectorAll(".nav-item").forEach(node=>{
     node.classList.toggle("active",node.dataset.view===state.view);
@@ -77,6 +78,7 @@ function render() {
   $("#main").setAttribute("aria-busy","false");
   const views={weekly:weeklyView,overview:overview,workflow:guidedView,pipeline:pipelineView,evidence:evidenceView,results:resultsView,connections:connectionsView,agents:agentAccessView,activity:activityView,research:researchView};
   $("#main").innerHTML=views[state.view]();
+  if(["agents","activity"].includes(state.view))$("#main .page-heading").insertAdjacentHTML("afterend",WMMAgentControl.panel(state));
   if(state.view==="overview")$("#main .hero").insertAdjacentHTML("afterend",WMMPageReports.overviewStory()+guidedOverviewPanel());
   automationDecorateWorkflow();
   WMMPageReports.decorate(state,document);
@@ -481,6 +483,7 @@ function activityView() {
 }
 
 function modal(title,html,eyebrow="WORKSPACE") {
+  WMMAgentControl.clear();
   $("#modal-title").textContent=title;$("#modal-eyebrow").textContent=eyebrow;$("#modal-body").innerHTML=html;
   automationAttach();
   if(!$("#modal").open) $("#modal").showModal();
@@ -731,6 +734,7 @@ async function formSubmit(event) {
     event.preventDefault();toast("App changed. Wait for this app to load and reopen the form.");return;
   }
   const formId=form.getAttribute("id");
+  if((formId||"").startsWith("control-")) {event.preventDefault();return WMMAgentControl.submit(form,growthReviewServices());}
   if(formId==="subscription-plan-form") {event.preventDefault();return WMMSubscriptionAuthoring.submit(form,growthReviewServices());}
   if(formId==="customer-workflow-form") {event.preventDefault();return WMMCustomerWorkflow.submit(form,growthReviewServices());}
   if(formId==="growth-review-form") {event.preventDefault();return WMMGrowthReview.submit(form,growthReviewServices());}
@@ -829,6 +833,7 @@ async function saveEvidence(data,form) {
 async function handleAction(node) {
   if(node.dataset.action==="retry-workspace")return refresh();
   if(!currentWorkspace()&&!["reload","close","add-app"].includes(node.dataset.action))return toast("Wait for this app to load, then try again.");
+  if(node.dataset.action.startsWith("control-"))return WMMAgentControl.action(node,growthReviewServices());
   if(node.dataset.action.startsWith("growth-"))return WMMGrowthReview.action(node,growthReviewServices());
   if(node.dataset.action.startsWith("subscription-plan-"))return WMMSubscriptionAuthoring.action(node,growthReviewServices());
   if(node.dataset.action.startsWith("customer-"))return WMMCustomerWorkflow.action(node,growthReviewServices());
@@ -900,7 +905,7 @@ $("#app-select").addEventListener("change",async event=>{state.app=event.target.
 $("#add-app").addEventListener("click",()=>appForm(true));
 $("#edit-app").addEventListener("click",()=>appForm(false));
 $("#close-modal").addEventListener("click",()=>$("#modal").close());
-$("#modal").addEventListener("close",()=>delete $("#modal-body").dataset.job);
+$("#modal").addEventListener("close",()=>{WMMAgentControl.clear();delete $("#modal-body").dataset.job;});
 document.addEventListener("input",event=>{
   if(event.target.id==="reference-search"){const position=event.target.selectionStart;state.referenceFilter=event.target.value;render();$("#reference-search").focus();$("#reference-search").setSelectionRange(position,position);return;}
   if(event.target.closest("#experiment-form"))return samplePreview();

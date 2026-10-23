@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "human-control-ui-contract",
+      "kind": "python",
+      "run": "import subprocess; subprocess.run(['node','--test','tests/agent_control.test.cjs'],check=True); subprocess.run(['python','-m','unittest','tests.test_agent_control_ui','-v'],check=True)"
+    }
+  ]
+}
