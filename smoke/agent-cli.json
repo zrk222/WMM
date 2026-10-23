@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "closed-loopback-cli",
+      "kind": "python",
+      "run": "import unittest; names=['tests.test_operation_catalog','tests.test_operator_client','tests.test_agent_cli']; s=unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromName(n) for n in names); assert s.countTestCases()==15; r=unittest.TextTestRunner(verbosity=1).run(s); assert r.wasSuccessful()"
+    }
+  ]
+}

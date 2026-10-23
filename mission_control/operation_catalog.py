@@ -1,0 +1,79 @@
+"""Fixed local upgrade operations shared by CLI and future protocol adapters."""
+import copy
+import re
+from .common import Invalid,digest
+
+
+def descriptor(method,suffix,effect,required=(),optional=(),resource=False):
+    """Describe a closed envelope; nested domain validation remains server authoritative."""
+    return dict(method=method,suffix=suffix,effect=effect,required=list(required),optional=list(optional),resource=resource)
+
+
+OPERATIONS={
+    'workspace.read':descriptor('GET','','READ_PRIVATE_LOCAL_DATA'),
+    'operations.read':descriptor('GET','/agent-operations','READ_LOCAL_POLICY'),
+    'growth.read':descriptor('GET','/subscription-growth','READ_PRIVATE_LOCAL_DATA'),
+    'growth.history':descriptor('GET','/subscription-growth/history','READ_PRIVATE_LOCAL_DATA'),
+    'growth.save':descriptor('POST','/subscription-growth/entries','WRITE_LOCAL_EVIDENCE',('id','manifest_version','kind','data')),
+    'customer.history':descriptor('GET','/customer-workflows','READ_PRIVATE_LOCAL_DATA'),
+    'customer.save':descriptor('POST','/customer-workflows','WRITE_LOCAL_EVIDENCE',('id','manifest_version','data')),
+    'measurement.read':descriptor('GET','/measurement','READ_PRIVATE_LOCAL_DATA'),
+    'snapshot.export':descriptor('GET','/export','READ_PRIVATE_LOCAL_DATA'),
+    'cohort.define':descriptor('POST','/cohorts','WRITE_LOCAL_EVIDENCE',('cohort_id','release','platform','locale','currency','starts_at','ends_at','matures_at','attribution_method','observability','source')),
+    'events.import':descriptor('POST','/events','WRITE_LOCAL_EVIDENCE',('cohort_id','events')),
+    'billing.save':descriptor('POST','/records','WRITE_LOCAL_EVIDENCE',('id','manifest_version','kind','title','source','data')),
+    'experiment.register':descriptor('POST','/experiments','WRITE_LOCAL_PLAN',('manifest_version','name','hypothesis','owner','primary_metric','baseline_rate','minimum_detectable_effect','treatment_allocation','analysis_at','assignment_method','assignment_source','guardrails','stop_rule','rollback_plan','control','treatment')),
+    'experiment.evaluate':descriptor('POST','/experiments/{resource_id}/evaluate','WRITE_LOCAL_ASSESSMENT',(),(),True),
+    'experiment.action':descriptor('POST','/experiments/{resource_id}/actions','WRITE_LOCAL_DECISION',('operation','version'),('source','observed_at','decision','reason','assessment_hash','target'),True)
+}
+
+
+def catalog():
+    """Return inspectable transport capabilities without granting agent or human authority."""
+    value=dict(schema='growth.operation-catalog.v1',operations=copy.deepcopy(OPERATIONS),
+        envelope=dict(required=['app_id','operation','input'],optional=['resource_id']),
+        input_validation='Exact top-level fields here; authoritative nested domain checks run on the existing server.',
+        transport='EXACT_LOOPBACK_HTTP_WITH_IN_MEMORY_SESSION',
+        authority='TRUSTED_LOCAL_CLIENT_ONLY; session possession is not authenticated human approval or a scoped agent grant.',
+        denied=['human_approval','identity_login','credentials','provider_mutation','publish','spend','arbitrary_http','shell_execution'],
+        full_agent_operation=False,remaining=['Scoped authenticated agent identities/grants','Independent human checkpoint dispatch/resume','Full-domain operation coverage','MCP adapter and two-client conformance'])
+    return dict(value,catalog_sha256=digest(value))
+
+
+def path_segment(value):
+    """Do not permit query, encoded slash, traversal, host or arbitrary path injection."""
+    if not isinstance(value,str) or not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,199}',value):
+        raise Invalid('Use a lowercase app or resource identifier containing letters, digits and hyphens')
+    return value
+
+
+def exact_keys(value,required,optional=()):
+    """Close protocol boundaries before any transport or bootstrap side effect."""
+    if not isinstance(value,dict) or set(required)-set(value) or set(value)-set(required)-set(optional):
+        raise Invalid('Operation fields must match the declared required and optional names')
+
+
+def local_constraints(operation,body):
+    """Limit existing general record/action routes to the intended local evidence domain."""
+    if operation=='billing.save' and body['kind']!='billing':
+        raise Invalid('billing.save accepts billing evidence only')
+    if operation=='experiment.action' and body['operation'] not in ('observe','decide','cancel','rollback'):
+        raise Invalid('Use only the existing local experiment lifecycle actions')
+
+
+def request_data(envelope):
+    """Validate a catalog call and resolve only its fixed app-owned route."""
+    exact_keys(envelope,('app_id','operation','input'),('resource_id',))
+    app_id=path_segment(envelope['app_id'])
+    name=envelope['operation']
+    if not isinstance(name,str) or name not in OPERATIONS:
+        raise Invalid('Unknown or unauthorized operation; inspect the fixed catalog')
+    rule=OPERATIONS[name]
+    exact_keys(envelope['input'],rule['required'],rule['optional'])
+    suffix=rule['suffix']
+    if rule['resource']:
+        suffix=suffix.replace('{resource_id}',path_segment(envelope.get('resource_id')))
+    elif 'resource_id' in envelope:
+        raise Invalid('This operation has no resource identifier')
+    local_constraints(name,envelope['input'])
+    return dict(method=rule['method'],path='/api/apps/'+app_id+suffix,body=envelope['input'] if rule['method']=='POST' else None)

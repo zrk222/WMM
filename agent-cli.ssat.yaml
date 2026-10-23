@@ -1,0 +1,104 @@
+name: agent-cli
+language: python
+modules:
+- name: operation_catalog
+  path: mission_control/operation_catalog.py
+  language: python
+  functions:
+  - name: descriptor
+    args:
+    - method
+    - suffix
+    - effect
+    - required
+    - optional
+    - resource
+    returns: object
+  - name: catalog
+    args: []
+    returns: object
+  - name: path_segment
+    args:
+    - value
+    returns: object
+  - name: exact_keys
+    args:
+    - value
+    - required
+    - optional
+    returns: object
+  - name: local_constraints
+    args:
+    - operation
+    - body
+    returns: object
+  - name: request_data
+    args:
+    - envelope
+    returns: object
+- name: operator_client
+  path: mission_control/operator_client.py
+  language: python
+  functions:
+  - name: origin_data
+    args:
+    - value
+    returns: object
+  - name: unique_pairs
+    args:
+    - pairs
+    returns: object
+  - name: invalid_constant
+    args:
+    - value
+    returns: object
+  - name: strict_json
+    args:
+    - raw
+    returns: object
+  - name: response_data
+    args:
+    - response
+    returns: object
+  - name: encode_body
+    args:
+    - value
+    returns: object
+- name: agent_cli
+  path: mission_control/agent_cli.py
+  language: python
+  functions:
+  - name: parser
+    args: []
+    returns: object
+  - name: main
+    args:
+    - argv
+    - stdin
+    - stdout
+    - stderr
+    returns: object
+- name: test_operation_catalog
+  path: tests/test_operation_catalog.py
+  language: python
+  functions: []
+- name: test_operator_client
+  path: tests/test_operator_client.py
+  language: python
+  functions: []
+- name: test_agent_cli
+  path: tests/test_agent_cli.py
+  language: python
+  functions: []
+dependencies:
+- from: operator_client
+  to: operation_catalog
+- from: agent_cli
+  to: operation_catalog
+- from: agent_cli
+  to: operator_client
+- from: test_operation_catalog
+  to: operation_catalog
+- from: test_operator_client
+  to: operator_client
+invariants: []
