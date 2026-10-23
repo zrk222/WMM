@@ -37,13 +37,21 @@ def profile(body):
     profile_identity(body)
     profile_secret(provider,body['api_key'])
     return dict(provider=provider,label=required(body['label'],'Connection name',100),
-        model=model_id(body['model'],entry['mode']=='byok'),endpoint=endpoint,
+        model=model_id(body['model'],entry['mode'] in ('byok','local')),endpoint=endpoint,
         allow_api_charges=body['allow_api_charges'],capabilities=list(TASKS),quota='UNKNOWN')
 
 
 def profile_endpoint(body,entry):
     """Bind endpoint identity and independent charge consent to the adapter mode."""
     charge_consent(body,entry)
+    if entry['mode']=='local':
+        from .local_agent_api import endpoint as local_endpoint
+        return local_endpoint(body['endpoint'] or entry['endpoint'])
+    return public_endpoint(body,entry)
+
+
+def public_endpoint(body,entry):
+    """Retain pinned HTTPS and official fixed endpoints for public providers."""
     endpoint=public_url(body['endpoint']) if body['endpoint'] else entry['endpoint']
     if entry['endpoint'] and endpoint!=entry['endpoint']:raise Invalid('Use this provider adapter official endpoint')
     if entry['mode']=='byok' and not endpoint:raise Invalid('Choose a public HTTPS API endpoint')
@@ -55,7 +63,7 @@ def profile_endpoint(body,entry):
 def charge_consent(body,entry):
     """Provider billing approval is distinct from subscription sign-in and ad budgets."""
     if type(body['allow_api_charges']) is not bool:raise Invalid('Confirm API charge permission explicitly')
-    if entry['mode']=='byok' and body['allow_api_charges'] is not True:
+    if entry['mode'] in ('byok','local') and body['allow_api_charges'] is not True:
         raise Invalid('Approve provider API charges before saving this API route')
 
 
@@ -68,7 +76,10 @@ def profile_identity(body):
 
 def profile_secret(provider,secret):
     """Require protected keys only on adapters that actually use them."""
-    if provider in KEYED:
+    if provider=='local_api':
+        if not isinstance(secret,str) or (secret and not re.fullmatch(r'[!-~]{1,1800}',secret)):
+            raise Invalid('Use an optional local server bearer key without whitespace')
+    elif provider in KEYED:
         if not isinstance(secret,str) or not re.fullmatch(r'[!-~]{16,1800}',secret):
             raise Invalid('Enter the provider key without whitespace')
     elif secret!='':raise Invalid('Subscription sign-in does not accept an API key')

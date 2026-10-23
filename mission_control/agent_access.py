@@ -56,7 +56,7 @@ class AgentAccess:
         previous=self.previous(app_id,body)
         identity=previous['id'] if previous else uid()
         if data['provider'] in NATIVE:data['tool']=locate(data['provider'])
-        reference=self.stage(app_id,body['api_key']) if data['provider'] in KEYED else None
+        reference=self.stage(app_id,body['api_key']) if data['provider'] in KEYED and body['api_key'] else None
         if reference:data['credential_ref']=reference
         try:self.commit(app_id,identity,data,previous)
         except Exception:
@@ -143,7 +143,7 @@ class AgentAccess:
     def routes(self,app_id,body):
         """Pin app-owned routes; no implicit API fallback, purchase or provider swap."""
         exact(body,('version','mode','routes'))
-        if body['mode'] not in ('subscription','byok','mixed') or not isinstance(body['routes'],dict) or set(body['routes'])-set(TASKS):
+        if body['mode'] not in ('subscription','byok','local','mixed') or not isinstance(body['routes'],dict) or set(body['routes'])-set(TASKS):
             raise Invalid('Choose subscription, BYOK or mixed task routing')
         self.validate_routes(app_id,body)
         self.store.app(app_id)

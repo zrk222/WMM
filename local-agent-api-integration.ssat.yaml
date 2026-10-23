@@ -1,0 +1,244 @@
+name: local-agent-api
+language: python
+modules:
+- name: local_agent_api
+  path: mission_control/local_agent_api.py
+  language: python
+  functions:
+  - name: endpoint
+    args:
+    - value
+    returns: object
+  - name: local_authority
+    args:
+    - parts
+    returns: object
+  - name: base_path
+    args:
+    - value
+    returns: object
+  - name: request
+    args:
+    - profile
+    - key
+    - prompt
+    - max_tokens
+    - alive
+    returns: object
+  - name: request_body
+    args:
+    - profile
+    - key
+    - prompt
+    - max_tokens
+    returns: object
+  - name: read_response
+    args:
+    - conn
+    - deadline
+    returns: object
+  - name: result
+    args:
+    - raw
+    - key
+    returns: object
+- name: agent_contract
+  path: mission_control/agent_contract.py
+  language: python
+  functions:
+  - name: exact
+    args:
+    - value
+    - keys
+    returns: object
+  - name: model_id
+    args:
+    - value
+    - required_model
+    returns: object
+  - name: profile
+    args:
+    - body
+    returns: object
+  - name: profile_endpoint
+    args:
+    - body
+    - entry
+    returns: object
+  - name: public_endpoint
+    args:
+    - body
+    - entry
+    returns: object
+  - name: charge_consent
+    args:
+    - body
+    - entry
+    returns: object
+  - name: profile_identity
+    args:
+    - body
+    returns: object
+  - name: profile_secret
+    args:
+    - provider
+    - secret
+    returns: object
+  - name: bounded_text
+    args:
+    - value
+    - label
+    - limit
+    returns: object
+  - name: draft
+    args:
+    - value
+    - source_ids
+    returns: object
+  - name: draft_item
+    args:
+    - item
+    - source_ids
+    returns: object
+  - name: prompt
+    args:
+    - app
+    - task
+    - focus
+    - context
+    returns: object
+- name: agent_registry
+  path: mission_control/agent_registry.py
+  language: python
+  functions:
+  - name: catalog
+    args: []
+    returns: object
+- name: agent_access
+  path: mission_control/agent_access.py
+  language: python
+  functions:
+  - name: target
+    args:
+    - store
+    - app_id
+    - reference
+    returns: object
+  - name: decoded
+    args:
+    - row
+    returns: object
+  - name: queue_retirement
+    args:
+    - db
+    - app_id
+    - reference
+    - delay
+    returns: object
+  - name: detect
+    args:
+    - provider
+    returns: object
+- name: agent_api
+  path: mission_control/agent_api.py
+  language: python
+  functions:
+  - name: request
+    args:
+    - profile
+    - key
+    - prompt
+    - max_tokens
+    - alive
+    returns: object
+  - name: public_request
+    args:
+    - profile
+    - key
+    - prompt
+    - max_tokens
+    - alive
+    returns: object
+  - name: message
+    args:
+    - value
+    - anthropic
+    returns: object
+- name: test_local_agent_api
+  path: tests/test_local_agent_api.py
+  language: python
+  functions: []
+- name: test_local_agent_access
+  path: tests/test_local_agent_access.py
+  language: python
+  functions:
+  - name: local_body
+    args:
+    - url
+    - key
+    returns: object
+- name: agent_access_ui
+  path: mission_control/static/agent-access.js
+  language: javascript
+  functions:
+  - name: agentAccessView
+    args: []
+    returns: unknown
+  - name: agentSetup
+    args:
+    - provider
+    - identity=''
+    returns: unknown
+  - name: agentProviderFields
+    args:
+    - provider
+    - p
+    - row
+    returns: unknown
+  - name: agentEndpointField
+    args:
+    - local
+    - p
+    - row
+    returns: unknown
+  - name: agentKeyField
+    args:
+    - local
+    returns: unknown
+  - name: agentConsentField
+    args:
+    - local
+    returns: unknown
+  - name: agentRoutes
+    args: []
+    returns: unknown
+  - name: agentReview
+    args:
+    - data
+    returns: unknown
+dependencies:
+- from: local_agent_api
+  to: agent_contract
+- from: local_agent_api
+  to: agent_api
+- from: agent_contract
+  to: agent_registry
+- from: agent_contract
+  to: local_agent_api
+- from: agent_access
+  to: agent_registry
+- from: agent_access
+  to: agent_contract
+- from: agent_api
+  to: agent_contract
+- from: agent_api
+  to: local_agent_api
+- from: test_local_agent_api
+  to: local_agent_api
+- from: test_local_agent_access
+  to: agent_access
+- from: test_local_agent_access
+  to: agent_contract
+- from: test_local_agent_access
+  to: test_local_agent_api
+invariants: []
