@@ -32,13 +32,21 @@ test('pending duplicate submits write once and closed dialogs discard late readb
  let resolve,calls=0;const firstApi=f.deps.api;
  f.deps.api=(path,body)=>{if(body){calls++;return new Promise(r=>resolve=r);}return firstApi(path);};
  const submit={disabled:false},form={values:{title:'Private title',purpose:'Useful narrow purpose',source_id:source.id},querySelector:()=>submit};
- const pending=ui.submit(form,f.deps);await ui.submit(form,f.deps);assert.equal(calls,1);assert.equal(submit.disabled,true);
- const before=f.html();ui.clear();f.node.open=false;resolve({id:'project-one'});await pending;assert.equal(f.html(),before);assert.equal(submit.disabled,false);
+ const pending=ui.submit(form,f.deps),duplicate=ui.submit(form,f.deps);assert.equal(calls,1);assert.equal(submit.disabled,true);
+ const before=f.html();ui.clear();f.node.open=false;resolve({id:'project-one'});await Promise.all([pending,duplicate]);assert.equal(f.html(),before);assert.equal(submit.disabled,false);
 });
 test('failed save retains fields and a changed app discards an in-flight library response',async()=>{
  const f=fixture();await ui.open(f.deps);await ui.action({dataset:{action:'veditor-create'}},f.deps);f.deps.api=async()=>{throw new Error('Source changed');};
  const form={values:{title:'Retain this title',purpose:'Retain this purpose',source_id:source.id},querySelector:()=>({disabled:false})};
  const html=f.html();await ui.submit(form,f.deps);assert.equal(f.html(),html);assert.ok(f.error.textContent.includes('fields are retained'));
  const g=fixture(),releases=[];g.deps.api=()=>new Promise(r=>releases.push(r));const pending=ui.open(g.deps);g.deps.state.app='sample-two';ui.invalidate(g.deps.state);const before=g.html();
- ui.clear();releases.forEach((release,i)=>release(i===3?[]:{items:[]}));await pending;assert.equal(g.html(),before);
+ releases.forEach((release,i)=>release(i===3?[]:{items:[]}));await pending;assert.equal(g.html(),before);ui.clear();
+});
+test('unsaved fields block rendering and results navigation before any server call',async()=>{
+ const f=fixture();await ui.open(f.deps);await ui.action({dataset:{action:'veditor-project',id:f.p.id}},f.deps);
+ const v=fields(f.p);v.title='Unsaved title';const form={values:v};
+ f.node.querySelector=selector=>selector==='#video-project-edit-form'?form:f.error;
+ let calls=0;f.deps.api=async()=>{calls++;return {};};
+ await ui.action({dataset:{action:'veditor-render'}},f.deps);assert.equal(calls,0);assert.ok(f.error.textContent.includes('Save your current field edits first'));
+ await ui.action({dataset:{action:'veditor-outputs'}},f.deps);assert.equal(calls,0);assert.equal(v.title,'Unsaved title');ui.clear();
 });
