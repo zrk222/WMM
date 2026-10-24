@@ -5,7 +5,7 @@ from unittest.mock import patch
 from mission_control.common import Invalid,canonical
 from mission_control.agent_native import locate,identity,run
 from mission_control.agent_commands import arguments,output
-from mission_control.agent_process import capture,environment,failure
+from mission_control.agent_process import capture,environment,failure,diagnostic_snapshot,CAP
 from tests.test_agent_access import answer
 
 
@@ -43,6 +43,35 @@ class NativeTests(unittest.TestCase):
         def cancelled():raise Invalid('Synthetic cancellation')
         with self.assertRaisesRegex(Invalid,'cancellation'):
             capture([sys.executable,'-c','import time;time.sleep(10)'],alive=cancelled,timeout=5)
+
+    def test_capture_diagnostics_preserve_nonzero_output_after_temp_cleanup(self):
+        retained=[]
+        value=capture([sys.executable,'-c','import sys;print("synthetic output");print("synthetic error",file=sys.stderr);sys.exit(7)'],
+                      timeout=5,diagnostics=retained.append)
+        self.assertEqual(value['code'],7);self.assertEqual(len(retained),1)
+        self.assertEqual(retained[0]['code'],7);self.assertFalse(retained[0]['interrupted'])
+        self.assertIn('synthetic output',retained[0]['stdout']);self.assertIn('synthetic error',retained[0]['stderr'])
+
+    def test_capture_diagnostics_survive_timeout_and_process_creation_failure(self):
+        retained=[]
+        with self.assertRaisesRegex(Invalid,'timed out'):
+            capture([sys.executable,'-c','import sys,time;print("before timeout",flush=True);print("error before timeout",file=sys.stderr,flush=True);time.sleep(10)'],
+                    timeout=1,diagnostics=retained.append)
+        self.assertTrue(retained[0]['interrupted']);self.assertIn('before timeout',retained[0]['stdout'])
+        self.assertIn('error before timeout',retained[0]['stderr'])
+        retained=[]
+        with self.assertRaises(OSError):
+            capture([str(self.root/'missing-executable.exe')],timeout=1,diagnostics=retained.append)
+        self.assertEqual(len(retained),1);self.assertIsNone(retained[0]['code']);self.assertTrue(retained[0]['interrupted'])
+
+    def test_diagnostic_snapshot_bounds_partial_output_and_marks_truncation(self):
+        from types import SimpleNamespace
+        stdout=self.root/'stdout';stderr=self.root/'stderr'
+        stdout.write_bytes(b'x'*(CAP//2+1));stderr.write_bytes(b'y'*20)
+        value=diagnostic_snapshot(stdout,stderr,SimpleNamespace(poll=lambda:-1),False)
+        self.assertEqual(value['code'],-1);self.assertTrue(value['interrupted'])
+        self.assertEqual(len(value['stdout']),CAP//2);self.assertTrue(value['stdout_truncated'])
+        self.assertEqual(value['stderr'],'y'*20);self.assertFalse(value['stderr_truncated'])
 
     def test_codex_final_only_no_internal_reasoning_or_tools(self):
         events=[{'type':'item.completed','item':{'type':'reasoning','text':'SYNTHETIC_REASONING_NOT_FOR_USER'}},

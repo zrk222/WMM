@@ -1,0 +1,14 @@
+{
+  "checks": [
+    {
+      "name": "compiled-frozen-source-identity",
+      "kind": "python",
+      "run": "import hashlib,tempfile\nfrom pathlib import Path\nfrom mission_control.hypit_studio_project import snapshot_current\nwith tempfile.TemporaryDirectory() as d:\n p=Path(d); text='synthetic frozen Run'; hashes={'build.svrun':hashlib.sha256(text.encode()).hexdigest()}; value={'revision':1,'run':{'path':'build.svrun'},'source':{'path':'build.svrun','files':[{'path':'build.svrun','text':text}]},'tracks':[]}\n assert snapshot_current(p,hashes,dict(root=list(hashes)[0],files=list(hashes)),value) is value"
+    },
+    {
+      "name": "changed-source-denied",
+      "kind": "python",
+      "run": "import hashlib,tempfile\nfrom pathlib import Path\nfrom mission_control.hypit_studio_project import sources_current\nwith tempfile.TemporaryDirectory() as d:\n p=Path(d); names=['build.svrun','runtime.json','package.json']; hashes={}\n for name in names:\n  (p/name).write_bytes(b'current'); hashes[name]=hashlib.sha256(b'old').hexdigest()\n rejected=False\n try: sources_current(p,hashes)\n except ValueError: rejected=True\n assert rejected"
+    }
+  ]
+}

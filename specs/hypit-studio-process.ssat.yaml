@@ -1,0 +1,127 @@
+name: hypit-studio-process
+language: python
+modules:
+- name: hypit_studio_project
+  path: mission_control/hypit_studio_project.py
+  language: python
+  functions:
+  - name: source_path
+    args: [folder, name]
+    returns: object
+  - name: sources_current
+    args: [folder, sources]
+    returns: object
+  - name: local_profile
+    args: [folder]
+    returns: object
+  - name: cleanup_current
+    args: [folder, sources, runtime_identity]
+    returns: object
+  - name: snapshot_current
+    args: [folder, sources, compiled, value]
+    returns: object
+  - name: snapshot_sources
+    args: [folder, sources, compiled, source]
+    returns: object
+  - name: compiled_file
+    args: [folder, sources, item, seen]
+    returns: object
+  - name: runtime_directory
+    args: [folder, expected, create]
+    returns: object
+  - name: compiled_current
+    args: [folder, sources, compiled]
+    returns: object
+  - name: compiled_files
+    args: [compiled]
+    returns: object
+- name: hypit_studio_http
+  path: mission_control/hypit_studio_http.py
+  language: python
+  functions:
+  - name: session_bytes
+    args: [origin, observe, deadline, maximum]
+    returns: object
+  - name: bounded_body
+    args: [response, observe, deadline, maximum]
+    returns: object
+  - name: connection_for
+    args: [origin, deadline]
+    returns: object
+- name: agent_process
+  path: mission_control/agent_process.py
+  language: python
+  functions:
+  - name: capture
+    args: [args, input_text, alive, timeout, folder, extra_env, diagnostics]
+    returns: object
+  - name: diagnostic_snapshot
+    args: [output, error, process, finished]
+    returns: object
+- name: hypit_studio_process
+  path: mission_control/hypit_studio_process.py
+  language: python
+  functions: []
+- name: studio_child
+  path: mission_control/studio_child.py
+  language: python
+  functions:
+  - name: spawn_studio_child
+    args: [argv, folder, env, stdout_path, stderr_path, max_log_bytes]
+    returns: object
+- name: test_studio_child
+  path: tests/test_studio_child.py
+  language: python
+  functions: []
+- name: studio_command
+  path: mission_control/studio_command.py
+  language: python
+  functions:
+  - name: capture_owned_command
+    args: [args, alive, timeout, folder, extra_env, diagnostics]
+    returns: object
+  - name: retry_cleanup
+    args: [recovery_id]
+    returns: object
+- name: test_studio_command
+  path: tests/test_studio_command.py
+  language: python
+  functions: []
+- name: test_hypit_studio_process
+  path: tests/test_hypit_studio_process.py
+  language: python
+  functions: []
+- name: test_agent_native
+  path: tests/test_agent_native.py
+  language: python
+  functions: []
+dependencies:
+- from: hypit_studio_process
+  to: hypit_studio_project
+- from: hypit_studio_process
+  to: hypit_studio_http
+- from: hypit_studio_process
+  to: agent_process
+- from: hypit_studio_process
+  to: studio_child
+- from: test_studio_child
+  to: studio_child
+- from: hypit_studio_process
+  to: studio_command
+- from: studio_command
+  to: studio_child
+- from: studio_command
+  to: agent_process
+- from: test_studio_command
+  to: studio_command
+- from: test_hypit_studio_process
+  to: studio_child
+- from: test_hypit_studio_process
+  to: hypit_studio_process
+- from: test_hypit_studio_process
+  to: hypit_studio_project
+- from: test_hypit_studio_process
+  to: hypit_studio_http
+- from: test_agent_native
+  to: agent_process
+invariants: []
