@@ -19,7 +19,7 @@ from .automation_health import Supervision
 def enqueue(store,app_id,action,data,request_key):
     """Persist an idempotent app-scoped job while rejecting a reused key with different input."""
     store.app(app_id)
-    if action not in ("pipeline","sync","render","hypit_render"):
+    if action not in ("pipeline","sync","render","hypit_render","edit_render"):
         raise Invalid("Unknown job action")
     request_key=required(request_key,"Request key",120)
     with connection(store.path) as db:
@@ -71,6 +71,9 @@ def process(store,job,stop=None):
     if job["action"]=="hypit_render":
         from .hypit_jobs import HypitRenders
         return HypitRenders(store).execute(job,stop)
+    if job['action']=='edit_render':
+        from .video_edit_jobs import EditRenders
+        return EditRenders(store).execute(job,stop)
     if job["action"]=="render":
         from .creative_rendering import Renders
         return Renders(store).execute(job,stop)

@@ -19,6 +19,8 @@ OPERATIONS={
     'native.read':descriptor('GET','/native-renders','READ_PRIVATE_LOCAL_DATA'),
     'native.queue':descriptor('POST','/production/renders','QUEUE_LOCAL_PREPARATION',('data','request_key')),
     'editor.list':descriptor('GET','/video-projects','READ_PRIVATE_LOCAL_DATA'),
+    'editor.renders':descriptor('GET','/video-edit-renders','READ_PRIVATE_LOCAL_DATA'),
+    'editor.queue':descriptor('POST','/video-edit-renders','QUEUE_LOCAL_PREPARATION',('data','request_key')),
     'editor.read':descriptor('GET','/video-projects/{resource_id}','READ_PRIVATE_LOCAL_DATA',(),(),True),
     'editor.save':descriptor('POST','/video-projects','WRITE_LOCAL_PLAN',('id','revision','manifest_version','data','request_key')),
     'editor.edit':descriptor('POST','/video-projects/{resource_id}/edits','WRITE_LOCAL_PLAN',('revision','manifest_version','command','request_key'),(),True),

@@ -189,7 +189,7 @@ class Service:
 
     def queue(self,app_id,body):
         """Validate the requested stage or connection before durable job submission."""
-        if body.get("action") in ("render","hypit_render"):raise Invalid("Use the guided render workflow to validate source proof first")
+        if body.get("action") in ("render","hypit_render","edit_render"):raise Invalid("Use the guided render workflow to validate source proof first")
         if not isinstance(body.get("data",{}),dict):
             raise Invalid("Job data must be an object")
         if body.get("action")=="pipeline":

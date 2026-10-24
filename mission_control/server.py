@@ -192,6 +192,13 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts)<3:raise KeyError(path)
         app_id=parts[2]
         store=self.server.service.store
+        if len(parts)>=4 and parts[3]=='video-edit-renders':
+            if urlparse(self.path).query:raise Invalid('Use the exact edited video address')
+            from .video_edit_jobs import EditRenders
+            if len(parts)==4:return self.send(200,EditRenders(store).list(app_id))
+            if len(parts)==6 and parts[5] in ('preview','download'):
+                return self.video(app_id,parts[4],parts[5]=='download',edited=True)
+            raise KeyError('Edited video route not found')
         if len(parts)>=4 and parts[3]=='video-projects':
             if urlparse(self.path).query:raise Invalid('Use the exact video project address')
             from .video_edit_projects import Projects
@@ -304,11 +311,13 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts)!=6 or parts[5] not in ('preview','download'):raise KeyError('Hypit video route not found')
         return self.video(parts[2],parts[4],parts[5]=='download',hypit=True)
 
-    def video(self,app_id,render_id,download=False,hypit=False):
+    def video(self,app_id,render_id,download=False,hypit=False,edited=False):
         """Serve hash-validated app-owned video with actual seeking and download support."""
         from .creative_rendering import artifact_file
         if hypit:
             from .hypit_jobs import artifact_file
+        if edited:
+            from .video_edit_jobs import artifact_file
         path,_=artifact_file(self.server.service.store,app_id,render_id);raw=path.read_bytes()
         headers={"Accept-Ranges":"bytes"};filename=app_id+"-"+render_id+".mp4" if download else None
         value=self.headers.get("Range")
@@ -389,7 +398,7 @@ class Handler(BaseHTTPRequestHandler):
     def post_data(self,path,parts):
         """Keep original per-route byte limits and strict duplicate/nonfinite checks."""
         raw=self.attribution_body(path,parts) if any(k in parts for k in ('setup-discovery','play','attribution','agent-access','social-access','social')) else self.body(self.post_limit(path,parts))
-        strict=any(kind in parts for kind in ('workflow-evidence','video-projects','agent-reviews','agent-grants','subscription-growth','customer-workflows','setup-discovery','play','attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
+        strict=any(kind in parts for kind in ('workflow-evidence','video-projects','video-edit-renders','agent-reviews','agent-grants','subscription-growth','customer-workflows','setup-discovery','play','attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
         if strict:
             from .payment_signature import unique_pairs,bounded_tree
             data=json.loads(raw,object_pairs_hook=unique_pairs,parse_constant=lambda _:(_ for _ in ()).throw(Invalid('Nonfinite JSON is forbidden')))
@@ -465,6 +474,10 @@ class Handler(BaseHTTPRequestHandler):
         if parts[3]=='agent-access':
             return self.send(200,self.agent_access(parts[2],parts[4:],data))
         app_id,action=parts[2:4]
+        if action=='video-edit-renders':
+            if len(parts)!=4 or urlparse(self.path).query:raise Invalid('Use the exact edited video queue address')
+            from .video_edit_jobs import EditRenders
+            return self.send(201,EditRenders(service.store).queue(app_id,data))
         if action=='video-projects':
             if urlparse(self.path).query:raise Invalid('Use the exact video project address')
             from .video_edit_projects import Projects

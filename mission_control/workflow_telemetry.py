@@ -7,6 +7,10 @@ from .catalog import stages
 MAX_JOBS = 100
 MAX_EVENTS = 200
 EVENTS = {
+    'EDIT_PROOF': 'Checking the exact current edit revision and its source rights.',
+    'EDIT_SOURCES': 'Copying and verifying the selected source videos for editing.',
+    'EDIT_ENCODING': 'Rendering the timeline cuts, speed, framing and color adjustments.',
+    'EDIT_COMMIT': 'Rechecking the project and saving the validated edited MP4.',
     "NATIVE_PROOF": "Checking the approved video brief, screen rights and current source evidence.",
     "NATIVE_SCREENS": "Copying the selected app screens and verifying their saved file hashes.",
     "NATIVE_ENCODING": "Encoding the app-screen video and checking the MP4 output.",

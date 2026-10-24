@@ -13,6 +13,7 @@ def execute(service,envelope):
     from .hypit_jobs import HypitRenders
     from .creative_rendering import Renders
     from .video_edit_projects import Projects
+    from .video_edit_jobs import EditRenders
     request_data(envelope)
     app=envelope['app_id'];body=envelope['input'];store=service.store
     resource=envelope.get('resource_id')
@@ -26,6 +27,8 @@ def execute(service,envelope):
         'native.read':lambda:Renders(store).list(app),
         'native.queue':lambda:Renders(store).queue(app,body),
         'editor.list':lambda:Projects(store,'SCOPED_AGENT').list(app),
+        'editor.renders':lambda:EditRenders(store).list(app),
+        'editor.queue':lambda:EditRenders(store).queue(app,body),
         'editor.read':lambda:Projects(store,'SCOPED_AGENT').read(app,resource),
         'editor.save':lambda:Projects(store,'SCOPED_AGENT').save(app,body),
         'editor.edit':lambda:Projects(store,'SCOPED_AGENT').edit(app,resource,body),
