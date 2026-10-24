@@ -1,0 +1,55 @@
+name: viral-discovery-policy
+language: python
+modules:
+- name: viral_policy
+  path: mission_control/viral_policy.py
+  language: python
+  functions:
+  - name: observation
+    args:
+    - value
+    - as_of
+    returns: object
+  - name: prior_posts
+    args:
+    - candidate
+    - history
+    - as_of
+    returns: object
+  - name: comparable
+    args:
+    - candidate
+    - row
+    returns: object
+  - name: median_views
+    args:
+    - rows
+    returns: object
+  - name: decision
+    args:
+    - candidate
+    - rows
+    returns: object
+  - name: qualify
+    args:
+    - candidate
+    - history
+    - as_of
+    returns: object
+- name: test_viral_policy
+  path: tests/test_viral_policy.py
+  language: python
+  functions:
+  - name: candidate
+    args:
+    - views
+    returns: object
+  - name: history
+    args:
+    - views
+    - count
+    returns: object
+dependencies:
+- from: test_viral_policy
+  to: viral_policy
+invariants: []

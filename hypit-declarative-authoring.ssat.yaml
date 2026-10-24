@@ -1,0 +1,42 @@
+name: hypit-declarative-authoring
+language: python
+modules:
+- name: hypit_authoring
+  path: mission_control/hypit_authoring.py
+  language: python
+  functions:
+  - name: literal
+    args:
+    - value
+    returns: object
+  - name: xml_character
+    args:
+    - code
+    returns: object
+  - name: scene_contract
+    args:
+    - value
+    returns: object
+  - name: scene_item
+    args:
+    - item
+    returns: object
+  - name: composition
+    args:
+    - value
+    returns: object
+  - name: project
+    args:
+    - value
+    returns: object
+- name: test_hypit_authoring
+  path: tests/test_hypit_authoring.py
+  language: python
+  functions:
+  - name: scene
+    args: []
+    returns: object
+dependencies:
+- from: test_hypit_authoring
+  to: hypit_authoring
+invariants: []

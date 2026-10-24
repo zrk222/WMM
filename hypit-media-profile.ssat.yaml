@@ -1,0 +1,50 @@
+name: hypit-media-profile
+language: python
+modules:
+- name: hypit_media
+  path: mission_control/hypit_media.py
+  language: python
+  functions:
+  - name: probe
+    args:
+    - path
+    returns: object
+  - name: duration
+    args:
+    - value
+    returns: object
+  - name: video_profile
+    args:
+    - stream
+    - shape
+    - seconds
+    returns: object
+  - name: audio_profile
+    args:
+    - stream
+    - seconds
+    returns: object
+  - name: metadata
+    args:
+    - value
+    - shape
+    - seconds
+    returns: object
+  - name: validate_video
+    args:
+    - path
+    - shape
+    - seconds
+    returns: object
+- name: test_hypit_media
+  path: tests/test_hypit_media.py
+  language: python
+  functions:
+  - name: decoded
+    args:
+    - audio
+    returns: object
+dependencies:
+- from: test_hypit_media
+  to: hypit_media
+invariants: []
