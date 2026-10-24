@@ -1,6 +1,6 @@
 """Unified actual service/HTTP journeys, source drift and strict review boundaries."""
 import copy
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import patch
 import unittest
 from tests import test_http
@@ -16,7 +16,7 @@ from mission_control.common import Invalid, digest
 from mission_control.growth_review_store import GrowthReviews
 from mission_control.customer_workflow_store import CustomerWorkflows
 from mission_control.experiments import Experiments
-from mission_control.subscription_review import review_status, subscription_experiments, ads_sources, review_issues
+from mission_control.subscription_review import review_status, subscription_experiments, ads_sources, review_issues, source_recovery_issues
 
 
 class SubscriptionReviewTests(unittest.TestCase):
@@ -54,6 +54,53 @@ class SubscriptionReviewTests(unittest.TestCase):
         self.assertEqual(self.request(route + "?as_of=2999")[0], 400)
         self.assertEqual(self.request(route + "/extra")[0], 404)
         self.assertEqual(self.request("/api/apps/missing/subscription-growth")[0], 404)
+
+    def test_customer_and_account_recovery_use_exact_ids_without_raw_sources(self):
+        customers = dict(history=[dict(id='expired-workflow',data='PRIVATE_EXCERPT',readout=dict(status='SOURCE_REVIEW_NEEDED')),
+                                 dict(id='stale-workflow',readout=dict(status='STALE_APP_SCOPE')),
+                                 dict(id='current-workflow',readout=dict(status='HYPOTHESIS_READY_FOR_REVIEW'))])
+        sources = [dict(job_id='invalid-account',state='SOURCE_REVIEW_NEEDED',reason='PRIVATE_DIAGNOSTIC'),
+                   dict(job_id='current-account',state='CURRENT_SAVED_SOURCE')]
+        issues = source_recovery_issues(customers,sources)
+        self.assertEqual([(r['area'],r['id'],r['code']) for r in issues],
+            [('customer_evidence','expired-workflow','SOURCE_REVIEW_NEEDED'),
+             ('customer_evidence','stale-workflow','STALE_APP_SCOPE'),
+             ('benchmarks','invalid-account','SOURCE_REVIEW_NEEDED')])
+        self.assertNotIn('PRIVATE',str(issues))
+        self.assertEqual(source_recovery_issues(dict(history=customers['history'][2:]),sources[1:]),[])
+
+    def test_real_expired_removed_and_stale_customer_workflows_require_recovery(self):
+        app = self.configure();store=self.server.service.store
+        work=CustomerWorkflows(store,lambda:datetime(2026,10,23,tzinfo=timezone.utc))
+        value=proposal();value['sources'][0]['expires_at']='2026-10-24T00:00:00+00:00'
+        work.save('sample-one',dict(id='customer-one',manifest_version=app['version'],data=value))
+        current=review_status(store,'sample-one',lambda:datetime(2026,10,23,tzinfo=timezone.utc))
+        self.assertFalse(any(r['area']=='customer_evidence' for r in current['issues']))
+        expired=review_status(store,'sample-one',lambda:datetime(2026,10,24,tzinfo=timezone.utc))
+        self.assertIn(('customer-one','SOURCE_REVIEW_NEEDED'),[(r.get('id'),r['code']) for r in expired['issues']])
+        self.assertEqual(expired['status'],'NEEDS_INPUT')
+        value['sources'][0]['availability']='REMOVED'
+        work.save('sample-one',dict(id='removed-one',manifest_version=app['version'],data=value))
+        code,readback,_=self.request('/api/apps/sample-one/subscription-growth')
+        self.assertEqual(code,200)
+        self.assertIn(('removed-one','SOURCE_REVIEW_NEEDED'),[(r.get('id'),r['code']) for r in readback['issues']])
+        store.save_app('sample-one',dict(app['data'],release='changed-build'),app['version'])
+        stale=review_status(store,'sample-one',lambda:datetime(2026,10,23,tzinfo=timezone.utc))
+        self.assertIn(('customer-one','STALE_APP_SCOPE'),[(r.get('id'),r['code']) for r in stale['issues']])
+        self.assertEqual(len(stale['customer_workflows']['history']),2)
+
+    def test_fully_populated_review_stays_available_only_with_current_sources(self):
+        growth=dict(history=[dict(id=kind,kind=kind,readout=dict(analysis=dict(status='READY_FOR_REVIEW'),availability='CURRENT_LOCAL_EVIDENCE'))
+                             for kind in ('ASO_LISTING','BENCHMARK_REFERENCE','BENCHMARK_COMPARISON')])
+        customer=dict(history=[dict(id='workflow-one',readout=dict(status='HYPOTHESIS_READY_FOR_REVIEW'))])
+        experiments=[dict(current_source_findings=[])]
+        sources=[dict(job_id='report-one',state='CURRENT_SAVED_SOURCE')]
+        self.assertEqual(review_issues(growth,[{}],experiments,customer,sources),[])
+        customer['history'][0]['readout']['status']='SOURCE_REVIEW_NEEDED'
+        self.assertTrue(review_issues(growth,[{}],experiments,customer,sources))
+        customer['history'][0]['readout']['status']='HYPOTHESIS_READY_FOR_REVIEW'
+        sources[0]['state']='SOURCE_REVIEW_NEEDED'
+        self.assertTrue(review_issues(growth,[{}],experiments,customer,sources))
 
     def test_entry_http_csrf_exact_shape_duplicate_json_and_immutable_replay(self):
         body = self.body()
@@ -113,6 +160,9 @@ class SubscriptionReviewTests(unittest.TestCase):
         self.assertEqual(readout["availability"], "SOURCE_REVIEW_NEEDED")
         self.assertIsNone(readout["analysis"]["difference"])
         self.assertEqual(value["ads_sources"][0]["state"], "SOURCE_REVIEW_NEEDED")
+        self.assertIn(('benchmarks','job-one','SOURCE_REVIEW_NEEDED'),
+            [(item['area'],item.get('id'),item['code']) for item in value['issues']])
+        self.assertEqual(value['status'],'NEEDS_INPUT')
 
     def test_review_status_detects_app_change_during_sequential_read(self):
         original = self.configure()

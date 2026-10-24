@@ -70,7 +70,22 @@ def review_issues(growth, journeys, experiments, customer, sources):
         issues.append(dict(area="customer_evidence", code="NO_CUSTOMER_WORKFLOW", next_action="Record a narrow customer workflow and its inspected sources."))
     if not experiments:
         issues.append(dict(area="subscription_experiments", code="NO_SUBSCRIPTION_EXPERIMENT", next_action="Preregister a paywall or offer experiment when billing-source evidence is ready."))
-    return issues + recovery_issues(growth, experiments)
+    return issues + recovery_issues(growth, experiments) + source_recovery_issues(customer, sources)
+
+
+def source_recovery_issues(customer, sources):
+    """Surface current source problems without copying excerpts or provider diagnostics."""
+    issues = []
+    for row in customer['history']:
+        state = row['readout']['status']
+        if state != 'HYPOTHESIS_READY_FOR_REVIEW':
+            issues.append(dict(area='customer_evidence', id=row['id'], code=state,
+                next_action='Inspect the linked customer sources and save a corrected workflow for the current app; retained research is unchanged.'))
+    for row in sources:
+        if row['state'] != 'CURRENT_SAVED_SOURCE':
+            issues.append(dict(area='benchmarks', id=row['job_id'], code='SOURCE_REVIEW_NEEDED',
+                next_action='Read the current app account data in Connections, then save a comparison linked to the new source.'))
+    return issues
 
 
 def recovery_issues(growth, experiments):
