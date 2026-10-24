@@ -11,6 +11,12 @@ def descriptor(method,suffix,effect,required=(),optional=(),resource=False):
 
 OPERATIONS={
     'workspace.read':descriptor('GET','','READ_PRIVATE_LOCAL_DATA'),
+    'evidence.save':descriptor('POST','/workflow-evidence','WRITE_LOCAL_EVIDENCE',('id','manifest_version','kind','title','source','data'),('version',)),
+    'pipeline.prepare':descriptor('POST','/jobs','QUEUE_LOCAL_PREPARATION',('action','data','request_key')),
+    'jobs.read':descriptor('GET','/jobs','READ_PRIVATE_LOCAL_DATA'),
+    'hypit.read':descriptor('GET','/hypit-renders','READ_PRIVATE_LOCAL_DATA'),
+    'hypit.queue':descriptor('POST','/production/hypit-renders','QUEUE_LOCAL_PREPARATION',('data','request_key')),
+    'job.cancel':descriptor('POST','/jobs/{resource_id}/cancel','CANCEL_LOCAL_JOB',(),(),True),
     'operations.read':descriptor('GET','/agent-operations','READ_LOCAL_POLICY'),
     'growth.read':descriptor('GET','/subscription-growth','READ_PRIVATE_LOCAL_DATA'),
     'growth.history':descriptor('GET','/subscription-growth/history','READ_PRIVATE_LOCAL_DATA'),
@@ -33,10 +39,15 @@ def catalog():
     value=dict(schema='growth.operation-catalog.v1',operations=copy.deepcopy(OPERATIONS),
         envelope=dict(required=['app_id','operation','input'],optional=['resource_id']),
         input_validation='Exact top-level fields here; authoritative nested domain checks run on the existing server.',
-        transport='EXACT_LOOPBACK_HTTP_WITH_IN_MEMORY_SESSION',
-        authority='TRUSTED_LOCAL_CLIENT_ONLY; session possession is not authenticated human approval or a scoped agent grant.',
+        transport='EXACT_LOOPBACK_HTTP_WITH_SCOPED_BEARER_OR_TRUSTED_LOCAL_SESSION',
+        authority='Scoped bearer grants enforce current app, owner role, operations, expiry, revocation and call limits. Trusted local browser sessions are separate; neither grants human approval.',
+        review=dict(prepare='/api/agent-operations/reviews/prepare',status='/api/agent-operations/reviews/status',resume='/api/agent-operations/reviews/resume',
+            approval='SEPARATE_FRESH_HUMAN_IDENTITY_DISTINCT_CHECKER',policy='OWNER_SELECTED_WRITE_OPERATIONS',input='IMMUTABLE_EXACT_ENVELOPE_AND_GRANT',replay='DENIED_AFTER_CLAIM'),
+        workflow=dict(sequence=['workspace.read','evidence.save','pipeline.prepare','jobs.read'],
+            job_submission='QUEUED_IS_NOT_COMPLETED',job_result='Read the saved job status and result; pipeline preparation never publishes or spends.',
+            cancellation='Stops future local work where supported; running effects and receipts require inspection.'),
         denied=['human_approval','identity_login','credentials','provider_mutation','publish','spend','arbitrary_http','shell_execution'],
-        full_agent_operation=False,remaining=['Scoped authenticated agent identities/grants','Independent human checkpoint dispatch/resume','Full-domain operation coverage','Full-domain CLI/MCP conformance'])
+        full_agent_operation=False,remaining=['Full-domain operation coverage','Full-domain CLI/MCP conformance','Provider-specific authorized effect adapters'])
     return dict(value,catalog_sha256=digest(value))
 
 
@@ -59,6 +70,23 @@ def local_constraints(operation,body):
         raise Invalid('billing.save accepts billing evidence only')
     if operation=='experiment.action' and body['operation'] not in ('observe','decide','cancel','rollback'):
         raise Invalid('Use only the existing local experiment lifecycle actions')
+    if operation=='evidence.save':
+        path_segment(body['id'])
+        from .catalog import FIELDS
+        if not isinstance(body['kind'],str) or body['kind'] not in FIELDS or body['kind']=='connection':
+            raise Invalid('Use a known local evidence type; connection credentials require separate human setup')
+    if operation=='pipeline.prepare':
+        pipeline_input(body)
+
+
+def pipeline_input(body):
+    """Close the generic job route to local stage preparation before transport."""
+    if body['action']!='pipeline':raise Invalid('pipeline.prepare permits local pipeline preparation only')
+    exact_keys(body['data'],('stage',))
+    stage=body['data']['stage']
+    if type(stage) is not int or not 0<=stage<=12:raise Invalid('Choose local pipeline stage 0 through 12')
+    if not isinstance(body['request_key'],str) or not body['request_key'].strip() or len(body['request_key'])>120:
+        raise Invalid('Use a pipeline request key containing 1 through 120 characters')
 
 
 def request_data(envelope):

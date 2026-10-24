@@ -42,6 +42,66 @@ class FeedbackTests(unittest.TestCase):
         tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup)
         self.store=Store(Path(tmp.name)/'feedback.sqlite3');initialize(self.store)
 
+    def setup_job(self):
+        from mission_control.setup_discovery import SetupDiscovery
+        from tests.test_setup_discovery import Reader
+        app=self.store.app('sample-one')
+        row=SetupDiscovery(self.store).start('sample-one',dict(app_id=app['id'],app_version=app['version'],
+            app_hash=digest(app['data']),confirm_read=True),Reader())
+        frozen=dict(app_id=app['id'],manifest_version=app['version'],app_hash=digest(app['data']),
+                    tool='discover_setup',parameters=dict(website=app['data']['website']))
+        return app,row,dict(id='local-feedback-fixture',app_id=app['id'],status='SUCCEEDED',
+            data=dict(envelope=frozen,envelope_hash=digest(frozen)),
+            result=dict(status='EVIDENCE_GATHERED',artifacts=[dict(kind='setup_proposal',id=row['id'],sha256=row['hash'])]))
+
+    def test_setup_feedback_requires_current_exact_draft(self):
+        from mission_control.agent_feedback import observation
+        app,row,job=self.setup_job()
+        self.assertTrue(valid_envelope(job,app))
+        self.assertEqual(observation(self.store,app,job)['state'],'EVIDENCE_GATHERED')
+        with connection(self.store.path) as db:
+            db.execute('DELETE FROM setup_proposals WHERE app_id=? AND id=?',(app['id'],row['id']))
+        self.assertEqual(observation(self.store,app,job)['state'],'ARTIFACT_NOT_CURRENT')
+
+    def test_setup_feedback_rejects_expiry_hash_changes_and_foreign_drafts(self):
+        from mission_control.agent_feedback import observation
+        app,row,job=self.setup_job()
+        job['result']['artifacts'][0]['sha256']='0'*64
+        self.assertEqual(observation(self.store,app,job)['state'],'ARTIFACT_NOT_CURRENT')
+        job['result']['artifacts'][0]['sha256']=row['hash']
+        with patch('mission_control.setup_discovery.now',return_value=(iso_time(row['expires'])+timedelta(seconds=1)).isoformat()):
+            self.assertEqual(observation(self.store,app,job)['state'],'ARTIFACT_NOT_CURRENT')
+        with connection(self.store.path) as db:
+            db.execute('UPDATE setup_proposals SET app_id=? WHERE id=?',('sample-two',row['id']))
+        self.assertEqual(observation(self.store,app,job)['state'],'ARTIFACT_NOT_CURRENT')
+
+    def test_tracking_tool_is_recognized_but_missing_children_are_not_success(self):
+        from mission_control.agent_feedback import observation
+        app,_,job=self.setup_job();frozen=job['data']['envelope'];frozen['tool']='inspect_tracking'
+        job['data']['envelope_hash']=digest(frozen)
+        job['result']=dict(status='WAITING_FOR_SOURCES',children=[str(uuid.uuid4())])
+        value=observation(self.store,app,job)
+        self.assertEqual(value['tool'],'inspect_tracking')
+        self.assertNotEqual(value['state'],'EVIDENCE_GATHERED')
+
+    def test_every_manifest_resolution_tool_has_feedback_recognition(self):
+        from mission_control.agent_feedback import TOOLS
+        from mission_control.marketing_agent_manifest import operating_manifest
+        self.assertEqual(set(TOOLS),set(operating_manifest(self.store.app('sample-one'))['supported_resolution_tools']))
+
+    def test_applied_and_corrupt_setup_drafts_are_not_pending_evidence(self):
+        from mission_control.agent_feedback import observation
+        app,row,job=self.setup_job()
+        before=observation(self.store,app,job)
+        with connection(self.store.path) as db:
+            db.execute("UPDATE setup_proposals SET state='APPLIED' WHERE id=?",(row['id'],))
+        after=observation(self.store,app,job)
+        self.assertEqual(after['state'],'ARTIFACT_NOT_CURRENT')
+        self.assertNotEqual(before['source_sha256'],after['source_sha256'])
+        with connection(self.store.path) as db:
+            db.execute("UPDATE setup_proposals SET state='PENDING',data='{}' WHERE id=?",(row['id'],))
+        self.assertEqual(observation(self.store,app,job)['state'],'ARTIFACT_NOT_CURRENT')
+
     def test_feedback_and_public_codes_use_native_artifact_without_raw_page(self):
         job=inspect(self.store);value=feedback(self.store,self.store.app('sample-one'))
         self.assertEqual(value['latest'][0]['state'],'EVIDENCE_GATHERED')

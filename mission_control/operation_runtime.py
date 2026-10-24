@@ -9,11 +9,19 @@ def execute(service,envelope):
     from .experiments import Experiments
     from .growth_review_store import GrowthReviews
     from .ledger import Ledger
+    from .worker import jobs
+    from .hypit_jobs import HypitRenders
     request_data(envelope)
     app=envelope['app_id'];body=envelope['input'];store=service.store
     resource=envelope.get('resource_id')
     routes={
         'workspace.read':lambda:service.workspace(app),
+        'evidence.save':lambda:save_evidence(service,app,body),
+        'pipeline.prepare':lambda:service.queue(app,body),
+        'jobs.read':lambda:jobs(store,app),
+        'hypit.read':lambda:HypitRenders(store).list(app),
+        'hypit.queue':lambda:HypitRenders(store).queue(app,body),
+        'job.cancel':lambda:service.cancel(app,resource),
         'operations.read':lambda:discovery(store.app(app)),
         'growth.read':lambda:service.subscription_review(app),
         'growth.history':lambda:GrowthReviews(store).list(app),
@@ -29,3 +37,17 @@ def execute(service,envelope):
         'experiment.evaluate':lambda:Experiments(store).evaluate(app,resource),
         'experiment.action':lambda:Experiments(store).act(app,resource,body)}
     return routes[envelope['operation']]()
+
+
+def save_evidence(service,app,body):
+    """Preserve record kind and current version before the store's atomic write check."""
+    from .common import Invalid
+    request_data(dict(app_id=app,operation='evidence.save',input=body))
+    old=next((r for r in service.store.records(app) if r['id']==body['id']),None)
+    expected=old['version'] if old else None
+    if expected is not None and type(body.get('version')) is not int:raise Invalid('Use the exact integer evidence revision')
+    if body.get('version')!=expected:raise Invalid('Evidence revision changed; reload before saving')
+    if old and (old['kind']=='connection' or old['kind']!=body['kind']):
+        raise Invalid('Workflow evidence cannot replace a connection or change record kind')
+    # Concurrent creation/update changes the version; Store.save_record rejects it.
+    return service.evidence(app,body)

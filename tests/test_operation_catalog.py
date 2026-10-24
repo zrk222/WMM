@@ -9,7 +9,7 @@ class OperationCatalogTests(unittest.TestCase):
         value=catalog()
         self.assertEqual(value['catalog_sha256'],digest({key:item for key,item in value.items() if key!='catalog_sha256'}))
         self.assertFalse(value['full_agent_operation'])
-        self.assertEqual(len(value['operations']),15)
+        self.assertEqual(len(value['operations']),21)
         value['operations']['workspace.read']['suffix']='/arbitrary'
         self.assertEqual(catalog()['operations']['workspace.read']['suffix'],'')
         self.assertIn('human_approval',value['denied'])
@@ -24,6 +24,8 @@ class OperationCatalogTests(unittest.TestCase):
             body={key:'fixture' for key in rule['required']}
             if name=='billing.save':body['kind']='billing'
             if name=='experiment.action':body['operation']='observe'
+            if name=='evidence.save':body['kind']='measurement'
+            if name=='pipeline.prepare':body=dict(action='pipeline',data=dict(stage=0),request_key='synthetic-key')
             envelope=dict(app_id='sample-one',operation=name,input=body)
             if rule['resource']:envelope['resource_id']='resource-one'
             value=request_data(envelope)

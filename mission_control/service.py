@@ -30,6 +30,7 @@ from .creative_briefs import Briefs
 from .creative_ranking import Rankings
 from .acquisition_workflows import Acquisition
 from .creative_rendering import Renders
+from .hypit_jobs import HypitRenders
 from .guided_workflow import guide
 from .workflow_automation import recommend
 from .subscription_readiness import readiness as catalog_readiness, validate_catalog_scope
@@ -130,6 +131,7 @@ class Service:
         from .resolutions import Resolutions
         from .agent_feedback import reuse_candidate
         workspace['resolutions']=prepare_resolutions(app,records,workflow,preparation['collection'],workspace['insights'],workspace['experiments'],reuse_candidate(self.store,app))
+        workspace['hypit_renders']=HypitRenders(self.store).list(app_id)
         workspace['resolutions']['history']=Resolutions(self.store,self.operator).history(app_id)
         from .sequence_plan import prepare as prepare_sequence
         from .sequence_store import Sequences
@@ -187,7 +189,7 @@ class Service:
 
     def queue(self,app_id,body):
         """Validate the requested stage or connection before durable job submission."""
-        if body.get("action")=="render":raise Invalid("Use the guided render workflow to validate source proof first")
+        if body.get("action") in ("render","hypit_render"):raise Invalid("Use the guided render workflow to validate source proof first")
         if not isinstance(body.get("data",{}),dict):
             raise Invalid("Job data must be an object")
         if body.get("action")=="pipeline":

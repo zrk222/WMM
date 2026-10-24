@@ -2,7 +2,6 @@
 from .common import Invalid
 from .agent_grants import Grants
 from .operator_client import strict_json,MAX_BYTES
-from .operation_runtime import execute
 
 CALL_PATH='/api/agent-operations/call'
 
@@ -33,13 +32,20 @@ def call(handler):
     token=gateway_token(handler)
     envelope=strict_json(handler.body(MAX_BYTES))
     service=handler.server.service
-    Grants(service.store).admit(token,envelope)
-    return handler.send(200,execute(service,envelope))
+    admission=Grants(service.store).admit(token,envelope)
+    from .automation_execution import execute_admitted
+    return handler.send(200,execute_admitted(service,envelope,admission))
 
 
 def owner(store,app_id,action,user,body):
     """Only the HTTP adapter's freshly authenticated owner can manage credentials."""
     grants=Grants(store)
+    from .complete_automation import Automation
+    automation=Automation(store)
+    if action==['automation-preview']:return automation.preview(app_id,user,body)
+    if action==['automation-activate']:return automation.activate(app_id,user,body)
+    if action==['automation-off']:return automation.off(app_id,user,body)
+    if action==['automation-status'] and body=={}:return automation.status(app_id,user)
     if action==['issue']:return grants.issue(app_id,user,body)
     if action==['revoke']:return grants.revoke(app_id,user,body)
     if action==['list'] and body=={}:return grants.list(app_id,user)

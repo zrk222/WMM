@@ -75,6 +75,22 @@ def consume(db,row,envelope,observed):
     return dict(grant_id=row['id'],agent_id=row['agent_id'],attempt=row['used']+1)
 
 
+def issue_in_db(db,app_id,user,body,observed,token):
+    """Issue inside an existing owner transaction, allowing atomic policy attachment."""
+    issue_data(body,observed)
+    owner=member(db,app_id,user['principal'],'OWNER')
+    version,app_hash=app_scope(db,app_id)
+    if type(body['manifest_version']) is not int or body['manifest_version']!=version:raise Invalid('App version changed before grant issuance')
+    stamp=observed.isoformat();identity=uid()
+    row=dict(id=identity,app_id=app_id,agent_id=body['agent_id'],owner=user['principal'],owner_version=owner['version'],
+        app_version=version,app_hash=app_hash,operations=canonical(sorted(body['operations'])),token_hash=token_digest(token),
+        expires=iso_time(body['expires']).isoformat(),max_calls=body['max_calls'],used=0,status='ACTIVE',version=1,created=stamp,updated=stamp)
+    db.execute('INSERT INTO agent_grants VALUES('+','.join('?' for _ in row)+')',tuple(row.values()))
+    agent_review_policy.save(db,identity,body)
+    audit(db,app_id,'agent_grant.issued',dict(grant_id=identity,agent_id=body['agent_id'],owner=user['principal']))
+    return dict(grant=dict(public(row),review_operations=agent_review_policy.validate(body)),token=token,token_delivery='ONCE_ONLY')
+
+
 class Grants:
     """Serialize delegation changes and admissions without granting human identity."""
     def __init__(self,store,clock=None):
@@ -87,18 +103,8 @@ class Grants:
         token='wmmg_'+secrets.token_urlsafe(32)
         with connection(self.store.path) as db:
             db.execute('BEGIN IMMEDIATE')
-            owner=member(db,app_id,user['principal'],'OWNER')
-            version,app_hash=app_scope(db,app_id)
-            if type(body['manifest_version']) is not int or body['manifest_version']!=version:
-                raise Invalid('App version changed before grant issuance')
-            stamp=observed.isoformat();identity=uid()
-            row=dict(id=identity,app_id=app_id,agent_id=body['agent_id'],owner=user['principal'],owner_version=owner['version'],
-                app_version=version,app_hash=app_hash,operations=canonical(sorted(body['operations'])),token_hash=token_digest(token),
-                expires=iso_time(body['expires']).isoformat(),max_calls=body['max_calls'],used=0,status='ACTIVE',version=1,created=stamp,updated=stamp)
-            db.execute('INSERT INTO agent_grants VALUES('+','.join('?' for _ in row)+')',tuple(row.values()))
-            agent_review_policy.save(db,identity,body)
-            audit(db,app_id,'agent_grant.issued',dict(grant_id=identity,agent_id=body['agent_id'],owner=user['principal']))
-        return dict(grant=dict(public(row),review_operations=agent_review_policy.validate(body)),token=token,token_delivery='ONCE_ONLY')
+            result=issue_in_db(db,app_id,user,body,observed,token)
+        return result
 
     def list(self,app_id,user):
         """Owner-only operational metadata; snapshot imports cannot create grants."""
@@ -124,4 +130,7 @@ class Grants:
             db.execute('BEGIN IMMEDIATE')
             row=authenticated(db,token,envelope,self.clock())
             agent_review_policy.ordinary_dispatch(db,row['id'],envelope['operation'])
-            return consume(db,row,envelope,self.clock())
+            from .complete_automation import reserve
+            execution=reserve(db,self.store,row,envelope,self.clock())
+            result=consume(db,row,envelope,self.clock())
+            return dict(result,automation_execution_id=execution) if execution else result

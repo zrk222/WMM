@@ -5,6 +5,7 @@ import json,os,subprocess,sys,unittest
 from tests import test_agent_review_http as fixture
 from tests import test_agent_mcp as sdk
 from mission_control.operator_client import ClientError
+from mission_control.operation_catalog import OPERATIONS
 
 
 class ReviewClientTests(unittest.IsolatedAsyncioTestCase):
@@ -44,7 +45,7 @@ class ReviewClientTests(unittest.IsolatedAsyncioTestCase):
         async with self.session() as client:
             listed=(await client.list_tools()).tools
             names={row.name for row in listed}
-            self.assertEqual(len(names),19);self.assertNotIn('wmm_review_approve',names)
+            self.assertEqual(len(names),len(OPERATIONS)+4);self.assertNotIn('wmm_review_approve',names)
             status=await client.call_tool('wmm_review_status',dict(app_id='sample-one',id='review-one'))
             self.assertEqual(status.structuredContent['data']['checkpoint']['hash'],prepared['checkpoint']['hash'])
             done=await client.call_tool('wmm_review_resume',dict(app_id='sample-one',id='review-one',revision=approved['revision'],packet_hash=approved['hash']))
@@ -80,7 +81,7 @@ class ReviewClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(value['error']['code'],'INVALID_INPUT')
         async with self.session(grant=False) as client:
             names={row.name for row in (await client.list_tools()).tools}
-            self.assertEqual(len(names),16)
+            self.assertEqual(len(names),len(OPERATIONS)+1)
             self.assertFalse(any(name.startswith('wmm_review_') for name in names))
             result=await client.call_tool('wmm_review_status',dict(app_id='sample-one',id='review-one'))
             self.assertTrue(result.isError)

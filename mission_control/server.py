@@ -207,6 +207,10 @@ class Handler(BaseHTTPRequestHandler):
             if urlparse(self.path).query:raise Invalid('Use the exact app operation discovery address')
             from .agent_operations import discovery
             return self.send(200,discovery(store.app(app_id)))
+        if parts[3:]==['jobs']:
+            if urlparse(self.path).query:raise Invalid('Use the exact app job history address')
+            from .worker import jobs
+            return self.send(200,jobs(store,app_id))
         if len(parts)==3:
             return self.send(200,dict(self.server.service.workspace(app_id),identity=self.server.identities.public(self.session())))
         if len(parts)==6 and parts[3:5]==['social-access','flows']:
@@ -214,7 +218,7 @@ class Handler(BaseHTTPRequestHandler):
         histories={('aeo','history'):'aeo',('attribution','history'):'attribution'}
         if tuple(parts[3:]) in histories:
             return self.get_history(app_id,histories[tuple(parts[3:])])
-        scoped={'renders':self.get_video,'experiment-tracking':self.get_instrumentation,'files':self.get_asset,'setup-discovery':self.get_setup_discovery}
+        scoped={'renders':self.get_video,'hypit-renders':self.get_hypit_video,'experiment-tracking':self.get_instrumentation,'files':self.get_asset,'setup-discovery':self.get_setup_discovery}
         if parts[3] in scoped:return scoped[parts[3]](parts)
         ordinary={'export':lambda:self.send(200,store.export(app_id),filename=app_id+'-snapshot.json'),
                   'measurement':lambda:self.get_measurement(app_id)}
@@ -277,9 +281,19 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts)!=6 or parts[5] not in ("preview","download"):raise KeyError("Video route not found")
         return self.video(parts[2],parts[4],parts[5]=="download")
 
-    def video(self,app_id,render_id,download=False):
+    def get_hypit_video(self,parts):
+        """Expose app-owned history or the exact Hypit preview/download route."""
+        from .hypit_jobs import HypitRenders
+        if urlparse(self.path).query:raise Invalid('Use the exact Hypit artifact address')
+        if len(parts)==4:return self.send(200,HypitRenders(self.server.service.store).list(parts[2]))
+        if len(parts)!=6 or parts[5] not in ('preview','download'):raise KeyError('Hypit video route not found')
+        return self.video(parts[2],parts[4],parts[5]=='download',hypit=True)
+
+    def video(self,app_id,render_id,download=False,hypit=False):
         """Serve hash-validated app-owned video with actual seeking and download support."""
         from .creative_rendering import artifact_file
+        if hypit:
+            from .hypit_jobs import artifact_file
         path,_=artifact_file(self.server.service.store,app_id,render_id);raw=path.read_bytes()
         headers={"Accept-Ranges":"bytes"};filename=app_id+"-"+render_id+".mp4" if download else None
         value=self.headers.get("Range")
@@ -360,7 +374,7 @@ class Handler(BaseHTTPRequestHandler):
     def post_data(self,path,parts):
         """Keep original per-route byte limits and strict duplicate/nonfinite checks."""
         raw=self.attribution_body(path,parts) if any(k in parts for k in ('setup-discovery','play','attribution','agent-access','social-access','social')) else self.body(self.post_limit(path,parts))
-        strict=any(kind in parts for kind in ('agent-reviews','agent-grants','subscription-growth','customer-workflows','setup-discovery','play','attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
+        strict=any(kind in parts for kind in ('workflow-evidence','agent-reviews','agent-grants','subscription-growth','customer-workflows','setup-discovery','play','attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
         if strict:
             from .payment_signature import unique_pairs,bounded_tree
             data=json.loads(raw,object_pairs_hook=unique_pairs,parse_constant=lambda _:(_ for _ in ()).throw(Invalid('Nonfinite JSON is forbidden')))
@@ -436,6 +450,10 @@ class Handler(BaseHTTPRequestHandler):
         if parts[3]=='agent-access':
             return self.send(200,self.agent_access(parts[2],parts[4:],data))
         app_id,action=parts[2:4]
+        if action=='workflow-evidence':
+            if len(parts)!=4 or urlparse(self.path).query:raise Invalid('Use the exact workflow evidence address')
+            from .operation_runtime import save_evidence
+            return self.send(201,save_evidence(service,app_id,data))
         if action=='subscription-growth':
             if parts[4:]!=['entries'] or urlparse(self.path).query:raise Invalid('Use the exact growth review entry address')
             from .growth_review_store import GrowthReviews
@@ -758,12 +776,14 @@ class Handler(BaseHTTPRequestHandler):
         from .creative_analysis import Analyses
         from .creative_briefs import Briefs
         from .creative_rendering import Renders
+        from .hypit_jobs import HypitRenders
         from .production_feasibility import Capabilities
         store=self.server.service.store
         if len(parts)==5 and parts[4] in ("profile","requirement"):return self.send(201,Capabilities(store).save(parts[2],parts[4],data))
         if len(parts)==5 and parts[4]=="analyses":return self.send(201,Analyses(store).save(parts[2],data))
         if len(parts)==5 and parts[4]=="briefs":return self.send(201,Briefs(store).save(parts[2],data))
         if len(parts)==5 and parts[4]=="renders":return self.send(201,Renders(store).queue(parts[2],data))
+        if len(parts)==5 and parts[4]=="hypit-renders":return self.send(201,HypitRenders(store).queue(parts[2],data))
         raise KeyError("Creative production route not found")
 
     def post_acquisition(self,parts,data):

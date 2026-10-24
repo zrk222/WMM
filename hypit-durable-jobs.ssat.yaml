@@ -1,0 +1,41 @@
+name: hypit-durable-jobs
+language: python
+modules:
+- name: hypit_jobs
+  path: mission_control/hypit_jobs.py
+  language: python
+  functions:
+  - name: private_path
+    args:
+    - store
+    - app_id
+    returns: object
+  - name: brief_scene
+    args:
+    - request
+    returns: object
+  - name: current_inputs
+    args:
+    - db
+    - store
+    - app_id
+    - data
+    returns: object
+  - name: saved
+    args:
+    - row
+    returns: object
+  - name: artifact_file
+    args:
+    - store
+    - app_id
+    - render_id
+    returns: object
+- name: test_hypit_jobs
+  path: tests/test_hypit_jobs.py
+  language: python
+  functions: []
+dependencies:
+- from: test_hypit_jobs
+  to: hypit_jobs
+invariants: []

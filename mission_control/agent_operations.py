@@ -30,13 +30,12 @@ def discovery(app):
         "checkpoints": [
             {"action": "provider_promotional_text", "state": "EXISTING_MAKER_CHECKER_PATH",
              "requirement": "Fresh authenticated maker and distinct checker, exact target/baseline/hash/expiry and explicit final send; discovery grants no authority"},
-            {"action": "general_agent_runs", "state": "INDEPENDENT_HUMAN_CHECKPOINT_NOT_IMPLEMENTED",
-             "requirement": "Implement distinct actor-bound review, bounded grants, expiry/revocation and durable approved resume before unattended operation"},
+            {"action": "catalog_local_writes", "state": "SCOPED_GRANTS_AND_INDEPENDENT_REVIEW_IMPLEMENTED",
+             "requirement": "Use an owner-issued grant. Owner-selected review operations require prepare, a separate fresh distinct checker approval, and exact durable resume. Inspect the catalog; discovery grants no authority."},
             {"action": "spend_publish_paywall_sensitive_access_destructive", "state": "HUMAN_CHECKPOINT_REQUIRED",
              "requirement": "No agent self-approval. Unsupported effect adapters remain manual; do not bypass existing approval or access controls"}],
         "native_agent_adapters": {"purpose": "Bounded text drafts", "tool_execution_enabled": False},
         "coverage": {"complete_autonomous_operation": False, "feedback_missing_tools": missing_feedback,
-            "remaining": ["Complete domain operation catalog and request/result schemas", "Scoped agent identities and grants",
-                          "Independent human approval and durable resume for general operations", "Full workflow conformance through two independent clients"]},
+            "remaining": ["Complete domain operation catalog and request/result schemas", "Provider-specific authorized effect adapters", "Full workflow conformance through two independent clients"]},
         "execution_authority": False, "external_writes": False, "spend_minor": 0}
     return dict(value, contract_sha256=digest(value))

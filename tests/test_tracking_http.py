@@ -45,8 +45,8 @@ class TrackingHTTPTests(unittest.TestCase):
 
     def test_tracking_csrf_origin_query_validation_and_generic_queue_denials(self):
         headers=self.protected();body=canonical(self.body()).encode()
-        self.assertEqual(self.request(self.base+'/approve',body)[0],403)
-        self.assertEqual(self.request(self.base+'/approve',body,{**headers,'Origin':'https://other.example'})[0],403)
+        self.assertEqual(self.request(self.base+'/approve',b'',{'Content-Length':str(len(body))})[0],403)
+        self.assertEqual(self.request(self.base+'/approve',b'',{**headers,'Content-Length':str(len(body)),'Origin':'https://other.example'})[0],403)
         self.assertEqual(self.request(self.base+'/approve?extra=1',body,headers)[0],400)
         for changes in ({'command':'publish'},{'confirm_read':False},{'proposal_hash':'stale'}):
             self.assertEqual(self.request(self.base+'/approve',canonical({**self.body(),**changes}).encode(),headers)[0],400)

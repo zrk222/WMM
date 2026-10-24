@@ -1,0 +1,24 @@
+# Plan: hypit-agent-video
+Spec: specs/hypit-agent-video.md
+Architect verdict: CONCERNS
+
+## Architecture
+Required UPG-07, authorized October 24, 2026. WMM owns briefs, agent choice, approvals, jobs, immutable artifacts and KPI records; optional user-installed Hypit supplies composition and rendering. Default to code-authored animation and supplied media with no paid video-generation API. Keep earlier goal requirements and native rendering.
+
+Resolve executable-component isolation, Hypit worker/result lifecycle, distribution licensing and audio/video validation before runtime implementation. CONCERNS is an unresolved architecture state, not a passing gate. Do not replace the integrated requirement with a download-only handoff.
+
+## Tasks
+- [ ] T1 | slice=mission_control | files=mission_control/hypit_runtime.py,mission_control/hypit_contract.py,tests/test_hypit_runtime.py,tests/test_hypit_contract.py | verify=`python -m unittest tests.test_hypit_runtime tests.test_hypit_contract -v` | Resolve runtime_boundary and source_binding, local-only preflight, exact argv and component execution isolation.
+- [ ] T2 | slice=mission_control | files=mission_control/hypit_authoring.py,mission_control/hypit_agent.py,tests/test_hypit_authoring.py,tests/test_hypit_agent.py | verify=`python -m unittest tests.test_hypit_authoring tests.test_hypit_agent -v` | Implement approved selected-agent authoring with frozen context and actual editable composition output.
+- [ ] T3 | slice=mission_control | files=mission_control/hypit_jobs.py,mission_control/hypit_media.py,tests/test_hypit_jobs.py,tests/test_hypit_media.py | verify=`python -m unittest tests.test_hypit_jobs tests.test_hypit_media -v` | Implement local_production, artifact_delivery and recovery with actual decoded media and owned durable attempts.
+- [ ] T4 | slice=mission_control | files=mission_control/hypit_variants.py,mission_control/hypit_portable.py,tests/test_hypit_variants.py,tests/test_hypit_portable.py | verify=`python -m unittest tests.test_hypit_variants tests.test_hypit_portable -v` | Implement variant_reuse, changed timing invalidation and transactional source/media backup and restore.
+- [ ] T5 | slice=mission_control | files=mission_control/server.py,mission_control/worker.py,mission_control/service.py,tests/test_hypit_http.py | verify=`python -m unittest tests.test_hypit_http -v` | Integrate exact scoped routes and workers with context review and publication_boundary.
+- [ ] T6 | slice=mission_control/static | files=mission_control/static/hypit-production.js,mission_control/static/creative-rendering.js,mission_control/static/index.html,mission_control/static/styles.css | verify=`node --check mission_control/static/hypit-production.js` | Implement first_class_option including selection, progress, revision, cancellation, preview and MP4/source downloads. Syntax validation alone does not prove UI acceptance.
+- [ ] T7 | slice=mission_control | files=mission_control/operation_catalog.py,mission_control/operation_runtime.py,mission_control/agent_mcp.py,tests/test_hypit_clients.py | verify=`python -m unittest tests.test_hypit_clients -v` | Implement agent_operation_parity with actual scoped CLI and official SDK MCP clients and independently enforced checkpoints.
+- [ ] T8 | slice=mission_control | files=mission_control/hypit_reporting.py,mission_control/hypit_analytics.py,tests/test_hypit_reporting.py,tests/test_hypit_analytics.py | verify=`python -m unittest tests.test_hypit_reporting tests.test_hypit_analytics -v` | Implement outcome_reporting linked to the complete KPI workstream, costs, reuse lineage and scoped PDF export.
+- [ ] T9 | slice=tests | files=tests/test_hypit_acceptance.py,tests/hypit-production.test.cjs | verify=`python -m unittest tests.test_hypit_acceptance -v` | Prove actual agent authoring, Hypit render, reuse, cancellation/recovery, desktop/mobile preview and byte-matching download, independent clients and inspected PDFs.
+- [ ] T10 | slice=smoke | files=smoke/hypit-agent-video.json | verify=`forge smoke hypit-agent-video` | Bind integrated observations to the actual scoped implementation candidate after T9.
+- [ ] T11 | slice=docs | files=docs/hypit-agent-video.md | verify=`python tools/check_distribution.py` | Explain the implemented workflow, local runtime, receipts, approval and privacy boundaries after acceptance.
+
+## Completion gate
+All tasks remain pending. Require CF strict spec, architecture, adversarial review, smoke and meaningful negative mutations; Prestige UI audits; affected and full regression; distribution privacy; and hash-bound project-neutral workflow QA. An unimplemented test path is a planned command, not executed evidence. Unavailable billing or performance telemetry remains unknown. Do not mark this workstream or the overall goal complete from a plan or passing backend slice.

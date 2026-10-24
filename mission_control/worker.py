@@ -19,15 +19,18 @@ from .automation_health import Supervision
 def enqueue(store,app_id,action,data,request_key):
     """Persist an idempotent app-scoped job while rejecting a reused key with different input."""
     store.app(app_id)
-    if action not in ("pipeline","sync","render"):
+    if action not in ("pipeline","sync","render","hypit_render"):
         raise Invalid("Unknown job action")
     request_key=required(request_key,"Request key",120)
     with connection(store.path) as db:
-        db.execute("INSERT OR IGNORE INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)",(uid(),app_id,action,canonical(data),"QUEUED",now(),now(),request_key))
+        inserted=db.execute("INSERT OR IGNORE INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)",(uid(),app_id,action,canonical(data),"QUEUED",now(),now(),request_key)).rowcount
         row=db.execute("SELECT * FROM jobs WHERE app_id=? AND request_key=?",(app_id,request_key)).fetchone()
         if row["action"]!=action or row["data"]!=canonical(data):
             raise Invalid("Request key already used for a different job")
-        return json_job(row)
+        result=json_job(row)
+        from .automation_execution import attach_job
+        attach_job(db,result,bool(inserted))
+        return result
 
 
 def json_job(row):
@@ -65,6 +68,9 @@ def process(store,job,stop=None):
         return agent_execute(store,job,stop)
     app=store.app(job["app_id"])
     records=store.records(app["id"])
+    if job["action"]=="hypit_render":
+        from .hypit_jobs import HypitRenders
+        return HypitRenders(store).execute(job,stop)
     if job["action"]=="render":
         from .creative_rendering import Renders
         return Renders(store).execute(job,stop)
@@ -146,7 +152,9 @@ def run_once(store,stop=None):
     retry_delay=0
     try:
         guard_owned(store,job)
-        result=process(store,job) if stop is None else process(store,job,stop)
+        from .automation_execution import job_execution
+        with job_execution(store,job):
+            result=process(store,job) if stop is None else process(store,job,stop)
         guard_owned(store,job)
         status="SUCCEEDED"
     except Exception as exc:

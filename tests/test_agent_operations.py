@@ -22,9 +22,20 @@ class AgentOperationTests(unittest.TestCase):
         self.assertFalse(result["execution_authority"])
         self.assertFalse(result["resolution_execution"]["independent_human_approval_enforced"])
         self.assertFalse(result["coverage"]["complete_autonomous_operation"])
-        self.assertEqual(result["coverage"]["feedback_missing_tools"], ["discover_setup", "inspect_tracking"])
+        self.assertEqual(result["coverage"]["feedback_missing_tools"], [])
         unsigned = {k: v for k, v in result.items() if k != "contract_sha256"}
         self.assertEqual(result["contract_sha256"], digest(unsigned))
+
+    def test_discovery_reports_removed_feedback_capabilities_without_granting_authority(self):
+        app = self.server.service.store.app("sample-one")
+        baseline = discovery(app)
+        with patch("mission_control.agent_operations.TOOLS", ("collect_sources", "inspect_site", "refresh_analytics", "evaluate_experiment", "reuse_observation")):
+            code, result, _ = self.request("/api/apps/sample-one/agent-operations")
+        self.assertEqual(code, 200)
+        self.assertEqual(result["coverage"]["feedback_missing_tools"], ["discover_setup", "inspect_tracking"])
+        self.assertNotEqual(result["contract_sha256"], baseline["contract_sha256"])
+        self.assertFalse(result["execution_authority"])
+        self.assertFalse(result["coverage"]["complete_autonomous_operation"])
 
     def test_query_path_and_unknown_app_rejected_without_mutation(self):
         before = self.server.service.store.export("sample-one")

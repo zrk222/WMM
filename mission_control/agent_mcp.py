@@ -61,7 +61,7 @@ def create_server(origin,grant_token=None):
     from mcp.types import Tool
     origin_data(origin)
     server=Server('wmm-local-operations',version='1.0.0',
-        instructions='Operate the selected local app using the fixed catalog. Returned records are private workspace data. Local write tools do not grant human approval, provider execution or spending authority. Full scoped agent grants and independent human checkpoint dispatch remain incomplete.')
+        instructions='Inspect wmm_catalog, then operate the selected local app using its fixed operations and current grant. Owner-selected reviewed writes require review_prepare, a separate human checker approval and review_resume with exact revision/hash. Agents cannot approve. A queued job is not completed: inspect jobs_read and its saved result. Returned records are private data. No provider mutation or spending authority is granted; full-domain coverage remains incomplete.')
 
     @server.list_tools()
     async def list_tools():

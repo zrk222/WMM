@@ -90,6 +90,11 @@ CREATE TABLE IF NOT EXISTS acquisition_panels(app_id TEXT NOT NULL REFERENCES ap
 CREATE TABLE IF NOT EXISTS acquisition_observations(app_id TEXT NOT NULL REFERENCES apps(id), id TEXT NOT NULL, version INTEGER NOT NULL, data TEXT NOT NULL, hash TEXT NOT NULL, created TEXT NOT NULL, PRIMARY KEY(app_id,id,version));
 CREATE TABLE IF NOT EXISTS acquisition_reports(app_id TEXT NOT NULL REFERENCES apps(id), id TEXT NOT NULL, version INTEGER NOT NULL, data TEXT NOT NULL, hash TEXT NOT NULL, created TEXT NOT NULL, PRIMARY KEY(app_id,id,version));
 CREATE TABLE IF NOT EXISTS creative_renders(app_id TEXT NOT NULL REFERENCES apps(id), id TEXT NOT NULL, job_id TEXT NOT NULL, data TEXT NOT NULL, hash TEXT NOT NULL, created TEXT NOT NULL, PRIMARY KEY(app_id,id), UNIQUE(app_id,job_id));
+CREATE TABLE IF NOT EXISTS hypit_attempts(app_id TEXT NOT NULL REFERENCES apps(id),job_id TEXT NOT NULL REFERENCES jobs(id),attempt INTEGER NOT NULL,data TEXT NOT NULL,hash TEXT NOT NULL,status TEXT NOT NULL,created TEXT NOT NULL,updated TEXT NOT NULL,PRIMARY KEY(app_id,job_id));
+CREATE TABLE IF NOT EXISTS hypit_renders(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,job_id TEXT NOT NULL REFERENCES jobs(id),data TEXT NOT NULL,hash TEXT NOT NULL,created TEXT NOT NULL,PRIMARY KEY(app_id,id),UNIQUE(app_id,job_id));
+CREATE TABLE IF NOT EXISTS automation_policies(id TEXT PRIMARY KEY,app_id TEXT NOT NULL REFERENCES apps(id),grant_id TEXT NOT NULL UNIQUE REFERENCES agent_grants(id),owner TEXT NOT NULL,version INTEGER NOT NULL,status TEXT NOT NULL CHECK(status IN ('ACTIVE','OFF')),proposal TEXT NOT NULL,summary TEXT NOT NULL,summary_hash TEXT NOT NULL,created TEXT NOT NULL,updated TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS automation_executions(id TEXT PRIMARY KEY,policy_id TEXT NOT NULL REFERENCES automation_policies(id),policy_version INTEGER NOT NULL,grant_id TEXT NOT NULL REFERENCES agent_grants(id),operation TEXT NOT NULL,input_hash TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('ADMITTED','DISPATCHED','SUCCEEDED','FAILED','UNKNOWN','CANCELLED','CANCEL_REQUESTED')),write_commits INTEGER NOT NULL DEFAULT 0,result_hash TEXT,created TEXT NOT NULL,updated TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS automation_job_scopes(job_id TEXT PRIMARY KEY REFERENCES jobs(id),execution_id TEXT NOT NULL REFERENCES automation_executions(id),request_hash TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS aeo_checks(app_id TEXT NOT NULL REFERENCES apps(id), id TEXT NOT NULL, data TEXT NOT NULL, hash TEXT NOT NULL, created TEXT NOT NULL, origin TEXT NOT NULL CHECK(origin IN ('LOCAL_OBSERVATION','IMPORTED_ASSERTION')), PRIMARY KEY(app_id,id));
 CREATE TABLE IF NOT EXISTS setup_proposals(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,data TEXT NOT NULL,hash TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('PENDING','NEEDS_RESOLUTION','APPLIED')),result TEXT,created TEXT NOT NULL,expires TEXT NOT NULL,updated TEXT NOT NULL,PRIMARY KEY(app_id,id));
 """
@@ -103,7 +108,10 @@ def connection(path):
     db.execute("PRAGMA foreign_keys=ON")
     try:
         with db:
+            from .automation_execution import guard_connection
+            guard_connection(path, db)
             yield db
+            guard_connection(path, db, committing=True)
     finally:
         db.close()
 

@@ -2,10 +2,10 @@
 from .common import Invalid,digest
 from .db import connection
 from .store import decode
-from .feedback_artifacts import public_artifact,public_codes
+from .feedback_artifacts import public_artifact,public_codes,setup_artifact_current
 from .source_progress import read_state,valid_children
 
-TOOLS=('collect_sources','inspect_site','refresh_analytics','evaluate_experiment','reuse_observation')
+TOOLS=('collect_sources','inspect_site','refresh_analytics','evaluate_experiment','reuse_observation','discover_setup','inspect_tracking')
 JOB_STATES=('QUEUED','RUNNING','SUCCEEDED','BLOCKED','FAILED','CANCELLED')
 OUTCOMES=('EVIDENCE_GATHERED','NEEDS_RESOLUTION','WAITING_FOR_SOURCES','WAITING_FOR_MATURITY')
 LIMIT=100
@@ -54,6 +54,8 @@ def observation(store,app,job):
     state=outcome(store,job) if valid else 'INVALID_OR_STALE'
     if tool in ('inspect_site','reuse_observation') and state=='EVIDENCE_GATHERED':
         if reuse_candidate(store,app,[job]) is None:state='ARTIFACT_NOT_CURRENT'
+    if tool=='discover_setup' and state=='EVIDENCE_GATHERED':
+        if not setup_artifact_current(store,app,job):state='ARTIFACT_NOT_CURRENT'
     children=child_fingerprint(store,job)
     return dict(job_id=job['id'],tool=tool,state=state,proof='PARTIAL_OR_UNVERIFIED',
         source_sha256=digest(dict(data=job.get('data'),result=job.get('result'),state=state,children=children)))

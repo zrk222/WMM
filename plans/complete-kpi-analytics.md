@@ -1,0 +1,21 @@
+# Plan: complete-kpi-analytics
+Spec: specs/complete-kpi-analytics.md
+Architect verdict: CONCERNS
+
+## Architecture
+Required UPG-08, authorized October 24, 2026. Establish the feature-to-metric coverage matrix before expanding the existing event/ledger/cohort/report infrastructure. Resolve each connector's available fields, history, permission and billing constraints separately. Runtime implementation is pending; the following commands are planned acceptance commands, not executed evidence.
+
+## Tasks
+- [ ] T1 | slice=docs | files=docs/kpi-coverage.md,docs/kpi-definitions.md | verify=`python tools/check_distribution.py` | Inventory coverage_catalog and metric_definitions against actual supported features and connectors. Distribution checking alone does not establish metric completeness.
+- [ ] T2 | slice=mission_control | files=mission_control/kpi_catalog.py,mission_control/kpi_contract.py,tests/test_kpi_catalog.py,tests/test_kpi_contract.py | verify=`python -m unittest tests.test_kpi_catalog tests.test_kpi_contract -v` | Implement versioned definitions with exact units, formula inputs, dimensions and named unavailable states.
+- [ ] T3 | slice=mission_control | files=mission_control/kpi_store.py,mission_control/kpi_ingestion.py,tests/test_kpi_store.py,tests/test_kpi_ingestion.py | verify=`python -m unittest tests.test_kpi_store tests.test_kpi_ingestion -v` | Implement durable_observations and ingestion_recovery using existing transactional storage, lineage, idempotency and backfill checkpoints.
+- [ ] T4 | slice=mission_control | files=mission_control/kpi_collectors.py,mission_control/kpi_coverage.py,tests/test_kpi_collectors.py,tests/test_kpi_coverage.py | verify=`python -m unittest tests.test_kpi_collectors tests.test_kpi_coverage -v` | Map existing collectors and add reviewed source-specific packets for missing collectors. Retain per-collector collector_acceptance and exact access requirements; an inventory does not complete collection.
+- [ ] T5 | slice=mission_control | files=mission_control/kpi_analytics.py,mission_control/kpi_cohorts.py,tests/test_kpi_analytics.py,tests/test_kpi_cohorts.py | verify=`python -m unittest tests.test_kpi_analytics tests.test_kpi_cohorts -v` | Implement reproducible_analytics, mature denominators, late corrections and separated currency/provider definitions.
+- [ ] T6 | slice=mission_control | files=mission_control/kpi_reports.py,mission_control/kpi_privacy.py,tests/test_kpi_reports.py,tests/test_kpi_privacy.py | verify=`python -m unittest tests.test_kpi_reports tests.test_kpi_privacy -v` | Implement page_reporting data and exports with exact filters/totals and privacy_boundaries.
+- [ ] T7 | slice=mission_control/static | files=mission_control/static/kpi-analytics.js,mission_control/static/page-reporting.js,mission_control/static/index.html,mission_control/static/styles.css | verify=`node --check mission_control/static/kpi-analytics.js` | Adopt explained analytics, historical comparisons, freshness, coverage gaps and PDF/machine-readable exports across relevant pages. Add per-page browser acceptance packets; syntax validation alone is insufficient.
+- [ ] T8 | slice=tests | files=tests/test_kpi_acceptance.py,tests/kpi-analytics.test.cjs | verify=`python -m unittest tests.test_kpi_acceptance -v` | Prove coverage with source readback, restart/backfill, negative mutations, cross-app/consent boundaries, desktop/mobile and inspected PDF/export consistency.
+- [ ] T9 | slice=smoke | files=smoke/complete-kpi-analytics.json | verify=`forge smoke complete-kpi-analytics` | Bind the actual runtime and report acceptance observations to the implementation candidate after T8.
+- [ ] T10 | slice=docs | files=docs/kpi-acceptance.md | verify=`python tools/check_distribution.py` | Document observed source coverage and any exact remaining provider acceptance dependencies.
+
+## Completion gate
+All tasks remain pending. Expand T4 and T7 into bounded source-specific and page-specific packets after the inventory; no collector or page may be silently omitted. Require the complete source/collector/storage/computation/UI/export matrix, actual applicable checks, full regression, privacy, CF and hash-bound workflow QA. Preserve every earlier WMM requirement and pending workstream. No live tracking, external writes or paid calls are authorized merely by this analytics scope addition.
