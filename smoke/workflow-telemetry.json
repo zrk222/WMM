@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "literal-authoring-boundary",
+      "kind": "python",
+      "run": "import unittest;from tests import test_workflow_telemetry;suite=unittest.defaultTestLoader.loadTestsFromModule(test_workflow_telemetry);assert suite.countTestCases()==4;r=unittest.TextTestRunner().run(suite);assert r.wasSuccessful() and not r.skipped"
+    }
+  ]
+}

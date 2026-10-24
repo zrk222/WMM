@@ -11,6 +11,7 @@ def execute(service,envelope):
     from .ledger import Ledger
     from .worker import jobs
     from .hypit_jobs import HypitRenders
+    from .creative_rendering import Renders
     request_data(envelope)
     app=envelope['app_id'];body=envelope['input'];store=service.store
     resource=envelope.get('resource_id')
@@ -21,6 +22,8 @@ def execute(service,envelope):
         'jobs.read':lambda:jobs(store,app),
         'hypit.read':lambda:HypitRenders(store).list(app),
         'hypit.queue':lambda:HypitRenders(store).queue(app,body),
+        'native.read':lambda:Renders(store).list(app),
+        'native.queue':lambda:Renders(store).queue(app,body),
         'job.cancel':lambda:service.cancel(app,resource),
         'operations.read':lambda:discovery(store.app(app)),
         'growth.read':lambda:service.subscription_review(app),

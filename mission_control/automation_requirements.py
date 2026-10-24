@@ -28,8 +28,8 @@ WORKFLOWS = {
     'hypit_caption_render': dict(name='Local Hypit caption composition', operations=[
         'hypit.read', 'hypit.queue', 'jobs.read', 'job.cancel'],
         blockers=['LOCAL_MEDIA_RUNTIME_VERIFICATION_REQUIRED']),
-    'native_screen_render': dict(name='Local app-screen video', operations=[],
-        blockers=['NATIVE_RENDER_AGENT_OPERATION_REQUIRED']),
+    'native_screen_render': dict(name='Local app-screen video', operations=[
+        'native.read', 'native.queue', 'jobs.read', 'job.cancel'], blockers=[]),
     'viral_discovery': dict(name='Viral-only source discovery', operations=[],
         blockers=['LIVE_VIRAL_COLLECTOR_REQUIRED']),
     'video_authoring_editing': dict(name='Video authoring and editing', operations=[],
@@ -203,6 +203,11 @@ def workflow_states(selected, inference, accounts):
     result = []
     for identity in selected:
         row = deepcopy(WORKFLOWS[identity])
+        if identity == 'native_screen_render':
+            from .native_runtime_identity import identity as native_identity
+            row['runtime'] = native_identity()
+            if row['runtime']['status'] != 'READY':
+                row['blockers'].append('NATIVE_RUNTIME_SETUP_REQUIRED')
         if inference['status'] != 'TESTED_FRESH':
             row['blockers'].append('FRESH_INFERENCE_TEST_REQUIRED')
         if identity == 'social_publish' and not any(account['status'] == 'TESTED_FRESH' for account in accounts):

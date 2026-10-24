@@ -16,6 +16,8 @@ OPERATIONS={
     'jobs.read':descriptor('GET','/jobs','READ_PRIVATE_LOCAL_DATA'),
     'hypit.read':descriptor('GET','/hypit-renders','READ_PRIVATE_LOCAL_DATA'),
     'hypit.queue':descriptor('POST','/production/hypit-renders','QUEUE_LOCAL_PREPARATION',('data','request_key')),
+    'native.read':descriptor('GET','/native-renders','READ_PRIVATE_LOCAL_DATA'),
+    'native.queue':descriptor('POST','/production/renders','QUEUE_LOCAL_PREPARATION',('data','request_key')),
     'job.cancel':descriptor('POST','/jobs/{resource_id}/cancel','CANCEL_LOCAL_JOB',(),(),True),
     'operations.read':descriptor('GET','/agent-operations','READ_LOCAL_POLICY'),
     'growth.read':descriptor('GET','/subscription-growth','READ_PRIVATE_LOCAL_DATA'),

@@ -144,6 +144,7 @@
     const anchor = main.querySelector(".wmm-overview-story") || main.querySelector(".page-heading, .hero");
     if (anchor) anchor.insertAdjacentHTML("afterend", markup);
     else main.insertAdjacentHTML("afterbegin", markup);
+    if(typeof WMMStories!=="undefined")main.querySelector('.page-reporting .section-heading').insertAdjacentHTML('afterend',WMMStories.page(state.view));
   }
   return {PAGES, overviewStory, model, pageMetrics, evidenceMetrics, weeklyMetrics, cohortRows, metricTable, panel, reportHTML, openReport, decorate};
 });

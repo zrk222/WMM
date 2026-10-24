@@ -84,7 +84,9 @@ def process(store,job,stop=None):
         catalog=readiness(app,records,jobs(store,app['id']),Connections(store).statuses(app['id']))
         from .release_readiness import readiness as release_readiness
         release=release_readiness(app,records,jobs(store,app['id']),Connections(store).statuses(app['id']))
-        return execute(app,records,job["data"].get("stage",0),Ledger(store.path).reports(app["id"]),catalog,release)
+        from .workflow_telemetry import emit
+        return execute(app,records,job["data"].get("stage",0),Ledger(store.path).reports(app["id"]),catalog,release,
+                       progress=lambda code,stage:emit(store,job,code,stage))
     binding=current_connection(store,app["id"],job["data"])["data"]
     from .credential_vault import namespace
     binding={**binding,"_vault_namespace":namespace(store.path)}
@@ -154,6 +156,8 @@ def run_once(store,stop=None):
         guard_owned(store,job)
         from .automation_execution import job_execution
         with job_execution(store,job):
+            from .workflow_telemetry import emit
+            emit(store,job,'STARTED')
             result=process(store,job) if stop is None else process(store,job,stop)
         guard_owned(store,job)
         status="SUCCEEDED"
@@ -162,6 +166,8 @@ def run_once(store,stop=None):
     with connection(store.path) as db:
         changed=db.execute("UPDATE jobs SET status=?,result=?,lease=?,updated=? WHERE id=? AND status='RUNNING' AND attempts=?",(status,canonical(result),time.time()+retry_delay if retry_delay else 0,now(),job["id"],job["attempts"])).rowcount
         if changed:
+            from .workflow_telemetry import append
+            append(db,job,'RETRY_WAIT' if retry_delay else status)
             if job['action']=='agent_run':
                 from .agent_tasks import complete as agent_complete
                 agent_complete(db,job,result,status)

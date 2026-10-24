@@ -1,0 +1,40 @@
+name: workflow-telemetry
+language: python
+modules:
+- name: workflow_telemetry
+  path: mission_control/workflow_telemetry.py
+  language: python
+  functions:
+  - name: append
+    args:
+    - db
+    - job
+    - code
+    - stage
+    returns: object
+  - name: emit
+    args:
+    - store
+    - job
+    - code
+    - stage
+    returns: object
+  - name: monitor
+    args:
+    - store
+    - app_id
+    returns: object
+  - name: run_view
+    args:
+    - db
+    - app_id
+    - job
+    returns: object
+- name: test_workflow_telemetry
+  path: tests/test_workflow_telemetry.py
+  language: python
+  functions: []
+dependencies:
+- from: test_workflow_telemetry
+  to: workflow_telemetry
+invariants: []

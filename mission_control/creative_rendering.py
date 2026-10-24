@@ -95,6 +95,8 @@ class Renders:
 
     def execute(self,job,stop=None):
         """Render privately then revalidate proof and owned job inside an atomic commit."""
+        from .workflow_telemetry import emit
+        emit(self.store,job,'NATIVE_PROOF')
         app_id=job["app_id"];request=job["data"];root=folder_for(self.store,app_id)
         root.mkdir(parents=True,exist_ok=True)
         with connection(self.store.path) as db:
@@ -104,9 +106,12 @@ class Renders:
             row=decoded(previous);artifact_file(self.store,app_id,row["id"])
             return dict(render_id=row["id"],artifact_hash=row["data"]["artifact"]["sha256"],publication="NOT_RUN")
         with tempfile.TemporaryDirectory(prefix="render-",dir=root) as temporary:
+            emit(self.store,job,'NATIVE_SCREENS')
             folder=Path(temporary);screens=self.copy_screens(folder,app_id,request)
+            emit(self.store,job,'NATIVE_ENCODING')
             output,artifact=render_native(folder,request,screens,lambda:heartbeat(self.store,job,stop))
             heartbeat(self.store,job,stop)
+            emit(self.store,job,'NATIVE_COMMIT')
             return self.commit(job,request,artifact,output)
 
     def copy_screens(self,folder,app_id,request):

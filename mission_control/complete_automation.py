@@ -223,7 +223,8 @@ class Automation:
             db.execute('BEGIN')
             member(db, app_id, user['principal'], 'OWNER')
             rows = db.execute('SELECT * FROM automation_policies WHERE app_id=? ORDER BY created,id', (app_id,)).fetchall()
-            return dict(policies=[policy_view(db, row, self.clock()) for row in rows])
+            from .automation_requirements import workflow_catalog
+            return dict(policies=[policy_view(db, row, self.clock()) for row in rows], catalog=workflow_catalog())
 
 
 def cancel_work(db, policy_id, stamp):
@@ -253,5 +254,6 @@ def policy_view(db, row, observed):
     executions = [dict(item) for item in db.execute('SELECT id,operation,input_hash,status,write_commits,result_hash,created,updated FROM automation_executions WHERE policy_id=? ORDER BY created,id', (row['id'],))]
     for execution in executions:
         execution['jobs'] = [dict(job) for job in db.execute('SELECT j.id,j.action,j.status,j.created,j.updated FROM jobs j JOIN automation_job_scopes s ON s.job_id=j.id WHERE s.execution_id=?', (execution['id'],))]
+    grant = db.execute('SELECT used,max_calls,expires,status FROM agent_grants WHERE id=?', (row['grant_id'],)).fetchone()
     return dict(id=row['id'], version=row['version'], status=row['status'], effective_status=effective,
-                grant_id=row['grant_id'], summary=summary, repair=repair, executions=executions)
+                grant_id=row['grant_id'], usage=dict(grant) if grant else None, summary=summary, repair=repair, executions=executions)

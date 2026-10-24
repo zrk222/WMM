@@ -160,7 +160,7 @@ class Handler(BaseHTTPRequestHandler):
         scripts=('/agent-control.js','/subscription-authoring.js','/customer-workflow.js','/growth-review.js','/page-reporting.js','/setup-discovery.js','/google-play.js','/play-callback.js','/social-access.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
                  '/workflow-automation.js','/followup.js','/aeo.js','/public-store-readback.js',
                  '/pmf-workflow.js','/pmf-research.js','/audit-runtime.js','/automatic-preparation.js','/campaign-sequence.js','/experiment-tracking.js',
-                 '/spytok-workflow.js','/production-feasibility.js','/spira-workflow.js','/journey-readiness.js')
+                 '/spytok-workflow.js','/production-feasibility.js','/spira-workflow.js','/journey-readiness.js','/workflow-telemetry.js','/ui-stories.js','/complete-automation.js')
         if path in scripts:
             return self.send(200,(STATIC/path[1:]).read_bytes(),"text/javascript; charset=utf-8")
         files={"/":"index.html","/index.html":"index.html","/style.css":"style.css","/page-reporting.css":"page-reporting.css","/app.js":"app.js","/creative-ranking.js":"creative-ranking.js","/acquisition.js":"acquisition.js","/creative-rendering.js":"creative-rendering.js","/verified-review.js":"verified-review.js","/provider-actions.js":"provider-actions.js","/outcome-learning.js":"outcome-learning.js","/signed-payments.js":"signed-payments.js"}
@@ -192,6 +192,14 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts)<3:raise KeyError(path)
         app_id=parts[2]
         store=self.server.service.store
+        if parts[3:]==['native-renders']:
+            if urlparse(self.path).query:raise Invalid('Use the exact native history address')
+            from .creative_rendering import Renders
+            return self.send(200,Renders(store).list(app_id))
+        if parts[3:]==['workflow-telemetry']:
+            if urlparse(self.path).query:raise Invalid('Use the exact workflow telemetry address')
+            from .workflow_telemetry import monitor
+            return self.send(200,monitor(store,app_id))
         if parts[3:]==['subscription-growth']:
             if urlparse(self.path).query:raise Invalid('Use the exact subscription review address')
             return self.send(200,self.server.service.subscription_review(app_id))

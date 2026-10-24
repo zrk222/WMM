@@ -115,7 +115,7 @@ def evaluate(app, records,ledger_reports=(), catalog=None, release=None):
     return result
 
 
-def execute(app, records, stage_id,ledger_reports=(), catalog=None, release=None):
+def execute(app, records, stage_id,ledger_reports=(), catalog=None, release=None, progress=None):
     """Prepare selected stage packets without publishing, spending or inventing outcomes."""
     checklist=evaluate(app,records,ledger_reports,catalog,release)
     selected=checklist if stage_id==0 else [s for s in checklist if s["id"]==stage_id]
@@ -123,7 +123,9 @@ def execute(app, records, stage_id,ledger_reports=(), catalog=None, release=None
         raise Invalid("Choose a stage from 1 through 12, or run the full pipeline")
     outputs=[]
     for stage in selected:
+        if progress:progress('STAGE_STARTED',stage['id'])
         packet=stage_packet(stage,app,records,checklist,ledger_reports)
         outputs.append({"stage":stage["id"],"status":"PREPARED" if stage["status"]=="READY" else "BLOCKED",
                         "missing":stage["missing"],"packet":packet})
+        if progress:progress('STAGE_PREPARED' if stage['status']=='READY' else 'STAGE_BLOCKED',stage['id'])
     return {"outputs":outputs,"external_execution":"NOT_RUN","spend_minor":0}

@@ -206,7 +206,7 @@ class AutomationReadinessTests(unittest.TestCase):
         self.assertEqual(len(result['workflows']), len(WORKFLOWS))
         self.assertEqual(result['scope_status'], 'BLOCKED')
         for row in result['workflows']:
-            if row['id'] not in ('local_evidence', 'experiment_preparation', 'pipeline_preparation'):
+            if row['id'] not in ('local_evidence', 'experiment_preparation', 'pipeline_preparation', 'native_screen_render'):
                 self.assertTrue(row['blockers'], row)
                 self.assertEqual(row['status'], 'BLOCKED')
         social = next(row for row in result['workflows'] if row['id'] == 'social_publish')
