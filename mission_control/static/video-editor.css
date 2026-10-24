@@ -1,0 +1,7 @@
+.video-editor .button-row{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0}
+.video-editor fieldset{min-width:0;margin:24px 0;padding:16px;border:1px solid var(--line);border-radius:12px}
+.video-editor legend{font-weight:600;padding:0 8px}
+.video-editor fieldset>p{overflow-wrap:anywhere}
+.video-editor details .form-grid{margin:16px 0}
+.video-editor .button:disabled{cursor:not-allowed}
+.video-editor video{display:block;background:var(--ink);border-radius:12px}

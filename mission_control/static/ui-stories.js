@@ -59,6 +59,8 @@
   define('tracking-form','Collect the defined evidence needed to evaluate this experiment.','The supported read retains its source-bound observations for the experiment.','Review the source, measurement window and exact requested read before approving.');
   define('followup-form','Keep the next useful follow-up tied to its evidence.','You get a saved follow-up policy or task with its selected limits.','Read the cadence, recipient scope and permission requirements before continuing.');
   define('learning-propose-form learning-link-form learning-action-form','Carry a lesson from observed work into the next decision.','You get a saved proposal, evidence link or decision; an untested idea stays a proposal.','Check the original observation and choose the exact next action below.');
+  define('video-project-create-form','Give this video one audience and one intended action.','Choose a current source video and save an editable project with its source hash.','Name the edit, describe its purpose and create the draft before changing clips.');
+  define('video-project-edit-form','Shape the saved video for the people you want to reach.','Your timing, framing and color choices become a new shared project revision. Rendering creates an actual MP4.','Save field edits before clip commands or rendering, then preview the exact output and review it before use.');
   Object.freeze(FORMS);
   function page(view){
     const row=PAGES[view];if(!row)throw new Error('This page needs its own story.');
