@@ -1,0 +1,46 @@
+name: video-edit-projects
+language: python
+modules:
+- name: video_edit_contract
+  path: mission_control/video_edit_contract.py
+  language: python
+  functions:
+  - name: definition
+    args: [value]
+    returns: object
+  - name: edit
+    args: [value, command]
+    returns: object
+  - name: timing
+    args: [value]
+    returns: object
+- name: video_edit_projects
+  path: mission_control/video_edit_projects.py
+  language: python
+  functions:
+  - name: bind_sources
+    args: [db, store, app_id, value]
+    returns: object
+  - name: next_state
+    args: [db, app_id, identity, current, body, action]
+    returns: object
+- name: test_video_edit_projects
+  path: tests/test_video_edit_projects.py
+  language: python
+  functions: []
+- name: test_video_edit_clients
+  path: tests/test_video_edit_clients.py
+  language: python
+  functions: []
+dependencies:
+- from: video_edit_projects
+  to: video_edit_contract
+- from: test_video_edit_projects
+  to: video_edit_projects
+- from: test_video_edit_projects
+  to: video_edit_contract
+- from: test_video_edit_clients
+  to: video_edit_projects
+- from: test_video_edit_clients
+  to: test_video_edit_projects
+invariants: []

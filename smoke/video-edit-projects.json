@@ -1,0 +1,1 @@
+{"checks":[{"name":"shared-project-state-and-frame-contract","kind":"python","run":"import unittest;from tests import test_video_edit_projects;suite=unittest.defaultTestLoader.loadTestsFromModule(test_video_edit_projects);assert suite.countTestCases()>=10;result=unittest.TextTestRunner().run(suite);assert result.wasSuccessful() and not result.skipped"}]}

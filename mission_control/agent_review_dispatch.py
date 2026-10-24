@@ -108,7 +108,9 @@ class ReviewedDispatch:
             if view['result'] is not None:raise Invalid('Reviewed request already has a receipt')
             claim_in_db(db,app_id,identity,grant['agent_id'],revision,packet_hash,self.clock())
             consume(db,grant,request['envelope'],self.clock())
-        result=run_operation(self.service,request['envelope'])
+        from .video_edit_projects import admitted_caller
+        with admitted_caller(dict(grant_id=grant['id'],agent_id=grant['agent_id'],attempt=grant['used']+1)):
+            result=run_operation(self.service,request['envelope'])
         return self.complete(app_id,identity,grant['agent_id'],result)
 
     def complete(self,app_id,identity,agent_id,result):

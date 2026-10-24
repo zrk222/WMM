@@ -192,6 +192,13 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts)<3:raise KeyError(path)
         app_id=parts[2]
         store=self.server.service.store
+        if len(parts)>=4 and parts[3]=='video-projects':
+            if urlparse(self.path).query:raise Invalid('Use the exact video project address')
+            from .video_edit_projects import Projects
+            projects=Projects(store)
+            if len(parts)==4:return self.send(200,projects.list(app_id))
+            if len(parts)==5:return self.send(200,projects.read(app_id,parts[4]))
+            raise KeyError('Video project route not found')
         if parts[3:]==['native-renders']:
             if urlparse(self.path).query:raise Invalid('Use the exact native history address')
             from .creative_rendering import Renders
@@ -382,7 +389,7 @@ class Handler(BaseHTTPRequestHandler):
     def post_data(self,path,parts):
         """Keep original per-route byte limits and strict duplicate/nonfinite checks."""
         raw=self.attribution_body(path,parts) if any(k in parts for k in ('setup-discovery','play','attribution','agent-access','social-access','social')) else self.body(self.post_limit(path,parts))
-        strict=any(kind in parts for kind in ('workflow-evidence','agent-reviews','agent-grants','subscription-growth','customer-workflows','setup-discovery','play','attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
+        strict=any(kind in parts for kind in ('workflow-evidence','video-projects','agent-reviews','agent-grants','subscription-growth','customer-workflows','setup-discovery','play','attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
         if strict:
             from .payment_signature import unique_pairs,bounded_tree
             data=json.loads(raw,object_pairs_hook=unique_pairs,parse_constant=lambda _:(_ for _ in ()).throw(Invalid('Nonfinite JSON is forbidden')))
@@ -458,6 +465,15 @@ class Handler(BaseHTTPRequestHandler):
         if parts[3]=='agent-access':
             return self.send(200,self.agent_access(parts[2],parts[4:],data))
         app_id,action=parts[2:4]
+        if action=='video-projects':
+            if urlparse(self.path).query:raise Invalid('Use the exact video project address')
+            from .video_edit_projects import Projects
+            projects=Projects(service.store)
+            if len(parts)==4:return self.send(201,projects.save(app_id,data))
+            if len(parts)==6 and parts[5] in ('edits','history','diff'):
+                operation='edit' if parts[5]=='edits' else parts[5]
+                return self.send(200,getattr(projects,operation)(app_id,parts[4],data))
+            raise KeyError('Video project route not found')
         if action=='workflow-evidence':
             if len(parts)!=4 or urlparse(self.path).query:raise Invalid('Use the exact workflow evidence address')
             from .operation_runtime import save_evidence

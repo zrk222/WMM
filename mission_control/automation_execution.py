@@ -128,6 +128,13 @@ def execution_outcome(row, error):
 def execute_admitted(service, envelope, admission):
     """Use the fixed dispatcher with admitted context; legacy grants remain intact."""
     from .operation_runtime import execute
+    from .video_edit_projects import admitted_caller
+    with admitted_caller(admission):
+        return dispatch_admitted(service, envelope, admission, execute)
+
+
+def dispatch_admitted(service, envelope, admission, execute):
+    """Retain exact admission and standing-write guards within the caller context."""
     if 'automation_execution_id' not in admission:
         return execute(service, envelope)
     identity = start(service.store, admission, envelope)
