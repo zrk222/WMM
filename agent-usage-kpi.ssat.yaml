@@ -1,0 +1,101 @@
+name: agent-usage-kpi
+language: python
+modules:
+- name: agent_usage
+  path: mission_control/agent_usage.py
+  language: python
+  functions:
+  - name: reported_path
+    args:
+    - value
+    - path
+    returns: object
+  - name: field_observation
+    args:
+    - value
+    - name
+    - paths
+    returns: object
+  - name: observation
+    args:
+    - value
+    returns: object
+  - name: completeness
+    args:
+    - counts
+    - issues
+    returns: object
+- name: agent_tasks
+  path: mission_control/agent_tasks.py
+  language: python
+  functions:
+  - name: request_key
+    args:
+    - value
+    returns: object
+  - name: selected
+    args:
+    - store
+    - app_id
+    - task
+    - connection_id
+    returns: object
+  - name: permitted
+    args:
+    - row
+    - mode
+    returns: object
+  - name: proposal
+    args:
+    - store
+    - app_id
+    - body
+    returns: object
+  - name: replay
+    args:
+    - row
+    - body
+    returns: object
+  - name: guard
+    args:
+    - store
+    - app_id
+    - frozen
+    returns: object
+  - name: guard_context
+    args:
+    - store
+    - app_id
+    - frozen
+    returns: object
+  - name: live_guard
+    args:
+    - store
+    - job
+    - stop
+    returns: object
+  - name: execute
+    args:
+    - store
+    - job
+    - stop
+    returns: object
+  - name: complete
+    args:
+    - db
+    - job
+    - result
+    - status
+    returns: object
+- name: test_agent_usage
+  path: tests/test_agent_usage.py
+  language: python
+  functions: []
+dependencies:
+- from: agent_tasks
+  to: agent_usage
+- from: test_agent_usage
+  to: agent_usage
+- from: test_agent_usage
+  to: agent_tasks
+invariants: []
