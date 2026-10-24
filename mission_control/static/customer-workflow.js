@@ -35,7 +35,9 @@
     return [{label:"Saved workflow versions",value:rows.length,unit:"versions",source:"customer_workflows.history"},
       {label:"Supplied observations",value:sources.length,unit:"observations across saved versions",source:"customer_workflows.history; versions may reuse observations"},
       {label:"Proposed features",value:features.length,unit:"proposals across saved versions",source:"customer_workflows.history; proposals are not delivered features"},
-      {label:"Sources needing review",value:rows.reduce((total,row)=>total+row.readout.unavailable_source_ids.length,0),unit:"source references across versions",source:"customer_workflows.history.readout; not unique people"}];
+      {label:"Sources needing review",value:rows.reduce((total,row)=>total+row.readout.unavailable_source_ids.length,0),unit:"source references across versions",source:"customer_workflows.history.readout; not unique people"},
+      {label:"Recorded prototype results",value:rows.filter(row=>row.data.prototype_result).length,unit:"supplied workflow versions",source:"customer_workflows.history; repeated versions are not unique tests"},
+      {label:"Completed prototype tasks",value:rows.filter(row=>row.data.prototype_result?.task_outcome==="COMPLETED").length,unit:"supplied workflow versions",source:"customer_workflows.history; task completion is not revenue or verified demand"}];
   }
 
   function panel(state){
@@ -61,10 +63,11 @@
     return {buyer:"",micro_behavior:"",desired_outcome:"",release:app.release||"",locale:app.locale||"",currency:app.currency||"",prototype_test:"",sources:[source],features:[{id:uuid(),description:"",source_ids:[source.id],validation:""}],excluded_features:[{feature:"",reason:""}]};
   }
 
-  function field(name,label,value="",textarea=false,hint=""){
+  function field(name,label,value="",textarea=false,hint="",required=true){
     const id="customer-"+name.replaceAll(".","-");
     const description=hint?`aria-describedby="${id}-hint"`:"";
-    const control=textarea?`<textarea id="${id}" name="${escape(name)}" rows="3" required ${description}>${escape(value)}</textarea>`:`<input id="${id}" name="${escape(name)}" value="${escape(value)}" required ${description}>`;
+    const need=required?"required":"";
+    const control=textarea?`<textarea id="${id}" name="${escape(name)}" rows="3" ${need} ${description}>${escape(value)}</textarea>`:`<input id="${id}" name="${escape(name)}" value="${escape(value)}" ${need} ${description}>`;
     return `<div class="field"><label for="${id}">${escape(label)}</label>${control}${hint?`<small id="${id}-hint">${escape(hint)}</small>`:""}</div>`;
   }
 
@@ -99,7 +102,13 @@
   }
 
   function formHTML(draft){
-    return `${basics(draft)}<h3>Inspected observations</h3>${draft.sources.map(sourceRow).join("")}${button("Add observation","add-source")}<h3>Features tied to evidence</h3>${draft.features.map((row,index)=>featureRow(row,index,draft.sources)).join("")}${button("Add proposed feature","add-feature")}<h3>Keep the scope small</h3>${draft.excluded_features.map(exclusionRow).join("")}${button("Add excluded feature","add-exclusion")}`;
+    return `${basics(draft)}<h3>Inspected observations</h3>${draft.sources.map(sourceRow).join("")}${button("Add observation","add-source")}<h3>Features tied to evidence</h3>${draft.features.map((row,index)=>featureRow(row,index,draft.sources)).join("")}${button("Add proposed feature","add-feature")}<h3>Keep the scope small</h3>${draft.excluded_features.map(exclusionRow).join("")}${button("Add excluded feature","add-exclusion")}${prototypeFields(draft)}`;
+  }
+
+  function prototypeFields(draft){
+    const value=draft.prototype_result;
+    if(!value)return `<h3>What happened when someone tried it?</h3><p>After a consented test, record the task result, feedback and evidence. Leave this out while the test is still a plan.</p>${button("Record prototype result","add-prototype")}`;
+    return `<fieldset><legend>Observed prototype result</legend><p>Save what you observed in one consented task. Use a short anonymized note and an evidence hash; keep private recordings outside this report. A completed task does not establish revenue or demand.</p><div class="form-grid">${field("prototype_result.observed_at","Test observed at (ISO timestamp)",value.observed_at)}${choice("prototype_result.task_outcome","Observed task outcome",value.task_outcome,[["COMPLETED","Completed"],["PARTIAL","Partially completed"],["NOT_COMPLETED","Not completed"]])}${field("prototype_result.feedback","Observed feedback and corrections",value.feedback,true,"Up to 500 characters; no personal contact information.")}${field("prototype_result.evidence_sha256","Prototype evidence SHA256",value.evidence_sha256)}${field("prototype_result.duration_seconds","Observed duration in seconds",value.duration_seconds??"",false,"Leave blank when duration was not measured.",false)}<div class="field"><label for="customer-prototype-features">Features tested</label><select id="customer-prototype-features" name="prototype_result.feature_ids" multiple required>${draft.features.map(row=>`<option value="${escape(row.id)}" ${value.feature_ids.includes(row.id)?"selected":""}>${escape(row.description||row.id)}</option>`).join("")}</select></div><div class="field"><label for="customer-prototype-consent"><input id="customer-prototype-consent" type="checkbox" name="prototype_result.consent" required ${value.consent?"checked":""}>Research consent was obtained for this observation</label></div></div>${button("Remove prototype result","remove-prototype")}</fieldset>`;
   }
 
   function openForm(deps,id=""){
@@ -114,10 +123,20 @@
     result.sources=draft.sources.map((row,index)=>({id:row.id,...Object.fromEntries(SOURCE_FIELDS.map(name=>[name,values.get("sources."+index+"."+name)]))}));
     result.features=draft.features.map((row,index)=>({id:row.id,description:values.get("features."+index+".description"),validation:values.get("features."+index+".validation"),source_ids:values.getAll("features."+index+".source_ids")}));
     result.excluded_features=draft.excluded_features.map((_,index)=>Object.fromEntries(["feature","reason"].map(name=>[name,values.get("excluded_features."+index+"."+name)])));
+    if(draft.prototype_result){
+      const prefix="prototype_result.",duration=values.get(prefix+"duration_seconds");
+      if(duration!==""&&(!/^\d+$/.test(duration)||!Number.isSafeInteger(Number(duration))))throw new Error("Enter whole seconds, or leave duration blank when it was not measured.");
+      result.prototype_result={...Object.fromEntries(["observed_at","task_outcome","feedback","evidence_sha256"].map(name=>[name,values.get(prefix+name)])),duration_seconds:duration===""?null:Number(duration),consent:values.get(prefix+"consent")!==null,feature_ids:values.getAll(prefix+"feature_ids")};
+    }
     return result;
   }
 
   function addRow(draft,kind,uuid){
+    if(kind==="prototype"){
+      if(draft.prototype_result)throw new Error("This version already contains a prototype result.");
+      draft.prototype_result={observed_at:"",task_outcome:"NOT_COMPLETED",feedback:"",evidence_sha256:"",duration_seconds:null,consent:false,feature_ids:draft.features.map(row=>row.id)};
+      return draft;
+    }
     const lists={source:[draft.sources,MAX_SOURCES,()=>blankSource(uuid)],feature:[draft.features,MAX_FEATURES,()=>({id:uuid(),description:"",source_ids:[],validation:""})],exclusion:[draft.excluded_features,MAX_EXCLUSIONS,()=>({feature:"",reason:""})]};
     const rule=lists[kind];
     if(!rule)throw new Error("Unknown customer workflow row.");
@@ -127,6 +146,7 @@
   }
 
   function removeRow(draft,kind,id){
+    if(kind==="prototype"){delete draft.prototype_result;return draft;}
     const list={source:draft.sources,feature:draft.features,exclusion:draft.excluded_features}[kind];
     if(!list)throw new Error("Unknown customer workflow row.");
     if(list.length<=1)throw new Error("Keep at least one "+kind+" row, or close the unsaved form.");
@@ -134,6 +154,7 @@
     if(!Number.isInteger(index)||index<0||index>=list.length)throw new Error("This row changed. Reopen the intended workflow.");
     list.splice(index,1);
     if(kind==="source")draft.features=draft.features.map(row=>({...row,source_ids:row.source_ids.filter(source=>source!==id)}));
+    if(kind==="feature"&&draft.prototype_result)draft.prototype_result.feature_ids=draft.prototype_result.feature_ids.filter(feature=>feature!==id);
     return draft;
   }
 
@@ -186,6 +207,7 @@
       `App release ${data.release}; locale ${data.locale}; currency ${data.currency}. Buyer: ${data.buyer}. Task: ${data.micro_behavior}. Desired outcome: ${data.desired_outcome}.`,
       ...data.sources.flatMap(sourceNotes),...readout.features.map(feature=>`Feature ${feature.id}: ${feature.description}. Supporting observations: ${feature.source_ids.join(", ")}. Validation: ${feature.validation}. Current state: ${human(feature.state)}.`),
       ...data.excluded_features.map(item=>`Excluded: ${item.feature}. Reason: ${item.reason}.`),`Prototype test: ${data.prototype_test}.`,
+      ...(data.prototype_result?[`Supplied prototype result: ${human(data.prototype_result.task_outcome)}; observed ${data.prototype_result.observed_at}; duration ${data.prototype_result.duration_seconds===null?"not measured":data.prototype_result.duration_seconds+" seconds"}; tested features ${data.prototype_result.feature_ids.join(", ")}; consent recorded.`,`Observed feedback: ${data.prototype_result.feedback}`,`Prototype evidence SHA256: ${data.prototype_result.evidence_sha256}.`]:["Prototype result: not recorded."]),
       `Sources needing review: ${readout.unavailable_source_ids.join(", ")||"None flagged"}. Demand verified: false. Paid behavior verified: false.`];
     return notes;
   }
@@ -207,5 +229,5 @@
     if(!actions[mode])throw new Error("Unknown customer workflow action.");
     return actions[mode]();
   }
-  return {context,history,selected,metrics,panel,historyList,blankSource,newDraft,field,choice,basics,sourceRow,sourceLinks,featureRow,exclusionRow,formHTML,openForm,capture,addRow,removeRow,editRows,payload,submit,sourceNotes,entryNotes,report,detail,action};
+  return {context,history,selected,metrics,panel,historyList,blankSource,newDraft,field,choice,basics,sourceRow,sourceLinks,featureRow,exclusionRow,prototypeFields,formHTML,openForm,capture,addRow,removeRow,editRows,payload,submit,sourceNotes,entryNotes,report,detail,action};
 });

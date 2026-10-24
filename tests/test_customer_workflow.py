@@ -24,7 +24,35 @@ def proposal():
         prototype_test="Record task completion and corrections in a consented prototype session; payment remains untested")
 
 
+def prototype():
+    return dict(observed_at='2026-10-22T10:00:00+00:00',evidence_sha256='b'*64,
+        task_outcome='COMPLETED',feedback='Synthetic tester found the renewal step; clarify the date label.',
+        duration_seconds=42,consent=True,feature_ids=['renewal-report'])
+
+
 class CustomerWorkflowTests(unittest.TestCase):
+    def test_prototype_result_validates_observed_facts_without_demand_claims(self):
+        for outcome in ('COMPLETED','PARTIAL','NOT_COMPLETED'):
+            value=dict(proposal(),prototype_result=dict(prototype(),task_outcome=outcome))
+            normalized=workflow_data(value,OBSERVED)
+            self.assertEqual(normalized,value)
+            self.assertFalse(workflow_readout(value,OBSERVED)['paid_behavior_verified'])
+            value['prototype_result']['feature_ids'].clear()
+            self.assertEqual(normalized['prototype_result']['feature_ids'],['renewal-report'])
+        self.assertNotIn('prototype_result',workflow_data(proposal(),OBSERVED))
+        for duration in (None,0,86400):
+            self.assertEqual(workflow_data(dict(proposal(),prototype_result=dict(prototype(),duration_seconds=duration)),OBSERVED)['prototype_result']['duration_seconds'],duration)
+
+    def test_prototype_result_rejects_unconsented_future_unlinked_and_private_observations(self):
+        changes=[dict(consent=False),dict(consent=1),dict(observed_at='2999-01-01T00:00:00+00:00'),
+            dict(feature_ids=[]),dict(feature_ids=['foreign']),dict(feature_ids=['renewal-report']*2),
+            dict(duration_seconds=True),dict(duration_seconds=-1),dict(duration_seconds=86401),dict(duration_seconds=.5),
+            dict(feedback='person@example.test'),dict(feedback='x'*501),dict(task_outcome='PAID'),dict(evidence_sha256='bad')]
+        for change in changes:
+            with self.subTest(change=change),self.assertRaises(Invalid):
+                workflow_data(dict(proposal(),prototype_result=dict(prototype(),**change)),OBSERVED)
+        with self.assertRaises(Invalid):workflow_data(dict(proposal(),prototype_result=None),OBSERVED)
+
     def test_workflow_data_and_workflow_readout_keep_hypothesis_and_exclusions(self):
         value = proposal()
         normalized = workflow_data(value, OBSERVED)

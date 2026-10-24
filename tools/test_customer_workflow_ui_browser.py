@@ -106,18 +106,38 @@ def exercise(page,origin,store,width,out):
     expect(page.locator('[name="buyer"]')).to_have_value('Synthetic independent founder')
     assert CustomerWorkflows(store).list('sample-one')['history']==[]
     source(page,0,'b')
+    page.locator('[data-action="customer-add-prototype"]').focus()
+    page.keyboard.press('Enter')
+    fill(page,'prototype_result.observed_at','2026-10-22T10:00:00+00:00')
+    fill(page,'prototype_result.feedback','Synthetic tester found the step; clarify the date label. PROTOTYPE_FEEDBACK_END')
+    fill(page,'prototype_result.evidence_sha256','d'*64)
+    fill(page,'prototype_result.duration_seconds','42')
+    page.locator('[name="prototype_result.task_outcome"]').select_option('COMPLETED')
+    assert not page.locator('#customer-workflow-form').evaluate('(form)=>form.checkValidity()')
+    page.locator('[name="prototype_result.consent"]').check()
+    fill(page,'prototype_result.feedback','person@example.test')
+    page.get_by_role('button',name='Save customer workflow',exact=True).click()
+    expect(page.locator('#customer-form-error')).to_contain_text('Remove personal contact information')
+    expect(page.locator('[name="prototype_result.duration_seconds"]')).to_have_value('42')
+    fill(page,'prototype_result.feedback','Synthetic tester found the step; clarify the date label. PROTOTYPE_FEEDBACK_END')
     page.screenshot(path=str(out/f'form-{width}.png'))
+    form_css=(ROOT/'mission_control/static/style.css').read_text(encoding='utf-8')+(ROOT/'mission_control/static/page-reporting.css').read_text(encoding='utf-8')
+    (out/f'form-{width}.html').write_text(page.content().replace('</head>','<style>'+form_css+'</style></head>'),encoding='utf-8')
     original=save(page)
     assert len(original['data']['sources'])==2
     assert original['data']['features'][0]['source_ids']==source_ids
     assert original['data']['excluded_features']==[dict(feature='CRM',reason='The observation describes renewal reconciliation')]
+    assert original['data']['prototype_result']['task_outcome']=='COMPLETED'
+    assert original['data']['prototype_result']['duration_seconds']==42
     page.locator(f'[data-action="customer-detail"][data-id="{original["id"]}"]').click()
     expect(page.locator('#modal-body')).to_contain_text('Excluded: CRM')
     page.evaluate("state.privateDraft='PRIVATE_SENTINEL';state.workspace.privateCredential='PRIVATE_SENTINEL'")
-    pages=export(page,out/f'workflow-{width}.pdf',['Café','東京','END_b','END_c','Supporting observations','Excluded: CRM','Prototype test',original['hash']])
+    pages=export(page,out/f'workflow-{width}.pdf',['Café','東京','END_b','END_c','Supporting observations','Excluded: CRM','Prototype test','PROTOTYPE_FEEDBACK_END','completed','d'*64,original['hash']])
     page.locator('[data-action="customer-revise"]').click()
     expect(page.locator('[name="sources.0.url"]')).to_have_value('https://synthetic.example/b')
     fill(page,'buyer','Revised synthetic founder')
+    expect(page.locator('[name="prototype_result.feedback"]')).to_have_value(original['data']['prototype_result']['feedback'])
+    page.locator('[name="prototype_result.task_outcome"]').select_option('PARTIAL')
     page.locator('[name="sources.1.availability"]').select_option('REMOVED')
     revision=save(page)
     assert revision['id']!=original['id']
@@ -125,6 +145,8 @@ def exercise(page,origin,store,width,out):
     first=next(row for row in rows if row['id']==original['id'])
     second=next(row for row in rows if row['id']==revision['id'])
     assert first['hash']==original['hash'] and first['data']['buyer']=='Synthetic independent founder'
+    assert first['data']['prototype_result']['task_outcome']=='COMPLETED'
+    assert second['data']['prototype_result']['task_outcome']=='PARTIAL'
     assert second['readout']['status']=='SOURCE_REVIEW_NEEDED'
     assert second['readout']['features'][0]['state']=='SOURCE_REVIEW_NEEDED'
     page.reload()
@@ -150,7 +172,7 @@ def exercise(page,origin,store,width,out):
     page.locator('#app-select').select_option('sample-two')
     expect(page.locator('#customer-workflow-panel')).to_contain_text('No workflows saved yet')
     assert page.locator(f'[data-action="customer-detail"][data-id="{original["id"]}"]').count()==0
-    return dict(width=width,saved_versions=2,linked_sources=2,pdf_pages=pages,row_link_repair=True,contact_rejection=True,immutable_revision=True,source_freshness=True,manifest_rejection=True,app_switch=True,keyboard=True,privacy=True,horizontal_overflow=False)
+    return dict(width=width,saved_versions=2,linked_sources=2,pdf_pages=pages,prototype_result=True,prototype_consent=True,prototype_pdf=True,row_link_repair=True,contact_rejection=True,immutable_revision=True,source_freshness=True,manifest_rejection=True,app_switch=True,keyboard=True,privacy=True,horizontal_overflow=False)
 
 
 def main():

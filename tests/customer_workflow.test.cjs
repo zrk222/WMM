@@ -18,6 +18,44 @@ class FormDataFixture{
   get(name){return this.values[name]??null;}
   getAll(name){return this.values[name]||[];}
 }
+
+test('prototype controls record typed facts, prune feature links and remove optional results',()=>{
+  const draft=data();customer.addRow(draft,'prototype',()=> 'unused');
+  assert.equal(draft.prototype_result.consent,false);
+  assert.deepEqual(draft.prototype_result.feature_ids,['feature-one']);
+  const html=customer.prototypeFields(draft);
+  for(const label of ['Observed task outcome','Observed feedback and corrections','Prototype evidence SHA256','Research consent'])assert.ok(html.includes(label));
+  assert.throws(()=>customer.addRow(draft,'prototype',()=> 'unused'));
+  customer.addRow(draft,'feature',()=> 'second');draft.prototype_result.feature_ids.push('second');
+  customer.removeRow(draft,'feature','second');assert.deepEqual(draft.prototype_result.feature_ids,['feature-one']);
+  customer.removeRow(draft,'prototype','');assert.equal('prototype_result' in draft,false);
+  assert.ok(customer.prototypeFields(draft).includes('Record prototype result'));
+});
+
+test('prototype capture preserves unknown duration and rejects invalid numeric text',()=>{
+  const f=form();customer.addRow(f.customerDraft,'prototype',()=> 'unused');
+  Object.assign(f.values,{'prototype_result.observed_at':'2026-10-22T00:00:00Z','prototype_result.task_outcome':'COMPLETED',
+    'prototype_result.feedback':'Observed correction','prototype_result.evidence_sha256':'d'.repeat(64),
+    'prototype_result.feature_ids':['feature-one'],'prototype_result.duration_seconds':'','prototype_result.consent':'on'});
+  let captured=customer.capture(f,FormDataFixture).prototype_result;
+  assert.equal(captured.duration_seconds,null);assert.equal(captured.consent,true);
+  f.values['prototype_result.duration_seconds']='42';assert.equal(customer.capture(f,FormDataFixture).prototype_result.duration_seconds,42);
+  for(const value of ['abc','-1','1.5','Infinity',' ']){f.values['prototype_result.duration_seconds']=value;assert.throws(()=>customer.capture(f,FormDataFixture));}
+  f.values['prototype_result.duration_seconds']='';delete f.values['prototype_result.consent'];
+  assert.equal(customer.capture(f,FormDataFixture).prototype_result.consent,false);
+});
+
+test('prototype details metrics and report retain saved facts and escape supplied feedback',()=>{
+  const value=row();value.data.prototype_result={observed_at:'2026-10-22T00:00:00Z',task_outcome:'COMPLETED',feedback:'<script>Observed correction</script>',
+    evidence_sha256:'d'.repeat(64),duration_seconds:null,consent:true,feature_ids:['feature-one']};
+  const notes=customer.entryNotes(value).join(' ');
+  assert.ok(notes.includes('not measured'));assert.ok(notes.includes('Observed correction'));assert.ok(notes.includes('d'.repeat(64)));
+  assert.equal(customer.metrics([value]).find(r=>r.label==='Completed prototype tasks').value,1);
+  const s=state();s.workspace.subscription_growth.customer_workflows.history=[value];
+  const report=customer.report(s,pages,'workflow-one');assert.ok(report.notes.join(' ').includes('Observed correction'));
+  let html='';customer.detail('workflow-one',{state:s,modal:(_,v)=>html=v});
+  assert.ok(html.includes('&lt;script&gt;'));assert.equal(html.includes('<script>'),false);
+});
 function form(){const draft=data(),error={textContent:''},button={disabled:false},fields={inert:false};return {dataset:{app:'one',version:'1',id:'new-workflow'},customerDraft:draft,values:values(draft),isConnected:true,error,button,fields,querySelector:selector=>selector.includes('submit')?button:selector==='#customer-draft-fields'?fields:error};}
 
 test('context, history and selected reject foreign/stale/unavailable workspace',()=>{
