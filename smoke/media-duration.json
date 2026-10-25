@@ -1,0 +1,15 @@
+{
+  "checks": [
+    {
+      "name": "aac-priming-correction-is-audio-only",
+      "kind": "python",
+      "run": "from mission_control.video_edit_rendering import concat_argv\nnative={'tools':{'ffmpeg':'ffmpeg'}}\naudio=concat_argv(native,True)\nsilent=concat_argv(native,False)\nassert isinstance(audio,list) and '-output_ts_offset' in audio, 'Retained AAC must compile its priming correction'\nassert isinstance(silent,list) and '-output_ts_offset' not in silent, 'Silent output must not receive an AAC offset'\nassert abs(float(audio[audio.index('-output_ts_offset')+1])+1024/48000)<1e-10, 'AAC48kHz correction must match the fixed encoder delay'"
+    },
+    {
+      "name": "real-full-length-source-job-and-decode",
+      "kind": "python",
+      "must_fail_on_stub": false,
+      "run": "import unittest\nsuite=unittest.defaultTestLoader.loadTestsFromName('tests.test_media_duration')\nresult=unittest.TextTestRunner(verbosity=2).run(suite)\nassert result.wasSuccessful() and not result.skipped, 'Actual full-length single/stitch/mute decode and source limits must pass'"
+    }
+  ]
+}

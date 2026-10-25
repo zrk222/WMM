@@ -1,0 +1,54 @@
+name: media-duration
+language: python
+modules:
+- name: video_edit_rendering
+  path: mission_control/video_edit_rendering.py
+  language: python
+  functions:
+  - name: numeric
+    args:
+    - value
+    returns: object
+  - name: clip_filters
+    args:
+    - item
+    - output
+    returns: object
+  - name: edit_metadata
+    args:
+    - path
+    - tools
+    returns: object
+  - name: validate
+    args:
+    - path
+    - value
+    - tools
+    returns: object
+  - name: audio_filters
+    args:
+    - item
+    returns: object
+  - name: segment_argv
+    args:
+    - native
+    - item
+    - output
+    - source
+    - index
+    - with_audio
+    returns: object
+  - name: concat_argv
+    args:
+    - native
+    - with_audio
+    returns: object
+  - name: render
+    args:
+    - folder
+    - value
+    - sources
+    - alive
+    returns: object
+dependencies: []
+invariants: []
