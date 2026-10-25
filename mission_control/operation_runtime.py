@@ -14,6 +14,7 @@ def execute(service,envelope):
     from .creative_rendering import Renders
     from .video_edit_projects import Projects
     from .managed_media_store import Media
+    from .funnel_store import Funnels
     from .video_edit_jobs import EditRenders
     request_data(envelope)
     if envelope['operation'].startswith('studio.'):
@@ -29,6 +30,12 @@ def execute(service,envelope):
         'hypit.queue':lambda:HypitRenders(store).queue(app,body),
         'native.read':lambda:Renders(store).list(app),
         'native.queue':lambda:Renders(store).queue(app,body),
+        'funnel.list':lambda:Funnels(store).list(app,body.get('offset',0)),
+        'funnel.read':lambda:Funnels(store).read(app,resource),
+        'funnel.save':lambda:Funnels(store).save(app,body),
+        'funnel.observations':lambda:Funnels(store).observations(app,resource,body.get('offset',0)),
+        'funnel.import':lambda:Funnels(store).ingest(app,dict(body,funnel_id=resource)),
+        'funnel.report':lambda:Funnels(store).report(app,resource),
         'media.sources':lambda:Media(store).sources(app),
         'editor.list':lambda:Projects(store,'SCOPED_AGENT').list(app),
         'editor.renders':lambda:EditRenders(store).list(app),

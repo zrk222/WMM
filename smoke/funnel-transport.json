@@ -1,0 +1,15 @@
+{
+  "checks": [
+    {
+      "name": "canonical-page-offset",
+      "kind": "python",
+      "run": "from types import SimpleNamespace\nfrom mission_control.funnel_http import offset\nparts=['api','apps','sample-one','funnels']\nhandler=SimpleNamespace(command='GET',path='/api/apps/sample-one/funnels?offset=100')\nassert offset(handler,parts)==100, 'Canonical page offset must preserve the requested page'"
+    },
+    {
+      "name": "actual-authority-and-client-state",
+      "kind": "python",
+      "must_fail_on_stub": false,
+      "run": "import unittest\nsuite=unittest.defaultTestLoader.loadTestsFromName('tests.test_funnel_clients')\nresult=unittest.TextTestRunner(verbosity=2).run(suite)\nassert result.wasSuccessful() and not result.skipped, 'Actual owner/CLI/MCP acceptance must pass without skipped clients'"
+    }
+  ]
+}

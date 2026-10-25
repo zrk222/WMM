@@ -202,6 +202,9 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts)<3:raise KeyError(path)
         app_id=parts[2]
         store=self.server.service.store
+        if len(parts)>=4 and parts[3]=='funnels':
+            from .funnel_http import get
+            return get(self,parts)
         if len(parts)>=4 and parts[3]=='media':
             from .managed_media_http import get
             return get(self,parts)
@@ -395,6 +398,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(201,service.upload(parts[2],unquote(self.headers.get("X-Filename","image.png")),self.body(8388608)))
         if len(parts)>=4 and parts[:2]==['api','apps'] and parts[3]=='media':
             from .managed_media_http import post
+            return post(self,parts)
+        if len(parts)>=4 and parts[:2]==['api','apps'] and parts[3]=='funnels':
+            from .funnel_http import post
             return post(self,parts)
         data=self.post_data(path,parts)
         if path=='/api/social/callback':

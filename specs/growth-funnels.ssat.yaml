@@ -54,6 +54,9 @@ modules:
     - plan
     - observed_at
     returns: object
+  - name: agent_contract
+    args: []
+    returns: object
 - name: funnel_store
   path: mission_control/funnel_store.py
   language: python
@@ -61,6 +64,10 @@ modules:
   - name: decoded
     args:
     - row
+    returns: object
+  - name: summary
+    args:
+    - item
     returns: object
   - name: app_context
     args:
@@ -126,10 +133,17 @@ modules:
     - app_id
     - body
     returns: object
+  - name: read
+    args:
+    - self
+    - app_id
+    - funnel_id
+    returns: object
   - name: list
     args:
     - self
     - app_id
+    - offset
     returns: object
   - name: ingest
     args:
@@ -151,6 +165,7 @@ modules:
     - self
     - app_id
     - funnel_id
+    - offset
     returns: object
   - name: report
     args:
@@ -187,9 +202,17 @@ modules:
   path: mission_control/db.py
   language: python
   functions:
+  - name: connection
+    args:
+    - path
+    returns: object
   - name: initialize
     args:
     - path
     returns: object
-dependencies: []
+dependencies:
+- from: funnel_store
+  to: funnel_contract
+- from: funnel_store
+  to: funnel_reporting
 invariants: []
