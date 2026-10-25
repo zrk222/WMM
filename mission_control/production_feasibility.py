@@ -8,9 +8,14 @@ TABLES={"profile":"production_profiles","requirement":"production_requirements"}
 
 def context(db,app_id):
     """Read only current declared capability and requirement revisions."""
-    profiles=saved_items(db,TABLES["profile"],app_id)
-    requirements=saved_items(db,TABLES["requirement"],app_id)
-    return {"profile":profiles[0]["current"] if profiles else None,"requirements":[r["current"] for r in requirements]}
+    return current_context({kind:saved_items(db,table,app_id) for kind,table in TABLES.items()})
+
+
+def current_context(items):
+    """Project current versions from one loaded history without additional reads."""
+    profiles=items["profile"]
+    return {"profile":profiles[0]["current"] if profiles else None,
+            "requirements":[r["current"] for r in items["requirement"]]}
 
 def assess(inputs,source,app_hash,stamp,channel=None):
     """Expose missingness and every incompatible production requirement."""
@@ -72,7 +77,7 @@ class Capabilities:
         app=self.store.app(app_id);sources=Library(self.store).list(app_id)
         with connection(self.store.path) as db:
             items={kind:saved_items(db,table,app_id) for kind,table in TABLES.items()}
-            inputs=context(db,app_id)
+        inputs=current_context(items)
         items["app_hash"]=digest(app["data"])
         items["evaluations"]=[{"reference_id":s["id"],"title":s["current"]["data"]["title"],**assess(inputs,s,items["app_hash"],now())} for s in sources]
         return items

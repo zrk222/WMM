@@ -40,3 +40,18 @@ failure/concurrency tests and applicable CF workflow proof. Remove redundant wor
 only when these show preserved correctness. No speed, token, cost or quality-score
 improvement is claimed until measured. The new progressive workflow view is the
 first presentation change; broader code/process optimization remains in progress.
+
+## First code optimization: production history projection
+
+Capability listings now derive assessment inputs from the exact immutable
+histories already loaded for that response. Transactional callers use the same
+pure projection after fresh reads; no authorization or app-state cache is added.
+An interleaved revision test checks that returned history and assessment agree,
+and that the next read observes the revision.
+
+A paired synthetic populated-workspace run made 20 capability listings per
+variant. History SELECTs fell from 80 to 40 with identical 4,700-byte responses.
+Median elapsed time was 0.01829 seconds before and 0.01934 seconds after; this
+sample establishes query reduction and output parity, not a latency improvement.
+Evidence: `.factory/production-read-projection/paired-measurement.json`.
+This change does not resolve the broader workspace read or native-discovery costs.
