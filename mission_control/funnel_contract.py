@@ -124,3 +124,24 @@ def observation_window(value,plan,observed_at):
     if not lower<=start<end<=upper or not end<=at<=observed_at:
         raise Invalid('Observation window is outside the funnel or its evidence timestamp')
     return dict(value,starts_at=start.isoformat(),ends_at=end.isoformat(),observed_at=at.isoformat())
+
+
+def agent_contract():
+    """Describe the implemented nested inputs so generic agents need not guess fields."""
+    return dict(schema='growth.app-sales-funnel-input.v1',
+        definition_fields=['release','locale','currency','cohort_id','outcome','creative_refs','hook','cta','destination','route','stages','attribution','offer_boundary'],
+        outcome_fields=['audience','pain','research_refs','milestone','metric','target','due_at'],
+        source_fields=['kind','id','version','sha256'],source_kinds=['CREATIVE_BRIEF','CUSTOMER_WORKFLOW'],
+        source_selection='Read workspace.read: briefs current id/version/hash; subscription_growth.customer_workflows.history id/hash uses immutable version1; ledger cohort identities.',
+        stage_fields=['id','type','label','parents','unit','denominator_definition'],
+        stage_types=sorted(STAGE_TYPES),stage_units=sorted(UNITS),routes=sorted(ROUTES),
+        attribution_fields=['method','identity_scope','starts_at','ends_at','conversion_window_seconds'],
+        offer_boundary_fields=['free_deliverables','paid_deliverables'],
+        observation_fields=['event_id','stage_id','source_ref','source_sha256','cohort_id','starts_at','ends_at','observed_at','coverage','count','unit','denominator_definition','identity_scope'],
+        coverage=['OBSERVED','PARTIAL','UNKNOWN'],unknown_count='UNKNOWN requires null; observed zero remains0.',
+        bounds=dict(stages=32,creative_refs=20,research_refs=20,import_rows=500,definitions_per_app=1000,observations_per_definition=10000),
+        binding='Use exact current app version, latest source hashes and an existing matching release/locale/currency/cohort acquisition window. Save responses return the immutable funnel hash for imports.',
+        graph='Parents must be distinct earlier stage IDs. No cycles, guessed identities or hidden fields.',
+        observation_scope='Counts require declared units, population and identity scope; evidence timestamps follow their completed observation window and cannot be future.',
+        report='Aggregate ratios do not prove person transitions or growth. Payments and refunds come from the existing ledger. Inspect findings and unknowns.',
+        authority='Input descriptions grant no execution or approval authority. Use owner-issued scope and required human checkpoints. No automatic retry after uncertain writes.')

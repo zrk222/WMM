@@ -25,6 +25,12 @@ OPERATIONS={
     'studio.close':descriptor('POST','/studio/{resource_id}/close','STOP_OWNED_LOCAL_NATIVE_SESSION',(),(),True),
     'native.read':descriptor('GET','/native-renders','READ_PRIVATE_LOCAL_DATA'),
     'native.queue':descriptor('POST','/production/renders','QUEUE_LOCAL_PREPARATION',('data','request_key')),
+    'funnel.list':descriptor('GET','/funnels','READ_PRIVATE_LOCAL_DATA',(),('offset',)),
+    'funnel.read':descriptor('GET','/funnels/{resource_id}','READ_PRIVATE_LOCAL_DATA',(),(),True),
+    'funnel.save':descriptor('POST','/funnels','WRITE_LOCAL_EVIDENCE',('id','manifest_version','data')),
+    'funnel.observations':descriptor('GET','/funnels/{resource_id}/observations','READ_PRIVATE_LOCAL_DATA',(),('offset',),True),
+    'funnel.import':descriptor('POST','/funnels/{resource_id}/observations','WRITE_LOCAL_EVIDENCE',('funnel_hash','manifest_version','observations'),(),True),
+    'funnel.report':descriptor('GET','/funnels/{resource_id}/report','READ_PRIVATE_LOCAL_DATA',(),(),True),
     'media.sources':descriptor('GET','/media/sources','READ_PRIVATE_LOCAL_DATA'),
     'editor.list':descriptor('GET','/video-projects','READ_PRIVATE_LOCAL_DATA'),
     'editor.renders':descriptor('GET','/video-edit-renders','READ_PRIVATE_LOCAL_DATA'),
@@ -66,6 +72,8 @@ def catalog():
             cancellation='Stops future local work where supported; running effects and receipts require inspection.'),
         denied=['human_approval','identity_login','credentials','provider_mutation','publish','spend','arbitrary_http','shell_execution'],
         full_agent_operation=False,remaining=['Full-domain operation coverage','Full-domain CLI/MCP conformance','Provider-specific authorized effect adapters'])
+    from .funnel_contract import agent_contract
+    value['domain_contracts']={'app_sales_funnel':agent_contract()}
     return dict(value,catalog_sha256=digest(value))
 
 
@@ -84,6 +92,9 @@ def exact_keys(value,required,optional=()):
 
 def local_constraints(operation,body):
     """Limit existing general record/action routes to the intended local evidence domain."""
+    if operation in ('funnel.list','funnel.observations') and 'offset' in body:
+        from .pmf_contract import count
+        count(body['offset'],0,10000)
     if operation=='billing.save' and body['kind']!='billing':
         raise Invalid('billing.save accepts billing evidence only')
     if operation=='experiment.action' and body['operation'] not in ('observe','decide','cancel','rollback'):
@@ -122,4 +133,6 @@ def request_data(envelope):
     elif 'resource_id' in envelope:
         raise Invalid('This operation has no resource identifier')
     local_constraints(name,envelope['input'])
+    if rule['method']=='GET' and 'offset' in envelope['input']:
+        suffix+='?offset='+str(envelope['input']['offset'])
     return dict(method=rule['method'],path='/api/apps/'+app_id+suffix,body=envelope['input'] if rule['method']=='POST' else None)

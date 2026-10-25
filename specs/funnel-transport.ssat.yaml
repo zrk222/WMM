@@ -1,0 +1,38 @@
+name: funnel-transport
+language: python
+modules:
+- name: funnel_http
+  path: mission_control/funnel_http.py
+  language: python
+  functions:
+  - name: offset
+    args:
+    - handler
+    - parts
+    returns: object
+  - name: route
+    args:
+    - handler
+    - parts
+    returns: object
+  - name: owner
+    args:
+    - handler
+    - parts
+    returns: object
+  - name: json_body
+    args:
+    - handler
+    returns: object
+  - name: get
+    args:
+    - handler
+    - parts
+    returns: object
+  - name: post
+    args:
+    - handler
+    - parts
+    returns: object
+dependencies: []
+invariants: []

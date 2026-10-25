@@ -14,6 +14,15 @@ def decoded(row):
     return result
 
 
+def summary(item):
+    """Keep list pages small; full immutable inputs have a separate exact read."""
+    plan=item['data']['definition']
+    return dict(app_id=item['app_id'],id=item['id'],hash=item['hash'],created=item['created'],
+                manifest_version=item['data']['manifest_version'],source_status=item['source_status'],
+                cohort_id=plan['cohort_id'],release=plan['release'],locale=plan['locale'],currency=plan['currency'],
+                outcome={key:plan['outcome'][key]for key in ('audience','milestone','metric','target')})
+
+
 def app_context(db,app_id,expected=None):
     """Read exact app context inside the caller's transaction."""
     row=db.execute('SELECT * FROM apps WHERE id=?',(app_id,)).fetchone()
@@ -108,18 +117,29 @@ class Funnels:
             db.execute('INSERT INTO growth_funnels VALUES(?,?,?,?,?)',(app_id,identity,canonical(value),digest(value),stamp.isoformat()))
             return decoded(db.execute('SELECT * FROM growth_funnels WHERE app_id=? AND id=?',(app_id,identity)).fetchone())
 
-    def list(self,app_id):
-        """Show unchanged historical definitions and explicit current source status."""
-        stamp=self.clock()
+    def read(self,app_id,funnel_id):
+        """Read one complete definition with current source status under exact app scope."""
+        identifier(funnel_id);stamp=self.clock()
         with connection(self.store.path) as db:
             app_context(db,app_id)
-            result=[]
-            for row in db.execute('SELECT * FROM growth_funnels WHERE app_id=? ORDER BY created,id LIMIT 1000',(app_id,)):
-                item=decoded(row)
-                try:ready=current(db,self.store,app_id,item['data'],stamp)
-                except (Invalid,KeyError):ready=False
-                result.append(dict(item,source_status='CURRENT' if ready else 'SOURCE_REVIEW_NEEDED'))
-        return dict(app_id=app_id,items=result,external_execution=False)
+            row=db.execute('SELECT * FROM growth_funnels WHERE app_id=? AND id=?',(app_id,funnel_id)).fetchone()
+            if row is None:raise Invalid('Funnel does not belong to this app')
+            item=decoded(row)
+            try:ready=current(db,self.store,app_id,item['data'],stamp)
+            except (Invalid,KeyError):ready=False
+            return dict(item,source_status='CURRENT' if ready else 'SOURCE_REVIEW_NEEDED')
+
+    def list(self,app_id,offset=0):
+        """Return bounded summaries without silently losing later saved definitions."""
+        count(offset,0,10000)
+        with connection(self.store.path) as db:
+            app_context(db,app_id)
+            total=db.execute('SELECT count(*) FROM growth_funnels WHERE app_id=?',(app_id,)).fetchone()[0]
+            ids=[r[0]for r in db.execute('SELECT id FROM growth_funnels WHERE app_id=? ORDER BY created,id LIMIT 100 OFFSET ?',(app_id,offset))]
+        result=[summary(self.read(app_id,identity))for identity in ids]
+        next_offset=offset+len(result)
+        return dict(app_id=app_id,items=result,offset=offset,limit=100,total=total,
+                    next_offset=next_offset if next_offset<total else None,external_execution=False)
 
     def ingest(self,app_id,body):
         """Atomically admit bounded source observations against one exact current definition."""
@@ -148,16 +168,17 @@ class Funnels:
         db.execute('INSERT INTO funnel_observations VALUES(?,?,?,?,?,?,?)',(app_id,funnel_id,value['source_ref'],value['event_id'],canonical(content),hashed,stamp.isoformat()))
         return 1
 
-    def observations(self,app_id,funnel_id):
-        """Retain original supplied data after restart; no inferred conversion or payment."""
-        identifier(funnel_id)
+    def observations(self,app_id,funnel_id,offset=0):
+        """Page retained observations; callers can inspect every row using next_offset."""
+        identifier(funnel_id);count(offset,0,10000)
         with connection(self.store.path) as db:
             app_context(db,app_id)
             if db.execute('SELECT 1 FROM growth_funnels WHERE app_id=? AND id=?',(app_id,funnel_id)).fetchone() is None:
                 raise Invalid('Funnel does not belong to this app')
-            values=db.execute('SELECT * FROM funnel_observations WHERE app_id=? AND funnel_id=? ORDER BY created,source_ref,event_id',(app_id,funnel_id)).fetchall()
-            return dict(items=[decoded(row)for row in values],payment_authority=False)
-
+            total=db.execute('SELECT count(*) FROM funnel_observations WHERE app_id=? AND funnel_id=?',(app_id,funnel_id)).fetchone()[0]
+            values=db.execute('SELECT * FROM funnel_observations WHERE app_id=? AND funnel_id=? ORDER BY created,source_ref,event_id LIMIT 100 OFFSET ?',(app_id,funnel_id,offset)).fetchall()
+            items=[decoded(row)for row in values];following=offset+len(items)
+            return dict(items=items,offset=offset,limit=100,total=total,next_offset=following if following<total else None,payment_authority=False)
 
     def report(self,app_id,funnel_id,as_of=None):
         """Join the exact cohort ledger without copying or generating financial events."""
@@ -165,9 +186,11 @@ class Funnels:
         from .funnel_reporting import calculate
         stamp=iso_time(as_of) if as_of else self.clock()
         if stamp>self.clock():raise Invalid('Funnel report cannot observe the future')
-        items=self.list(app_id)['items'];saved=next((r for r in items if r['id']==funnel_id),None)
-        if saved is None:raise Invalid('Funnel does not belong to this app')
-        values=self.observations(app_id,funnel_id)['items']
+        saved=self.read(app_id,funnel_id)
+        with connection(self.store.path) as db:
+            rows=db.execute('SELECT * FROM funnel_observations WHERE app_id=? AND funnel_id=? ORDER BY created,source_ref,event_id LIMIT 10001',(app_id,funnel_id)).fetchall()
+            if len(rows)>10000:raise Invalid('Funnel observation bound changed; inspect saved evidence')
+            values=[decoded(row)for row in rows]
         selected=saved['data']['definition']['cohort_id']
         reports=Ledger(self.store.path).reports(app_id,stamp.isoformat())
         ledger=next((r for r in reports if r['cohort']['cohort_id']==selected),None)

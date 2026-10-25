@@ -33,6 +33,22 @@ class FunnelStoreTests(unittest.TestCase):
     def import_body(self,saved,values):
         return dict(funnel_id=saved['id'],funnel_hash=saved['hash'],manifest_version=self.version,observations=values)
 
+    def test_bounded_pages_preserve_all_definitions_and_report_observations_after_first_page(self):
+        saved=self.flow.save(APP,self.body())
+        for i in range(100):self.flow.save(APP,dict(self.body(),id='page-'+str(i).zfill(3)))
+        first=self.flow.list(APP);last=self.flow.list(APP,first['next_offset'])
+        self.assertEqual((len(first['items']),len(last['items']),first['total'],last['next_offset']),(100,1,101,None))
+        self.assertTrue(all('data' not in row for row in first['items']))
+        values=[dict(observed(self.plan),event_id='page-'+str(i).zfill(3))for i in range(101)]
+        values[-1].update(count=42,observed_at='2026-10-04T00:00:00+00:00')
+        self.flow.ingest(APP,self.import_body(saved,values))
+        first=self.flow.observations(APP,saved['id']);last=self.flow.observations(APP,saved['id'],100)
+        self.assertEqual((len(first['items']),first['next_offset'],len(last['items']),last['total']),(100,100,1,101))
+        self.assertEqual(last['items'][0]['data']['observation']['count'],42)
+        self.assertEqual(self.flow.report(APP,saved['id'])['stages'][0]['count'],42)
+        for value in (-1,True,10001):
+            with self.subTest(value=value),self.assertRaises(Invalid):self.flow.list(APP,value)
+
     def test_real_sources_definition_replay_observed_zero_restart_and_no_payment_duplication(self):
         saved=self.flow.save(APP,self.body())
         self.assertEqual(self.flow.save(APP,self.body()),saved)
