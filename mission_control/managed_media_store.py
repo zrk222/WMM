@@ -578,3 +578,22 @@ class Media:
             if require_reuse and not view['reuse_available']:
                 raise Invalid('Current owner reuse attestation is missing, stale or revoked')
             return _file_path(self.store, app_id, data['storage_name'])
+
+
+def derivative_snapshot(db, store, app_id, media_id, expected_sha256, capture=False, verify_bytes=True):
+    """Resolve current reuse and verified bytes inside the editor's DB snapshot."""
+    row = db.execute('SELECT * FROM managed_media WHERE app_id=? AND id=?', (app_id, media_id)).fetchone()
+    if row is None:
+        raise Invalid('Media does not belong to this app')
+    data = _decode_data(row)
+    if data['source_sha256'] != expected_sha256:
+        raise Invalid('Selected media digest changed; reload the original')
+    if capture and not verify_bytes:
+        raise Invalid('Source byte capture requires integrity verification')
+    view = _public(db, store, app_id, row, include_history=True, verify_bytes=verify_bytes)
+    if not view['reuse_available']:
+        raise Invalid('Current owner reuse attestation is missing, stale or revoked')
+    raw = None
+    if capture:
+        raw = _read_original(_file_path(store, app_id, data['storage_name']), data['bytes'], expected_sha256)
+    return view, raw

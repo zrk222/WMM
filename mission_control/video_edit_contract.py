@@ -34,8 +34,8 @@ def identifier(value):
 def source(value):
     """Native artifact references are identities, never user-supplied file paths."""
     exact(value, ('kind', 'id', 'sha256'))
-    if value['kind'] != 'NATIVE':
-        raise Invalid('This project source profile requires an existing native MP4')
+    if value['kind'] not in ('NATIVE', 'MANAGED'):
+        raise Invalid('Choose an existing native or owner-reviewed uploaded video')
     if not isinstance(value['id'], str) or not re.fullmatch(r'[a-f0-9-]{36}', value['id']):
         raise Invalid('Choose an existing native render identifier')
     if not isinstance(value['sha256'], str) or not re.fullmatch(r'[a-f0-9]{64}', value['sha256']):
@@ -77,7 +77,9 @@ def effects(value):
 
 def clip(value):
     """Normalize one exact source slice; speed must resolve to whole output frames."""
-    exact(value, ('id', 'source', 'role', 'in_frame', 'out_frame', 'speed_percent', 'transform', 'effects'))
+    exact(value, ('id', 'source', 'role', 'in_frame', 'out_frame', 'speed_percent', 'transform', 'effects', *(['audio'] if 'audio' in value else [])))
+    if value.get('audio', 'MUTE') not in ('RETAIN', 'MUTE'):
+        raise Invalid('Choose retained or muted source audio')
     identifier(value['id']);source(value['source'])
     if value['role'] not in ROLES:raise Invalid('Choose a supported scene role')
     integer(value['in_frame'], 0, MAX_FRAMES, 'Source in frame')
@@ -179,3 +181,8 @@ def timing(value):
         rows.append(dict(id=item['id'], start_frame=cursor, end_frame=cursor + duration))
         cursor += duration
     return dict(fps=FPS, total_frames=cursor, clips=rows)
+
+
+def source_key(value):
+    """Keep legacy native keys while separating uploaded sources of the same ID."""
+    return value['id'] if value['kind'] == 'NATIVE' else 'MANAGED:' + value['id']

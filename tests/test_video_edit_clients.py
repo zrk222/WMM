@@ -150,3 +150,27 @@ class VideoClientsTests(unittest.IsolatedAsyncioTestCase):
         done=agent.review('resume',dict(app_id=APP,id=view['id'],revision=approved['revision'],packet_hash=approved['hash']))
         self.assertEqual(done['checkpoint']['state'],'FAILED')
         self.assertEqual(self.owner.request('GET','/api/apps/'+APP+'/video-projects/client-project')['revision'],3)
+
+    @unittest.skipUnless(sdk.HAS_MCP,'Official MCP SDK required for uploaded-source parity')
+    async def test_managed_source_cli_save_and_mcp_edit_share_owner_review(self):
+        from mission_control.managed_media_store import Media
+        from mission_control.creative_rendering import artifact_file
+        native=self.data['clips'][0]['source']
+        path,_=artifact_file(self.store,APP,native['id'])
+        media=Media(self.store);version=self.store.app(APP)['version']
+        row=media.upload(APP,'owned-source.mp4',path.read_bytes(),dict(manifest_version=version,request_key='agent-managed-upload'))
+        row=media.review(APP,row['id'],dict(expected_version=0,manifest_version=version,source_sha256=row['source_sha256'],status='ALLOWED',basis='OWNED',evidence='Synthetic owner source permission.'),identities.OWNER)
+        self.data['clips'][0].update(source=dict(kind='MANAGED',id=row['id'],sha256=row['source_sha256']),audio='RETAIN')
+        self.grant(['editor.save','editor.read','editor.edit'])
+        saved=self.cli(self.envelope('editor.save',dict(id='uploaded-client',revision=0,manifest_version=version,data=self.data,request_key='agent-managed-save')))
+        self.assertEqual(saved['data']['sources'][0]['kind'],'MANAGED')
+        async with self.session() as client:
+            edited=await client.call_tool('wmm_editor_edit',dict(app_id=APP,resource_id='uploaded-client',input=self.mutation(1,'managed-trim')))
+            self.assertFalse(edited.isError,edited.content)
+            result=edited.structuredContent['data']
+            self.assertEqual(result['revision'],2)
+            self.assertEqual(result['data']['definition']['clips'][0]['audio'],'RETAIN')
+            self.assertEqual(result['data']['sources'][0]['review_version'],1)
+            media.review(APP,row['id'],dict(expected_version=1,manifest_version=version,source_sha256=row['source_sha256'],status='REVOKED',basis='OWNED',evidence='Synthetic source revoked.'),identities.OWNER)
+            refused=await client.call_tool('wmm_editor_edit',dict(app_id=APP,resource_id='uploaded-client',input=self.mutation(2,'managed-revoked')))
+            self.assertTrue(refused.isError)
