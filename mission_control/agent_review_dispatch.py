@@ -109,10 +109,12 @@ class ReviewedDispatch:
             grant=grant_for_request(db,token,request,self.clock())
             view=request_view(db,request)
             if view['result'] is not None:raise Invalid('Reviewed request already has a receipt')
-            claim_in_db(db,app_id,identity,grant['agent_id'],revision,packet_hash,self.clock())
-            consume(db,grant,request['envelope'],self.clock())
+            claimed=claim_in_db(db,app_id,identity,grant['agent_id'],revision,packet_hash,self.clock())
+            admission=consume(db,grant,request['envelope'],self.clock())
         from .video_edit_projects import admitted_caller
-        with admitted_caller(dict(grant_id=grant['id'],agent_id=grant['agent_id'],attempt=grant['used']+1)):
+        from .operation_authority import bound_agent
+        review=dict(id=identity,input_hash=request['input_hash'],packet_hash=claimed['hash'],revision=claimed['revision'])
+        with bound_agent(self.service.store,request['envelope'],admission,review),admitted_caller(admission):
             result=run_operation(self.service,request['envelope'])
         return self.complete(app_id,identity,grant['agent_id'],result)
 

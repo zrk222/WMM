@@ -117,9 +117,12 @@ def connection(path):
     try:
         with db:
             from .automation_execution import guard_connection
+            from .operation_authority import guard_connection as operation_guard
             guard_connection(path, db)
+            operation_guard(path, db)
             yield db
             guard_connection(path, db, committing=True)
+            operation_guard(path, db)
     finally:
         db.close()
 

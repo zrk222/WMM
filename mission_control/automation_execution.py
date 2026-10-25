@@ -131,8 +131,9 @@ def execution_outcome(row, error):
 def execute_admitted(service, envelope, admission):
     """Use the fixed dispatcher with admitted context; legacy grants remain intact."""
     from .operation_runtime import execute
+    from .operation_authority import bound_agent
     from .video_edit_projects import admitted_caller
-    with admitted_caller(admission):
+    with bound_agent(service.store,envelope,admission),admitted_caller(admission):
         return dispatch_admitted(service, envelope, admission, execute)
 
 

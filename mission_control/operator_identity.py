@@ -1,6 +1,7 @@
 """Ephemeral GitHub-authenticated operator sessions; no stored or exported tokens."""
 import json
 import re
+import secrets
 import threading
 import time
 from urllib.error import HTTPError, URLError
@@ -80,6 +81,17 @@ class Identities:
                 raise PermissionError("Authenticated identity changed; sign in again")
             row["user"]=user
             return dict(user)
+
+    def local(self,session,principal,generation=None):
+        """Recheck admitted local identity without provider I/O during native work."""
+        with self.lock:
+            self.prune();row=self.sessions.get(session)
+            if not row or row['user']['principal']!=principal:
+                raise PermissionError('Authenticated operator session changed; sign in again')
+            current=row.setdefault('generation',secrets.token_hex(16))
+            if generation is not None and generation!=current:
+                raise PermissionError('Authenticated operator session was replaced; sign in again')
+            return dict(row['user'],session_generation=current)
 
     def lookup(self,session,login):
         """Resolve a human member's immutable ID, using only the current own session."""

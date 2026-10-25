@@ -1,0 +1,374 @@
+{
+  "name": "studio-request-authority",
+  "language": "python",
+  "modules": [
+    {
+      "name": "operation_authority",
+      "path": "mission_control/operation_authority.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "utc",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "store_identity",
+          "args": [
+            "store"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "bound_agent",
+          "args": [
+            "store",
+            "envelope",
+            "admission",
+            "review"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "bound_owner",
+          "args": [
+            "store",
+            "envelope",
+            "identities",
+            "session",
+            "user"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "check_agent",
+          "args": [
+            "db",
+            "context",
+            "envelope"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "check_standing",
+          "args": [
+            "db",
+            "context",
+            "envelope",
+            "grant"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "check_review",
+          "args": [
+            "db",
+            "context",
+            "envelope"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "check",
+          "args": [
+            "db",
+            "context"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "guard_connection",
+          "args": [
+            "path",
+            "db"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "protected",
+          "args": [
+            "store",
+            "envelope"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "db",
+      "path": "mission_control/db.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "connection",
+          "args": [
+            "path"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "initialize",
+          "args": [
+            "path"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "operator_identity",
+      "path": "mission_control/operator_identity.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "github_read",
+          "args": [
+            "path",
+            "token"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "identity",
+          "args": [
+            "data"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "automation_execution",
+      "path": "mission_control/automation_execution.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "execution_row",
+          "args": [
+            "db",
+            "identity"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "job_hash",
+          "args": [
+            "job"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "guard_connection",
+          "args": [
+            "path",
+            "db",
+            "committing"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "check_job",
+          "args": [
+            "db",
+            "context",
+            "execution"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "attach_job",
+          "args": [
+            "db",
+            "job",
+            "created"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "bound",
+          "args": [
+            "store",
+            "identity",
+            "job"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "start",
+          "args": [
+            "store",
+            "admission",
+            "envelope"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "finish",
+          "args": [
+            "store",
+            "identity",
+            "result",
+            "error"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "execution_outcome",
+          "args": [
+            "row",
+            "error"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "execute_admitted",
+          "args": [
+            "service",
+            "envelope",
+            "admission"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "dispatch_admitted",
+          "args": [
+            "service",
+            "envelope",
+            "admission",
+            "execute"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "job_execution",
+          "args": [
+            "store",
+            "job"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "agent_review_dispatch",
+      "path": "mission_control/agent_review_dispatch.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "saved_request",
+          "args": [
+            "db",
+            "app_id",
+            "identity"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "scoped_request",
+          "args": [
+            "db",
+            "token",
+            "app_id",
+            "identity"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "grant_for_request",
+          "args": [
+            "db",
+            "token",
+            "request",
+            "stamp",
+            "check_quota"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "request_view",
+          "args": [
+            "db",
+            "request"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "run_operation",
+          "args": [
+            "service",
+            "envelope"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "result_receipt",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "test_operation_authority",
+      "path": "tests/test_operation_authority.py",
+      "language": "python",
+      "functions": []
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "operation_authority",
+      "to": "db"
+    },
+    {
+      "from": "operation_authority",
+      "to": "automation_execution"
+    },
+    {
+      "from": "operation_authority",
+      "to": "agent_review_dispatch"
+    },
+    {
+      "from": "db",
+      "to": "automation_execution"
+    },
+    {
+      "from": "db",
+      "to": "operation_authority"
+    },
+    {
+      "from": "automation_execution",
+      "to": "db"
+    },
+    {
+      "from": "automation_execution",
+      "to": "operation_authority"
+    },
+    {
+      "from": "agent_review_dispatch",
+      "to": "db"
+    },
+    {
+      "from": "agent_review_dispatch",
+      "to": "operation_authority"
+    },
+    {
+      "from": "test_operation_authority",
+      "to": "agent_review_dispatch"
+    },
+    {
+      "from": "test_operation_authority",
+      "to": "db"
+    },
+    {
+      "from": "test_operation_authority",
+      "to": "operator_identity"
+    },
+    {
+      "from": "test_operation_authority",
+      "to": "automation_execution"
+    }
+  ],
+  "invariants": []
+}
