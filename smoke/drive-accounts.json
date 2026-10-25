@@ -1,0 +1,20 @@
+{
+  "checks": [
+    {
+      "name": "verified-requesting-account",
+      "kind": "python",
+      "run": "from mission_control.drive_account_contract import identity\nr=identity({'user':{'permissionId':'synthetic','me':True,'kind':'drive#user'}})\nassert r=={'permission_id':'synthetic'}, 'Requesting identity must be normalized'"
+    },
+    {
+      "name": "exact-connection-binding",
+      "kind": "python",
+      "run": "from mission_control.drive_account_contract import connection_binding\nr=dict(app_id='sample-one',id='synthetic',version=1,data={'account':{'permission_id':'one'},'selected_files':['a']},expires=600)\na=connection_binding(r)\nassert isinstance(a,str) and len(a)==64\nassert a!=connection_binding(dict(r,version=2)), 'Revision must alter protected credential context'"
+    },
+    {
+      "name": "actual-durable-confirmation",
+      "kind": "python",
+      "must_fail_on_stub": false,
+      "run": "import unittest\ns=unittest.defaultTestLoader.loadTestsFromName('tests.test_drive_accounts')\nr=unittest.TextTestRunner(verbosity=2).run(s)\nassert r.wasSuccessful() and not r.skipped, 'Durable account confirmation and disconnect must pass'"
+    }
+  ]
+}

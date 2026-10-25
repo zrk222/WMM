@@ -1,0 +1,101 @@
+{
+  "name": "drive-accounts",
+  "language": "python",
+  "modules": [
+    {
+      "name": "drive_account_contract",
+      "path": "mission_control/drive_account_contract.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "identity",
+          "args": [
+            "payload"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "connection_row",
+          "args": [
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "connection_binding",
+          "args": [
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "packet",
+          "args": [
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "confirmation",
+          "args": [
+            "body"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "drive_accounts",
+      "path": "mission_control/drive_accounts.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "read_account",
+          "args": [
+            "bearer"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "drive_connection_state",
+      "path": "mission_control/drive_connection_state.py",
+      "language": "python",
+      "functions": []
+    },
+    {
+      "name": "drive_accounts_tests",
+      "path": "tests/test_drive_accounts.py",
+      "language": "python",
+      "functions": []
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "drive_accounts",
+      "to": "drive_account_contract"
+    },
+    {
+      "from": "drive_connection_state",
+      "to": "drive_account_contract"
+    },
+    {
+      "from": "drive_accounts_tests",
+      "to": "drive_accounts"
+    },
+    {
+      "from": "drive_accounts",
+      "to": "drive_connection_state"
+    },
+    {
+      "from": "drive_accounts_tests",
+      "to": "drive_connection_state"
+    },
+    {
+      "from": "drive_accounts_tests",
+      "to": "drive_account_contract"
+    }
+  ],
+  "invariants": []
+}
