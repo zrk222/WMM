@@ -1,0 +1,80 @@
+{
+  "name": "analytics-read-indexes",
+  "language": "python",
+  "modules": [
+    {
+      "name": "db",
+      "path": "mission_control/db.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "connection",
+          "args": [
+            "path"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "initialize",
+          "args": [
+            "path"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "insights",
+      "path": "mission_control/insights.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "decoded",
+          "args": [
+            "row"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "analytics_index_tests",
+      "path": "tests/test_analytics_read_indexes.py",
+      "language": "python",
+      "functions": []
+    },
+    {
+      "name": "measurement_tests",
+      "path": "tests/test_measurement_connectors.py",
+      "language": "python",
+      "functions": []
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "insights",
+      "to": "db"
+    },
+    {
+      "from": "analytics_index_tests",
+      "to": "insights"
+    },
+    {
+      "from": "analytics_index_tests",
+      "to": "db"
+    },
+    {
+      "from": "analytics_index_tests",
+      "to": "measurement_tests"
+    },
+    {
+      "from": "measurement_tests",
+      "to": "insights"
+    },
+    {
+      "from": "measurement_tests",
+      "to": "db"
+    }
+  ],
+  "invariants": []
+}

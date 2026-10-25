@@ -1,0 +1,15 @@
+{
+  "checks": [
+    {
+      "name": "scoped-report-index-exists-in-executed-schema",
+      "kind": "python",
+      "run": "import sqlite3\nfrom mission_control.db import SCHEMA\nassert isinstance(SCHEMA,str), 'Executable schema must exist'\ndb=sqlite3.connect(':memory:');db.executescript(SCHEMA)\nr=[x[3]for x in db.execute(\"EXPLAIN QUERY PLAN SELECT id FROM insight_reports WHERE app_id='one' AND source_id='selected' ORDER BY rowid DESC LIMIT100\".replace('LIMIT100','LIMIT 100'))]\nassert any('insight_report_source' in x for x in r),r\nassert not any('USE TEMP B-TREE' in x for x in r),r\ndb.close()"
+    },
+    {
+      "name": "actual-scoped-read-quota-history-and-original105-refresh",
+      "kind": "python",
+      "must_fail_on_stub": false,
+      "run": "import unittest\ns=unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromName(n)for n in ['tests.test_analytics_read_indexes','tests.test_measurement_connectors.MeasurementTests.test_report_history_cap_and_bounded_synthetic_read_performance'])\nr=unittest.TextTestRunner(verbosity=2).run(s)\nassert r.wasSuccessful() and not r.skipped, 'Actual query plans scoped retention and unchanged performance check must pass'"
+    }
+  ]
+}
