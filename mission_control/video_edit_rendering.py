@@ -56,7 +56,7 @@ def edit_metadata(path, tools=None):
 
 
 def validate(path, value, tools=None):
-    """Accept only decoded silent H264 with exact requested fps, shape and timing."""
+    """Accept the selected H264/audio profile with exact requested shape and timing."""
     value = definition(value);size = path.stat().st_size
     if not 0 < size <= MAX_BYTES:raise Invalid('Edited video exceeds the supported artifact size')
     metadata = edit_metadata(path, tools)
@@ -102,6 +102,15 @@ def segment_argv(native, item, output, source, index, with_audio):
     return argv
 
 
+def concat_argv(native, with_audio):
+    """Cancel concat AAC priming (1024 samples at48kHz), preserving strict60s bounds."""
+    if type(with_audio) is not bool:raise Invalid('Use an explicit edited-video audio profile')
+    correction=['-output_ts_offset',numeric(-1024/48000),'-avoid_negative_ts','disabled'] if with_audio else []
+    return [native['tools']['ffmpeg'],'-hide_banner','-loglevel','error','-nostdin','-y',
+            '-protocol_whitelist','file,pipe','-f','concat','-safe','1','-i','segments.txt',
+            '-c','copy',*correction,'-movflags','+faststart','video.mp4']
+
+
 def render(folder, value, sources, alive):
     """Encode normalized selected slices and sound, then join internal segment names."""
     value = definition(value);native = capability()
@@ -113,8 +122,6 @@ def render(folder, value, sources, alive):
         argv = segment_argv(native, item, value['output'], sources[source_key(item['source'])], index, with_audio)
         invoke(argv, folder, alive, deadline)
     (folder/'segments.txt').write_text(''.join(f"file 'part{index}.mp4'\n" for index in range(len(value['clips']))), encoding='ascii')
-    invoke([native['tools']['ffmpeg'], '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
-            '-f', 'concat', '-safe', '1', '-i', 'segments.txt', '-c', 'copy', '-movflags', '+faststart', 'video.mp4'],
-           folder, alive, deadline)
+    invoke(concat_argv(native,with_audio),folder,alive,deadline)
     output = folder/'video.mp4'
     return output, validate(output, value, native['tools'])
