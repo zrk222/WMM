@@ -42,7 +42,7 @@ Scenario: two_client_proof
 ```
 
 ## SHOULD - Technical
-- Optional dependency mcp==1.16.0 is the installed and tested SDK baseline; imports fail with an actionable error when absent. No dependency installation or client registration happens automatically.
+- Optional dependency mcp==1.30.0 is the tested maintenance SDK baseline in a clean isolated environment; imports fail with an actionable error when absent. No dependency installation or client registration happens automatically. The running preview and global Python are separate installations.
 - Only stdio is exposed. No additional listening server, raw route tool, shell, OAuth or credentials. Explicit canonical loopback origin remains required.
 - Tool data is private local workspace content; connecting a model host shares returned content with that host under its settings. Tool annotations describe effects and do not enforce independent human approval.
 - Existing transport limits remain MAX_BYTES = 16777216 and TIMEOUT_SECONDS = 15. Test subprocess timeout = 30; async fixture timeout = 45. No throughput or latency claim.
