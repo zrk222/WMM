@@ -4,7 +4,7 @@ Status: implementation
 ## MUST - Functional core
 ### Requirements (EARS)
 - The system shall return at most 1000 app-owned uploaded source descriptors with kind, identity, hash, decoded metadata and current reuse state through `media_sources`.
-- The system shall reject ungranted or foreign app source discovery through `media_grant` using the existing operation authority without granting review or binary access.
+- The system shall reject ungranted or foreign app source discovery through `media_grant` using the existing operation authority without granting review or binary access, and retain the operation in the fixed video authoring workflow map.
 - The system shall return source discovery without raw video, local paths, owner evidence or review history through `media_redaction`.
 - The system shall return the same current source projection in owner HTTP, CLI and official MCP through `media_parity`, including revoked and stale status without implying reuse permission.
 

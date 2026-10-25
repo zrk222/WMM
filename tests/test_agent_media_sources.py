@@ -59,3 +59,11 @@ class MediaSourceClientsTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ClientError):agent.call(self.envelope('media.sources',app_id='sample-two'))
         with self.assertRaises((ClientError,ValueError)):agent.call(self.envelope('media.sources',dict(path='PRIVATE_PATH')))
         self.assertEqual(Media(self.store).sources('sample-two')['items'],[])
+
+    def test_sources_operation_is_explicitly_mapped_without_enabling_complete_editor_autonomy(self):
+        from mission_control.automation_requirements import workflow_catalog
+        catalog=workflow_catalog();workflows=catalog['workflows']
+        self.assertIn('media.sources',workflows['video_authoring_editing']['operations'])
+        self.assertIn('COMPLETE_AGENT_AND_HUMAN_EDITOR_REQUIRED',workflows['video_authoring_editing']['blockers'])
+        self.assertNotIn('media.sources',workflows['paid_effects']['operations'])
+        self.assertEqual({name for row in workflows.values()for name in row['operations']},set(catalog['operations']))
