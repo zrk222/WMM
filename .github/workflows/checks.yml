@@ -16,15 +16,20 @@ jobs:
       - name: Install hash-pinned timezone data
         run: |
           python -m pip install --require-hashes --only-binary :all: -r requirements.txt
+      - name: Install declared optional MCP test profile
+        run: |
+          python -m pip install --only-binary :all: -r docs/requirements-mcp.txt
       - name: Install optional native integration-test tools
         run: choco install ffmpeg --version=9.0.2 --yes --no-progress
       - name: Verify full test-profile prerequisites
-        run: python -c "from zoneinfo import ZoneInfo; from mission_control.media_native import capability; ZoneInfo('America/Toronto'); assert capability()['status'] == 'READY', capability()"
+        run: python -c "from zoneinfo import ZoneInfo; from importlib.metadata import version; from mission_control.media_native import capability; ZoneInfo('America/Toronto'); assert capability()['status'] == 'READY', capability(); assert version('mcp') == '1.30.0', version('mcp')"
       - name: Check clean distribution
         run: python tools/check_distribution.py
-      - name: Verify browser instrumentation logic
+      - name: Verify all browser logic suites
         run: |
           node --version
-          node --test tests/instrumentation.test.mjs
+          $testFiles = Get-ChildItem -Path tests -File | Where-Object { $_.Name -match '\.test\.(cjs|mjs)$' }
+          if ($testFiles.Count -eq 0) { throw 'No browser logic tests found' }
+          node --test @($testFiles.FullName)
       - name: Run isolated synthetic regressions
         run: python -X utf8 -m unittest discover -s tests -p "test_*.py"
