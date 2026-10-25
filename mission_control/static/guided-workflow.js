@@ -17,7 +17,24 @@ function guidedStep(step) {
 
 function guidedView() {
   const g=state.workspace.workflow;
-  return `${heading("Your guided workflow","Resume saved work and take the next useful step.",button("Continue workflow","guided-continue","",""))}<section class="panel guided-summary" id="guided-workflow" aria-label="Workflow progress"><p class="eyebrow">SAVED EVIDENCE / CURRENT RELEASE</p><h2>${g.local_ready_count} of 12 local input checks ready</h2><p>Next: ${esc(g.next_action.title)}</p><p class="description">Saved evidence keeps this checklist current. Ready inputs still need review, publication checks and measured results.</p><div class="toolbar">${button("Refresh saved work","guided-refresh")}${button("Download this checklist","guided-download")}${button("Inspect current packets","automatic-open")}</div><p id="guided-message" class="field-error" role="status" aria-live="polite"></p></section>${guidedWorker()}${notice("Continue opens the next setup or review step. Provider changes keep their own approval.")}<div class="guided-grid">${g.steps.map(guidedStep).join("")}</div>`;
+  return `${heading("Your guided workflow","Resume saved work and take the next useful step.",button("Continue workflow","guided-continue","",""))}<section class="panel guided-summary" id="guided-workflow" aria-label="Workflow progress"><p class="eyebrow">SAVED EVIDENCE / CURRENT RELEASE</p><h2>${g.local_ready_count} of 12 local input checks ready</h2><p>Next: ${esc(g.next_action.title)}</p><p class="description">Saved evidence keeps this checklist current. Ready inputs still need review, publication checks and measured results.</p><div class="toolbar">${button("Refresh saved work","guided-refresh")}${button("Download this checklist","guided-download")}${button("Inspect current packets","automatic-open")}</div><p id="guided-message" class="field-error" role="status" aria-live="polite"></p></section>${guidedEvidenceStates()}${guidedCriticalFindings(g)}${notice("Continue opens the next setup or review step. Provider changes keep their own approval.")}${guidedStageJourney(g)}${guidedWorker()}`;
+}
+
+function guidedEvidenceStates() {
+  return `<section class="panel" aria-label="Understand workflow progress"><h2>Know what each result means</h2><dl><dt><strong>Inputs ready</strong></dt><dd>The saved facts pass this stage’s local checks.</dd><dt><strong>Execution approved</strong></dt><dd>You approved an exact action. Its execution receipt tells you whether it ran.</dd><dt><strong>Outcome observed</strong></dt><dd>A source records what happened. Missing results stay unknown; counts alone do not prove growth.</dd></dl></section>`;
+}
+
+function guidedCriticalFindings(g) {
+  const findings=g.steps.flatMap(step=>step.critical_findings.map(text=>({step,text})));
+  if(!findings.length)return "";
+  return `<section class="panel" aria-label="Critical findings across the workflow"><h2>Resolve these critical findings</h2><ul>${findings.map(({step,text})=>`<li><strong>Step ${esc(step.id)}: ${esc(step.title)}</strong> — ${esc(text)}</li>`).join("")}</ul><p>These findings remain open even when a stage is folded below.</p></section>`;
+}
+
+function guidedStageJourney(g) {
+  const next=g.steps.find(step=>step.id===g.next_step);
+  if(!next)return `<div class="guided-grid">${g.steps.map(guidedStep).join("")}</div>`;
+  const rest=g.steps.filter(step=>step.id!==next.id);
+  return `<section aria-label="Your next useful step"><h2>Start here: step ${esc(next.id)}</h2>${guidedStep(next)}</section><details class="panel" id="guided-all-stages"><summary>See the other ${rest.length} stages and their evidence requirements</summary><p>Every stage remains available. Open any stage to inspect its inputs, actions and verification.</p><div class="guided-grid">${rest.map(guidedStep).join("")}</div></details>`;
 }
 
 function guidedWorker() {
