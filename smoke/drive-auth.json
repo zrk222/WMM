@@ -1,0 +1,20 @@
+{
+  "checks": [
+    {
+      "name": "selected-file-consent-is-fixed-and-secret-free",
+      "kind": "python",
+      "run": "from mission_control.drive_auth import authorization\nfrom urllib.parse import urlsplit,parse_qs\nurl=authorization({'client_id':'123-synthetic.apps.googleusercontent.com','client_secret':'synthetic-secret'},8768,'drive_'+'s'*43,'v'*64)\nassert isinstance(url,str), 'Consent must return a URL'\nparts=urlsplit(url);q=parse_qs(parts.query)\nassert parts.netloc=='accounts.google.com' and q['scope']==['https://www.googleapis.com/auth/drive.file']\nassert q['trigger_onepick']==['true'] and q['redirect_uri']==['http://127.0.0.1:8768']\nassert 'synthetic-secret' not in url and 'v'*64 not in url"
+    },
+    {
+      "name": "selected-identity-order-is-preserved",
+      "kind": "python",
+      "run": "from mission_control.drive_auth import selected_files\nassert selected_files('blue,red')==['blue','red'], 'Selections must retain exact identity order'"
+    },
+    {
+      "name": "synthetic-protocol-security-and-recovery",
+      "kind": "python",
+      "must_fail_on_stub": false,
+      "run": "import unittest\ns=unittest.defaultTestLoader.loadTestsFromName('tests.test_drive_auth')\nr=unittest.TextTestRunner(verbosity=2).run(s)\nassert r.wasSuccessful() and not r.skipped, 'Drive protocol boundaries must pass without skips'"
+    }
+  ]
+}
