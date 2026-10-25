@@ -14,6 +14,7 @@ from .store import Store
 from .service import Service
 from .worker import Runner
 from .operator_identity import Identities
+from .operation_outcome import EffectUncertain
 
 STATIC=Path(__file__).resolve().parent/"static"
 
@@ -49,6 +50,13 @@ class Server(ThreadingHTTPServer):
         from .audit_worker import AuditWorker
         self.audit_runner=AuditWorker(store)
         self.service.worker_health=lambda:dict(self.runner.health)
+        self.studio_shutdown_result=None
+
+    def server_close(self):
+        """Retain native cleanup outcome separately from listening-socket closure."""
+        try:
+            self.studio_shutdown_result=self.service.studio.shutdown()
+        finally:super().server_close()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -125,6 +133,8 @@ class Handler(BaseHTTPRequestHandler):
             if write:
                 return self.post(path)
             return self.get(path,token)
+        except EffectUncertain as exc:
+            self.send(409,dict(error=str(exc),outcome='UNKNOWN',reconciliation_required=True))
         except PermissionError as exc:
             self.send(403,{"error":str(exc)})
         except KeyError:
@@ -397,8 +407,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def post_data(self,path,parts):
         """Keep original per-route byte limits and strict duplicate/nonfinite checks."""
-        raw=self.attribution_body(path,parts) if any(k in parts for k in ('setup-discovery','play','attribution','agent-access','social-access','social')) else self.body(self.post_limit(path,parts))
-        strict=any(kind in parts for kind in ('workflow-evidence','video-projects','video-edit-renders','agent-reviews','agent-grants','subscription-growth','customer-workflows','setup-discovery','play','attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
+        if 'studio' in parts:
+            from .hypit_studio_routes import read_body
+            raw=read_body(self)
+        else:
+            raw=self.attribution_body(path,parts) if any(k in parts for k in ('setup-discovery','play','attribution','agent-access','social-access','social')) else self.body(self.post_limit(path,parts))
+        strict=any(kind in parts for kind in ('studio','workflow-evidence','video-projects','video-edit-renders','agent-reviews','agent-grants','subscription-growth','customer-workflows','setup-discovery','play','attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
         if strict:
             from .payment_signature import unique_pairs,bounded_tree
             data=json.loads(raw,object_pairs_hook=unique_pairs,parse_constant=lambda _:(_ for _ in ()).throw(Invalid('Nonfinite JSON is forbidden')))
@@ -474,6 +488,9 @@ class Handler(BaseHTTPRequestHandler):
         if parts[3]=='agent-access':
             return self.send(200,self.agent_access(parts[2],parts[4:],data))
         app_id,action=parts[2:4]
+        if action=='studio':
+            from .hypit_studio_routes import human
+            return self.send(200,human(self,parts,data))
         if action=='video-edit-renders':
             if len(parts)!=4 or urlparse(self.path).query:raise Invalid('Use the exact edited video queue address')
             from .video_edit_jobs import EditRenders

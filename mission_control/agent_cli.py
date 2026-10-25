@@ -42,7 +42,8 @@ def main(argv=None,stdin=None,stdout=None,stderr=None):
         errors.write(canonical(dict(error=dict(code='INVALID_INPUT',message=str(error))))+'\n')
         return 2
     except ClientError as error:
-        errors.write(canonical(dict(error=dict(code=error.code,message=str(error),http_status=error.status)))+'\n')
+        from .operator_client import error_fields
+        errors.write(canonical(dict(error=error_fields(error)))+'\n')
         return 3
 
 

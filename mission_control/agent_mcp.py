@@ -73,7 +73,8 @@ def create_server(origin,grant_token=None):
             value=await anyio.to_thread.run_sync(execute_tool,origin,name,arguments,grant_token)
             return dict(data=value)
         except ClientError as error:
-            raise Invalid(canonical(dict(code=error.code,message=str(error),http_status=error.status))) from None
+            from .operator_client import error_fields
+            raise Invalid(canonical(error_fields(error))) from None
     return server
 
 

@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "actual-http-owned-manager-transport",
+      "kind": "python",
+      "run": "import unittest;names=['tests.test_hypit_studio_clients.StudioClientTests.test_human_start_agent_cli_read_edit_and_same_human_close', 'tests.test_hypit_studio_clients.StudioClientTests.test_human_framing_and_duplicate_keys_reject_before_manager', 'tests.test_hypit_studio_clients.StudioClientTests.test_reviewed_start_requires_checker_and_unknown_never_replays', 'tests.test_hypit_studio_clients.StudioClientTests.test_server_close_retains_owned_cleanup_result', 'tests.test_hypit_studio_clients.StudioStandingBoundaryTests.test_standing_local_scope_cannot_silently_gain_native_studio_authority'];s=unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromName(n) for n in names);assert s.countTestCases()==5;r=unittest.TextTestRunner().run(s);assert r.wasSuccessful() and not r.skipped"
+    }
+  ]
+}

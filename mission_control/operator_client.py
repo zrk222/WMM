@@ -12,12 +12,43 @@ MAX_BYTES=16777216
 TIMEOUT_SECONDS=15
 
 
+def request_timeout(path,body):
+    """Fixed longer observation bounds for approved synchronous local Studio work."""
+    operation=body.get('operation') if isinstance(body,dict) else None
+    actions=('plan','start','sessions','read','edit','inspect','close')
+    if path=='/api/agent-operations/call' and operation in tuple('studio.'+a for a in actions):return 900
+    if re.fullmatch(r'/api/apps/[a-z0-9-]+/studio/(?:[a-z0-9-]+/)?(?:'+ '|'.join(actions)+')',path):return 900
+    if path=='/api/agent-operations/reviews/resume':return 900
+    return TIMEOUT_SECONDS
+
+
 class ClientError(Exception):
     """Stable failure classification without dumping raw server responses or credentials."""
-    def __init__(self,code,message,status=None):
+    def __init__(self,code,message,status=None,outcome=None,reconciliation_required=False):
         super().__init__(message)
         self.code=code
         self.status=status
+        self.outcome=outcome
+        self.reconciliation_required=reconciliation_required
+
+
+def error_fields(error):
+    value=dict(code=error.code,message=str(error),http_status=error.status)
+    if error.outcome is not None:value.update(outcome=error.outcome,reconciliation_required=error.reconciliation_required)
+    return value
+
+
+def uncertain_response(error):
+    """Read only one small closed envelope; never forward arbitrary server messages."""
+    if error.code!=409:return False
+    try:
+        if error.headers.get_content_type()!='application/json':return False
+        raw=error.read(4097)
+        if len(raw)>4096:return False
+        value=strict_json(raw)
+        return (type(value) is dict and set(value)=={'error','outcome','reconciliation_required'} and
+            type(value['error']) is str and value['outcome']=='UNKNOWN' and value['reconciliation_required'] is True)
+    except (OSError,ValueError,Invalid,HTTPException):return False
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -118,10 +149,17 @@ class OperatorClient:
             headers.update({'Content-Type':'application/json','X-CSRF-Token':self.csrf or ''})
         request=Request(self.origin+path,data=payload,headers=headers,method=method)
         try:
-            with self.opener.open(request,timeout=TIMEOUT_SECONDS) as response:
+            with self.opener.open(request,timeout=request_timeout(path,body)) as response:
                 return response_data(response)
         except HTTPError as error:
-            error.close()
+            try:unknown=uncertain_response(error)
+            finally:error.close()
+            if unknown:
+                raise ClientError('OUTCOME_UNKNOWN','Local operation outcome is uncertain; inspect the saved attempt before retrying',
+                    error.code,outcome='UNKNOWN',reconciliation_required=True) from None
+            if error.code==409 and request_timeout(path,body)==900:
+                raise ClientError('RESULT_UNCONFIRMED','The local operation result is unconfirmed; inspect saved history before any retry.',
+                    error.code,outcome='UNKNOWN',reconciliation_required=True) from None
             raise ClientError('HTTP_REJECTED','WMM rejected the operation; HTTP '+str(error.code)+'. Refresh current app/source data before retrying.',error.code) from error
         except (URLError,TimeoutError,OSError,HTTPException) as error:
             raise ClientError('TRANSPORT_UNAVAILABLE','The local WMM operation did not return a confirmed result. Inspect saved history before retrying a write.') from error

@@ -15,6 +15,8 @@ def execute(service,envelope):
     from .video_edit_projects import Projects
     from .video_edit_jobs import EditRenders
     request_data(envelope)
+    if envelope['operation'].startswith('studio.'):
+        return service.studio.dispatch(envelope)
     app=envelope['app_id'];body=envelope['input'];store=service.store
     resource=envelope.get('resource_id')
     routes={

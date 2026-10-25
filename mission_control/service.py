@@ -93,6 +93,8 @@ class Service:
     def __init__(self,store,operator="local-operator"):
         self.store=store
         self.operator=operator
+        from .hypit_studio_sessions import Manager
+        self.studio=Manager(store)
 
     def workspace(self,app_id):
         """Assemble the selected app dashboard from its own records and runs."""

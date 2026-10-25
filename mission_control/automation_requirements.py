@@ -33,7 +33,8 @@ WORKFLOWS = {
     'viral_discovery': dict(name='Viral-only source discovery', operations=[],
         blockers=['LIVE_VIRAL_COLLECTOR_REQUIRED']),
     'video_authoring_editing': dict(name='Video authoring and editing', operations=[
-        'editor.list', 'editor.read', 'editor.save', 'editor.edit', 'editor.history', 'editor.diff', 'editor.renders', 'editor.queue'],
+        'editor.list', 'editor.read', 'editor.save', 'editor.edit', 'editor.history', 'editor.diff', 'editor.renders', 'editor.queue',
+        'studio.plan', 'studio.start', 'studio.sessions', 'studio.read', 'studio.edit', 'studio.inspect', 'studio.close'],
         blockers=['COMPLETE_AGENT_AND_HUMAN_EDITOR_REQUIRED']),
     'complete_analytics': dict(name='Complete KPI analytics and reports', operations=[],
         blockers=['COMPLETE_KPI_OPERATION_COVERAGE_REQUIRED']),
