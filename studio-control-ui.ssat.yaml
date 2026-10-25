@@ -1,0 +1,203 @@
+{
+  "name": "studio-control-ui",
+  "language": "javascript",
+  "modules": [
+    {
+      "name": "studio_controls",
+      "path": "mission_control/static/studio-controls.js",
+      "language": "javascript",
+      "functions": [
+        {
+          "name": "clear",
+          "args": [],
+          "returns": "unknown"
+        },
+        {
+          "name": "scope",
+          "args": [
+            "state"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "same",
+          "args": [
+            "a",
+            "b"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "invalidate",
+          "args": [
+            "state"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "valid",
+          "args": [
+            "t",
+            "d"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "show",
+          "args": [
+            "d",
+            "title",
+            "kind",
+            "data",
+            "html",
+            "captured"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "panel",
+          "args": [],
+          "returns": "unknown"
+        },
+        {
+          "name": "request",
+          "args": [
+            "d",
+            "t",
+            "action",
+            "body={}",
+            "id=null"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "error",
+          "args": [
+            "t",
+            "d",
+            "e"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "busy",
+          "args": [
+            "t",
+            "value",
+            "text='Reading current session\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a6'"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "open",
+          "args": [
+            "d"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "library",
+          "args": [
+            "d",
+            "data",
+            "captured"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "summary",
+          "args": [
+            "d",
+            "t",
+            "value"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "options",
+          "args": [
+            "field"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "input",
+          "args": [
+            "field",
+            "index"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "fieldsMarkup",
+          "args": [
+            "controls"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "inspector",
+          "args": [
+            "d",
+            "t",
+            "value"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "load",
+          "args": [
+            "d",
+            "t",
+            "id",
+            "inspect=false"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "typed",
+          "args": [
+            "field",
+            "text"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "editBody",
+          "args": [
+            "t",
+            "form",
+            "d"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "submit",
+          "args": [
+            "form",
+            "d"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "report",
+          "args": [
+            "t",
+            "d"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "action",
+          "args": [
+            "node",
+            "d"
+          ],
+          "returns": "unknown"
+        }
+      ]
+    }
+  ],
+  "dependencies": [],
+  "invariants": []
+}

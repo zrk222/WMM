@@ -16,6 +16,7 @@
   });
   const FORMS={};
   function define(ids,mission,result,next){for(const id of ids.split(' '))FORMS[id]=Object.freeze([mission,result,next]);}
+  define('studio-source-form','Choose the approved composition you want to customize.','WMM prepares an exact local startup summary without launching Studio.','Review the source and resource limits, then choose whether to start the local session.');
   define('app-form','Tell WMM who the app serves and the useful task it delivers.','Your saved app facts guide stage checks and future preparation.','Enter the current release and audience, then save the setup.');
   define('setup-review','Turn the discovered app information into a setup you have checked.','Your confirmed choices become the app facts used by this workspace.','Correct the proposed fields and inspect their sources before applying them.');
   define('evidence-form','Keep a source-backed fact beside the work that uses it.','Saving creates or updates this evidence record in the selected app.','Check the record type, source and release before saving.');

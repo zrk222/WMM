@@ -170,7 +170,7 @@ class Handler(BaseHTTPRequestHandler):
         scripts=('/agent-control.js','/subscription-authoring.js','/customer-workflow.js','/growth-review.js','/page-reporting.js','/setup-discovery.js','/google-play.js','/play-callback.js','/social-access.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
                  '/workflow-automation.js','/followup.js','/aeo.js','/public-store-readback.js',
                  '/pmf-workflow.js','/pmf-research.js','/audit-runtime.js','/automatic-preparation.js','/campaign-sequence.js','/experiment-tracking.js',
-                 '/spytok-workflow.js','/production-feasibility.js','/spira-workflow.js','/journey-readiness.js','/workflow-telemetry.js','/ui-stories.js','/complete-automation.js','/video-editor.js')
+                 '/spytok-workflow.js','/production-feasibility.js','/spira-workflow.js','/journey-readiness.js','/workflow-telemetry.js','/ui-stories.js','/complete-automation.js','/video-editor.js','/studio-controls.js')
         if path in scripts:
             return self.send(200,(STATIC/path[1:]).read_bytes(),"text/javascript; charset=utf-8")
         files={"/":"index.html","/index.html":"index.html","/style.css":"style.css","/page-reporting.css":"page-reporting.css","/video-editor.css":"video-editor.css","/app.js":"app.js","/creative-ranking.js":"creative-ranking.js","/acquisition.js":"acquisition.js","/creative-rendering.js":"creative-rendering.js","/verified-review.js":"verified-review.js","/provider-actions.js":"provider-actions.js","/outcome-learning.js":"outcome-learning.js","/signed-payments.js":"signed-payments.js"}
