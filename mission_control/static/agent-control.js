@@ -26,9 +26,15 @@
     active=null;serial++;
   }
   function invalidate(state){if(active&&!same(active.scope,state))clear();}
+  function setupMarkup(origin=globalThis.location?.origin){
+    const local=typeof origin==='string'&&/^http:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}$/.test(origin)&&Number(origin.split(':').at(-1))<=65535;
+    if(!local)return '<p>Open WMM at its exact http://127.0.0.1:PORT address to see CLI and MCP setup commands.</p>';
+    const command='python -m mission_control.agent_setup --origin '+origin;
+    return `<details class="panel"><summary>Connect your agent through CLI or MCP</summary><p>Open a terminal in the WMM repository using your selected Python environment. This offline setup command checks the interpreter and optional MCP dependency and prints a host configuration with the exact repository path:</p><pre>${esc(command)}</pre><p>The JSON CLI is available without the MCP SDK:</p><pre>python -m mission_control.agent_cli catalog</pre><p>MCP uses stdio; start WMM separately, then let your authorized host launch:</p><pre>${esc('python -m mission_control.agent_mcp --origin '+origin+' --use-grant')}</pre><p>If MCP is missing, the setup report gives the optional install command. No package or host configuration is changed automatically.</p><p>For delegated access, sign in as this app's OWNER under Activity &amp; reviews, then use Manage agent grants above. Supply the once-only token through your host's protected WMM_AGENT_GRANT process environment. Never put it in a prompt, command argument or report. The generated configuration requires a grant and never falls back to a browser session.</p><p>Without --use-grant, the adapters use the trusted local session model. That session is separate from owner-issued delegation and human checker approval. Catalog discovery grants no authority. Read tools return private workspace data to the selected host.</p></details>`;
+  }
   function panel(state){
     const owner=role(state)==="OWNER",signed=!!identity(state);
-    return `<section class="panel" aria-label="Agent permissions and checkpoints"><p class="eyebrow">HUMAN CONTROL</p><h2>Delegate work. Review exact changes.</h2><p>Give an agent access to selected local operations, a deadline and a call allowance. Require a different signed-in checker before selected writes run. Inspect the saved result here after the agent resumes.</p><p>${signed?`Your app role: ${esc(role(state)||"No active role")}.`:"Sign in under Activity & reviews, then ask the app owner to assign your role."} Grant management requires the app owner. Approvals require a distinct owner or checker.</p><div class="button-row">${button("Inspect agent review queue","queue",signed?"":"disabled")}${owner?button("Manage agent grants","grants"):""}</div></section>`;
+    return `<section class="panel" aria-label="Agent permissions and checkpoints"><p class="eyebrow">HUMAN CONTROL</p><h2>Delegate work. Review exact changes.</h2><p>Give an agent access to selected local operations, a deadline and a call allowance. Require a different signed-in checker before selected writes run. Inspect the saved result here after the agent resumes.</p><p>${signed?`Your app role: ${esc(role(state)||"No active role")}.`:"Sign in under Activity & reviews, then ask the app owner to assign your role."} Grant management requires the app owner. Approvals require a distinct owner or checker.</p><div class="button-row">${button("Inspect agent review queue","queue",signed?"":"disabled")}${owner?button("Manage agent grants","grants"):""}</div>${setupMarkup()}</section>`;
   }
   function show(deps,title,kind,data,markup,saved=scope(deps.state)){
     clear();deps.modal(title,`<div id="agent-control-dialog" class="modal-content">${markup}${errorBox}</div>`,"AGENT PERMISSIONS & REVIEW");
@@ -174,5 +180,5 @@
       return await savedAction(command,node,deps);
     }catch(e){if(active?.node?.isConnected)active.node.querySelector('#control-error').textContent=e.message;else deps.toast(e.message);}
   }
-  return {panel,scope,same,requireScope,permissions,issueBody,report,clear,invalidate,action,submit,grantMarkup,queueMarkup,detailMarkup,grantForm,tokenMarkup};
+  return {panel,setupMarkup,scope,same,requireScope,permissions,issueBody,report,clear,invalidate,action,submit,grantMarkup,queueMarkup,detailMarkup,grantForm,tokenMarkup};
 });

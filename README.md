@@ -37,6 +37,26 @@ To use another port or choose a local database location:
 .\.venv\Scripts\python.exe -X utf8 -m mission_control.server --port 8766 --database ./data/workspace.sqlite3
 ```
 
+## CLI and MCP access
+
+Both adapters live in this repository. From its root, using the Python
+environment selected for WMM:
+
+```powershell
+python -m mission_control.agent_cli catalog
+python -m mission_control.agent_setup --origin http://127.0.0.1:8765
+```
+
+The first command discovers current operations offline. The second reports the
+selected interpreter and optional MCP dependencies, and prints a scoped-grant
+MCP host configuration with absolute paths. Use your actual WMM port. It does
+not contact WMM, install packages or register a host.
+
+Open **Your agents → Connect your agent through CLI or MCP** for the running
+origin and grant setup. Follow the [agent quickstart](docs/agent-quickstart.md)
+for a usable call, optional MCP setup, authority modes and recovery. These
+module commands do not require a globally installed `wmm` executable.
+
 ## First campaign workflow
 
 1. Use **Add an app**, or edit one of the clearly labeled example workspaces.
@@ -45,7 +65,7 @@ To use another port or choose a local database location:
    deliverable, missing inputs and acceptance checks. Unknown inputs stay unknown.
 3. Add real evidence in **Evidence & assets**. Preparation creates saved stage
    packets; it does not publish campaigns or prove product readiness.
-4. Optionally connect an agent in **Agent access**. Inspect its exact proposed
+4. Optionally connect an agent in **Your agents**. Inspect its exact proposed
    context and operation, approve it, then review the draft and its sources.
 5. Use the evidence-resolution actions to gather supported public observations
    or review a proposed remedy. Reuse is limited to current, matching evidence.

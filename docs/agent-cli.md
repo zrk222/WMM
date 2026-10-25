@@ -1,5 +1,10 @@
 # Local WMM operation CLI
 
+Start with the [CLI/MCP quickstart](agent-quickstart.md) and
+`python -m mission_control.agent_setup --origin http://127.0.0.1:8765`.
+The catalog below is illustrative; `catalog` returns the current full contract,
+including editor, Studio and workflow operations.
+
 Run from the WMM repository with the existing server running:
 
 ```powershell
@@ -9,7 +14,9 @@ python -m mission_control.agent_cli catalog
 
 `catalog` prints the current operation contract and its content hash. `call` reads
 one UTF-8 JSON envelope from stdin and prints one JSON result. Use the same
-`app_id` as your selected workspace. No credential or session file is required.
+`app_id` as your selected workspace. Default trusted-local mode needs no
+credential file; delegated mode requires `--use-grant` and a securely supplied
+`WMM_AGENT_GRANT` process environment value. Neither mode reads a session file.
 Do not put API keys, OAuth tokens or personal research transcripts in inputs.
 
 The client creates a fresh in-memory cookie/CSRF session per process. It accepts
@@ -99,8 +106,9 @@ scoped agent grant. The catalog excludes identity login, credentials, human
 approval, provider writes, spending and publication. Local experiment decisions
 and rollback proposals do not execute provider changes.
 
-The Python library is an adapter, not a security sandbox against code running on
-the same workstation. Full generic-agent operation still requires authenticated
-scoped grants, independent human checkpoint dispatch/resume, complete domain
-coverage, MCP and two-client conformance. Use the working CLI for its declared
-operations; do not treat it as completion of that broader requirement.
+Owner-issued scoped grants and independent checkpoint prepare/status/resume
+are implemented; see [grant lifecycle](agent-grants.md) and
+[review transport](agent-review-transport.md). MCP uses the same operation
+services. The Python library is an adapter, not a security sandbox against code
+running on the same workstation. Full-domain coverage and live provider
+acceptance remain separate requirements; a listed operation is not approval.

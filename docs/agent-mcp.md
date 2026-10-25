@@ -1,5 +1,10 @@
 # WMM local MCP adapter
 
+Use the [CLI/MCP quickstart](agent-quickstart.md) or
+`python -m mission_control.agent_setup --origin http://127.0.0.1:8765`
+to inspect dependencies and generate a scoped-grant configuration with the
+actual interpreter and absolute module path.
+
 Run from the WMM repository using Python with the optional SDK installed:
 
 ```powershell
@@ -16,8 +21,8 @@ For a host supporting a standard `mcpServers` configuration, use your actual Pyt
   "mcpServers": {
     "wmm-local": {
       "command": "C:\\path\\to\\python.exe",
-      "args": ["-m", "mission_control.agent_mcp", "--origin", "http://127.0.0.1:57599"],
-      "cwd": "C:\\path\\to\\WMM"
+      "args": ["-m", "mission_control.agent_mcp", "--origin", "http://127.0.0.1:57599", "--use-grant"],
+      "env": {"PYTHONPATH": "C:\\path\\to\\WMM"}
     }
   }
 }
@@ -25,7 +30,11 @@ For a host supporting a standard `mcpServers` configuration, use your actual Pyt
 
 Hosts differ in configuration location and whether they accept `cwd`; set the process working directory or Python module search path to this repository using your host's supported settings. This document does not register or modify any host.
 
-Call `wmm_catalog` with `{}` first. The other fifteen tools map dots to underscores: `growth.save` becomes `wmm_growth_save`. Supply the CLI envelope's `app_id`, `input` and, where required, `resource_id`; omit `operation` because the tool name fixes it. Required fields and exact outer schemas are advertised in tool discovery. Nested business values use the existing authoritative WMM validators.
+The generated example requires `WMM_AGENT_GRANT` in the host's protected process
+environment. No token is included here. Hosts must support the shown environment
+setting or an equivalent absolute module-search-path setting.
+
+Call `wmm_catalog` with `{}` first. Current operation tools map dots to underscores: `growth.save` becomes `wmm_growth_save`. Supply the CLI envelope's `app_id`, `input` and, where required, `resource_id`; omit `operation` because the tool name fixes it. Required fields and exact outer schemas are advertised in tool discovery. Nested business values use the existing authoritative WMM validators. Reviewed-request tools are additionally advertised in grant mode; discover current tools instead of using a fixed historical count.
 
 Example `wmm_growth_history` arguments:
 

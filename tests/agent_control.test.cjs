@@ -3,6 +3,13 @@ function load(path){const holder={exports:{}};new Function('module',require('nod
 const ui=load(process.env.WMM_CONTROL_SOURCE||'mission_control/static/agent-control.js');
 const reports=load('mission_control/static/page-reporting.js');
 const state=()=>({app:'sample-one',workspace:{app:{id:'sample-one',version:1,data:{name:'Synthetic Café 東京'}},identity:{principal:'github:2'},access:{members:[{principal:'github:2',role:'CHECKER',status:'ACTIVE'}]}}});
+test('setup front door uses exact local origin, discoverable modules and explicit grant boundaries',()=>{
+ const html=ui.setupMarkup('http://127.0.0.1:9234');
+ for(const expected of ['<details','<summary>','mission_control.agent_setup --origin http://127.0.0.1:9234','mission_control.agent_cli catalog','mission_control.agent_mcp --origin http://127.0.0.1:9234 --use-grant','WMM_AGENT_GRANT','trusted local session','never falls back'])assert.ok(html.includes(expected),expected);
+ for(const origin of ['https://attacker.test','http://127.0.0.1:8765/<script>','http://127.0.0.1:65536']){
+  const rejected=ui.setupMarkup(origin);assert.ok(!rejected.includes('mission_control.agent_mcp'));assert.ok(!rejected.includes('<script>'));
+ }
+});
 const checkpoint=()=>({id:'review-one',input_hash:'a'.repeat(64),envelope:{operation:'growth.save',input:{private:'PRIVATE_SENTINEL'}},checkpoint:{state:'WAITING_REVIEW',revision:1,hash:'b'.repeat(64),checker:null,packet:{maker:'github:1',agent_id:'agent-one',expires:'2030-01-01'},history:[{state:'WAITING_REVIEW',observed_at:'2026-10-23',evidence_hash:null}]},result:{secret:'PRIVATE_SENTINEL'}});
 test('app version and identity are bound before mutation',()=>{
  const s=state(),saved=ui.scope(s);assert.doesNotThrow(()=>ui.requireScope(saved,s));
