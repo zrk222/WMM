@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "usage-mapping-and-owned-worker",
+      "kind": "python",
+      "run": "import unittest;from tests import test_agent_usage;suite=unittest.defaultTestLoader.loadTestsFromModule(test_agent_usage);assert suite.countTestCases()==8;result=unittest.TextTestRunner().run(suite);assert result.wasSuccessful() and not result.skipped"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "http-cli-mcp-independent-human-review",
+      "kind": "python",
+      "run": "import unittest; from tests.test_agent_mcp import HAS_MCP; assert HAS_MCP; s=unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromName(n) for n in ['tests.test_agent_review_http','tests.test_agent_review_clients']); assert s.countTestCases()==11; r=unittest.TextTestRunner().run(s); assert r.wasSuccessful() and not r.skipped"
+    }
+  ]
+}

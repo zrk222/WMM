@@ -1,0 +1,151 @@
+name: customer-workflow-ui
+language: javascript
+modules:
+- name: customer_workflow
+  path: mission_control/static/customer-workflow.js
+  language: javascript
+  functions:
+  - name: context
+    args:
+    - state
+    returns: unknown
+  - name: history
+    args:
+    - state
+    returns: unknown
+  - name: selected
+    args:
+    - state
+    - id
+    returns: unknown
+  - name: metrics
+    args:
+    - rows
+    returns: unknown
+  - name: panel
+    args:
+    - state
+    returns: unknown
+  - name: historyList
+    args:
+    - rows
+    returns: unknown
+  - name: blankSource
+    args:
+    - uuid
+    returns: unknown
+  - name: newDraft
+    args:
+    - state
+    - uuid
+    - id=""
+    returns: unknown
+  - name: field
+    args:
+    - name
+    - label
+    - value=""
+    - textarea=false
+    - hint=""
+    returns: unknown
+  - name: choice
+    args:
+    - name
+    - label
+    - value
+    - options
+    returns: unknown
+  - name: basics
+    args:
+    - draft
+    returns: unknown
+  - name: sourceRow
+    args:
+    - row
+    - index
+    returns: unknown
+  - name: sourceLinks
+    args:
+    - row
+    - index
+    - sources
+    returns: unknown
+  - name: featureRow
+    args:
+    - row
+    - index
+    - sources
+    returns: unknown
+  - name: exclusionRow
+    args:
+    - row
+    - index
+    returns: unknown
+  - name: formHTML
+    args:
+    - draft
+    returns: unknown
+  - name: openForm
+    args:
+    - deps
+    - id=""
+    returns: unknown
+  - name: capture
+    args:
+    - form
+    - FormData
+    returns: unknown
+  - name: addRow
+    args:
+    - draft
+    - kind
+    - uuid
+    returns: unknown
+  - name: removeRow
+    args:
+    - draft
+    - kind
+    - id
+    returns: unknown
+  - name: editRows
+    args:
+    - node
+    - deps
+    returns: unknown
+  - name: payload
+    args:
+    - form
+    - FormData
+    - state
+    returns: unknown
+  - name: submit
+    args:
+    - form
+    - deps
+    returns: unknown
+  - name: sourceNotes
+    args:
+    - source
+    returns: unknown
+  - name: entryNotes
+    args:
+    - row
+    returns: unknown
+  - name: report
+    args:
+    - state
+    - pageReports
+    - id=""
+    returns: unknown
+  - name: detail
+    args:
+    - id
+    - deps
+    returns: unknown
+  - name: action
+    args:
+    - node
+    - deps
+    returns: unknown
+dependencies: []
+invariants: []

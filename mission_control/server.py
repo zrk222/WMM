@@ -14,6 +14,7 @@ from .store import Store
 from .service import Service
 from .worker import Runner
 from .operator_identity import Identities
+from .operation_outcome import EffectUncertain
 
 STATIC=Path(__file__).resolve().parent/"static"
 
@@ -49,6 +50,13 @@ class Server(ThreadingHTTPServer):
         from .audit_worker import AuditWorker
         self.audit_runner=AuditWorker(store)
         self.service.worker_health=lambda:dict(self.runner.health)
+        self.studio_shutdown_result=None
+
+    def server_close(self):
+        """Retain native cleanup outcome separately from listening-socket closure."""
+        try:
+            self.studio_shutdown_result=self.service.studio.shutdown()
+        finally:super().server_close()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -112,6 +120,12 @@ class Handler(BaseHTTPRequestHandler):
         """Return clear input errors and preserve existing state on operational failure."""
         try:
             path=urlparse(self.path).path
+            if write and path.startswith('/api/agent-operations/reviews/'):
+                from .agent_review_http import agent
+                return agent(self)
+            if write and path=='/api/agent-operations/call':
+                from .agent_grant_http import call
+                return call(self)
             webhook=self.webhook_handler(path) if write else None
             if webhook:
                 return webhook(path)
@@ -119,6 +133,8 @@ class Handler(BaseHTTPRequestHandler):
             if write:
                 return self.post(path)
             return self.get(path,token)
+        except EffectUncertain as exc:
+            self.send(409,dict(error=str(exc),outcome='UNKNOWN',reconciliation_required=True))
         except PermissionError as exc:
             self.send(403,{"error":str(exc)})
         except KeyError:
@@ -151,13 +167,13 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200,{"ledger":json.loads((root/"research-ledger.json").read_text(encoding="utf-8-sig")),"acquisition":json.loads((root/"acquisition-profiles.json").read_text(encoding="utf-8-sig"))})
         if path.startswith("/api/apps/"):
             return self.get_app(path)
-        scripts=('/setup-discovery.js','/google-play.js','/play-callback.js','/social-access.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
+        scripts=('/agent-control.js','/subscription-authoring.js','/customer-workflow.js','/growth-review.js','/page-reporting.js','/setup-discovery.js','/google-play.js','/play-callback.js','/social-access.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
                  '/workflow-automation.js','/followup.js','/aeo.js','/public-store-readback.js',
                  '/pmf-workflow.js','/pmf-research.js','/audit-runtime.js','/automatic-preparation.js','/campaign-sequence.js','/experiment-tracking.js',
-                 '/spytok-workflow.js','/production-feasibility.js','/spira-workflow.js','/journey-readiness.js')
+                 '/spytok-workflow.js','/production-feasibility.js','/spira-workflow.js','/journey-readiness.js','/workflow-telemetry.js','/ui-stories.js','/complete-automation.js','/video-editor.js','/studio-controls.js')
         if path in scripts:
             return self.send(200,(STATIC/path[1:]).read_bytes(),"text/javascript; charset=utf-8")
-        files={"/":"index.html","/index.html":"index.html","/style.css":"style.css","/app.js":"app.js","/creative-ranking.js":"creative-ranking.js","/acquisition.js":"acquisition.js","/creative-rendering.js":"creative-rendering.js","/verified-review.js":"verified-review.js","/provider-actions.js":"provider-actions.js","/outcome-learning.js":"outcome-learning.js","/signed-payments.js":"signed-payments.js"}
+        files={"/":"index.html","/index.html":"index.html","/style.css":"style.css","/page-reporting.css":"page-reporting.css","/video-editor.css":"video-editor.css","/app.js":"app.js","/creative-ranking.js":"creative-ranking.js","/acquisition.js":"acquisition.js","/creative-rendering.js":"creative-rendering.js","/verified-review.js":"verified-review.js","/provider-actions.js":"provider-actions.js","/outcome-learning.js":"outcome-learning.js","/signed-payments.js":"signed-payments.js"}
         if path not in files:
             raise KeyError(path)
         file=STATIC/files[path]
@@ -186,6 +202,47 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts)<3:raise KeyError(path)
         app_id=parts[2]
         store=self.server.service.store
+        if len(parts)>=4 and parts[3]=='video-edit-renders':
+            if urlparse(self.path).query:raise Invalid('Use the exact edited video address')
+            from .video_edit_jobs import EditRenders
+            if len(parts)==4:return self.send(200,EditRenders(store).list(app_id))
+            if len(parts)==6 and parts[5] in ('preview','download'):
+                return self.video(app_id,parts[4],parts[5]=='download',edited=True)
+            raise KeyError('Edited video route not found')
+        if len(parts)>=4 and parts[3]=='video-projects':
+            if urlparse(self.path).query:raise Invalid('Use the exact video project address')
+            from .video_edit_projects import Projects
+            projects=Projects(store)
+            if len(parts)==4:return self.send(200,projects.list(app_id))
+            if len(parts)==5:return self.send(200,projects.read(app_id,parts[4]))
+            raise KeyError('Video project route not found')
+        if parts[3:]==['native-renders']:
+            if urlparse(self.path).query:raise Invalid('Use the exact native history address')
+            from .creative_rendering import Renders
+            return self.send(200,Renders(store).list(app_id))
+        if parts[3:]==['workflow-telemetry']:
+            if urlparse(self.path).query:raise Invalid('Use the exact workflow telemetry address')
+            from .workflow_telemetry import monitor
+            return self.send(200,monitor(store,app_id))
+        if parts[3:]==['subscription-growth']:
+            if urlparse(self.path).query:raise Invalid('Use the exact subscription review address')
+            return self.send(200,self.server.service.subscription_review(app_id))
+        if parts[3:]==['subscription-growth','history']:
+            if urlparse(self.path).query:raise Invalid('Use the exact growth review history address')
+            from .growth_review_store import GrowthReviews
+            return self.send(200,GrowthReviews(store).list(app_id))
+        if parts[3:]==['customer-workflows']:
+            if urlparse(self.path).query:raise Invalid('Use the exact customer workflow history address')
+            from .customer_workflow_store import CustomerWorkflows
+            return self.send(200,CustomerWorkflows(store).list(app_id))
+        if parts[3:]==['agent-operations']:
+            if urlparse(self.path).query:raise Invalid('Use the exact app operation discovery address')
+            from .agent_operations import discovery
+            return self.send(200,discovery(store.app(app_id)))
+        if parts[3:]==['jobs']:
+            if urlparse(self.path).query:raise Invalid('Use the exact app job history address')
+            from .worker import jobs
+            return self.send(200,jobs(store,app_id))
         if len(parts)==3:
             return self.send(200,dict(self.server.service.workspace(app_id),identity=self.server.identities.public(self.session())))
         if len(parts)==6 and parts[3:5]==['social-access','flows']:
@@ -193,7 +250,7 @@ class Handler(BaseHTTPRequestHandler):
         histories={('aeo','history'):'aeo',('attribution','history'):'attribution'}
         if tuple(parts[3:]) in histories:
             return self.get_history(app_id,histories[tuple(parts[3:])])
-        scoped={'renders':self.get_video,'experiment-tracking':self.get_instrumentation,'files':self.get_asset,'setup-discovery':self.get_setup_discovery}
+        scoped={'renders':self.get_video,'hypit-renders':self.get_hypit_video,'experiment-tracking':self.get_instrumentation,'files':self.get_asset,'setup-discovery':self.get_setup_discovery}
         if parts[3] in scoped:return scoped[parts[3]](parts)
         ordinary={'export':lambda:self.send(200,store.export(app_id),filename=app_id+'-snapshot.json'),
                   'measurement':lambda:self.get_measurement(app_id)}
@@ -256,9 +313,21 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts)!=6 or parts[5] not in ("preview","download"):raise KeyError("Video route not found")
         return self.video(parts[2],parts[4],parts[5]=="download")
 
-    def video(self,app_id,render_id,download=False):
+    def get_hypit_video(self,parts):
+        """Expose app-owned history or the exact Hypit preview/download route."""
+        from .hypit_jobs import HypitRenders
+        if urlparse(self.path).query:raise Invalid('Use the exact Hypit artifact address')
+        if len(parts)==4:return self.send(200,HypitRenders(self.server.service.store).list(parts[2]))
+        if len(parts)!=6 or parts[5] not in ('preview','download'):raise KeyError('Hypit video route not found')
+        return self.video(parts[2],parts[4],parts[5]=='download',hypit=True)
+
+    def video(self,app_id,render_id,download=False,hypit=False,edited=False):
         """Serve hash-validated app-owned video with actual seeking and download support."""
         from .creative_rendering import artifact_file
+        if hypit:
+            from .hypit_jobs import artifact_file
+        if edited:
+            from .video_edit_jobs import artifact_file
         path,_=artifact_file(self.server.service.store,app_id,render_id);raw=path.read_bytes()
         headers={"Accept-Ranges":"bytes"};filename=app_id+"-"+render_id+".mp4" if download else None
         value=self.headers.get("Range")
@@ -338,8 +407,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def post_data(self,path,parts):
         """Keep original per-route byte limits and strict duplicate/nonfinite checks."""
-        raw=self.attribution_body(path,parts) if any(k in parts for k in ('setup-discovery','play','attribution','agent-access','social-access','social')) else self.body(self.post_limit(path,parts))
-        strict=any(kind in parts for kind in ('setup-discovery','play','attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
+        if 'studio' in parts:
+            from .hypit_studio_routes import read_body
+            raw=read_body(self)
+        else:
+            raw=self.attribution_body(path,parts) if any(k in parts for k in ('setup-discovery','play','attribution','agent-access','social-access','social')) else self.body(self.post_limit(path,parts))
+        strict=any(kind in parts for kind in ('studio','workflow-evidence','video-projects','video-edit-renders','agent-reviews','agent-grants','subscription-growth','customer-workflows','setup-discovery','play','attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
         if strict:
             from .payment_signature import unique_pairs,bounded_tree
             data=json.loads(raw,object_pairs_hook=unique_pairs,parse_constant=lambda _:(_ for _ in ()).throw(Invalid('Nonfinite JSON is forbidden')))
@@ -415,6 +488,34 @@ class Handler(BaseHTTPRequestHandler):
         if parts[3]=='agent-access':
             return self.send(200,self.agent_access(parts[2],parts[4:],data))
         app_id,action=parts[2:4]
+        if action=='studio':
+            from .hypit_studio_routes import human
+            return self.send(200,human(self,parts,data))
+        if action=='video-edit-renders':
+            if len(parts)!=4 or urlparse(self.path).query:raise Invalid('Use the exact edited video queue address')
+            from .video_edit_jobs import EditRenders
+            return self.send(201,EditRenders(service.store).queue(app_id,data))
+        if action=='video-projects':
+            if urlparse(self.path).query:raise Invalid('Use the exact video project address')
+            from .video_edit_projects import Projects
+            projects=Projects(service.store)
+            if len(parts)==4:return self.send(201,projects.save(app_id,data))
+            if len(parts)==6 and parts[5] in ('edits','history','diff'):
+                operation='edit' if parts[5]=='edits' else parts[5]
+                return self.send(200,getattr(projects,operation)(app_id,parts[4],data))
+            raise KeyError('Video project route not found')
+        if action=='workflow-evidence':
+            if len(parts)!=4 or urlparse(self.path).query:raise Invalid('Use the exact workflow evidence address')
+            from .operation_runtime import save_evidence
+            return self.send(201,save_evidence(service,app_id,data))
+        if action=='subscription-growth':
+            if parts[4:]!=['entries'] or urlparse(self.path).query:raise Invalid('Use the exact growth review entry address')
+            from .growth_review_store import GrowthReviews
+            return self.send(201,GrowthReviews(service.store).save(app_id,data))
+        if action=='customer-workflows':
+            if len(parts)!=4 or urlparse(self.path).query:raise Invalid('Use the exact customer workflow creation address')
+            from .customer_workflow_store import CustomerWorkflows
+            return self.send(201,CustomerWorkflows(service.store).save(app_id,data))
         if action == 'campaign-inputs' and len(parts) == 4:
             from .campaign_inputs import CampaignInputs
             if urlparse(self.path).query:
@@ -422,7 +523,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(201,CampaignInputs(service.store).start(app_id,data))
         routes={"records":lambda:service.evidence(app_id,data),"jobs":lambda:service.queue(app_id,data),
                 "reviews":lambda:service.prepare_review(app_id,data),"cohorts":lambda:service.cohort(app_id,data),"events":lambda:service.events(app_id,data)}
-        handlers={"setup-discovery":self.post_setup_discovery,"play":self.post_play,"experiment-tracking":self.post_tracking,"sequences":self.post_sequence,"resolutions":self.post_resolution,"release-selection":self.post_release_selection,"inspections":self.post_inspection,
+        handlers={"agent-reviews":self.post_agent_reviews,"agent-grants":self.post_agent_grants,"setup-discovery":self.post_setup_discovery,"play":self.post_play,"experiment-tracking":self.post_tracking,"sequences":self.post_sequence,"resolutions":self.post_resolution,"release-selection":self.post_release_selection,"inspections":self.post_inspection,
                   "pmf-research":self.post_pmf_research,"followup":self.post_followup,"aeo":self.post_aeo,
                   "insights":self.post_insights,"storekit":self.post_storekit,"attribution":self.post_attribution,
                   "connections":self.post_connection,"experiments":self.post_experiment,"references":self.post_reference,"production":self.post_production,"rankings":self.post_ranking,"acquisition":self.post_acquisition,"access":self.post_access,"verified-reviews":self.post_verified_review,"provider-actions":self.post_provider_action,"learning":self.post_learning,"payments":self.post_payments}
@@ -572,6 +673,19 @@ class Handler(BaseHTTPRequestHandler):
         if parts==["api","identity","logout"] and not data:return self.send(200,identities.logout(session))
         raise KeyError("Identity route not found")
 
+    def post_agent_grants(self,parts,data):
+        """Bind delegation controls to a freshly verified app owner, never request names."""
+        from .agent_grant_http import owner
+        user=self.server.identities.fresh(self.session())
+        return self.send(200,owner(self.server.service.store,parts[2],parts[4:],user,data))
+
+    def post_agent_reviews(self,parts,data):
+        """Keep human approval outside bearer tools with fresh verified session identity."""
+        from .agent_review_http import human
+        if urlparse(self.path).query:raise Invalid('Use the exact human review address')
+        user=self.server.identities.fresh(self.session())
+        return self.send(200,human(self.server.service.store,parts[2],parts[4:],user,data))
+
     def post_access(self,parts,data):
         """Require fresh authenticated identity before app-scoped owner/member changes."""
         from .review_access import Access
@@ -716,12 +830,14 @@ class Handler(BaseHTTPRequestHandler):
         from .creative_analysis import Analyses
         from .creative_briefs import Briefs
         from .creative_rendering import Renders
+        from .hypit_jobs import HypitRenders
         from .production_feasibility import Capabilities
         store=self.server.service.store
         if len(parts)==5 and parts[4] in ("profile","requirement"):return self.send(201,Capabilities(store).save(parts[2],parts[4],data))
         if len(parts)==5 and parts[4]=="analyses":return self.send(201,Analyses(store).save(parts[2],data))
         if len(parts)==5 and parts[4]=="briefs":return self.send(201,Briefs(store).save(parts[2],data))
         if len(parts)==5 and parts[4]=="renders":return self.send(201,Renders(store).queue(parts[2],data))
+        if len(parts)==5 and parts[4]=="hypit-renders":return self.send(201,HypitRenders(store).queue(parts[2],data))
         raise KeyError("Creative production route not found")
 
     def post_acquisition(self,parts,data):

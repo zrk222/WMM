@@ -1,0 +1,14 @@
+{
+  "checks": [
+    {
+      "name": "typed-configuration-validates-without-creative-asset",
+      "kind": "python",
+      "run": "from tests.test_subscription_variants import configuration; from mission_control.subscription_variants import validate_configuration; c=configuration(); assert validate_configuration(c)==c"
+    },
+    {
+      "name": "subscription-variant-recovery-and-stale-source",
+      "kind": "python",
+      "run": "import unittest; s=unittest.defaultTestLoader.loadTestsFromName(\"tests.test_subscription_variants\"); assert s.countTestCases()==9; r=unittest.TextTestRunner(verbosity=1).run(s); assert r.wasSuccessful()"
+    }
+  ]
+}

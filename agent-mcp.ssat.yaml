@@ -1,0 +1,33 @@
+name: agent-mcp
+language: python
+modules:
+- name: agent_mcp
+  path: mission_control/agent_mcp.py
+  language: python
+  functions:
+  - name: argument_schema
+    args: [rule]
+    returns: object
+  - name: tool_definitions
+    args: []
+    returns: object
+  - name: execute_tool
+    args: [origin, name, arguments]
+    returns: object
+  - name: create_server
+    args: [origin]
+    returns: object
+  - name: serve
+    args: [origin]
+    returns: object
+  - name: main
+    args: [argv]
+    returns: object
+- name: test_agent_mcp
+  path: tests/test_agent_mcp.py
+  language: python
+  functions: []
+dependencies:
+- from: test_agent_mcp
+  to: agent_mcp
+invariants: []

@@ -1,0 +1,54 @@
+{
+  "schema": "wmm.hypit-public-sessions.source-review.v1",
+  "mode": "READ_ONLY_ARCHITECTURE_AND_PLAN_REVIEW",
+  "observed_at": "2026-10-25T04:22:55.001963+00:00",
+  "runtime_sources": {
+    "mission_control/hypit_parameter_broker.py": "dd066031eb1d65c7431821a18c624975d6646d7a164ed61e98abdbfca8e8c59d",
+    "mission_control/operation_authority.py": "1251eb0f08e37ffbc3eb2d00ad5f7e0ce803f178f1ef5cb70cc0b3dc43bdd7c4",
+    "mission_control/agent_review_dispatch.py": "d3a748576a827afd7f8610750c6176ef9b59b8589d1ede820ab73954619002ed",
+    "mission_control/automation_execution.py": "9eec72fd844e17b8f923c01b546f9188040833fab69954da8492aad00f15aa9a",
+    "mission_control/operator_identity.py": "b47759d161ea3559caff555db4b31ece7f57118404ff2e1b9e95e4fab1838679",
+    "mission_control/hypit_jobs.py": "4e832048d16745d9c4c48058370e43073527110e5539c51fd54152cc0fdfc480",
+    "mission_control/hypit_studio_process.py": "0a6f035d32b0e050bd9435546b26905d0f274824fd743224ec03ddcc25fad0a8",
+    "mission_control/hypit_studio_project.py": "44723f70bfef95e81d3b9983046d98d1fbf95e957e7c3352921bf2ed7cbd447e",
+    "mission_control/operation_catalog.py": "c57b6ab2c724967a124bdf75e8aaebdafc06b284d30533bab16c55e31f62d912",
+    "mission_control/service.py": "be44506c5dd13b9861465c0fbdaaf076c74c8df5eae711eef14e781ac35eebd8",
+    "mission_control/server.py": "c97bf2f460ae43dda0eaaab6367cdc58e2fd437a5aea4d8e07a1ccd388be5c0f",
+    "mission_control/db.py": "3f2df8691f2a3295c9dd901797a20c54d267bb8fefbed695f4ad36864a27520a"
+  },
+  "current_facts": [
+    "ParameterBroker owns exact StudioProcess and durable source ledger; callback required before/during native calls.",
+    "operation_authority protected() checks request scope on connection entry and precommit; public Studio service is not connected.",
+    "Hypit current_inputs validates selected-app frozen brief/rights; job runtime storage must not be reused for Studio.",
+    "Service currently has no native session manager or shutdown lifecycle.",
+    "Existing reviewed/standing explicit EffectUncertain maps UNKNOWN; retained retry dictionaries need public mapping."
+  ],
+  "reviewed_design": [
+    "Eight closed operations with separate preflight summary and startup admission.",
+    "Immutable startup reservation before native effects; actual live objects only in one long-lived server manager.",
+    "Exact protected callback across current ordinary/reviewed/standing/human operations.",
+    "UNKNOWN for startup/edit/close ambiguity and retained unresolved retries; no duplicate native launch/send.",
+    "Internal owned-outcome finalizer after authority loss only appends recovery evidence and never grants effect authority.",
+    "Nonterminal reservations count across restart; exact fresh stopped-resource proof required for reconciliation.",
+    "Stop admission, coordinate in-flight calls, close owned objects, retain cleanup receipts, then release server resources."
+  ],
+  "initial_astra_verdict": "NEEDS_REVISION",
+  "initial_findings": [
+    "Authority loss can block cleanup persistence.",
+    "Uncertain startup and close need explicit UNKNOWN classification.",
+    "Manager lifetime/shutdown/per-session serialization need explicit ordering.",
+    "Restart capacity and trustworthy stopped-resource reconciliation need explicit contract.",
+    "New project/runtime isolation must be explicit."
+  ],
+  "final_astra_verdict": "PASS_SCOPED_PLAN",
+  "reviewer": "/root/astra_resolution",
+  "final_review": "All lifecycle findings addressed; implementation must establish trustworthy stopped-resource proof. Missing/unreachable proof remains unconfirmed.",
+  "requirements": 13,
+  "atomic_tasks": 6,
+  "implementation": "NOT_STARTED",
+  "runtime_acceptance": "NOT_RUN_FOR_PUBLIC_SERVICE",
+  "public_ui": "NOT_IMPLEMENTED",
+  "complete_editor": "REQUIRED_PARENT_WORK",
+  "publication": "NOT_RUN",
+  "goal": "ACTIVE_INCOMPLETE"
+}

@@ -1,0 +1,33 @@
+{
+  "name": "hypit-session-manager",
+  "language": "python",
+  "modules": [
+    {
+      "name": "hypit_studio_sessions",
+      "path": "mission_control/hypit_studio_sessions.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "envelope_data",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "test_hypit_studio_sessions",
+      "path": "tests/test_hypit_studio_sessions.py",
+      "language": "python",
+      "functions": []
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "test_hypit_studio_sessions",
+      "to": "hypit_studio_sessions"
+    }
+  ],
+  "invariants": []
+}

@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS inspection_config(app_id TEXT PRIMARY KEY REFERENCES 
 CREATE TABLE IF NOT EXISTS inspection_archives(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,data TEXT NOT NULL,hash TEXT NOT NULL,created TEXT NOT NULL,PRIMARY KEY(app_id,id));
 CREATE TABLE IF NOT EXISTS inspection_runs(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,data TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('QUEUED','RUNNING','SUCCEEDED','INCOMPLETE','BLOCKED','CANCELLED','INTERRUPTED')),result TEXT,error TEXT,created TEXT NOT NULL,updated TEXT NOT NULL,request_hash TEXT NOT NULL,PRIMARY KEY(app_id,id));
 CREATE TABLE IF NOT EXISTS pmf_research(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,kind TEXT NOT NULL CHECK(kind IN ('study','snapshot','receipt')),data TEXT NOT NULL,hash TEXT NOT NULL,imported INTEGER NOT NULL CHECK(imported IN (0,1)),created TEXT NOT NULL,PRIMARY KEY(app_id,id));
+CREATE TABLE IF NOT EXISTS customer_workflows(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,data TEXT NOT NULL,hash TEXT NOT NULL,created TEXT NOT NULL,imported INTEGER NOT NULL CHECK(imported IN (0,1)),PRIMARY KEY(app_id,id));
 CREATE TABLE IF NOT EXISTS followup_policy(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,data TEXT NOT NULL,hash TEXT NOT NULL,version INTEGER NOT NULL,imported INTEGER NOT NULL,created TEXT NOT NULL,updated TEXT NOT NULL,PRIMARY KEY(app_id,id));
 CREATE TABLE IF NOT EXISTS followup_subject(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,data TEXT NOT NULL,hash TEXT NOT NULL,version INTEGER NOT NULL,imported INTEGER NOT NULL,created TEXT NOT NULL,updated TEXT NOT NULL,PRIMARY KEY(app_id,id));
 CREATE TABLE IF NOT EXISTS followup_task(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,data TEXT NOT NULL,hash TEXT NOT NULL,version INTEGER NOT NULL,imported INTEGER NOT NULL,created TEXT NOT NULL,updated TEXT NOT NULL,PRIMARY KEY(app_id,id));
@@ -49,6 +50,11 @@ CREATE TABLE IF NOT EXISTS learning_active(app_id TEXT PRIMARY KEY REFERENCES ap
 CREATE TABLE IF NOT EXISTS learning_brief_uses(app_id TEXT NOT NULL REFERENCES apps(id),brief_id TEXT NOT NULL,learning_id TEXT NOT NULL,data TEXT NOT NULL,hash TEXT NOT NULL,created TEXT NOT NULL,PRIMARY KEY(app_id,brief_id));
 CREATE TABLE IF NOT EXISTS apps(id TEXT PRIMARY KEY, data TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1, updated TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS operator_roles(app_id TEXT NOT NULL REFERENCES apps(id),principal TEXT NOT NULL,login TEXT NOT NULL,role TEXT NOT NULL,status TEXT NOT NULL,version INTEGER NOT NULL,updated TEXT NOT NULL,changed_by TEXT NOT NULL,PRIMARY KEY(app_id,principal));
+CREATE TABLE IF NOT EXISTS agent_checkpoints(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,data TEXT NOT NULL,revision INTEGER NOT NULL,PRIMARY KEY(app_id,id));
+CREATE TABLE IF NOT EXISTS agent_grants(id TEXT PRIMARY KEY,app_id TEXT NOT NULL REFERENCES apps(id),agent_id TEXT NOT NULL,owner TEXT NOT NULL,owner_version INTEGER NOT NULL,app_version INTEGER NOT NULL,app_hash TEXT NOT NULL,operations TEXT NOT NULL,token_hash TEXT NOT NULL UNIQUE,expires TEXT NOT NULL,max_calls INTEGER NOT NULL,used INTEGER NOT NULL,status TEXT NOT NULL,version INTEGER NOT NULL,created TEXT NOT NULL,updated TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS agent_grant_review_policy(grant_id TEXT PRIMARY KEY REFERENCES agent_grants(id),operations TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS agent_review_requests(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,grant_id TEXT NOT NULL REFERENCES agent_grants(id),envelope TEXT NOT NULL,input_hash TEXT NOT NULL,result TEXT,PRIMARY KEY(app_id,id));
+CREATE TABLE IF NOT EXISTS growth_review_entries(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,kind TEXT NOT NULL,data TEXT NOT NULL,hash TEXT NOT NULL,context TEXT NOT NULL,created TEXT NOT NULL,imported INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(app_id,id));
 CREATE TABLE IF NOT EXISTS verified_reviews(id TEXT PRIMARY KEY,app_id TEXT NOT NULL REFERENCES apps(id),packet TEXT NOT NULL,hash TEXT NOT NULL,preparer TEXT NOT NULL,checker TEXT,checker_role_version INTEGER,status TEXT NOT NULL,expires TEXT NOT NULL,created TEXT NOT NULL,reviewed_at TEXT);
 CREATE TABLE IF NOT EXISTS provider_actions(id TEXT PRIMARY KEY,app_id TEXT NOT NULL REFERENCES apps(id),target_key TEXT NOT NULL,packet TEXT NOT NULL,hash TEXT NOT NULL,preparer TEXT NOT NULL,checker TEXT,checker_role_version INTEGER,status TEXT NOT NULL,dispatches INTEGER NOT NULL DEFAULT 0,lease REAL NOT NULL DEFAULT 0,owner TEXT,expires TEXT NOT NULL,created TEXT NOT NULL,updated TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS provider_action_target ON provider_actions(target_key,status);
@@ -84,6 +90,20 @@ CREATE TABLE IF NOT EXISTS acquisition_panels(app_id TEXT NOT NULL REFERENCES ap
 CREATE TABLE IF NOT EXISTS acquisition_observations(app_id TEXT NOT NULL REFERENCES apps(id), id TEXT NOT NULL, version INTEGER NOT NULL, data TEXT NOT NULL, hash TEXT NOT NULL, created TEXT NOT NULL, PRIMARY KEY(app_id,id,version));
 CREATE TABLE IF NOT EXISTS acquisition_reports(app_id TEXT NOT NULL REFERENCES apps(id), id TEXT NOT NULL, version INTEGER NOT NULL, data TEXT NOT NULL, hash TEXT NOT NULL, created TEXT NOT NULL, PRIMARY KEY(app_id,id,version));
 CREATE TABLE IF NOT EXISTS creative_renders(app_id TEXT NOT NULL REFERENCES apps(id), id TEXT NOT NULL, job_id TEXT NOT NULL, data TEXT NOT NULL, hash TEXT NOT NULL, created TEXT NOT NULL, PRIMARY KEY(app_id,id), UNIQUE(app_id,job_id));
+CREATE TABLE IF NOT EXISTS hypit_attempts(app_id TEXT NOT NULL REFERENCES apps(id),job_id TEXT NOT NULL REFERENCES jobs(id),attempt INTEGER NOT NULL,data TEXT NOT NULL,hash TEXT NOT NULL,status TEXT NOT NULL,created TEXT NOT NULL,updated TEXT NOT NULL,PRIMARY KEY(app_id,job_id));
+CREATE TABLE IF NOT EXISTS hypit_renders(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,job_id TEXT NOT NULL REFERENCES jobs(id),data TEXT NOT NULL,hash TEXT NOT NULL,created TEXT NOT NULL,PRIMARY KEY(app_id,id),UNIQUE(app_id,job_id));
+CREATE TABLE IF NOT EXISTS automation_policies(id TEXT PRIMARY KEY,app_id TEXT NOT NULL REFERENCES apps(id),grant_id TEXT NOT NULL UNIQUE REFERENCES agent_grants(id),owner TEXT NOT NULL,version INTEGER NOT NULL,status TEXT NOT NULL CHECK(status IN ('ACTIVE','OFF')),proposal TEXT NOT NULL,summary TEXT NOT NULL,summary_hash TEXT NOT NULL,created TEXT NOT NULL,updated TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS automation_executions(id TEXT PRIMARY KEY,policy_id TEXT NOT NULL REFERENCES automation_policies(id),policy_version INTEGER NOT NULL,grant_id TEXT NOT NULL REFERENCES agent_grants(id),operation TEXT NOT NULL,input_hash TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('ADMITTED','DISPATCHED','SUCCEEDED','FAILED','UNKNOWN','CANCELLED','CANCEL_REQUESTED')),write_commits INTEGER NOT NULL DEFAULT 0,result_hash TEXT,created TEXT NOT NULL,updated TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS automation_job_scopes(job_id TEXT PRIMARY KEY REFERENCES jobs(id),execution_id TEXT NOT NULL REFERENCES automation_executions(id),request_hash TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS workflow_events(id INTEGER PRIMARY KEY AUTOINCREMENT,app_id TEXT NOT NULL REFERENCES apps(id),job_id TEXT NOT NULL REFERENCES jobs(id),attempt INTEGER NOT NULL,code TEXT NOT NULL,stage INTEGER,observed_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS video_project_revisions(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,revision INTEGER NOT NULL,data TEXT NOT NULL,hash TEXT NOT NULL,parent_revision INTEGER NOT NULL,actor TEXT NOT NULL,action TEXT NOT NULL,request_key TEXT NOT NULL,request_hash TEXT NOT NULL,created TEXT NOT NULL,PRIMARY KEY(app_id,id,revision),UNIQUE(app_id,request_key));
+CREATE TABLE IF NOT EXISTS video_project_heads(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,revision INTEGER NOT NULL,undo TEXT NOT NULL,redo TEXT NOT NULL,PRIMARY KEY(app_id,id),FOREIGN KEY(app_id,id,revision) REFERENCES video_project_revisions(app_id,id,revision));
+CREATE TABLE IF NOT EXISTS video_edit_renders(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,job_id TEXT NOT NULL REFERENCES jobs(id),data TEXT NOT NULL,hash TEXT NOT NULL,created TEXT NOT NULL,PRIMARY KEY(app_id,id),UNIQUE(app_id,job_id));
+CREATE TABLE IF NOT EXISTS studio_source_versions(app_id TEXT NOT NULL REFERENCES apps(id),project_id TEXT NOT NULL,version INTEGER NOT NULL,data TEXT NOT NULL,hash TEXT NOT NULL,created TEXT NOT NULL,PRIMARY KEY(app_id,project_id,version));
+CREATE TABLE IF NOT EXISTS studio_source_heads(app_id TEXT NOT NULL REFERENCES apps(id),project_id TEXT NOT NULL,version INTEGER NOT NULL,PRIMARY KEY(app_id,project_id),FOREIGN KEY(app_id,project_id,version) REFERENCES studio_source_versions(app_id,project_id,version));
+CREATE TABLE IF NOT EXISTS studio_edit_attempts(app_id TEXT NOT NULL REFERENCES apps(id),project_id TEXT NOT NULL,id TEXT NOT NULL,request_key TEXT NOT NULL,data TEXT NOT NULL,hash TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('PREPARED','UNCERTAIN','APPLIED','REJECTED')),result_version INTEGER,created TEXT NOT NULL,updated TEXT NOT NULL,PRIMARY KEY(app_id,project_id,id),UNIQUE(app_id,project_id,request_key));
+CREATE TABLE IF NOT EXISTS studio_sessions(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,request_key TEXT NOT NULL,data TEXT NOT NULL,hash TEXT NOT NULL,PRIMARY KEY(app_id,id),UNIQUE(app_id,request_key));
+CREATE INDEX IF NOT EXISTS workflow_event_job ON workflow_events(app_id,job_id,id);
 CREATE TABLE IF NOT EXISTS aeo_checks(app_id TEXT NOT NULL REFERENCES apps(id), id TEXT NOT NULL, data TEXT NOT NULL, hash TEXT NOT NULL, created TEXT NOT NULL, origin TEXT NOT NULL CHECK(origin IN ('LOCAL_OBSERVATION','IMPORTED_ASSERTION')), PRIMARY KEY(app_id,id));
 CREATE TABLE IF NOT EXISTS setup_proposals(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,data TEXT NOT NULL,hash TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('PENDING','NEEDS_RESOLUTION','APPLIED')),result TEXT,created TEXT NOT NULL,expires TEXT NOT NULL,updated TEXT NOT NULL,PRIMARY KEY(app_id,id));
 """
@@ -97,7 +117,13 @@ def connection(path):
     db.execute("PRAGMA foreign_keys=ON")
     try:
         with db:
+            from .automation_execution import guard_connection
+            from .operation_authority import guard_connection as operation_guard
+            guard_connection(path, db)
+            operation_guard(path, db)
             yield db
+            guard_connection(path, db, committing=True)
+            operation_guard(path, db)
     finally:
         db.close()
 

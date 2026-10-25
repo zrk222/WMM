@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "exact-request-authority-and-revocation",
+      "kind": "python",
+      "run": "import unittest;names=['tests.test_operation_authority.RequestTests.test_protected_requires_request_and_exact_envelope', 'tests.test_operation_authority.RequestTests.test_review_cancellation_rejects_during_protected_execution', 'tests.test_operation_authority.RequestTests.test_protected_authority_cannot_cross_store', 'tests.test_operation_authority.RequestTests.test_review_checker_revocation_rolls_back_business_transaction', 'tests.test_operation_authority.RequestTests.test_ordinary_grant_current_checks_do_not_consume_quota', 'tests.test_operation_authority.RequestTests.test_human_local_logout_expiry_replacement_and_role_guard', 'tests.test_operation_authority.RequestTests.test_same_principal_new_login_cannot_replace_admitted_session', 'tests.test_operation_authority.RequestTests.test_owner_role_revocation_before_commit_rolls_back_write', 'tests.test_operation_authority.StandingRequestTests.test_actual_standing_dispatch_binds_protected_authority', 'tests.test_operation_authority.StandingRequestTests.test_standing_execution_cannot_borrow_an_unbound_admission'];s=unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromName(n) for n in names);assert s.countTestCases()==10;r=unittest.TextTestRunner().run(s);assert r.wasSuccessful() and not r.skipped"
+    }
+  ]
+}

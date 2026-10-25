@@ -1,0 +1,77 @@
+name: automation-readiness
+language: python
+modules:
+- name: automation_requirements
+  path: mission_control/automation_requirements.py
+  language: python
+  functions:
+  - name: workflow_catalog
+    args: []
+    returns: object
+  - name: selection
+    args:
+    - body
+    returns: object
+  - name: distinct
+    args:
+    - values
+    - minimum
+    - maximum
+    returns: object
+  - name: decoded
+    args:
+    - row
+    returns: object
+  - name: verification
+    args:
+    - stamp
+    - observed
+    returns: object
+  - name: inference_profile
+    args:
+    - db
+    - app_id
+    - identity
+    - observed
+    returns: object
+  - name: fresh_until
+    args:
+    - stamp
+    returns: object
+  - name: social_state
+    args:
+    - row
+    - data
+    - config
+    - observed
+    returns: object
+  - name: social_account
+    args:
+    - db
+    - app_id
+    - identity
+    - observed
+    returns: object
+  - name: object_field
+    args:
+    - data
+    - name
+    returns: object
+  - name: renewal_state
+    args:
+    - value
+    returns: object
+  - name: workflow_states
+    args:
+    - selected
+    - inference
+    - accounts
+    returns: object
+- name: test_automation_requirements
+  path: tests/test_automation_requirements.py
+  language: python
+  functions: []
+dependencies:
+- from: test_automation_requirements
+  to: automation_requirements
+invariants: []

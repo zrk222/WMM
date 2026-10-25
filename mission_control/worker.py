@@ -19,15 +19,18 @@ from .automation_health import Supervision
 def enqueue(store,app_id,action,data,request_key):
     """Persist an idempotent app-scoped job while rejecting a reused key with different input."""
     store.app(app_id)
-    if action not in ("pipeline","sync","render"):
+    if action not in ("pipeline","sync","render","hypit_render","edit_render"):
         raise Invalid("Unknown job action")
     request_key=required(request_key,"Request key",120)
     with connection(store.path) as db:
-        db.execute("INSERT OR IGNORE INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)",(uid(),app_id,action,canonical(data),"QUEUED",now(),now(),request_key))
+        inserted=db.execute("INSERT OR IGNORE INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)",(uid(),app_id,action,canonical(data),"QUEUED",now(),now(),request_key)).rowcount
         row=db.execute("SELECT * FROM jobs WHERE app_id=? AND request_key=?",(app_id,request_key)).fetchone()
         if row["action"]!=action or row["data"]!=canonical(data):
             raise Invalid("Request key already used for a different job")
-        return json_job(row)
+        result=json_job(row)
+        from .automation_execution import attach_job
+        attach_job(db,result,bool(inserted))
+        return result
 
 
 def json_job(row):
@@ -65,6 +68,12 @@ def process(store,job,stop=None):
         return agent_execute(store,job,stop)
     app=store.app(job["app_id"])
     records=store.records(app["id"])
+    if job["action"]=="hypit_render":
+        from .hypit_jobs import HypitRenders
+        return HypitRenders(store).execute(job,stop)
+    if job['action']=='edit_render':
+        from .video_edit_jobs import EditRenders
+        return EditRenders(store).execute(job,stop)
     if job["action"]=="render":
         from .creative_rendering import Renders
         return Renders(store).execute(job,stop)
@@ -78,7 +87,9 @@ def process(store,job,stop=None):
         catalog=readiness(app,records,jobs(store,app['id']),Connections(store).statuses(app['id']))
         from .release_readiness import readiness as release_readiness
         release=release_readiness(app,records,jobs(store,app['id']),Connections(store).statuses(app['id']))
-        return execute(app,records,job["data"].get("stage",0),Ledger(store.path).reports(app["id"]),catalog,release)
+        from .workflow_telemetry import emit
+        return execute(app,records,job["data"].get("stage",0),Ledger(store.path).reports(app["id"]),catalog,release,
+                       progress=lambda code,stage:emit(store,job,code,stage))
     binding=current_connection(store,app["id"],job["data"])["data"]
     from .credential_vault import namespace
     binding={**binding,"_vault_namespace":namespace(store.path)}
@@ -146,7 +157,11 @@ def run_once(store,stop=None):
     retry_delay=0
     try:
         guard_owned(store,job)
-        result=process(store,job) if stop is None else process(store,job,stop)
+        from .automation_execution import job_execution
+        with job_execution(store,job):
+            from .workflow_telemetry import emit
+            emit(store,job,'STARTED')
+            result=process(store,job) if stop is None else process(store,job,stop)
         guard_owned(store,job)
         status="SUCCEEDED"
     except Exception as exc:
@@ -154,6 +169,8 @@ def run_once(store,stop=None):
     with connection(store.path) as db:
         changed=db.execute("UPDATE jobs SET status=?,result=?,lease=?,updated=? WHERE id=? AND status='RUNNING' AND attempts=?",(status,canonical(result),time.time()+retry_delay if retry_delay else 0,now(),job["id"],job["attempts"])).rowcount
         if changed:
+            from .workflow_telemetry import append
+            append(db,job,'RETRY_WAIT' if retry_delay else status)
             if job['action']=='agent_run':
                 from .agent_tasks import complete as agent_complete
                 agent_complete(db,job,result,status)

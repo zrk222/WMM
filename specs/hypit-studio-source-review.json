@@ -1,0 +1,277 @@
+{
+  "schema": "wmm.hypit-studio.source-review.v1",
+  "upstream_repository": "https://github.com/hypit-ai/hypit.git",
+  "upstream_commit": "e26d9142fd8a6f78bf4f3cdb800d6205f4ecca16",
+  "wmm_head_before": "d822a6dce62c38245d4f9c4a08bb6aaccf27c85f",
+  "public_baseline": "5af63d1ace26e2bced3fd120e3b36fe9b2737ce4",
+  "evidence_kind": "SOURCE_REVIEW_ONLY",
+  "installed_distribution_equivalence": "NOT_VERIFIED",
+  "studio_integration": "NOT_IMPLEMENTED",
+  "runtime_acceptance": "NOT_RUN",
+  "sources": [
+    {
+      "path": "packages/studio/src/start.ts",
+      "sha256": "a942069e15a5a0cd678218c3bb8ffadd2f87b3d755234439ab8d202ff8d27f88",
+      "anchors": [
+        {
+          "text": "server: {",
+          "lines": [
+            152
+          ]
+        },
+        {
+          "text": "await server.listen()",
+          "lines": [
+            174
+          ]
+        }
+      ]
+    },
+    {
+      "path": "packages/studio/src/mutation-origin.ts",
+      "sha256": "8ec8707d5eb30ae0037f078b1cc9b80dbbc20d255857b0491f9453f7ba9394a9",
+      "anchors": [
+        {
+          "text": "allowsStudioMutation",
+          "lines": [
+            4
+          ]
+        },
+        {
+          "text": "sec-fetch-site",
+          "lines": [
+            18
+          ]
+        }
+      ]
+    },
+    {
+      "path": "packages/studio/src/shared.ts",
+      "sha256": "c938e29ca3c68d4dc39fa243571b04a3093ae411b7b1d90b2b75c5a4e904c17a",
+      "anchors": [
+        {
+          "text": "export type StudioSnapshot",
+          "lines": [
+            213
+          ]
+        },
+        {
+          "text": "export type StudioMutation",
+          "lines": [
+            253
+          ]
+        }
+      ]
+    },
+    {
+      "path": "packages/studio-companion/src/index.ts",
+      "sha256": "1184acb5a71eaf279a059084ea2f90e8ab5d8c7b2d295d37ef2ad0a6f9905349",
+      "anchors": [
+        {
+          "text": "export type StudioInspectorField =",
+          "lines": [
+            213
+          ]
+        },
+        {
+          "text": "export type StudioEditHandle =",
+          "lines": [
+            302
+          ]
+        }
+      ]
+    },
+    {
+      "path": "packages/studio/src/server.ts",
+      "sha256": "881f9cd3d0e50e55f92416318a8b2e593b26e094354f848fd269c18f38c6ebcf",
+      "anchors": [
+        {
+          "text": "const mutationPatches",
+          "lines": [
+            378
+          ]
+        },
+        {
+          "text": "const commitMutation",
+          "lines": [
+            412
+          ]
+        },
+        {
+          "text": "/__studio/mutation",
+          "lines": [
+            545
+          ]
+        }
+      ]
+    },
+    {
+      "path": "packages/studio/src/build-library.ts",
+      "sha256": "675af2c5f5d40958c1a8fb6431708339fc452776caa463382ca8777d72fc614d",
+      "anchors": [
+        {
+          "text": "openControl({ readOnly: true })",
+          "lines": [
+            256
+          ]
+        },
+        {
+          "text": "openTransientExecution()",
+          "lines": [
+            260
+          ]
+        }
+      ]
+    },
+    {
+      "path": "packages/studio/src/feedback-server.ts",
+      "sha256": "5e5b87a7ea295928cf14f19cb343287d8367a82941f39b4e464609091b211f23",
+      "anchors": [
+        {
+          "text": "studioFeedbackPlugin",
+          "lines": [
+            11
+          ]
+        },
+        {
+          "text": "FeedbackConflict",
+          "lines": [
+            5,
+            63
+          ]
+        }
+      ]
+    },
+    {
+      "path": "packages/studio/README.md",
+      "sha256": "4311f60d0a374f5d043ad728c48d0aed9752a2253eb1626e4f11935f88533de0",
+      "anchors": [
+        {
+          "text": "Studio",
+          "lines": [
+            1,
+            6,
+            11,
+            13,
+            16,
+            17,
+            24,
+            78,
+            90,
+            96,
+            98,
+            102,
+            103,
+            139,
+            146,
+            149,
+            151,
+            153,
+            156,
+            167,
+            172,
+            180,
+            184,
+            189,
+            194,
+            195,
+            197,
+            212,
+            241,
+            245,
+            247,
+            249,
+            252,
+            266,
+            268,
+            269,
+            271,
+            279,
+            282,
+            285,
+            288,
+            292,
+            299,
+            303,
+            307,
+            312,
+            332,
+            338,
+            339
+          ]
+        }
+      ]
+    },
+    {
+      "path": "packages/studio/INSPECTOR.md",
+      "sha256": "82faa2d84628bd17ef908030a172d6cccb6fad3103b12f0c5b532fd82818ff38",
+      "anchors": [
+        {
+          "text": "Inspector",
+          "lines": [
+            1,
+            3,
+            77
+          ]
+        }
+      ]
+    },
+    {
+      "path": "packages/temporal/EDITING.md",
+      "sha256": "8190bd6c6a6ddb82f9f8665de54810ccf2ff8544753640c60bda4bbf4556faac",
+      "anchors": [
+        {
+          "text": "Temporal",
+          "lines": [
+            6,
+            7,
+            33
+          ]
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "dynamic-inspector",
+      "source": "packages/studio-companion/src/index.ts",
+      "finding": "Compiled item and track-object fields carry schemas, grouping and separate edit authority. Preserve all selected Companion fields, including list/record structures; do not hard-code caption controls."
+    },
+    {
+      "id": "typed-mutations",
+      "source": "packages/studio/src/shared.ts",
+      "finding": "StudioMutation has timeline.adjust and parameter.adjust variants. Bind revision, owner/item and declared field or enabled gesture; do not expose arbitrary HTTP requests or caller source patches."
+    },
+    {
+      "id": "source-transactions",
+      "source": "packages/studio/src/server.ts",
+      "finding": "Source writes use allowedSourceFiles, relative paths and current preimages. Parameter edits validate schema/options and source transactions recompile. WMM must preserve these checks and add app ownership/source history."
+    },
+    {
+      "id": "preview-execution",
+      "source": "packages/studio/src/build-library.ts",
+      "finding": "openControl is readOnly, but openTransientExecution is a separate host. Local-only preflight and component admission must cover preview as well as durable builds. No paid activity was observed or attempted in this review."
+    },
+    {
+      "id": "origin-not-identity",
+      "source": "packages/studio/src/mutation-origin.ts",
+      "finding": "Upstream validates localhost Host, same origin when present, and fetch site. This does not establish WMM app identity, grant scope, standing approval or revocation."
+    },
+    {
+      "id": "feedback-parity",
+      "source": "packages/studio/src/feedback-server.ts",
+      "finding": "Run-scoped feedback uses persisted optimistic mutations and change notifications. WMM must expose revision changes to admitted agents; upstream comments alone are not agent task delivery."
+    },
+    {
+      "id": "results-reuse",
+      "source": "packages/studio/src/build-library.ts",
+      "finding": "Library resolves stable Build/Output identities, ongoing activity, historical outputs and presentation names. Viewing or renaming an artifact must not imply accepted reuse or publication approval."
+    },
+    {
+      "id": "owned-lifecycle",
+      "source": "packages/studio/src/start.ts",
+      "finding": "Studio accepts Run, project, runtime, package root and port arguments, opens a Vite server and closes the library on HTTP shutdown. WMM must own these values, loopback binding, process lifecycle and preview isolation."
+    }
+  ],
+  "next_step": "Implement and prove owned session broker, installed ABI/profile identity and admitted transient preview; then full compiled controls and typed transactions. Retain every parent workflow requirement."
+}

@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "reject-another-app-report-context",
+      "kind": "command",
+      "run": "node --test tests/page_reporting.test.cjs"
+    }
+  ]
+}

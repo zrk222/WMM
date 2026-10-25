@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 from mission_control.common import Invalid,digest,now
 from mission_control.db import connection
 from mission_control.store import Store
@@ -133,5 +134,49 @@ class ProductionFeasibilityTests(unittest.TestCase):
         elapsed=time.monotonic()-start;self.assertLess(elapsed,10)
         with connection(self.store.path) as db:self.assertEqual(db.execute("SELECT COUNT(*) FROM jobs").fetchone()[0],0)
         print(f"CAPABILITY_LOCAL_100_READS_SECONDS={elapsed:.6f}")
+
+    def test_listing_reads_each_history_once_and_assesses_its_current_versions(self):
+        from mission_control import production_feasibility as module
+        original=module.saved_items
+        seen=[]
+        def read(db,table,app_id):
+            seen.append((table,app_id))
+            return original(db,table,app_id)
+        stamp=now()
+        with patch.object(module,'saved_items',side_effect=read),patch.object(module,'now',return_value=stamp):
+            result=self.service.list(self.app)
+        self.assertEqual(seen,[(table,self.app) for table in module.TABLES.values()])
+        inputs=dict(profile=result['profile'][0]['current'],
+                    requirements=[row['current'] for row in result['requirement']])
+        expected=assess(inputs,self.source,result['app_hash'],stamp)
+        self.assertEqual({key:result['evaluations'][0][key] for key in expected},expected)
+        self.revise('requirement',rights_available=False)
+        changed=self.service.list(self.app)
+        self.assertEqual(changed['evaluations'][0]['status'],'BLOCKED')
+        self.assertFalse(changed['requirement'][0]['current']['data']['rights_available'])
+        self.assertEqual(changed['requirement'][0]['current']['version'],2)
+        with self.assertRaises(KeyError):self.service.list('missing-app')
+
+    def test_interleaved_revision_cannot_disagree_with_returned_history(self):
+        from mission_control import production_feasibility as module
+        original=module.saved_items
+        revised=False
+        def read(db,table,app_id):
+            nonlocal revised
+            rows=original(db,table,app_id)
+            if table==module.TABLES['requirement'] and not revised:
+                revised=True
+                row=rows[0]['current']
+                self.service.save(self.app,'requirement',dict(id=row['id'],version=row['version'],
+                    data=dict(row['data'],rights_available=False)))
+            return rows
+        with patch.object(module,'saved_items',side_effect=read):
+            result=self.service.list(self.app)
+        self.assertEqual(result['requirement'][0]['current']['version'],1)
+        self.assertEqual(result['evaluations'][0]['status'],'READY')
+        self.assertTrue(result['evaluations'][0]['evidence']['requirement']['data']['rights_available'])
+        following=self.service.list(self.app)
+        self.assertEqual(following['requirement'][0]['current']['version'],2)
+        self.assertEqual(following['evaluations'][0]['status'],'BLOCKED')
 
 if __name__=="__main__":unittest.main()

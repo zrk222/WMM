@@ -1,0 +1,54 @@
+name: page-reporting
+language: javascript
+modules:
+- name: page_reporting
+  path: mission_control/static/page-reporting.js
+  language: javascript
+  functions:
+  - name: pageMetrics
+    args:
+    - view
+    - state
+    returns: unknown
+  - name: evidenceMetrics
+    args:
+    - state
+    returns: unknown
+  - name: weeklyMetrics
+    args:
+    - state
+    returns: unknown
+  - name: cohortRows
+    args:
+    - workspace
+    returns: unknown
+  - name: model
+    args:
+    - state
+    - generatedAt
+    returns: unknown
+  - name: metricTable
+    args:
+    - report
+    returns: unknown
+  - name: panel
+    args:
+    - report
+    returns: unknown
+  - name: reportHTML
+    args:
+    - report
+    - origin
+    returns: unknown
+  - name: openReport
+    args:
+    - report
+    - browser
+    returns: unknown
+  - name: decorate
+    args:
+    - state
+    - document
+    returns: unknown
+dependencies: []
+invariants: []

@@ -27,7 +27,7 @@ def wait(process,output,error,alive,timeout):
     if output.stat().st_size+error.stat().st_size>CAP:raise Invalid('Agent output exceeded its bounded size')
 
 
-def capture(args,input_text='',alive=lambda:None,timeout=120,folder=None,extra_env=None):
+def capture(args,input_text='',alive=lambda:None,timeout=120,folder=None,extra_env=None,diagnostics=None):
     """Use preopened files so a child that never reads stdin cannot block the parent."""
     if not 1<=timeout<=180 or len(input_text.encode())>32768:raise Invalid('Agent input or deadline exceeds its limit')
     with tempfile.TemporaryDirectory(prefix='growth-agent-owned-') as temporary:
@@ -36,14 +36,29 @@ def capture(args,input_text='',alive=lambda:None,timeout=120,folder=None,extra_e
         source.write_text(input_text,encoding='utf-8')
         flags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0
         with source.open('rb') as stdin,output.open('wb') as stdout,error.open('wb') as stderr:
-            process=subprocess.Popen(args,cwd=root,env=environment(extra_env),stdin=stdin,stdout=stdout,
-                stderr=stderr,shell=False,creationflags=flags,start_new_session=os.name!='nt')
+            process=None;finished=False
             try:
+                process=subprocess.Popen(args,cwd=root,env=environment(extra_env),stdin=stdin,stdout=stdout,
+                    stderr=stderr,shell=False,creationflags=flags,start_new_session=os.name!='nt')
                 wait(process,output,error,alive,timeout)
-                code=process.returncode
-            finally:stop_owned(process)
+                code=process.returncode;finished=True
+            finally:
+                try:
+                    if process is not None:stop_owned(process)
+                finally:
+                    if diagnostics is not None:
+                        diagnostics(diagnostic_snapshot(output,error,process,finished))
         return dict(code=code,stdout=output.read_text(encoding='utf-8',errors='replace'),
                     stderr=error.read_text(encoding='utf-8',errors='replace'))
+
+
+def diagnostic_snapshot(output,error,process,finished):
+    """Copy bounded private output before the owned temporary directory disappears."""
+    with output.open('rb') as stream:out=stream.read(CAP//2)
+    with error.open('rb') as stream:err=stream.read(CAP//2)
+    return dict(code=process.poll() if process is not None else None,interrupted=not finished,
+                stdout=out.decode('utf-8',errors='replace'),stderr=err.decode('utf-8',errors='replace'),
+                stdout_truncated=output.stat().st_size>len(out),stderr_truncated=error.stat().st_size>len(err))
 
 
 def failure(value):

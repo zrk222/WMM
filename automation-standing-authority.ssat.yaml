@@ -1,0 +1,157 @@
+name: automation-standing-authority
+language: python
+modules:
+- name: complete_automation
+  path: mission_control/complete_automation.py
+  language: python
+  functions:
+  - name: utc
+    args: []
+    returns: object
+  - name: proposal_data
+    args:
+    - body
+    - observed
+    returns: object
+  - name: integer_limit
+    args:
+    - value
+    - maximum
+    returns: object
+  - name: scope_summary
+    args:
+    - db
+    - app_id
+    - user
+    - proposal
+    - observed
+    returns: object
+  - name: verify_access
+    args:
+    - store
+    - app_id
+    - identity
+    returns: object
+  - name: checked_policy
+    args:
+    - db
+    - policy_id
+    - observed
+    returns: object
+  - name: stored_object
+    args:
+    - raw
+    returns: object
+  - name: inflight
+    args:
+    - db
+    - policy_id
+    returns: object
+  - name: control_effect
+    args:
+    - effect
+    returns: object
+  - name: reserve
+    args:
+    - db
+    - store
+    - grant
+    - envelope
+    - observed
+    returns: object
+  - name: cancel_work
+    args:
+    - db
+    - policy_id
+    - stamp
+    returns: object
+  - name: policy_view
+    args:
+    - db
+    - row
+    - observed
+    returns: object
+- name: automation_execution
+  path: mission_control/automation_execution.py
+  language: python
+  functions:
+  - name: execution_row
+    args:
+    - db
+    - identity
+    returns: object
+  - name: job_hash
+    args:
+    - job
+    returns: object
+  - name: guard_connection
+    args:
+    - path
+    - db
+    - committing
+    returns: object
+  - name: check_job
+    args:
+    - db
+    - context
+    - execution
+    returns: object
+  - name: attach_job
+    args:
+    - db
+    - job
+    - created
+    returns: object
+  - name: bound
+    args:
+    - store
+    - identity
+    - job
+    returns: object
+  - name: start
+    args:
+    - store
+    - admission
+    - envelope
+    returns: object
+  - name: finish
+    args:
+    - store
+    - identity
+    - result
+    - error
+    returns: object
+  - name: execution_outcome
+    args:
+    - row
+    - error
+    returns: object
+  - name: execute_admitted
+    args:
+    - service
+    - envelope
+    - admission
+    returns: object
+  - name: job_execution
+    args:
+    - store
+    - job
+    returns: object
+- name: test_complete_automation
+  path: tests/test_complete_automation.py
+  language: python
+  functions: []
+- name: test_automation_execution
+  path: tests/test_automation_execution.py
+  language: python
+  functions: []
+dependencies:
+- from: test_complete_automation
+  to: complete_automation
+- from: automation_execution
+  to: complete_automation
+- from: test_automation_execution
+  to: automation_execution
+- from: test_automation_execution
+  to: test_complete_automation
+invariants: []

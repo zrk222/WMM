@@ -1,0 +1,44 @@
+name: managed-media-validation
+language: python
+modules:
+- name: managed_media_validation
+  path: mission_control/managed_media_validation.py
+  language: python
+  functions:
+  - name: media_bytes
+    args:
+    - raw
+    - suffix
+    returns: object
+  - name: media_metadata
+    args:
+    - value
+    returns: object
+  - name: media_probe
+    args:
+    - media
+    - ffprobe
+    - alive
+    returns: object
+  - name: media_decode
+    args:
+    - media
+    - metadata
+    - ffmpeg
+    - alive
+    returns: object
+  - name: inspect
+    args:
+    - raw
+    - suffix
+    - alive
+    - tools
+    returns: object
+- name: managed_media_validation_tests
+  path: tests/test_managed_media_validation.py
+  language: python
+  functions: []
+dependencies:
+- from: managed_media_validation_tests
+  to: managed_media_validation
+invariants: []

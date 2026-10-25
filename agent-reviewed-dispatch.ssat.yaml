@@ -1,0 +1,205 @@
+name: agent-reviewed-dispatch
+language: python
+modules:
+- name: agent_review_policy
+  path: mission_control/agent_review_policy.py
+  language: python
+  functions:
+  - name: validate
+    args:
+    - body
+    returns: object
+  - name: save
+    args:
+    - db
+    - grant_id
+    - body
+    returns: object
+  - name: operations
+    args:
+    - db
+    - grant_id
+    returns: object
+  - name: ordinary_dispatch
+    args:
+    - db
+    - grant_id
+    - operation
+    returns: object
+- name: agent_review_dispatch
+  path: mission_control/agent_review_dispatch.py
+  language: python
+  functions:
+  - name: saved_request
+    args:
+    - db
+    - app_id
+    - identity
+    returns: object
+  - name: grant_for_request
+    args:
+    - db
+    - token
+    - request
+    - stamp
+    - check_quota
+    returns: object
+  - name: request_view
+    args:
+    - db
+    - request
+    returns: object
+  - name: run_operation
+    args:
+    - service
+    - envelope
+    returns: object
+  - name: result_receipt
+    args:
+    - value
+    returns: object
+- name: agent_grants
+  path: mission_control/agent_grants.py
+  language: python
+  functions:
+  - name: token_digest
+    args:
+    - token
+    returns: object
+  - name: issue_data
+    args:
+    - body
+    - observed
+    returns: object
+  - name: public
+    args:
+    - row
+    returns: object
+  - name: app_scope
+    args:
+    - db
+    - app_id
+    returns: object
+  - name: current
+    args:
+    - db
+    - row
+    - envelope
+    - observed
+    - check_quota
+    returns: object
+  - name: authenticated
+    args:
+    - db
+    - token
+    - envelope
+    - observed
+    - check_quota
+    returns: object
+  - name: consume
+    args:
+    - db
+    - row
+    - envelope
+    - observed
+    returns: object
+- name: agent_checkpoints
+  path: mission_control/agent_checkpoints.py
+  language: python
+  functions:
+  - name: packet_data
+    args:
+    - db
+    - app_id
+    - principal
+    - body
+    - observed
+    returns: object
+  - name: hashed
+    args:
+    - value
+    returns: object
+  - name: current
+    args:
+    - db
+    - row
+    - observed
+    returns: object
+  - name: read_row
+    args:
+    - db
+    - app_id
+    - identity
+    - revision
+    returns: object
+  - name: persist
+    args:
+    - db
+    - row
+    - state
+    - actor
+    - observed
+    - evidence
+    returns: object
+  - name: prepare_in_db
+    args:
+    - db
+    - app_id
+    - principal
+    - body
+    - observed
+    returns: object
+  - name: claim_in_db
+    args:
+    - db
+    - app_id
+    - identity
+    - agent_id
+    - revision
+    - packet_hash
+    - observed
+    returns: object
+- name: db
+  path: mission_control/db.py
+  language: python
+  functions:
+  - name: connection
+    args:
+    - path
+    returns: object
+  - name: initialize
+    args:
+    - path
+    returns: object
+- name: test_agent_review_policy
+  path: tests/test_agent_review_policy.py
+  language: python
+  functions: []
+- name: test_agent_review_dispatch
+  path: tests/test_agent_review_dispatch.py
+  language: python
+  functions: []
+dependencies:
+- from: agent_review_dispatch
+  to: db
+- from: agent_review_dispatch
+  to: agent_grants
+- from: agent_review_dispatch
+  to: agent_review_policy
+- from: agent_review_dispatch
+  to: agent_checkpoints
+- from: agent_grants
+  to: db
+- from: agent_grants
+  to: agent_review_policy
+- from: agent_checkpoints
+  to: db
+- from: test_agent_review_policy
+  to: db
+- from: test_agent_review_dispatch
+  to: agent_checkpoints
+- from: test_agent_review_dispatch
+  to: agent_review_dispatch
+- from: test_agent_review_dispatch
+  to: db
+invariants: []

@@ -1,0 +1,89 @@
+name: hypit-owned-runtime
+language: python
+modules:
+- name: hypit_runtime
+  path: mission_control/hypit_runtime.py
+  language: python
+  functions:
+  - name: identity
+    args: []
+    returns: object
+  - name: invoke
+    args:
+    - runtime
+    - folder
+    - arguments
+    - alive
+    returns: object
+  - name: stage
+    args:
+    - folder
+    - scene
+    returns: object
+  - name: local_graph
+    args:
+    - value
+    returns: object
+  - name: local_counters
+    args:
+    - value
+    returns: object
+  - name: selected_endpoints
+    args:
+    - value
+    returns: object
+  - name: build_identity
+    args:
+    - value
+    returns: object
+  - name: recover_build
+    args:
+    - runtime
+    - folder
+    returns: object
+  - name: submit
+    args:
+    - runtime
+    - folder
+    - alive
+    returns: object
+  - name: observe
+    args:
+    - runtime
+    - folder
+    - key
+    - alive
+    returns: object
+  - name: cleanup
+    args:
+    - runtime
+    - folder
+    - key
+    - unfinished
+    returns: object
+  - name: render
+    args:
+    - folder
+    - scene
+    - alive
+    - submitted
+    returns: object
+  - name: source_current
+    args:
+    - folder
+    - receipt
+    returns: object
+- name: test_hypit_runtime
+  path: tests/test_hypit_runtime.py
+  language: python
+  functions:
+  - name: plan
+    args: []
+    returns: object
+  - name: status
+    args: []
+    returns: object
+dependencies:
+- from: test_hypit_runtime
+  to: hypit_runtime
+invariants: []

@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "literal-authoring-boundary",
+      "kind": "python",
+      "run": "import unittest;from tests import test_complete_automation,test_automation_execution;suite=unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromModule(m) for m in (test_complete_automation,test_automation_execution));assert suite.countTestCases()==31;r=unittest.TextTestRunner().run(suite);assert r.wasSuccessful() and not r.skipped"
+    }
+  ]
+}

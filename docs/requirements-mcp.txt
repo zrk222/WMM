@@ -1,0 +1,2 @@
+# Optional adapter only; tested SDK baseline. Default WMM does not import MCP.
+mcp==1.30.0

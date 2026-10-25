@@ -1,0 +1,13 @@
+{
+  "checks": [
+    {
+      "name": "growth-review-node-behavior",
+      "kind": "command",
+      "run": [
+        "node",
+        "--test",
+        "tests/growth_review.test.cjs"
+      ]
+    }
+  ]
+}

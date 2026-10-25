@@ -10,6 +10,7 @@ from .agent_native import run as native_run
 from .agent_api import request as api_run
 from .worker import json_job
 from .agent_context import snapshot
+from .agent_usage import observation as usage_observation
 
 SCHEMA='growth.agent-draft-job.v2'
 
@@ -148,8 +149,8 @@ def execute(store,job,stop=None):
     alive();guard(store,job['app_id'],frozen)
     result=draft(result,frozen['source_ids'])
     if secret and secret in canonical(result):raise Invalid('Agent result exposed a protected key and was rejected')
-    measured={k:v for k,v in (usage if isinstance(usage,dict) else {}).items() if k in ('input_tokens','output_tokens','total_tokens') and type(v) is int and 0<=v<=10000000}
-    return dict(status='DRAFT_READY',draft=result,sha256=digest(result),usage=measured,quota='UNKNOWN',cost='UNKNOWN',
+    measured=usage_observation(usage)
+    return dict(status='DRAFT_READY',draft=result,sha256=digest(result),**measured,quota='UNKNOWN',cost='UNKNOWN',
         publication='NOT_RUN',automatically_verified=False,next_actions=['Review this draft and its unknowns before preparing any external action'])
 
 

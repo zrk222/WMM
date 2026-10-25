@@ -8,7 +8,7 @@ TASKS={
 FACTS=('name','website','release','locale','job','audience','activation','brand_voice','brand_boundaries')
 SOURCE_IDS=('app_manifest',)+tuple('stage_'+str(n) for n in range(1,13))+('release_observation','subscription_observation','ledger_state','action_feedback')
 NATIVE=('codex','claude','kimi','glm_coding')
-KEYED=('glm_coding','openai_api','anthropic_api','compatible_api')
+KEYED=('glm_coding','openai_api','anthropic_api','compatible_api','local_api')
 REGISTRY={
     'codex':dict(name='Codex subscription',mode='subscription',tool='codex',
         link='https://developers.openai.com/codex/auth',endpoint='',
@@ -28,6 +28,9 @@ REGISTRY={
     'anthropic_api':dict(name='Anthropic API key',mode='byok',tool=None,
         link='https://platform.claude.com',endpoint='https://api.anthropic.com/v1',
         explanation='Use an Anthropic API key. API charges are separate from a Claude subscription.'),
+    'local_api':dict(name='Local model server',mode='local',tool=None,
+        link='',endpoint='http://127.0.0.1:11434/v1',
+        explanation='Connect a local OpenAI-chat-compatible server using its exact loopback URL and model name. A key is optional. Your server controls downstream model execution and charges; a local address does not prove offline or free use.'),
     'compatible_api':dict(name='Compatible API endpoint',mode='byok',tool=None,
         link='',endpoint='',explanation='Use an explicitly approved public HTTPS OpenAI-chat-compatible endpoint. Compatibility must be tested.')}
 

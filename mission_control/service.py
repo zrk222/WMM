@@ -30,6 +30,7 @@ from .creative_briefs import Briefs
 from .creative_ranking import Rankings
 from .acquisition_workflows import Acquisition
 from .creative_rendering import Renders
+from .hypit_jobs import HypitRenders
 from .guided_workflow import guide
 from .workflow_automation import recommend
 from .subscription_readiness import readiness as catalog_readiness, validate_catalog_scope
@@ -92,6 +93,8 @@ class Service:
     def __init__(self,store,operator="local-operator"):
         self.store=store
         self.operator=operator
+        from .hypit_studio_sessions import Manager
+        self.studio=Manager(store)
 
     def workspace(self,app_id):
         """Assemble the selected app dashboard from its own records and runs."""
@@ -130,6 +133,7 @@ class Service:
         from .resolutions import Resolutions
         from .agent_feedback import reuse_candidate
         workspace['resolutions']=prepare_resolutions(app,records,workflow,preparation['collection'],workspace['insights'],workspace['experiments'],reuse_candidate(self.store,app))
+        workspace['hypit_renders']=HypitRenders(self.store).list(app_id)
         workspace['resolutions']['history']=Resolutions(self.store,self.operator).history(app_id)
         from .sequence_plan import prepare as prepare_sequence
         from .sequence_store import Sequences
@@ -145,7 +149,13 @@ class Service:
         workspace['play']=PlayConnections(self.store).status(app_id)
         from .setup_discovery import SetupDiscovery
         workspace['setup_discovery']=SetupDiscovery(self.store).list(app_id)
+        workspace['subscription_growth']=self.subscription_review(app_id,expected=app)
         return workspace
+
+    def subscription_review(self,app_id,expected=None):
+        """Expose the integrated source-bound review without granting execution authority."""
+        from .subscription_review import review_status
+        return review_status(self.store,app_id,expected=expected)
 
     def cohort(self,app_id,body):
         """Register the selected app's immutable cohort observation contract."""
@@ -181,7 +191,7 @@ class Service:
 
     def queue(self,app_id,body):
         """Validate the requested stage or connection before durable job submission."""
-        if body.get("action")=="render":raise Invalid("Use the guided render workflow to validate source proof first")
+        if body.get("action") in ("render","hypit_render","edit_render"):raise Invalid("Use the guided render workflow to validate source proof first")
         if not isinstance(body.get("data",{}),dict):
             raise Invalid("Job data must be an object")
         if body.get("action")=="pipeline":

@@ -15,7 +15,8 @@ def cohort_metrics(data):
         raise Invalid("Activated and paid counts cannot exceed eligible installs")
     if data.get("mature") is not True:
         return {"status":"INCONCLUSIVE","reason":"Cohort follow-up is not mature"}
-    contribution=values["net_proceeds_minor"]-values["delivery_cost_minor"]-values["refunds_minor"]
+    # Net proceeds already reflect refunds; retain refunds separately for analysis.
+    contribution=values["net_proceeds_minor"]-values["delivery_cost_minor"]
     return {"status":"MEASURED","cohort_id":data.get("cohort_id"),"currency":data.get("currency"),
             "horizon":data.get("horizon"),"counts":values,
             "activation_rate":ratio(values["activated"],values["installs"]),

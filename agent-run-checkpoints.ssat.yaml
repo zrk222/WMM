@@ -1,0 +1,65 @@
+name: agent-run-checkpoints
+language: python
+modules:
+- name: agent_checkpoints
+  path: mission_control/agent_checkpoints.py
+  language: python
+  functions:
+  - name: packet_data
+    args:
+    - db
+    - app_id
+    - principal
+    - body
+    - observed
+    returns: object
+  - name: hashed
+    args:
+    - value
+    returns: object
+  - name: current
+    args:
+    - db
+    - row
+    - observed
+    returns: object
+  - name: read_row
+    args:
+    - db
+    - app_id
+    - identity
+    - revision
+    returns: object
+  - name: persist
+    args:
+    - db
+    - row
+    - state
+    - actor
+    - observed
+    - evidence
+    returns: object
+- name: db
+  path: mission_control/db.py
+  language: python
+  functions:
+  - name: connection
+    args:
+    - path
+    returns: object
+  - name: initialize
+    args:
+    - path
+    returns: object
+- name: test_agent_checkpoints
+  path: tests/test_agent_checkpoints.py
+  language: python
+  functions: []
+dependencies:
+- from: agent_checkpoints
+  to: db
+- from: test_agent_checkpoints
+  to: agent_checkpoints
+- from: test_agent_checkpoints
+  to: db
+invariants: []

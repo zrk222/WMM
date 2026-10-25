@@ -1,0 +1,45 @@
+name: video-edit-render
+language: python
+modules:
+- name: video_edit_rendering
+  path: mission_control/video_edit_rendering.py
+  language: python
+  functions:
+  - name: clip_filters
+    args: [item, output]
+    returns: object
+  - name: validate
+    args: [path, value, tools]
+    returns: object
+  - name: render
+    args: [folder, value, sources, alive]
+    returns: object
+- name: video_edit_jobs
+  path: mission_control/video_edit_jobs.py
+  language: python
+  functions:
+  - name: current
+    args: [db, store, app_id, body]
+    returns: object
+  - name: check
+    args: [db, store, app_id, request]
+    returns: object
+  - name: artifact_file
+    args: [store, app_id, render_id]
+    returns: object
+- name: test_video_edit_render
+  path: tests/test_video_edit_render.py
+  language: python
+  functions: []
+- name: test_video_edit_render_clients
+  path: tests/test_video_edit_render_clients.py
+  language: python
+  functions: []
+dependencies:
+- from: video_edit_jobs
+  to: video_edit_rendering
+- from: test_video_edit_render
+  to: video_edit_jobs
+- from: test_video_edit_render
+  to: video_edit_rendering
+invariants: []

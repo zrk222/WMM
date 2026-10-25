@@ -7,6 +7,22 @@ from .aeo_workflows import decode,validate_data,currentness
 FRESH_SECONDS=86400
 
 
+def setup_artifact_current(store, app, job):
+    """A completed discovery is evidence only while its exact saved draft survives."""
+    from .setup_discovery import SetupDiscovery
+    try:
+        refs = job['result']['artifacts']
+        if not isinstance(refs, list) or len(refs) != 1:
+            return False
+        ref = refs[0]
+        if ref['kind'] != 'setup_proposal':
+            return False
+        row = SetupDiscovery(store).get(app['id'], ref['id'])
+        return row['hash'] == ref['sha256'] and row['currentness'] == 'PENDING'
+    except (Invalid, KeyError, TypeError, ValueError):
+        return False
+
+
 def public_artifact(store,app_id,identity,expected_hash,target):
     """Only exact current native observations can support an explicitly approved reuse."""
     with connection(store.path) as db:

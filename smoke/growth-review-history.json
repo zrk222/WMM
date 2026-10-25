@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "unified-local-history-and-http",
+      "kind": "python",
+      "run": "import unittest; names=['tests.test_growth_review_store','tests.test_benchmark_ads','tests.test_growth_review_portable','tests.test_subscription_review']; s=unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromName(n) for n in names); assert s.countTestCases()==32; r=unittest.TextTestRunner(verbosity=1).run(s); assert r.wasSuccessful()"
+    }
+  ]
+}

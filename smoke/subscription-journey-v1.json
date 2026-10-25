@@ -1,0 +1,14 @@
+{
+  "checks": [
+    {
+      "name": "binding-validator-returns-exact-versioned-contract",
+      "kind": "python",
+      "run": "from mission_control.subscription_journey import binding_data; value=dict(version=1,trial_days=3,billing_period_days=14,product_id=\"com.example.monthly\",offer_id=\"STANDARD\",storefront=\"US\",variant_id=\"control\",configuration_sha256=\"a\"*64); assert binding_data(value)==value"
+    },
+    {
+      "name": "journey-import-reconciliation-isolation-and-recovery",
+      "kind": "python",
+      "run": "import unittest; suite=unittest.defaultTestLoader.loadTestsFromName('tests.test_subscription_journey'); assert suite.countTestCases()==14; result=unittest.TextTestRunner(verbosity=1).run(suite); assert result.wasSuccessful()"
+    }
+  ]
+}

@@ -6,10 +6,11 @@ import json
 import re
 from .common import Invalid, amount, canonical, digest, iso_time, now, required, safe_data
 from .db import connection
+from .subscription_journey import JOURNEY_TYPES, validate_event, journey_report
 
-TYPES={"INSTALL","ACTIVATION","VALUE","PURCHASE","REFUND","REFUND_REVERSED","COST_ACQUISITION","COST_DELIVERY"}
+TYPES={"INSTALL","ACTIVATION","VALUE","PURCHASE","REFUND","REFUND_REVERSED","COST_ACQUISITION","COST_DELIVERY"} | JOURNEY_TYPES
 FIELDS={"provider","event_id","type","subject_id","occurred_at","amount_minor","currency","related_event_id","source"}
-SUBJECT_TYPES={"INSTALL","ACTIVATION","VALUE","PURCHASE"}
+SUBJECT_TYPES={"INSTALL","ACTIVATION","VALUE","PURCHASE"} | JOURNEY_TYPES
 
 
 def opaque(value,field):
@@ -44,9 +45,18 @@ def cohort_data(data):
     return result
 
 
+def event_amount(value,csv_mode):
+    """Normalize CSV integer proceeds without accepting booleans or decimals."""
+    if csv_mode:
+        if not isinstance(value,str) or not value.isdigit():
+            raise Invalid("CSV amount_minor must be a nonnegative integer")
+        value=int(value)
+    return amount(value,"amount_minor")
+
+
 def event_data(row,csv_mode=False):
     """Normalize a permitted export row without accepting arbitrary personal fields."""
-    if not isinstance(row,dict) or set(row)-FIELDS:
+    if not isinstance(row,dict) or set(row)-(FIELDS | {"subscription"}):
         raise Invalid("Event contains unsupported columns; use the provided template")
     safe_data(row)
     result={key:opaque(row.get(key),key) for key in ("provider","event_id")}
@@ -57,16 +67,13 @@ def event_data(row,csv_mode=False):
     result["occurred_at"]=iso_time(row.get("occurred_at")).astimezone(timezone.utc).isoformat()
     if iso_time(result["occurred_at"])>datetime.now(timezone.utc):
         raise Invalid("Observed export events cannot have future timestamps")
-    value=row.get("amount_minor",0)
-    if csv_mode:
-        if not isinstance(value,str) or not value.isdigit():
-            raise Invalid("CSV amount_minor must be a nonnegative integer")
-        value=int(value)
-    result["amount_minor"]=amount(value,"amount_minor")
+    result["amount_minor"]=event_amount(row.get("amount_minor",0),csv_mode)
     result["currency"]=currency(row.get("currency"))
-    result["related_event_id"]=opaque(row.get("related_event_id"),"related_event_id") if result["type"] in ("REFUND","REFUND_REVERSED") else ""
+    result["related_event_id"]=opaque(row.get("related_event_id"),"related_event_id") if result["type"] in ("REFUND","REFUND_REVERSED","RENEWAL") else ""
     result["source"]=required(row.get("source"),"source",2000)
-    return result
+    if "subscription" in row:
+        result["subscription"] = row["subscription"]
+    return validate_event(result)
 
 
 def write_cohort(db,app_id,data):
@@ -176,7 +183,7 @@ def validate_snapshot(payload):
 
 def finance(events,unit):
     """Reconcile same-provider purchase/refund/reversal references as of the report."""
-    purchases={(e["provider"],e["event_id"]):e for e in events if e["type"]=="PURCHASE"}
+    purchases={(e["provider"],e["event_id"]):e for e in events if e["type"] in ("PURCHASE","RENEWAL")}
     refunds={(e["provider"],e["event_id"]):e for e in events if e["type"]=="REFUND"}
     issues=[]
     totals={key:0 for key in purchases}
@@ -218,6 +225,11 @@ def report(cohort,events,as_of):
     starts,ends,maturity=[iso_time(cohort[k]) for k in ("starts_at","ends_at","matures_at")]
     counts=funnel_counts(events,starts,ends,maturity)
     money=finance(events,cohort["currency"])
+    journey=journey_report(cohort,events,as_of)
+    if journey["issues"]:
+        money["issues"].extend(journey["issues"])
+        money["net_proceeds_minor"]=None
+        money["refunds_minor"]=None
     acquisition=sum(e["amount_minor"] for e in events if e["type"]=="COST_ACQUISITION")
     delivery=sum(e["amount_minor"] for e in events if e["type"]=="COST_DELIVERY")
     observable=cohort["observability"]=="OBSERVED"
@@ -225,7 +237,7 @@ def report(cohort,events,as_of):
     complete=observable and as_of>=maturity and not money["issues"] and costs_complete
     count=counts["installs"]
     return {"cohort":cohort,"as_of":as_of.isoformat(),"status":"SUPPLIED_RECONCILED" if complete else "INCONCLUSIVE","events":len(events),
-            **counts,
+            **counts,"subscription_journey":journey,
             "activation_rate":observed_rate(counts["activated"],count,observable),
             "paid_conversion":observed_rate(counts["paid"],count,complete),
             "retention_rate":observed_rate(counts["retained"],count,complete),

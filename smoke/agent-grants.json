@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "scoped-grants-http-cli-mcp",
+      "kind": "python",
+      "run": "import unittest; from tests.test_agent_mcp import HAS_MCP; assert HAS_MCP; s=unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromName(n) for n in ['tests.test_agent_grants','tests.test_agent_grant_clients']); assert s.countTestCases()==12; r=unittest.TextTestRunner().run(s); assert r.wasSuccessful() and not r.skipped"
+    }
+  ]
+}

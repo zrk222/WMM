@@ -1,0 +1,81 @@
+name: agent-grants
+language: python
+modules:
+- name: agent_grants
+  path: mission_control/agent_grants.py
+  language: python
+  functions:
+  - name: token_digest
+    args:
+    - token
+    returns: object
+  - name: issue_data
+    args:
+    - body
+    - observed
+    returns: object
+  - name: public
+    args:
+    - row
+    returns: object
+  - name: app_scope
+    args:
+    - db
+    - app_id
+    returns: object
+  - name: current
+    args:
+    - db
+    - row
+    - envelope
+    - observed
+    returns: object
+- name: agent_grant_http
+  path: mission_control/agent_grant_http.py
+  language: python
+  functions:
+  - name: gateway_token
+    args:
+    - handler
+    returns: object
+  - name: framing
+    args:
+    - handler
+    returns: object
+  - name: call
+    args:
+    - handler
+    returns: object
+  - name: owner
+    args:
+    - store
+    - app_id
+    - action
+    - user
+    - body
+    returns: object
+- name: operation_runtime
+  path: mission_control/operation_runtime.py
+  language: python
+  functions:
+  - name: execute
+    args:
+    - service
+    - envelope
+    returns: object
+- name: test_agent_grants
+  path: tests/test_agent_grants.py
+  language: python
+  functions: []
+- name: test_agent_grant_clients
+  path: tests/test_agent_grant_clients.py
+  language: python
+  functions: []
+dependencies:
+- from: agent_grant_http
+  to: agent_grants
+- from: agent_grant_http
+  to: operation_runtime
+- from: test_agent_grants
+  to: agent_grants
+invariants: []

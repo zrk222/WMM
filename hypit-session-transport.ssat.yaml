@@ -1,0 +1,46 @@
+{
+  "name": "hypit-session-transport",
+  "language": "python",
+  "modules": [
+    {
+      "name": "hypit_studio_routes",
+      "path": "mission_control/hypit_studio_routes.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "operation",
+          "args": [
+            "parts",
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "human",
+          "args": [
+            "handler",
+            "parts",
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "framing",
+          "args": [
+            "handler"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "read_body",
+          "args": [
+            "handler"
+          ],
+          "returns": "object"
+        }
+      ]
+    }
+  ],
+  "dependencies": [],
+  "invariants": []
+}

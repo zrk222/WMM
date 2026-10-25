@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "literal-authoring-boundary",
+      "kind": "python",
+      "run": "import unittest;from tests import test_hypit_media;suite=unittest.defaultTestLoader.loadTestsFromModule(test_hypit_media);assert suite.countTestCases()==6;r=unittest.TextTestRunner().run(suite);assert r.wasSuccessful() and not r.skipped"
+    }
+  ]
+}

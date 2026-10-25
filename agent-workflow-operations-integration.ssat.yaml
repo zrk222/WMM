@@ -1,0 +1,157 @@
+name: agent-workflow-operations
+language: python
+modules:
+- name: operation_catalog
+  path: mission_control/operation_catalog.py
+  language: python
+  functions:
+  - name: descriptor
+    args:
+    - method
+    - suffix
+    - effect
+    - required
+    - optional
+    - resource
+    returns: object
+  - name: catalog
+    args: []
+    returns: object
+  - name: path_segment
+    args:
+    - value
+    returns: object
+  - name: exact_keys
+    args:
+    - value
+    - required
+    - optional
+    returns: object
+  - name: local_constraints
+    args:
+    - operation
+    - body
+    returns: object
+  - name: pipeline_input
+    args:
+    - body
+    returns: object
+  - name: request_data
+    args:
+    - envelope
+    returns: object
+- name: operation_runtime
+  path: mission_control/operation_runtime.py
+  language: python
+  functions:
+  - name: execute
+    args:
+    - service
+    - envelope
+    returns: object
+  - name: save_evidence
+    args:
+    - service
+    - app
+    - body
+    returns: object
+- name: agent_operations
+  path: mission_control/agent_operations.py
+  language: python
+  functions:
+  - name: discovery
+    args:
+    - app
+    returns: object
+- name: agent_mcp
+  path: mission_control/agent_mcp.py
+  language: python
+  functions:
+  - name: argument_schema
+    args:
+    - rule
+    returns: object
+  - name: tool_definitions
+    args:
+    - include_reviews
+    returns: object
+  - name: execute_tool
+    args:
+    - origin
+    - name
+    - arguments
+    - grant_token
+    returns: object
+  - name: create_server
+    args:
+    - origin
+    - grant_token
+    returns: object
+  - name: serve
+    args:
+    - origin
+    - grant_token
+    returns: object
+  - name: main
+    args:
+    - argv
+    returns: object
+- name: test_workflow_operations
+  path: tests/test_workflow_operations.py
+  language: python
+  functions: []
+- name: test_workflow_operation_clients
+  path: tests/test_workflow_operation_clients.py
+  language: python
+  functions: []
+- name: test_operation_catalog
+  path: tests/test_operation_catalog.py
+  language: python
+  functions: []
+- name: test_agent_operations
+  path: tests/test_agent_operations.py
+  language: python
+  functions: []
+- name: test_agent_review_clients
+  path: tests/test_agent_review_clients.py
+  language: python
+  functions: []
+- name: server
+  path: mission_control/server.py
+  language: python
+  functions:
+  - name: media_range
+    args:
+    - value
+    - size
+    returns: object
+  - name: check_timezone_support
+    args: []
+    returns: object
+  - name: main
+    args: []
+    returns: object
+dependencies:
+- from: operation_runtime
+  to: operation_catalog
+- from: operation_runtime
+  to: agent_operations
+- from: agent_operations
+  to: operation_catalog
+- from: agent_mcp
+  to: operation_catalog
+- from: test_workflow_operations
+  to: operation_catalog
+- from: test_operation_catalog
+  to: operation_catalog
+- from: test_agent_operations
+  to: agent_operations
+- from: test_agent_review_clients
+  to: operation_catalog
+- from: server
+  to: server
+- from: server
+  to: agent_operations
+- from: server
+  to: operation_runtime
+invariants: []

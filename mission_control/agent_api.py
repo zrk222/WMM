@@ -10,6 +10,14 @@ from .agent_contract import draft
 
 def request(profile,key,prompt,max_tokens=2048,alive=lambda:None):
     """Protect authorization from DNS rebinding and redirect forwarding."""
+    if profile['provider']=='local_api':
+        from .local_agent_api import request as local_request
+        return local_request(profile,key,prompt,max_tokens,alive)
+    return public_request(profile,key,prompt,max_tokens,alive)
+
+
+def public_request(profile,key,prompt,max_tokens,alive):
+    """Retain pinned public HTTPS inference for the existing keyed adapters."""
     url=public_url(profile['endpoint']);parts=urlsplit(url)
     anthropic=profile['provider']=='anthropic_api'
     route=parts.path.rstrip('/')+('/messages' if anthropic else '/chat/completions')

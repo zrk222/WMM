@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "actual-local-http-and-worker",
+      "kind": "python",
+      "run": "import unittest; suite=unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromName(n) for n in ['tests.test_local_agent_api','tests.test_local_agent_access']); assert suite.countTestCases()==14; result=unittest.TextTestRunner().run(suite); assert result.wasSuccessful() and not result.skipped"
+    }
+  ]
+}

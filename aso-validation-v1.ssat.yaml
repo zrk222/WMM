@@ -1,0 +1,35 @@
+name: aso-validation-v1
+language: python
+modules:
+- name: aso_validation
+  path: mission_control/aso_validation.py
+  language: python
+  functions:
+  - name: validate_listing
+    args:
+    - value
+    - observed_at
+    returns: unknown
+  - name: field_findings
+    args:
+    - platform
+    - fields
+    returns: unknown
+  - name: keyword_findings
+    args:
+    - fields
+    returns: unknown
+  - name: surface_findings
+    args:
+    - platform
+    - surface
+    - test_fields
+    returns: unknown
+- name: test_aso_validation
+  path: tests/test_aso_validation.py
+  language: python
+  functions: []
+dependencies:
+- from: test_aso_validation
+  to: aso_validation
+invariants: []
