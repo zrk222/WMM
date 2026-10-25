@@ -1,0 +1,405 @@
+{
+  "name": "drive-media-import",
+  "language": "python",
+  "modules": [
+    {
+      "name": "drive_media_contract",
+      "path": "mission_control/drive_media_contract.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "metadata",
+          "args": [
+            "value",
+            "file_id"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "download_capability",
+          "args": [
+            "trashed",
+            "capability"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "video_filename",
+          "args": [
+            "name",
+            "mime"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "blob_size",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "blob_version",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "checksum",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "provenance",
+          "args": [
+            "row",
+            "selected"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "drive_media_transport",
+      "path": "mission_control/drive_media_transport.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "destination",
+          "args": [
+            "file_id",
+            "media"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "read_metadata",
+          "args": [
+            "file_id",
+            "bearer"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "download",
+          "args": [
+            "selected",
+            "bearer",
+            "alive"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "read_chunks",
+          "args": [
+            "response",
+            "expected",
+            "deadline",
+            "alive"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "drive_media",
+      "path": "mission_control/drive_media.py",
+      "language": "python",
+      "functions": []
+    },
+    {
+      "name": "managed_media_store",
+      "path": "mission_control/managed_media_store.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "_integer",
+          "args": [
+            "value",
+            "name",
+            "maximum"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_request_key",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_filename",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_upload_body",
+          "args": [
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_request_hash",
+          "args": [
+            "manifest",
+            "filename",
+            "source_hash",
+            "size",
+            "provenance"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_manifest",
+          "args": [
+            "db",
+            "app_id",
+            "expected"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_validated",
+          "args": [
+            "raw",
+            "suffix",
+            "alive"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_linked",
+          "args": [
+            "info"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_identity",
+          "args": [
+            "info"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_plain",
+          "args": [
+            "path",
+            "directory",
+            "missing"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_inside",
+          "args": [
+            "path",
+            "base"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_folder",
+          "args": [
+            "store",
+            "app_id",
+            "create"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_file_path",
+          "args": [
+            "store",
+            "app_id",
+            "name",
+            "create"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_path_signature",
+          "args": [
+            "path",
+            "size"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_read_original",
+          "args": [
+            "path",
+            "size",
+            "expected_hash"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_remove_owned",
+          "args": [
+            "path",
+            "identity"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_write_exclusive",
+          "args": [
+            "path",
+            "raw",
+            "alive"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_decode_data",
+          "args": [
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_review_hash",
+          "args": [
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_review_envelope",
+          "args": [
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_principal",
+          "args": [
+            "user"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_history",
+          "args": [
+            "db",
+            "app_id",
+            "media_id"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_reviewer_current",
+          "args": [
+            "db",
+            "app_id",
+            "review"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_public",
+          "args": [
+            "db",
+            "store",
+            "app_id",
+            "row",
+            "include_history",
+            "verify_bytes",
+            "original_verified"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "derivative_snapshot",
+          "args": [
+            "db",
+            "store",
+            "app_id",
+            "media_id",
+            "expected_sha256",
+            "capture",
+            "verify_bytes"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "drive_media_tests",
+      "path": "tests/test_drive_media.py",
+      "language": "python",
+      "functions": []
+    },
+    {
+      "name": "drive_connection_state",
+      "path": "mission_control/drive_connection_state.py",
+      "language": "python",
+      "functions": []
+    },
+    {
+      "name": "drive_account_tests",
+      "path": "tests/test_drive_accounts.py",
+      "language": "python",
+      "functions": []
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "drive_media_transport",
+      "to": "drive_media_contract"
+    },
+    {
+      "from": "drive_media",
+      "to": "drive_media_contract"
+    },
+    {
+      "from": "drive_media",
+      "to": "drive_media_transport"
+    },
+    {
+      "from": "drive_media",
+      "to": "managed_media_store"
+    },
+    {
+      "from": "drive_media_tests",
+      "to": "drive_media"
+    },
+    {
+      "from": "drive_media_tests",
+      "to": "drive_media_contract"
+    },
+    {
+      "from": "drive_media_tests",
+      "to": "drive_media_transport"
+    },
+    {
+      "from": "drive_media_tests",
+      "to": "managed_media_store"
+    },
+    {
+      "from": "drive_media",
+      "to": "drive_connection_state"
+    },
+    {
+      "from": "drive_media_tests",
+      "to": "drive_connection_state"
+    },
+    {
+      "from": "drive_media_tests",
+      "to": "drive_account_tests"
+    },
+    {
+      "from": "drive_account_tests",
+      "to": "drive_connection_state"
+    }
+  ],
+  "invariants": []
+}

@@ -74,8 +74,10 @@ def _upload_body(body):
     return _integer(body['manifest_version'], 'Manifest version'), _request_key(body['request_key'])
 
 
-def _request_hash(manifest, filename, source_hash, size):
-    return digest(dict(manifest_version=manifest, filename=filename, source_sha256=source_hash, bytes=size))
+def _request_hash(manifest, filename, source_hash, size, provenance=None):
+    value = dict(manifest_version=manifest, filename=filename, source_sha256=source_hash, bytes=size)
+    if provenance is not None:value['provenance'] = provenance
+    return digest(value)
 
 
 def _manifest(db, app_id, expected):
@@ -417,6 +419,11 @@ class Media:
 
     def upload(self, app_id, filename, raw, body, alive=lambda: None):
         """Validate exact bytes, then immutably retain them under a generated name."""
+        return self._ingest(app_id, filename, raw, body, alive)
+
+    def _ingest(self, app_id, filename, raw, body, alive, provenance=None):
+        """Server-side provider intake shares byte validation; public upload has no provenance field."""
+        alive()
         app_id = identifier(app_id)
         manifest, request_key = _upload_body(body)
         basename, suffix = _filename(filename)
@@ -427,26 +434,28 @@ class Media:
             prior = db.execute('SELECT * FROM managed_media WHERE app_id=? AND request_key=?',
                                (app_id, request_key)).fetchone()
             if prior:
-                return self._replay(db, app_id, prior, manifest, basename, raw)
+                result = self._replay(db, app_id, prior, manifest, basename, raw, provenance)
+                alive()
+                return result
         result = _validated(raw, suffix, alive)
-        request_hash = _request_hash(manifest, basename, result['sha256'], result['bytes'])
-        return self._commit_upload(app_id, manifest, request_key, request_hash, basename, raw, result, alive)
+        request_hash = _request_hash(manifest, basename, result['sha256'], result['bytes'], provenance)
+        return self._commit_upload(app_id, manifest, request_key, request_hash, basename, raw, result, alive, provenance)
 
-    def _replay(self, db, app_id, row, manifest, filename, raw):
+    def _replay(self, db, app_id, row, manifest, filename, raw, provenance=None):
         data = _decode_data(row)
-        request_hash = _request_hash(manifest, filename, hashlib.sha256(raw).hexdigest(), len(raw))
+        request_hash = _request_hash(manifest, filename, hashlib.sha256(raw).hexdigest(), len(raw), provenance)
         if row['request_hash'] != request_hash:
             raise Invalid('Request key already belongs to a different media upload')
         _read_original(_file_path(self.store, app_id, data['storage_name']), data['bytes'], data['source_sha256'])
         return _public(db, self.store, app_id, row, verify_bytes=True)
 
-    def _commit_upload(self, app_id, manifest, key, request_hash, filename, raw, inspected, alive):
+    def _commit_upload(self, app_id, manifest, key, request_hash, filename, raw, inspected, alive, provenance=None):
         media_id = uid()
         storage_name = uuid.uuid4().hex + Path(filename).suffix.lower()
         path = _file_path(self.store, app_id, storage_name, create=True)
         source_data = dict(manifest_version=manifest, filename=filename, source_sha256=inspected['sha256'],
                            bytes=inspected['bytes'], metadata=inspected['metadata'], decoded=inspected['decoded'],
-                           provenance=dict(kind='LOCAL_UPLOAD', filename=filename), storage_name=storage_name,
+                           provenance=provenance if provenance is not None else dict(kind='LOCAL_UPLOAD', filename=filename), storage_name=storage_name,
                            rights_status='UNKNOWN')
         created, committed, identity = False, False, None
         try:
@@ -456,13 +465,16 @@ class Media:
                 prior = db.execute('SELECT * FROM managed_media WHERE app_id=? AND request_key=?',
                                    (app_id, key)).fetchone()
                 if prior:
-                    return self._replay(db, app_id, prior, manifest, filename, raw)
+                    result = self._replay(db, app_id, prior, manifest, filename, raw, provenance)
+                    alive()
+                    return result
                 count = db.execute('SELECT count(*) FROM managed_media WHERE app_id=?', (app_id,)).fetchone()[0]
                 if count >= MAX_ITEMS:
                     raise Invalid('App media library already contains 1000 retained items')
                 _folder(self.store, app_id, create=True)
                 identity = _write_exclusive(path, raw, alive)
                 created = True
+                alive()
                 stamp, encoded = now(), canonical(source_data)
                 row_hash = digest(dict(app_id=app_id, id=media_id, data=encoded, request_key=key,
                                        request_hash=request_hash, created=stamp))

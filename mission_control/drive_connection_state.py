@@ -36,7 +36,9 @@ class Connections:
         if row['status'] != 'CONNECTED':return 'RECONNECT_REQUIRED'
         if row['data']['manifest_version'] != self.store.app(row['app_id'])['version']:return 'APP_REVIEW_REQUIRED'
         if row['expires'] <= time.time():return 'ACCESS_EXPIRED'
-        try:self.secrets.load(row['app_id'], row['secret_ref'], connection_binding(row))
+        try:
+            secret = self.secrets.load(row['app_id'], row['secret_ref'], connection_binding(row))
+            if not {'access_token', 'refresh_token', 'client_id', 'client_secret'} <= set(secret):return 'RECONNECT_REQUIRED'
         except Invalid:return 'RECONNECT_REQUIRED'
         return 'CONNECTED'
 
