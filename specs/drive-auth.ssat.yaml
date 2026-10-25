@@ -1,0 +1,123 @@
+{
+  "name": "drive-auth",
+  "language": "python",
+  "modules": [
+    {
+      "name": "drive_auth",
+      "path": "mission_control/drive_auth.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "client",
+          "args": [
+            "config"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "configuration",
+          "args": [
+            "raw"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "state_value",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "fresh_state",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "selected_files",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "authorization",
+          "args": [
+            "config",
+            "port",
+            "state",
+            "verifier"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "callback_fields",
+          "args": [
+            "query"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "callback",
+          "args": [
+            "query"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "grant_scope",
+          "args": [
+            "payload",
+            "previous"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "grant",
+          "args": [
+            "payload",
+            "previous"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "token_request",
+          "args": [
+            "fields"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "exchange",
+          "args": [
+            "config",
+            "code",
+            "verifier",
+            "port"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "refresh",
+          "args": [
+            "secret"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "drive_auth_tests",
+      "path": "tests/test_drive_auth.py",
+      "language": "python",
+      "functions": []
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "drive_auth_tests",
+      "to": "drive_auth"
+    }
+  ],
+  "invariants": []
+}
