@@ -1,0 +1,19 @@
+name: cohort-refund-semantics
+language: python
+modules:
+- name: metrics
+  path: mission_control/metrics.py
+  language: python
+  functions:
+  - name: cohort_metrics
+    args:
+    - data
+    returns: object
+- name: cohort_refund_tests
+  path: tests/test_cohort_refunds.py
+  language: python
+  functions: []
+dependencies:
+- from: cohort_refund_tests
+  to: metrics
+invariants: []

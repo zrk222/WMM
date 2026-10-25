@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "manual-cohort-post-refund-parity",
+      "kind": "python",
+      "run": "import ast,pathlib;source=pathlib.Path(\"mission_control/metrics.py\").read_text(encoding=\"utf-8\");tree=ast.parse(source);node=next(item for item in tree.body if isinstance(item,ast.FunctionDef) and item.name==\"cohort_metrics\");namespace={\"amount\":lambda value,name:value,\"Invalid\":ValueError,\"ratio\":lambda numerator,denominator:numerator/denominator if denominator else None};exec(compile(ast.Module(body=[node],type_ignores=[]),\"mission_control/metrics.py\",\"exec\"),namespace);metric=namespace[\"cohort_metrics\"]({\"cohort_id\":\"pilot-1\",\"currency\":\"USD\",\"horizon\":\"D30\",\"mature\":True,\"installs\":1,\"activated\":1,\"paid\":1,\"acquisition_cost_minor\":300,\"net_proceeds_minor\":1500,\"delivery_cost_minor\":100,\"refunds_minor\":500});assert metric is not None;assert metric[\"contribution_minor\"]==1400;assert metric[\"contribution_after_acquisition_minor\"]==1100;assert metric[\"counts\"][\"refunds_minor\"]==500"
+    }
+  ]
+}
