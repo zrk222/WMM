@@ -1,6 +1,6 @@
 """Real local action outcomes, bounded history, provenance and approval guards."""
 import json,tempfile,unittest,uuid
-from datetime import timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from unittest.mock import patch
 from mission_control.store import Store,decode
@@ -41,6 +41,11 @@ class FeedbackTests(unittest.TestCase):
     def setUp(self):
         tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup)
         self.store=Store(Path(tmp.name)/'feedback.sqlite3');initialize(self.store)
+        # History assertions must not depend on crossing a real collection hour.
+        clock_patch=patch('mission_control.campaign_inputs.datetime',wraps=datetime)
+        clock=clock_patch.start();self.addCleanup(clock_patch.stop)
+        clock.now.return_value=datetime.now(timezone.utc)
+        self.collection_clock=clock
 
     def setup_job(self):
         from mission_control.setup_discovery import SetupDiscovery
@@ -115,6 +120,19 @@ class FeedbackTests(unittest.TestCase):
         self.assertIsNone(value['reusable_public_observation'])
         self.assertEqual(value['latest'][0]['state'],'BLOCKED')
         self.assertNotIn('PRIVATE_ERROR',canonical(value))
+
+    def test_hour_boundary_requires_review_without_enqueuing_stale_proposal(self):
+        self.collection_clock.now.return_value=datetime(2026,10,25,9,59,59,tzinfo=timezone.utc)
+        stale=request(self.store)
+        self.collection_clock.now.return_value=datetime(2026,10,25,10,0,0,tzinfo=timezone.utc)
+        with self.assertRaisesRegex(Invalid,'Evidence needs or sources changed'):
+            Resolutions(self.store).start('sample-one',stale)
+        self.assertEqual(jobs(self.store,'sample-one'),[])
+        current=request(self.store)
+        self.assertNotEqual(stale['source_hash'],current['source_hash'])
+        job=Resolutions(self.store).start('sample-one',current)
+        self.assertEqual(job['status'],'QUEUED')
+        self.assertEqual(len(jobs(self.store,'sample-one')),1)
 
     def test_recent_history_partial_coverage_is_explicit(self):
         inspect(self.store);inspect(self.store)
