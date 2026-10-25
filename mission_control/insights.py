@@ -136,8 +136,7 @@ class Insights:
         current = time.time()
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
-            count = db.execute("SELECT COUNT(*) FROM insight_requests WHERE scope_key=? AND attempted>?", (scope, current - 86400)).fetchone()[0]
-            if provider == "clarity" and count >= 10:
+            if provider == "clarity" and db.execute("SELECT COUNT(*) FROM insight_requests WHERE scope_key=? AND attempted>?", (scope, current - 86400)).fetchone()[0] >= 10:
                 raise ProviderFailure("LOCAL_RATE_LIMITED", "Clarity's ten daily requests are reserved; wait for the rolling quota to reset")
             db.execute("INSERT INTO insight_requests(scope_key,attempted) VALUES(?,?)", (scope, current))
             db.execute("DELETE FROM insight_requests WHERE attempted<?", (current - 86400,))
@@ -203,8 +202,7 @@ class Insights:
                 raise Invalid("A read is already running; refresh its result shortly")
             if automatic and (not row["data"]["automatic"] or row["next_due"] > current or row["status"] == "PERMISSION_REQUIRED"):
                 return None
-            count = db.execute("SELECT COUNT(*) FROM insight_requests WHERE scope_key=? AND attempted>?", (row["scope_key"], current - 86400)).fetchone()[0]
-            if row["provider"] == "clarity" and count >= 10:
+            if row["provider"] == "clarity" and db.execute("SELECT COUNT(*) FROM insight_requests WHERE scope_key=? AND attempted>?", (row["scope_key"], current - 86400)).fetchone()[0] >= 10:
                 raise ProviderFailure("LOCAL_RATE_LIMITED", "Clarity's ten daily requests are reserved; wait for the rolling quota to reset")
             db.execute("INSERT INTO insight_requests(scope_key,attempted) VALUES(?,?)", (row["scope_key"], current))
             db.execute("DELETE FROM insight_requests WHERE attempted<?", (current - 86400,))
