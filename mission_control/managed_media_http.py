@@ -77,6 +77,7 @@ def get(handler, parts):
     with owner(handler,parts) as (store,user):
         media=Media(store)
         if len(parts)==4:return handler.send(200,media.list(parts[2]))
+        if parts[4:]==['sources']:return handler.send(200,media.sources(parts[2]))
         if len(parts)==5:return handler.send(200,media.read(parts[2],parts[4]))
         if parts[5] not in ('preview','download'):raise Invalid('Use the exact original media address')
         item,raw=media.original(parts[2],parts[4],user['principal'])
