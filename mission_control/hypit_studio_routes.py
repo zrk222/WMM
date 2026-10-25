@@ -4,6 +4,7 @@ from .operation_catalog import request_data
 from .operation_authority import bound_owner
 from .review_access import member
 from .db import connection
+from .http_body import read_exact
 
 
 def operation(parts,body):
@@ -46,11 +47,4 @@ def framing(handler):
 def read_body(handler):
     """Read at most one MiB within five seconds and reject truncation."""
     framing(handler)
-    previous=handler.connection.gettimeout()
-    try:
-        handler.connection.settimeout(5)
-        try:raw=handler.body(1048576)
-        except (TimeoutError,OSError):raise Invalid('Studio request body did not arrive within 5 seconds') from None
-    finally:handler.connection.settimeout(previous)
-    if len(raw)!=int(handler.headers['Content-Length']):raise Invalid('Studio request body is truncated')
-    return raw
+    return read_exact(handler,1048576,'Studio')

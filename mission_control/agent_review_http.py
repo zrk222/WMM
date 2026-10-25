@@ -2,8 +2,8 @@
 from .common import Invalid
 from .db import connection
 from .operation_catalog import exact_keys,path_segment
-from .agent_grant_http import gateway_token
-from .operator_client import strict_json,MAX_BYTES
+from .agent_grant_http import gateway_token,read_body
+from .operator_client import strict_json
 from .agent_review_protocol import PATHS,validate
 from .agent_review_dispatch import ReviewedDispatch,saved_request,request_view
 from .agent_checkpoints import Checkpoints
@@ -17,7 +17,7 @@ def agent(handler):
     action=next((name for name,path in PATHS.items() if handler.path==path),None)
     if action is None:raise Invalid('Unknown exact agent review address')
     token=gateway_token(handler,PATHS[action])
-    body=strict_json(handler.body(MAX_BYTES));validate(action,body)
+    body=strict_json(read_body(handler));validate(action,body)
     dispatch=ReviewedDispatch(handler.server.service)
     if action=='prepare':value=dispatch.prepare(token,body['id'],body['envelope'])
     elif action=='status':value=dispatch.inspect(token,body['app_id'],body['id'])

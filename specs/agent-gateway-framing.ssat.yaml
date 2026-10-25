@@ -1,0 +1,86 @@
+{
+  "name": "agent-gateway-framing",
+  "language": "python",
+  "modules": [
+    {
+      "name": "http_body",
+      "path": "mission_control/http_body.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "read_exact",
+          "args": [
+            "handler",
+            "limit",
+            "label"
+          ],
+          "returns": "bytes"
+        }
+      ]
+    },
+    {
+      "name": "grant_http",
+      "path": "mission_control/agent_grant_http.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "framing",
+          "args": [
+            "handler"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "read_body",
+          "args": [
+            "handler"
+          ],
+          "returns": "bytes"
+        }
+      ]
+    },
+    {
+      "name": "review_http",
+      "path": "mission_control/agent_review_http.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "agent",
+          "args": [
+            "handler"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "studio_routes",
+      "path": "mission_control/hypit_studio_routes.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "read_body",
+          "args": [
+            "handler"
+          ],
+          "returns": "bytes"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "grant_http",
+      "to": "http_body"
+    },
+    {
+      "from": "studio_routes",
+      "to": "http_body"
+    },
+    {
+      "from": "review_http",
+      "to": "grant_http"
+    }
+  ],
+  "invariants": []
+}

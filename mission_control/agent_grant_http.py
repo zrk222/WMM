@@ -1,7 +1,9 @@
 """Bearer gateway and separately authenticated owner controls; no human-approval tools."""
+import re
 from .common import Invalid
 from .agent_grants import Grants
 from .operator_client import strict_json,MAX_BYTES
+from .http_body import read_exact
 
 CALL_PATH='/api/agent-operations/call'
 
@@ -21,16 +23,25 @@ def gateway_token(handler,path=CALL_PATH):
 
 def framing(handler):
     """Reject alternate payload types and ambiguous HTTP body framing."""
-    if handler.headers.get('Content-Type','').split(';')[0].strip()!='application/json':
-        raise Invalid('Use JSON for agent operations')
-    if len(handler.headers.get_all('Content-Length') or [])!=1 or handler.headers.get('Transfer-Encoding'):
+    if handler.headers.get_all('Content-Type')!=['application/json']:
+        raise Invalid('Use exactly one application/json content type')
+    lengths=handler.headers.get_all('Content-Length') or []
+    if handler.headers.get_all('Transfer-Encoding') is not None or len(lengths)!=1:
         raise Invalid('Use one bounded content length')
+    if not re.fullmatch(r'[0-9]{1,8}',lengths[0]) or not 1<=int(lengths[0])<=MAX_BYTES:
+        raise Invalid('Use one bounded decimal content length')
+
+
+def read_body(handler):
+    """Reject stalled or truncated bearer payloads before any grant admission."""
+    framing(handler)
+    return read_exact(handler,MAX_BYTES,'Agent')
 
 
 def call(handler):
     """Dispatch a scoped admitted operation without a browser/CSRF session."""
     token=gateway_token(handler)
-    envelope=strict_json(handler.body(MAX_BYTES))
+    envelope=strict_json(read_body(handler))
     service=handler.server.service
     admission=Grants(service.store).admit(token,envelope)
     from .automation_execution import execute_admitted
