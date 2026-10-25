@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "local-video-and-audio-byte-decode",
+      "kind": "python",
+      "run": "import atexit,hashlib,pathlib,shutil,subprocess,tempfile;from mission_control.managed_media_validation import inspect;tools={name:shutil.which(name) for name in ('ffprobe','ffmpeg')};assert all(tools.values());folder=tempfile.TemporaryDirectory(prefix='wmm-media-smoke-');atexit.register(folder.cleanup);path=pathlib.Path(folder.name)/'sample.mp4';command=[tools['ffmpeg'],'-hide_banner','-loglevel','error','-nostdin','-f','lavfi','-i','color=c=blue:s=64x64:r=24','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','1','-pix_fmt','yuv420p','-shortest','-c:v','libx264','-preset','ultrafast','-c:a','aac','-y',str(path)];subprocess.run(command,capture_output=True,timeout=40,check=True);raw=path.read_bytes();exec(\"try:\\n result=inspect(raw,'.mp4',lambda:None,tools)\\nexcept NotImplementedError as stub_error:\\n raise AssertionError('inspect stub did not validate generated media') from stub_error\");assert result is not None, 'inspect did not produce media evidence';assert result['bytes']==len(raw);assert result['sha256']==hashlib.sha256(raw).hexdigest();assert result['metadata']['audio'] is True;assert result['decoded']['video_frames']>0 and result['decoded']['audio_frames']>0"
+    }
+  ]
+}
