@@ -1,0 +1,75 @@
+{
+  "name": "managed-media-http",
+  "language": "python",
+  "modules": [
+    {
+      "name": "media_http",
+      "path": "mission_control/managed_media_http.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "singleton",
+          "args": [
+            "handler",
+            "name"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "route",
+          "args": [
+            "handler",
+            "parts"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "owner",
+          "args": [
+            "handler",
+            "parts"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "body",
+          "args": [
+            "handler",
+            "content_type",
+            "limit"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "post",
+          "args": [
+            "handler",
+            "parts"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "get",
+          "args": [
+            "handler",
+            "parts"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "serve",
+          "args": [
+            "handler",
+            "parts",
+            "item",
+            "raw",
+            "suffix"
+          ],
+          "returns": "object"
+        }
+      ]
+    }
+  ],
+  "dependencies": [],
+  "invariants": []
+}

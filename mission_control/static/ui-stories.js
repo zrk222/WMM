@@ -16,6 +16,8 @@
   });
   const FORMS={};
   function define(ids,mission,result,next){for(const id of ids.split(' '))FORMS[id]=Object.freeze([mission,result,next]);}
+  define('media-upload-form','Keep your original clips together before choosing their use.','WMM saves and decodes each selected local clip; upload does not grant reuse permission.','Inspect the original picture, sound and provenance, then review reuse for each clip.');
+  define('media-review-form','Decide whether this app may reuse the selected original clip.','WMM saves a source-bound owner attestation or revocation in retained history.','Inspect the saved status; approval by attestation is not independent legal verification.');
   define('studio-source-form','Choose the approved composition you want to customize.','WMM prepares an exact local startup summary without launching Studio.','Review the source and resource limits, then choose whether to start the local session.');
   define('app-form','Tell WMM who the app serves and the useful task it delivers.','Your saved app facts guide stage checks and future preparation.','Enter the current release and audience, then save the setup.');
   define('setup-review','Turn the discovered app information into a setup you have checked.','Your confirmed choices become the app facts used by this workspace.','Correct the proposed fields and inspect their sources before applying them.');
