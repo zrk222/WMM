@@ -1,0 +1,1605 @@
+{
+  "schema": "wmm.kpi-report-coverage.v1",
+  "report_sha256": "becf9365df3c299dba83944d421e3a39bd3ef297f3e0e11782a032ebcd51a5a1",
+  "review_type": "Source-reviewed scope/definition coverage; not collector implementation",
+  "source_hashes": {
+    "mission_control/metrics.py": "5d795a979677a6fefb53fb28a1cc5c1d985d677fc54498237e1af3ff1836fa06",
+    "mission_control/ledger.py": "b1e6146fe033cda35915713b2e228faa29009159a3215ac54fb22e3e20cd1da2",
+    "mission_control/subscription_journey.py": "a5112b0c92d936d6cb221c2f7e78845f39df7dc97f5b90ef5438bc4a903baf2c",
+    "mission_control/benchmark_ads.py": "508d4d116bfdd2560b3990b5f96b34e2e54cd7e72b7919e2cef128010abc83ec",
+    "mission_control/insights_contract.py": "f195f181e9e0fba9b1396b6613fe9002f770325cfb372d71bbcb8e5a0f770aa0",
+    "mission_control/attribution_sources.py": "b2c6917dcd295cbad60b09f21cfd3377cf44fa43afae45580acc012af234e939",
+    "mission_control/agent_usage.py": "cee774797a3af89dd61592aac8863949776726f6fc2cebdf35ab432076bc9d57",
+    "specs/complete-kpi-analytics.md": "a3000ada55002b1d000730bda697308de9266750c9dcae6479430548e9820bed"
+  },
+  "families": [
+    "acquisition",
+    "activation",
+    "revenue",
+    "retention",
+    "experiments",
+    "creative",
+    "agent_operations",
+    "data_quality"
+  ],
+  "requirements": [
+    {
+      "id": "CPI",
+      "family": "acquisition",
+      "title": "Cpi",
+      "definition": "spend / attributed installs",
+      "current_coverage": "PARTIAL_APPLE_ADS",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "CPA",
+      "family": "acquisition",
+      "title": "Cpa",
+      "definition": "matched cost / deduplicated named actions",
+      "current_coverage": "MISSING",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "CAC",
+      "family": "acquisition",
+      "title": "Cac",
+      "definition": "matched acquisition cost / distinct acquired payers",
+      "current_coverage": "PARTIAL_SUPPLIED_COHORT",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "ROAS_D7",
+      "family": "acquisition",
+      "title": "Roas D7",
+      "definition": "attributed cohort revenue through day7 / matched cohort spend",
+      "current_coverage": "MISSING",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "ROAS_D30",
+      "family": "acquisition",
+      "title": "Roas D30",
+      "definition": "attributed cohort revenue through day30 / matched cohort spend",
+      "current_coverage": "MISSING",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "PAYBACK",
+      "family": "acquisition",
+      "title": "Payback",
+      "definition": "first mature horizon cumulative net contribution recovers acquisition cost",
+      "current_coverage": "MISSING",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "LTV_CAC",
+      "family": "acquisition",
+      "title": "Ltv Cac",
+      "definition": "same-cohort declared observed or modeled LTV / same-cohort CAC",
+      "current_coverage": "MISSING",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "STORE_CVR",
+      "family": "acquisition",
+      "title": "Store Cvr",
+      "definition": "provider-defined first acquisition / eligible listing visitors",
+      "current_coverage": "MISSING_STORE_ANALYTICS",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "STORE_IMPRESSIONS",
+      "family": "acquisition",
+      "title": "Store Impressions",
+      "definition": "provider count at declared unique or total grain",
+      "current_coverage": "MISSING_STORE_ANALYTICS",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "KEYWORD_RANK",
+      "family": "acquisition",
+      "title": "Keyword Rank",
+      "definition": "dated store-country-locale-device query position",
+      "current_coverage": "MISSING_ORGANIC_RANK",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "LISTING_EXPERIMENT",
+      "family": "acquisition",
+      "title": "Listing Experiment",
+      "definition": "provider-exposed variant views installs and declared uncertainty",
+      "current_coverage": "MISSING",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "AD_FUNNEL",
+      "family": "acquisition",
+      "title": "Ad Funnel",
+      "definition": "impressions taps installs spend with source-defined CTR CPT CPI CPM",
+      "current_coverage": "PARTIAL_APPLE_ADS",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "TRIAL_PAID_BY_SOURCE",
+      "family": "activation",
+      "title": "Trial Paid By Source",
+      "definition": "mature eligible trial starters converted to first successful paid / trial starters by attributed source",
+      "current_coverage": "MISSING_SOURCE_JOIN",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "TIME_TO_VALUE",
+      "family": "activation",
+      "title": "Time To Value",
+      "definition": "elapsed first qualifying useful-value event minus install or first session",
+      "current_coverage": "PARTIAL_REQUIRES_EVENT_SEMANTICS",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "PAYWALL_TRIAL_FUNNEL",
+      "family": "activation",
+      "title": "Paywall Trial Funnel",
+      "definition": "unique eligible users at onboarding paywall trial and paid steps",
+      "current_coverage": "PARTIAL_SUBSCRIPTION_LEDGER",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "NRR",
+      "family": "revenue",
+      "title": "Nrr",
+      "definition": "opening recurring revenue + same-cohort expansion - contraction - churn over opening recurring revenue",
+      "current_coverage": "MISSING",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "ARPPU",
+      "family": "revenue",
+      "title": "Arppu",
+      "definition": "declared period revenue / distinct eligible paying users in period",
+      "current_coverage": "MISSING",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "ARPU",
+      "family": "revenue",
+      "title": "Arpu",
+      "definition": "declared period revenue / distinct eligible users in period",
+      "current_coverage": "MISSING",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "MRR_ARR",
+      "family": "revenue",
+      "title": "Mrr Arr",
+      "definition": "provider-defined normalized recurring run-rate; not realized cash",
+      "current_coverage": "PARTIAL_PROVIDER_OVERVIEW",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "REFUNDS_NET_CONTRIBUTION",
+      "family": "revenue",
+      "title": "Refunds Net Contribution",
+      "definition": "net proceeds after refunds - delivery costs - acquisition costs",
+      "current_coverage": "PARTIAL_REFUND_FIX_IN_PROGRESS",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "RENEWAL_CHURN",
+      "family": "revenue",
+      "title": "Renewal Churn",
+      "definition": "mature subscription renewal cancellation expiration billing failure and recovery by contract",
+      "current_coverage": "PARTIAL_SUBSCRIPTION_LEDGER",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "RETENTION_D1",
+      "family": "retention",
+      "title": "Retention D1",
+      "definition": "qualifying day1 retained first-install users / mature observable first-install cohort",
+      "current_coverage": "MISSING_DAY_N",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "RETENTION_D7",
+      "family": "retention",
+      "title": "Retention D7",
+      "definition": "qualifying day7 retained first-install users / mature observable first-install cohort",
+      "current_coverage": "MISSING_DAY_N",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "RETENTION_D30",
+      "family": "retention",
+      "title": "Retention D30",
+      "definition": "qualifying day30 retained first-install users / mature observable first-install cohort",
+      "current_coverage": "MISSING_DAY_N",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "VALUE_RETENTION",
+      "family": "retention",
+      "title": "Value Retention",
+      "definition": "retained useful-value subjects / mature eligible subjects at declared app cadence",
+      "current_coverage": "PARTIAL_SUPPLIED_COHORT",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "UNINSTALL",
+      "family": "retention",
+      "title": "Uninstall",
+      "definition": "provider-defined device or user deletions with compatible cohort/base denominator",
+      "current_coverage": "MISSING_COLLECTOR",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "PUSH_OPTOUT",
+      "family": "retention",
+      "title": "Push Optout",
+      "definition": "unique newly opted-out consented recipients / eligible opted-in recipients in window",
+      "current_coverage": "MISSING_COLLECTOR",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "ACTIVE_USERS",
+      "family": "retention",
+      "title": "Active Users",
+      "definition": "deduplicated active users or devices for explicit day week month windows",
+      "current_coverage": "MISSING_UNIQUE_AGGREGATION",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "K_FACTOR",
+      "family": "retention",
+      "title": "K Factor",
+      "definition": "deduplicated invites per eligible inviter times eligible referred conversion",
+      "current_coverage": "MISSING",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "REFERRAL_CONVERSION",
+      "family": "retention",
+      "title": "Referral Conversion",
+      "definition": "deduplicated successful referred new users / eligible referral recipients or clicks with explicit denominator",
+      "current_coverage": "MISSING",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "EXPERIMENT_EXPOSURE",
+      "family": "experiments",
+      "title": "Experiment Exposure",
+      "definition": "assignment exposure sample ratio maturity contamination and guardrail coverage",
+      "current_coverage": "PARTIAL",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "EXPERIMENT_OUTCOME",
+      "family": "experiments",
+      "title": "Experiment Outcome",
+      "definition": "predeclared conversion lift uncertainty rollback and downstream outcome status",
+      "current_coverage": "PARTIAL",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "VIDEO_ATTENTION",
+      "family": "creative",
+      "title": "Video Attention",
+      "definition": "platform-specific views reach hook hold watch time and completion with denominator",
+      "current_coverage": "MISSING_PUBLISHED_COLLECTORS",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "VIDEO_ENGAGEMENT",
+      "family": "creative",
+      "title": "Video Engagement",
+      "definition": "likes comments shares saves and clicks using compatible provider grain",
+      "current_coverage": "MISSING_PUBLISHED_COLLECTORS",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "CREATIVE_CONVERSIONS",
+      "family": "creative",
+      "title": "Creative Conversions",
+      "definition": "source-creative matched activation trial paid and revenue",
+      "current_coverage": "MISSING_SOURCE_JOIN",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "RENDER_OPERATIONS",
+      "family": "creative",
+      "title": "Render Operations",
+      "definition": "render success failure duration retry reuse artifact lineage and measured machine/model costs",
+      "current_coverage": "PARTIAL_JOB_RECORDS",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "AGENT_USAGE",
+      "family": "agent_operations",
+      "title": "Agent Usage",
+      "definition": "reported input output cached and total tokens by job/model/provider without inferred billing",
+      "current_coverage": "PARTIAL_PER_JOB",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "AGENT_COST",
+      "family": "agent_operations",
+      "title": "Agent Cost",
+      "definition": "actual billed cost separate from estimate and unknown; account quota/rate-limit observations",
+      "current_coverage": "MISSING_AGGREGATE_BILLING",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "AUTONOMY_OPERATIONS",
+      "family": "agent_operations",
+      "title": "Autonomy Operations",
+      "definition": "tool calls stage latency approval wait failures cancellation recovery and scope stops",
+      "current_coverage": "PARTIAL_TELEMETRY",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "SOURCE_FRESHNESS",
+      "family": "data_quality",
+      "title": "Source Freshness",
+      "definition": "last observed/ingested successful read age lag and expected update cadence",
+      "current_coverage": "PARTIAL",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "INGESTION_QUALITY",
+      "family": "data_quality",
+      "title": "Ingestion Quality",
+      "definition": "invalid duplicate corrected late unmatched and backfilled observation coverage",
+      "current_coverage": "PARTIAL_DOMAIN_STORES",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    },
+    {
+      "id": "EXPORT_QUALITY",
+      "family": "data_quality",
+      "title": "Export Quality",
+      "definition": "report filters totals source coverage download/print outcome and retained audit lineage",
+      "current_coverage": "PARTIAL",
+      "required_status": "REQUIRED_NOT_COMPLETE",
+      "required_scope": [
+        "app",
+        "release",
+        "platform",
+        "cohort",
+        "source/campaign/creative when applicable",
+        "currency",
+        "timezone",
+        "occurrence window",
+        "attribution model/window",
+        "source version and hash"
+      ],
+      "state_vocabulary": [
+        "OBSERVED",
+        "OBSERVED_ZERO",
+        "PARTIAL",
+        "STALE",
+        "ESTIMATED",
+        "IMMATURE",
+        "UNAVAILABLE",
+        "NOT_IMPLEMENTED"
+      ],
+      "acceptance": [
+        "Numerator denominator and grain are explicit and compatible.",
+        "Unknown or missing evidence is null/unavailable; no fabricated zero or source join.",
+        "Durable raw observations and dedup/correction lineage reproduce the calculation.",
+        "Collector access and authenticated readback are separate from fixture proof.",
+        "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
+      ]
+    }
+  ],
+  "official_source_checks": [
+    {
+      "url": "https://developer.apple.com/help/app-store-connect-analytics/engagement/app-usage",
+      "verified": "2026-10-25",
+      "finding": "Usage/deletion data covers opted-in diagnostic/usage sharing, not all users."
+    },
+    {
+      "url": "https://support.google.com/googleplay/android-developer/answer/6135870?hl=en",
+      "verified": "2026-10-25",
+      "finding": "Statistics and acquisition CSV exports use private GCS; devstorage.read_only and Play account permissions must be verified separately."
+    },
+    {
+      "url": "https://developers.google.com/workspace/drive/api/guides/api-specific-auth",
+      "verified": "2026-10-25",
+      "finding": "drive.file plus Google Picker grants selected-file access; OAuth metadata access alone is not a content download grant."
+    }
+  ],
+  "complete_analytics": false,
+  "corrections": [
+    "Apple Ads read and derived CPI/CPT/CR/TTR already exist.",
+    "Supplied cohort CAC and useful-value retention and subscription conversion already exist.",
+    "RevenueCat overview is not exact individual LTV or an MMP identity join.",
+    "No assumption that existing Android Publisher permission grants GCS analytics download."
+  ]
+}

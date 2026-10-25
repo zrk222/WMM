@@ -67,3 +67,19 @@ Scenario: collector_acceptance
 - Separate cash, entitlement, revenue run rate and estimates. Do not sum incompatible unique-user populations or provider engagement definitions.
 - Verify authorized real source observations for connected collectors. Name missing access or provider capabilities individually and complete independent local work.
 - Require CF architecture, source-bound workflow QA, meaningful negative cases, migration/recovery, regression, privacy and real desktop/mobile/PDF acceptance before a complete-analytics claim.
+
+## Required report and media workflow coverage - October 25, 2026
+
+The user-supplied KPI report is traced in `specs/kpi-report-coverage.json` and
+`docs/WMM-KPI-COVERAGE.md`. Its 42 metric/metric-group requirements extend all
+eight existing families; they do not replace collector or workflow acceptance.
+Source-level CPA/ROAS, payback, LTV:CAC, organic store performance, mature day-N
+retention, deletion/opt-out, NRR/ARPPU, referrals, creative/video outcomes and
+agent/data-quality economics remain required where implementation is missing.
+
+The complete media flow in `specs/media-discovery-revision.md` also requires
+analytics: optional Drive/local intake, viral qualification, inspection, rights,
+revision/approval, Hypit/native execution, audio/video validation and export.
+Manual and autonomous modes share the same definitions, provenance and reports.
+An unavailable source, absent creator baseline, unmeasured machine cost or
+unconfirmed export is a visible state; it is not a zero or a successful outcome.
