@@ -25,6 +25,9 @@
   define('brief-form','Give one piece of marketing a specific job.','You get a saved brief that connects the audience, message and requested format.','Review the claim and source material, then save the brief.');
   define('cohort-form','Make a group of users and its measurement window clear.','The saved group gives imported events a defined time range and source.','Check the dates, currency and observation limits before saving.');
   define('experiment-form subscription-plan-form','Turn an idea into a test with a clear decision rule.','You get a saved experiment definition with the proposed change, metric and stop conditions.','Check the control, treatment and measurement plan before saving.');
+  define('funnel-plan-form','Connect your creative to a useful app outcome and app sales.','You get an immutable plan linking current creative, customer evidence, a saved cohort and the stages you choose.','Name the outcome, select the sources and review stage populations before saving.');
+  define('funnel-observation-form','Record what a source observed at one app-sales stage.','You get a source-bound count with its window, population and complete, partial or unknown coverage.','Use the source event identity and inspected export hash; zero is a real observation and unknown remains unknown.');
+  define('funnel-batch-form','Bring an inspected observation batch into this saved app-sales plan.','You get deduplicated local evidence and a complete stage report; existing payment and refund events are not recreated.','Inspect the original JSON, confirm the saved stage scope and import once. If the response is lost, reconcile or explicitly retry the identical request.');
   define('experiment-action-form','Decide what to do with this experiment’s current evidence.','The selected action is recorded against this experiment.','Read the assessment and exact action below before confirming.');
   define('experiment-schedule-form','Choose when this experiment is checked again.','You get the saved schedule for supported local evaluation.','Review the interval and current experiment before saving.');
   define('history-form provider-report-form release-inventory-form','Ask a connected source for a specific set of records.','A supported read saves its result with the selected account and app context.','Review the source, time range and requested read before running it.');
@@ -65,6 +68,12 @@
   define('video-project-create-form','Give this video one audience and one intended action.','Choose a current source video and save an editable project with its source hash.','Name the edit, describe its purpose and create the draft before changing clips.');
   define('video-project-edit-form','Shape the saved video for the people you want to reach.','Your timing, framing and color choices become a new shared project revision. Rendering creates an actual MP4.','Save field edits before clip commands or rendering, then preview the exact output and review it before use.');
   Object.freeze(FORMS);
+  const DIALOGS=Object.freeze({
+    'Your app-sales stage results':['See where app sales advance.','Stage counts, matching conversion ratios and subscription economics come from this cohort’s saved evidence.','Resolve a missing stage or export this report.'],
+    'Your app-sales funnels':['Choose the app-sales path to work on.','Each saved plan connects creative, a cohort and the app milestones you chose.','Open its results or create a new plan.'],
+    'Saved stage observations':['See the evidence behind the counts.','This page shows retained source observations, including zero, partial and unknown counts.','Page through the history or return to the complete stage report.'],
+    'Inspect an uncertain request':['Find out what was saved.','The exact request is retained because its response was uncertain.','Reconcile saved evidence or explicitly retry the identical request.']
+  });
   function page(view){
     const row=PAGES[view];if(!row)throw new Error('This page needs its own story.');
     return `<section class="wmm-page-story" aria-label="How to use this page"><h3>${esc(row[0])}</h3><p>${esc(row[1])}</p><p><strong>What goes in:</strong> ${esc(row[2])}</p><p><strong>What you get:</strong> ${esc(row[3])}</p><p><strong>Your next step:</strong> ${esc(row[4])}</p></section>`;
@@ -73,7 +82,7 @@
     const found=[...markup.matchAll(/<form\b[^>]*\sid=["']([^"']+)["']/g)].map(match=>match[1]);
     const rows=found.map(id=>FORMS[id]);
     if(rows.some(row=>!row))return `<aside class="notice" aria-label="Task guide"><p>Review ${esc(title)}. Check the exact inputs, result and action described below before continuing.</p></aside>`;
-    const story=rows[0]||[`Inspect ${title}.`,'Read the displayed status, source and saved evidence to understand this work.','Use an action below only after reviewing its exact effect. Close this view to return to your workspace.'];
+    const story=rows[0]||DIALOGS[title]||[`Inspect ${title}.`,'Read the displayed status, source and saved evidence to understand this work.','Use an action below only after reviewing its exact effect. Close this view to return to your workspace.'];
     return `<aside class="notice" aria-label="Task guide"><div><p><strong>${esc(story[0])}</strong></p><p>${esc(story[1])}</p><p>${esc(story[2])}</p></div></aside>`;
   }
   return {PAGES,FORMS,page,dialog};

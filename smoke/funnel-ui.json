@@ -1,0 +1,15 @@
+{
+  "checks": [
+    {
+      "name": "observed-zero-is-a-real-count",
+      "kind": "python",
+      "run": "import subprocess\nscript=\"const fs=require('node:fs'),assert=require('node:assert/strict'),mod={exports:{}};const source=fs.readFileSync('mission_control/static/funnel-model.js','utf8').replace(/^export /gm,'');new Function('module','globalThis',source)(mod,{});const saved={data:{definition:{cohort_id:'cohort-one',stages:[{id:'view',unit:'VIEWS',denominator_definition:'Eligible views'}],attribution:{identity_scope:'source-app'}}}};const input={stage_id:'view',event_id:'one',source_ref:'export',source_sha256:'a'.repeat(64),starts_at:'2026-10-01T00:00:00Z',ends_at:'2026-10-02T00:00:00Z',observed_at:'2026-10-03T00:00:00Z',coverage:'OBSERVED',count:'0'};const result=typeof mod.exports.observation==='function'?mod.exports.observation(input,saved):undefined;assert.equal(result?.count,0,'Observed zero must be preserved by the model');\"\nresult=subprocess.run(['node','-e',script],capture_output=True,text=True)\nassert result.returncode==0, result.stderr"
+    },
+    {
+      "name": "actual-ui-model-and-recovery-contracts",
+      "kind": "python",
+      "must_fail_on_stub": false,
+      "run": "import subprocess\nresult=subprocess.run(['node','--test','tests/funnel_ui.test.cjs'],capture_output=True,text=True)\nassert result.returncode==0, result.stdout+result.stderr"
+    }
+  ]
+}

@@ -68,6 +68,7 @@ function render() {
   WMMVideoEditor.invalidate(state);
   WMMStudio.invalidate(state);
   WMMMedia.invalidate(state);
+  WMMFunnels.invalidate(state);
   $("#edit-app").disabled=!currentWorkspace();
   document.querySelectorAll(".nav-item").forEach(node=>{
     node.classList.toggle("active",node.dataset.view===state.view);
@@ -308,7 +309,7 @@ function money(value,currency) {
 function percent(value) {return value===null || value===undefined?"Unavailable":`${(value*100).toFixed(1)}%`;}
 
 function resultsView() {
-  return WMMGrowthReview.panel(state)+WMMSubscriptionAuthoring.panel(state)+WMMCustomerWorkflow.panel(state)+measurementIntegrityPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyResultsView();
+  return WMMFunnels.panel()+WMMGrowthReview.panel(state)+WMMSubscriptionAuthoring.panel(state)+WMMCustomerWorkflow.panel(state)+measurementIntegrityPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyResultsView();
 }
 
 function growthReviewServices() {
@@ -501,6 +502,7 @@ function modal(title,html,eyebrow="WORKSPACE") {
   WMMVideoEditor.clear();
   WMMStudio.clear();
   WMMMedia.clear();
+  WMMFunnels.clear();
   $("#modal-title").textContent=title;$("#modal-eyebrow").textContent=eyebrow;$("#modal-body").innerHTML=html;
   $("#modal-body").insertAdjacentHTML("afterbegin",WMMStories.dialog(title,html));
   automationAttach();
@@ -758,6 +760,7 @@ async function formSubmit(event) {
   if(['media-upload-form','media-review-form'].includes(formId)){event.preventDefault();return WMMMedia.submit(form,growthReviewServices());}
   if((formId||"").startsWith("control-")) {event.preventDefault();return WMMAgentControl.submit(form,growthReviewServices());}
   if(formId==="subscription-plan-form") {event.preventDefault();return WMMSubscriptionAuthoring.submit(form,growthReviewServices());}
+  if(['funnel-plan-form','funnel-observation-form','funnel-batch-form'].includes(formId)){event.preventDefault();return WMMFunnels.submit(form,growthReviewServices());}
   if(formId==="customer-workflow-form") {event.preventDefault();return WMMCustomerWorkflow.submit(form,growthReviewServices());}
   if(formId==="growth-review-form") {event.preventDefault();return WMMGrowthReview.submit(form,growthReviewServices());}
   if((formId||'').startsWith('agent-')) {event.preventDefault();return agentSubmit(form);}
@@ -862,6 +865,7 @@ async function handleAction(node) {
   if(node.dataset.action.startsWith("control-"))return WMMAgentControl.action(node,growthReviewServices());
   if(node.dataset.action.startsWith("growth-"))return WMMGrowthReview.action(node,growthReviewServices());
   if(node.dataset.action.startsWith("subscription-plan-"))return WMMSubscriptionAuthoring.action(node,growthReviewServices());
+  if(node.dataset.action.startsWith('funnel-'))return WMMFunnels.action(node,growthReviewServices());
   if(node.dataset.action.startsWith("customer-"))return WMMCustomerWorkflow.action(node,growthReviewServices());
   if(node.dataset.action.startsWith('agent-'))return agentAction(node);
   if(node.dataset.action.startsWith('social-'))return socialAction(node);
@@ -922,6 +926,7 @@ document.addEventListener("click",async event=>{
 });
 document.addEventListener("submit",formSubmit);
 document.addEventListener("change",event=>{
+  if(event.target.closest('.funnel-workspace'))return WMMFunnels.change(event.target,growthReviewServices());
   if(event.target.id==="reference-platform"){state.referencePlatform=event.target.value;render();}
   if(event.target.id==="reference-rights"){state.referenceRights=event.target.value;render();}
   if(event.target.id==="evidence-kind") evidenceForm(event.target.value);
@@ -931,7 +936,7 @@ $("#app-select").addEventListener("change",async event=>{state.app=event.target.
 $("#add-app").addEventListener("click",()=>appForm(true));
 $("#edit-app").addEventListener("click",()=>appForm(false));
 $("#close-modal").addEventListener("click",()=>$("#modal").close());
-$("#modal").addEventListener("close",()=>{WMMAgentControl.clear();WMMCompleteAutomation.clear();WMMVideoEditor.clear();WMMStudio.clear();WMMMedia.clear();delete $("#modal-body").dataset.job;});
+$("#modal").addEventListener("close",()=>{WMMAgentControl.clear();WMMCompleteAutomation.clear();WMMVideoEditor.clear();WMMStudio.clear();WMMMedia.clear();WMMFunnels.clear();delete $("#modal-body").dataset.job;});
 document.addEventListener("input",event=>{
   if(event.target.id==="reference-search"){const position=event.target.selectionStart;state.referenceFilter=event.target.value;render();$("#reference-search").focus();$("#reference-search").setSelectionRange(position,position);return;}
   if(event.target.closest("#experiment-form"))return samplePreview();
