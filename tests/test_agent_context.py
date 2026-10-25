@@ -19,7 +19,7 @@ class ContextTests(unittest.TestCase):
         app['data'].update(brand_source='Owner theme',conversation='PRIVATE_CONVERSATION')
         with patch.object(self.store,'app',return_value=app):value=snapshot(self.store,'sample-one')
         text=canonical(value)
-        self.assertEqual(len(value['sources']),17)
+        self.assertEqual(len(value['sources']),18)
         self.assertEqual(value['sources'][0]['data']['brand_source'],'Owner theme')
         self.assertNotIn('PRIVATE_CONVERSATION',text)
         self.assertEqual(value['sources'][0]['data']['authorized_spend_minor'],0)

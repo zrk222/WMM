@@ -8,6 +8,7 @@ from .release_readiness import readiness as release_readiness
 from .subscription_readiness import readiness as subscription_readiness
 from .agent_economics import derive
 from .agent_feedback import feedback
+from .creative_taste import guidance as creative_taste
 
 LIMIT = 100
 MAX_CHARS = 32768
@@ -77,6 +78,7 @@ def snapshot(store, app_id):
     sources += [provider_source('release_observation',release),provider_source('subscription_observation',subscriptions)]
     sources += [source('ledger_state','LOCAL_IMPORTED_LEDGER_DERIVATION',economics)]
     sources += [source('action_feedback','TYPED_LOCAL_ACTION_OUTCOMES',feedback(store,app))]
+    sources += [source('creative_taste','PRODUCT_ADVISORY_GUIDANCE',creative_taste())]
     value = dict(schema=SCHEMA,app_id=app_id,sources=sources,
                  excluded=['credentials','personal histories','uploaded files','customer review text','raw provider reports'],
                  external_execution='NOT_RUN')
