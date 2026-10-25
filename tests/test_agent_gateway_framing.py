@@ -182,6 +182,30 @@ class GatewayHTTPTests(unittest.TestCase):
             with self.subTest(path=path):
                 raw=self.raw_request(path,stall=True);self.assertIn(b'400',raw.split(b'\r\n')[0]);self.assertIn(b'5 seconds',raw)
 
+    def assert_deadline_rejection(self,raw,transport_error,events,elapsed):
+        matching=[event for event in events if event['path']=='/api/agent-operations/call']
+        self.assertEqual(len(matching),1,'the same request needs one observed server deadline denial')
+        self.assertIn('5 seconds',matching[0]['message'])
+        self.assertTrue(matching[0]['close_connection'])
+        self.assertLess(elapsed,5.8)
+        if transport_error is None:
+            self.assertIn(b'400',raw.split(b'\r\n')[0]);self.assertIn(b'5 seconds',raw)
+        else:
+            self.assertIn(transport_error,('ConnectionAbortedError','ConnectionResetError'))
+
+    def test_transport_abort_without_server_deadline_denial_fails(self):
+        with self.assertRaisesRegex(AssertionError,'same request needs one observed server deadline denial'):
+            self.assert_deadline_rejection(b'','ConnectionAbortedError',[],5.0)
+
+    def test_deadline_rejection_requires_close_and_bounded_elapsed_even_after_abort(self):
+        event=dict(path='/api/agent-operations/call',message='Agent body read exceeded 5 seconds',close_connection=True)
+        self.assert_deadline_rejection(b'','ConnectionAbortedError',[event],5.0)
+        for changed,elapsed in ((dict(event,close_connection=False),5.0),(event,6.0),
+                                (dict(event,message='wrong denial'),5.0),
+                                (dict(event,path='/foreign'),5.0)):
+            with self.subTest(changed=changed,elapsed=elapsed),self.assertRaises(AssertionError):
+                self.assert_deadline_rejection(b'','ConnectionResetError',[changed],elapsed)
+
     def test_actual_trickle_body_stops_before_admission_at_total_deadline(self):
         client=socket.create_connection(('127.0.0.1',self.server.server_port),timeout=8)
         prefix=(f'POST /api/agent-operations/call HTTP/1.1\r\nHost: {self.origin[7:]}\r\nOrigin: {self.origin}\r\n'
@@ -194,17 +218,25 @@ class GatewayHTTPTests(unittest.TestCase):
                     if index:time.sleep(1)
                     client.sendall(bytes([byte]))
             except OSError as error:errors.append(type(error).__name__)
-        with patch('mission_control.agent_grants.Grants.admit') as admit:
+        events=[];original=agent_grant_http.read_body
+        def observed_body(handler):
+            try:return original(handler)
+            except Invalid as error:
+                events.append(dict(path=handler.path,message=str(error),close_connection=handler.close_connection))
+                raise
+        with patch('mission_control.agent_grants.Grants.admit') as admit, \
+             patch('mission_control.agent_grant_http.read_body',side_effect=observed_body):
             try:
                 started=time.monotonic();client.sendall(prefix)
-                sender=threading.Thread(target=trickle);sender.start();raw=b''
+                sender=threading.Thread(target=trickle);sender.start();raw=b'';transport_error=None
                 while True:
-                    value=client.recv(65536)
+                    try:value=client.recv(65536)
+                    except (ConnectionAbortedError,ConnectionResetError) as error:
+                        transport_error=type(error).__name__;break
                     if not value:break
                     raw+=value
                 elapsed=time.monotonic()-started
-                self.assertIn(b'400',raw.split(b'\r\n')[0]);self.assertIn(b'5 seconds',raw)
-                self.assertLess(elapsed,5.8);admit.assert_not_called()
+                self.assert_deadline_rejection(raw,transport_error,events,elapsed);admit.assert_not_called()
             finally:client.close();sender.join(timeout=8)
 
 
