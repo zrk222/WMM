@@ -25,6 +25,7 @@ OPERATIONS={
     'studio.close':descriptor('POST','/studio/{resource_id}/close','STOP_OWNED_LOCAL_NATIVE_SESSION',(),(),True),
     'native.read':descriptor('GET','/native-renders','READ_PRIVATE_LOCAL_DATA'),
     'native.queue':descriptor('POST','/production/renders','QUEUE_LOCAL_PREPARATION',('data','request_key')),
+    'media.sources':descriptor('GET','/media/sources','READ_PRIVATE_LOCAL_DATA'),
     'editor.list':descriptor('GET','/video-projects','READ_PRIVATE_LOCAL_DATA'),
     'editor.renders':descriptor('GET','/video-edit-renders','READ_PRIVATE_LOCAL_DATA'),
     'editor.queue':descriptor('POST','/video-edit-renders','QUEUE_LOCAL_PREPARATION',('data','request_key')),

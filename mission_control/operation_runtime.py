@@ -13,6 +13,7 @@ def execute(service,envelope):
     from .hypit_jobs import HypitRenders
     from .creative_rendering import Renders
     from .video_edit_projects import Projects
+    from .managed_media_store import Media
     from .video_edit_jobs import EditRenders
     request_data(envelope)
     if envelope['operation'].startswith('studio.'):
@@ -28,6 +29,7 @@ def execute(service,envelope):
         'hypit.queue':lambda:HypitRenders(store).queue(app,body),
         'native.read':lambda:Renders(store).list(app),
         'native.queue':lambda:Renders(store).queue(app,body),
+        'media.sources':lambda:Media(store).sources(app),
         'editor.list':lambda:Projects(store,'SCOPED_AGENT').list(app),
         'editor.renders':lambda:EditRenders(store).list(app),
         'editor.queue':lambda:EditRenders(store).queue(app,body),

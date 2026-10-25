@@ -9,7 +9,9 @@ class OperationCatalogTests(unittest.TestCase):
         value=catalog()
         self.assertEqual(value['catalog_sha256'],digest({key:item for key,item in value.items() if key!='catalog_sha256'}))
         self.assertFalse(value['full_agent_operation'])
-        self.assertEqual(len(value['operations']),38)
+        self.assertEqual(value['operations']['media.sources']['method'],'GET')
+        self.assertEqual(value['operations']['media.sources']['suffix'],'/media/sources')
+        self.assertEqual(len(value['operations']),39)
         value['operations']['workspace.read']['suffix']='/arbitrary'
         self.assertEqual(catalog()['operations']['workspace.read']['suffix'],'')
         self.assertIn('human_approval',value['denied'])

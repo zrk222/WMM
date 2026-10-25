@@ -1,0 +1,337 @@
+name: agent-media-sources
+language: python
+modules:
+- name: managed_media_store
+  path: mission_control/managed_media_store.py
+  language: python
+  functions:
+  - name: _integer
+    args:
+    - value
+    - name
+    - maximum
+    returns: object
+  - name: _request_key
+    args:
+    - value
+    returns: object
+  - name: _filename
+    args:
+    - value
+    returns: object
+  - name: _upload_body
+    args:
+    - body
+    returns: object
+  - name: _request_hash
+    args:
+    - manifest
+    - filename
+    - source_hash
+    - size
+    returns: object
+  - name: _manifest
+    args:
+    - db
+    - app_id
+    - expected
+    returns: object
+  - name: _validated
+    args:
+    - raw
+    - suffix
+    - alive
+    returns: object
+  - name: _linked
+    args:
+    - info
+    returns: object
+  - name: _identity
+    args:
+    - info
+    returns: object
+  - name: _plain
+    args:
+    - path
+    - directory
+    - missing
+    returns: object
+  - name: _inside
+    args:
+    - path
+    - base
+    returns: object
+  - name: _folder
+    args:
+    - store
+    - app_id
+    - create
+    returns: object
+  - name: _file_path
+    args:
+    - store
+    - app_id
+    - name
+    - create
+    returns: object
+  - name: _path_signature
+    args:
+    - path
+    - size
+    returns: object
+  - name: _read_original
+    args:
+    - path
+    - size
+    - expected_hash
+    returns: object
+  - name: _remove_owned
+    args:
+    - path
+    - identity
+    returns: object
+  - name: _write_exclusive
+    args:
+    - path
+    - raw
+    - alive
+    returns: object
+  - name: _decode_data
+    args:
+    - row
+    returns: object
+  - name: _review_hash
+    args:
+    - row
+    returns: object
+  - name: _review_envelope
+    args:
+    - body
+    returns: object
+  - name: _principal
+    args:
+    - user
+    returns: object
+  - name: _history
+    args:
+    - db
+    - app_id
+    - media_id
+    returns: object
+  - name: _reviewer_current
+    args:
+    - db
+    - app_id
+    - review
+    returns: object
+  - name: _public
+    args:
+    - db
+    - store
+    - app_id
+    - row
+    - include_history
+    - verify_bytes
+    - original_verified
+    returns: object
+  - name: derivative_snapshot
+    args:
+    - db
+    - store
+    - app_id
+    - media_id
+    - expected_sha256
+    - capture
+    - verify_bytes
+    returns: object
+  - name: __init__
+    args:
+    - self
+    - store
+    returns: object
+  - name: upload
+    args:
+    - self
+    - app_id
+    - filename
+    - raw
+    - body
+    - alive
+    returns: object
+  - name: _replay
+    args:
+    - self
+    - db
+    - app_id
+    - row
+    - manifest
+    - filename
+    - raw
+    returns: object
+  - name: _commit_upload
+    args:
+    - self
+    - app_id
+    - manifest
+    - key
+    - request_hash
+    - filename
+    - raw
+    - inspected
+    - alive
+    returns: object
+  - name: list
+    args:
+    - self
+    - app_id
+    returns: object
+  - name: sources
+    args:
+    - self
+    - app_id
+    returns: object
+  - name: read
+    args:
+    - self
+    - app_id
+    - media_id
+    returns: object
+  - name: original
+    args:
+    - self
+    - app_id
+    - media_id
+    - principal
+    returns: object
+  - name: review
+    args:
+    - self
+    - app_id
+    - media_id
+    - body
+    - user
+    returns: object
+  - name: _append_review
+    args:
+    - self
+    - app_id
+    - media_id
+    - request
+    - principal
+    returns: object
+  - name: _insert_review
+    args:
+    - db
+    - app_id
+    - media_id
+    - request
+    - principal
+    - role_version
+    returns: object
+  - name: resolve
+    args:
+    - self
+    - app_id
+    - media_id
+    - sha256
+    - require_reuse
+    returns: object
+- name: managed_media_http
+  path: mission_control/managed_media_http.py
+  language: python
+  functions:
+  - name: singleton
+    args:
+    - handler
+    - name
+    returns: object
+  - name: route
+    args:
+    - handler
+    - parts
+    returns: object
+  - name: owner
+    args:
+    - handler
+    - parts
+    returns: object
+  - name: body
+    args:
+    - handler
+    - content_type
+    - limit
+    returns: object
+  - name: post
+    args:
+    - handler
+    - parts
+    returns: object
+  - name: get
+    args:
+    - handler
+    - parts
+    returns: object
+  - name: serve
+    args:
+    - handler
+    - parts
+    - item
+    - raw
+    - suffix
+    returns: object
+- name: operation_catalog
+  path: mission_control/operation_catalog.py
+  language: python
+  functions:
+  - name: descriptor
+    args:
+    - method
+    - suffix
+    - effect
+    - required
+    - optional
+    - resource
+    returns: object
+  - name: catalog
+    args: []
+    returns: object
+  - name: path_segment
+    args:
+    - value
+    returns: object
+  - name: exact_keys
+    args:
+    - value
+    - required
+    - optional
+    returns: object
+  - name: local_constraints
+    args:
+    - operation
+    - body
+    returns: object
+  - name: pipeline_input
+    args:
+    - body
+    returns: object
+  - name: request_data
+    args:
+    - envelope
+    returns: object
+- name: operation_runtime
+  path: mission_control/operation_runtime.py
+  language: python
+  functions:
+  - name: execute
+    args:
+    - service
+    - envelope
+    returns: object
+  - name: save_evidence
+    args:
+    - service
+    - app
+    - body
+    returns: object
+dependencies: []
+invariants: []

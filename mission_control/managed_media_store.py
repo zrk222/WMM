@@ -484,6 +484,15 @@ class Media:
                               (app_id, MAX_ITEMS)).fetchall()
             return dict(items=[_public(db, self.store, app_id, row) for row in rows])
 
+    def sources(self, app_id):
+        """Project bounded source selection metadata without owner evidence or file access."""
+        rows = self.list(app_id)['items']
+        fields = ('id', 'manifest_version', 'source_sha256', 'bytes', 'metadata', 'decoded',
+                  'rights_status', 'reuse_available', 'review_version', 'source_integrity')
+        return dict(app_id=app_id, items=[dict(kind='MANAGED', **{key: row[key] for key in fields}) for row in rows],
+                    source_bytes_access=False, review_authority=False,
+                    next_action='Select current approved sources for a shared editor project; save and render reverify source bytes and owner reuse.')
+
     def read(self, app_id, media_id):
         """Verify exact retained original bytes and expose bounded review history."""
         app_id = identifier(app_id)
