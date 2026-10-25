@@ -38,20 +38,22 @@ class Importer:
         if current != row or self.connections.readiness(row) != 'CONNECTED':
             raise Invalid('Drive import access changed or expired; reconnect or select again')
 
-    def import_file(self, app_id, body, alive=lambda: None):
+    def import_file(self, app_id, body, alive=lambda: None, progress=lambda code: None):
         """Verify account and content before and after one exact selected-file download."""
         row, upload = self.selected(app_id, body)
         def check():
             alive(); self.guard(row)
         secret = self.connections.secrets.load(app_id, row['secret_ref'], connection_binding(row))
         bearer = secret['access_token']; check()
-        self.account(row, bearer); check()
-        before = transport.read_metadata(body['file_id'], bearer); check()
-        raw = transport.download(before, bearer, check); check()
+        progress('DRIVE_ACCOUNT'); self.account(row, bearer); check()
+        progress('DRIVE_METADATA'); before = transport.read_metadata(body['file_id'], bearer); check()
+        progress('DRIVE_DOWNLOAD'); raw = transport.download(before, bearer, check); check()
+        progress('DRIVE_RECHECK')
         after = transport.read_metadata(body['file_id'], bearer); check()
         if before != after:raise Invalid('Drive original changed during download; select the current file again')
         self.account(row, bearer); check()
         source = provenance(row, before)
+        progress('DRIVE_VALIDATION')
         return self.media._ingest(app_id, before['filename'], raw, upload, check, source)
 
     def account(self, row, bearer):

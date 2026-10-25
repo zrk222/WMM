@@ -19,7 +19,7 @@ from .automation_health import Supervision
 def enqueue(store,app_id,action,data,request_key):
     """Persist an idempotent app-scoped job while rejecting a reused key with different input."""
     store.app(app_id)
-    if action not in ("pipeline","sync","render","hypit_render","edit_render"):
+    if action not in ("pipeline","sync","render","hypit_render","edit_render","drive_import"):
         raise Invalid("Unknown job action")
     request_key=required(request_key,"Request key",120)
     with connection(store.path) as db:
@@ -45,7 +45,7 @@ def jobs(store,app_id):
     """Return bounded recent runs for one workspace."""
     store.app(app_id)
     with connection(store.path) as db:
-        return [json_job(r) for r in db.execute("SELECT * FROM jobs WHERE app_id=? ORDER BY created DESC LIMIT 100",(app_id,))]
+        return [json_job(r) for r in db.execute("SELECT * FROM jobs WHERE app_id=? AND action!='drive_import' ORDER BY created DESC LIMIT 100",(app_id,))]
 
 
 def claim(store):
@@ -66,17 +66,10 @@ def process(store,job,stop=None):
     if job['action']=='agent_run':
         from .agent_tasks import execute as agent_execute
         return agent_execute(store,job,stop)
+    if job['action'] in ('drive_import','hypit_render','edit_render','render'):
+        return process_media(store,job,stop)
     app=store.app(job["app_id"])
     records=store.records(app["id"])
-    if job["action"]=="hypit_render":
-        from .hypit_jobs import HypitRenders
-        return HypitRenders(store).execute(job,stop)
-    if job['action']=='edit_render':
-        from .video_edit_jobs import EditRenders
-        return EditRenders(store).execute(job,stop)
-    if job["action"]=="render":
-        from .creative_rendering import Renders
-        return Renders(store).execute(job,stop)
     if job["action"]=="experiment":
         return Experiments(store).evaluate(app["id"],job["data"]["experiment_id"],scheduled=job["data"])
     if job['action'] in ('resolution','experiment_tracking'):
@@ -102,6 +95,16 @@ def process(store,job,stop=None):
         result=sync(binding,app["id"])
     current_connection(store,app["id"],job["data"])
     return result
+
+
+def process_media(store,job,stop):
+    """Keep local media worker dispatch explicit without widening generic queue authority."""
+    from .drive_import_jobs import Imports
+    from .hypit_jobs import HypitRenders
+    from .video_edit_jobs import EditRenders
+    from .creative_rendering import Renders
+    handlers={'drive_import':Imports,'hypit_render':HypitRenders,'edit_render':EditRenders,'render':Renders}
+    return handlers[job['action']](store).execute(job,stop)
 
 
 def process_evidence_job(store,job):
@@ -135,6 +138,10 @@ def current_connection(store,app_id,data):
 
 def failed_result(job,error):
     """Only already-permitted transient source reads get the existing bounded retry."""
+    if job['action']=='drive_import':
+        return dict(error='Drive import stopped at a source, permission or validation boundary.',
+                    next_action='Inspect the private Drive import and reconnect, review or retry explicitly.',
+                    external_execution='READ_ATTEMPT_MAY_HAVE_OCCURRED'),'BLOCKED',0
     result={'error':str(error),'next_action':'Review inputs or connection, then create a new run','external_execution':'NOT_RUN'}
     if job['action']!='sync' or 'agent_policy_sha256' not in job['data'] or job['attempts']>=3:
         return result,'BLOCKED',0

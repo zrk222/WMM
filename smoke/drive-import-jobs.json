@@ -1,0 +1,15 @@
+{
+  "checks": [
+    {
+      "name": "fixed-owner-job-envelope",
+      "kind": "python",
+      "run": "from mission_control.drive_import_jobs import frozen\nfrom types import SimpleNamespace\nx=frozen(SimpleNamespace(path='synthetic.sqlite3'),{'id':'one'},{'file_id':'selected'},'owner',1)\nassert isinstance(x,dict) and x['owner']=='owner' and x['owner_version']==1\nassert x['request']=={'file_id':'selected'} and len(x['namespace'])==24\nassert 'secret_ref' not in str(x)"
+    },
+    {
+      "name": "actual-durable-worker-private-telemetry-and-recovery",
+      "kind": "python",
+      "must_fail_on_stub": false,
+      "run": "import unittest\ns=unittest.defaultTestLoader.loadTestsFromName('tests.test_drive_import_jobs')\nr=unittest.TextTestRunner(verbosity=2).run(s)\nassert r.wasSuccessful() and not r.skipped, 'Actual import worker owner cancellation privacy and recovery checks must pass'"
+    }
+  ]
+}
