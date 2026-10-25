@@ -4,10 +4,11 @@ import json
 from pathlib import Path
 import re
 import tempfile
+import time
 from .common import Invalid, canonical, digest, now, uid
 from .db import connection
 from .creative_rendering import owned, heartbeat, artifact_file as native_file
-from .video_edit_contract import exact, identifier, integer
+from .video_edit_contract import exact, identifier, integer, source_key
 from .video_edit_projects import head, revision, saved_data, MAX_REVISIONS
 from .video_edit_rendering import render
 from .native_runtime_identity import identity as runtime_identity
@@ -107,25 +108,48 @@ class EditRenders:
             sources = self.copy_sources(folder, app_id, request)
             emit(self.store, job, 'EDIT_ENCODING')
             output, artifact = render(folder, request['project']['definition'], sources,
-                                      lambda: heartbeat(self.store, job, stop))
+                                      self.render_guard(job, stop))
             heartbeat(self.store, job, stop);emit(self.store, job, 'EDIT_COMMIT')
             return self.commit(job, artifact, output)
 
+    def render_guard(self, job, stop):
+        """Stop an owned renderer when current uploaded-source reuse is revoked."""
+        from .managed_media_store import derivative_snapshot
+        checked = [0.0]
+        def alive():
+            heartbeat(self.store, job, stop)
+            stamp = time.monotonic()
+            if stamp - checked[0] < 1:
+                return
+            with connection(self.store.path) as db:
+                db.execute('BEGIN')
+                for source in job['data']['project']['sources']:
+                    if source['kind'] == 'MANAGED':
+                        derivative_snapshot(db, self.store, job['app_id'], source['id'], source['sha256'], verify_bytes=False)
+            checked[0] = stamp
+        return alive
+
     def copy_sources(self, folder, app_id, request):
-        """Copy each selected hash-verified source once, using internal numeric names."""
+        """Capture verified source bytes once; never reopen an untrusted original path."""
+        from .managed_media_store import derivative_snapshot
         result = {}
         for index, source in enumerate(request['project']['sources']):
-            path, data = native_file(self.store, app_id, source['id'])
-            raw = path.read_bytes()
+            if source['kind'] == 'MANAGED':
+                with connection(self.store.path) as db:
+                    db.execute('BEGIN')
+                    _, raw = derivative_snapshot(db, self.store, app_id, source['id'], source['sha256'], capture=True)
+            else:
+                path, data = native_file(self.store, app_id, source['id'])
+                raw = path.read_bytes()
             if hashlib.sha256(raw).hexdigest() != source['sha256']:raise Invalid('Source changed while copying edited media')
-            target = folder/f'source{index}.mp4';target.write_bytes(raw);result[source['id']] = target
+            target = folder/f'source{index}.mp4';target.write_bytes(raw);result[source_key(source)] = target
         return result
 
     def commit(self, job, artifact, output):
         """Remove exclusively created output if the guarded artifact transaction fails."""
         app_id = job['app_id'];identity = uid();target = folder_for(self.store, app_id)/(identity+'.mp4');created = False
         data = dict(request=job['data'], artifact=artifact, renderer='NATIVE_EDIT_TIMELINE',
-                    publication='NOT_RUN', final_artifact_review='REQUIRED', audio='SILENT_NATIVE_SOURCE_PROFILE',
+                    publication='NOT_RUN', final_artifact_review='REQUIRED', audio='SELECTED_SOURCE_AUDIO' if any(c.get('audio') == 'RETAIN' for c in job['data']['project']['definition']['clips']) else 'SILENT_NATIVE_SOURCE_PROFILE',
                     cost=dict(model_api_charge_minor=0, machine_cost='NOT_MEASURED'))
         try:
             with connection(self.store.path) as db:

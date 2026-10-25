@@ -6,7 +6,7 @@ import json
 from .common import Invalid, canonical, digest, now, required
 from .db import connection
 from .creative_rendering import artifact_file, current_request
-from .video_edit_contract import definition, edit, exact, identifier, integer, timing, FPS
+from .video_edit_contract import definition, edit, exact, identifier, integer, timing, FPS, source_key
 
 MAX_REVISIONS = 200
 MAX_PROJECTS = 100
@@ -60,19 +60,31 @@ def app_version(db, app_id, expected):
     return json.loads(row['data'])
 
 
+def source_binding(db, store, app_id, source):
+    """Resolve selected kind through its authoritative domain proof."""
+    identity = source['id']
+    if source['kind'] == 'MANAGED':
+        from .managed_media_store import derivative_snapshot
+        item, _ = derivative_snapshot(db, store, app_id, identity, source['sha256'])
+        return dict(kind='MANAGED', id=identity, sha256=item['source_sha256'],
+                    source_frames=int(item['metadata']['duration_seconds'] * FPS),
+                    review_version=item['review_version'], manifest_version=item['manifest_version'])
+    path, data = artifact_file(store, app_id, identity)
+    current_request(db, store, app_id, data['request'])
+    artifact = data['artifact']
+    return dict(kind='NATIVE', id=identity, sha256=artifact['sha256'],
+                source_frames=round(artifact['metadata']['duration_seconds'] * FPS),
+                native_request_hash=digest(data['request']))
+
+
 def bind_sources(db, store, app_id, value):
     """Every saved/restored source must still pass original rights, bytes and proof."""
     bindings = {}
     for clip in value['clips']:
-        source = clip['source'];identity = source['id']
-        if identity not in bindings:
-            path, data = artifact_file(store, app_id, identity)
-            current_request(db, store, app_id, data['request'])
-            artifact = data['artifact']
-            frames = round(artifact['metadata']['duration_seconds'] * FPS)
-            bindings[identity] = dict(kind='NATIVE', id=identity, sha256=artifact['sha256'],
-                                      source_frames=frames, native_request_hash=digest(data['request']))
-        bound = bindings[identity]
+        source = clip['source'];key = source_key(source)
+        if key not in bindings:
+            bindings[key] = source_binding(db, store, app_id, source)
+        bound = bindings[key]
         if source['sha256'] != bound['sha256'] or clip['out_frame'] > bound['source_frames']:
             raise Invalid('Clip source hash or frame range changed; inspect the current source')
     return [bindings[key] for key in sorted(bindings)]

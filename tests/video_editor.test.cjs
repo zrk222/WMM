@@ -20,7 +20,7 @@ test('human settings preserve exact source identities and typed crop/timing valu
 test('clip controls escape source identifiers and expose commands and current profile honestly',()=>{
  const c=data().clips[0];c.id='<img src=x onerror=alert(1)>';
  const html=ui.clipMarkup(c,0,1);assert.ok(!html.includes('<img'));for(const name of ['Move earlier','Move later','Duplicate clip','Delete clip','Split clip','Framing, crop and color','Source start frame'])assert.ok(html.includes(name));assert.ok(html.includes('disabled'));
- const panel=ui.panel();assert.ok(panel.includes('silent native'));assert.ok(panel.includes('whole source frame'));assert.ok(!panel.includes('fully complete'));
+ const panel=ui.panel();assert.ok(panel.includes('Uploaded clips can retain or mute'));assert.ok(panel.includes('whole source frame'));assert.ok(!panel.includes('fully complete'));
 });
 test('reports project observed metrics without unrelated secrets or raw operation payloads',()=>{
  const p=project();p.data.secret_profile={api_key:'PRIVATE_KEY_SENTINEL'};
@@ -49,4 +49,15 @@ test('unsaved fields block rendering and results navigation before any server ca
  let calls=0;f.deps.api=async()=>{calls++;return {};};
  await ui.action({dataset:{action:'veditor-render'}},f.deps);assert.equal(calls,0);assert.ok(f.error.textContent.includes('Save your current field edits first'));
  await ui.action({dataset:{action:'veditor-outputs'}},f.deps);assert.equal(calls,0);assert.equal(v.title,'Unsaved title');ui.clear();
+});
+
+test('managed source selection retains kind, digest and explicit sound controls',()=>{
+ const managed={id:source.id,kind:'MANAGED',data:{artifact:{sha256:'d'.repeat(64),metadata:{duration_seconds:2}}}};
+ const d=ui.newData({title:'UGC edit',purpose:'One useful demonstration'},managed,'en-US','ugc-one');
+ assert.deepEqual(d.clips[0].source,{kind:'MANAGED',id:source.id,sha256:'d'.repeat(64)});
+ assert.equal(d.clips[0].audio,'RETAIN');
+ const p={data:{definition:d}},v=fields(p);v['c0.audio']='MUTE';
+ assert.equal(ui.edited(p,v).clips[0].audio,'MUTE');
+ assert.match(ui.clipMarkup(d.clips[0],0,1),/Retain source sound/);
+ assert.match(ui.clipMarkup(d.clips[0],0,1),/normalized to 24/);
 });
