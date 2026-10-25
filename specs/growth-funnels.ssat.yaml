@@ -1,0 +1,195 @@
+name: growth-funnels
+language: python
+modules:
+- name: funnel_contract
+  path: mission_control/funnel_contract.py
+  language: python
+  functions:
+  - name: rows
+    args:
+    - value
+    - maximum
+    - name
+    - minimum
+    returns: object
+  - name: source_ref
+    args:
+    - value
+    returns: object
+  - name: unique
+    args:
+    - values
+    - field
+    - name
+    returns: object
+  - name: stages
+    args:
+    - value
+    returns: object
+  - name: window
+    args:
+    - value
+    returns: object
+  - name: outcome
+    args:
+    - value
+    returns: object
+  - name: offer_boundary
+    args:
+    - value
+    returns: object
+  - name: definition
+    args:
+    - value
+    returns: object
+  - name: observation
+    args:
+    - value
+    - plan
+    - observed_at
+    returns: object
+  - name: observation_window
+    args:
+    - value
+    - plan
+    - observed_at
+    returns: object
+- name: funnel_store
+  path: mission_control/funnel_store.py
+  language: python
+  functions:
+  - name: decoded
+    args:
+    - row
+    returns: object
+  - name: app_context
+    args:
+    - db
+    - app_id
+    - expected
+    returns: object
+  - name: cohort_binding
+    args:
+    - db
+    - app_id
+    - plan
+    - app
+    returns: object
+  - name: creative_binding
+    args:
+    - db
+    - store
+    - app_id
+    - ref
+    returns: object
+  - name: research_binding
+    args:
+    - db
+    - app_id
+    - ref
+    - stamp
+    returns: object
+  - name: source_bindings
+    args:
+    - db
+    - store
+    - app_id
+    - plan
+    - stamp
+    returns: object
+  - name: frozen
+    args:
+    - db
+    - store
+    - app_id
+    - plan
+    - version
+    - stamp
+    returns: object
+  - name: current
+    args:
+    - db
+    - store
+    - app_id
+    - data
+    - stamp
+    returns: object
+  - name: __init__
+    args:
+    - self
+    - store
+    - clock
+    returns: object
+  - name: save
+    args:
+    - self
+    - app_id
+    - body
+    returns: object
+  - name: list
+    args:
+    - self
+    - app_id
+    returns: object
+  - name: ingest
+    args:
+    - self
+    - app_id
+    - body
+    returns: object
+  - name: insert
+    args:
+    - self
+    - db
+    - app_id
+    - funnel_id
+    - value
+    - stamp
+    returns: object
+  - name: observations
+    args:
+    - self
+    - app_id
+    - funnel_id
+    returns: object
+  - name: report
+    args:
+    - self
+    - app_id
+    - funnel_id
+    - as_of
+    returns: object
+- name: funnel_reporting
+  path: mission_control/funnel_reporting.py
+  language: python
+  functions:
+  - name: selected_snapshot
+    args:
+    - stage
+    - observations
+    - attribution
+    - as_of
+    returns: object
+  - name: edge_rate
+    args:
+    - parent
+    - child
+    returns: object
+  - name: calculate
+    args:
+    - saved
+    - observations
+    - ledger
+    - as_of
+    - source_status
+    returns: object
+- name: funnel_db
+  path: mission_control/db.py
+  language: python
+  functions:
+  - name: initialize
+    args:
+    - path
+    returns: object
+dependencies: []
+invariants: []

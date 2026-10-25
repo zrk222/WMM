@@ -1,0 +1,15 @@
+{
+  "checks": [
+    {
+      "name": "stage-cycle-rejected",
+      "kind": "python",
+      "run": "from mission_control.funnel_contract import stages\nrow=dict(id='one',type='INSTALL',label='Install',parents=['one'],unit='UNIQUE_SUBJECTS',denominator_definition='Eligible cohort')\ntry:\n    stages([row])\nexcept Exception as error:\n    assert type(error).__name__=='Invalid', type(error).__name__\nelse:\n    raise AssertionError('Cyclic funnel stage was accepted')"
+    },
+    {
+      "name": "actual-source-binding-sqlite-restart",
+      "kind": "python",
+      "must_fail_on_stub": false,
+      "run": "import unittest\nsuite=unittest.defaultTestLoader.loadTestsFromName('tests.test_funnel_store.FunnelStoreTests.test_real_sources_definition_replay_observed_zero_restart_and_no_payment_duplication')\nresult=unittest.TextTestRunner(verbosity=2).run(suite)\nassert result.wasSuccessful(), 'Actual SQLite/source/restart acceptance failed'"
+    }
+  ]
+}
