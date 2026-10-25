@@ -10,6 +10,30 @@ from mission_control import hypit_installation as target
 from mission_control.common import Invalid
 
 
+def short_windows_path(path):
+    """Return a native 8.3 alias when Windows provides one, otherwise None."""
+    if os.name != 'nt':
+        return None
+    try:
+        import ctypes
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        get_short = kernel.GetShortPathNameW
+        get_short.argtypes = (ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint)
+        get_short.restype = ctypes.c_uint
+        size = get_short(str(path), None, 0)
+        if not size:
+            return None
+        buffer = ctypes.create_unicode_buffer(size)
+        if not get_short(str(path), buffer, size):
+            return None
+        alias = Path(buffer.value)
+        if os.path.normcase(str(alias)) == os.path.normcase(str(path)):
+            return None
+        return alias
+    except (AttributeError, OSError):
+        return None
+
+
 class InstallationTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix='wmm-installation-test-')
@@ -154,9 +178,31 @@ class InstallationTests(unittest.TestCase):
         npm.mkdir()
         launcher = npm/'hypit.cmd'
         launcher.write_text('synthetic wrapper')
-        with patch.object(target.shutil,'which',side_effect=lambda n:str(launcher if n=='hypit' else self.node)), patch.object(target,'fingerprint',return_value={'fixture':True}) as inspect:
+        with patch.object(target.shutil, 'which', side_effect=lambda n: str(launcher if n == 'hypit' else self.node)), \
+                patch.object(target, 'fingerprint', return_value={'fixture': True}) as inspect, \
+                patch.object(target, 'capture') as execute:
             self.assertEqual(target.discover(),{'fixture':True})
-            self.assertEqual(inspect.call_args.args,(self.node.resolve(),npm/'node_modules/@hypit/hypit/bin/hypit.mjs'))
+            expected_entry = (npm/'node_modules/@hypit/hypit/bin/hypit.mjs').resolve()
+            self.assertEqual(inspect.call_args.args,(self.node.resolve(),expected_entry))
+            execute.assert_not_called()
+
+    def test_npm_discovery_normalizes_native_windows_8dot3_alias_without_execution(self):
+        npm = self.base/'npm'
+        npm.mkdir()
+        launcher = npm/'hypit.cmd'
+        launcher.write_text('synthetic wrapper')
+        alias_base = short_windows_path(self.base)
+        if alias_base is None:
+            return
+        alias_launcher = alias_base/'npm/hypit.cmd'
+        self.assertTrue(alias_launcher.is_file())
+        with patch.object(target.shutil,'which',side_effect=lambda n:str(alias_launcher if n=='hypit' else self.node)), \
+                patch.object(target,'fingerprint',return_value={'fixture':True}) as inspect, \
+                patch.object(target,'capture') as execute:
+            self.assertEqual(target.discover(),{'fixture':True})
+            expected_entry = (npm/'node_modules/@hypit/hypit/bin/hypit.mjs').resolve()
+            self.assertEqual(inspect.call_args.args,(self.node.resolve(),expected_entry))
+            execute.assert_not_called()
 
     def test_volta_discovery_uses_only_fixed_which_arguments(self):
         shim = self.base/'Volta/bin/hypit.cmd'
