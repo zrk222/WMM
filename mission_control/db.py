@@ -4,6 +4,10 @@ from pathlib import Path
 import sqlite3
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS drive_flows(id TEXT PRIMARY KEY,app_id TEXT NOT NULL REFERENCES apps(id),manifest_version INTEGER NOT NULL,connection_id TEXT,connection_version INTEGER NOT NULL,state_hash TEXT NOT NULL UNIQUE,secret_ref TEXT NOT NULL,data TEXT NOT NULL,status TEXT NOT NULL,expires REAL NOT NULL,created TEXT NOT NULL,updated TEXT NOT NULL,result TEXT);
+CREATE INDEX IF NOT EXISTS drive_flow_app ON drive_flows(app_id,created);
+CREATE TABLE IF NOT EXISTS drive_connections(app_id TEXT PRIMARY KEY REFERENCES apps(id),id TEXT NOT NULL UNIQUE,version INTEGER NOT NULL,data TEXT NOT NULL,secret_ref TEXT,status TEXT NOT NULL,expires REAL,created TEXT NOT NULL,updated TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS drive_retirements(app_id TEXT NOT NULL REFERENCES apps(id),reference TEXT NOT NULL,eligible REAL NOT NULL,PRIMARY KEY(app_id,reference));
 CREATE TABLE IF NOT EXISTS play_flows(id TEXT PRIMARY KEY,app_id TEXT NOT NULL REFERENCES apps(id),manifest_version INTEGER NOT NULL,connection_id TEXT,connection_version INTEGER NOT NULL,state_hash TEXT NOT NULL UNIQUE,secret_ref TEXT NOT NULL,config TEXT NOT NULL,status TEXT NOT NULL,expires REAL NOT NULL,created TEXT NOT NULL,updated TEXT NOT NULL,result TEXT);
 CREATE INDEX IF NOT EXISTS play_flow_app ON play_flows(app_id,created);
 CREATE TABLE IF NOT EXISTS play_retirements(app_id TEXT NOT NULL REFERENCES apps(id),reference TEXT NOT NULL,eligible REAL NOT NULL,PRIMARY KEY(app_id,reference));
