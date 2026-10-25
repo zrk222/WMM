@@ -170,7 +170,7 @@ class Handler(BaseHTTPRequestHandler):
         scripts=('/agent-control.js','/subscription-authoring.js','/customer-workflow.js','/growth-review.js','/page-reporting.js','/setup-discovery.js','/google-play.js','/play-callback.js','/social-access.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
                  '/workflow-automation.js','/followup.js','/aeo.js','/public-store-readback.js',
                  '/pmf-workflow.js','/pmf-research.js','/audit-runtime.js','/automatic-preparation.js','/campaign-sequence.js','/experiment-tracking.js',
-                 '/spytok-workflow.js','/production-feasibility.js','/spira-workflow.js','/journey-readiness.js','/workflow-telemetry.js','/ui-stories.js','/complete-automation.js','/video-editor.js','/studio-controls.js')
+                 '/spytok-workflow.js','/production-feasibility.js','/spira-workflow.js','/journey-readiness.js','/workflow-telemetry.js','/ui-stories.js','/complete-automation.js','/video-editor.js','/studio-controls.js','/managed-media.js')
         if path in scripts:
             return self.send(200,(STATIC/path[1:]).read_bytes(),"text/javascript; charset=utf-8")
         files={"/":"index.html","/index.html":"index.html","/style.css":"style.css","/page-reporting.css":"page-reporting.css","/video-editor.css":"video-editor.css","/app.js":"app.js","/creative-ranking.js":"creative-ranking.js","/acquisition.js":"acquisition.js","/creative-rendering.js":"creative-rendering.js","/verified-review.js":"verified-review.js","/provider-actions.js":"provider-actions.js","/outcome-learning.js":"outcome-learning.js","/signed-payments.js":"signed-payments.js"}
@@ -202,6 +202,9 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts)<3:raise KeyError(path)
         app_id=parts[2]
         store=self.server.service.store
+        if len(parts)>=4 and parts[3]=='media':
+            from .managed_media_http import get
+            return get(self,parts)
         if len(parts)>=4 and parts[3]=='video-edit-renders':
             if urlparse(self.path).query:raise Invalid('Use the exact edited video address')
             from .video_edit_jobs import EditRenders
@@ -390,6 +393,9 @@ class Handler(BaseHTTPRequestHandler):
         parts=path.strip("/").split("/")
         if len(parts)==4 and parts[:2]==["api","apps"] and parts[3]=="files":
             return self.send(201,service.upload(parts[2],unquote(self.headers.get("X-Filename","image.png")),self.body(8388608)))
+        if len(parts)>=4 and parts[:2]==['api','apps'] and parts[3]=='media':
+            from .managed_media_http import post
+            return post(self,parts)
         data=self.post_data(path,parts)
         if path=='/api/social/callback':
             from .social_callbacks import callback

@@ -1,0 +1,15 @@
+{
+  "checks": [
+    {
+      "name": "invalid-video-rejected-by-validator-contract",
+      "kind": "python",
+      "run": "from mission_control.managed_media_validation import inspect\ntry:\n    inspect(b'not a video', '.mp4', lambda: None, None)\nexcept Exception as error:\n    assert type(error).__name__ == 'Invalid', type(error).__name__\nelse:\n    raise AssertionError('invalid bytes were accepted')"
+    },
+    {
+      "name": "app-owned-media-review-and-original-read",
+      "kind": "python",
+      "must_fail_on_stub": false,
+      "run": "import atexit,hashlib,json,pathlib,shutil,subprocess,tempfile;from mission_control.common import canonical,now;from mission_control.db import connection;from mission_control.managed_media_store import Media;from mission_control.store import Store;tools={name:shutil.which(name) for name in ('ffprobe','ffmpeg')};assert all(tools.values());folder=tempfile.TemporaryDirectory(prefix='wmm-media-intake-smoke-');atexit.register(folder.cleanup);root=pathlib.Path(folder.name);source=root/'sample.mp4';command=[tools['ffmpeg'],'-hide_banner','-loglevel','error','-nostdin','-f','lavfi','-i','color=c=blue:s=64x64:r=24','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','1','-pix_fmt','yuv420p','-shortest','-c:v','libx264','-preset','ultrafast','-c:a','aac','-y',str(source)];subprocess.run(command,capture_output=True,timeout=40,check=True);raw=source.read_bytes();store=Store(root/'state.sqlite',seed=False);with_db=connection(store.path);db=with_db.__enter__();db.execute('INSERT INTO apps(id,data,version,updated) VALUES(?,?,?,?)',('smoke-app',canonical({'name':'smoke app'}),3,now()));db.execute('INSERT INTO operator_roles(app_id,principal,login,role,status,version,updated,changed_by) VALUES(?,?,?,?,?,?,?,?)',('smoke-app','owner','owner','OWNER','ACTIVE',1,now(),'owner'));with_db.__exit__(None,None,None);media=Media(store);item=media.upload('smoke-app','sample.mp4',raw,{'manifest_version':3,'request_key':'smoke-request-key'});assert item['source_sha256']==hashlib.sha256(raw).hexdigest() and item['bytes']==len(raw);assert item['metadata']['audio'] is True and item['decoded']['video_frames']>0 and item['decoded']['audio_frames']>0;assert item['rights_status']=='UNKNOWN' and item['reuse_available'] is False;review=media.review('smoke-app',item['id'],{'expected_version':0,'manifest_version':3,'source_sha256':item['source_sha256'],'status':'ALLOWED','basis':'OWNED','evidence':'Synthetic local smoke attestation only.'},{'principal':'owner'});assert review['reuse_available'] is True;assert media.resolve('smoke-app',item['id'],item['source_sha256']).read_bytes()==raw;public,original=media.original('smoke-app',item['id'],'owner');assert original==raw and public['source_integrity']=='VERIFIED';assert 'smoke-request-key' not in json.dumps(public) and 'storage_name' not in public and 'path' not in public"
+    }
+  ]
+}

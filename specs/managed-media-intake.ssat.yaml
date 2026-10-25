@@ -1,0 +1,61 @@
+name: managed-media-intake
+language: python
+modules:
+- name: managed_media_db
+  path: mission_control/db.py
+  language: python
+  functions:
+  - name: initialize
+    args: [path]
+    returns: object
+- name: managed_media_store
+  path: mission_control/managed_media_store.py
+  language: python
+  functions:
+  - name: upload
+    args: [self, app_id, filename, raw, body, alive]
+    returns: object
+  - name: list
+    args: [self, app_id]
+    returns: object
+  - name: read
+    args: [self, app_id, media_id]
+    returns: object
+  - name: original
+    args: [self, app_id, media_id, principal]
+    returns: tuple
+  - name: review
+    args: [self, app_id, media_id, body, user]
+    returns: object
+  - name: resolve
+    args: [self, app_id, media_id, sha256, require_reuse]
+    returns: object
+- name: managed_media_validation
+  path: mission_control/managed_media_validation.py
+  language: python
+  functions:
+  - name: inspect
+    args: [raw, suffix, alive, tools]
+    returns: object
+- name: managed_media_store_tests
+  path: tests/test_managed_media_store.py
+  language: python
+  functions: []
+dependencies:
+- from: managed_media_store
+  to: managed_media_db
+- from: managed_media_store
+  to: managed_media_validation
+- from: managed_media_store
+  to: review_access
+- from: managed_media_store
+  to: common
+- from: managed_media_store_tests
+  to: managed_media_store
+- from: managed_media_store_tests
+  to: managed_media_db
+- from: managed_media_store_tests
+  to: managed_media_validation
+- from: managed_media_store_tests
+  to: review_access
+invariants: []
