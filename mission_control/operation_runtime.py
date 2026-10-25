@@ -15,6 +15,7 @@ def execute(service,envelope):
     from .video_edit_projects import Projects
     from .managed_media_store import Media
     from .funnel_store import Funnels
+    from .funnel_founder_review import review as funnel_review
     from .video_edit_jobs import EditRenders
     request_data(envelope)
     if envelope['operation'].startswith('studio.'):
@@ -31,6 +32,7 @@ def execute(service,envelope):
         'native.read':lambda:Renders(store).list(app),
         'native.queue':lambda:Renders(store).queue(app,body),
         'funnel.list':lambda:Funnels(store).list(app,body.get('offset',0)),
+        'funnel.review':lambda:funnel_review(store,app,body.get('offset',0)),
         'funnel.read':lambda:Funnels(store).read(app,resource),
         'funnel.save':lambda:Funnels(store).save(app,body),
         'funnel.observations':lambda:Funnels(store).observations(app,resource,body.get('offset',0)),

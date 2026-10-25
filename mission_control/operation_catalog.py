@@ -26,6 +26,7 @@ OPERATIONS={
     'native.read':descriptor('GET','/native-renders','READ_PRIVATE_LOCAL_DATA'),
     'native.queue':descriptor('POST','/production/renders','QUEUE_LOCAL_PREPARATION',('data','request_key')),
     'funnel.list':descriptor('GET','/funnels','READ_PRIVATE_LOCAL_DATA',(),('offset',)),
+    'funnel.review':descriptor('GET','/funnels/_review','READ_PRIVATE_LOCAL_DATA',(),('offset',)),
     'funnel.read':descriptor('GET','/funnels/{resource_id}','READ_PRIVATE_LOCAL_DATA',(),(),True),
     'funnel.save':descriptor('POST','/funnels','WRITE_LOCAL_EVIDENCE',('id','manifest_version','data')),
     'funnel.observations':descriptor('GET','/funnels/{resource_id}/observations','READ_PRIVATE_LOCAL_DATA',(),('offset',),True),
@@ -92,7 +93,7 @@ def exact_keys(value,required,optional=()):
 
 def local_constraints(operation,body):
     """Limit existing general record/action routes to the intended local evidence domain."""
-    if operation in ('funnel.list','funnel.observations') and 'offset' in body:
+    if operation in ('funnel.list','funnel.observations','funnel.review') and 'offset' in body:
         from .pmf_contract import count
         count(body['offset'],0,10000)
     if operation=='billing.save' and body['kind']!='billing':

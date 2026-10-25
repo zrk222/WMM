@@ -7,7 +7,7 @@
  const valid=(t,d)=>active===t&&same(t.scope,scope(d.state))&&t.node.open;
  const base=t=>'/api/apps/'+encodeURIComponent(t.scope.app)+'/funnels';
  function clear(){active=null;}
- function invalidate(state){if(active&&!same(active.scope,scope(state)))clear();}
+ function invalidate(state){if(active&&!same(active.scope,scope(state))){const node=active.node;clear();node.close();node.querySelector('#modal-body').replaceChildren();}}
  function panel(){return `<section class="panel" id="funnel-panel"><p class="eyebrow">FROM ATTENTION TO APP VALUE</p><h2>See how your videos lead to app sales</h2><p>Connect a creative and a saved cohort to your app page, installs, onboarding, first value, purchases and renewals. Record what each source observed. WMM shows stage counts, comparable drop-off and existing subscription economics, then delivers a report you can save.</p><p>Start with a saved creative brief and an event-ledger cohort matching this app’s release, language and currency. Choose the stages and app capabilities that fit your product.</p>${m.button('Open app-sales funnels','open')}<p>Your inputs stay in this local app workspace. A saved plan does not publish content, spend money or change a live paywall.</p></section>`;}
  function show(d,title,kind,data,html,captured){
   d.modal(title,`<div class="modal-content funnel-workspace" tabindex="-1">${html}<p id="funnel-progress" role="status" aria-live="polite"></p><p id="funnel-error" class="field-error" role="alert"></p></div>`,'APP SALES');
@@ -20,7 +20,11 @@
   t.node.querySelector('.funnel-workspace').setAttribute('aria-busy',String(value));t.node.querySelector('#funnel-progress').textContent=message;
   t.node.querySelectorAll('[data-funnel-write]').forEach(n=>n.disabled=value||Boolean(t.unknown));
  }
- function fail(t,d,error){if(valid(t,d))t.node.querySelector('#funnel-error').textContent=error.message+' Your entered work is preserved. Inspect app owner access, source freshness and the declared inputs before your next action.';}
+ function fail(t,d,error){
+  if(!valid(t,d))return;const node=t.node.querySelector('#funnel-error');
+  node.textContent=error.message+' Your entered work is preserved. Inspect app owner access, source freshness and the declared inputs before your next action.';
+  if(t.kind==='loading')node.insertAdjacentHTML('afterend',`<div class="button-row">${m.button('Reload founder review','review')}${m.button('Reload saved funnels','open')}${m.button('Return to Results','review-close')}</div>`);
+ }
  async function request(d,path,body){
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),30000),method=body===undefined?'GET':'POST';let response,value;
   try{
@@ -38,6 +42,11 @@
  async function open(d,offset=0){
   const t=show(d,'Your app-sales funnels','loading',null,'<p>Reading saved app-sales plans...</p>');busy(t,true,'Reading current app evidence...');
   try{const page=await request(d,base(t)+'?offset='+m.integer(offset,'Page offset',0,10000));if(valid(t,d))show(d,'Your app-sales funnels','list',page,listHTML(t,page),t.scope);}catch(e){fail(t,d,e);}finally{busy(t,false);}
+ }
+ async function founder(d,offset=0){
+  const t=show(d,'Your app-sales founder review','loading',null,'<p>Reading current subscription and app-sales source receipts...</p>');busy(t,true,'Checking the selected app and a bounded page of saved funnel reports...');
+  try{const value=await request(d,base(t)+'/_review?offset='+m.integer(offset,'Founder page offset',0,10000));if(valid(t,d))show(d,'Your app-sales founder review','founder',value,m.founderHTML(value),t.scope);}
+  catch(e){fail(t,d,e);}finally{busy(t,false);}
  }
  function outcomeFields(s){
   const f=m.input;
@@ -67,11 +76,11 @@
   t.node.querySelector('#funnel-stage-list').innerHTML=rows.map((r,i)=>m.stageFields(r,i,t.data.contract)).join('');
   const target=t.node.querySelectorAll('[data-funnel-stage]')[Math.min(index,rows.length-1)];if(target){target.open=true;target.querySelector('summary').focus();}
  }
- async function detail(d,id){
+ async function detail(d,id,reviewOffset=0){
   const t=show(d,'Your app-sales stage results','loading',null,'<p>Reading the saved plan and complete stage report...</p>');
   try{const [saved,report]=await Promise.all([request(d,base(t)+'/'+encodeURIComponent(id)),request(d,base(t)+'/'+encodeURIComponent(id)+'/report')]);if(!valid(t,d))return;
    if(saved.hash!==report.definition_hash)throw new Error('The saved definition and report do not agree. Reload current evidence.');
-   const html=m.results(saved,report)+`<div class="button-row">${m.button('Record stage observation','observe')}${m.button('Import JSON observations','batch')}${m.button('Inspect saved observations','observations','0')}${m.button('Reload stage results','detail',saved.id)}${m.button('Report / Save PDF','pdf')}${m.button('Download report JSON','json')}${m.button('Download stage CSV','csv')}${m.button('Back to saved funnels','open')}</div>`;
+   const html=m.results(saved,report)+`<div class="button-row">${m.button('Record stage observation','observe')}${m.button('Import JSON observations','batch')}${m.button('Inspect saved observations','observations','0')}${m.button('Reload stage results','detail',saved.id)}${m.button('Report / Save PDF','pdf')}${m.button('Download report JSON','json')}${m.button('Download stage CSV','csv')}${m.button('Back to founder review','review-page',String(reviewOffset))}${m.button('Back to saved funnels','open')}</div>`;
    show(d,'Your app-sales stage results','detail',{saved,report},html,t.scope);
   }catch(e){fail(t,d,e);}
  }
@@ -134,7 +143,14 @@
  function download(d,t,kind){
   const {saved,report}=t.data;if(!saved||!report)throw new Error('Reload the exact stage results before exporting.');
   const text=kind==='csv'?m.csv(saved,report):JSON.stringify(m.exportData(saved,report),null,2),mime=kind==='csv'?'text/csv;charset=utf-8':'application/json';
-  const url=d.browser.URL.createObjectURL(new d.browser.Blob([text],{type:mime})),a=d.document.createElement('a');try{a.href=url;a.download=t.scope.app+'-'+saved.id+'-funnel.'+kind;a.click();}finally{d.browser.URL.revokeObjectURL(url);}
+  downloadText(d,t.scope.app+'-'+saved.id+'-funnel.'+kind,text,mime);
+ }
+ function downloadText(d,name,text,mime){const url=d.browser.URL.createObjectURL(new d.browser.Blob([text],{type:mime})),a=d.document.createElement('a');try{a.href=url;a.download=name;a.click();}finally{d.browser.URL.revokeObjectURL(url);}}
+ function founderExport(d,t,mode){
+  if(t.kind!=='founder')throw new Error('Reload the exact founder review before exporting.');
+  if(mode==='pdf')return d.pageReports.openReport(m.founderPrintable(t.data,d.pageReports,d.state),d.browser);
+  const text=mode==='csv'?m.founderCSV(t.data):JSON.stringify(t.data,null,2),mime=mode==='csv'?'text/csv;charset=utf-8':'application/json';
+  downloadText(d,t.scope.app+'-founder-review.'+mode,text,mime);
  }
  async function change(node,d){
   const t=active;if(!t||!valid(t,d))return;
@@ -145,7 +161,8 @@
  async function action(node,d){
   const mode=node.dataset.action.slice(7),id=node.dataset.id||'';
   try{
-   const entries={open:()=>open(d),page:()=>open(d,id),new:()=>newPlan(d),detail:()=>detail(d,id),recover:()=>recover(d,id)};
+   const reviewOffset=active?.kind==='founder'?active.data.coverage.offset:0;
+   const entries={open:()=>open(d),page:()=>open(d,id),review:()=>founder(d),'review-page':()=>founder(d,id),new:()=>newPlan(d),detail:()=>detail(d,id,reviewOffset),recover:()=>recover(d,id)};
    if(entries[mode])return await entries[mode]();
    const t=active;if(!t||!valid(t,d))throw new Error('Reopen the selected app funnel.');if(t.pending)return;
    return await activeAction(mode,id,t,d);
@@ -153,10 +170,12 @@
  }
  async function activeAction(mode,id,t,d){
   if(mode.startsWith('stage-'))return editStage(t,mode.slice(6),Number(id));
+  if(['review-pdf','review-json','review-csv'].includes(mode))return founderExport(d,t,mode.slice(7));
+  if(mode==='review-close'){d.close();d.document.querySelector('#growth-review-panel')?.scrollIntoView({block:'start'});return;}
   const actions={observe:()=>importForm(d,t,false),batch:()=>importForm(d,t,true),observations:()=>observations(d,t,id),pdf:()=>d.pageReports.openReport(m.printable(t.data.saved,t.data.report,d.pageReports,d.state),d.browser),json:()=>download(d,t,'json'),csv:()=>download(d,t,'csv'),reconcile:()=>reconcileAction(d,t,id),retry:()=>retryAction(d,t,id)};
   if(!actions[mode])throw new Error('Unknown app-sales action.');return actions[mode]();
  }
  function reconcileAction(d,t,id){const record=writes.get(id);if(!record)throw new Error('No retained request remains. Reload saved funnels.');return reconcile(d,t.kind==='recovery'?t:recover(d,id));}
  function retryAction(d,t,id){const r=writes.get(id);if(!r||r.state!=='UNKNOWN'||!same(r.scope,scope(d.state)))throw new Error('Only an uncertain identical request in the current context can be retried.');t.unknown=null;return sendWrite(d,t,r);}
- return {scope,same,valid,base,clear,invalidate,panel,show,busy,fail,request,pendingList,listHTML,open,outcomeFields,connectionFields,planForm,newPlan,stageRows,editStage,detail,observationForm,batchForm,importForm,observations,recoveryHTML,recover,writeTicket,writeSuccess,writeFailure,sendWrite,submit,savedObservations,reconcile,download,change,action,activeAction,reconcileAction,retryAction};
+ return {scope,same,valid,base,clear,invalidate,panel,show,busy,fail,request,pendingList,listHTML,open,founder,outcomeFields,connectionFields,planForm,newPlan,stageRows,editStage,detail,observationForm,batchForm,importForm,observations,recoveryHTML,recover,writeTicket,writeSuccess,writeFailure,sendWrite,submit,savedObservations,reconcile,download,downloadText,founderExport,change,action,activeAction,reconcileAction,retryAction};
 });

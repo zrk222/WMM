@@ -11,7 +11,7 @@ class OperationCatalogTests(unittest.TestCase):
         self.assertFalse(value['full_agent_operation'])
         self.assertEqual(value['operations']['media.sources']['method'],'GET')
         self.assertEqual(value['operations']['media.sources']['suffix'],'/media/sources')
-        self.assertEqual(len(value['operations']),45)
+        self.assertEqual(len(value['operations']),46)
         value['operations']['workspace.read']['suffix']='/arbitrary'
         self.assertEqual(catalog()['operations']['workspace.read']['suffix'],'')
         self.assertIn('human_approval',value['denied'])
