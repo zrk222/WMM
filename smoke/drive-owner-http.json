@@ -1,0 +1,20 @@
+{
+  "checks": [
+    {
+      "name": "exact-empty-input",
+      "kind": "python",
+      "run": "from mission_control.drive_http import empty\nfrom mission_control.common import Invalid\nempty({})\ntry:empty({'extra':1})\nexcept Invalid:pass\nelse:raise AssertionError('Extra authority must be rejected')"
+    },
+    {
+      "name": "canonical-path-denial",
+      "kind": "python",
+      "run": "from mission_control.drive_http import route\nfrom mission_control.common import Invalid\nfrom types import SimpleNamespace\np=['api','apps','synthetic','drive']\nroute(SimpleNamespace(path='/api/apps/synthetic/drive'),p)\ntry:route(SimpleNamespace(path='/api/apps/synthetic/drive?foreign=1'),p)\nexcept Invalid:pass\nelse:raise AssertionError('Noncanonical path must be denied')"
+    },
+    {
+      "name": "actual-owner-http-lifecycle-and-isolation",
+      "kind": "python",
+      "must_fail_on_stub": false,
+      "run": "import unittest\ns=unittest.defaultTestLoader.loadTestsFromName('tests.test_drive_http')\nr=unittest.TextTestRunner(verbosity=2).run(s)\nassert r.wasSuccessful() and r.testsRun==7 and not r.skipped, 'Actual owner HTTP checks must execute and pass'"
+    }
+  ]
+}
