@@ -56,3 +56,51 @@ renders. The new intake/profile/preview/render path is required implementation,
 not solved by adding a button. Actual local upload and authorized Drive readback,
 real decoded output/audio, revoked access, recovery, desktop/mobile controls,
 agent parity, source hashes, privacy and applicable CF gates prove completion.
+
+## UGC import and multi-clip stitching - required goal addition
+Users can bring UGC videos, clips, stills and audio through local upload or
+optional selected Drive imports, and merge selected assets into a production.
+User-supplied media does not need the discovery viral cutoff. Sources retain
+provenance and reuse rights evidence; file access is separate from reuse rights.
+
+### Shared human and agent controls
+- Provide an app-owned library with playable previews and explicit multi-selection.
+  Save selected asset IDs, immutable hashes and source kinds in the project;
+  never render an entire library implicitly or accept arbitrary host paths.
+- Provide a timeline/storyboard for ordering, inserting, removing, replacing,
+  duplicating and stitching clips, source in/out trims, split points, speed,
+  aspect/resolution/frame rate, crop/fit/reframe, cuts and supported transitions,
+  overlays, captions, branding and CTA.
+- Preserve original sound unless explicitly muted. Include clip gain, selected
+  voiceover/music, offsets, fades and ducking or explicit conflict resolution.
+  Reject unsupported controls before execution; never silently discard audio.
+- Human UI and CLI/MCP agents modify the same typed, revisioned source selection,
+  ordered tracks and settings. Provide readable change summaries, history, undo
+  and preview before exact approval or valid delegated execution.
+- Stitching means actual temporal assembly into one playable video with selected
+  audio and transitions, preview and export. A list of links, attached brief or
+  caption-only replacement does not fulfill this requirement.
+- Source, selection, order or setting changes invalidate stale previews/approvals.
+  Reject invalid ranges, cross-app sources, changed hashes or unsupported media.
+  Pause and recover without duplicate render jobs.
+
+### Autonomous stitching
+The autonomous UI toggle must enumerate permitted source libraries and delegated
+selection/edit/stitch/render actions. Require tested source credentials, current
+rights, app/campaign binding, resource/cost limits, expiry and revocation. Show
+live import/audit/edit/stitch/render/verify stages, selected clips, current step,
+elapsed time, outputs and pause/stop/recovery. Preserve existing publication and
+external-effect approval boundaries.
+
+### Proof required before completion
+Import two distinct synthetic UGC video clips with audio and an optional still.
+Select/reorder them in the UI, trim and set a transition and audio levels, render
+and decode the merged output. Verify actual frame ordering, timing, dimensions,
+selected sound, preview and export against the saved project revision. Repeat
+through agent controls and bounded autonomous mode. Prove stale approval, bad
+trim, foreign-app source, changed media, revoked access and cancellation recovery
+reject or pause correctly. Cover desktop/mobile and keyboard workflows. Report
+source/clip counts, selected/used durations, render latency, failures, retries,
+resource/cost observations and export provenance in analytics/PDF/data reports.
+These remain REQUIRED_NOT_COMPLETE. Current Studio parameter controls and the
+native silent renderer do not fulfill imported-media stitching.
