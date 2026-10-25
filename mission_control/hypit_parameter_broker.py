@@ -10,6 +10,7 @@ import time
 import uuid
 from urllib.parse import urlsplit
 from .common import Invalid,canonical,digest,identifier
+from .operation_outcome import EffectUncertain
 from .hypit_control_view import ControlView,finite
 from .hypit_installation import plain,file_hash,revalidate
 from .hypit_source_ledger import SourceLedger,source_bundle,source_file,MAX_SOURCE_BYTES
@@ -193,16 +194,17 @@ class ParameterBroker:
             sources_current(self.session.folder,hashes)
             result=self.ledger.finish(self.app_id,self.project_id,prepared['id'],outcome,
                 {k:bundle[k] for k in ('upstream_revision','root','files')})
-        except BaseException:
+            self.session.sources=hashes
+            try:self.session.record('READY')
+            except Exception:self.session.state='NEEDS_INSPECTION'
+            head=self.ledger.read(self.app_id,self.project_id)['head'];self.alive()
+            return dict(attempt=result,controls=controls,source_head=head,
+                execution='UPSTREAM_PARAMETER_RESULT_OBSERVED',session_state=self.session.state)
+        except BaseException as error:
             try:self.ledger.uncertain(self.app_id,self.project_id,prepared['id'])
             except Exception:pass  # PREPARED still blocks resend if authority/DB prevents this update.
+            if isinstance(error,Exception):raise EffectUncertain() from None
             raise
-        self.session.sources=hashes
-        try:self.session.record('READY')
-        except Exception:self.session.state='NEEDS_INSPECTION'
-        head=self.ledger.read(self.app_id,self.project_id)['head'];self.alive()
-        return dict(attempt=result,controls=controls,source_head=head,
-            execution='UPSTREAM_PARAMETER_RESULT_OBSERVED',session_state=self.session.state)
 
     def close(self):
         """Revocation cannot strand an already-owned child/runtime."""

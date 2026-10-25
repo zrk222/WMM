@@ -116,8 +116,11 @@ def finish(store, identity, result=None, error=None):
 
 def execution_outcome(row, error):
     """Separate known success, cancelled work and partial-write uncertainty decisions."""
+    from .operation_outcome import EffectUncertain
     if error is None:
         return 'SUCCEEDED'
+    if isinstance(error, EffectUncertain):
+        return 'UNKNOWN'
     if row['status'] == 'CANCEL_REQUESTED':
         return 'UNKNOWN' if row['write_commits'] else 'CANCELLED'
     if isinstance(error, (Invalid, PermissionError, KeyError)) and not row['write_commits']:

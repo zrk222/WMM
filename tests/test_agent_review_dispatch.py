@@ -6,6 +6,7 @@ from unittest.mock import patch
 from mission_control.agent_checkpoints import Checkpoints
 from mission_control.agent_review_dispatch import ReviewedDispatch
 from mission_control.common import Invalid
+from mission_control.operation_outcome import EffectUncertain
 from mission_control.db import connection
 from mission_control.review_access import Access
 from tests import test_agent_review_policy as fixture
@@ -102,6 +103,17 @@ class ReviewedDispatchTests(unittest.TestCase):
         done=self.resume(self.approve(self.prepare()))
         self.assertEqual(done['checkpoint']['state'],'FAILED')
         self.assertEqual(done['result']['error'],'LOCAL_VALIDATION_REJECTED')
+        self.assertEqual(self.owner.call(self.envelope())['history'],[])
+
+    def test_explicit_uncertain_effect_requires_reconciliation_and_cannot_replay(self):
+        approved=self.approve(self.prepare())
+        with patch('mission_control.agent_review_dispatch.execute',side_effect=EffectUncertain()) as operation:
+            done=self.resume(approved)
+        self.assertEqual(operation.call_count,1)
+        self.assertEqual(done['checkpoint']['state'],'UNKNOWN')
+        self.assertEqual(done['result'],dict(outcome='UNKNOWN',error='LOCAL_RESULT_UNCONFIRMED'))
+        self.assertTrue(done['reconciliation_required'])
+        with self.assertRaises(Invalid):self.resume(done['checkpoint'])
         self.assertEqual(self.owner.call(self.envelope())['history'],[])
 
     def test_committed_write_with_unserializable_response_stays_unknown(self):

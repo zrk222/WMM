@@ -9,6 +9,7 @@ from .agent_checkpoints import prepare_in_db,claim_in_db,read_row,persist
 from .operation_catalog import path_segment
 from .operation_runtime import execute
 from .operator_client import encode_body
+from .operation_outcome import EffectUncertain
 
 
 def saved_request(db,app_id,identity):
@@ -50,6 +51,8 @@ def run_operation(service,envelope):
     """Record only known local validation failures as failed; other exceptions stay unknown."""
     try:
         value=execute(service,envelope)
+    except EffectUncertain:
+        return dict(outcome='UNKNOWN',error='LOCAL_RESULT_UNCONFIRMED')
     except (Invalid,PermissionError,KeyError):
         return dict(outcome='FAILED',error='LOCAL_VALIDATION_REJECTED')
     except Exception:

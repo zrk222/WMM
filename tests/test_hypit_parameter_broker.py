@@ -8,6 +8,7 @@ import threading
 import unittest
 from unittest.mock import patch
 from mission_control.common import Invalid
+from mission_control.operation_outcome import EffectUncertain
 from mission_control.store import Store
 from mission_control.hypit_parameter_broker import ParameterBroker
 from mission_control import hypit_parameter_broker as target
@@ -184,14 +185,14 @@ class BrokerTests(unittest.TestCase):
 
     def test_revocation_during_native_response_never_adopts_sources_but_cleanup_works(self):
         before=dict(self.session.sources);self.mode='revoke'
-        with self.assertRaises(PermissionError):self.broker.edit(self.body())
+        with self.assertRaises(EffectUncertain):self.broker.edit(self.body())
         self.assertEqual(self.session.sources,before)
         self.assertEqual(self.broker.ledger.read('sample-one','project-one')['attempts'][0]['status'],'UNCERTAIN')
         self.assertTrue(self.broker.close()['closed']);self.assertIsNotNone(self.child.poll())
 
     def test_changed_immutable_input_or_foreign_listener_blocks_source_adoption(self):
         self.mode='immutable';before=dict(self.session.sources)
-        with self.assertRaisesRegex(Invalid,'immutable'):self.broker.edit(self.body())
+        with self.assertRaises(EffectUncertain):self.broker.edit(self.body())
         self.assertEqual(self.session.sources,before)
         self.assertEqual(self.broker.ledger.read('sample-one','project-one')['head']['version'],1)
 
@@ -212,6 +213,27 @@ class BrokerTests(unittest.TestCase):
         self.assertEqual(result['attempt']['status'],'APPLIED');self.assertEqual(result['session_state'],'NEEDS_INSPECTION')
         self.assertEqual(self.broker.edit(body)['execution'],'NOT_RESENT')
         with self.assertRaises(Invalid):self.broker.edit(self.body(key='next',view=result))
+        self.assertEqual(len(self.sent),1)
+
+    def test_uncertain_error_is_typed_and_hides_private_native_diagnostics(self):
+        self.mode='server-error'
+        with self.assertRaises(EffectUncertain) as error:self.broker.edit(self.body())
+        self.assertEqual(str(error.exception),str(EffectUncertain()))
+        self.assertNotIn('PRIVATE_',str(error.exception))
+        self.assertEqual(self.broker.inspect()['attempts'][0]['status'],'UNCERTAIN')
+
+    def test_postcommit_readback_failure_keeps_applied_result_without_resend(self):
+        body=self.body();read=self.broker.ledger.read
+        def lost_readback(*args,**kwargs):
+            value=read(*args,**kwargs)
+            if value['head']['version']>1:raise Invalid('PRIVATE_READBACK_FAILURE')
+            return value
+        with patch.object(self.broker.ledger,'read',side_effect=lost_readback):
+            with self.assertRaises(EffectUncertain) as error:self.broker.edit(body)
+        self.assertNotIn('PRIVATE_',str(error.exception))
+        retry=self.broker.edit(body)
+        self.assertEqual(retry['execution'],'NOT_RESENT')
+        self.assertEqual(retry['attempt']['status'],'APPLIED')
         self.assertEqual(len(self.sent),1)
 
 

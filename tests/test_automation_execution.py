@@ -9,6 +9,7 @@ from urllib.request import Request, urlopen
 
 from mission_control.automation_execution import ACTIVE, bound, execute_admitted, finish, start, job_execution
 from mission_control.common import Invalid, canonical
+from mission_control.operation_outcome import EffectUncertain
 from mission_control.db import connection
 from mission_control.operator_client import OperatorClient, ClientError
 from mission_control.server import Server
@@ -174,6 +175,26 @@ class StandingExecutionTests(fixtures.AuthorityFixture, unittest.TestCase):
             self.dispatch(issued, self.envelope('growth.history'))
         statuses = {row['operation']: row['status'] for row in self.saved(issued)}
         self.assertEqual(statuses['growth.history'], 'UNKNOWN')
+
+    def test_uncertain_native_effect_without_local_commit_blocks_repeat(self):
+        issued=self.activate();envelope=self.write()
+        with patch('mission_control.operation_runtime.execute',side_effect=EffectUncertain()) as operation:
+            with self.assertRaises(EffectUncertain):self.dispatch(issued,envelope)
+        self.assertEqual(operation.call_count,1)
+        saved=self.saved(issued)[0]
+        self.assertEqual(saved['status'],'UNKNOWN');self.assertEqual(saved['write_commits'],0)
+        with self.assertRaises(PermissionError):self.grants.admit(issued['token'],envelope)
+
+    def test_cancelled_uncertain_native_effect_remains_unknown_without_local_commit(self):
+        issued=self.activate()
+        def processing(*_):
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                pool.submit(self.off,issued).result(timeout=15)
+            raise EffectUncertain()
+        with patch('mission_control.operation_runtime.execute',side_effect=processing):
+            with self.assertRaises(EffectUncertain):self.dispatch(issued,self.write())
+        saved=self.saved(issued)[0]
+        self.assertEqual(saved['status'],'UNKNOWN');self.assertEqual(saved['write_commits'],0)
 
     def test_owned_job_scope_survives_reopen_and_off_preserves_unrelated_jobs(self):
         issued = self.activate(['pipeline_preparation'])
