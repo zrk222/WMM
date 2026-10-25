@@ -1,11 +1,11 @@
 """Native argument authority, owned-process bounds and final-response checks."""
-import json,os,sys,tempfile,unittest
+import json,os,sys,tempfile,time,unittest
 from pathlib import Path
 from unittest.mock import patch
 from mission_control.common import Invalid,canonical
 from mission_control.agent_native import locate,identity,run
 from mission_control.agent_commands import arguments,output
-from mission_control.agent_process import capture,environment,failure,diagnostic_snapshot,CAP
+from mission_control.agent_process import capture,environment,failure,diagnostic_snapshot,wait,CAP
 from tests.test_agent_access import answer
 
 
@@ -53,12 +53,28 @@ class NativeTests(unittest.TestCase):
         self.assertIn('synthetic output',retained[0]['stdout']);self.assertIn('synthetic error',retained[0]['stderr'])
 
     def test_capture_diagnostics_survive_timeout_and_process_creation_failure(self):
-        retained=[]
-        with self.assertRaisesRegex(Invalid,'timed out'):
-            capture([sys.executable,'-c','import sys,time;print("before timeout",flush=True);print("error before timeout",file=sys.stderr,flush=True);time.sleep(10)'],
-                    timeout=1,diagnostics=retained.append)
+        retained=[];owned=[]
+        def after_output(process,output,error,alive,timeout):
+            # Test output retention after timeout independently of interpreter startup.
+            # The real wait still enforces its original one-second execution limit.
+            owned.append((process,output,error))
+            deadline=time.monotonic()+5
+            while b'before timeout' not in output.read_bytes() or b'error before timeout' not in error.read_bytes():
+                alive()
+                self.assertIsNone(process.poll(),'Synthetic child exited before emitting both markers')
+                self.assertLess(time.monotonic(),deadline,'Synthetic child did not emit both markers within 5 seconds')
+                time.sleep(.01)
+            return wait(process,output,error,alive,timeout)
+        with patch('mission_control.agent_process.wait',after_output):
+            with self.assertRaisesRegex(Invalid,'timed out'):
+                capture([sys.executable,'-c','import sys,time;time.sleep(1.2);print("before timeout",flush=True);print("error before timeout",file=sys.stderr,flush=True);time.sleep(10)'],
+                        timeout=1,diagnostics=retained.append)
         self.assertTrue(retained[0]['interrupted']);self.assertIn('before timeout',retained[0]['stdout'])
         self.assertIn('error before timeout',retained[0]['stderr'])
+        self.assertEqual(len(owned),1)
+        child,stdout_path,stderr_path=owned[0]
+        self.assertIsNotNone(child.poll(),'Timed-out owned child must be stopped')
+        self.assertFalse(stdout_path.exists());self.assertFalse(stderr_path.exists())
         retained=[]
         with self.assertRaises(OSError):
             capture([str(self.root/'missing-executable.exe')],timeout=1,diagnostics=retained.append)
