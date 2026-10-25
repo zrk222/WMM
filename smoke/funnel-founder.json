@@ -1,0 +1,15 @@
+{
+  "checks": [
+    {
+      "name": "bounded-finding-coverage",
+      "kind": "python",
+      "run": "from mission_control.funnel_founder_review import findings\nrows=[dict(code='MISSING',next_action='Collect source')for i in range(101)]\nresult=findings(rows,100)\nassert isinstance(result,dict) and result.get('shown')==100 and result.get('total')==101 and result.get('has_more') is True, 'Finding coverage must retain the actual total and bounded displayed rows'"
+    },
+    {
+      "name": "real-source-review-and-current-authority",
+      "kind": "python",
+      "must_fail_on_stub": false,
+      "run": "import unittest\nsuite=unittest.defaultTestLoader.loadTestsFromNames(['tests.test_funnel_founder','tests.test_funnel_founder_clients'])\nresult=unittest.TextTestRunner(verbosity=2).run(suite)\nassert result.wasSuccessful() and not result.skipped, 'Real founder domain and owner CLI MCP checks must pass without client skips'"
+    }
+  ]
+}

@@ -94,5 +94,31 @@
   const edges=report.edges.map(r=>['edge',...base,r.from_stage+' -> '+r.to_stage,r.numerator??'',r.denominator??'',r.rate??'',r.status,'','','']);
   return [headers,...stages,...edges].map(row=>row.map(csvCell).join(',')).join('\r\n')+'\r\n';
  }
- return {esc,human,copy,button,input,select,sources,integer,text,stamp,chosen,graph,defaults,stageFields,lines,plan,observation,importBody,canonical,equal,comparableObservation,comparablePlan,valuesTable,stageCells,edgeCells,results,exportData,printable,csvCell,csv};
+ function findingList(value){return `<p>${value.shown} of ${value.total} findings shown${value.has_more?'; open the exact source report for the remaining findings':''}.</p><ul>${value.items.map(r=>`<li>${esc(r.stage_id||r.area||r.id||'Source')}: ${esc(human(r.code))}. ${esc(r.next_action)}</li>`).join('')}</ul>`;}
+ function founderEntry(row){
+  const counts=row.stage_coverage,summary=counts?Object.entries(counts).map(([state,total])=>total+' '+human(state)+' stages').join(' / '):'Stage counts unavailable';
+  const comparisons=row.comparisons?`${row.comparisons.comparable} comparable aggregate ratios / ${row.comparisons.withheld} withheld`:'Comparisons unavailable';
+  return `<section class="panel"><h3>${esc(row.id)}</h3><p>${esc(human(row.state))} · cohort ${esc(row.cohort_id||'Unavailable')} · currency ${esc(row.currency||'Unavailable')}.</p><p>${esc(summary)}. ${esc(comparisons)}.</p>${findingList(row.findings)}${button('Open exact stage report','detail',row.id)}<details><summary>Inspect source receipts and stage populations</summary><pre>${esc(JSON.stringify({definition_hash:row.definition_hash,report_hash:row.report_hash,stages:row.stages},null,2))}</pre></details></section>`;
+ }
+ function founderHTML(value){
+  const c=value.coverage,base=value.subscription_review;
+  return `<p>This page: ${esc(human(value.status))} · observed ${esc(value.observed_at)} · app setup ${esc(value.context.manifest_version)}.</p><p>This page covers ${c.evaluated} of ${c.total} saved funnels from offset ${c.offset}.</p><details><summary>Subscription growth: ${esc(human(base.status))} / ${base.findings.total} findings</summary><p>Observed ${esc(base.observed_at)}.</p>${findingList(base.findings)}</details><h3>Your app-sales next actions</h3>${value.findings.map(r=>`<p>${esc(r.next_action)}</p>`).join('')}${founderEntries(value).map(founderEntry).join('')||'<p>No saved app-sales plan is available yet. Create one with a current creative brief and matching cohort.</p>'}<details><summary>Review scope and comparison limits</summary><p>${esc(value.scope)}</p><p>${esc(human(value.change))}.</p></details><div class="button-row">${c.offset?button('Previous review page','review-page',String(Math.max(0,c.offset-5))):''}${c.next_offset===null?'':button('Next review page','review-page',String(c.next_offset))}${button('Reload founder review','review-page',String(c.offset))}${button('Create app-sales plan','new')}${button('Return to subscription review','review-close')}${button('Report / Save PDF','review-pdf')}${button('Download review JSON','review-json')}${button('Download review CSV','review-csv')}</div>`;
+ }
+ function founderEntries(value){const rank=r=>r.state==='UNAVAILABLE'?0:r.state!=='CURRENT'?1:r.findings.total?2:3;return [...value.funnels].sort((a,b)=>rank(a)-rank(b));}
+ function founderNext(value){return value.findings[0]?.next_action||founderEntries(value)[0]?.findings.items[0]?.next_action||value.subscription_review.findings.items[0]?.next_action||'Inspect the exact source reports and choose the next app-sales test.';}
+ function founderPrintable(value,pages,state){
+  const base=pages.model(state),c=value.coverage;
+  const metrics=founderEntries(value).flatMap(r=>r.stages?r.stages.map(s=>({label:r.id+' / '+s.label+' / '+human(s.status),value:s.count,unit:s.unit,source:r.report_hash})): [{label:r.id+' / unavailable stage evidence',value:null,unit:'unknown',source:'Unavailable source'}]);
+  const issues=[...value.findings,...value.subscription_review.findings.items,...value.funnels.flatMap(r=>r.findings.items)];
+  return {...base,title:'App-sales founder review',purpose:'Choose the next app-sales task from source-bound subscription and funnel evidence.',next_step:founderNext(value),loaded_at:value.observed_at,filters:{review_hash:value.source_hash,app_setup:value.context.manifest_version,offset:c.offset,displayed_funnels:c.evaluated,total_funnels:c.total,subscription_findings_shown:value.subscription_review.findings.shown,subscription_findings_total:value.subscription_review.findings.total},cohorts:[],metrics,notes:[...issues.map(r=>(r.stage_id||r.area||r.id||'Source')+': '+r.next_action),...value.funnels.map(r=>r.id+': cohort '+r.cohort_id+'; currency '+r.currency+'; findings '+r.findings.shown+' of '+r.findings.total),value.scope,'Prior-review comparison: '+value.change]};
+ }
+ function founderCSV(value){
+  const headers=['app_id','review_hash','observed_at','manifest_version','page_offset','total_funnels','kind','funnel_id','cohort_id','currency','stage_or_area','count','status','unit','message','source_hash'];
+  const common={app_id:value.app_id,review_hash:value.source_hash,observed_at:value.observed_at,manifest_version:value.context.manifest_version,page_offset:value.coverage.offset,total_funnels:value.coverage.total};
+  const rows=founderEntries(value).flatMap(r=>r.stages?r.stages.map(s=>({kind:'stage',funnel_id:r.id,cohort_id:r.cohort_id,currency:r.currency,stage_or_area:s.id,count:s.count??'',status:s.status,unit:s.unit,message:s.denominator_definition,source_hash:r.report_hash})):[{kind:'unavailable',funnel_id:r.id,status:r.state,count:'',source_hash:''}]);
+  const issues=[...value.findings,...value.subscription_review.findings.items,...value.funnels.flatMap(r=>r.findings.items.map(f=>({...f,funnel_id:r.id})))];
+  rows.push(...issues.map(r=>({kind:'finding',funnel_id:r.funnel_id||'',stage_or_area:r.stage_id||r.area||r.id||'',status:r.code,message:r.next_action,source_hash:value.source_hash})));
+  return [headers,...rows.map(r=>headers.map(k=>({...common,...r})[k]??''))].map(row=>row.map(csvCell).join(',')).join('\r\n')+'\r\n';
+ }
+ return {esc,human,copy,button,input,select,sources,integer,text,stamp,chosen,graph,defaults,stageFields,lines,plan,observation,importBody,canonical,equal,comparableObservation,comparablePlan,valuesTable,stageCells,edgeCells,results,exportData,printable,csvCell,csv,findingList,founderEntry,founderEntries,founderHTML,founderNext,founderPrintable,founderCSV};
 });

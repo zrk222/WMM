@@ -1,0 +1,475 @@
+name: funnel-founder
+language: python,javascript
+modules:
+- name: funnel_founder_review
+  path: mission_control/funnel_founder_review.py
+  language: python
+  functions:
+  - name: utc
+    args: []
+    returns: object
+  - name: findings
+    args:
+    - values
+    - limit
+    returns: object
+  - name: base_review
+    args:
+    - store
+    - app
+    - stamp
+    returns: object
+  - name: identities
+    args:
+    - store
+    - app_id
+    - offset
+    returns: object
+  - name: stage_projection
+    args:
+    - report
+    returns: object
+  - name: entry
+    args:
+    - flow
+    - app_id
+    - identity
+    - stamp
+    returns: object
+  - name: local_status
+    args:
+    - base
+    - entries
+    - total
+    returns: object
+  - name: review
+    args:
+    - store
+    - app_id
+    - offset
+    - clock
+    returns: object
+- name: funnel_http
+  path: mission_control/funnel_http.py
+  language: python
+  functions:
+  - name: offset
+    args:
+    - handler
+    - parts
+    returns: object
+  - name: route
+    args:
+    - handler
+    - parts
+    returns: object
+  - name: owner
+    args:
+    - handler
+    - parts
+    returns: object
+  - name: json_body
+    args:
+    - handler
+    returns: object
+  - name: get
+    args:
+    - handler
+    - parts
+    returns: object
+  - name: post
+    args:
+    - handler
+    - parts
+    returns: object
+- name: funnel_model
+  path: mission_control/static/funnel-model.js
+  language: javascript
+  functions:
+  - name: input
+    args:
+    - name
+    - label
+    - value=''
+    - type='text'
+    - required=true
+    returns: object
+  - name: select
+    args:
+    - name
+    - label
+    - choices
+    - value=''
+    - multiple=false
+    returns: object
+  - name: sources
+    args:
+    - state
+    - contract
+    returns: object
+  - name: integer
+    args:
+    - value
+    - name
+    - min=0
+    - max=1e12
+    returns: object
+  - name: text
+    args:
+    - value
+    - name
+    returns: object
+  - name: stamp
+    args:
+    - value
+    returns: object
+  - name: chosen
+    args:
+    - ids
+    - rows
+    - name
+    - minimum=0
+    returns: object
+  - name: graph
+    args:
+    - rows
+    - contract
+    returns: object
+  - name: defaults
+    args: []
+    returns: object
+  - name: stageFields
+    args:
+    - row
+    - index
+    - contract
+    returns: object
+  - name: lines
+    args:
+    - value
+    returns: object
+  - name: plan
+    args:
+    - values
+    - all
+    - stages
+    - snapshot
+    - id
+    returns: object
+  - name: observation
+    args:
+    - values
+    - saved
+    returns: object
+  - name: importBody
+    args:
+    - saved
+    - version
+    - values
+    - raw
+    returns: object
+  - name: equal
+    args:
+    - a
+    - b
+    returns: object
+  - name: canonical
+    args:
+    - v
+    returns: object
+  - name: comparableObservation
+    args:
+    - actual
+    - expected
+    returns: object
+  - name: comparablePlan
+    args:
+    - actual
+    - expected
+    returns: object
+  - name: valuesTable
+    args:
+    - rows
+    - headings
+    - cells
+    returns: object
+  - name: stageCells
+    args:
+    - r
+    returns: object
+  - name: edgeCells
+    args:
+    - r
+    returns: object
+  - name: results
+    args:
+    - saved
+    - report
+    returns: object
+  - name: exportData
+    args:
+    - saved
+    - report
+    returns: object
+  - name: printable
+    args:
+    - saved
+    - report
+    - pages
+    - state
+    returns: object
+  - name: csvCell
+    args:
+    - value
+    returns: object
+  - name: csv
+    args:
+    - saved
+    - report
+    returns: object
+  - name: findingList
+    args:
+    - value
+    returns: object
+  - name: founderEntry
+    args:
+    - row
+    returns: object
+  - name: founderHTML
+    args:
+    - value
+    returns: object
+  - name: founderEntries
+    args:
+    - value
+    returns: object
+  - name: founderNext
+    args:
+    - value
+    returns: object
+  - name: founderPrintable
+    args:
+    - value
+    - pages
+    - state
+    returns: object
+  - name: founderCSV
+    args:
+    - value
+    returns: object
+- name: funnel_ui
+  path: mission_control/static/funnel-ui.js
+  language: javascript
+  functions:
+  - name: clear
+    args: []
+    returns: object
+  - name: invalidate
+    args:
+    - state
+    returns: object
+  - name: panel
+    args: []
+    returns: object
+  - name: show
+    args:
+    - d
+    - title
+    - kind
+    - data
+    - html
+    - captured
+    returns: object
+  - name: busy
+    args:
+    - t
+    - value
+    - message=''
+    returns: object
+  - name: fail
+    args:
+    - t
+    - d
+    - error
+    returns: object
+  - name: request
+    args:
+    - d
+    - path
+    - body
+    returns: object
+  - name: pendingList
+    args:
+    - t
+    returns: object
+  - name: listHTML
+    args:
+    - t
+    - page
+    returns: object
+  - name: open
+    args:
+    - d
+    - offset=0
+    returns: object
+  - name: founder
+    args:
+    - d
+    - offset=0
+    returns: object
+  - name: outcomeFields
+    args:
+    - s
+    returns: object
+  - name: connectionFields
+    args:
+    - s
+    returns: object
+  - name: planForm
+    args:
+    - s
+    - id
+    returns: object
+  - name: newPlan
+    args:
+    - d
+    returns: object
+  - name: stageRows
+    args:
+    - t
+    returns: object
+  - name: editStage
+    args:
+    - t
+    - mode
+    - index
+    returns: object
+  - name: detail
+    args:
+    - d
+    - id
+    - reviewOffset=0
+    returns: object
+  - name: observationForm
+    args:
+    - saved
+    returns: object
+  - name: batchForm
+    args:
+    - saved
+    returns: object
+  - name: importForm
+    args:
+    - d
+    - t
+    - batch
+    returns: object
+  - name: observations
+    args:
+    - d
+    - t
+    - offset
+    returns: object
+  - name: recoveryHTML
+    args:
+    - record
+    returns: object
+  - name: recover
+    args:
+    - d
+    - id
+    returns: object
+  - name: writeTicket
+    args:
+    - t
+    - d
+    - record
+    returns: object
+  - name: writeSuccess
+    args:
+    - t
+    - d
+    - record
+    - result
+    returns: object
+  - name: writeFailure
+    args:
+    - t
+    - d
+    - record
+    - e
+    returns: object
+  - name: sendWrite
+    args:
+    - d
+    - t
+    - record
+    returns: object
+  - name: submit
+    args:
+    - form
+    - d
+    returns: object
+  - name: savedObservations
+    args:
+    - d
+    - t
+    - id
+    returns: object
+  - name: reconcile
+    args:
+    - d
+    - t
+    returns: object
+  - name: download
+    args:
+    - d
+    - t
+    - kind
+    returns: object
+  - name: downloadText
+    args:
+    - d
+    - name
+    - text
+    - mime
+    returns: object
+  - name: founderExport
+    args:
+    - d
+    - t
+    - mode
+    returns: object
+  - name: change
+    args:
+    - node
+    - d
+    returns: object
+  - name: action
+    args:
+    - node
+    - d
+    returns: object
+  - name: activeAction
+    args:
+    - mode
+    - id
+    - t
+    - d
+    returns: object
+  - name: reconcileAction
+    args:
+    - d
+    - t
+    - id
+    returns: object
+  - name: retryAction
+    args:
+    - d
+    - t
+    - id
+    returns: object
+dependencies:
+- from: funnel_http
+  to: funnel_founder_review
+invariants: []

@@ -69,6 +69,7 @@
   define('video-project-edit-form','Shape the saved video for the people you want to reach.','Your timing, framing and color choices become a new shared project revision. Rendering creates an actual MP4.','Save field edits before clip commands or rendering, then preview the exact output and review it before use.');
   Object.freeze(FORMS);
   const DIALOGS=Object.freeze({
+    'Your app-sales founder review':['Choose your next app-sales task.','See missing stages beside source-bound results.','Open an exact stage report or export this page.'],
     'Your app-sales stage results':['See where app sales advance.','Stage counts, matching conversion ratios and subscription economics come from this cohort’s saved evidence.','Resolve a missing stage or export this report.'],
     'Your app-sales funnels':['Choose the app-sales path to work on.','Each saved plan connects creative, a cohort and the app milestones you chose.','Open its results or create a new plan.'],
     'Saved stage observations':['See the evidence behind the counts.','This page shows retained source observations, including zero, partial and unknown counts.','Page through the history or return to the complete stage report.'],
