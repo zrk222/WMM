@@ -38,4 +38,3 @@ Scenario: taste_delivery
 APP = 1
 Synthetic fixture APP = 1 denotes the initial app manifest version. Exactly four hosts. Ask at most three material questions after reading existing context.
 No network, credential loading, provider activation or scheduling during discovery.
-
