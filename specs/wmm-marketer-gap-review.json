@@ -1,0 +1,202 @@
+{
+  "schema": "wmm.marketer-gap-review.v1",
+  "report_sha256": "de3bb6c89ce5fa499983c362c20eaa9f68bc462f7a022d0096b88b587fea567d",
+  "reviewed_head": "feb14209e9cc4c67b437587366f801d8f0d950a7",
+  "source_hashes": {
+    "mission_control/ads_reports.py": "b5919eb6cf757afd0cbd9eeb71a6cb2c0ceec2061bf84d0c06fcfaa127f94a65",
+    "mission_control/agent_context.py": "ed5eeb7cc9ad25c417ab5c0f2f88e83ac0a4f6cf6897c078c258a5ef5d3de7f1",
+    "mission_control/apple_ads_preflight.py": "36a2755d747aa52fa7839539a4e67f8da3c14f5ebcd68ae2e347096153e1728e",
+    "mission_control/attribution_ingestion.py": "ccab27538b2bac072adc5ad2f5429f7c4dd5bccad86df2a3c5c6a5e8f2bcb9db",
+    "mission_control/attribution_sources.py": "b2c6917dcd295cbad60b09f21cfd3377cf44fa43afae45580acc012af234e939",
+    "mission_control/creative_library.py": "094c2bba3d8d197ae3a22fc72599aaf49b51769f05d3da384c2b9d10ae856d79",
+    "mission_control/creative_ranking.py": "a7d51db329f9cf2421391b50e3e7a9824e00094721e47fddaf02b7ee046aafa1",
+    "mission_control/experiment_tracking.py": "d008b98bdbf837e6f3db84dfd308bc1bdc45d6f915b04e0371055d7375da0ed4",
+    "mission_control/followup.py": "5ff45884db705f02766e5cf86a747c3ffb8a13fcf6d6f5441748830c9526c5f6",
+    "mission_control/followup_policy.py": "8a888b5306759885afd7180a3c369ebc7f9afe6e0bb09a3a45b6f0f7088d9f00",
+    "mission_control/growth_review_store.py": "465eb2a09a555ec9b0b6181d531e64e96bc6c3e49b3130e4082dd67eacf2a676",
+    "mission_control/insights_contract.py": "f195f181e9e0fba9b1396b6613fe9002f770325cfb372d71bbcb8e5a0f770aa0",
+    "mission_control/provider_outbox.py": "af65b4abd195852ca95f5b5d6ad19c4dc449b3bfe5085cb71f07dde17b2437ed",
+    "mission_control/provider_reports.py": "11a03c35e13ec8daa6a72dd0ff131f27b98ccf3e3043cc610a61649bdaeafbc6",
+    "mission_control/release_inventory.py": "bc230f47665d0d7fb9043d4478f82bf7bd991c9cb43192de9a5ad3c446305584",
+    "mission_control/server.py": "b15530c9d747a02db4b2445192969105f9a5c0a9ef50e232281e1bd17dc15a0b",
+    "mission_control/signed_payments.py": "cd4d972781055ac1fb8afb47d65a423e7cc449ef91971e5176f6448f3db430cf",
+    "mission_control/store.py": "b97ab846bf2b39b00c8bcbc3f7be4df46cfb0b712b6a5fb0e1c607a189c97a72",
+    "mission_control/storekit_ingestion.py": "fed685d162f8b4b1a3647380f6b927500bbfb631dff5ec8a58f8946a63a9a9e8",
+    "mission_control/subscription_readiness.py": "296db873329f32bcc332ff6b87c8703677f91f0c537a8f4f05290f6401287037"
+  },
+  "selection_policy": "Latest user instruction: only useful workflows and UX; vendors are examples, not mandatory connectors. All prior goal scope remains.",
+  "corrections": [
+    "ASC and selected build/localized keyword/release-note reads already exist.",
+    "Apple attribution, Apple Ads reports, local follow-up and verified webhook intake already exist.",
+    "Unverified revenue-share percentages and blanket product suitability verdicts are not adopted."
+  ],
+  "shared_requirements": [
+    "Human and agent parity through existing UI/CLI/MCP contracts.",
+    "Plain-language purpose, inputs, delivered result and next action with progressive disclosure.",
+    "Observed versus unavailable metrics, active progress, actionable recovery and source-linked history.",
+    "Analytics and PDF/data export for each implemented workflow using existing privacy boundaries.",
+    "Exact human or already-authorized standing scope for effects; imports never grant credentials or authority.",
+    "Reuse domain stores and bounded adapters; measure before claiming speed or savings."
+  ],
+  "deferred": [
+    "Blanket integration of every named MMP, CRM, ad network or intelligence vendor.",
+    "Duplicate Apple connectors, schedulers, attribution stores or creative libraries.",
+    "Unlicensed scraping, inferred ad performance, automatic spend and unapproved external delivery."
+  ],
+  "sequence": [
+    "MW-07",
+    "MW-02",
+    "MW-03",
+    "MW-01",
+    "MW-04",
+    "MW-05",
+    "MW-08",
+    "MW-06"
+  ],
+  "requirements": [
+    {
+      "id": "MW-01",
+      "title": "Unified iOS release and listing readiness",
+      "priority": "P1",
+      "current_coverage": "PARTIAL: ASC selected version/build, localized keywords/release notes, subscriptions and reviews exist.",
+      "source_paths": [
+        "mission_control/provider_reports.py",
+        "mission_control/release_inventory.py",
+        "mission_control/subscription_readiness.py"
+      ],
+      "required_workflow": "Join existing iOS facts to pipeline blockers with source time, missing access and a concrete repair. Add TestFlight/crash reads where they support a release decision.",
+      "acceptance": [
+        "No duplicate Apple connector; selected app/build/locale and partial pagination remain explicit.",
+        "Stale, foreign-app and permission failures reject; unavailable TestFlight/crash data stays unknown."
+      ],
+      "implementation_status": "REQUIRED_NOT_COMPLETE"
+    },
+    {
+      "id": "MW-02",
+      "title": "Attribution to campaign CPA and mature ROAS",
+      "priority": "P0",
+      "current_coverage": "PARTIAL: Apple native attribution and ad reports exist; MMP cohort/cost joins are missing.",
+      "source_paths": [
+        "mission_control/attribution_sources.py",
+        "mission_control/attribution_ingestion.py",
+        "mission_control/ads_reports.py",
+        "mission_control/insights_contract.py"
+      ],
+      "required_workflow": "Import permitted MMP and cost exports; map exact app/campaign/creative cohorts to costs and revenue for spend-review decisions. Add native connections when recurring use justifies them.",
+      "acceptance": [
+        "D7/D30 include cohort dates, maturity, currency, timezone, attribution model/window, revenue basis and refunds.",
+        "Missing cost/revenue or zero denominators yield unavailable metrics; incompatible sources and overlapping revenue cannot be summed.",
+        "Deduplication, unmatched coverage, foreign apps, bad units and saved provenance are tested."
+      ],
+      "implementation_status": "REQUIRED_NOT_COMPLETE"
+    },
+    {
+      "id": "MW-03",
+      "title": "Campaign brief to validated upload bundle",
+      "priority": "P0",
+      "current_coverage": "MISSING broader network export; Apple Ads observations and bounded provider actions exist.",
+      "source_paths": [
+        "mission_control/ads_reports.py",
+        "mission_control/apple_ads_preflight.py",
+        "mission_control/provider_outbox.py"
+      ],
+      "required_workflow": "Build campaign/ad-group-or-ad-set/ad drafts from objective, audience, budget, bid and rights-cleared creative; review diff and export platform-specific CSV/JSON. Start with Apple Ads and the user-selected network.",
+      "acceptance": [
+        "Validate hierarchy, required fields, budget/currency units, destinations, assets, locale and keyword match types.",
+        "Preview exact outbound fields, schema version and errors; prove round-trip against a provider-format fixture.",
+        "DRAFT_EXPORTED is separate from provider accepted/active; no export activates spending."
+      ],
+      "implementation_status": "REQUIRED_NOT_COMPLETE"
+    },
+    {
+      "id": "MW-04",
+      "title": "Review inbox to approved response draft",
+      "priority": "P1",
+      "current_coverage": "PARTIAL: ASC review reads exist; unified Apple/Play triage and response drafts are missing.",
+      "source_paths": [
+        "mission_control/provider_reports.py",
+        "mission_control/agent_context.py"
+      ],
+      "required_workflow": "Filter reviews by issue, rating, recency and response status; link product evidence and draft an editable reply. Preserve original text and separate sentiment inference from confirmed incidents.",
+      "acceptance": [
+        "Show coverage, deduplication, translation/source distinction and draft history.",
+        "Draft, approved and published remain distinct; posting needs exact approval and readback.",
+        "Human and agent can inspect/edit; private identifiers stay out of model context and exports."
+      ],
+      "implementation_status": "REQUIRED_NOT_COMPLETE"
+    },
+    {
+      "id": "MW-05",
+      "title": "Retention problem to consented lifecycle experiment",
+      "priority": "P1",
+      "current_coverage": "PARTIAL: local follow-up policy, eligibility and handoff exist; CRM lifecycle tracking is missing.",
+      "source_paths": [
+        "mission_control/followup.py",
+        "mission_control/followup_policy.py",
+        "mission_control/experiment_tracking.py"
+      ],
+      "required_workflow": "Draft push/in-app/email variants; select consented segment, quiet hours, cap, schedule and holdout; approve export/handoff and import delivery/conversion/unsubscribe outcomes. Add the connected CRM adapter required by this workflow.",
+      "acceptance": [
+        "Extend existing follow-up instead of a second scheduler; suppression and withdrawn consent prevent dispatch.",
+        "Scheduled, handed off, delivered and converted remain distinct; missing delivery is unknown.",
+        "Replay, timezone, cancellation, revocation and stale-segment approvals are tested."
+      ],
+      "implementation_status": "REQUIRED_NOT_COMPLETE"
+    },
+    {
+      "id": "MW-06",
+      "title": "Competitor evidence to a testable hypothesis",
+      "priority": "P2",
+      "current_coverage": "PARTIAL: benchmarks and creative library exist; competitor export/feed ingestion is missing.",
+      "source_paths": [
+        "mission_control/growth_review_store.py",
+        "mission_control/creative_library.py",
+        "mission_control/creative_ranking.py"
+      ],
+      "required_workflow": "Attach permitted listing, keyword and ad-library evidence to existing libraries; compare exact date/locale/category and create an experiment hypothesis. Prefer user-owned exports before paid feeds.",
+      "acceptance": [
+        "Show provider, date, licensed scope, estimated versus observed data and missing coverage.",
+        "Library presence does not prove ad performance or authorize reuse; existing rights and viral thresholds remain.",
+        "Stale/incomparable observations cannot become winning claims; preserve links into the hypothesis."
+      ],
+      "implementation_status": "REQUIRED_NOT_COMPLETE"
+    },
+    {
+      "id": "MW-07",
+      "title": "Previewed reusable CSV/JSON evidence intake",
+      "priority": "P0",
+      "current_coverage": "PARTIAL: typed imports and snapshots exist; provider-export mapping preview is missing.",
+      "source_paths": [
+        "mission_control/store.py",
+        "mission_control/insights_contract.py",
+        "mission_control/attribution_ingestion.py"
+      ],
+      "required_workflow": "Share bounded mapping preview, row validation, duplicate review and atomic import across attribution, costs, lifecycle and competitor evidence; save noncredential mapping templates.",
+      "acceptance": [
+        "Reject bad schemas, duplicate columns/keys, oversized files/rows/depth and formula injection on spreadsheet export.",
+        "Failed import preserves prior data; credentials and reusable authority cannot be imported.",
+        "Retain app scope, source hash, mapping version, units and coverage; replay is idempotent."
+      ],
+      "implementation_status": "REQUIRED_NOT_COMPLETE"
+    },
+    {
+      "id": "MW-08",
+      "title": "Verified event to prioritized review task",
+      "priority": "P1",
+      "current_coverage": "PARTIAL: signed payment/StoreKit/attribution intake exists; marketing review rules are missing.",
+      "source_paths": [
+        "mission_control/server.py",
+        "mission_control/signed_payments.py",
+        "mission_control/storekit_ingestion.py",
+        "mission_control/attribution_ingestion.py"
+      ],
+      "required_workflow": "Turn verified imported/provider events or mature metric thresholds into deduplicated tasks with evidence, reason and next action. Support dry-run, pause, threshold edits and links to telemetry/history.",
+      "acceptance": [
+        "Test authentication/signature failure, stale/duplicate/late delivery, cooldown and recovery.",
+        "Decline rules require baseline, window, maturity and sample; missing data cannot manufacture a decline.",
+        "Events prepare tasks only; no implicit publication, spend, external message or public server exposure."
+      ],
+      "implementation_status": "REQUIRED_NOT_COMPLETE"
+    }
+  ]
+}
