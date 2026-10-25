@@ -1,0 +1,20 @@
+{
+  "checks": [
+    {
+      "name": "closed-downloadable-blob-contract",
+      "kind": "python",
+      "run": "from mission_control.drive_media_contract import metadata\nr=metadata({'id':'one','name':'one.mp4','mimeType':'video/mp4','size':'2','version':'1','md5Checksum':'a'*32,'trashed':False,'capabilities':{'canDownload':True}},'one')\nassert isinstance(r,dict) and r['id']=='one' and r['bytes']==2 and r['version']=='1'"
+    },
+    {
+      "name": "fixed-selected-download-destination",
+      "kind": "python",
+      "run": "from mission_control.drive_media_transport import destination\nassert destination('one',True)=='https://www.googleapis.com/drive/v3/files/one?alt=media', 'Only selected fixed-host blob GET can be compiled'"
+    },
+    {
+      "name": "actual-import-reuse-and-native-stitch",
+      "kind": "python",
+      "must_fail_on_stub": false,
+      "run": "import unittest\ns=unittest.defaultTestLoader.loadTestsFromName('tests.test_drive_media')\nr=unittest.TextTestRunner(verbosity=2).run(s)\nassert r.wasSuccessful() and not r.skipped, 'Original import rights review and decoded stitching must pass'"
+    }
+  ]
+}
