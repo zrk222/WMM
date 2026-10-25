@@ -11,6 +11,7 @@ import time
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
+from mission_control import agent_grant_http
 from mission_control.agent_grant_http import framing, read_body
 from mission_control.agent_review_protocol import PATHS
 from mission_control.common import Invalid
@@ -84,25 +85,76 @@ class GatewayHTTPTests(unittest.TestCase):
             for name,value in [('Host',self.origin[7:]),('Origin',self.origin),('Authorization','Bearer synthetic-token'),
                                ('Content-Type','application/json'),('Content-Length',str(len(body))),*extras]:
                 client.putheader(name,value)
-            client.endheaders(body);response=client.getresponse();return response.status,response.read()
+            client.endheaders(body);response=client.getresponse();return dict(status=response.status,raw=response.read(),transport_error=None)
+        except (ConnectionAbortedError,ConnectionResetError,http.client.RemoteDisconnected) as error:
+            return dict(status=None,raw=b'',transport_error=type(error).__name__)
         finally:client.close()
+
+    def assert_framing_rejection(self,path,result,events,message):
+        matching=[event for event in events if event.get('event')=='FRAMING_INVALID' and event.get('path')==path]
+        self.assertEqual(len(matching),1,'the same request needs one observed server framing denial before a transport abort can count')
+        self.assertEqual(matching[0]['error'],'Invalid')
+        self.assertEqual(matching[0]['message'],message)
+        if result['status'] is None:
+            self.assertIn(result['transport_error'],('ConnectionAbortedError','ConnectionResetError','RemoteDisconnected'))
+        else:
+            self.assertIsNone(result['transport_error'])
+            self.assertEqual(result['status'],400,result['raw'])
+            self.assertIn(b'content',result['raw'].lower(),result['raw'])
+
+    @staticmethod
+    def observed_framing(original,events):
+        def observe(handler):
+            try:return original(handler)
+            except Invalid as error:
+                events.append(dict(event='FRAMING_INVALID',path=handler.path,error=type(error).__name__,message=str(error)))
+                raise
+        return observe
 
     def test_actual_call_and_all_review_routes_reject_before_dispatch(self):
         targets=['mission_control.agent_grants.Grants.admit',
                  'mission_control.agent_review_http.ReviewedDispatch.prepare',
                  'mission_control.agent_review_http.ReviewedDispatch.inspect',
                  'mission_control.agent_review_http.ReviewedDispatch.resume']
+        malformed=(( [('Transfer-Encoding','')], 'Use one bounded content length'),
+                   ([('Transfer-Encoding',''),('Transfer-Encoding','chunked')], 'Use one bounded content length'),
+                   ([('Content-Type','application/json')], 'Use exactly one application/json content type'))
         from contextlib import ExitStack
         with ExitStack() as stack:
             guards=[stack.enter_context(patch(target,side_effect=AssertionError('Must reject before admission'))) for target in targets]
             for path,value in REQUESTS.items():
                 body=json.dumps(value).encode()
-                for extra in ([('Transfer-Encoding','')],[('Transfer-Encoding',''),('Transfer-Encoding','chunked')],
-                              [('Content-Type','application/json')],[('Content-Length',str(len(body)))]):
+                cases=(*malformed,([('Content-Length',str(len(body)))], 'Use one bounded content length'))
+                for extra,message in cases:
                     with self.subTest(path=path,extra=extra):
-                        status,raw=self.request(path,body,extra);self.assertEqual(status,400,raw)
-                        self.assertTrue('content' in raw.decode().lower(),raw)
+                        events=[];original=agent_grant_http.framing
+                        with patch('mission_control.agent_grant_http.framing',side_effect=self.observed_framing(original,events)):
+                            result=self.request(path,body,extra)
+                        self.assert_framing_rejection(path,result,events,message)
             for guard in guards:guard.assert_not_called()
+
+    def test_client_abort_without_matching_server_denial_is_not_a_rejection(self):
+        with self.assertRaisesRegex(AssertionError,'same request needs one observed server framing denial'):
+            self.assert_framing_rejection('/api/agent-operations/call',
+                dict(status=None,raw=b'',transport_error='ConnectionAbortedError'),[],
+                'Use one bounded content length')
+
+    def test_empty_transfer_encoding_guard_removal_mutant_fails_the_request_assertion(self):
+        path='/api/agent-operations/call';body=json.dumps(ENVELOPE).encode();events=[]
+        original=agent_grant_http.framing
+        def without_empty_encoding_guard(handler):
+            encodings=handler.headers.get_all('Transfer-Encoding')
+            if encodings==['']:
+                del handler.headers['Transfer-Encoding']
+                try:return original(handler)
+                finally:handler.headers['Transfer-Encoding']=''
+            return self.observed_framing(original,events)(handler)
+        with patch('mission_control.agent_grant_http.framing',side_effect=without_empty_encoding_guard), \
+             patch('mission_control.agent_grants.Grants.admit',side_effect=AssertionError('mutant reached admission')) as admit:
+            result=self.request(path,body,[('Transfer-Encoding','')])
+        admit.assert_called_once()
+        with self.assertRaisesRegex(AssertionError,'same request needs one observed server framing denial'):
+            self.assert_framing_rejection(path,result,events,'Use one bounded content length')
 
     def raw_request(self,path,stall=False):
         body=json.dumps(REQUESTS[path]).encode();client=socket.create_connection(('127.0.0.1',self.server.server_port),timeout=8)

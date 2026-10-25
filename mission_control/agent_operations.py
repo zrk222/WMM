@@ -3,6 +3,7 @@ from .common import digest
 from .marketing_agent_manifest import operating_manifest
 from .agent_feedback import TOOLS
 from .operation_catalog import catalog
+from .personal_agent_profiles import operating_guide
 
 
 def discovery(app):
@@ -38,4 +39,5 @@ def discovery(app):
         "coverage": {"complete_autonomous_operation": False, "feedback_missing_tools": missing_feedback,
             "remaining": ["Complete domain operation catalog and request/result schemas", "Provider-specific authorized effect adapters", "Full workflow conformance through two independent clients"]},
         "execution_authority": False, "external_writes": False, "spend_minor": 0}
+    value['personal_agent_guide']=operating_guide(app,policy,value['local_catalog'])
     return dict(value, contract_sha256=digest(value))

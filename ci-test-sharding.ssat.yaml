@@ -1,0 +1,55 @@
+{
+  "name": "ci-test-sharding",
+  "language": "python",
+  "modules": [
+    {
+      "name": "ci_test_runner",
+      "path": "tools/run_ci_tests.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "flatten",
+          "args": [
+            "suite"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "verify_assignment",
+          "args": [
+            "cases",
+            "assigned"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "partition",
+          "args": [
+            "cases",
+            "shards"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "inventory",
+          "args": [
+            "cases",
+            "assigned",
+            "index",
+            "plan_only"
+          ],
+          "returns": "unknown"
+        },
+        {
+          "name": "main",
+          "args": [
+            "argv"
+          ],
+          "returns": "unknown"
+        }
+      ]
+    }
+  ],
+  "dependencies": [],
+  "invariants": []
+}

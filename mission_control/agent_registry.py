@@ -6,7 +6,7 @@ TASKS={
     'original_copy':'Draft original problem, demonstration and limitation copy for this app.',
     'experiment_critique':'Review a proposed experiment for missing evidence, measurement and decision rules.'}
 FACTS=('name','website','release','locale','job','audience','activation','brand_voice','brand_boundaries')
-SOURCE_IDS=('app_manifest',)+tuple('stage_'+str(n) for n in range(1,13))+('release_observation','subscription_observation','ledger_state','action_feedback')
+SOURCE_IDS=('app_manifest',)+tuple('stage_'+str(n) for n in range(1,13))+('release_observation','subscription_observation','ledger_state','action_feedback','creative_taste')
 NATIVE=('codex','claude','kimi','glm_coding')
 KEYED=('glm_coding','openai_api','anthropic_api','compatible_api','local_api')
 REGISTRY={
