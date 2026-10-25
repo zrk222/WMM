@@ -1,0 +1,20 @@
+{
+  "checks": [
+    {
+      "name": "redacted-consent-summary",
+      "kind": "python",
+      "run": "from mission_control.drive_flow_contract import summary\nr=summary([],0)\nassert isinstance(r,dict) and r['flows']==[] and r['scope_of_result']=='CONSENT_PROGRESS_ONLY'\nassert r['connected_account']=='NOT_ASSESSED' and 'modification permission' in r['permission_summary']"
+    },
+    {
+      "name": "immutable-flow-context-digest",
+      "kind": "python",
+      "run": "from mission_control.drive_flow_contract import binding\nr=dict(id='synthetic',app_id='sample-one',manifest_version=1,connection_id=None,connection_version=0,state_hash='a'*64,expires=600,data={'port':8768})\na=binding(r)\nassert isinstance(a,str) and len(a)==64\nassert a!=binding(dict(r,manifest_version=2)), 'App revision must be part of protected context'"
+    },
+    {
+      "name": "durable-consent-state-and-races",
+      "kind": "python",
+      "must_fail_on_stub": false,
+      "run": "import unittest\ns=unittest.defaultTestLoader.loadTestsFromName('tests.test_drive_flows')\nr=unittest.TextTestRunner(verbosity=2).run(s)\nassert r.wasSuccessful() and not r.skipped, 'Actual consent state races and recovery must pass'"
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "name": "drive-flows",
+  "language": "python",
+  "modules": [
+    {
+      "name": "drive_flow_contract",
+      "path": "mission_control/drive_flow_contract.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "decoded",
+          "args": [
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "request",
+          "args": [
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "source_guard",
+          "args": [
+            "db",
+            "frozen"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "binding",
+          "args": [
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "public",
+          "args": [
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "summary",
+          "args": [
+            "rows",
+            "cleanup_pending"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "drive_flows",
+      "path": "mission_control/drive_flows.py",
+      "language": "python",
+      "functions": []
+    },
+    {
+      "name": "drive_flows_tests",
+      "path": "tests/test_drive_flows.py",
+      "language": "python",
+      "functions": []
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "drive_flows",
+      "to": "drive_flow_contract"
+    },
+    {
+      "from": "drive_flows_tests",
+      "to": "drive_flows"
+    }
+  ],
+  "invariants": []
+}
