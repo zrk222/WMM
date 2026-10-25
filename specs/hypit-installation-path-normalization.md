@@ -26,4 +26,3 @@ Scenario: npm discovery from canonical and short Windows paths
   Then the expected and observed paths are compared after resolution
   And Hypit is not executed
 ```
-
