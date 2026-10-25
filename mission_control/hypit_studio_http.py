@@ -49,6 +49,7 @@ def session_bytes(origin,observe,deadline,maximum):
                 raise Invalid('Studio returned an unsupported session response')
             return bounded_body(response,observe,deadline,maximum)
     except HTTPError:raise
+    except PermissionError:raise
     except (OSError,HTTPException) as error:
         if connection.expired or time.monotonic()>=deadline:
             raise TimeoutError('Studio observation deadline expired') from None
@@ -73,3 +74,31 @@ def bounded_body(response,observe,deadline,maximum):
     observe()
     if time.monotonic()>=deadline:raise TimeoutError('Studio observation deadline expired')
     return bytes(body)
+
+
+def parameter_bytes(origin,body,observe,deadline,maximum,before_send=None):
+    """A single fixed mutation send; its caller persists intent before entering."""
+    if not isinstance(body,bytes) or not 0<len(body)<=1048576:
+        raise Invalid('Studio parameter request exceeds its byte bound')
+    connection=connection_for(origin,deadline);connection.expired=False;timer=None
+    try:
+        observe();connection.connect();observe()
+        remaining=deadline-time.monotonic()
+        if remaining<=0:raise TimeoutError('Studio mutation deadline expired')
+        timer=threading.Timer(remaining,connection.expire);timer.daemon=True;timer.start()
+        if before_send is not None:before_send()
+        connection.request('POST','/__studio/mutation',body=body,
+            headers={'Origin':origin,'Content-Type':'application/json'})
+        with connection.getresponse() as response:
+            if response.headers.get_content_type()!='application/json':
+                raise Invalid('Studio mutation response is not JSON')
+            status=response.status;raw=bounded_body(response,observe,deadline,maximum)
+        observe();return status,raw
+    except PermissionError:raise
+    except (OSError,HTTPException) as error:
+        if connection.expired or time.monotonic()>=deadline:
+            raise TimeoutError('Studio mutation deadline expired') from None
+        raise URLError('Studio mutation connection is unavailable') from error
+    finally:
+        if timer is not None:timer.cancel();timer.join()
+        connection.close()

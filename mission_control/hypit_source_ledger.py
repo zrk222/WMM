@@ -140,6 +140,18 @@ class SourceLedger:
     def scope(self,app_id,project_id):
         self.store.app(app_id);identifier(project_id)
 
+    def retry(self,app_id,project_id,body):
+        """Inspect an exact previous intent before resolving an obsolete public view."""
+        self.scope(app_id,project_id);body=intent(body)
+        with connection(self.store.path) as db:
+            db.execute('BEGIN');history_current(db,app_id,project_id)
+            old=db.execute('SELECT * FROM studio_edit_attempts WHERE app_id=? AND project_id=? AND request_key=?',
+                           (app_id,project_id,body['request_key'])).fetchone()
+            if old is None:return None
+            row=checked(old)
+            if row['data']!=body:raise Invalid('Edit retry key belongs to different frozen inputs')
+            return attempt_receipt(row)
+
     def initialize(self,app_id,project_id,bundle):
         self.scope(app_id,project_id);data=source_bundle(bundle)
         with connection(self.store.path) as db:
