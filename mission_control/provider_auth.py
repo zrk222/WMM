@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 import struct
+import sys
 import threading
 import time
 from urllib.error import HTTPError, URLError
@@ -134,8 +135,12 @@ class CNG:
         return "-----BEGIN PUBLIC KEY-----\n"+"\n".join(encoded[i:i+64] for i in range(0,len(encoded),64))+"\n-----END PUBLIC KEY-----"
 
 def native(operation,private_key,message=""):
-    """Import and sign inside Windows CNG; no helper, shell, plaintext file or persistent key."""
+    """Select local platform signing without a helper or persistent private-key file."""
     raw=key_der(private_key)
+    if sys.platform.startswith('linux'):
+        from .provider_crypto import execute
+        private_scalar(raw)
+        return execute(operation,raw,message)
     provider=ctypes.c_size_t()
     key=ctypes.c_size_t()
     api=CNG()
