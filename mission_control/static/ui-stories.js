@@ -75,6 +75,7 @@
   define('video-project-edit-form','Shape the saved video for the people you want to reach.','Your timing, framing and color choices become a new shared project revision. Rendering creates an actual MP4.','Save field edits before clip commands or rendering, then preview the exact output and review it before use.');
   Object.freeze(FORMS);
   const DIALOGS=Object.freeze({
+    'Your selected Drive clips':['Bring your selected Google Drive clips into this app.','Connect the Google account and select files. When you import a clip, WMM keeps the original picture and sound and shows its progress.','Choose access first, then select clips to import. Review each saved original and approve reuse before editing.'],
     'Your app-sales founder review':['Choose your next app-sales task.','See missing stages beside source-bound results.','Open an exact stage report or export this page.'],
     'Your app-sales stage results':['See where app sales advance.','Stage counts, matching conversion ratios and subscription economics come from this cohort’s saved evidence.','Resolve a missing stage or export this report.'],
     'Your app-sales funnels':['Choose the app-sales path to work on.','Each saved plan connects creative, a cohort and the app milestones you chose.','Open its results or create a new plan.'],
@@ -89,7 +90,7 @@
     const found=[...markup.matchAll(/<form\b[^>]*\sid=["']([^"']+)["']/g)].map(match=>match[1]);
     const rows=found.map(id=>FORMS[id]);
     if(rows.some(row=>!row))return `<aside class="notice" aria-label="Task guide"><p>Review ${esc(title)}. Check the exact inputs, result and action described below before continuing.</p></aside>`;
-    const story=rows[0]||DIALOGS[title]||[`Inspect ${title}.`,'Read the displayed status, source and saved evidence to understand this work.','Use an action below only after reviewing its exact effect. Close this view to return to your workspace.'];
+    const story=DIALOGS[title]||rows[0]||[`Inspect ${title}.`,'Read the displayed status, source and saved evidence to understand this work.','Use an action below only after reviewing its exact effect. Close this view to return to your workspace.'];
     return `<aside class="notice" aria-label="Task guide"><div><p><strong>${esc(story[0])}</strong></p><p>${esc(story[1])}</p><p>${esc(story[2])}</p></div></aside>`;
   }
   return {PAGES,FORMS,page,dialog};
