@@ -1,0 +1,120 @@
+{
+  "name": "drive-owner-http",
+  "language": "python",
+  "modules": [
+    {
+      "name": "drive_http",
+      "path": "mission_control/drive_http.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "route",
+          "args": [
+            "handler",
+            "parts"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "owner",
+          "args": [
+            "handler",
+            "parts"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "callback",
+          "args": [
+            "store",
+            "app_id",
+            "value",
+            "port"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "empty",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "get",
+          "args": [
+            "handler",
+            "parts"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "action",
+          "args": [
+            "store",
+            "app_id",
+            "tail",
+            "value",
+            "port",
+            "principal"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "nested",
+          "args": [
+            "store",
+            "app_id",
+            "tail",
+            "value",
+            "port",
+            "principal"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "post",
+          "args": [
+            "handler",
+            "parts"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "test_drive_http",
+      "path": "tests/test_drive_http.py",
+      "language": "python",
+      "functions": []
+    },
+    {
+      "name": "test_managed_media_http",
+      "path": "tests/test_managed_media_http.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "decoded",
+          "args": [
+            "raw",
+            "suffix",
+            "alive",
+            "tools"
+          ],
+          "returns": "object"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "test_drive_http",
+      "to": "drive_http"
+    },
+    {
+      "from": "test_drive_http",
+      "to": "test_managed_media_http"
+    }
+  ],
+  "invariants": []
+}
