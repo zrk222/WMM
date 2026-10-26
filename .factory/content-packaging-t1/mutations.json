@@ -28,5 +28,10 @@
     "name": "immutable-replace",
     "killed": true,
     "exit_code": 1
+  },
+  {
+    "name": "immutable-rowid",
+    "killed": true,
+    "exit_code": 1
   }
 ]

@@ -57,6 +57,7 @@ def mutations():
         ('precommit','mission_control/packaging_store.py',"if result['source_status']!='CURRENT':", 'if False:'),
         ('immutable-delete','mission_control/db.py',"CREATE TRIGGER IF NOT EXISTS packaging_immutable_delete BEFORE DELETE ON packaging_documents BEGIN SELECT RAISE(ABORT,'packaging history is append-only'); END;", ''),
         ('immutable-replace','mission_control/db.py',"CREATE TRIGGER IF NOT EXISTS packaging_immutable_insert BEFORE INSERT ON packaging_documents WHEN EXISTS(SELECT 1 FROM packaging_documents WHERE app_id=NEW.app_id AND id=NEW.id AND version=NEW.version) BEGIN SELECT RAISE(ABORT,'packaging history is append-only'); END;", ''),
+        ('immutable-rowid','mission_control/db.py',"CREATE TRIGGER IF NOT EXISTS packaging_no_rowid_replace BEFORE INSERT ON packaging_documents WHEN EXISTS(SELECT 1 FROM packaging_documents WHERE rowid=NEW.rowid) BEGIN SELECT RAISE(ABORT,'packaging history is append-only'); END;", ''),
     ]
     results=[]
     for name,path,before,after in cases:

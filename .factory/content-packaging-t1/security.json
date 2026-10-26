@@ -13,14 +13,14 @@
     "measurement_state": "complete",
     "rate_defined": true
   },
-  "audit_sha256": "5c7d19be3dbefb4e915ef01043f322cfe837312fdd2bcd63f9ae87bf18fd9ab2",
+  "audit_sha256": "8eb00f106621c920cf3999940ba763c9f48a96722a0110f14b8027358be72fc7",
   "authority": {
     "approval": false,
     "deployment": false,
     "execution": false,
     "publication": false
   },
-  "candidate_sha256": "670a441dfcabb57dcdeae58107695792c59658d7f807142627f72271b74f3480",
+  "candidate_sha256": "e00f87eebfa17f8c8d3c0cd25c4cb5403c06f920043b2cc3abbfeb855d8471bc",
   "claim_boundary": "Bounded Python AST pattern scan only. Declared tenant argument bindings verify syntactic pass-through, not tenant identity, authorization, or access isolation; this is not a penetration test, runtime exploit proof, dependency advisory, or release approval.",
   "database_context": {
     "configuration_sources": [
@@ -57,7 +57,7 @@
       "python_execute_receiver_unproven:mission_control/packaging_store.py",
       "python_executed_non_query_unsupported:mission_control/db.py"
     ],
-    "graph_digest": "c58e4c542e764ce23f9b5d83d4d040a9165b07bb04bffa37d6522d1899ed85a3",
+    "graph_digest": "cb7a5cf5dde4a671a561db209bb13bed15312271df16dbe25b1cc189f76b4976",
     "operations": [],
     "parser_identity": "sqlglot/30.23.0",
     "queries": [],
@@ -84,8 +84,8 @@
       },
       {
         "path": "mission_control/db.py",
-        "sha256": "cf3e3fe9aa26c1b11782050877d2702e017fdaafcfc09679891f9c657898eccc",
-        "size": 31577
+        "sha256": "7fd4538543e9cd172ebfb9e228487158fc282267b8c2c332015f3bc17e025999",
+        "size": 31806
       },
       {
         "path": "mission_control/discovery_store.py",
@@ -227,7 +227,7 @@
   "oversized_sources": 0,
   "parse_errors": 0,
   "schema": "factory.security-audit.v1",
-  "source_manifest_sha256": "ae61c7610a0cec5a5233af049c5ea36fef4ae4e286d8d9c52db7c3740eedd1d7",
+  "source_manifest_sha256": "1a346a3812ed760a9dc89cb0e0f613a2dc5af8ca9f6ea87c19dd687392262978",
   "sources": [
     {
       "bytes": 3416,
@@ -245,9 +245,9 @@
       "sha256": "03e23f8a9098b49a5dbfbf584f01afd8205f661591a80dc5aefb6f963d31dd7f"
     },
     {
-      "bytes": 31577,
+      "bytes": 31806,
       "path": "mission_control/db.py",
-      "sha256": "cf3e3fe9aa26c1b11782050877d2702e017fdaafcfc09679891f9c657898eccc"
+      "sha256": "7fd4538543e9cd172ebfb9e228487158fc282267b8c2c332015f3bc17e025999"
     },
     {
       "bytes": 14664,

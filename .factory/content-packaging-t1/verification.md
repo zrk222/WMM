@@ -11,11 +11,14 @@ No other checkout changed; no push, PR, merge or external execution performed.
 - Privacy: tracked-distribution check passes after converting earlier PowerShell
   UTF-16 evidence to UTF-8 and redacting local user profile paths from command logs
   and doctor display evidence. These redacted displays are not signed raw receipts.
-- Tests: 13/13 packaging tests; 61/61 packaging plus creative production, discovery,
+- Tests: 15/15 packaging tests; 63/63 packaging plus creative production, discovery,
   managed media and distribution regression tests pass. Actual temporary SQLite/files.
 - Coverage: 199 statements, 9 missed, 95% for three packaging modules.
-- Mutations: six source mutants killed: source hash, script binding, manifest revision,
-  final precommit currentness, SQL immutable deletion and replacement. Original bytes restored.
+- Mutations: seven source mutants killed: source hash, script binding, manifest revision,
+  final precommit currentness, SQL immutable deletion, composite replacement and explicit
+  rowid replacement. Original bytes restored. Rowid regression covers both REPLACE
+  verbs with recursive_triggers=0 and 1, full original row/hash preservation, normal
+  fresh revisions, initialization upgrade and fail-closed reserved rowid -1 behavior.
 - Scoped Forge QA: max source complexity 9; full function attribution 1.0. Static QA
   does not establish behavior; tests and mutation observations are separate evidence.
 - Workflow audit: PASS, six applicable check categories with current source/log hashes.

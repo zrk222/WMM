@@ -1,7 +1,7 @@
 {
   "schema": "factory.workflow-audit.observations.v1",
-  "contract_sha256": "77acd7bf23688a2c55765aecf363e7bb2b7ca7fa778762d58555f907125610e7",
-  "candidate_sha256": "32d0af70955d927adfe7b6f33f3767f240e6b40bb4acb88a91e856b8dfe73b17",
+  "contract_sha256": "876f01eea0731268bc64eba9cd5e793bb9b178936b3c5d8f96ec877e85df337e",
+  "candidate_sha256": "1642a35b4955ba7a3ccf6afbe6f486f7cb2157718db0447d4ea38bd6939f6189",
   "observations": [
     {
       "id": "happy_path",
@@ -9,16 +9,16 @@
       "status": "PASS",
       "reason": "Persist drafts and script shots with exact native bindings and restart readback. See named unittest cases and mutation failures.",
       "execution_identity": "python -m unittest tests.test_packaging -v",
-      "observed_at": "2026-10-26T07:05:27.916292+00:00",
+      "observed_at": "2026-10-26T07:20:19.205455+00:00",
       "artifacts": [
         {
           "path": ".factory/content-packaging-t1/tests.log",
-          "sha256": "966e352b1f213cc9091a55d0b6a2745399238f87a954330c54adadde80ff72fd",
+          "sha256": "ea96529d3617fee0de6270b17d3ad94dbf8b824d82fc58cb3e53c9d4934964fe",
           "kind": "log"
         },
         {
           "path": ".factory/content-packaging-t1/mutations.json",
-          "sha256": "a947d481c368a3acd231ed805f8e40b940868d9cbaf55a20d47fb33917c28949",
+          "sha256": "7a0a8df63e102b0d679ecf8aae73f7dcd55f8df5b41f945eeaf07c5e63a7524c",
           "kind": "log"
         }
       ]
@@ -29,16 +29,16 @@
       "status": "PASS",
       "reason": "Reject stale, foreign, malformed and unsupported references and script segment hashes. See named unittest cases and mutation failures.",
       "execution_identity": "python -m unittest tests.test_packaging -v",
-      "observed_at": "2026-10-26T07:05:27.916292+00:00",
+      "observed_at": "2026-10-26T07:20:19.205455+00:00",
       "artifacts": [
         {
           "path": ".factory/content-packaging-t1/tests.log",
-          "sha256": "966e352b1f213cc9091a55d0b6a2745399238f87a954330c54adadde80ff72fd",
+          "sha256": "ea96529d3617fee0de6270b17d3ad94dbf8b824d82fc58cb3e53c9d4934964fe",
           "kind": "log"
         },
         {
           "path": ".factory/content-packaging-t1/mutations.json",
-          "sha256": "a947d481c368a3acd231ed805f8e40b940868d9cbaf55a20d47fb33917c28949",
+          "sha256": "7a0a8df63e102b0d679ecf8aae73f7dcd55f8df5b41f945eeaf07c5e63a7524c",
           "kind": "log"
         }
       ]
@@ -49,16 +49,16 @@
       "status": "PASS",
       "reason": "Rollback source or app changes detected during save and retain prior history. See named unittest cases and mutation failures.",
       "execution_identity": "python -m unittest tests.test_packaging -v",
-      "observed_at": "2026-10-26T07:05:27.916862+00:00",
+      "observed_at": "2026-10-26T07:20:19.206454+00:00",
       "artifacts": [
         {
           "path": ".factory/content-packaging-t1/tests.log",
-          "sha256": "966e352b1f213cc9091a55d0b6a2745399238f87a954330c54adadde80ff72fd",
+          "sha256": "ea96529d3617fee0de6270b17d3ad94dbf8b824d82fc58cb3e53c9d4934964fe",
           "kind": "log"
         },
         {
           "path": ".factory/content-packaging-t1/mutations.json",
-          "sha256": "a947d481c368a3acd231ed805f8e40b940868d9cbaf55a20d47fb33917c28949",
+          "sha256": "7a0a8df63e102b0d679ecf8aae73f7dcd55f8df5b41f945eeaf07c5e63a7524c",
           "kind": "log"
         }
       ]
@@ -69,16 +69,16 @@
       "status": "PASS",
       "reason": "Immutable SQLite rows and script/source/rights revisions remain hash-bound. See named unittest cases and mutation failures.",
       "execution_identity": "python -m unittest tests.test_packaging -v",
-      "observed_at": "2026-10-26T07:05:27.916862+00:00",
+      "observed_at": "2026-10-26T07:20:19.206454+00:00",
       "artifacts": [
         {
           "path": ".factory/content-packaging-t1/tests.log",
-          "sha256": "966e352b1f213cc9091a55d0b6a2745399238f87a954330c54adadde80ff72fd",
+          "sha256": "ea96529d3617fee0de6270b17d3ad94dbf8b824d82fc58cb3e53c9d4934964fe",
           "kind": "log"
         },
         {
           "path": ".factory/content-packaging-t1/mutations.json",
-          "sha256": "a947d481c368a3acd231ed805f8e40b940868d9cbaf55a20d47fb33917c28949",
+          "sha256": "7a0a8df63e102b0d679ecf8aae73f7dcd55f8df5b41f945eeaf07c5e63a7524c",
           "kind": "log"
         }
       ]
@@ -89,21 +89,21 @@
       "status": "PASS",
       "reason": "Closed input and app-scoped evidence; synthetic fixtures and no credential fields. See named unittest cases and mutation failures.",
       "execution_identity": "python -m unittest tests.test_packaging -v",
-      "observed_at": "2026-10-26T07:05:27.917869+00:00",
+      "observed_at": "2026-10-26T07:20:19.216554+00:00",
       "artifacts": [
         {
           "path": ".factory/content-packaging-t1/tests.log",
-          "sha256": "966e352b1f213cc9091a55d0b6a2745399238f87a954330c54adadde80ff72fd",
+          "sha256": "ea96529d3617fee0de6270b17d3ad94dbf8b824d82fc58cb3e53c9d4934964fe",
           "kind": "log"
         },
         {
           "path": ".factory/content-packaging-t1/mutations.json",
-          "sha256": "a947d481c368a3acd231ed805f8e40b940868d9cbaf55a20d47fb33917c28949",
+          "sha256": "7a0a8df63e102b0d679ecf8aae73f7dcd55f8df5b41f945eeaf07c5e63a7524c",
           "kind": "log"
         },
         {
           "path": ".factory/content-packaging-t1/privacy-distribution.log",
-          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b",
+          "sha256": "0579eae79e3d6341ceb47283f9e67522231a4038e6ef304edb887762e22f49f6",
           "kind": "log"
         }
       ]
@@ -114,16 +114,16 @@
       "status": "PASS",
       "reason": "Stored draft remains NOT_RUN with execution_authority false; no execution adapter added. See named unittest cases and mutation failures.",
       "execution_identity": "python -m unittest tests.test_packaging -v",
-      "observed_at": "2026-10-26T07:05:27.917869+00:00",
+      "observed_at": "2026-10-26T07:20:19.217550+00:00",
       "artifacts": [
         {
           "path": ".factory/content-packaging-t1/tests.log",
-          "sha256": "966e352b1f213cc9091a55d0b6a2745399238f87a954330c54adadde80ff72fd",
+          "sha256": "ea96529d3617fee0de6270b17d3ad94dbf8b824d82fc58cb3e53c9d4934964fe",
           "kind": "log"
         },
         {
           "path": ".factory/content-packaging-t1/mutations.json",
-          "sha256": "a947d481c368a3acd231ed805f8e40b940868d9cbaf55a20d47fb33917c28949",
+          "sha256": "7a0a8df63e102b0d679ecf8aae73f7dcd55f8df5b41f945eeaf07c5e63a7524c",
           "kind": "log"
         }
       ]

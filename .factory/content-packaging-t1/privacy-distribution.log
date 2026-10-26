@@ -1,1 +1,2 @@
+$ python tools/check_distribution.py
 PASS: distribution contains no forbidden operational files or recognized credential patterns.

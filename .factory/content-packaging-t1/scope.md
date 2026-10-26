@@ -1,7 +1,7 @@
 # Approved T1 preparation scope
 
 Owned files: packaging_contract.py, packaging_bindings.py, packaging_store.py,
-db.py (one table and three triggers only), tests/test_packaging.py, scoped SSAT,
+db.py (one table and four triggers only), tests/test_packaging.py, scoped SSAT,
 plan packet note and these CF evidence files. No public UI or production adapter.
 
 Requirements: immutable app-scoped variants; current manifest/source/brief/product
@@ -23,6 +23,15 @@ mutations. These exclusions are scoped code review judgments, not platform waive
 P2 replacement follow-up: duplicate-revision BEFORE INSERT rejects REPLACE and
 INSERT OR REPLACE even with recursive_triggers=0. Real connection tests preserve
 the original row bytes/hash and permit a fresh revision. No other tables changed.
+
+Rowid follow-up: a separately named BEFORE INSERT trigger rejects existing rowids,
+including replacements using a fresh composite identity. Initialization installs
+this guard in databases already containing the earlier composite-key trigger.
+SQLite exposes an unspecified NEW.rowid as -1 before normal automatic allocation.
+Rowid -1 is therefore reserved: a manually inserted legacy -1 row blocks subsequent
+automatic inserts until separately reviewed recovery. The guard deliberately fails
+closed in that state. Normal generated positive rowids and fresh revisions work;
+manual negative-rowid imports are outside the supported storage contract.
 
 Draft reference shape: {kind,id,version,sha256}. Variant fields: audience, app_outcome,
 title (1-300), thumbnail, opening_frame, hook, cta, sources (SOURCE/COLLECTION),

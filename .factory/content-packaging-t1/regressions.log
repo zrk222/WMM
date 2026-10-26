@@ -3,11 +3,13 @@ test_closed_inputs_foreign_reads_and_append_only_sql (tests.test_packaging.Packa
 test_database_source_tampering_and_precommit_manifest_change_roll_back (tests.test_packaging.PackagingTests.test_database_source_tampering_and_precommit_manifest_change_roll_back) ... ok
 test_draft_missing_evidence_and_restart_history (tests.test_packaging.PackagingTests.test_draft_missing_evidence_and_restart_history) ... ok
 test_existing_collection_bindings_and_timestamped_source_shots (tests.test_packaging.PackagingTests.test_existing_collection_bindings_and_timestamped_source_shots) ... ok
+test_explicit_rowid_replace_preserves_history_for_both_trigger_modes (tests.test_packaging.PackagingTests.test_explicit_rowid_replace_preserves_history_for_both_trigger_modes) ... ok
 test_gaps_variant_binding_shot_claims_and_script_changes (tests.test_packaging.PackagingTests.test_gaps_variant_binding_shot_claims_and_script_changes) ... ok
 test_manifest_changes_and_atomic_stale_denial (tests.test_packaging.PackagingTests.test_manifest_changes_and_atomic_stale_denial) ... ok
 test_media_unknown_revoked_and_stale_rights_are_never_usable (tests.test_packaging.PackagingTests.test_media_unknown_revoked_and_stale_rights_are_never_usable) ... ok
 test_real_asset_bytes_and_claim_failure_readback (tests.test_packaging.PackagingTests.test_real_asset_bytes_and_claim_failure_readback) ... ok
 test_replace_cannot_overwrite_history_with_recursive_triggers_disabled (tests.test_packaging.PackagingTests.test_replace_cannot_overwrite_history_with_recursive_triggers_disabled) ... ok
+test_rowid_guard_upgrade_and_reserved_negative_sentinel_fail_closed (tests.test_packaging.PackagingTests.test_rowid_guard_upgrade_and_reserved_negative_sentinel_fail_closed) ... ok
 test_script_shots_original_missing_and_stale_variant (tests.test_packaging.PackagingTests.test_script_shots_original_missing_and_stale_variant) ... ok
 test_shot_contract_boundaries (tests.test_packaging.PackagingTests.test_shot_contract_boundaries) ... ok
 test_source_brief_assets_claims_exact_bindings (tests.test_packaging.PackagingTests.test_source_brief_assets_claims_exact_bindings) ... ok
@@ -62,6 +64,6 @@ test_remote_bind_is_rejected (tests.test_distribution.DistributionTests.test_rem
 test_timezone_dependency_is_available_after_setup (tests.test_distribution.DistributionTests.test_timezone_dependency_is_available_after_setup) ... ok
 
 ----------------------------------------------------------------------
-Ran 61 tests in 13.960s
+Ran 63 tests in 15.435s
 
 OK

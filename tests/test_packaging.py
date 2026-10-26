@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from mission_control.common import Invalid, canonical, digest, now
-from mission_control.db import connection
+from mission_control.db import connection, initialize
 from mission_control.store import Store
 from mission_control.packaging_store import Packaging, gaps
 from mission_control.packaging_bindings import variant_binding, shot_claims, collection_review
@@ -124,6 +124,43 @@ class PackagingTests(unittest.TestCase):
         fresh=self.save(dict(draft(), title='Fresh permitted revision'), version=1)
         self.assertEqual(fresh['version'], 2)
         self.assertEqual(self.packaging.read(self.app, original['id'], 'VARIANT', 1)['data'], original['data'])
+
+    def test_explicit_rowid_replace_preserves_history_for_both_trigger_modes(self):
+        for mode in (0, 1):
+            for index,verb in enumerate(('REPLACE', 'INSERT OR REPLACE')):
+                with self.subTest(mode=mode, verb=verb):
+                    identity='rowid-'+str(mode)+'-'+str(index);original=self.save(identity=identity)
+                    with connection(self.store.path) as db:
+                        before=dict(db.execute('SELECT rowid AS saved_rowid,* FROM packaging_documents WHERE app_id=? AND id=?',
+                                               (self.app, original['id'])).fetchone())
+                    values=(before['saved_rowid'], self.app, 'replacement-'+str(mode)+'-'+str(index), 1, 'VARIANT', before['data'], before['hash'], before['created'])
+                    with self.assertRaisesRegex(sqlite3.IntegrityError, 'append-only'):
+                        with connection(self.store.path) as db:
+                            db.execute('PRAGMA recursive_triggers='+str(mode))
+                            self.assertEqual(db.execute('PRAGMA recursive_triggers').fetchone()[0], mode)
+                            db.execute(verb+' INTO packaging_documents(rowid,app_id,id,version,kind,data,hash,created) VALUES(?,?,?,?,?,?,?,?)', values)
+                    with connection(self.store.path) as db:
+                        after=dict(db.execute('SELECT rowid AS saved_rowid,* FROM packaging_documents WHERE app_id=? AND id=?',
+                                              (self.app, original['id'])).fetchone())
+                    self.assertEqual(after, before)
+                    self.assertEqual(self.packaging.read(self.app, original['id'], 'VARIANT', 1)['hash'], original['hash'])
+                    fresh=self.save(identity=original['id'], version=1)
+                    self.assertEqual(fresh['version'], 2)
+
+    def test_rowid_guard_upgrade_and_reserved_negative_sentinel_fail_closed(self):
+        with connection(self.store.path) as db:
+            db.execute('DROP TRIGGER IF EXISTS packaging_no_rowid_replace')
+            self.assertIsNotNone(db.execute("SELECT name FROM sqlite_master WHERE type='trigger' AND name='packaging_immutable_insert'").fetchone())
+        initialize(self.store.path)
+        with connection(self.store.path) as db:
+            self.assertIsNotNone(db.execute("SELECT name FROM sqlite_master WHERE type='trigger' AND name='packaging_no_rowid_replace'").fetchone())
+        original=self.save()
+        with connection(self.store.path) as db:
+            row=db.execute('SELECT * FROM packaging_documents WHERE app_id=? AND id=?', (self.app, original['id'])).fetchone()
+            values=(-1, self.app, 'reserved-negative', 1, row['kind'], row['data'], row['hash'], row['created'])
+            db.execute('INSERT INTO packaging_documents(rowid,app_id,id,version,kind,data,hash,created) VALUES(?,?,?,?,?,?,?,?)', values)
+        with self.assertRaisesRegex(sqlite3.IntegrityError, 'append-only'):self.save(identity='generated-after-negative')
+        self.assertEqual(self.packaging.read(self.app, original['id'], 'VARIANT', 1)['hash'], original['hash'])
 
     def test_shot_contract_boundaries(self):
         variant=self.save();data=self.shotlist(variant)

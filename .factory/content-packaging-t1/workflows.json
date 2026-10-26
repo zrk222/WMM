@@ -12,24 +12,24 @@
     "repair": false,
     "signing": false
   },
-  "candidate_sha256": "32d0af70955d927adfe7b6f33f3767f240e6b40bb4acb88a91e856b8dfe73b17",
+  "candidate_sha256": "1642a35b4955ba7a3ccf6afbe6f486f7cb2157718db0447d4ea38bd6939f6189",
   "checks": 6,
-  "contract_sha256": "77acd7bf23688a2c55765aecf363e7bb2b7ca7fa778762d58555f907125610e7",
+  "contract_sha256": "876f01eea0731268bc64eba9cd5e793bb9b178936b3c5d8f96ec877e85df337e",
   "errors": [],
   "inapplicability_evidence": {
     "accessibility": {
-      "actual_sha256": "e063e0b8c77015c5e2a3883b75afd01969c38937a33163e5bbf1cd38c08b30e2",
+      "actual_sha256": "c037de4c27e80e789b6852b44d1ebd3f8f15c8d29f368b037e7bc782f17309b1",
       "current": true,
       "kind": "review",
       "path": ".factory/content-packaging-t1/scope.md",
-      "sha256": "e063e0b8c77015c5e2a3883b75afd01969c38937a33163e5bbf1cd38c08b30e2"
+      "sha256": "c037de4c27e80e789b6852b44d1ebd3f8f15c8d29f368b037e7bc782f17309b1"
     },
     "performance": {
-      "actual_sha256": "e063e0b8c77015c5e2a3883b75afd01969c38937a33163e5bbf1cd38c08b30e2",
+      "actual_sha256": "c037de4c27e80e789b6852b44d1ebd3f8f15c8d29f368b037e7bc782f17309b1",
       "current": true,
       "kind": "review",
       "path": ".factory/content-packaging-t1/scope.md",
-      "sha256": "e063e0b8c77015c5e2a3883b75afd01969c38937a33163e5bbf1cd38c08b30e2"
+      "sha256": "c037de4c27e80e789b6852b44d1ebd3f8f15c8d29f368b037e7bc782f17309b1"
     }
   },
   "limits": [
@@ -39,12 +39,12 @@
     "No project command or provider is executed.",
     "No approval, certification or deployment authority."
   ],
-  "observations_sha256": "1d495b10eebf6538d35d2fe8533481d9d65be78ba2f6d46d707a3715bfcbb937",
+  "observations_sha256": "5ddaedb3c7191ad0d637f1551d2020690993bf96291525ae7b9f963448fb796e",
   "project_id": "WMM-content-packaging-T1",
-  "receipt_sha256": "3d9b32b0d401ad9b3202ec7ece6e2eaaaa51ffe57ba7833bd023c98b27ae6c65",
+  "receipt_sha256": "a9953a232aa493e7e81bc47a03af87cccc7f7e9ccab4c5a748e5c893db2c1aa4",
   "resource_usage": {
     "artifact_references": 26,
-    "bytes_hashed": 115472
+    "bytes_hashed": 123772
   },
   "schema": "factory.workflow-audit.receipt.v1",
   "state": "PASS"
