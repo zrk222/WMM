@@ -1,4 +1,5 @@
 """App-scoped append-only packaging drafts and script-linked preproduction shots."""
+import sqlite3
 import json
 from .common import Invalid, canonical, digest, identifier, now
 from .db import connection
@@ -18,6 +19,7 @@ def decode(row):
 
 def latest(db, app_id, identity, kind):
     """Select one exact app and document kind, never a foreign identity."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     return db.execute('SELECT * FROM packaging_documents WHERE app_id=? AND id=? AND kind=? ORDER BY version DESC LIMIT 1',
                       (app_id, identity, kind)).fetchone()
 

@@ -1,4 +1,5 @@
 """Reuse native app/source/rights evidence without granting execution authority."""
+import sqlite3
 from .common import Invalid, digest
 from .funnel_store import creative_binding
 from .creative_library import latest_capture
@@ -72,6 +73,7 @@ def variant_binding(db, store, app_id, ref, app):
 
 def shot_claims(db, app_id, shots):
     """A proof link cannot turn unrelated copy into a supported product claim."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     import json
     for shot in shots:
         if not shot['claim_text'] or not shot['claims']:continue

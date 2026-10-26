@@ -1,4 +1,5 @@
 """Original evidence-bound briefs; preparation never implies rendering or publication."""
+import sqlite3
 import json
 from .common import Invalid,amount,digest,iso_time,now,required,safe_data
 from .db import connection
@@ -33,6 +34,7 @@ def evidence_ids(ids,key):
 
 def bound_record(db,app_id,item_id,kind,app):
     """Freeze only selected app/release/locale evidence with its canonical hash."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     row=db.execute("SELECT * FROM records WHERE app_id=? AND id=? AND kind=?",(app_id,item_id,kind)).fetchone()
     if not row:raise Invalid("Choose "+kind+" evidence from this app")
     result=dict(row);result["data"]=json.loads(result["data"]);data=result["data"]
@@ -64,6 +66,7 @@ def route_checked(data):
 
 def latest_proof(db,app_id,record,app):
     """A selected old pass cannot hide a newer failure in the applicable scope."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     rows=db.execute("SELECT data FROM records WHERE app_id=? AND kind=? ORDER BY updated DESC,id DESC",(app_id,record["kind"]))
     for row in rows:
         data=json.loads(row[0])
@@ -76,6 +79,7 @@ def latest_proof(db,app_id,record,app):
 
 def critical_findings(db,app_id):
     """Confirmed P0 product evidence blocks fresh briefs until resolved."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     for row in db.execute("SELECT data FROM records WHERE app_id=? AND kind='review'",(app_id,)):
         data=json.loads(row[0])
         if data.get("confirmed") is True and data.get("severity")=="P0":raise Invalid("Resolve the confirmed P0 before preparing this brief")
@@ -83,6 +87,7 @@ def critical_findings(db,app_id):
 
 def bind(db,store,app_id,data):
     """Freeze current app, inspection, selected proof and actual scene bytes."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     requested=definition(data);app=json.loads(db.execute("SELECT data FROM apps WHERE id=?",(app_id,)).fetchone()[0])
     for key in ("name","job","audience","activation","release","locale","currency"):required(app.get(key),"App "+key)
     if data["currency"]!=app["currency"]:raise Invalid("Production budget currency must match this app")

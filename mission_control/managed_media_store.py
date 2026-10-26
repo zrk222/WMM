@@ -1,5 +1,6 @@
 """Immutable app-owned video originals and append-only owner reuse attestations."""
 from __future__ import annotations
+import sqlite3
 
 import hashlib
 import json
@@ -81,6 +82,7 @@ def _request_hash(manifest, filename, source_hash, size, provenance=None):
 
 
 def _manifest(db, app_id, expected):
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     row = db.execute('SELECT version FROM apps WHERE id=?', (app_id,)).fetchone()
     if row is None:
         raise KeyError('App workspace not found')
@@ -352,6 +354,7 @@ def _principal(user):
 
 
 def _history(db, app_id, media_id):
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     rows = db.execute('SELECT * FROM managed_media_reviews WHERE app_id=? AND media_id=? ORDER BY version',
                       (app_id, media_id)).fetchall()
     if len(rows) > MAX_REVIEWS:
@@ -369,6 +372,7 @@ def _history(db, app_id, media_id):
 
 
 def _reviewer_current(db, app_id, review):
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     row = db.execute('SELECT role,status,version FROM operator_roles WHERE app_id=? AND principal=?',
                      (app_id, review['reviewer_principal'])).fetchone()
     return bool(row and row['role'] == 'OWNER' and row['status'] == 'ACTIVE' and
@@ -376,6 +380,7 @@ def _reviewer_current(db, app_id, review):
 
 
 def _public(db, store, app_id, row, include_history=False, verify_bytes=False, original_verified=False):
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     data = _decode_data(row)
     path = _file_path(store, app_id, data['storage_name'])
     _path_signature(path, data['bytes'])
@@ -568,6 +573,7 @@ class Media:
 
     @staticmethod
     def _insert_review(db, app_id, media_id, request, principal, role_version):
+        if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
         version, stamp = request['expected_version'] + 1, now()
         review_data = dict(manifest_version=request['manifest_version'], source_sha256=request['source_sha256'],
                            status=request['status'], basis=request['basis'], evidence=request['evidence'],
@@ -603,6 +609,7 @@ class Media:
 
 def derivative_snapshot(db, store, app_id, media_id, expected_sha256, capture=False, verify_bytes=True):
     """Resolve current reuse and verified bytes inside the editor's DB snapshot."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     row = db.execute('SELECT * FROM managed_media WHERE app_id=? AND id=?', (app_id, media_id)).fetchone()
     if row is None:
         raise Invalid('Media does not belong to this app')

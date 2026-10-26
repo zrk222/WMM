@@ -1,0 +1,201 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "WMM-native-sqlite-entry",
+  "candidate": [
+    {
+      "path": "mission_control/common.py",
+      "kind": "source",
+      "sha256": "a43443aab9489ad9cfe0e9a510ae8680a5c0a997aef98a7c4962ddbaefb7dfd3"
+    },
+    {
+      "path": "mission_control/creative_briefs.py",
+      "kind": "source",
+      "sha256": "d73f30ba1c7ac0470a6114d8608a5e1d15a9cc18e12f7ce1a831f2300a832730"
+    },
+    {
+      "path": "mission_control/creative_library.py",
+      "kind": "source",
+      "sha256": "f2d792ab5298ecb453f9003ce9d1df562f87fecd344d109b740cce1dfe61d656"
+    },
+    {
+      "path": "mission_control/db.py",
+      "kind": "source",
+      "sha256": "7fd4538543e9cd172ebfb9e228487158fc282267b8c2c332015f3bc17e025999"
+    },
+    {
+      "path": "mission_control/discovery_store.py",
+      "kind": "source",
+      "sha256": "38fd3f5c6d447ca8cadcda4c8b788936933613337e24652a343f92155bbeba5b"
+    },
+    {
+      "path": "mission_control/funnel_store.py",
+      "kind": "source",
+      "sha256": "a821244f7cc48b87416712fab2ec4114def31835896152968319bd8c23e1114c"
+    },
+    {
+      "path": "mission_control/managed_media_store.py",
+      "kind": "source",
+      "sha256": "06b0169070c2d798ba4186bfce833842dcd0e62dfa9c8cf818d7470f66201038"
+    },
+    {
+      "path": "mission_control/packaging_bindings.py",
+      "kind": "source",
+      "sha256": "fe6004a9e6356ab26dad273d4c677597f00b2b9766762a68687fbdb3415de511"
+    },
+    {
+      "path": "mission_control/packaging_contract.py",
+      "kind": "source",
+      "sha256": "4a589408ad03c8b9693af8067635ccede10c7351fbbc766ce73c16fc6383f502"
+    },
+    {
+      "path": "mission_control/packaging_store.py",
+      "kind": "source",
+      "sha256": "85620531d2a822005a60c15b4b1fa0ae062c9cf7f3fc9d55beadd4f21363fb11"
+    },
+    {
+      "path": "mission_control/pmf_contract.py",
+      "kind": "source",
+      "sha256": "db495e8a9f60b81b2f5c60bc23d4f4bee592ea593fd55b65eeeb704e6c63b237"
+    },
+    {
+      "path": "specs/native-sqlite-entry.md",
+      "kind": "contract",
+      "sha256": "838f79216c66954adb5ad81f7b88f472765015f7568d33560a044baf622214fd"
+    },
+    {
+      "path": "plans/native-sqlite-entry.md",
+      "kind": "contract",
+      "sha256": "d34896ebe080d6d57684bf704ed790a2f6bc415ea804063e1843827ce0e112fb"
+    },
+    {
+      "path": "specs/native-sqlite-entry.ssat.yaml",
+      "kind": "contract",
+      "sha256": "cc744805ceaa36e2d1da825d46fba693ddca007fc384419c921263e4b8130137"
+    },
+    {
+      "path": "tests/test_native_sqlite_entry.py",
+      "kind": "test",
+      "sha256": "39619cf5d16fa3785476944b1e9442b5acb7dd58debeae76fea6bd98cc41ae9d"
+    },
+    {
+      "path": ".factory/native-sqlite-entry/workflow.py",
+      "kind": "source",
+      "sha256": "7e37aacb34e75bd05f51898d7ad23df112870fa0472f39a6a1b29338b0dad316"
+    },
+    {
+      "path": ".factory/native-sqlite-entry/mutant-entry.py",
+      "kind": "source",
+      "sha256": "16301e67fba7170b4e05a233f177a4171824c6acdf5da2546a031845e460f1c2"
+    },
+    {
+      "path": ".factory/native-sqlite-entry/review.md",
+      "kind": "review",
+      "sha256": "fcd7755da071520d1fadd0003a45bdd46ebccb612b74022731c7c6f63b6c1a41"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "89 focused native SQLite regressions preserve existing behavior."
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "All 25 helpers reject fake and subclass override connections before execute."
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": true,
+      "reason": "TypeError stops invalid helper entry without database effects."
+    },
+    {
+      "category": "state_consistency",
+      "applicable": true,
+      "reason": "Existing SQL text, transaction and authority logic preserved; source hashes checked."
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "Eleven exact sources audited, CLEAN, no findings or database coverage gaps, no waiver."
+    },
+    {
+      "category": "performance",
+      "applicable": true,
+      "reason": "One native type identity check per helper entry; no measured latency claim."
+    },
+    {
+      "category": "external_effects",
+      "applicable": true,
+      "reason": "All checks local; no spending, publication, messaging or production activation."
+    },
+    {
+      "category": "accessibility",
+      "applicable": false,
+      "reason": "No UI changes.",
+      "review_evidence": {
+        "path": ".factory/native-sqlite-entry/review.md",
+        "kind": "review",
+        "sha256": "fcd7755da071520d1fadd0003a45bdd46ebccb612b74022731c7c6f63b6c1a41"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "id": "happy_path",
+      "category": "happy_path",
+      "requirement": "89 focused native SQLite regressions preserve existing behavior.",
+      "profiles": [
+        "Windows-Python3.11.9-local-SQLite"
+      ]
+    },
+    {
+      "id": "validation",
+      "category": "validation",
+      "requirement": "All 25 helpers reject fake and subclass override connections before execute.",
+      "profiles": [
+        "Windows-Python3.11.9-local-SQLite"
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "category": "failure_recovery",
+      "requirement": "TypeError stops invalid helper entry without database effects.",
+      "profiles": [
+        "Windows-Python3.11.9-local-SQLite"
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "category": "state_consistency",
+      "requirement": "Existing SQL text, transaction and authority logic preserved; source hashes checked.",
+      "profiles": [
+        "Windows-Python3.11.9-local-SQLite"
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "category": "security_privacy",
+      "requirement": "Eleven exact sources audited, CLEAN, no findings or database coverage gaps, no waiver.",
+      "profiles": [
+        "Windows-Python3.11.9-local-SQLite"
+      ]
+    },
+    {
+      "id": "performance",
+      "category": "performance",
+      "requirement": "One native type identity check per helper entry; no measured latency claim.",
+      "profiles": [
+        "Windows-Python3.11.9-local-SQLite"
+      ]
+    },
+    {
+      "id": "external_effects",
+      "category": "external_effects",
+      "requirement": "All checks local; no spending, publication, messaging or production activation.",
+      "profiles": [
+        "Windows-Python3.11.9-local-SQLite"
+      ]
+    }
+  ]
+}

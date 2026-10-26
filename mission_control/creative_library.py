@@ -1,4 +1,5 @@
 """Permitted app-scoped source references; untrusted source text never executes."""
+import sqlite3
 import csv
 import io
 import ipaddress
@@ -81,6 +82,7 @@ def identity(data):
 
 def latest_capture(db,app_id,reference_id):
     """Resolve the current immutable capture within this app only."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     row=db.execute("SELECT * FROM creative_captures WHERE app_id=? AND reference_id=? ORDER BY version DESC LIMIT 1",(app_id,reference_id)).fetchone()
     if not row:raise Invalid("Reference does not belong to this app")
     result=dict(row);result["data"]=json.loads(result["data"])
@@ -89,6 +91,7 @@ def latest_capture(db,app_id,reference_id):
 
 def append_capture(db,app_id,reference_id,data,version):
     """Append a source-bound capture and audit receipt in the same transaction."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     count=db.execute("SELECT count(*) FROM creative_captures WHERE app_id=?",(app_id,)).fetchone()[0]
     if count>=5000:raise Invalid("Archive this workspace before exceeding 5000 captures")
     stamp=now();value_hash=digest(data)
@@ -98,6 +101,7 @@ def append_capture(db,app_id,reference_id,data,version):
 
 def write_reference(db,app_id,data):
     """Create source identity once; conflicting duplicates require explicit refresh."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     old=db.execute("SELECT id FROM creative_references WHERE app_id=? AND identity=?",(app_id,identity(data))).fetchone()
     if old:
         current=latest_capture(db,app_id,old["id"])
@@ -210,6 +214,7 @@ def library_snapshot(items):
 
 def restore_reference(db,app_id,row,seen):
     """Restore one scoped source and its immutable capture sequence in caller transaction."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     if set(row)!={"app_id","id","identity","captures"} or row["app_id"]!=app_id:raise Invalid("Reference snapshot scope or schema mismatch")
     opaque(row["id"],"Reference ID")
     if row["id"] in seen or row["identity"] in seen:raise Invalid("Duplicate restored source")
