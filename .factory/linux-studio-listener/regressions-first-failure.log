@@ -94,16 +94,16 @@ test_write_control_and_retain_command_preserve_bounded_private_records (tests.te
 ERROR: test_exited_launcher_descendant_is_stopped_before_capture_returns (tests.test_studio_command.CommandTests.test_exited_launcher_descendant_is_stopped_before_capture_returns)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "C:\Users\rkatz\Documents\Codex\2026-09-22\re-2\outputs\WMM-linux-studio\tests\test_studio_command.py", line 26, in test_exited_launcher_descendant_is_stopped_before_capture_returns
+  File "<LOCAL_USER>\Documents\Codex\2026-09-22\re-2\outputs\WMM-linux-studio\tests\test_studio_command.py", line 26, in test_exited_launcher_descendant_is_stopped_before_capture_returns
     result=self.command(script)
            ^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\rkatz\Documents\Codex\2026-09-22\re-2\outputs\WMM-linux-studio\tests\test_studio_command.py", line 20, in command
+  File "<LOCAL_USER>\Documents\Codex\2026-09-22\re-2\outputs\WMM-linux-studio\tests\test_studio_command.py", line 20, in command
     return target.capture_owned_command([sys.executable,'-u','-c',script],folder=self.folder,timeout=2,**kwargs)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\rkatz\Documents\Codex\2026-09-22\re-2\outputs\WMM-linux-studio\mission_control\studio_command.py", line 77, in capture_owned_command
+  File "<LOCAL_USER>\Documents\Codex\2026-09-22\re-2\outputs\WMM-linux-studio\mission_control\studio_command.py", line 77, in capture_owned_command
     result=deliver(diagnostics,value,private)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\rkatz\Documents\Codex\2026-09-22\re-2\outputs\WMM-linux-studio\mission_control\studio_command.py", line 49, in deliver
+  File "<LOCAL_USER>\Documents\Codex\2026-09-22\re-2\outputs\WMM-linux-studio\mission_control\studio_command.py", line 49, in deliver
     raise Invalid('Studio command failed: '+value['command_failure'])
 mission_control.common.Invalid: Studio command failed: Invalid
 

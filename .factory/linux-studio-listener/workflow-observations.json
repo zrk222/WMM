@@ -9,7 +9,7 @@
       "status": "PASS",
       "reason": "Exact socket plus live retained member witness verified twice; unit branching and real container kernel component observations are distinct. Native desktop acceptance NOT_RUN.",
       "execution_identity": "python .factory/linux-studio-listener/verify.py",
-      "observed_at": "2026-10-26T08:52:15.607962+00:00",
+      "observed_at": "2026-10-26T09:50:59.245379+00:00",
       "artifacts": [
         {
           "path": ".factory/linux-studio-listener/unit.log",
@@ -49,7 +49,7 @@
       "status": "PASS",
       "reason": "Exact socket plus live retained member witness verified twice; unit branching and real container kernel component observations are distinct. Native desktop acceptance NOT_RUN.",
       "execution_identity": "python .factory/linux-studio-listener/verify.py",
-      "observed_at": "2026-10-26T08:52:15.648372+00:00",
+      "observed_at": "2026-10-26T09:50:59.247023+00:00",
       "artifacts": [
         {
           "path": ".factory/linux-studio-listener/kernel-component.log",
@@ -89,7 +89,7 @@
       "status": "PASS",
       "reason": "Malformed framing, sender/sequence, truncation, ambiguity, stale/cookie/input and scope failure deny; all five traced requirements retain strict/mutation evidence. Native desktop acceptance NOT_RUN.",
       "execution_identity": "python .factory/linux-studio-listener/verify.py",
-      "observed_at": "2026-10-26T08:52:15.683045+00:00",
+      "observed_at": "2026-10-26T09:50:59.247023+00:00",
       "artifacts": [
         {
           "path": ".factory/linux-studio-listener/unit.log",
@@ -129,7 +129,7 @@
       "status": "PASS",
       "reason": "Malformed framing, sender/sequence, truncation, ambiguity, stale/cookie/input and scope failure deny; all five traced requirements retain strict/mutation evidence. Native desktop acceptance NOT_RUN.",
       "execution_identity": "python .factory/linux-studio-listener/verify.py",
-      "observed_at": "2026-10-26T08:52:15.684050+00:00",
+      "observed_at": "2026-10-26T09:50:59.248093+00:00",
       "artifacts": [
         {
           "path": ".factory/linux-studio-listener/kernel-component.log",
@@ -169,7 +169,7 @@
       "status": "PASS",
       "reason": "Exceptions close sockets, task/proc/cgroup descriptors and retain no PID authority; late death/migration and revoked owner deny. Native desktop acceptance NOT_RUN.",
       "execution_identity": "python .factory/linux-studio-listener/verify.py",
-      "observed_at": "2026-10-26T08:52:15.684050+00:00",
+      "observed_at": "2026-10-26T09:50:59.249029+00:00",
       "artifacts": [
         {
           "path": ".factory/linux-studio-listener/unit.log",
@@ -209,7 +209,7 @@
       "status": "PASS",
       "reason": "Exceptions close sockets, task/proc/cgroup descriptors and retain no PID authority; late death/migration and revoked owner deny. Native desktop acceptance NOT_RUN.",
       "execution_identity": "python .factory/linux-studio-listener/verify.py",
-      "observed_at": "2026-10-26T08:52:15.685045+00:00",
+      "observed_at": "2026-10-26T09:50:59.249029+00:00",
       "artifacts": [
         {
           "path": ".factory/linux-studio-listener/kernel-component.log",
@@ -249,7 +249,7 @@
       "status": "PASS",
       "reason": "Same inode/cookie and original live pidfd persist across two observations; same-scope inherited holders accepted, foreign/missing witness denied. Native desktop acceptance NOT_RUN.",
       "execution_identity": "python .factory/linux-studio-listener/verify.py",
-      "observed_at": "2026-10-26T08:52:15.685045+00:00",
+      "observed_at": "2026-10-26T09:50:59.250130+00:00",
       "artifacts": [
         {
           "path": ".factory/linux-studio-listener/unit.log",
@@ -289,7 +289,7 @@
       "status": "PASS",
       "reason": "Same inode/cookie and original live pidfd persist across two observations; same-scope inherited holders accepted, foreign/missing witness denied. Native desktop acceptance NOT_RUN.",
       "execution_identity": "python .factory/linux-studio-listener/verify.py",
-      "observed_at": "2026-10-26T08:52:15.686045+00:00",
+      "observed_at": "2026-10-26T09:50:59.250130+00:00",
       "artifacts": [
         {
           "path": ".factory/linux-studio-listener/kernel-component.log",
@@ -329,7 +329,7 @@
       "status": "PASS",
       "reason": "No process signalling, service-manager call, shell or selector activation; retained fd/callback scope only; bounded-source static security plus privacy checks. Native desktop acceptance NOT_RUN.",
       "execution_identity": "python .factory/linux-studio-listener/verify.py",
-      "observed_at": "2026-10-26T08:52:15.687048+00:00",
+      "observed_at": "2026-10-26T09:50:59.251151+00:00",
       "artifacts": [
         {
           "path": ".factory/linux-studio-listener/unit.log",
@@ -369,7 +369,7 @@
       "status": "PASS",
       "reason": "No process signalling, service-manager call, shell or selector activation; retained fd/callback scope only; bounded-source static security plus privacy checks. Native desktop acceptance NOT_RUN.",
       "execution_identity": "python .factory/linux-studio-listener/verify.py",
-      "observed_at": "2026-10-26T08:52:15.687048+00:00",
+      "observed_at": "2026-10-26T09:50:59.251151+00:00",
       "artifacts": [
         {
           "path": ".factory/linux-studio-listener/kernel-component.log",
@@ -409,7 +409,7 @@
       "status": "PASS",
       "reason": "Explicit deadline, byte/message/member/fd limits are tested; native repeated observations preserve descriptor counts. No throughput or hard kernel-preemption guarantee. Native desktop acceptance NOT_RUN.",
       "execution_identity": "python .factory/linux-studio-listener/verify.py",
-      "observed_at": "2026-10-26T08:52:15.688038+00:00",
+      "observed_at": "2026-10-26T09:50:59.252522+00:00",
       "artifacts": [
         {
           "path": ".factory/linux-studio-listener/unit.log",
@@ -449,7 +449,7 @@
       "status": "PASS",
       "reason": "Explicit deadline, byte/message/member/fd limits are tested; native repeated observations preserve descriptor counts. No throughput or hard kernel-preemption guarantee. Native desktop acceptance NOT_RUN.",
       "execution_identity": "python .factory/linux-studio-listener/verify.py",
-      "observed_at": "2026-10-26T08:52:15.688038+00:00",
+      "observed_at": "2026-10-26T09:50:59.252522+00:00",
       "artifacts": [
         {
           "path": ".factory/linux-studio-listener/kernel-component.log",

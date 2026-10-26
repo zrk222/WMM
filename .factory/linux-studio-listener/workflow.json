@@ -39,9 +39,9 @@
     "No project command or provider is executed.",
     "No approval, certification or deployment authority."
   ],
-  "observations_sha256": "e64dc47d1dcbb188379b6c82963a792ae76d6e4e0ea76769e84dc39f5d4f2a06",
+  "observations_sha256": "6b7ee61a70a16019fe8dc5dd4b1a4dd7dc4bf2d4c44fbd001f0595be534dfc1e",
   "project_id": "WMM-Linux-listener-component",
-  "receipt_sha256": "e055e0b1ca3a1115a6defa401693f78660d4d19746fe6d7c595066906e681af5",
+  "receipt_sha256": "e447b8c8b267c4faafeea67fff4e050b303d6c6552b5d2038fd80edb69658448",
   "resource_usage": {
     "artifact_references": 84,
     "bytes_hashed": 414595
