@@ -1,0 +1,65 @@
+{
+  "agent_actions": [],
+  "authority": {
+    "approval": false,
+    "connector": false,
+    "credential": false,
+    "deployment": false,
+    "execution": false,
+    "merge": false,
+    "messaging": false,
+    "publication": false,
+    "repair": false,
+    "signing": false
+  },
+  "candidate_sha256": "65461e76919d7c0c8a975ed4f4e1e24e1deb7b11b4feb468a5c448222e1e1a35",
+  "checks": 4,
+  "contract_sha256": "a81d6875a8469dd8899a43729f5d7d0b4d40e17317637baec2d4c0b421ac7b17",
+  "errors": [],
+  "inapplicability_evidence": {
+    "accessibility": {
+      "actual_sha256": "a7b82357f3f5a04efbe2cfe0a599c9374084fe19aa5ee208307ec146de1b4bdc",
+      "current": true,
+      "kind": "review",
+      "path": ".factory/content-packaging-t5/review.md",
+      "sha256": "a7b82357f3f5a04efbe2cfe0a599c9374084fe19aa5ee208307ec146de1b4bdc"
+    },
+    "failure_recovery": {
+      "actual_sha256": "a7b82357f3f5a04efbe2cfe0a599c9374084fe19aa5ee208307ec146de1b4bdc",
+      "current": true,
+      "kind": "review",
+      "path": ".factory/content-packaging-t5/review.md",
+      "sha256": "a7b82357f3f5a04efbe2cfe0a599c9374084fe19aa5ee208307ec146de1b4bdc"
+    },
+    "performance": {
+      "actual_sha256": "a7b82357f3f5a04efbe2cfe0a599c9374084fe19aa5ee208307ec146de1b4bdc",
+      "current": true,
+      "kind": "review",
+      "path": ".factory/content-packaging-t5/review.md",
+      "sha256": "a7b82357f3f5a04efbe2cfe0a599c9374084fe19aa5ee208307ec146de1b4bdc"
+    },
+    "state_consistency": {
+      "actual_sha256": "a7b82357f3f5a04efbe2cfe0a599c9374084fe19aa5ee208307ec146de1b4bdc",
+      "current": true,
+      "kind": "review",
+      "path": ".factory/content-packaging-t5/review.md",
+      "sha256": "a7b82357f3f5a04efbe2cfe0a599c9374084fe19aa5ee208307ec146de1b4bdc"
+    }
+  },
+  "limits": [
+    "Recorded evidence completeness and hashes only; observations require review.",
+    "Inapplicability review evidence is hash-bound but its judgment and identity are not authenticated.",
+    "Each contract/observation JSON input and evidence artifact is limited to 16 MiB; total evidence hashing is limited to 128 MiB, 4096 artifact references, and 4096 required check/profile pairs.",
+    "No project command or provider is executed.",
+    "No approval, certification or deployment authority."
+  ],
+  "observations_sha256": "f043b731ba20064084c2f4a245ff4c571087bd58ccc37fe80d9f00e874ad2f37",
+  "project_id": "WMM-packaging-T5-requirements",
+  "receipt_sha256": "16101f9e6f1c7a250e7e4277cccfb02743d8635503dd25da5228579d818875a0",
+  "resource_usage": {
+    "artifact_references": 24,
+    "bytes_hashed": 32174
+  },
+  "schema": "factory.workflow-audit.receipt.v1",
+  "state": "PASS"
+}

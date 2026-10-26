@@ -1,0 +1,127 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "a81d6875a8469dd8899a43729f5d7d0b4d40e17317637baec2d4c0b421ac7b17",
+  "candidate_sha256": "65461e76919d7c0c8a975ed4f4e1e24e1deb7b11b4feb468a5c448222e1e1a35",
+  "observations": [
+    {
+      "id": "happy_path",
+      "profile": "Windows-SpecLine-requirements-only",
+      "status": "PASS",
+      "reason": "Six source-informed requirements trace to six named acceptance scenarios.",
+      "execution_identity": "SpecLine strict, verify-validators and challenge; source-informed requirement review only",
+      "observed_at": "2026-10-26T16:21:56.344520+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/doctor.json",
+          "kind": "log",
+          "sha256": "8e18df38ccf168009fce078c2022518dcfb408492e27b2ef3ab05041ca26b3b4"
+        },
+        {
+          "path": ".factory/content-packaging-t5/strict.log",
+          "kind": "log",
+          "sha256": "c4e04296656bfc0bd49141bb3e493f2fdbf4a85016888c5b73f7cfb2c879e017"
+        },
+        {
+          "path": ".factory/content-packaging-t5/validators.log",
+          "kind": "log",
+          "sha256": "231cb938e5d453a72283207db7e8afaf585a9af0d9e2ce1d2b171526d5ad0bf2"
+        },
+        {
+          "path": ".factory/content-packaging-t5/challenge.log",
+          "kind": "log",
+          "sha256": "075949d6889cf46be2bada1cd707638d80f00b2efd1aa85d5d6332f3870b4690"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-SpecLine-requirements-only",
+      "status": "PASS",
+      "reason": "Strict requirement lint and all six deletion/inversion mutants pass.",
+      "execution_identity": "SpecLine strict, verify-validators and challenge; source-informed requirement review only",
+      "observed_at": "2026-10-26T16:21:56.344520+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/doctor.json",
+          "kind": "log",
+          "sha256": "8e18df38ccf168009fce078c2022518dcfb408492e27b2ef3ab05041ca26b3b4"
+        },
+        {
+          "path": ".factory/content-packaging-t5/strict.log",
+          "kind": "log",
+          "sha256": "c4e04296656bfc0bd49141bb3e493f2fdbf4a85016888c5b73f7cfb2c879e017"
+        },
+        {
+          "path": ".factory/content-packaging-t5/validators.log",
+          "kind": "log",
+          "sha256": "231cb938e5d453a72283207db7e8afaf585a9af0d9e2ce1d2b171526d5ad0bf2"
+        },
+        {
+          "path": ".factory/content-packaging-t5/challenge.log",
+          "kind": "log",
+          "sha256": "075949d6889cf46be2bada1cd707638d80f00b2efd1aa85d5d6332f3870b4690"
+        }
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "profile": "Windows-SpecLine-requirements-only",
+      "status": "PASS",
+      "reason": "Contract preserves app/source/authority boundaries; no runtime implementation or credentials added.",
+      "execution_identity": "SpecLine strict, verify-validators and challenge; source-informed requirement review only",
+      "observed_at": "2026-10-26T16:21:56.344520+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/doctor.json",
+          "kind": "log",
+          "sha256": "8e18df38ccf168009fce078c2022518dcfb408492e27b2ef3ab05041ca26b3b4"
+        },
+        {
+          "path": ".factory/content-packaging-t5/strict.log",
+          "kind": "log",
+          "sha256": "c4e04296656bfc0bd49141bb3e493f2fdbf4a85016888c5b73f7cfb2c879e017"
+        },
+        {
+          "path": ".factory/content-packaging-t5/validators.log",
+          "kind": "log",
+          "sha256": "231cb938e5d453a72283207db7e8afaf585a9af0d9e2ce1d2b171526d5ad0bf2"
+        },
+        {
+          "path": ".factory/content-packaging-t5/challenge.log",
+          "kind": "log",
+          "sha256": "075949d6889cf46be2bada1cd707638d80f00b2efd1aa85d5d6332f3870b4690"
+        }
+      ]
+    },
+    {
+      "id": "external_effects",
+      "profile": "Windows-SpecLine-requirements-only",
+      "status": "PASS",
+      "reason": "Requirements-only local files; no external execution or activation.",
+      "execution_identity": "SpecLine strict, verify-validators and challenge; source-informed requirement review only",
+      "observed_at": "2026-10-26T16:21:56.344520+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/doctor.json",
+          "kind": "log",
+          "sha256": "8e18df38ccf168009fce078c2022518dcfb408492e27b2ef3ab05041ca26b3b4"
+        },
+        {
+          "path": ".factory/content-packaging-t5/strict.log",
+          "kind": "log",
+          "sha256": "c4e04296656bfc0bd49141bb3e493f2fdbf4a85016888c5b73f7cfb2c879e017"
+        },
+        {
+          "path": ".factory/content-packaging-t5/validators.log",
+          "kind": "log",
+          "sha256": "231cb938e5d453a72283207db7e8afaf585a9af0d9e2ce1d2b171526d5ad0bf2"
+        },
+        {
+          "path": ".factory/content-packaging-t5/challenge.log",
+          "kind": "log",
+          "sha256": "075949d6889cf46be2bada1cd707638d80f00b2efd1aa85d5d6332f3870b4690"
+        }
+      ]
+    }
+  ]
+}

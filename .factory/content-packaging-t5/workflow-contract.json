@@ -1,0 +1,122 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "WMM-packaging-T5-requirements",
+  "candidate": [
+    {
+      "path": "specs/content-packaging-t5.md",
+      "kind": "contract",
+      "sha256": "03045add43d0870733995f8d438b8d9f2b20a431f659198f733c53d00e11c702"
+    },
+    {
+      "path": "plans/content-packaging-t5.md",
+      "kind": "contract",
+      "sha256": "cda7aacf4c51edccb915aee625dca96ef729c610284a184718fa1c98f54db1c8"
+    },
+    {
+      "path": ".factory/content-packaging-t5/workflow.py",
+      "kind": "source",
+      "sha256": "3c72031db9963992cc2da0a4ebde5df4063b90fc2056279877db0d88467e8c07"
+    },
+    {
+      "path": ".factory/content-packaging-t5/review.md",
+      "kind": "review",
+      "sha256": "a7b82357f3f5a04efbe2cfe0a599c9374084fe19aa5ee208307ec146de1b4bdc"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "Six source-informed requirements trace to six named acceptance scenarios."
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "Strict requirement lint and all six deletion/inversion mutants pass."
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "Contract preserves app/source/authority boundaries; no runtime implementation or credentials added."
+    },
+    {
+      "category": "external_effects",
+      "applicable": true,
+      "reason": "Requirements-only local files; no external execution or activation."
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": false,
+      "reason": "No executable behavior changed; recovery remains an explicit future runtime requirement.",
+      "review_evidence": {
+        "path": ".factory/content-packaging-t5/review.md",
+        "kind": "review",
+        "sha256": "a7b82357f3f5a04efbe2cfe0a599c9374084fe19aa5ee208307ec146de1b4bdc"
+      }
+    },
+    {
+      "category": "state_consistency",
+      "applicable": false,
+      "reason": "No runtime or datastore changes; script/source/revision acceptance is required in the specification.",
+      "review_evidence": {
+        "path": ".factory/content-packaging-t5/review.md",
+        "kind": "review",
+        "sha256": "a7b82357f3f5a04efbe2cfe0a599c9374084fe19aa5ee208307ec146de1b4bdc"
+      }
+    },
+    {
+      "category": "performance",
+      "applicable": false,
+      "reason": "No runtime change or performance claim.",
+      "review_evidence": {
+        "path": ".factory/content-packaging-t5/review.md",
+        "kind": "review",
+        "sha256": "a7b82357f3f5a04efbe2cfe0a599c9374084fe19aa5ee208307ec146de1b4bdc"
+      }
+    },
+    {
+      "category": "accessibility",
+      "applicable": false,
+      "reason": "No UI rendered or changed; keyboard/responsive acceptance remains required for implementation.",
+      "review_evidence": {
+        "path": ".factory/content-packaging-t5/review.md",
+        "kind": "review",
+        "sha256": "a7b82357f3f5a04efbe2cfe0a599c9374084fe19aa5ee208307ec146de1b4bdc"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "id": "happy_path",
+      "category": "happy_path",
+      "requirement": "Six source-informed requirements trace to six named acceptance scenarios.",
+      "profiles": [
+        "Windows-SpecLine-requirements-only"
+      ]
+    },
+    {
+      "id": "validation",
+      "category": "validation",
+      "requirement": "Strict requirement lint and all six deletion/inversion mutants pass.",
+      "profiles": [
+        "Windows-SpecLine-requirements-only"
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "category": "security_privacy",
+      "requirement": "Contract preserves app/source/authority boundaries; no runtime implementation or credentials added.",
+      "profiles": [
+        "Windows-SpecLine-requirements-only"
+      ]
+    },
+    {
+      "id": "external_effects",
+      "category": "external_effects",
+      "requirement": "Requirements-only local files; no external execution or activation.",
+      "profiles": [
+        "Windows-SpecLine-requirements-only"
+      ]
+    }
+  ]
+}
