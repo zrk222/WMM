@@ -41,19 +41,20 @@ their current calls, cleanup receipts and pending-recovery behavior.
 T1 defines the prerequisite and pre-execution contract. T2 establishes the
 trusted service and supervisor protocol. T3 seals stop and recovery semantics.
 T4 provides listener identity. T5 covers deterministic tests. T6 is independent
-host acceptance after implementation and remains blocked until matching native
-Ubuntu hosts are available. Do not release or claim Linux support until all
-required tests pass and native host evidence exists for each declared supported
-Ubuntu profile. Until native cleanup, manager-socket/cgroup escape, listener,
-and unit-isolation proofs pass, do not implement from this packet, enable the
-Linux backend, or claim Linux support. Unsupported host capability remains a
-fail-closed result.
+host acceptance after implementation and remains `NOT_RUN` until matching native
+Ubuntu hosts are available. Scoped implementation and isolated development and
+testing may proceed after the requirements and architecture gates. Unsupported
+host capabilities remain fail-closed before target execution. Do not activate
+the Linux backend, release it, claim Linux platform support, or mark native
+acceptance complete until native cleanup-retry, manager-socket/cgroup
+escape-confinement, exact listener ownership, and unit-isolation proofs pass on
+each declared supported Ubuntu profile.
 
 ## Evidence and constraints
 
 - Requirements source review: `studio_child.py`, `studio_command.py`,
   `hypit_studio_process.py`, `test_studio_child.py`, and
-  `test_studio_command.py` at reviewed baseline commit `41e337e` in the frozen
+  `test_studio_command.py` at reviewed baseline commit `3b9159a` in the frozen
   Windows checkout. This plan applies no edits to that checkout.
 - Native Linux desktop/systemd/cgroup/pidfd/NETLINK_INET_DIAG acceptance:
   `NOT_RUN`. This Windows host/container environment is not evidence for those
