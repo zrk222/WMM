@@ -1,0 +1,187 @@
+{
+  "name": "drive-library-ui",
+  "language": "javascript",
+  "modules": [
+    {
+      "name": "drive_library",
+      "path": "mission_control/static/drive-library.js",
+      "language": "javascript",
+      "functions": [
+        {
+          "name": "clear",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "invalidate",
+          "args": [
+            "state"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "current",
+          "args": [
+            "t"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "panel",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "show",
+          "args": [
+            "d",
+            "title",
+            "html",
+            "data=null"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "busy",
+          "args": [
+            "t",
+            "on",
+            "text='' "
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "fail",
+          "args": [
+            "t",
+            "e"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "request",
+          "args": [
+            "t",
+            "path",
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "snapshot",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "equalRequest",
+          "args": [
+            "a",
+            "b"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "reconcile",
+          "args": [
+            "t",
+            "data"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "pending",
+          "args": [
+            "t"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "jobs",
+          "args": [
+            "data"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "setup",
+          "args": [
+            "t",
+            "data"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "render",
+          "args": [
+            "t",
+            "data"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "schedule",
+          "args": [
+            "t"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "poll",
+          "args": [
+            "t"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "open",
+          "args": [
+            "d"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "official",
+          "args": [
+            "url"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "review",
+          "args": [
+            "t",
+            "id"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "report",
+          "args": [
+            "t"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "action",
+          "args": [
+            "node",
+            "d"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "submit",
+          "args": [
+            "form",
+            "d"
+          ],
+          "returns": "object"
+        }
+      ]
+    }
+  ],
+  "dependencies": [],
+  "invariants": []
+}

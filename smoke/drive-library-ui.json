@@ -1,0 +1,15 @@
+{
+  "checks": [
+    {
+      "name": "exact-receipt-scope",
+      "kind": "python",
+      "run": "import subprocess\nr=subprocess.run(['node','-e',\"const fs=require('node:fs'),assert=require('node:assert/strict'),mod={exports:{}};const src=fs.readFileSync('mission_control/static/drive-library.js','utf8').replace(/^export /gm,'');new Function('module','globalThis',src)(mod,{});const body={connection_id:'one',connection_version:1,file_id:'clip',manifest_version:1,request_key:'one'};const result=typeof mod.exports.equalRequest==='function'?mod.exports.equalRequest(body,{...body}):undefined;assert.equal(result,true,'Exact source receipt must reconcile');assert.equal(mod.exports.equalRequest(body,{...body,file_id:'other'}),false);\"],capture_output=True,text=True)\nassert r.returncode==0,r.stderr"
+    },
+    {
+      "name": "actual-library-controller-tests",
+      "kind": "python",
+      "must_fail_on_stub": false,
+      "run": "import subprocess\nr=subprocess.run(['node','--test','tests/drive_library.test.cjs','tests/managed_media.test.cjs'],capture_output=True,text=True)\nassert r.returncode==0,r.stdout+r.stderr"
+    }
+  ]
+}
