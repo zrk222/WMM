@@ -1,6 +1,6 @@
 {
   "schema": "prestige.render_receipt.v1",
-  "target": "file:///C:/Users/rkatz/Documents/Codex/2026-09-22/re-2/outputs/WMM-packaging/.factory/content-packaging-t4/rendered-modal.html",
+  "target": "file:///<LOCAL_PROFILE>/Documents/Codex/2026-09-22/re-2/outputs/WMM-packaging/.factory/content-packaging-t4/rendered-modal.html",
   "passed": true,
   "viewports": [
     {

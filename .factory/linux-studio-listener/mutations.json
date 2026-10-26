@@ -1,0 +1,52 @@
+[
+  {
+    "name": "socket-repeat",
+    "killed": true,
+    "exit_code": 1
+  },
+  {
+    "name": "live-scope",
+    "killed": true,
+    "exit_code": 1
+  },
+  {
+    "name": "ambiguous",
+    "killed": true,
+    "exit_code": 1
+  },
+  {
+    "name": "truncation",
+    "killed": true,
+    "exit_code": 1
+  },
+  {
+    "name": "fd-budget",
+    "killed": true,
+    "exit_code": 1
+  },
+  {
+    "name": "stable-witness",
+    "killed": true,
+    "exit_code": 1
+  },
+  {
+    "name": "final-pidfd",
+    "killed": true,
+    "exit_code": 1
+  },
+  {
+    "name": "final-membership",
+    "killed": true,
+    "exit_code": 1
+  },
+  {
+    "name": "post-validation-deadline",
+    "killed": true,
+    "exit_code": 1
+  },
+  {
+    "name": "final-success-deadline",
+    "killed": true,
+    "exit_code": 1
+  }
+]

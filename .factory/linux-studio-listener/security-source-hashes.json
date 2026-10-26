@@ -1,0 +1,12 @@
+[
+  {
+    "path": "mission_control/studio_listener_linux.py",
+    "kind": "source",
+    "sha256": "29c68017f144c5e84c2ef99984fed7d25672d4d658a87111a1c6753017715fdd"
+  },
+  {
+    "path": "mission_control/common.py",
+    "kind": "source",
+    "sha256": "a43443aab9489ad9cfe0e9a510ae8680a5c0a997aef98a7c4962ddbaefb7dfd3"
+  }
+]

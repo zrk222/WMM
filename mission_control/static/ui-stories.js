@@ -81,6 +81,7 @@
     'Your creative packaging':['Make the video idea clear before you film.','Your app owns these saved title, opening and shot-plan revisions.','Create an original candidate or inspect a saved plan and its evidence.'],
     'Your saved creative revision':['Your plan is saved and ready to inspect.','The revision keeps its exact inputs and shows which evidence is missing or changed.','Compare the packaging, revise the plan or build its shot checklist.'],
     'Your packaging in context':['Judge the message in a crowded feed.','This layout uses the saved title, selected local thumbnails and repeatable ordering.','Inspect the cards at their target width, then export your observations or revise the comparison.'],
+    'Your selected Drive clips':['Bring your selected Google Drive clips into this app.','Connect the Google account and select files. When you import a clip, WMM keeps the original picture and sound and shows its progress.','Choose access first, then select clips to import. Review each saved original and approve reuse before editing.'],
     'Your app-sales founder review':['Choose your next app-sales task.','See missing stages beside source-bound results.','Open an exact stage report or export this page.'],
     'Your app-sales stage results':['See where app sales advance.','Stage counts, matching conversion ratios and subscription economics come from this cohort’s saved evidence.','Resolve a missing stage or export this report.'],
     'Your app-sales funnels':['Choose the app-sales path to work on.','Each saved plan connects creative, a cohort and the app milestones you chose.','Open its results or create a new plan.'],
@@ -95,7 +96,7 @@
     const found=[...markup.matchAll(/<form\b[^>]*\sid=["']([^"']+)["']/g)].map(match=>match[1]);
     const rows=found.map(id=>FORMS[id]);
     if(rows.some(row=>!row))return `<aside class="notice" aria-label="Task guide"><p>Review ${esc(title)}. Check the exact inputs, result and action described below before continuing.</p></aside>`;
-    const story=rows[0]||DIALOGS[title]||[`Inspect ${title}.`,'Read the displayed status, source and saved evidence to understand this work.','Use an action below only after reviewing its exact effect. Close this view to return to your workspace.'];
+    const story=DIALOGS[title]||rows[0]||[`Inspect ${title}.`,'Read the displayed status, source and saved evidence to understand this work.','Use an action below only after reviewing its exact effect. Close this view to return to your workspace.'];
     return `<aside class="notice" aria-label="Task guide"><div><p><strong>${esc(story[0])}</strong></p><p>${esc(story[1])}</p><p>${esc(story[2])}</p></div></aside>`;
   }
   return {PAGES,FORMS,page,dialog};

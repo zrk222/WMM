@@ -2,27 +2,27 @@ TAP version 13
 # Subtest: variantData binds selected source and product revisions with the chosen thumbnail first
 ok 1 - variantData binds selected source and product revisions with the chosen thumbnail first
   ---
-  duration_ms: 2.3089
+  duration_ms: 1.9325
   type: 'test'
   ...
 # Subtest: library filters product scope, keeps latest collection revisions, and excludes unattested media
 ok 2 - library filters product scope, keeps latest collection revisions, and excludes unattested media
   ---
-  duration_ms: 0.5942
+  duration_ms: 0.433
   type: 'test'
   ...
 # Subtest: local thumbnails cannot introduce remote hosts, path traversal or HTML attributes
 ok 3 - local thumbnails cannot introduce remote hosts, path traversal or HTML attributes
   ---
-  duration_ms: 0.3042
+  duration_ms: 0.2403
   type: 'test'
   ...
 # Subtest: canonical SHA256 matches Python Unicode, sorted keys and newline encoding
 not ok 4 - canonical SHA256 matches Python Unicode, sorted keys and newline encoding
   ---
-  duration_ms: 6.5992
+  duration_ms: 6.1648
   type: 'test'
-  location: 'C:\\Users\\rkatz\\AppData\\Local\\Temp\\tmpnyaq2k9c\\tests\\packaging_model.test.cjs:20:1'
+  location: 'C:\\Users\\rkatz\\AppData\\Local\\Temp\\tmpwdbzv9nq\\tests\\packaging_model.test.cjs:20:1'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -37,110 +37,110 @@ not ok 4 - canonical SHA256 matches Python Unicode, sorted keys and newline enco
   actual: 'db950e0a741cf678cc09c13567eed04d56b252c4cdab36afc3ffdc59c213ce85'
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (C:\Users\rkatz\AppData\Local\Temp\tmpnyaq2k9c\tests\packaging_model.test.cjs:20:99)
+    TestContext.<anonymous> (<LOCAL_PROFILE>\AppData\Local\Temp\tmpwdbzv9nq\tests\packaging_model.test.cjs:20:99)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
   ...
 # Subtest: shotData preserves user ordering, source timing, reusable media and exact script hashes
 ok 5 - shotData preserves user ordering, source timing, reusable media and exact script hashes
   ---
-  duration_ms: 2.6409
+  duration_ms: 2.6839
   type: 'test'
   ...
 # Subtest: source timing rejects dropped, reversed, fractional or unbounded timestamps
 ok 6 - source timing rejects dropped, reversed, fractional or unbounded timestamps
   ---
-  duration_ms: 0.3425
+  duration_ms: 0.2882
   type: 'test'
   ...
 # Subtest: move preserves identities and does not mutate saved rows
 ok 7 - move preserves identities and does not mutate saved rows
   ---
-  duration_ms: 0.2547
+  duration_ms: 0.2362
   type: 'test'
   ...
 # Subtest: seeded desktop and mobile previews use identical card order and source snapshots
 ok 8 - seeded desktop and mobile previews use identical card order and source snapshots
   ---
-  duration_ms: 0.7399
+  duration_ms: 0.7313
   type: 'test'
   ...
 # Subtest: blind feed uses equal cards and escapes text without fabricated counters or remote images
 ok 9 - blind feed uses equal cards and escapes text without fabricated counters or remote images
   ---
-  duration_ms: 0.6078
+  duration_ms: 0.6423
   type: 'test'
   ...
 # Subtest: report and CSV separate plan analytics from unknown sales and neutralize spreadsheet formulas
 ok 10 - report and CSV separate plan analytics from unknown sales and neutralize spreadsheet formulas
   ---
-  duration_ms: 2.0982
+  duration_ms: 2.0798
   type: 'test'
   ...
 # Subtest: fields are labelled and source copy cannot inject markup into controls
 ok 11 - fields are labelled and source copy cannot inject markup into controls
   ---
-  duration_ms: 0.5393
+  duration_ms: 0.4539
   type: 'test'
   ...
 # Subtest: an active non-owner cannot open or submit private packaging plans
 ok 12 - an active non-owner cannot open or submit private packaging plans
   ---
-  duration_ms: 37.755
+  duration_ms: 37.9974
   type: 'test'
   ...
 # Subtest: owner and scope checks reject another principal or revoked membership
 ok 13 - owner and scope checks reject another principal or revoked membership
   ---
-  duration_ms: 1.341
+  duration_ms: 1.1333
   type: 'test'
   ...
 # Subtest: request allows only fixed local services, rejects foreign receipts, and sends exact JSON once
 ok 14 - request allows only fixed local services, rejects foreign receipts, and sends exact JSON once
   ---
-  duration_ms: 1.1435
+  duration_ms: 1.1327
   type: 'test'
   ...
 # Subtest: receipt matching binds app, input, kind, expected revision and setup
 ok 15 - receipt matching binds app, input, kind, expected revision and setup
   ---
-  duration_ms: 1.2583
+  duration_ms: 1.1441
   type: 'test'
   ...
 # Subtest: an uncertain save locks fields, retains exact input and never auto-retries
 ok 16 - an uncertain save locks fields, retains exact input and never auto-retries
   ---
-  duration_ms: 2.1129
+  duration_ms: 1.7271
   type: 'test'
   ...
 # Subtest: one explicit identical retry follows an absent revision and a matching receipt clears uncertainty
 ok 17 - one explicit identical retry follows an absent revision and a matching receipt clears uncertainty
   ---
-  duration_ms: 1.4895
+  duration_ms: 1.2907
   type: 'test'
   ...
 # Subtest: scope change aborts pending work and clears private dialog content
 ok 18 - scope change aborts pending work and clears private dialog content
   ---
-  duration_ms: 0.7155
+  duration_ms: 0.5882
   type: 'test'
   ...
 # Subtest: busy submission prevents duplicate requests while the first save is pending
 ok 19 - busy submission prevents duplicate requests while the first save is pending
   ---
-  duration_ms: 0.7105
+  duration_ms: 0.562
   type: 'test'
   ...
 # Subtest: preview settings preserve explicit choices and reject a thumbnail without its source
 ok 20 - preview settings preserve explicit choices and reject a thumbnail without its source
   ---
-  duration_ms: 0.8469
+  duration_ms: 0.67
   type: 'test'
   ...
 # Subtest: shot controls and saved summaries expose all editing fields without executing media
 ok 21 - shot controls and saved summaries expose all editing fields without executing media
   ---
-  duration_ms: 1.7586
+  duration_ms: 1.4909
   type: 'test'
   ...
 1..21
@@ -151,4 +151,4 @@ ok 21 - shot controls and saved summaries expose all editing fields without exec
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 1136.4219
+# duration_ms 1274.6211

@@ -2,75 +2,75 @@ TAP version 13
 # Subtest: variantData binds selected source and product revisions with the chosen thumbnail first
 ok 1 - variantData binds selected source and product revisions with the chosen thumbnail first
   ---
-  duration_ms: 2.552
+  duration_ms: 2.1885
   type: 'test'
   ...
 # Subtest: library filters product scope, keeps latest collection revisions, and excludes unattested media
 ok 2 - library filters product scope, keeps latest collection revisions, and excludes unattested media
   ---
-  duration_ms: 0.5581
+  duration_ms: 0.4739
   type: 'test'
   ...
 # Subtest: local thumbnails cannot introduce remote hosts, path traversal or HTML attributes
 ok 3 - local thumbnails cannot introduce remote hosts, path traversal or HTML attributes
   ---
-  duration_ms: 0.2862
+  duration_ms: 0.239
   type: 'test'
   ...
 # Subtest: canonical SHA256 matches Python Unicode, sorted keys and newline encoding
 ok 4 - canonical SHA256 matches Python Unicode, sorted keys and newline encoding
   ---
-  duration_ms: 6.9618
+  duration_ms: 6.5356
   type: 'test'
   ...
 # Subtest: shotData preserves user ordering, source timing, reusable media and exact script hashes
 ok 5 - shotData preserves user ordering, source timing, reusable media and exact script hashes
   ---
-  duration_ms: 2.3028
+  duration_ms: 1.9287
   type: 'test'
   ...
 # Subtest: source timing rejects dropped, reversed, fractional or unbounded timestamps
 ok 6 - source timing rejects dropped, reversed, fractional or unbounded timestamps
   ---
-  duration_ms: 0.3385
+  duration_ms: 0.3124
   type: 'test'
   ...
 # Subtest: move preserves identities and does not mutate saved rows
 ok 7 - move preserves identities and does not mutate saved rows
   ---
-  duration_ms: 0.2989
+  duration_ms: 0.2563
   type: 'test'
   ...
 # Subtest: seeded desktop and mobile previews use identical card order and source snapshots
 ok 8 - seeded desktop and mobile previews use identical card order and source snapshots
   ---
-  duration_ms: 0.952
+  duration_ms: 0.7945
   type: 'test'
   ...
 # Subtest: blind feed uses equal cards and escapes text without fabricated counters or remote images
 ok 9 - blind feed uses equal cards and escapes text without fabricated counters or remote images
   ---
-  duration_ms: 0.7267
+  duration_ms: 0.6272
   type: 'test'
   ...
 # Subtest: report and CSV separate plan analytics from unknown sales and neutralize spreadsheet formulas
 ok 10 - report and CSV separate plan analytics from unknown sales and neutralize spreadsheet formulas
   ---
-  duration_ms: 2.3952
+  duration_ms: 1.9384
   type: 'test'
   ...
 # Subtest: fields are labelled and source copy cannot inject markup into controls
 ok 11 - fields are labelled and source copy cannot inject markup into controls
   ---
-  duration_ms: 0.6094
+  duration_ms: 0.7098
   type: 'test'
   ...
 # Subtest: an active non-owner cannot open or submit private packaging plans
 not ok 12 - an active non-owner cannot open or submit private packaging plans
   ---
-  duration_ms: 45.6723
+  duration_ms: 30.8888
   type: 'test'
-  location: 'C:\\Users\\rkatz\\AppData\\Local\\Temp\\tmpr6phqs_z\\tests\\packaging_ui.test.cjs:18:1'
+  location: 'C:\\Users\\rkatz\\AppData\\Local\\Temp\\tmpwbkooff5\\tests\\packaging_ui.test.cjs:18:1'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -83,7 +83,7 @@ not ok 12 - an active non-owner cannot open or submit private packaging plans
   actual: true
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (C:\Users\rkatz\AppData\Local\Temp\tmpr6phqs_z\tests\packaging_ui.test.cjs:18:161)
+    TestContext.<anonymous> (<LOCAL_PROFILE>\AppData\Local\Temp\tmpwbkooff5\tests\packaging_ui.test.cjs:18:161)
     Test.runInAsyncScope (node:async_hooks:214:14)
     Test.run (node:internal/test_runner/test:1047:25)
     Test.start (node:internal/test_runner/test:944:17)
@@ -92,55 +92,55 @@ not ok 12 - an active non-owner cannot open or submit private packaging plans
 # Subtest: owner and scope checks reject another principal or revoked membership
 ok 13 - owner and scope checks reject another principal or revoked membership
   ---
-  duration_ms: 1.6614
+  duration_ms: 1.1488
   type: 'test'
   ...
 # Subtest: request allows only fixed local services, rejects foreign receipts, and sends exact JSON once
 ok 14 - request allows only fixed local services, rejects foreign receipts, and sends exact JSON once
   ---
-  duration_ms: 1.689
+  duration_ms: 1.1572
   type: 'test'
   ...
 # Subtest: receipt matching binds app, input, kind, expected revision and setup
 ok 15 - receipt matching binds app, input, kind, expected revision and setup
   ---
-  duration_ms: 1.4725
+  duration_ms: 1.052
   type: 'test'
   ...
 # Subtest: an uncertain save locks fields, retains exact input and never auto-retries
 ok 16 - an uncertain save locks fields, retains exact input and never auto-retries
   ---
-  duration_ms: 3.3045
+  duration_ms: 1.9321
   type: 'test'
   ...
 # Subtest: one explicit identical retry follows an absent revision and a matching receipt clears uncertainty
 ok 17 - one explicit identical retry follows an absent revision and a matching receipt clears uncertainty
   ---
-  duration_ms: 2.6563
+  duration_ms: 1.1101
   type: 'test'
   ...
 # Subtest: scope change aborts pending work and clears private dialog content
 ok 18 - scope change aborts pending work and clears private dialog content
   ---
-  duration_ms: 1.1534
+  duration_ms: 0.5647
   type: 'test'
   ...
 # Subtest: busy submission prevents duplicate requests while the first save is pending
 ok 19 - busy submission prevents duplicate requests while the first save is pending
   ---
-  duration_ms: 0.9689
+  duration_ms: 0.6174
   type: 'test'
   ...
 # Subtest: preview settings preserve explicit choices and reject a thumbnail without its source
 ok 20 - preview settings preserve explicit choices and reject a thumbnail without its source
   ---
-  duration_ms: 1.1222
+  duration_ms: 0.7809
   type: 'test'
   ...
 # Subtest: shot controls and saved summaries expose all editing fields without executing media
 ok 21 - shot controls and saved summaries expose all editing fields without executing media
   ---
-  duration_ms: 1.3849
+  duration_ms: 1.5266
   type: 'test'
   ...
 1..21
@@ -151,4 +151,4 @@ ok 21 - shot controls and saved summaries expose all editing fields without exec
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 1049.6346
+# duration_ms 2623.899

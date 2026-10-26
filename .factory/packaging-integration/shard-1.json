@@ -1,0 +1,14 @@
+{
+  "command": [
+    "python",
+    "-X",
+    "utf8",
+    "tools/run_ci_tests.py",
+    "--shards",
+    "4",
+    "--index",
+    "1"
+  ],
+  "exit": 0,
+  "source_unchanged": true
+}

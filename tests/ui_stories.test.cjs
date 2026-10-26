@@ -39,3 +39,13 @@ test('shared modal and page hooks add narrative alongside existing control and r
  const reports=fs.readFileSync(path.join(directory,'page-reporting.js'),'utf8');
  assert.ok(reports.includes('WMMStories.page(state.view)'));assert.ok(reports.includes('Report / Save PDF'));
 });
+
+test('Drive dialog guidance covers access and import independently of hidden form order',()=>{
+ const setup='<details><form id="drive-setup-form"></form></details>';
+ const importing='<form id="drive-import-form"></form>';
+ const first=stories.dialog('Your selected Drive clips',setup+importing);
+ assert.equal(first,stories.dialog('Your selected Drive clips',importing+setup));
+ assert.ok(!first.includes(stories.FORMS['drive-setup-form'][1]));
+ assert.ok(first.includes('original picture and sound'));
+ assert.ok(first.includes('approve reuse before editing'));
+});

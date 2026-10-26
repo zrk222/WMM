@@ -1,0 +1,222 @@
+{
+  "name": "linux-studio-listener",
+  "language": "python",
+  "modules": [
+    {
+      "name": "studio_listener_linux",
+      "path": "mission_control/studio_listener_linux.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "fail",
+          "args": [
+            "code"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "remaining",
+          "args": [
+            "deadline"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "filesystem",
+          "args": [
+            "fd",
+            "magic"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "directory",
+          "args": [
+            "parent",
+            "name",
+            "stack"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "read_file",
+          "args": [
+            "parent",
+            "name",
+            "deadline"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "live",
+          "args": [
+            "pidfd"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "messages",
+          "args": [
+            "data",
+            "sequence",
+            "recipient"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "attributes",
+          "args": [
+            "raw"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "diag_row",
+          "args": [
+            "raw"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "diag_request",
+          "args": [
+            "sequence"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "consume",
+          "args": [
+            "rows",
+            "matches",
+            "port"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "receive_dump",
+          "args": [
+            "stream",
+            "sequence",
+            "recipient",
+            "port",
+            "deadline",
+            "budget"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "diagnostic",
+          "args": [
+            "port",
+            "deadline",
+            "budget"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "holds",
+          "args": [
+            "directory_fd",
+            "inode",
+            "deadline",
+            "budget"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "holder",
+          "args": [
+            "proc",
+            "pid",
+            "inode",
+            "deadline",
+            "budget"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "select_member",
+          "args": [
+            "proc",
+            "members",
+            "row",
+            "deadline",
+            "preferred"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "witness",
+          "args": [
+            "scope",
+            "row",
+            "deadline",
+            "preferred"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "observed",
+          "args": [
+            "scope",
+            "port",
+            "deadline"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "request_deadline",
+          "args": [
+            "scope",
+            "port",
+            "timeout"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "owns_listener",
+          "args": [
+            "scope",
+            "port",
+            "timeout"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "__init__",
+          "args": [
+            "self",
+            "directory_fd",
+            "owner_alive"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "validate",
+          "args": [
+            "self"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "members",
+          "args": [
+            "self",
+            "deadline"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "close",
+          "args": [
+            "self"
+          ],
+          "returns": "object"
+        }
+      ]
+    }
+  ],
+  "dependencies": [],
+  "invariants": []
+}

@@ -64,8 +64,12 @@ class ReviewHTTPTests(unittest.TestCase):
         with self.assertRaises(ClientError):self.human('approve',dict(body,principal=identities.CHECKER['principal']))
         with self.assertRaises(Invalid):self.agent.review('approve',body)
         with self.assertRaises(Invalid):self.agent.request('POST','/api/apps/sample-one/agent-reviews/approve',body)
-        raw=Request(self.origin+'/api/agent-operations/reviews/approve',data=json.dumps(body).encode(),headers={'Origin':self.origin,'Content-Type':'application/json','Authorization':'Bearer '+self.token},method='POST')
-        with self.assertRaises(HTTPError):urlopen(raw,timeout=15)
+        # This address rejects before body parsing; do not race an unread body
+        # against Windows socket closure. Still prove the exact route denial.
+        raw=Request(self.origin+'/api/agent-operations/reviews/approve',data=b'',headers={'Origin':self.origin,'Content-Type':'application/json','Authorization':'Bearer '+self.token},method='POST')
+        with self.assertRaises(HTTPError) as denied:urlopen(raw,timeout=15)
+        self.assertEqual(denied.exception.code,400)
+        self.assertEqual(json.load(denied.exception)['error'],'Unknown exact agent review address')
         with self.assertRaises(ClientError):self.resume(row)
         self.assertEqual(self.owner.call(self.envelope())['history'],[])
 
