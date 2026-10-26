@@ -110,16 +110,18 @@ class NativeTests(unittest.TestCase):
         self.assertIn('reconnect',result);self.assertNotIn('SECRET',result)
 
     def test_detect_hash_bound_binary_and_reject_drift(self):
-        package=self.root/'AppData/Local/Volta/tools/image/packages/@openai/codex/node_modules/@openai/codex'
-        exe=package/'node_modules/@openai/codex-win32-x64/vendor/synthetic/bin/codex.exe';exe.parent.mkdir(parents=True)
-        exe.write_bytes(b'synthetic-not-executed');(package/'package.json').write_text('{"name":"@openai/codex","version":"0.162.1"}')
-        frozen=locate('codex',self.root)
-        with patch('mission_control.agent_native.capture',side_effect=[dict(code=0,stdout='codex-cli 0.162.1',stderr=''),dict(code=0,stdout='',stderr='Logged in using ChatGPT')]):
-            self.assertEqual(identity('codex',self.root)['login_state'],'SIGNED_IN')
-        exe.write_bytes(b'changed-synthetic')
-        with patch('mission_control.agent_native.locate',return_value=locate('codex',self.root)):
-            with self.assertRaisesRegex(Invalid,'changed'):run('codex',frozen,'synthetic input')
-        with self.assertRaises(Invalid):locate('kimi',self.root)
+        # Keep this Windows-path fixture explicit on every test host; Linux has its own native-path acceptance.
+        with patch('mission_control.agent_native.sys.platform','win32'):
+            package=self.root/'AppData/Local/Volta/tools/image/packages/@openai/codex/node_modules/@openai/codex'
+            exe=package/'node_modules/@openai/codex-win32-x64/vendor/synthetic/bin/codex.exe';exe.parent.mkdir(parents=True)
+            exe.write_bytes(b'synthetic-not-executed');(package/'package.json').write_text('{"name":"@openai/codex","version":"0.162.1"}')
+            frozen=locate('codex',self.root)
+            with patch('mission_control.agent_native.capture',side_effect=[dict(code=0,stdout='codex-cli 0.162.1',stderr=''),dict(code=0,stdout='',stderr='Logged in using ChatGPT')]):
+                self.assertEqual(identity('codex',self.root)['login_state'],'SIGNED_IN')
+            exe.write_bytes(b'changed-synthetic')
+            with patch('mission_control.agent_native.locate',return_value=locate('codex',self.root)):
+                with self.assertRaisesRegex(Invalid,'changed'):run('codex',frozen,'synthetic input')
+            with self.assertRaises(Invalid):locate('kimi',self.root)
 
     def test_unverified_kimi_hooks_cannot_start_a_native_process(self):
         with patch('mission_control.agent_native.capture') as execute:

@@ -1,5 +1,5 @@
 """Detect supported installed tools; never acquire software or export login secrets."""
-import json,re,tempfile
+import json,re,tempfile,sys
 from pathlib import Path
 from .common import Invalid,digest
 from .audit_tools import file_hash
@@ -10,6 +10,9 @@ from .agent_commands import arguments,output
 
 def candidates(tool,home):
     """Known official installation locations only; no request-supplied executables."""
+    if sys.platform.startswith('linux'):
+        from .linux_agent_paths import candidates as linux_candidates
+        return linux_candidates(tool,home)
     if tool=='codex':
         package=home/'AppData/Local/Volta/tools/image/packages/@openai/codex/node_modules/@openai/codex'
         files=sorted(package.glob('node_modules/@openai/codex-win32-*/vendor/*/bin/codex.exe'))
@@ -21,11 +24,20 @@ def candidates(tool,home):
     return []
 
 
+def native_candidate(executable):
+    """Apply the running platform's native-file check before trusting a fixed candidate."""
+    if not executable.is_file():return False
+    if sys.platform.startswith('linux'):
+        from .linux_agent_paths import native_file
+        return native_file(executable)
+    return True
+
+
 def locate(provider,home=None):
     """Hash actual binary bytes and package identity without trusting PATH shims."""
     if provider not in REGISTRY or not REGISTRY[provider]['tool']:raise Invalid('Choose a native subscription adapter')
     for executable,metadata,name in candidates(REGISTRY[provider]['tool'],Path(home) if home else Path.home()):
-        if not executable.is_file():continue
+        if not native_candidate(executable):continue
         package=json.loads(metadata.read_text(encoding='utf-8')) if metadata else {}
         if metadata and package.get('name')!=name:continue
         result=dict(executable=str(executable.resolve()),sha256=file_hash(executable),package_version=package.get('version'))

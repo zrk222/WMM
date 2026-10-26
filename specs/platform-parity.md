@@ -9,8 +9,8 @@ Requested: full WMM operation on iOS, Linux and Ubuntu; additive to all prior go
 - The system shall return native agent discovery, invocation, cancellation and results on Linux and Ubuntu using their installed supported Codex/Claude runtimes, preserving exact owner/grant/approval context and recording unsupported or unavailable runtimes without invented compatibility, identified by `platform_linux_agents`.
 - The system shall return verified results and artifacts from executing the complete supported WMM owner and agent workflows on declared Linux and Ubuntu profiles with durable jobs, approved media editing/stitching/rendering and equivalent CLI/MCP controls, retaining the existing 67108864 bytes media limit and 60 seconds worker lease, identified by `platform_linux_workflows`.
 - The system shall return all WMM workflow controls to iOS users through an authenticated supported client, including optional photo/file/Drive intake, video and audio preview, full creative settings, approval and scoped autonomous modes, live progress, cancellation, results and PDF export; viewport resizing alone shall not establish acceptance, identified by `platform_ios_workflows`.
-- The system shall store mobile pairing/session authority only in a reviewed protected design, require explicit user pairing and scoped revocation before cross-device control, reject unauthenticated access and preserve the current loopback-only service default; host-executed operations shall identify their actual execution location and never be labeled on-device execution, identified by `platform_pairing_boundary`.
-- The system shall return durable workflow status and recovery after iOS suspension, screen lock, browser closure or transport interruption; supported background execution shall use actual platform capabilities or an explicitly disclosed paired worker, never an assumption of uninterrupted browser execution, identified by `platform_mobile_continuity`.
+- The system shall return independent on-device iOS operation with protected local identity, durable local jobs and platform-native media processing, rejecting any required remote WMM worker, Windows machine, Linux machine, paired computer or companion server as fulfillment of standalone operation, identified by `platform_pairing_boundary`.
+- The system shall return durable workflow status and recovery after iOS suspension, screen lock, browser closure or transport interruption; supported background execution shall use actual local platform capabilities with explicit operating-system constraints and safe durable resume, never a required paired worker or an assumption of uninterrupted browser execution, identified by `platform_mobile_continuity`.
 - The system shall emit platform-specific test and device receipts for complete workflows, credential lock/recovery, agent parity, accessibility and exports before claiming a profile supported; existing Windows behavior shall retain its regression gates, identified by `platform_acceptance`.
 
 ### Acceptance criteria (Gherkin)
@@ -36,9 +36,9 @@ Scenario: platform_ios_workflows
   When `platform_ios_workflows` exercises intake editing approval autonomous work and export
   Then every requested workflow is usable with device evidence
 Scenario: platform_pairing_boundary
-  Given an explicitly paired client and WMM worker
+  Given an independently installed iOS client and local WMM execution engine
   When `platform_pairing_boundary` tests revoked or unauthenticated access
-  Then operations are denied and loopback defaults remain intact
+  Then unauthenticated operations are denied and no other-platform WMM host is required
 Scenario: platform_mobile_continuity
   Given an active durable workflow
   When `platform_mobile_continuity` suspends or disconnects the iOS client
@@ -50,9 +50,11 @@ Scenario: platform_acceptance
 ```
 
 ## Architecture decisions and evidence boundaries
-Full operation is a product requirement. The implementation architecture must retain every workflow. A paired-host iOS client is a candidate design, not an implemented feature or proof of native on-device execution. Selecting that design must explicitly disclose the host requirement and prove the complete mobile journey. Native iOS execution and any companion package require their own toolchain/device acceptance. No public listener, production activation or credential migration is authorized merely by writing this contract.
+Standalone operation is mandatory on Windows, Ubuntu/Linux and iOS. Each installation owns its local data, protected credentials, execution engine, media processing, approvals, agent operations, telemetry and exports. No required Windows host, WSL bridge, Linux worker, paired desktop, remote WMM server or running installation on another platform is allowed. Optional third-party APIs and user-selected external storage remain optional integrations, not hidden WMM runtime dependencies. Cross-platform source libraries or build tooling do not count as runtime interdependencies.
 
-Current inspected source: credential_vault.Vault rejects os.name other than nt. README explicitly describes macOS/Linux protected credentials and native CLI integration as unsupported. Existing mobile viewport checks exercise Chromium on Windows and do not prove iOS behavior. Windows remains the observed native profile; Linux/Ubuntu/iOS acceptance is NOT_RUN. Existing macOS gap requirements remain in the parent goal.
+A responsive web page, mobile viewport, remote-control client or paired-host demonstration cannot satisfy iOS acceptance. iOS requires an installable on-device application and local implementation of durable storage, Keychain credentials, native media editing/stitching/encoding, agent operations, authenticated approvals and actual-device lifecycle recovery. Do not promise uninterrupted background work beyond iOS capabilities; preserve queued work and resume safely when execution is permitted. Unsupported third-party CLI binaries need verified native/API adapters on that platform, not claims of CLI compatibility.
+
+Current source inspection (October26): Windows Credential Manager and Linux Secret Service backends exist, with isolated Ubuntu keyring acceptance; that proves only scoped protected storage. Native agent discovery still searches Windows paths. The repository has no iOS app target or Swift sources. Existing Python/FFmpeg processes and desktop Chromium checks do not prove iOS operation. Complete standalone Windows/Linux/Ubuntu/iOS profile acceptance remains unproven. Earlier macOS requirements remain additive and must not be removed.
 
 Official references reviewed for architecture (not execution evidence):
 Ubuntu Security FAQ: https://wiki.ubuntu.com/Security/FAQ describes GNOME Keyring integration with SecretService.
@@ -62,3 +64,6 @@ Apple background strategies: https://developer.apple.com/documentation/Backgroun
 
 ## WON'T - Out of scope of this requirements packet
 No platform is marked supported by this document. No implementation, device result, migration, deployment or measured performance result is implied.
+
+## Independent runtime acceptance matrix
+For each Windows, Ubuntu/Linux and iOS profile, test a fresh install with every other WMM platform offline. Prove local storage and restart, protected credential create/read/lock/recovery/delete, optional Drive/local UGC intake, exact viral qualification, complete editing/stitching/audio/render/preview/export, human and scoped-agent/autonomous operations, current approvals, telemetry/cancel/recovery, complete analytics and PDF/JSON/CSV. Record exact source hashes, runtime/OS/device/build identity and artifacts. Any missing workflow or required off-device WMM process prevents full-support status. Optional provider account availability is reported separately.
