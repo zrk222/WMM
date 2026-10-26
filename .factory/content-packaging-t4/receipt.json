@@ -1,0 +1,36 @@
+{
+  "agent_actions": [],
+  "authority": {
+    "approval": false,
+    "connector": false,
+    "credential": false,
+    "deployment": false,
+    "execution": false,
+    "merge": false,
+    "messaging": false,
+    "publication": false,
+    "repair": false,
+    "signing": false
+  },
+  "candidate_sha256": "1aa7d351c716faf9861627fe2f76492c7d497baa180dceb1008d38bac862475f",
+  "checks": 8,
+  "contract_sha256": "72968cdb6dc13ec8261a7a448f13aaa2139d11db6ef21f76e23c83ba747b8f54",
+  "errors": [],
+  "inapplicability_evidence": {},
+  "limits": [
+    "Recorded evidence completeness and hashes only; observations require review.",
+    "Inapplicability review evidence is hash-bound but its judgment and identity are not authenticated.",
+    "Each contract/observation JSON input and evidence artifact is limited to 16 MiB; total evidence hashing is limited to 128 MiB, 4096 artifact references, and 4096 required check/profile pairs.",
+    "No project command or provider is executed.",
+    "No approval, certification or deployment authority."
+  ],
+  "observations_sha256": "e26c9a38123d68303d5fbcd8bfe0e7f1644b73f6c8d5a0107fe0303a5860a209",
+  "project_id": "WMM-content-packaging-T4",
+  "receipt_sha256": "f103fe97439b7036461e19bed03718a81e2f8c84ab882f65b50d4426f3f24078",
+  "resource_usage": {
+    "artifact_references": 166,
+    "bytes_hashed": 6701408
+  },
+  "schema": "factory.workflow-audit.receipt.v1",
+  "state": "PASS"
+}

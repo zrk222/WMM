@@ -1,0 +1,50 @@
+{
+  "schema": "wmm.packaging.browser-observations.v1",
+  "observed_at": "2026-10-26T15:39:39.244Z",
+  "profile": "Windows Chrome DevTools isolated synthetic loopback; viewport emulation, not iOS device",
+  "fixture": "Synthetic app, source records and one-pixel local image; no real customer media or provider calls",
+  "desktop": {
+    "viewport": 1600,
+    "width": 1440,
+    "cards": 3,
+    "stageFits": true,
+    "bodyFits": true,
+    "loaded": true,
+    "clamp": true,
+    "focusVisible": true,
+    "outline": "solid"
+  },
+  "mobile": {
+    "viewport": 390,
+    "width": 390,
+    "cards": 3,
+    "stageFits": true,
+    "bodyFits": true,
+    "targets": true
+  },
+  "preview_print_report": {
+    "title": "Your saved creative plan \u2014 WMM report",
+    "cards": 3,
+    "rows": 6,
+    "printInvoked": true,
+    "imagesLoaded": true,
+    "os_pdf_save": "NOT_RUN"
+  },
+  "exports": {
+    "jsonValid": true,
+    "csvUnknown": true,
+    "noSession": true,
+    "kinds": [
+      "application/json",
+      "text/csv"
+    ]
+  },
+  "console": "No error/warn messages on tested page",
+  "reproduce": "Run browser_server.py with isolated temporary SQLite, authenticate synthetic fixture identity, Research > creative packaging > saved variant revision 3 > comparison. Select two sources and local reference thumbnails, seed packaging-review-1. Compare mobile and desktop. Verify Print report, JSON and CSV.",
+  "limits": [
+    "No native iOS/Linux acceptance",
+    "No measured CTR or sales",
+    "Screenshots intentionally excluded from Git",
+    "DOM render receipt is a static diagnostic paired with live browser observations"
+  ]
+}

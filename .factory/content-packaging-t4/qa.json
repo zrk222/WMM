@@ -1,0 +1,597 @@
+{
+  "grade": "B",
+  "passed": true,
+  "metrics": {
+    "coverage_intent": 0.71,
+    "max_complexity": 9,
+    "security_score": 100,
+    "doc_ratio": 0.0,
+    "composite": 74.8,
+    "complexity_policy": "hard",
+    "coverage_assessment": "static_name_match",
+    "behavioral_proof_status": "not_measured_static_only",
+    "scope": {
+      "kind": "feature",
+      "code_files": [
+        ".factory/content-packaging-t4/qa-scope/packaging-model.js",
+        ".factory/content-packaging-t4/qa-scope/packaging-ui.js"
+      ]
+    },
+    "skipped_paths": [],
+    "inventory_complete": true,
+    "function_inventory_complete": true,
+    "function_inventory": [
+      {
+        "path": ".factory/content-packaging-t4/qa-scope/packaging-model.js",
+        "parser": "typescript-compiler",
+        "status": "exact",
+        "symbols": 74
+      },
+      {
+        "path": ".factory/content-packaging-t4/qa-scope/packaging-ui.js",
+        "parser": "typescript-compiler",
+        "status": "exact",
+        "symbols": 68
+      }
+    ],
+    "advisory_function_metrics": [],
+    "unknown_security_calls": [],
+    "security_analysis": "bounded_pattern_inventory"
+  },
+  "findings": [],
+  "attribution": {
+    "stage": "qa_audit",
+    "n_checked": 78,
+    "n_passed": 55,
+    "units": [
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:stable",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:text",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:id",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:number",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:milliseconds",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:hash",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:ref",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:entry",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:libraries",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:find",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:selected",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:imageURL",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:thumbnail",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:variantData",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:newShots",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:editableShots",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:collectShots",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:sha",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:shotTiming",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:shotData",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:shotRow",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:move",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:input",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:select",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:variantFields",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:shuffle",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:previewInput",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:referenceCard",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:preview",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:feedHTML",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:exported",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:report",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-model.js:csv",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:clear",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:invalidate",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:panel",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:show",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:tickets",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:busy",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:lockWrites",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:fail",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:recoveries",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:requestOptions",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:responseValue",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:request",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:collections",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:carry",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:historyRows",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:home",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:open",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:blank",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:variantForm",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:ordering",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:segmentFields",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:shotFields",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:shotsForm",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:shotSummary",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:detail",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:read",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:edit",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:newShots",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:editRows",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:previewForm",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:previewSelection",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:previewView",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:assertRead",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:matches",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:write",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:reconcile",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:compare",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:canSubmit",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:submit",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:reportButtons",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:download",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:reportAction",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:recoverAction",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:activeAction",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t4/qa-scope/packaging-ui.js:action",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      }
+    ],
+    "rate": 0.7051282051282052,
+    "dominant_failure_class": "inconsistent_logic"
+  }
+}

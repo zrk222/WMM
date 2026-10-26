@@ -1,0 +1,156 @@
+TAP version 13
+# Subtest: variantData binds selected source and product revisions with the chosen thumbnail first
+ok 1 - variantData binds selected source and product revisions with the chosen thumbnail first
+  ---
+  duration_ms: 2.961
+  type: 'test'
+  ...
+# Subtest: library filters product scope, keeps latest collection revisions, and excludes unattested media
+ok 2 - library filters product scope, keeps latest collection revisions, and excludes unattested media
+  ---
+  duration_ms: 0.6465
+  type: 'test'
+  ...
+# Subtest: local thumbnails cannot introduce remote hosts, path traversal or HTML attributes
+ok 3 - local thumbnails cannot introduce remote hosts, path traversal or HTML attributes
+  ---
+  duration_ms: 0.3776
+  type: 'test'
+  ...
+# Subtest: canonical SHA256 matches Python Unicode, sorted keys and newline encoding
+ok 4 - canonical SHA256 matches Python Unicode, sorted keys and newline encoding
+  ---
+  duration_ms: 8.2713
+  type: 'test'
+  ...
+# Subtest: shotData preserves user ordering, source timing, reusable media and exact script hashes
+ok 5 - shotData preserves user ordering, source timing, reusable media and exact script hashes
+  ---
+  duration_ms: 2.4113
+  type: 'test'
+  ...
+# Subtest: source timing rejects dropped, reversed, fractional or unbounded timestamps
+ok 6 - source timing rejects dropped, reversed, fractional or unbounded timestamps
+  ---
+  duration_ms: 0.414
+  type: 'test'
+  ...
+# Subtest: move preserves identities and does not mutate saved rows
+ok 7 - move preserves identities and does not mutate saved rows
+  ---
+  duration_ms: 0.3509
+  type: 'test'
+  ...
+# Subtest: seeded desktop and mobile previews use identical card order and source snapshots
+ok 8 - seeded desktop and mobile previews use identical card order and source snapshots
+  ---
+  duration_ms: 1.0219
+  type: 'test'
+  ...
+# Subtest: blind feed uses equal cards and escapes text without fabricated counters or remote images
+ok 9 - blind feed uses equal cards and escapes text without fabricated counters or remote images
+  ---
+  duration_ms: 0.8833
+  type: 'test'
+  ...
+# Subtest: report and CSV separate plan analytics from unknown sales and neutralize spreadsheet formulas
+ok 10 - report and CSV separate plan analytics from unknown sales and neutralize spreadsheet formulas
+  ---
+  duration_ms: 2.7645
+  type: 'test'
+  ...
+# Subtest: fields are labelled and source copy cannot inject markup into controls
+ok 11 - fields are labelled and source copy cannot inject markup into controls
+  ---
+  duration_ms: 0.6988
+  type: 'test'
+  ...
+# Subtest: an active non-owner cannot open or submit private packaging plans
+ok 12 - an active non-owner cannot open or submit private packaging plans
+  ---
+  duration_ms: 29.4067
+  type: 'test'
+  ...
+# Subtest: owner and scope checks reject another principal or revoked membership
+not ok 13 - owner and scope checks reject another principal or revoked membership
+  ---
+  duration_ms: 1.9512
+  type: 'test'
+  location: 'C:\\Users\\rkatz\\AppData\\Local\\Temp\\tmpo_jpncyi\\tests\\packaging_ui.test.cjs:21:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+
+    true !== false
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\rkatz\AppData\Local\Temp\tmpo_jpncyi\tests\packaging_ui.test.cjs:21:387)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: request allows only fixed local services, rejects foreign receipts, and sends exact JSON once
+ok 14 - request allows only fixed local services, rejects foreign receipts, and sends exact JSON once
+  ---
+  duration_ms: 1.0595
+  type: 'test'
+  ...
+# Subtest: receipt matching binds app, input, kind, expected revision and setup
+ok 15 - receipt matching binds app, input, kind, expected revision and setup
+  ---
+  duration_ms: 1.3156
+  type: 'test'
+  ...
+# Subtest: an uncertain save locks fields, retains exact input and never auto-retries
+ok 16 - an uncertain save locks fields, retains exact input and never auto-retries
+  ---
+  duration_ms: 1.9015
+  type: 'test'
+  ...
+# Subtest: one explicit identical retry follows an absent revision and a matching receipt clears uncertainty
+ok 17 - one explicit identical retry follows an absent revision and a matching receipt clears uncertainty
+  ---
+  duration_ms: 1.4109
+  type: 'test'
+  ...
+# Subtest: scope change aborts pending work and clears private dialog content
+ok 18 - scope change aborts pending work and clears private dialog content
+  ---
+  duration_ms: 0.7224
+  type: 'test'
+  ...
+# Subtest: busy submission prevents duplicate requests while the first save is pending
+ok 19 - busy submission prevents duplicate requests while the first save is pending
+  ---
+  duration_ms: 0.7241
+  type: 'test'
+  ...
+# Subtest: preview settings preserve explicit choices and reject a thumbnail without its source
+ok 20 - preview settings preserve explicit choices and reject a thumbnail without its source
+  ---
+  duration_ms: 0.76
+  type: 'test'
+  ...
+# Subtest: shot controls and saved summaries expose all editing fields without executing media
+ok 21 - shot controls and saved summaries expose all editing fields without executing media
+  ---
+  duration_ms: 1.0176
+  type: 'test'
+  ...
+1..21
+# tests 21
+# suites 0
+# pass 20
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1014.2569
