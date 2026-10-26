@@ -191,7 +191,7 @@ class Service:
 
     def queue(self,app_id,body):
         """Validate the requested stage or connection before durable job submission."""
-        if body.get("action") in ("render","hypit_render","edit_render"):raise Invalid("Use the guided render workflow to validate source proof first")
+        if body.get("action") in ("render","hypit_render","edit_render","drive_import"):raise Invalid("Use the guided media workflow to validate source proof and authority first")
         if not isinstance(body.get("data",{}),dict):
             raise Invalid("Job data must be an object")
         if body.get("action")=="pipeline":
@@ -231,6 +231,8 @@ class Service:
         """Cancel only an active job in the selected workspace."""
         self.store.app(app_id)
         with connection(self.store.path) as db:
+            target=db.execute('SELECT action FROM jobs WHERE id=? AND app_id=?',(job_id,app_id)).fetchone()
+            if target and target['action']=='drive_import':raise PermissionError('Use the owner-authorized Drive import cancellation control')
             changed=db.execute("UPDATE jobs SET status='CANCELLED',updated=? WHERE id=? AND app_id=? AND status IN ('QUEUED','RUNNING')",(now(),job_id,app_id)).rowcount
         if not changed:
             raise Invalid("This job cannot be cancelled; reload its current state")

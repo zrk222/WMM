@@ -1,0 +1,109 @@
+{
+  "name": "analytics-refresh-session",
+  "language": "python",
+  "modules": [
+    {
+      "name": "db",
+      "path": "mission_control/db.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "session",
+          "args": [
+            "path"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "transaction",
+          "args": [
+            "path",
+            "db"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "connection",
+          "args": [
+            "path"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "initialize",
+          "args": [
+            "path"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "insights",
+      "path": "mission_control/insights.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "decoded",
+          "args": [
+            "row"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "test_analytics_refresh_session",
+      "path": "tests/test_analytics_refresh_session.py",
+      "language": "python",
+      "functions": []
+    },
+    {
+      "name": "test_measurement_connectors",
+      "path": "tests/test_measurement_connectors.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "setup_body",
+          "args": [
+            "provider",
+            "automatic"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "payloads",
+          "args": [],
+          "returns": "object"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "insights",
+      "to": "db"
+    },
+    {
+      "from": "test_analytics_refresh_session",
+      "to": "db"
+    },
+    {
+      "from": "test_analytics_refresh_session",
+      "to": "insights"
+    },
+    {
+      "from": "test_analytics_refresh_session",
+      "to": "test_measurement_connectors"
+    },
+    {
+      "from": "test_measurement_connectors",
+      "to": "db"
+    },
+    {
+      "from": "test_measurement_connectors",
+      "to": "insights"
+    }
+  ],
+  "invariants": []
+}

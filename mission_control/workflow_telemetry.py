@@ -7,6 +7,12 @@ from .catalog import stages
 MAX_JOBS = 100
 MAX_EVENTS = 200
 EVENTS = {
+    'DRIVE_ACCOUNT': 'Verifying the confirmed account for the selected original.',
+    'DRIVE_METADATA': 'Checking the selected video format, version and download permission.',
+    'DRIVE_DOWNLOAD': 'Downloading the selected original within its byte and time limits.',
+    'DRIVE_RECHECK': 'Rechecking the account, original version and content identity.',
+    'DRIVE_VALIDATION': 'Decoding the original and verifying picture, sound and duration.',
+    'DRIVE_RETAINED': 'Original retained. Separate source reuse review is required before editing.',
     'EDIT_PROOF': 'Checking the exact current edit revision and its source rights.',
     'EDIT_SOURCES': 'Copying and verifying the selected source videos for editing.',
     'EDIT_ENCODING': 'Rendering the timeline cuts, speed, framing and color adjustments.',
@@ -58,7 +64,7 @@ def monitor(store, app_id):
     with connection(store.path) as db:
         db.execute("BEGIN")
         jobs = db.execute(
-            "SELECT id,action,status,attempts,created,updated FROM jobs WHERE app_id=? ORDER BY created DESC,id LIMIT ?",
+            "SELECT id,action,status,attempts,created,updated FROM jobs WHERE app_id=? AND action!='drive_import' ORDER BY created DESC,id LIMIT ?",
             (app_id, MAX_JOBS),
         ).fetchall()
         runs = [run_view(db, app_id, dict(job)) for job in jobs]
