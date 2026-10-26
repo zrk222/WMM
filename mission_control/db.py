@@ -121,6 +121,9 @@ CREATE TABLE IF NOT EXISTS funnel_observations(app_id TEXT NOT NULL,funnel_id TE
 CREATE INDEX IF NOT EXISTS funnel_observation_scope ON funnel_observations(app_id,funnel_id,created);
 CREATE TABLE IF NOT EXISTS managed_media(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,data TEXT NOT NULL,hash TEXT NOT NULL,request_key TEXT NOT NULL,request_hash TEXT NOT NULL,created TEXT NOT NULL,PRIMARY KEY(app_id,id),UNIQUE(app_id,request_key));
 CREATE TABLE IF NOT EXISTS managed_media_reviews(app_id TEXT NOT NULL,media_id TEXT NOT NULL,version INTEGER NOT NULL,data TEXT NOT NULL,hash TEXT NOT NULL,created TEXT NOT NULL,PRIMARY KEY(app_id,media_id,version),FOREIGN KEY(app_id,media_id) REFERENCES managed_media(app_id,id));
+CREATE TABLE IF NOT EXISTS packaging_documents(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,version INTEGER NOT NULL CHECK(version BETWEEN 1 AND 100),kind TEXT NOT NULL CHECK(kind IN ('VARIANT','SHOTS')),data TEXT NOT NULL,hash TEXT NOT NULL,created TEXT NOT NULL,PRIMARY KEY(app_id,id,version));
+CREATE TRIGGER IF NOT EXISTS packaging_immutable_update BEFORE UPDATE ON packaging_documents BEGIN SELECT RAISE(ABORT,'packaging history is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS packaging_immutable_delete BEFORE DELETE ON packaging_documents BEGIN SELECT RAISE(ABORT,'packaging history is append-only'); END;
 CREATE TRIGGER IF NOT EXISTS managed_media_immutable_update BEFORE UPDATE ON managed_media BEGIN SELECT RAISE(ABORT,'managed media records are immutable'); END;
 CREATE TRIGGER IF NOT EXISTS managed_media_immutable_delete BEFORE DELETE ON managed_media BEGIN SELECT RAISE(ABORT,'managed media records are immutable'); END;
 CREATE TRIGGER IF NOT EXISTS managed_media_reviews_append_only_update BEFORE UPDATE ON managed_media_reviews BEGIN SELECT RAISE(ABORT,'managed media reviews are append-only'); END;

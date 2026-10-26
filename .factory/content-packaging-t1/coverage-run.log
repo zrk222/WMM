@@ -1,0 +1,6 @@
+$ C:\Users\rkatz\AppData\Local\Programs\Python\Python311\python.exe -m coverage run --data-file=.factory/content-packaging-t1/coverage --source=mission_control.packaging_contract,mission_control.packaging_store,mission_control.packaging_bindings -m unittest tests.test_packaging
+............
+----------------------------------------------------------------------
+Ran 12 tests in 3.898s
+
+OK

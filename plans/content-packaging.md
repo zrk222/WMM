@@ -3,7 +3,7 @@ Spec: specs/content-packaging.md
 Architect verdict: PASS
 Status: approved requirements and scoped architecture; implementation and runtime acceptance pending.
 
-- [ ] T1 | slice=mission_control | files=mission_control/packaging_contract.py,mission_control/packaging_store.py,mission_control/db.py | verify=`python -m unittest tests.test_packaging -v` | Implement revision-bound variants and shot lists using existing app assets, source collections and creative identities; reject stale/foreign writes.
+- [ ] T1 | slice=mission_control | files=mission_control/packaging_contract.py,mission_control/packaging_bindings.py,mission_control/packaging_store.py,mission_control/db.py,tests/test_packaging.py,specs/content-packaging-t1.ssat.yaml | verify=`python -m unittest tests.test_packaging -v` | Implement revision-bound variants and shot lists using existing app assets, source collections and creative identities; reject stale/foreign writes.
 - [ ] T2 | slice=mission_control | files=mission_control/youtube_research.py,mission_control/youtube_policy.py,mission_control/discovery_contract.py | verify=`python -m unittest tests.test_youtube_research -v` | Add permitted source collection, quota and retention handling, explicit provider-derived-metric permission and YouTube-specific baseline qualification without changing other platforms.
 - [ ] T3 | slice=mission_control | files=mission_control/packaging_access.py,mission_control/packaging_http.py,mission_control/agent_catalog.py | verify=`python -m unittest tests.test_packaging_clients -v` | Add closed owner and agent operations with exact scope, approvals, standing authority and uncertain-write reconciliation.
 - [ ] T4 | slice=mission_control | files=mission_control/static/packaging-model.js,mission_control/static/packaging-ui.js,mission_control/static/app.js | verify=`node --test tests/packaging_ui.test.cjs` | Build Nanna-guided variant/shot-list authoring and neutral desktop/mobile feed previews; extend shared reports and keyboard/focus recovery through a separately reviewed UI packet.
@@ -12,3 +12,11 @@ Status: approved requirements and scoped architecture; implementation and runtim
 - [ ] T7 | slice=tests | files=tests/test_packaging_acceptance.py,tests/packaging_ui.test.cjs | verify=`python -m unittest tests.test_packaging_acceptance -v` | Prove full human and agent workflows, rendering, denied execution, recovery and report parity; require native/device receipts for platform-wide claims.
 
 Each packet must declare exact supporting files and tests before edits, pass CF doctor, scoped implementation QA and workflow evidence audits, ECC verification, applicable design/accessibility audits, mutations and complete release CI. These file names are reviewed packet ownership proposals, not claims that those modules currently exist. Preserve original UPG00-06 and every accepted addition. Implementation must not depend on a running WMM installation on another platform.
+
+T1 local candidate uses a focused binding module to reuse existing discovery,
+brief, record and managed-media resolvers. Preproduction drafts may omit references;
+the resulting gaps remain explicit and cannot authorize production. Script-linked
+shots carry segment hashes so edited script text requires shot review. Exact packet
+scope, schema, limits and reproducible commands live in
+`.factory/content-packaging-t1/scope.md` and `verify.py`. Integration and release CI
+remain pending; T1 does not expose operator/agent transport or portable export.

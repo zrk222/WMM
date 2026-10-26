@@ -1,0 +1,51 @@
+{
+  "agent_actions": [],
+  "authority": {
+    "approval": false,
+    "connector": false,
+    "credential": false,
+    "deployment": false,
+    "execution": false,
+    "merge": false,
+    "messaging": false,
+    "publication": false,
+    "repair": false,
+    "signing": false
+  },
+  "candidate_sha256": "48ebbd75e441b4423066f707cd617a576cf9e77e3d3de23f262323eeb5a2bddc",
+  "checks": 6,
+  "contract_sha256": "eb5370b4489407b2efda7b5a3e01a1bbfb95b6f4c308e7fd54fb188ca62151ed",
+  "errors": [],
+  "inapplicability_evidence": {
+    "accessibility": {
+      "actual_sha256": "919305437acfbacf2a00e1ef17da86598f35758f7dcb12b0ce4f880416d23958",
+      "current": true,
+      "kind": "review",
+      "path": ".factory/content-packaging-t1/scope.md",
+      "sha256": "919305437acfbacf2a00e1ef17da86598f35758f7dcb12b0ce4f880416d23958"
+    },
+    "performance": {
+      "actual_sha256": "919305437acfbacf2a00e1ef17da86598f35758f7dcb12b0ce4f880416d23958",
+      "current": true,
+      "kind": "review",
+      "path": ".factory/content-packaging-t1/scope.md",
+      "sha256": "919305437acfbacf2a00e1ef17da86598f35758f7dcb12b0ce4f880416d23958"
+    }
+  },
+  "limits": [
+    "Recorded evidence completeness and hashes only; observations require review.",
+    "Inapplicability review evidence is hash-bound but its judgment and identity are not authenticated.",
+    "Each contract/observation JSON input and evidence artifact is limited to 16 MiB; total evidence hashing is limited to 128 MiB, 4096 artifact references, and 4096 required check/profile pairs.",
+    "No project command or provider is executed.",
+    "No approval, certification or deployment authority."
+  ],
+  "observations_sha256": "025e0c482d2ea6faa76d4af9c1204a7a9a7f1d1049bcab66178e17b729074474",
+  "project_id": "WMM-content-packaging-T1",
+  "receipt_sha256": "422e2d5d1852182beb19827c94c8d08817052a39565ece4058c69a24a7c7fd51",
+  "resource_usage": {
+    "artifact_references": 25,
+    "bytes_hashed": 110753
+  },
+  "schema": "factory.workflow-audit.receipt.v1",
+  "state": "PASS"
+}

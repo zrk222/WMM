@@ -1,0 +1,115 @@
+{
+  "command_family": "audit",
+  "elapsed_ms": 6812,
+  "exit_code": 1,
+  "finished_at": "2026-10-26T06:50:59.132916+00:00",
+  "phase_telemetry": {
+    "dropped_calls": 0,
+    "dropped_phase_names": [],
+    "phases": [
+      {
+        "calls": 1,
+        "completed": 1,
+        "elapsed_ms": 5594,
+        "incomplete": 0,
+        "phase": "cli_dispatch"
+      },
+      {
+        "calls": 1,
+        "completed": 1,
+        "elapsed_ms": 969,
+        "incomplete": 0,
+        "phase": "cli_parse"
+      },
+      {
+        "calls": 1,
+        "completed": 1,
+        "elapsed_ms": 15,
+        "incomplete": 0,
+        "phase": "entrypoint_startup"
+      },
+      {
+        "calls": 1,
+        "completed": 1,
+        "elapsed_ms": 203,
+        "incomplete": 0,
+        "phase": "receipt_payload"
+      },
+      {
+        "calls": 44,
+        "completed": 44,
+        "elapsed_ms": 0,
+        "incomplete": 0,
+        "phase": "source_hash"
+      },
+      {
+        "calls": 11,
+        "completed": 11,
+        "elapsed_ms": 32,
+        "incomplete": 0,
+        "phase": "source_index"
+      },
+      {
+        "calls": 11,
+        "completed": 11,
+        "elapsed_ms": 31,
+        "incomplete": 0,
+        "phase": "source_parse"
+      },
+      {
+        "calls": 33,
+        "completed": 33,
+        "elapsed_ms": 234,
+        "incomplete": 0,
+        "phase": "source_read"
+      }
+    ],
+    "source_attribution": {
+      "coverage_scope": "selected_static_scan_operations",
+      "covered_operations": [
+        "review_audits Python source byte reads",
+        "review_audits SHA-256 bindings and freshness rechecks",
+        "review_audits oracle and per-file AST parsing",
+        "implementation_audit stable import-index construction"
+      ],
+      "excluded_operations": [
+        "configuration and runtime-input reads, parsing, and hashing",
+        "AST parsing outside the selected static-scan boundaries",
+        "BoundSourceBytes fallback byte-identity hashing"
+      ],
+      "expected_phases": [
+        "source_hash",
+        "source_index",
+        "source_parse",
+        "source_read"
+      ],
+      "missing_phases": [],
+      "observed_phases": [
+        "source_hash",
+        "source_index",
+        "source_parse",
+        "source_read"
+      ],
+      "status": "complete"
+    },
+    "status": "complete"
+  },
+  "provenance": {
+    "build_hash": "62c7d34549358ec7feec368dccfd25f09e904b19c2349c4989892172837ae947",
+    "identity_complete": true,
+    "install_origin": "direct-url",
+    "package": "factoryline-code-factory",
+    "source_commit": "cf892ac1a51bedca508cc300288dbf11ffa726c8",
+    "version": "0.49.0"
+  },
+  "receipt_sha256": "73e794efa3b3ac413dc735d17ddd915d12c2790c3a5ab46dd2ea249c5a9d70e0",
+  "run_id": "94ccdeb7d4c846e5bbbc5729fcad727c",
+  "schema": "factory.ops-lifecycle.v1",
+  "scope_limits": [
+    "local CLI lifecycle only",
+    "command arguments, prompts, paths, source, and logs are excluded",
+    "does not measure provider usage or prove productivity savings"
+  ],
+  "started_at": "2026-10-26T06:50:58.924285+00:00",
+  "status": "blocked"
+}

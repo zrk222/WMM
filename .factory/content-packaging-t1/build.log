@@ -1,0 +1,1 @@
+$ C:\Users\rkatz\AppData\Local\Programs\Python\Python311\python.exe -m compileall -q mission_control/packaging_contract.py mission_control/packaging_bindings.py mission_control/packaging_store.py mission_control/db.py
