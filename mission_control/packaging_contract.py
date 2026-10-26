@@ -75,3 +75,20 @@ def shotlist(value):
     shots=[shot(v, segments) for v in items(value['shots'])]
     if len({v['id'] for v in shots})!=len(shots):raise Invalid('Duplicate shot identity')
     return dict(result, script=script, shots=shots)
+
+
+def agent_contract():
+    """Describe actual preparation controls without promoting drafts to execution."""
+    return dict(schema='growth.packaging-contract.v1',kinds=['VARIANT','SHOTS'],
+                operations=['packaging.save','packaging.read','packaging.history','packaging.reconcile'],
+                save_fields=['id','version','kind','manifest_version','data'],
+                variant_fields=['audience','app_outcome','title','thumbnail','opening_frame','hook','cta','sources','creative','app_proofs'],
+                shotlist_fields=['variant','script','shots'],
+                reference_fields=['kind','id','version','sha256'],
+                shot_fields=['id','segment_id','segment_sha256','kind','description','source','start_ms','end_ms','assets','claims','claim_text'],
+                shot_kinds=['A_ROLL','B_ROLL','SCREEN_RECORDING','GRAPHICS','AUDIO'],
+                limits=dict(history_page=100,revisions=100,app_history=2000,title_characters=300),
+                state='DRAFT',execution_authority=False,publication='NOT_RUN',render='NOT_RUN',
+                uncertain_write=dict(operation='packaging.reconcile',automatic_retry=False,caller_commit_identity='NOT_PROVEN',
+                    statuses=['MATCHING_REVISION_OBSERVED','DIFFERENT_REVISION_OBSERVED','NO_REVISION_OBSERVED']),
+                approval='Owner-issued current scoped grants; owner-selected independent checker review is enforced by the existing gateway; discovery grants no authority.')

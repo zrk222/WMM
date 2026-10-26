@@ -1,0 +1,271 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "WMM-content-packaging-T3",
+  "candidate": [
+    {
+      "path": "mission_control/automation_requirements.py",
+      "kind": "source",
+      "sha256": "8d942d049798d16d85261aa26fbef91db5f2fc49f4fbbd8ca308e722f3038f41"
+    },
+    {
+      "path": "mission_control/common.py",
+      "kind": "source",
+      "sha256": "a43443aab9489ad9cfe0e9a510ae8680a5c0a997aef98a7c4962ddbaefb7dfd3"
+    },
+    {
+      "path": "mission_control/creative_briefs.py",
+      "kind": "source",
+      "sha256": "d73f30ba1c7ac0470a6114d8608a5e1d15a9cc18e12f7ce1a831f2300a832730"
+    },
+    {
+      "path": "mission_control/creative_library.py",
+      "kind": "source",
+      "sha256": "f2d792ab5298ecb453f9003ce9d1df562f87fecd344d109b740cce1dfe61d656"
+    },
+    {
+      "path": "mission_control/db.py",
+      "kind": "source",
+      "sha256": "7fd4538543e9cd172ebfb9e228487158fc282267b8c2c332015f3bc17e025999"
+    },
+    {
+      "path": "mission_control/discovery_http.py",
+      "kind": "source",
+      "sha256": "1c0d0adf19feceb77f3dc72c1653c9663f680dcc8033e2ca99496c37f737a780"
+    },
+    {
+      "path": "mission_control/discovery_store.py",
+      "kind": "source",
+      "sha256": "38fd3f5c6d447ca8cadcda4c8b788936933613337e24652a343f92155bbeba5b"
+    },
+    {
+      "path": "mission_control/funnel_store.py",
+      "kind": "source",
+      "sha256": "a821244f7cc48b87416712fab2ec4114def31835896152968319bd8c23e1114c"
+    },
+    {
+      "path": "mission_control/managed_media_store.py",
+      "kind": "source",
+      "sha256": "06b0169070c2d798ba4186bfce833842dcd0e62dfa9c8cf818d7470f66201038"
+    },
+    {
+      "path": "mission_control/operation_catalog.py",
+      "kind": "source",
+      "sha256": "2fc3cc01b725d4125d2942877575c610702d283752eecddee6755011bd61d1e4"
+    },
+    {
+      "path": "mission_control/operation_runtime.py",
+      "kind": "source",
+      "sha256": "e082c76de9a9e357ed32686c1febabd6db7920fa760bafbc5a464902fe6de8f7"
+    },
+    {
+      "path": "mission_control/packaging_access.py",
+      "kind": "source",
+      "sha256": "355d1a1aa8139ea16578d6413dbe7af4dc09f4bdb2d85fd19d9394c8eb7d7760"
+    },
+    {
+      "path": "mission_control/packaging_bindings.py",
+      "kind": "source",
+      "sha256": "fe6004a9e6356ab26dad273d4c677597f00b2b9766762a68687fbdb3415de511"
+    },
+    {
+      "path": "mission_control/packaging_contract.py",
+      "kind": "source",
+      "sha256": "282a963f29d655fb91d5059840af9443864b9a889a9a20fc8aa7b57a268c8530"
+    },
+    {
+      "path": "mission_control/packaging_http.py",
+      "kind": "source",
+      "sha256": "093af23b8abc84c55d40f878629e9791007ad9cd7ce3818c1ddd66534577e2d8"
+    },
+    {
+      "path": "mission_control/packaging_store.py",
+      "kind": "source",
+      "sha256": "85620531d2a822005a60c15b4b1fa0ae062c9cf7f3fc9d55beadd4f21363fb11"
+    },
+    {
+      "path": "mission_control/pmf_contract.py",
+      "kind": "source",
+      "sha256": "db495e8a9f60b81b2f5c60bc23d4f4bee592ea593fd55b65eeeb704e6c63b237"
+    },
+    {
+      "path": "mission_control/server.py",
+      "kind": "source",
+      "sha256": "43ed397f29820897492dc085b4b8331a2235a1157f218f8b8c0799d344000d33"
+    },
+    {
+      "path": "tests/test_packaging_clients.py",
+      "kind": "test",
+      "sha256": "9560e6908e9ea33d7b97e56f9fa92cdeed671aa59a3b13aa7d208b4c3ec5a4fd"
+    },
+    {
+      "path": "tests/test_native_sqlite_entry.py",
+      "kind": "test",
+      "sha256": "bb95ff56b2d3092257f8ff32b37ba1919fa49afd0bae226091e5b72527c4a4f3"
+    },
+    {
+      "path": "specs/content-packaging-t3.md",
+      "kind": "contract",
+      "sha256": "6e64326813c68af412809e9d878985f7c8b310cd702078a64d7fdd6bc1518937"
+    },
+    {
+      "path": "specs/content-packaging-t3.ssat.yaml",
+      "kind": "contract",
+      "sha256": "cf7fffbef10216621eeef563eb980b753765a3bed2db8bfba8eab08b5a777c0b"
+    },
+    {
+      "path": "plans/content-packaging-t3.md",
+      "kind": "contract",
+      "sha256": "a927a31cacd12dc1b8337e8d9e846b4a52515b398c8ddd9833b5f90280a236e6"
+    },
+    {
+      "path": "plans/content-packaging.md",
+      "kind": "contract",
+      "sha256": "23f38c21350be77c6116e398ea9ec22d24e46fad177f5c5bd5315771834233eb"
+    },
+    {
+      "path": ".factory/content-packaging-t3/workflow.py",
+      "kind": "source",
+      "sha256": "d1a0484c1ac9af016c8f78485b03c49f5a60a413a64a094c91d782d6540a73cd"
+    },
+    {
+      "path": ".factory/content-packaging-t3/qa_scope.py",
+      "kind": "source",
+      "sha256": "1bcf3ab161befa937d95f673c0e144b78d07e3025ce81b63666fd697001d3b07"
+    },
+    {
+      "path": ".factory/content-packaging-t3/qa-scope/server.py",
+      "kind": "source",
+      "sha256": "92ea233462512aacb471e06812ff158e819d04a6410dc22f40ab411868eda19a"
+    },
+    {
+      "path": ".factory/content-packaging-t3/qa-scope/operation_catalog.py",
+      "kind": "source",
+      "sha256": "48b49d04d0f810a958c1dd659a93a68897785b5276c7ca92f19517f79c2c7f73"
+    },
+    {
+      "path": ".factory/content-packaging-t3/mutant-authority.py",
+      "kind": "source",
+      "sha256": "1bdfcb6805719fd91912387ad7be515d989e9395a88f0cf8c26200aa51bf3b8e"
+    },
+    {
+      "path": ".factory/content-packaging-t3/mutant-reconciliation.py",
+      "kind": "source",
+      "sha256": "ac07e7d98e98a4f4c6a9ce2b83675ea65ae3aa2ac6d5ee2f028d6b794f09f3e9"
+    },
+    {
+      "path": ".factory/content-packaging-t3/mutant-routing.py",
+      "kind": "source",
+      "sha256": "d42014750827d0c3d72c56f9c316ca3bb21ee5261c32e60cdaedc8efdc893a43"
+    },
+    {
+      "path": ".factory/content-packaging-t3/review.md",
+      "kind": "review",
+      "sha256": "10c6ad926b6c5a69350a35bbe96c45eb40bc306a7b2686adc7fcf6b4522c33f3"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "Real owner HTTP, CLI and official MCP stdio share variant/shot-list history."
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "Foreign, stale, revoked, forged and noncanonical requests are denied."
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": true,
+      "reason": "Observation-only reconciliation distinguishes matching, different and absent expected revisions without replay."
+    },
+    {
+      "category": "state_consistency",
+      "applicable": true,
+      "reason": "Exact current authority and independent review are rechecked through protected transactions."
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "Eighteen whole sources are audited CLEAN with complete coverage and no database gaps; three mutants are killed."
+    },
+    {
+      "category": "performance",
+      "applicable": true,
+      "reason": "Compact 100-row history pages avoid loading private script payloads; no latency claim."
+    },
+    {
+      "category": "external_effects",
+      "applicable": true,
+      "reason": "All tests use synthetic data and local SQLite/loopback; no provider or publishing calls."
+    },
+    {
+      "category": "accessibility",
+      "applicable": false,
+      "reason": "No rendered UI is changed by the transport packet.",
+      "review_evidence": {
+        "path": ".factory/content-packaging-t3/review.md",
+        "kind": "review",
+        "sha256": "10c6ad926b6c5a69350a35bbe96c45eb40bc306a7b2686adc7fcf6b4522c33f3"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "id": "happy_path",
+      "category": "happy_path",
+      "requirement": "Real owner HTTP, CLI and official MCP stdio share variant/shot-list history.",
+      "profiles": [
+        "Windows-Python3.11.9-owner-HTTP-CLI-official-MCP"
+      ]
+    },
+    {
+      "id": "validation",
+      "category": "validation",
+      "requirement": "Foreign, stale, revoked, forged and noncanonical requests are denied.",
+      "profiles": [
+        "Windows-Python3.11.9-owner-HTTP-CLI-official-MCP"
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "category": "failure_recovery",
+      "requirement": "Observation-only reconciliation distinguishes matching, different and absent expected revisions without replay.",
+      "profiles": [
+        "Windows-Python3.11.9-owner-HTTP-CLI-official-MCP"
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "category": "state_consistency",
+      "requirement": "Exact current authority and independent review are rechecked through protected transactions.",
+      "profiles": [
+        "Windows-Python3.11.9-owner-HTTP-CLI-official-MCP"
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "category": "security_privacy",
+      "requirement": "Eighteen whole sources are audited CLEAN with complete coverage and no database gaps; three mutants are killed.",
+      "profiles": [
+        "Windows-Python3.11.9-owner-HTTP-CLI-official-MCP"
+      ]
+    },
+    {
+      "id": "performance",
+      "category": "performance",
+      "requirement": "Compact 100-row history pages avoid loading private script payloads; no latency claim.",
+      "profiles": [
+        "Windows-Python3.11.9-owner-HTTP-CLI-official-MCP"
+      ]
+    },
+    {
+      "id": "external_effects",
+      "category": "external_effects",
+      "requirement": "All tests use synthetic data and local SQLite/loopback; no provider or publishing calls.",
+      "profiles": [
+        "Windows-Python3.11.9-owner-HTTP-CLI-official-MCP"
+      ]
+    }
+  ]
+}

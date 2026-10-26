@@ -1,0 +1,350 @@
+{
+  "name": "content-packaging-t3",
+  "language": "python",
+  "modules": [
+    {
+      "name": "packaging_access",
+      "path": "mission_control/packaging_access.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "history",
+          "args": [
+            "store",
+            "app_id",
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "reconcile",
+          "args": [
+            "store",
+            "app_id",
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "dispatch",
+          "args": [
+            "store",
+            "app_id",
+            "action",
+            "body"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "packaging_http",
+      "path": "mission_control/packaging_http.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "route",
+          "args": [
+            "handler",
+            "parts"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "post",
+          "args": [
+            "handler",
+            "parts"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "packaging_contract",
+      "path": "mission_control/packaging_contract.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "items",
+          "args": [
+            "value",
+            "maximum"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "reference",
+          "args": [
+            "value",
+            "kinds"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "refs",
+          "args": [
+            "values",
+            "kinds"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "variant",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "shot",
+          "args": [
+            "value",
+            "segments"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "timing",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "shotlist",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "agent_contract",
+          "args": [],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "operation_catalog",
+      "path": ".factory/content-packaging-t3/qa-scope/operation_catalog.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "catalog",
+          "args": [],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "operation_runtime",
+      "path": "mission_control/operation_runtime.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "execute",
+          "args": [
+            "service",
+            "envelope"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "save_evidence",
+          "args": [
+            "service",
+            "app",
+            "body"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "automation_requirements",
+      "path": "mission_control/automation_requirements.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "workflow_catalog",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "selection",
+          "args": [
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "distinct",
+          "args": [
+            "values",
+            "minimum",
+            "maximum"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "decoded",
+          "args": [
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "verification",
+          "args": [
+            "stamp",
+            "observed"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "inference_profile",
+          "args": [
+            "db",
+            "app_id",
+            "identity",
+            "observed"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "fresh_until",
+          "args": [
+            "stamp"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "social_state",
+          "args": [
+            "row",
+            "data",
+            "config",
+            "observed"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "social_account",
+          "args": [
+            "db",
+            "app_id",
+            "identity",
+            "observed"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "object_field",
+          "args": [
+            "data",
+            "name"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "renewal_state",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "workflow_states",
+          "args": [
+            "selected",
+            "inference",
+            "accounts"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "inventory_in_db",
+          "args": [
+            "db",
+            "app_id",
+            "user",
+            "chosen",
+            "observed"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "server",
+      "path": ".factory/content-packaging-t3/qa-scope/server.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "get_history",
+          "args": [
+            "self",
+            "app_id",
+            "kind"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "post",
+          "args": [
+            "self",
+            "path"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "retry_worker",
+          "args": [
+            "self",
+            "data"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "owner_domain_post",
+          "args": [
+            "parts"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "discovery_http",
+      "path": "mission_control/discovery_http.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "route",
+          "args": [
+            "handler",
+            "parts"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "json_body",
+          "args": [
+            "handler",
+            "label"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "post",
+          "args": [
+            "handler",
+            "parts"
+          ],
+          "returns": "object"
+        }
+      ]
+    }
+  ]
+}

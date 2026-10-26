@@ -11,6 +11,7 @@ from urllib.parse import urlparse, unquote, parse_qs
 from .common import Invalid, canonical, digest
 import hashlib
 from .store import Store
+from .db import connection
 from .service import Service
 from .worker import Runner
 from .operator_identity import Identities
@@ -31,6 +32,16 @@ def media_range(value,size):
     start=int(left);end=min(int(right),size-1) if right else size-1
     if start>=size or start>end:raise Invalid("Video byte range is unavailable")
     return start,end
+
+
+def owner_domain_post(parts):
+    """Resolve only fixed private domain modules, retaining lazy imports."""
+    if len(parts)<4 or parts[:2]!=['api','apps']:return None
+    module={'drive':'drive_http','media':'managed_media_http','funnels':'funnel_http',
+            'discovery':'discovery_http','packaging':'packaging_http'}.get(parts[3])
+    if module is None:return None
+    from importlib import import_module
+    return import_module('.'+module,__package__).post
 
 
 class Server(ThreadingHTTPServer):
@@ -300,7 +311,6 @@ class Handler(BaseHTTPRequestHandler):
         """Export only registered app-scoped histories through exact addresses."""
         from .aeo_portable import export_aeo
         from .attribution_portable import export_attribution
-        from .db import connection
         exporters={'aeo':export_aeo,'attribution':export_attribution}
         store=self.server.service.store
         store.app(app_id)
@@ -400,18 +410,8 @@ class Handler(BaseHTTPRequestHandler):
         parts=path.strip("/").split("/")
         if len(parts)==4 and parts[:2]==["api","apps"] and parts[3]=="files":
             return self.send(201,service.upload(parts[2],unquote(self.headers.get("X-Filename","image.png")),self.body(8388608)))
-        if len(parts)>=4 and parts[:2]==['api','apps'] and parts[3]=='drive':
-            from .drive_http import post
-            return post(self,parts)
-        if len(parts)>=4 and parts[:2]==['api','apps'] and parts[3]=='media':
-            from .managed_media_http import post
-            return post(self,parts)
-        if len(parts)>=4 and parts[:2]==['api','apps'] and parts[3]=='funnels':
-            from .funnel_http import post
-            return post(self,parts)
-        if len(parts)>=4 and parts[:2]==['api','apps'] and parts[3]=='discovery':
-            from .discovery_http import post
-            return post(self,parts)
+        domain=owner_domain_post(parts)
+        if domain is not None:return domain(self,parts)
         data=self.post_data(path,parts)
         if path=='/api/social/callback':
             from .social_callbacks import callback
@@ -447,7 +447,6 @@ class Handler(BaseHTTPRequestHandler):
 
     def retry_worker(self,data):
         """Bind explicit shared-worker recovery to a current workspace session."""
-        from .db import connection
         if urlparse(self.path).query or set(data)!={"app_id","manifest_version"} or type(data["manifest_version"]) is not int or not isinstance(data["app_id"],str):
             raise Invalid("Reload the current workspace before retrying automation")
         with connection(self.server.service.store.path) as db:
