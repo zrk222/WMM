@@ -24,6 +24,11 @@ def encode(value):
     return raw
 
 
+def attributes_match(actual,expected):
+    """Allow only the exact optional GNOME generic-item metadata beside WMM scope."""
+    return actual == expected or actual == expected | {'xdg:schema':'org.freedesktop.Secret.Generic'}
+
+
 def decode(raw):
     """Reject oversized, duplicate-key or corrupt native bytes without echoing them."""
     if not isinstance(raw, bytes) or len(raw) > MAX_BYTES:raise Invalid('Protected credential size is invalid')
@@ -77,7 +82,7 @@ class LinuxVault:
             if len(items) > 1:raise Invalid('Duplicate protected credential entries require native keyring review')
         if not items:return None
         item = items[0]
-        if item.get_attributes() != attributes:raise Invalid('Protected credential address differs; reconnect')
+        if not attributes_match(item.get_attributes(),attributes):raise Invalid('Protected credential address differs; reconnect')
         if item.is_locked():raise Invalid('Unlock the desktop keyring before using this connection')
         return item
 

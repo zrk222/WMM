@@ -16,6 +16,13 @@ class NativeLinuxVaultTests(unittest.TestCase):
         try:
             vault.put(name,dict(token='synthetic-not-a-provider-token'));vault.put(other,dict(token='second-synthetic'))
             self.assertEqual(vault.get(name),dict(token='synthetic-not-a-provider-token'))
+            # GNOME may add this standard generic-item metadata after persistence.
+            from mission_control.linux_vault import address
+            with closing(secretstorage.dbus_init()) as bus:
+                collection=secretstorage.Collection(bus)
+                items=list(collection.search_items(address(name)));self.assertEqual(len(items),1)
+                items[0].set_attributes(address(name)|{'xdg:schema':'org.freedesktop.Secret.Generic'})
+            self.assertEqual(vault.get(name),dict(token='synthetic-not-a-provider-token'))
             vault.put(name,dict(token='replaced-synthetic'));self.assertEqual(vault.get(name),dict(token='replaced-synthetic'))
             self.assertEqual(vault.get(other),dict(token='second-synthetic'))
         finally:

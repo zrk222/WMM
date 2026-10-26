@@ -63,6 +63,23 @@ class LinuxVaultTests(unittest.TestCase):
         for raw in (b'x'*2561,b'{"x":1,"x":2}',b'\xff',b'not-json'):
             with self.subTest(raw=raw[:20]),self.assertRaises(Invalid):native.decode(raw)
 
+    def test_item_accepts_only_exact_optional_generic_service_schema(self):
+        self.native.put('synthetic',dict(token='before'));item=self.collection.items[0]
+        expected=dict(item.attributes)
+        item.attributes=expected|{'xdg:schema':'org.freedesktop.Secret.Generic'}
+        with patch.object(self.collection,'search_items',side_effect=lambda attrs:iter([item])):
+            self.assertEqual(self.native.get('synthetic'),dict(token='before'))
+            for changed in (expected|{'xdg:schema':'foreign.schema'}, expected|{'extra':'untrusted'},
+                            expected|{'application':'OTHER','xdg:schema':'org.freedesktop.Secret.Generic'},
+                            expected|{'address_sha256':'wrong','xdg:schema':'org.freedesktop.Secret.Generic'}):
+                item.attributes=changed
+                for action in (lambda:self.native.get('synthetic'),lambda:self.native.put('synthetic',{}),lambda:self.native.delete('synthetic')):
+                    with self.subTest(attributes=changed),self.assertRaises(Invalid):action()
+                self.assertEqual(item.raw,b'{"token":"before"}')
+            item.attributes=expected|{'xdg:schema':'org.freedesktop.Secret.Generic'}
+            self.native.delete('synthetic')
+        self.assertEqual(self.collection.items,[])
+
     def test_bounds_address_and_reply_deadline(self):
         self.assertEqual(len(native.encode('x'*2558)),2560)
         with self.assertRaises(Invalid):native.encode('x'*2559)
