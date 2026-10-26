@@ -1,0 +1,420 @@
+{
+  "name": "discovery-ui",
+  "language": "javascript",
+  "modules": [
+    {
+      "name": "discovery_model",
+      "path": "mission_control/static/discovery-model.js",
+      "language": "javascript",
+      "functions": [
+        {
+          "name": "stable",
+          "args": [
+            "v"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "integer",
+          "args": [
+            "value",
+            "name",
+            "min=0",
+            "max=1e12"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "text",
+          "args": [
+            "value",
+            "name",
+            "bound=4000"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "list",
+          "args": [
+            "value",
+            "name",
+            "max=24"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "json",
+          "args": [
+            "value",
+            "name",
+            "max=1000"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "stamp",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "sources",
+          "args": [
+            "state"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "field",
+          "args": [
+            "name",
+            "label",
+            "value=''",
+            "type='text'",
+            "required=false"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "select",
+          "args": [
+            "name",
+            "label",
+            "choices",
+            "value=''",
+            "multiple=false"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "check",
+          "args": [
+            "name",
+            "label"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "queryFields",
+          "args": [
+            "contract",
+            "app"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "queryData",
+          "args": [
+            "fd"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "reviewFields",
+          "args": [
+            "c",
+            "source",
+            "assets"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "optionalMetrics",
+          "args": [
+            "raw"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "reviewData",
+          "args": [
+            "fd"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "decision",
+          "args": [
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "report",
+          "args": [
+            "saved",
+            "state"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "exported",
+          "args": [
+            "saved"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "csv",
+          "args": [
+            "saved"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "matchingReview",
+          "args": [
+            "body",
+            "data"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "matchingCollection",
+          "args": [
+            "body",
+            "data"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "matches",
+          "args": [
+            "action",
+            "body",
+            "saved"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "discovery_ui",
+      "path": "mission_control/static/discovery-ui.js",
+      "language": "javascript",
+      "functions": [
+        {
+          "name": "clear",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "invalidate",
+          "args": [
+            "state"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "panel",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "show",
+          "args": [
+            "d",
+            "title",
+            "kind",
+            "html",
+            "data=null",
+            "captured=null"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "busy",
+          "args": [
+            "t",
+            "on",
+            "message=''"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "fail",
+          "args": [
+            "t",
+            "error"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "request",
+          "args": [
+            "t",
+            "action",
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "contract",
+          "args": [
+            "t"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "tickets",
+          "args": [
+            "t"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "recoveryButtons",
+          "args": [
+            "t"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "historyRows",
+          "args": [
+            "page"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "home",
+          "args": [
+            "t",
+            "page"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "open",
+          "args": [
+            "d",
+            "offset=0"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "form",
+          "args": [
+            "t",
+            "kind",
+            "source=null"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "details",
+          "args": [
+            "t",
+            "saved"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "read",
+          "args": [
+            "t",
+            "id",
+            "version"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "download",
+          "args": [
+            "t",
+            "name",
+            "value",
+            "type='application/json'"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "ticket",
+          "args": [
+            "t",
+            "action",
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "write",
+          "args": [
+            "t",
+            "r"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "reconcile",
+          "args": [
+            "t",
+            "r"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "submission",
+          "args": [
+            "t",
+            "fd"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "writable",
+          "args": [
+            "t",
+            "d"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "submit",
+          "args": [
+            "formNode",
+            "d"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "exportAction",
+          "args": [
+            "t",
+            "mode"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "activeAction",
+          "args": [
+            "t",
+            "node",
+            "mode"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "recoverAction",
+          "args": [
+            "t",
+            "node",
+            "mode"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "action",
+          "args": [
+            "node",
+            "d"
+          ],
+          "returns": "object"
+        }
+      ]
+    }
+  ],
+  "dependencies": [],
+  "invariants": []
+}

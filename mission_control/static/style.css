@@ -50,3 +50,8 @@
 @media(max-width:900px){.guided-grid{grid-template-columns:minmax(0,1fr)}}
 #aeo-form .modal-actions,.aeo-detail+.modal-actions {flex-wrap:wrap;}
 @media(max-width:760px){.aeo-panel .record-row{flex-wrap:wrap}.aeo-panel .record-main{flex:1 1 100%;min-width:0}.two-column{grid-template-columns:minmax(0,1fr)}}
+
+.discovery-workspace{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.discovery-workspace .next-step>div{min-width:0;max-width:100%}
+.discovery-workspace :is(input,textarea,select){max-width:100%}
+.discovery-workspace dd{overflow-wrap:anywhere}
