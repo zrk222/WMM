@@ -20,6 +20,9 @@ def execute(service,envelope):
     request_data(envelope)
     if envelope['operation'].startswith('studio.'):
         return service.studio.dispatch(envelope)
+    if envelope['operation'].startswith('discovery.'):
+        from .discovery_access import dispatch
+        return dispatch(service.store,envelope['app_id'],envelope['operation'].split('.')[1],envelope['input'])
     app=envelope['app_id'];body=envelope['input'];store=service.store
     resource=envelope.get('resource_id')
     routes={

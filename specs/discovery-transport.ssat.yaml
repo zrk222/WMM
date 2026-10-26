@@ -1,0 +1,98 @@
+{
+  "name": "discovery-transport",
+  "language": "python",
+  "modules": [
+    {
+      "name": "discovery_access",
+      "path": "mission_control/discovery_access.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "current_source",
+          "args": [
+            "db",
+            "app_id",
+            "app",
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "currentness",
+          "args": [
+            "db",
+            "app_id",
+            "app",
+            "item"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "read",
+          "args": [
+            "store",
+            "app_id",
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "history",
+          "args": [
+            "store",
+            "app_id",
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "dispatch",
+          "args": [
+            "store",
+            "app_id",
+            "action",
+            "body"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "discovery_http",
+      "path": "mission_control/discovery_http.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "route",
+          "args": [
+            "handler",
+            "parts"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "json_body",
+          "args": [
+            "handler"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "post",
+          "args": [
+            "handler",
+            "parts"
+          ],
+          "returns": "object"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "discovery_http",
+      "to": "discovery_access"
+    }
+  ],
+  "invariants": []
+}

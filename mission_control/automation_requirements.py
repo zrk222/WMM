@@ -20,7 +20,8 @@ WORKFLOWS = {
         'workspace.read', 'evidence.save', 'operations.read', 'growth.read',
         'growth.history', 'growth.save', 'customer.history', 'customer.save',
         'measurement.read', 'snapshot.export', 'cohort.define', 'events.import',
-        'billing.save','funnel.list','funnel.review','funnel.read','funnel.save','funnel.observations','funnel.import','funnel.report'], blockers=[]),
+        'billing.save','funnel.list','funnel.review','funnel.read','funnel.save','funnel.observations','funnel.import','funnel.report',
+        'discovery.history','discovery.read','discovery.review','discovery.collect','discovery.watch','discovery.attempt','discovery.handoff'], blockers=[]),
     'experiment_preparation': dict(name='Local experiment preparation', operations=[
         'experiment.register', 'experiment.evaluate', 'experiment.action'], blockers=[]),
     'pipeline_preparation': dict(name='Local pipeline preparation', operations=[

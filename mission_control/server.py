@@ -409,6 +409,9 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts)>=4 and parts[:2]==['api','apps'] and parts[3]=='funnels':
             from .funnel_http import post
             return post(self,parts)
+        if len(parts)>=4 and parts[:2]==['api','apps'] and parts[3]=='discovery':
+            from .discovery_http import post
+            return post(self,parts)
         data=self.post_data(path,parts)
         if path=='/api/social/callback':
             from .social_callbacks import callback

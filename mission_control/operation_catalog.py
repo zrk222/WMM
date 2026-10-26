@@ -10,6 +10,13 @@ def descriptor(method,suffix,effect,required=(),optional=(),resource=False):
 
 
 OPERATIONS={
+    'discovery.history':descriptor('POST','/discovery/history','READ_PRIVATE_LOCAL_DATA',('kind',),('offset',)),
+    'discovery.read':descriptor('POST','/discovery/read','READ_PRIVATE_LOCAL_DATA',('id','kind'),('version',)),
+    'discovery.review':descriptor('POST','/discovery/review','WRITE_LOCAL_EVIDENCE',('id','version','manifest_version','reference_id','source_hash','data')),
+    'discovery.collect':descriptor('POST','/discovery/collect','WRITE_LOCAL_EVIDENCE',('id','version','manifest_version','query','attempted_sources','failed_sources')),
+    'discovery.watch':descriptor('POST','/discovery/watch','WRITE_LOCAL_EVIDENCE',('id','version','manifest_version','data')),
+    'discovery.attempt':descriptor('POST','/discovery/attempt','WRITE_LOCAL_EVIDENCE',('id','manifest_version','watch_id','watch_hash','collection_id','collection_hash','source_results')),
+    'discovery.handoff':descriptor('POST','/discovery/handoff','READ_PRIVATE_LOCAL_DATA',('manifest_version','collection_id','collection_hash','reference_id','review_hash')),
     'workspace.read':descriptor('GET','','READ_PRIVATE_LOCAL_DATA'),
     'evidence.save':descriptor('POST','/workflow-evidence','WRITE_LOCAL_EVIDENCE',('id','manifest_version','kind','title','source','data'),('version',)),
     'pipeline.prepare':descriptor('POST','/jobs','QUEUE_LOCAL_PREPARATION',('action','data','request_key')),
@@ -74,7 +81,8 @@ def catalog():
         denied=['human_approval','identity_login','credentials','provider_mutation','publish','spend','arbitrary_http','shell_execution'],
         full_agent_operation=False,remaining=['Full-domain operation coverage','Full-domain CLI/MCP conformance','Provider-specific authorized effect adapters'])
     from .funnel_contract import agent_contract
-    value['domain_contracts']={'app_sales_funnel':agent_contract()}
+    from .discovery_contract import agent_contract as discovery_contract
+    value['domain_contracts']={'app_sales_funnel':agent_contract(),'discovery_research':discovery_contract()}
     return dict(value,catalog_sha256=digest(value))
 
 

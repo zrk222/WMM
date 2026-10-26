@@ -107,3 +107,26 @@ def watch(value):
     if not value['subjects'] or value['confirm_authorized_reads'] is not True:raise Invalid('Select subjects and confirm authorized reads')
     required(value['source'],'Authorized collector source',2000);count(value['interval_seconds'],3600,31536000)
     return dict(value,query=query(value['query']))
+
+
+def agent_contract():
+    """Expose closed nested inputs and acceptance boundaries to generic clients."""
+    from .viral_policy import FIELDS, MIN_VIEWS, MULTIPLIER, MIN_BASELINE, MAX_BASELINE
+    return dict(schema='wmm.discovery-contract.v1',
+        review_fields=['taxonomy','duration_ms','transcript','card','baseline','metrics'],
+        taxonomy_fields=['original_labels','industry','narrative','treatment','classified_by','rationale'],
+        industries=sorted(INDUSTRIES),narratives=sorted(NARRATIVES),treatments=sorted(TREATMENTS),classification_origins=['HUMAN_SUPPLIED','AGENT_SUPPLIED'],
+        transcript_fields=['permission_confirmed','language','source','observed_at','duration_ms','uncertainty','segments'],
+        segment_fields=['start_ms','end_ms','text'],
+        card_fields=['observed_hook','observed_beats','interpreted_mechanism','relevance_rationale','reproduction_requirements','authentic_evidence_ids','rights_status','rights_evidence','next_experiment'],
+        rights_statuses=['UNKNOWN','REFERENCE_ONLY','ALLOWED_BY_ATTESTATION','REVOKED'],
+        metric_fields=['views','likes','comments','shares','observed_at','collection_source'],
+        baseline_fields=sorted(FIELDS),query_fields=['outcome','audience','industries','narratives','treatments','published_after','published_before','freshness_seconds','minimum_views','baseline_required','viral_only','ranking'],
+        ranking_views=['REACH','ENGAGEMENT','VELOCITY','CREATOR_OUTLIER'],
+        watch_fields=['kind','subjects','query','source','interval_seconds','confirm_authorized_reads'],watch_kinds=['CREATOR','COMPETITOR'],
+        outcome_fields=['source','status','detail'],outcome_statuses=['OBSERVED','FAILED','EMPTY','STALE'],document_kinds=['REVIEW','COLLECTION','WATCH','ATTEMPT'],
+        limits=dict(documents_per_app=2000,revisions_per_identity=100,history_page=100,max_offset=2000,sources=1000,segments=200,labels=24,evidence_ids=24,duration_ms=3600000,watch_interval_min_seconds=3600),
+        viral_policy=dict(minimum_views=MIN_VIEWS,creator_multiplier=MULTIPLIER,minimum_comparable_posts=MIN_BASELINE,maximum_recent_posts=MAX_BASELINE,
+                          combination='AND',baseline='DOCUMENTED_SAME_CREATOR_PLATFORM_FORMAT_PRIOR_POST_MEDIAN',supplier_outlier_label='CANDIDATE_ONLY',ugc_intake='EXEMPT'),
+        authority='Research saves and prepared handoffs grant no reuse approval, production execution, publication or measured app sales. Existing exact human/standing authority must be checked downstream. No automatic retry.',
+        collection='LOCAL_PERMITTED_SOURCES_ONLY; reported read coverage is supplied, not independently verified; watch schedules are NOT_ACTIVATED; provider collectors remain required.')
