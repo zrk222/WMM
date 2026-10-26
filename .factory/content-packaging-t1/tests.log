@@ -1,4 +1,4 @@
-$ C:\Users\rkatz\AppData\Local\Programs\Python\Python311\python.exe -m unittest tests.test_packaging -v
+$ <LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\python.exe -m unittest tests.test_packaging -v
 test_closed_inputs_foreign_reads_and_append_only_sql (tests.test_packaging.PackagingTests.test_closed_inputs_foreign_reads_and_append_only_sql) ... ok
 test_database_source_tampering_and_precommit_manifest_change_roll_back (tests.test_packaging.PackagingTests.test_database_source_tampering_and_precommit_manifest_change_roll_back) ... ok
 test_draft_missing_evidence_and_restart_history (tests.test_packaging.PackagingTests.test_draft_missing_evidence_and_restart_history) ... ok
@@ -7,12 +7,13 @@ test_gaps_variant_binding_shot_claims_and_script_changes (tests.test_packaging.P
 test_manifest_changes_and_atomic_stale_denial (tests.test_packaging.PackagingTests.test_manifest_changes_and_atomic_stale_denial) ... ok
 test_media_unknown_revoked_and_stale_rights_are_never_usable (tests.test_packaging.PackagingTests.test_media_unknown_revoked_and_stale_rights_are_never_usable) ... ok
 test_real_asset_bytes_and_claim_failure_readback (tests.test_packaging.PackagingTests.test_real_asset_bytes_and_claim_failure_readback) ... ok
+test_replace_cannot_overwrite_history_with_recursive_triggers_disabled (tests.test_packaging.PackagingTests.test_replace_cannot_overwrite_history_with_recursive_triggers_disabled) ... ok
 test_script_shots_original_missing_and_stale_variant (tests.test_packaging.PackagingTests.test_script_shots_original_missing_and_stale_variant) ... ok
 test_shot_contract_boundaries (tests.test_packaging.PackagingTests.test_shot_contract_boundaries) ... ok
 test_source_brief_assets_claims_exact_bindings (tests.test_packaging.PackagingTests.test_source_brief_assets_claims_exact_bindings) ... ok
 test_source_changes_during_save_roll_back (tests.test_packaging.PackagingTests.test_source_changes_during_save_roll_back) ... ok
 
 ----------------------------------------------------------------------
-Ran 12 tests in 3.728s
+Ran 13 tests in 3.890s
 
 OK

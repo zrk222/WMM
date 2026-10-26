@@ -8,11 +8,14 @@ No other checkout changed; no push, PR, merge or external execution performed.
 - Build: Python compileall passes four owned modules.
 - Types: NOT_RUN, pyright executable unavailable; no type-check pass claimed.
 - Lint: Ruff F rules pass; legacy project compact formatting retained.
-- Tests: 12/12 packaging tests; 60/60 packaging plus creative production, discovery,
+- Privacy: tracked-distribution check passes after converting earlier PowerShell
+  UTF-16 evidence to UTF-8 and redacting local user profile paths from command logs
+  and doctor display evidence. These redacted displays are not signed raw receipts.
+- Tests: 13/13 packaging tests; 61/61 packaging plus creative production, discovery,
   managed media and distribution regression tests pass. Actual temporary SQLite/files.
 - Coverage: 199 statements, 9 missed, 95% for three packaging modules.
-- Mutations: five source mutants killed: source hash, script binding, manifest revision,
-  final precommit currentness and SQL immutable deletion. Original bytes restored.
+- Mutations: six source mutants killed: source hash, script binding, manifest revision,
+  final precommit currentness, SQL immutable deletion and replacement. Original bytes restored.
 - Scoped Forge QA: max source complexity 9; full function attribution 1.0. Static QA
   does not establish behavior; tests and mutation observations are separate evidence.
 - Workflow audit: PASS, six applicable check categories with current source/log hashes.
@@ -20,7 +23,9 @@ No other checkout changed; no push, PR, merge or external execution performed.
   modules plus direct native evidence dependencies; 11 discovered/attempted/audited,
   audit_coverage.complete true, measurement_state complete; no findings, zero parse,
   unreadable or oversized source errors. Database extraction is incomplete for existing
-  SQLite db.execute receivers and executescript trigger bodies. See security.json gaps.
+  SQLite db.execute receivers and PRAGMA foreign_keys=ON (the reported unsupported
+  non-query operation). The non-query gap is not attributed to executescript.
+  See security.json gaps; no supported receiver-configuration route was found.
   This is not a clean security result, a repo-wide assessment or an accepted waiver.
 
 The first attempted repository scan exceeded its 460-file limit (463), and a broad

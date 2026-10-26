@@ -1,24 +1,24 @@
 {
   "schema": "factory.workflow-audit.observations.v1",
-  "contract_sha256": "eb5370b4489407b2efda7b5a3e01a1bbfb95b6f4c308e7fd54fb188ca62151ed",
-  "candidate_sha256": "48ebbd75e441b4423066f707cd617a576cf9e77e3d3de23f262323eeb5a2bddc",
+  "contract_sha256": "77acd7bf23688a2c55765aecf363e7bb2b7ca7fa778762d58555f907125610e7",
+  "candidate_sha256": "32d0af70955d927adfe7b6f33f3767f240e6b40bb4acb88a91e856b8dfe73b17",
   "observations": [
     {
       "id": "happy_path",
       "profile": "Windows-CPython-3.11.9-SQLite-synthetic-offline",
       "status": "PASS",
       "reason": "Persist drafts and script shots with exact native bindings and restart readback. See named unittest cases and mutation failures.",
-      "execution_identity": "C:\\Users\\rkatz\\AppData\\Local\\Programs\\Python\\Python311\\python.exe -m unittest tests.test_packaging -v",
-      "observed_at": "2026-10-26T06:53:02.228603+00:00",
+      "execution_identity": "python -m unittest tests.test_packaging -v",
+      "observed_at": "2026-10-26T07:05:27.916292+00:00",
       "artifacts": [
         {
           "path": ".factory/content-packaging-t1/tests.log",
-          "sha256": "9d39be376e12aeb1ea00139c5e76c3fdb4d4b3ba1b117a67522e89e6d189bd48",
+          "sha256": "966e352b1f213cc9091a55d0b6a2745399238f87a954330c54adadde80ff72fd",
           "kind": "log"
         },
         {
           "path": ".factory/content-packaging-t1/mutations.json",
-          "sha256": "8ea7fa0eaeac865993d4f78d33106c40169bc0124d89751d7ae9d41552c3d3df",
+          "sha256": "a947d481c368a3acd231ed805f8e40b940868d9cbaf55a20d47fb33917c28949",
           "kind": "log"
         }
       ]
@@ -28,17 +28,17 @@
       "profile": "Windows-CPython-3.11.9-SQLite-synthetic-offline",
       "status": "PASS",
       "reason": "Reject stale, foreign, malformed and unsupported references and script segment hashes. See named unittest cases and mutation failures.",
-      "execution_identity": "C:\\Users\\rkatz\\AppData\\Local\\Programs\\Python\\Python311\\python.exe -m unittest tests.test_packaging -v",
-      "observed_at": "2026-10-26T06:53:02.228603+00:00",
+      "execution_identity": "python -m unittest tests.test_packaging -v",
+      "observed_at": "2026-10-26T07:05:27.916292+00:00",
       "artifacts": [
         {
           "path": ".factory/content-packaging-t1/tests.log",
-          "sha256": "9d39be376e12aeb1ea00139c5e76c3fdb4d4b3ba1b117a67522e89e6d189bd48",
+          "sha256": "966e352b1f213cc9091a55d0b6a2745399238f87a954330c54adadde80ff72fd",
           "kind": "log"
         },
         {
           "path": ".factory/content-packaging-t1/mutations.json",
-          "sha256": "8ea7fa0eaeac865993d4f78d33106c40169bc0124d89751d7ae9d41552c3d3df",
+          "sha256": "a947d481c368a3acd231ed805f8e40b940868d9cbaf55a20d47fb33917c28949",
           "kind": "log"
         }
       ]
@@ -48,17 +48,17 @@
       "profile": "Windows-CPython-3.11.9-SQLite-synthetic-offline",
       "status": "PASS",
       "reason": "Rollback source or app changes detected during save and retain prior history. See named unittest cases and mutation failures.",
-      "execution_identity": "C:\\Users\\rkatz\\AppData\\Local\\Programs\\Python\\Python311\\python.exe -m unittest tests.test_packaging -v",
-      "observed_at": "2026-10-26T06:53:02.229131+00:00",
+      "execution_identity": "python -m unittest tests.test_packaging -v",
+      "observed_at": "2026-10-26T07:05:27.916862+00:00",
       "artifacts": [
         {
           "path": ".factory/content-packaging-t1/tests.log",
-          "sha256": "9d39be376e12aeb1ea00139c5e76c3fdb4d4b3ba1b117a67522e89e6d189bd48",
+          "sha256": "966e352b1f213cc9091a55d0b6a2745399238f87a954330c54adadde80ff72fd",
           "kind": "log"
         },
         {
           "path": ".factory/content-packaging-t1/mutations.json",
-          "sha256": "8ea7fa0eaeac865993d4f78d33106c40169bc0124d89751d7ae9d41552c3d3df",
+          "sha256": "a947d481c368a3acd231ed805f8e40b940868d9cbaf55a20d47fb33917c28949",
           "kind": "log"
         }
       ]
@@ -68,17 +68,17 @@
       "profile": "Windows-CPython-3.11.9-SQLite-synthetic-offline",
       "status": "PASS",
       "reason": "Immutable SQLite rows and script/source/rights revisions remain hash-bound. See named unittest cases and mutation failures.",
-      "execution_identity": "C:\\Users\\rkatz\\AppData\\Local\\Programs\\Python\\Python311\\python.exe -m unittest tests.test_packaging -v",
-      "observed_at": "2026-10-26T06:53:02.229131+00:00",
+      "execution_identity": "python -m unittest tests.test_packaging -v",
+      "observed_at": "2026-10-26T07:05:27.916862+00:00",
       "artifacts": [
         {
           "path": ".factory/content-packaging-t1/tests.log",
-          "sha256": "9d39be376e12aeb1ea00139c5e76c3fdb4d4b3ba1b117a67522e89e6d189bd48",
+          "sha256": "966e352b1f213cc9091a55d0b6a2745399238f87a954330c54adadde80ff72fd",
           "kind": "log"
         },
         {
           "path": ".factory/content-packaging-t1/mutations.json",
-          "sha256": "8ea7fa0eaeac865993d4f78d33106c40169bc0124d89751d7ae9d41552c3d3df",
+          "sha256": "a947d481c368a3acd231ed805f8e40b940868d9cbaf55a20d47fb33917c28949",
           "kind": "log"
         }
       ]
@@ -88,17 +88,22 @@
       "profile": "Windows-CPython-3.11.9-SQLite-synthetic-offline",
       "status": "PASS",
       "reason": "Closed input and app-scoped evidence; synthetic fixtures and no credential fields. See named unittest cases and mutation failures.",
-      "execution_identity": "C:\\Users\\rkatz\\AppData\\Local\\Programs\\Python\\Python311\\python.exe -m unittest tests.test_packaging -v",
-      "observed_at": "2026-10-26T06:53:02.229131+00:00",
+      "execution_identity": "python -m unittest tests.test_packaging -v",
+      "observed_at": "2026-10-26T07:05:27.917869+00:00",
       "artifacts": [
         {
           "path": ".factory/content-packaging-t1/tests.log",
-          "sha256": "9d39be376e12aeb1ea00139c5e76c3fdb4d4b3ba1b117a67522e89e6d189bd48",
+          "sha256": "966e352b1f213cc9091a55d0b6a2745399238f87a954330c54adadde80ff72fd",
           "kind": "log"
         },
         {
           "path": ".factory/content-packaging-t1/mutations.json",
-          "sha256": "8ea7fa0eaeac865993d4f78d33106c40169bc0124d89751d7ae9d41552c3d3df",
+          "sha256": "a947d481c368a3acd231ed805f8e40b940868d9cbaf55a20d47fb33917c28949",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/content-packaging-t1/privacy-distribution.log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b",
           "kind": "log"
         }
       ]
@@ -108,17 +113,17 @@
       "profile": "Windows-CPython-3.11.9-SQLite-synthetic-offline",
       "status": "PASS",
       "reason": "Stored draft remains NOT_RUN with execution_authority false; no execution adapter added. See named unittest cases and mutation failures.",
-      "execution_identity": "C:\\Users\\rkatz\\AppData\\Local\\Programs\\Python\\Python311\\python.exe -m unittest tests.test_packaging -v",
-      "observed_at": "2026-10-26T06:53:02.229650+00:00",
+      "execution_identity": "python -m unittest tests.test_packaging -v",
+      "observed_at": "2026-10-26T07:05:27.917869+00:00",
       "artifacts": [
         {
           "path": ".factory/content-packaging-t1/tests.log",
-          "sha256": "9d39be376e12aeb1ea00139c5e76c3fdb4d4b3ba1b117a67522e89e6d189bd48",
+          "sha256": "966e352b1f213cc9091a55d0b6a2745399238f87a954330c54adadde80ff72fd",
           "kind": "log"
         },
         {
           "path": ".factory/content-packaging-t1/mutations.json",
-          "sha256": "8ea7fa0eaeac865993d4f78d33106c40169bc0124d89751d7ae9d41552c3d3df",
+          "sha256": "a947d481c368a3acd231ed805f8e40b940868d9cbaf55a20d47fb33917c28949",
           "kind": "log"
         }
       ]

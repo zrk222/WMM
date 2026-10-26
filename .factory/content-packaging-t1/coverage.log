@@ -1,4 +1,4 @@
-$ C:\Users\rkatz\AppData\Local\Programs\Python\Python311\python.exe -m coverage report --data-file=.factory/content-packaging-t1/coverage --fail-under=80
+$ <LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\python.exe -m coverage report --data-file=.factory/content-packaging-t1/coverage --fail-under=80
 Name                                    Stmts   Miss  Cover
 -----------------------------------------------------------
 mission_control\packaging_bindings.py      61      7    89%

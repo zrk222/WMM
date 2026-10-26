@@ -1,7 +1,7 @@
 # Approved T1 preparation scope
 
 Owned files: packaging_contract.py, packaging_bindings.py, packaging_store.py,
-db.py (one table and two triggers only), tests/test_packaging.py, scoped SSAT,
+db.py (one table and three triggers only), tests/test_packaging.py, scoped SSAT,
 plan packet note and these CF evidence files. No public UI or production adapter.
 
 Requirements: immutable app-scoped variants; current manifest/source/brief/product
@@ -19,6 +19,10 @@ revision and page bounds are validation assertions. Accessibility is outside thi
 packet because no user interface changes. Other categories are applicable and
 covered by named unittest cases, before-commit failure injections and killed source
 mutations. These exclusions are scoped code review judgments, not platform waivers.
+
+P2 replacement follow-up: duplicate-revision BEFORE INSERT rejects REPLACE and
+INSERT OR REPLACE even with recursive_triggers=0. Real connection tests preserve
+the original row bytes/hash and permit a fresh revision. No other tables changed.
 
 Draft reference shape: {kind,id,version,sha256}. Variant fields: audience, app_outcome,
 title (1-300), thumbnail, opening_frame, hook, cta, sources (SOURCE/COLLECTION),

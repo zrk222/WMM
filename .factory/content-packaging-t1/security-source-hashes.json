@@ -13,7 +13,7 @@
   },
   {
     "path": "mission_control/db.py",
-    "sha256": "24f169a32605be610530a1c116c432d041ae80a25a6a13b15c65262b102bafac"
+    "sha256": "cf3e3fe9aa26c1b11782050877d2702e017fdaafcfc09679891f9c657898eccc"
   },
   {
     "path": "mission_control/common.py",

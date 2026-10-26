@@ -13,9 +13,17 @@ OUT=ROOT/'.factory/content-packaging-t1'
 SOURCE=['mission_control/packaging_contract.py','mission_control/packaging_bindings.py','mission_control/packaging_store.py','mission_control/db.py']
 
 
+def redacted(text):
+    """Keep local user profile paths out of tracked verification evidence."""
+    home=Path.home()
+    for prefix in (json.dumps(str(home))[1:-1],str(home),home.as_posix()):
+        text=text.replace(prefix,'<LOCAL_PROFILE>')
+    return '\n'.join(line.rstrip() for line in text.split('\n'))
+
+
 def run(name, argv, expected=0):
     result=subprocess.run(argv,cwd=ROOT,capture_output=True,text=True,encoding='utf-8',errors='replace')
-    (OUT/name).write_text('$ '+subprocess.list2cmdline(argv)+'\n'+result.stdout+result.stderr,encoding='utf-8')
+    (OUT/name).write_text(redacted('$ '+subprocess.list2cmdline(argv)+'\n'+result.stdout+result.stderr),encoding='utf-8',newline='\n')
     if result.returncode!=expected:raise RuntimeError(f'{name}: exit {result.returncode}; inspect captured log')
     return result
 
@@ -29,7 +37,7 @@ def canonical(value):
 
 
 def write(path, value):
-    (ROOT/path).write_text(json.dumps(value,indent=2)+'\n',encoding='utf-8')
+    (ROOT/path).write_text(json.dumps(value,indent=2)+'\n',encoding='utf-8',newline='\n')
 
 
 def ssat():
@@ -48,6 +56,7 @@ def mutations():
         ('manifest','mission_control/packaging_store.py',"app=app_context(db, app_id, body['manifest_version'])", 'app=app_context(db, app_id)'),
         ('precommit','mission_control/packaging_store.py',"if result['source_status']!='CURRENT':", 'if False:'),
         ('immutable-delete','mission_control/db.py',"CREATE TRIGGER IF NOT EXISTS packaging_immutable_delete BEFORE DELETE ON packaging_documents BEGIN SELECT RAISE(ABORT,'packaging history is append-only'); END;", ''),
+        ('immutable-replace','mission_control/db.py',"CREATE TRIGGER IF NOT EXISTS packaging_immutable_insert BEFORE INSERT ON packaging_documents WHEN EXISTS(SELECT 1 FROM packaging_documents WHERE app_id=NEW.app_id AND id=NEW.id AND version=NEW.version) BEGIN SELECT RAISE(ABORT,'packaging history is append-only'); END;", ''),
     ]
     results=[]
     for name,path,before,after in cases:
@@ -56,7 +65,7 @@ def mutations():
         try:
             target.write_text(text.replace(before,after),encoding='utf-8')
             result=subprocess.run([sys.executable,'-B','-m','unittest','tests.test_packaging','-v'],cwd=ROOT,capture_output=True,text=True)
-            (OUT/f'mutation-{name}.log').write_text(result.stdout+result.stderr,encoding='utf-8')
+            (OUT/f'mutation-{name}.log').write_text(redacted(result.stdout+result.stderr),encoding='utf-8',newline='\n')
             killed=result.returncode!=0 and ('FAIL:' in result.stderr or 'ERROR:' in result.stderr)
             results.append(dict(name=name,killed=killed,exit_code=result.returncode))
         finally:target.write_bytes(raw)
@@ -89,9 +98,12 @@ def workflow():
         decisions.append(decision)
         if not applicable[category]:continue
         checks.append(dict(id=category,category=category,requirement=reasons[category],profiles=[profile]))
+        evidence=[artifact('.factory/content-packaging-t1/tests.log','log'),artifact('.factory/content-packaging-t1/mutations.json','log')]
+        if category=='security_privacy' and (OUT/'privacy-distribution.log').exists():
+            evidence.append(artifact('.factory/content-packaging-t1/privacy-distribution.log','log'))
         observations.append(dict(id=category,profile=profile,status='PASS',reason=reasons[category]+' See named unittest cases and mutation failures.',
-            execution_identity=sys.executable+' -m unittest tests.test_packaging -v',observed_at=datetime.now(timezone.utc).isoformat(),
-            artifacts=[artifact('.factory/content-packaging-t1/tests.log','log'),artifact('.factory/content-packaging-t1/mutations.json','log')]))
+            execution_identity='python -m unittest tests.test_packaging -v',observed_at=datetime.now(timezone.utc).isoformat(),
+            artifacts=evidence))
     contract=dict(schema='factory.workflow-audit.contract.v1',project_id='WMM-content-packaging-T1',candidate=candidates,applicability=decisions,checks=checks)
     path='.factory/workflow-audit-contract.json';write(path,contract)
     write('.factory/workflow-audit-observations.json',dict(schema='factory.workflow-audit.observations.v1',contract_sha256=artifact(path,'contract')['sha256'],

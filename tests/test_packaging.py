@@ -103,6 +103,28 @@ class PackagingTests(unittest.TestCase):
             with self.subTest(sql=sql),self.assertRaises(sqlite3.IntegrityError):
                 with connection(self.store.path) as db:db.execute(sql)
 
+    def test_replace_cannot_overwrite_history_with_recursive_triggers_disabled(self):
+        original=self.save()
+        with connection(self.store.path) as db:
+            self.assertEqual(db.execute('PRAGMA recursive_triggers').fetchone()[0], 0)
+            before=dict(db.execute('SELECT * FROM packaging_documents WHERE app_id=? AND id=? AND version=1',
+                                   (self.app, original['id'])).fetchone())
+        changed=dict(before, data=canonical(dict(original['data'], app_hash='0'*64)), hash='1'*64)
+        values=tuple(changed[key] for key in ('app_id', 'id', 'version', 'kind', 'data', 'hash', 'created'))
+        for verb in ('REPLACE', 'INSERT OR REPLACE'):
+            with self.subTest(verb=verb):
+                with self.assertRaisesRegex(sqlite3.IntegrityError, 'append-only'):
+                    with connection(self.store.path) as db:
+                        db.execute(verb+' INTO packaging_documents VALUES(?,?,?,?,?,?,?)', values)
+                with connection(self.store.path) as db:
+                    after=dict(db.execute('SELECT * FROM packaging_documents WHERE app_id=? AND id=? AND version=1',
+                                          (self.app, original['id'])).fetchone())
+                self.assertEqual(after, before)
+                self.assertEqual(self.packaging.read(self.app, original['id'], 'VARIANT', 1)['hash'], original['hash'])
+        fresh=self.save(dict(draft(), title='Fresh permitted revision'), version=1)
+        self.assertEqual(fresh['version'], 2)
+        self.assertEqual(self.packaging.read(self.app, original['id'], 'VARIANT', 1)['data'], original['data'])
+
     def test_shot_contract_boundaries(self):
         variant=self.save();data=self.shotlist(variant)
         for update in ({'segment_id':'missing'}, {'kind':'EXECUTE'}, {'start_ms':0}, {'claims':[{}]}, {'source':{}}, {'claim_text':None}):
