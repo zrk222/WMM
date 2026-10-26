@@ -1,0 +1,13 @@
+# Linux and Ubuntu protected credentials
+
+WMM selects Secret Service on Linux and Windows Credential Manager on Windows. It does not select arbitrary keyring plugins or fall back to plaintext. The Linux dependency is optional; existing Windows installations do not import it.
+
+On an Ubuntu desktop, install the native dependency explicitly using `sudo apt install python3-secretstorage gnome-keyring`. Run WMM with the Python environment that provides SecretStorage. A virtual environment needs its own reviewed SecretStorage installation. The tested isolated profile is Ubuntu 24.04, Python 3.12 and the distribution-provided SecretStorage/GNOME Keyring packages. Other Linux distributions need a compatible Secret Service and Python SecretStorage. A headless shell without a session D-Bus and existing unlocked keyring returns an actionable error; it does not create an unprotected store.
+
+Unlock the desktop keyring with the operating system's password manager before connecting providers. WMM neither creates a collection nor opens an unlock prompt. Native message replies have an operation deadline of 15 seconds after D-Bus initialization. The adapter requires an encrypted Secret Service session. Native metadata contains the WMM schema and a hash of the exact credential address; values retain the existing 2560-byte limit. Linux database namespaces preserve path case. Windows namespace hashing remains unchanged. Credentials do not migrate with workspace snapshots.
+
+Validation uses synthetic secrets in a disposable isolated keyring. Run `WMM_ISOLATED_NATIVE_KEYRING=1 python3 -m unittest tests.test_linux_vault_native -v` only inside a dedicated disposable D-Bus/keyring environment. This test deletes its synthetic values, verifies absence and then locks that isolated collection. Do not enable this test against an operator's desktop keyring.
+
+This adapter does not establish complete Linux or Ubuntu workflow support. Native agent discovery, process lifecycle, media workflows and the complete platform acceptance contract remain required. iOS and macOS protected backends and cross-device pairing are separate incomplete work.
+
+Official API references: [SecretStorage](https://secretstorage.readthedocs.io/en/latest/), [collection operations](https://secretstorage.readthedocs.io/en/latest/collection.html), [Jeepney blocking replies](https://jeepney.readthedocs.io/en/latest/api/blocking.html).
