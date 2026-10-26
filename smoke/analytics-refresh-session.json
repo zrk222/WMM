@@ -1,0 +1,15 @@
+{
+  "checks": [
+    {
+      "name": "scoped-session-closes",
+      "kind": "python",
+      "run": "from mission_control.db import session\nfrom pathlib import Path\nimport tempfile,sqlite3\nwith tempfile.TemporaryDirectory() as folder:\n with session(Path(folder)/'isolated.sqlite') as db:\n  assert isinstance(db,sqlite3.Connection)\n  assert db.execute('PRAGMA foreign_keys').fetchone()[0]==1\n try:db.execute('SELECT 1')\n except sqlite3.ProgrammingError:pass\n else:raise AssertionError('Scoped connection must close')"
+    },
+    {
+      "name": "actual-guarded-two-phase-refresh",
+      "kind": "python",
+      "must_fail_on_stub": false,
+      "run": "import unittest\ns=unittest.defaultTestLoader.loadTestsFromNames(['tests.test_analytics_refresh_session','tests.test_measurement_connectors.MeasurementTests.test_report_history_cap_and_bounded_synthetic_read_performance'])\nr=unittest.TextTestRunner(verbosity=2).run(s)\nassert r.wasSuccessful() and r.testsRun==6 and not r.skipped,'Actual transaction and unchanged timing acceptance must pass'"
+    }
+  ]
+}

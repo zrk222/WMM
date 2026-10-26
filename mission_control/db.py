@@ -126,22 +126,33 @@ CREATE TRIGGER IF NOT EXISTS managed_media_reviews_append_only_delete BEFORE DEL
 
 
 @contextmanager
-def connection(path):
-    """Open a transactional SQLite connection with foreign-key enforcement."""
+def session(path):
+    """Own one scoped SQLite handle; callers use guarded transactions for business SQL."""
     db = sqlite3.connect(str(path), timeout=15)
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA foreign_keys=ON")
-    try:
-        with db:
-            from .automation_execution import guard_connection
-            from .operation_authority import guard_connection as operation_guard
-            guard_connection(path, db)
-            operation_guard(path, db)
-            yield db
-            guard_connection(path, db, committing=True)
-            operation_guard(path, db)
-    finally:
-        db.close()
+    try:yield db
+    finally:db.close()
+
+
+@contextmanager
+def transaction(path, db):
+    """Guard each independently committed transaction, including reused connections."""
+    with db:
+        from .automation_execution import guard_connection
+        from .operation_authority import guard_connection as operation_guard
+        guard_connection(path, db)
+        operation_guard(path, db)
+        yield db
+        guard_connection(path, db, committing=True)
+        operation_guard(path, db)
+
+
+@contextmanager
+def connection(path):
+    """Open a scoped transactional connection with the same entry and commit guards."""
+    with session(path) as db:
+        with transaction(path, db):yield db
 
 
 def initialize(path):

@@ -5,7 +5,7 @@ import threading
 import time
 from .common import Invalid, canonical, digest, now, uid
 from .credential_vault import Vault, namespace
-from .db import connection
+from .db import connection, session, transaction
 from .store import audit
 from .insights_contract import config, PROVIDERS
 from .insights_transport import read, ProviderFailure
@@ -191,32 +191,40 @@ class Insights:
         return decoded(row)
 
     def reserve(self, app, sid, automatic):
-        """Atomic single-read lease and rolling project cap includes failed attempts and rotations."""
+        """Retain standalone guarded reservation for existing callers."""
+        with connection(self.store.path) as db:return self.reserve_in(db, app, sid, automatic)
+
+    def reserve_in(self, db, app, sid, automatic):
+        """Reserve the same durable lease and project quota in the supplied transaction."""
         current = time.time()
-        with connection(self.store.path) as db:
-            db.execute("BEGIN IMMEDIATE")
-            row = self.row(db, app, sid)
-            if row["status"] in ("DISCONNECTED", "CLEANUP_REQUIRED"):
-                raise Invalid("Reconnect before reading this source")
-            if row["lease"] > current:
-                raise Invalid("A read is already running; refresh its result shortly")
-            if automatic and (not row["data"]["automatic"] or row["next_due"] > current or row["status"] == "PERMISSION_REQUIRED"):
-                return None
-            if row["provider"] == "clarity" and db.execute("SELECT COUNT(*) FROM insight_requests WHERE scope_key=? AND attempted>?", (row["scope_key"], current - 86400)).fetchone()[0] >= 10:
-                raise ProviderFailure("LOCAL_RATE_LIMITED", "Clarity's ten daily requests are reserved; wait for the rolling quota to reset")
-            db.execute("INSERT INTO insight_requests(scope_key,attempted) VALUES(?,?)", (row["scope_key"], current))
-            db.execute("DELETE FROM insight_requests WHERE attempted<?", (current - 86400,))
-            db.execute("UPDATE insight_sources SET lease=?,next_due=? WHERE app_id=? AND id=?", (current + 60, current + 21600, app, sid))
-            row["lease"] = current + 60
+        db.execute("BEGIN IMMEDIATE")
+        row = self.row(db, app, sid)
+        if row["status"] in ("DISCONNECTED", "CLEANUP_REQUIRED"):
+            raise Invalid("Reconnect before reading this source")
+        if row["lease"] > current:
+            raise Invalid("A read is already running; refresh its result shortly")
+        if automatic and (not row["data"]["automatic"] or row["next_due"] > current or row["status"] == "PERMISSION_REQUIRED"):
+            return None
+        if row["provider"] == "clarity" and db.execute("SELECT COUNT(*) FROM insight_requests WHERE scope_key=? AND attempted>?", (row["scope_key"], current - 86400)).fetchone()[0] >= 10:
+            raise ProviderFailure("LOCAL_RATE_LIMITED", "Clarity's ten daily requests are reserved; wait for the rolling quota to reset")
+        db.execute("INSERT INTO insight_requests(scope_key,attempted) VALUES(?,?)", (row["scope_key"], current))
+        db.execute("DELETE FROM insight_requests WHERE attempted<?", (current - 86400,))
+        db.execute("UPDATE insight_sources SET lease=?,next_due=? WHERE app_id=? AND id=?", (current + 60, current + 21600, app, sid))
+        row["lease"] = current + 60
         return row
 
+
     def refresh(self, app, sid, body, automatic=False):
-        """Perform one permitted read; errors become visible states, never fabricated empty reports."""
-        if body != {"confirm_read": True}:
-            raise Invalid("Confirm the read-only analytics request")
-        row = self.reserve(app, sid, automatic)
-        if row is None:
-            return {"status": "NOT_DUE"}
+        """Reuse one scoped handle for two durable phases; hold no provider-time transaction."""
+        if body != {"confirm_read": True}:raise Invalid("Confirm the read-only analytics request")
+        with session(self.store.path) as db:
+            with transaction(self.store.path, db):row = self.reserve_in(db, app, sid, automatic)
+            if row is None:return {"status": "NOT_DUE"}
+            result, status, error = self.read_reserved(app, sid, row)
+            with transaction(self.store.path, db):return self.complete_in(db, app, row, result, status, error)
+
+    def read_reserved(self, app, sid, row):
+        """Read the protected provider outside either independently committed transaction."""
         try:
             secret = Vault().get(self.name(app, row["credential_ref"]))
             if not secret or secret.get("binding") != {"app_id": app, "id": sid, "hash": row["hash"]}:
@@ -227,19 +235,22 @@ class Insights:
             result, status, error = None, exc.code, str(exc)
         except (Invalid, ValueError, TypeError, KeyError):
             result, status, error = None, "READ_FAILED", "Provider data or configuration differs; check permissions and reconnect or retry"
-        return self.complete(app, row, result, status, error)
+        return result, status, error
 
     def complete(self, app, row, result, status, error):
-        """Discard in-flight results after rotation/disconnect; retain prior successful observations."""
-        with connection(self.store.path) as db:
-            db.execute("BEGIN IMMEDIATE")
-            current = self.row(db, app, row["id"])
-            if current["version"] != row["version"] or current["lease"] != row["lease"]:
-                return {"status": "OBSOLETE_RESULT_DISCARDED"}
-            db.execute("UPDATE insight_sources SET lease=0,status=?,last_error=?,updated=? WHERE app_id=? AND id=?", (status, error, now(), app, row["id"]))
-            if result is not None:
-                self.report(db, app, row, result)
-            audit(db, app, "insights.read", {"id": row["id"], "status": status})
+        """Retain standalone guarded completion for existing callers."""
+        with connection(self.store.path) as db:return self.complete_in(db, app, row, result, status, error)
+
+    def complete_in(self, db, app, row, result, status, error):
+        """Discard stale results and store current evidence in the supplied transaction."""
+        db.execute("BEGIN IMMEDIATE")
+        current = self.row(db, app, row["id"])
+        if current["version"] != row["version"] or current["lease"] != row["lease"]:
+            return {"status": "OBSOLETE_RESULT_DISCARDED"}
+        db.execute("UPDATE insight_sources SET lease=0,status=?,last_error=?,updated=? WHERE app_id=? AND id=?", (status, error, now(), app, row["id"]))
+        if result is not None:
+            self.report(db, app, row, result)
+        audit(db, app, "insights.read", {"id": row["id"], "status": status})
         return {"status": status, "error": error, "report": result}
 
     def report(self, db, app, row, result):
