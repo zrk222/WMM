@@ -1,0 +1,328 @@
+{
+  "name": "discovery-intelligence-core",
+  "language": "python",
+  "modules": [
+    {
+      "name": "discovery_contract",
+      "path": "mission_control/discovery_contract.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "items",
+          "args": [
+            "value",
+            "maximum",
+            "name"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "texts",
+          "args": [
+            "value",
+            "maximum",
+            "bound",
+            "name"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "taxonomy",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "segments",
+          "args": [
+            "value",
+            "duration",
+            "name"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "transcript",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "card",
+          "args": [
+            "value",
+            "duration"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "metrics",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "review",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "query",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "watch",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "discovery_query",
+      "path": "mission_control/discovery_query.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "boundaries",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "candidate",
+          "args": [
+            "data"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "qualification",
+          "args": [
+            "data",
+            "review",
+            "stamp"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "observed_ratio",
+          "args": [
+            "numerator",
+            "denominator",
+            "basis",
+            "window"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "velocity",
+          "args": [
+            "data",
+            "previous"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "rankings",
+          "args": [
+            "data",
+            "review",
+            "policy",
+            "previous"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "filter_reasons",
+          "args": [
+            "data",
+            "review",
+            "filters",
+            "stamp"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "observation_reasons",
+          "args": [
+            "data",
+            "filters",
+            "stamp"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "evaluate",
+          "args": [
+            "capture",
+            "review",
+            "filters",
+            "stamp",
+            "previous"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "ordered",
+          "args": [
+            "results",
+            "ranking"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "coverage",
+          "args": [
+            "results",
+            "attempted",
+            "failed"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "discovery_store",
+      "path": "mission_control/discovery_store.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "decoded",
+          "args": [
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "latest",
+          "args": [
+            "db",
+            "app_id",
+            "identity",
+            "kind"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "append",
+          "args": [
+            "db",
+            "app_id",
+            "identity",
+            "expected",
+            "kind",
+            "data",
+            "stamp"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "capture",
+          "args": [
+            "db",
+            "app_id",
+            "ref",
+            "expected"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "scoped",
+          "args": [
+            "app",
+            "source",
+            "review",
+            "stamp"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "review_times",
+          "args": [
+            "data",
+            "source",
+            "stamp"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "reviews",
+          "args": [
+            "db",
+            "app_id"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "source_results",
+          "args": [
+            "db",
+            "app_id",
+            "app",
+            "filters",
+            "stamp"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "collection_state",
+          "args": [
+            "results",
+            "failed"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "authentic_proofs",
+          "args": [
+            "db",
+            "store",
+            "app_id",
+            "ids",
+            "app"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "source_outcomes",
+          "args": [
+            "rows"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "selected_review",
+          "args": [
+            "db",
+            "app_id",
+            "app",
+            "saved",
+            "body",
+            "stamp"
+          ],
+          "returns": "object"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "discovery_store",
+      "to": "discovery_contract"
+    },
+    {
+      "from": "discovery_store",
+      "to": "discovery_query"
+    }
+  ],
+  "invariants": []
+}
