@@ -10,7 +10,7 @@ from .db import connection
 from .ledger import opaque
 
 FIELDS={"platform","post_id","title","url","source","captured_at","published_at","locale","traffic_class","creator_id","format","metric_kind","metric_value","metric_at","rights","permission_confirmed","topic","relevance_note"}
-ENUMS={"platform":{"tiktok","youtube","instagram","linkedin","x","other"},"traffic_class":{"ORGANIC","PAID","UNKNOWN"},"rights":{"REFERENCE_ONLY","LICENSED","UNKNOWN"},"metric_kind":{"VIEWS","LIKES","SHARES","UNKNOWN"}}
+ENUMS={"platform":{"tiktok","facebook","youtube","instagram","linkedin","x","other"},"traffic_class":{"ORGANIC","PAID","UNKNOWN"},"rights":{"REFERENCE_ONLY","LICENSED","UNKNOWN"},"metric_kind":{"VIEWS","LIKES","SHARES","UNKNOWN"}}
 
 
 def source_url(value):

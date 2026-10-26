@@ -9,6 +9,7 @@ from .common import Invalid,canonical
 from .operation_catalog import request_data
 
 MAX_BYTES=16777216
+MAX_JSON_DEPTH=64
 TIMEOUT_SECONDS=15
 
 
@@ -82,15 +83,32 @@ def invalid_constant(value):
     raise Invalid('Nonfinite JSON values are forbidden')
 
 
+def validate_json_depth(text):
+    """Reject excessive containers before parsing; quoted delimiters are ordinary text."""
+    depth=0;quoted=False;escaped=False
+    for char in text:
+        if quoted:
+            if escaped:escaped=False
+            elif char=='\\':escaped=True
+            elif char=='"':quoted=False
+        elif char=='"':quoted=True
+        elif char in '[{':
+            depth+=1
+            if depth>MAX_JSON_DEPTH:raise Invalid('JSON exceeds the 64 container nesting limit')
+        elif char in ']}':depth-=1
+
+
 def strict_json(raw):
     """Bound bytes and reject malformed UTF-8, duplicate keys, constants and deep trees."""
     if len(raw)>MAX_BYTES:
         raise Invalid('JSON exceeds the 16777216 bytes limit')
     try:
-        value=json.loads(raw.decode('utf-8'),object_pairs_hook=unique_pairs,parse_constant=invalid_constant)
+        text=raw.decode('utf-8');validate_json_depth(text)
+        value=json.loads(text,object_pairs_hook=unique_pairs,parse_constant=invalid_constant)
         # Re-encoding also rejects values overflowing JSON's finite numeric range.
         canonical(value)
         return value
+    except Invalid:raise
     except (UnicodeError,ValueError,RecursionError) as error:
         raise Invalid('Invalid strict UTF-8 JSON: '+type(error).__name__) from error
 
@@ -104,6 +122,19 @@ def response_data(response):
         return strict_json(raw)
     except Invalid as error:
         raise ClientError('INVALID_RESPONSE',str(error)) from error
+
+
+def reject_http(error,path,body):
+    """Classify one closed HTTP failure without retrying an uncertain mutation."""
+    try:unknown=uncertain_response(error)
+    finally:error.close()
+    if unknown:
+        raise ClientError('OUTCOME_UNKNOWN','Local operation outcome is uncertain; inspect the saved attempt before retrying',
+            error.code,outcome='UNKNOWN',reconciliation_required=True) from None
+    if error.code==409 and request_timeout(path,body)==900:
+        raise ClientError('RESULT_UNCONFIRMED','The local operation result is unconfirmed; inspect saved history before any retry.',
+            error.code,outcome='UNKNOWN',reconciliation_required=True) from None
+    raise ClientError('HTTP_REJECTED','WMM rejected the operation; HTTP '+str(error.code)+'. Refresh current app/source data before retrying.',error.code) from error
 
 
 class OperatorClient:
@@ -152,15 +183,7 @@ class OperatorClient:
             with self.opener.open(request,timeout=request_timeout(path,body)) as response:
                 return response_data(response)
         except HTTPError as error:
-            try:unknown=uncertain_response(error)
-            finally:error.close()
-            if unknown:
-                raise ClientError('OUTCOME_UNKNOWN','Local operation outcome is uncertain; inspect the saved attempt before retrying',
-                    error.code,outcome='UNKNOWN',reconciliation_required=True) from None
-            if error.code==409 and request_timeout(path,body)==900:
-                raise ClientError('RESULT_UNCONFIRMED','The local operation result is unconfirmed; inspect saved history before any retry.',
-                    error.code,outcome='UNKNOWN',reconciliation_required=True) from None
-            raise ClientError('HTTP_REJECTED','WMM rejected the operation; HTTP '+str(error.code)+'. Refresh current app/source data before retrying.',error.code) from error
+            reject_http(error,path,body)
         except (URLError,TimeoutError,OSError,HTTPException) as error:
             raise ClientError('TRANSPORT_UNAVAILABLE','The local WMM operation did not return a confirmed result. Inspect saved history before retrying a write.') from error
 

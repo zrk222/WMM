@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch, MagicMock
@@ -22,6 +23,11 @@ from mission_control.worker import run_once
 
 def generated_key(curve="nistP256"):
     """Generate disposable key in process; never write or print a private key."""
+    if sys.platform.startswith('linux'):
+        from cryptography.hazmat.primitives.asymmetric import ec
+        from cryptography.hazmat.primitives import serialization
+        key=ec.generate_private_key({'nistP256':ec.SECP256R1,'nistP384':ec.SECP384R1}[curve]())
+        return key.private_bytes(serialization.Encoding.PEM,serialization.PrivateFormat.PKCS8,serialization.NoEncryption()).decode().strip()
     script=f"$k=[Security.Cryptography.ECDsa]::Create([Security.Cryptography.ECCurve+NamedCurves]::{curve}); try {{$k.ExportPkcs8PrivateKeyPem()}} finally {{$k.Dispose()}}"
     result=subprocess.run([shutil.which("pwsh"),"-NoProfile","-NonInteractive","-Command",script],capture_output=True,text=True,encoding="utf-8",timeout=10,creationflags=0x08000000)
     if result.returncode:
@@ -63,6 +69,16 @@ class ProtectedSetup(unittest.TestCase):
         self.assertEqual(decode(header)["alg"],"ES256")
         self.assertEqual(decode(payload),{"iss":"issuer-1","iat":1000,"exp":1600,"aud":"appstoreconnect-v1"})
         public=native("inspect",self.key)["public_key"]
+        if sys.platform.startswith('linux'):
+            from cryptography.hazmat.primitives import serialization,hashes
+            from cryptography.hazmat.primitives.asymmetric import ec,utils
+            raw=base64.urlsafe_b64decode(signature+'==')
+            der=utils.encode_dss_signature(int.from_bytes(raw[:32],'big'),int.from_bytes(raw[32:],'big'))
+            serialization.load_pem_public_key(public.encode()).verify(der,(header+'.'+payload).encode(),ec.ECDSA(hashes.SHA256()))
+            self.connections.disconnect('sample-one',record['id'],record['version'])
+            self.assertIsNone(Vault().get(name))
+            with self.assertRaisesRegex(Invalid,'disconnected'):resolve(self.store.records('sample-one')[0]['data'],'sample-one')
+            return
         verify="$r=[Console]::In.ReadToEnd()|ConvertFrom-Json;$k=[Security.Cryptography.ECDsa]::Create();try{$k.ImportFromPem([string]$r.public_key);$k.VerifyData([Text.Encoding]::UTF8.GetBytes([string]$r.message),[Convert]::FromBase64String([string]$r.signature),[Security.Cryptography.HashAlgorithmName]::SHA256,[Security.Cryptography.DSASignatureFormat]::IeeeP1363FixedFieldConcatenation)}finally{$k.Dispose()}"
         result=subprocess.run([shutil.which("pwsh"),"-NoProfile","-Command",verify],input=json.dumps({"public_key":public,"message":header+"."+payload,"signature":base64.b64encode(base64.urlsafe_b64decode(signature+"==")).decode()}),capture_output=True,text=True,timeout=10,creationflags=0x08000000)
         self.assertEqual(result.stdout.strip(),"True")

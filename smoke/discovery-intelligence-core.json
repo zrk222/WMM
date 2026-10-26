@@ -1,0 +1,15 @@
+{
+  "checks": [
+    {
+      "name": "missing-baseline-never-qualified",
+      "kind": "python",
+      "run": "from mission_control.discovery_query import evaluate\nsource={'reference_id': 'synthetic', 'version': 1, 'hash': '67a79b6f43c2a2c03fdb0058677cafdba58956fbe7d429b2ac4705f8217c5ea1', 'data': {'platform': 'tiktok', 'post_id': 'candidate', 'title': 'Synthetic product demo', 'url': 'https://www.tiktok.com/@creator/video/123', 'source': 'Synthetic permitted export; not real engagement', 'captured_at': '2026-10-24T12:00:00+00:00', 'published_at': '2026-10-23T12:00:00+00:00', 'locale': 'en-US', 'traffic_class': 'UNKNOWN', 'creator_id': 'creator', 'format': 'short', 'metric_kind': 'VIEWS', 'metric_value': 1000000, 'metric_at': '2026-10-24T12:00:00+00:00', 'rights': 'REFERENCE_ONLY', 'permission_confirmed': True, 'topic': 'Rehearsal', 'relevance_note': 'Synthetic reference for rehearsal product, not acquisition proof'}}\nreview={'taxonomy': {'original_labels': ['Third-party outlier'], 'industry': 'BUSINESS', 'narrative': 'APP_DEMO', 'treatment': 'TALKING_HEAD', 'classified_by': 'HUMAN_SUPPLIED', 'rationale': 'Synthetic direct inspection'}, 'duration_ms': 30000, 'transcript': None, 'card': {'observed_hook': 'A synthetic question', 'observed_beats': [{'start_ms': 0, 'end_ms': 1000, 'text': 'Synthetic opening'}], 'interpreted_mechanism': 'Question then demonstration', 'relevance_rationale': 'An analyst interpretation, not measured app sales', 'reproduction_requirements': ['Authentic screen'], 'authentic_evidence_ids': [], 'rights_status': 'UNKNOWN', 'rights_evidence': '', 'next_experiment': 'Test an original opening with an authentic app screen'}, 'baseline': [], 'metrics': None}\nfilters={'outcome': 'Demonstrate an app outcome', 'audience': 'App users', 'industries': [], 'narratives': [], 'treatments': [], 'published_after': '2026-10-01T00:00:00+00:00', 'published_before': '2026-10-24T12:00:00+00:00', 'freshness_seconds': 86400, 'minimum_views': 0, 'baseline_required': False, 'viral_only': True, 'ranking': 'REACH'}\ntry:\n    r=evaluate(source,review,filters,'2026-10-24T12:00:00+00:00',None)\nexcept NotImplementedError:\n    r=None\nassert r and r['included'] is False and r['baseline_missing'] is True,'High views without documented baseline must remain a candidate'\nassert r['boundaries']['production_execution']=='NOT_RUN'\n"
+    },
+    {
+      "name": "actual-core-tests",
+      "kind": "python",
+      "must_fail_on_stub": false,
+      "run": "import subprocess\nr=subprocess.run(['python','-m','unittest','tests.test_discovery_intelligence','tests.test_creative_library','tests.test_viral_policy','-v'],capture_output=True,text=True)\nassert r.returncode==0,r.stdout+r.stderr"
+    }
+  ]
+}

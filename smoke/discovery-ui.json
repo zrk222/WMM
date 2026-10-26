@@ -1,0 +1,15 @@
+{
+  "checks": [
+    {
+      "name": "exact-observed-count",
+      "kind": "python",
+      "run": "import subprocess\nr=subprocess.run(['node','-e',\"try{const fs=require('node:fs'),assert=require('node:assert/strict'),holder={exports:{}};new Function('module','globalThis',fs.readFileSync('mission_control/static/discovery-model.js','utf8').replace(/^export /gm,''))(holder,{});let result;try{result=typeof holder.exports.integer==='function'?holder.exports.integer('100000','Views',0,1e12):undefined;}catch(e){result=undefined;}assert.equal(result,100000,'Observed view count must be preserved exactly');let rejected=false;try{holder.exports.integer('01','Views',0,1e12);}catch(e){rejected=true;}assert.equal(rejected,true,'Ambiguous view counts must be rejected');}catch(e){process.stderr.write(e.name+': '+e.message.split('\\\\n')[0]+'\\\\n');process.exit(1);}\"],capture_output=True,text=True)\nassert r.returncode==0,r.stdout+r.stderr"
+    },
+    {
+      "name": "actual-discovery-browser-logic",
+      "kind": "python",
+      "must_fail_on_stub": false,
+      "run": "import subprocess\nr=subprocess.run(['node','--test','tests/discovery_ui.test.cjs','tests/ui_stories.test.cjs'],capture_output=True,text=True)\nassert r.returncode==0,r.stdout+r.stderr"
+    }
+  ]
+}

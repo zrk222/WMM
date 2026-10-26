@@ -16,6 +16,12 @@
   });
   const FORMS={};
   function define(ids,mission,result,next){for(const id of ids.split(' '))FORMS[id]=Object.freeze([mission,result,next]);}
+  define('discovery-query-form','Find saved video references that fit your app and audience.','WMM saves an immutable collection of observed source decisions, qualification and evidence gaps. It evaluates saved references; it does not start a platform scan.','Choose filters and save the collection. Review why each source qualified or stayed a candidate before adapting it.');
+  define('discovery-source-form','Turn an inspected source into a specific app experiment.','WMM saves your observations, separate classifications, documented baseline and rights attestation against the exact source and app. Saving a review grants no production authority.','Record what you observed, name your interpretation and keep rights and authentic app proof explicit. Then evaluate the source in a collection.');
+  define('drive-setup-form','Choose the Google Drive files this app can access.','WMM protects your client configuration and prepares Google consent for selected files. No clips are imported by this step.','Open Google, select the files and review the returned account before saving access.');
+  define('drive-confirm-form','Keep the account and selected files you have just reviewed.','WMM saves access to this exact account and file selection. Saving access does not import clips or grant reuse permission.','Save the reviewed access, then choose which clips to import into the original video library.');
+  define('drive-import-form','Bring the selected original clips into this app.','WMM queues durable imports and shows each worker step. A successful import retains the original picture and sound; it does not approve reuse.','Select the clips to import, monitor their progress and review each original before editing.');
+  define('drive-disconnect-form','Stop this app from using its saved Drive connection.','WMM disables the displayed local connection and records credential cleanup. This does not revoke access in your Google account.','Confirm the exact connection to disconnect. Use Google account settings if you also want to revoke provider access.');
   define('media-upload-form','Keep your original clips together before choosing their use.','WMM saves and decodes each selected local clip; upload does not grant reuse permission.','Inspect the original picture, sound and provenance, then review reuse for each clip.');
   define('media-review-form','Decide whether this app may reuse the selected original clip.','WMM saves a source-bound owner attestation or revocation in retained history.','Inspect the saved status; approval by attestation is not independent legal verification.');
   define('studio-source-form','Choose the approved composition you want to customize.','WMM prepares an exact local startup summary without launching Studio.','Review the source and resource limits, then choose whether to start the local session.');
@@ -69,6 +75,7 @@
   define('video-project-edit-form','Shape the saved video for the people you want to reach.','Your timing, framing and color choices become a new shared project revision. Rendering creates an actual MP4.','Save field edits before clip commands or rendering, then preview the exact output and review it before use.');
   Object.freeze(FORMS);
   const DIALOGS=Object.freeze({
+    'Your selected Drive clips':['Bring your selected Google Drive clips into this app.','Connect the Google account and select files. When you import a clip, WMM keeps the original picture and sound and shows its progress.','Choose access first, then select clips to import. Review each saved original and approve reuse before editing.'],
     'Your app-sales founder review':['Choose your next app-sales task.','See missing stages beside source-bound results.','Open an exact stage report or export this page.'],
     'Your app-sales stage results':['See where app sales advance.','Stage counts, matching conversion ratios and subscription economics come from this cohort’s saved evidence.','Resolve a missing stage or export this report.'],
     'Your app-sales funnels':['Choose the app-sales path to work on.','Each saved plan connects creative, a cohort and the app milestones you chose.','Open its results or create a new plan.'],
@@ -83,7 +90,7 @@
     const found=[...markup.matchAll(/<form\b[^>]*\sid=["']([^"']+)["']/g)].map(match=>match[1]);
     const rows=found.map(id=>FORMS[id]);
     if(rows.some(row=>!row))return `<aside class="notice" aria-label="Task guide"><p>Review ${esc(title)}. Check the exact inputs, result and action described below before continuing.</p></aside>`;
-    const story=rows[0]||DIALOGS[title]||[`Inspect ${title}.`,'Read the displayed status, source and saved evidence to understand this work.','Use an action below only after reviewing its exact effect. Close this view to return to your workspace.'];
+    const story=DIALOGS[title]||rows[0]||[`Inspect ${title}.`,'Read the displayed status, source and saved evidence to understand this work.','Use an action below only after reviewing its exact effect. Close this view to return to your workspace.'];
     return `<aside class="notice" aria-label="Task guide"><div><p><strong>${esc(story[0])}</strong></p><p>${esc(story[1])}</p><p>${esc(story[2])}</p></div></aside>`;
   }
   return {PAGES,FORMS,page,dialog};

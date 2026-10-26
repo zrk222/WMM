@@ -1,0 +1,15 @@
+{
+  "checks": [
+    {
+      "name": "scoped-hashed-native-address",
+      "kind": "python",
+      "run": "from mission_control.linux_vault import address\nx=address('DriveMedia/synthetic/one')\nassert isinstance(x,dict) and x['application']=='WMM' and len(x['address_sha256'])==64\nassert x!=address('DriveMedia/synthetic/two') and x!=address('drivemedia/synthetic/one')"
+    },
+    {
+      "name": "actual-contract-tests",
+      "kind": "python",
+      "must_fail_on_stub": false,
+      "run": "import unittest\ns=unittest.defaultTestLoader.loadTestsFromName('tests.test_linux_vault')\nr=unittest.TextTestRunner(verbosity=2).run(s)\nassert r.wasSuccessful() and r.testsRun==7 and not r.skipped"
+    }
+  ]
+}

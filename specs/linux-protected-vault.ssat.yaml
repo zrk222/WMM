@@ -1,0 +1,113 @@
+{
+  "name": "linux-protected-vault",
+  "language": "python",
+  "modules": [
+    {
+      "name": "credential_vault",
+      "path": "mission_control/credential_vault.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "namespace",
+          "args": [
+            "database"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "target",
+          "args": [
+            "scope",
+            "app_id",
+            "provider",
+            "reference"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "linux_vault",
+      "path": "mission_control/linux_vault.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "address",
+          "args": [
+            "name"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "encode",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "decode",
+          "args": [
+            "raw"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "test_linux_vault",
+      "path": "tests/test_linux_vault.py",
+      "language": "python",
+      "functions": []
+    },
+    {
+      "name": "test_linux_vault_native",
+      "path": "tests/test_linux_vault_native.py",
+      "language": "python",
+      "functions": []
+    },
+    {
+      "name": "test_measurement_connectors",
+      "path": "tests/test_measurement_connectors.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "setup_body",
+          "args": [
+            "provider",
+            "automatic"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "payloads",
+          "args": [],
+          "returns": "object"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "credential_vault",
+      "to": "linux_vault"
+    },
+    {
+      "from": "test_linux_vault",
+      "to": "linux_vault"
+    },
+    {
+      "from": "test_linux_vault",
+      "to": "credential_vault"
+    },
+    {
+      "from": "test_linux_vault_native",
+      "to": "credential_vault"
+    },
+    {
+      "from": "test_measurement_connectors",
+      "to": "credential_vault"
+    }
+  ],
+  "invariants": []
+}

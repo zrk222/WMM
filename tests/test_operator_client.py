@@ -6,6 +6,7 @@ import json
 import tempfile
 import threading
 import unittest
+from mission_control import operator_client as target
 from mission_control.common import Invalid
 from mission_control.server import Server
 from mission_control.store import Store
@@ -122,3 +123,53 @@ class OperatorTransportTests(unittest.TestCase):
             self.assertEqual(TransportFixture.seen,['/api/bootstrap','/api/apps/sample-one/subscription-growth/entries'])
         finally:
             server.shutdown();server.server_close();thread.join()
+
+
+class JSONDepthTests(unittest.TestCase):
+    def test_error_fields_invalid_constant_grant_environment_and_response_data_boundaries(self):
+        import os
+        from types import SimpleNamespace
+        error=target.ClientError('OUTCOME_UNKNOWN','inspect saved state',409,'UNKNOWN',True)
+        self.assertEqual(target.error_fields(error),dict(code='OUTCOME_UNKNOWN',message='inspect saved state',http_status=409,outcome='UNKNOWN',reconciliation_required=True))
+        with self.assertRaises(Invalid):target.invalid_constant('NaN')
+        with patch.dict(os.environ,{'WMM_AGENT_GRANT':'wmmg_'+'a'*43}):
+            self.assertIsNone(target.grant_environment(False))
+            self.assertEqual(target.grant_environment(True),'wmmg_'+'a'*43)
+        with patch.dict(os.environ,{'WMM_AGENT_GRANT':'invalid'}):
+            with self.assertRaises(Invalid):target.grant_environment(True)
+        response=SimpleNamespace(headers=SimpleNamespace(get_content_type=lambda:'application/json'),read=lambda maximum:b'['*65+b']'*65)
+        with self.assertRaises(target.ClientError) as caught:target.response_data(response)
+        self.assertEqual(caught.exception.code,'INVALID_RESPONSE')
+
+    def test_strict_json_accepts_64_containers_and_rejects_65_before_parser(self):
+        self.assertIsInstance(target.strict_json(b'['*64+b'0'+b']'*64),list)
+        for raw in (b'['*65+b'0'+b']'*65,b'{"x":'*65+b'0'+b'}'*65):
+            with patch.object(target.json,'loads',side_effect=AssertionError('Do not parse excessive nesting')):
+                with self.assertRaisesRegex(Invalid,'64'):target.strict_json(raw)
+
+    def test_validate_json_depth(self):
+        raw=b'[{"x":'*32+b'0'+b'}]'*32
+        self.assertIsNone(target.validate_json_depth(raw.decode()))
+        with self.assertRaises(Invalid):target.validate_json_depth('['+raw.decode()+']')
+        self.assertIsInstance(target.strict_json(raw),list)
+        with self.assertRaises(Invalid):target.strict_json(b'['+raw+b']')
+        for value in ('['*1100,']'*1100,'quote" [ { \\ end','\\"'+'['*1100):
+            encoded=target.json.dumps({'value':value}).encode()
+            self.assertEqual(target.strict_json(encoded),{'value':value})
+
+    def test_reject_http(self):
+        import io
+        from email.message import Message
+        from urllib.error import HTTPError
+        headers=Message();headers['Content-Type']='application/json'
+        for status,path,raw,code in (
+            (409,'/api/agent-operations/reviews/resume',b'{}','RESULT_UNCONFIRMED'),
+            (409,'/ordinary',b'{"error":"saved","outcome":"UNKNOWN","reconciliation_required":true}','OUTCOME_UNKNOWN'),
+            (400,'/ordinary',b'{}','HTTP_REJECTED')):
+            stream=io.BytesIO(raw);error=HTTPError('http://127.0.0.1:1',status,'',headers,stream)
+            with self.subTest(code=code),self.assertRaises(target.ClientError) as caught:target.reject_http(error,path,{})
+            self.assertEqual(caught.exception.code,code);self.assertTrue(stream.closed)
+
+    def test_strict_json_keeps_ambiguity_utf8_and_invalid_syntax_rejection(self):
+        for raw in (b'{"x":1,"x":2}',b'{"x":NaN}',b'{"x":1e999}',b'\xff',b'[}',b'"unterminated\\'):
+            with self.subTest(raw=raw[:10]),self.assertRaises(Invalid):target.strict_json(raw)
