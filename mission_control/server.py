@@ -167,13 +167,13 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200,{"ledger":json.loads((root/"research-ledger.json").read_text(encoding="utf-8-sig")),"acquisition":json.loads((root/"acquisition-profiles.json").read_text(encoding="utf-8-sig"))})
         if path.startswith("/api/apps/"):
             return self.get_app(path)
-        scripts=('/agent-control.js','/subscription-authoring.js','/customer-workflow.js','/growth-review.js','/page-reporting.js','/setup-discovery.js','/google-play.js','/play-callback.js','/social-access.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
+        scripts=('/agent-control.js','/subscription-authoring.js','/customer-workflow.js','/growth-review.js','/page-reporting.js','/setup-discovery.js','/google-play.js','/play-callback.js','/drive-callback.js','/social-access.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
                  '/workflow-automation.js','/followup.js','/aeo.js','/public-store-readback.js',
                  '/pmf-workflow.js','/pmf-research.js','/audit-runtime.js','/automatic-preparation.js','/campaign-sequence.js','/experiment-tracking.js',
                  '/spytok-workflow.js','/production-feasibility.js','/spira-workflow.js','/journey-readiness.js','/workflow-telemetry.js','/ui-stories.js','/complete-automation.js','/video-editor.js','/studio-controls.js','/managed-media.js','/funnel-model.js','/funnel-ui.js')
         if path in scripts:
             return self.send(200,(STATIC/path[1:]).read_bytes(),"text/javascript; charset=utf-8")
-        files={"/":"index.html","/index.html":"index.html","/style.css":"style.css","/page-reporting.css":"page-reporting.css","/video-editor.css":"video-editor.css","/app.js":"app.js","/creative-ranking.js":"creative-ranking.js","/acquisition.js":"acquisition.js","/creative-rendering.js":"creative-rendering.js","/verified-review.js":"verified-review.js","/provider-actions.js":"provider-actions.js","/outcome-learning.js":"outcome-learning.js","/signed-payments.js":"signed-payments.js"}
+        files={"/drive-callback.css":"drive-callback.css","/":"index.html","/index.html":"index.html","/style.css":"style.css","/page-reporting.css":"page-reporting.css","/video-editor.css":"video-editor.css","/app.js":"app.js","/creative-ranking.js":"creative-ranking.js","/acquisition.js":"acquisition.js","/creative-rendering.js":"creative-rendering.js","/verified-review.js":"verified-review.js","/provider-actions.js":"provider-actions.js","/outcome-learning.js":"outcome-learning.js","/signed-payments.js":"signed-payments.js"}
         if path not in files:
             raise KeyError(path)
         file=STATIC/files[path]
@@ -193,7 +193,8 @@ class Handler(BaseHTTPRequestHandler):
             return 'social-callback.html'
         if path not in ('/','/index.html'):return None
         query=parse_qs(urlparse(self.path).query,keep_blank_values=True,max_num_fields=20)
-        if 'state' in query and ('code' in query or 'error' in query):return 'play-callback.html'
+        if 'state' in query and ('code' in query or 'error' in query):
+            return 'drive-callback.html' if len(query['state'])==1 and query['state'][0].startswith('drive_') else 'play-callback.html'
         return None
 
     def get_app(self,path):

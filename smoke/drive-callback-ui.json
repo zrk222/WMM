@@ -1,0 +1,21 @@
+{
+  "checks": [
+    {
+      "name": "captured-query-is-memory-only",
+      "kind": "python",
+      "run": "import subprocess\nscript=\"const fs=require('node:fs'),assert=require('node:assert/strict'),mod={exports:{}};const source=fs.readFileSync('mission_control/static/drive-callback.js','utf8').replace(/^export /gm,'');new Function('module','globalThis',source)(mod,{});let removed=false;const browser={location:{search:'?state=drive_'+ 'a'.repeat(43)+'&code=synthetic',pathname:'/'},history:{replaceState(){removed=true}}};const result=typeof mod.exports.capture==='function'?mod.exports.capture(browser):undefined;assert.equal(result,browser.location.search.slice(1),'Capture must preserve exact query in memory');assert.equal(removed,true,'Query must be removed before use');\"\nr=subprocess.run(['node','-e',script],capture_output=True,text=True)\nassert r.returncode==0,r.stderr"
+    },
+    {
+      "name": "actual-static-and-owner-transport",
+      "kind": "python",
+      "must_fail_on_stub": false,
+      "run": "import unittest\ns=unittest.defaultTestLoader.loadTestsFromNames(['tests.test_drive_callback_http','tests.test_drive_http'])\nr=unittest.TextTestRunner(verbosity=2).run(s)\nassert r.wasSuccessful() and r.testsRun==9 and not r.skipped"
+    },
+    {
+      "name": "actual-browser-controller-tests",
+      "kind": "python",
+      "must_fail_on_stub": false,
+      "run": "import subprocess\nr=subprocess.run(['node','--test','tests/drive_callback.test.cjs'],capture_output=True,text=True)\nassert r.returncode==0,r.stdout+r.stderr"
+    }
+  ]
+}
