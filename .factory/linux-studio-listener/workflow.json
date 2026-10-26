@@ -1,0 +1,51 @@
+{
+  "agent_actions": [],
+  "authority": {
+    "approval": false,
+    "connector": false,
+    "credential": false,
+    "deployment": false,
+    "execution": false,
+    "merge": false,
+    "messaging": false,
+    "publication": false,
+    "repair": false,
+    "signing": false
+  },
+  "candidate_sha256": "b0d1cf531f0af41a63d56b3bd4b3561e1b4ed53210d6871eeac1ef60457e00a2",
+  "checks": 6,
+  "contract_sha256": "e7726899fef1934f84e2fa5124ccc4932b007584030b923f5ffac456db72bd29",
+  "errors": [],
+  "inapplicability_evidence": {
+    "accessibility": {
+      "actual_sha256": "37ceda45cca0036eac2d49bbeeae13a0bfbfdf89fdc1720dff06f32637af275e",
+      "current": true,
+      "kind": "review",
+      "path": ".factory/linux-studio-listener/scope-review.md",
+      "sha256": "37ceda45cca0036eac2d49bbeeae13a0bfbfdf89fdc1720dff06f32637af275e"
+    },
+    "external_effects": {
+      "actual_sha256": "37ceda45cca0036eac2d49bbeeae13a0bfbfdf89fdc1720dff06f32637af275e",
+      "current": true,
+      "kind": "review",
+      "path": ".factory/linux-studio-listener/scope-review.md",
+      "sha256": "37ceda45cca0036eac2d49bbeeae13a0bfbfdf89fdc1720dff06f32637af275e"
+    }
+  },
+  "limits": [
+    "Recorded evidence completeness and hashes only; observations require review.",
+    "Inapplicability review evidence is hash-bound but its judgment and identity are not authenticated.",
+    "Each contract/observation JSON input and evidence artifact is limited to 16 MiB; total evidence hashing is limited to 128 MiB, 4096 artifact references, and 4096 required check/profile pairs.",
+    "No project command or provider is executed.",
+    "No approval, certification or deployment authority."
+  ],
+  "observations_sha256": "e64dc47d1dcbb188379b6c82963a792ae76d6e4e0ea76769e84dc39f5d4f2a06",
+  "project_id": "WMM-Linux-listener-component",
+  "receipt_sha256": "e055e0b1ca3a1115a6defa401693f78660d4d19746fe6d7c595066906e681af5",
+  "resource_usage": {
+    "artifact_references": 84,
+    "bytes_hashed": 414595
+  },
+  "schema": "factory.workflow-audit.receipt.v1",
+  "state": "PASS"
+}

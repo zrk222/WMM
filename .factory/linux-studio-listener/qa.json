@@ -1,0 +1,258 @@
+{
+  "grade": "A",
+  "passed": true,
+  "metrics": {
+    "coverage_intent": 1.0,
+    "max_complexity": 10,
+    "security_score": 100,
+    "doc_ratio": 1.0,
+    "composite": 100.0,
+    "complexity_policy": "hard",
+    "coverage_assessment": "static_name_match",
+    "behavioral_proof_status": "not_measured_static_only",
+    "scope": {
+      "kind": "feature",
+      "code_files": [
+        "mission_control/studio_listener_linux.py"
+      ]
+    },
+    "skipped_paths": [],
+    "inventory_complete": true,
+    "function_inventory_complete": true,
+    "function_inventory": [
+      {
+        "path": "mission_control/studio_listener_linux.py",
+        "parser": "python-ast",
+        "status": "exact",
+        "symbols": 23
+      }
+    ],
+    "advisory_function_metrics": [],
+    "unknown_security_calls": [
+      "mission_control/studio_listener_linux.py:Invalid",
+      "mission_control/studio_listener_linux.py:any",
+      "mission_control/studio_listener_linux.py:attributes",
+      "mission_control/studio_listener_linux.py:bytearray",
+      "mission_control/studio_listener_linux.py:bytes",
+      "mission_control/studio_listener_linux.py:callable",
+      "mission_control/studio_listener_linux.py:consume",
+      "mission_control/studio_listener_linux.py:diag_request",
+      "mission_control/studio_listener_linux.py:diag_row",
+      "mission_control/studio_listener_linux.py:diagnostic",
+      "mission_control/studio_listener_linux.py:directory",
+      "mission_control/studio_listener_linux.py:entry.name.isdecimal",
+      "mission_control/studio_listener_linux.py:fail",
+      "mission_control/studio_listener_linux.py:filesystem",
+      "mission_control/studio_listener_linux.py:fn",
+      "mission_control/studio_listener_linux.py:hasattr",
+      "mission_control/studio_listener_linux.py:holder",
+      "mission_control/studio_listener_linux.py:holds",
+      "mission_control/studio_listener_linux.py:int",
+      "mission_control/studio_listener_linux.py:isinstance",
+      "mission_control/studio_listener_linux.py:len",
+      "mission_control/studio_listener_linux.py:live",
+      "mission_control/studio_listener_linux.py:matches.append",
+      "mission_control/studio_listener_linux.py:messages",
+      "mission_control/studio_listener_linux.py:observed",
+      "mission_control/studio_listener_linux.py:poller.poll",
+      "mission_control/studio_listener_linux.py:poller.register",
+      "mission_control/studio_listener_linux.py:raw.splitlines",
+      "mission_control/studio_listener_linux.py:read_file",
+      "mission_control/studio_listener_linux.py:receive_dump",
+      "mission_control/studio_listener_linux.py:remaining",
+      "mission_control/studio_listener_linux.py:request_deadline",
+      "mission_control/studio_listener_linux.py:result.append",
+      "mission_control/studio_listener_linux.py:result.extend",
+      "mission_control/studio_listener_linux.py:scope.members",
+      "mission_control/studio_listener_linux.py:scope.validate",
+      "mission_control/studio_listener_linux.py:select_member",
+      "mission_control/studio_listener_linux.py:self._owner_alive",
+      "mission_control/studio_listener_linux.py:self.close",
+      "mission_control/studio_listener_linux.py:self.validate",
+      "mission_control/studio_listener_linux.py:set",
+      "mission_control/studio_listener_linux.py:sorted",
+      "mission_control/studio_listener_linux.py:stack.callback",
+      "mission_control/studio_listener_linux.py:str",
+      "mission_control/studio_listener_linux.py:stream.bind",
+      "mission_control/studio_listener_linux.py:stream.getsockname",
+      "mission_control/studio_listener_linux.py:stream.recvmsg",
+      "mission_control/studio_listener_linux.py:stream.sendto",
+      "mission_control/studio_listener_linux.py:stream.settimeout",
+      "mission_control/studio_listener_linux.py:tuple",
+      "mission_control/studio_listener_linux.py:type",
+      "mission_control/studio_listener_linux.py:witness"
+    ],
+    "security_analysis": "bounded_pattern_inventory"
+  },
+  "findings": [],
+  "attribution": {
+    "stage": "qa_audit",
+    "n_checked": 23,
+    "n_passed": 23,
+    "units": [
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:fail",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:remaining",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:filesystem",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:directory",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:read_file",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:live",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:validate",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:members",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:close",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:messages",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:attributes",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:diag_row",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:diag_request",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:consume",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:receive_dump",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:diagnostic",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:holds",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:holder",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:select_member",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:witness",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:observed",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:request_deadline",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/studio_listener_linux.py:owns_listener",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      }
+    ],
+    "rate": 1.0,
+    "dominant_failure_class": null
+  }
+}

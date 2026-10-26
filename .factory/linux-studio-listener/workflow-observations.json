@@ -1,0 +1,487 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "e7726899fef1934f84e2fa5124ccc4932b007584030b923f5ffac456db72bd29",
+  "candidate_sha256": "b0d1cf531f0af41a63d56b3bd4b3561e1b4ed53210d6871eeac1ef60457e00a2",
+  "observations": [
+    {
+      "id": "happy_path",
+      "profile": "Windows-Python3.11-branching-and-existing-Studio",
+      "status": "PASS",
+      "reason": "Exact socket plus live retained member witness verified twice; unit branching and real container kernel component observations are distinct. Native desktop acceptance NOT_RUN.",
+      "execution_identity": "python .factory/linux-studio-listener/verify.py",
+      "observed_at": "2026-10-26T08:52:15.607962+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/linux-studio-listener/unit.log",
+          "kind": "log",
+          "sha256": "13c76b12622e5a7954bdc63915802c7d8832ca0f9a1ac05a1fedcecbb77e9778"
+        },
+        {
+          "path": ".factory/linux-studio-listener/mutations.json",
+          "kind": "log",
+          "sha256": "77b70f00ed77f74b1d049976eb94b1cba3c6add36fd2ea6806787050d6d2bc8c"
+        },
+        {
+          "path": ".factory/linux-studio-listener/regressions.log",
+          "kind": "log",
+          "sha256": "3bfeb2edfc8880b2f7412beafef4435eae4b6254d08c1f50f4a6b7748974b005"
+        },
+        {
+          "path": ".factory/linux-studio-listener/security.json",
+          "kind": "log",
+          "sha256": "fa9a94feff4e85b9b8cac564b839d930b7d49055425691bfc384db74874249d9"
+        },
+        {
+          "path": ".factory/linux-studio-listener/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/linux-studio-listener/qa.json",
+          "kind": "log",
+          "sha256": "10672631a3caef0eb70162521c7dca4c5022cdeadde4ba00f00b67c21b8a1425"
+        }
+      ]
+    },
+    {
+      "id": "happy_path",
+      "profile": "Docker-Ubuntu-Python3.12-kernel-component-only",
+      "status": "PASS",
+      "reason": "Exact socket plus live retained member witness verified twice; unit branching and real container kernel component observations are distinct. Native desktop acceptance NOT_RUN.",
+      "execution_identity": "python .factory/linux-studio-listener/verify.py",
+      "observed_at": "2026-10-26T08:52:15.648372+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/linux-studio-listener/kernel-component.log",
+          "kind": "log",
+          "sha256": "76b229e59ff8d771a5b2db731669f5a8005b65641595607159cf30f79bcbdefa"
+        },
+        {
+          "path": ".factory/linux-studio-listener/kernel-unit.log",
+          "kind": "log",
+          "sha256": "1a6e4b8cafe7c035b49de295328b7024a3ee2d1e85028de8a1bd841213ed5b84"
+        },
+        {
+          "path": ".factory/linux-studio-listener/image-identity.log",
+          "kind": "log",
+          "sha256": "595256a504a03521be9adac1a863679b4d69042ead503bb827c2ca32edcbf888"
+        },
+        {
+          "path": ".factory/linux-studio-listener/security.json",
+          "kind": "log",
+          "sha256": "fa9a94feff4e85b9b8cac564b839d930b7d49055425691bfc384db74874249d9"
+        },
+        {
+          "path": ".factory/linux-studio-listener/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/linux-studio-listener/qa.json",
+          "kind": "log",
+          "sha256": "10672631a3caef0eb70162521c7dca4c5022cdeadde4ba00f00b67c21b8a1425"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-Python3.11-branching-and-existing-Studio",
+      "status": "PASS",
+      "reason": "Malformed framing, sender/sequence, truncation, ambiguity, stale/cookie/input and scope failure deny; all five traced requirements retain strict/mutation evidence. Native desktop acceptance NOT_RUN.",
+      "execution_identity": "python .factory/linux-studio-listener/verify.py",
+      "observed_at": "2026-10-26T08:52:15.683045+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/linux-studio-listener/unit.log",
+          "kind": "log",
+          "sha256": "13c76b12622e5a7954bdc63915802c7d8832ca0f9a1ac05a1fedcecbb77e9778"
+        },
+        {
+          "path": ".factory/linux-studio-listener/mutations.json",
+          "kind": "log",
+          "sha256": "77b70f00ed77f74b1d049976eb94b1cba3c6add36fd2ea6806787050d6d2bc8c"
+        },
+        {
+          "path": ".factory/linux-studio-listener/regressions.log",
+          "kind": "log",
+          "sha256": "3bfeb2edfc8880b2f7412beafef4435eae4b6254d08c1f50f4a6b7748974b005"
+        },
+        {
+          "path": ".factory/linux-studio-listener/security.json",
+          "kind": "log",
+          "sha256": "fa9a94feff4e85b9b8cac564b839d930b7d49055425691bfc384db74874249d9"
+        },
+        {
+          "path": ".factory/linux-studio-listener/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/linux-studio-listener/qa.json",
+          "kind": "log",
+          "sha256": "10672631a3caef0eb70162521c7dca4c5022cdeadde4ba00f00b67c21b8a1425"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Docker-Ubuntu-Python3.12-kernel-component-only",
+      "status": "PASS",
+      "reason": "Malformed framing, sender/sequence, truncation, ambiguity, stale/cookie/input and scope failure deny; all five traced requirements retain strict/mutation evidence. Native desktop acceptance NOT_RUN.",
+      "execution_identity": "python .factory/linux-studio-listener/verify.py",
+      "observed_at": "2026-10-26T08:52:15.684050+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/linux-studio-listener/kernel-component.log",
+          "kind": "log",
+          "sha256": "76b229e59ff8d771a5b2db731669f5a8005b65641595607159cf30f79bcbdefa"
+        },
+        {
+          "path": ".factory/linux-studio-listener/kernel-unit.log",
+          "kind": "log",
+          "sha256": "1a6e4b8cafe7c035b49de295328b7024a3ee2d1e85028de8a1bd841213ed5b84"
+        },
+        {
+          "path": ".factory/linux-studio-listener/image-identity.log",
+          "kind": "log",
+          "sha256": "595256a504a03521be9adac1a863679b4d69042ead503bb827c2ca32edcbf888"
+        },
+        {
+          "path": ".factory/linux-studio-listener/security.json",
+          "kind": "log",
+          "sha256": "fa9a94feff4e85b9b8cac564b839d930b7d49055425691bfc384db74874249d9"
+        },
+        {
+          "path": ".factory/linux-studio-listener/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/linux-studio-listener/qa.json",
+          "kind": "log",
+          "sha256": "10672631a3caef0eb70162521c7dca4c5022cdeadde4ba00f00b67c21b8a1425"
+        }
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "profile": "Windows-Python3.11-branching-and-existing-Studio",
+      "status": "PASS",
+      "reason": "Exceptions close sockets, task/proc/cgroup descriptors and retain no PID authority; late death/migration and revoked owner deny. Native desktop acceptance NOT_RUN.",
+      "execution_identity": "python .factory/linux-studio-listener/verify.py",
+      "observed_at": "2026-10-26T08:52:15.684050+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/linux-studio-listener/unit.log",
+          "kind": "log",
+          "sha256": "13c76b12622e5a7954bdc63915802c7d8832ca0f9a1ac05a1fedcecbb77e9778"
+        },
+        {
+          "path": ".factory/linux-studio-listener/mutations.json",
+          "kind": "log",
+          "sha256": "77b70f00ed77f74b1d049976eb94b1cba3c6add36fd2ea6806787050d6d2bc8c"
+        },
+        {
+          "path": ".factory/linux-studio-listener/regressions.log",
+          "kind": "log",
+          "sha256": "3bfeb2edfc8880b2f7412beafef4435eae4b6254d08c1f50f4a6b7748974b005"
+        },
+        {
+          "path": ".factory/linux-studio-listener/security.json",
+          "kind": "log",
+          "sha256": "fa9a94feff4e85b9b8cac564b839d930b7d49055425691bfc384db74874249d9"
+        },
+        {
+          "path": ".factory/linux-studio-listener/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/linux-studio-listener/qa.json",
+          "kind": "log",
+          "sha256": "10672631a3caef0eb70162521c7dca4c5022cdeadde4ba00f00b67c21b8a1425"
+        }
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "profile": "Docker-Ubuntu-Python3.12-kernel-component-only",
+      "status": "PASS",
+      "reason": "Exceptions close sockets, task/proc/cgroup descriptors and retain no PID authority; late death/migration and revoked owner deny. Native desktop acceptance NOT_RUN.",
+      "execution_identity": "python .factory/linux-studio-listener/verify.py",
+      "observed_at": "2026-10-26T08:52:15.685045+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/linux-studio-listener/kernel-component.log",
+          "kind": "log",
+          "sha256": "76b229e59ff8d771a5b2db731669f5a8005b65641595607159cf30f79bcbdefa"
+        },
+        {
+          "path": ".factory/linux-studio-listener/kernel-unit.log",
+          "kind": "log",
+          "sha256": "1a6e4b8cafe7c035b49de295328b7024a3ee2d1e85028de8a1bd841213ed5b84"
+        },
+        {
+          "path": ".factory/linux-studio-listener/image-identity.log",
+          "kind": "log",
+          "sha256": "595256a504a03521be9adac1a863679b4d69042ead503bb827c2ca32edcbf888"
+        },
+        {
+          "path": ".factory/linux-studio-listener/security.json",
+          "kind": "log",
+          "sha256": "fa9a94feff4e85b9b8cac564b839d930b7d49055425691bfc384db74874249d9"
+        },
+        {
+          "path": ".factory/linux-studio-listener/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/linux-studio-listener/qa.json",
+          "kind": "log",
+          "sha256": "10672631a3caef0eb70162521c7dca4c5022cdeadde4ba00f00b67c21b8a1425"
+        }
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "profile": "Windows-Python3.11-branching-and-existing-Studio",
+      "status": "PASS",
+      "reason": "Same inode/cookie and original live pidfd persist across two observations; same-scope inherited holders accepted, foreign/missing witness denied. Native desktop acceptance NOT_RUN.",
+      "execution_identity": "python .factory/linux-studio-listener/verify.py",
+      "observed_at": "2026-10-26T08:52:15.685045+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/linux-studio-listener/unit.log",
+          "kind": "log",
+          "sha256": "13c76b12622e5a7954bdc63915802c7d8832ca0f9a1ac05a1fedcecbb77e9778"
+        },
+        {
+          "path": ".factory/linux-studio-listener/mutations.json",
+          "kind": "log",
+          "sha256": "77b70f00ed77f74b1d049976eb94b1cba3c6add36fd2ea6806787050d6d2bc8c"
+        },
+        {
+          "path": ".factory/linux-studio-listener/regressions.log",
+          "kind": "log",
+          "sha256": "3bfeb2edfc8880b2f7412beafef4435eae4b6254d08c1f50f4a6b7748974b005"
+        },
+        {
+          "path": ".factory/linux-studio-listener/security.json",
+          "kind": "log",
+          "sha256": "fa9a94feff4e85b9b8cac564b839d930b7d49055425691bfc384db74874249d9"
+        },
+        {
+          "path": ".factory/linux-studio-listener/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/linux-studio-listener/qa.json",
+          "kind": "log",
+          "sha256": "10672631a3caef0eb70162521c7dca4c5022cdeadde4ba00f00b67c21b8a1425"
+        }
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "profile": "Docker-Ubuntu-Python3.12-kernel-component-only",
+      "status": "PASS",
+      "reason": "Same inode/cookie and original live pidfd persist across two observations; same-scope inherited holders accepted, foreign/missing witness denied. Native desktop acceptance NOT_RUN.",
+      "execution_identity": "python .factory/linux-studio-listener/verify.py",
+      "observed_at": "2026-10-26T08:52:15.686045+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/linux-studio-listener/kernel-component.log",
+          "kind": "log",
+          "sha256": "76b229e59ff8d771a5b2db731669f5a8005b65641595607159cf30f79bcbdefa"
+        },
+        {
+          "path": ".factory/linux-studio-listener/kernel-unit.log",
+          "kind": "log",
+          "sha256": "1a6e4b8cafe7c035b49de295328b7024a3ee2d1e85028de8a1bd841213ed5b84"
+        },
+        {
+          "path": ".factory/linux-studio-listener/image-identity.log",
+          "kind": "log",
+          "sha256": "595256a504a03521be9adac1a863679b4d69042ead503bb827c2ca32edcbf888"
+        },
+        {
+          "path": ".factory/linux-studio-listener/security.json",
+          "kind": "log",
+          "sha256": "fa9a94feff4e85b9b8cac564b839d930b7d49055425691bfc384db74874249d9"
+        },
+        {
+          "path": ".factory/linux-studio-listener/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/linux-studio-listener/qa.json",
+          "kind": "log",
+          "sha256": "10672631a3caef0eb70162521c7dca4c5022cdeadde4ba00f00b67c21b8a1425"
+        }
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "profile": "Windows-Python3.11-branching-and-existing-Studio",
+      "status": "PASS",
+      "reason": "No process signalling, service-manager call, shell or selector activation; retained fd/callback scope only; bounded-source static security plus privacy checks. Native desktop acceptance NOT_RUN.",
+      "execution_identity": "python .factory/linux-studio-listener/verify.py",
+      "observed_at": "2026-10-26T08:52:15.687048+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/linux-studio-listener/unit.log",
+          "kind": "log",
+          "sha256": "13c76b12622e5a7954bdc63915802c7d8832ca0f9a1ac05a1fedcecbb77e9778"
+        },
+        {
+          "path": ".factory/linux-studio-listener/mutations.json",
+          "kind": "log",
+          "sha256": "77b70f00ed77f74b1d049976eb94b1cba3c6add36fd2ea6806787050d6d2bc8c"
+        },
+        {
+          "path": ".factory/linux-studio-listener/regressions.log",
+          "kind": "log",
+          "sha256": "3bfeb2edfc8880b2f7412beafef4435eae4b6254d08c1f50f4a6b7748974b005"
+        },
+        {
+          "path": ".factory/linux-studio-listener/security.json",
+          "kind": "log",
+          "sha256": "fa9a94feff4e85b9b8cac564b839d930b7d49055425691bfc384db74874249d9"
+        },
+        {
+          "path": ".factory/linux-studio-listener/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/linux-studio-listener/qa.json",
+          "kind": "log",
+          "sha256": "10672631a3caef0eb70162521c7dca4c5022cdeadde4ba00f00b67c21b8a1425"
+        }
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "profile": "Docker-Ubuntu-Python3.12-kernel-component-only",
+      "status": "PASS",
+      "reason": "No process signalling, service-manager call, shell or selector activation; retained fd/callback scope only; bounded-source static security plus privacy checks. Native desktop acceptance NOT_RUN.",
+      "execution_identity": "python .factory/linux-studio-listener/verify.py",
+      "observed_at": "2026-10-26T08:52:15.687048+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/linux-studio-listener/kernel-component.log",
+          "kind": "log",
+          "sha256": "76b229e59ff8d771a5b2db731669f5a8005b65641595607159cf30f79bcbdefa"
+        },
+        {
+          "path": ".factory/linux-studio-listener/kernel-unit.log",
+          "kind": "log",
+          "sha256": "1a6e4b8cafe7c035b49de295328b7024a3ee2d1e85028de8a1bd841213ed5b84"
+        },
+        {
+          "path": ".factory/linux-studio-listener/image-identity.log",
+          "kind": "log",
+          "sha256": "595256a504a03521be9adac1a863679b4d69042ead503bb827c2ca32edcbf888"
+        },
+        {
+          "path": ".factory/linux-studio-listener/security.json",
+          "kind": "log",
+          "sha256": "fa9a94feff4e85b9b8cac564b839d930b7d49055425691bfc384db74874249d9"
+        },
+        {
+          "path": ".factory/linux-studio-listener/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/linux-studio-listener/qa.json",
+          "kind": "log",
+          "sha256": "10672631a3caef0eb70162521c7dca4c5022cdeadde4ba00f00b67c21b8a1425"
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "profile": "Windows-Python3.11-branching-and-existing-Studio",
+      "status": "PASS",
+      "reason": "Explicit deadline, byte/message/member/fd limits are tested; native repeated observations preserve descriptor counts. No throughput or hard kernel-preemption guarantee. Native desktop acceptance NOT_RUN.",
+      "execution_identity": "python .factory/linux-studio-listener/verify.py",
+      "observed_at": "2026-10-26T08:52:15.688038+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/linux-studio-listener/unit.log",
+          "kind": "log",
+          "sha256": "13c76b12622e5a7954bdc63915802c7d8832ca0f9a1ac05a1fedcecbb77e9778"
+        },
+        {
+          "path": ".factory/linux-studio-listener/mutations.json",
+          "kind": "log",
+          "sha256": "77b70f00ed77f74b1d049976eb94b1cba3c6add36fd2ea6806787050d6d2bc8c"
+        },
+        {
+          "path": ".factory/linux-studio-listener/regressions.log",
+          "kind": "log",
+          "sha256": "3bfeb2edfc8880b2f7412beafef4435eae4b6254d08c1f50f4a6b7748974b005"
+        },
+        {
+          "path": ".factory/linux-studio-listener/security.json",
+          "kind": "log",
+          "sha256": "fa9a94feff4e85b9b8cac564b839d930b7d49055425691bfc384db74874249d9"
+        },
+        {
+          "path": ".factory/linux-studio-listener/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/linux-studio-listener/qa.json",
+          "kind": "log",
+          "sha256": "10672631a3caef0eb70162521c7dca4c5022cdeadde4ba00f00b67c21b8a1425"
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "profile": "Docker-Ubuntu-Python3.12-kernel-component-only",
+      "status": "PASS",
+      "reason": "Explicit deadline, byte/message/member/fd limits are tested; native repeated observations preserve descriptor counts. No throughput or hard kernel-preemption guarantee. Native desktop acceptance NOT_RUN.",
+      "execution_identity": "python .factory/linux-studio-listener/verify.py",
+      "observed_at": "2026-10-26T08:52:15.688038+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/linux-studio-listener/kernel-component.log",
+          "kind": "log",
+          "sha256": "76b229e59ff8d771a5b2db731669f5a8005b65641595607159cf30f79bcbdefa"
+        },
+        {
+          "path": ".factory/linux-studio-listener/kernel-unit.log",
+          "kind": "log",
+          "sha256": "1a6e4b8cafe7c035b49de295328b7024a3ee2d1e85028de8a1bd841213ed5b84"
+        },
+        {
+          "path": ".factory/linux-studio-listener/image-identity.log",
+          "kind": "log",
+          "sha256": "595256a504a03521be9adac1a863679b4d69042ead503bb827c2ca32edcbf888"
+        },
+        {
+          "path": ".factory/linux-studio-listener/security.json",
+          "kind": "log",
+          "sha256": "fa9a94feff4e85b9b8cac564b839d930b7d49055425691bfc384db74874249d9"
+        },
+        {
+          "path": ".factory/linux-studio-listener/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/linux-studio-listener/qa.json",
+          "kind": "log",
+          "sha256": "10672631a3caef0eb70162521c7dca4c5022cdeadde4ba00f00b67c21b8a1425"
+        }
+      ]
+    }
+  ]
+}
