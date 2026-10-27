@@ -1,0 +1,2 @@
+$ specline tasks apple-analytics-metrics --root .
+8 atomic tasks OK � next: specline gate plan apple-analytics-metrics

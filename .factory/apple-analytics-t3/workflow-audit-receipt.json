@@ -1,0 +1,51 @@
+{
+  "agent_actions": [],
+  "authority": {
+    "approval": false,
+    "connector": false,
+    "credential": false,
+    "deployment": false,
+    "execution": false,
+    "merge": false,
+    "messaging": false,
+    "publication": false,
+    "repair": false,
+    "signing": false
+  },
+  "candidate_sha256": "e7298a46df90542f1bb48ae818e146e055137ce6a2dc90e47a4818dcbe81035e",
+  "checks": 6,
+  "contract_sha256": "604aa477b27f2893e0065867a06a2eea77937cc83ee0da2bb088079686464651",
+  "errors": [],
+  "inapplicability_evidence": {
+    "accessibility": {
+      "actual_sha256": "ac269f2ccd377a6a660da572d9af4faecc900301eab62e8722172321e400ddcb",
+      "current": true,
+      "kind": "review",
+      "path": ".factory/apple-analytics-t3/scope-review.md",
+      "sha256": "ac269f2ccd377a6a660da572d9af4faecc900301eab62e8722172321e400ddcb"
+    },
+    "external_effects": {
+      "actual_sha256": "ac269f2ccd377a6a660da572d9af4faecc900301eab62e8722172321e400ddcb",
+      "current": true,
+      "kind": "review",
+      "path": ".factory/apple-analytics-t3/scope-review.md",
+      "sha256": "ac269f2ccd377a6a660da572d9af4faecc900301eab62e8722172321e400ddcb"
+    }
+  },
+  "limits": [
+    "Recorded evidence completeness and hashes only; observations require review.",
+    "Inapplicability review evidence is hash-bound but its judgment and identity are not authenticated.",
+    "Each contract/observation JSON input and evidence artifact is limited to 16 MiB; total evidence hashing is limited to 128 MiB, 4096 artifact references, and 4096 required check/profile pairs.",
+    "No project command or provider is executed.",
+    "No approval, certification or deployment authority."
+  ],
+  "observations_sha256": "c7d7852392dd5fc7907451c089c5de6972ec1cfdf5bcee089f30ff9284d21e9a",
+  "project_id": "WMM-apple-analytics-parse-reconcile-T3",
+  "receipt_sha256": "b7ae7c407150bad759478926ff7d92f5f6955f29177a967c38da66222ff664b5",
+  "resource_usage": {
+    "artifact_references": 21,
+    "bytes_hashed": 176163
+  },
+  "schema": "factory.workflow-audit.receipt.v1",
+  "state": "PASS"
+}

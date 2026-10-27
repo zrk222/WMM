@@ -4,7 +4,7 @@ Architect verdict: PASS - staged contract; signed segment transport is bounded a
 
 - [x] T1 | slice=specs | files=specs/apple-analytics-metrics.md | verify=`specline strict apple-analytics-metrics --root . --json` | Bind scope, integrity, reconciliation and explicit unknowns before implementation.
 - [x] T2 | slice=mission_control | files=mission_control/apple_analytics.py,mission_control/providers.py,mission_control/apple_segments.py | verify=`python -m unittest tests.test_apple_metrics_transport -v` | Traverse scoped segments and download bounded verified bytes without credential or signed URL leakage.
-- [ ] T3 | slice=mission_control | files=mission_control/apple_metrics.py,mission_control/apple_metrics_store.py,mission_control/db.py | verify=`python -m unittest tests.test_apple_metrics -v` | Validate supported report schemas and retain app-scoped provenance with idempotent correction-aware reconciliation.
+- [x] T3 | slice=mission_control | files=mission_control/apple_metrics.py,mission_control/apple_metrics_store.py,mission_control/db.py,tests/test_apple_metrics.py | verify=`python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport -v` | Validate the supported downloads schema, split complete instances by observation date, and retain app-scoped provenance with atomic, idempotent correction-aware reconciliation. Production ingestion remains disabled pending T5 authority fencing.
 - [ ] T4 | slice=tests | files=tests/test_apple_metrics_transport.py,tests/test_apple_metrics.py | verify=`python -m unittest tests.test_apple_metrics_transport tests.test_apple_metrics -v` | Exercise malformed, foreign, duplicate, partial, delayed and corrected synthetic reports.
 - [ ] T5 | slice=mission_control | files=mission_control/provider_reports.py,mission_control/worker.py,mission_control/apple_metrics_schedule.py | verify=`python -m unittest tests.test_apple_metrics_worker -v` | Connect durable per-app refresh, bounded retries and recovery to existing authority checks.
 - [ ] T6 | slice=mission_control | files=mission_control/static/app.js,mission_control/static/app.css,mission_control/operation_runtime.py | verify=`python -m unittest tests.test_apple_metrics_surface -v` | Present observations, coverage and recovery for owners and admitted agents.
@@ -19,3 +19,9 @@ The local transport packet passed 62 Apple analytics, parser, contract, store,
 and segment-transport tests on Windows/Python 3.11.9. Apple's documented S3 sample
 host pattern is the only accepted signed destination shape; provider endpoints,
 credentials and live report instances remain unverified and are NOT_RUN.
+
+T3 local verification covers the supported App Downloads Standard daily schema
+and synthetic SQLite reconciliation only. The schema addition is forward-only
+and idempotent through the existing `CREATE TABLE IF NOT EXISTS` initializer; it
+does not backfill data. The worker, additional report families, provider
+readback, scheduled refresh, UI and account acceptance remain incomplete.

@@ -14,7 +14,15 @@ Status: implementation pending; native provider readback and full product accept
 - When `AM_PRIVACY` stores or exports a result, the system shall exclude provider credentials, signed download URLs and unrelated apps, and shall not perform provider writes. [AM9]
 
 ## Authorized parameters
-timeout=15
+timeout = 15
+MAX_PARTITIONS_PER_APP = 1000
+MAX_PARTITION_BYTES = 4194304
+MAX_APP_BYTES = 16777216
+max_workers = 2
+
+The partition and app byte budgets are local serialized-storage limits, not
+Apple provider limits. `max_workers` is used only by the SQLite offline
+concurrency test; it is not a runtime setting.
 
 ### Acceptance criteria (Gherkin)
 ```gherkin

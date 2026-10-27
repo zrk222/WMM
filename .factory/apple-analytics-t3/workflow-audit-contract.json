@@ -1,0 +1,173 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "WMM-apple-analytics-parse-reconcile-T3",
+  "candidate": [
+    {
+      "path": "mission_control/apple_metrics.py",
+      "sha256": "4d28799750c2a17ef62f7784e11afa8ed538a9b0416325f2985294a1397b1bc9",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/apple_metrics_store.py",
+      "sha256": "cdc1b5de02b567d2273c3b959db59db05d27a16a35f7136806b0b0505f9d76b1",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/apple_metrics_contract.py",
+      "sha256": "65e41574f9d614474741287acbc131c5f66d88bc922a451d010359e01521202f",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/common.py",
+      "sha256": "a43443aab9489ad9cfe0e9a510ae8680a5c0a997aef98a7c4962ddbaefb7dfd3",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/db.py",
+      "sha256": "95b00569bf24d5745f61c84cb0e5fef5eaf474178ce77481dfd5319bff034f7f",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_apple_metrics.py",
+      "sha256": "8fafa0ff4beb306feee1fa5b31f906112cf98147a6d30f245a3bf0180d6e0c90",
+      "kind": "test"
+    },
+    {
+      "path": "tests/test_apple_metrics_store.py",
+      "sha256": "8898f0d76c61b6a40778b2010a40bdb01173cddf6d28ba1a4c1acaede7c2de28",
+      "kind": "test"
+    },
+    {
+      "path": "tests/test_apple_metrics_contract.py",
+      "sha256": "ef3988eea02d0d3e0f8eb1f6c88b11d75b63c40838bb9755c38bec2bc96df9ed",
+      "kind": "test"
+    },
+    {
+      "path": "tests/test_apple_analytics_parser.py",
+      "sha256": "5f7c0676d140b655c05fe9c02b132aba926bbfc52762ec9450649362e6e00566",
+      "kind": "test"
+    },
+    {
+      "path": "tests/test_apple_metrics_transport.py",
+      "sha256": "0e159c0c578f88061d712727876e38c9d978c4cf3a3e7f251a0d0f6ab159b362",
+      "kind": "test"
+    },
+    {
+      "path": "specs/apple-analytics-metrics.md",
+      "sha256": "bb3d9576be443de7a843ec72d46028f6ef43a57278177199baf77c3c07a8610f",
+      "kind": "contract"
+    },
+    {
+      "path": "plans/apple-analytics-metrics.md",
+      "sha256": "e82114e104b72f170eb7abd6146bc93b93f97529fa462917ffb734080e37a337",
+      "kind": "contract"
+    },
+    {
+      "path": ".factory/apple-analytics-t3/scope-review.md",
+      "sha256": "ac269f2ccd377a6a660da572d9af4faecc900301eab62e8722172321e400ddcb",
+      "kind": "review"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "Parse complete report segments into dated app partitions and read them back after local persistence."
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "Reject malformed dates, schemas, foreign app identifiers, unsupported key fields, duplicate segments and unsafe dimensions."
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": true,
+      "reason": "Prove malformed reports do not persist and SQL failure rolls back every date in the report savepoint."
+    },
+    {
+      "category": "state_consistency",
+      "applicable": true,
+      "reason": "Prove idempotence, newer correction replacement, stale no-op behavior, absent dates and explicit zero observations."
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "Keep app scope and source provenance bound; exclude signed URL fields and reject URL-like observation labels; production ingestion stays disabled."
+    },
+    {
+      "category": "performance",
+      "applicable": true,
+      "reason": "Enforce parser, partition-count, per-partition and per-app byte bounds before local persistence."
+    },
+    {
+      "category": "accessibility",
+      "applicable": false,
+      "reason": "No UI, keyboard interaction, or assistive-technology behavior changes in this backend-only slice.",
+      "review_evidence": {
+        "path": ".factory/apple-analytics-t3/scope-review.md",
+        "sha256": "ac269f2ccd377a6a660da572d9af4faecc900301eab62e8722172321e400ddcb",
+        "kind": "review"
+      }
+    },
+    {
+      "category": "external_effects",
+      "applicable": false,
+      "reason": "The slice is offline and has no provider, network, subprocess, publication, or campaign side effect; production ingestion stays disabled.",
+      "review_evidence": {
+        "path": ".factory/apple-analytics-t3/scope-review.md",
+        "sha256": "ac269f2ccd377a6a660da572d9af4faecc900301eab62e8722172321e400ddcb",
+        "kind": "review"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "id": "happy_path",
+      "category": "happy_path",
+      "requirement": "Parse a complete supported Apple App Downloads Standard instance, split observations by event date, and retain source provenance in a local app-scoped SQLite partition.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-offline"
+      ]
+    },
+    {
+      "id": "validation",
+      "category": "validation",
+      "requirement": "Reject malformed or foreign report data, invalid identity, repeated segments, and labels that could contain URLs or credential syntax.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-offline"
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "category": "failure_recovery",
+      "requirement": "Ensure parsing failure and a failed later-date SQLite write leave no partial partitions.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-offline"
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "category": "state_consistency",
+      "requirement": "Make duplicate reads idempotent, newer complete corrections replace without summing, and stale reads do not overwrite newer observations.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-offline"
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "category": "security_privacy",
+      "requirement": "Store only bounded app-scoped observations and source hashes; do not return signed URL fields or enable production ingestion.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-offline"
+      ]
+    },
+    {
+      "id": "performance",
+      "category": "performance",
+      "requirement": "Enforce complete-parser, partition-count, individual-partition byte, and aggregate per-app storage bounds.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-offline"
+      ]
+    }
+  ]
+}

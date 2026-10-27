@@ -1,0 +1,336 @@
+$ specline audit apple-analytics-metrics --root . --files mission_control/apple_metrics.py mission_control/apple_metrics_store.py mission_control/db.py tests/test_apple_metrics.py tests/test_apple_metrics_store.py --slice mission_control --base-commit 4d3fad78b8a16a4b31013a9c58055c64256c4420 --json
+{
+  "passed": true,
+  "attribution": {
+    "stage": "drift_audit",
+    "n_checked": 46,
+    "n_passed": 46,
+    "units": [
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\mission_control\\apple_metrics.py:parse_partitions",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\mission_control\\apple_metrics.py:reconcile_offline_instance",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\mission_control\\apple_metrics_store.py:ingest",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\mission_control\\apple_metrics_store.py:read_partition",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\mission_control\\apple_metrics_store.py:_reconcile",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\mission_control\\apple_metrics_store.py:_source_hash",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\mission_control\\db.py:session",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\mission_control\\db.py:transaction",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\mission_control\\db.py:connection",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\mission_control\\db.py:initialize",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics.py:identity",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics.py:segment",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics.py:one_day",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics.py:persist",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics.py:setUp",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics.py:read",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics.py:test_splits_multi_day_instance_and_preserves_event_meanings_and_zero",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics.py:test_reconciliation_is_idempotent_and_new_processing_date_replaces",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics.py:test_multiday_sql_failure_rolls_back_entire_savepoint",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics.py:test_rejects_malformed_foreign_partial_and_unsupported_observations",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics.py:test_rejects_duplicate_segment_identity_and_private_dimension_values",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics.py:test_requires_existing_transaction_and_existing_local_app",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics.py:test_initialized_schema_is_idempotent",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:key",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:instance",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:offline_commit",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:setUp",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:read",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:write",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:test_disabled_ingestion_does_not_open_database_or_validate_input",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:test_complete_partition_survives_reopen_with_provenance",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:test_newer_processing_date_replaces_without_summing",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:test_older_processing_result_is_noop_including_timestamp",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:test_multiset_idempotence_ignores_order_preserves_multiplicity",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:test_conflicting_same_version_preserves_data_and_timestamp",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:test_changed_same_version_source_provenance_rejected",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:test_all_identity_components_isolate_partitions",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:test_missing_dates_remain_absent_and_explicit_zero_is_stored",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:test_partial_empty_foreign_and_invalid_refresh_preserve_prior",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:test_requires_transaction_and_existing_app",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:test_transaction_exception_rolls_back_replacement_and_other_partition",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:test_sql_failure_rolls_back_and_preserves_timestamp",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:test_partition_count_limit_is_per_app_and_replacements_do_not_grow_history",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:test_partition_and_total_byte_limits_preserve_existing_data",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:test_concurrent_offline_transactions_serialize_exact_duplicate",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      },
+      {
+        "unit": "function:C:\\Users\\rkatz\\Documents\\Codex\\2026-09-22\\re-2\\outputs\\WMM\\tests\\test_apple_metrics_store.py:test_read_rejects_corrupt_payload_metadata_hashes_and_timestamps",
+        "stage": "drift_audit",
+        "passed": true,
+        "evidence": "no drift found",
+        "failure_class": null
+      }
+    ],
+    "rate": 1.0,
+    "dominant_failure_class": null
+  }
+}
+AUDIT OK � no drift (0 warns).
