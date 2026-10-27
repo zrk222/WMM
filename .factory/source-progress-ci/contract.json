@@ -1,0 +1,130 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "WMM-source-progress-ci-clock",
+  "candidate": [
+    {
+      "path": "tests/test_source_progress.py",
+      "sha256": "26b53cc1dcdf7de679869e8544a5062b1f3e904a561567ff597e37bc65ddb974",
+      "kind": "test"
+    },
+    {
+      "path": "mission_control/campaign_inputs.py",
+      "sha256": "bfa13f97bccd3512e49717d97e2378dce69ec5225cac79e733f03b5ba7782992",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/resolution_tools.py",
+      "sha256": "8542a27fe4a538f189d296acd270e11e56d59bba04b91416abd061fcb964fe23",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_campaign_inputs.py",
+      "sha256": "f26466bf48e03df88bf55fcc5ebedf67ecc69731a708b4cd2f0edd2dbbbaec05",
+      "kind": "test"
+    },
+    {
+      "path": ".factory/source-progress-ci/seal.py",
+      "sha256": "17fc93d6ba7e5768307e1c46851adb74f26e8db225ab834fba6054de644359b0",
+      "kind": "source"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "See scoped test-only review"
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "See scoped test-only review"
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": true,
+      "reason": "See scoped test-only review"
+    },
+    {
+      "category": "state_consistency",
+      "applicable": true,
+      "reason": "See scoped test-only review"
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "See scoped test-only review"
+    },
+    {
+      "category": "performance",
+      "applicable": false,
+      "reason": "See scoped test-only review",
+      "review_evidence": {
+        "path": ".factory/source-progress-ci/scope.md",
+        "sha256": "148fe5dd3f042b1408da29bb41eb9f022fcd4a9d622d2fe88f29018e74966291",
+        "kind": "review"
+      }
+    },
+    {
+      "category": "accessibility",
+      "applicable": false,
+      "reason": "See scoped test-only review",
+      "review_evidence": {
+        "path": ".factory/source-progress-ci/scope.md",
+        "sha256": "148fe5dd3f042b1408da29bb41eb9f022fcd4a9d622d2fe88f29018e74966291",
+        "kind": "review"
+      }
+    },
+    {
+      "category": "external_effects",
+      "applicable": false,
+      "reason": "See scoped test-only review",
+      "review_evidence": {
+        "path": ".factory/source-progress-ci/scope.md",
+        "sha256": "148fe5dd3f042b1408da29bb41eb9f022fcd4a9d622d2fe88f29018e74966291",
+        "kind": "review"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "id": "happy",
+      "category": "happy_path",
+      "requirement": "Synthetic collection dispatch succeeds inside a stable approved hour",
+      "profiles": [
+        "Windows-CPython-3.11-synthetic-SQLite"
+      ]
+    },
+    {
+      "id": "validation",
+      "category": "validation",
+      "requirement": "Existing stale and foreign approval rejection remains tested",
+      "profiles": [
+        "Windows-CPython-3.11-synthetic-SQLite"
+      ]
+    },
+    {
+      "id": "recovery",
+      "category": "failure_recovery",
+      "requirement": "Existing tests retain failed results and expose repair",
+      "profiles": [
+        "Windows-CPython-3.11-synthetic-SQLite"
+      ]
+    },
+    {
+      "id": "state",
+      "category": "state_consistency",
+      "requirement": "Synthetic persisted child status remains app scoped across restart",
+      "profiles": [
+        "Windows-CPython-3.11-synthetic-SQLite"
+      ]
+    },
+    {
+      "id": "privacy",
+      "category": "security_privacy",
+      "requirement": "Foreign source jobs cannot satisfy collection and production authority is unchanged",
+      "profiles": [
+        "Windows-CPython-3.11-synthetic-SQLite"
+      ]
+    }
+  ]
+}
