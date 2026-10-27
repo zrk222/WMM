@@ -1,0 +1,807 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "a16d2f816ff43218c15c2f2fb9dd05a46d8c234e98821b4cf8a806bec238abe0",
+  "candidate_sha256": "11490ff8f1ca0e110dffba089b28bbf9d1ba7a58f9c4317d66ccda2660d56b10",
+  "observations": [
+    {
+      "id": "happy_path",
+      "profile": "Windows-Node-Chromium1440-390-synthetic-owner",
+      "status": "PASS",
+      "reason": "Owner browser creates and revises exact video direction then exports JSON/CSV/PDF.",
+      "execution_identity": "Windows-Node-Chromium1440-390-synthetic-owner",
+      "observed_at": "2026-10-27T01:15:25.461098+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-taste-ui/node-all.log",
+          "kind": "log",
+          "sha256": "88b0cbe7b1778cf48d4795589d97e5cfd912d8134f6293e3afad17315036208a"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/browser-tool-lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/packaging-model-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/packaging-ui-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/app-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/ui-stories-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/qa.json",
+          "kind": "log",
+          "sha256": "9667b58ab2fc453182921b39374bd7b1d52fed8076394bccb50b852a8153bc86"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "ff096840aaaaa923761fd42048e37670e0ac236c2e25e36f5b9fc92eb611a1bb"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutations.json",
+          "kind": "log",
+          "sha256": "a1014f5b612f0ea71ecf6f38765f93532ddd528f75493b4176697e580674f837"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutation-receipt.log",
+          "kind": "log",
+          "sha256": "ffef757e7af1c6e6b81bbabae58b973ff132755fb50a9d3f21dd51372f3239c8"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutation-late-response.log",
+          "kind": "log",
+          "sha256": "981d03a596418adb4690dcd7e4bea387cbcfe08cbf61bc9c2a8a67c7ef932b05"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/browser-observations.json",
+          "kind": "log",
+          "sha256": "95b858c68196a7a4b1cd41e63cb0f21a14c5382afe80736843f054670e32b516"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/rendered-modal.html",
+          "kind": "log",
+          "sha256": "b8628871ac99ad25e1ca357b0b20f4c79ef9b950a6acf95ecb937f96c915de0d"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/design-audit.json",
+          "kind": "log",
+          "sha256": "8169fa1d42f148100148f808666effe6cd1e78df4c5366cad5f08ae9348e9735"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/critique.json",
+          "kind": "log",
+          "sha256": "ece8fb8af9b229c50fd1be4dfa641b4696b84681d2cf42aa92eab96a6e7b7c7c"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/challenge.json",
+          "kind": "log",
+          "sha256": "1acc048b15138427ae2b1db7529bb40cbe9852f7fd2628ae5d82de855abbd09d"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/render-audit.json",
+          "kind": "log",
+          "sha256": "780cfdb915318ebf64d405e3cd9c21abd479bb335c91b06939e463244c3deb14"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/review.md",
+          "kind": "log",
+          "sha256": "352e384cd7aeaa8e6296640764890c45b9c3f39a4dee148f14b101c86bfe2cb9"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-Node-Chromium1440-390-synthetic-owner",
+      "status": "PASS",
+      "reason": "All12 examples, bounded exclusions and exact scope/policy/source receipts.",
+      "execution_identity": "Windows-Node-Chromium1440-390-synthetic-owner",
+      "observed_at": "2026-10-27T01:15:25.476098+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-taste-ui/node-all.log",
+          "kind": "log",
+          "sha256": "88b0cbe7b1778cf48d4795589d97e5cfd912d8134f6293e3afad17315036208a"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/browser-tool-lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/packaging-model-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/packaging-ui-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/app-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/ui-stories-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/qa.json",
+          "kind": "log",
+          "sha256": "9667b58ab2fc453182921b39374bd7b1d52fed8076394bccb50b852a8153bc86"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "ff096840aaaaa923761fd42048e37670e0ac236c2e25e36f5b9fc92eb611a1bb"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutations.json",
+          "kind": "log",
+          "sha256": "a1014f5b612f0ea71ecf6f38765f93532ddd528f75493b4176697e580674f837"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutation-receipt.log",
+          "kind": "log",
+          "sha256": "ffef757e7af1c6e6b81bbabae58b973ff132755fb50a9d3f21dd51372f3239c8"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutation-late-response.log",
+          "kind": "log",
+          "sha256": "981d03a596418adb4690dcd7e4bea387cbcfe08cbf61bc9c2a8a67c7ef932b05"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/browser-observations.json",
+          "kind": "log",
+          "sha256": "95b858c68196a7a4b1cd41e63cb0f21a14c5382afe80736843f054670e32b516"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/rendered-modal.html",
+          "kind": "log",
+          "sha256": "b8628871ac99ad25e1ca357b0b20f4c79ef9b950a6acf95ecb937f96c915de0d"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/design-audit.json",
+          "kind": "log",
+          "sha256": "8169fa1d42f148100148f808666effe6cd1e78df4c5366cad5f08ae9348e9735"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/critique.json",
+          "kind": "log",
+          "sha256": "ece8fb8af9b229c50fd1be4dfa641b4696b84681d2cf42aa92eab96a6e7b7c7c"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/challenge.json",
+          "kind": "log",
+          "sha256": "1acc048b15138427ae2b1db7529bb40cbe9852f7fd2628ae5d82de855abbd09d"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/render-audit.json",
+          "kind": "log",
+          "sha256": "780cfdb915318ebf64d405e3cd9c21abd479bb335c91b06939e463244c3deb14"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/review.md",
+          "kind": "log",
+          "sha256": "352e384cd7aeaa8e6296640764890c45b9c3f39a4dee148f14b101c86bfe2cb9"
+        }
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "profile": "Windows-Node-Chromium1440-390-synthetic-owner",
+      "status": "PASS",
+      "reason": "Actual lost response after commit reconciles without a second write.",
+      "execution_identity": "Windows-Node-Chromium1440-390-synthetic-owner",
+      "observed_at": "2026-10-27T01:15:25.478097+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-taste-ui/node-all.log",
+          "kind": "log",
+          "sha256": "88b0cbe7b1778cf48d4795589d97e5cfd912d8134f6293e3afad17315036208a"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/browser-tool-lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/packaging-model-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/packaging-ui-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/app-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/ui-stories-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/qa.json",
+          "kind": "log",
+          "sha256": "9667b58ab2fc453182921b39374bd7b1d52fed8076394bccb50b852a8153bc86"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "ff096840aaaaa923761fd42048e37670e0ac236c2e25e36f5b9fc92eb611a1bb"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutations.json",
+          "kind": "log",
+          "sha256": "a1014f5b612f0ea71ecf6f38765f93532ddd528f75493b4176697e580674f837"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutation-receipt.log",
+          "kind": "log",
+          "sha256": "ffef757e7af1c6e6b81bbabae58b973ff132755fb50a9d3f21dd51372f3239c8"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutation-late-response.log",
+          "kind": "log",
+          "sha256": "981d03a596418adb4690dcd7e4bea387cbcfe08cbf61bc9c2a8a67c7ef932b05"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/browser-observations.json",
+          "kind": "log",
+          "sha256": "95b858c68196a7a4b1cd41e63cb0f21a14c5382afe80736843f054670e32b516"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/rendered-modal.html",
+          "kind": "log",
+          "sha256": "b8628871ac99ad25e1ca357b0b20f4c79ef9b950a6acf95ecb937f96c915de0d"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/design-audit.json",
+          "kind": "log",
+          "sha256": "8169fa1d42f148100148f808666effe6cd1e78df4c5366cad5f08ae9348e9735"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/critique.json",
+          "kind": "log",
+          "sha256": "ece8fb8af9b229c50fd1be4dfa641b4696b84681d2cf42aa92eab96a6e7b7c7c"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/challenge.json",
+          "kind": "log",
+          "sha256": "1acc048b15138427ae2b1db7529bb40cbe9852f7fd2628ae5d82de855abbd09d"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/render-audit.json",
+          "kind": "log",
+          "sha256": "780cfdb915318ebf64d405e3cd9c21abd479bb335c91b06939e463244c3deb14"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/review.md",
+          "kind": "log",
+          "sha256": "352e384cd7aeaa8e6296640764890c45b9c3f39a4dee148f14b101c86bfe2cb9"
+        }
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "profile": "Windows-Node-Chromium1440-390-synthetic-owner",
+      "status": "PASS",
+      "reason": "Late responses and app switches clear private UI; revisions retain the selected guidance.",
+      "execution_identity": "Windows-Node-Chromium1440-390-synthetic-owner",
+      "observed_at": "2026-10-27T01:15:25.479103+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-taste-ui/node-all.log",
+          "kind": "log",
+          "sha256": "88b0cbe7b1778cf48d4795589d97e5cfd912d8134f6293e3afad17315036208a"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/browser-tool-lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/packaging-model-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/packaging-ui-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/app-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/ui-stories-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/qa.json",
+          "kind": "log",
+          "sha256": "9667b58ab2fc453182921b39374bd7b1d52fed8076394bccb50b852a8153bc86"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "ff096840aaaaa923761fd42048e37670e0ac236c2e25e36f5b9fc92eb611a1bb"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutations.json",
+          "kind": "log",
+          "sha256": "a1014f5b612f0ea71ecf6f38765f93532ddd528f75493b4176697e580674f837"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutation-receipt.log",
+          "kind": "log",
+          "sha256": "ffef757e7af1c6e6b81bbabae58b973ff132755fb50a9d3f21dd51372f3239c8"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutation-late-response.log",
+          "kind": "log",
+          "sha256": "981d03a596418adb4690dcd7e4bea387cbcfe08cbf61bc9c2a8a67c7ef932b05"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/browser-observations.json",
+          "kind": "log",
+          "sha256": "95b858c68196a7a4b1cd41e63cb0f21a14c5382afe80736843f054670e32b516"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/rendered-modal.html",
+          "kind": "log",
+          "sha256": "b8628871ac99ad25e1ca357b0b20f4c79ef9b950a6acf95ecb937f96c915de0d"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/design-audit.json",
+          "kind": "log",
+          "sha256": "8169fa1d42f148100148f808666effe6cd1e78df4c5366cad5f08ae9348e9735"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/critique.json",
+          "kind": "log",
+          "sha256": "ece8fb8af9b229c50fd1be4dfa641b4696b84681d2cf42aa92eab96a6e7b7c7c"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/challenge.json",
+          "kind": "log",
+          "sha256": "1acc048b15138427ae2b1db7529bb40cbe9852f7fd2628ae5d82de855abbd09d"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/render-audit.json",
+          "kind": "log",
+          "sha256": "780cfdb915318ebf64d405e3cd9c21abd479bb335c91b06939e463244c3deb14"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/review.md",
+          "kind": "log",
+          "sha256": "352e384cd7aeaa8e6296640764890c45b9c3f39a4dee148f14b101c86bfe2cb9"
+        }
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "profile": "Windows-Node-Chromium1440-390-synthetic-owner",
+      "status": "PASS",
+      "reason": "Escape text, neutralize CSV, scoped owner writes and two killed admission mutants.",
+      "execution_identity": "Windows-Node-Chromium1440-390-synthetic-owner",
+      "observed_at": "2026-10-27T01:15:25.481099+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-taste-ui/node-all.log",
+          "kind": "log",
+          "sha256": "88b0cbe7b1778cf48d4795589d97e5cfd912d8134f6293e3afad17315036208a"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/browser-tool-lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/packaging-model-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/packaging-ui-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/app-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/ui-stories-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/qa.json",
+          "kind": "log",
+          "sha256": "9667b58ab2fc453182921b39374bd7b1d52fed8076394bccb50b852a8153bc86"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "ff096840aaaaa923761fd42048e37670e0ac236c2e25e36f5b9fc92eb611a1bb"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutations.json",
+          "kind": "log",
+          "sha256": "a1014f5b612f0ea71ecf6f38765f93532ddd528f75493b4176697e580674f837"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutation-receipt.log",
+          "kind": "log",
+          "sha256": "ffef757e7af1c6e6b81bbabae58b973ff132755fb50a9d3f21dd51372f3239c8"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutation-late-response.log",
+          "kind": "log",
+          "sha256": "981d03a596418adb4690dcd7e4bea387cbcfe08cbf61bc9c2a8a67c7ef932b05"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/browser-observations.json",
+          "kind": "log",
+          "sha256": "95b858c68196a7a4b1cd41e63cb0f21a14c5382afe80736843f054670e32b516"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/rendered-modal.html",
+          "kind": "log",
+          "sha256": "b8628871ac99ad25e1ca357b0b20f4c79ef9b950a6acf95ecb937f96c915de0d"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/design-audit.json",
+          "kind": "log",
+          "sha256": "8169fa1d42f148100148f808666effe6cd1e78df4c5366cad5f08ae9348e9735"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/critique.json",
+          "kind": "log",
+          "sha256": "ece8fb8af9b229c50fd1be4dfa641b4696b84681d2cf42aa92eab96a6e7b7c7c"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/challenge.json",
+          "kind": "log",
+          "sha256": "1acc048b15138427ae2b1db7529bb40cbe9852f7fd2628ae5d82de855abbd09d"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/render-audit.json",
+          "kind": "log",
+          "sha256": "780cfdb915318ebf64d405e3cd9c21abd479bb335c91b06939e463244c3deb14"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/review.md",
+          "kind": "log",
+          "sha256": "352e384cd7aeaa8e6296640764890c45b9c3f39a4dee148f14b101c86bfe2cb9"
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "profile": "Windows-Node-Chromium1440-390-synthetic-owner",
+      "status": "PASS",
+      "reason": "Existing bounded history and at most12 examples; no measured latency claim.",
+      "execution_identity": "Windows-Node-Chromium1440-390-synthetic-owner",
+      "observed_at": "2026-10-27T01:15:25.483097+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-taste-ui/node-all.log",
+          "kind": "log",
+          "sha256": "88b0cbe7b1778cf48d4795589d97e5cfd912d8134f6293e3afad17315036208a"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/browser-tool-lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/packaging-model-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/packaging-ui-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/app-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/ui-stories-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/qa.json",
+          "kind": "log",
+          "sha256": "9667b58ab2fc453182921b39374bd7b1d52fed8076394bccb50b852a8153bc86"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "ff096840aaaaa923761fd42048e37670e0ac236c2e25e36f5b9fc92eb611a1bb"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutations.json",
+          "kind": "log",
+          "sha256": "a1014f5b612f0ea71ecf6f38765f93532ddd528f75493b4176697e580674f837"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutation-receipt.log",
+          "kind": "log",
+          "sha256": "ffef757e7af1c6e6b81bbabae58b973ff132755fb50a9d3f21dd51372f3239c8"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutation-late-response.log",
+          "kind": "log",
+          "sha256": "981d03a596418adb4690dcd7e4bea387cbcfe08cbf61bc9c2a8a67c7ef932b05"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/browser-observations.json",
+          "kind": "log",
+          "sha256": "95b858c68196a7a4b1cd41e63cb0f21a14c5382afe80736843f054670e32b516"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/rendered-modal.html",
+          "kind": "log",
+          "sha256": "b8628871ac99ad25e1ca357b0b20f4c79ef9b950a6acf95ecb937f96c915de0d"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/design-audit.json",
+          "kind": "log",
+          "sha256": "8169fa1d42f148100148f808666effe6cd1e78df4c5366cad5f08ae9348e9735"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/critique.json",
+          "kind": "log",
+          "sha256": "ece8fb8af9b229c50fd1be4dfa641b4696b84681d2cf42aa92eab96a6e7b7c7c"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/challenge.json",
+          "kind": "log",
+          "sha256": "1acc048b15138427ae2b1db7529bb40cbe9852f7fd2628ae5d82de855abbd09d"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/render-audit.json",
+          "kind": "log",
+          "sha256": "780cfdb915318ebf64d405e3cd9c21abd479bb335c91b06939e463244c3deb14"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/review.md",
+          "kind": "log",
+          "sha256": "352e384cd7aeaa8e6296640764890c45b9c3f39a4dee148f14b101c86bfe2cb9"
+        }
+      ]
+    },
+    {
+      "id": "accessibility",
+      "profile": "Windows-Node-Chromium1440-390-synthetic-owner",
+      "status": "PASS",
+      "reason": "Actual desktop/mobile keyboard, labels, focus and no overflow; prescribed design checks.",
+      "execution_identity": "Windows-Node-Chromium1440-390-synthetic-owner",
+      "observed_at": "2026-10-27T01:15:25.485097+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-taste-ui/node-all.log",
+          "kind": "log",
+          "sha256": "88b0cbe7b1778cf48d4795589d97e5cfd912d8134f6293e3afad17315036208a"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/browser-tool-lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/packaging-model-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/packaging-ui-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/app-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/ui-stories-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/qa.json",
+          "kind": "log",
+          "sha256": "9667b58ab2fc453182921b39374bd7b1d52fed8076394bccb50b852a8153bc86"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "ff096840aaaaa923761fd42048e37670e0ac236c2e25e36f5b9fc92eb611a1bb"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutations.json",
+          "kind": "log",
+          "sha256": "a1014f5b612f0ea71ecf6f38765f93532ddd528f75493b4176697e580674f837"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutation-receipt.log",
+          "kind": "log",
+          "sha256": "ffef757e7af1c6e6b81bbabae58b973ff132755fb50a9d3f21dd51372f3239c8"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutation-late-response.log",
+          "kind": "log",
+          "sha256": "981d03a596418adb4690dcd7e4bea387cbcfe08cbf61bc9c2a8a67c7ef932b05"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/browser-observations.json",
+          "kind": "log",
+          "sha256": "95b858c68196a7a4b1cd41e63cb0f21a14c5382afe80736843f054670e32b516"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/rendered-modal.html",
+          "kind": "log",
+          "sha256": "b8628871ac99ad25e1ca357b0b20f4c79ef9b950a6acf95ecb937f96c915de0d"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/design-audit.json",
+          "kind": "log",
+          "sha256": "8169fa1d42f148100148f808666effe6cd1e78df4c5366cad5f08ae9348e9735"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/critique.json",
+          "kind": "log",
+          "sha256": "ece8fb8af9b229c50fd1be4dfa641b4696b84681d2cf42aa92eab96a6e7b7c7c"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/challenge.json",
+          "kind": "log",
+          "sha256": "1acc048b15138427ae2b1db7529bb40cbe9852f7fd2628ae5d82de855abbd09d"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/render-audit.json",
+          "kind": "log",
+          "sha256": "780cfdb915318ebf64d405e3cd9c21abd479bb335c91b06939e463244c3deb14"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/review.md",
+          "kind": "log",
+          "sha256": "352e384cd7aeaa8e6296640764890c45b9c3f39a4dee148f14b101c86bfe2cb9"
+        }
+      ]
+    },
+    {
+      "id": "external_effects",
+      "profile": "Windows-Node-Chromium1440-390-synthetic-owner",
+      "status": "PASS",
+      "reason": "Synthetic local owner data and user report downloads only; no provider/render/publish.",
+      "execution_identity": "Windows-Node-Chromium1440-390-synthetic-owner",
+      "observed_at": "2026-10-27T01:15:25.486096+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-taste-ui/node-all.log",
+          "kind": "log",
+          "sha256": "88b0cbe7b1778cf48d4795589d97e5cfd912d8134f6293e3afad17315036208a"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/browser-tool-lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/packaging-model-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/packaging-ui-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/app-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/ui-stories-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/qa.json",
+          "kind": "log",
+          "sha256": "9667b58ab2fc453182921b39374bd7b1d52fed8076394bccb50b852a8153bc86"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "ff096840aaaaa923761fd42048e37670e0ac236c2e25e36f5b9fc92eb611a1bb"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutations.json",
+          "kind": "log",
+          "sha256": "a1014f5b612f0ea71ecf6f38765f93532ddd528f75493b4176697e580674f837"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutation-receipt.log",
+          "kind": "log",
+          "sha256": "ffef757e7af1c6e6b81bbabae58b973ff132755fb50a9d3f21dd51372f3239c8"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/mutation-late-response.log",
+          "kind": "log",
+          "sha256": "981d03a596418adb4690dcd7e4bea387cbcfe08cbf61bc9c2a8a67c7ef932b05"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/browser-observations.json",
+          "kind": "log",
+          "sha256": "95b858c68196a7a4b1cd41e63cb0f21a14c5382afe80736843f054670e32b516"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/rendered-modal.html",
+          "kind": "log",
+          "sha256": "b8628871ac99ad25e1ca357b0b20f4c79ef9b950a6acf95ecb937f96c915de0d"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/design-audit.json",
+          "kind": "log",
+          "sha256": "8169fa1d42f148100148f808666effe6cd1e78df4c5366cad5f08ae9348e9735"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/critique.json",
+          "kind": "log",
+          "sha256": "ece8fb8af9b229c50fd1be4dfa641b4696b84681d2cf42aa92eab96a6e7b7c7c"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/challenge.json",
+          "kind": "log",
+          "sha256": "1acc048b15138427ae2b1db7529bb40cbe9852f7fd2628ae5d82de855abbd09d"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/render-audit.json",
+          "kind": "log",
+          "sha256": "780cfdb915318ebf64d405e3cd9c21abd479bb335c91b06939e463244c3deb14"
+        },
+        {
+          "path": ".factory/content-packaging-taste-ui/review.md",
+          "kind": "log",
+          "sha256": "352e384cd7aeaa8e6296640764890c45b9c3f39a4dee148f14b101c86bfe2cb9"
+        }
+      ]
+    }
+  ]
+}

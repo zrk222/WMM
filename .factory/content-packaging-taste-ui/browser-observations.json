@@ -1,0 +1,39 @@
+{
+  "status": "PASS",
+  "browser": "143.0.7499.4",
+  "observations": [
+    {
+      "width": 1440,
+      "exact_review": "b1afef4278f36e03cf67153453952b7149725cb5e87f96bdaf99cf055baed1bb",
+      "revision": 2,
+      "example_slot12": true,
+      "complete_voice": true,
+      "uncertain_write_observed_once": true,
+      "json_csv_pdf": true,
+      "pdf_pages": 2,
+      "keyboard": true,
+      "app_switch": true,
+      "no_overflow": true,
+      "no_page_errors": true
+    },
+    {
+      "width": 390,
+      "exact_review": "0e3826aa73ee1f2e95e1b439537a60cff36fcd4c667b400dacec542ef2875f90",
+      "revision": 2,
+      "example_slot12": true,
+      "complete_voice": true,
+      "uncertain_write_observed_once": true,
+      "json_csv_pdf": true,
+      "pdf_pages": 3,
+      "keyboard": true,
+      "app_switch": true,
+      "no_overflow": true,
+      "no_page_errors": true
+    }
+  ],
+  "limits": [
+    "Synthetic local owner and source data",
+    "Chromium viewport emulation, not native iOS",
+    "No video execution or measured outcomes"
+  ]
+}

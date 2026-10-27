@@ -1,0 +1,1216 @@
+TAP version 13
+# Subtest: setup front door uses exact local origin, discoverable modules and explicit grant boundaries
+ok 1 - setup front door uses exact local origin, discoverable modules and explicit grant boundaries
+  ---
+  duration_ms: 1.1044
+  type: 'test'
+  ...
+# Subtest: app version and identity are bound before mutation
+ok 2 - app version and identity are bound before mutation
+  ---
+  duration_ms: 0.4447
+  type: 'test'
+  ...
+# Subtest: distinct checker can approve, maker cannot self approve
+ok 3 - distinct checker can approve, maker cannot self approve
+  ---
+  duration_ms: 0.2704
+  type: 'test'
+  ...
+# Subtest: revoked checker and terminal request cannot approve
+ok 4 - revoked checker and terminal request cannot approve
+  ---
+  duration_ms: 0.1161
+  type: 'test'
+  ...
+# Subtest: running cancellation needs maker checker or owner; uncertainty needs distinct checker
+ok 5 - running cancellation needs maker checker or owner; uncertainty needs distinct checker
+  ---
+  duration_ms: 0.1237
+  type: 'test'
+  ...
+# Subtest: grant selects only allowed writes for review with exact scope limits
+ok 6 - grant selects only allowed writes for review with exact scope limits
+  ---
+  duration_ms: 1.8309
+  type: 'test'
+  ...
+# Subtest: empty unsupported operation or invalid quota and expiry rejected
+ok 7 - empty unsupported operation or invalid quota and expiry rejected
+  ---
+  duration_ms: 0.2739
+  type: 'test'
+  ...
+# Subtest: token delivery never serializes secret into markup
+ok 8 - token delivery never serializes secret into markup
+  ---
+  duration_ms: 0.1591
+  type: 'test'
+  ...
+# Subtest: queue and exact markup escape untrusted payloads
+ok 9 - queue and exact markup escape untrusted payloads
+  ---
+  duration_ms: 0.6164
+  type: 'test'
+  ...
+# Subtest: exact report includes hashes history and Unicode without raw input result or state
+ok 10 - exact report includes hashes history and Unicode without raw input result or state
+  ---
+  duration_ms: 0.8611
+  type: 'test'
+  ...
+# Subtest: grant and queue reports whitelist metadata
+ok 11 - grant and queue reports whitelist metadata
+  ---
+  duration_ms: 0.3434
+  type: 'test'
+  ...
+# Subtest: credential forms do not export and changed scope invalidates reports
+ok 12 - credential forms do not export and changed scope invalidates reports
+  ---
+  duration_ms: 0.1764
+  type: 'test'
+  ...
+# Subtest: only app owner sees grant management
+ok 13 - only app owner sees grant management
+  ---
+  duration_ms: 0.7117
+  type: 'test'
+  ...
+# Subtest: proposal contains exact chosen scope and finite zero-spend limits
+ok 14 - proposal contains exact chosen scope and finite zero-spend limits
+  ---
+  duration_ms: 1.9243
+  type: 'test'
+  ...
+# Subtest: status switch reads authority and keeps OFF usable when saved authority is blocked
+ok 15 - status switch reads authority and keeps OFF usable when saved authority is blocked
+  ---
+  duration_ms: 0.4515
+  type: 'test'
+  ...
+# Subtest: metadata reports exclude private operation bodies and arbitrary credential fields
+ok 16 - metadata reports exclude private operation bodies and arbitrary credential fields
+  ---
+  duration_ms: 0.3063
+  type: 'test'
+  ...
+# Subtest: owner launcher stays unavailable without current owner membership
+ok 17 - owner launcher stays unavailable without current owner membership
+  ---
+  duration_ms: 0.1553
+  type: 'test'
+  ...
+# Subtest: prototype controls record typed facts, prune feature links and remove optional results
+ok 18 - prototype controls record typed facts, prune feature links and remove optional results
+  ---
+  duration_ms: 3.5714
+  type: 'test'
+  ...
+# Subtest: prototype capture preserves unknown duration and rejects invalid numeric text
+ok 19 - prototype capture preserves unknown duration and rejects invalid numeric text
+  ---
+  duration_ms: 1.3828
+  type: 'test'
+  ...
+# Subtest: prototype details metrics and report retain saved facts and escape supplied feedback
+ok 20 - prototype details metrics and report retain saved facts and escape supplied feedback
+  ---
+  duration_ms: 3.5742
+  type: 'test'
+  ...
+# Subtest: context, history and selected reject foreign/stale/unavailable workspace
+ok 21 - context, history and selected reject foreign/stale/unavailable workspace
+  ---
+  duration_ms: 0.5003
+  type: 'test'
+  ...
+# Subtest: metrics, panel and historyList distinguish local assertions and repeated versions from demand
+ok 22 - metrics, panel and historyList distinguish local assertions and repeated versions from demand
+  ---
+  duration_ms: 0.5679
+  type: 'test'
+  ...
+# Subtest: newDraft creates stable source-feature links and revisions clone without overwriting old data
+ok 23 - newDraft creates stable source-feature links and revisions clone without overwriting old data
+  ---
+  duration_ms: 0.4975
+  type: 'test'
+  ...
+# Subtest: capture and payload construct only typed fields with exact repeated-source links
+ok 24 - capture and payload construct only typed fields with exact repeated-source links
+  ---
+  duration_ms: 0.8025
+  type: 'test'
+  ...
+# Subtest: addRow retains draft values and enforces source/feature/exclusion bounds
+ok 25 - addRow retains draft values and enforces source/feature/exclusion bounds
+  ---
+  duration_ms: 1.7315
+  type: 'test'
+  ...
+# Subtest: removeRow prunes only removed source links and leaves remaining feature identities stable
+ok 26 - removeRow prunes only removed source links and leaves remaining feature identities stable
+  ---
+  duration_ms: 0.6607
+  type: 'test'
+  ...
+# Subtest: field, choice, sourceRows, featureRows and formHTML use explicit labels and escaped text
+ok 27 - field, choice, sourceRows, featureRows and formHTML use explicit labels and escaped text
+  ---
+  duration_ms: 1.1631
+  type: 'test'
+  ...
+# Subtest: openForm binds one immutable identity, current app version and mutable draft separate from reports
+ok 28 - openForm binds one immutable identity, current app version and mutable draft separate from reports
+  ---
+  duration_ms: 0.5593
+  type: 'test'
+  ...
+# Subtest: editRows retains current form values and announces relinking without saving
+ok 29 - editRows retains current form values and announces relinking without saving
+  ---
+  duration_ms: 0.709
+  type: 'test'
+  ...
+# Subtest: entryNotes, sourceNotes and report preserve source-feature-exclusion lineage and explicit unverified claims
+ok 30 - entryNotes, sourceNotes and report preserve source-feature-exclusion lineage and explicit unverified claims
+  ---
+  duration_ms: 0.8265
+  type: 'test'
+  ...
+# Subtest: submit freezes draft editing, blocks duplicates and retains inputs after real errors
+ok 31 - submit freezes draft editing, blocks duplicates and retains inputs after real errors
+  ---
+  duration_ms: 0.5261
+  type: 'test'
+  ...
+# Subtest: submit cannot refresh or close another app after a pending save
+ok 32 - submit cannot refresh or close another app after a pending save
+  ---
+  duration_ms: 0.2401
+  type: 'test'
+  ...
+# Subtest: detail and action use selected app data, revision and scoped report services
+ok 33 - detail and action use selected app data, revision and scoped report services
+  ---
+  duration_ms: 0.5358
+  type: 'test'
+  ...
+# Subtest: owner uses current active app membership rather than an invented status field
+ok 34 - owner uses current active app membership rather than an invented status field
+  ---
+  duration_ms: 1.0748
+  type: 'test'
+  ...
+# Subtest: queryData retains explicit viral AND policy and independent taxonomy selections
+ok 35 - queryData retains explicit viral AND policy and independent taxonomy selections
+  ---
+  duration_ms: 2.7729
+  type: 'test'
+  ...
+# Subtest: integer and list bounds reject ambiguous fractions Boolean duplicates and oversized evidence
+ok 36 - integer and list bounds reject ambiguous fractions Boolean duplicates and oversized evidence
+  ---
+  duration_ms: 0.6726
+  type: 'test'
+  ...
+# Subtest: reviewData keeps observed beats interpretations and baseline distinct
+ok 37 - reviewData keeps observed beats interpretations and baseline distinct
+  ---
+  duration_ms: 0.7771
+  type: 'test'
+  ...
+# Subtest: transcript storage requires explicit permission language source date and uncertainty
+ok 38 - transcript storage requires explicit permission language source date and uncertainty
+  ---
+  duration_ms: 0.3608
+  type: 'test'
+  ...
+# Subtest: decision renders missing baseline and rights without promoting popular source
+ok 39 - decision renders missing baseline and rights without promoting popular source
+  ---
+  duration_ms: 0.3777
+  type: 'test'
+  ...
+# Subtest: reports derive only saved coverage and decisions and prevent CSV formula injection
+ok 40 - reports derive only saved coverage and decisions and prevent CSV formula injection
+  ---
+  duration_ms: 0.7494
+  type: 'test'
+  ...
+# Subtest: matches reconciles exact saved request and rejects changed context source or input
+ok 41 - matches reconciles exact saved request and rejects changed context source or input
+  ---
+  duration_ms: 0.493
+  type: 'test'
+  ...
+# Subtest: rendered fields escape private source labels and explain optional inputs
+ok 42 - rendered fields escape private source labels and explain optional inputs
+  ---
+  duration_ms: 0.9039
+  type: 'test'
+  ...
+# Subtest: request never follows redirects and classifies lost write response as uncertain
+ok 43 - request never follows redirects and classifies lost write response as uncertain
+  ---
+  duration_ms: 0.8731
+  type: 'test'
+  ...
+# Subtest: request retains explicit validation denial as certain and scope includes principal and version
+ok 44 - request retains explicit validation denial as certain and scope includes principal and version
+  ---
+  duration_ms: 0.4168
+  type: 'test'
+  ...
+# Subtest: callback query is removed before validation and never persisted
+ok 45 - callback query is removed before validation and never persisted
+  ---
+  duration_ms: 2.6907
+  type: 'test'
+  ...
+# Subtest: boot requires owner identity and an explicit app choice
+ok 46 - boot requires owner identity and an explicit app choice
+  ---
+  duration_ms: 0.6442
+  type: 'test'
+  ...
+# Subtest: account review renders text and exact packet confirmation requires another user action
+ok 47 - account review renders text and exact packet confirmation requires another user action
+  ---
+  duration_ms: 21.9002
+  type: 'test'
+  ...
+# Subtest: lost callback response cannot replay exchange on a second click
+ok 48 - lost callback response cannot replay exchange on a second click
+  ---
+  duration_ms: 0.4212
+  type: 'test'
+  ...
+# Subtest: cancel selection uses exact current flow without adopting the account
+ok 49 - cancel selection uses exact current flow without adopting the account
+  ---
+  duration_ms: 0.5077
+  type: 'test'
+  ...
+# Subtest: malformed or cross-app review never becomes confirmable
+ok 50 - malformed or cross-app review never becomes confirmable
+  ---
+  duration_ms: 0.4483
+  type: 'test'
+  ...
+# Subtest: sign in clears token field before request and shows recovery on rejection
+ok 51 - sign in clears token field before request and shows recovery on rejection
+  ---
+  duration_ms: 0.4541
+  type: 'test'
+  ...
+# Subtest: callback page has labels status focus cancellation and no third-party resources
+ok 52 - callback page has labels status focus cancellation and no third-party resources
+  ---
+  duration_ms: 0.4366
+  type: 'test'
+  ...
+# Subtest: source receipts compare exact fields independent of JSON key ordering
+ok 53 - source receipts compare exact fields independent of JSON key ordering
+  ---
+  duration_ms: 1.1033
+  type: 'test'
+  ...
+# Subtest: owner selects only authorized clips and queue receipts start bounded read-only polling
+ok 54 - owner selects only authorized clips and queue receipts start bounded read-only polling
+  ---
+  duration_ms: 23.1294
+  type: 'test'
+  ...
+# Subtest: lost import response stops batch and exact saved receipt reconciles without replay
+ok 55 - lost import response stops batch and exact saved receipt reconciles without replay
+  ---
+  duration_ms: 0.8604
+  type: 'test'
+  ...
+# Subtest: stale app and closed dialog discard responses and stop progress reads
+ok 56 - stale app and closed dialog discard responses and stop progress reads
+  ---
+  duration_ms: 0.3473
+  type: 'test'
+  ...
+# Subtest: cleanup and exact private job cancel use explicit scoped routes
+ok 57 - cleanup and exact private job cancel use explicit scoped routes
+  ---
+  duration_ms: 1.5828
+  type: 'test'
+  ...
+# Subtest: reports export aggregate observed counts without private account file or credentials
+ok 58 - reports export aggregate observed counts without private account file or credentials
+  ---
+  duration_ms: 0.6363
+  type: 'test'
+  ...
+# Subtest: official consent URL is fixed Google endpoint and setup requires an explicit scope checkbox
+ok 59 - official consent URL is fixed Google endpoint and setup requires an explicit scope checkbox
+  ---
+  duration_ms: 0.9371
+  type: 'test'
+  ...
+# Subtest: non-owner cannot submit and injected source strings remain escaped
+ok 60 - non-owner cannot submit and injected source strings remain escaped
+  ---
+  duration_ms: 0.3586
+  type: 'test'
+  ...
+# Subtest: Research Connections static script form and cleanup hooks are all wired
+ok 61 - Research Connections static script form and cleanup hooks are all wired
+  ---
+  duration_ms: 1.7056
+  type: 'test'
+  ...
+# Subtest: setup sends frozen revision and clears the client file form after an official handoff
+ok 62 - setup sends frozen revision and clears the client file form after an official handoff
+  ---
+  duration_ms: 1.0769
+  type: 'test'
+  ...
+# Subtest: account review requires explicit confirmation and sends only the exact review hash
+ok 63 - account review requires explicit confirmation and sends only the exact review hash
+  ---
+  duration_ms: 0.9056
+  type: 'test'
+  ...
+# Subtest: founder HTML exposes page coverage exact links bounded findings and escaped text
+ok 64 - founder HTML exposes page coverage exact links bounded findings and escaped text
+  ---
+  duration_ms: 1.4013
+  type: 'test'
+  ...
+# Subtest: unavailable source keeps its ID without inventing observed zero or comparable counts
+ok 65 - unavailable source keeps its ID without inventing observed zero or comparable counts
+  ---
+  duration_ms: 0.2138
+  type: 'test'
+  ...
+# Subtest: founder PDF and CSV keep displayed scope zero unknown and exact source receipts
+ok 66 - founder PDF and CSV keep displayed scope zero unknown and exact source receipts
+  ---
+  duration_ms: 1.3404
+  type: 'test'
+  ...
+# Subtest: every CSV cell including supplied repair text remains formula-safe
+ok 67 - every CSV cell including supplied repair text remains formula-safe
+  ---
+  duration_ms: 0.2233
+  type: 'test'
+  ...
+# Subtest: founder next action and exact stage source values cannot be replaced with an optimistic default
+ok 68 - founder next action and exact stage source values cannot be replaced with an optimistic default
+  ---
+  duration_ms: 0.1662
+  type: 'test'
+  ...
+# Subtest: late private founder response is discarded and old dialog removed after principal change
+ok 69 - late private founder response is discarded and old dialog removed after principal change
+  ---
+  duration_ms: 0.882
+  type: 'test'
+  ...
+# Subtest: founder dialog narrative states the concrete output and choice
+ok 70 - founder dialog narrative states the concrete output and choice
+  ---
+  duration_ms: 2.0293
+  type: 'test'
+  ...
+# Subtest: unavailable sources are prioritized without mutating the source-bound review or hiding partial coverage
+ok 71 - unavailable sources are prioritized without mutating the source-bound review or hiding partial coverage
+  ---
+  duration_ms: 0.3726
+  type: 'test'
+  ...
+# Subtest: plan binds actual source versions matching cohort dates and app facts without mutating workspace
+ok 72 - plan binds actual source versions matching cohort dates and app facts without mutating workspace
+  ---
+  duration_ms: 4.0685
+  type: 'test'
+  ...
+# Subtest: graph rejects cycles unknown parents duplicate IDs invalid namespace and oversized stages
+ok 73 - graph rejects cycles unknown parents duplicate IDs invalid namespace and oversized stages
+  ---
+  duration_ms: 0.9277
+  type: 'test'
+  ...
+# Subtest: numbers timestamps source selection and cohort identity cannot silently coerce invalid input
+ok 74 - numbers timestamps source selection and cohort identity cannot silently coerce invalid input
+  ---
+  duration_ms: 0.4492
+  type: 'test'
+  ...
+# Subtest: observation preserves zero partial unknown and exact saved population and identity scope
+ok 75 - observation preserves zero partial unknown and exact saved population and identity scope
+  ---
+  duration_ms: 0.5732
+  type: 'test'
+  ...
+# Subtest: raw batch JSON is bounded and duplicate keys are preserved for strict server rejection
+ok 76 - raw batch JSON is bounded and duplicate keys are preserved for strict server rejection
+  ---
+  duration_ms: 5.949
+  type: 'test'
+  ...
+# Subtest: reconciliation compares timestamp equivalence but rejects changed targets and counts
+ok 77 - reconciliation compares timestamp equivalence but rejects changed targets and counts
+  ---
+  duration_ms: 1.0116
+  type: 'test'
+  ...
+# Subtest: stage render JSON and formula-safe CSV retain uncertainty and escape hostile labels
+ok 78 - stage render JSON and formula-safe CSV retain uncertainty and escape hostile labels
+  ---
+  duration_ms: 0.9683
+  type: 'test'
+  ...
+# Subtest: scope equality includes principal app and manifest and source filtering rejects stale or mismatched rows
+ok 79 - scope equality includes principal app and manifest and source filtering rejects stale or mismatched rows
+  ---
+  duration_ms: 0.1988
+  type: 'test'
+  ...
+# Subtest: request classifies unreadable write response as uncertain and never retries fetch
+ok 80 - request classifies unreadable write response as uncertain and never retries fetch
+  ---
+  duration_ms: 0.9133
+  type: 'test'
+  ...
+# Subtest: known rejection is not uncertain and fetch framing closes redirects and credentials
+ok 81 - known rejection is not uncertain and fetch framing closes redirects and credentials
+  ---
+  duration_ms: 0.5306
+  type: 'test'
+  ...
+# Subtest: panel and forms explain app sales and expose complete typed controls without webinar default
+ok 82 - panel and forms explain app sales and expose complete typed controls without webinar default
+  ---
+  duration_ms: 0.8881
+  type: 'test'
+  ...
+# Subtest: read-only funnel dialogs explain their actual evidence and next action
+ok 83 - read-only funnel dialogs explain their actual evidence and next action
+  ---
+  duration_ms: 1.0778
+  type: 'test'
+  ...
+# Subtest: review, history and selected enforce app ownership and current manifest
+ok 84 - review, history and selected enforce app ownership and current manifest
+  ---
+  duration_ms: 2.2945
+  type: 'test'
+  ...
+# Subtest: panel and historyList render guide, operational metrics, evidence states and recovery
+ok 85 - panel and historyList render guide, operational metrics, evidence states and recovery
+  ---
+  duration_ms: 0.8027
+  type: 'test'
+  ...
+# Subtest: listingData preserves original localized text and supported store field sets
+ok 86 - listingData preserves original localized text and supported store field sets
+  ---
+  duration_ms: 0.8244
+  type: 'test'
+  ...
+# Subtest: referenceData freezes exact declared provenance and metric denominator without guessing units
+ok 87 - referenceData freezes exact declared provenance and metric denominator without guessing units
+  ---
+  duration_ms: 0.3217
+  type: 'test'
+  ...
+# Subtest: comparisonData uses exact saved selectors and refuses caller totals or stale sources
+ok 88 - comparisonData uses exact saved selectors and refuses caller totals or stale sources
+  ---
+  duration_ms: 0.3242
+  type: 'test'
+  ...
+# Subtest: payload enforces app/version, preserves one identity and exact note target without approval
+ok 89 - payload enforces app/version, preserves one identity and exact note target without approval
+  ---
+  duration_ms: 0.5686
+  type: 'test'
+  ...
+# Subtest: openForm and labeled inputs provide scope, source hints and escaped public values
+ok 90 - openForm and labeled inputs provide scope, source hints and escaped public values
+  ---
+  duration_ms: 0.8994
+  type: 'test'
+  ...
+# Subtest: entryNotes and report retain source metrics, Unicode and original long text without private state
+ok 91 - entryNotes and report retain source metrics, Unicode and original long text without private state
+  ---
+  duration_ms: 2.7111
+  type: 'test'
+  ...
+# Subtest: referenceNotes, comparisonNotes and editorial entry reports retain unavailable differences and boundaries
+ok 92 - referenceNotes, comparisonNotes and editorial entry reports retain unavailable differences and boundaries
+  ---
+  duration_ms: 0.7236
+  type: 'test'
+  ...
+# Subtest: submit preserves errors and blocks repeated pending requests
+ok 93 - submit preserves errors and blocks repeated pending requests
+  ---
+  duration_ms: 0.7943
+  type: 'test'
+  ...
+# Subtest: submit never refreshes or closes another app after an in-flight save
+ok 94 - submit never refreshes or closes another app after an in-flight save
+  ---
+  duration_ms: 0.3448
+  type: 'test'
+  ...
+# Subtest: action delegates real reports, selected details, experiments and retry
+ok 95 - action delegates real reports, selected details, experiments and retry
+  ---
+  duration_ms: 0.5417
+  type: 'test'
+  ...
+# Subtest: both saved renderer types appear without modifying their stored envelopes
+ok 96 - both saved renderer types appear without modifying their stored envelopes
+  ---
+  duration_ms: 4.4539
+  type: 'test'
+  ...
+# Subtest: renderer form and preview choose exact routes with escaped approved captions
+ok 97 - renderer form and preview choose exact routes with escaped approved captions
+  ---
+  duration_ms: 1.555
+  type: 'test'
+  ...
+# Subtest: submission preserves brief proof and retry identity and blocks stale app forms
+ok 98 - submission preserves brief proof and retry identity and blocks stale app forms
+  ---
+  duration_ms: 1.3139
+  type: 'test'
+  ...
+# Subtest: validateConfig rejects extra inputs, wrong flag and invalid window
+ok 99 - validateConfig rejects extra inputs, wrong flag and invalid window
+  ---
+  duration_ms: 1.8261
+  type: 'test'
+  ...
+# Subtest: requires SDK prerequisites and consent before evaluating or capturing
+ok 100 - requires SDK prerequisites and consent before evaluating or capturing
+  ---
+  duration_ms: 1.0084
+  type: 'test'
+  ...
+# Subtest: fresh remote assignment and visible exposure retain exact scope and distinct event UUIDs
+ok 101 - fresh remote assignment and visible exposure retain exact scope and distinct event UUIDs
+  ---
+  duration_ms: 8.9681
+  type: 'test'
+  ...
+# Subtest: repeat and reopened trackers preserve assignment and do not requeue accepted events
+ok 102 - repeat and reopened trackers preserve assignment and do not requeue accepted events
+  ---
+  duration_ms: 1.9241
+  type: 'test'
+  ...
+# Subtest: same-origin concurrent clients retain one event UUID per kind
+ok 103 - same-origin concurrent clients retain one event UUID per kind
+  ---
+  duration_ms: 1.3648
+  type: 'test'
+  ...
+# Subtest: capture rejection retries the same persisted UUID without claiming delivery
+ok 104 - capture rejection retries the same persisted UUID without claiming delivery
+  ---
+  duration_ms: 2.0781
+  type: 'test'
+  ...
+# Subtest: disabled fresh flags and changed variants never reuse the cached assignment
+ok 105 - disabled fresh flags and changed variants never reuse the cached assignment
+  ---
+  duration_ms: 1.1624
+  type: 'test'
+  ...
+# Subtest: exposure requires prior accepted assignment and the actual rendered variant
+ok 106 - exposure requires prior accepted assignment and the actual rendered variant
+  ---
+  duration_ms: 0.8859
+  type: 'test'
+  ...
+# Subtest: hidden documents, hidden elements and offscreen elements do not emit exposure
+ok 107 - hidden documents, hidden elements and offscreen elements do not emit exposure
+  ---
+  duration_ms: 1.1379
+  type: 'test'
+  ...
+# Subtest: identity, app, origin and window changes block queued events
+ok 108 - identity, app, origin and window changes block queued events
+  ---
+  duration_ms: 1.3152
+  type: 'test'
+  ...
+# Subtest: async consent withdrawal and stop prevent capture after remote flags finish
+ok 109 - async consent withdrawal and stop prevent capture after remote flags finish
+  ---
+  duration_ms: 0.5406
+  type: 'test'
+  ...
+# Subtest: provider loading error and corrupt local receipts expose typed recovery
+ok 110 - provider loading error and corrupt local receipts expose typed recovery
+  ---
+  duration_ms: 1.0986
+  type: 'test'
+  ...
+# Subtest: changed SDK prerequisites and fractional acquisition boundaries fail closed
+ok 111 - changed SDK prerequisites and fractional acquisition boundaries fail closed
+  ---
+  duration_ms: 0.5475
+  type: 'test'
+  ...
+# Subtest: bounds reject empty unsupported and oversized clips before sending any selected file
+ok 112 - bounds reject empty unsupported and oversized clips before sending any selected file
+  ---
+  duration_ms: 3.9645
+  type: 'test'
+  ...
+# Subtest: multiple clips upload sequentially with exact source/request receipts and fresh keys
+ok 113 - multiple clips upload sequentially with exact source/request receipts and fresh keys
+  ---
+  duration_ms: 6.8675
+  type: 'test'
+  ...
+# Subtest: unknown upload never resends and only exact request/source/name/manifest receipt unlocks
+ok 114 - unknown upload never resends and only exact request/source/name/manifest receipt unlocks
+  ---
+  duration_ms: 1.5897
+  type: 'test'
+  ...
+# Subtest: pending duplicate upload sends once and identity change discards late response
+ok 115 - pending duplicate upload sends once and identity change discards late response
+  ---
+  duration_ms: 1.1179
+  type: 'test'
+  ...
+# Subtest: malformed success receipts remain uncertain rather than permitting resend
+ok 116 - malformed success receipts remain uncertain rather than permitting resend
+  ---
+  duration_ms: 1.9248
+  type: 'test'
+  ...
+# Subtest: inspection escapes metadata, plays original and separates owner reuse attestation from decoding
+ok 117 - inspection escapes metadata, plays original and separates owner reuse attestation from decoding
+  ---
+  duration_ms: 1.175
+  type: 'test'
+  ...
+# Subtest: uncertain review pauses changes across reopen without an automatic retry
+ok 118 - uncertain review pauses changes across reopen without an automatic retry
+  ---
+  duration_ms: 0.558
+  type: 'test'
+  ...
+# Subtest: review evidence stays within exact server bound before sending
+ok 119 - review evidence stays within exact server bound before sending
+  ---
+  duration_ms: 1.0589
+  type: 'test'
+  ...
+# Subtest: reports contain observed counts and receipt time without filenames evidence credentials or private paths
+ok 120 - reports contain observed counts and receipt time without filenames evidence credentials or private paths
+  ---
+  duration_ms: 0.7735
+  type: 'test'
+  ...
+# Subtest: closed dialog or new app drops late library reads; owner is required for writes
+ok 121 - closed dialog or new app drops late library reads; owner is required for writes
+  ---
+  duration_ms: 0.5433
+  type: 'test'
+  ...
+# Subtest: Research and modal hooks load one exact module and preserve scoped cleanup
+ok 122 - Research and modal hooks load one exact module and preserve scoped cleanup
+  ---
+  duration_ms: 1.1774
+  type: 'test'
+  ...
+# Subtest: saved revocation and permission basis remain selected when an original is reopened
+ok 123 - saved revocation and permission basis remain selected when an original is reopened
+  ---
+  duration_ms: 0.4736
+  type: 'test'
+  ...
+# Subtest: checklist identity and reports retain missingness, escape source text and reject foreign authority
+ok 124 - checklist identity and reports retain missingness, escape source text and reject foreign authority
+  ---
+  duration_ms: 3.1935
+  type: 'test'
+  ...
+# Subtest: variantData binds selected source and product revisions with the chosen thumbnail first
+ok 125 - variantData binds selected source and product revisions with the chosen thumbnail first
+  ---
+  duration_ms: 1.3253
+  type: 'test'
+  ...
+# Subtest: library filters product scope, keeps latest collection revisions, and excludes unattested media
+ok 126 - library filters product scope, keeps latest collection revisions, and excludes unattested media
+  ---
+  duration_ms: 0.5077
+  type: 'test'
+  ...
+# Subtest: local thumbnails cannot introduce remote hosts, path traversal or HTML attributes
+ok 127 - local thumbnails cannot introduce remote hosts, path traversal or HTML attributes
+  ---
+  duration_ms: 0.2077
+  type: 'test'
+  ...
+# Subtest: canonical SHA256 matches Python Unicode, sorted keys and newline encoding
+ok 128 - canonical SHA256 matches Python Unicode, sorted keys and newline encoding
+  ---
+  duration_ms: 6.3524
+  type: 'test'
+  ...
+# Subtest: shotData preserves user ordering, source timing, reusable media and exact script hashes
+ok 129 - shotData preserves user ordering, source timing, reusable media and exact script hashes
+  ---
+  duration_ms: 1.8972
+  type: 'test'
+  ...
+# Subtest: source timing rejects dropped, reversed, fractional or unbounded timestamps
+ok 130 - source timing rejects dropped, reversed, fractional or unbounded timestamps
+  ---
+  duration_ms: 0.3741
+  type: 'test'
+  ...
+# Subtest: move preserves identities and does not mutate saved rows
+ok 131 - move preserves identities and does not mutate saved rows
+  ---
+  duration_ms: 0.225
+  type: 'test'
+  ...
+# Subtest: seeded desktop and mobile previews use identical card order and source snapshots
+ok 132 - seeded desktop and mobile previews use identical card order and source snapshots
+  ---
+  duration_ms: 1.1722
+  type: 'test'
+  ...
+# Subtest: blind feed uses equal cards and escapes text without fabricated counters or remote images
+ok 133 - blind feed uses equal cards and escapes text without fabricated counters or remote images
+  ---
+  duration_ms: 0.639
+  type: 'test'
+  ...
+# Subtest: report and CSV separate plan analytics from unknown sales and neutralize spreadsheet formulas
+ok 134 - report and CSV separate plan analytics from unknown sales and neutralize spreadsheet formulas
+  ---
+  duration_ms: 0.5659
+  type: 'test'
+  ...
+# Subtest: fields are labelled and source copy cannot inject markup into controls
+ok 135 - fields are labelled and source copy cannot inject markup into controls
+  ---
+  duration_ms: 0.4044
+  type: 'test'
+  ...
+# Subtest: taste data binds twelve explicit example slots, limits and safe complete exports
+ok 136 - taste data binds twelve explicit example slots, limits and safe complete exports
+  ---
+  duration_ms: 0.8797
+  type: 'test'
+  ...
+# Subtest: checklist action reads exact saved shots and shows gaps with revision and report controls
+ok 137 - checklist action reads exact saved shots and shows gaps with revision and report controls
+  ---
+  duration_ms: 5.6662
+  type: 'test'
+  ...
+# Subtest: late and foreign checklist responses cannot replace another dialog context
+ok 138 - late and foreign checklist responses cannot replace another dialog context
+  ---
+  duration_ms: 3.7725
+  type: 'test'
+  ...
+# Subtest: an active non-owner cannot open or submit private packaging plans
+ok 139 - an active non-owner cannot open or submit private packaging plans
+  ---
+  duration_ms: 0.6997
+  type: 'test'
+  ...
+# Subtest: owner and scope checks reject another principal or revoked membership
+ok 140 - owner and scope checks reject another principal or revoked membership
+  ---
+  duration_ms: 0.5423
+  type: 'test'
+  ...
+# Subtest: request allows only fixed local services, rejects foreign receipts, and sends exact JSON once
+ok 141 - request allows only fixed local services, rejects foreign receipts, and sends exact JSON once
+  ---
+  duration_ms: 0.7326
+  type: 'test'
+  ...
+# Subtest: receipt matching binds app, input, kind, expected revision and setup
+ok 142 - receipt matching binds app, input, kind, expected revision and setup
+  ---
+  duration_ms: 0.5297
+  type: 'test'
+  ...
+# Subtest: an uncertain save locks fields, retains exact input and never auto-retries
+ok 143 - an uncertain save locks fields, retains exact input and never auto-retries
+  ---
+  duration_ms: 1.1537
+  type: 'test'
+  ...
+# Subtest: one explicit identical retry follows an absent revision and a matching receipt clears uncertainty
+ok 144 - one explicit identical retry follows an absent revision and a matching receipt clears uncertainty
+  ---
+  duration_ms: 1.7855
+  type: 'test'
+  ...
+# Subtest: scope change aborts pending work and clears private dialog content
+ok 145 - scope change aborts pending work and clears private dialog content
+  ---
+  duration_ms: 0.9989
+  type: 'test'
+  ...
+# Subtest: busy submission prevents duplicate requests while the first save is pending
+ok 146 - busy submission prevents duplicate requests while the first save is pending
+  ---
+  duration_ms: 0.9145
+  type: 'test'
+  ...
+# Subtest: preview settings preserve explicit choices and reject a thumbnail without its source
+ok 147 - preview settings preserve explicit choices and reject a thumbnail without its source
+  ---
+  duration_ms: 0.7143
+  type: 'test'
+  ...
+# Subtest: shot controls and saved summaries expose all editing fields without executing media
+ok 148 - shot controls and saved summaries expose all editing fields without executing media
+  ---
+  duration_ms: 0.7368
+  type: 'test'
+  ...
+# Subtest: owner taste form exposes twelve examples and saves exact guidance without granting execution
+ok 149 - owner taste form exposes twelve examples and saves exact guidance without granting execution
+  ---
+  duration_ms: 2.05
+  type: 'test'
+  ...
+# Subtest: uncertain owner taste save uses observation-only reconciliation with exact original input
+ok 150 - uncertain owner taste save uses observation-only reconciliation with exact original input
+  ---
+  duration_ms: 0.9303
+  type: 'test'
+  ...
+# Subtest: late taste responses cannot reopen a changed app and foreign owner reviews reject
+ok 151 - late taste responses cannot reopen a changed app and foreign owner reviews reject
+  ---
+  duration_ms: 1.122
+  type: 'test'
+  ...
+# Subtest: page_explainers covers exactly every top-level navigation view
+ok 152 - page_explainers covers exactly every top-level navigation view
+  ---
+  duration_ms: 3.9769
+  type: 'test'
+  ...
+# Subtest: overview_story names purpose, inputs, operations and delivered artifacts directly
+ok 153 - overview_story names purpose, inputs, operations and delivered artifacts directly
+  ---
+  duration_ms: 0.3437
+  type: 'test'
+  ...
+# Subtest: page_analytics distinguishes unavailable sources from loaded zero
+ok 154 - page_analytics distinguishes unavailable sources from loaded zero
+  ---
+  duration_ms: 1.2729
+  type: 'test'
+  ...
+# Subtest: evidenceMetrics applies the same title/kind search and records filter scope
+ok 155 - evidenceMetrics applies the same title/kind search and records filter scope
+  ---
+  duration_ms: 0.1646
+  type: 'test'
+  ...
+# Subtest: weeklyMetrics uses displayed portfolio coverage and retains source failures
+ok 156 - weeklyMetrics uses displayed portfolio coverage and retains source failures
+  ---
+  duration_ms: 0.452
+  type: 'test'
+  ...
+# Subtest: cohortRows preserves currencies, eligible denominator and unavailable rates
+ok 157 - cohortRows preserves currencies, eligible denominator and unavailable rates
+  ---
+  duration_ms: 0.397
+  type: 'test'
+  ...
+# Subtest: report_privacy rejects unknown views and mismatched selected app
+ok 158 - report_privacy rejects unknown views and mismatched selected app
+  ---
+  duration_ms: 0.5585
+  type: 'test'
+  ...
+# Subtest: report_scope excludes raw profiles, tokens, record data and draft inputs
+ok 159 - report_scope excludes raw profiles, tokens, record data and draft inputs
+  ---
+  duration_ms: 1.2925
+  type: 'test'
+  ...
+# Subtest: panel metricTable and reportHTML escape hostile text while preserving Unicode
+ok 160 - panel metricTable and reportHTML escape hostile text while preserving Unicode
+  ---
+  duration_ms: 0.3727
+  type: 'test'
+  ...
+# Subtest: pdf_export accurately describes browser Save as PDF and includes report dates
+ok 161 - pdf_export accurately describes browser Save as PDF and includes report dates
+  ---
+  duration_ms: 0.3732
+  type: 'test'
+  ...
+# Subtest: openReport reports blocked popup without implying successful export
+ok 162 - openReport reports blocked popup without implying successful export
+  ---
+  duration_ms: 0.248
+  type: 'test'
+  ...
+# Subtest: openReport binds print and close actions without inline scripts or opener access
+ok 163 - openReport binds print and close actions without inline scripts or opener access
+  ---
+  duration_ms: 0.2723
+  type: 'test'
+  ...
+# Subtest: long cohort reports disclose truncation and text bounds
+ok 164 - long cohort reports disclose truncation and text bounds
+  ---
+  duration_ms: 0.3303
+  type: 'test'
+  ...
+# Subtest: recommended stage appears before native disclosure and every other stage remains accessible
+ok 165 - recommended stage appears before native disclosure and every other stage remains accessible
+  ---
+  duration_ms: 1.5579
+  type: 'test'
+  ...
+# Subtest: critical findings remain outside folded stages and source strings are escaped
+ok 166 - critical findings remain outside folded stages and source strings are escaped
+  ---
+  duration_ms: 0.6044
+  type: 'test'
+  ...
+# Subtest: all locally ready stages remain available without claiming execution completion
+ok 167 - all locally ready stages remain available without claiming execution completion
+  ---
+  duration_ms: 0.9283
+  type: 'test'
+  ...
+# Subtest: all compiled controls render with typed values, unique input IDs and escaped metadata
+ok 168 - all compiled controls render with typed values, unique input IDs and escaped metadata
+  ---
+  duration_ms: 2.6895
+  type: 'test'
+  ...
+# Subtest: typed editors preserve compiled option primitive types and reject malformed structured values
+ok 169 - typed editors preserve compiled option primitive types and reject malformed structured values
+  ---
+  duration_ms: 1.2148
+  type: 'test'
+  ...
+# Subtest: source summary precedes startup and edit binds exact view/source identities
+ok 170 - source summary precedes startup and edit binds exact view/source identities
+  ---
+  duration_ms: 3.5644
+  type: 'test'
+  ...
+# Subtest: uncertain edit stops resends and inspection does not silently reauthorize mutations
+ok 171 - uncertain edit stops resends and inspection does not silently reauthorize mutations
+  ---
+  duration_ms: 1.3977
+  type: 'test'
+  ...
+# Subtest: pending duplicate saves send once and late replies cannot replace another app or dialog
+ok 172 - pending duplicate saves send once and late replies cannot replace another app or dialog
+  ---
+  duration_ms: 0.6534
+  type: 'test'
+  ...
+# Subtest: closed dialog discards late load and report excludes field values, private payloads and credentials
+ok 173 - closed dialog discards late load and report excludes field values, private payloads and credentials
+  ---
+  duration_ms: 1.6133
+  type: 'test'
+  ...
+# Subtest: network ambiguity is not a rejected edit and explicit stop shows durable cleanup
+ok 174 - network ambiguity is not a rejected edit and explicit stop shows durable cleanup
+  ---
+  duration_ms: 0.7652
+  type: 'test'
+  ...
+# Subtest: workspace and submit hooks use the shared module and clear stale modal state
+ok 175 - workspace and submit hooks use the shared module and clear stale modal state
+  ---
+  duration_ms: 1.1932
+  type: 'test'
+  ...
+# Subtest: confirmed close rerenders truthful terminal state and removes stale fields even after uncertainty
+ok 176 - confirmed close rerenders truthful terminal state and removes stale fields even after uncertainty
+  ---
+  duration_ms: 1.089
+  type: 'test'
+  ...
+# Subtest: missing coverage and history stay unavailable while supplied empty collections count zero
+ok 177 - missing coverage and history stay unavailable while supplied empty collections count zero
+  ---
+  duration_ms: 1.0567
+  type: 'test'
+  ...
+# Subtest: reports retain snapshot receipt timestamp until a successful new observation
+ok 178 - reports retain snapshot receipt timestamp until a successful new observation
+  ---
+  duration_ms: 0.57
+  type: 'test'
+  ...
+# Subtest: replaced dialogs receive focus and successful saves restore the edited setting in expanded owner
+ok 179 - replaced dialogs receive focus and successful saves restore the edited setting in expanded owner
+  ---
+  duration_ms: 0.5172
+  type: 'test'
+  ...
+# Subtest: principal changes invalidate pending replies before replacing owner controls
+ok 180 - principal changes invalidate pending replies before replacing owner controls
+  ---
+  duration_ms: 0.4011
+  type: 'test'
+  ...
+# Subtest: billingData retains exact explicit terms, numeric units and supplied checkboxes
+ok 181 - billingData retains exact explicit terms, numeric units and supplied checkboxes
+  ---
+  duration_ms: 0.9565
+  type: 'test'
+  ...
+# Subtest: current sources and source enforce selected app and billing namespace
+ok 182 - current sources and source enforce selected app and billing namespace
+  ---
+  duration_ms: 0.3882
+  type: 'test'
+  ...
+# Subtest: variant and planData freeze exact saved config and reject changed source hashes
+ok 183 - variant and planData freeze exact saved config and reject changed source hashes
+  ---
+  duration_ms: 0.3823
+  type: 'test'
+  ...
+# Subtest: payload binds exact app version and closed billing/experiment body
+ok 184 - payload binds exact app version and closed billing/experiment body
+  ---
+  duration_ms: 0.4029
+  type: 'test'
+  ...
+# Subtest: panel and fields expose actual prerequisites and labeled explicit terms
+ok 185 - panel and fields expose actual prerequisites and labeled explicit terms
+  ---
+  duration_ms: 0.9949
+  type: 'test'
+  ...
+# Subtest: report excludes raw private record data and private configuration keys
+ok 186 - report excludes raw private record data and private configuration keys
+  ---
+  duration_ms: 1.8366
+  type: 'test'
+  ...
+# Subtest: submit preserves errors and deduplicates pending requests
+ok 187 - submit preserves errors and deduplicates pending requests
+  ---
+  duration_ms: 0.657
+  type: 'test'
+  ...
+# Subtest: every actual navigation page has a distinct mission input output and next step
+ok 188 - every actual navigation page has a distinct mission input output and next step
+  ---
+  duration_ms: 3.3585
+  type: 'test'
+  ...
+# Subtest: every static task form has an explicit narrative and renders without controls or form values
+ok 189 - every static task form has an explicit narrative and renders without controls or form values
+  ---
+  duration_ms: 12.1328
+  type: 'test'
+  ...
+# Subtest: read-only and unknown dialogs escape hostile titles without inventing an effect
+ok 190 - read-only and unknown dialogs escape hostile titles without inventing an effect
+  ---
+  duration_ms: 0.2678
+  type: 'test'
+  ...
+# Subtest: shared modal and page hooks add narrative alongside existing control and report paths
+ok 191 - shared modal and page hooks add narrative alongside existing control and report paths
+  ---
+  duration_ms: 0.8892
+  type: 'test'
+  ...
+# Subtest: Drive dialog guidance covers access and import independently of hidden form order
+ok 192 - Drive dialog guidance covers access and import independently of hidden form order
+  ---
+  duration_ms: 0.1877
+  type: 'test'
+  ...
+# Subtest: human settings preserve exact source identities and typed crop/timing values
+ok 193 - human settings preserve exact source identities and typed crop/timing values
+  ---
+  duration_ms: 2.2711
+  type: 'test'
+  ...
+# Subtest: clip controls escape source identifiers and expose commands and current profile honestly
+ok 194 - clip controls escape source identifiers and expose commands and current profile honestly
+  ---
+  duration_ms: 1.4769
+  type: 'test'
+  ...
+# Subtest: reports project observed metrics without unrelated secrets or raw operation payloads
+ok 195 - reports project observed metrics without unrelated secrets or raw operation payloads
+  ---
+  duration_ms: 0.3562
+  type: 'test'
+  ...
+# Subtest: pending duplicate submits write once and closed dialogs discard late readbacks
+ok 196 - pending duplicate submits write once and closed dialogs discard late readbacks
+  ---
+  duration_ms: 1.122
+  type: 'test'
+  ...
+# Subtest: failed save retains fields and a changed app discards an in-flight library response
+ok 197 - failed save retains fields and a changed app discards an in-flight library response
+  ---
+  duration_ms: 0.6952
+  type: 'test'
+  ...
+# Subtest: unsaved fields block rendering and results navigation before any server call
+ok 198 - unsaved fields block rendering and results navigation before any server call
+  ---
+  duration_ms: 0.8229
+  type: 'test'
+  ...
+# Subtest: managed source selection retains kind, digest and explicit sound controls
+ok 199 - managed source selection retains kind, digest and explicit sound controls
+  ---
+  duration_ms: 0.7232
+  type: 'test'
+  ...
+# Subtest: monitor displays actual stage and fixed activity without injecting source markup
+ok 200 - monitor displays actual stage and fixed activity without injecting source markup
+  ---
+  duration_ms: 1.193
+  type: 'test'
+  ...
+# Subtest: empty and unobserved attempts do not invent stage completion
+ok 201 - empty and unobserved attempts do not invent stage completion
+  ---
+  duration_ms: 0.1966
+  type: 'test'
+  ...
+1..201
+# tests 201
+# suites 0
+# pass 201
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 13233.8023

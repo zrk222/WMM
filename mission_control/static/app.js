@@ -764,7 +764,7 @@ async function formSubmit(event) {
   if(['video-project-create-form','video-project-edit-form'].includes(formId)){event.preventDefault();return WMMVideoEditor.submit(form,growthReviewServices());}
   if(formId==='studio-source-form'||form.hasAttribute('data-studio-parameter')){event.preventDefault();return WMMStudio.submit(form,growthReviewServices());}
   if(['drive-setup-form','drive-import-form','drive-confirm-form','drive-disconnect-form'].includes(formId)){event.preventDefault();return WMMDrive.submit(form,growthReviewServices());}
-  if(['packaging-variant-form','packaging-shots-form','packaging-preview-form'].includes(formId)){event.preventDefault();return WMMPackaging.submit(form,growthReviewServices());}
+  if(['packaging-variant-form','packaging-shots-form','packaging-preview-form','packaging-taste-form'].includes(formId)){event.preventDefault();return WMMPackaging.submit(form,growthReviewServices());}
   if(['discovery-query-form','discovery-source-form'].includes(formId)){event.preventDefault();return WMMDiscovery.submit(form,growthReviewServices());}
   if(['media-upload-form','media-review-form'].includes(formId)){event.preventDefault();return WMMMedia.submit(form,growthReviewServices());}
   if((formId||"").startsWith("control-")) {event.preventDefault();return WMMAgentControl.submit(form,growthReviewServices());}

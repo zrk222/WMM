@@ -1,0 +1,535 @@
+{
+  "name": "content-packaging-taste-ui",
+  "language": "javascript",
+  "modules": [
+    {
+      "name": "packaging_model",
+      "path": ".factory/content-packaging-taste-ui/qa-scope/packaging-model.js",
+      "language": "javascript",
+      "functions": [
+        {
+          "name": "stable",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "text",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "id",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "number",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "milliseconds",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "hash",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "ref",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "entry",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "libraries",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "find",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "selected",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "imageURL",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "thumbnail",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "variantData",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "newShots",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "editableShots",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "collectShots",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "sha",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "shotTiming",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "shotData",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "shotRow",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "move",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "input",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "select",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "variantFields",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "shuffle",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "previewInput",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "referenceCard",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "preview",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "feedHTML",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "exported",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "report",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "csv",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "checklistReceipt",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "checklistLabel",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "checklistGaps",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "checklistHTML",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "checklistCSV",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "checklistReport",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "tasteData",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "tasteExamples",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "tasteMatches",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "tasteReceipt",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "tasteCSV",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "tasteReport",
+          "args": [],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "packaging_ui",
+      "path": ".factory/content-packaging-taste-ui/qa-scope/packaging-ui.js",
+      "language": "javascript",
+      "functions": [
+        {
+          "name": "clear",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "invalidate",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "panel",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "show",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "tickets",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "busy",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "lockWrites",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "fail",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "recoveries",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "requestOptions",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "responseValue",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "request",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "collections",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "carry",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "historyRows",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "home",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "open",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "blank",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "variantForm",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "ordering",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "segmentFields",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "shotFields",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "shotsForm",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "shotSummary",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "detail",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "read",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "edit",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "newShots",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "editRows",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "previewForm",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "previewSelection",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "previewView",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "assertRead",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "matches",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "write",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "reconcile",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "compare",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "canSubmit",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "submit",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "checklist",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "checklistView",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "checklistReportAction",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "reportButtons",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "download",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "reportAction",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "recoverAction",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "activeAction",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "action",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "savedView",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "tasteHome",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "tasteExampleFields",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "tasteForm",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "tasteRead",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "tasteDetail",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "tasteSubmit",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "tasteReportAction",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "tasteEdit",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "tasteAction",
+          "args": [],
+          "returns": "object"
+        }
+      ]
+    }
+  ]
+}

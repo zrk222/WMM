@@ -1,0 +1,36 @@
+{
+  "agent_actions": [],
+  "authority": {
+    "approval": false,
+    "connector": false,
+    "credential": false,
+    "deployment": false,
+    "execution": false,
+    "merge": false,
+    "messaging": false,
+    "publication": false,
+    "repair": false,
+    "signing": false
+  },
+  "candidate_sha256": "11490ff8f1ca0e110dffba089b28bbf9d1ba7a58f9c4317d66ccda2660d56b10",
+  "checks": 8,
+  "contract_sha256": "a16d2f816ff43218c15c2f2fb9dd05a46d8c234e98821b4cf8a806bec238abe0",
+  "errors": [],
+  "inapplicability_evidence": {},
+  "limits": [
+    "Recorded evidence completeness and hashes only; observations require review.",
+    "Inapplicability review evidence is hash-bound but its judgment and identity are not authenticated.",
+    "Each contract/observation JSON input and evidence artifact is limited to 16 MiB; total evidence hashing is limited to 128 MiB, 4096 artifact references, and 4096 required check/profile pairs.",
+    "No project command or provider is executed.",
+    "No approval, certification or deployment authority."
+  ],
+  "observations_sha256": "91c20c24ac5c596d89a2fd431a237157ac77287c568a6538d0c91c54fcc11a55",
+  "project_id": "WMM-owner-taste-ui",
+  "receipt_sha256": "2a573be13164fccca437e95d91ecbb8fdea867dc80b952836aecb9b39c8e3dac",
+  "resource_usage": {
+    "artifact_references": 160,
+    "bytes_hashed": 1441172
+  },
+  "schema": "factory.workflow-audit.receipt.v1",
+  "state": "PASS"
+}
