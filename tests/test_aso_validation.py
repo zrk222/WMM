@@ -27,7 +27,7 @@ class AsoValidationTests(unittest.TestCase):
         self.assertFalse(result["external_writes"])
 
     def test_field_findings_exact_boundaries_and_locale_unicode(self):
-        for platform, field, limit in (("iOS", "title", 30), ("iOS", "subtitle", 30), ("iOS", "keywords", 100),
+        for platform, field, limit in (("iOS", "title", 30), ("iOS", "subtitle", 30),
                                        ("iOS", "promotional_text", 170), ("Android", "title", 30),
                                        ("Android", "short_description", 80), ("Android", "description", 4000)):
             value = listing(platform)
@@ -37,6 +37,33 @@ class AsoValidationTests(unittest.TestCase):
             self.assertEqual(next(r for r in observations if r["field"] == field)["characters"], limit)
             value["fields"][field] += "界"
             self.assertTrue(any(f["code"] == "TOO_LONG" for f in field_findings(platform, value["fields"])[1]))
+
+    def test_apple_keyword_conflicting_character_and_byte_references_show_both_counts(self):
+        value = listing("iOS")
+        value["fields"]["keywords"] = "界" * 33 + "a"
+        observations, findings = field_findings("iOS", value["fields"])
+        keyword = next(row for row in observations if row["field"] == "keywords")
+        self.assertEqual((keyword["characters"], keyword["bytes"], keyword["maximum_characters"], keyword["byte_reference"]), (34, 100, 100, 100))
+        self.assertFalse(any(row["code"] == "KEYWORD_BYTE_REVIEW" for row in findings))
+        value["fields"]["keywords"] += "b"
+        result = validate_listing(value, "2026-10-27T12:00:00+00:00")
+        keyword = next(row for row in result["fields"] if row["field"] == "keywords")
+        self.assertEqual((keyword["characters"], keyword["bytes"]), (35, 101))
+        self.assertEqual([row["code"] for row in result["findings"]], ["KEYWORD_BYTE_REVIEW"])
+        self.assertEqual(result["status"], "NEEDS_REPAIR")
+        self.assertIn("100 characters", result["findings"][0]["correction"])
+        self.assertIn("100 bytes", result["findings"][0]["correction"])
+
+    def test_apple_keyword_character_limit_is_distinct_from_byte_review(self):
+        value = listing("iOS")
+        value["fields"]["keywords"] = "a" * 101
+        result = validate_listing(value, "2026-10-27T12:00:00+00:00")
+        self.assertIn("TOO_LONG", [row["code"] for row in result["findings"]])
+        self.assertNotIn("KEYWORD_BYTE_REVIEW", [row["code"] for row in result["findings"]])
+
+    def test_apple_keywords_reject_invalid_unicode_without_leaking_encoding_error(self):
+        with self.assertRaisesRegex(Invalid, "valid UTF-8"):
+            field_findings("iOS", {"keywords": "\ud800"})
 
     def test_keyword_findings_duplication_and_separator_phrases(self):
         self.assertEqual(keyword_findings({"keywords": "real estate,home"}), [])
@@ -50,7 +77,7 @@ class AsoValidationTests(unittest.TestCase):
         self.assertTrue(surface_findings("Android", "LOCALIZED_LISTING_EXPERIMENT", ["title"]))
         self.assertTrue(surface_findings("Android", "LOCALIZED_LISTING_EXPERIMENT", ["video"]))
         self.assertTrue(surface_findings("Android", "DEFAULT_GRAPHICS_EXPERIMENT", ["description"]))
-        self.assertTrue(keyword_findings({"keywords": "界" * 34}))
+        self.assertEqual([row["code"] for row in keyword_findings({"keywords": "界" * 34})], ["KEYWORD_BYTE_REVIEW"])
         with self.assertRaises(Invalid):
             surface_findings("iOS", "PRODUCT_PAGE_OPTIMIZATION", ["icon", "icon"])
 

@@ -61,7 +61,17 @@ def field_findings(platform, fields) -> tuple:
         text = fields.get(name, "")
         if not isinstance(text, str):
             raise Invalid("Listing fields must contain text")
-        observations.append({"field": name, "characters": len(text), "maximum_characters": maximum, "text": text})
+        observation = {"field": name, "characters": len(text), "text": text}
+        apple_keywords = platform == "iOS" and name == "keywords"
+        if apple_keywords:
+            try:
+                observation.update(bytes=len(text.encode("utf-8")), byte_reference=100,
+                                   maximum_characters=maximum)
+            except UnicodeEncodeError as error:
+                raise Invalid("Apple keywords must contain valid UTF-8 text") from error
+        else:
+            observation["maximum_characters"] = maximum
+        observations.append(observation)
         if name not in optional and not text.strip():
             findings.append(issue(name, "MISSING", "Supply truthful localized " + name + "."))
         if len(text) > maximum:
@@ -76,8 +86,8 @@ def keyword_findings(fields) -> list:
     words = re.findall(r"\w+", text.casefold(), flags=re.UNICODE)
     repeated = sorted(word for word, count in Counter(words).items() if count > 1)
     findings = []
-    if len(text.encode("utf-8")) > 100:
-        findings.append(issue("keywords", "KEYWORD_BYTE_REVIEW", "App Store Connect reference also specifies 100 bytes. Reduce the UTF-8 keyword payload or verify the current provider counter for this locale."))
+    if len(text) <= 100 and len(text.encode("utf-8")) > 100:
+        findings.append(issue("keywords", "KEYWORD_BYTE_REVIEW", "Apple's product-page guidance says 100 characters, while its App Store Connect reference lists 100 bytes. Check the current App Store Connect counter for this locale; this byte count alone does not establish acceptance."))
     if repeated:
         findings.append(issue("keywords", "DUPLICATE_KEYWORD", "Review repeated words: " + ", ".join(repeated) + "; preserve intent while removing duplication."))
     if ", " in text or " ," in text:

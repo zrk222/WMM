@@ -1,5 +1,5 @@
 # Spec: subscription-growth
-Status: draft
+Status: approved
 
 ## MUST — Functional core
 ### Description
@@ -15,10 +15,13 @@ UPG-00 through UPG-06 remain separate implementation and proof packets.
 - The system shall return `journey_maturity` as unavailable for missing stage denominators or immature cohorts without counting trial starts as purchases.
 - The system shall retain `journey_history` hashes and duplicate identities across SQLite restart and workspace export and restore.
 - The system shall reject `variant_invalid` experiments with changed configurations, stale sources or incompatible product eligibility without authorizing provider changes.
-- The system shall return `aso_fields` with Apple name/subtitle 30 characters, keywords 100 characters, Google title 30 characters, short description 80 characters and full description 4000 characters, plus supported experiment surfaces.
+- The system shall return `aso_fields` with Apple name/subtitle 30 characters and keywords limited to 100 characters, while showing the UTF-8 byte count and explicitly identifying Apple's conflicting 100-byte reference; Google title 30 characters, short description 80 characters and full description 4000 characters, plus supported experiment surfaces.
 - The system shall return `benchmark_scope` as incompatible when dataset period, metric denominator, currency or placement differs.
 - The system shall store `customer_links` from proposed workflows to source observations with a maximum of 100 rows and explicit excluded features without certifying generated demand.
 - The system shall return `review_status` with 3 distinct evidence states for local evidence, provider verification and outcomes, with 0 external writes.
+
+### Data model
+Data model: workflow outputs (journey_counts, journey_invalid, journey_maturity, journey_history, variant_invalid, aso_fields, benchmark_scope, customer_links, review_status)
 
 ### Acceptance criteria (Gherkin)
 ```gherkin
@@ -52,6 +55,11 @@ Scenario: Store fields
   When `aso_fields` are inspected
   Then each field reports its documented limit and supported test surface
 
+Scenario: Apple keyword byte limit
+  Given an Apple keyword field with localized Unicode text
+  When `aso_fields` counts the payload
+  Then the 100-character limit and Apple 100-byte reference appear separately, and over-100-byte Unicode text requests the current locale counter instead of claiming provider acceptance
+
 Scenario: Incompatible reference
   Given different benchmark currencies
   When `benchmark_scope` is compared
@@ -74,8 +82,9 @@ Scenario: Founder review
 - Use isolated synthetic test data; forbid external writes and ad spending.
 
 ## Authorized parameters
-Apple title/subtitle and Google title use 30 characters. Apple keywords use 100
-characters; UTF-8 payloads over 100 bytes need provider-counter review. Both full
+Apple title/subtitle and Google title use 30 characters. Apple product-page
+guidance lists 100 keyword characters while an App Store Connect reference lists
+100 bytes; show both counts and ask for the locale counter when they differ. Both full
 descriptions use 4000 characters, Apple promotional text 170, Google short text 80.
 - LIMITS = 30
 - LIMITS = 100
