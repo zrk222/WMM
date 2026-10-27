@@ -1,14 +1,16 @@
 # Plan: ios-client
 Spec: specs/ios-client.md
 Architect verdict: PASS
-Status: requirements candidate only; every implementation/native/device gate NOT_RUN.
-Parent: platform-parity T4. Implementation begins only after reviewed contract gates.
+Status: implementation required and authorized by the owner's full-built-iOS instruction; every native/device gate remains NOT_RUN.
+Parent: platform-parity T4. Follow the existing standalone architecture and scoped CF implementation gates.
 
 This verdict records the local architecture self-review: the selected embedding
 and native boundaries preserve the required local ownership, operation coverage
 and denial/recovery rules. It does not record independent human approval or
-runtime feasibility results. Parent/owner contract review is still required before
-implementation, including approval of the proposed deployment floor and task files.
+runtime feasibility results. The owner's explicit instruction to include a fully
+built iOS app authorizes routine implementation of these packets. Do not add another
+owner confirmation merely to begin code or build preparation. Credential issuance,
+device access, publication and production actions retain their actual approval gates.
 
 ## Chosen architecture
 
@@ -23,7 +25,7 @@ The shell must not fork domain policy into Swift or treat native calls as author
 Owned tracked files: `specs/ios-client.md`, `plans/ios-client.md` only. Research,
 source inventory, doctor, strict/validator/challenge and workflow observations
 remain ignored under `.factory/ios-client`. The source seam inspection is read-only;
-no application code or Swift scaffold is authorized by this packet. Requirements
+this requirements-only packet itself implemented no application code or Swift scaffold. Requirements
 proof does not prove CPython imports, codec parity, Xcode builds or device execution.
 
 Before local requirements commit run `specline validate ios-client --root .`,
@@ -31,8 +33,8 @@ Before local requirements commit run `specline validate ios-client --root .`,
 `specline verify-validators ios-client --root . --json`,
 `specline challenge ios-client --root . --out .factory/ios-client/challenge.json`,
 and the hash-bound workflow audit over these two documents and ignored evidence.
-Strict or surviving requirement mutations block the requirements commit. Human
-architecture review is still required; no automated gate can invent that approval.
+Strict or surviving requirement mutations block the requirements commit. Automated
+gates never establish independent human architecture review or release approval.
 
 ## Implementation packets - all unchecked
 
