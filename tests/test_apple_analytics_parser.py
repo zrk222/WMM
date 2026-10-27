@@ -98,6 +98,20 @@ class AppleAnalyticsParserTests(unittest.TestCase):
         with self.assertRaises(Invalid):
             parse_instance('123', '2026-01-03', [one, one], True)
 
+    def test_reordered_identical_segments_do_not_conflict(self):
+        from mission_control.apple_analytics_parser import parse_instance, reconcile
+        one = segment(HEADER + '2026-01-01,123,Redownload,1\n', 'a')
+        two = segment(HEADER + '2026-01-01,123,Redownload,2\n', 'b')
+        first = parse_instance('123', '2026-01-03', [one, two], True)
+        reverse = parse_instance('123', '2026-01-03', [two, one], True)
+        self.assertEqual(reconcile([first, reverse]), first['rows'])
+        repeated = dict(first, rows=first['rows'] + first['rows'][:1])
+        with self.assertRaises(Invalid):
+            reconcile([first, repeated])
+        changed_source = dict(first, rows=[dict(first['rows'][0], segment_id='other'), first['rows'][1]])
+        with self.assertRaises(Invalid):
+            reconcile([first, changed_source])
+
     def test_header_only_instance_is_unknown_not_complete(self):
         from mission_control.apple_analytics_parser import parse_instance
         with self.assertRaisesRegex(Invalid, 'contains no observations'):
