@@ -1,0 +1,13 @@
+...F...
+======================================================================
+FAIL: test_limits_unknown_fields_missing_owner_foreign_app_and_policy (tests.test_creative_taste_store.CreativeTasteTests.test_limits_unknown_fields_missing_owner_foreign_app_and_policy) (bad={'id': 'taste-one', 'version': 1, 'manifest_version': 1, 'policy_sha256': '89fdba6cd7b488c704821119520386bf85a546f7c0e43bf9319e5ef500dab9c3', 'data': {'lens': 'product', 'voice': 'Use plain and specific language.', 'visual': 'Show authentic app controls clearly.', 'examples': [], 'exclusions': ['Do not invent testimonials.']}})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-s9la0_po\tests\test_creative_taste_store.py", line 64, in test_limits_unknown_fields_missing_owner_foreign_app_and_policy
+    with self.subTest(bad=bad), self.assertRaises(ClientError):self.call('taste-review', bad)
+AssertionError: ClientError not raised
+
+----------------------------------------------------------------------
+Ran 7 tests in 7.491s
+
+FAILED (failures=1)

@@ -1,0 +1,18 @@
+.F.....
+======================================================================
+FAIL: test_app_policy_and_role_changes_invalidate_saved_owner_review (tests.test_creative_taste_store.CreativeTasteTests.test_app_policy_and_role_changes_invalidate_saved_owner_review)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-2l99bx9p\tests\test_creative_taste_store.py", line 95, in test_app_policy_and_role_changes_invalidate_saved_owner_review
+    self.assertEqual(self.call('taste-read', {'id': saved['id']})['source_status'], 'STALE_OWNER_REVIEW')
+AssertionError: 'CURRENT_OWNER_REVIEW' != 'STALE_OWNER_REVIEW'
+- CURRENT_OWNER_REVIEW
+? ^^^^ --
++ STALE_OWNER_REVIEW
+? ^^^^
+
+
+----------------------------------------------------------------------
+Ran 7 tests in 8.489s
+
+FAILED (failures=1)

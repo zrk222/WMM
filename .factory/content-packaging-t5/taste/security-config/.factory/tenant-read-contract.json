@@ -1,0 +1,47 @@
+{
+  "schema": "factory.tenant-read-contract.v2",
+  "reads": [
+    {
+      "path": "mission_control/packaging_store.py",
+      "reads": [
+        {
+          "call": "funnel_store.app_context",
+          "binding": "position:1:app_id"
+        },
+        {
+          "call": "packaging_bindings.resolve",
+          "binding": "position:2:app_id"
+        },
+        {
+          "call": "packaging_bindings.variant_binding",
+          "binding": "position:2:app_id"
+        },
+        {
+          "call": "packaging_bindings.shot_claims",
+          "binding": "position:1:app_id"
+        }
+      ]
+    },
+    {
+      "path": "mission_control/packaging_bindings.py",
+      "reads": [
+        {
+          "call": "creative_briefs.bound_record",
+          "binding": "position:1:app_id"
+        },
+        {
+          "call": "creative_library.latest_capture",
+          "binding": "position:1:app_id"
+        },
+        {
+          "call": "discovery_store.latest",
+          "binding": "position:1:app_id"
+        },
+        {
+          "call": "funnel_store.creative_binding",
+          "binding": "position:2:app_id"
+        }
+      ]
+    }
+  ]
+}

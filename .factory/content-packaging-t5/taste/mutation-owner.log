@@ -1,0 +1,207 @@
+EE.EEEE
+======================================================================
+ERROR: test_additive_initialization_preserves_existing_apps_roles_and_audit (tests.test_creative_taste_store.CreativeTasteTests.test_additive_initialization_preserves_existing_apps_roles_and_audit)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\mission_control\operator_client.py", line 183, in request
+    with self.opener.open(request,timeout=request_timeout(path,body)) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 525, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 634, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 563, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 496, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 643, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 400: Bad Request
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\tests\test_creative_taste_store.py", line 140, in test_additive_initialization_preserves_existing_apps_roles_and_audit
+    self.assertEqual(self.call('taste-review', self.body())['source_status'], 'CURRENT_OWNER_REVIEW')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\tests\test_creative_taste_store.py", line 30, in call
+    return (client or self.owner).request('POST', '/api/apps/' + app + '/packaging/' + action, body)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\mission_control\operator_client.py", line 186, in request
+    reject_http(error,path,body)
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\mission_control\operator_client.py", line 137, in reject_http
+    raise ClientError('HTTP_REJECTED','WMM rejected the operation; HTTP '+str(error.code)+'. Refresh current app/source data before retrying.',error.code) from error
+mission_control.operator_client.ClientError: WMM rejected the operation; HTTP 400. Refresh current app/source data before retrying.
+
+======================================================================
+ERROR: test_app_policy_and_role_changes_invalidate_saved_owner_review (tests.test_creative_taste_store.CreativeTasteTests.test_app_policy_and_role_changes_invalidate_saved_owner_review)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\mission_control\operator_client.py", line 183, in request
+    with self.opener.open(request,timeout=request_timeout(path,body)) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 525, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 634, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 563, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 496, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 643, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 400: Bad Request
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\tests\test_creative_taste_store.py", line 92, in test_app_policy_and_role_changes_invalidate_saved_owner_review
+    saved = self.call('taste-review', self.body())
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\tests\test_creative_taste_store.py", line 30, in call
+    return (client or self.owner).request('POST', '/api/apps/' + app + '/packaging/' + action, body)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\mission_control\operator_client.py", line 186, in request
+    reject_http(error,path,body)
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\mission_control\operator_client.py", line 137, in reject_http
+    raise ClientError('HTTP_REJECTED','WMM rejected the operation; HTTP '+str(error.code)+'. Refresh current app/source data before retrying.',error.code) from error
+mission_control.operator_client.ClientError: WMM rejected the operation; HTTP 400. Refresh current app/source data before retrying.
+
+======================================================================
+ERROR: test_limits_unknown_fields_missing_owner_foreign_app_and_policy (tests.test_creative_taste_store.CreativeTasteTests.test_limits_unknown_fields_missing_owner_foreign_app_and_policy)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\tests\test_creative_taste_store.py", line 56, in test_limits_unknown_fields_missing_owner_foreign_app_and_policy
+    with self.assertRaises(PermissionError):taste.save(self.store, 'sample-one', body)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\mission_control\creative_taste_store.py", line 127, in save
+    if result['source_status'] != 'CURRENT_OWNER_REVIEW':raise Invalid('Taste evidence changed before commit')
+                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+mission_control.common.Invalid: Taste evidence changed before commit
+
+======================================================================
+ERROR: test_owner_save_read_revisions_restart_and_uncertain_observation (tests.test_creative_taste_store.CreativeTasteTests.test_owner_save_read_revisions_restart_and_uncertain_observation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\mission_control\operator_client.py", line 183, in request
+    with self.opener.open(request,timeout=request_timeout(path,body)) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 525, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 634, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 563, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 496, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 643, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 400: Bad Request
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\tests\test_creative_taste_store.py", line 35, in test_owner_save_read_revisions_restart_and_uncertain_observation
+    first = self.call('taste-review', body)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\tests\test_creative_taste_store.py", line 30, in call
+    return (client or self.owner).request('POST', '/api/apps/' + app + '/packaging/' + action, body)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\mission_control\operator_client.py", line 186, in request
+    reject_http(error,path,body)
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\mission_control\operator_client.py", line 137, in reject_http
+    raise ClientError('HTTP_REJECTED','WMM rejected the operation; HTTP '+str(error.code)+'. Refresh current app/source data before retrying.',error.code) from error
+mission_control.operator_client.ClientError: WMM rejected the operation; HTTP 400. Refresh current app/source data before retrying.
+
+======================================================================
+ERROR: test_source_examples_are_hash_bound_interpretations_not_reuse_rights (tests.test_creative_taste_store.CreativeTasteTests.test_source_examples_are_hash_bound_interpretations_not_reuse_rights)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\mission_control\operator_client.py", line 183, in request
+    with self.opener.open(request,timeout=request_timeout(path,body)) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 525, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 634, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 563, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 496, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 643, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 400: Bad Request
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\tests\test_creative_taste_store.py", line 80, in test_source_examples_are_hash_bound_interpretations_not_reuse_rights
+    saved = self.call('taste-review', body)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\tests\test_creative_taste_store.py", line 30, in call
+    return (client or self.owner).request('POST', '/api/apps/' + app + '/packaging/' + action, body)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\mission_control\operator_client.py", line 186, in request
+    reject_http(error,path,body)
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\mission_control\operator_client.py", line 137, in reject_http
+    raise ClientError('HTTP_REJECTED','WMM rejected the operation; HTTP '+str(error.code)+'. Refresh current app/source data before retrying.',error.code) from error
+mission_control.operator_client.ClientError: WMM rejected the operation; HTTP 400. Refresh current app/source data before retrying.
+
+======================================================================
+ERROR: test_sql_history_rejects_update_delete_conflict_and_rowid_replace (tests.test_creative_taste_store.CreativeTasteTests.test_sql_history_rejects_update_delete_conflict_and_rowid_replace)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\mission_control\operator_client.py", line 183, in request
+    with self.opener.open(request,timeout=request_timeout(path,body)) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 525, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 634, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 563, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 496, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 643, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 400: Bad Request
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\tests\test_creative_taste_store.py", line 116, in test_sql_history_rejects_update_delete_conflict_and_rowid_replace
+    saved = self.call('taste-review', self.body())
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\tests\test_creative_taste_store.py", line 30, in call
+    return (client or self.owner).request('POST', '/api/apps/' + app + '/packaging/' + action, body)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\mission_control\operator_client.py", line 186, in request
+    reject_http(error,path,body)
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-3ohxfzoy\mission_control\operator_client.py", line 137, in reject_http
+    raise ClientError('HTTP_REJECTED','WMM rejected the operation; HTTP '+str(error.code)+'. Refresh current app/source data before retrying.',error.code) from error
+mission_control.operator_client.ClientError: WMM rejected the operation; HTTP 400. Refresh current app/source data before retrying.
+
+----------------------------------------------------------------------
+Ran 7 tests in 7.018s
+
+FAILED (errors=6)
