@@ -1,0 +1,209 @@
+{
+  "action_summary": "No high-risk static security or quality patterns found.",
+  "agent_actions": [],
+  "audit_coverage": {
+    "audit_rate": 1.0,
+    "complete": true,
+    "files_attempted": 3,
+    "files_audited": 3,
+    "files_discovered": 3,
+    "inventory_complete": true,
+    "language": "Python",
+    "limit": 460,
+    "measurement_state": "complete",
+    "rate_defined": true
+  },
+  "audit_sha256": "a7684243460ece651920d3a77c6edc4d8a8375ba852a10ed2099efc608505280",
+  "authority": {
+    "approval": false,
+    "deployment": false,
+    "execution": false,
+    "publication": false
+  },
+  "candidate_sha256": "3e3bde6439a4e7ca68f54ad79d6c47fb01b003196bcaa56afea04ab10105f9ff",
+  "claim_boundary": "Bounded Python AST pattern scan only. Declared tenant argument bindings verify syntactic pass-through, not tenant identity, authorization, or access isolation; this is not a penetration test, runtime exploit proof, dependency advisory, or release approval.",
+  "database_context": {
+    "configuration_sources": [],
+    "discovery": {
+      "configuration_present": false,
+      "inventory_complete": true,
+      "paths": [],
+      "python_sources_complete": true,
+      "python_sources_discovered": 3,
+      "python_sources_selected": 0,
+      "source_selection": "not_applicable",
+      "sql_files": 0
+    },
+    "gaps": [],
+    "graph_digest": "6b8504166d0284dc1adcaf5024802867288f0b92619141b7be5a2806030d6a54",
+    "operations": [],
+    "queries": [],
+    "source_manifest": [],
+    "status": "NOT_APPLICABLE",
+    "tables": []
+  },
+  "files_scanned": 3,
+  "finding_counts": {},
+  "finding_tier_report": {
+    "abstention": {
+      "count": 0,
+      "denominator": 0,
+      "fraction": null,
+      "scope": "this_run_raw_diagnostics"
+    },
+    "claim_policy": {
+      "fresh_score_claim": "NOT_AUTHORIZED",
+      "held_out_precision": "NOT_MEASURED",
+      "interpretation": "Tier counts and abstention are run-local classifications, not accuracy measurements.",
+      "known_true_positive_retention": "NOT_MEASURED",
+      "precision": "NOT_MEASURED"
+    },
+    "defect_gate": {
+      "blocks_on_supported_defects": false,
+      "claim": "This tier report does not establish a clean security result.",
+      "clean": false,
+      "completeness_state": "ASSESSED_WITHIN_DECLARED_SCOPE",
+      "needs_context_count": 0,
+      "passed": false,
+      "reason": "no_supported_defect_observed",
+      "state": "NO_SUPPORTED_DEFECTS_OBSERVED",
+      "supported_defect_count": 0
+    },
+    "ledger": [],
+    "ledger_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "policy_sha256": "e87dd6422fbfd61a01ce9d71ed16d561fb446f82c56b6424b6e5dd5c0697410b",
+    "raw_diagnostics": {
+      "by_code": {},
+      "by_severity": {},
+      "count": 0
+    },
+    "report_sha256": "ad3f5da109d0c8197cac5180651e01be7973e84c036d6638fc1e00a5da06bae5",
+    "retention_metrics": {
+      "known_true_positive_retention": "NOT_MEASURED_NO_LABELLED_HELD_OUT_COHORT",
+      "raw_diagnostic_retention": {
+        "denominator": 0,
+        "fraction": null,
+        "retained": 0
+      },
+      "scope": "within_run_raw_diagnostic_representation_only",
+      "supported_defect_retention": "NOT_MEASURED_NO_LABELLED_HELD_OUT_COHORT"
+    },
+    "rule_scorecards": [],
+    "schema": "factory.security.finding-tiers.v1",
+    "tier_counts": {
+      "NEEDS_CONTEXT": 0,
+      "PROVEN_PRIMITIVE": 0,
+      "SUPPORTED_DEFECT": 0
+    },
+    "validation": {
+      "coverage_state": true,
+      "partition_state": "VALIDATED"
+    }
+  },
+  "findings": [],
+  "governance": "human_controlled",
+  "marker": "SECURITY_AUDIT_COMPLETE",
+  "oracle_context": {
+    "configuration_sources": [],
+    "edge_count": 0,
+    "import_context_profile": {
+      "bindings": 4096,
+      "characters": 1048576,
+      "id": "standard-static-v1"
+    },
+    "mode": "one_local_import_hop_ast_only",
+    "pytest_collection": {
+      "capture_state": "stable_pre_post",
+      "conftest_sources": [],
+      "path": null,
+      "patterns": [
+        "*_test.py",
+        "test_*.py"
+      ],
+      "python_classes": [
+        "Test"
+      ],
+      "python_files": [
+        "*_test.py",
+        "test_*.py"
+      ],
+      "python_functions": [
+        "test"
+      ],
+      "state": "missing"
+    },
+    "resolved_edges": []
+  },
+  "oversized_sources": 0,
+  "parse_errors": 0,
+  "schema": "factory.security-audit.v1",
+  "source_manifest_sha256": "3c2edec12905cfb371646e97120dd499f591a6f01d49d3364d3c8613ce2ff480",
+  "sources": [
+    {
+      "bytes": 7640,
+      "path": "apple_analytics.py",
+      "sha256": "e866728327fc96b9e9fbea70642ec0ea211f01e12678dec1ba8c32c62d8cf331"
+    },
+    {
+      "bytes": 12543,
+      "path": "provider_reports.py",
+      "sha256": "a68e8c1e4cadee6ee47cf64b1f0a8d639febb48069ed18f37ceb22660514585b"
+    },
+    {
+      "bytes": 7710,
+      "path": "providers.py",
+      "sha256": "c13b59d4412d073cdeaf66d2791d74e04f4aafef66ae4facd60b389752ec6fff"
+    }
+  ],
+  "state": "CLEAN",
+  "tenant_read_contract": {
+    "argument_bindings": {},
+    "calls": [],
+    "configuration": {
+      "bytes": 702,
+      "path": ".factory/tenant-read-contract.json",
+      "policy_applies": false,
+      "scoped_reads": {
+        "provider_reports.py": {
+          "bindings": {
+            "google_report": [
+              "position:1:app_id"
+            ],
+            "providers.credential": [
+              "position:1:app_id"
+            ]
+          },
+          "calls": [
+            "google_report",
+            "providers.credential"
+          ]
+        },
+        "providers.py": {
+          "bindings": {
+            "credential": [
+              "position:1:app_id"
+            ],
+            "protected_credential": [
+              "position:1:app_id"
+            ],
+            "read_report": [
+              "position:1:app_id"
+            ]
+          },
+          "calls": [
+            "credential",
+            "protected_credential",
+            "read_report"
+          ]
+        }
+      },
+      "sha256": "aa359e6c8b97e6712338879d367d80022f7b869be72ca1f890e9d4cb376a56ce",
+      "state": "loaded"
+    },
+    "identity_authentication_proven": false,
+    "keyword": "tenant_id",
+    "legacy_binding": "keyword:tenant_id:tenant_id",
+    "policy_applies": false
+  },
+  "unreadable_sources": 0
+}

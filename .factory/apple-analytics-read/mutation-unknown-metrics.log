@@ -1,0 +1,52 @@
+test_allowlist_only_permits_read_endpoints (tests.test_apple_analytics.AnalyticsTests.test_allowlist_only_permits_read_endpoints) ... ok
+test_bad_resource_types_identifiers_and_duplicate_requests_reject (tests.test_apple_analytics.AnalyticsTests.test_bad_resource_types_identifiers_and_duplicate_requests_reject) ... ok
+test_collection_bounds_conflicts_and_partial_coverage (tests.test_apple_analytics.AnalyticsTests.test_collection_bounds_conflicts_and_partial_coverage) ... ok
+test_foreign_app_and_malformed_app_fail_before_followup (tests.test_apple_analytics.AnalyticsTests.test_foreign_app_and_malformed_app_fail_before_followup) ... ok
+test_foreign_parent_relationships_reject (tests.test_apple_analytics.AnalyticsTests.test_foreign_parent_relationships_reject) ... ok
+test_instance_dates_granularity_and_duplicate_report_names_reject (tests.test_apple_analytics.AnalyticsTests.test_instance_dates_granularity_and_duplicate_report_names_reject) ... ok
+test_instance_keeps_date_and_granularity_without_claiming_download (tests.test_apple_analytics.AnalyticsTests.test_instance_keeps_date_and_granularity_without_claiming_download) ... FAIL
+test_next_page_rejects_foreign_hosts_scopes_ports_fragments_and_loops (tests.test_apple_analytics.AnalyticsTests.test_next_page_rejects_foreign_hosts_scopes_ports_fragments_and_loops) ... ok
+test_no_request_stopped_and_snapshot_require_setup (tests.test_apple_analytics.AnalyticsTests.test_no_request_stopped_and_snapshot_require_setup) ... ok
+test_partial_request_inventory_cannot_imply_new_setup_is_needed (tests.test_apple_analytics.AnalyticsTests.test_partial_request_inventory_cannot_imply_new_setup_is_needed) ... FAIL
+test_protected_dispatch_is_closed_to_another_provider (tests.test_apple_analytics.AnalyticsTests.test_protected_dispatch_is_closed_to_another_provider) ... FAIL
+test_read_analytics_waiting_never_means_zero_metrics (tests.test_apple_analytics.AnalyticsTests.test_read_analytics_waiting_never_means_zero_metrics) ... FAIL
+test_reader_deadline_rejects_before_network (tests.test_apple_analytics.AnalyticsTests.test_reader_deadline_rejects_before_network) ... ok
+test_worker_persists_source_hashes_and_rejects_cross_app (tests.test_apple_analytics.AnalyticsTests.test_worker_persists_source_hashes_and_rejects_cross_app) ... ok
+
+======================================================================
+FAIL: test_instance_keeps_date_and_granularity_without_claiming_download (tests.test_apple_analytics.AnalyticsTests.test_instance_keeps_date_and_granularity_without_claiming_download)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-analytics-mutation-l88nq4hb\tests\test_apple_analytics.py", line 65, in test_instance_keeps_date_and_granularity_without_claiming_download
+    self.assertIsNone(result['metric_observations'])
+AssertionError: 0 is not None
+
+======================================================================
+FAIL: test_partial_request_inventory_cannot_imply_new_setup_is_needed (tests.test_apple_analytics.AnalyticsTests.test_partial_request_inventory_cannot_imply_new_setup_is_needed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-analytics-mutation-l88nq4hb\tests\test_apple_analytics.py", line 98, in test_partial_request_inventory_cannot_imply_new_setup_is_needed
+    self.assertIsNone(result['metric_observations'])
+AssertionError: 0 is not None
+
+======================================================================
+FAIL: test_protected_dispatch_is_closed_to_another_provider (tests.test_apple_analytics.AnalyticsTests.test_protected_dispatch_is_closed_to_another_provider)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-analytics-mutation-l88nq4hb\tests\test_apple_analytics.py", line 183, in test_protected_dispatch_is_closed_to_another_provider
+    self.assertEqual(result['store_app_id'],'123'); self.assertIsNone(result['metric_observations'])
+                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0 is not None
+
+======================================================================
+FAIL: test_read_analytics_waiting_never_means_zero_metrics (tests.test_apple_analytics.AnalyticsTests.test_read_analytics_waiting_never_means_zero_metrics)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-analytics-mutation-l88nq4hb\tests\test_apple_analytics.py", line 55, in test_read_analytics_waiting_never_means_zero_metrics
+    self.assertIsNone(result['metric_observations'])
+AssertionError: 0 is not None
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.978s
+
+FAILED (failures=4)

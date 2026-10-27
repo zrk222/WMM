@@ -1,0 +1,497 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "4de86bbadb83535fa3106f1524f3fa9910f3e043554a44fde639e77b7a18f86a",
+  "candidate_sha256": "cf43a78fd7eff435ea8db16264a817e2a20ee5b1b0056af25cef1d729957fcf0",
+  "observations": [
+    {
+      "id": "readiness",
+      "profile": "Windows-Python3.11-synthetic-worker-native-sqlite",
+      "status": "PASS",
+      "reason": "Persist typed app-scoped report readiness through the actual sync worker and reload",
+      "execution_identity": "python -m unittest tests.test_apple_analytics tests.test_provider_reports tests.test_provider_setup tests.test_subscription_variants tests.test_release_inventory -v; python -m unittest tests.test_campaign_inputs tests.test_source_retry_guards tests.test_play_collection -v; python .factory/apple-analytics-read/mutations.py; python .factory/apple-analytics-read/quality.py",
+      "observed_at": "2026-10-27T02:49:16.611373+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-read/regressions.log",
+          "sha256": "e52051ddad4d85fad78f51bf12650ab401aaa21b2dbfcb6f56ed74cad755102f",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/adjacent-regressions.log",
+          "sha256": "66ae62875fd17f7d208eda71db9243dd2cce4b4f1a504387c520881de7db1d34",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutations.json",
+          "sha256": "f5960fb762c516f2945f2a773e2a46381b484c750d3008fca9c4afdc58924494",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-baseline.log",
+          "sha256": "e5de25bf9d7eb84115bb86352947867c05c921f77fcb091adfbfe371a98a256c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-foreign-parent.log",
+          "sha256": "1221e35c324627d01dc070eb267c82a1d9f29712b418cf609c9d11790336d465",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-foreign-host.log",
+          "sha256": "9cc65d0c90ae4d2c167c67a1daefbf1f501ef52f40aebadc6db979f93cc50249",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-unknown-metrics.log",
+          "sha256": "4a9f755c67fe6a1962f6f0892a9a132cfa0e0125b5f88fda69c4ff27d9e9c54b",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/qa.json",
+          "sha256": "10de1d452d4a5ad0bbc29ba6a5b691a8c8d9a562d06df88a12c03e993e61bf7a",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/qa-binding.json",
+          "sha256": "f73315863bdd8e8f332cdc63b1a0d2f2db7c7ff66694a6123437783f8dc2ff4c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/security.json",
+          "sha256": "04fbd3ad6c50b0b7007b479c8ed8568d45baf5e67df5586d5d5421ee0cf35653",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/security-binding.json",
+          "sha256": "29a07501d897ab473306094fb5803da1de82ee3efd1187b4b63793b79fd53851",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/requirements.log",
+          "sha256": "5a68c796f56990f95e560cb16328510b58dfb47f4adb72acd1b6b8e3e027038a",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-Python3.11-synthetic-worker-native-sqlite",
+      "status": "PASS",
+      "reason": "Reject foreign identities, bad types, invalid dates, unsafe URLs and duplicate source conflicts",
+      "execution_identity": "python -m unittest tests.test_apple_analytics tests.test_provider_reports tests.test_provider_setup tests.test_subscription_variants tests.test_release_inventory -v; python -m unittest tests.test_campaign_inputs tests.test_source_retry_guards tests.test_play_collection -v; python .factory/apple-analytics-read/mutations.py; python .factory/apple-analytics-read/quality.py",
+      "observed_at": "2026-10-27T02:49:16.611373+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-read/regressions.log",
+          "sha256": "e52051ddad4d85fad78f51bf12650ab401aaa21b2dbfcb6f56ed74cad755102f",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/adjacent-regressions.log",
+          "sha256": "66ae62875fd17f7d208eda71db9243dd2cce4b4f1a504387c520881de7db1d34",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutations.json",
+          "sha256": "f5960fb762c516f2945f2a773e2a46381b484c750d3008fca9c4afdc58924494",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-baseline.log",
+          "sha256": "e5de25bf9d7eb84115bb86352947867c05c921f77fcb091adfbfe371a98a256c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-foreign-parent.log",
+          "sha256": "1221e35c324627d01dc070eb267c82a1d9f29712b418cf609c9d11790336d465",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-foreign-host.log",
+          "sha256": "9cc65d0c90ae4d2c167c67a1daefbf1f501ef52f40aebadc6db979f93cc50249",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-unknown-metrics.log",
+          "sha256": "4a9f755c67fe6a1962f6f0892a9a132cfa0e0125b5f88fda69c4ff27d9e9c54b",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/qa.json",
+          "sha256": "10de1d452d4a5ad0bbc29ba6a5b691a8c8d9a562d06df88a12c03e993e61bf7a",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/qa-binding.json",
+          "sha256": "f73315863bdd8e8f332cdc63b1a0d2f2db7c7ff66694a6123437783f8dc2ff4c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/security.json",
+          "sha256": "04fbd3ad6c50b0b7007b479c8ed8568d45baf5e67df5586d5d5421ee0cf35653",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/security-binding.json",
+          "sha256": "29a07501d897ab473306094fb5803da1de82ee3efd1187b4b63793b79fd53851",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/requirements.log",
+          "sha256": "5a68c796f56990f95e560cb16328510b58dfb47f4adb72acd1b6b8e3e027038a",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "recovery",
+      "profile": "Windows-Python3.11-synthetic-worker-native-sqlite",
+      "status": "PASS",
+      "reason": "Propagate permission and provider errors; missing generated instances remain unknown metrics",
+      "execution_identity": "python -m unittest tests.test_apple_analytics tests.test_provider_reports tests.test_provider_setup tests.test_subscription_variants tests.test_release_inventory -v; python -m unittest tests.test_campaign_inputs tests.test_source_retry_guards tests.test_play_collection -v; python .factory/apple-analytics-read/mutations.py; python .factory/apple-analytics-read/quality.py",
+      "observed_at": "2026-10-27T02:49:16.611373+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-read/regressions.log",
+          "sha256": "e52051ddad4d85fad78f51bf12650ab401aaa21b2dbfcb6f56ed74cad755102f",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/adjacent-regressions.log",
+          "sha256": "66ae62875fd17f7d208eda71db9243dd2cce4b4f1a504387c520881de7db1d34",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutations.json",
+          "sha256": "f5960fb762c516f2945f2a773e2a46381b484c750d3008fca9c4afdc58924494",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-baseline.log",
+          "sha256": "e5de25bf9d7eb84115bb86352947867c05c921f77fcb091adfbfe371a98a256c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-foreign-parent.log",
+          "sha256": "1221e35c324627d01dc070eb267c82a1d9f29712b418cf609c9d11790336d465",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-foreign-host.log",
+          "sha256": "9cc65d0c90ae4d2c167c67a1daefbf1f501ef52f40aebadc6db979f93cc50249",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-unknown-metrics.log",
+          "sha256": "4a9f755c67fe6a1962f6f0892a9a132cfa0e0125b5f88fda69c4ff27d9e9c54b",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/qa.json",
+          "sha256": "10de1d452d4a5ad0bbc29ba6a5b691a8c8d9a562d06df88a12c03e993e61bf7a",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/qa-binding.json",
+          "sha256": "f73315863bdd8e8f332cdc63b1a0d2f2db7c7ff66694a6123437783f8dc2ff4c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/security.json",
+          "sha256": "04fbd3ad6c50b0b7007b479c8ed8568d45baf5e67df5586d5d5421ee0cf35653",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/security-binding.json",
+          "sha256": "29a07501d897ab473306094fb5803da1de82ee3efd1187b4b63793b79fd53851",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/requirements.log",
+          "sha256": "5a68c796f56990f95e560cb16328510b58dfb47f4adb72acd1b6b8e3e027038a",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "scope",
+      "profile": "Windows-Python3.11-synthetic-worker-native-sqlite",
+      "status": "PASS",
+      "reason": "Preserve connection/app scope, immutable source hashes and exact durable result identity",
+      "execution_identity": "python -m unittest tests.test_apple_analytics tests.test_provider_reports tests.test_provider_setup tests.test_subscription_variants tests.test_release_inventory -v; python -m unittest tests.test_campaign_inputs tests.test_source_retry_guards tests.test_play_collection -v; python .factory/apple-analytics-read/mutations.py; python .factory/apple-analytics-read/quality.py",
+      "observed_at": "2026-10-27T02:49:16.611373+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-read/regressions.log",
+          "sha256": "e52051ddad4d85fad78f51bf12650ab401aaa21b2dbfcb6f56ed74cad755102f",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/adjacent-regressions.log",
+          "sha256": "66ae62875fd17f7d208eda71db9243dd2cce4b4f1a504387c520881de7db1d34",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutations.json",
+          "sha256": "f5960fb762c516f2945f2a773e2a46381b484c750d3008fca9c4afdc58924494",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-baseline.log",
+          "sha256": "e5de25bf9d7eb84115bb86352947867c05c921f77fcb091adfbfe371a98a256c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-foreign-parent.log",
+          "sha256": "1221e35c324627d01dc070eb267c82a1d9f29712b418cf609c9d11790336d465",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-foreign-host.log",
+          "sha256": "9cc65d0c90ae4d2c167c67a1daefbf1f501ef52f40aebadc6db979f93cc50249",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-unknown-metrics.log",
+          "sha256": "4a9f755c67fe6a1962f6f0892a9a132cfa0e0125b5f88fda69c4ff27d9e9c54b",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/qa.json",
+          "sha256": "10de1d452d4a5ad0bbc29ba6a5b691a8c8d9a562d06df88a12c03e993e61bf7a",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/qa-binding.json",
+          "sha256": "f73315863bdd8e8f332cdc63b1a0d2f2db7c7ff66694a6123437783f8dc2ff4c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/security.json",
+          "sha256": "04fbd3ad6c50b0b7007b479c8ed8568d45baf5e67df5586d5d5421ee0cf35653",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/security-binding.json",
+          "sha256": "29a07501d897ab473306094fb5803da1de82ee3efd1187b4b63793b79fd53851",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/requirements.log",
+          "sha256": "5a68c796f56990f95e560cb16328510b58dfb47f4adb72acd1b6b8e3e027038a",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "security",
+      "profile": "Windows-Python3.11-synthetic-worker-native-sqlite",
+      "status": "PASS",
+      "reason": "Keep authenticated requests on allowed read endpoints; reject cross-app access and retain null metrics",
+      "execution_identity": "python -m unittest tests.test_apple_analytics tests.test_provider_reports tests.test_provider_setup tests.test_subscription_variants tests.test_release_inventory -v; python -m unittest tests.test_campaign_inputs tests.test_source_retry_guards tests.test_play_collection -v; python .factory/apple-analytics-read/mutations.py; python .factory/apple-analytics-read/quality.py",
+      "observed_at": "2026-10-27T02:49:16.611373+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-read/regressions.log",
+          "sha256": "e52051ddad4d85fad78f51bf12650ab401aaa21b2dbfcb6f56ed74cad755102f",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/adjacent-regressions.log",
+          "sha256": "66ae62875fd17f7d208eda71db9243dd2cce4b4f1a504387c520881de7db1d34",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutations.json",
+          "sha256": "f5960fb762c516f2945f2a773e2a46381b484c750d3008fca9c4afdc58924494",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-baseline.log",
+          "sha256": "e5de25bf9d7eb84115bb86352947867c05c921f77fcb091adfbfe371a98a256c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-foreign-parent.log",
+          "sha256": "1221e35c324627d01dc070eb267c82a1d9f29712b418cf609c9d11790336d465",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-foreign-host.log",
+          "sha256": "9cc65d0c90ae4d2c167c67a1daefbf1f501ef52f40aebadc6db979f93cc50249",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-unknown-metrics.log",
+          "sha256": "4a9f755c67fe6a1962f6f0892a9a132cfa0e0125b5f88fda69c4ff27d9e9c54b",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/qa.json",
+          "sha256": "10de1d452d4a5ad0bbc29ba6a5b691a8c8d9a562d06df88a12c03e993e61bf7a",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/qa-binding.json",
+          "sha256": "f73315863bdd8e8f332cdc63b1a0d2f2db7c7ff66694a6123437783f8dc2ff4c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/security.json",
+          "sha256": "04fbd3ad6c50b0b7007b479c8ed8568d45baf5e67df5586d5d5421ee0cf35653",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/security-binding.json",
+          "sha256": "29a07501d897ab473306094fb5803da1de82ee3efd1187b4b63793b79fd53851",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/requirements.log",
+          "sha256": "5a68c796f56990f95e560cb16328510b58dfb47f4adb72acd1b6b8e3e027038a",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "budgets",
+      "profile": "Windows-Python3.11-synthetic-worker-native-sqlite",
+      "status": "PASS",
+      "reason": "Bound collection reads to three pages of one hundred entries and five declared report families under the existing reader deadline",
+      "execution_identity": "python -m unittest tests.test_apple_analytics tests.test_provider_reports tests.test_provider_setup tests.test_subscription_variants tests.test_release_inventory -v; python -m unittest tests.test_campaign_inputs tests.test_source_retry_guards tests.test_play_collection -v; python .factory/apple-analytics-read/mutations.py; python .factory/apple-analytics-read/quality.py",
+      "observed_at": "2026-10-27T02:49:16.611373+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-read/regressions.log",
+          "sha256": "e52051ddad4d85fad78f51bf12650ab401aaa21b2dbfcb6f56ed74cad755102f",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/adjacent-regressions.log",
+          "sha256": "66ae62875fd17f7d208eda71db9243dd2cce4b4f1a504387c520881de7db1d34",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutations.json",
+          "sha256": "f5960fb762c516f2945f2a773e2a46381b484c750d3008fca9c4afdc58924494",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-baseline.log",
+          "sha256": "e5de25bf9d7eb84115bb86352947867c05c921f77fcb091adfbfe371a98a256c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-foreign-parent.log",
+          "sha256": "1221e35c324627d01dc070eb267c82a1d9f29712b418cf609c9d11790336d465",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-foreign-host.log",
+          "sha256": "9cc65d0c90ae4d2c167c67a1daefbf1f501ef52f40aebadc6db979f93cc50249",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-unknown-metrics.log",
+          "sha256": "4a9f755c67fe6a1962f6f0892a9a132cfa0e0125b5f88fda69c4ff27d9e9c54b",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/qa.json",
+          "sha256": "10de1d452d4a5ad0bbc29ba6a5b691a8c8d9a562d06df88a12c03e993e61bf7a",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/qa-binding.json",
+          "sha256": "f73315863bdd8e8f332cdc63b1a0d2f2db7c7ff66694a6123437783f8dc2ff4c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/security.json",
+          "sha256": "04fbd3ad6c50b0b7007b479c8ed8568d45baf5e67df5586d5d5421ee0cf35653",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/security-binding.json",
+          "sha256": "29a07501d897ab473306094fb5803da1de82ee3efd1187b4b63793b79fd53851",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/requirements.log",
+          "sha256": "5a68c796f56990f95e560cb16328510b58dfb47f4adb72acd1b6b8e3e027038a",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "effects",
+      "profile": "Windows-Python3.11-synthetic-worker-native-sqlite",
+      "status": "PASS",
+      "reason": "Reject POST on new analytics endpoints; never create streams, grant access, spend or publish",
+      "execution_identity": "python -m unittest tests.test_apple_analytics tests.test_provider_reports tests.test_provider_setup tests.test_subscription_variants tests.test_release_inventory -v; python -m unittest tests.test_campaign_inputs tests.test_source_retry_guards tests.test_play_collection -v; python .factory/apple-analytics-read/mutations.py; python .factory/apple-analytics-read/quality.py",
+      "observed_at": "2026-10-27T02:49:16.611373+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-read/regressions.log",
+          "sha256": "e52051ddad4d85fad78f51bf12650ab401aaa21b2dbfcb6f56ed74cad755102f",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/adjacent-regressions.log",
+          "sha256": "66ae62875fd17f7d208eda71db9243dd2cce4b4f1a504387c520881de7db1d34",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutations.json",
+          "sha256": "f5960fb762c516f2945f2a773e2a46381b484c750d3008fca9c4afdc58924494",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-baseline.log",
+          "sha256": "e5de25bf9d7eb84115bb86352947867c05c921f77fcb091adfbfe371a98a256c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-foreign-parent.log",
+          "sha256": "1221e35c324627d01dc070eb267c82a1d9f29712b418cf609c9d11790336d465",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-foreign-host.log",
+          "sha256": "9cc65d0c90ae4d2c167c67a1daefbf1f501ef52f40aebadc6db979f93cc50249",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/mutation-unknown-metrics.log",
+          "sha256": "4a9f755c67fe6a1962f6f0892a9a132cfa0e0125b5f88fda69c4ff27d9e9c54b",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/qa.json",
+          "sha256": "10de1d452d4a5ad0bbc29ba6a5b691a8c8d9a562d06df88a12c03e993e61bf7a",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/qa-binding.json",
+          "sha256": "f73315863bdd8e8f332cdc63b1a0d2f2db7c7ff66694a6123437783f8dc2ff4c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/security.json",
+          "sha256": "04fbd3ad6c50b0b7007b479c8ed8568d45baf5e67df5586d5d5421ee0cf35653",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/security-binding.json",
+          "sha256": "29a07501d897ab473306094fb5803da1de82ee3efd1187b4b63793b79fd53851",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-read/requirements.log",
+          "sha256": "5a68c796f56990f95e560cb16328510b58dfb47f4adb72acd1b6b8e3e027038a",
+          "kind": "log"
+        }
+      ]
+    }
+  ]
+}

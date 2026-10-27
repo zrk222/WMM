@@ -55,7 +55,7 @@ def report_destination(url,body):
     query_paths=("/v1/campaigns/query","/v1/reports/apps/campaigns/query","/v1/reports/apps/keywords/query","/v1/reports/apps/searchterms/query")
     allowed=False
     if parsed.hostname=="api.appstoreconnect.apple.com":
-        apple_paths = r'/v1/(?:apps/\d+(?:/customerReviews|/subscriptionGroups)?|subscriptionGroups/\d+/subscriptions|appStoreVersions/[A-Za-z0-9-]{1,80}(?:/appStoreVersionLocalizations)?|appStoreVersionLocalizations/[A-Za-z0-9-]{1,80}/appScreenshotSets|appScreenshotSets/[A-Za-z0-9-]{1,80}/appScreenshots)'
+        apple_paths = r'/v1/(?:apps/\d+(?:/customerReviews|/subscriptionGroups|/analyticsReportRequests)?|subscriptionGroups/\d+/subscriptions|appStoreVersions/[A-Za-z0-9-]{1,80}(?:/appStoreVersionLocalizations)?|appStoreVersionLocalizations/[A-Za-z0-9-]{1,80}/appScreenshotSets|appScreenshotSets/[A-Za-z0-9-]{1,80}/appScreenshots|analyticsReportRequests/[A-Za-z0-9-]{1,200}/reports|analyticsReports/[A-Za-z0-9-]{1,200}/instances)'
         allowed=body is None and re.fullmatch(apple_paths,parsed.path)
     if parsed.hostname=="api.ads.apple.com":
         allowed=parsed.path in query_paths and body is not None and not parsed.query

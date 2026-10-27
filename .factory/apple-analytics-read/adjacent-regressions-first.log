@@ -1,0 +1,200 @@
+test_atomic_replay_preserves_failed_and_cancelled_jobs (tests.test_campaign_inputs.CampaignInputTests.test_atomic_replay_preserves_failed_and_cancelled_jobs) ... ok
+test_changed_operating_policy_blocks_actual_worker_read (tests.test_campaign_inputs.CampaignInputTests.test_changed_operating_policy_blocks_actual_worker_read) ... ok
+test_connection_rotation_and_conflicting_job_roll_back_collection (tests.test_campaign_inputs.CampaignInputTests.test_connection_rotation_and_conflicting_job_roll_back_collection) ... ok
+test_mismatched_disconnected_and_unsupported_sources_excluded (tests.test_campaign_inputs.CampaignInputTests.test_mismatched_disconnected_and_unsupported_sources_excluded) ... ok
+test_operating_manifest_rejects_tool_scope_and_policy_drift (tests.test_campaign_inputs.CampaignInputTests.test_operating_manifest_rejects_tool_scope_and_policy_drift) ... ok
+test_permission_and_validation_errors_never_trigger_automatic_retry (tests.test_campaign_inputs.CampaignInputTests.test_permission_and_validation_errors_never_trigger_automatic_retry) ... ok
+test_preview_is_read_only_and_derives_fixed_sources (tests.test_campaign_inputs.CampaignInputTests.test_preview_is_read_only_and_derives_fixed_sources) ... ok
+test_read_manifest_rejects_foreign_binding_and_changed_release (tests.test_campaign_inputs.CampaignInputTests.test_read_manifest_rejects_foreign_binding_and_changed_release) ... ok
+test_rechecks_manifest_after_provider_response (tests.test_campaign_inputs.CampaignInputTests.test_rechecks_manifest_after_provider_response) ... ok
+test_scope_cap_and_hourly_reuse_boundary (tests.test_campaign_inputs.CampaignInputTests.test_scope_cap_and_hourly_reuse_boundary) ... ERROR
+test_selected_release_requires_exact_saved_intent (tests.test_campaign_inputs.CampaignInputTests.test_selected_release_requires_exact_saved_intent) ... ok
+test_stale_extra_and_foreign_requests_rejected (tests.test_campaign_inputs.CampaignInputTests.test_stale_extra_and_foreign_requests_rejected) ... ok
+test_transient_reads_back_off_resume_and_stop_at_manifest_limit (tests.test_campaign_inputs.CampaignInputTests.test_transient_reads_back_off_resume_and_stop_at_manifest_limit) ... ok
+test_worker_reads_and_rejects_manifest_change_before_network (tests.test_campaign_inputs.CampaignInputTests.test_worker_reads_and_rejects_manifest_change_before_network) ... ok
+test_analytics_experiment_and_reuse_guards_reject_unowned_targets (tests.test_source_retry_guards.SourceRetryGuardTests.test_analytics_experiment_and_reuse_guards_reject_unowned_targets) ... ERROR
+test_authorize_source_operation_and_release_fail_closed (tests.test_source_retry_guards.SourceRetryGuardTests.test_authorize_source_operation_and_release_fail_closed) ... ERROR
+test_collection_options_executable_options_and_decorate_show_separate_approval (tests.test_source_retry_guards.SourceRetryGuardTests.test_collection_options_executable_options_and_decorate_show_separate_approval) ... ERROR
+test_concurrent_approvals_cannot_duplicate_the_same_failed_read (tests.test_source_retry_guards.SourceRetryGuardTests.test_concurrent_approvals_cannot_duplicate_the_same_failed_read) ... ERROR
+test_enqueue_task_replay_and_rotated_connection_are_transactional (tests.test_source_retry_guards.SourceRetryGuardTests.test_enqueue_task_replay_and_rotated_connection_are_transactional) ... ERROR
+test_guard_and_source_guard_do_not_let_retry_bypass_current_authority (tests.test_source_retry_guards.SourceRetryGuardTests.test_guard_and_source_guard_do_not_let_retry_bypass_current_authority) ... ERROR
+test_issue_kind_and_ordered_tools_preserve_access_alternatives (tests.test_source_retry_guards.SourceRetryGuardTests.test_issue_kind_and_ordered_tools_preserve_access_alternatives) ... ERROR
+test_partial_enqueue_failure_rolls_back_the_entire_approved_collection (tests.test_source_retry_guards.SourceRetryGuardTests.test_partial_enqueue_failure_rolls_back_the_entire_approved_collection) ... ERROR
+test_prefix_identity_and_retry_rows_preserve_source_separation_and_integrity (tests.test_source_retry_guards.SourceRetryGuardTests.test_prefix_identity_and_retry_rows_preserve_source_separation_and_integrity) ... ERROR
+test_task_options_usable_binding_and_derive_tasks_keep_exact_read_scope (tests.test_source_retry_guards.SourceRetryGuardTests.test_task_options_usable_binding_and_derive_tasks_keep_exact_read_scope) ... ERROR
+test_actual_collection_queue_completes_bounded_reads_without_claiming_outcomes (tests.test_play_collection.PlayCollectionTests.test_actual_collection_queue_completes_bounded_reads_without_claiming_outcomes) ... ok
+test_google_and_apple_reads_coexist_with_distinct_identifiers (tests.test_play_collection.PlayCollectionTests.test_google_and_apple_reads_coexist_with_distinct_identifiers) ... ok
+test_google_reads_do_not_require_an_apple_store_id (tests.test_play_collection.PlayCollectionTests.test_google_reads_do_not_require_an_apple_store_id) ... ok
+test_old_policy_and_cross_provider_operations_cannot_reuse_approval (tests.test_play_collection.PlayCollectionTests.test_old_policy_and_cross_provider_operations_cannot_reuse_approval) ... ok
+test_stale_collection_plan_and_foreign_records_reject_before_queue (tests.test_play_collection.PlayCollectionTests.test_stale_collection_plan_and_foreign_records_reject_before_queue) ... ok
+test_wrong_android_target_and_disconnection_are_visible_exclusions (tests.test_play_collection.PlayCollectionTests.test_wrong_android_target_and_disconnection_are_visible_exclusions) ... ok
+
+======================================================================
+ERROR: test_scope_cap_and_hourly_reuse_boundary (tests.test_campaign_inputs.CampaignInputTests.test_scope_cap_and_hourly_reuse_boundary)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\tests\test_campaign_inputs.py", line 112, in test_scope_cap_and_hourly_reuse_boundary
+    self.assertEqual(Service(self.store).workspace('sample-one')['preparation']['collection']['app_id'],'sample-one')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\service.py", line 140, in workspace
+    workspace['sequences']=dict(proposal=prepare_sequence(app,workspace['resolutions'],preparation['collection']),
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\sequence_plan.py", line 34, in prepare
+    steps,cached=choices(resolutions,collection,policy['supported_resolution_tools'])
+                                                ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'supported_resolution_tools'
+
+======================================================================
+ERROR: test_analytics_experiment_and_reuse_guards_reject_unowned_targets (tests.test_source_retry_guards.SourceRetryGuardTests.test_analytics_experiment_and_reuse_guards_reject_unowned_targets)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\tests\test_resolutions.py", line 28, in setUp
+    self.workspace=Service(self.store).workspace('sample-one')
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\service.py", line 140, in workspace
+    workspace['sequences']=dict(proposal=prepare_sequence(app,workspace['resolutions'],preparation['collection']),
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\sequence_plan.py", line 34, in prepare
+    steps,cached=choices(resolutions,collection,policy['supported_resolution_tools'])
+                                                ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'supported_resolution_tools'
+
+======================================================================
+ERROR: test_authorize_source_operation_and_release_fail_closed (tests.test_source_retry_guards.SourceRetryGuardTests.test_authorize_source_operation_and_release_fail_closed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\tests\test_resolutions.py", line 28, in setUp
+    self.workspace=Service(self.store).workspace('sample-one')
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\service.py", line 140, in workspace
+    workspace['sequences']=dict(proposal=prepare_sequence(app,workspace['resolutions'],preparation['collection']),
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\sequence_plan.py", line 34, in prepare
+    steps,cached=choices(resolutions,collection,policy['supported_resolution_tools'])
+                                                ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'supported_resolution_tools'
+
+======================================================================
+ERROR: test_collection_options_executable_options_and_decorate_show_separate_approval (tests.test_source_retry_guards.SourceRetryGuardTests.test_collection_options_executable_options_and_decorate_show_separate_approval)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\tests\test_resolutions.py", line 28, in setUp
+    self.workspace=Service(self.store).workspace('sample-one')
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\service.py", line 140, in workspace
+    workspace['sequences']=dict(proposal=prepare_sequence(app,workspace['resolutions'],preparation['collection']),
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\sequence_plan.py", line 34, in prepare
+    steps,cached=choices(resolutions,collection,policy['supported_resolution_tools'])
+                                                ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'supported_resolution_tools'
+
+======================================================================
+ERROR: test_concurrent_approvals_cannot_duplicate_the_same_failed_read (tests.test_source_retry_guards.SourceRetryGuardTests.test_concurrent_approvals_cannot_duplicate_the_same_failed_read)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\tests\test_resolutions.py", line 28, in setUp
+    self.workspace=Service(self.store).workspace('sample-one')
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\service.py", line 140, in workspace
+    workspace['sequences']=dict(proposal=prepare_sequence(app,workspace['resolutions'],preparation['collection']),
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\sequence_plan.py", line 34, in prepare
+    steps,cached=choices(resolutions,collection,policy['supported_resolution_tools'])
+                                                ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'supported_resolution_tools'
+
+======================================================================
+ERROR: test_enqueue_task_replay_and_rotated_connection_are_transactional (tests.test_source_retry_guards.SourceRetryGuardTests.test_enqueue_task_replay_and_rotated_connection_are_transactional)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\tests\test_resolutions.py", line 28, in setUp
+    self.workspace=Service(self.store).workspace('sample-one')
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\service.py", line 140, in workspace
+    workspace['sequences']=dict(proposal=prepare_sequence(app,workspace['resolutions'],preparation['collection']),
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\sequence_plan.py", line 34, in prepare
+    steps,cached=choices(resolutions,collection,policy['supported_resolution_tools'])
+                                                ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'supported_resolution_tools'
+
+======================================================================
+ERROR: test_guard_and_source_guard_do_not_let_retry_bypass_current_authority (tests.test_source_retry_guards.SourceRetryGuardTests.test_guard_and_source_guard_do_not_let_retry_bypass_current_authority)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\tests\test_resolutions.py", line 28, in setUp
+    self.workspace=Service(self.store).workspace('sample-one')
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\service.py", line 140, in workspace
+    workspace['sequences']=dict(proposal=prepare_sequence(app,workspace['resolutions'],preparation['collection']),
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\sequence_plan.py", line 34, in prepare
+    steps,cached=choices(resolutions,collection,policy['supported_resolution_tools'])
+                                                ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'supported_resolution_tools'
+
+======================================================================
+ERROR: test_issue_kind_and_ordered_tools_preserve_access_alternatives (tests.test_source_retry_guards.SourceRetryGuardTests.test_issue_kind_and_ordered_tools_preserve_access_alternatives)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\tests\test_resolutions.py", line 28, in setUp
+    self.workspace=Service(self.store).workspace('sample-one')
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\service.py", line 140, in workspace
+    workspace['sequences']=dict(proposal=prepare_sequence(app,workspace['resolutions'],preparation['collection']),
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\sequence_plan.py", line 34, in prepare
+    steps,cached=choices(resolutions,collection,policy['supported_resolution_tools'])
+                                                ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'supported_resolution_tools'
+
+======================================================================
+ERROR: test_partial_enqueue_failure_rolls_back_the_entire_approved_collection (tests.test_source_retry_guards.SourceRetryGuardTests.test_partial_enqueue_failure_rolls_back_the_entire_approved_collection)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\tests\test_resolutions.py", line 28, in setUp
+    self.workspace=Service(self.store).workspace('sample-one')
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\service.py", line 140, in workspace
+    workspace['sequences']=dict(proposal=prepare_sequence(app,workspace['resolutions'],preparation['collection']),
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\sequence_plan.py", line 34, in prepare
+    steps,cached=choices(resolutions,collection,policy['supported_resolution_tools'])
+                                                ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'supported_resolution_tools'
+
+======================================================================
+ERROR: test_prefix_identity_and_retry_rows_preserve_source_separation_and_integrity (tests.test_source_retry_guards.SourceRetryGuardTests.test_prefix_identity_and_retry_rows_preserve_source_separation_and_integrity)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\tests\test_resolutions.py", line 28, in setUp
+    self.workspace=Service(self.store).workspace('sample-one')
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\service.py", line 140, in workspace
+    workspace['sequences']=dict(proposal=prepare_sequence(app,workspace['resolutions'],preparation['collection']),
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\sequence_plan.py", line 34, in prepare
+    steps,cached=choices(resolutions,collection,policy['supported_resolution_tools'])
+                                                ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'supported_resolution_tools'
+
+======================================================================
+ERROR: test_task_options_usable_binding_and_derive_tasks_keep_exact_read_scope (tests.test_source_retry_guards.SourceRetryGuardTests.test_task_options_usable_binding_and_derive_tasks_keep_exact_read_scope)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\tests\test_resolutions.py", line 28, in setUp
+    self.workspace=Service(self.store).workspace('sample-one')
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\service.py", line 140, in workspace
+    workspace['sequences']=dict(proposal=prepare_sequence(app,workspace['resolutions'],preparation['collection']),
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\sequence_plan.py", line 34, in prepare
+    steps,cached=choices(resolutions,collection,policy['supported_resolution_tools'])
+                                                ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'supported_resolution_tools'
+
+----------------------------------------------------------------------
+Ran 30 tests in 9.627s
+
+FAILED (errors=11)

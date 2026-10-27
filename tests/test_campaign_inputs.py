@@ -1,5 +1,6 @@
 """Derived read-only collection uses isolated data and synthetic provider responses."""
 from copy import deepcopy
+import importlib
 from pathlib import Path
 import tempfile
 import unittest
@@ -125,6 +126,8 @@ class CampaignInputTests(unittest.TestCase):
 
     def test_changed_operating_policy_blocks_actual_worker_read(self):
         self.collector.start('sample-one',self.body())
+        # Lazy imports must not retain the temporary policy mock after this test.
+        importlib.import_module('mission_control.sequence_plan')
         with patch('mission_control.marketing_agent_manifest.operating_manifest',return_value={'policy_version':'changed'}), \
              patch('mission_control.worker.sync',side_effect=AssertionError('Policy mismatch cannot read')) as read:
             run_once(self.store);read.assert_not_called()

@@ -1,0 +1,48 @@
+{
+  "passed": true,
+  "attribution": {
+    "stage": "strict_lint",
+    "n_checked": 5,
+    "n_passed": 5,
+    "units": [
+      {
+        "unit": "R1",
+        "stage": "strict_lint",
+        "passed": true,
+        "evidence": "requirement passed strict lint",
+        "failure_class": null
+      },
+      {
+        "unit": "R2",
+        "stage": "strict_lint",
+        "passed": true,
+        "evidence": "requirement passed strict lint",
+        "failure_class": null
+      },
+      {
+        "unit": "R3",
+        "stage": "strict_lint",
+        "passed": true,
+        "evidence": "requirement passed strict lint",
+        "failure_class": null
+      },
+      {
+        "unit": "R4",
+        "stage": "strict_lint",
+        "passed": true,
+        "evidence": "requirement passed strict lint",
+        "failure_class": null
+      },
+      {
+        "unit": "R5",
+        "stage": "strict_lint",
+        "passed": true,
+        "evidence": "requirement passed strict lint",
+        "failure_class": null
+      }
+    ],
+    "rate": 1.0,
+    "dominant_failure_class": null
+  }
+}
+STRICT OK — spec is unambiguous (0 warns). next: specline gate spec apple-analytics-read

@@ -1,0 +1,35 @@
+{
+  "schema": "factory.tenant-read-contract.v2",
+  "reads": [
+    {
+      "path": "providers.py",
+      "reads": [
+        {
+          "call": "credential",
+          "binding": "position:1:app_id"
+        },
+        {
+          "call": "protected_credential",
+          "binding": "position:1:app_id"
+        },
+        {
+          "call": "read_report",
+          "binding": "position:1:app_id"
+        }
+      ]
+    },
+    {
+      "path": "provider_reports.py",
+      "reads": [
+        {
+          "call": "google_report",
+          "binding": "position:1:app_id"
+        },
+        {
+          "call": "providers.credential",
+          "binding": "position:1:app_id"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+test_allowlist_only_permits_read_endpoints (tests.test_apple_analytics.AnalyticsTests.test_allowlist_only_permits_read_endpoints) ... ok
+test_bad_resource_types_identifiers_and_duplicate_requests_reject (tests.test_apple_analytics.AnalyticsTests.test_bad_resource_types_identifiers_and_duplicate_requests_reject) ... ok
+test_collection_bounds_conflicts_and_partial_coverage (tests.test_apple_analytics.AnalyticsTests.test_collection_bounds_conflicts_and_partial_coverage) ... ok
+test_foreign_app_and_malformed_app_fail_before_followup (tests.test_apple_analytics.AnalyticsTests.test_foreign_app_and_malformed_app_fail_before_followup) ... ok
+test_foreign_parent_relationships_reject (tests.test_apple_analytics.AnalyticsTests.test_foreign_parent_relationships_reject) ... ok
+test_instance_dates_granularity_and_duplicate_report_names_reject (tests.test_apple_analytics.AnalyticsTests.test_instance_dates_granularity_and_duplicate_report_names_reject) ... ok
+test_instance_keeps_date_and_granularity_without_claiming_download (tests.test_apple_analytics.AnalyticsTests.test_instance_keeps_date_and_granularity_without_claiming_download) ... ok
+test_next_page_rejects_foreign_hosts_scopes_ports_fragments_and_loops (tests.test_apple_analytics.AnalyticsTests.test_next_page_rejects_foreign_hosts_scopes_ports_fragments_and_loops) ... FAIL
+test_no_request_stopped_and_snapshot_require_setup (tests.test_apple_analytics.AnalyticsTests.test_no_request_stopped_and_snapshot_require_setup) ... ok
+test_partial_request_inventory_cannot_imply_new_setup_is_needed (tests.test_apple_analytics.AnalyticsTests.test_partial_request_inventory_cannot_imply_new_setup_is_needed) ... ok
+test_protected_dispatch_is_closed_to_another_provider (tests.test_apple_analytics.AnalyticsTests.test_protected_dispatch_is_closed_to_another_provider) ... ok
+test_read_analytics_waiting_never_means_zero_metrics (tests.test_apple_analytics.AnalyticsTests.test_read_analytics_waiting_never_means_zero_metrics) ... ok
+test_reader_deadline_rejects_before_network (tests.test_apple_analytics.AnalyticsTests.test_reader_deadline_rejects_before_network) ... ok
+test_worker_persists_source_hashes_and_rejects_cross_app (tests.test_apple_analytics.AnalyticsTests.test_worker_persists_source_hashes_and_rejects_cross_app) ... ok
+
+======================================================================
+FAIL: test_next_page_rejects_foreign_hosts_scopes_ports_fragments_and_loops (tests.test_apple_analytics.AnalyticsTests.test_next_page_rejects_foreign_hosts_scopes_ports_fragments_and_loops)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-analytics-mutation-l88nq4hb\tests\test_apple_analytics.py", line 127, in test_next_page_rejects_foreign_hosts_scopes_ports_fragments_and_loops
+    self.assertEqual(len(reader.calls), 1)
+AssertionError: 2 != 1
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.951s
+
+FAILED (failures=1)

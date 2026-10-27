@@ -8,6 +8,7 @@ from .providers import credential,report_request
 from .ads_reports import REPORT_PATHS, read_keywords
 from .subscription_catalog import read_catalog
 from .release_inventory import read_inventory, release_options
+from .apple_analytics import read_analytics
 
 
 def report_options(provider,options):
@@ -19,7 +20,7 @@ def report_options(provider,options):
         return google_options(options)
     if operation == 'release_inventory':
         return release_options(provider, options)
-    if operation in ("reviews", "subscription_catalog") and provider=="app_store" and set(options)=={"operation"}:
+    if operation in ("reviews", "subscription_catalog", "analytics_reports") and provider=="app_store" and set(options)=={"operation"}:
         return options
     if operation not in ("campaign_report", *REPORT_PATHS) or provider!="apple_ads" or set(options)!={"operation","start","end","campaign_ids"}:
         raise Invalid("Choose customer reviews or a dated Apple Ads campaign, keyword or search-term report")
@@ -93,6 +94,8 @@ def read_report(binding,app_id,options):
         report=read_catalog(reader,store_id)
     elif options["operation"]=="release_inventory":
         report=read_inventory(reader,store_id,options['version_id'])
+    elif options["operation"]=="analytics_reports":
+        report=read_analytics(reader,store_id)
     elif options["operation"]=="campaign_report":
         report=campaigns(reader,binding,options)
     else:

@@ -1,0 +1,166 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "WMM-apple-analytics-readiness",
+  "candidate": [
+    {
+      "path": "mission_control/apple_analytics.py",
+      "sha256": "e866728327fc96b9e9fbea70642ec0ea211f01e12678dec1ba8c32c62d8cf331",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/provider_reports.py",
+      "sha256": "a68e8c1e4cadee6ee47cf64b1f0a8d639febb48069ed18f37ceb22660514585b",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/providers.py",
+      "sha256": "c13b59d4412d073cdeaf66d2791d74e04f4aafef66ae4facd60b389752ec6fff",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_apple_analytics.py",
+      "sha256": "44c1bdde4127c245c74ef464e47ab37dc7fabf0a580ff6108b42433d98ff837e",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_campaign_inputs.py",
+      "sha256": "f26466bf48e03df88bf55fcc5ebedf67ecc69731a708b4cd2f0edd2dbbbaec05",
+      "kind": "source"
+    },
+    {
+      "path": "specs/apple-analytics-read.md",
+      "sha256": "a4bc90f8ab78acfb0dee0beb3f14c10cccb205510d1fb5c4baf79c7a5bffe915",
+      "kind": "contract"
+    },
+    {
+      "path": "specs/apple-analytics-read.ssat.yaml",
+      "sha256": "6783b95bbdf3002bf3f46a193d50ffd00598cc14c6640a1f5467f257e46100ad",
+      "kind": "contract"
+    },
+    {
+      "path": ".factory/apple-analytics-read/quality.py",
+      "sha256": "69367497fc8ea55e41234a8d0d2784eb3dbc79166359c305538f59894c9be7f7",
+      "kind": "source"
+    },
+    {
+      "path": ".factory/apple-analytics-read/mutations.py",
+      "sha256": "b95d04b8932d2b83f914447ae91a2813edc340cf73b571a80a4c83deb219967f",
+      "kind": "source"
+    },
+    {
+      "path": ".factory/apple-analytics-read/seal.py",
+      "sha256": "19bb46699052593038b9069b68281cd4cb53f6b8af3380b88021d4af1808b9b3",
+      "kind": "source"
+    },
+    {
+      "path": ".factory/apple-analytics-read/changed_functions.py",
+      "sha256": "5dcb48759c0c7dfa72d20699912d78ee4ec96007f0c4efa90b4d089918e68497",
+      "kind": "source"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "See scoped requirements and review"
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "See scoped requirements and review"
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": true,
+      "reason": "See scoped requirements and review"
+    },
+    {
+      "category": "state_consistency",
+      "applicable": true,
+      "reason": "See scoped requirements and review"
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "See scoped requirements and review"
+    },
+    {
+      "category": "performance",
+      "applicable": true,
+      "reason": "See scoped requirements and review"
+    },
+    {
+      "category": "accessibility",
+      "applicable": false,
+      "reason": "See scoped requirements and review",
+      "review_evidence": {
+        "path": ".factory/apple-analytics-read/scope.md",
+        "sha256": "8a9b85e8b016bc652594fb1cb592cd1b547a2417d2a4f60a9f25a271b37d4081",
+        "kind": "review"
+      }
+    },
+    {
+      "category": "external_effects",
+      "applicable": true,
+      "reason": "See scoped requirements and review"
+    }
+  ],
+  "checks": [
+    {
+      "id": "readiness",
+      "category": "happy_path",
+      "requirement": "Persist typed app-scoped report readiness through the actual sync worker and reload",
+      "profiles": [
+        "Windows-Python3.11-synthetic-worker-native-sqlite"
+      ]
+    },
+    {
+      "id": "validation",
+      "category": "validation",
+      "requirement": "Reject foreign identities, bad types, invalid dates, unsafe URLs and duplicate source conflicts",
+      "profiles": [
+        "Windows-Python3.11-synthetic-worker-native-sqlite"
+      ]
+    },
+    {
+      "id": "recovery",
+      "category": "failure_recovery",
+      "requirement": "Propagate permission and provider errors; missing generated instances remain unknown metrics",
+      "profiles": [
+        "Windows-Python3.11-synthetic-worker-native-sqlite"
+      ]
+    },
+    {
+      "id": "scope",
+      "category": "state_consistency",
+      "requirement": "Preserve connection/app scope, immutable source hashes and exact durable result identity",
+      "profiles": [
+        "Windows-Python3.11-synthetic-worker-native-sqlite"
+      ]
+    },
+    {
+      "id": "security",
+      "category": "security_privacy",
+      "requirement": "Keep authenticated requests on allowed read endpoints; reject cross-app access and retain null metrics",
+      "profiles": [
+        "Windows-Python3.11-synthetic-worker-native-sqlite"
+      ]
+    },
+    {
+      "id": "budgets",
+      "category": "performance",
+      "requirement": "Bound collection reads to three pages of one hundred entries and five declared report families under the existing reader deadline",
+      "profiles": [
+        "Windows-Python3.11-synthetic-worker-native-sqlite"
+      ]
+    },
+    {
+      "id": "effects",
+      "category": "external_effects",
+      "requirement": "Reject POST on new analytics endpoints; never create streams, grant access, spend or publish",
+      "profiles": [
+        "Windows-Python3.11-synthetic-worker-native-sqlite"
+      ]
+    }
+  ]
+}
