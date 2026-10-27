@@ -9,7 +9,7 @@ from mission_control.common import Invalid, canonical
 from mission_control.db import connection
 from mission_control.store import Store
 from mission_control.growth_review_store import GrowthReviews, history, target_entry, decoded, freeze_comparison, current_readout, replay_comparison
-from mission_control.growth_review_contract import context_of, entry_hash, entry_data, note_data, comparison_data, comparison_readout, entry_readout, MAX_ENTRIES
+from mission_control.growth_review_contract import context_of, entry_hash, entry_data, scoped_source_data, note_data, comparison_data, comparison_readout, entry_readout, MAX_ENTRIES
 from tests.test_benchmark_ads import saved_report, SEGMENT
 from tests.test_aso_validation import listing
 from tests.test_benchmark_context import records
@@ -27,6 +27,14 @@ class GrowthReviewStoreTests(unittest.TestCase):
 
     def tearDown(self):
         self.tmp.cleanup()
+
+    def test_scoped_source_data_binds_listing_to_configured_locale(self):
+        context = dict(release="build-1", locale="en-US", currency="USD")
+        value = dict(release="build-1", listing=listing())
+        result = scoped_source_data("ASO_LISTING", value, context, "2026-10-23T12:00:00+00:00")
+        self.assertEqual(result, value)
+        with self.assertRaises(Invalid):
+            scoped_source_data("ASO_LISTING", value, dict(context, locale="fr-FR"), "2026-10-23T12:00:00+00:00")
 
     def test_immutable_history_survives_restart_and_replay(self):
         row = self.work.save("sample-one", self.body)

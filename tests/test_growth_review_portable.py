@@ -8,7 +8,7 @@ from mission_control.common import Invalid, digest, canonical
 from mission_control.db import connection
 from mission_control.store import Store
 from mission_control.growth_review_store import GrowthReviews
-from mission_control.growth_review_portable import context_data, projection_data, projection_truth, projection_observation, stored_data, row_data, linked_data, restore
+from mission_control.growth_review_portable import context_data, projection_data, projection_truth, projection_state, projection_numerator, projection_observation, stored_data, row_data, linked_data, linked_reference, restore
 from tests.test_aso_validation import listing
 from tests.test_benchmark_context import records
 from tests.test_benchmark_ads import saved_report, SEGMENT
@@ -33,6 +33,44 @@ class GrowthReviewPortableTests(unittest.TestCase):
 
     def tearDown(self):
         self.tmp.cleanup()
+
+    def test_projection_state_rejects_contradictory_status_scope_and_reasons(self):
+        projection = copy.deepcopy(self.comparison["data"]["projection"])
+        self.assertIsNone(projection_state(projection))
+        invalid_states = (
+            dict(projection, status="SOURCE_METRICS_UNAVAILABLE"),
+            dict(projection, reasons="missing"),
+            dict(projection, reasons=[1]),
+            dict(projection, scope=1),
+            dict(projection, observed=None),
+        )
+        for value in invalid_states:
+            with self.subTest(value=value), self.assertRaises(Invalid):
+                projection_state(value)
+
+    def test_projection_numerator_keeps_only_bounded_exact_source_text(self):
+        valid = dict(self.comparison["data"]["projection"], numerator_exact="12.50")
+        self.assertIsNone(projection_numerator(valid))
+        for numerator in (12.5, "x" * 101):
+            with self.subTest(numerator=str(numerator)[:12]), self.assertRaises(Invalid):
+                projection_numerator(dict(valid, numerator_exact=numerator))
+
+    def test_linked_reference_resolves_exact_hash_kind_and_app_scope(self):
+        entries = {row["id"]: row for row in self.snapshot["payload"]["growth_reviews"]}
+        self.assertIsNone(linked_reference(self.comparison, entries))
+        wrong_hash = copy.deepcopy(self.comparison)
+        wrong_hash["data"]["reference_hash"] = "c" * 64
+        with self.assertRaises(Invalid):
+            linked_reference(wrong_hash, entries)
+        wrong_kind = copy.deepcopy(self.comparison)
+        wrong_kind["data"]["reference_id"] = "listing-one"
+        wrong_kind["data"]["reference_hash"] = self.listing["hash"]
+        with self.assertRaises(Invalid):
+            linked_reference(wrong_kind, entries)
+        changed_scope = copy.deepcopy(entries)
+        changed_scope["reference-one"]["context"]["app_id"] = "sample-two"
+        with self.assertRaises(Invalid):
+            linked_reference(self.comparison, changed_scope)
 
     def destination(self, name="target"):
         return Store(Path(self.tmp.name) / (name + ".sqlite"), seed=False)
