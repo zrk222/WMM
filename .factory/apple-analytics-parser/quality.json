@@ -1,0 +1,102 @@
+{
+  "grade": "A",
+  "passed": true,
+  "metrics": {
+    "coverage_intent": 1.0,
+    "max_complexity": 9,
+    "security_score": 90,
+    "doc_ratio": 1.0,
+    "composite": 97.5,
+    "complexity_policy": "hard",
+    "coverage_assessment": "static_name_match",
+    "behavioral_proof_status": "not_measured_static_only",
+    "scope": {
+      "kind": "feature",
+      "code_files": [
+        "mission_control/apple_analytics_parser.py"
+      ]
+    },
+    "skipped_paths": [],
+    "inventory_complete": true,
+    "function_inventory_complete": true,
+    "function_inventory": [
+      {
+        "path": "mission_control/apple_analytics_parser.py",
+        "parser": "python-ast",
+        "status": "exact",
+        "symbols": 2
+      }
+    ],
+    "advisory_function_metrics": [],
+    "unknown_security_calls": [
+      "mission_control/apple_analytics_parser.py:' '.join",
+      "mission_control/apple_analytics_parser.py:' '.join(value.replace('\\ufeff', '').split()).casefold",
+      "mission_control/apple_analytics_parser.py:Invalid",
+      "mission_control/apple_analytics_parser.py:REQUIRED.issubset",
+      "mission_control/apple_analytics_parser.py:TYPES.get",
+      "mission_control/apple_analytics_parser.py:ValueError",
+      "mission_control/apple_analytics_parser.py:_accept_group",
+      "mission_control/apple_analytics_parser.py:_day",
+      "mission_control/apple_analytics_parser.py:_name",
+      "mission_control/apple_analytics_parser.py:_rows",
+      "mission_control/apple_analytics_parser.py:_segment_identity",
+      "mission_control/apple_analytics_parser.py:_unpack",
+      "mission_control/apple_analytics_parser.py:checksum.lower",
+      "mission_control/apple_analytics_parser.py:data.decode",
+      "mission_control/apple_analytics_parser.py:dict",
+      "mission_control/apple_analytics_parser.py:frozenset",
+      "mission_control/apple_analytics_parser.py:grouped.items",
+      "mission_control/apple_analytics_parser.py:grouped.setdefault",
+      "mission_control/apple_analytics_parser.py:grouped.setdefault(_day(row['date']), []).append",
+      "mission_control/apple_analytics_parser.py:identities.add",
+      "mission_control/apple_analytics_parser.py:instance.get",
+      "mission_control/apple_analytics_parser.py:int",
+      "mission_control/apple_analytics_parser.py:isinstance",
+      "mission_control/apple_analytics_parser.py:latest.get",
+      "mission_control/apple_analytics_parser.py:len",
+      "mission_control/apple_analytics_parser.py:next",
+      "mission_control/apple_analytics_parser.py:row.items",
+      "mission_control/apple_analytics_parser.py:row.update",
+      "mission_control/apple_analytics_parser.py:row['download type'].strip",
+      "mission_control/apple_analytics_parser.py:rows.append",
+      "mission_control/apple_analytics_parser.py:segment.get",
+      "mission_control/apple_analytics_parser.py:segment['checksum'].lower",
+      "mission_control/apple_analytics_parser.py:set",
+      "mission_control/apple_analytics_parser.py:sorted",
+      "mission_control/apple_analytics_parser.py:source_type.casefold",
+      "mission_control/apple_analytics_parser.py:sources.append",
+      "mission_control/apple_analytics_parser.py:stream.read",
+      "mission_control/apple_analytics_parser.py:type",
+      "mission_control/apple_analytics_parser.py:value.replace",
+      "mission_control/apple_analytics_parser.py:value.replace('\\ufeff', '').split",
+      "mission_control/apple_analytics_parser.py:zip"
+    ],
+    "security_analysis": "bounded_pattern_inventory"
+  },
+  "findings": [
+    "QA_SEC[MEDIUM] MD5 - weak hash in mission_control/apple_analytics_parser.py"
+  ],
+  "attribution": {
+    "stage": "qa_audit",
+    "n_checked": 2,
+    "n_passed": 2,
+    "units": [
+      {
+        "unit": "qa_audit:mission_control/apple_analytics_parser.py:parse_instance",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/apple_analytics_parser.py:reconcile",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      }
+    ],
+    "rate": 1.0,
+    "dominant_failure_class": null
+  }
+}

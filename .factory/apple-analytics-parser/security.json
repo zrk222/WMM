@@ -1,0 +1,165 @@
+{
+  "action_summary": "No high-risk static security or quality patterns found.",
+  "agent_actions": [],
+  "audit_coverage": {
+    "audit_rate": 1.0,
+    "complete": true,
+    "files_attempted": 1,
+    "files_audited": 1,
+    "files_discovered": 1,
+    "inventory_complete": true,
+    "language": "Python",
+    "limit": 460,
+    "measurement_state": "complete",
+    "rate_defined": true
+  },
+  "audit_sha256": "02c4d1562382057b58eca2f6685a806328319c0653c9c0e06b23378da1bb9a0c",
+  "authority": {
+    "approval": false,
+    "deployment": false,
+    "execution": false,
+    "publication": false
+  },
+  "candidate_sha256": "88ce510330755e241460393a8d88d5947bf9d3dfdda80b81ad6cce1e6f768f1e",
+  "claim_boundary": "Bounded Python AST pattern scan only. Declared tenant argument bindings verify syntactic pass-through, not tenant identity, authorization, or access isolation; this is not a penetration test, runtime exploit proof, dependency advisory, or release approval.",
+  "database_context": {
+    "configuration_sources": [],
+    "discovery": {
+      "configuration_present": false,
+      "inventory_complete": true,
+      "paths": [],
+      "python_sources_complete": true,
+      "python_sources_discovered": 1,
+      "python_sources_selected": 0,
+      "source_selection": "not_applicable",
+      "sql_files": 0
+    },
+    "gaps": [],
+    "graph_digest": "48a7b0dfaffd760926a0c7536b228a429f220685912b043a4e3455d90b8a4c72",
+    "operations": [],
+    "queries": [],
+    "source_manifest": [],
+    "status": "NOT_APPLICABLE",
+    "tables": []
+  },
+  "files_scanned": 1,
+  "finding_counts": {},
+  "finding_tier_report": {
+    "abstention": {
+      "count": 0,
+      "denominator": 0,
+      "fraction": null,
+      "scope": "this_run_raw_diagnostics"
+    },
+    "claim_policy": {
+      "fresh_score_claim": "NOT_AUTHORIZED",
+      "held_out_precision": "NOT_MEASURED",
+      "interpretation": "Tier counts and abstention are run-local classifications, not accuracy measurements.",
+      "known_true_positive_retention": "NOT_MEASURED",
+      "precision": "NOT_MEASURED"
+    },
+    "defect_gate": {
+      "blocks_on_supported_defects": false,
+      "claim": "This tier report does not establish a clean security result.",
+      "clean": false,
+      "completeness_state": "ASSESSED_WITHIN_DECLARED_SCOPE",
+      "needs_context_count": 0,
+      "passed": false,
+      "reason": "no_supported_defect_observed",
+      "state": "NO_SUPPORTED_DEFECTS_OBSERVED",
+      "supported_defect_count": 0
+    },
+    "ledger": [],
+    "ledger_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "policy_sha256": "e87dd6422fbfd61a01ce9d71ed16d561fb446f82c56b6424b6e5dd5c0697410b",
+    "raw_diagnostics": {
+      "by_code": {},
+      "by_severity": {},
+      "count": 0
+    },
+    "report_sha256": "ad3f5da109d0c8197cac5180651e01be7973e84c036d6638fc1e00a5da06bae5",
+    "retention_metrics": {
+      "known_true_positive_retention": "NOT_MEASURED_NO_LABELLED_HELD_OUT_COHORT",
+      "raw_diagnostic_retention": {
+        "denominator": 0,
+        "fraction": null,
+        "retained": 0
+      },
+      "scope": "within_run_raw_diagnostic_representation_only",
+      "supported_defect_retention": "NOT_MEASURED_NO_LABELLED_HELD_OUT_COHORT"
+    },
+    "rule_scorecards": [],
+    "schema": "factory.security.finding-tiers.v1",
+    "tier_counts": {
+      "NEEDS_CONTEXT": 0,
+      "PROVEN_PRIMITIVE": 0,
+      "SUPPORTED_DEFECT": 0
+    },
+    "validation": {
+      "coverage_state": true,
+      "partition_state": "VALIDATED"
+    }
+  },
+  "findings": [],
+  "governance": "human_controlled",
+  "marker": "SECURITY_AUDIT_COMPLETE",
+  "oracle_context": {
+    "configuration_sources": [],
+    "edge_count": 0,
+    "import_context_profile": {
+      "bindings": 4096,
+      "characters": 1048576,
+      "id": "standard-static-v1"
+    },
+    "mode": "one_local_import_hop_ast_only",
+    "pytest_collection": {
+      "capture_state": "stable_pre_post",
+      "conftest_sources": [],
+      "path": null,
+      "patterns": [
+        "*_test.py",
+        "test_*.py"
+      ],
+      "python_classes": [
+        "Test"
+      ],
+      "python_files": [
+        "*_test.py",
+        "test_*.py"
+      ],
+      "python_functions": [
+        "test"
+      ],
+      "state": "missing"
+    },
+    "resolved_edges": []
+  },
+  "oversized_sources": 0,
+  "parse_errors": 0,
+  "schema": "factory.security-audit.v1",
+  "source_manifest_sha256": "f9bc5a6dc8e24a12c2272216f921c2fb51ef586fc792cec9650f00925a64f2cf",
+  "sources": [
+    {
+      "bytes": 6241,
+      "path": "apple_analytics_parser.py",
+      "sha256": "7bb86828f4c85c87765f6cff066aea7db2d7e8d088576c1acc50348eb170601f"
+    }
+  ],
+  "state": "CLEAN",
+  "tenant_read_contract": {
+    "argument_bindings": {},
+    "calls": [],
+    "configuration": {
+      "bytes": 56,
+      "path": ".factory/tenant-read-contract.json",
+      "policy_applies": true,
+      "sha256": "552d69b2a85899e403d361bc0c8a5231527dbb6a3ec7a337abd65f21e0e46876",
+      "state": "loaded"
+    },
+    "identity_authentication_proven": false,
+    "keyword": "tenant_id",
+    "legacy_binding": "keyword:tenant_id:tenant_id",
+    "policy_applies": true
+  },
+  "unreadable_sources": 0
+}

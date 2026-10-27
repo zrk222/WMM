@@ -1,0 +1,30 @@
+test_bounds_and_bad_gzip_are_rejected (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_bounds_and_bad_gzip_are_rejected) ... ok
+test_foreign_app_invalid_rows_and_duplicate_headers_rejected (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_foreign_app_invalid_rows_and_duplicate_headers_rejected) ... ok
+test_invalid_checksum_size_or_incomplete_never_parse (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_invalid_checksum_size_or_incomplete_never_parse) ... ok
+test_multiple_segments_and_segment_identity (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_multiple_segments_and_segment_identity) ... ok
+test_named_columns_categories_and_unknown_values (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_named_columns_categories_and_unknown_values) ... ok
+test_reconcile_replaces_whole_older_date_and_keeps_other_dates (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_reconcile_replaces_whole_older_date_and_keeps_other_dates) ... FAIL
+
+======================================================================
+FAIL: test_reconcile_replaces_whole_older_date_and_keeps_other_dates (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_reconcile_replaces_whole_older_date_and_keeps_other_dates)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<temporary>\tests\test_apple_analytics_parser.py", line 65, in test_reconcile_replaces_whole_older_date_and_keeps_other_dates
+    self.assertEqual([(r['date'], r['count']) for r in rows], [('2026-01-01', 5), ('2026-01-02', 2)])
+AssertionError: Lists differ: [('2026-01-01', 3), ('2026-01-02', 2)] != [('2026-01-01', 5), ('2026-01-02', 2)]
+
+First differing element 0:
+('2026-01-01', 3)
+('2026-01-01', 5)
+
+- [('2026-01-01', 3), ('2026-01-02', 2)]
+?                 ^
+
++ [('2026-01-01', 5), ('2026-01-02', 2)]
+?                 ^
+
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.015s
+
+FAILED (failures=1)
