@@ -1,0 +1,36 @@
+{
+  "agent_actions": [],
+  "authority": {
+    "approval": false,
+    "connector": false,
+    "credential": false,
+    "deployment": false,
+    "execution": false,
+    "merge": false,
+    "messaging": false,
+    "publication": false,
+    "repair": false,
+    "signing": false
+  },
+  "candidate_sha256": "700d724dc1f39b5a81d4f9111bdf8c06933679486a8d7273b3754928e0895207",
+  "checks": 8,
+  "contract_sha256": "bf7d545a7cded41d49d591e4815649a52cbc3faff049f37299917721a3ee14db",
+  "errors": [],
+  "inapplicability_evidence": {},
+  "limits": [
+    "Recorded evidence completeness and hashes only; observations require review.",
+    "Inapplicability review evidence is hash-bound but its judgment and identity are not authenticated.",
+    "Each contract/observation JSON input and evidence artifact is limited to 16 MiB; total evidence hashing is limited to 128 MiB, 4096 artifact references, and 4096 required check/profile pairs.",
+    "No project command or provider is executed.",
+    "No approval, certification or deployment authority."
+  ],
+  "observations_sha256": "425d5749712361d46ca3937bc19de5192e08e0585068606f03ab941444c2c581",
+  "project_id": "WMM-owner-onboarding",
+  "receipt_sha256": "658c40221bf996c681c915acd4fe4c05895f812d383894a5c54e9495def0006b",
+  "resource_usage": {
+    "artifact_references": 78,
+    "bytes_hashed": 443451
+  },
+  "schema": "factory.workflow-audit.receipt.v1",
+  "state": "PASS"
+}

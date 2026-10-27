@@ -1,0 +1,86 @@
+{
+  "grade": "B",
+  "passed": true,
+  "metrics": {
+    "coverage_intent": 0.33,
+    "max_complexity": 8,
+    "security_score": 100,
+    "doc_ratio": 1.0,
+    "composite": 76.5,
+    "complexity_policy": "hard",
+    "coverage_assessment": "static_name_match",
+    "behavioral_proof_status": "not_measured_static_only",
+    "scope": {
+      "kind": "feature",
+      "code_files": [
+        ".factory/owner-onboarding/qa-scope.js"
+      ]
+    },
+    "skipped_paths": [],
+    "inventory_complete": true,
+    "function_inventory_complete": true,
+    "function_inventory": [
+      {
+        "path": ".factory/owner-onboarding/qa-scope.js",
+        "parser": "typescript-compiler",
+        "status": "exact",
+        "symbols": 9
+      }
+    ],
+    "advisory_function_metrics": [],
+    "unknown_security_calls": [],
+    "security_analysis": "bounded_pattern_inventory"
+  },
+  "findings": [],
+  "attribution": {
+    "stage": "qa_audit",
+    "n_checked": 6,
+    "n_passed": 2,
+    "units": [
+      {
+        "unit": "qa_audit:.factory/owner-onboarding/qa-scope.js:identityLogin",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/owner-onboarding/qa-scope.js:accessBootstrap",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/owner-onboarding/qa-scope.js:ownerContinuation",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/owner-onboarding/qa-scope.js:verifiedRequest",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/owner-onboarding/qa-scope.js:verifiedSubmitted",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/owner-onboarding/qa-scope.js:verifiedSubmit",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      }
+    ],
+    "rate": 0.3333333333333333,
+    "dominant_failure_class": "inconsistent_logic"
+  }
+}

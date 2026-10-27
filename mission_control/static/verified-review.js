@@ -12,12 +12,14 @@ function verifiedReviewPanel() {
   return `<section class="panel"><p class="eyebrow">VERIFIED REVIEW ACCESS</p><h2>Your app's maker and checker</h2><p class="description">${signed?`Signed in as ${esc(identity.login)} (${esc(identity.principal)}). ${role?`App role: ${esc(role.role)}.`:"No active role in this app."}`:"Sign in with your own GitHub account to prepare or independently review exact packets."}</p>${notice("Identity is rechecked for every protected action. Tokens stay in server memory for 15 minutes. Recorded review does not execute a provider action or authorize spending.")}<div class="toolbar">${action}${setup}</div>${members?`<details><summary>App access (${access.members.length})</summary>${members}</details>`:notice("The first verified owner must establish this app's local access policy.")}</section><div class="section-heading"><h2>Verified review inbox</h2>${button("Prepare verified review","verified-review-prepare")}</div>${reviews?`<div class="record-list">${reviews}</div>`:notice("No verified packets yet. Add distribution, store or experiment evidence, then prepare its exact contents for a different authenticated checker.")}`;
 }
 
-function identityLogin() {
-  modal("Sign in for verified review",`<form id="identity-form"><div class="modal-content">${notice("Use your own GitHub fine-grained token with no repository permissions. This verifies your numeric account ID through GitHub; it does not connect product data or repositories.")}<p><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Create a GitHub identity token</a> · <a href="https://docs.github.com/en/rest/users/users#get-the-authenticated-user" target="_blank" rel="noopener noreferrer">Review the identity permissions</a></p><label class="field" for="identity-token">GitHub identity token<input id="identity-token" name="token" type="password" autocomplete="off" minlength="20" maxlength="256" required></label><p class="description">The token is cleared from this form after submission and never saved to workspace files or browser storage. Sign-out or server restart clears the session.</p><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Verify my identity</button></div></form>`,"EPHEMERAL REVIEW SESSION");
+/** Collect an ephemeral identity token and optionally retain the explicit first-owner task. */
+function identityLogin(next="") {
+  modal("Sign in for verified review",`<form id="identity-form" data-app="${esc(state.app)}" data-app-version="${state.workspace.app.version}" data-next="${next==='owner-bootstrap'?'owner-bootstrap':''}"><div class="modal-content">${notice("Use your own GitHub fine-grained token with no repository permissions. This verifies your numeric account ID through GitHub; it does not connect product data or repositories.")}<p><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Create a GitHub identity token</a> · <a href="https://docs.github.com/en/rest/users/users#get-the-authenticated-user" target="_blank" rel="noopener noreferrer">Review the identity permissions</a></p><label class="field" for="identity-token">GitHub identity token<input id="identity-token" name="token" type="password" autocomplete="off" minlength="20" maxlength="256" required></label><p class="description">The token is cleared from this form after submission and never saved to workspace files or browser storage. Sign-out or server restart clears the session.</p><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Verify my identity</button></div></form>`,"EPHEMERAL REVIEW SESSION");
 }
 
+/** Require an authenticated identity and explicit checkbox before establishing the first app owner. */
 function accessBootstrap() {
-  if(reviewIdentity().status!=="AUTHENTICATED")return identityLogin();
+  if(reviewIdentity().status!=="AUTHENTICATED")return identityLogin("owner-bootstrap");
   modal("Establish this app's owner",`<form id="access-bootstrap-form" data-app="${esc(state.app)}"><div class="modal-content">${notice(`This establishes ${reviewIdentity().login} as the fixed local owner of ${state.workspace.app.data.name}. Use the actual app owner's account on this trusted workstation. It cannot replace an existing owner.`)}<label class="check-label"><input type="checkbox" name="confirm_owner" required> I am establishing the first owner for this local app.</label><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Establish verified owner</button></div></form>`);
 }
 
@@ -40,20 +42,40 @@ function verifiedOpen(id) {
   modal("Inspect verified packet",`<div class="modal-content">${status(row.status)}${status(row.availability)}${notice(row.unavailable_reason || "Review only the frozen contents and exact hash below. Recorded review alone does not execute or publish.",row.availability==="CURRENT"?"info":"warning")}<div class="details-list"><p><strong>Maker:</strong> ${esc(row.preparer)}</p><p><strong>Checker:</strong> ${esc(row.checker || "Not recorded")}</p><p><strong>Expires:</strong> ${esc(new Date(row.expires).toLocaleString())}</p></div><p class="app-mono">SHA256 ${esc(row.hash)}</p><details open><summary>Exact frozen evidence</summary><pre>${json(row.packet)}</pre></details>${!allowed&&row.status==="WAITING_REVIEW"?notice("A different authenticated, active checker is required; the packet and its source must still be current."):""}<div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions">${button("Download verified receipt","verified-review-download",`data-id="${esc(id)}"`)}${allowed?button("Record independent verified review","verified-review-approve",`data-id="${esc(id)}"`,""):""}</div>`);
 }
 
+/** Resume only the still-connected original app task after authenticated sign-in. */
+function ownerContinuation(form,app,active) {
+  return active&&form.isConnected&&!$('#modal').open&&form.dataset.next==='owner-bootstrap'&&state.app===app&&
+    String(state.workspace.app.version)===form.dataset.appVersion&&
+    reviewIdentity().status==='AUTHENTICATED'&&state.workspace.access?.configured===false;
+}
+/** Submit one selected review form through its existing closed API route. */
+async function verifiedRequest(form,id,data,app) {
+  if(id==='identity-form'){const token=data.token;form.reset();return api('/api/identity/login',{token});}
+  const requests={
+    'access-bootstrap-form':()=>api(`/api/apps/${app}/access/bootstrap`,{confirm_owner:!!data.confirm_owner}),
+    'access-member-form':()=>api(`/api/apps/${app}/access/members`,{...data,version:form.dataset.version?Number(form.dataset.version):null}),
+    'verified-prepare-form':()=>api(`/api/apps/${app}/verified-reviews`,data)
+  };
+  return requests[id]();
+}
+/** Refresh current authority before returning to the intended owner step or saved review. */
+async function verifiedSubmitted(form,id,data,app) {
+  const result=await verifiedRequest(form,id,data,app);
+  const active=form.isConnected&&$('#modal').open;
+  if(active)$('#modal').close();
+  await refresh();
+  if(ownerContinuation(form,app,active))return accessBootstrap();
+  if(id==='verified-prepare-form'&&result&&active&&state.app===app)return verifiedOpen(result.id);
+}
+/** Retain form error handling and prevent a second submit while a request is pending. */
 async function verifiedSubmit(event) {
   const form=event.target,id=form.id;
-  if(!["identity-form","access-bootstrap-form","access-member-form","verified-prepare-form"].includes(id))return;
+  if(!['identity-form','access-bootstrap-form','access-member-form','verified-prepare-form'].includes(id))return;
   event.preventDefault();const submit=form.querySelector('[type="submit"]');submit.disabled=true;
-  const data=Object.fromEntries(new FormData(form)),app=form.dataset.app || state.app;
-  let result;
-  try {
-    if(id==="identity-form") {const token=data.token;form.reset();await api("/api/identity/login",{token});}
-    if(id==="access-bootstrap-form")await api(`/api/apps/${app}/access/bootstrap`,{confirm_owner:!!data.confirm_owner});
-    if(id==="access-member-form")await api(`/api/apps/${app}/access/members`,{...data,version:form.dataset.version?Number(form.dataset.version):null});
-    if(id==="verified-prepare-form")result=await api(`/api/apps/${app}/verified-reviews`,data);
-    const active=form.isConnected&&$("#modal").open;
-    if(active)$("#modal").close();await refresh();if(result&&active&&state.app===app)verifiedOpen(result.id);
-  } catch(error) {const field=form.querySelector("#form-error");if(form.isConnected&&field)field.textContent=error.message;else toast(error.message);} finally {submit.disabled=false;}
+  const data=Object.fromEntries(new FormData(form)),app=form.dataset.app||state.app;
+  try {await verifiedSubmitted(form,id,data,app);}
+  catch(error){const field=form.querySelector('#form-error');if(form.isConnected&&field)field.textContent=error.message;else toast(error.message);}
+  finally {submit.disabled=false;}
 }
 
 async function verifiedClick(event) {

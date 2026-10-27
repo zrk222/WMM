@@ -1,0 +1,12 @@
+[
+  {
+    "name": "app-scope",
+    "status": "KILLED",
+    "exit": 1
+  },
+  {
+    "name": "confirmation",
+    "status": "KILLED",
+    "exit": 1
+  }
+]
