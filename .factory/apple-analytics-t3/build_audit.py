@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / '.factory' / 'apple-analytics-t3'
 CF = Path(r'C:\Users\rkatz\Documents\Codex\2026-09-24\op\work\code-factory-review2')
 PROFILE = 'Windows-CPython-3.11.9-SQLite-synthetic-offline'
+BASE_COMMIT = '4d3fad78b8a16a4b31013a9c58055c64256c4420'
 
 
 def sha(path):
@@ -35,16 +36,17 @@ def main():
     run('specline-plan-gate', ['specline', 'gate', 'plan', 'apple-analytics-metrics',
                                '--approver', 'codex-user-authorized', '--root', '.'])
     run('specline-tasks', ['specline', 'tasks', 'apple-analytics-metrics', '--root', '.'])
-    base = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True,
-                          text=True, check=True, encoding='utf-8').stdout.strip()
     run('specline-drift-audit', ['specline', 'audit', 'apple-analytics-metrics', '--root', '.',
         '--files', 'mission_control/apple_metrics.py', 'mission_control/apple_metrics_store.py',
         'mission_control/db.py', 'tests/test_apple_metrics.py', 'tests/test_apple_metrics_store.py',
-        '--slice', 'mission_control', '--base-commit', base, '--json'])
+        '--slice', 'mission_control', '--base-commit', BASE_COMMIT, '--json'])
     test_args = ['python', '-m', 'unittest', 'tests.test_apple_metrics',
         'tests.test_apple_metrics_store', 'tests.test_apple_metrics_contract',
         'tests.test_apple_analytics_parser', 'tests.test_apple_metrics_transport', '-v']
     test_log = run('unittest', test_args)
+    t4_args = ['python', '-m', 'unittest', 'tests.test_apple_metrics_transport',
+               'tests.test_apple_metrics', '-v']
+    t4_log = run('t4-unittest', t4_args)
 
     candidates = [
         ('mission_control/apple_metrics.py', 'source'),
@@ -101,7 +103,8 @@ def main():
     contract_hash = hashlib.sha256(contract_path.read_bytes()).hexdigest()
     candidate_hash = hashlib.sha256(json.dumps(candidate, ensure_ascii=False, sort_keys=True,
         separators=(',', ':')).encode('utf-8')).hexdigest()
-    log_path = str(test_log.relative_to(ROOT)).replace('\\', '/')
+    log_paths = [str(path.relative_to(ROOT)).replace('\\', '/')
+                 for path in (test_log, t4_log)]
     reasons = {
         'happy_path': 'Named synthetic tests parse multi-day downloads and persist/read back source-bound app partitions.',
         'validation': 'Named tests reject malformed gzip/checksum/date/schema, foreign app identity, duplicate segment identity, closed-key violations, and URL-like dimensions.',
@@ -113,9 +116,10 @@ def main():
     observations = []
     for name in requirements:
         observations.append(dict(id=name, profile=PROFILE, status='PASS',
-            reason=reasons[name], execution_identity=' '.join(test_args),
+            reason=reasons[name], execution_identity='; '.join(
+                [' '.join(test_args), ' '.join(t4_args)]),
             observed_at=datetime.now(timezone.utc).isoformat(),
-            artifacts=[dict(path=log_path, sha256=sha(log_path), kind='log')]))
+            artifacts=[dict(path=path, sha256=sha(path), kind='log') for path in log_paths]))
     observation_doc = dict(schema='factory.workflow-audit.observations.v1',
         contract_sha256=contract_hash, candidate_sha256=candidate_hash,
         observations=observations)
@@ -137,7 +141,7 @@ def main():
         raise SystemExit(f'workflow audit did not PASS; inspect {receipt}')
     print(json.dumps(dict(contract=str(contract_path.relative_to(ROOT)),
         contract_sha256=contract_hash, candidate_sha256=candidate_hash,
-        observed_categories=len(observations), test_log=log_path,
+        observed_categories=len(observations), test_logs=log_paths,
         receipt_sha256=hashlib.sha256(receipt.read_bytes()).hexdigest()), indent=2))
 
 

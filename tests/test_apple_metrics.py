@@ -23,7 +23,7 @@ def identity(**changes):
 def segment(rows, identity='synthetic-segment', extra=None):
     body = ('Date\tApp Apple Identifier\tDownload Type\tCounts\tTerritory\n'
             + ''.join('%s\t123\t%s\t%s\tUS\n' % row for row in rows)).encode()
-    compressed = gzip.compress(body)
+    compressed = gzip.compress(body, mtime=0)
     value = dict(id=identity, size=len(compressed),
                  checksum=hashlib.md5(compressed, usedforsecurity=False).hexdigest(),
                  data=compressed)
@@ -125,7 +125,7 @@ class AppleMetricsTests(unittest.TestCase):
         self.assertNotIn('signed_url', canonical(result))
         unsafe = segment([('2026-01-01', 'First-time download', '1')])
         raw = gzip.decompress(unsafe['data']).replace(b'\tUS\n', b'\thttps://signed.invalid\n')
-        unsafe['data'] = gzip.compress(raw)
+        unsafe['data'] = gzip.compress(raw, mtime=0)
         unsafe['size'] = len(unsafe['data'])
         unsafe['checksum'] = hashlib.md5(unsafe['data'], usedforsecurity=False).hexdigest()
         with self.assertRaises(Invalid):

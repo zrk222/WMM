@@ -29,7 +29,7 @@
     },
     {
       "path": "tests/test_apple_metrics.py",
-      "sha256": "8fafa0ff4beb306feee1fa5b31f906112cf98147a6d30f245a3bf0180d6e0c90",
+      "sha256": "c1a7183f814eb908c9e5a53470fc48af4d783f75561b6a13b69064a021be67a6",
       "kind": "test"
     },
     {
@@ -59,7 +59,7 @@
     },
     {
       "path": "plans/apple-analytics-metrics.md",
-      "sha256": "e82114e104b72f170eb7abd6146bc93b93f97529fa462917ffb734080e37a337",
+      "sha256": "71202628db0fb3e212d0c32fa0ba0f2ea7ea51ecd836b241158708c1a69202a0",
       "kind": "contract"
     },
     {
