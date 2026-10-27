@@ -7,7 +7,7 @@
 })(typeof globalThis === "object" ? globalThis : this, function () {
   "use strict";
   const DENOMINATORS = {CPT_MINOR:"TAPS", CPI_MINOR:"INSTALLS", CR:"TAPS", TTR:"IMPRESSIONS"};
-  const RULE_VERSION = "2026-10-22.v1";
+  const RULE_VERSION = "2026-10-27.v2";
   const MAX_ROWS = 1000;
   const escape = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const human = value => String(value ?? "Unavailable").replaceAll("_", " ").toLowerCase();
@@ -158,6 +158,7 @@
     const analysis=row.readout.analysis;
     const notes=[`${human(row.kind)}: ${row.id}. Saved ${row.created}. ${human(row.readout.availability)}. Status: ${human(analysis.status)}. Source hash ${row.hash}.`];
     if (row.kind==="ASO_LISTING") {
+      notes.push(`Applied rule profile ${analysis.rule_version}; saved source profile ${analysis.source_rule_version}; rules reviewed ${analysis.rules_reviewed_at}.`);
       notes.push(...Object.entries(row.data.listing.fields).map(([name,value])=>`${human(name)}: ${value}`));
       notes.push(...analysis.fields.map(item=>item.field==="keywords"&&Number.isInteger(item.byte_reference)?`${human(item.field)}: ${item.characters} characters; limit ${item.maximum_characters}; ${item.bytes} UTF-8 bytes; App Store Connect reference: ${item.byte_reference} bytes.`:`${human(item.field)}: ${item.characters} characters; limit ${item.maximum_characters} characters.`));
       notes.push(...analysis.findings.map(item=>`${item.field}: ${item.correction}`));

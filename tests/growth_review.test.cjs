@@ -39,7 +39,7 @@ test('listingData preserves original localized text and supported store field se
   const android=growth.listingData({...values,platform:'Android'});
   assert.equal(android.listing.fields.short_description,values.subtitle);
   assert.equal(android.listing.fields.keywords,undefined);
-  assert.equal(apple.listing.rule_version,'2026-10-22.v1');
+  assert.equal(apple.listing.rule_version,growth.RULE_VERSION);
 });
 test('referenceData freezes exact declared provenance and metric denominator without guessing units',()=>{
   const v={...values,metric:'CR',value:'0.2',percentile:'50',source_url:'https://synthetic.example/report',currency:'JPY',private_key:'PRIVATE_SENTINEL'};
@@ -80,6 +80,12 @@ test('entryNotes and report retain source metrics, Unicode and original long tex
   assert.ok(html.includes('Café 東京'));assert.ok(html.includes('END_MARKER'));assert.ok(html.includes('limit 30'));
   assert.ok(!html.includes('<script>'));assert.ok(!html.includes('PRIVATE_SENTINEL'));
   assert.equal(report.filters.scope,'Exact saved item listing');assert.equal(report.cohorts.length,0);
+});
+test('ASO readout distinguishes the applied rule profile from the saved source profile',()=>{
+  const row=listingRow();row.data.listing.rule_version='2026-10-22.v1';
+  row.readout.analysis={status:'NEEDS_REPAIR',rule_version:growth.RULE_VERSION,source_rule_version:row.data.listing.rule_version,rules_reviewed_at:'2026-10-27T00:00:00+00:00',fields:[],findings:[{field:'rule_version',correction:'Recheck official rules'}]};
+  const notes=growth.entryNotes(row).join(' ');
+  assert.ok(notes.includes(`Applied rule profile ${growth.RULE_VERSION}; saved source profile 2026-10-22.v1`));
 });
 test('referenceNotes, comparisonNotes and editorial entry reports retain unavailable differences and boundaries',()=>{
   const row={...listingRow(),kind:'BENCHMARK_COMPARISON',data:{reference_id:'ref',reference_hash:'a',job_id:'job',report_hash:'b',metric:'CPT_MINOR',projection:{observed:null}},readout:{availability:'STALE_APP_SCOPE',analysis:{status:'SOURCE_REVIEW_NEEDED',difference:null,reasons:['Refresh source']}}};

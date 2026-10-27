@@ -4,8 +4,8 @@ from collections import Counter
 from datetime import timedelta
 from .common import Invalid, digest, iso_time, safe_data
 
-RULE_VERSION = "2026-10-22.v1"
-REVIEWED_AT = "2026-10-22T00:00:00+00:00"
+RULE_VERSION = "2026-10-27.v2"
+REVIEWED_AT = "2026-10-27T00:00:00+00:00"
 LIMITS = {"iOS": {"title": 30, "subtitle": 30, "keywords": 100, "description": 4000, "promotional_text": 170},
           "Android": {"title": 30, "short_description": 80, "description": 4000}}
 SOURCES = {"iOS": ["https://developer.apple.com/app-store/product-page/", "https://developer.apple.com/app-store/product-page-optimization/", "https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information"],
@@ -44,6 +44,7 @@ def validate_listing(value, observed_at) -> dict:
     findings += surface_findings(platform, value["surface"], value["test_fields"])
     findings += rule_findings(value["rule_version"], observed_at)
     return {"platform": platform, "locale": value["locale"], "rule_version": RULE_VERSION,
+            "source_rule_version": value["rule_version"],
             "rules_reviewed_at": REVIEWED_AT, "sources": SOURCES[platform], "fields": observations,
             "findings": findings, "source_hash": digest(value), "original": value,
             "status": "NEEDS_REPAIR" if findings else "READY_FOR_REVIEW", "external_writes": False,
@@ -61,16 +62,7 @@ def field_findings(platform, fields) -> tuple:
         text = fields.get(name, "")
         if not isinstance(text, str):
             raise Invalid("Listing fields must contain text")
-        observation = {"field": name, "characters": len(text), "text": text}
-        apple_keywords = platform == "iOS" and name == "keywords"
-        if apple_keywords:
-            try:
-                observation.update(bytes=len(text.encode("utf-8")), byte_reference=100,
-                                   maximum_characters=maximum)
-            except UnicodeEncodeError as error:
-                raise Invalid("Apple keywords must contain valid UTF-8 text") from error
-        else:
-            observation["maximum_characters"] = maximum
+        observation = field_observation(platform, name, text, maximum)
         observations.append(observation)
         if name not in optional and not text.strip():
             findings.append(issue(name, "MISSING", "Supply truthful localized " + name + "."))
@@ -79,6 +71,20 @@ def field_findings(platform, fields) -> tuple:
         if re.search(r"(?i)(?:#1\b|\bguaranteed\b|\b100%\s+(?:safe|effective)\b|\bbest\s+app\b)", text):
             findings.append(issue(name, "CLAIM_REVIEW", "Remove unsupported ranking or absolute outcome claims, or attach independently reviewed substantiation."))
     return observations, findings
+
+
+def field_observation(platform, name, text, maximum) -> dict:
+    """Count one field and retain Apple's conflicting keyword units."""
+    observation = {"field": name, "characters": len(text), "text": text}
+    if platform == "iOS" and name == "keywords":
+        try:
+            observation.update(bytes=len(text.encode("utf-8")), byte_reference=100,
+                               maximum_characters=maximum)
+        except UnicodeEncodeError as error:
+            raise Invalid("Apple keywords must contain valid UTF-8 text") from error
+        return observation
+    observation["maximum_characters"] = maximum
+    return observation
 
 def keyword_findings(fields) -> list:
     """Flag duplicate keyword tokens without imposing an invented density target."""

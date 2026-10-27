@@ -4,8 +4,8 @@ import unittest
 import time
 from unittest.mock import patch
 from mission_control.common import Invalid, digest
-from mission_control.aso_validation import (validate_listing, field_findings, keyword_findings,
-    surface_findings, issue, rule_findings, RULE_VERSION)
+from mission_control.aso_validation import (validate_listing, field_findings, field_observation,
+    keyword_findings, surface_findings, issue, rule_findings, RULE_VERSION)
 
 
 def listing(platform="iOS"):
@@ -18,13 +18,30 @@ class AsoValidationTests(unittest.TestCase):
     def test_validate_listing_preserves_original_and_truthful_status(self):
         value = listing()
         before = copy.deepcopy(value)
-        result = validate_listing(value, "2026-10-22T12:00:00+00:00")
+        result = validate_listing(value, "2026-10-27T12:00:00+00:00")
         self.assertEqual(result["status"], "READY_FOR_REVIEW")
         self.assertEqual(result["original"], before)
         self.assertEqual(result["source_hash"], digest(before))
         self.assertFalse(result["claims_verified"])
         self.assertFalse(result["provider_approved"])
         self.assertFalse(result["external_writes"])
+
+    def test_old_rule_profile_is_flagged_and_source_version_is_preserved(self):
+        value = listing()
+        value["rule_version"] = "2026-10-22.v1"
+        before = copy.deepcopy(value)
+        result = validate_listing(value, "2026-10-27T12:00:00+00:00")
+        self.assertEqual(result["rule_version"], RULE_VERSION)
+        self.assertEqual(result["source_rule_version"], "2026-10-22.v1")
+        self.assertEqual(result["original"], before)
+        self.assertEqual(result["source_hash"], digest(before))
+        self.assertIn("RULE_REVIEW_NEEDED", [row["code"] for row in result["findings"]])
+
+    def test_field_observation_reports_unicode_keyword_units(self):
+        result = field_observation("iOS", "keywords", "界" * 34, 100)
+        self.assertEqual((result["characters"], result["bytes"], result["byte_reference"]), (34, 102, 100))
+        ordinary = field_observation("Android", "title", "A title", 30)
+        self.assertEqual(ordinary, {"field": "title", "characters": 7, "text": "A title", "maximum_characters": 30})
 
     def test_field_findings_exact_boundaries_and_locale_unicode(self):
         for platform, field, limit in (("iOS", "title", 30), ("iOS", "subtitle", 30),
@@ -95,7 +112,7 @@ class AsoValidationTests(unittest.TestCase):
             value = listing("Android")
             value[key] = item
             with self.subTest(key=key), self.assertRaises(Invalid):
-                validate_listing(value, "2026-10-22T12:00:00+00:00")
+                validate_listing(value, "2026-10-27T12:00:00+00:00")
 
     def test_bounded_local_preflight_without_network_or_mutation(self):
         value = listing("Android")
@@ -104,7 +121,7 @@ class AsoValidationTests(unittest.TestCase):
         started = time.perf_counter()
         with patch("socket.socket") as network:
             for _ in range(100):
-                self.assertEqual(validate_listing(value, "2026-10-22T12:00:00+00:00")["status"], "READY_FOR_REVIEW")
+                self.assertEqual(validate_listing(value, "2026-10-27T12:00:00+00:00")["status"], "READY_FOR_REVIEW")
             network.assert_not_called()
         self.assertEqual(value, before)
         self.assertLess(time.perf_counter() - started, 5)
