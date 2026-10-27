@@ -1,0 +1,205 @@
+{
+  "grade": "A",
+  "passed": true,
+  "metrics": {
+    "coverage_intent": 0.69,
+    "max_complexity": 10,
+    "security_score": 100,
+    "doc_ratio": 1.0,
+    "composite": 89.2,
+    "complexity_policy": "hard",
+    "coverage_assessment": "static_name_match",
+    "behavioral_proof_status": "not_measured_static_only",
+    "scope": {
+      "kind": "feature",
+      "code_files": [
+        ".factory/apple-analytics-read/changed_functions.py",
+        "mission_control/apple_analytics.py"
+      ]
+    },
+    "skipped_paths": [],
+    "inventory_complete": true,
+    "function_inventory_complete": true,
+    "function_inventory": [
+      {
+        "path": ".factory/apple-analytics-read/changed_functions.py",
+        "parser": "python-ast",
+        "status": "exact",
+        "symbols": 3
+      },
+      {
+        "path": "mission_control/apple_analytics.py",
+        "parser": "python-ast",
+        "status": "exact",
+        "symbols": 10
+      }
+    ],
+    "advisory_function_metrics": [],
+    "unknown_security_calls": [
+      ".factory/apple-analytics-read/changed_functions.py:Invalid",
+      ".factory/apple-analytics-read/changed_functions.py:Reader",
+      ".factory/apple-analytics-read/changed_functions.py:binding.get",
+      ".factory/apple-analytics-read/changed_functions.py:campaign_ids",
+      ".factory/apple-analytics-read/changed_functions.py:campaigns",
+      ".factory/apple-analytics-read/changed_functions.py:credential",
+      ".factory/apple-analytics-read/changed_functions.py:dict",
+      ".factory/apple-analytics-read/changed_functions.py:digest",
+      ".factory/apple-analytics-read/changed_functions.py:google_options",
+      ".factory/apple-analytics-read/changed_functions.py:google_report",
+      ".factory/apple-analytics-read/changed_functions.py:isinstance",
+      ".factory/apple-analytics-read/changed_functions.py:now",
+      ".factory/apple-analytics-read/changed_functions.py:numeric_scope",
+      ".factory/apple-analytics-read/changed_functions.py:options.get",
+      ".factory/apple-analytics-read/changed_functions.py:re.fullmatch",
+      ".factory/apple-analytics-read/changed_functions.py:read_analytics",
+      ".factory/apple-analytics-read/changed_functions.py:read_catalog",
+      ".factory/apple-analytics-read/changed_functions.py:read_inventory",
+      ".factory/apple-analytics-read/changed_functions.py:read_keywords",
+      ".factory/apple-analytics-read/changed_functions.py:release_options",
+      ".factory/apple-analytics-read/changed_functions.py:report_dates",
+      ".factory/apple-analytics-read/changed_functions.py:report_options",
+      ".factory/apple-analytics-read/changed_functions.py:reviews",
+      ".factory/apple-analytics-read/changed_functions.py:set",
+      ".factory/apple-analytics-read/changed_functions.py:urlsplit",
+      ".factory/apple-analytics-read/changed_functions.py:verify_campaigns",
+      "mission_control/apple_analytics.py:Invalid",
+      "mission_control/apple_analytics.py:ValueError",
+      "mission_control/apple_analytics.py:active.append",
+      "mission_control/apple_analytics.py:active_request",
+      "mission_control/apple_analytics.py:any",
+      "mission_control/apple_analytics.py:app.get",
+      "mission_control/apple_analytics.py:attributes.get",
+      "mission_control/apple_analytics.py:available.add",
+      "mission_control/apple_analytics.py:collection",
+      "mission_control/apple_analytics.py:data.get",
+      "mission_control/apple_analytics.py:dict",
+      "mission_control/apple_analytics.py:frozenset",
+      "mission_control/apple_analytics.py:identity",
+      "mission_control/apple_analytics.py:inspect_reports",
+      "mission_control/apple_analytics.py:instance",
+      "mission_control/apple_analytics.py:isinstance",
+      "mission_control/apple_analytics.py:len",
+      "mission_control/apple_analytics.py:links.get",
+      "mission_control/apple_analytics.py:list",
+      "mission_control/apple_analytics.py:next_page",
+      "mission_control/apple_analytics.py:payload.get",
+      "mission_control/apple_analytics.py:range",
+      "mission_control/apple_analytics.py:reader.read",
+      "mission_control/apple_analytics.py:relationship",
+      "mission_control/apple_analytics.py:relationships.get",
+      "mission_control/apple_analytics.py:required",
+      "mission_control/apple_analytics.py:resource",
+      "mission_control/apple_analytics.py:result.update",
+      "mission_control/apple_analytics.py:row.get",
+      "mission_control/apple_analytics.py:rows.values",
+      "mission_control/apple_analytics.py:seen.add",
+      "mission_control/apple_analytics.py:selected.append",
+      "mission_control/apple_analytics.py:set",
+      "mission_control/apple_analytics.py:sorted",
+      "mission_control/apple_analytics.py:type",
+      "mission_control/apple_analytics.py:verify_app"
+    ],
+    "security_analysis": "bounded_pattern_inventory"
+  },
+  "findings": [],
+  "attribution": {
+    "stage": "qa_audit",
+    "n_checked": 13,
+    "n_passed": 9,
+    "units": [
+      {
+        "unit": "qa_audit:.factory/apple-analytics-read/changed_functions.py:report_destination",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/apple-analytics-read/changed_functions.py:report_options",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/apple-analytics-read/changed_functions.py:read_report",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/apple_analytics.py:identity",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/apple_analytics.py:resource",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/apple_analytics.py:next_page",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:mission_control/apple_analytics.py:collection",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/apple_analytics.py:relationship",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/apple_analytics.py:active_request",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:mission_control/apple_analytics.py:instance",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/apple_analytics.py:inspect_reports",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:mission_control/apple_analytics.py:verify_app",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:mission_control/apple_analytics.py:read_analytics",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      }
+    ],
+    "rate": 0.6923076923076923,
+    "dominant_failure_class": "inconsistent_logic"
+  }
+}

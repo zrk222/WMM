@@ -1,0 +1,85 @@
+{
+  "name": "apple-analytics-read",
+  "language": "python",
+  "modules": [
+    {
+      "name": "apple_analytics",
+      "path": "mission_control/apple_analytics.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "identity",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "resource",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "next_page",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "collection",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "relationship",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "active_request",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "instance",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "inspect_reports",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "verify_app",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "read_analytics",
+          "args": [],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "changed_functions",
+      "path": ".factory/apple-analytics-read/changed_functions.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "report_destination",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "report_options",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "read_report",
+          "args": [],
+          "returns": "object"
+        }
+      ]
+    }
+  ]
+}
