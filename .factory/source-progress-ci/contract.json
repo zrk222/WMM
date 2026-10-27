@@ -4,7 +4,7 @@
   "candidate": [
     {
       "path": "tests/test_source_progress.py",
-      "sha256": "26b53cc1dcdf7de679869e8544a5062b1f3e904a561567ff597e37bc65ddb974",
+      "sha256": "b1dbc6f92d03e7146e6be84452f291848940eb3032df33485cca0244b7ec41f0",
       "kind": "test"
     },
     {

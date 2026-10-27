@@ -1,7 +1,7 @@
 {
   "schema": "factory.workflow-audit.observations.v1",
-  "contract_sha256": "ea96ab731ba716bace6c57742ebdb61185a3fc897314be3105aa06089e1221e4",
-  "candidate_sha256": "c9f6b48c485ab1a558ea2639619276df9b7449457b8f340354bfab0de32fc593",
+  "contract_sha256": "c4bead5614aa3105d9c52b52984974d0c30182d35d820978ba3168bdde2a1761",
+  "candidate_sha256": "d710f525fc3656d4434eb50e67d7acebab96e34f05b88c47467d0939797a88fe",
   "observations": [
     {
       "id": "happy",
@@ -9,11 +9,11 @@
       "status": "PASS",
       "reason": "Synthetic collection dispatch succeeds inside a stable approved hour",
       "execution_identity": "python .factory/source-progress-ci/seal.py",
-      "observed_at": "2026-10-27T04:10:29.531936+00:00",
+      "observed_at": "2026-10-27T04:12:38.121985+00:00",
       "artifacts": [
         {
           "path": ".factory/source-progress-ci/tests.log",
-          "sha256": "114aec6c45c901393d76f35a4b39f0eb67b6cfaae2ea5311c1236d6ea94d457f",
+          "sha256": "9cddd49b8be98bdd3f6708504c7cce65188d44cc0b745dda51a39645cf4165d6",
           "kind": "log"
         },
         {
@@ -29,11 +29,11 @@
       "status": "PASS",
       "reason": "Existing stale and foreign approval rejection remains tested",
       "execution_identity": "python .factory/source-progress-ci/seal.py",
-      "observed_at": "2026-10-27T04:10:29.531936+00:00",
+      "observed_at": "2026-10-27T04:12:38.121985+00:00",
       "artifacts": [
         {
           "path": ".factory/source-progress-ci/tests.log",
-          "sha256": "114aec6c45c901393d76f35a4b39f0eb67b6cfaae2ea5311c1236d6ea94d457f",
+          "sha256": "9cddd49b8be98bdd3f6708504c7cce65188d44cc0b745dda51a39645cf4165d6",
           "kind": "log"
         },
         {
@@ -49,11 +49,11 @@
       "status": "PASS",
       "reason": "Existing tests retain failed results and expose repair",
       "execution_identity": "python .factory/source-progress-ci/seal.py",
-      "observed_at": "2026-10-27T04:10:29.531936+00:00",
+      "observed_at": "2026-10-27T04:12:38.121985+00:00",
       "artifacts": [
         {
           "path": ".factory/source-progress-ci/tests.log",
-          "sha256": "114aec6c45c901393d76f35a4b39f0eb67b6cfaae2ea5311c1236d6ea94d457f",
+          "sha256": "9cddd49b8be98bdd3f6708504c7cce65188d44cc0b745dda51a39645cf4165d6",
           "kind": "log"
         },
         {
@@ -69,11 +69,11 @@
       "status": "PASS",
       "reason": "Synthetic persisted child status remains app scoped across restart",
       "execution_identity": "python .factory/source-progress-ci/seal.py",
-      "observed_at": "2026-10-27T04:10:29.531936+00:00",
+      "observed_at": "2026-10-27T04:12:38.121985+00:00",
       "artifacts": [
         {
           "path": ".factory/source-progress-ci/tests.log",
-          "sha256": "114aec6c45c901393d76f35a4b39f0eb67b6cfaae2ea5311c1236d6ea94d457f",
+          "sha256": "9cddd49b8be98bdd3f6708504c7cce65188d44cc0b745dda51a39645cf4165d6",
           "kind": "log"
         },
         {
@@ -89,11 +89,11 @@
       "status": "PASS",
       "reason": "Foreign source jobs cannot satisfy collection and production authority is unchanged",
       "execution_identity": "python .factory/source-progress-ci/seal.py",
-      "observed_at": "2026-10-27T04:10:29.531936+00:00",
+      "observed_at": "2026-10-27T04:12:38.121985+00:00",
       "artifacts": [
         {
           "path": ".factory/source-progress-ci/tests.log",
-          "sha256": "114aec6c45c901393d76f35a4b39f0eb67b6cfaae2ea5311c1236d6ea94d457f",
+          "sha256": "9cddd49b8be98bdd3f6708504c7cce65188d44cc0b745dda51a39645cf4165d6",
           "kind": "log"
         },
         {
