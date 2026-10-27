@@ -1,0 +1,172 @@
+TAP version 13
+# Subtest: checklist identity and reports retain missingness, escape source text and reject foreign authority
+ok 1 - checklist identity and reports retain missingness, escape source text and reject foreign authority
+  ---
+  duration_ms: 3.1797
+  type: 'test'
+  ...
+# Subtest: variantData binds selected source and product revisions with the chosen thumbnail first
+ok 2 - variantData binds selected source and product revisions with the chosen thumbnail first
+  ---
+  duration_ms: 1.0563
+  type: 'test'
+  ...
+# Subtest: library filters product scope, keeps latest collection revisions, and excludes unattested media
+ok 3 - library filters product scope, keeps latest collection revisions, and excludes unattested media
+  ---
+  duration_ms: 0.4439
+  type: 'test'
+  ...
+# Subtest: local thumbnails cannot introduce remote hosts, path traversal or HTML attributes
+ok 4 - local thumbnails cannot introduce remote hosts, path traversal or HTML attributes
+  ---
+  duration_ms: 0.1987
+  type: 'test'
+  ...
+# Subtest: canonical SHA256 matches Python Unicode, sorted keys and newline encoding
+ok 5 - canonical SHA256 matches Python Unicode, sorted keys and newline encoding
+  ---
+  duration_ms: 6.0232
+  type: 'test'
+  ...
+# Subtest: shotData preserves user ordering, source timing, reusable media and exact script hashes
+ok 6 - shotData preserves user ordering, source timing, reusable media and exact script hashes
+  ---
+  duration_ms: 1.7658
+  type: 'test'
+  ...
+# Subtest: source timing rejects dropped, reversed, fractional or unbounded timestamps
+ok 7 - source timing rejects dropped, reversed, fractional or unbounded timestamps
+  ---
+  duration_ms: 0.3827
+  type: 'test'
+  ...
+# Subtest: move preserves identities and does not mutate saved rows
+ok 8 - move preserves identities and does not mutate saved rows
+  ---
+  duration_ms: 0.2884
+  type: 'test'
+  ...
+# Subtest: seeded desktop and mobile previews use identical card order and source snapshots
+ok 9 - seeded desktop and mobile previews use identical card order and source snapshots
+  ---
+  duration_ms: 1.2024
+  type: 'test'
+  ...
+# Subtest: blind feed uses equal cards and escapes text without fabricated counters or remote images
+ok 10 - blind feed uses equal cards and escapes text without fabricated counters or remote images
+  ---
+  duration_ms: 0.7249
+  type: 'test'
+  ...
+# Subtest: report and CSV separate plan analytics from unknown sales and neutralize spreadsheet formulas
+ok 11 - report and CSV separate plan analytics from unknown sales and neutralize spreadsheet formulas
+  ---
+  duration_ms: 0.7596
+  type: 'test'
+  ...
+# Subtest: fields are labelled and source copy cannot inject markup into controls
+ok 12 - fields are labelled and source copy cannot inject markup into controls
+  ---
+  duration_ms: 0.4167
+  type: 'test'
+  ...
+# Subtest: checklist action reads exact saved shots and shows gaps with revision and report controls
+ok 13 - checklist action reads exact saved shots and shows gaps with revision and report controls
+  ---
+  duration_ms: 33.0048
+  type: 'test'
+  ...
+# Subtest: late and foreign checklist responses cannot replace another dialog context
+not ok 14 - late and foreign checklist responses cannot replace another dialog context
+  ---
+  duration_ms: 2.8326
+  type: 'test'
+  location: 'C:\\Users\\rkatz\\AppData\\Local\\Temp\\tmp87xae8fx\\tests\\packaging_ui.test.cjs:20:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+
+    + '<div class="modal-content packaging-workspace" tabindex="-1"><p>Your saved shots are checked against the current app, source evidence and owner-reviewed media. Source status: <strong>CURRENT</strong>.</p><p>Next: revise missing inputs in this shot plan or the video library, then check again. Source timing describes the reference idea; choose original-media trims and sound in the editor.</p><h3>App and plan evidence</h3><ul><li>Creative idea: Select the original production brief</li></ul><h3>Each shot and its next decisions</h3><ol></ol><p>This is preparation evidence. It has not rendered or published a video and grants no execution authority.</p><details><summary>Exact evidence identities</summary><p>Checklist bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb / shot plan shots-one revision 1.</p></details><div class="button-row"><button type="button" class="button " data-action="packaging-edit" >Revise the shot plan</button><button type="button" class="button outline" data-action="packaging-checklist" >Check current evidence again</button></div><div class="button-row"><button type="button" class="button outline" data-action="packaging-pdf" >Report / Save PDF</button><button type="button" class="button outline" data-action="packaging-json" >Download plan JSON</button><button type="button" class="button outline" data-action="packaging-csv" >Download plan CSV</button></div><button type="button" class="button outline" data-action="packaging-saved" >Back to saved revision</button><p id="packaging-progress" role="status" aria-live="polite"></p><p id="packaging-error" class="field-error" role="alert" tabindex="-1"></p><div id="packaging-recovery"></div><div class="button-row"><button type="button" class="button outline" data-action="packaging-close" >Close planner</button></div></div>'
+    - ''
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: ''
+  actual: '<div class="modal-content packaging-workspace" tabindex="-1"><p>Your saved shots are checked against the current app, source evidence and owner-reviewed media. Source status: <strong>CURRENT</strong>.</p><p>Next: revise missing inputs in this shot plan or the video library, then check again. Source timing describes the reference idea; choose original-media trims and sound in the editor.</p><h3>App and plan evidence</h3><ul><li>Creative idea: Select the original production brief</li></ul><h3>Each shot and its next decisions</h3><ol></ol><p>This is preparation evidence. It has not rendered or published a video and grants no execution authority.</p><details><summary>Exact evidence identities</summary><p>Checklist bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb / shot plan shots-one revision 1.</p></details><div class="button-row"><button type="button" class="button " data-action="packaging-edit" >Revise the shot plan</button><button type="button" class="button outline" data-action="packaging-checklist" >Check current evidence again</button></div><div class="button-row"><button type="button" class="button outline" data-action="packaging-pdf" >Report / Save PDF</button><button type="button" class="button outline" data-action="packaging-json" >Download plan JSON</button><button type="button" class="button outline" data-action="packaging-csv" >Download plan CSV</button></div><button type="button" class="button outline" data-action="packaging-saved" >Back to saved revision</button><p id="packaging-progress" role="status" aria-live="polite"></p><p id="packaging-error" class="field-error" role="alert" tabindex="-1"></p><div id="packaging-recovery"></div><div class="button-row"><button type="button" class="button outline" data-action="packaging-close" >Close planner</button></div></div>'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (<LOCAL_PROFILE>\AppData\Local\Temp\tmp87xae8fx\tests\packaging_ui.test.cjs:20:323)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: an active non-owner cannot open or submit private packaging plans
+ok 15 - an active non-owner cannot open or submit private packaging plans
+  ---
+  duration_ms: 1.8311
+  type: 'test'
+  ...
+# Subtest: owner and scope checks reject another principal or revoked membership
+ok 16 - owner and scope checks reject another principal or revoked membership
+  ---
+  duration_ms: 0.3915
+  type: 'test'
+  ...
+# Subtest: request allows only fixed local services, rejects foreign receipts, and sends exact JSON once
+ok 17 - request allows only fixed local services, rejects foreign receipts, and sends exact JSON once
+  ---
+  duration_ms: 0.7905
+  type: 'test'
+  ...
+# Subtest: receipt matching binds app, input, kind, expected revision and setup
+ok 18 - receipt matching binds app, input, kind, expected revision and setup
+  ---
+  duration_ms: 0.4771
+  type: 'test'
+  ...
+# Subtest: an uncertain save locks fields, retains exact input and never auto-retries
+ok 19 - an uncertain save locks fields, retains exact input and never auto-retries
+  ---
+  duration_ms: 1.2612
+  type: 'test'
+  ...
+# Subtest: one explicit identical retry follows an absent revision and a matching receipt clears uncertainty
+ok 20 - one explicit identical retry follows an absent revision and a matching receipt clears uncertainty
+  ---
+  duration_ms: 1.4871
+  type: 'test'
+  ...
+# Subtest: scope change aborts pending work and clears private dialog content
+ok 21 - scope change aborts pending work and clears private dialog content
+  ---
+  duration_ms: 1.2569
+  type: 'test'
+  ...
+# Subtest: busy submission prevents duplicate requests while the first save is pending
+ok 22 - busy submission prevents duplicate requests while the first save is pending
+  ---
+  duration_ms: 0.9723
+  type: 'test'
+  ...
+# Subtest: preview settings preserve explicit choices and reject a thumbnail without its source
+ok 23 - preview settings preserve explicit choices and reject a thumbnail without its source
+  ---
+  duration_ms: 0.5449
+  type: 'test'
+  ...
+# Subtest: shot controls and saved summaries expose all editing fields without executing media
+ok 24 - shot controls and saved summaries expose all editing fields without executing media
+  ---
+  duration_ms: 0.6835
+  type: 'test'
+  ...
+1..24
+# tests 24
+# suites 0
+# pass 23
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 871.1618

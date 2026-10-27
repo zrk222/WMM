@@ -78,6 +78,7 @@
   define('video-project-edit-form','Shape the saved video for the people you want to reach.','Your timing, framing and color choices become a new shared project revision. Rendering creates an actual MP4.','Save field edits before clip commands or rendering, then preview the exact output and review it before use.');
   Object.freeze(FORMS);
   const DIALOGS=Object.freeze({
+    'Your production evidence checklist':['Find what this video still needs before editing.','WMM rechecks your saved shots, current app evidence and owner-reviewed original clips. Research references do not grant reuse rights.','Revise missing inputs, check again and export the checklist. Frame, sound and taste decisions still need review before rendering.'],
     'Your creative packaging':['Make the video idea clear before you film.','Your app owns these saved title, opening and shot-plan revisions.','Create an original candidate or inspect a saved plan and its evidence.'],
     'Your saved creative revision':['Your plan is saved and ready to inspect.','The revision keeps its exact inputs and shows which evidence is missing or changed.','Compare the packaging, revise the plan or build its shot checklist.'],
     'Your packaging in context':['Judge the message in a crowded feed.','This layout uses the saved title, selected local thumbnails and repeatable ordering.','Inspect the cards at their target width, then export your observations or revise the comparison.'],

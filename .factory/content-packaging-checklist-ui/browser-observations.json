@@ -1,0 +1,35 @@
+{
+  "observed_at": "2026-10-27T00:28:30.267Z",
+  "profile": "Windows Chromium DevTools isolated loopback synthetic app; viewport emulation, not native iOS",
+  "desktop": {
+    "viewport": 1440,
+    "bodyFits": true
+  },
+  "mobile": {
+    "viewport": 390,
+    "bodyFits": true,
+    "dialogFits": true,
+    "actions": true,
+    "focused": true
+  },
+  "exports": {
+    "jsonSchema": "wmm.packaging-handoff-checklist.v1",
+    "csvMissing": true,
+    "csvUnknown": true,
+    "noSession": true,
+    "reportTitle": "Your production evidence checklist \u2014 WMM report",
+    "reportRows": 4,
+    "printInvoked": true
+  },
+  "keyboard": {
+    "Tab": "Exact evidence identities summary receives visible focus with outline"
+  },
+  "console": "No error or warning messages",
+  "limitations": [
+    "Operating-system PDF save NOT_RUN",
+    "No render, production handoff, publication or provider calls",
+    "Synthetic app evidence and no customer files",
+    "Static DOM render diagnostic is paired with live browser checks"
+  ],
+  "steps": "Run checklist_browser.py; synthetic owner login; Research > creative packaging > saved SHOTS revision > Inspect production gaps; inspect desktop 1440 and mobile 390; Tab; JSON/CSV and PDF print view; revise and recheck controls."
+}
