@@ -5,6 +5,8 @@ empty instance is never interpreted as zero. Hash linkage checks consistency of
 supplied provenance, not authenticity of a provider or the supplied bytes.
 """
 from collections import Counter
+import base64
+import binascii
 from copy import deepcopy
 from datetime import date
 import hashlib
@@ -12,17 +14,33 @@ import json
 import re
 
 from .common import Invalid
-from .apple_analytics_parser import MAX_ROWS, MAX_SEGMENTS, MAX_COMPRESSED, TYPES
+from .apple_analytics_parser import MAX_ROWS, MAX_SEGMENTS, MAX_COMPRESSED, MAX_DECOMPRESSED, TYPES
 
 STANDARD_DIMENSIONS = frozenset(('app name', 'app version', 'device',
     'platform version', 'source type', 'page type', 'pre-order', 'territory'))
 MAX_DIMENSIONS = len(STANDARD_DIMENSIONS)
 MAX_DIMENSION_TEXT = 200
+# Local persistence budgets, derived from the existing parser's decompressed
+# input budget; these are deliberately not represented as Apple provider limits.
+MAX_SOURCE_BYTES = MAX_DECOMPRESSED
+MAX_ENVELOPE_BYTES = MAX_DECOMPRESSED
 PARTITION_FIELDS = frozenset(('app_id', 'store_app_id', 'connection_id',
     'connection_version', 'report_id', 'report_family', 'granularity', 'event_date'))
-SENSITIVE = re.compile(r'://|\bwww\.|\b(?:bearer|basic)(?:\s+|:\s*)\S+|'
+SENSITIVE = re.compile(r'://|\bwww\.|\bbearer(?:\s+|:\s*)\S+|\bbasic:\s*\S+|'
     r'\b(?:password|credential|secret|token|authorization|cookie|signature)\s*[:=]|'
     r'-----BEGIN .*PRIVATE KEY-----', re.I)
+
+
+def _basic_credentials(value):
+    # "Basic Calculator" is an ordinary label. HTTP Basic credentials encode
+    # a user:password pair; only that syntactic form triggers this guard.
+    for match in re.finditer(r'\bbasic\s+([A-Za-z0-9+/]+={0,2})(?!\S)', value, re.I):
+        try:
+            if b':' in base64.b64decode(match.group(1), validate=True):
+                return True
+        except (ValueError, binascii.Error):
+            pass
+    return False
 
 
 def _exact(value, fields):
@@ -37,7 +55,7 @@ def _text(value, maximum=200):
     if (type(value) is not str or not 1 <= len(value) <= maximum
             or value != value.strip()
             or not value.isprintable()
-            or SENSITIVE.search(value)):
+            or SENSITIVE.search(value) or _basic_credentials(value)):
         raise Invalid('Invalid Apple metrics label')
     return value
 
@@ -86,13 +104,16 @@ def partition(value):
 def _sources(values):
     if type(values) is not list or not 1 <= len(values) <= MAX_SEGMENTS:
         raise Invalid('Invalid Apple metrics source count')
-    result = {}
+    result, total = {}, 0
     for source in values:
         _exact(source, ('id', 'size', 'checksum', 'sha256'))
         identity = _id(source['id'])
         if identity in result:
             raise Invalid('Duplicate Apple metrics source identity')
         _integer(source['size'], 1, MAX_COMPRESSED)
+        total += source['size']
+        if total > MAX_SOURCE_BYTES:
+            raise Invalid('Apple metrics aggregate source size exceeds local limit')
         _hash(source['checksum'], 32)
         result[identity] = _hash(source['sha256'], 64)
     return result
@@ -142,7 +163,19 @@ def complete_instance(key, instance):
         raise Invalid('Apple metrics instance contains no observations or too many rows')
     for row in rows:
         _row(row, key, processing, sources)
+    _serialized_budget(instance)
     return deepcopy(instance)
+
+
+def _serialized_budget(value):
+    """Count canonical UTF-8 bytes incrementally before any defensive copy."""
+    total = 0
+    encoder = json.JSONEncoder(sort_keys=True, separators=(',', ':'),
+                               ensure_ascii=True, allow_nan=False)
+    for chunk in encoder.iterencode(value):
+        total += len(chunk.encode('utf-8'))
+        if total > MAX_ENVELOPE_BYTES:
+            raise Invalid('Apple metrics serialized envelope exceeds local limit')
 
 
 def observation_fingerprint(rows):
@@ -151,6 +184,7 @@ def observation_fingerprint(rows):
     if type(rows) is not list or not 1 <= len(rows) <= MAX_ROWS:
         raise Invalid('Invalid Apple metrics observation count')
     try:
+        _serialized_budget(rows)
         counts = Counter(json.dumps(row, sort_keys=True, separators=(',', ':'),
                                     ensure_ascii=True, allow_nan=False) for row in rows)
         payload = json.dumps(sorted(counts.items()), separators=(',', ':'))

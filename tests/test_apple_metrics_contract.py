@@ -2,6 +2,7 @@
 from copy import deepcopy
 import gzip
 import hashlib
+import json
 import unittest
 from unittest.mock import patch
 
@@ -139,6 +140,38 @@ class AppleMetricsContractTests(unittest.TestCase):
         for bad in ([], None, [dict(count=float('nan'))]):
             with self.subTest(bad=bad), self.assertRaises(Invalid):
                 observation_fingerprint(bad)
+
+    def test_basic_label_and_credential_syntax_boundary(self):
+        value = instance()
+        for name in ('Basic Calculator', 'Basic Maps & Routes', 'Basic YWJj'):
+            value['rows'][0]['dimensions'] = {'app name': name}
+            self.assertEqual(complete_instance(key(), value), value)
+        for name in ('Basic dXNlcjpwYXNz', 'basic dXNlcjo=',
+                     'Basic: dXNlcjpwYXNz', 'Bearer abc', 'password=abc'):
+            value['rows'][0]['dimensions'] = {'app name': name}
+            with self.subTest(name=name), self.assertRaises(Invalid):
+                complete_instance(key(), value)
+
+    def test_aggregate_source_and_serialized_envelope_boundaries(self):
+        value = instance()
+        source_size = value['sources'][0]['size']
+        with patch('mission_control.apple_metrics_contract.MAX_SOURCE_BYTES', source_size):
+            self.assertEqual(complete_instance(key(), value), value)
+            extra = dict(value['sources'][0], id='segment-2', size=1)
+            value['sources'].append(extra)
+            with self.assertRaises(Invalid):
+                complete_instance(key(), value)
+        value = instance()
+        size = len(json.dumps(value, sort_keys=True, separators=(',', ':'),
+                              ensure_ascii=True, allow_nan=False).encode('utf-8'))
+        with patch('mission_control.apple_metrics_contract.MAX_ENVELOPE_BYTES', size):
+            self.assertEqual(complete_instance(key(), value), value)
+        with patch('mission_control.apple_metrics_contract.MAX_ENVELOPE_BYTES', size - 1):
+            with self.assertRaises(Invalid):
+                complete_instance(key(), value)
+        with patch('mission_control.apple_metrics_contract.MAX_ENVELOPE_BYTES', 1):
+            with self.assertRaises(Invalid):
+                observation_fingerprint(value['rows'])
 
 
 if __name__ == '__main__':

@@ -68,3 +68,8 @@ unverified production host evidence cannot be bypassed through configuration.
 
 ## Authorized parameters
 MAX_DIMENSION_TEXT = 200
+MAX_PARTITIONS_PER_APP = 1000
+MAX_PARTITION_BYTES = 4194304
+MAX_APP_BYTES = 16777216
+timeout = 15
+max_workers = 2
