@@ -8,7 +8,7 @@ from .db import connection
 from .pipeline import execute
 from .providers import sync
 from .ledger import Ledger
-from .provider_reports import read_report
+from .provider_reports import PreparedAppleMetrics, read_report
 from .experiments import Experiments
 from .experiment_schedules import Schedules
 from .insights import Insights
@@ -90,11 +90,66 @@ def process(store,job,stop=None):
         if job['data']['options'].get('operation')=='subscription_catalog':
             from .subscription_readiness import validate_catalog_scope
             validate_catalog_scope(app,binding)
-        result=read_report(binding,app["id"],job["data"]["options"])
+        result=read_report(binding,app["id"],job["data"]["options"],
+            connection_id=job["data"].get("connection_id"),
+            connection_version=job["data"].get("connection_version"))
     else:
         result=sync(binding,app["id"])
     current_connection(store,app["id"],job["data"])
     return result
+
+
+def _persist_prepared_apple_metrics(db,store,job,prepared):
+    """Commit local partitions only with the still-leased job completion."""
+    db.execute('BEGIN IMMEDIATE')
+    current=db.execute('SELECT action,data,status,attempts,lease FROM jobs WHERE id=? AND app_id=?',
+        (job['id'],job['app_id'])).fetchone()
+    if (current is None or current['action']!='sync' or current['status']!='RUNNING'
+            or current['attempts']!=job['attempts'] or current['lease']<time.time()
+            or json.loads(current['data'])!=job['data']):
+        return None,None
+    try:
+        identity=prepared.identity
+        if (identity['app_id']!=job['app_id']
+                or identity['connection_id']!=job['data'].get('connection_id')
+                or identity['connection_version']!=job['data'].get('connection_version')):
+            raise Invalid('Apple analytics result no longer matches the leased app connection')
+        connection=db.execute('SELECT version,data FROM records WHERE app_id=? AND id=? AND kind=?',
+            (job['app_id'],identity['connection_id'],'connection')).fetchone()
+        if connection is None or connection['version']!=identity['connection_version']:
+            raise Invalid('Apple analytics connection changed before persistence')
+        binding=json.loads(connection['data'])
+        if (digest(binding)!=prepared.connection_hash or binding.get('provider')!='app_store'
+                or str(binding.get('store_app_id'))!=identity['store_app_id']):
+            raise Invalid('Apple analytics source changed before persistence')
+        app_row=db.execute('SELECT id,data,version FROM apps WHERE id=?',(job['app_id'],)).fetchone()
+        if app_row is None:
+            raise Invalid('Apple analytics app was removed before persistence')
+        app=dict(app_row);app['data']=json.loads(app['data'])
+        if ('manifest_version' in job['data'] and job['data']['manifest_version']!=app['version']):
+            raise Invalid('Apple analytics app changed before persistence')
+        if 'agent_policy_sha256' in job['data']:
+            from .marketing_agent_manifest import authorize_read
+            authorize_read(app,binding,job['data'])
+
+        from .apple_metrics_store import _reconcile
+        db.execute('SAVEPOINT apple_metrics_job')
+        try:
+            statuses=[_reconcile(db,item['partition'],item['instance'])
+                      for item in prepared.partitions]
+            db.execute('RELEASE SAVEPOINT apple_metrics_job')
+        except BaseException:
+            db.execute('ROLLBACK TO SAVEPOINT apple_metrics_job')
+            db.execute('RELEASE SAVEPOINT apple_metrics_job')
+            raise
+        return prepared.summary(statuses),'SUCCEEDED'
+    except Invalid as exc:
+        return dict(error=str(exc),next_action='Refresh the report selection or connection, then retry the read',
+                    external_execution='READ_COMPLETED_NO_METRIC_PARTITIONS_WRITTEN'),'BLOCKED'
+    except Exception:
+        return dict(error='Apple analytics observations could not be saved.',
+                    next_action='Review local storage and the worker status before retrying',
+                    external_execution='READ_COMPLETED_NO_METRIC_PARTITIONS_WRITTEN'),'BLOCKED'
 
 
 def process_media(store,job,stop):
@@ -174,6 +229,10 @@ def run_once(store,stop=None):
     except Exception as exc:
         result,status,retry_delay=failed_result(job,exc)
     with connection(store.path) as db:
+        if isinstance(result,PreparedAppleMetrics):
+            result,status=_persist_prepared_apple_metrics(db,store,job,result)
+            if status is None:
+                return True
         changed=db.execute("UPDATE jobs SET status=?,result=?,lease=?,updated=? WHERE id=? AND status='RUNNING' AND attempts=?",(status,canonical(result),time.time()+retry_delay if retry_delay else 0,now(),job["id"],job["attempts"])).rowcount
         if changed:
             from .workflow_telemetry import append

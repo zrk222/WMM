@@ -1,0 +1,147 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "d33884d6ae6360148a8b7e21685e0a77d1e6155b0e86be87810ce2a30851740f",
+  "candidate_sha256": "0a6813b6315362a123336904c1c2154fb9ba9aa446b8a3525946ea47ba052636",
+  "observations": [
+    {
+      "id": "happy_path",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "Focused worker test confirms selected complete fixture persists and reads back with SUCCEEDED job evidence.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics_worker -v; python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport tests.test_apple_metrics_worker -v",
+      "observed_at": "2026-10-27T16:40:38+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t5/worker-tests.log",
+          "sha256": "fa63ec5f635c0fccf7d8681274f5ebcbd66deee58962c0cf91d8cf63f6eeb407",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-t5/apple-tests.log",
+          "sha256": "c819c2ec09c5251bcece526aa44eaa5a697af330aa101551c899fb41d158d133",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "Focused worker test rejects partial inventory before download and closes provider/options scope.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics_worker -v; python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport tests.test_apple_metrics_worker -v",
+      "observed_at": "2026-10-27T16:40:38+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t5/worker-tests.log",
+          "sha256": "fa63ec5f635c0fccf7d8681274f5ebcbd66deee58962c0cf91d8cf63f6eeb407",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-t5/apple-tests.log",
+          "sha256": "c819c2ec09c5251bcece526aa44eaa5a697af330aa101551c899fb41d158d133",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "Focused worker tests rotate connection after fetch and force SQLite failure; neither leaves metric rows.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics_worker -v; python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport tests.test_apple_metrics_worker -v",
+      "observed_at": "2026-10-27T16:40:38+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t5/worker-tests.log",
+          "sha256": "fa63ec5f635c0fccf7d8681274f5ebcbd66deee58962c0cf91d8cf63f6eeb407",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-t5/apple-tests.log",
+          "sha256": "c819c2ec09c5251bcece526aa44eaa5a697af330aa101551c899fb41d158d133",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "Focused worker success and rotation tests verify job result/partition consistency under the leased attempt.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics_worker -v; python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport tests.test_apple_metrics_worker -v",
+      "observed_at": "2026-10-27T16:40:38+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t5/worker-tests.log",
+          "sha256": "fa63ec5f635c0fccf7d8681274f5ebcbd66deee58962c0cf91d8cf63f6eeb407",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-t5/apple-tests.log",
+          "sha256": "c819c2ec09c5251bcece526aa44eaa5a697af330aa101551c899fb41d158d133",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "Worker output excludes fixture credentials and signed URLs; manifest permits only supported analytics read.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics_worker -v; python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport tests.test_apple_metrics_worker -v",
+      "observed_at": "2026-10-27T16:40:38+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t5/worker-tests.log",
+          "sha256": "fa63ec5f635c0fccf7d8681274f5ebcbd66deee58962c0cf91d8cf63f6eeb407",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-t5/apple-tests.log",
+          "sha256": "c819c2ec09c5251bcece526aa44eaa5a697af330aa101551c899fb41d158d133",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "Combined transport/parser/store suite exercises pre-download and storage bounds.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics_worker -v; python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport tests.test_apple_metrics_worker -v",
+      "observed_at": "2026-10-27T16:40:38+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t5/worker-tests.log",
+          "sha256": "fa63ec5f635c0fccf7d8681274f5ebcbd66deee58962c0cf91d8cf63f6eeb407",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-t5/apple-tests.log",
+          "sha256": "c819c2ec09c5251bcece526aa44eaa5a697af330aa101551c899fb41d158d133",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "external_effects",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "Transport tests use mocked responses, enforce the allowlisted signed host, omit S3 API authorization, and block redirects; no live provider call occurred.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics_worker -v; python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport tests.test_apple_metrics_worker -v",
+      "observed_at": "2026-10-27T16:40:38+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t5/worker-tests.log",
+          "sha256": "fa63ec5f635c0fccf7d8681274f5ebcbd66deee58962c0cf91d8cf63f6eeb407",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-t5/apple-tests.log",
+          "sha256": "c819c2ec09c5251bcece526aa44eaa5a697af330aa101551c899fb41d158d133",
+          "kind": "log"
+        }
+      ]
+    }
+  ]
+}

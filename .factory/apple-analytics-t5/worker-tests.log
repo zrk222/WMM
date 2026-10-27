@@ -1,0 +1,11 @@
+test_agent_manifest_allows_only_the_supported_analytics_read (tests.test_apple_metrics_worker.AppleMetricsWorkerTests.test_agent_manifest_allows_only_the_supported_analytics_read) ... ok
+test_complete_instance_is_committed_with_job_and_source_readback (tests.test_apple_metrics_worker.AppleMetricsWorkerTests.test_complete_instance_is_committed_with_job_and_source_readback) ... ok
+test_connection_rotation_after_read_prevents_metric_commit (tests.test_apple_metrics_worker.AppleMetricsWorkerTests.test_connection_rotation_after_read_prevents_metric_commit) ... ok
+test_options_are_closed_to_other_providers_and_input_fields (tests.test_apple_metrics_worker.AppleMetricsWorkerTests.test_options_are_closed_to_other_providers_and_input_fields) ... ok
+test_partial_or_unselected_inventory_never_downloads_or_persists (tests.test_apple_metrics_worker.AppleMetricsWorkerTests.test_partial_or_unselected_inventory_never_downloads_or_persists) ... ok
+test_sql_failure_rolls_back_partitions_and_records_blocked_job (tests.test_apple_metrics_worker.AppleMetricsWorkerTests.test_sql_failure_rolls_back_partitions_and_records_blocked_job) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 3.899s
+
+OK

@@ -1,7 +1,8 @@
 """Versioned operating contract; supported execution is explicitly narrower than goal scope."""
 from .common import Invalid, digest
 
-APPLE_READ_OPERATIONS = ('identity_inventory', 'reviews', 'subscription_catalog', 'release_inventory')
+APPLE_READ_OPERATIONS = ('identity_inventory', 'reviews', 'subscription_catalog',
+                         'release_inventory', 'analytics_reports', 'analytics_metrics')
 PLAY_READ_OPERATIONS = ('play_releases','play_subscriptions')
 READ_OPERATIONS = APPLE_READ_OPERATIONS + PLAY_READ_OPERATIONS
 PROVIDER_READS = {'app_store':APPLE_READ_OPERATIONS,'apple_ads':('identity_inventory',),'google_play':PLAY_READ_OPERATIONS}
@@ -10,7 +11,7 @@ PROVIDER_READS = {'app_store':APPLE_READ_OPERATIONS,'apple_ads':('identity_inven
 def operating_manifest(app):
     """Bind expert operating rules and implemented capabilities to exact app intent."""
     return {
-        'schema':'growth.marketing-agent-manifest.v1', 'policy_version':8,
+        'schema':'growth.marketing-agent-manifest.v1', 'policy_version':9,
         'app_id':app['id'], 'manifest_version':app['version'],
         'release':app['data'].get('release'), 'locale':app['data'].get('locale'),
         'store_app_id':app['data'].get('store_app_id'),
