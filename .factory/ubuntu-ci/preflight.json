@@ -1,0 +1,16 @@
+{
+  "source": ".github/workflows/checks.yml",
+  "sha256": "0afa234009446dcf42ba650d022958d030fb27acf6343821d9c8c39c6d0256e8",
+  "yaml_valid": true,
+  "same_four_shards": true,
+  "same_regression_runner": true,
+  "read_only_permissions": true,
+  "failure_suppression": false,
+  "local_runner_tests": 8,
+  "linux_execution": "PENDING_GITHUB_CI",
+  "limits": [
+    "No standalone iOS claim",
+    "No native keyring acceptance claim",
+    "No actual Linux pass until remote jobs finish"
+  ]
+}
