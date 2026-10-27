@@ -1,0 +1,43 @@
+{
+  "name": "owner-onboarding",
+  "language": "javascript",
+  "modules": [
+    {
+      "name": "owner_onboarding",
+      "path": ".factory/owner-onboarding/qa-scope.js",
+      "language": "javascript",
+      "functions": [
+        {
+          "name": "identityLogin",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "accessBootstrap",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "ownerContinuation",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "verifiedRequest",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "verifiedSubmitted",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "verifiedSubmit",
+          "args": [],
+          "returns": "object"
+        }
+      ]
+    }
+  ]
+}

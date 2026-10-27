@@ -1,0 +1,447 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "bf7d545a7cded41d49d591e4815649a52cbc3faff049f37299917721a3ee14db",
+  "candidate_sha256": "700d724dc1f39b5a81d4f9111bdf8c06933679486a8d7273b3754928e0895207",
+  "observations": [
+    {
+      "id": "happy_path",
+      "profile": "Windows-Python3.11-Node-Chromium143-synthetic-loopback",
+      "status": "PASS",
+      "reason": "Sign-in resumes the exact owner task; explicit confirmation persists owner once.",
+      "execution_identity": "python .factory/owner-onboarding/checks.py; python tools/test_owner_onboarding_browser.py; python .factory/owner-onboarding/mutations.py",
+      "observed_at": "2026-10-27T01:58:15.920028+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/owner-onboarding/owner-regressions.log",
+          "sha256": "e79d79e6ae8a5199dc73d449cd7987abebc3e6ecb7f72c75e54d1ef624e2816d",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/node-all.log",
+          "sha256": "f2672ccd7417101f22487b52a6229797a682c0c9154ab6be60b9fbdc78c071e2",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/syntax.log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/browser-lint.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/requirements.log",
+          "sha256": "46119098cff1e3691c072a90015318aa8ae25bc4f5c049a800ee0be4b6792d92",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/qa.json",
+          "sha256": "54d3035e0b168a1a38bf1218297fb6bf403c7210b142e13afcdc5e4477e20a9c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/qa-source-binding.json",
+          "sha256": "05031ded2832312df289dc943e9368cd5d99bc1c070f463d5a7039fc525af9dd",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/browser.json",
+          "sha256": "7647195ebd7428ed4ff7804fd42cb953efe638a9ac14d560e108de2e184b80e1",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/mutations.json",
+          "sha256": "353e0c3c13f98d4ee2d7425aa247ce2eb91fecc0e0e87046ac43d31b591d7aeb",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-Python3.11-Node-Chromium143-synthetic-loopback",
+      "status": "PASS",
+      "reason": "Reject continuation after app/version/owner/context changes.",
+      "execution_identity": "python .factory/owner-onboarding/checks.py; python tools/test_owner_onboarding_browser.py; python .factory/owner-onboarding/mutations.py",
+      "observed_at": "2026-10-27T01:58:15.920028+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/owner-onboarding/owner-regressions.log",
+          "sha256": "e79d79e6ae8a5199dc73d449cd7987abebc3e6ecb7f72c75e54d1ef624e2816d",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/node-all.log",
+          "sha256": "f2672ccd7417101f22487b52a6229797a682c0c9154ab6be60b9fbdc78c071e2",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/syntax.log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/browser-lint.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/requirements.log",
+          "sha256": "46119098cff1e3691c072a90015318aa8ae25bc4f5c049a800ee0be4b6792d92",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/qa.json",
+          "sha256": "54d3035e0b168a1a38bf1218297fb6bf403c7210b142e13afcdc5e4477e20a9c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/qa-source-binding.json",
+          "sha256": "05031ded2832312df289dc943e9368cd5d99bc1c070f463d5a7039fc525af9dd",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/browser.json",
+          "sha256": "7647195ebd7428ed4ff7804fd42cb953efe638a9ac14d560e108de2e184b80e1",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/mutations.json",
+          "sha256": "353e0c3c13f98d4ee2d7425aa247ce2eb91fecc0e0e87046ac43d31b591d7aeb",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "profile": "Windows-Python3.11-Node-Chromium143-synthetic-loopback",
+      "status": "PASS",
+      "reason": "Rejected login and cancelled/replaced dialogs cannot establish ownership.",
+      "execution_identity": "python .factory/owner-onboarding/checks.py; python tools/test_owner_onboarding_browser.py; python .factory/owner-onboarding/mutations.py",
+      "observed_at": "2026-10-27T01:58:15.920028+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/owner-onboarding/owner-regressions.log",
+          "sha256": "e79d79e6ae8a5199dc73d449cd7987abebc3e6ecb7f72c75e54d1ef624e2816d",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/node-all.log",
+          "sha256": "f2672ccd7417101f22487b52a6229797a682c0c9154ab6be60b9fbdc78c071e2",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/syntax.log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/browser-lint.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/requirements.log",
+          "sha256": "46119098cff1e3691c072a90015318aa8ae25bc4f5c049a800ee0be4b6792d92",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/qa.json",
+          "sha256": "54d3035e0b168a1a38bf1218297fb6bf403c7210b142e13afcdc5e4477e20a9c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/qa-source-binding.json",
+          "sha256": "05031ded2832312df289dc943e9368cd5d99bc1c070f463d5a7039fc525af9dd",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/browser.json",
+          "sha256": "7647195ebd7428ed4ff7804fd42cb953efe638a9ac14d560e108de2e184b80e1",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/mutations.json",
+          "sha256": "353e0c3c13f98d4ee2d7425aa247ce2eb91fecc0e0e87046ac43d31b591d7aeb",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "profile": "Windows-Python3.11-Node-Chromium143-synthetic-loopback",
+      "status": "PASS",
+      "reason": "Original app and current version must still match after refresh.",
+      "execution_identity": "python .factory/owner-onboarding/checks.py; python tools/test_owner_onboarding_browser.py; python .factory/owner-onboarding/mutations.py",
+      "observed_at": "2026-10-27T01:58:15.920028+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/owner-onboarding/owner-regressions.log",
+          "sha256": "e79d79e6ae8a5199dc73d449cd7987abebc3e6ecb7f72c75e54d1ef624e2816d",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/node-all.log",
+          "sha256": "f2672ccd7417101f22487b52a6229797a682c0c9154ab6be60b9fbdc78c071e2",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/syntax.log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/browser-lint.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/requirements.log",
+          "sha256": "46119098cff1e3691c072a90015318aa8ae25bc4f5c049a800ee0be4b6792d92",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/qa.json",
+          "sha256": "54d3035e0b168a1a38bf1218297fb6bf403c7210b142e13afcdc5e4477e20a9c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/qa-source-binding.json",
+          "sha256": "05031ded2832312df289dc943e9368cd5d99bc1c070f463d5a7039fc525af9dd",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/browser.json",
+          "sha256": "7647195ebd7428ed4ff7804fd42cb953efe638a9ac14d560e108de2e184b80e1",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/mutations.json",
+          "sha256": "353e0c3c13f98d4ee2d7425aa247ce2eb91fecc0e0e87046ac43d31b591d7aeb",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "profile": "Windows-Python3.11-Node-Chromium143-synthetic-loopback",
+      "status": "PASS",
+      "reason": "Login resets token field and issues no automatic owner authority; two negative mutants fail.",
+      "execution_identity": "python .factory/owner-onboarding/checks.py; python tools/test_owner_onboarding_browser.py; python .factory/owner-onboarding/mutations.py",
+      "observed_at": "2026-10-27T01:58:15.920028+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/owner-onboarding/owner-regressions.log",
+          "sha256": "e79d79e6ae8a5199dc73d449cd7987abebc3e6ecb7f72c75e54d1ef624e2816d",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/node-all.log",
+          "sha256": "f2672ccd7417101f22487b52a6229797a682c0c9154ab6be60b9fbdc78c071e2",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/syntax.log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/browser-lint.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/requirements.log",
+          "sha256": "46119098cff1e3691c072a90015318aa8ae25bc4f5c049a800ee0be4b6792d92",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/qa.json",
+          "sha256": "54d3035e0b168a1a38bf1218297fb6bf403c7210b142e13afcdc5e4477e20a9c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/qa-source-binding.json",
+          "sha256": "05031ded2832312df289dc943e9368cd5d99bc1c070f463d5a7039fc525af9dd",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/browser.json",
+          "sha256": "7647195ebd7428ed4ff7804fd42cb953efe638a9ac14d560e108de2e184b80e1",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/mutations.json",
+          "sha256": "353e0c3c13f98d4ee2d7425aa247ce2eb91fecc0e0e87046ac43d31b591d7aeb",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "profile": "Windows-Python3.11-Node-Chromium143-synthetic-loopback",
+      "status": "PASS",
+      "reason": "Single-submit controls prevent duplicate requests; no latency or load claim.",
+      "execution_identity": "python .factory/owner-onboarding/checks.py; python tools/test_owner_onboarding_browser.py; python .factory/owner-onboarding/mutations.py",
+      "observed_at": "2026-10-27T01:58:15.920028+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/owner-onboarding/owner-regressions.log",
+          "sha256": "e79d79e6ae8a5199dc73d449cd7987abebc3e6ecb7f72c75e54d1ef624e2816d",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/node-all.log",
+          "sha256": "f2672ccd7417101f22487b52a6229797a682c0c9154ab6be60b9fbdc78c071e2",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/syntax.log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/browser-lint.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/requirements.log",
+          "sha256": "46119098cff1e3691c072a90015318aa8ae25bc4f5c049a800ee0be4b6792d92",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/qa.json",
+          "sha256": "54d3035e0b168a1a38bf1218297fb6bf403c7210b142e13afcdc5e4477e20a9c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/qa-source-binding.json",
+          "sha256": "05031ded2832312df289dc943e9368cd5d99bc1c070f463d5a7039fc525af9dd",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/browser.json",
+          "sha256": "7647195ebd7428ed4ff7804fd42cb953efe638a9ac14d560e108de2e184b80e1",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/mutations.json",
+          "sha256": "353e0c3c13f98d4ee2d7425aa247ce2eb91fecc0e0e87046ac43d31b591d7aeb",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "accessibility",
+      "profile": "Windows-Python3.11-Node-Chromium143-synthetic-loopback",
+      "status": "PASS",
+      "reason": "Desktop/mobile keyboard flow, viewport overflow and page error checks pass.",
+      "execution_identity": "python .factory/owner-onboarding/checks.py; python tools/test_owner_onboarding_browser.py; python .factory/owner-onboarding/mutations.py",
+      "observed_at": "2026-10-27T01:58:15.920028+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/owner-onboarding/owner-regressions.log",
+          "sha256": "e79d79e6ae8a5199dc73d449cd7987abebc3e6ecb7f72c75e54d1ef624e2816d",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/node-all.log",
+          "sha256": "f2672ccd7417101f22487b52a6229797a682c0c9154ab6be60b9fbdc78c071e2",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/syntax.log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/browser-lint.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/requirements.log",
+          "sha256": "46119098cff1e3691c072a90015318aa8ae25bc4f5c049a800ee0be4b6792d92",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/qa.json",
+          "sha256": "54d3035e0b168a1a38bf1218297fb6bf403c7210b142e13afcdc5e4477e20a9c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/qa-source-binding.json",
+          "sha256": "05031ded2832312df289dc943e9368cd5d99bc1c070f463d5a7039fc525af9dd",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/browser.json",
+          "sha256": "7647195ebd7428ed4ff7804fd42cb953efe638a9ac14d560e108de2e184b80e1",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/mutations.json",
+          "sha256": "353e0c3c13f98d4ee2d7425aa247ce2eb91fecc0e0e87046ac43d31b591d7aeb",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "external_effects",
+      "profile": "Windows-Python3.11-Node-Chromium143-synthetic-loopback",
+      "status": "PASS",
+      "reason": "Synthetic identity only; login alone cannot call bootstrap. No provider writes or production activation.",
+      "execution_identity": "python .factory/owner-onboarding/checks.py; python tools/test_owner_onboarding_browser.py; python .factory/owner-onboarding/mutations.py",
+      "observed_at": "2026-10-27T01:58:15.920028+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/owner-onboarding/owner-regressions.log",
+          "sha256": "e79d79e6ae8a5199dc73d449cd7987abebc3e6ecb7f72c75e54d1ef624e2816d",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/node-all.log",
+          "sha256": "f2672ccd7417101f22487b52a6229797a682c0c9154ab6be60b9fbdc78c071e2",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/syntax.log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/browser-lint.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/requirements.log",
+          "sha256": "46119098cff1e3691c072a90015318aa8ae25bc4f5c049a800ee0be4b6792d92",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/qa.json",
+          "sha256": "54d3035e0b168a1a38bf1218297fb6bf403c7210b142e13afcdc5e4477e20a9c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/qa-source-binding.json",
+          "sha256": "05031ded2832312df289dc943e9368cd5d99bc1c070f463d5a7039fc525af9dd",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/browser.json",
+          "sha256": "7647195ebd7428ed4ff7804fd42cb953efe638a9ac14d560e108de2e184b80e1",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/owner-onboarding/mutations.json",
+          "sha256": "353e0c3c13f98d4ee2d7425aa247ce2eb91fecc0e0e87046ac43d31b591d7aeb",
+          "kind": "log"
+        }
+      ]
+    }
+  ]
+}

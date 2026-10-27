@@ -1,0 +1,144 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "WMM-owner-onboarding",
+  "candidate": [
+    {
+      "path": "mission_control/static/verified-review.js",
+      "sha256": "0ae93d55f821ab4f5e7d3ba158cb8715fbaf5e8254ad19219cfd0c2639b138df",
+      "kind": "source"
+    },
+    {
+      "path": "tests/owner_onboarding.test.cjs",
+      "sha256": "c23c16cc14de24be49ea2bf464c388a577a1c61dd5fcef3b785077f920387cd6",
+      "kind": "source"
+    },
+    {
+      "path": "tools/test_owner_onboarding_browser.py",
+      "sha256": "28f46fce00eb4d47489d7e732a2ace55e8734c0042cb462aec60e26b373a578e",
+      "kind": "source"
+    },
+    {
+      "path": "specs/owner-onboarding.ssat.yaml",
+      "sha256": "f97fe18f8762af338718a0c991fe4aa299167015b8522ffb8da22c588d37ae76",
+      "kind": "contract"
+    },
+    {
+      "path": "specs/marketer-completion.md",
+      "sha256": "7add6bfdfd6c7a09b279b2a4335197bc8978d8b592a58ceed510834751dc0db4",
+      "kind": "contract"
+    },
+    {
+      "path": "docs/MARKETER-COMPLETION-GATES.md",
+      "sha256": "d68ef4635915881197b09cc84d67245a0fc700192b9ca59a0fddcae2116ffe13",
+      "kind": "contract"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "Sign-in resumes the exact owner task; explicit confirmation persists owner once."
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "Reject continuation after app/version/owner/context changes."
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": true,
+      "reason": "Rejected login and cancelled/replaced dialogs cannot establish ownership."
+    },
+    {
+      "category": "state_consistency",
+      "applicable": true,
+      "reason": "Original app and current version must still match after refresh."
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "Login resets token field and issues no automatic owner authority; two negative mutants fail."
+    },
+    {
+      "category": "performance",
+      "applicable": true,
+      "reason": "Single-submit controls prevent duplicate requests; no latency or load claim."
+    },
+    {
+      "category": "accessibility",
+      "applicable": true,
+      "reason": "Desktop/mobile keyboard flow, viewport overflow and page error checks pass."
+    },
+    {
+      "category": "external_effects",
+      "applicable": true,
+      "reason": "Synthetic identity only; login alone cannot call bootstrap. No provider writes or production activation."
+    }
+  ],
+  "checks": [
+    {
+      "id": "happy_path",
+      "requirement": "Sign-in resumes the exact owner task; explicit confirmation persists owner once.",
+      "category": "happy_path",
+      "profiles": [
+        "Windows-Python3.11-Node-Chromium143-synthetic-loopback"
+      ]
+    },
+    {
+      "id": "validation",
+      "requirement": "Reject continuation after app/version/owner/context changes.",
+      "category": "validation",
+      "profiles": [
+        "Windows-Python3.11-Node-Chromium143-synthetic-loopback"
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "requirement": "Rejected login and cancelled/replaced dialogs cannot establish ownership.",
+      "category": "failure_recovery",
+      "profiles": [
+        "Windows-Python3.11-Node-Chromium143-synthetic-loopback"
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "requirement": "Original app and current version must still match after refresh.",
+      "category": "state_consistency",
+      "profiles": [
+        "Windows-Python3.11-Node-Chromium143-synthetic-loopback"
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "requirement": "Login resets token field and issues no automatic owner authority; two negative mutants fail.",
+      "category": "security_privacy",
+      "profiles": [
+        "Windows-Python3.11-Node-Chromium143-synthetic-loopback"
+      ]
+    },
+    {
+      "id": "performance",
+      "requirement": "Single-submit controls prevent duplicate requests; no latency or load claim.",
+      "category": "performance",
+      "profiles": [
+        "Windows-Python3.11-Node-Chromium143-synthetic-loopback"
+      ]
+    },
+    {
+      "id": "accessibility",
+      "requirement": "Desktop/mobile keyboard flow, viewport overflow and page error checks pass.",
+      "category": "accessibility",
+      "profiles": [
+        "Windows-Python3.11-Node-Chromium143-synthetic-loopback"
+      ]
+    },
+    {
+      "id": "external_effects",
+      "requirement": "Synthetic identity only; login alone cannot call bootstrap. No provider writes or production activation.",
+      "category": "external_effects",
+      "profiles": [
+        "Windows-Python3.11-Node-Chromium143-synthetic-loopback"
+      ]
+    }
+  ]
+}

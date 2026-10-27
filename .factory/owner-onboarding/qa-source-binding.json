@@ -1,0 +1,15 @@
+{
+  "source": "mission_control/static/verified-review.js",
+  "sha256": "0ae93d55f821ab4f5e7d3ba158cb8715fbaf5e8254ad19219cfd0c2639b138df",
+  "symbols": [
+    "identityLogin",
+    "accessBootstrap",
+    "ownerContinuation",
+    "verifiedRequest",
+    "verifiedSubmitted",
+    "verifiedSubmit"
+  ],
+  "unchanged_other_functions": true,
+  "extracted": ".factory/owner-onboarding/qa-scope.js",
+  "extracted_sha256": "1791c040660bf243c1a22d932c91bf616c614cbdc5304d20b78f5681237e2981"
+}
