@@ -1,7 +1,7 @@
 {
   "schema": "factory.workflow-audit.observations.v1",
-  "contract_sha256": "5fd3818125025426bc2ad69e30f6956aeca5e96569dfc162434d6fe3216df7e3",
-  "candidate_sha256": "d5a6ad63b512a174cb1d977b503a0f532fde3077b7b9054c9de8503ea0cea0a8",
+  "contract_sha256": "63bf461b3aa5c91ab257b48f3039ba4a78d67863cee2857d0ac1aa0548077ad0",
+  "candidate_sha256": "7780ac7f4b497d2a83d1b7cbc7cf21b4fca8b48187aefe0398b9a3ac85e7b685",
   "observations": [
     {
       "id": "happy_path",
@@ -9,7 +9,7 @@
       "status": "PASS",
       "reason": "Read-only checklist returns exact ordered shot and source evidence through existing services.",
       "execution_identity": "37 combined unittest regressions, three temporary-tree source mutants, Forge function QA, local source-candidate security scan",
-      "observed_at": "2026-10-27T00:14:36.424933+00:00",
+      "observed_at": "2026-10-27T00:15:14.096555+00:00",
       "artifacts": [
         {
           "path": ".factory/content-packaging-t5/checklist/regressions.log",
@@ -19,7 +19,7 @@
         {
           "path": ".factory/content-packaging-t5/checklist/qa.json",
           "kind": "log",
-          "sha256": "86e51f390ae4d5656e49c688f33f5a07b4699eb223dd9bf89de468a2968d6cbf"
+          "sha256": "7cf29a8234e00f0ec13e143f4f34bbf4ad41d112f426b839a448ff8aae63eb3d"
         },
         {
           "path": ".factory/content-packaging-t5/checklist/lint.log",
@@ -64,7 +64,7 @@
       "status": "PASS",
       "reason": "Closed input, foreign documents, changed app/variant/revision/hash and stale bytes are checked.",
       "execution_identity": "37 combined unittest regressions, three temporary-tree source mutants, Forge function QA, local source-candidate security scan",
-      "observed_at": "2026-10-27T00:14:36.448933+00:00",
+      "observed_at": "2026-10-27T00:15:14.098556+00:00",
       "artifacts": [
         {
           "path": ".factory/content-packaging-t5/checklist/regressions.log",
@@ -74,7 +74,7 @@
         {
           "path": ".factory/content-packaging-t5/checklist/qa.json",
           "kind": "log",
-          "sha256": "86e51f390ae4d5656e49c688f33f5a07b4699eb223dd9bf89de468a2968d6cbf"
+          "sha256": "7cf29a8234e00f0ec13e143f4f34bbf4ad41d112f426b839a448ff8aae63eb3d"
         },
         {
           "path": ".factory/content-packaging-t5/checklist/lint.log",
@@ -119,7 +119,7 @@
       "status": "PASS",
       "reason": "Missing/stale media and rights remain visible without job execution or state mutation.",
       "execution_identity": "37 combined unittest regressions, three temporary-tree source mutants, Forge function QA, local source-candidate security scan",
-      "observed_at": "2026-10-27T00:14:36.450942+00:00",
+      "observed_at": "2026-10-27T00:15:14.099556+00:00",
       "artifacts": [
         {
           "path": ".factory/content-packaging-t5/checklist/regressions.log",
@@ -129,7 +129,7 @@
         {
           "path": ".factory/content-packaging-t5/checklist/qa.json",
           "kind": "log",
-          "sha256": "86e51f390ae4d5656e49c688f33f5a07b4699eb223dd9bf89de468a2968d6cbf"
+          "sha256": "7cf29a8234e00f0ec13e143f4f34bbf4ad41d112f426b839a448ff8aae63eb3d"
         },
         {
           "path": ".factory/content-packaging-t5/checklist/lint.log",
@@ -174,7 +174,7 @@
       "status": "PASS",
       "reason": "Repeated preview is identical; exact hash identities reject silent parent changes; audit/job counts remain unchanged.",
       "execution_identity": "37 combined unittest regressions, three temporary-tree source mutants, Forge function QA, local source-candidate security scan",
-      "observed_at": "2026-10-27T00:14:36.451944+00:00",
+      "observed_at": "2026-10-27T00:15:14.101555+00:00",
       "artifacts": [
         {
           "path": ".factory/content-packaging-t5/checklist/regressions.log",
@@ -184,7 +184,7 @@
         {
           "path": ".factory/content-packaging-t5/checklist/qa.json",
           "kind": "log",
-          "sha256": "86e51f390ae4d5656e49c688f33f5a07b4699eb223dd9bf89de468a2968d6cbf"
+          "sha256": "7cf29a8234e00f0ec13e143f4f34bbf4ad41d112f426b839a448ff8aae63eb3d"
         },
         {
           "path": ".factory/content-packaging-t5/checklist/lint.log",
@@ -229,7 +229,7 @@
       "status": "PASS",
       "reason": "Twenty exact Python sources CLEAN with complete declared coverage; three mutants killed; synthetic output excludes storage paths.",
       "execution_identity": "37 combined unittest regressions, three temporary-tree source mutants, Forge function QA, local source-candidate security scan",
-      "observed_at": "2026-10-27T00:14:36.453951+00:00",
+      "observed_at": "2026-10-27T00:15:14.102555+00:00",
       "artifacts": [
         {
           "path": ".factory/content-packaging-t5/checklist/regressions.log",
@@ -239,7 +239,7 @@
         {
           "path": ".factory/content-packaging-t5/checklist/qa.json",
           "kind": "log",
-          "sha256": "86e51f390ae4d5656e49c688f33f5a07b4699eb223dd9bf89de468a2968d6cbf"
+          "sha256": "7cf29a8234e00f0ec13e143f4f34bbf4ad41d112f426b839a448ff8aae63eb3d"
         },
         {
           "path": ".factory/content-packaging-t5/checklist/lint.log",
@@ -284,7 +284,7 @@
       "status": "PASS",
       "reason": "Existing contract bounds cap shots and references; no new queue or provider reads; no latency claim.",
       "execution_identity": "37 combined unittest regressions, three temporary-tree source mutants, Forge function QA, local source-candidate security scan",
-      "observed_at": "2026-10-27T00:14:36.456059+00:00",
+      "observed_at": "2026-10-27T00:15:14.104555+00:00",
       "artifacts": [
         {
           "path": ".factory/content-packaging-t5/checklist/regressions.log",
@@ -294,7 +294,7 @@
         {
           "path": ".factory/content-packaging-t5/checklist/qa.json",
           "kind": "log",
-          "sha256": "86e51f390ae4d5656e49c688f33f5a07b4699eb223dd9bf89de468a2968d6cbf"
+          "sha256": "7cf29a8234e00f0ec13e143f4f34bbf4ad41d112f426b839a448ff8aae63eb3d"
         },
         {
           "path": ".factory/content-packaging-t5/checklist/lint.log",
@@ -339,7 +339,7 @@
       "status": "PASS",
       "reason": "Temporary synthetic SQLite and media inspector only; no network, render, publication, spend or activation.",
       "execution_identity": "37 combined unittest regressions, three temporary-tree source mutants, Forge function QA, local source-candidate security scan",
-      "observed_at": "2026-10-27T00:14:36.457060+00:00",
+      "observed_at": "2026-10-27T00:15:14.105555+00:00",
       "artifacts": [
         {
           "path": ".factory/content-packaging-t5/checklist/regressions.log",
@@ -349,7 +349,7 @@
         {
           "path": ".factory/content-packaging-t5/checklist/qa.json",
           "kind": "log",
-          "sha256": "86e51f390ae4d5656e49c688f33f5a07b4699eb223dd9bf89de468a2968d6cbf"
+          "sha256": "7cf29a8234e00f0ec13e143f4f34bbf4ad41d112f426b839a448ff8aae63eb3d"
         },
         {
           "path": ".factory/content-packaging-t5/checklist/lint.log",

@@ -12,9 +12,9 @@
     "repair": false,
     "signing": false
   },
-  "candidate_sha256": "d5a6ad63b512a174cb1d977b503a0f532fde3077b7b9054c9de8503ea0cea0a8",
+  "candidate_sha256": "7780ac7f4b497d2a83d1b7cbc7cf21b4fca8b48187aefe0398b9a3ac85e7b685",
   "checks": 7,
-  "contract_sha256": "5fd3818125025426bc2ad69e30f6956aeca5e96569dfc162434d6fe3216df7e3",
+  "contract_sha256": "63bf461b3aa5c91ab257b48f3039ba4a78d67863cee2857d0ac1aa0548077ad0",
   "errors": [],
   "inapplicability_evidence": {
     "accessibility": {
@@ -32,12 +32,12 @@
     "No project command or provider is executed.",
     "No approval, certification or deployment authority."
   ],
-  "observations_sha256": "999ed73244b897cf46bc7e54279ac3434f62776fc2778bd415a8f5effb883126",
+  "observations_sha256": "3d5179b7ffecdfcf1b6e629a9ff45229332e835f69bcaa00ed71cd5e8febb09b",
   "project_id": "WMM-packaging-checklist",
-  "receipt_sha256": "21589476ee951024f505c6ed8fd42104273568cf192c3d62aede4be9ac6762b3",
+  "receipt_sha256": "bcab50a3c542abb5e4a22ba7033dfce392198903b29cf359f271c368ffe6fccd",
   "resource_usage": {
     "artifact_references": 92,
-    "bytes_hashed": 5284024
+    "bytes_hashed": 5283422
   },
   "schema": "factory.workflow-audit.receipt.v1",
   "state": "PASS"

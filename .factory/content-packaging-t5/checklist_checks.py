@@ -13,7 +13,7 @@ source='mission_control/packaging_handoff.py';tree=ast.parse(Path(source).read_t
 modules=[dict(name='packaging_handoff',path=source,language='python',functions=[dict(name=n.name,args=[a.arg for a in n.args.args],returns='object') for n in tree.body if isinstance(n,ast.FunctionDef)])]
 Path('specs/content-packaging-checklist.ssat.yaml').write_bytes(json.dumps(dict(name='content-packaging-checklist',language='python',modules=modules),indent=2).encode())
 run('regressions',['python','-m','unittest','tests.test_packaging_handoff','tests.test_packaging','tests.test_managed_media_store'])
-q=run('qa',['forge','qa','content-packaging-checklist','--ssat','specs/content-packaging-checklist.ssat.yaml','--strict']);(P/'qa.json').write_bytes(q.stdout)
+q=run('qa',['forge','qa','content-packaging-checklist','--ssat','specs/content-packaging-checklist.ssat.yaml','--strict']);(P/'qa.json').write_bytes((json.dumps(json.loads(q.stdout),indent=2)+'\n').encode())
 run('lint',['ruff','check','--select','F,E9',source,'tests/test_packaging_handoff.py'])
 run('build',['python','-m','py_compile',source,'tests/test_packaging_handoff.py'])
 security=P/'security-scope';shutil.copytree('.factory/packaging-integration/security-scope',security,dirs_exist_ok=True)
