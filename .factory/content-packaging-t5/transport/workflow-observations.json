@@ -1,0 +1,392 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "11253a10449b24f04e87a2d840023bd0f1ed1de8a30367cfd0ff873c82a27e93",
+  "candidate_sha256": "0f66e249b36e6162ff30e36a32984489873d724cd3a19d9a7f21973315d799e8",
+  "observations": [
+    {
+      "id": "happy_path",
+      "profile": "Windows-Python3.11-owner-HTTP-CLI-MCP1.16",
+      "status": "PASS",
+      "reason": "Owner HTTP, subprocess CLI and official MCP stdio return identical checklist responses.",
+      "execution_identity": "34 focused regressions plus final two clients; official MCP SDK; source mutations; scoped QA and source-candidate security",
+      "observed_at": "2026-10-27T00:20:52.244002+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/transport/regressions.log",
+          "kind": "log",
+          "sha256": "170b113f2d3921b7704bb1e5589698c2fb4f5a6d326358757592c0fe734081a3"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/final-clients.log",
+          "kind": "log",
+          "sha256": "b2ee0c523e7616763190265fa463d4754f52564b5c0277555c74ed504d2f018b"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/qa.json",
+          "kind": "log",
+          "sha256": "a988c4b57172845afa895dfcade2d9595dad5f401426e75c7fcf4978389bc033"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "8601058ba675d1103ea1cb59b4e82d293f47db2156c78976274bbfd8a63e61eb"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/security.json",
+          "kind": "log",
+          "sha256": "942fea6fecbc68c4aa1d8bfaedf716d0f476f1e675d02a5916c3a3c45cbea1d8"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutations.json",
+          "kind": "log",
+          "sha256": "1ff58119755ebc184e3bc0b28371fc26e83840e22a568cefbe99df29481ce78f"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutation-dispatch.log",
+          "kind": "log",
+          "sha256": "144f4645624ca8e7fe0830f7c1b0300134bf3377ac24f02d4d97ee88bcd2f375"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutation-effect.log",
+          "kind": "log",
+          "sha256": "d912bb1e6a92dd799c7f0b354451a06f53418db6b862f5e93170ab75c3dbd566"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-Python3.11-owner-HTTP-CLI-MCP1.16",
+      "status": "PASS",
+      "reason": "Closed schema, stale manifest/hash, foreign app and forged approval reject.",
+      "execution_identity": "34 focused regressions plus final two clients; official MCP SDK; source mutations; scoped QA and source-candidate security",
+      "observed_at": "2026-10-27T00:20:52.246023+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/transport/regressions.log",
+          "kind": "log",
+          "sha256": "170b113f2d3921b7704bb1e5589698c2fb4f5a6d326358757592c0fe734081a3"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/final-clients.log",
+          "kind": "log",
+          "sha256": "b2ee0c523e7616763190265fa463d4754f52564b5c0277555c74ed504d2f018b"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/qa.json",
+          "kind": "log",
+          "sha256": "a988c4b57172845afa895dfcade2d9595dad5f401426e75c7fcf4978389bc033"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "8601058ba675d1103ea1cb59b4e82d293f47db2156c78976274bbfd8a63e61eb"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/security.json",
+          "kind": "log",
+          "sha256": "942fea6fecbc68c4aa1d8bfaedf716d0f476f1e675d02a5916c3a3c45cbea1d8"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutations.json",
+          "kind": "log",
+          "sha256": "1ff58119755ebc184e3bc0b28371fc26e83840e22a568cefbe99df29481ce78f"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutation-dispatch.log",
+          "kind": "log",
+          "sha256": "144f4645624ca8e7fe0830f7c1b0300134bf3377ac24f02d4d97ee88bcd2f375"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutation-effect.log",
+          "kind": "log",
+          "sha256": "d912bb1e6a92dd799c7f0b354451a06f53418db6b862f5e93170ab75c3dbd566"
+        }
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "profile": "Windows-Python3.11-owner-HTTP-CLI-MCP1.16",
+      "status": "PASS",
+      "reason": "Read-only inspection needs no replay; missing production evidence stays explicit.",
+      "execution_identity": "34 focused regressions plus final two clients; official MCP SDK; source mutations; scoped QA and source-candidate security",
+      "observed_at": "2026-10-27T00:20:52.248038+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/transport/regressions.log",
+          "kind": "log",
+          "sha256": "170b113f2d3921b7704bb1e5589698c2fb4f5a6d326358757592c0fe734081a3"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/final-clients.log",
+          "kind": "log",
+          "sha256": "b2ee0c523e7616763190265fa463d4754f52564b5c0277555c74ed504d2f018b"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/qa.json",
+          "kind": "log",
+          "sha256": "a988c4b57172845afa895dfcade2d9595dad5f401426e75c7fcf4978389bc033"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "8601058ba675d1103ea1cb59b4e82d293f47db2156c78976274bbfd8a63e61eb"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/security.json",
+          "kind": "log",
+          "sha256": "942fea6fecbc68c4aa1d8bfaedf716d0f476f1e675d02a5916c3a3c45cbea1d8"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutations.json",
+          "kind": "log",
+          "sha256": "1ff58119755ebc184e3bc0b28371fc26e83840e22a568cefbe99df29481ce78f"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutation-dispatch.log",
+          "kind": "log",
+          "sha256": "144f4645624ca8e7fe0830f7c1b0300134bf3377ac24f02d4d97ee88bcd2f375"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutation-effect.log",
+          "kind": "log",
+          "sha256": "d912bb1e6a92dd799c7f0b354451a06f53418db6b862f5e93170ab75c3dbd566"
+        }
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "profile": "Windows-Python3.11-owner-HTTP-CLI-MCP1.16",
+      "status": "PASS",
+      "reason": "Existing gateway scope and grant revocation rechecked; no jobs are created.",
+      "execution_identity": "34 focused regressions plus final two clients; official MCP SDK; source mutations; scoped QA and source-candidate security",
+      "observed_at": "2026-10-27T00:20:52.249043+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/transport/regressions.log",
+          "kind": "log",
+          "sha256": "170b113f2d3921b7704bb1e5589698c2fb4f5a6d326358757592c0fe734081a3"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/final-clients.log",
+          "kind": "log",
+          "sha256": "b2ee0c523e7616763190265fa463d4754f52564b5c0277555c74ed504d2f018b"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/qa.json",
+          "kind": "log",
+          "sha256": "a988c4b57172845afa895dfcade2d9595dad5f401426e75c7fcf4978389bc033"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "8601058ba675d1103ea1cb59b4e82d293f47db2156c78976274bbfd8a63e61eb"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/security.json",
+          "kind": "log",
+          "sha256": "942fea6fecbc68c4aa1d8bfaedf716d0f476f1e675d02a5916c3a3c45cbea1d8"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutations.json",
+          "kind": "log",
+          "sha256": "1ff58119755ebc184e3bc0b28371fc26e83840e22a568cefbe99df29481ce78f"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutation-dispatch.log",
+          "kind": "log",
+          "sha256": "144f4645624ca8e7fe0830f7c1b0300134bf3377ac24f02d4d97ee88bcd2f375"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutation-effect.log",
+          "kind": "log",
+          "sha256": "d912bb1e6a92dd799c7f0b354451a06f53418db6b862f5e93170ab75c3dbd566"
+        }
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "profile": "Windows-Python3.11-owner-HTTP-CLI-MCP1.16",
+      "status": "PASS",
+      "reason": "Twenty exact sources CLEAN with complete coverage and no database gaps; two semantic mutants killed.",
+      "execution_identity": "34 focused regressions plus final two clients; official MCP SDK; source mutations; scoped QA and source-candidate security",
+      "observed_at": "2026-10-27T00:20:52.251031+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/transport/regressions.log",
+          "kind": "log",
+          "sha256": "170b113f2d3921b7704bb1e5589698c2fb4f5a6d326358757592c0fe734081a3"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/final-clients.log",
+          "kind": "log",
+          "sha256": "b2ee0c523e7616763190265fa463d4754f52564b5c0277555c74ed504d2f018b"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/qa.json",
+          "kind": "log",
+          "sha256": "a988c4b57172845afa895dfcade2d9595dad5f401426e75c7fcf4978389bc033"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "8601058ba675d1103ea1cb59b4e82d293f47db2156c78976274bbfd8a63e61eb"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/security.json",
+          "kind": "log",
+          "sha256": "942fea6fecbc68c4aa1d8bfaedf716d0f476f1e675d02a5916c3a3c45cbea1d8"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutations.json",
+          "kind": "log",
+          "sha256": "1ff58119755ebc184e3bc0b28371fc26e83840e22a568cefbe99df29481ce78f"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutation-dispatch.log",
+          "kind": "log",
+          "sha256": "144f4645624ca8e7fe0830f7c1b0300134bf3377ac24f02d4d97ee88bcd2f375"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutation-effect.log",
+          "kind": "log",
+          "sha256": "d912bb1e6a92dd799c7f0b354451a06f53418db6b862f5e93170ab75c3dbd566"
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "profile": "Windows-Python3.11-owner-HTTP-CLI-MCP1.16",
+      "status": "PASS",
+      "reason": "Read-only bounded shot checklist uses existing services; no latency or savings claim.",
+      "execution_identity": "34 focused regressions plus final two clients; official MCP SDK; source mutations; scoped QA and source-candidate security",
+      "observed_at": "2026-10-27T00:20:52.252057+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/transport/regressions.log",
+          "kind": "log",
+          "sha256": "170b113f2d3921b7704bb1e5589698c2fb4f5a6d326358757592c0fe734081a3"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/final-clients.log",
+          "kind": "log",
+          "sha256": "b2ee0c523e7616763190265fa463d4754f52564b5c0277555c74ed504d2f018b"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/qa.json",
+          "kind": "log",
+          "sha256": "a988c4b57172845afa895dfcade2d9595dad5f401426e75c7fcf4978389bc033"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "8601058ba675d1103ea1cb59b4e82d293f47db2156c78976274bbfd8a63e61eb"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/security.json",
+          "kind": "log",
+          "sha256": "942fea6fecbc68c4aa1d8bfaedf716d0f476f1e675d02a5916c3a3c45cbea1d8"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutations.json",
+          "kind": "log",
+          "sha256": "1ff58119755ebc184e3bc0b28371fc26e83840e22a568cefbe99df29481ce78f"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutation-dispatch.log",
+          "kind": "log",
+          "sha256": "144f4645624ca8e7fe0830f7c1b0300134bf3377ac24f02d4d97ee88bcd2f375"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutation-effect.log",
+          "kind": "log",
+          "sha256": "d912bb1e6a92dd799c7f0b354451a06f53418db6b862f5e93170ab75c3dbd566"
+        }
+      ]
+    },
+    {
+      "id": "external_effects",
+      "profile": "Windows-Python3.11-owner-HTTP-CLI-MCP1.16",
+      "status": "PASS",
+      "reason": "Synthetic temporary SQLite and loopback HTTP only; no render/provider/publication/spend effects.",
+      "execution_identity": "34 focused regressions plus final two clients; official MCP SDK; source mutations; scoped QA and source-candidate security",
+      "observed_at": "2026-10-27T00:20:52.254032+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/transport/regressions.log",
+          "kind": "log",
+          "sha256": "170b113f2d3921b7704bb1e5589698c2fb4f5a6d326358757592c0fe734081a3"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/final-clients.log",
+          "kind": "log",
+          "sha256": "b2ee0c523e7616763190265fa463d4754f52564b5c0277555c74ed504d2f018b"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/qa.json",
+          "kind": "log",
+          "sha256": "a988c4b57172845afa895dfcade2d9595dad5f401426e75c7fcf4978389bc033"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "8601058ba675d1103ea1cb59b4e82d293f47db2156c78976274bbfd8a63e61eb"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/security.json",
+          "kind": "log",
+          "sha256": "942fea6fecbc68c4aa1d8bfaedf716d0f476f1e675d02a5916c3a3c45cbea1d8"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutations.json",
+          "kind": "log",
+          "sha256": "1ff58119755ebc184e3bc0b28371fc26e83840e22a568cefbe99df29481ce78f"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutation-dispatch.log",
+          "kind": "log",
+          "sha256": "144f4645624ca8e7fe0830f7c1b0300134bf3377ac24f02d4d97ee88bcd2f375"
+        },
+        {
+          "path": ".factory/content-packaging-t5/transport/mutation-effect.log",
+          "kind": "log",
+          "sha256": "d912bb1e6a92dd799c7f0b354451a06f53418db6b862f5e93170ab75c3dbd566"
+        }
+      ]
+    }
+  ]
+}

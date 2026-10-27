@@ -1,0 +1,276 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "WMM-agent-creative-taste-reads",
+  "candidate": [
+    {
+      "path": "mission_control/automation_requirements.py",
+      "kind": "source",
+      "sha256": "c043cdc6781d10d0e48eb45484b63cf3c3c540b7b660c8ccc81684db4efc194f"
+    },
+    {
+      "path": "mission_control/common.py",
+      "kind": "source",
+      "sha256": "a43443aab9489ad9cfe0e9a510ae8680a5c0a997aef98a7c4962ddbaefb7dfd3"
+    },
+    {
+      "path": "mission_control/creative_briefs.py",
+      "kind": "source",
+      "sha256": "d73f30ba1c7ac0470a6114d8608a5e1d15a9cc18e12f7ce1a831f2300a832730"
+    },
+    {
+      "path": "mission_control/creative_library.py",
+      "kind": "source",
+      "sha256": "f2d792ab5298ecb453f9003ce9d1df562f87fecd344d109b740cce1dfe61d656"
+    },
+    {
+      "path": "mission_control/creative_taste_store.py",
+      "kind": "source",
+      "sha256": "fe60d848b479af073de402f7779324027b65c7554d6e6c87267794c6350e8dde"
+    },
+    {
+      "path": "mission_control/db.py",
+      "kind": "source",
+      "sha256": "d43ec4d14869dec6693906557ab9c02a16952b3d268c7b0a6a53265f0930121f"
+    },
+    {
+      "path": "mission_control/discovery_http.py",
+      "kind": "source",
+      "sha256": "1c0d0adf19feceb77f3dc72c1653c9663f680dcc8033e2ca99496c37f737a780"
+    },
+    {
+      "path": "mission_control/discovery_store.py",
+      "kind": "source",
+      "sha256": "38fd3f5c6d447ca8cadcda4c8b788936933613337e24652a343f92155bbeba5b"
+    },
+    {
+      "path": "mission_control/funnel_store.py",
+      "kind": "source",
+      "sha256": "a821244f7cc48b87416712fab2ec4114def31835896152968319bd8c23e1114c"
+    },
+    {
+      "path": "mission_control/managed_media_store.py",
+      "kind": "source",
+      "sha256": "06b0169070c2d798ba4186bfce833842dcd0e62dfa9c8cf818d7470f66201038"
+    },
+    {
+      "path": "mission_control/operation_catalog.py",
+      "kind": "source",
+      "sha256": "a6d7e4f7f02a1e6aa3a204b7ad9ca0860d8fbee6a99dc7538bc15e59149e08d7"
+    },
+    {
+      "path": "mission_control/operation_runtime.py",
+      "kind": "source",
+      "sha256": "e082c76de9a9e357ed32686c1febabd6db7920fa760bafbc5a464902fe6de8f7"
+    },
+    {
+      "path": "mission_control/packaging_access.py",
+      "kind": "source",
+      "sha256": "136b40221af39768316c7e2bf769df411d03b2040eb01b05154d4e2a5f921dfb"
+    },
+    {
+      "path": "mission_control/packaging_bindings.py",
+      "kind": "source",
+      "sha256": "fe6004a9e6356ab26dad273d4c677597f00b2b9766762a68687fbdb3415de511"
+    },
+    {
+      "path": "mission_control/packaging_contract.py",
+      "kind": "source",
+      "sha256": "fc654864d5eb77eeb75218111c4efc4824b8d27c3c1d66caa6f2486d00c2c945"
+    },
+    {
+      "path": "mission_control/packaging_handoff.py",
+      "kind": "source",
+      "sha256": "ac9e7658057ba3af330db3dbc5e71724feea31d9d55774b73ce4a67f762bf00e"
+    },
+    {
+      "path": "mission_control/packaging_http.py",
+      "kind": "source",
+      "sha256": "093af23b8abc84c55d40f878629e9791007ad9cd7ce3818c1ddd66534577e2d8"
+    },
+    {
+      "path": "mission_control/packaging_store.py",
+      "kind": "source",
+      "sha256": "85620531d2a822005a60c15b4b1fa0ae062c9cf7f3fc9d55beadd4f21363fb11"
+    },
+    {
+      "path": "mission_control/pmf_contract.py",
+      "kind": "source",
+      "sha256": "db495e8a9f60b81b2f5c60bc23d4f4bee592ea593fd55b65eeeb704e6c63b237"
+    },
+    {
+      "path": "mission_control/server.py",
+      "kind": "source",
+      "sha256": "5392b2915890cd20734e211979852ade6afdbae6c52244722aafca69eae8ee53"
+    },
+    {
+      "path": "mission_control/studio_listener_linux.py",
+      "kind": "source",
+      "sha256": "29c68017f144c5e84c2ef99984fed7d25672d4d658a87111a1c6753017715fdd"
+    },
+    {
+      "path": "tests/test_creative_taste_clients.py",
+      "kind": "source",
+      "sha256": "a5a02f6fea3ac2480f07834c2f41625332bc73f7e14e709e375828fc1c08afd3"
+    },
+    {
+      "path": "tests/test_operation_catalog.py",
+      "kind": "source",
+      "sha256": "9c37a02d0cae57d0ae9b7af022608a57d675baf74b18ebbe11faa630b82c400c"
+    },
+    {
+      "path": "specs/content-packaging-taste-agent.ssat.yaml",
+      "kind": "source",
+      "sha256": "abc5e8c6b5632da36007da534b6c02d3bd007e1320a58328a736729402a77a12"
+    },
+    {
+      "path": ".factory/content-packaging-t5/taste_agent_checks.py",
+      "kind": "source",
+      "sha256": "e3bd17d72d4eb1402de88ec31e601628ff794308b4fa1cba8edf35a569210601"
+    },
+    {
+      "path": ".factory/content-packaging-t5/taste_agent_mutations.py",
+      "kind": "source",
+      "sha256": "bbeebbc6d5c383aec3472d22f851e082cd443cf86354db0c41d4a6d23d5c219e"
+    },
+    {
+      "path": ".factory/content-packaging-t5/taste_agent_workflow.py",
+      "kind": "source",
+      "sha256": "63da56a184e3a4019ac2b061ff817d50e983d569ad59f1cd6ccd88033e2f297d"
+    },
+    {
+      "path": ".factory/content-packaging-t5/taste-agent/qa-scope/packaging_access.py",
+      "kind": "source",
+      "sha256": "f36d535e4058a30e238d0c07c3171b734fce04d37c13d99fe05ca0100e40ef37"
+    },
+    {
+      "path": ".factory/content-packaging-t5/taste/security-config/factory.database.json",
+      "kind": "contract",
+      "sha256": "0621305bbd088e48dd89bdfbfdc62667ee325e51a4c1114b3e4a1fb0c3d08d7e"
+    },
+    {
+      "path": ".factory/content-packaging-t5/taste/security-config/.factory/tenant-read-contract.json",
+      "kind": "contract",
+      "sha256": "374e7ed7c91b2f41093136700b3eac74c0b8a444f294ab0f95def979ce5db7d4"
+    },
+    {
+      "path": ".factory/content-packaging-t5/taste-agent-scope.md",
+      "kind": "contract",
+      "sha256": "5923a5f68520d477d37d0dfd4bb739d5ba4ac58cc32cf7acfcd6a730ab485799"
+    },
+    {
+      "path": "specs/content-packaging-t5.md",
+      "kind": "contract",
+      "sha256": "03045add43d0870733995f8d438b8d9f2b20a431f659198f733c53d00e11c702"
+    },
+    {
+      "path": ".factory/content-packaging-t5/taste-agent/review.md",
+      "kind": "review",
+      "sha256": "d25ec403beaa817803d1f0a2a822dc2bd4e3d8294ddb10b9e80ac4ac060e7623"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "Owner HTTP, CLI and official MCP read identical guidance and history."
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "Closed fields and limits, exact app/policy/example identities reject stale or forged input."
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": true,
+      "reason": "Uncertain writes are observed without resubmission; restart retains history."
+    },
+    {
+      "category": "state_consistency",
+      "applicable": true,
+      "reason": "Reads preserve immutable owner guidance and create no worker jobs."
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "Scoped grants, revocation, no agent approval tool, complete21-source scan and two killed mutants."
+    },
+    {
+      "category": "performance",
+      "applicable": true,
+      "reason": "Bounded examples12 exclusions20 revisions100 app history2000; no latency claim."
+    },
+    {
+      "category": "external_effects",
+      "applicable": true,
+      "reason": "Synthetic temporary SQLite and loopback only; preferences grant no execution authority."
+    },
+    {
+      "category": "accessibility",
+      "applicable": false,
+      "reason": "Backend owner HTTP packet without UI change.",
+      "review_evidence": {
+        "path": ".factory/content-packaging-t5/taste-agent/review.md",
+        "kind": "review",
+        "sha256": "d25ec403beaa817803d1f0a2a822dc2bd4e3d8294ddb10b9e80ac4ac060e7623"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "id": "happy_path",
+      "category": "happy_path",
+      "requirement": "Owner HTTP, CLI and official MCP read identical guidance and history.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-owner-loopback"
+      ]
+    },
+    {
+      "id": "validation",
+      "category": "validation",
+      "requirement": "Closed fields and limits, exact app/policy/example identities reject stale or forged input.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-owner-loopback"
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "category": "failure_recovery",
+      "requirement": "Uncertain writes are observed without resubmission; restart retains history.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-owner-loopback"
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "category": "state_consistency",
+      "requirement": "Reads preserve immutable owner guidance and create no worker jobs.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-owner-loopback"
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "category": "security_privacy",
+      "requirement": "Scoped grants, revocation, no agent approval tool, complete21-source scan and two killed mutants.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-owner-loopback"
+      ]
+    },
+    {
+      "id": "performance",
+      "category": "performance",
+      "requirement": "Bounded examples12 exclusions20 revisions100 app history2000; no latency claim.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-owner-loopback"
+      ]
+    },
+    {
+      "id": "external_effects",
+      "category": "external_effects",
+      "requirement": "Synthetic temporary SQLite and loopback only; preferences grant no execution authority.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-owner-loopback"
+      ]
+    }
+  ]
+}

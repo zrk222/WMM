@@ -1,0 +1,164 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "WMM-Linux-listener-component",
+  "candidate": [
+    {
+      "path": "mission_control/studio_listener_linux.py",
+      "kind": "source",
+      "sha256": "29c68017f144c5e84c2ef99984fed7d25672d4d658a87111a1c6753017715fdd"
+    },
+    {
+      "path": "tests/test_studio_listener_linux.py",
+      "kind": "source",
+      "sha256": "456dcc254df49c2f581ae4ff5a66d2920f14d49c92d8dc86975b2e64c6e9f7d4"
+    },
+    {
+      "path": "specs/linux-studio-listener.md",
+      "kind": "contract",
+      "sha256": "92bed008561f4221bc6c805afee35472c950b6fcc5a4b3bf47967df1b639f460"
+    },
+    {
+      "path": "plans/linux-studio-listener.md",
+      "kind": "contract",
+      "sha256": "d7e3a9e233596d4708f183547b3f3c13dc67e9464c80947f7f140f2bed1c3099"
+    },
+    {
+      "path": "specs/linux-studio-listener.ssat.yaml",
+      "kind": "contract",
+      "sha256": "575cfa38af532d669ac2ff76ca5e245cf3488ab6c0aef993ae5bcddd28dc2f9d"
+    },
+    {
+      "path": ".factory/linux-studio-listener/verify.py",
+      "kind": "source",
+      "sha256": "f8d8bf5fb3f16b7fd60104145588adca0d1bbb4027409d9091d73326975510c6"
+    },
+    {
+      "path": ".factory/linux-studio-listener/mutations.py",
+      "kind": "source",
+      "sha256": "10210029f2ae2f31708239d16c6613a09db989c65b5bb5f5a5f89afe85e457f4"
+    },
+    {
+      "path": ".factory/linux-studio-listener/kernel_component.py",
+      "kind": "source",
+      "sha256": "115f362f8fc4761190f10f6bc058ddeb7601b45d2404072232061ea2b58b5f0f"
+    },
+    {
+      "path": ".factory/linux-studio-listener/run_kernel.py",
+      "kind": "source",
+      "sha256": "3fe2fe15062611c2ea00a596a444b429aaf28517e738e211491bf330f25f1995"
+    },
+    {
+      "path": ".factory/linux-studio-listener/native_diagnostic.py",
+      "kind": "source",
+      "sha256": "92689319f4fa7ac6ebc4670983be1d1d27b3b8c7059407bf0ead246b9c947d9e"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "Exact socket plus live retained member witness verified twice; unit branching and real container kernel component observations are distinct."
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "Malformed framing, sender/sequence, truncation, ambiguity, stale/cookie/input and scope failure deny; all five traced requirements retain strict/mutation evidence."
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": true,
+      "reason": "Exceptions close sockets, task/proc/cgroup descriptors and retain no PID authority; late death/migration and revoked owner deny."
+    },
+    {
+      "category": "state_consistency",
+      "applicable": true,
+      "reason": "Same inode/cookie and original live pidfd persist across two observations; same-scope inherited holders accepted, foreign/missing witness denied."
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "No process signalling, service-manager call, shell or selector activation; retained fd/callback scope only; bounded-source static security plus privacy checks."
+    },
+    {
+      "category": "performance",
+      "applicable": true,
+      "reason": "Explicit deadline, byte/message/member/fd limits are tested; native repeated observations preserve descriptor counts. No throughput or hard kernel-preemption guarantee."
+    },
+    {
+      "category": "accessibility",
+      "applicable": false,
+      "reason": "No UI or accessibility surface changed; component-only source/tests/specs.",
+      "review_evidence": {
+        "path": ".factory/linux-studio-listener/scope-review.md",
+        "kind": "review",
+        "sha256": "37ceda45cca0036eac2d49bbeeae13a0bfbfdf89fdc1720dff06f32637af275e"
+      }
+    },
+    {
+      "category": "external_effects",
+      "applicable": false,
+      "reason": "No provider write, process stop, service launch, backend activation or publication; kernel read-only observation and synthetic container sockets only.",
+      "review_evidence": {
+        "path": ".factory/linux-studio-listener/scope-review.md",
+        "kind": "review",
+        "sha256": "37ceda45cca0036eac2d49bbeeae13a0bfbfdf89fdc1720dff06f32637af275e"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "id": "happy_path",
+      "requirement": "Exact socket plus live retained member witness verified twice; unit branching and real container kernel component observations are distinct.",
+      "category": "happy_path",
+      "profiles": [
+        "Windows-Python3.11-branching-and-existing-Studio",
+        "Docker-Ubuntu-Python3.12-kernel-component-only"
+      ]
+    },
+    {
+      "id": "validation",
+      "requirement": "Malformed framing, sender/sequence, truncation, ambiguity, stale/cookie/input and scope failure deny; all five traced requirements retain strict/mutation evidence.",
+      "category": "validation",
+      "profiles": [
+        "Windows-Python3.11-branching-and-existing-Studio",
+        "Docker-Ubuntu-Python3.12-kernel-component-only"
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "requirement": "Exceptions close sockets, task/proc/cgroup descriptors and retain no PID authority; late death/migration and revoked owner deny.",
+      "category": "failure_recovery",
+      "profiles": [
+        "Windows-Python3.11-branching-and-existing-Studio",
+        "Docker-Ubuntu-Python3.12-kernel-component-only"
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "requirement": "Same inode/cookie and original live pidfd persist across two observations; same-scope inherited holders accepted, foreign/missing witness denied.",
+      "category": "state_consistency",
+      "profiles": [
+        "Windows-Python3.11-branching-and-existing-Studio",
+        "Docker-Ubuntu-Python3.12-kernel-component-only"
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "requirement": "No process signalling, service-manager call, shell or selector activation; retained fd/callback scope only; bounded-source static security plus privacy checks.",
+      "category": "security_privacy",
+      "profiles": [
+        "Windows-Python3.11-branching-and-existing-Studio",
+        "Docker-Ubuntu-Python3.12-kernel-component-only"
+      ]
+    },
+    {
+      "id": "performance",
+      "requirement": "Explicit deadline, byte/message/member/fd limits are tested; native repeated observations preserve descriptor counts. No throughput or hard kernel-preemption guarantee.",
+      "category": "performance",
+      "profiles": [
+        "Windows-Python3.11-branching-and-existing-Studio",
+        "Docker-Ubuntu-Python3.12-kernel-component-only"
+      ]
+    }
+  ]
+}

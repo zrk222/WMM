@@ -1,0 +1,18 @@
+{
+  "schema": "wmm.packaging.integration.v1",
+  "python_occurrences": 1752,
+  "python_skips": 2,
+  "node_tests": 191,
+  "security_files": 19,
+  "security_coverage_complete": true,
+  "security_findings": 0,
+  "source_inventory": 553,
+  "profile": "Windows Python3.11 MCP1.16 local; FFmpeg available",
+  "repair": "Only catalog, negative HTTP and cancellation test modules changed after initial execution; affected shard rerun, other shards retain identical tested source and inventory. Both failing results retained.",
+  "limits": [
+    "Hosted MCP1.30 CI pending",
+    "Linux native skips require Linux acceptance",
+    "No native iOS proof",
+    "No deployment or production activation"
+  ]
+}

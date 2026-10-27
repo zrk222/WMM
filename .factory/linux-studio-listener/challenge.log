@@ -1,0 +1,54 @@
+{
+  "schema": "factory.challenge.v1",
+  "brick": "specline",
+  "feature": "linux-studio-listener",
+  "stage": "validator_mutation",
+  "passed": true,
+  "mutants_total": 5,
+  "mutants_killed": 5,
+  "attribution": {
+    "stage": "validator_mutation",
+    "n_checked": 5,
+    "n_passed": 5,
+    "units": [
+      {
+        "unit": "R1",
+        "stage": "validator_mutation",
+        "passed": true,
+        "evidence": "deletion killed by S_UNTRACEABLE_STEP; inversion killed by S_UNTRACEABLE_STEP",
+        "failure_class": null
+      },
+      {
+        "unit": "R2",
+        "stage": "validator_mutation",
+        "passed": true,
+        "evidence": "deletion killed by S_UNTRACEABLE_STEP; inversion killed by S_UNTRACEABLE_STEP",
+        "failure_class": null
+      },
+      {
+        "unit": "R3",
+        "stage": "validator_mutation",
+        "passed": true,
+        "evidence": "deletion killed by S_UNTRACEABLE_STEP; inversion killed by S_UNTRACEABLE_STEP",
+        "failure_class": null
+      },
+      {
+        "unit": "R4",
+        "stage": "validator_mutation",
+        "passed": true,
+        "evidence": "deletion killed by S_UNTRACEABLE_STEP; inversion killed by S_UNTRACEABLE_STEP",
+        "failure_class": null
+      },
+      {
+        "unit": "R5",
+        "stage": "validator_mutation",
+        "passed": true,
+        "evidence": "deletion killed by S_UNTRACEABLE_STEP, S_UNTRACEABLE_STEP; inversion killed by S_UNTRACEABLE_STEP",
+        "failure_class": null
+      }
+    ],
+    "rate": 1.0,
+    "dominant_failure_class": null
+  },
+  "receipt_path": ".factory\\linux-studio-listener\\challenge.json"
+}

@@ -1,0 +1,322 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "7091c02f54c019357903f189e7e5502c0d68602b1cbc0aa0ecbfbd71858e10d7",
+  "candidate_sha256": "eba5b95614a2f4e3cfdd94a6e9a06c941590eeac787a8c3a42ceee74e6fbc86e",
+  "observations": [
+    {
+      "id": "happy_path",
+      "profile": "Windows-Python3.11.9-local-SQLite",
+      "status": "PASS",
+      "reason": "89 focused native SQLite regressions preserve existing behavior.",
+      "execution_identity": "python -m unittest declared nine modules; isolated CF source CLI audit security exact eleven-file scope; removed guard mutation; Forge QA and strict requirements",
+      "observed_at": "2026-10-26T14:03:59.303290+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/native-sqlite-entry/regressions.log",
+          "kind": "log",
+          "sha256": "e4015ab69fa6b8ee21d50c2520c27abbf32714f6c7b13d9cf3f40363358d6876"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/qa.json",
+          "kind": "log",
+          "sha256": "431401b1db7ee78a813d8299828d601935b6181f24e2704bae2b9ace14b06a4b"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/strict.json",
+          "kind": "log",
+          "sha256": "a0798603e0d9b8638594bb96e5486d764ac7e537bfd42ffb5e3f26d44d9882a1"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/candidate-security.json",
+          "kind": "log",
+          "sha256": "51735616dbafdbd48784c2d9e03dcf1322d8d63c5d17f3a3c247e6d797a36821"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/mutations.json",
+          "kind": "log",
+          "sha256": "5c1f3d4b67da36608f2a0645c31f762d268dc6f6f35beed8fdfb7b7f56505df4"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/mutation-entry.log",
+          "kind": "log",
+          "sha256": "0653f0e35bf0a6c401d9c21521f5c6d26c4199f17714514c2b002611477275d4"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-Python3.11.9-local-SQLite",
+      "status": "PASS",
+      "reason": "All 25 helpers reject fake and subclass override connections before execute.",
+      "execution_identity": "python -m unittest declared nine modules; isolated CF source CLI audit security exact eleven-file scope; removed guard mutation; Forge QA and strict requirements",
+      "observed_at": "2026-10-26T14:03:59.315487+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/native-sqlite-entry/regressions.log",
+          "kind": "log",
+          "sha256": "e4015ab69fa6b8ee21d50c2520c27abbf32714f6c7b13d9cf3f40363358d6876"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/qa.json",
+          "kind": "log",
+          "sha256": "431401b1db7ee78a813d8299828d601935b6181f24e2704bae2b9ace14b06a4b"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/strict.json",
+          "kind": "log",
+          "sha256": "a0798603e0d9b8638594bb96e5486d764ac7e537bfd42ffb5e3f26d44d9882a1"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/candidate-security.json",
+          "kind": "log",
+          "sha256": "51735616dbafdbd48784c2d9e03dcf1322d8d63c5d17f3a3c247e6d797a36821"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/mutations.json",
+          "kind": "log",
+          "sha256": "5c1f3d4b67da36608f2a0645c31f762d268dc6f6f35beed8fdfb7b7f56505df4"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/mutation-entry.log",
+          "kind": "log",
+          "sha256": "0653f0e35bf0a6c401d9c21521f5c6d26c4199f17714514c2b002611477275d4"
+        }
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "profile": "Windows-Python3.11.9-local-SQLite",
+      "status": "PASS",
+      "reason": "TypeError stops invalid helper entry without database effects.",
+      "execution_identity": "python -m unittest declared nine modules; isolated CF source CLI audit security exact eleven-file scope; removed guard mutation; Forge QA and strict requirements",
+      "observed_at": "2026-10-26T14:03:59.317489+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/native-sqlite-entry/regressions.log",
+          "kind": "log",
+          "sha256": "e4015ab69fa6b8ee21d50c2520c27abbf32714f6c7b13d9cf3f40363358d6876"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/qa.json",
+          "kind": "log",
+          "sha256": "431401b1db7ee78a813d8299828d601935b6181f24e2704bae2b9ace14b06a4b"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/strict.json",
+          "kind": "log",
+          "sha256": "a0798603e0d9b8638594bb96e5486d764ac7e537bfd42ffb5e3f26d44d9882a1"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/candidate-security.json",
+          "kind": "log",
+          "sha256": "51735616dbafdbd48784c2d9e03dcf1322d8d63c5d17f3a3c247e6d797a36821"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/mutations.json",
+          "kind": "log",
+          "sha256": "5c1f3d4b67da36608f2a0645c31f762d268dc6f6f35beed8fdfb7b7f56505df4"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/mutation-entry.log",
+          "kind": "log",
+          "sha256": "0653f0e35bf0a6c401d9c21521f5c6d26c4199f17714514c2b002611477275d4"
+        }
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "profile": "Windows-Python3.11.9-local-SQLite",
+      "status": "PASS",
+      "reason": "Existing SQL text, transaction and authority logic preserved; source hashes checked.",
+      "execution_identity": "python -m unittest declared nine modules; isolated CF source CLI audit security exact eleven-file scope; removed guard mutation; Forge QA and strict requirements",
+      "observed_at": "2026-10-26T14:03:59.319922+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/native-sqlite-entry/regressions.log",
+          "kind": "log",
+          "sha256": "e4015ab69fa6b8ee21d50c2520c27abbf32714f6c7b13d9cf3f40363358d6876"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/qa.json",
+          "kind": "log",
+          "sha256": "431401b1db7ee78a813d8299828d601935b6181f24e2704bae2b9ace14b06a4b"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/strict.json",
+          "kind": "log",
+          "sha256": "a0798603e0d9b8638594bb96e5486d764ac7e537bfd42ffb5e3f26d44d9882a1"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/candidate-security.json",
+          "kind": "log",
+          "sha256": "51735616dbafdbd48784c2d9e03dcf1322d8d63c5d17f3a3c247e6d797a36821"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/mutations.json",
+          "kind": "log",
+          "sha256": "5c1f3d4b67da36608f2a0645c31f762d268dc6f6f35beed8fdfb7b7f56505df4"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/mutation-entry.log",
+          "kind": "log",
+          "sha256": "0653f0e35bf0a6c401d9c21521f5c6d26c4199f17714514c2b002611477275d4"
+        }
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "profile": "Windows-Python3.11.9-local-SQLite",
+      "status": "PASS",
+      "reason": "Eleven exact sources audited, CLEAN, no findings or database coverage gaps, no waiver.",
+      "execution_identity": "python -m unittest declared nine modules; isolated CF source CLI audit security exact eleven-file scope; removed guard mutation; Forge QA and strict requirements",
+      "observed_at": "2026-10-26T14:03:59.321324+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/native-sqlite-entry/regressions.log",
+          "kind": "log",
+          "sha256": "e4015ab69fa6b8ee21d50c2520c27abbf32714f6c7b13d9cf3f40363358d6876"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/qa.json",
+          "kind": "log",
+          "sha256": "431401b1db7ee78a813d8299828d601935b6181f24e2704bae2b9ace14b06a4b"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/strict.json",
+          "kind": "log",
+          "sha256": "a0798603e0d9b8638594bb96e5486d764ac7e537bfd42ffb5e3f26d44d9882a1"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/candidate-security.json",
+          "kind": "log",
+          "sha256": "51735616dbafdbd48784c2d9e03dcf1322d8d63c5d17f3a3c247e6d797a36821"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/mutations.json",
+          "kind": "log",
+          "sha256": "5c1f3d4b67da36608f2a0645c31f762d268dc6f6f35beed8fdfb7b7f56505df4"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/mutation-entry.log",
+          "kind": "log",
+          "sha256": "0653f0e35bf0a6c401d9c21521f5c6d26c4199f17714514c2b002611477275d4"
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "profile": "Windows-Python3.11.9-local-SQLite",
+      "status": "PASS",
+      "reason": "One native type identity check per helper entry; no measured latency claim.",
+      "execution_identity": "python -m unittest declared nine modules; isolated CF source CLI audit security exact eleven-file scope; removed guard mutation; Forge QA and strict requirements",
+      "observed_at": "2026-10-26T14:03:59.322725+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/native-sqlite-entry/regressions.log",
+          "kind": "log",
+          "sha256": "e4015ab69fa6b8ee21d50c2520c27abbf32714f6c7b13d9cf3f40363358d6876"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/qa.json",
+          "kind": "log",
+          "sha256": "431401b1db7ee78a813d8299828d601935b6181f24e2704bae2b9ace14b06a4b"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/strict.json",
+          "kind": "log",
+          "sha256": "a0798603e0d9b8638594bb96e5486d764ac7e537bfd42ffb5e3f26d44d9882a1"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/candidate-security.json",
+          "kind": "log",
+          "sha256": "51735616dbafdbd48784c2d9e03dcf1322d8d63c5d17f3a3c247e6d797a36821"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/mutations.json",
+          "kind": "log",
+          "sha256": "5c1f3d4b67da36608f2a0645c31f762d268dc6f6f35beed8fdfb7b7f56505df4"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/mutation-entry.log",
+          "kind": "log",
+          "sha256": "0653f0e35bf0a6c401d9c21521f5c6d26c4199f17714514c2b002611477275d4"
+        }
+      ]
+    },
+    {
+      "id": "external_effects",
+      "profile": "Windows-Python3.11.9-local-SQLite",
+      "status": "PASS",
+      "reason": "All checks local; no spending, publication, messaging or production activation.",
+      "execution_identity": "python -m unittest declared nine modules; isolated CF source CLI audit security exact eleven-file scope; removed guard mutation; Forge QA and strict requirements",
+      "observed_at": "2026-10-26T14:03:59.324739+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/native-sqlite-entry/regressions.log",
+          "kind": "log",
+          "sha256": "e4015ab69fa6b8ee21d50c2520c27abbf32714f6c7b13d9cf3f40363358d6876"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/qa.json",
+          "kind": "log",
+          "sha256": "431401b1db7ee78a813d8299828d601935b6181f24e2704bae2b9ace14b06a4b"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/strict.json",
+          "kind": "log",
+          "sha256": "a0798603e0d9b8638594bb96e5486d764ac7e537bfd42ffb5e3f26d44d9882a1"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/candidate-security.json",
+          "kind": "log",
+          "sha256": "51735616dbafdbd48784c2d9e03dcf1322d8d63c5d17f3a3c247e6d797a36821"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/mutations.json",
+          "kind": "log",
+          "sha256": "5c1f3d4b67da36608f2a0645c31f762d268dc6f6f35beed8fdfb7b7f56505df4"
+        },
+        {
+          "path": ".factory/native-sqlite-entry/mutation-entry.log",
+          "kind": "log",
+          "sha256": "0653f0e35bf0a6c401d9c21521f5c6d26c4199f17714514c2b002611477275d4"
+        }
+      ]
+    }
+  ]
+}

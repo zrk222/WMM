@@ -1,0 +1,30 @@
+{
+  "status": "PASS",
+  "browser": "143.0.7499.4",
+  "observations": [
+    {
+      "width": 1440,
+      "login_continues": true,
+      "explicit_confirmation": true,
+      "no_automatic_owner": true,
+      "owner_saved": true,
+      "keyboard": true,
+      "no_overflow": true,
+      "no_page_errors": true
+    },
+    {
+      "width": 390,
+      "login_continues": true,
+      "explicit_confirmation": true,
+      "no_automatic_owner": true,
+      "owner_saved": true,
+      "keyboard": true,
+      "no_overflow": true,
+      "no_page_errors": true
+    }
+  ],
+  "limits": [
+    "Synthetic identity; no external provider access",
+    "Chromium emulation, not native iOS"
+  ]
+}

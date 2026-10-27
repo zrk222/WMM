@@ -1,0 +1,16 @@
+[
+  {
+    "source": "mission_control/static/packaging-model.js",
+    "sha256": "1d10a5ace76c372228ac7452fba81b741a2af7f1a74b2a0b85014031f7e02626",
+    "extracted": ".factory/content-packaging-t4/qa-scope/packaging-model.js",
+    "extracted_sha256": "96c24f1f14dfee7681a980719f205383432a796c35296fc0878f52a994b50e02",
+    "method": "UMD factory body, export keyword added solely for public-function metric visibility; bodies unchanged"
+  },
+  {
+    "source": "mission_control/static/packaging-ui.js",
+    "sha256": "5c16615872317a9a2f4cfd735de36aadbcd8dc8fcfcbe218f8ea905f1fa19c09",
+    "extracted": ".factory/content-packaging-t4/qa-scope/packaging-ui.js",
+    "extracted_sha256": "af91b9709296f26184e0b6c3d6e590628fea0ce7d27993a472e6d146b01a7bf2",
+    "method": "UMD factory body, export keyword added solely for public-function metric visibility; bodies unchanged"
+  }
+]

@@ -1,0 +1,30 @@
+{
+  "name": "content-packaging-taste-agent",
+  "language": "python",
+  "modules": [
+    {
+      "name": "creative_taste_store",
+      "path": "mission_control/creative_taste_store.py",
+      "language": "python",
+      "functions": []
+    },
+    {
+      "name": "packaging_access",
+      "path": ".factory/content-packaging-t5/taste-agent/qa-scope/packaging_access.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "dispatch",
+          "args": [],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "packaging_contract",
+      "path": "mission_control/packaging_contract.py",
+      "language": "python",
+      "functions": []
+    }
+  ]
+}

@@ -1,0 +1,497 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "3da164054e84b149c7cb8471c1331216d30a5fb77c062a488863bd429d2f37f6",
+  "candidate_sha256": "9123f9f892d2e73509e9ab5097cb93e72424202f225008c28095a5d23c9fc764",
+  "observations": [
+    {
+      "id": "happy_path",
+      "profile": "Windows-Python3.11-SQLite-owner-loopback",
+      "status": "PASS",
+      "reason": "Protected owner HTTP saves and reads immutable taste revisions.",
+      "execution_identity": "Windows-Python3.11-SQLite-owner-loopback",
+      "observed_at": "2026-10-27T00:59:49.227946+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/taste/regressions.log",
+          "kind": "log",
+          "sha256": "1859892b2b9da5907497d283424caae8d00247d28ca51790046e0746885915dd"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/final-owner.log",
+          "kind": "log",
+          "sha256": "7e10e7bb87be8b9a92f0fcab69e3abb9fe05418926367cc347a1d0994472ecd9"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/qa.json",
+          "kind": "log",
+          "sha256": "77b1aad21b2bc88f31770efd468aaa1fe75ac411d6016d0156933231456f5ef1"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "4a81c88b710193746bded97ec8e1c1dd786d15e7f48a525ddd510898b216e68c"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/security.json",
+          "kind": "log",
+          "sha256": "85967948abe19d114859c3d8eb32bd144d7ab184424c3d2d822dfedc86788e44"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutations.json",
+          "kind": "log",
+          "sha256": "9b0d9292a118ff1b99aabeaf907a652dbb10742719d24c1d04906ce50dfc5b05"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-owner.log",
+          "kind": "log",
+          "sha256": "9449d6685c79d837c80d10e919ab0e918fd3b504812685a168be8e512ce113a9"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-app.log",
+          "kind": "log",
+          "sha256": "d390dd200d71fd1a105b3a191ebf255e1c7d24e0fc6deb30c136309b065578f6"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-revision.log",
+          "kind": "log",
+          "sha256": "767f35210feb2715ec6d5bd5857fafefb01d2631cc8778b4693eab60d5d20558"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-immutable.log",
+          "kind": "log",
+          "sha256": "6045931705e2b9cfa833e4fc050e944de7fc4e7d36ab2123adf08e55b16306bd"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/review.md",
+          "kind": "log",
+          "sha256": "bd2531db7c716646d3a3f31d4c775172fe82b34e8f09d5aa5d1c766fbf40bb87"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-Python3.11-SQLite-owner-loopback",
+      "status": "PASS",
+      "reason": "Closed fields and limits, exact app/policy/example identities reject stale or forged input.",
+      "execution_identity": "Windows-Python3.11-SQLite-owner-loopback",
+      "observed_at": "2026-10-27T00:59:49.232942+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/taste/regressions.log",
+          "kind": "log",
+          "sha256": "1859892b2b9da5907497d283424caae8d00247d28ca51790046e0746885915dd"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/final-owner.log",
+          "kind": "log",
+          "sha256": "7e10e7bb87be8b9a92f0fcab69e3abb9fe05418926367cc347a1d0994472ecd9"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/qa.json",
+          "kind": "log",
+          "sha256": "77b1aad21b2bc88f31770efd468aaa1fe75ac411d6016d0156933231456f5ef1"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "4a81c88b710193746bded97ec8e1c1dd786d15e7f48a525ddd510898b216e68c"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/security.json",
+          "kind": "log",
+          "sha256": "85967948abe19d114859c3d8eb32bd144d7ab184424c3d2d822dfedc86788e44"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutations.json",
+          "kind": "log",
+          "sha256": "9b0d9292a118ff1b99aabeaf907a652dbb10742719d24c1d04906ce50dfc5b05"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-owner.log",
+          "kind": "log",
+          "sha256": "9449d6685c79d837c80d10e919ab0e918fd3b504812685a168be8e512ce113a9"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-app.log",
+          "kind": "log",
+          "sha256": "d390dd200d71fd1a105b3a191ebf255e1c7d24e0fc6deb30c136309b065578f6"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-revision.log",
+          "kind": "log",
+          "sha256": "767f35210feb2715ec6d5bd5857fafefb01d2631cc8778b4693eab60d5d20558"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-immutable.log",
+          "kind": "log",
+          "sha256": "6045931705e2b9cfa833e4fc050e944de7fc4e7d36ab2123adf08e55b16306bd"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/review.md",
+          "kind": "log",
+          "sha256": "bd2531db7c716646d3a3f31d4c775172fe82b34e8f09d5aa5d1c766fbf40bb87"
+        }
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "profile": "Windows-Python3.11-SQLite-owner-loopback",
+      "status": "PASS",
+      "reason": "Uncertain writes are observed without resubmission; restart retains history.",
+      "execution_identity": "Windows-Python3.11-SQLite-owner-loopback",
+      "observed_at": "2026-10-27T00:59:49.235942+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/taste/regressions.log",
+          "kind": "log",
+          "sha256": "1859892b2b9da5907497d283424caae8d00247d28ca51790046e0746885915dd"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/final-owner.log",
+          "kind": "log",
+          "sha256": "7e10e7bb87be8b9a92f0fcab69e3abb9fe05418926367cc347a1d0994472ecd9"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/qa.json",
+          "kind": "log",
+          "sha256": "77b1aad21b2bc88f31770efd468aaa1fe75ac411d6016d0156933231456f5ef1"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "4a81c88b710193746bded97ec8e1c1dd786d15e7f48a525ddd510898b216e68c"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/security.json",
+          "kind": "log",
+          "sha256": "85967948abe19d114859c3d8eb32bd144d7ab184424c3d2d822dfedc86788e44"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutations.json",
+          "kind": "log",
+          "sha256": "9b0d9292a118ff1b99aabeaf907a652dbb10742719d24c1d04906ce50dfc5b05"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-owner.log",
+          "kind": "log",
+          "sha256": "9449d6685c79d837c80d10e919ab0e918fd3b504812685a168be8e512ce113a9"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-app.log",
+          "kind": "log",
+          "sha256": "d390dd200d71fd1a105b3a191ebf255e1c7d24e0fc6deb30c136309b065578f6"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-revision.log",
+          "kind": "log",
+          "sha256": "767f35210feb2715ec6d5bd5857fafefb01d2631cc8778b4693eab60d5d20558"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-immutable.log",
+          "kind": "log",
+          "sha256": "6045931705e2b9cfa833e4fc050e944de7fc4e7d36ab2123adf08e55b16306bd"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/review.md",
+          "kind": "log",
+          "sha256": "bd2531db7c716646d3a3f31d4c775172fe82b34e8f09d5aa5d1c766fbf40bb87"
+        }
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "profile": "Windows-Python3.11-SQLite-owner-loopback",
+      "status": "PASS",
+      "reason": "Optimistic revisions and additive migration preserve existing records; SQL history is immutable.",
+      "execution_identity": "Windows-Python3.11-SQLite-owner-loopback",
+      "observed_at": "2026-10-27T00:59:49.238943+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/taste/regressions.log",
+          "kind": "log",
+          "sha256": "1859892b2b9da5907497d283424caae8d00247d28ca51790046e0746885915dd"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/final-owner.log",
+          "kind": "log",
+          "sha256": "7e10e7bb87be8b9a92f0fcab69e3abb9fe05418926367cc347a1d0994472ecd9"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/qa.json",
+          "kind": "log",
+          "sha256": "77b1aad21b2bc88f31770efd468aaa1fe75ac411d6016d0156933231456f5ef1"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "4a81c88b710193746bded97ec8e1c1dd786d15e7f48a525ddd510898b216e68c"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/security.json",
+          "kind": "log",
+          "sha256": "85967948abe19d114859c3d8eb32bd144d7ab184424c3d2d822dfedc86788e44"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutations.json",
+          "kind": "log",
+          "sha256": "9b0d9292a118ff1b99aabeaf907a652dbb10742719d24c1d04906ce50dfc5b05"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-owner.log",
+          "kind": "log",
+          "sha256": "9449d6685c79d837c80d10e919ab0e918fd3b504812685a168be8e512ce113a9"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-app.log",
+          "kind": "log",
+          "sha256": "d390dd200d71fd1a105b3a191ebf255e1c7d24e0fc6deb30c136309b065578f6"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-revision.log",
+          "kind": "log",
+          "sha256": "767f35210feb2715ec6d5bd5857fafefb01d2631cc8778b4693eab60d5d20558"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-immutable.log",
+          "kind": "log",
+          "sha256": "6045931705e2b9cfa833e4fc050e944de7fc4e7d36ab2123adf08e55b16306bd"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/review.md",
+          "kind": "log",
+          "sha256": "bd2531db7c716646d3a3f31d4c775172fe82b34e8f09d5aa5d1c766fbf40bb87"
+        }
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "profile": "Windows-Python3.11-SQLite-owner-loopback",
+      "status": "PASS",
+      "reason": "Actual owner identity, commit authority recheck, complete21-source scan and four killed mutants.",
+      "execution_identity": "Windows-Python3.11-SQLite-owner-loopback",
+      "observed_at": "2026-10-27T00:59:49.241943+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/taste/regressions.log",
+          "kind": "log",
+          "sha256": "1859892b2b9da5907497d283424caae8d00247d28ca51790046e0746885915dd"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/final-owner.log",
+          "kind": "log",
+          "sha256": "7e10e7bb87be8b9a92f0fcab69e3abb9fe05418926367cc347a1d0994472ecd9"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/qa.json",
+          "kind": "log",
+          "sha256": "77b1aad21b2bc88f31770efd468aaa1fe75ac411d6016d0156933231456f5ef1"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "4a81c88b710193746bded97ec8e1c1dd786d15e7f48a525ddd510898b216e68c"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/security.json",
+          "kind": "log",
+          "sha256": "85967948abe19d114859c3d8eb32bd144d7ab184424c3d2d822dfedc86788e44"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutations.json",
+          "kind": "log",
+          "sha256": "9b0d9292a118ff1b99aabeaf907a652dbb10742719d24c1d04906ce50dfc5b05"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-owner.log",
+          "kind": "log",
+          "sha256": "9449d6685c79d837c80d10e919ab0e918fd3b504812685a168be8e512ce113a9"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-app.log",
+          "kind": "log",
+          "sha256": "d390dd200d71fd1a105b3a191ebf255e1c7d24e0fc6deb30c136309b065578f6"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-revision.log",
+          "kind": "log",
+          "sha256": "767f35210feb2715ec6d5bd5857fafefb01d2631cc8778b4693eab60d5d20558"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-immutable.log",
+          "kind": "log",
+          "sha256": "6045931705e2b9cfa833e4fc050e944de7fc4e7d36ab2123adf08e55b16306bd"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/review.md",
+          "kind": "log",
+          "sha256": "bd2531db7c716646d3a3f31d4c775172fe82b34e8f09d5aa5d1c766fbf40bb87"
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "profile": "Windows-Python3.11-SQLite-owner-loopback",
+      "status": "PASS",
+      "reason": "Bounded examples12 exclusions20 revisions100 app history2000; no latency claim.",
+      "execution_identity": "Windows-Python3.11-SQLite-owner-loopback",
+      "observed_at": "2026-10-27T00:59:49.244943+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/taste/regressions.log",
+          "kind": "log",
+          "sha256": "1859892b2b9da5907497d283424caae8d00247d28ca51790046e0746885915dd"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/final-owner.log",
+          "kind": "log",
+          "sha256": "7e10e7bb87be8b9a92f0fcab69e3abb9fe05418926367cc347a1d0994472ecd9"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/qa.json",
+          "kind": "log",
+          "sha256": "77b1aad21b2bc88f31770efd468aaa1fe75ac411d6016d0156933231456f5ef1"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "4a81c88b710193746bded97ec8e1c1dd786d15e7f48a525ddd510898b216e68c"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/security.json",
+          "kind": "log",
+          "sha256": "85967948abe19d114859c3d8eb32bd144d7ab184424c3d2d822dfedc86788e44"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutations.json",
+          "kind": "log",
+          "sha256": "9b0d9292a118ff1b99aabeaf907a652dbb10742719d24c1d04906ce50dfc5b05"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-owner.log",
+          "kind": "log",
+          "sha256": "9449d6685c79d837c80d10e919ab0e918fd3b504812685a168be8e512ce113a9"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-app.log",
+          "kind": "log",
+          "sha256": "d390dd200d71fd1a105b3a191ebf255e1c7d24e0fc6deb30c136309b065578f6"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-revision.log",
+          "kind": "log",
+          "sha256": "767f35210feb2715ec6d5bd5857fafefb01d2631cc8778b4693eab60d5d20558"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-immutable.log",
+          "kind": "log",
+          "sha256": "6045931705e2b9cfa833e4fc050e944de7fc4e7d36ab2123adf08e55b16306bd"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/review.md",
+          "kind": "log",
+          "sha256": "bd2531db7c716646d3a3f31d4c775172fe82b34e8f09d5aa5d1c766fbf40bb87"
+        }
+      ]
+    },
+    {
+      "id": "external_effects",
+      "profile": "Windows-Python3.11-SQLite-owner-loopback",
+      "status": "PASS",
+      "reason": "Synthetic temporary SQLite and loopback only; preferences grant no execution authority.",
+      "execution_identity": "Windows-Python3.11-SQLite-owner-loopback",
+      "observed_at": "2026-10-27T00:59:49.247944+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/taste/regressions.log",
+          "kind": "log",
+          "sha256": "1859892b2b9da5907497d283424caae8d00247d28ca51790046e0746885915dd"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/final-owner.log",
+          "kind": "log",
+          "sha256": "7e10e7bb87be8b9a92f0fcab69e3abb9fe05418926367cc347a1d0994472ecd9"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/qa.json",
+          "kind": "log",
+          "sha256": "77b1aad21b2bc88f31770efd468aaa1fe75ac411d6016d0156933231456f5ef1"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "4a81c88b710193746bded97ec8e1c1dd786d15e7f48a525ddd510898b216e68c"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/security.json",
+          "kind": "log",
+          "sha256": "85967948abe19d114859c3d8eb32bd144d7ab184424c3d2d822dfedc86788e44"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutations.json",
+          "kind": "log",
+          "sha256": "9b0d9292a118ff1b99aabeaf907a652dbb10742719d24c1d04906ce50dfc5b05"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-owner.log",
+          "kind": "log",
+          "sha256": "9449d6685c79d837c80d10e919ab0e918fd3b504812685a168be8e512ce113a9"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-app.log",
+          "kind": "log",
+          "sha256": "d390dd200d71fd1a105b3a191ebf255e1c7d24e0fc6deb30c136309b065578f6"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-revision.log",
+          "kind": "log",
+          "sha256": "767f35210feb2715ec6d5bd5857fafefb01d2631cc8778b4693eab60d5d20558"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/mutation-immutable.log",
+          "kind": "log",
+          "sha256": "6045931705e2b9cfa833e4fc050e944de7fc4e7d36ab2123adf08e55b16306bd"
+        },
+        {
+          "path": ".factory/content-packaging-t5/taste/review.md",
+          "kind": "log",
+          "sha256": "bd2531db7c716646d3a3f31d4c775172fe82b34e8f09d5aa5d1c766fbf40bb87"
+        }
+      ]
+    }
+  ]
+}

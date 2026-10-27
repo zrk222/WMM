@@ -1,0 +1,36 @@
+{
+  "agent_actions": [],
+  "authority": {
+    "approval": false,
+    "connector": false,
+    "credential": false,
+    "deployment": false,
+    "execution": false,
+    "merge": false,
+    "messaging": false,
+    "publication": false,
+    "repair": false,
+    "signing": false
+  },
+  "candidate_sha256": "7cca8ed0b3726b512c8a026affbef85e746d470dda012add32d000cc5a6fc847",
+  "checks": 8,
+  "contract_sha256": "8f267ba3ee4b126c9e089dd66de3d3ae317bc29d2e645f574855915cbac1babe",
+  "errors": [],
+  "inapplicability_evidence": {},
+  "limits": [
+    "Recorded evidence completeness and hashes only; observations require review.",
+    "Inapplicability review evidence is hash-bound but its judgment and identity are not authenticated.",
+    "Each contract/observation JSON input and evidence artifact is limited to 16 MiB; total evidence hashing is limited to 128 MiB, 4096 artifact references, and 4096 required check/profile pairs.",
+    "No project command or provider is executed.",
+    "No approval, certification or deployment authority."
+  ],
+  "observations_sha256": "de79ad3d9f93ad7ecf896f0d3a83c36b5979a4386a0f2b2153ee53960106d2fc",
+  "project_id": "WMM-packaging-integration",
+  "receipt_sha256": "b1917542a85d107b9a169c0c0d053594c59d829a0bcfd1f37e1b5360c5a12350",
+  "resource_usage": {
+    "artifact_references": 307,
+    "bytes_hashed": 12036076
+  },
+  "schema": "factory.workflow-audit.receipt.v1",
+  "state": "PASS"
+}

@@ -1,0 +1,12 @@
+[
+  {
+    "name": "receipt",
+    "exit": 1,
+    "status": "KILLED"
+  },
+  {
+    "name": "late-response",
+    "exit": 1,
+    "status": "KILLED"
+  }
+]

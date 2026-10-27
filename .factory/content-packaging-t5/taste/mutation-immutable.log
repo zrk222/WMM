@@ -1,0 +1,51 @@
+......FE
+======================================================================
+ERROR: test_sql_history_rejects_update_delete_conflict_and_rowid_replace (tests.test_creative_taste_store.CreativeTasteTests.test_sql_history_rejects_update_delete_conflict_and_rowid_replace)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-uhowbhen\mission_control\operator_client.py", line 183, in request
+    with self.opener.open(request,timeout=request_timeout(path,body)) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 525, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 634, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 563, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 496, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 643, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 400: Bad Request
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-uhowbhen\tests\test_creative_taste_store.py", line 126, in test_sql_history_rejects_update_delete_conflict_and_rowid_replace
+    self.assertEqual(self.call('taste-read', {'id': saved['id']}), saved)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-uhowbhen\tests\test_creative_taste_store.py", line 30, in call
+    return (client or self.owner).request('POST', '/api/apps/' + app + '/packaging/' + action, body)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-uhowbhen\mission_control\operator_client.py", line 186, in request
+    reject_http(error,path,body)
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-uhowbhen\mission_control\operator_client.py", line 137, in reject_http
+    raise ClientError('HTTP_REJECTED','WMM rejected the operation; HTTP '+str(error.code)+'. Refresh current app/source data before retrying.',error.code) from error
+mission_control.operator_client.ClientError: WMM rejected the operation; HTTP 400. Refresh current app/source data before retrying.
+
+======================================================================
+FAIL: test_sql_history_rejects_update_delete_conflict_and_rowid_replace (tests.test_creative_taste_store.CreativeTasteTests.test_sql_history_rejects_update_delete_conflict_and_rowid_replace) (sql='UPDATE creative_taste_reviews SET hash=?')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-mutant-uhowbhen\tests\test_creative_taste_store.py", line 124, in test_sql_history_rejects_update_delete_conflict_and_rowid_replace
+    with self.subTest(sql=sql), self.assertRaises(sqlite3.IntegrityError):
+AssertionError: IntegrityError not raised
+
+----------------------------------------------------------------------
+Ran 7 tests in 7.582s
+
+FAILED (failures=1, errors=1)

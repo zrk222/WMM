@@ -1,0 +1,17 @@
+[
+  {
+    "name": "authority",
+    "status": "KILLED",
+    "exit": 1
+  },
+  {
+    "name": "scope",
+    "status": "KILLED",
+    "exit": 1
+  },
+  {
+    "name": "canonical-hash",
+    "status": "KILLED",
+    "exit": 1
+  }
+]

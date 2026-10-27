@@ -1,0 +1,36 @@
+{
+  "name": "content-packaging-checklist-transport",
+  "language": "python",
+  "modules": [
+    {
+      "name": "packaging_access",
+      "path": ".factory/content-packaging-t5/transport/qa-scope/packaging_access.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "dispatch",
+          "args": [],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "packaging_contract",
+      "path": ".factory/content-packaging-t5/transport/qa-scope/packaging_contract.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "agent_contract",
+          "args": [],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "packaging_handoff",
+      "path": "mission_control/packaging_handoff.py",
+      "language": "python",
+      "functions": []
+    }
+  ]
+}

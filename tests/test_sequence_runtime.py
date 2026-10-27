@@ -1,6 +1,6 @@
 """Persistent worker progression, ownership races and revocable source reads."""
 from copy import deepcopy
-from datetime import timedelta
+from datetime import datetime,timedelta,timezone
 import unittest
 from unittest.mock import patch
 from mission_control.common import Invalid,canonical,digest,now,iso_time
@@ -53,6 +53,10 @@ class SequenceRuntimeTests(unittest.TestCase):
         self.assertEqual(draft['currentness'],'PENDING')
 
     def test_owned_queued_sources_cancel_without_provider_calls(self):
+        # Collection hashes include the hour. Keep this cancellation test in
+        # one observation window; expiry/currentness has separate coverage.
+        clock=self.enterContext(patch('mission_control.campaign_inputs.datetime',wraps=datetime))
+        clock.now.return_value=datetime.now(timezone.utc)
         service,run=self.approve('collect_sources')
         self.assertTrue(run_once(self.store))
         service.cancel('sample-one',run['id'],{'confirm_cancel':True})

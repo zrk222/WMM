@@ -1,0 +1,39 @@
+/* Packaging controls reuse the application tokens. The nested frame simulates a named viewport. */
+.packaging-workspace{min-width:0;max-width:100%;line-height:1.6}
+.packaging-workspace form{display:grid;gap:var(--space)}
+.packaging-workspace fieldset{min-width:0;padding:16px;border:1px solid var(--line);border-radius:var(--radius);margin:0}
+.packaging-workspace legend{font-weight:700;padding:0 8px}
+.packaging-workspace .field{min-width:0}
+.packaging-workspace input,.packaging-workspace select,.packaging-workspace textarea{width:100%;min-height:44px;font-size:16px}
+.packaging-workspace textarea{min-height:100px;resize:vertical}
+.packaging-workspace input[type=checkbox]{width:22px;min-width:22px;min-height:22px;height:22px}
+.packaging-workspace .check-row{min-height:44px}
+.packaging-workspace .button-row{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0}
+.packaging-workspace button{min-height:44px;white-space:normal}
+.packaging-workspace details{border-top:1px solid var(--line);padding-top:16px}
+.packaging-workspace summary{min-height:44px;cursor:pointer;font-weight:650}
+.packaging-workspace pre{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%}
+.packaging-workspace .field-error:empty{display:none}
+.packaging-workspace .field-error:focus{outline:3px solid var(--forest);outline-offset:3px}
+.packaging-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:24px 0}
+.packaging-metrics>div{padding:16px;background:var(--soft);border-radius:var(--radius)}
+.packaging-metrics strong,.packaging-metrics span{display:block}
+.packaging-metrics strong{font-size:24px;color:var(--forest)}
+.packaging-feed-stage{width:100%;max-width:100%;overflow:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--paper);padding:16px}
+.packaging-feed-stage:focus-visible{outline:3px solid var(--forest);outline-offset:-3px}
+.packaging-feed{width:1440px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;align-items:start}
+.packaging-feed.is-mobile{width:390px;grid-template-columns:minmax(0,1fr)}
+.packaging-feed-card{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;padding-bottom:16px}
+.packaging-feed-card img,.packaging-thumbnail-empty{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--soft)}
+.packaging-thumbnail-empty{display:grid;place-items:center;color:var(--muted)}
+.packaging-feed-card h3,.packaging-feed-card p{margin:12px 16px 0}
+.packaging-feed-card p{color:var(--muted);font-size:16px}
+.packaging-feed-title{font-family:var(--font);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;line-height:1.6;max-height:3.2em;font-size:20px;overflow-wrap:anywhere}
+@media(max-width:600px){.packaging-metrics{grid-template-columns:minmax(0,1fr)}.packaging-workspace .button-row>*{flex:1 1 100%}.packaging-workspace fieldset{padding:12px}.packaging-feed-stage{padding:8px}}
+@media(prefers-reduced-motion:reduce){.packaging-workspace *{scroll-behavior:auto;transition:none;animation:none}}
+@media print{.wmm-print-report .packaging-feed-stage{overflow:visible;border:0;padding:0}.wmm-print-report .packaging-feed{width:100%;gap:12px}.wmm-print-report .packaging-feed.is-mobile{max-width:390px}.wmm-print-report .packaging-feed-card{break-inside:avoid}}
+
+#modal.packaging-wide{width:min(calc(100vw - 16px),1560px);max-width:1560px}
+@media(max-width:600px){#modal.packaging-wide{width:100vw;max-width:100vw;margin:0;max-height:100dvh;height:100dvh;border-radius:0;border:0}#modal.packaging-wide .packaging-workspace{padding:16px 0}#modal.packaging-wide .packaging-workspace>p,#modal.packaging-wide .packaging-workspace>h3,#modal.packaging-wide .packaging-workspace>.button-row{margin-left:16px;margin-right:16px}#modal.packaging-wide .packaging-feed-stage{padding:0;border-left:0;border-right:0;border-radius:0}}
+
+#modal.packaging-wide .notice{padding:12px 16px}#modal.packaging-wide .notice p{margin:4px 0}

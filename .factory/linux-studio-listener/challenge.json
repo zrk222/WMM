@@ -1,0 +1,53 @@
+{
+  "attribution": {
+    "dominant_failure_class": null,
+    "n_checked": 5,
+    "n_passed": 5,
+    "rate": 1.0,
+    "stage": "validator_mutation",
+    "units": [
+      {
+        "evidence": "deletion killed by S_UNTRACEABLE_STEP; inversion killed by S_UNTRACEABLE_STEP",
+        "failure_class": null,
+        "passed": true,
+        "stage": "validator_mutation",
+        "unit": "R1"
+      },
+      {
+        "evidence": "deletion killed by S_UNTRACEABLE_STEP; inversion killed by S_UNTRACEABLE_STEP",
+        "failure_class": null,
+        "passed": true,
+        "stage": "validator_mutation",
+        "unit": "R2"
+      },
+      {
+        "evidence": "deletion killed by S_UNTRACEABLE_STEP; inversion killed by S_UNTRACEABLE_STEP",
+        "failure_class": null,
+        "passed": true,
+        "stage": "validator_mutation",
+        "unit": "R3"
+      },
+      {
+        "evidence": "deletion killed by S_UNTRACEABLE_STEP; inversion killed by S_UNTRACEABLE_STEP",
+        "failure_class": null,
+        "passed": true,
+        "stage": "validator_mutation",
+        "unit": "R4"
+      },
+      {
+        "evidence": "deletion killed by S_UNTRACEABLE_STEP, S_UNTRACEABLE_STEP; inversion killed by S_UNTRACEABLE_STEP",
+        "failure_class": null,
+        "passed": true,
+        "stage": "validator_mutation",
+        "unit": "R5"
+      }
+    ]
+  },
+  "brick": "specline",
+  "feature": "linux-studio-listener",
+  "mutants_killed": 5,
+  "mutants_total": 5,
+  "passed": true,
+  "schema": "factory.challenge.v1",
+  "stage": "validator_mutation"
+}

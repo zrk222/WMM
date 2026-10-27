@@ -1,0 +1,27 @@
+{
+  "passed": true,
+  "attribution": {
+    "stage": "strict_lint",
+    "n_checked": 2,
+    "n_passed": 2,
+    "units": [
+      {
+        "unit": "R1",
+        "stage": "strict_lint",
+        "passed": true,
+        "evidence": "requirement passed strict lint",
+        "failure_class": null
+      },
+      {
+        "unit": "R2",
+        "stage": "strict_lint",
+        "passed": true,
+        "evidence": "requirement passed strict lint",
+        "failure_class": null
+      }
+    ],
+    "rate": 1.0,
+    "dominant_failure_class": null
+  }
+}
+STRICT OK â€” spec is unambiguous (0 warns). next: specline gate spec native-sqlite-entry

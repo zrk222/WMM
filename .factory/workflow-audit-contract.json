@@ -1,0 +1,163 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "WMM-content-packaging-T1",
+  "candidate": [
+    {
+      "path": "mission_control/packaging_contract.py",
+      "sha256": "4a589408ad03c8b9693af8067635ccede10c7351fbbc766ce73c16fc6383f502",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/packaging_bindings.py",
+      "sha256": "1fd1ace0a9a542a5ce1abc73a614a0885ec0134a0fd3df351a35eeba0421dd88",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/packaging_store.py",
+      "sha256": "bc6c5b84bd7a3cc480b2f0a165d53f89a1053196e9d8956559d3881203e0ee43",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/db.py",
+      "sha256": "7fd4538543e9cd172ebfb9e228487158fc282267b8c2c332015f3bc17e025999",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_packaging.py",
+      "sha256": "ca8f9231a4dd0c2941f345f349820aaf5244ebfbc9646f107836dbfe13b17d07",
+      "kind": "test"
+    },
+    {
+      "path": "specs/content-packaging.md",
+      "sha256": "c9f0d670d832487a26bd57f6134019a2aa1352ff410d636a4b50f5df8697faa0",
+      "kind": "contract"
+    },
+    {
+      "path": "specs/content-packaging-t1.ssat.yaml",
+      "sha256": "3408218978a410f42b1ae4f79bc37e2c6590051fa27257c2abc511e30e02de3c",
+      "kind": "contract"
+    },
+    {
+      "path": "plans/content-packaging.md",
+      "sha256": "994ed6b21ef02044bbb7697de19694aefdf8f73a353f3f2bc044ec0b9e8294ee",
+      "kind": "contract"
+    },
+    {
+      "path": ".factory/content-packaging-t1/scope.md",
+      "sha256": "c037de4c27e80e789b6852b44d1ebd3f8f15c8d29f368b037e7bc782f17309b1",
+      "kind": "review"
+    },
+    {
+      "path": ".factory/content-packaging-t1/verify.py",
+      "sha256": "f146c7d73c3ffba8c448e4467cf86e59614c486270cadb3983798b2a45e8538a",
+      "kind": "source"
+    },
+    {
+      "path": ".factory/content-packaging-t1/security_scope.py",
+      "sha256": "f3ca3580b5c71019279ca13ce4616a6eeaea98a3a437e596851a66b38b268b77",
+      "kind": "source"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "Persist drafts and script shots with exact native bindings and restart readback."
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "Reject stale, foreign, malformed and unsupported references and script segment hashes."
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": true,
+      "reason": "Rollback source or app changes detected during save and retain prior history."
+    },
+    {
+      "category": "state_consistency",
+      "applicable": true,
+      "reason": "Immutable SQLite rows and script/source/rights revisions remain hash-bound."
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "Closed input and app-scoped evidence; synthetic fixtures and no credential fields."
+    },
+    {
+      "category": "performance",
+      "applicable": false,
+      "reason": "No performance or throughput claim in this foundational local storage packet; fixed row/page bounds are validation checks.",
+      "review_evidence": {
+        "path": ".factory/content-packaging-t1/scope.md",
+        "sha256": "c037de4c27e80e789b6852b44d1ebd3f8f15c8d29f368b037e7bc782f17309b1",
+        "kind": "review"
+      }
+    },
+    {
+      "category": "accessibility",
+      "applicable": false,
+      "reason": "No UI, rendering, keyboard or assistive technology surface changed in T1.",
+      "review_evidence": {
+        "path": ".factory/content-packaging-t1/scope.md",
+        "sha256": "c037de4c27e80e789b6852b44d1ebd3f8f15c8d29f368b037e7bc782f17309b1",
+        "kind": "review"
+      }
+    },
+    {
+      "category": "external_effects",
+      "applicable": true,
+      "reason": "Stored draft remains NOT_RUN with execution_authority false; no execution adapter added."
+    }
+  ],
+  "checks": [
+    {
+      "id": "happy_path",
+      "category": "happy_path",
+      "requirement": "Persist drafts and script shots with exact native bindings and restart readback.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-offline"
+      ]
+    },
+    {
+      "id": "validation",
+      "category": "validation",
+      "requirement": "Reject stale, foreign, malformed and unsupported references and script segment hashes.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-offline"
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "category": "failure_recovery",
+      "requirement": "Rollback source or app changes detected during save and retain prior history.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-offline"
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "category": "state_consistency",
+      "requirement": "Immutable SQLite rows and script/source/rights revisions remain hash-bound.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-offline"
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "category": "security_privacy",
+      "requirement": "Closed input and app-scoped evidence; synthetic fixtures and no credential fields.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-offline"
+      ]
+    },
+    {
+      "id": "external_effects",
+      "category": "external_effects",
+      "requirement": "Stored draft remains NOT_RUN with execution_authority false; no execution adapter added.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-offline"
+      ]
+    }
+  ]
+}

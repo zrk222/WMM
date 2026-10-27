@@ -1,0 +1,132 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "876f01eea0731268bc64eba9cd5e793bb9b178936b3c5d8f96ec877e85df337e",
+  "candidate_sha256": "1642a35b4955ba7a3ccf6afbe6f486f7cb2157718db0447d4ea38bd6939f6189",
+  "observations": [
+    {
+      "id": "happy_path",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-offline",
+      "status": "PASS",
+      "reason": "Persist drafts and script shots with exact native bindings and restart readback. See named unittest cases and mutation failures.",
+      "execution_identity": "python -m unittest tests.test_packaging -v",
+      "observed_at": "2026-10-26T07:20:19.205455+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t1/tests.log",
+          "sha256": "ea96529d3617fee0de6270b17d3ad94dbf8b824d82fc58cb3e53c9d4934964fe",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/content-packaging-t1/mutations.json",
+          "sha256": "7a0a8df63e102b0d679ecf8aae73f7dcd55f8df5b41f945eeaf07c5e63a7524c",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-offline",
+      "status": "PASS",
+      "reason": "Reject stale, foreign, malformed and unsupported references and script segment hashes. See named unittest cases and mutation failures.",
+      "execution_identity": "python -m unittest tests.test_packaging -v",
+      "observed_at": "2026-10-26T07:20:19.205455+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t1/tests.log",
+          "sha256": "ea96529d3617fee0de6270b17d3ad94dbf8b824d82fc58cb3e53c9d4934964fe",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/content-packaging-t1/mutations.json",
+          "sha256": "7a0a8df63e102b0d679ecf8aae73f7dcd55f8df5b41f945eeaf07c5e63a7524c",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-offline",
+      "status": "PASS",
+      "reason": "Rollback source or app changes detected during save and retain prior history. See named unittest cases and mutation failures.",
+      "execution_identity": "python -m unittest tests.test_packaging -v",
+      "observed_at": "2026-10-26T07:20:19.206454+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t1/tests.log",
+          "sha256": "ea96529d3617fee0de6270b17d3ad94dbf8b824d82fc58cb3e53c9d4934964fe",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/content-packaging-t1/mutations.json",
+          "sha256": "7a0a8df63e102b0d679ecf8aae73f7dcd55f8df5b41f945eeaf07c5e63a7524c",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-offline",
+      "status": "PASS",
+      "reason": "Immutable SQLite rows and script/source/rights revisions remain hash-bound. See named unittest cases and mutation failures.",
+      "execution_identity": "python -m unittest tests.test_packaging -v",
+      "observed_at": "2026-10-26T07:20:19.206454+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t1/tests.log",
+          "sha256": "ea96529d3617fee0de6270b17d3ad94dbf8b824d82fc58cb3e53c9d4934964fe",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/content-packaging-t1/mutations.json",
+          "sha256": "7a0a8df63e102b0d679ecf8aae73f7dcd55f8df5b41f945eeaf07c5e63a7524c",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-offline",
+      "status": "PASS",
+      "reason": "Closed input and app-scoped evidence; synthetic fixtures and no credential fields. See named unittest cases and mutation failures.",
+      "execution_identity": "python -m unittest tests.test_packaging -v",
+      "observed_at": "2026-10-26T07:20:19.216554+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t1/tests.log",
+          "sha256": "ea96529d3617fee0de6270b17d3ad94dbf8b824d82fc58cb3e53c9d4934964fe",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/content-packaging-t1/mutations.json",
+          "sha256": "7a0a8df63e102b0d679ecf8aae73f7dcd55f8df5b41f945eeaf07c5e63a7524c",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/content-packaging-t1/privacy-distribution.log",
+          "sha256": "0579eae79e3d6341ceb47283f9e67522231a4038e6ef304edb887762e22f49f6",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "external_effects",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-offline",
+      "status": "PASS",
+      "reason": "Stored draft remains NOT_RUN with execution_authority false; no execution adapter added. See named unittest cases and mutation failures.",
+      "execution_identity": "python -m unittest tests.test_packaging -v",
+      "observed_at": "2026-10-26T07:20:19.217550+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t1/tests.log",
+          "sha256": "ea96529d3617fee0de6270b17d3ad94dbf8b824d82fc58cb3e53c9d4934964fe",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/content-packaging-t1/mutations.json",
+          "sha256": "7a0a8df63e102b0d679ecf8aae73f7dcd55f8df5b41f945eeaf07c5e63a7524c",
+          "kind": "log"
+        }
+      ]
+    }
+  ]
+}

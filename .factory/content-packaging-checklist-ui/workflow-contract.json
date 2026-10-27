@@ -1,0 +1,184 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "WMM-production-checklist-ui",
+  "candidate": [
+    {
+      "path": "mission_control/static/packaging-model.js",
+      "kind": "source",
+      "sha256": "75b60c7433905174e67291b4445b5ec4cf1637446a2cb137e656a4958bfd5188"
+    },
+    {
+      "path": "mission_control/static/packaging-ui.js",
+      "kind": "source",
+      "sha256": "5cd39afe0cda72387fbd89af9352bb334b995d189cc31c3d4c2dd6fbddb5b973"
+    },
+    {
+      "path": "mission_control/static/ui-stories.js",
+      "kind": "source",
+      "sha256": "d5f14224ce45aeaba25a5694dac0243a4fad7b11d0d61b21d3e4003a823e27a4"
+    },
+    {
+      "path": "tests/packaging_model.test.cjs",
+      "kind": "source",
+      "sha256": "669cacfae52238fc28cd4f0634ec299c11138c03a7bcfc704525903eb1ab94e7"
+    },
+    {
+      "path": "tests/packaging_ui.test.cjs",
+      "kind": "source",
+      "sha256": "c73500e1a97a8fe9872a34ff4316b6b69d344abc2907ddb5ccc4d8dbd1de9147"
+    },
+    {
+      "path": "specs/content-packaging-checklist-ui.ssat.yaml",
+      "kind": "source",
+      "sha256": "0e2fb42dbe580ba94eab21f304897ddefe719a5d687a21a3a923ae52028b270c"
+    },
+    {
+      "path": ".factory/content-packaging-t5/checklist_ui_qa.py",
+      "kind": "source",
+      "sha256": "5d1531d91e1038cefd99a77533bb399d57177a18bb1d03e5b3f45bdf7137c31c"
+    },
+    {
+      "path": ".factory/content-packaging-t5/checklist_ui_mutations.py",
+      "kind": "source",
+      "sha256": "b35b008dd82ba728ff69d8167d8bf2ed3616e91aeb93df5e6ccf147f26182fe3"
+    },
+    {
+      "path": ".factory/content-packaging-t5/checklist_ui_proof.py",
+      "kind": "source",
+      "sha256": "81cba680469b8d96a4a7b8b3dfcd0c555dfdcc70de0b305c8acc43f6408e9c80"
+    },
+    {
+      "path": ".factory/content-packaging-t5/checklist_browser.py",
+      "kind": "source",
+      "sha256": "84b3ed5b2817bf7bc3e6adb515f969ca3fd3c558a7039b7c39e244e1da73bf2e"
+    },
+    {
+      "path": ".factory/content-packaging-checklist-ui/qa-scope/packaging-model.js",
+      "kind": "source",
+      "sha256": "9cbc5760f25f595d9caca006d850c37204a16d30b06b265fca66835d0d9cd0a2"
+    },
+    {
+      "path": ".factory/content-packaging-checklist-ui/qa-scope/packaging-ui.js",
+      "kind": "source",
+      "sha256": "692e35f655d5212301ccd3a938d59f566575a871a3b34d4fe84e0007206b581f"
+    },
+    {
+      "path": ".factory/content-packaging-t5/checklist-ui-scope.md",
+      "kind": "contract",
+      "sha256": "82088fbd34452d599739aac996de31d10de9bf60eb7361b9c2aaaa760178632b"
+    },
+    {
+      "path": ".factory/content-packaging-checklist-ui/review.md",
+      "kind": "review",
+      "sha256": "f4899c5d91bc98919e2e59d421d2e72ee77f81d129083a866ff80a564cabe038"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "Inspect exact saved SHOTS and export JSON, CSV and PDF print view."
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "Reject foreign app/manifest/shot receipts; escape markup and CSV formulas."
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": true,
+      "reason": "Late replies cannot reopen closed or changed contexts; errors retain existing lifecycle."
+    },
+    {
+      "category": "state_consistency",
+      "applicable": true,
+      "reason": "Read-only current evidence inspection grants no production authority."
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "Exact receipt identity, safe output and private synthetic browser fixtures; no whole-product security claim."
+    },
+    {
+      "category": "performance",
+      "applicable": true,
+      "reason": "At most100 receipt rows; no latency, savings or conversion claim."
+    },
+    {
+      "category": "accessibility",
+      "applicable": true,
+      "reason": "Desktop/mobile emulation, visible keyboard focus and existing live status modal controls."
+    },
+    {
+      "category": "external_effects",
+      "applicable": true,
+      "reason": "Local read-only inspection and user-initiated report downloads/print view only."
+    }
+  ],
+  "checks": [
+    {
+      "id": "happy_path",
+      "category": "happy_path",
+      "requirement": "Inspect exact saved SHOTS and export JSON, CSV and PDF print view.",
+      "profiles": [
+        "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback"
+      ]
+    },
+    {
+      "id": "validation",
+      "category": "validation",
+      "requirement": "Reject foreign app/manifest/shot receipts; escape markup and CSV formulas.",
+      "profiles": [
+        "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback"
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "category": "failure_recovery",
+      "requirement": "Late replies cannot reopen closed or changed contexts; errors retain existing lifecycle.",
+      "profiles": [
+        "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback"
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "category": "state_consistency",
+      "requirement": "Read-only current evidence inspection grants no production authority.",
+      "profiles": [
+        "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback"
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "category": "security_privacy",
+      "requirement": "Exact receipt identity, safe output and private synthetic browser fixtures; no whole-product security claim.",
+      "profiles": [
+        "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback"
+      ]
+    },
+    {
+      "id": "performance",
+      "category": "performance",
+      "requirement": "At most100 receipt rows; no latency, savings or conversion claim.",
+      "profiles": [
+        "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback"
+      ]
+    },
+    {
+      "id": "accessibility",
+      "category": "accessibility",
+      "requirement": "Desktop/mobile emulation, visible keyboard focus and existing live status modal controls.",
+      "profiles": [
+        "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback"
+      ]
+    },
+    {
+      "id": "external_effects",
+      "category": "external_effects",
+      "requirement": "Local read-only inspection and user-initiated report downloads/print view only.",
+      "profiles": [
+        "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback"
+      ]
+    }
+  ]
+}

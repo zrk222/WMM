@@ -1,0 +1,9 @@
+# WMM native SQLite entry boundary
+Twenty-five existing db-parameter helpers now reject non-native sqlite3.Connection objects before helper effects. Exact type checks reject subclasses overriding execute. Existing SQL, ordering, authority, transaction and result behavior are unchanged. Fake and overriding connections are tested across all twenty-five helpers; 89 focused native SQLite regressions pass. A removed-entry-guard source mutant is killed. Strict requirements, scoped quality and lint pass.
+The repaired source analyzer audits eleven exact Python files with complete inventory and zero findings, parse errors or database context gaps. Its source identity is recorded in candidate-security.json; it is run from the isolated CF source checkout, not asserted to be globally installed. This is a scoped static security pass, not a whole-repository assessment, penetration test, deployment approval or measured outcome. Existing unrelated files are preserved. No waiver, spend, publishing or production activation occurred.
+
+Quality detail: Forge QA passed with no findings; attribution is 94/95 because unchanged selected_review has an existing coverage-intent note. Its AST is identical to HEAD. No unrelated helper refactor or invented test was added to force that advisory metric.
+
+Analyzer source fix committed locally as 9f8cce19 in the isolated CF worktree. Reproduce with that source checkout: python -m factoryline.cli audit security --root <WMM>/.factory/native-sqlite-entry/security-scope --json. The exact extractor identity and eleven source hashes are retained in candidate-security.json. Global installation, public release and whole-repository security are separate.
+
+The mutation failure display redacts the local user-profile path before distribution. The sanitized display is hash-bound; it is not represented as a signed raw log.

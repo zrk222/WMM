@@ -1,0 +1,295 @@
+{
+  "grade": "A",
+  "passed": true,
+  "metrics": {
+    "coverage_intent": 1.0,
+    "max_complexity": 7,
+    "security_score": 100,
+    "doc_ratio": 1.0,
+    "composite": 100.0,
+    "complexity_policy": "hard",
+    "coverage_assessment": "static_name_match",
+    "behavioral_proof_status": "not_measured_static_only",
+    "scope": {
+      "kind": "feature",
+      "code_files": [
+        ".factory/content-packaging-t5/taste-agent/qa-scope/packaging_access.py",
+        "mission_control/creative_taste_store.py",
+        "mission_control/packaging_contract.py"
+      ]
+    },
+    "skipped_paths": [],
+    "inventory_complete": true,
+    "function_inventory_complete": true,
+    "function_inventory": [
+      {
+        "path": ".factory/content-packaging-t5/taste-agent/qa-scope/packaging_access.py",
+        "parser": "python-ast",
+        "status": "exact",
+        "symbols": 1
+      },
+      {
+        "path": "mission_control/creative_taste_store.py",
+        "parser": "python-ast",
+        "status": "exact",
+        "symbols": 14
+      },
+      {
+        "path": "mission_control/packaging_contract.py",
+        "parser": "python-ast",
+        "status": "exact",
+        "symbols": 8
+      }
+    ],
+    "advisory_function_metrics": [],
+    "unknown_security_calls": [
+      ".factory/content-packaging-t5/taste-agent/qa-scope/packaging_access.py:Invalid",
+      ".factory/content-packaging-t5/taste-agent/qa-scope/packaging_access.py:Packaging",
+      ".factory/content-packaging-t5/taste-agent/qa-scope/packaging_access.py:body.get",
+      ".factory/content-packaging-t5/taste-agent/qa-scope/packaging_access.py:exact_keys",
+      ".factory/content-packaging-t5/taste-agent/qa-scope/packaging_access.py:history",
+      ".factory/content-packaging-t5/taste-agent/qa-scope/packaging_access.py:preview",
+      ".factory/content-packaging-t5/taste-agent/qa-scope/packaging_access.py:reconcile",
+      ".factory/content-packaging-t5/taste-agent/qa-scope/packaging_access.py:service.read",
+      ".factory/content-packaging-t5/taste-agent/qa-scope/packaging_access.py:service.save",
+      ".factory/content-packaging-t5/taste-agent/qa-scope/packaging_access.py:taste",
+      "mission_control/creative_taste_store.py:Invalid",
+      "mission_control/creative_taste_store.py:PROTECTED.get",
+      "mission_control/creative_taste_store.py:PermissionError",
+      "mission_control/creative_taste_store.py:TypeError",
+      "mission_control/creative_taste_store.py:app_context",
+      "mission_control/creative_taste_store.py:bindings",
+      "mission_control/creative_taste_store.py:body.get",
+      "mission_control/creative_taste_store.py:canonical",
+      "mission_control/creative_taste_store.py:check",
+      "mission_control/creative_taste_store.py:connection",
+      "mission_control/creative_taste_store.py:count",
+      "mission_control/creative_taste_store.py:current",
+      "mission_control/creative_taste_store.py:db.execute",
+      "mission_control/creative_taste_store.py:db.execute('SELECT * FROM creative_taste_reviews WHERE app_id=? AND id=? AND version=?', (app_id, identity, version)).fetchone",
+      "mission_control/creative_taste_store.py:db.execute('SELECT * FROM creative_taste_reviews WHERE app_id=? AND id=? AND version=?', (app_id, request['id'], expected)).fetchone",
+      "mission_control/creative_taste_store.py:db.execute('SELECT * FROM creative_taste_reviews WHERE app_id=? AND id=? ORDER BY version DESC LIMIT 1', (app_id, identity)).fetchone",
+      "mission_control/creative_taste_store.py:db.execute('SELECT count(*) FROM creative_taste_reviews WHERE app_id=?', (app_id,)).fetchone",
+      "mission_control/creative_taste_store.py:db.execute('SELECT id,version,hash,created FROM creative_taste_reviews WHERE app_id=? ORDER BY created,id,version LIMIT 100 OFFSET ?', (app_id, offset)).fetchall",
+      "mission_control/creative_taste_store.py:decode",
+      "mission_control/creative_taste_store.py:definition",
+      "mission_control/creative_taste_store.py:dict",
+      "mission_control/creative_taste_store.py:digest",
+      "mission_control/creative_taste_store.py:exact",
+      "mission_control/creative_taste_store.py:exact_keys",
+      "mission_control/creative_taste_store.py:exact_role",
+      "mission_control/creative_taste_store.py:guidance",
+      "mission_control/creative_taste_store.py:handlers[action]",
+      "mission_control/creative_taste_store.py:identifier",
+      "mission_control/creative_taste_store.py:isinstance",
+      "mission_control/creative_taste_store.py:latest",
+      "mission_control/creative_taste_store.py:len",
+      "mission_control/creative_taste_store.py:normalize",
+      "mission_control/creative_taste_store.py:now",
+      "mission_control/creative_taste_store.py:one",
+      "mission_control/creative_taste_store.py:owner",
+      "mission_control/creative_taste_store.py:readback",
+      "mission_control/creative_taste_store.py:reference",
+      "mission_control/creative_taste_store.py:required",
+      "mission_control/creative_taste_store.py:resolve",
+      "mission_control/creative_taste_store.py:result['examples'].append",
+      "mission_control/creative_taste_store.py:safe_data",
+      "mission_control/creative_taste_store.py:set",
+      "mission_control/creative_taste_store.py:store_identity",
+      "mission_control/creative_taste_store.py:str",
+      "mission_control/creative_taste_store.py:texts",
+      "mission_control/creative_taste_store.py:type",
+      "mission_control/packaging_contract.py:Invalid",
+      "mission_control/packaging_contract.py:count",
+      "mission_control/packaging_contract.py:dict",
+      "mission_control/packaging_contract.py:digest",
+      "mission_control/packaging_contract.py:exact",
+      "mission_control/packaging_contract.py:hashed",
+      "mission_control/packaging_contract.py:identifier",
+      "mission_control/packaging_contract.py:isinstance",
+      "mission_control/packaging_contract.py:items",
+      "mission_control/packaging_contract.py:len",
+      "mission_control/packaging_contract.py:one",
+      "mission_control/packaging_contract.py:reference",
+      "mission_control/packaging_contract.py:refs",
+      "mission_control/packaging_contract.py:required",
+      "mission_control/packaging_contract.py:safe_data",
+      "mission_control/packaging_contract.py:script.append",
+      "mission_control/packaging_contract.py:set",
+      "mission_control/packaging_contract.py:shot",
+      "mission_control/packaging_contract.py:timing"
+    ],
+    "security_analysis": "bounded_pattern_inventory"
+  },
+  "findings": [],
+  "attribution": {
+    "stage": "qa_audit",
+    "n_checked": 23,
+    "n_passed": 23,
+    "units": [
+      {
+        "unit": "qa_audit:.factory/content-packaging-t5/taste-agent/qa-scope/packaging_access.py:dispatch",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/creative_taste_store.py:owner",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/creative_taste_store.py:texts",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/creative_taste_store.py:definition",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/creative_taste_store.py:normalize",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/creative_taste_store.py:bindings",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/creative_taste_store.py:latest",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/creative_taste_store.py:decode",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/creative_taste_store.py:current",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/creative_taste_store.py:readback",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/creative_taste_store.py:save",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/creative_taste_store.py:read",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/creative_taste_store.py:reconcile",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/creative_taste_store.py:history",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/creative_taste_store.py:dispatch",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_contract.py:items",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_contract.py:reference",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_contract.py:refs",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_contract.py:variant",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_contract.py:shot",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_contract.py:timing",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_contract.py:shotlist",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_contract.py:agent_contract",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      }
+    ],
+    "rate": 1.0,
+    "dominant_failure_class": null
+  }
+}

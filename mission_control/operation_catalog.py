@@ -10,6 +10,13 @@ def descriptor(method,suffix,effect,required=(),optional=(),resource=False):
 
 
 OPERATIONS={
+    'packaging.taste-read':descriptor('POST','/packaging/taste-read','READ_PRIVATE_LOCAL_DATA',('id',),('version',)),
+    'packaging.taste-history':descriptor('POST','/packaging/taste-history','READ_PRIVATE_LOCAL_DATA',(),('offset',)),
+    'packaging.checklist':descriptor('POST','/packaging/checklist','READ_PRIVATE_LOCAL_DATA',('manifest_version','shots')),
+    'packaging.history':descriptor('POST','/packaging/history','READ_PRIVATE_LOCAL_DATA',(),('offset',)),
+    'packaging.read':descriptor('POST','/packaging/read','READ_PRIVATE_LOCAL_DATA',('id','kind'),('version',)),
+    'packaging.save':descriptor('POST','/packaging/save','WRITE_LOCAL_PLAN',('id','version','kind','manifest_version','data')),
+    'packaging.reconcile':descriptor('POST','/packaging/reconcile','READ_PRIVATE_LOCAL_DATA',('id','version','kind','manifest_version','data')),
     'discovery.history':descriptor('POST','/discovery/history','READ_PRIVATE_LOCAL_DATA',('kind',),('offset',)),
     'discovery.read':descriptor('POST','/discovery/read','READ_PRIVATE_LOCAL_DATA',('id','kind'),('version',)),
     'discovery.review':descriptor('POST','/discovery/review','WRITE_LOCAL_EVIDENCE',('id','version','manifest_version','reference_id','source_hash','data')),
@@ -82,7 +89,8 @@ def catalog():
         full_agent_operation=False,remaining=['Full-domain operation coverage','Full-domain CLI/MCP conformance','Provider-specific authorized effect adapters'])
     from .funnel_contract import agent_contract
     from .discovery_contract import agent_contract as discovery_contract
-    value['domain_contracts']={'app_sales_funnel':agent_contract(),'discovery_research':discovery_contract()}
+    from .packaging_contract import agent_contract as packaging_contract
+    value['domain_contracts']={'app_sales_funnel':agent_contract(),'discovery_research':discovery_contract(),'content_packaging':packaging_contract()}
     return dict(value,catalog_sha256=digest(value))
 
 

@@ -1,0 +1,727 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "b9a162d5b391b076882553f2ec9c5f9d6a0ae8ec2cc85e53b95f88f3250de33f",
+  "candidate_sha256": "d09481fb62591d791fad2488562a0a3d7fb28e717d0fc1687a77330a4fc71e82",
+  "observations": [
+    {
+      "id": "happy_path",
+      "profile": "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback",
+      "status": "PASS",
+      "reason": "Inspect exact saved SHOTS and export JSON, CSV and PDF print view.",
+      "execution_identity": "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback",
+      "observed_at": "2026-10-27T00:33:41.411100+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-checklist-ui/node-all.log",
+          "kind": "log",
+          "sha256": "7bed8c00968a10a2f123fbcf2290e3d994ff1d1191c229ff9bb9f6ca9c81be07"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/packaging-ui-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/ui-stories-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/qa.json",
+          "kind": "log",
+          "sha256": "77076a64458b6b737edf8c984524f8ddddba58ea2db1b2ad1b3c8fff0f418ea2"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "2e486a806a9f2cfa79a6f69c8b74f37d774785def579aa9dc12586349ffcb0d6"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutations.json",
+          "kind": "log",
+          "sha256": "a1014f5b612f0ea71ecf6f38765f93532ddd528f75493b4176697e580674f837"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutation-receipt.log",
+          "kind": "log",
+          "sha256": "b13090a61bf93858f377a70840cf4f2d30585e4f1caa3458cee72f85ae5fb2e9"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutation-late-response.log",
+          "kind": "log",
+          "sha256": "325af8f01e35e0cca0c82d4fc454aedd5ba83b9bbf737b38a47ef531e98eba75"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/browser-observations.json",
+          "kind": "log",
+          "sha256": "82e728b8a8a3b58d4549cdf0d3d15a5ee9b408db2fb95389a53c75be950f56bf"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/rendered-modal.html",
+          "kind": "log",
+          "sha256": "15f35b85bba91689f7fb5d01035d65015e58f0ca794ae2dbc46488ff30d97117"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/design-audit.json",
+          "kind": "log",
+          "sha256": "26506458f5f1927243c63ebd28a4b79cd684f911e23acf4b6afe6f3bc8d69e02"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/critique.json",
+          "kind": "log",
+          "sha256": "d55658988b17c073824076ba7552eb7ce9b1ebd15e2c631742d7632c4f626e53"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/challenge.json",
+          "kind": "log",
+          "sha256": "e24bdda750f31d97aabbf6c0b85a2c75cd43d78b4ee75f6450afa6e4873ccd1f"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/render-audit.json",
+          "kind": "log",
+          "sha256": "6ec3e05e6eb40ad5ae5e459c13ea476c7c236ae2a13d2f959403aa8cb1ce2daf"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/review.md",
+          "kind": "log",
+          "sha256": "f4899c5d91bc98919e2e59d421d2e72ee77f81d129083a866ff80a564cabe038"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback",
+      "status": "PASS",
+      "reason": "Reject foreign app/manifest/shot receipts; escape markup and CSV formulas.",
+      "execution_identity": "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback",
+      "observed_at": "2026-10-27T00:33:41.484101+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-checklist-ui/node-all.log",
+          "kind": "log",
+          "sha256": "7bed8c00968a10a2f123fbcf2290e3d994ff1d1191c229ff9bb9f6ca9c81be07"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/packaging-ui-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/ui-stories-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/qa.json",
+          "kind": "log",
+          "sha256": "77076a64458b6b737edf8c984524f8ddddba58ea2db1b2ad1b3c8fff0f418ea2"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "2e486a806a9f2cfa79a6f69c8b74f37d774785def579aa9dc12586349ffcb0d6"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutations.json",
+          "kind": "log",
+          "sha256": "a1014f5b612f0ea71ecf6f38765f93532ddd528f75493b4176697e580674f837"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutation-receipt.log",
+          "kind": "log",
+          "sha256": "b13090a61bf93858f377a70840cf4f2d30585e4f1caa3458cee72f85ae5fb2e9"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutation-late-response.log",
+          "kind": "log",
+          "sha256": "325af8f01e35e0cca0c82d4fc454aedd5ba83b9bbf737b38a47ef531e98eba75"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/browser-observations.json",
+          "kind": "log",
+          "sha256": "82e728b8a8a3b58d4549cdf0d3d15a5ee9b408db2fb95389a53c75be950f56bf"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/rendered-modal.html",
+          "kind": "log",
+          "sha256": "15f35b85bba91689f7fb5d01035d65015e58f0ca794ae2dbc46488ff30d97117"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/design-audit.json",
+          "kind": "log",
+          "sha256": "26506458f5f1927243c63ebd28a4b79cd684f911e23acf4b6afe6f3bc8d69e02"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/critique.json",
+          "kind": "log",
+          "sha256": "d55658988b17c073824076ba7552eb7ce9b1ebd15e2c631742d7632c4f626e53"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/challenge.json",
+          "kind": "log",
+          "sha256": "e24bdda750f31d97aabbf6c0b85a2c75cd43d78b4ee75f6450afa6e4873ccd1f"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/render-audit.json",
+          "kind": "log",
+          "sha256": "6ec3e05e6eb40ad5ae5e459c13ea476c7c236ae2a13d2f959403aa8cb1ce2daf"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/review.md",
+          "kind": "log",
+          "sha256": "f4899c5d91bc98919e2e59d421d2e72ee77f81d129083a866ff80a564cabe038"
+        }
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "profile": "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback",
+      "status": "PASS",
+      "reason": "Late replies cannot reopen closed or changed contexts; errors retain existing lifecycle.",
+      "execution_identity": "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback",
+      "observed_at": "2026-10-27T00:33:41.486100+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-checklist-ui/node-all.log",
+          "kind": "log",
+          "sha256": "7bed8c00968a10a2f123fbcf2290e3d994ff1d1191c229ff9bb9f6ca9c81be07"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/packaging-ui-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/ui-stories-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/qa.json",
+          "kind": "log",
+          "sha256": "77076a64458b6b737edf8c984524f8ddddba58ea2db1b2ad1b3c8fff0f418ea2"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "2e486a806a9f2cfa79a6f69c8b74f37d774785def579aa9dc12586349ffcb0d6"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutations.json",
+          "kind": "log",
+          "sha256": "a1014f5b612f0ea71ecf6f38765f93532ddd528f75493b4176697e580674f837"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutation-receipt.log",
+          "kind": "log",
+          "sha256": "b13090a61bf93858f377a70840cf4f2d30585e4f1caa3458cee72f85ae5fb2e9"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutation-late-response.log",
+          "kind": "log",
+          "sha256": "325af8f01e35e0cca0c82d4fc454aedd5ba83b9bbf737b38a47ef531e98eba75"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/browser-observations.json",
+          "kind": "log",
+          "sha256": "82e728b8a8a3b58d4549cdf0d3d15a5ee9b408db2fb95389a53c75be950f56bf"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/rendered-modal.html",
+          "kind": "log",
+          "sha256": "15f35b85bba91689f7fb5d01035d65015e58f0ca794ae2dbc46488ff30d97117"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/design-audit.json",
+          "kind": "log",
+          "sha256": "26506458f5f1927243c63ebd28a4b79cd684f911e23acf4b6afe6f3bc8d69e02"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/critique.json",
+          "kind": "log",
+          "sha256": "d55658988b17c073824076ba7552eb7ce9b1ebd15e2c631742d7632c4f626e53"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/challenge.json",
+          "kind": "log",
+          "sha256": "e24bdda750f31d97aabbf6c0b85a2c75cd43d78b4ee75f6450afa6e4873ccd1f"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/render-audit.json",
+          "kind": "log",
+          "sha256": "6ec3e05e6eb40ad5ae5e459c13ea476c7c236ae2a13d2f959403aa8cb1ce2daf"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/review.md",
+          "kind": "log",
+          "sha256": "f4899c5d91bc98919e2e59d421d2e72ee77f81d129083a866ff80a564cabe038"
+        }
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "profile": "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback",
+      "status": "PASS",
+      "reason": "Read-only current evidence inspection grants no production authority.",
+      "execution_identity": "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback",
+      "observed_at": "2026-10-27T00:33:41.488101+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-checklist-ui/node-all.log",
+          "kind": "log",
+          "sha256": "7bed8c00968a10a2f123fbcf2290e3d994ff1d1191c229ff9bb9f6ca9c81be07"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/packaging-ui-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/ui-stories-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/qa.json",
+          "kind": "log",
+          "sha256": "77076a64458b6b737edf8c984524f8ddddba58ea2db1b2ad1b3c8fff0f418ea2"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "2e486a806a9f2cfa79a6f69c8b74f37d774785def579aa9dc12586349ffcb0d6"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutations.json",
+          "kind": "log",
+          "sha256": "a1014f5b612f0ea71ecf6f38765f93532ddd528f75493b4176697e580674f837"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutation-receipt.log",
+          "kind": "log",
+          "sha256": "b13090a61bf93858f377a70840cf4f2d30585e4f1caa3458cee72f85ae5fb2e9"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutation-late-response.log",
+          "kind": "log",
+          "sha256": "325af8f01e35e0cca0c82d4fc454aedd5ba83b9bbf737b38a47ef531e98eba75"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/browser-observations.json",
+          "kind": "log",
+          "sha256": "82e728b8a8a3b58d4549cdf0d3d15a5ee9b408db2fb95389a53c75be950f56bf"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/rendered-modal.html",
+          "kind": "log",
+          "sha256": "15f35b85bba91689f7fb5d01035d65015e58f0ca794ae2dbc46488ff30d97117"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/design-audit.json",
+          "kind": "log",
+          "sha256": "26506458f5f1927243c63ebd28a4b79cd684f911e23acf4b6afe6f3bc8d69e02"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/critique.json",
+          "kind": "log",
+          "sha256": "d55658988b17c073824076ba7552eb7ce9b1ebd15e2c631742d7632c4f626e53"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/challenge.json",
+          "kind": "log",
+          "sha256": "e24bdda750f31d97aabbf6c0b85a2c75cd43d78b4ee75f6450afa6e4873ccd1f"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/render-audit.json",
+          "kind": "log",
+          "sha256": "6ec3e05e6eb40ad5ae5e459c13ea476c7c236ae2a13d2f959403aa8cb1ce2daf"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/review.md",
+          "kind": "log",
+          "sha256": "f4899c5d91bc98919e2e59d421d2e72ee77f81d129083a866ff80a564cabe038"
+        }
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "profile": "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback",
+      "status": "PASS",
+      "reason": "Exact receipt identity, safe output and private synthetic browser fixtures; no whole-product security claim.",
+      "execution_identity": "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback",
+      "observed_at": "2026-10-27T00:33:41.490101+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-checklist-ui/node-all.log",
+          "kind": "log",
+          "sha256": "7bed8c00968a10a2f123fbcf2290e3d994ff1d1191c229ff9bb9f6ca9c81be07"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/packaging-ui-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/ui-stories-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/qa.json",
+          "kind": "log",
+          "sha256": "77076a64458b6b737edf8c984524f8ddddba58ea2db1b2ad1b3c8fff0f418ea2"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "2e486a806a9f2cfa79a6f69c8b74f37d774785def579aa9dc12586349ffcb0d6"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutations.json",
+          "kind": "log",
+          "sha256": "a1014f5b612f0ea71ecf6f38765f93532ddd528f75493b4176697e580674f837"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutation-receipt.log",
+          "kind": "log",
+          "sha256": "b13090a61bf93858f377a70840cf4f2d30585e4f1caa3458cee72f85ae5fb2e9"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutation-late-response.log",
+          "kind": "log",
+          "sha256": "325af8f01e35e0cca0c82d4fc454aedd5ba83b9bbf737b38a47ef531e98eba75"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/browser-observations.json",
+          "kind": "log",
+          "sha256": "82e728b8a8a3b58d4549cdf0d3d15a5ee9b408db2fb95389a53c75be950f56bf"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/rendered-modal.html",
+          "kind": "log",
+          "sha256": "15f35b85bba91689f7fb5d01035d65015e58f0ca794ae2dbc46488ff30d97117"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/design-audit.json",
+          "kind": "log",
+          "sha256": "26506458f5f1927243c63ebd28a4b79cd684f911e23acf4b6afe6f3bc8d69e02"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/critique.json",
+          "kind": "log",
+          "sha256": "d55658988b17c073824076ba7552eb7ce9b1ebd15e2c631742d7632c4f626e53"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/challenge.json",
+          "kind": "log",
+          "sha256": "e24bdda750f31d97aabbf6c0b85a2c75cd43d78b4ee75f6450afa6e4873ccd1f"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/render-audit.json",
+          "kind": "log",
+          "sha256": "6ec3e05e6eb40ad5ae5e459c13ea476c7c236ae2a13d2f959403aa8cb1ce2daf"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/review.md",
+          "kind": "log",
+          "sha256": "f4899c5d91bc98919e2e59d421d2e72ee77f81d129083a866ff80a564cabe038"
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "profile": "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback",
+      "status": "PASS",
+      "reason": "At most100 receipt rows; no latency, savings or conversion claim.",
+      "execution_identity": "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback",
+      "observed_at": "2026-10-27T00:33:41.492101+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-checklist-ui/node-all.log",
+          "kind": "log",
+          "sha256": "7bed8c00968a10a2f123fbcf2290e3d994ff1d1191c229ff9bb9f6ca9c81be07"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/packaging-ui-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/ui-stories-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/qa.json",
+          "kind": "log",
+          "sha256": "77076a64458b6b737edf8c984524f8ddddba58ea2db1b2ad1b3c8fff0f418ea2"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "2e486a806a9f2cfa79a6f69c8b74f37d774785def579aa9dc12586349ffcb0d6"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutations.json",
+          "kind": "log",
+          "sha256": "a1014f5b612f0ea71ecf6f38765f93532ddd528f75493b4176697e580674f837"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutation-receipt.log",
+          "kind": "log",
+          "sha256": "b13090a61bf93858f377a70840cf4f2d30585e4f1caa3458cee72f85ae5fb2e9"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutation-late-response.log",
+          "kind": "log",
+          "sha256": "325af8f01e35e0cca0c82d4fc454aedd5ba83b9bbf737b38a47ef531e98eba75"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/browser-observations.json",
+          "kind": "log",
+          "sha256": "82e728b8a8a3b58d4549cdf0d3d15a5ee9b408db2fb95389a53c75be950f56bf"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/rendered-modal.html",
+          "kind": "log",
+          "sha256": "15f35b85bba91689f7fb5d01035d65015e58f0ca794ae2dbc46488ff30d97117"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/design-audit.json",
+          "kind": "log",
+          "sha256": "26506458f5f1927243c63ebd28a4b79cd684f911e23acf4b6afe6f3bc8d69e02"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/critique.json",
+          "kind": "log",
+          "sha256": "d55658988b17c073824076ba7552eb7ce9b1ebd15e2c631742d7632c4f626e53"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/challenge.json",
+          "kind": "log",
+          "sha256": "e24bdda750f31d97aabbf6c0b85a2c75cd43d78b4ee75f6450afa6e4873ccd1f"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/render-audit.json",
+          "kind": "log",
+          "sha256": "6ec3e05e6eb40ad5ae5e459c13ea476c7c236ae2a13d2f959403aa8cb1ce2daf"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/review.md",
+          "kind": "log",
+          "sha256": "f4899c5d91bc98919e2e59d421d2e72ee77f81d129083a866ff80a564cabe038"
+        }
+      ]
+    },
+    {
+      "id": "accessibility",
+      "profile": "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback",
+      "status": "PASS",
+      "reason": "Desktop/mobile emulation, visible keyboard focus and existing live status modal controls.",
+      "execution_identity": "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback",
+      "observed_at": "2026-10-27T00:33:41.494100+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-checklist-ui/node-all.log",
+          "kind": "log",
+          "sha256": "7bed8c00968a10a2f123fbcf2290e3d994ff1d1191c229ff9bb9f6ca9c81be07"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/packaging-ui-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/ui-stories-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/qa.json",
+          "kind": "log",
+          "sha256": "77076a64458b6b737edf8c984524f8ddddba58ea2db1b2ad1b3c8fff0f418ea2"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "2e486a806a9f2cfa79a6f69c8b74f37d774785def579aa9dc12586349ffcb0d6"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutations.json",
+          "kind": "log",
+          "sha256": "a1014f5b612f0ea71ecf6f38765f93532ddd528f75493b4176697e580674f837"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutation-receipt.log",
+          "kind": "log",
+          "sha256": "b13090a61bf93858f377a70840cf4f2d30585e4f1caa3458cee72f85ae5fb2e9"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutation-late-response.log",
+          "kind": "log",
+          "sha256": "325af8f01e35e0cca0c82d4fc454aedd5ba83b9bbf737b38a47ef531e98eba75"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/browser-observations.json",
+          "kind": "log",
+          "sha256": "82e728b8a8a3b58d4549cdf0d3d15a5ee9b408db2fb95389a53c75be950f56bf"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/rendered-modal.html",
+          "kind": "log",
+          "sha256": "15f35b85bba91689f7fb5d01035d65015e58f0ca794ae2dbc46488ff30d97117"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/design-audit.json",
+          "kind": "log",
+          "sha256": "26506458f5f1927243c63ebd28a4b79cd684f911e23acf4b6afe6f3bc8d69e02"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/critique.json",
+          "kind": "log",
+          "sha256": "d55658988b17c073824076ba7552eb7ce9b1ebd15e2c631742d7632c4f626e53"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/challenge.json",
+          "kind": "log",
+          "sha256": "e24bdda750f31d97aabbf6c0b85a2c75cd43d78b4ee75f6450afa6e4873ccd1f"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/render-audit.json",
+          "kind": "log",
+          "sha256": "6ec3e05e6eb40ad5ae5e459c13ea476c7c236ae2a13d2f959403aa8cb1ce2daf"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/review.md",
+          "kind": "log",
+          "sha256": "f4899c5d91bc98919e2e59d421d2e72ee77f81d129083a866ff80a564cabe038"
+        }
+      ]
+    },
+    {
+      "id": "external_effects",
+      "profile": "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback",
+      "status": "PASS",
+      "reason": "Local read-only inspection and user-initiated report downloads/print view only.",
+      "execution_identity": "Windows-Node-Chromium-desktop1440-mobile390-synthetic-loopback",
+      "observed_at": "2026-10-27T00:33:41.496105+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-checklist-ui/node-all.log",
+          "kind": "log",
+          "sha256": "7bed8c00968a10a2f123fbcf2290e3d994ff1d1191c229ff9bb9f6ca9c81be07"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/packaging-ui-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/ui-stories-syntax.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/qa.json",
+          "kind": "log",
+          "sha256": "77076a64458b6b737edf8c984524f8ddddba58ea2db1b2ad1b3c8fff0f418ea2"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "2e486a806a9f2cfa79a6f69c8b74f37d774785def579aa9dc12586349ffcb0d6"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutations.json",
+          "kind": "log",
+          "sha256": "a1014f5b612f0ea71ecf6f38765f93532ddd528f75493b4176697e580674f837"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutation-receipt.log",
+          "kind": "log",
+          "sha256": "b13090a61bf93858f377a70840cf4f2d30585e4f1caa3458cee72f85ae5fb2e9"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/mutation-late-response.log",
+          "kind": "log",
+          "sha256": "325af8f01e35e0cca0c82d4fc454aedd5ba83b9bbf737b38a47ef531e98eba75"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/browser-observations.json",
+          "kind": "log",
+          "sha256": "82e728b8a8a3b58d4549cdf0d3d15a5ee9b408db2fb95389a53c75be950f56bf"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/rendered-modal.html",
+          "kind": "log",
+          "sha256": "15f35b85bba91689f7fb5d01035d65015e58f0ca794ae2dbc46488ff30d97117"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/design-audit.json",
+          "kind": "log",
+          "sha256": "26506458f5f1927243c63ebd28a4b79cd684f911e23acf4b6afe6f3bc8d69e02"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/critique.json",
+          "kind": "log",
+          "sha256": "d55658988b17c073824076ba7552eb7ce9b1ebd15e2c631742d7632c4f626e53"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/challenge.json",
+          "kind": "log",
+          "sha256": "e24bdda750f31d97aabbf6c0b85a2c75cd43d78b4ee75f6450afa6e4873ccd1f"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/render-audit.json",
+          "kind": "log",
+          "sha256": "6ec3e05e6eb40ad5ae5e459c13ea476c7c236ae2a13d2f959403aa8cb1ce2daf"
+        },
+        {
+          "path": ".factory/content-packaging-checklist-ui/review.md",
+          "kind": "log",
+          "sha256": "f4899c5d91bc98919e2e59d421d2e72ee77f81d129083a866ff80a564cabe038"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+test_assignment_sabotage_drop_duplicate_or_substitute_cannot_pass (tests.test_ci_runner.ShardTests.test_assignment_sabotage_drop_duplicate_or_substitute_cannot_pass) ... ok
+test_cli_executes_every_miniature_case_once_in_four_shards_including_skip (tests.test_ci_runner.ShardTests.test_cli_executes_every_miniature_case_once_in_four_shards_including_skip) ... ok
+test_cli_invalid_bounds_empty_discovery_and_empty_selected_shard_fail (tests.test_ci_runner.ShardTests.test_cli_invalid_bounds_empty_discovery_and_empty_selected_shard_fail) ... ok
+test_cli_propagates_failure_error_and_discovery_import_failure (tests.test_ci_runner.ShardTests.test_cli_propagates_failure_error_and_discovery_import_failure) ... ok
+test_deterministic_greedy_count_balance_and_full_hash_preserve_multiplicity (tests.test_ci_runner.ShardTests.test_deterministic_greedy_count_balance_and_full_hash_preserve_multiplicity) ... ok
+test_invalid_partition_inputs_reject (tests.test_ci_runner.ShardTests.test_invalid_partition_inputs_reject) ... ok
+test_nested_inventory_preserves_duplicate_ids_objects_and_module_order (tests.test_ci_runner.ShardTests.test_nested_inventory_preserves_duplicate_ids_objects_and_module_order) ... ok
+test_plan_only_reports_inventory_without_executing_or_claiming_pass (tests.test_ci_runner.ShardTests.test_plan_only_reports_inventory_without_executing_or_claiming_pass) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 3.786s
+
+OK

@@ -1,0 +1,37 @@
+[
+  {
+    "name": "source-hash",
+    "killed": true,
+    "exit_code": 1
+  },
+  {
+    "name": "script-binding",
+    "killed": true,
+    "exit_code": 1
+  },
+  {
+    "name": "manifest",
+    "killed": true,
+    "exit_code": 1
+  },
+  {
+    "name": "precommit",
+    "killed": true,
+    "exit_code": 1
+  },
+  {
+    "name": "immutable-delete",
+    "killed": true,
+    "exit_code": 1
+  },
+  {
+    "name": "immutable-replace",
+    "killed": true,
+    "exit_code": 1
+  },
+  {
+    "name": "immutable-rowid",
+    "killed": true,
+    "exit_code": 1
+  }
+]

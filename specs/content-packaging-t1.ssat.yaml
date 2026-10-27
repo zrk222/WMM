@@ -1,0 +1,279 @@
+{
+  "name": "content-packaging-t1",
+  "language": "python",
+  "modules": [
+    {
+      "name": "packaging_contract",
+      "path": "mission_control/packaging_contract.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "items",
+          "args": [
+            "value",
+            "maximum"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "reference",
+          "args": [
+            "value",
+            "kinds"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "refs",
+          "args": [
+            "values",
+            "kinds"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "variant",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "shot",
+          "args": [
+            "value",
+            "segments"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "timing",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "shotlist",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "packaging_bindings",
+      "path": "mission_control/packaging_bindings.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "matching",
+          "args": [
+            "row",
+            "ref"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "record",
+          "args": [
+            "db",
+            "store",
+            "app_id",
+            "ref",
+            "app"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "collection",
+          "args": [
+            "db",
+            "app_id",
+            "ref",
+            "app"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "collection_review",
+          "args": [
+            "db",
+            "app_id",
+            "review"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "resolve",
+          "args": [
+            "db",
+            "store",
+            "app_id",
+            "ref",
+            "app"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "variant_binding",
+          "args": [
+            "db",
+            "store",
+            "app_id",
+            "ref",
+            "app"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "shot_claims",
+          "args": [
+            "db",
+            "app_id",
+            "shots"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "packaging_store",
+      "path": "mission_control/packaging_store.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "decode",
+          "args": [
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "latest",
+          "args": [
+            "db",
+            "app_id",
+            "identity",
+            "kind"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "references",
+          "args": [
+            "kind",
+            "definition"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "frozen",
+          "args": [
+            "db",
+            "store",
+            "app_id",
+            "kind",
+            "definition",
+            "app"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "gaps",
+          "args": [
+            "kind",
+            "definition"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "readback",
+          "args": [
+            "db",
+            "store",
+            "app_id",
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "__init__",
+          "args": [
+            "self",
+            "store"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "save",
+          "args": [
+            "self",
+            "app_id",
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "read",
+          "args": [
+            "self",
+            "app_id",
+            "identity",
+            "kind",
+            "version"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "list",
+          "args": [
+            "self",
+            "app_id",
+            "offset"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "db",
+      "path": "mission_control/db.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "session",
+          "args": [
+            "path"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "transaction",
+          "args": [
+            "path",
+            "db"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "connection",
+          "args": [
+            "path"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "initialize",
+          "args": [
+            "path"
+          ],
+          "returns": "object"
+        }
+      ]
+    }
+  ],
+  "dependencies": [],
+  "invariants": []
+}

@@ -1,0 +1,145 @@
+EEEEEEE
+======================================================================
+ERROR: test_changed_app_or_variant_cannot_silently_rebind (tests.test_packaging_handoff.HandoffChecklistTests.test_changed_app_or_variant_cannot_silently_rebind)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\tests\test_packaging.py", line 32, in setUp
+    self.tmp=tempfile.TemporaryDirectory();self.store=Store(Path(self.tmp.name)/'state.sqlite')
+                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\mission_control\store.py", line 66, in __init__
+    self.seed()
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\mission_control\store.py", line 71, in seed
+    profiles = json.loads(source.read_text(encoding="utf-8-sig"))["apps"]
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1058, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\rkatz\\AppData\\Local\\Temp\\tmpywqkyiw7\\package\\app-profiles.json'
+
+======================================================================
+ERROR: test_changed_variant_rejects_old_shot_parent (tests.test_packaging_handoff.HandoffChecklistTests.test_changed_variant_rejects_old_shot_parent)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\tests\test_packaging.py", line 32, in setUp
+    self.tmp=tempfile.TemporaryDirectory();self.store=Store(Path(self.tmp.name)/'state.sqlite')
+                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\mission_control\store.py", line 66, in __init__
+    self.seed()
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\mission_control\store.py", line 71, in seed
+    profiles = json.loads(source.read_text(encoding="utf-8-sig"))["apps"]
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1058, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\rkatz\\AppData\\Local\\Temp\\tmpywqkyiw7\\package\\app-profiles.json'
+
+======================================================================
+ERROR: test_exact_revision_hash_app_and_closed_input_reject (tests.test_packaging_handoff.HandoffChecklistTests.test_exact_revision_hash_app_and_closed_input_reject)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\tests\test_packaging.py", line 32, in setUp
+    self.tmp=tempfile.TemporaryDirectory();self.store=Store(Path(self.tmp.name)/'state.sqlite')
+                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\mission_control\store.py", line 66, in __init__
+    self.seed()
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\mission_control\store.py", line 71, in seed
+    profiles = json.loads(source.read_text(encoding="utf-8-sig"))["apps"]
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1058, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\rkatz\\AppData\\Local\\Temp\\tmpywqkyiw7\\package\\app-profiles.json'
+
+======================================================================
+ERROR: test_missing_media_and_claims_are_visible_without_writes (tests.test_packaging_handoff.HandoffChecklistTests.test_missing_media_and_claims_are_visible_without_writes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\tests\test_packaging.py", line 32, in setUp
+    self.tmp=tempfile.TemporaryDirectory();self.store=Store(Path(self.tmp.name)/'state.sqlite')
+                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\mission_control\store.py", line 66, in __init__
+    self.seed()
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\mission_control\store.py", line 71, in seed
+    profiles = json.loads(source.read_text(encoding="utf-8-sig"))["apps"]
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1058, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\rkatz\\AppData\\Local\\Temp\\tmpywqkyiw7\\package\\app-profiles.json'
+
+======================================================================
+ERROR: test_research_timing_is_not_a_source_trim (tests.test_packaging_handoff.HandoffChecklistTests.test_research_timing_is_not_a_source_trim)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\tests\test_packaging.py", line 32, in setUp
+    self.tmp=tempfile.TemporaryDirectory();self.store=Store(Path(self.tmp.name)/'state.sqlite')
+                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\mission_control\store.py", line 66, in __init__
+    self.seed()
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\mission_control\store.py", line 71, in seed
+    profiles = json.loads(source.read_text(encoding="utf-8-sig"))["apps"]
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1058, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\rkatz\\AppData\\Local\\Temp\\tmpywqkyiw7\\package\\app-profiles.json'
+
+======================================================================
+ERROR: test_reviewed_media_and_revocation_are_rechecked (tests.test_packaging_handoff.HandoffChecklistTests.test_reviewed_media_and_revocation_are_rechecked)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\tests\test_packaging.py", line 32, in setUp
+    self.tmp=tempfile.TemporaryDirectory();self.store=Store(Path(self.tmp.name)/'state.sqlite')
+                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\mission_control\store.py", line 66, in __init__
+    self.seed()
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\mission_control\store.py", line 71, in seed
+    profiles = json.loads(source.read_text(encoding="utf-8-sig"))["apps"]
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1058, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\rkatz\\AppData\\Local\\Temp\\tmpywqkyiw7\\package\\app-profiles.json'
+
+======================================================================
+ERROR: test_still_asset_is_not_timed_media_and_changed_bytes_are_stale (tests.test_packaging_handoff.HandoffChecklistTests.test_still_asset_is_not_timed_media_and_changed_bytes_are_stale)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\tests\test_packaging.py", line 32, in setUp
+    self.tmp=tempfile.TemporaryDirectory();self.store=Store(Path(self.tmp.name)/'state.sqlite')
+                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\mission_control\store.py", line 66, in __init__
+    self.seed()
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmpywqkyiw7\mission_control\store.py", line 71, in seed
+    profiles = json.loads(source.read_text(encoding="utf-8-sig"))["apps"]
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1058, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\rkatz\\AppData\\Local\\Temp\\tmpywqkyiw7\\package\\app-profiles.json'
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.565s
+
+FAILED (errors=7)

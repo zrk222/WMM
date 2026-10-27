@@ -1,0 +1,8 @@
+$ python -m unittest tests.test_packaging.PackagingTests.test_explicit_rowid_replace_preserves_history_for_both_trigger_modes tests.test_packaging.PackagingTests.test_rowid_guard_upgrade_and_reserved_negative_sentinel_fail_closed -v
+test_explicit_rowid_replace_preserves_history_for_both_trigger_modes (tests.test_packaging.PackagingTests.test_explicit_rowid_replace_preserves_history_for_both_trigger_modes) ... ok
+test_rowid_guard_upgrade_and_reserved_negative_sentinel_fail_closed (tests.test_packaging.PackagingTests.test_rowid_guard_upgrade_and_reserved_negative_sentinel_fail_closed) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 1.392s
+
+OK

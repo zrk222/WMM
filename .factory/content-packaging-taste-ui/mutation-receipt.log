@@ -1,0 +1,203 @@
+TAP version 13
+# Subtest: checklist identity and reports retain missingness, escape source text and reject foreign authority
+ok 1 - checklist identity and reports retain missingness, escape source text and reject foreign authority
+  ---
+  duration_ms: 4.1128
+  type: 'test'
+  ...
+# Subtest: variantData binds selected source and product revisions with the chosen thumbnail first
+ok 2 - variantData binds selected source and product revisions with the chosen thumbnail first
+  ---
+  duration_ms: 1.9562
+  type: 'test'
+  ...
+# Subtest: library filters product scope, keeps latest collection revisions, and excludes unattested media
+ok 3 - library filters product scope, keeps latest collection revisions, and excludes unattested media
+  ---
+  duration_ms: 0.8697
+  type: 'test'
+  ...
+# Subtest: local thumbnails cannot introduce remote hosts, path traversal or HTML attributes
+ok 4 - local thumbnails cannot introduce remote hosts, path traversal or HTML attributes
+  ---
+  duration_ms: 0.393
+  type: 'test'
+  ...
+# Subtest: canonical SHA256 matches Python Unicode, sorted keys and newline encoding
+ok 5 - canonical SHA256 matches Python Unicode, sorted keys and newline encoding
+  ---
+  duration_ms: 8.2717
+  type: 'test'
+  ...
+# Subtest: shotData preserves user ordering, source timing, reusable media and exact script hashes
+ok 6 - shotData preserves user ordering, source timing, reusable media and exact script hashes
+  ---
+  duration_ms: 2.2828
+  type: 'test'
+  ...
+# Subtest: source timing rejects dropped, reversed, fractional or unbounded timestamps
+ok 7 - source timing rejects dropped, reversed, fractional or unbounded timestamps
+  ---
+  duration_ms: 0.3764
+  type: 'test'
+  ...
+# Subtest: move preserves identities and does not mutate saved rows
+ok 8 - move preserves identities and does not mutate saved rows
+  ---
+  duration_ms: 0.2397
+  type: 'test'
+  ...
+# Subtest: seeded desktop and mobile previews use identical card order and source snapshots
+ok 9 - seeded desktop and mobile previews use identical card order and source snapshots
+  ---
+  duration_ms: 1.2592
+  type: 'test'
+  ...
+# Subtest: blind feed uses equal cards and escapes text without fabricated counters or remote images
+ok 10 - blind feed uses equal cards and escapes text without fabricated counters or remote images
+  ---
+  duration_ms: 0.6644
+  type: 'test'
+  ...
+# Subtest: report and CSV separate plan analytics from unknown sales and neutralize spreadsheet formulas
+ok 11 - report and CSV separate plan analytics from unknown sales and neutralize spreadsheet formulas
+  ---
+  duration_ms: 0.6026
+  type: 'test'
+  ...
+# Subtest: fields are labelled and source copy cannot inject markup into controls
+ok 12 - fields are labelled and source copy cannot inject markup into controls
+  ---
+  duration_ms: 0.4294
+  type: 'test'
+  ...
+# Subtest: taste data binds twelve explicit example slots, limits and safe complete exports
+not ok 13 - taste data binds twelve explicit example slots, limits and safe complete exports
+  ---
+  duration_ms: 0.9653
+  type: 'test'
+  location: 'C:\\Users\\rkatz\\AppData\\Local\\Temp\\tmpuj64j2u1\\tests\\packaging_model.test.cjs:37:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected exception.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  operator: 'throws'
+  stack: |-
+    TestContext.<anonymous> (<LOCAL_PROFILE>\AppData\Local\Temp\tmpuj64j2u1\tests\packaging_model.test.cjs:37:1001)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: checklist action reads exact saved shots and shows gaps with revision and report controls
+ok 14 - checklist action reads exact saved shots and shows gaps with revision and report controls
+  ---
+  duration_ms: 35.9362
+  type: 'test'
+  ...
+# Subtest: late and foreign checklist responses cannot replace another dialog context
+ok 15 - late and foreign checklist responses cannot replace another dialog context
+  ---
+  duration_ms: 3.9056
+  type: 'test'
+  ...
+# Subtest: an active non-owner cannot open or submit private packaging plans
+ok 16 - an active non-owner cannot open or submit private packaging plans
+  ---
+  duration_ms: 0.9699
+  type: 'test'
+  ...
+# Subtest: owner and scope checks reject another principal or revoked membership
+ok 17 - owner and scope checks reject another principal or revoked membership
+  ---
+  duration_ms: 0.7865
+  type: 'test'
+  ...
+# Subtest: request allows only fixed local services, rejects foreign receipts, and sends exact JSON once
+ok 18 - request allows only fixed local services, rejects foreign receipts, and sends exact JSON once
+  ---
+  duration_ms: 0.8437
+  type: 'test'
+  ...
+# Subtest: receipt matching binds app, input, kind, expected revision and setup
+ok 19 - receipt matching binds app, input, kind, expected revision and setup
+  ---
+  duration_ms: 0.5132
+  type: 'test'
+  ...
+# Subtest: an uncertain save locks fields, retains exact input and never auto-retries
+ok 20 - an uncertain save locks fields, retains exact input and never auto-retries
+  ---
+  duration_ms: 1.1263
+  type: 'test'
+  ...
+# Subtest: one explicit identical retry follows an absent revision and a matching receipt clears uncertainty
+ok 21 - one explicit identical retry follows an absent revision and a matching receipt clears uncertainty
+  ---
+  duration_ms: 1.9862
+  type: 'test'
+  ...
+# Subtest: scope change aborts pending work and clears private dialog content
+ok 22 - scope change aborts pending work and clears private dialog content
+  ---
+  duration_ms: 0.9367
+  type: 'test'
+  ...
+# Subtest: busy submission prevents duplicate requests while the first save is pending
+ok 23 - busy submission prevents duplicate requests while the first save is pending
+  ---
+  duration_ms: 0.931
+  type: 'test'
+  ...
+# Subtest: preview settings preserve explicit choices and reject a thumbnail without its source
+ok 24 - preview settings preserve explicit choices and reject a thumbnail without its source
+  ---
+  duration_ms: 0.616
+  type: 'test'
+  ...
+# Subtest: shot controls and saved summaries expose all editing fields without executing media
+ok 25 - shot controls and saved summaries expose all editing fields without executing media
+  ---
+  duration_ms: 0.8793
+  type: 'test'
+  ...
+# Subtest: owner taste form exposes twelve examples and saves exact guidance without granting execution
+ok 26 - owner taste form exposes twelve examples and saves exact guidance without granting execution
+  ---
+  duration_ms: 1.3644
+  type: 'test'
+  ...
+# Subtest: uncertain owner taste save uses observation-only reconciliation with exact original input
+ok 27 - uncertain owner taste save uses observation-only reconciliation with exact original input
+  ---
+  duration_ms: 0.8702
+  type: 'test'
+  ...
+# Subtest: late taste responses cannot reopen a changed app and foreign owner reviews reject
+not ok 28 - late taste responses cannot reopen a changed app and foreign owner reviews reject
+  ---
+  duration_ms: 1.5219
+  type: 'test'
+  location: 'C:\\Users\\rkatz\\AppData\\Local\\Temp\\tmpuj64j2u1\\tests\\packaging_ui.test.cjs:46:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'rejects'
+  stack: |-
+    async TestContext.<anonymous> (<LOCAL_PROFILE>\AppData\Local\Temp\tmpuj64j2u1\tests\packaging_ui.test.cjs:46:588)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..28
+# tests 28
+# suites 0
+# pass 26
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 998.6809

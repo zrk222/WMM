@@ -1,0 +1,807 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "72968cdb6dc13ec8261a7a448f13aaa2139d11db6ef21f76e23c83ba747b8f54",
+  "candidate_sha256": "1aa7d351c716faf9861627fe2f76492c7d497baa180dceb1008d38bac862475f",
+  "observations": [
+    {
+      "id": "happy_path",
+      "profile": "Windows-Python3.11-Node-Chromium-synthetic-owner-loopback",
+      "status": "PASS",
+      "reason": "Owner saves variant/shot revisions and compares original creative using local evidence; backend HTTP/CLI/MCP regressions pass.",
+      "execution_identity": "49 Python regressions; full Node CJS suite; scoped source-candidate security; semantic mutants; Chrome DevTools isolated fixture; Prestige static/render audits",
+      "observed_at": "2026-10-26T15:41:16.658102+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t4/regressions.log",
+          "kind": "log",
+          "sha256": "3576275d7f9784a90230494b0a862ceb79141bb1d00a75740bbfc9f9a2623d25"
+        },
+        {
+          "path": ".factory/content-packaging-t4/node-all.log",
+          "kind": "log",
+          "sha256": "9a85bb8c6a745319606fa734b3ad4363091eba0d1d4fa5e2f06d3ccf8f8613e0"
+        },
+        {
+          "path": ".factory/content-packaging-t4/qa.json",
+          "kind": "log",
+          "sha256": "300e1c79d0c4a5a327830d8636bf32400a22fae79bcf7b38d1efb5eb56776123"
+        },
+        {
+          "path": ".factory/content-packaging-t4/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "41ef77219adf1e0dd4cf4df613b3f9ec8ffccea17a18c0036d911afcf7f1678e"
+        },
+        {
+          "path": ".factory/content-packaging-t4/security.json",
+          "kind": "log",
+          "sha256": "aadece5419bd8a6e8fe838a5b20dba74a370faf06611f8cf8546245c16932264"
+        },
+        {
+          "path": ".factory/content-packaging-t4/strict.log",
+          "kind": "log",
+          "sha256": "7667a7a25dfe164c9d719d8099c49f33e7a52af0bf5d11350a82b43b7a25269f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/lint-relevant.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t4/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutations.json",
+          "kind": "log",
+          "sha256": "43fa43e077f8d44d337ae8dbb6f7bb4a6e28d977922585ce38dfc294b9be38e5"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-authority.log",
+          "kind": "log",
+          "sha256": "3d8f7da32886ca7bd551731af49ff3f0b909d7b099805d4048c67e58873bddc1"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-scope.log",
+          "kind": "log",
+          "sha256": "1450ac6c80c66588a07da9e84fbda41ea4815bb019686492835ca11ebf4c404c"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-canonical-hash.log",
+          "kind": "log",
+          "sha256": "e791fa2a4dc60c8a0ca4cc6550ba82b707ded9ebebd76f109ec2e518b9dc6a5f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/design-audit.json",
+          "kind": "log",
+          "sha256": "bdfd3d7d3ee181790654d35a1214f89a27d9890a672cc1b9ca3983fa9ebf6e84"
+        },
+        {
+          "path": ".factory/content-packaging-t4/critique.json",
+          "kind": "log",
+          "sha256": "025d95081233334ef04b1878560592d901bbd8d3835a2fc727c221c904d483b6"
+        },
+        {
+          "path": ".factory/content-packaging-t4/challenge.json",
+          "kind": "log",
+          "sha256": "e24bdda750f31d97aabbf6c0b85a2c75cd43d78b4ee75f6450afa6e4873ccd1f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/render-audit.json",
+          "kind": "log",
+          "sha256": "a62b583f5693c45c1e0ce8a6b7fd7b7aabf73ba8f07b92cfc51bafbd2b694d76"
+        },
+        {
+          "path": ".factory/content-packaging-t4/rendered-modal.html",
+          "kind": "log",
+          "sha256": "a50f2c313e477477ab1c401a6a87c53fd195e877a17b312394db07370a90b882"
+        },
+        {
+          "path": ".factory/content-packaging-t4/browser-observations.json",
+          "kind": "log",
+          "sha256": "c55a2887839f7e0c612505fee037c071733655807ef4b1037bae3e52b27012d0"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-Python3.11-Node-Chromium-synthetic-owner-loopback",
+      "status": "PASS",
+      "reason": "Exact receipts, revisions, owner role, canonical hashes, timestamps, local image paths and formula-safe exports are checked.",
+      "execution_identity": "49 Python regressions; full Node CJS suite; scoped source-candidate security; semantic mutants; Chrome DevTools isolated fixture; Prestige static/render audits",
+      "observed_at": "2026-10-26T15:41:16.661097+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t4/regressions.log",
+          "kind": "log",
+          "sha256": "3576275d7f9784a90230494b0a862ceb79141bb1d00a75740bbfc9f9a2623d25"
+        },
+        {
+          "path": ".factory/content-packaging-t4/node-all.log",
+          "kind": "log",
+          "sha256": "9a85bb8c6a745319606fa734b3ad4363091eba0d1d4fa5e2f06d3ccf8f8613e0"
+        },
+        {
+          "path": ".factory/content-packaging-t4/qa.json",
+          "kind": "log",
+          "sha256": "300e1c79d0c4a5a327830d8636bf32400a22fae79bcf7b38d1efb5eb56776123"
+        },
+        {
+          "path": ".factory/content-packaging-t4/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "41ef77219adf1e0dd4cf4df613b3f9ec8ffccea17a18c0036d911afcf7f1678e"
+        },
+        {
+          "path": ".factory/content-packaging-t4/security.json",
+          "kind": "log",
+          "sha256": "aadece5419bd8a6e8fe838a5b20dba74a370faf06611f8cf8546245c16932264"
+        },
+        {
+          "path": ".factory/content-packaging-t4/strict.log",
+          "kind": "log",
+          "sha256": "7667a7a25dfe164c9d719d8099c49f33e7a52af0bf5d11350a82b43b7a25269f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/lint-relevant.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t4/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutations.json",
+          "kind": "log",
+          "sha256": "43fa43e077f8d44d337ae8dbb6f7bb4a6e28d977922585ce38dfc294b9be38e5"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-authority.log",
+          "kind": "log",
+          "sha256": "3d8f7da32886ca7bd551731af49ff3f0b909d7b099805d4048c67e58873bddc1"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-scope.log",
+          "kind": "log",
+          "sha256": "1450ac6c80c66588a07da9e84fbda41ea4815bb019686492835ca11ebf4c404c"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-canonical-hash.log",
+          "kind": "log",
+          "sha256": "e791fa2a4dc60c8a0ca4cc6550ba82b707ded9ebebd76f109ec2e518b9dc6a5f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/design-audit.json",
+          "kind": "log",
+          "sha256": "bdfd3d7d3ee181790654d35a1214f89a27d9890a672cc1b9ca3983fa9ebf6e84"
+        },
+        {
+          "path": ".factory/content-packaging-t4/critique.json",
+          "kind": "log",
+          "sha256": "025d95081233334ef04b1878560592d901bbd8d3835a2fc727c221c904d483b6"
+        },
+        {
+          "path": ".factory/content-packaging-t4/challenge.json",
+          "kind": "log",
+          "sha256": "e24bdda750f31d97aabbf6c0b85a2c75cd43d78b4ee75f6450afa6e4873ccd1f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/render-audit.json",
+          "kind": "log",
+          "sha256": "a62b583f5693c45c1e0ce8a6b7fd7b7aabf73ba8f07b92cfc51bafbd2b694d76"
+        },
+        {
+          "path": ".factory/content-packaging-t4/rendered-modal.html",
+          "kind": "log",
+          "sha256": "a50f2c313e477477ab1c401a6a87c53fd195e877a17b312394db07370a90b882"
+        },
+        {
+          "path": ".factory/content-packaging-t4/browser-observations.json",
+          "kind": "log",
+          "sha256": "c55a2887839f7e0c612505fee037c071733655807ef4b1037bae3e52b27012d0"
+        }
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "profile": "Windows-Python3.11-Node-Chromium-synthetic-owner-loopback",
+      "status": "PASS",
+      "reason": "Uncertain saves freeze input; explicit reconciliation precedes one identical retry; no automatic replay.",
+      "execution_identity": "49 Python regressions; full Node CJS suite; scoped source-candidate security; semantic mutants; Chrome DevTools isolated fixture; Prestige static/render audits",
+      "observed_at": "2026-10-26T15:41:16.664323+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t4/regressions.log",
+          "kind": "log",
+          "sha256": "3576275d7f9784a90230494b0a862ceb79141bb1d00a75740bbfc9f9a2623d25"
+        },
+        {
+          "path": ".factory/content-packaging-t4/node-all.log",
+          "kind": "log",
+          "sha256": "9a85bb8c6a745319606fa734b3ad4363091eba0d1d4fa5e2f06d3ccf8f8613e0"
+        },
+        {
+          "path": ".factory/content-packaging-t4/qa.json",
+          "kind": "log",
+          "sha256": "300e1c79d0c4a5a327830d8636bf32400a22fae79bcf7b38d1efb5eb56776123"
+        },
+        {
+          "path": ".factory/content-packaging-t4/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "41ef77219adf1e0dd4cf4df613b3f9ec8ffccea17a18c0036d911afcf7f1678e"
+        },
+        {
+          "path": ".factory/content-packaging-t4/security.json",
+          "kind": "log",
+          "sha256": "aadece5419bd8a6e8fe838a5b20dba74a370faf06611f8cf8546245c16932264"
+        },
+        {
+          "path": ".factory/content-packaging-t4/strict.log",
+          "kind": "log",
+          "sha256": "7667a7a25dfe164c9d719d8099c49f33e7a52af0bf5d11350a82b43b7a25269f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/lint-relevant.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t4/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutations.json",
+          "kind": "log",
+          "sha256": "43fa43e077f8d44d337ae8dbb6f7bb4a6e28d977922585ce38dfc294b9be38e5"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-authority.log",
+          "kind": "log",
+          "sha256": "3d8f7da32886ca7bd551731af49ff3f0b909d7b099805d4048c67e58873bddc1"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-scope.log",
+          "kind": "log",
+          "sha256": "1450ac6c80c66588a07da9e84fbda41ea4815bb019686492835ca11ebf4c404c"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-canonical-hash.log",
+          "kind": "log",
+          "sha256": "e791fa2a4dc60c8a0ca4cc6550ba82b707ded9ebebd76f109ec2e518b9dc6a5f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/design-audit.json",
+          "kind": "log",
+          "sha256": "bdfd3d7d3ee181790654d35a1214f89a27d9890a672cc1b9ca3983fa9ebf6e84"
+        },
+        {
+          "path": ".factory/content-packaging-t4/critique.json",
+          "kind": "log",
+          "sha256": "025d95081233334ef04b1878560592d901bbd8d3835a2fc727c221c904d483b6"
+        },
+        {
+          "path": ".factory/content-packaging-t4/challenge.json",
+          "kind": "log",
+          "sha256": "e24bdda750f31d97aabbf6c0b85a2c75cd43d78b4ee75f6450afa6e4873ccd1f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/render-audit.json",
+          "kind": "log",
+          "sha256": "a62b583f5693c45c1e0ce8a6b7fd7b7aabf73ba8f07b92cfc51bafbd2b694d76"
+        },
+        {
+          "path": ".factory/content-packaging-t4/rendered-modal.html",
+          "kind": "log",
+          "sha256": "a50f2c313e477477ab1c401a6a87c53fd195e877a17b312394db07370a90b882"
+        },
+        {
+          "path": ".factory/content-packaging-t4/browser-observations.json",
+          "kind": "log",
+          "sha256": "c55a2887839f7e0c612505fee037c071733655807ef4b1037bae3e52b27012d0"
+        }
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "profile": "Windows-Python3.11-Node-Chromium-synthetic-owner-loopback",
+      "status": "PASS",
+      "reason": "Closing or changing app/principal aborts pending work and clears private dialog; duplicate saves blocked.",
+      "execution_identity": "49 Python regressions; full Node CJS suite; scoped source-candidate security; semantic mutants; Chrome DevTools isolated fixture; Prestige static/render audits",
+      "observed_at": "2026-10-26T15:41:16.667322+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t4/regressions.log",
+          "kind": "log",
+          "sha256": "3576275d7f9784a90230494b0a862ceb79141bb1d00a75740bbfc9f9a2623d25"
+        },
+        {
+          "path": ".factory/content-packaging-t4/node-all.log",
+          "kind": "log",
+          "sha256": "9a85bb8c6a745319606fa734b3ad4363091eba0d1d4fa5e2f06d3ccf8f8613e0"
+        },
+        {
+          "path": ".factory/content-packaging-t4/qa.json",
+          "kind": "log",
+          "sha256": "300e1c79d0c4a5a327830d8636bf32400a22fae79bcf7b38d1efb5eb56776123"
+        },
+        {
+          "path": ".factory/content-packaging-t4/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "41ef77219adf1e0dd4cf4df613b3f9ec8ffccea17a18c0036d911afcf7f1678e"
+        },
+        {
+          "path": ".factory/content-packaging-t4/security.json",
+          "kind": "log",
+          "sha256": "aadece5419bd8a6e8fe838a5b20dba74a370faf06611f8cf8546245c16932264"
+        },
+        {
+          "path": ".factory/content-packaging-t4/strict.log",
+          "kind": "log",
+          "sha256": "7667a7a25dfe164c9d719d8099c49f33e7a52af0bf5d11350a82b43b7a25269f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/lint-relevant.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t4/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutations.json",
+          "kind": "log",
+          "sha256": "43fa43e077f8d44d337ae8dbb6f7bb4a6e28d977922585ce38dfc294b9be38e5"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-authority.log",
+          "kind": "log",
+          "sha256": "3d8f7da32886ca7bd551731af49ff3f0b909d7b099805d4048c67e58873bddc1"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-scope.log",
+          "kind": "log",
+          "sha256": "1450ac6c80c66588a07da9e84fbda41ea4815bb019686492835ca11ebf4c404c"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-canonical-hash.log",
+          "kind": "log",
+          "sha256": "e791fa2a4dc60c8a0ca4cc6550ba82b707ded9ebebd76f109ec2e518b9dc6a5f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/design-audit.json",
+          "kind": "log",
+          "sha256": "bdfd3d7d3ee181790654d35a1214f89a27d9890a672cc1b9ca3983fa9ebf6e84"
+        },
+        {
+          "path": ".factory/content-packaging-t4/critique.json",
+          "kind": "log",
+          "sha256": "025d95081233334ef04b1878560592d901bbd8d3835a2fc727c221c904d483b6"
+        },
+        {
+          "path": ".factory/content-packaging-t4/challenge.json",
+          "kind": "log",
+          "sha256": "e24bdda750f31d97aabbf6c0b85a2c75cd43d78b4ee75f6450afa6e4873ccd1f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/render-audit.json",
+          "kind": "log",
+          "sha256": "a62b583f5693c45c1e0ce8a6b7fd7b7aabf73ba8f07b92cfc51bafbd2b694d76"
+        },
+        {
+          "path": ".factory/content-packaging-t4/rendered-modal.html",
+          "kind": "log",
+          "sha256": "a50f2c313e477477ab1c401a6a87c53fd195e877a17b312394db07370a90b882"
+        },
+        {
+          "path": ".factory/content-packaging-t4/browser-observations.json",
+          "kind": "log",
+          "sha256": "c55a2887839f7e0c612505fee037c071733655807ef4b1037bae3e52b27012d0"
+        }
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "profile": "Windows-Python3.11-Node-Chromium-synthetic-owner-loopback",
+      "status": "PASS",
+      "reason": "Eighteen Python sources CLEAN with complete declared coverage; JavaScript correctness inventory, three semantic mutants and local-only browser flows pass.",
+      "execution_identity": "49 Python regressions; full Node CJS suite; scoped source-candidate security; semantic mutants; Chrome DevTools isolated fixture; Prestige static/render audits",
+      "observed_at": "2026-10-26T15:41:16.670487+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t4/regressions.log",
+          "kind": "log",
+          "sha256": "3576275d7f9784a90230494b0a862ceb79141bb1d00a75740bbfc9f9a2623d25"
+        },
+        {
+          "path": ".factory/content-packaging-t4/node-all.log",
+          "kind": "log",
+          "sha256": "9a85bb8c6a745319606fa734b3ad4363091eba0d1d4fa5e2f06d3ccf8f8613e0"
+        },
+        {
+          "path": ".factory/content-packaging-t4/qa.json",
+          "kind": "log",
+          "sha256": "300e1c79d0c4a5a327830d8636bf32400a22fae79bcf7b38d1efb5eb56776123"
+        },
+        {
+          "path": ".factory/content-packaging-t4/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "41ef77219adf1e0dd4cf4df613b3f9ec8ffccea17a18c0036d911afcf7f1678e"
+        },
+        {
+          "path": ".factory/content-packaging-t4/security.json",
+          "kind": "log",
+          "sha256": "aadece5419bd8a6e8fe838a5b20dba74a370faf06611f8cf8546245c16932264"
+        },
+        {
+          "path": ".factory/content-packaging-t4/strict.log",
+          "kind": "log",
+          "sha256": "7667a7a25dfe164c9d719d8099c49f33e7a52af0bf5d11350a82b43b7a25269f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/lint-relevant.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t4/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutations.json",
+          "kind": "log",
+          "sha256": "43fa43e077f8d44d337ae8dbb6f7bb4a6e28d977922585ce38dfc294b9be38e5"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-authority.log",
+          "kind": "log",
+          "sha256": "3d8f7da32886ca7bd551731af49ff3f0b909d7b099805d4048c67e58873bddc1"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-scope.log",
+          "kind": "log",
+          "sha256": "1450ac6c80c66588a07da9e84fbda41ea4815bb019686492835ca11ebf4c404c"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-canonical-hash.log",
+          "kind": "log",
+          "sha256": "e791fa2a4dc60c8a0ca4cc6550ba82b707ded9ebebd76f109ec2e518b9dc6a5f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/design-audit.json",
+          "kind": "log",
+          "sha256": "bdfd3d7d3ee181790654d35a1214f89a27d9890a672cc1b9ca3983fa9ebf6e84"
+        },
+        {
+          "path": ".factory/content-packaging-t4/critique.json",
+          "kind": "log",
+          "sha256": "025d95081233334ef04b1878560592d901bbd8d3835a2fc727c221c904d483b6"
+        },
+        {
+          "path": ".factory/content-packaging-t4/challenge.json",
+          "kind": "log",
+          "sha256": "e24bdda750f31d97aabbf6c0b85a2c75cd43d78b4ee75f6450afa6e4873ccd1f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/render-audit.json",
+          "kind": "log",
+          "sha256": "a62b583f5693c45c1e0ce8a6b7fd7b7aabf73ba8f07b92cfc51bafbd2b694d76"
+        },
+        {
+          "path": ".factory/content-packaging-t4/rendered-modal.html",
+          "kind": "log",
+          "sha256": "a50f2c313e477477ab1c401a6a87c53fd195e877a17b312394db07370a90b882"
+        },
+        {
+          "path": ".factory/content-packaging-t4/browser-observations.json",
+          "kind": "log",
+          "sha256": "c55a2887839f7e0c612505fee037c071733655807ef4b1037bae3e52b27012d0"
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "profile": "Windows-Python3.11-Node-Chromium-synthetic-owner-loopback",
+      "status": "PASS",
+      "reason": "History reads bounded compact pages; comparison limited to two or three reference cards. No latency or savings claim.",
+      "execution_identity": "49 Python regressions; full Node CJS suite; scoped source-candidate security; semantic mutants; Chrome DevTools isolated fixture; Prestige static/render audits",
+      "observed_at": "2026-10-26T15:41:16.673488+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t4/regressions.log",
+          "kind": "log",
+          "sha256": "3576275d7f9784a90230494b0a862ceb79141bb1d00a75740bbfc9f9a2623d25"
+        },
+        {
+          "path": ".factory/content-packaging-t4/node-all.log",
+          "kind": "log",
+          "sha256": "9a85bb8c6a745319606fa734b3ad4363091eba0d1d4fa5e2f06d3ccf8f8613e0"
+        },
+        {
+          "path": ".factory/content-packaging-t4/qa.json",
+          "kind": "log",
+          "sha256": "300e1c79d0c4a5a327830d8636bf32400a22fae79bcf7b38d1efb5eb56776123"
+        },
+        {
+          "path": ".factory/content-packaging-t4/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "41ef77219adf1e0dd4cf4df613b3f9ec8ffccea17a18c0036d911afcf7f1678e"
+        },
+        {
+          "path": ".factory/content-packaging-t4/security.json",
+          "kind": "log",
+          "sha256": "aadece5419bd8a6e8fe838a5b20dba74a370faf06611f8cf8546245c16932264"
+        },
+        {
+          "path": ".factory/content-packaging-t4/strict.log",
+          "kind": "log",
+          "sha256": "7667a7a25dfe164c9d719d8099c49f33e7a52af0bf5d11350a82b43b7a25269f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/lint-relevant.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t4/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutations.json",
+          "kind": "log",
+          "sha256": "43fa43e077f8d44d337ae8dbb6f7bb4a6e28d977922585ce38dfc294b9be38e5"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-authority.log",
+          "kind": "log",
+          "sha256": "3d8f7da32886ca7bd551731af49ff3f0b909d7b099805d4048c67e58873bddc1"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-scope.log",
+          "kind": "log",
+          "sha256": "1450ac6c80c66588a07da9e84fbda41ea4815bb019686492835ca11ebf4c404c"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-canonical-hash.log",
+          "kind": "log",
+          "sha256": "e791fa2a4dc60c8a0ca4cc6550ba82b707ded9ebebd76f109ec2e518b9dc6a5f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/design-audit.json",
+          "kind": "log",
+          "sha256": "bdfd3d7d3ee181790654d35a1214f89a27d9890a672cc1b9ca3983fa9ebf6e84"
+        },
+        {
+          "path": ".factory/content-packaging-t4/critique.json",
+          "kind": "log",
+          "sha256": "025d95081233334ef04b1878560592d901bbd8d3835a2fc727c221c904d483b6"
+        },
+        {
+          "path": ".factory/content-packaging-t4/challenge.json",
+          "kind": "log",
+          "sha256": "e24bdda750f31d97aabbf6c0b85a2c75cd43d78b4ee75f6450afa6e4873ccd1f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/render-audit.json",
+          "kind": "log",
+          "sha256": "a62b583f5693c45c1e0ce8a6b7fd7b7aabf73ba8f07b92cfc51bafbd2b694d76"
+        },
+        {
+          "path": ".factory/content-packaging-t4/rendered-modal.html",
+          "kind": "log",
+          "sha256": "a50f2c313e477477ab1c401a6a87c53fd195e877a17b312394db07370a90b882"
+        },
+        {
+          "path": ".factory/content-packaging-t4/browser-observations.json",
+          "kind": "log",
+          "sha256": "c55a2887839f7e0c612505fee037c071733655807ef4b1037bae3e52b27012d0"
+        }
+      ]
+    },
+    {
+      "id": "accessibility",
+      "profile": "Windows-Python3.11-Node-Chromium-synthetic-owner-loopback",
+      "status": "PASS",
+      "reason": "390px and 1600px Chromium checks show no document overflow, visible keyboard focus, labelled fields and at least 44px mobile actions; native iOS remains NOT_RUN.",
+      "execution_identity": "49 Python regressions; full Node CJS suite; scoped source-candidate security; semantic mutants; Chrome DevTools isolated fixture; Prestige static/render audits",
+      "observed_at": "2026-10-26T15:41:16.675483+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t4/regressions.log",
+          "kind": "log",
+          "sha256": "3576275d7f9784a90230494b0a862ceb79141bb1d00a75740bbfc9f9a2623d25"
+        },
+        {
+          "path": ".factory/content-packaging-t4/node-all.log",
+          "kind": "log",
+          "sha256": "9a85bb8c6a745319606fa734b3ad4363091eba0d1d4fa5e2f06d3ccf8f8613e0"
+        },
+        {
+          "path": ".factory/content-packaging-t4/qa.json",
+          "kind": "log",
+          "sha256": "300e1c79d0c4a5a327830d8636bf32400a22fae79bcf7b38d1efb5eb56776123"
+        },
+        {
+          "path": ".factory/content-packaging-t4/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "41ef77219adf1e0dd4cf4df613b3f9ec8ffccea17a18c0036d911afcf7f1678e"
+        },
+        {
+          "path": ".factory/content-packaging-t4/security.json",
+          "kind": "log",
+          "sha256": "aadece5419bd8a6e8fe838a5b20dba74a370faf06611f8cf8546245c16932264"
+        },
+        {
+          "path": ".factory/content-packaging-t4/strict.log",
+          "kind": "log",
+          "sha256": "7667a7a25dfe164c9d719d8099c49f33e7a52af0bf5d11350a82b43b7a25269f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/lint-relevant.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t4/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutations.json",
+          "kind": "log",
+          "sha256": "43fa43e077f8d44d337ae8dbb6f7bb4a6e28d977922585ce38dfc294b9be38e5"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-authority.log",
+          "kind": "log",
+          "sha256": "3d8f7da32886ca7bd551731af49ff3f0b909d7b099805d4048c67e58873bddc1"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-scope.log",
+          "kind": "log",
+          "sha256": "1450ac6c80c66588a07da9e84fbda41ea4815bb019686492835ca11ebf4c404c"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-canonical-hash.log",
+          "kind": "log",
+          "sha256": "e791fa2a4dc60c8a0ca4cc6550ba82b707ded9ebebd76f109ec2e518b9dc6a5f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/design-audit.json",
+          "kind": "log",
+          "sha256": "bdfd3d7d3ee181790654d35a1214f89a27d9890a672cc1b9ca3983fa9ebf6e84"
+        },
+        {
+          "path": ".factory/content-packaging-t4/critique.json",
+          "kind": "log",
+          "sha256": "025d95081233334ef04b1878560592d901bbd8d3835a2fc727c221c904d483b6"
+        },
+        {
+          "path": ".factory/content-packaging-t4/challenge.json",
+          "kind": "log",
+          "sha256": "e24bdda750f31d97aabbf6c0b85a2c75cd43d78b4ee75f6450afa6e4873ccd1f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/render-audit.json",
+          "kind": "log",
+          "sha256": "a62b583f5693c45c1e0ce8a6b7fd7b7aabf73ba8f07b92cfc51bafbd2b694d76"
+        },
+        {
+          "path": ".factory/content-packaging-t4/rendered-modal.html",
+          "kind": "log",
+          "sha256": "a50f2c313e477477ab1c401a6a87c53fd195e877a17b312394db07370a90b882"
+        },
+        {
+          "path": ".factory/content-packaging-t4/browser-observations.json",
+          "kind": "log",
+          "sha256": "c55a2887839f7e0c612505fee037c071733655807ef4b1037bae3e52b27012d0"
+        }
+      ]
+    },
+    {
+      "id": "external_effects",
+      "profile": "Windows-Python3.11-Node-Chromium-synthetic-owner-loopback",
+      "status": "PASS",
+      "reason": "Synthetic isolated loopback tests only; no provider writes, publication, spending or activation.",
+      "execution_identity": "49 Python regressions; full Node CJS suite; scoped source-candidate security; semantic mutants; Chrome DevTools isolated fixture; Prestige static/render audits",
+      "observed_at": "2026-10-26T15:41:16.678478+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t4/regressions.log",
+          "kind": "log",
+          "sha256": "3576275d7f9784a90230494b0a862ceb79141bb1d00a75740bbfc9f9a2623d25"
+        },
+        {
+          "path": ".factory/content-packaging-t4/node-all.log",
+          "kind": "log",
+          "sha256": "9a85bb8c6a745319606fa734b3ad4363091eba0d1d4fa5e2f06d3ccf8f8613e0"
+        },
+        {
+          "path": ".factory/content-packaging-t4/qa.json",
+          "kind": "log",
+          "sha256": "300e1c79d0c4a5a327830d8636bf32400a22fae79bcf7b38d1efb5eb56776123"
+        },
+        {
+          "path": ".factory/content-packaging-t4/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "41ef77219adf1e0dd4cf4df613b3f9ec8ffccea17a18c0036d911afcf7f1678e"
+        },
+        {
+          "path": ".factory/content-packaging-t4/security.json",
+          "kind": "log",
+          "sha256": "aadece5419bd8a6e8fe838a5b20dba74a370faf06611f8cf8546245c16932264"
+        },
+        {
+          "path": ".factory/content-packaging-t4/strict.log",
+          "kind": "log",
+          "sha256": "7667a7a25dfe164c9d719d8099c49f33e7a52af0bf5d11350a82b43b7a25269f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/lint-relevant.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t4/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutations.json",
+          "kind": "log",
+          "sha256": "43fa43e077f8d44d337ae8dbb6f7bb4a6e28d977922585ce38dfc294b9be38e5"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-authority.log",
+          "kind": "log",
+          "sha256": "3d8f7da32886ca7bd551731af49ff3f0b909d7b099805d4048c67e58873bddc1"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-scope.log",
+          "kind": "log",
+          "sha256": "1450ac6c80c66588a07da9e84fbda41ea4815bb019686492835ca11ebf4c404c"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-canonical-hash.log",
+          "kind": "log",
+          "sha256": "e791fa2a4dc60c8a0ca4cc6550ba82b707ded9ebebd76f109ec2e518b9dc6a5f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/design-audit.json",
+          "kind": "log",
+          "sha256": "bdfd3d7d3ee181790654d35a1214f89a27d9890a672cc1b9ca3983fa9ebf6e84"
+        },
+        {
+          "path": ".factory/content-packaging-t4/critique.json",
+          "kind": "log",
+          "sha256": "025d95081233334ef04b1878560592d901bbd8d3835a2fc727c221c904d483b6"
+        },
+        {
+          "path": ".factory/content-packaging-t4/challenge.json",
+          "kind": "log",
+          "sha256": "e24bdda750f31d97aabbf6c0b85a2c75cd43d78b4ee75f6450afa6e4873ccd1f"
+        },
+        {
+          "path": ".factory/content-packaging-t4/render-audit.json",
+          "kind": "log",
+          "sha256": "a62b583f5693c45c1e0ce8a6b7fd7b7aabf73ba8f07b92cfc51bafbd2b694d76"
+        },
+        {
+          "path": ".factory/content-packaging-t4/rendered-modal.html",
+          "kind": "log",
+          "sha256": "a50f2c313e477477ab1c401a6a87c53fd195e877a17b312394db07370a90b882"
+        },
+        {
+          "path": ".factory/content-packaging-t4/browser-observations.json",
+          "kind": "log",
+          "sha256": "c55a2887839f7e0c612505fee037c071733655807ef4b1037bae3e52b27012d0"
+        }
+      ]
+    }
+  ]
+}

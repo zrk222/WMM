@@ -1,0 +1,31 @@
+FF
+======================================================================
+FAIL: test_fake_connection_cannot_execute (tests.test_native_sqlite_entry.NativeEntryTests.test_fake_connection_cannot_execute) (helper='packaging_store.latest')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[USER_PROFILE]\Documents\Codex\2026-09-22\re-2\outputs\WMM-packaging\tests\test_native_sqlite_entry.py", line 22, in check_rejected
+    with self.assertRaisesRegex(TypeError,'Native SQLite connection required'):fn(**args)
+                                                                               ^^^^^^^^^^
+  File "<entry-guard-mutant>", line 4, in latest
+  File "[USER_PROFILE]\Documents\Codex\2026-09-22\re-2\outputs\WMM-packaging\tests\test_native_sqlite_entry.py", line 10, in execute
+    def execute(self,*args,**kwargs):raise AssertionError('fake execute must never run')
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: fake execute must never run
+
+======================================================================
+FAIL: test_subclass_override_cannot_execute (tests.test_native_sqlite_entry.NativeEntryTests.test_subclass_override_cannot_execute) (helper='packaging_store.latest')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[USER_PROFILE]\Documents\Codex\2026-09-22\re-2\outputs\WMM-packaging\tests\test_native_sqlite_entry.py", line 22, in check_rejected
+    with self.assertRaisesRegex(TypeError,'Native SQLite connection required'):fn(**args)
+                                                                               ^^^^^^^^^^
+  File "<entry-guard-mutant>", line 4, in latest
+  File "[USER_PROFILE]\Documents\Codex\2026-09-22\re-2\outputs\WMM-packaging\tests\test_native_sqlite_entry.py", line 13, in execute
+    def execute(self,*args,**kwargs):raise AssertionError('override execute must never run')
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: override execute must never run
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.061s
+
+FAILED (failures=2)
