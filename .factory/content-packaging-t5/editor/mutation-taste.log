@@ -1,0 +1,21 @@
+F....F
+======================================================================
+FAIL: test_changed_owner_taste_invalidates_editor_source_proof (tests.test_packaging_editor.PackagingEditorTests.test_changed_owner_taste_invalidates_editor_source_proof)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-editor-mutant-bh7xz_o2\tests\test_packaging_editor.py", line 80, in test_changed_owner_taste_invalidates_editor_source_proof
+    with self.assertRaises(Invalid),connection(self.store.path) as db:
+AssertionError: Invalid not raised
+
+======================================================================
+FAIL: test_wrong_media_missing_audio_closed_fields_and_foreign_scope_reject (tests.test_packaging_editor.PackagingEditorTests.test_wrong_media_missing_audio_closed_fields_and_foreign_scope_reject) (change={'manifest_version': 2, 'shots': {'kind': 'SHOTS', 'id': 'shots-one', 'version': 1, 'sha256': '0f7321c8857f187c911bda1ccedd423cbc3387517928d184449173877b492beb'}, 'taste': {'id': 'taste-one', 'version': 1, 'sha256': '0000000000000000000000000000000000000000000000000000000000000000'}, 'title': 'Original app demonstration', 'purpose': 'Show a useful original app step', 'output': 'PORTRAIT', 'clips': [{'id': 'clip-one', 'source': {'kind': 'MANAGED', 'id': '0c747104-72ad-4ce1-91af-90514f1f1fc7', 'sha256': 'b6a9538d135d54f4097556e707d142a59d21b53abe9ffeca9eef3bbc65db8838'}, 'role': 'HOOK', 'in_frame': 0, 'out_frame': 24, 'speed_percent': 100, 'transform': {'crop': {'x': 0, 'y': 0, 'width': 10000, 'height': 10000}, 'rotation': 0, 'flip_x': False, 'flip_y': False, 'fit': 'CONTAIN', 'background': '#102124'}, 'effects': {'brightness': 0, 'contrast': 100, 'saturation': 100}, 'audio': 'MUTE', 'shot_id': 'shot-one'}]})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-editor-mutant-bh7xz_o2\tests\test_packaging_editor.py", line 69, in test_wrong_media_missing_audio_closed_fields_and_foreign_scope_reject
+    with self.subTest(change=change),self.assertRaises(Invalid):prepare(self.store,self.app,change)
+AssertionError: Invalid not raised
+
+----------------------------------------------------------------------
+Ran 6 tests in 8.757s
+
+FAILED (failures=2)

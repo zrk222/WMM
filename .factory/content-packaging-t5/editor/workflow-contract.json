@@ -1,0 +1,296 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "WMM-packaging-editor-backend",
+  "candidate": [
+    {
+      "path": "mission_control/automation_requirements.py",
+      "kind": "source",
+      "sha256": "c043cdc6781d10d0e48eb45484b63cf3c3c540b7b660c8ccc81684db4efc194f"
+    },
+    {
+      "path": "mission_control/common.py",
+      "kind": "source",
+      "sha256": "a43443aab9489ad9cfe0e9a510ae8680a5c0a997aef98a7c4962ddbaefb7dfd3"
+    },
+    {
+      "path": "mission_control/creative_briefs.py",
+      "kind": "source",
+      "sha256": "d73f30ba1c7ac0470a6114d8608a5e1d15a9cc18e12f7ce1a831f2300a832730"
+    },
+    {
+      "path": "mission_control/creative_library.py",
+      "kind": "source",
+      "sha256": "f2d792ab5298ecb453f9003ce9d1df562f87fecd344d109b740cce1dfe61d656"
+    },
+    {
+      "path": "mission_control/creative_taste_store.py",
+      "kind": "source",
+      "sha256": "fe60d848b479af073de402f7779324027b65c7554d6e6c87267794c6350e8dde"
+    },
+    {
+      "path": "mission_control/db.py",
+      "kind": "source",
+      "sha256": "d43ec4d14869dec6693906557ab9c02a16952b3d268c7b0a6a53265f0930121f"
+    },
+    {
+      "path": "mission_control/discovery_http.py",
+      "kind": "source",
+      "sha256": "1c0d0adf19feceb77f3dc72c1653c9663f680dcc8033e2ca99496c37f737a780"
+    },
+    {
+      "path": "mission_control/discovery_store.py",
+      "kind": "source",
+      "sha256": "38fd3f5c6d447ca8cadcda4c8b788936933613337e24652a343f92155bbeba5b"
+    },
+    {
+      "path": "mission_control/funnel_store.py",
+      "kind": "source",
+      "sha256": "a821244f7cc48b87416712fab2ec4114def31835896152968319bd8c23e1114c"
+    },
+    {
+      "path": "mission_control/managed_media_store.py",
+      "kind": "source",
+      "sha256": "06b0169070c2d798ba4186bfce833842dcd0e62dfa9c8cf818d7470f66201038"
+    },
+    {
+      "path": "mission_control/operation_catalog.py",
+      "kind": "source",
+      "sha256": "a6d7e4f7f02a1e6aa3a204b7ad9ca0860d8fbee6a99dc7538bc15e59149e08d7"
+    },
+    {
+      "path": "mission_control/operation_runtime.py",
+      "kind": "source",
+      "sha256": "e082c76de9a9e357ed32686c1febabd6db7920fa760bafbc5a464902fe6de8f7"
+    },
+    {
+      "path": "mission_control/packaging_access.py",
+      "kind": "source",
+      "sha256": "136b40221af39768316c7e2bf769df411d03b2040eb01b05154d4e2a5f921dfb"
+    },
+    {
+      "path": "mission_control/packaging_bindings.py",
+      "kind": "source",
+      "sha256": "fe6004a9e6356ab26dad273d4c677597f00b2b9766762a68687fbdb3415de511"
+    },
+    {
+      "path": "mission_control/packaging_contract.py",
+      "kind": "source",
+      "sha256": "fc654864d5eb77eeb75218111c4efc4824b8d27c3c1d66caa6f2486d00c2c945"
+    },
+    {
+      "path": "mission_control/packaging_editor.py",
+      "kind": "source",
+      "sha256": "630dac6fbe0247d60933651947412d5be7c0abae2810a7a7c5113af0591b14f5"
+    },
+    {
+      "path": "mission_control/packaging_handoff.py",
+      "kind": "source",
+      "sha256": "ac9e7658057ba3af330db3dbc5e71724feea31d9d55774b73ce4a67f762bf00e"
+    },
+    {
+      "path": "mission_control/packaging_http.py",
+      "kind": "source",
+      "sha256": "093af23b8abc84c55d40f878629e9791007ad9cd7ce3818c1ddd66534577e2d8"
+    },
+    {
+      "path": "mission_control/packaging_store.py",
+      "kind": "source",
+      "sha256": "85620531d2a822005a60c15b4b1fa0ae062c9cf7f3fc9d55beadd4f21363fb11"
+    },
+    {
+      "path": "mission_control/pmf_contract.py",
+      "kind": "source",
+      "sha256": "db495e8a9f60b81b2f5c60bc23d4f4bee592ea593fd55b65eeeb704e6c63b237"
+    },
+    {
+      "path": "mission_control/server.py",
+      "kind": "source",
+      "sha256": "5392b2915890cd20734e211979852ade6afdbae6c52244722aafca69eae8ee53"
+    },
+    {
+      "path": "mission_control/studio_listener_linux.py",
+      "kind": "source",
+      "sha256": "29c68017f144c5e84c2ef99984fed7d25672d4d658a87111a1c6753017715fdd"
+    },
+    {
+      "path": "mission_control/video_edit_contract.py",
+      "kind": "source",
+      "sha256": "52e06396516719ceec0615f8de2d658c68ab4d33a7f47f7f05dc1b06af5046ee"
+    },
+    {
+      "path": "mission_control/video_edit_projects.py",
+      "kind": "source",
+      "sha256": "73b909c75a1066c3fd233c5c4f5b15607977c35c3b1a8f47e076e86c4d7dec06"
+    },
+    {
+      "path": "tests/test_packaging_editor.py",
+      "kind": "source",
+      "sha256": "bf1b78027cb7d84c21462d654c09974c3a276129a34ba460425553c3a506cab4"
+    },
+    {
+      "path": "specs/content-packaging-editor.ssat.yaml",
+      "kind": "source",
+      "sha256": "6b79c41ae9c55d5c28e504f3b305be02e4cfa81aa1bd31abc0a8ffd81f13c056"
+    },
+    {
+      "path": ".factory/content-packaging-t5/editor_checks.py",
+      "kind": "source",
+      "sha256": "5e6410197874c300c69393df5d009543bc606dd2cea6247cbd426e047ba328a8"
+    },
+    {
+      "path": ".factory/content-packaging-t5/editor_mutations.py",
+      "kind": "source",
+      "sha256": "0325866ac22156c8aa99397daa2db70a216b65d497d005df411e2ebf9f5e0a49"
+    },
+    {
+      "path": ".factory/content-packaging-t5/editor_workflow.py",
+      "kind": "source",
+      "sha256": "03b2d3035a353b8ca663b61a2ab684cc451f29a3419a2ac12f762b4721fcfcaf"
+    },
+    {
+      "path": "mission_control/video_edit_jobs.py",
+      "kind": "source",
+      "sha256": "b5541a18c2a07454e9c1729f2795d094047104a083d87a686da995d6f6f7f0d1"
+    },
+    {
+      "path": ".factory/content-packaging-t5/editor/qa-scope/video_edit_contract.py",
+      "kind": "source",
+      "sha256": "7074edb4493a8ec6a6dfb5c3a8a4209d7a10d4028bcff1b7bbc44ebd5a96b268"
+    },
+    {
+      "path": ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py",
+      "kind": "source",
+      "sha256": "86c8766f2b0de9e04d9b4fa5d2796e8f5eecb77582df6aed8598d3a87530bb9c"
+    },
+    {
+      "path": "specs/content-packaging-t5.md",
+      "kind": "contract",
+      "sha256": "03045add43d0870733995f8d438b8d9f2b20a431f659198f733c53d00e11c702"
+    },
+    {
+      "path": ".factory/content-packaging-t5/editor-scope.md",
+      "kind": "contract",
+      "sha256": "af2a42dcc3008fe1f14cdc6690d642ee1ebd2fc8ede7cba53702aeb8f15ae4e8"
+    },
+    {
+      "path": ".factory/content-packaging-t5/editor/review.md",
+      "kind": "review",
+      "sha256": "936ce0e05fcbd4dc56b042f54a559ef58a4e1a19a289363be2092391f029c14c"
+    },
+    {
+      "path": ".factory/content-packaging-t5/taste/security-config/factory.database.json",
+      "kind": "contract",
+      "sha256": "0621305bbd088e48dd89bdfbfdc62667ee325e51a4c1114b3e4a1fb0c3d08d7e"
+    },
+    {
+      "path": ".factory/content-packaging-t5/taste/security-config/.factory/tenant-read-contract.json",
+      "kind": "contract",
+      "sha256": "374e7ed7c91b2f41093136700b3eac74c0b8a444f294ab0f95def979ce5db7d4"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "Prepare exact original-media definition and save/split it through existing Projects service."
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "Current shots, script hashes, taste and selected original media/audio reject stale or foreign inputs."
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": true,
+      "reason": "Existing project revisions, request-key semantics and restart persistence remain supported."
+    },
+    {
+      "category": "state_consistency",
+      "applicable": true,
+      "reason": "Saved and edited projects retain packaging provenance; existing source proof rechecks before render."
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "Native SQLite receivers, parameterized SQL, affected24-source scan and three killed boundary mutants."
+    },
+    {
+      "category": "performance",
+      "applicable": true,
+      "reason": "At most24 clips and1440 output frames; no measured speed or savings claim."
+    },
+    {
+      "category": "external_effects",
+      "applicable": true,
+      "reason": "Synthetic local storage and existing isolated native render tests only; no public or provider effects."
+    },
+    {
+      "category": "accessibility",
+      "applicable": false,
+      "reason": "Backend definition/provenance packet with no rendered UI.",
+      "review_evidence": {
+        "path": ".factory/content-packaging-t5/editor/review.md",
+        "kind": "review",
+        "sha256": "936ce0e05fcbd4dc56b042f54a559ef58a4e1a19a289363be2092391f029c14c"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "id": "happy_path",
+      "category": "happy_path",
+      "requirement": "Prepare exact original-media definition and save/split it through existing Projects service.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-existing-native-editor-test-profile"
+      ]
+    },
+    {
+      "id": "validation",
+      "category": "validation",
+      "requirement": "Current shots, script hashes, taste and selected original media/audio reject stale or foreign inputs.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-existing-native-editor-test-profile"
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "category": "failure_recovery",
+      "requirement": "Existing project revisions, request-key semantics and restart persistence remain supported.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-existing-native-editor-test-profile"
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "category": "state_consistency",
+      "requirement": "Saved and edited projects retain packaging provenance; existing source proof rechecks before render.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-existing-native-editor-test-profile"
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "category": "security_privacy",
+      "requirement": "Native SQLite receivers, parameterized SQL, affected24-source scan and three killed boundary mutants.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-existing-native-editor-test-profile"
+      ]
+    },
+    {
+      "id": "performance",
+      "category": "performance",
+      "requirement": "At most24 clips and1440 output frames; no measured speed or savings claim.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-existing-native-editor-test-profile"
+      ]
+    },
+    {
+      "id": "external_effects",
+      "category": "external_effects",
+      "requirement": "Synthetic local storage and existing isolated native render tests only; no public or provider effects.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-existing-native-editor-test-profile"
+      ]
+    }
+  ]
+}

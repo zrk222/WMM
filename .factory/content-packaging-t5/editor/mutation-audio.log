@@ -1,0 +1,13 @@
+.....F
+======================================================================
+FAIL: test_wrong_media_missing_audio_closed_fields_and_foreign_scope_reject (tests.test_packaging_editor.PackagingEditorTests.test_wrong_media_missing_audio_closed_fields_and_foreign_scope_reject)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-editor-mutant-ylb66l75\tests\test_packaging_editor.py", line 74, in test_wrong_media_missing_audio_closed_fields_and_foreign_scope_reject
+    with self.assertRaises(Invalid):prepare(self.store,self.app,body)
+AssertionError: Invalid not raised
+
+----------------------------------------------------------------------
+Ran 6 tests in 8.154s
+
+FAILED (failures=1)

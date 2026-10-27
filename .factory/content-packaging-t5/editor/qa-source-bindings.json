@@ -1,0 +1,28 @@
+[
+  {
+    "source": "mission_control/video_edit_contract.py",
+    "sha256": "52e06396516719ceec0615f8de2d658c68ab4d33a7f47f7f05dc1b06af5046ee",
+    "symbols": [
+      "definition",
+      "project_shape"
+    ],
+    "extracted": ".factory/content-packaging-t5/editor/qa-scope/video_edit_contract.py",
+    "extracted_sha256": "7074edb4493a8ec6a6dfb5c3a8a4209d7a10d4028bcff1b7bbc44ebd5a96b268"
+  },
+  {
+    "source": "mission_control/video_edit_projects.py",
+    "sha256": "73b909c75a1066c3fd233c5c4f5b15607977c35c3b1a8f47e076e86c4d7dec06",
+    "symbols": [
+      "revision",
+      "head",
+      "app_version",
+      "replay",
+      "append",
+      "current",
+      "saved_data",
+      "write"
+    ],
+    "extracted": ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py",
+    "extracted_sha256": "86c8766f2b0de9e04d9b4fa5d2796e8f5eecb77582df6aed8598d3a87530bb9c"
+  }
+]
