@@ -1,0 +1,54 @@
+{
+  "name": "content-packaging-checklist",
+  "language": "python",
+  "modules": [
+    {
+      "name": "packaging_handoff",
+      "path": "mission_control/packaging_handoff.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "document",
+          "args": [
+            "db",
+            "store",
+            "app_id",
+            "ref",
+            "kind"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "media_choices",
+          "args": [
+            "db",
+            "store",
+            "app_id",
+            "assets"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "shot_row",
+          "args": [
+            "db",
+            "store",
+            "app_id",
+            "shot",
+            "script"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "preview",
+          "args": [
+            "store",
+            "app_id",
+            "body"
+          ],
+          "returns": "object"
+        }
+      ]
+    }
+  ]
+}

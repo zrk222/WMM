@@ -1,0 +1,251 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "WMM-packaging-checklist",
+  "candidate": [
+    {
+      "path": "mission_control/automation_requirements.py",
+      "kind": "source",
+      "sha256": "8d942d049798d16d85261aa26fbef91db5f2fc49f4fbbd8ca308e722f3038f41"
+    },
+    {
+      "path": "mission_control/common.py",
+      "kind": "source",
+      "sha256": "a43443aab9489ad9cfe0e9a510ae8680a5c0a997aef98a7c4962ddbaefb7dfd3"
+    },
+    {
+      "path": "mission_control/creative_briefs.py",
+      "kind": "source",
+      "sha256": "d73f30ba1c7ac0470a6114d8608a5e1d15a9cc18e12f7ce1a831f2300a832730"
+    },
+    {
+      "path": "mission_control/creative_library.py",
+      "kind": "source",
+      "sha256": "f2d792ab5298ecb453f9003ce9d1df562f87fecd344d109b740cce1dfe61d656"
+    },
+    {
+      "path": "mission_control/db.py",
+      "kind": "source",
+      "sha256": "2b7f74264ca1b9307facc177689da80f983f0a463f4aadd610f5beba56bafdb8"
+    },
+    {
+      "path": "mission_control/discovery_http.py",
+      "kind": "source",
+      "sha256": "1c0d0adf19feceb77f3dc72c1653c9663f680dcc8033e2ca99496c37f737a780"
+    },
+    {
+      "path": "mission_control/discovery_store.py",
+      "kind": "source",
+      "sha256": "38fd3f5c6d447ca8cadcda4c8b788936933613337e24652a343f92155bbeba5b"
+    },
+    {
+      "path": "mission_control/funnel_store.py",
+      "kind": "source",
+      "sha256": "a821244f7cc48b87416712fab2ec4114def31835896152968319bd8c23e1114c"
+    },
+    {
+      "path": "mission_control/managed_media_store.py",
+      "kind": "source",
+      "sha256": "06b0169070c2d798ba4186bfce833842dcd0e62dfa9c8cf818d7470f66201038"
+    },
+    {
+      "path": "mission_control/operation_catalog.py",
+      "kind": "source",
+      "sha256": "2fc3cc01b725d4125d2942877575c610702d283752eecddee6755011bd61d1e4"
+    },
+    {
+      "path": "mission_control/operation_runtime.py",
+      "kind": "source",
+      "sha256": "e082c76de9a9e357ed32686c1febabd6db7920fa760bafbc5a464902fe6de8f7"
+    },
+    {
+      "path": "mission_control/packaging_access.py",
+      "kind": "source",
+      "sha256": "355d1a1aa8139ea16578d6413dbe7af4dc09f4bdb2d85fd19d9394c8eb7d7760"
+    },
+    {
+      "path": "mission_control/packaging_bindings.py",
+      "kind": "source",
+      "sha256": "fe6004a9e6356ab26dad273d4c677597f00b2b9766762a68687fbdb3415de511"
+    },
+    {
+      "path": "mission_control/packaging_contract.py",
+      "kind": "source",
+      "sha256": "272a17ed9b84b4d5087ca9594df0a45309b2d3cb7a1ddc3bfc1d932c275b266e"
+    },
+    {
+      "path": "mission_control/packaging_handoff.py",
+      "kind": "source",
+      "sha256": "ac9e7658057ba3af330db3dbc5e71724feea31d9d55774b73ce4a67f762bf00e"
+    },
+    {
+      "path": "mission_control/packaging_http.py",
+      "kind": "source",
+      "sha256": "093af23b8abc84c55d40f878629e9791007ad9cd7ce3818c1ddd66534577e2d8"
+    },
+    {
+      "path": "mission_control/packaging_store.py",
+      "kind": "source",
+      "sha256": "85620531d2a822005a60c15b4b1fa0ae062c9cf7f3fc9d55beadd4f21363fb11"
+    },
+    {
+      "path": "mission_control/pmf_contract.py",
+      "kind": "source",
+      "sha256": "db495e8a9f60b81b2f5c60bc23d4f4bee592ea593fd55b65eeeb704e6c63b237"
+    },
+    {
+      "path": "mission_control/server.py",
+      "kind": "source",
+      "sha256": "5392b2915890cd20734e211979852ade6afdbae6c52244722aafca69eae8ee53"
+    },
+    {
+      "path": "mission_control/studio_listener_linux.py",
+      "kind": "source",
+      "sha256": "29c68017f144c5e84c2ef99984fed7d25672d4d658a87111a1c6753017715fdd"
+    },
+    {
+      "path": "tests/test_packaging_handoff.py",
+      "kind": "source",
+      "sha256": "73786bc4631904723aec3177a59c7e8fc7bc594e4a9e6553e112410b32d04137"
+    },
+    {
+      "path": "specs/content-packaging-checklist.ssat.yaml",
+      "kind": "source",
+      "sha256": "910c662b298f18d53d44ec45cfa7f0a89c2fe47691c3708d46f96ee64b366b9f"
+    },
+    {
+      "path": ".factory/content-packaging-t5/checklist_checks.py",
+      "kind": "source",
+      "sha256": "08616e6c116b9ec0fdc9ec6e9c288f8003fc6ee2bff836ddbe0fc2ce8b791418"
+    },
+    {
+      "path": ".factory/content-packaging-t5/checklist_mutations.py",
+      "kind": "source",
+      "sha256": "3f0021fd2c7fe72aed8a6d5cecfcdac971554765bd6a89b199663be4d69e4949"
+    },
+    {
+      "path": ".factory/content-packaging-t5/checklist_workflow.py",
+      "kind": "source",
+      "sha256": "bdb4e09ff0629e63c3289e4ed696d8951a96eddd3788bc6b38c44722d82614cf"
+    },
+    {
+      "path": "specs/content-packaging-t5.md",
+      "kind": "contract",
+      "sha256": "03045add43d0870733995f8d438b8d9f2b20a431f659198f733c53d00e11c702"
+    },
+    {
+      "path": ".factory/content-packaging-t5/checklist-scope.md",
+      "kind": "contract",
+      "sha256": "ac0b4df57ae07897be370fec382640207f6c381c55d9141acf3cce30d4aae87b"
+    },
+    {
+      "path": ".factory/content-packaging-t5/checklist/review.md",
+      "kind": "review",
+      "sha256": "065d8405f9f91c41b615fe07fed67a46bd95fa67fa90a689a21d30bbfbe7afa1"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "Read-only checklist returns exact ordered shot and source evidence through existing services."
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "Closed input, foreign documents, changed app/variant/revision/hash and stale bytes are checked."
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": true,
+      "reason": "Missing/stale media and rights remain visible without job execution or state mutation."
+    },
+    {
+      "category": "state_consistency",
+      "applicable": true,
+      "reason": "Repeated preview is identical; exact hash identities reject silent parent changes; audit/job counts remain unchanged."
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "Twenty exact Python sources CLEAN with complete declared coverage; three mutants killed; synthetic output excludes storage paths."
+    },
+    {
+      "category": "performance",
+      "applicable": true,
+      "reason": "Existing contract bounds cap shots and references; no new queue or provider reads; no latency claim."
+    },
+    {
+      "category": "external_effects",
+      "applicable": true,
+      "reason": "Temporary synthetic SQLite and media inspector only; no network, render, publication, spend or activation."
+    },
+    {
+      "category": "accessibility",
+      "applicable": false,
+      "reason": "Backend-only read service; no rendered UI changes.",
+      "review_evidence": {
+        "path": ".factory/content-packaging-t5/checklist/review.md",
+        "kind": "review",
+        "sha256": "065d8405f9f91c41b615fe07fed67a46bd95fa67fa90a689a21d30bbfbe7afa1"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "id": "happy_path",
+      "category": "happy_path",
+      "requirement": "Read-only checklist returns exact ordered shot and source evidence through existing services.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-synthetic-media-checklist"
+      ]
+    },
+    {
+      "id": "validation",
+      "category": "validation",
+      "requirement": "Closed input, foreign documents, changed app/variant/revision/hash and stale bytes are checked.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-synthetic-media-checklist"
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "category": "failure_recovery",
+      "requirement": "Missing/stale media and rights remain visible without job execution or state mutation.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-synthetic-media-checklist"
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "category": "state_consistency",
+      "requirement": "Repeated preview is identical; exact hash identities reject silent parent changes; audit/job counts remain unchanged.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-synthetic-media-checklist"
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "category": "security_privacy",
+      "requirement": "Twenty exact Python sources CLEAN with complete declared coverage; three mutants killed; synthetic output excludes storage paths.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-synthetic-media-checklist"
+      ]
+    },
+    {
+      "id": "performance",
+      "category": "performance",
+      "requirement": "Existing contract bounds cap shots and references; no new queue or provider reads; no latency claim.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-synthetic-media-checklist"
+      ]
+    },
+    {
+      "id": "external_effects",
+      "category": "external_effects",
+      "requirement": "Temporary synthetic SQLite and media inspector only; no network, render, publication, spend or activation.",
+      "profiles": [
+        "Windows-Python3.11-SQLite-synthetic-media-checklist"
+      ]
+    }
+  ]
+}

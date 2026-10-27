@@ -1,0 +1,17 @@
+[
+  {
+    "name": "identity",
+    "exit": 1,
+    "status": "KILLED"
+  },
+  {
+    "name": "rights",
+    "exit": 1,
+    "status": "KILLED"
+  },
+  {
+    "name": "authority",
+    "exit": 1,
+    "status": "KILLED"
+  }
+]
