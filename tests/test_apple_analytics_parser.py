@@ -80,6 +80,16 @@ class AppleAnalyticsParserTests(unittest.TestCase):
         with self.assertRaises(Invalid):
             parse_instance('123', '2026-01-03', [one, one], True)
 
+    def test_header_only_instance_is_unknown_not_complete(self):
+        from mission_control.apple_analytics_parser import parse_instance
+        with self.assertRaisesRegex(Invalid, 'contains no observations'):
+            self.parse(HEADER)
+        with self.assertRaisesRegex(Invalid, 'contains no observations'):
+            parse_instance('123', '2026-01-03', [segment(HEADER, 'a'), segment(HEADER, 'b')], True)
+        rows = parse_instance('123', '2026-01-03', [segment(HEADER, 'a'),
+            segment(HEADER + '2026-01-01,123,Redownload,1\n', 'b')], True)['rows']
+        self.assertEqual(rows[0]['count'], 1)
+
     def test_bounds_and_bad_gzip_are_rejected(self):
         from mission_control.apple_analytics_parser import parse_instance
         with self.assertRaises(Invalid):

@@ -108,6 +108,8 @@ def parse_instance(app_id, processing_date, segments, complete):
             row.update(segment_id=identity, processing_date=processing_date,
                        source_sha256=sources[-1]['sha256'])
             rows.append(row)
+    if not rows:
+        raise Invalid('Apple report instance contains no observations')
     return dict(app_id=app_id, processing_date=processing_date, rows=rows, sources=sources, complete=True)
 
 

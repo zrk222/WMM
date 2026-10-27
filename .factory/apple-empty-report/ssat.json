@@ -1,0 +1,43 @@
+{
+  "name": "apple-analytics-parser",
+  "language": "python",
+  "modules": [
+    {
+      "name": "apple_analytics_parser",
+      "path": "mission_control/apple_analytics_parser.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "_day",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "_unpack",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "_name",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "_rows",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "parse_instance",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "reconcile",
+          "args": [],
+          "returns": "object"
+        }
+      ]
+    }
+  ]
+}

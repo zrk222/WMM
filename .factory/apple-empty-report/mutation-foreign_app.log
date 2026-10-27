@@ -1,0 +1,21 @@
+test_bounds_and_bad_gzip_are_rejected (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_bounds_and_bad_gzip_are_rejected) ... ok
+test_foreign_app_invalid_rows_and_duplicate_headers_rejected (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_foreign_app_invalid_rows_and_duplicate_headers_rejected) ...
+  test_foreign_app_invalid_rows_and_duplicate_headers_rejected (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_foreign_app_invalid_rows_and_duplicate_headers_rejected) (data='Date,App Apple Identifier,Download Type,Counts\n2026-01-01,999,Redownload,1\n') ... FAIL
+test_header_only_instance_is_unknown_not_complete (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_header_only_instance_is_unknown_not_complete) ... ok
+test_invalid_checksum_size_or_incomplete_never_parse (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_invalid_checksum_size_or_incomplete_never_parse) ... ok
+test_multiple_segments_and_segment_identity (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_multiple_segments_and_segment_identity) ... ok
+test_named_columns_categories_and_unknown_values (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_named_columns_categories_and_unknown_values) ... ok
+test_reconcile_replaces_whole_older_date_and_keeps_other_dates (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_reconcile_replaces_whole_older_date_and_keeps_other_dates) ... ok
+
+======================================================================
+FAIL: test_foreign_app_invalid_rows_and_duplicate_headers_rejected (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_foreign_app_invalid_rows_and_duplicate_headers_rejected) (data='Date,App Apple Identifier,Download Type,Counts\n2026-01-01,999,Redownload,1\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<temporary>\tests\test_apple_analytics_parser.py", line 57, in test_foreign_app_invalid_rows_and_duplicate_headers_rejected
+    with self.subTest(data=data), self.assertRaises(Invalid):
+AssertionError: Invalid not raised
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.033s
+
+FAILED (failures=1)

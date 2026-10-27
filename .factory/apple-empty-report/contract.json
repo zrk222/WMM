@@ -1,0 +1,146 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "WMM-apple-empty-report",
+  "candidate": [
+    {
+      "path": "mission_control/apple_analytics_parser.py",
+      "sha256": "c50e5fc442422e147d0a8d02374b1550f449b6e9bfa42bc43ead9d5126642402",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_apple_analytics_parser.py",
+      "sha256": "aaba987cac78173dc8137530ec20011a3765223719c1c296bfb6d0764aded2dc",
+      "kind": "test"
+    },
+    {
+      "path": "specs/apple-analytics-parser.md",
+      "sha256": "d584b97ddf6dfafb61e82e40cb1df004b30d3b6b6425ec8c2e4469ed43393e76",
+      "kind": "contract"
+    },
+    {
+      "path": "plans/apple-analytics-parser.md",
+      "sha256": "759beee548770e45d28297322e150d4ab03b05f946f1daaa6a53619940b8bcdf",
+      "kind": "contract"
+    },
+    {
+      "path": ".factory/apple-empty-report/ssat.json",
+      "sha256": "0e661959f9f88cbf6c71e7f9b6d520cff4b096fb16703aa80c5d7ac254e41edd",
+      "kind": "contract"
+    },
+    {
+      "path": ".factory/apple-empty-report/mutations.py",
+      "sha256": "15d60ff197afa5d3a71d3675c02a43fb42a3f6b0d7e07e1a68087a313d773a9d",
+      "kind": "source"
+    },
+    {
+      "path": ".factory/apple-empty-report/seal.py",
+      "sha256": "7607591718a87634b598ac08a89adc325f196cf81b79c74f43fd7912ca19d3e7",
+      "kind": "source"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "See bounded parser scope"
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "See bounded parser scope"
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": true,
+      "reason": "See bounded parser scope"
+    },
+    {
+      "category": "state_consistency",
+      "applicable": true,
+      "reason": "See bounded parser scope"
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "See bounded parser scope"
+    },
+    {
+      "category": "performance",
+      "applicable": true,
+      "reason": "See bounded parser scope"
+    },
+    {
+      "category": "accessibility",
+      "applicable": false,
+      "reason": "See bounded parser scope",
+      "review_evidence": {
+        "path": ".factory/apple-empty-report/scope.md",
+        "sha256": "a65028867124c166515c1f3a8c68b1d511c66733a7da7964a4a9e0ca47338df5",
+        "kind": "review"
+      }
+    },
+    {
+      "category": "external_effects",
+      "applicable": true,
+      "reason": "See bounded parser scope"
+    }
+  ],
+  "checks": [
+    {
+      "id": "happy",
+      "category": "happy_path",
+      "requirement": "Parse synthetic named-column download categories and source hashes",
+      "profiles": [
+        "Windows-CPython-3.11-synthetic-offline"
+      ]
+    },
+    {
+      "id": "validation",
+      "category": "validation",
+      "requirement": "Reject invalid size, checksum, schema, date, count and foreign app",
+      "profiles": [
+        "Windows-CPython-3.11-synthetic-offline"
+      ]
+    },
+    {
+      "id": "recovery",
+      "category": "failure_recovery",
+      "requirement": "Reject an incomplete instance without changing prior parsed observations",
+      "profiles": [
+        "Windows-CPython-3.11-synthetic-offline"
+      ]
+    },
+    {
+      "id": "consistency",
+      "category": "state_consistency",
+      "requirement": "Replace older dates with newer complete data and reject conflicting or cross-app instances",
+      "profiles": [
+        "Windows-CPython-3.11-synthetic-offline"
+      ]
+    },
+    {
+      "id": "privacy",
+      "category": "security_privacy",
+      "requirement": "Validate app identity and do not expose provider credentials or URLs",
+      "profiles": [
+        "Windows-CPython-3.11-synthetic-offline"
+      ]
+    },
+    {
+      "id": "bounds",
+      "category": "performance",
+      "requirement": "Enforce segment, compressed and decompressed size limits on synthetic inputs",
+      "profiles": [
+        "Windows-CPython-3.11-synthetic-offline"
+      ]
+    },
+    {
+      "id": "effects",
+      "category": "external_effects",
+      "requirement": "Run offline without provider writes, network, credential access or database mutations",
+      "profiles": [
+        "Windows-CPython-3.11-synthetic-offline"
+      ]
+    }
+  ]
+}
