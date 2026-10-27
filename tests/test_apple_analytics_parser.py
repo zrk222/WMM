@@ -7,7 +7,10 @@ from unittest.mock import patch
 from mission_control.common import Invalid
 
 
-def segment(text, identity='s1'):
+def segment(text, identity='s1', normalize_fixture=True):
+    # Historical fixtures use simple comma separators; feed the documented TSV format.
+    if normalize_fixture and '\t' not in text.partition('\n')[0]:
+        text = text.replace(',', '\t')
     raw = gzip.compress(text.encode('utf-8'), mtime=0)
     return dict(id=identity, data=raw, size=len(raw), checksum=hashlib.md5(raw, usedforsecurity=False).hexdigest())
 
@@ -19,6 +22,21 @@ class AppleAnalyticsParserTests(unittest.TestCase):
     def parse(self, content, processing='2026-01-03', complete=True):
         from mission_control.apple_analytics_parser import parse_instance
         return parse_instance('123', processing, [segment(content)], complete)
+
+    def test_documented_tsv_and_download_categories(self):
+        data = ('Counts\tDownload Type\tApp Apple Identifier\tDate\tTerritory\n'
+                '2\tAuto-update\t123\t2026-01-01\tUS, CA\n'
+                '1\tRestore\t123\t2026-01-01\tUS\n')
+        rows = self.parse(data)['rows']
+        self.assertEqual([(r['type'], r['source_type'], r['count']) for r in rows],
+                         [('update', 'Auto-update', 2), ('restore', 'Restore', 1)])
+        self.assertEqual(rows[0]['dimensions']['territory'], 'US, CA')
+
+    def test_unsupported_comma_delimiter_is_rejected(self):
+        from mission_control.apple_analytics_parser import parse_instance
+        source = segment(HEADER + '2026-01-01,123,Redownload,1\n', normalize_fixture=False)
+        with self.assertRaises(Invalid):
+            parse_instance('123', '2026-01-03', [source], True)
 
     def test_named_columns_categories_and_unknown_values(self):
         data = ('Counts,Download Type,App Apple Identifier,Date\n'

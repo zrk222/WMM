@@ -15,7 +15,7 @@ MAX_DECOMPRESSED = 67108864
 MAX_ROWS = 250000
 REQUIRED = frozenset(('date', 'app apple identifier', 'download type', 'counts'))
 TYPES = {'first-time download': 'first_download', 'redownload': 'redownload',
-         'manual update': 'update', 'automatic update': 'update'}
+         'manual update': 'update', 'auto-update': 'update', 'restore': 'restore'}
 
 
 def _day(value):
@@ -53,7 +53,7 @@ def _name(value):
 
 def _rows(data, app_id, budget):
     try:
-        reader = csv.reader(io.StringIO(data.decode('utf-8-sig'), newline=''), strict=True)
+        reader = csv.reader(io.StringIO(data.decode('utf-8-sig'), newline=''), delimiter='\t', strict=True)
         headers = next(reader)
         names = [_name(value) for value in headers]
         if len(set(names)) != len(names) or not REQUIRED.issubset(names):
