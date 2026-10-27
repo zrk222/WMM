@@ -1,0 +1,224 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "WMM-content-packaging-T4",
+  "candidate": [
+    {
+      "path": "mission_control/packaging_contract.py",
+      "kind": "source",
+      "sha256": "272a17ed9b84b4d5087ca9594df0a45309b2d3cb7a1ddc3bfc1d932c275b266e"
+    },
+    {
+      "path": "mission_control/server.py",
+      "kind": "source",
+      "sha256": "5392b2915890cd20734e211979852ade6afdbae6c52244722aafca69eae8ee53"
+    },
+    {
+      "path": "mission_control/static/app.js",
+      "kind": "source",
+      "sha256": "118969bce536de6eca9cfd5476aae63f4dd36facb0704df7dc0800cb4f1bee27"
+    },
+    {
+      "path": "mission_control/static/index.html",
+      "kind": "source",
+      "sha256": "27e13fec91a5d10ccb027c6bae51bba6d113ee8047e19ec8a42ea979b64686c8"
+    },
+    {
+      "path": "mission_control/static/ui-stories.js",
+      "kind": "source",
+      "sha256": "d6b42081de029c304ba0114bca4d1988a8545a2d6ef5a4297816637983dee7d2"
+    },
+    {
+      "path": "mission_control/static/packaging-model.js",
+      "kind": "source",
+      "sha256": "1d10a5ace76c372228ac7452fba81b741a2af7f1a74b2a0b85014031f7e02626"
+    },
+    {
+      "path": "mission_control/static/packaging-ui.js",
+      "kind": "source",
+      "sha256": "5c16615872317a9a2f4cfd735de36aadbcd8dc8fcfcbe218f8ea905f1fa19c09"
+    },
+    {
+      "path": "mission_control/static/packaging.css",
+      "kind": "source",
+      "sha256": "3d0d7a62342662cd973d4101285a902f712a97b971e5f8b3bc7af0ce8da15a72"
+    },
+    {
+      "path": "tests/packaging_model.test.cjs",
+      "kind": "source",
+      "sha256": "034d81e4d54b777c4cee79dd9f83695796841a590f1aeb200cb6e609149a5755"
+    },
+    {
+      "path": "tests/packaging_ui.test.cjs",
+      "kind": "source",
+      "sha256": "c688fe458abe4e4a8d3742dc1327d169dc9defeff767c4f55e1a473b1199850e"
+    },
+    {
+      "path": "tests/test_packaging_ui_http.py",
+      "kind": "source",
+      "sha256": "49bac1e4dcaff208ab5417090e57f583130d8af5f81255377b5c98e05c2a9138"
+    },
+    {
+      "path": "specs/content-packaging-t4.md",
+      "kind": "source",
+      "sha256": "fe18179a9d002e37aa14d2412db0f4b6619c646f83a27f30c303888ab5299825"
+    },
+    {
+      "path": "specs/content-packaging-t4.ssat.yaml",
+      "kind": "source",
+      "sha256": "3095592785846802a018991ef10440736c918a664da004fbe5ed2e5b951e7681"
+    },
+    {
+      "path": "plans/content-packaging-t4.md",
+      "kind": "source",
+      "sha256": "1ed8cdb98f39950c704e935919390ebb63fe8ae3b2a5a781421a459412b97f64"
+    },
+    {
+      "path": "plans/content-packaging.md",
+      "kind": "source",
+      "sha256": "661cc08a9c797cb79241c58a49fbb93fdb1fcfb14ace3f0c1d45d7cfe93d7a8a"
+    },
+    {
+      "path": ".factory/content-packaging-t4/qa_scope.py",
+      "kind": "source",
+      "sha256": "5158b89a0780bce8d671673b764f46de487069aa17e06022d5cab0f99787ac8b"
+    },
+    {
+      "path": ".factory/content-packaging-t4/mutations.py",
+      "kind": "source",
+      "sha256": "96cd22115f48bf448884b8fc2ba4231a24bb5994875681f79c586446520d9573"
+    },
+    {
+      "path": ".factory/content-packaging-t4/workflow.py",
+      "kind": "source",
+      "sha256": "701346c072dfb05b06441d4c475a530d59d8c8c4dbdc1db7fcd33cf2eac97fe6"
+    },
+    {
+      "path": ".factory/content-packaging-t4/browser_server.py",
+      "kind": "source",
+      "sha256": "da3adc9d9e0be0b071ce8011a87419368205c20b3c785c26cde9cad7b06c40eb"
+    },
+    {
+      "path": ".factory/content-packaging-t4/review.md",
+      "kind": "review",
+      "sha256": "304e83d9afe9827a59524ff9c89d9470e3ae7f8fe16b743352835753823553f6"
+    },
+    {
+      "path": ".factory/content-packaging-t4/qa-scope/packaging-model.js",
+      "kind": "source",
+      "sha256": "96c24f1f14dfee7681a980719f205383432a796c35296fc0878f52a994b50e02"
+    },
+    {
+      "path": ".factory/content-packaging-t4/qa-scope/packaging-ui.js",
+      "kind": "source",
+      "sha256": "af91b9709296f26184e0b6c3d6e590628fea0ce7d27993a472e6d146b01a7bf2"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "Owner saves variant/shot revisions and compares original creative using local evidence; backend HTTP/CLI/MCP regressions pass."
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "Exact receipts, revisions, owner role, canonical hashes, timestamps, local image paths and formula-safe exports are checked."
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": true,
+      "reason": "Uncertain saves freeze input; explicit reconciliation precedes one identical retry; no automatic replay."
+    },
+    {
+      "category": "state_consistency",
+      "applicable": true,
+      "reason": "Closing or changing app/principal aborts pending work and clears private dialog; duplicate saves blocked."
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "Eighteen Python sources CLEAN with complete declared coverage; JavaScript correctness inventory, three semantic mutants and local-only browser flows pass."
+    },
+    {
+      "category": "performance",
+      "applicable": true,
+      "reason": "History reads bounded compact pages; comparison limited to two or three reference cards. No latency or savings claim."
+    },
+    {
+      "category": "accessibility",
+      "applicable": true,
+      "reason": "390px and 1600px Chromium checks show no document overflow, visible keyboard focus, labelled fields and at least 44px mobile actions; native iOS remains NOT_RUN."
+    },
+    {
+      "category": "external_effects",
+      "applicable": true,
+      "reason": "Synthetic isolated loopback tests only; no provider writes, publication, spending or activation."
+    }
+  ],
+  "checks": [
+    {
+      "id": "happy_path",
+      "category": "happy_path",
+      "requirement": "Owner saves variant/shot revisions and compares original creative using local evidence; backend HTTP/CLI/MCP regressions pass.",
+      "profiles": [
+        "Windows-Python3.11-Node-Chromium-synthetic-owner-loopback"
+      ]
+    },
+    {
+      "id": "validation",
+      "category": "validation",
+      "requirement": "Exact receipts, revisions, owner role, canonical hashes, timestamps, local image paths and formula-safe exports are checked.",
+      "profiles": [
+        "Windows-Python3.11-Node-Chromium-synthetic-owner-loopback"
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "category": "failure_recovery",
+      "requirement": "Uncertain saves freeze input; explicit reconciliation precedes one identical retry; no automatic replay.",
+      "profiles": [
+        "Windows-Python3.11-Node-Chromium-synthetic-owner-loopback"
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "category": "state_consistency",
+      "requirement": "Closing or changing app/principal aborts pending work and clears private dialog; duplicate saves blocked.",
+      "profiles": [
+        "Windows-Python3.11-Node-Chromium-synthetic-owner-loopback"
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "category": "security_privacy",
+      "requirement": "Eighteen Python sources CLEAN with complete declared coverage; JavaScript correctness inventory, three semantic mutants and local-only browser flows pass.",
+      "profiles": [
+        "Windows-Python3.11-Node-Chromium-synthetic-owner-loopback"
+      ]
+    },
+    {
+      "id": "performance",
+      "category": "performance",
+      "requirement": "History reads bounded compact pages; comparison limited to two or three reference cards. No latency or savings claim.",
+      "profiles": [
+        "Windows-Python3.11-Node-Chromium-synthetic-owner-loopback"
+      ]
+    },
+    {
+      "id": "accessibility",
+      "category": "accessibility",
+      "requirement": "390px and 1600px Chromium checks show no document overflow, visible keyboard focus, labelled fields and at least 44px mobile actions; native iOS remains NOT_RUN.",
+      "profiles": [
+        "Windows-Python3.11-Node-Chromium-synthetic-owner-loopback"
+      ]
+    },
+    {
+      "id": "external_effects",
+      "category": "external_effects",
+      "requirement": "Synthetic isolated loopback tests only; no provider writes, publication, spending or activation.",
+      "profiles": [
+        "Windows-Python3.11-Node-Chromium-synthetic-owner-loopback"
+      ]
+    }
+  ]
+}

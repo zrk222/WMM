@@ -1,0 +1,19 @@
+F
+======================================================================
+FAIL: test_owner_domain_post_fixed_lazy_handlers (tests.test_packaging_clients.PackagingClientTests.test_owner_domain_post_fixed_lazy_handlers)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[USER_PROFILE]\AppData\Local\Programs\Python\Python311\Lib\unittest\async_case.py", line 90, in _callTestMethod
+    if self._callMaybeAsync(method) is not None:
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "[USER_PROFILE]\AppData\Local\Programs\Python\Python311\Lib\unittest\async_case.py", line 117, in _callMaybeAsync
+    return self._asyncioTestContext.run(func, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "[USER_PROFILE]\Documents\Codex\2026-09-22\re-2\outputs\WMM-packaging\tests\test_packaging_clients.py", line 155, in test_owner_domain_post_fixed_lazy_handlers
+    self.assertIs(owner_domain_post(['api','apps',APP,name,'read']),import_module('mission_control.'+module).post)
+AssertionError: <function post at 0x000001F0C40D59E0> is not <function post at 0x000001F0C40D5C60>
+
+----------------------------------------------------------------------
+Ran 1 test in 0.760s
+
+FAILED (failures=1)

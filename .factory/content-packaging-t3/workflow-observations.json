@@ -1,0 +1,497 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "26ceda0fe8ef3e6de5b4608bed3292af5c593aafa2f4f2f0de2e4cd4af87f252",
+  "candidate_sha256": "3ac016a81a3e9f0e000e464c3262fcf17591e52ce296ea4a43637482a27190a4",
+  "observations": [
+    {
+      "id": "happy_path",
+      "profile": "Windows-Python3.11.9-owner-HTTP-CLI-official-MCP",
+      "status": "PASS",
+      "reason": "Real owner HTTP, CLI and official MCP stdio share variant/shot-list history.",
+      "execution_identity": "85 unittest regressions including owner HTTP, subprocess CLI and official SDK MCP stdio; exact-source security; three source mutation children; scoped Forge QA with original-source AST bindings",
+      "observed_at": "2026-10-26T14:26:06.205807+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t3/regressions.log",
+          "kind": "log",
+          "sha256": "01bb27c09988149da6277312bb715e22a45e8992c42ecd8abfb17601a35a1b99"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa.json",
+          "kind": "log",
+          "sha256": "f6b620876a88dea7196b17feec7baad3ec0496867be490e3c6a342a50abc1b98"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa-full-modules.json",
+          "kind": "log",
+          "sha256": "dadd7875bd765fe348d3eace73ffe8387aad86ba574bade38875256eddfa2537"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "ba35e76380d0fd6533f55fdf8b1993258b9eb8faf690e23bda10f6f258b25ff9"
+        },
+        {
+          "path": ".factory/content-packaging-t3/security.json",
+          "kind": "log",
+          "sha256": "3e8fa68255b98e3bf59d087f687e9a90160c4c4a9833e8327543ab96a45852c5"
+        },
+        {
+          "path": ".factory/content-packaging-t3/strict.json",
+          "kind": "log",
+          "sha256": "ddb17760ea1dd84a0517dce9bfa5d228382ae471f3d92614c37a840f4c1325db"
+        },
+        {
+          "path": ".factory/content-packaging-t3/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t3/build.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutations.json",
+          "kind": "log",
+          "sha256": "bc47b0502e7a2a5d352bda484b46f3c21135094439430f02ec721e378696e5fd"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-authority.log",
+          "kind": "log",
+          "sha256": "918652693d4c937947dd2fc0e361a0db3d1ee5c623b1e6a523b7d453ac82ac28"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-reconciliation.log",
+          "kind": "log",
+          "sha256": "1b2a5e2ac5443230c666d713b20dbcc951370fc161637f013af6d4566ce0bb27"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-routing.log",
+          "kind": "log",
+          "sha256": "c30aff38a8928921132f6644810b09aa195984d98eeb84c43b1390d091e39240"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-Python3.11.9-owner-HTTP-CLI-official-MCP",
+      "status": "PASS",
+      "reason": "Foreign, stale, revoked, forged and noncanonical requests are denied.",
+      "execution_identity": "85 unittest regressions including owner HTTP, subprocess CLI and official SDK MCP stdio; exact-source security; three source mutation children; scoped Forge QA with original-source AST bindings",
+      "observed_at": "2026-10-26T14:26:06.208807+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t3/regressions.log",
+          "kind": "log",
+          "sha256": "01bb27c09988149da6277312bb715e22a45e8992c42ecd8abfb17601a35a1b99"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa.json",
+          "kind": "log",
+          "sha256": "f6b620876a88dea7196b17feec7baad3ec0496867be490e3c6a342a50abc1b98"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa-full-modules.json",
+          "kind": "log",
+          "sha256": "dadd7875bd765fe348d3eace73ffe8387aad86ba574bade38875256eddfa2537"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "ba35e76380d0fd6533f55fdf8b1993258b9eb8faf690e23bda10f6f258b25ff9"
+        },
+        {
+          "path": ".factory/content-packaging-t3/security.json",
+          "kind": "log",
+          "sha256": "3e8fa68255b98e3bf59d087f687e9a90160c4c4a9833e8327543ab96a45852c5"
+        },
+        {
+          "path": ".factory/content-packaging-t3/strict.json",
+          "kind": "log",
+          "sha256": "ddb17760ea1dd84a0517dce9bfa5d228382ae471f3d92614c37a840f4c1325db"
+        },
+        {
+          "path": ".factory/content-packaging-t3/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t3/build.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutations.json",
+          "kind": "log",
+          "sha256": "bc47b0502e7a2a5d352bda484b46f3c21135094439430f02ec721e378696e5fd"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-authority.log",
+          "kind": "log",
+          "sha256": "918652693d4c937947dd2fc0e361a0db3d1ee5c623b1e6a523b7d453ac82ac28"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-reconciliation.log",
+          "kind": "log",
+          "sha256": "1b2a5e2ac5443230c666d713b20dbcc951370fc161637f013af6d4566ce0bb27"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-routing.log",
+          "kind": "log",
+          "sha256": "c30aff38a8928921132f6644810b09aa195984d98eeb84c43b1390d091e39240"
+        }
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "profile": "Windows-Python3.11.9-owner-HTTP-CLI-official-MCP",
+      "status": "PASS",
+      "reason": "Observation-only reconciliation distinguishes matching, different and absent expected revisions without replay.",
+      "execution_identity": "85 unittest regressions including owner HTTP, subprocess CLI and official SDK MCP stdio; exact-source security; three source mutation children; scoped Forge QA with original-source AST bindings",
+      "observed_at": "2026-10-26T14:26:06.210802+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t3/regressions.log",
+          "kind": "log",
+          "sha256": "01bb27c09988149da6277312bb715e22a45e8992c42ecd8abfb17601a35a1b99"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa.json",
+          "kind": "log",
+          "sha256": "f6b620876a88dea7196b17feec7baad3ec0496867be490e3c6a342a50abc1b98"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa-full-modules.json",
+          "kind": "log",
+          "sha256": "dadd7875bd765fe348d3eace73ffe8387aad86ba574bade38875256eddfa2537"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "ba35e76380d0fd6533f55fdf8b1993258b9eb8faf690e23bda10f6f258b25ff9"
+        },
+        {
+          "path": ".factory/content-packaging-t3/security.json",
+          "kind": "log",
+          "sha256": "3e8fa68255b98e3bf59d087f687e9a90160c4c4a9833e8327543ab96a45852c5"
+        },
+        {
+          "path": ".factory/content-packaging-t3/strict.json",
+          "kind": "log",
+          "sha256": "ddb17760ea1dd84a0517dce9bfa5d228382ae471f3d92614c37a840f4c1325db"
+        },
+        {
+          "path": ".factory/content-packaging-t3/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t3/build.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutations.json",
+          "kind": "log",
+          "sha256": "bc47b0502e7a2a5d352bda484b46f3c21135094439430f02ec721e378696e5fd"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-authority.log",
+          "kind": "log",
+          "sha256": "918652693d4c937947dd2fc0e361a0db3d1ee5c623b1e6a523b7d453ac82ac28"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-reconciliation.log",
+          "kind": "log",
+          "sha256": "1b2a5e2ac5443230c666d713b20dbcc951370fc161637f013af6d4566ce0bb27"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-routing.log",
+          "kind": "log",
+          "sha256": "c30aff38a8928921132f6644810b09aa195984d98eeb84c43b1390d091e39240"
+        }
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "profile": "Windows-Python3.11.9-owner-HTTP-CLI-official-MCP",
+      "status": "PASS",
+      "reason": "Exact current authority and independent review are rechecked through protected transactions.",
+      "execution_identity": "85 unittest regressions including owner HTTP, subprocess CLI and official SDK MCP stdio; exact-source security; three source mutation children; scoped Forge QA with original-source AST bindings",
+      "observed_at": "2026-10-26T14:26:06.213807+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t3/regressions.log",
+          "kind": "log",
+          "sha256": "01bb27c09988149da6277312bb715e22a45e8992c42ecd8abfb17601a35a1b99"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa.json",
+          "kind": "log",
+          "sha256": "f6b620876a88dea7196b17feec7baad3ec0496867be490e3c6a342a50abc1b98"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa-full-modules.json",
+          "kind": "log",
+          "sha256": "dadd7875bd765fe348d3eace73ffe8387aad86ba574bade38875256eddfa2537"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "ba35e76380d0fd6533f55fdf8b1993258b9eb8faf690e23bda10f6f258b25ff9"
+        },
+        {
+          "path": ".factory/content-packaging-t3/security.json",
+          "kind": "log",
+          "sha256": "3e8fa68255b98e3bf59d087f687e9a90160c4c4a9833e8327543ab96a45852c5"
+        },
+        {
+          "path": ".factory/content-packaging-t3/strict.json",
+          "kind": "log",
+          "sha256": "ddb17760ea1dd84a0517dce9bfa5d228382ae471f3d92614c37a840f4c1325db"
+        },
+        {
+          "path": ".factory/content-packaging-t3/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t3/build.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutations.json",
+          "kind": "log",
+          "sha256": "bc47b0502e7a2a5d352bda484b46f3c21135094439430f02ec721e378696e5fd"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-authority.log",
+          "kind": "log",
+          "sha256": "918652693d4c937947dd2fc0e361a0db3d1ee5c623b1e6a523b7d453ac82ac28"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-reconciliation.log",
+          "kind": "log",
+          "sha256": "1b2a5e2ac5443230c666d713b20dbcc951370fc161637f013af6d4566ce0bb27"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-routing.log",
+          "kind": "log",
+          "sha256": "c30aff38a8928921132f6644810b09aa195984d98eeb84c43b1390d091e39240"
+        }
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "profile": "Windows-Python3.11.9-owner-HTTP-CLI-official-MCP",
+      "status": "PASS",
+      "reason": "Eighteen whole sources are audited CLEAN with complete coverage and no database gaps; three mutants are killed.",
+      "execution_identity": "85 unittest regressions including owner HTTP, subprocess CLI and official SDK MCP stdio; exact-source security; three source mutation children; scoped Forge QA with original-source AST bindings",
+      "observed_at": "2026-10-26T14:26:06.215800+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t3/regressions.log",
+          "kind": "log",
+          "sha256": "01bb27c09988149da6277312bb715e22a45e8992c42ecd8abfb17601a35a1b99"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa.json",
+          "kind": "log",
+          "sha256": "f6b620876a88dea7196b17feec7baad3ec0496867be490e3c6a342a50abc1b98"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa-full-modules.json",
+          "kind": "log",
+          "sha256": "dadd7875bd765fe348d3eace73ffe8387aad86ba574bade38875256eddfa2537"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "ba35e76380d0fd6533f55fdf8b1993258b9eb8faf690e23bda10f6f258b25ff9"
+        },
+        {
+          "path": ".factory/content-packaging-t3/security.json",
+          "kind": "log",
+          "sha256": "3e8fa68255b98e3bf59d087f687e9a90160c4c4a9833e8327543ab96a45852c5"
+        },
+        {
+          "path": ".factory/content-packaging-t3/strict.json",
+          "kind": "log",
+          "sha256": "ddb17760ea1dd84a0517dce9bfa5d228382ae471f3d92614c37a840f4c1325db"
+        },
+        {
+          "path": ".factory/content-packaging-t3/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t3/build.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutations.json",
+          "kind": "log",
+          "sha256": "bc47b0502e7a2a5d352bda484b46f3c21135094439430f02ec721e378696e5fd"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-authority.log",
+          "kind": "log",
+          "sha256": "918652693d4c937947dd2fc0e361a0db3d1ee5c623b1e6a523b7d453ac82ac28"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-reconciliation.log",
+          "kind": "log",
+          "sha256": "1b2a5e2ac5443230c666d713b20dbcc951370fc161637f013af6d4566ce0bb27"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-routing.log",
+          "kind": "log",
+          "sha256": "c30aff38a8928921132f6644810b09aa195984d98eeb84c43b1390d091e39240"
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "profile": "Windows-Python3.11.9-owner-HTTP-CLI-official-MCP",
+      "status": "PASS",
+      "reason": "Compact 100-row history pages avoid loading private script payloads; no latency claim.",
+      "execution_identity": "85 unittest regressions including owner HTTP, subprocess CLI and official SDK MCP stdio; exact-source security; three source mutation children; scoped Forge QA with original-source AST bindings",
+      "observed_at": "2026-10-26T14:26:06.217807+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t3/regressions.log",
+          "kind": "log",
+          "sha256": "01bb27c09988149da6277312bb715e22a45e8992c42ecd8abfb17601a35a1b99"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa.json",
+          "kind": "log",
+          "sha256": "f6b620876a88dea7196b17feec7baad3ec0496867be490e3c6a342a50abc1b98"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa-full-modules.json",
+          "kind": "log",
+          "sha256": "dadd7875bd765fe348d3eace73ffe8387aad86ba574bade38875256eddfa2537"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "ba35e76380d0fd6533f55fdf8b1993258b9eb8faf690e23bda10f6f258b25ff9"
+        },
+        {
+          "path": ".factory/content-packaging-t3/security.json",
+          "kind": "log",
+          "sha256": "3e8fa68255b98e3bf59d087f687e9a90160c4c4a9833e8327543ab96a45852c5"
+        },
+        {
+          "path": ".factory/content-packaging-t3/strict.json",
+          "kind": "log",
+          "sha256": "ddb17760ea1dd84a0517dce9bfa5d228382ae471f3d92614c37a840f4c1325db"
+        },
+        {
+          "path": ".factory/content-packaging-t3/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t3/build.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutations.json",
+          "kind": "log",
+          "sha256": "bc47b0502e7a2a5d352bda484b46f3c21135094439430f02ec721e378696e5fd"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-authority.log",
+          "kind": "log",
+          "sha256": "918652693d4c937947dd2fc0e361a0db3d1ee5c623b1e6a523b7d453ac82ac28"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-reconciliation.log",
+          "kind": "log",
+          "sha256": "1b2a5e2ac5443230c666d713b20dbcc951370fc161637f013af6d4566ce0bb27"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-routing.log",
+          "kind": "log",
+          "sha256": "c30aff38a8928921132f6644810b09aa195984d98eeb84c43b1390d091e39240"
+        }
+      ]
+    },
+    {
+      "id": "external_effects",
+      "profile": "Windows-Python3.11.9-owner-HTTP-CLI-official-MCP",
+      "status": "PASS",
+      "reason": "All tests use synthetic data and local SQLite/loopback; no provider or publishing calls.",
+      "execution_identity": "85 unittest regressions including owner HTTP, subprocess CLI and official SDK MCP stdio; exact-source security; three source mutation children; scoped Forge QA with original-source AST bindings",
+      "observed_at": "2026-10-26T14:26:06.219809+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t3/regressions.log",
+          "kind": "log",
+          "sha256": "01bb27c09988149da6277312bb715e22a45e8992c42ecd8abfb17601a35a1b99"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa.json",
+          "kind": "log",
+          "sha256": "f6b620876a88dea7196b17feec7baad3ec0496867be490e3c6a342a50abc1b98"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa-full-modules.json",
+          "kind": "log",
+          "sha256": "dadd7875bd765fe348d3eace73ffe8387aad86ba574bade38875256eddfa2537"
+        },
+        {
+          "path": ".factory/content-packaging-t3/qa-source-bindings.json",
+          "kind": "log",
+          "sha256": "ba35e76380d0fd6533f55fdf8b1993258b9eb8faf690e23bda10f6f258b25ff9"
+        },
+        {
+          "path": ".factory/content-packaging-t3/security.json",
+          "kind": "log",
+          "sha256": "3e8fa68255b98e3bf59d087f687e9a90160c4c4a9833e8327543ab96a45852c5"
+        },
+        {
+          "path": ".factory/content-packaging-t3/strict.json",
+          "kind": "log",
+          "sha256": "ddb17760ea1dd84a0517dce9bfa5d228382ae471f3d92614c37a840f4c1325db"
+        },
+        {
+          "path": ".factory/content-packaging-t3/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t3/build.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutations.json",
+          "kind": "log",
+          "sha256": "bc47b0502e7a2a5d352bda484b46f3c21135094439430f02ec721e378696e5fd"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-authority.log",
+          "kind": "log",
+          "sha256": "918652693d4c937947dd2fc0e361a0db3d1ee5c623b1e6a523b7d453ac82ac28"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-reconciliation.log",
+          "kind": "log",
+          "sha256": "1b2a5e2ac5443230c666d713b20dbcc951370fc161637f013af6d4566ce0bb27"
+        },
+        {
+          "path": ".factory/content-packaging-t3/mutation-routing.log",
+          "kind": "log",
+          "sha256": "c30aff38a8928921132f6644810b09aa195984d98eeb84c43b1390d091e39240"
+        }
+      ]
+    }
+  ]
+}

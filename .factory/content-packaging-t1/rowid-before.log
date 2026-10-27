@@ -1,0 +1,33 @@
+test_explicit_rowid_replace_preserves_history_for_both_trigger_modes (tests.test_packaging.PackagingTests.test_explicit_rowid_replace_preserves_history_for_both_trigger_modes) ...
+  test_explicit_rowid_replace_preserves_history_for_both_trigger_modes (tests.test_packaging.PackagingTests.test_explicit_rowid_replace_preserves_history_for_both_trigger_modes) (mode=0, verb='REPLACE') ... FAIL
+  test_explicit_rowid_replace_preserves_history_for_both_trigger_modes (tests.test_packaging.PackagingTests.test_explicit_rowid_replace_preserves_history_for_both_trigger_modes) (mode=0, verb='INSERT OR REPLACE') ... FAIL
+test_rowid_guard_upgrade_and_reserved_negative_sentinel_fail_closed (tests.test_packaging.PackagingTests.test_rowid_guard_upgrade_and_reserved_negative_sentinel_fail_closed) ... FAIL
+
+======================================================================
+FAIL: test_explicit_rowid_replace_preserves_history_for_both_trigger_modes (tests.test_packaging.PackagingTests.test_explicit_rowid_replace_preserves_history_for_both_trigger_modes) (mode=0, verb='REPLACE')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM-packaging\tests\test_packaging.py", line 137, in test_explicit_rowid_replace_preserves_history_for_both_trigger_modes
+    with self.assertRaisesRegex(sqlite3.IntegrityError, 'append-only'):
+AssertionError: IntegrityError not raised
+
+======================================================================
+FAIL: test_explicit_rowid_replace_preserves_history_for_both_trigger_modes (tests.test_packaging.PackagingTests.test_explicit_rowid_replace_preserves_history_for_both_trigger_modes) (mode=0, verb='INSERT OR REPLACE')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM-packaging\tests\test_packaging.py", line 137, in test_explicit_rowid_replace_preserves_history_for_both_trigger_modes
+    with self.assertRaisesRegex(sqlite3.IntegrityError, 'append-only'):
+AssertionError: IntegrityError not raised
+
+======================================================================
+FAIL: test_rowid_guard_upgrade_and_reserved_negative_sentinel_fail_closed (tests.test_packaging.PackagingTests.test_rowid_guard_upgrade_and_reserved_negative_sentinel_fail_closed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM-packaging\tests\test_packaging.py", line 156, in test_rowid_guard_upgrade_and_reserved_negative_sentinel_fail_closed
+    self.assertIsNotNone(db.execute("SELECT name FROM sqlite_master WHERE type='trigger' AND name='packaging_no_rowid_replace'").fetchone())
+AssertionError: unexpectedly None
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.683s
+
+FAILED (failures=3)

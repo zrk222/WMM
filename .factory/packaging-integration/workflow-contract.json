@@ -1,0 +1,289 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "WMM-packaging-integration",
+  "candidate": [
+    {
+      "path": "mission_control/automation_requirements.py",
+      "sha256": "8d942d049798d16d85261aa26fbef91db5f2fc49f4fbbd8ca308e722f3038f41",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/creative_briefs.py",
+      "sha256": "d73f30ba1c7ac0470a6114d8608a5e1d15a9cc18e12f7ce1a831f2300a832730",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/creative_library.py",
+      "sha256": "f2d792ab5298ecb453f9003ce9d1df562f87fecd344d109b740cce1dfe61d656",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/db.py",
+      "sha256": "2b7f74264ca1b9307facc177689da80f983f0a463f4aadd610f5beba56bafdb8",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/discovery_http.py",
+      "sha256": "1c0d0adf19feceb77f3dc72c1653c9663f680dcc8033e2ca99496c37f737a780",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/discovery_store.py",
+      "sha256": "38fd3f5c6d447ca8cadcda4c8b788936933613337e24652a343f92155bbeba5b",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/funnel_store.py",
+      "sha256": "a821244f7cc48b87416712fab2ec4114def31835896152968319bd8c23e1114c",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/managed_media_store.py",
+      "sha256": "06b0169070c2d798ba4186bfce833842dcd0e62dfa9c8cf818d7470f66201038",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/operation_catalog.py",
+      "sha256": "2fc3cc01b725d4125d2942877575c610702d283752eecddee6755011bd61d1e4",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/operation_runtime.py",
+      "sha256": "e082c76de9a9e357ed32686c1febabd6db7920fa760bafbc5a464902fe6de8f7",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/packaging_access.py",
+      "sha256": "355d1a1aa8139ea16578d6413dbe7af4dc09f4bdb2d85fd19d9394c8eb7d7760",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/packaging_bindings.py",
+      "sha256": "fe6004a9e6356ab26dad273d4c677597f00b2b9766762a68687fbdb3415de511",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/packaging_contract.py",
+      "sha256": "272a17ed9b84b4d5087ca9594df0a45309b2d3cb7a1ddc3bfc1d932c275b266e",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/packaging_http.py",
+      "sha256": "093af23b8abc84c55d40f878629e9791007ad9cd7ce3818c1ddd66534577e2d8",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/packaging_store.py",
+      "sha256": "85620531d2a822005a60c15b4b1fa0ae062c9cf7f3fc9d55beadd4f21363fb11",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/server.py",
+      "sha256": "5392b2915890cd20734e211979852ade6afdbae6c52244722aafca69eae8ee53",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/static/app.js",
+      "sha256": "118969bce536de6eca9cfd5476aae63f4dd36facb0704df7dc0800cb4f1bee27",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/static/index.html",
+      "sha256": "27e13fec91a5d10ccb027c6bae51bba6d113ee8047e19ec8a42ea979b64686c8",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/static/packaging-model.js",
+      "sha256": "1d10a5ace76c372228ac7452fba81b741a2af7f1a74b2a0b85014031f7e02626",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/static/packaging-ui.js",
+      "sha256": "5c16615872317a9a2f4cfd735de36aadbcd8dc8fcfcbe218f8ea905f1fa19c09",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/static/packaging.css",
+      "sha256": "3d0d7a62342662cd973d4101285a902f712a97b971e5f8b3bc7af0ce8da15a72",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/static/ui-stories.js",
+      "sha256": "d22825ee45c4d45286b37ad9a12f2233e5ff3743ec4d59881e034c369149fd2d",
+      "kind": "source"
+    },
+    {
+      "path": "tests/packaging_model.test.cjs",
+      "sha256": "034d81e4d54b777c4cee79dd9f83695796841a590f1aeb200cb6e609149a5755",
+      "kind": "source"
+    },
+    {
+      "path": "tests/packaging_ui.test.cjs",
+      "sha256": "c688fe458abe4e4a8d3742dc1327d169dc9defeff767c4f55e1a473b1199850e",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_agent_review_http.py",
+      "sha256": "26e1183f6f8632f2a977602bdaa18fffc0274c5adfb5c68aa190efe9a70bb9bb",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_native_sqlite_entry.py",
+      "sha256": "bb95ff56b2d3092257f8ff32b37ba1919fa49afd0bae226091e5b72527c4a4f3",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_operation_catalog.py",
+      "sha256": "08f689c50947dd3bcd46584bfb1a462f708423461f530ed821747cacc493ade9",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_packaging.py",
+      "sha256": "ca8f9231a4dd0c2941f345f349820aaf5244ebfbc9646f107836dbfe13b17d07",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_packaging_clients.py",
+      "sha256": "9560e6908e9ea33d7b97e56f9fa92cdeed671aa59a3b13aa7d208b4c3ec5a4fd",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_packaging_ui_http.py",
+      "sha256": "49bac1e4dcaff208ab5417090e57f583130d8af5f81255377b5c98e05c2a9138",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_sequence_runtime.py",
+      "sha256": "6f0a7a2fdc0f7465bbee2e57c6134eb8a36343cf2e240cb3611b999f463847d0",
+      "kind": "source"
+    },
+    {
+      "path": ".factory/packaging-integration/run.py",
+      "kind": "source",
+      "sha256": "286128d8790523b46a9c2acafb0ba39a5c21638f5141cbb8a5020d8678dd9c22"
+    },
+    {
+      "path": ".factory/packaging-integration/verify.py",
+      "kind": "source",
+      "sha256": "e751fd1800108063898f34250780d056f3f9c8e85e6416c9d2ce59c9adf125e6"
+    },
+    {
+      "path": ".factory/packaging-integration/review.md",
+      "kind": "review",
+      "sha256": "eafb389cf0eb22dc4177e34c682340476742dfe7aad67a8c9057bbffd3d41f6f"
+    },
+    {
+      "path": ".factory/content-packaging-t4/mutations.py",
+      "kind": "source",
+      "sha256": "a8efc2a0c0fd89f65dc4b298eecaf6c1b9b7f2e123117dd501aaee5d95e94374"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "Four complete deterministic Python shards and all Node suites exercise the combined tree."
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "Catalog count corrected from 53 to 57 with named packaging route/effect assertions; route and immutable-history regressions pass."
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": true,
+      "reason": "Initial failure retained; affected defining-module shard rerun after only its three test modules changed."
+    },
+    {
+      "category": "state_consistency",
+      "applicable": true,
+      "reason": "Original source freeze, exact three-test-module delta, unchanged runtime and matching complete test inventory prove combined local execution scope."
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "Nineteen whole Python files CLEAN with complete declared coverage and no database gaps; no waiver; distribution privacy passes."
+    },
+    {
+      "category": "performance",
+      "applicable": true,
+      "reason": "No runtime hot-path change in the catalog repair; bounded packaging behavior retains its prior focused proof. No timing or savings claim."
+    },
+    {
+      "category": "accessibility",
+      "applicable": true,
+      "reason": "Both packaging and selected Drive narration retained; all browser logic suites pass. Prior packaging desktop/mobile rendered proof applies to unchanged layout/control sources; no native-device claim."
+    },
+    {
+      "category": "external_effects",
+      "applicable": true,
+      "reason": "Local synthetic tests and source-only integration; no provider publication, spending, messages or activation."
+    }
+  ],
+  "checks": [
+    {
+      "id": "happy_path",
+      "category": "happy_path",
+      "requirement": "Four complete deterministic Python shards and all Node suites exercise the combined tree.",
+      "profiles": [
+        "Windows-Python3.11-MCP1.16-Node-combined-local"
+      ]
+    },
+    {
+      "id": "validation",
+      "category": "validation",
+      "requirement": "Catalog count corrected from 53 to 57 with named packaging route/effect assertions; route and immutable-history regressions pass.",
+      "profiles": [
+        "Windows-Python3.11-MCP1.16-Node-combined-local"
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "category": "failure_recovery",
+      "requirement": "Initial failure retained; affected defining-module shard rerun after only its three test modules changed.",
+      "profiles": [
+        "Windows-Python3.11-MCP1.16-Node-combined-local"
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "category": "state_consistency",
+      "requirement": "Original source freeze, exact three-test-module delta, unchanged runtime and matching complete test inventory prove combined local execution scope.",
+      "profiles": [
+        "Windows-Python3.11-MCP1.16-Node-combined-local"
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "category": "security_privacy",
+      "requirement": "Nineteen whole Python files CLEAN with complete declared coverage and no database gaps; no waiver; distribution privacy passes.",
+      "profiles": [
+        "Windows-Python3.11-MCP1.16-Node-combined-local"
+      ]
+    },
+    {
+      "id": "performance",
+      "category": "performance",
+      "requirement": "No runtime hot-path change in the catalog repair; bounded packaging behavior retains its prior focused proof. No timing or savings claim.",
+      "profiles": [
+        "Windows-Python3.11-MCP1.16-Node-combined-local"
+      ]
+    },
+    {
+      "id": "accessibility",
+      "category": "accessibility",
+      "requirement": "Both packaging and selected Drive narration retained; all browser logic suites pass. Prior packaging desktop/mobile rendered proof applies to unchanged layout/control sources; no native-device claim.",
+      "profiles": [
+        "Windows-Python3.11-MCP1.16-Node-combined-local"
+      ]
+    },
+    {
+      "id": "external_effects",
+      "category": "external_effects",
+      "requirement": "Local synthetic tests and source-only integration; no provider publication, spending, messages or activation.",
+      "profiles": [
+        "Windows-Python3.11-MCP1.16-Node-combined-local"
+      ]
+    }
+  ]
+}

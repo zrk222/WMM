@@ -1,0 +1,34 @@
+{
+  "inventory_sha256": "6b0cc93e70f37e91f0330eba3c589cfad5b69465c7053f7d0a25ac38e7f4208a",
+  "selected_count": 438,
+  "modules": {
+    "test_operation_catalog.": [
+      "test_operation_catalog.OperationCatalogTests.test_catalog_is_fresh_hash_bound_and_honest_about_unfinished_authority",
+      "test_operation_catalog.OperationCatalogTests.test_path_segment_rejects_encoded_query_traversal_and_host_syntax",
+      "test_operation_catalog.OperationCatalogTests.test_request_data_resolves_every_catalog_route_and_closed_input",
+      "test_operation_catalog.OperationCatalogTests.test_unknown_approval_and_resource_injection_are_denied"
+    ],
+    "test_agent_review_http.": [
+      "test_agent_review_http.ReviewHTTPTests.test_cancel_unknown_receipt_and_authenticated_reconcile",
+      "test_agent_review_http.ReviewHTTPTests.test_closed_protocol_invalid_framing_and_missing_grant_fail_before_session",
+      "test_agent_review_http.ReviewHTTPTests.test_exact_human_approval_and_agent_resume_use_separate_sessions",
+      "test_agent_review_http.ReviewHTTPTests.test_human_queue_pagination_has_all_requests_and_bounded_metadata",
+      "test_agent_review_http.ReviewHTTPTests.test_stale_hash_changed_role_identity_failure_and_cross_app_deny",
+      "test_agent_review_http.ReviewHTTPTests.test_unsigned_self_forged_and_bearer_approval_are_denied",
+      "test_agent_review_http.ReviewHTTPTests.test_wrong_tokens_and_replacement_grants_cannot_probe_request_existence"
+    ],
+    "test_sequence_runtime.": [
+      "test_sequence_runtime.SequenceRuntimeTests.test_app_drift_blocks_before_any_child_is_queued",
+      "test_sequence_runtime.SequenceRuntimeTests.test_concurrent_advance_creates_only_one_owned_child",
+      "test_sequence_runtime.SequenceRuntimeTests.test_expiry_stops_owned_reads_before_io_and_explains_new_approval",
+      "test_sequence_runtime.SequenceRuntimeTests.test_inflight_cancellation_rejects_result_and_stops_next_reads",
+      "test_sequence_runtime.SequenceRuntimeTests.test_missing_child_receipt_is_a_gap_not_success",
+      "test_sequence_runtime.SequenceRuntimeTests.test_one_failed_action_retained_while_other_approved_work_continues",
+      "test_sequence_runtime.SequenceRuntimeTests.test_owned_queued_sources_cancel_without_provider_calls",
+      "test_sequence_runtime.SequenceRuntimeTests.test_preexisting_shared_reads_survive_sequence_cancellation",
+      "test_sequence_runtime.SequenceRuntimeTests.test_saved_child_identity_recovery_does_not_duplicate_execution",
+      "test_sequence_runtime.SequenceRuntimeTests.test_worker_advances_independent_steps_and_resumes_saved_checkpoint"
+    ]
+  },
+  "mode": "PLAN_ONLY_NOT_EXECUTION"
+}

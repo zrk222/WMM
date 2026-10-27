@@ -1,0 +1,1447 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "8f267ba3ee4b126c9e089dd66de3d3ae317bc29d2e645f574855915cbac1babe",
+  "candidate_sha256": "7cca8ed0b3726b512c8a026affbef85e746d470dda012add32d000cc5a6fc847",
+  "observations": [
+    {
+      "id": "happy_path",
+      "profile": "Windows-Python3.11-MCP1.16-Node-combined-local",
+      "status": "PASS",
+      "reason": "Four complete deterministic Python shards and all Node suites exercise the combined tree.",
+      "execution_identity": "Four inventory-matched Python shard processes; Node full suite; source-candidate security; exact post-repair source delta",
+      "observed_at": "2026-10-26T16:14:52.063835+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/packaging-integration/summary.json",
+          "kind": "log",
+          "sha256": "57b917a295a2dbf2fe09945150e5624391e72fb392ab2c773b83526ff1dae9e7"
+        },
+        {
+          "path": ".factory/packaging-integration/doctor.json",
+          "kind": "log",
+          "sha256": "77203500e43602a500361a6b11d3f594984d2c71256d952eaf0fb1abaf104873"
+        },
+        {
+          "path": ".factory/packaging-integration/source-before.json",
+          "kind": "log",
+          "sha256": "27047dcb805a6eb5d411b74841b91a53d1ae6dc720e393a0de120f4494747099"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-source-before.json",
+          "kind": "log",
+          "sha256": "d7662dafc63912c41789ea5acc504d89cb2869007cc2917bc153ebf173f30f3c"
+        },
+        {
+          "path": ".factory/packaging-integration/repair-delta.json",
+          "kind": "log",
+          "sha256": "fdd743684035b1dc68ecadf1395a39f7fb769498bd37a5214fef2455bcfd3804"
+        },
+        {
+          "path": ".factory/packaging-integration/security.json",
+          "kind": "log",
+          "sha256": "9cd98b83acad4a80dc6ef86e017c52dc4adc3ee37bc9ee08be2fb83db8f0cb8e"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-shard-1.log",
+          "kind": "log",
+          "sha256": "d6809d2c58ffe2fcbcfd648d85039edcc966d3d958dd86c6fa72778d1d544799"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/tcp-abort-shard-1.log",
+          "kind": "log",
+          "sha256": "a0665fe01104b948757873917f2cb02f8576b883c16207bd11058844eedcbbb5"
+        },
+        {
+          "path": ".factory/packaging-integration/tcp-abort-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/catalog-repair.log",
+          "kind": "log",
+          "sha256": "b25c867a6ca8b12c08fc5e088ac3f696720a360280ad7de3ede191c735748600"
+        },
+        {
+          "path": ".factory/packaging-integration/http-repair.log",
+          "kind": "log",
+          "sha256": "749dcb4dd9a3b972a9a34ee8b153c73cc5579f3d75abb4e0bee5834275bbcdaa"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-node.json",
+          "kind": "log",
+          "sha256": "30d76f707b0b19f9f9dc78fc9d2f1137a57f70c298371ee0987dfd5f517440d1"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-node.log",
+          "kind": "log",
+          "sha256": "b95c2facfe7f182f6ca8f7116e391d7d8ca517f7fa858037901839ce6dbbe561"
+        },
+        {
+          "path": ".factory/packaging-integration/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/packaging-integration/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-0.json",
+          "kind": "log",
+          "sha256": "5c5c1fdd3b429a8100197d277c919dd4dc321bf11b6afb71777452444b5fa842"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-0.log",
+          "kind": "log",
+          "sha256": "1f3988dca0785a440ab67797ebfa6677ab9e073420862a1e94ed50ce50bab90d"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-1.json",
+          "kind": "log",
+          "sha256": "ad4c7347798f2557ff256584c8a4d6d2d784330daa7a36cebfbcf2ff6305543b"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-1.log",
+          "kind": "log",
+          "sha256": "56535d9d1269e60035f705e9d663bcf62c841b1d874f76ef5a7f8cf320464ad6"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-2.json",
+          "kind": "log",
+          "sha256": "fca711db08025fab1565a3383252357c9fc39d9794ee24c28aba9d1aa8030218"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-2.log",
+          "kind": "log",
+          "sha256": "f2f5e2f926259261117af330cd4d7cd53db70c37264c82f4f6d65a744d918c43"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-3.json",
+          "kind": "log",
+          "sha256": "3e23779e8009a4c542f726e128257e3ed7e5ae5b3c3631c7e89ae3c8736a0965"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-3.log",
+          "kind": "log",
+          "sha256": "c072bf488a30060330a0509d3dee76c35914477e27da2d278852f2fd492aa281"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-authority.log",
+          "kind": "log",
+          "sha256": "ce6708deadf02c5f26aa577311d71c7d739b33f524e412d6f0910d055517a811"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-canonical-hash.log",
+          "kind": "log",
+          "sha256": "3a77291c73af219151622cb5344d4c63108ca9456b5014b5b67351b0dc4e08f3"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-scope.log",
+          "kind": "log",
+          "sha256": "8be06b8fac70b60fa76cf9fa6caac55d6bcadce9da20ec914758c31886cdc15a"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutations.json",
+          "kind": "log",
+          "sha256": "2df1ad716c9d8352dff6f903e1ce9422602e0595e2476a669e6fd6622d790f35"
+        },
+        {
+          "path": ".factory/content-packaging-t4/regressions.log",
+          "kind": "log",
+          "sha256": "71791ec268198c6ec8dd3a04247bb8b2d9095ad3fcacc21c3e60886dc77de899"
+        },
+        {
+          "path": ".factory/content-packaging-t4/render-audit.json",
+          "kind": "log",
+          "sha256": "a3dd33cdcda55c6f6e420a6b3751299ec1b060141bd4954283e66d4400cbeedf"
+        },
+        {
+          "path": ".factory/packaging-integration/hour-boundary-shard-1.log",
+          "kind": "log",
+          "sha256": "5982e29adf119f2c94ce9e2d01ca7c3f6a76e5df8e0786d765effc93bc1383e3"
+        },
+        {
+          "path": ".factory/packaging-integration/hour-boundary-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/sequence-clock-repair.log",
+          "kind": "log",
+          "sha256": "439929082117ca907b52b78ea822c239398f8890b6702869209fedc47c8afe51"
+        },
+        {
+          "path": ".factory/packaging-integration/repair-assignment.json",
+          "kind": "log",
+          "sha256": "694728c426c502cb93f164dd6945c162865436e6fd985abbb9b2600c9545b984"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-Python3.11-MCP1.16-Node-combined-local",
+      "status": "PASS",
+      "reason": "Catalog count corrected from 53 to 57 with named packaging route/effect assertions; route and immutable-history regressions pass.",
+      "execution_identity": "Four inventory-matched Python shard processes; Node full suite; source-candidate security; exact post-repair source delta",
+      "observed_at": "2026-10-26T16:14:52.063835+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/packaging-integration/summary.json",
+          "kind": "log",
+          "sha256": "57b917a295a2dbf2fe09945150e5624391e72fb392ab2c773b83526ff1dae9e7"
+        },
+        {
+          "path": ".factory/packaging-integration/doctor.json",
+          "kind": "log",
+          "sha256": "77203500e43602a500361a6b11d3f594984d2c71256d952eaf0fb1abaf104873"
+        },
+        {
+          "path": ".factory/packaging-integration/source-before.json",
+          "kind": "log",
+          "sha256": "27047dcb805a6eb5d411b74841b91a53d1ae6dc720e393a0de120f4494747099"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-source-before.json",
+          "kind": "log",
+          "sha256": "d7662dafc63912c41789ea5acc504d89cb2869007cc2917bc153ebf173f30f3c"
+        },
+        {
+          "path": ".factory/packaging-integration/repair-delta.json",
+          "kind": "log",
+          "sha256": "fdd743684035b1dc68ecadf1395a39f7fb769498bd37a5214fef2455bcfd3804"
+        },
+        {
+          "path": ".factory/packaging-integration/security.json",
+          "kind": "log",
+          "sha256": "9cd98b83acad4a80dc6ef86e017c52dc4adc3ee37bc9ee08be2fb83db8f0cb8e"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-shard-1.log",
+          "kind": "log",
+          "sha256": "d6809d2c58ffe2fcbcfd648d85039edcc966d3d958dd86c6fa72778d1d544799"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/tcp-abort-shard-1.log",
+          "kind": "log",
+          "sha256": "a0665fe01104b948757873917f2cb02f8576b883c16207bd11058844eedcbbb5"
+        },
+        {
+          "path": ".factory/packaging-integration/tcp-abort-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/catalog-repair.log",
+          "kind": "log",
+          "sha256": "b25c867a6ca8b12c08fc5e088ac3f696720a360280ad7de3ede191c735748600"
+        },
+        {
+          "path": ".factory/packaging-integration/http-repair.log",
+          "kind": "log",
+          "sha256": "749dcb4dd9a3b972a9a34ee8b153c73cc5579f3d75abb4e0bee5834275bbcdaa"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-node.json",
+          "kind": "log",
+          "sha256": "30d76f707b0b19f9f9dc78fc9d2f1137a57f70c298371ee0987dfd5f517440d1"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-node.log",
+          "kind": "log",
+          "sha256": "b95c2facfe7f182f6ca8f7116e391d7d8ca517f7fa858037901839ce6dbbe561"
+        },
+        {
+          "path": ".factory/packaging-integration/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/packaging-integration/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-0.json",
+          "kind": "log",
+          "sha256": "5c5c1fdd3b429a8100197d277c919dd4dc321bf11b6afb71777452444b5fa842"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-0.log",
+          "kind": "log",
+          "sha256": "1f3988dca0785a440ab67797ebfa6677ab9e073420862a1e94ed50ce50bab90d"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-1.json",
+          "kind": "log",
+          "sha256": "ad4c7347798f2557ff256584c8a4d6d2d784330daa7a36cebfbcf2ff6305543b"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-1.log",
+          "kind": "log",
+          "sha256": "56535d9d1269e60035f705e9d663bcf62c841b1d874f76ef5a7f8cf320464ad6"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-2.json",
+          "kind": "log",
+          "sha256": "fca711db08025fab1565a3383252357c9fc39d9794ee24c28aba9d1aa8030218"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-2.log",
+          "kind": "log",
+          "sha256": "f2f5e2f926259261117af330cd4d7cd53db70c37264c82f4f6d65a744d918c43"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-3.json",
+          "kind": "log",
+          "sha256": "3e23779e8009a4c542f726e128257e3ed7e5ae5b3c3631c7e89ae3c8736a0965"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-3.log",
+          "kind": "log",
+          "sha256": "c072bf488a30060330a0509d3dee76c35914477e27da2d278852f2fd492aa281"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-authority.log",
+          "kind": "log",
+          "sha256": "ce6708deadf02c5f26aa577311d71c7d739b33f524e412d6f0910d055517a811"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-canonical-hash.log",
+          "kind": "log",
+          "sha256": "3a77291c73af219151622cb5344d4c63108ca9456b5014b5b67351b0dc4e08f3"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-scope.log",
+          "kind": "log",
+          "sha256": "8be06b8fac70b60fa76cf9fa6caac55d6bcadce9da20ec914758c31886cdc15a"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutations.json",
+          "kind": "log",
+          "sha256": "2df1ad716c9d8352dff6f903e1ce9422602e0595e2476a669e6fd6622d790f35"
+        },
+        {
+          "path": ".factory/content-packaging-t4/regressions.log",
+          "kind": "log",
+          "sha256": "71791ec268198c6ec8dd3a04247bb8b2d9095ad3fcacc21c3e60886dc77de899"
+        },
+        {
+          "path": ".factory/content-packaging-t4/render-audit.json",
+          "kind": "log",
+          "sha256": "a3dd33cdcda55c6f6e420a6b3751299ec1b060141bd4954283e66d4400cbeedf"
+        },
+        {
+          "path": ".factory/packaging-integration/hour-boundary-shard-1.log",
+          "kind": "log",
+          "sha256": "5982e29adf119f2c94ce9e2d01ca7c3f6a76e5df8e0786d765effc93bc1383e3"
+        },
+        {
+          "path": ".factory/packaging-integration/hour-boundary-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/sequence-clock-repair.log",
+          "kind": "log",
+          "sha256": "439929082117ca907b52b78ea822c239398f8890b6702869209fedc47c8afe51"
+        },
+        {
+          "path": ".factory/packaging-integration/repair-assignment.json",
+          "kind": "log",
+          "sha256": "694728c426c502cb93f164dd6945c162865436e6fd985abbb9b2600c9545b984"
+        }
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "profile": "Windows-Python3.11-MCP1.16-Node-combined-local",
+      "status": "PASS",
+      "reason": "Initial failure retained; affected defining-module shard rerun after only its three test modules changed.",
+      "execution_identity": "Four inventory-matched Python shard processes; Node full suite; source-candidate security; exact post-repair source delta",
+      "observed_at": "2026-10-26T16:14:52.063835+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/packaging-integration/summary.json",
+          "kind": "log",
+          "sha256": "57b917a295a2dbf2fe09945150e5624391e72fb392ab2c773b83526ff1dae9e7"
+        },
+        {
+          "path": ".factory/packaging-integration/doctor.json",
+          "kind": "log",
+          "sha256": "77203500e43602a500361a6b11d3f594984d2c71256d952eaf0fb1abaf104873"
+        },
+        {
+          "path": ".factory/packaging-integration/source-before.json",
+          "kind": "log",
+          "sha256": "27047dcb805a6eb5d411b74841b91a53d1ae6dc720e393a0de120f4494747099"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-source-before.json",
+          "kind": "log",
+          "sha256": "d7662dafc63912c41789ea5acc504d89cb2869007cc2917bc153ebf173f30f3c"
+        },
+        {
+          "path": ".factory/packaging-integration/repair-delta.json",
+          "kind": "log",
+          "sha256": "fdd743684035b1dc68ecadf1395a39f7fb769498bd37a5214fef2455bcfd3804"
+        },
+        {
+          "path": ".factory/packaging-integration/security.json",
+          "kind": "log",
+          "sha256": "9cd98b83acad4a80dc6ef86e017c52dc4adc3ee37bc9ee08be2fb83db8f0cb8e"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-shard-1.log",
+          "kind": "log",
+          "sha256": "d6809d2c58ffe2fcbcfd648d85039edcc966d3d958dd86c6fa72778d1d544799"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/tcp-abort-shard-1.log",
+          "kind": "log",
+          "sha256": "a0665fe01104b948757873917f2cb02f8576b883c16207bd11058844eedcbbb5"
+        },
+        {
+          "path": ".factory/packaging-integration/tcp-abort-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/catalog-repair.log",
+          "kind": "log",
+          "sha256": "b25c867a6ca8b12c08fc5e088ac3f696720a360280ad7de3ede191c735748600"
+        },
+        {
+          "path": ".factory/packaging-integration/http-repair.log",
+          "kind": "log",
+          "sha256": "749dcb4dd9a3b972a9a34ee8b153c73cc5579f3d75abb4e0bee5834275bbcdaa"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-node.json",
+          "kind": "log",
+          "sha256": "30d76f707b0b19f9f9dc78fc9d2f1137a57f70c298371ee0987dfd5f517440d1"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-node.log",
+          "kind": "log",
+          "sha256": "b95c2facfe7f182f6ca8f7116e391d7d8ca517f7fa858037901839ce6dbbe561"
+        },
+        {
+          "path": ".factory/packaging-integration/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/packaging-integration/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-0.json",
+          "kind": "log",
+          "sha256": "5c5c1fdd3b429a8100197d277c919dd4dc321bf11b6afb71777452444b5fa842"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-0.log",
+          "kind": "log",
+          "sha256": "1f3988dca0785a440ab67797ebfa6677ab9e073420862a1e94ed50ce50bab90d"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-1.json",
+          "kind": "log",
+          "sha256": "ad4c7347798f2557ff256584c8a4d6d2d784330daa7a36cebfbcf2ff6305543b"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-1.log",
+          "kind": "log",
+          "sha256": "56535d9d1269e60035f705e9d663bcf62c841b1d874f76ef5a7f8cf320464ad6"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-2.json",
+          "kind": "log",
+          "sha256": "fca711db08025fab1565a3383252357c9fc39d9794ee24c28aba9d1aa8030218"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-2.log",
+          "kind": "log",
+          "sha256": "f2f5e2f926259261117af330cd4d7cd53db70c37264c82f4f6d65a744d918c43"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-3.json",
+          "kind": "log",
+          "sha256": "3e23779e8009a4c542f726e128257e3ed7e5ae5b3c3631c7e89ae3c8736a0965"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-3.log",
+          "kind": "log",
+          "sha256": "c072bf488a30060330a0509d3dee76c35914477e27da2d278852f2fd492aa281"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-authority.log",
+          "kind": "log",
+          "sha256": "ce6708deadf02c5f26aa577311d71c7d739b33f524e412d6f0910d055517a811"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-canonical-hash.log",
+          "kind": "log",
+          "sha256": "3a77291c73af219151622cb5344d4c63108ca9456b5014b5b67351b0dc4e08f3"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-scope.log",
+          "kind": "log",
+          "sha256": "8be06b8fac70b60fa76cf9fa6caac55d6bcadce9da20ec914758c31886cdc15a"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutations.json",
+          "kind": "log",
+          "sha256": "2df1ad716c9d8352dff6f903e1ce9422602e0595e2476a669e6fd6622d790f35"
+        },
+        {
+          "path": ".factory/content-packaging-t4/regressions.log",
+          "kind": "log",
+          "sha256": "71791ec268198c6ec8dd3a04247bb8b2d9095ad3fcacc21c3e60886dc77de899"
+        },
+        {
+          "path": ".factory/content-packaging-t4/render-audit.json",
+          "kind": "log",
+          "sha256": "a3dd33cdcda55c6f6e420a6b3751299ec1b060141bd4954283e66d4400cbeedf"
+        },
+        {
+          "path": ".factory/packaging-integration/hour-boundary-shard-1.log",
+          "kind": "log",
+          "sha256": "5982e29adf119f2c94ce9e2d01ca7c3f6a76e5df8e0786d765effc93bc1383e3"
+        },
+        {
+          "path": ".factory/packaging-integration/hour-boundary-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/sequence-clock-repair.log",
+          "kind": "log",
+          "sha256": "439929082117ca907b52b78ea822c239398f8890b6702869209fedc47c8afe51"
+        },
+        {
+          "path": ".factory/packaging-integration/repair-assignment.json",
+          "kind": "log",
+          "sha256": "694728c426c502cb93f164dd6945c162865436e6fd985abbb9b2600c9545b984"
+        }
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "profile": "Windows-Python3.11-MCP1.16-Node-combined-local",
+      "status": "PASS",
+      "reason": "Original source freeze, exact three-test-module delta, unchanged runtime and matching complete test inventory prove combined local execution scope.",
+      "execution_identity": "Four inventory-matched Python shard processes; Node full suite; source-candidate security; exact post-repair source delta",
+      "observed_at": "2026-10-26T16:14:52.063835+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/packaging-integration/summary.json",
+          "kind": "log",
+          "sha256": "57b917a295a2dbf2fe09945150e5624391e72fb392ab2c773b83526ff1dae9e7"
+        },
+        {
+          "path": ".factory/packaging-integration/doctor.json",
+          "kind": "log",
+          "sha256": "77203500e43602a500361a6b11d3f594984d2c71256d952eaf0fb1abaf104873"
+        },
+        {
+          "path": ".factory/packaging-integration/source-before.json",
+          "kind": "log",
+          "sha256": "27047dcb805a6eb5d411b74841b91a53d1ae6dc720e393a0de120f4494747099"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-source-before.json",
+          "kind": "log",
+          "sha256": "d7662dafc63912c41789ea5acc504d89cb2869007cc2917bc153ebf173f30f3c"
+        },
+        {
+          "path": ".factory/packaging-integration/repair-delta.json",
+          "kind": "log",
+          "sha256": "fdd743684035b1dc68ecadf1395a39f7fb769498bd37a5214fef2455bcfd3804"
+        },
+        {
+          "path": ".factory/packaging-integration/security.json",
+          "kind": "log",
+          "sha256": "9cd98b83acad4a80dc6ef86e017c52dc4adc3ee37bc9ee08be2fb83db8f0cb8e"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-shard-1.log",
+          "kind": "log",
+          "sha256": "d6809d2c58ffe2fcbcfd648d85039edcc966d3d958dd86c6fa72778d1d544799"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/tcp-abort-shard-1.log",
+          "kind": "log",
+          "sha256": "a0665fe01104b948757873917f2cb02f8576b883c16207bd11058844eedcbbb5"
+        },
+        {
+          "path": ".factory/packaging-integration/tcp-abort-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/catalog-repair.log",
+          "kind": "log",
+          "sha256": "b25c867a6ca8b12c08fc5e088ac3f696720a360280ad7de3ede191c735748600"
+        },
+        {
+          "path": ".factory/packaging-integration/http-repair.log",
+          "kind": "log",
+          "sha256": "749dcb4dd9a3b972a9a34ee8b153c73cc5579f3d75abb4e0bee5834275bbcdaa"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-node.json",
+          "kind": "log",
+          "sha256": "30d76f707b0b19f9f9dc78fc9d2f1137a57f70c298371ee0987dfd5f517440d1"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-node.log",
+          "kind": "log",
+          "sha256": "b95c2facfe7f182f6ca8f7116e391d7d8ca517f7fa858037901839ce6dbbe561"
+        },
+        {
+          "path": ".factory/packaging-integration/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/packaging-integration/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-0.json",
+          "kind": "log",
+          "sha256": "5c5c1fdd3b429a8100197d277c919dd4dc321bf11b6afb71777452444b5fa842"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-0.log",
+          "kind": "log",
+          "sha256": "1f3988dca0785a440ab67797ebfa6677ab9e073420862a1e94ed50ce50bab90d"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-1.json",
+          "kind": "log",
+          "sha256": "ad4c7347798f2557ff256584c8a4d6d2d784330daa7a36cebfbcf2ff6305543b"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-1.log",
+          "kind": "log",
+          "sha256": "56535d9d1269e60035f705e9d663bcf62c841b1d874f76ef5a7f8cf320464ad6"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-2.json",
+          "kind": "log",
+          "sha256": "fca711db08025fab1565a3383252357c9fc39d9794ee24c28aba9d1aa8030218"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-2.log",
+          "kind": "log",
+          "sha256": "f2f5e2f926259261117af330cd4d7cd53db70c37264c82f4f6d65a744d918c43"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-3.json",
+          "kind": "log",
+          "sha256": "3e23779e8009a4c542f726e128257e3ed7e5ae5b3c3631c7e89ae3c8736a0965"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-3.log",
+          "kind": "log",
+          "sha256": "c072bf488a30060330a0509d3dee76c35914477e27da2d278852f2fd492aa281"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-authority.log",
+          "kind": "log",
+          "sha256": "ce6708deadf02c5f26aa577311d71c7d739b33f524e412d6f0910d055517a811"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-canonical-hash.log",
+          "kind": "log",
+          "sha256": "3a77291c73af219151622cb5344d4c63108ca9456b5014b5b67351b0dc4e08f3"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-scope.log",
+          "kind": "log",
+          "sha256": "8be06b8fac70b60fa76cf9fa6caac55d6bcadce9da20ec914758c31886cdc15a"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutations.json",
+          "kind": "log",
+          "sha256": "2df1ad716c9d8352dff6f903e1ce9422602e0595e2476a669e6fd6622d790f35"
+        },
+        {
+          "path": ".factory/content-packaging-t4/regressions.log",
+          "kind": "log",
+          "sha256": "71791ec268198c6ec8dd3a04247bb8b2d9095ad3fcacc21c3e60886dc77de899"
+        },
+        {
+          "path": ".factory/content-packaging-t4/render-audit.json",
+          "kind": "log",
+          "sha256": "a3dd33cdcda55c6f6e420a6b3751299ec1b060141bd4954283e66d4400cbeedf"
+        },
+        {
+          "path": ".factory/packaging-integration/hour-boundary-shard-1.log",
+          "kind": "log",
+          "sha256": "5982e29adf119f2c94ce9e2d01ca7c3f6a76e5df8e0786d765effc93bc1383e3"
+        },
+        {
+          "path": ".factory/packaging-integration/hour-boundary-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/sequence-clock-repair.log",
+          "kind": "log",
+          "sha256": "439929082117ca907b52b78ea822c239398f8890b6702869209fedc47c8afe51"
+        },
+        {
+          "path": ".factory/packaging-integration/repair-assignment.json",
+          "kind": "log",
+          "sha256": "694728c426c502cb93f164dd6945c162865436e6fd985abbb9b2600c9545b984"
+        }
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "profile": "Windows-Python3.11-MCP1.16-Node-combined-local",
+      "status": "PASS",
+      "reason": "Nineteen whole Python files CLEAN with complete declared coverage and no database gaps; no waiver; distribution privacy passes.",
+      "execution_identity": "Four inventory-matched Python shard processes; Node full suite; source-candidate security; exact post-repair source delta",
+      "observed_at": "2026-10-26T16:14:52.063835+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/packaging-integration/summary.json",
+          "kind": "log",
+          "sha256": "57b917a295a2dbf2fe09945150e5624391e72fb392ab2c773b83526ff1dae9e7"
+        },
+        {
+          "path": ".factory/packaging-integration/doctor.json",
+          "kind": "log",
+          "sha256": "77203500e43602a500361a6b11d3f594984d2c71256d952eaf0fb1abaf104873"
+        },
+        {
+          "path": ".factory/packaging-integration/source-before.json",
+          "kind": "log",
+          "sha256": "27047dcb805a6eb5d411b74841b91a53d1ae6dc720e393a0de120f4494747099"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-source-before.json",
+          "kind": "log",
+          "sha256": "d7662dafc63912c41789ea5acc504d89cb2869007cc2917bc153ebf173f30f3c"
+        },
+        {
+          "path": ".factory/packaging-integration/repair-delta.json",
+          "kind": "log",
+          "sha256": "fdd743684035b1dc68ecadf1395a39f7fb769498bd37a5214fef2455bcfd3804"
+        },
+        {
+          "path": ".factory/packaging-integration/security.json",
+          "kind": "log",
+          "sha256": "9cd98b83acad4a80dc6ef86e017c52dc4adc3ee37bc9ee08be2fb83db8f0cb8e"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-shard-1.log",
+          "kind": "log",
+          "sha256": "d6809d2c58ffe2fcbcfd648d85039edcc966d3d958dd86c6fa72778d1d544799"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/tcp-abort-shard-1.log",
+          "kind": "log",
+          "sha256": "a0665fe01104b948757873917f2cb02f8576b883c16207bd11058844eedcbbb5"
+        },
+        {
+          "path": ".factory/packaging-integration/tcp-abort-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/catalog-repair.log",
+          "kind": "log",
+          "sha256": "b25c867a6ca8b12c08fc5e088ac3f696720a360280ad7de3ede191c735748600"
+        },
+        {
+          "path": ".factory/packaging-integration/http-repair.log",
+          "kind": "log",
+          "sha256": "749dcb4dd9a3b972a9a34ee8b153c73cc5579f3d75abb4e0bee5834275bbcdaa"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-node.json",
+          "kind": "log",
+          "sha256": "30d76f707b0b19f9f9dc78fc9d2f1137a57f70c298371ee0987dfd5f517440d1"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-node.log",
+          "kind": "log",
+          "sha256": "b95c2facfe7f182f6ca8f7116e391d7d8ca517f7fa858037901839ce6dbbe561"
+        },
+        {
+          "path": ".factory/packaging-integration/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/packaging-integration/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-0.json",
+          "kind": "log",
+          "sha256": "5c5c1fdd3b429a8100197d277c919dd4dc321bf11b6afb71777452444b5fa842"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-0.log",
+          "kind": "log",
+          "sha256": "1f3988dca0785a440ab67797ebfa6677ab9e073420862a1e94ed50ce50bab90d"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-1.json",
+          "kind": "log",
+          "sha256": "ad4c7347798f2557ff256584c8a4d6d2d784330daa7a36cebfbcf2ff6305543b"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-1.log",
+          "kind": "log",
+          "sha256": "56535d9d1269e60035f705e9d663bcf62c841b1d874f76ef5a7f8cf320464ad6"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-2.json",
+          "kind": "log",
+          "sha256": "fca711db08025fab1565a3383252357c9fc39d9794ee24c28aba9d1aa8030218"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-2.log",
+          "kind": "log",
+          "sha256": "f2f5e2f926259261117af330cd4d7cd53db70c37264c82f4f6d65a744d918c43"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-3.json",
+          "kind": "log",
+          "sha256": "3e23779e8009a4c542f726e128257e3ed7e5ae5b3c3631c7e89ae3c8736a0965"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-3.log",
+          "kind": "log",
+          "sha256": "c072bf488a30060330a0509d3dee76c35914477e27da2d278852f2fd492aa281"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-authority.log",
+          "kind": "log",
+          "sha256": "ce6708deadf02c5f26aa577311d71c7d739b33f524e412d6f0910d055517a811"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-canonical-hash.log",
+          "kind": "log",
+          "sha256": "3a77291c73af219151622cb5344d4c63108ca9456b5014b5b67351b0dc4e08f3"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-scope.log",
+          "kind": "log",
+          "sha256": "8be06b8fac70b60fa76cf9fa6caac55d6bcadce9da20ec914758c31886cdc15a"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutations.json",
+          "kind": "log",
+          "sha256": "2df1ad716c9d8352dff6f903e1ce9422602e0595e2476a669e6fd6622d790f35"
+        },
+        {
+          "path": ".factory/content-packaging-t4/regressions.log",
+          "kind": "log",
+          "sha256": "71791ec268198c6ec8dd3a04247bb8b2d9095ad3fcacc21c3e60886dc77de899"
+        },
+        {
+          "path": ".factory/content-packaging-t4/render-audit.json",
+          "kind": "log",
+          "sha256": "a3dd33cdcda55c6f6e420a6b3751299ec1b060141bd4954283e66d4400cbeedf"
+        },
+        {
+          "path": ".factory/packaging-integration/hour-boundary-shard-1.log",
+          "kind": "log",
+          "sha256": "5982e29adf119f2c94ce9e2d01ca7c3f6a76e5df8e0786d765effc93bc1383e3"
+        },
+        {
+          "path": ".factory/packaging-integration/hour-boundary-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/sequence-clock-repair.log",
+          "kind": "log",
+          "sha256": "439929082117ca907b52b78ea822c239398f8890b6702869209fedc47c8afe51"
+        },
+        {
+          "path": ".factory/packaging-integration/repair-assignment.json",
+          "kind": "log",
+          "sha256": "694728c426c502cb93f164dd6945c162865436e6fd985abbb9b2600c9545b984"
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "profile": "Windows-Python3.11-MCP1.16-Node-combined-local",
+      "status": "PASS",
+      "reason": "No runtime hot-path change in the catalog repair; bounded packaging behavior retains its prior focused proof. No timing or savings claim.",
+      "execution_identity": "Four inventory-matched Python shard processes; Node full suite; source-candidate security; exact post-repair source delta",
+      "observed_at": "2026-10-26T16:14:52.063835+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/packaging-integration/summary.json",
+          "kind": "log",
+          "sha256": "57b917a295a2dbf2fe09945150e5624391e72fb392ab2c773b83526ff1dae9e7"
+        },
+        {
+          "path": ".factory/packaging-integration/doctor.json",
+          "kind": "log",
+          "sha256": "77203500e43602a500361a6b11d3f594984d2c71256d952eaf0fb1abaf104873"
+        },
+        {
+          "path": ".factory/packaging-integration/source-before.json",
+          "kind": "log",
+          "sha256": "27047dcb805a6eb5d411b74841b91a53d1ae6dc720e393a0de120f4494747099"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-source-before.json",
+          "kind": "log",
+          "sha256": "d7662dafc63912c41789ea5acc504d89cb2869007cc2917bc153ebf173f30f3c"
+        },
+        {
+          "path": ".factory/packaging-integration/repair-delta.json",
+          "kind": "log",
+          "sha256": "fdd743684035b1dc68ecadf1395a39f7fb769498bd37a5214fef2455bcfd3804"
+        },
+        {
+          "path": ".factory/packaging-integration/security.json",
+          "kind": "log",
+          "sha256": "9cd98b83acad4a80dc6ef86e017c52dc4adc3ee37bc9ee08be2fb83db8f0cb8e"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-shard-1.log",
+          "kind": "log",
+          "sha256": "d6809d2c58ffe2fcbcfd648d85039edcc966d3d958dd86c6fa72778d1d544799"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/tcp-abort-shard-1.log",
+          "kind": "log",
+          "sha256": "a0665fe01104b948757873917f2cb02f8576b883c16207bd11058844eedcbbb5"
+        },
+        {
+          "path": ".factory/packaging-integration/tcp-abort-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/catalog-repair.log",
+          "kind": "log",
+          "sha256": "b25c867a6ca8b12c08fc5e088ac3f696720a360280ad7de3ede191c735748600"
+        },
+        {
+          "path": ".factory/packaging-integration/http-repair.log",
+          "kind": "log",
+          "sha256": "749dcb4dd9a3b972a9a34ee8b153c73cc5579f3d75abb4e0bee5834275bbcdaa"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-node.json",
+          "kind": "log",
+          "sha256": "30d76f707b0b19f9f9dc78fc9d2f1137a57f70c298371ee0987dfd5f517440d1"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-node.log",
+          "kind": "log",
+          "sha256": "b95c2facfe7f182f6ca8f7116e391d7d8ca517f7fa858037901839ce6dbbe561"
+        },
+        {
+          "path": ".factory/packaging-integration/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/packaging-integration/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-0.json",
+          "kind": "log",
+          "sha256": "5c5c1fdd3b429a8100197d277c919dd4dc321bf11b6afb71777452444b5fa842"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-0.log",
+          "kind": "log",
+          "sha256": "1f3988dca0785a440ab67797ebfa6677ab9e073420862a1e94ed50ce50bab90d"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-1.json",
+          "kind": "log",
+          "sha256": "ad4c7347798f2557ff256584c8a4d6d2d784330daa7a36cebfbcf2ff6305543b"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-1.log",
+          "kind": "log",
+          "sha256": "56535d9d1269e60035f705e9d663bcf62c841b1d874f76ef5a7f8cf320464ad6"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-2.json",
+          "kind": "log",
+          "sha256": "fca711db08025fab1565a3383252357c9fc39d9794ee24c28aba9d1aa8030218"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-2.log",
+          "kind": "log",
+          "sha256": "f2f5e2f926259261117af330cd4d7cd53db70c37264c82f4f6d65a744d918c43"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-3.json",
+          "kind": "log",
+          "sha256": "3e23779e8009a4c542f726e128257e3ed7e5ae5b3c3631c7e89ae3c8736a0965"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-3.log",
+          "kind": "log",
+          "sha256": "c072bf488a30060330a0509d3dee76c35914477e27da2d278852f2fd492aa281"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-authority.log",
+          "kind": "log",
+          "sha256": "ce6708deadf02c5f26aa577311d71c7d739b33f524e412d6f0910d055517a811"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-canonical-hash.log",
+          "kind": "log",
+          "sha256": "3a77291c73af219151622cb5344d4c63108ca9456b5014b5b67351b0dc4e08f3"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-scope.log",
+          "kind": "log",
+          "sha256": "8be06b8fac70b60fa76cf9fa6caac55d6bcadce9da20ec914758c31886cdc15a"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutations.json",
+          "kind": "log",
+          "sha256": "2df1ad716c9d8352dff6f903e1ce9422602e0595e2476a669e6fd6622d790f35"
+        },
+        {
+          "path": ".factory/content-packaging-t4/regressions.log",
+          "kind": "log",
+          "sha256": "71791ec268198c6ec8dd3a04247bb8b2d9095ad3fcacc21c3e60886dc77de899"
+        },
+        {
+          "path": ".factory/content-packaging-t4/render-audit.json",
+          "kind": "log",
+          "sha256": "a3dd33cdcda55c6f6e420a6b3751299ec1b060141bd4954283e66d4400cbeedf"
+        },
+        {
+          "path": ".factory/packaging-integration/hour-boundary-shard-1.log",
+          "kind": "log",
+          "sha256": "5982e29adf119f2c94ce9e2d01ca7c3f6a76e5df8e0786d765effc93bc1383e3"
+        },
+        {
+          "path": ".factory/packaging-integration/hour-boundary-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/sequence-clock-repair.log",
+          "kind": "log",
+          "sha256": "439929082117ca907b52b78ea822c239398f8890b6702869209fedc47c8afe51"
+        },
+        {
+          "path": ".factory/packaging-integration/repair-assignment.json",
+          "kind": "log",
+          "sha256": "694728c426c502cb93f164dd6945c162865436e6fd985abbb9b2600c9545b984"
+        }
+      ]
+    },
+    {
+      "id": "accessibility",
+      "profile": "Windows-Python3.11-MCP1.16-Node-combined-local",
+      "status": "PASS",
+      "reason": "Both packaging and selected Drive narration retained; all browser logic suites pass. Prior packaging desktop/mobile rendered proof applies to unchanged layout/control sources; no native-device claim.",
+      "execution_identity": "Four inventory-matched Python shard processes; Node full suite; source-candidate security; exact post-repair source delta",
+      "observed_at": "2026-10-26T16:14:52.063835+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/packaging-integration/summary.json",
+          "kind": "log",
+          "sha256": "57b917a295a2dbf2fe09945150e5624391e72fb392ab2c773b83526ff1dae9e7"
+        },
+        {
+          "path": ".factory/packaging-integration/doctor.json",
+          "kind": "log",
+          "sha256": "77203500e43602a500361a6b11d3f594984d2c71256d952eaf0fb1abaf104873"
+        },
+        {
+          "path": ".factory/packaging-integration/source-before.json",
+          "kind": "log",
+          "sha256": "27047dcb805a6eb5d411b74841b91a53d1ae6dc720e393a0de120f4494747099"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-source-before.json",
+          "kind": "log",
+          "sha256": "d7662dafc63912c41789ea5acc504d89cb2869007cc2917bc153ebf173f30f3c"
+        },
+        {
+          "path": ".factory/packaging-integration/repair-delta.json",
+          "kind": "log",
+          "sha256": "fdd743684035b1dc68ecadf1395a39f7fb769498bd37a5214fef2455bcfd3804"
+        },
+        {
+          "path": ".factory/packaging-integration/security.json",
+          "kind": "log",
+          "sha256": "9cd98b83acad4a80dc6ef86e017c52dc4adc3ee37bc9ee08be2fb83db8f0cb8e"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-shard-1.log",
+          "kind": "log",
+          "sha256": "d6809d2c58ffe2fcbcfd648d85039edcc966d3d958dd86c6fa72778d1d544799"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/tcp-abort-shard-1.log",
+          "kind": "log",
+          "sha256": "a0665fe01104b948757873917f2cb02f8576b883c16207bd11058844eedcbbb5"
+        },
+        {
+          "path": ".factory/packaging-integration/tcp-abort-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/catalog-repair.log",
+          "kind": "log",
+          "sha256": "b25c867a6ca8b12c08fc5e088ac3f696720a360280ad7de3ede191c735748600"
+        },
+        {
+          "path": ".factory/packaging-integration/http-repair.log",
+          "kind": "log",
+          "sha256": "749dcb4dd9a3b972a9a34ee8b153c73cc5579f3d75abb4e0bee5834275bbcdaa"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-node.json",
+          "kind": "log",
+          "sha256": "30d76f707b0b19f9f9dc78fc9d2f1137a57f70c298371ee0987dfd5f517440d1"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-node.log",
+          "kind": "log",
+          "sha256": "b95c2facfe7f182f6ca8f7116e391d7d8ca517f7fa858037901839ce6dbbe561"
+        },
+        {
+          "path": ".factory/packaging-integration/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/packaging-integration/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-0.json",
+          "kind": "log",
+          "sha256": "5c5c1fdd3b429a8100197d277c919dd4dc321bf11b6afb71777452444b5fa842"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-0.log",
+          "kind": "log",
+          "sha256": "1f3988dca0785a440ab67797ebfa6677ab9e073420862a1e94ed50ce50bab90d"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-1.json",
+          "kind": "log",
+          "sha256": "ad4c7347798f2557ff256584c8a4d6d2d784330daa7a36cebfbcf2ff6305543b"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-1.log",
+          "kind": "log",
+          "sha256": "56535d9d1269e60035f705e9d663bcf62c841b1d874f76ef5a7f8cf320464ad6"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-2.json",
+          "kind": "log",
+          "sha256": "fca711db08025fab1565a3383252357c9fc39d9794ee24c28aba9d1aa8030218"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-2.log",
+          "kind": "log",
+          "sha256": "f2f5e2f926259261117af330cd4d7cd53db70c37264c82f4f6d65a744d918c43"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-3.json",
+          "kind": "log",
+          "sha256": "3e23779e8009a4c542f726e128257e3ed7e5ae5b3c3631c7e89ae3c8736a0965"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-3.log",
+          "kind": "log",
+          "sha256": "c072bf488a30060330a0509d3dee76c35914477e27da2d278852f2fd492aa281"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-authority.log",
+          "kind": "log",
+          "sha256": "ce6708deadf02c5f26aa577311d71c7d739b33f524e412d6f0910d055517a811"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-canonical-hash.log",
+          "kind": "log",
+          "sha256": "3a77291c73af219151622cb5344d4c63108ca9456b5014b5b67351b0dc4e08f3"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-scope.log",
+          "kind": "log",
+          "sha256": "8be06b8fac70b60fa76cf9fa6caac55d6bcadce9da20ec914758c31886cdc15a"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutations.json",
+          "kind": "log",
+          "sha256": "2df1ad716c9d8352dff6f903e1ce9422602e0595e2476a669e6fd6622d790f35"
+        },
+        {
+          "path": ".factory/content-packaging-t4/regressions.log",
+          "kind": "log",
+          "sha256": "71791ec268198c6ec8dd3a04247bb8b2d9095ad3fcacc21c3e60886dc77de899"
+        },
+        {
+          "path": ".factory/content-packaging-t4/render-audit.json",
+          "kind": "log",
+          "sha256": "a3dd33cdcda55c6f6e420a6b3751299ec1b060141bd4954283e66d4400cbeedf"
+        },
+        {
+          "path": ".factory/packaging-integration/hour-boundary-shard-1.log",
+          "kind": "log",
+          "sha256": "5982e29adf119f2c94ce9e2d01ca7c3f6a76e5df8e0786d765effc93bc1383e3"
+        },
+        {
+          "path": ".factory/packaging-integration/hour-boundary-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/sequence-clock-repair.log",
+          "kind": "log",
+          "sha256": "439929082117ca907b52b78ea822c239398f8890b6702869209fedc47c8afe51"
+        },
+        {
+          "path": ".factory/packaging-integration/repair-assignment.json",
+          "kind": "log",
+          "sha256": "694728c426c502cb93f164dd6945c162865436e6fd985abbb9b2600c9545b984"
+        }
+      ]
+    },
+    {
+      "id": "external_effects",
+      "profile": "Windows-Python3.11-MCP1.16-Node-combined-local",
+      "status": "PASS",
+      "reason": "Local synthetic tests and source-only integration; no provider publication, spending, messages or activation.",
+      "execution_identity": "Four inventory-matched Python shard processes; Node full suite; source-candidate security; exact post-repair source delta",
+      "observed_at": "2026-10-26T16:14:52.063835+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/packaging-integration/summary.json",
+          "kind": "log",
+          "sha256": "57b917a295a2dbf2fe09945150e5624391e72fb392ab2c773b83526ff1dae9e7"
+        },
+        {
+          "path": ".factory/packaging-integration/doctor.json",
+          "kind": "log",
+          "sha256": "77203500e43602a500361a6b11d3f594984d2c71256d952eaf0fb1abaf104873"
+        },
+        {
+          "path": ".factory/packaging-integration/source-before.json",
+          "kind": "log",
+          "sha256": "27047dcb805a6eb5d411b74841b91a53d1ae6dc720e393a0de120f4494747099"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-source-before.json",
+          "kind": "log",
+          "sha256": "d7662dafc63912c41789ea5acc504d89cb2869007cc2917bc153ebf173f30f3c"
+        },
+        {
+          "path": ".factory/packaging-integration/repair-delta.json",
+          "kind": "log",
+          "sha256": "fdd743684035b1dc68ecadf1395a39f7fb769498bd37a5214fef2455bcfd3804"
+        },
+        {
+          "path": ".factory/packaging-integration/security.json",
+          "kind": "log",
+          "sha256": "9cd98b83acad4a80dc6ef86e017c52dc4adc3ee37bc9ee08be2fb83db8f0cb8e"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-shard-1.log",
+          "kind": "log",
+          "sha256": "d6809d2c58ffe2fcbcfd648d85039edcc966d3d958dd86c6fa72778d1d544799"
+        },
+        {
+          "path": ".factory/packaging-integration/initial-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/tcp-abort-shard-1.log",
+          "kind": "log",
+          "sha256": "a0665fe01104b948757873917f2cb02f8576b883c16207bd11058844eedcbbb5"
+        },
+        {
+          "path": ".factory/packaging-integration/tcp-abort-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/catalog-repair.log",
+          "kind": "log",
+          "sha256": "b25c867a6ca8b12c08fc5e088ac3f696720a360280ad7de3ede191c735748600"
+        },
+        {
+          "path": ".factory/packaging-integration/http-repair.log",
+          "kind": "log",
+          "sha256": "749dcb4dd9a3b972a9a34ee8b153c73cc5579f3d75abb4e0bee5834275bbcdaa"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-node.json",
+          "kind": "log",
+          "sha256": "30d76f707b0b19f9f9dc78fc9d2f1137a57f70c298371ee0987dfd5f517440d1"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-node.log",
+          "kind": "log",
+          "sha256": "b95c2facfe7f182f6ca8f7116e391d7d8ca517f7fa858037901839ce6dbbe561"
+        },
+        {
+          "path": ".factory/packaging-integration/privacy.log",
+          "kind": "log",
+          "sha256": "a7b1cd23a973d735edf97be8978edfe33df62d84b4931ee177d62a8f9087062b"
+        },
+        {
+          "path": ".factory/packaging-integration/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-0.json",
+          "kind": "log",
+          "sha256": "5c5c1fdd3b429a8100197d277c919dd4dc321bf11b6afb71777452444b5fa842"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-0.log",
+          "kind": "log",
+          "sha256": "1f3988dca0785a440ab67797ebfa6677ab9e073420862a1e94ed50ce50bab90d"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-1.json",
+          "kind": "log",
+          "sha256": "ad4c7347798f2557ff256584c8a4d6d2d784330daa7a36cebfbcf2ff6305543b"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-1.log",
+          "kind": "log",
+          "sha256": "56535d9d1269e60035f705e9d663bcf62c841b1d874f76ef5a7f8cf320464ad6"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-2.json",
+          "kind": "log",
+          "sha256": "fca711db08025fab1565a3383252357c9fc39d9794ee24c28aba9d1aa8030218"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-2.log",
+          "kind": "log",
+          "sha256": "f2f5e2f926259261117af330cd4d7cd53db70c37264c82f4f6d65a744d918c43"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-3.json",
+          "kind": "log",
+          "sha256": "3e23779e8009a4c542f726e128257e3ed7e5ae5b3c3631c7e89ae3c8736a0965"
+        },
+        {
+          "path": ".factory/packaging-integration/shard-3.log",
+          "kind": "log",
+          "sha256": "c072bf488a30060330a0509d3dee76c35914477e27da2d278852f2fd492aa281"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-authority.log",
+          "kind": "log",
+          "sha256": "ce6708deadf02c5f26aa577311d71c7d739b33f524e412d6f0910d055517a811"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-canonical-hash.log",
+          "kind": "log",
+          "sha256": "3a77291c73af219151622cb5344d4c63108ca9456b5014b5b67351b0dc4e08f3"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutation-scope.log",
+          "kind": "log",
+          "sha256": "8be06b8fac70b60fa76cf9fa6caac55d6bcadce9da20ec914758c31886cdc15a"
+        },
+        {
+          "path": ".factory/content-packaging-t4/mutations.json",
+          "kind": "log",
+          "sha256": "2df1ad716c9d8352dff6f903e1ce9422602e0595e2476a669e6fd6622d790f35"
+        },
+        {
+          "path": ".factory/content-packaging-t4/regressions.log",
+          "kind": "log",
+          "sha256": "71791ec268198c6ec8dd3a04247bb8b2d9095ad3fcacc21c3e60886dc77de899"
+        },
+        {
+          "path": ".factory/content-packaging-t4/render-audit.json",
+          "kind": "log",
+          "sha256": "a3dd33cdcda55c6f6e420a6b3751299ec1b060141bd4954283e66d4400cbeedf"
+        },
+        {
+          "path": ".factory/packaging-integration/hour-boundary-shard-1.log",
+          "kind": "log",
+          "sha256": "5982e29adf119f2c94ce9e2d01ca7c3f6a76e5df8e0786d765effc93bc1383e3"
+        },
+        {
+          "path": ".factory/packaging-integration/hour-boundary-shard-1.json",
+          "kind": "log",
+          "sha256": "8fb0e3fd3cdcf9dac741e5dbc5e64a0f681e0e78f5a533396044ba47558a0006"
+        },
+        {
+          "path": ".factory/packaging-integration/sequence-clock-repair.log",
+          "kind": "log",
+          "sha256": "439929082117ca907b52b78ea822c239398f8890b6702869209fedc47c8afe51"
+        },
+        {
+          "path": ".factory/packaging-integration/repair-assignment.json",
+          "kind": "log",
+          "sha256": "694728c426c502cb93f164dd6945c162865436e6fd985abbb9b2600c9545b984"
+        }
+      ]
+    }
+  ]
+}

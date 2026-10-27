@@ -1,4 +1,5 @@
 """Owner-only workflow and credential inventory; saved facts confer no authority."""
+import sqlite3
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 import json
@@ -21,6 +22,7 @@ WORKFLOWS = {
         'growth.history', 'growth.save', 'customer.history', 'customer.save',
         'measurement.read', 'snapshot.export', 'cohort.define', 'events.import',
         'billing.save','funnel.list','funnel.review','funnel.read','funnel.save','funnel.observations','funnel.import','funnel.report',
+        'packaging.history','packaging.read','packaging.save','packaging.reconcile',
         'discovery.history','discovery.read','discovery.review','discovery.collect','discovery.watch','discovery.attempt','discovery.handoff'], blockers=[]),
     'experiment_preparation': dict(name='Local experiment preparation', operations=[
         'experiment.register', 'experiment.evaluate', 'experiment.action'], blockers=[]),
@@ -109,6 +111,7 @@ def verification(stamp, observed):
 
 def inference_profile(db, app_id, identity, observed):
     """Project only saved public inference facts; never open the protected vault."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     if identity is None:
         return dict(id=None, status='MISSING', repair='Onboard and test the selected inference connection.')
     row = db.execute('SELECT * FROM agent_connections WHERE app_id=? AND id=?', (app_id, identity)).fetchone()
@@ -161,6 +164,7 @@ def social_state(row, data, config, observed):
 
 def social_account(db, app_id, identity, observed):
     """Return selected subject/destination facts without token references or leases."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     row = db.execute('SELECT * FROM social_connections WHERE app_id=? AND id=?', (app_id, identity)).fetchone()
     if row is None:
         raise Invalid('Social connection does not belong to the selected app')
@@ -240,6 +244,7 @@ class Readiness:
 
 def inventory_in_db(db, app_id, user, chosen, observed):
     """Reuse the exact inventory snapshot inside owner and dispatch transactions."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     catalog = workflow_catalog()
     owner = member(db, app_id, user['principal'], 'OWNER')
     app = db.execute('SELECT * FROM apps WHERE id=?', (app_id,)).fetchone()

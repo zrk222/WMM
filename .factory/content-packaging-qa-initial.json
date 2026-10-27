@@ -1,0 +1,331 @@
+{
+  "grade": "A",
+  "passed": true,
+  "metrics": {
+    "coverage_intent": 0.88,
+    "max_complexity": 9,
+    "security_score": 100,
+    "doc_ratio": 1.0,
+    "composite": 95.8,
+    "complexity_policy": "hard",
+    "coverage_assessment": "static_name_match",
+    "behavioral_proof_status": "not_measured_static_only",
+    "scope": {
+      "kind": "feature",
+      "code_files": [
+        "mission_control/db.py",
+        "mission_control/packaging_bindings.py",
+        "mission_control/packaging_contract.py",
+        "mission_control/packaging_store.py"
+      ]
+    },
+    "skipped_paths": [],
+    "inventory_complete": true,
+    "function_inventory_complete": true,
+    "function_inventory": [
+      {
+        "path": "mission_control/db.py",
+        "parser": "python-ast",
+        "status": "exact",
+        "symbols": 4
+      },
+      {
+        "path": "mission_control/packaging_bindings.py",
+        "parser": "python-ast",
+        "status": "exact",
+        "symbols": 6
+      },
+      {
+        "path": "mission_control/packaging_contract.py",
+        "parser": "python-ast",
+        "status": "exact",
+        "symbols": 7
+      },
+      {
+        "path": "mission_control/packaging_store.py",
+        "parser": "python-ast",
+        "status": "exact",
+        "symbols": 9
+      }
+    ],
+    "advisory_function_metrics": [],
+    "unknown_security_calls": [
+      "mission_control/db.py:Path(path).parent.mkdir",
+      "mission_control/db.py:connection",
+      "mission_control/db.py:db.close",
+      "mission_control/db.py:db.execute",
+      "mission_control/db.py:db.executescript",
+      "mission_control/db.py:guard_connection",
+      "mission_control/db.py:operation_guard",
+      "mission_control/db.py:session",
+      "mission_control/db.py:str",
+      "mission_control/db.py:transaction",
+      "mission_control/packaging_bindings.py:Invalid",
+      "mission_control/packaging_bindings.py:asset_checked",
+      "mission_control/packaging_bindings.py:bound_record",
+      "mission_control/packaging_bindings.py:collection",
+      "mission_control/packaging_bindings.py:creative_binding",
+      "mission_control/packaging_bindings.py:db.execute",
+      "mission_control/packaging_bindings.py:db.execute(\"SELECT data FROM records WHERE app_id=? AND id=? AND kind='claim'\", (app_id, ref['id'])).fetchone",
+      "mission_control/packaging_bindings.py:decode",
+      "mission_control/packaging_bindings.py:derivative_snapshot",
+      "mission_control/packaging_bindings.py:dict",
+      "mission_control/packaging_bindings.py:digest",
+      "mission_control/packaging_bindings.py:frozen",
+      "mission_control/packaging_bindings.py:latest",
+      "mission_control/packaging_bindings.py:latest_capture",
+      "mission_control/packaging_bindings.py:latest_proof",
+      "mission_control/packaging_bindings.py:matching",
+      "mission_control/packaging_bindings.py:record",
+      "mission_control/packaging_bindings.py:ref['kind'].lower",
+      "mission_control/packaging_bindings.py:research",
+      "mission_control/packaging_bindings.py:texts.append",
+      "mission_control/packaging_contract.py:Invalid",
+      "mission_control/packaging_contract.py:count",
+      "mission_control/packaging_contract.py:dict",
+      "mission_control/packaging_contract.py:digest",
+      "mission_control/packaging_contract.py:exact",
+      "mission_control/packaging_contract.py:hashed",
+      "mission_control/packaging_contract.py:identifier",
+      "mission_control/packaging_contract.py:isinstance",
+      "mission_control/packaging_contract.py:items",
+      "mission_control/packaging_contract.py:len",
+      "mission_control/packaging_contract.py:one",
+      "mission_control/packaging_contract.py:reference",
+      "mission_control/packaging_contract.py:refs",
+      "mission_control/packaging_contract.py:required",
+      "mission_control/packaging_contract.py:safe_data",
+      "mission_control/packaging_contract.py:script.append",
+      "mission_control/packaging_contract.py:set",
+      "mission_control/packaging_contract.py:shot",
+      "mission_control/packaging_contract.py:timing",
+      "mission_control/packaging_store.py:Invalid",
+      "mission_control/packaging_store.py:app_context",
+      "mission_control/packaging_store.py:bindings.append",
+      "mission_control/packaging_store.py:canonical",
+      "mission_control/packaging_store.py:connection",
+      "mission_control/packaging_store.py:contract.shotlist",
+      "mission_control/packaging_store.py:contract.variant",
+      "mission_control/packaging_store.py:count",
+      "mission_control/packaging_store.py:db.execute",
+      "mission_control/packaging_store.py:db.execute('SELECT * FROM packaging_documents WHERE app_id=? AND id=? AND kind=? AND version=?', (app_id, identity, kind, version)).fetchone",
+      "mission_control/packaging_store.py:db.execute('SELECT * FROM packaging_documents WHERE app_id=? AND id=? AND kind=? ORDER BY version DESC LIMIT 1', (app_id, identity, kind)).fetchone",
+      "mission_control/packaging_store.py:db.execute('SELECT * FROM packaging_documents WHERE app_id=? AND id=? ORDER BY version DESC LIMIT 1', (app_id, identity)).fetchone",
+      "mission_control/packaging_store.py:db.execute('SELECT * FROM packaging_documents WHERE app_id=? ORDER BY created,id,version LIMIT 100 OFFSET ?', (app_id, offset)).fetchall",
+      "mission_control/packaging_store.py:db.execute('SELECT count(*) FROM packaging_documents WHERE app_id=?', (app_id,)).fetchone",
+      "mission_control/packaging_store.py:decode",
+      "mission_control/packaging_store.py:dict",
+      "mission_control/packaging_store.py:digest",
+      "mission_control/packaging_store.py:exact",
+      "mission_control/packaging_store.py:frozen",
+      "mission_control/packaging_store.py:gaps",
+      "mission_control/packaging_store.py:identifier",
+      "mission_control/packaging_store.py:kind.lower",
+      "mission_control/packaging_store.py:latest",
+      "mission_control/packaging_store.py:len",
+      "mission_control/packaging_store.py:now",
+      "mission_control/packaging_store.py:one",
+      "mission_control/packaging_store.py:readback",
+      "mission_control/packaging_store.py:references",
+      "mission_control/packaging_store.py:resolve",
+      "mission_control/packaging_store.py:result.append",
+      "mission_control/packaging_store.py:result.extend",
+      "mission_control/packaging_store.py:shot_claims",
+      "mission_control/packaging_store.py:str",
+      "mission_control/packaging_store.py:variant_binding"
+    ],
+    "security_analysis": "bounded_pattern_inventory"
+  },
+  "findings": [],
+  "attribution": {
+    "stage": "qa_audit",
+    "n_checked": 26,
+    "n_passed": 23,
+    "units": [
+      {
+        "unit": "qa_audit:mission_control/db.py:session",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/db.py:transaction",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/db.py:connection",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/db.py:initialize",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_bindings.py:matching",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_bindings.py:record",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_bindings.py:collection",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_bindings.py:resolve",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_bindings.py:variant_binding",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_bindings.py:shot_claims",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_contract.py:items",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_contract.py:reference",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_contract.py:refs",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_contract.py:variant",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_contract.py:shot",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_contract.py:timing",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_contract.py:shotlist",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_store.py:decode",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_store.py:latest",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_store.py:references",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_store.py:frozen",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_store.py:gaps",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_store.py:readback",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_store.py:save",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_store.py:read",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_store.py:list",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      }
+    ],
+    "rate": 0.8846153846153846,
+    "dominant_failure_class": "inconsistent_logic"
+  }
+}

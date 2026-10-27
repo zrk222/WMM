@@ -1,0 +1,28 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "tests\\agent_control.test.cjs",
+    "tests\\complete_automation_ui.test.cjs",
+    "tests\\customer_workflow.test.cjs",
+    "tests\\discovery_ui.test.cjs",
+    "tests\\drive_callback.test.cjs",
+    "tests\\drive_library.test.cjs",
+    "tests\\funnel_founder.test.cjs",
+    "tests\\funnel_ui.test.cjs",
+    "tests\\growth_review.test.cjs",
+    "tests\\instrumentation.test.mjs",
+    "tests\\managed_media.test.cjs",
+    "tests\\packaging_model.test.cjs",
+    "tests\\packaging_ui.test.cjs",
+    "tests\\page_reporting.test.cjs",
+    "tests\\progressive_workflow.test.cjs",
+    "tests\\studio_controls.test.cjs",
+    "tests\\subscription_authoring.test.cjs",
+    "tests\\ui_stories.test.cjs",
+    "tests\\video_editor.test.cjs",
+    "tests\\workflow_telemetry.test.cjs"
+  ],
+  "exit": 0,
+  "source_unchanged": true
+}

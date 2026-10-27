@@ -1,4 +1,5 @@
 """Immutable app-sales plans and upstream observations reuse existing domain evidence."""
+import sqlite3
 from datetime import datetime,timezone
 import json
 from .common import Invalid,canonical,digest,identifier,iso_time
@@ -25,6 +26,7 @@ def summary(item):
 
 def app_context(db,app_id,expected=None):
     """Read exact app context inside the caller's transaction."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     row=db.execute('SELECT * FROM apps WHERE id=?',(app_id,)).fetchone()
     if row is None:raise Invalid('App workspace does not exist')
     if expected is not None:
@@ -35,6 +37,7 @@ def app_context(db,app_id,expected=None):
 
 def cohort_binding(db,app_id,plan,app):
     """Require one existing app-owned cohort with matching release, locale and currency."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     row=db.execute('SELECT * FROM growth_cohorts WHERE app_id=? AND id=?',(app_id,plan['cohort_id'])).fetchone()
     if row is None:raise Invalid('Define the selected app cohort before saving this funnel')
     value=json.loads(row['data'])
@@ -50,6 +53,7 @@ def cohort_binding(db,app_id,plan,app):
 
 def creative_binding(db,store,app_id,ref):
     """Resolve the latest native brief and its current underlying app/source proof."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     from .creative_briefs import stale_findings
     row=db.execute('SELECT * FROM creative_briefs WHERE app_id=? AND id=? ORDER BY version DESC LIMIT 1',(app_id,ref['id'])).fetchone()
     if row is None or row['version']!=ref['version']:raise Invalid('Creative source version changed or belongs to another app')
@@ -61,6 +65,7 @@ def creative_binding(db,store,app_id,ref):
 
 def research_binding(db,app_id,ref,stamp):
     """Immutable customer workflows carry supplied evidence and explicit expiry."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     from .customer_workflow import workflow_readout
     row=db.execute('SELECT * FROM customer_workflows WHERE app_id=? AND id=?',(app_id,ref['id'])).fetchone()
     if row is None or ref['version']!=1:raise Invalid('Customer evidence is missing or has an unsupported version')
@@ -160,6 +165,7 @@ class Funnels:
 
     def insert(self,db,app_id,funnel_id,value,stamp):
         """One source event cannot silently move to a different funnel or overwrite counts."""
+        if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
         content=dict(funnel_id=funnel_id,observation=value);hashed=digest(content)
         old=db.execute('SELECT hash FROM funnel_observations WHERE app_id=? AND source_ref=? AND event_id=?',(app_id,value['source_ref'],value['event_id'])).fetchone()
         if old:

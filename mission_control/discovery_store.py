@@ -1,4 +1,5 @@
 """Immutable, app-scoped research evidence. Prepared packets never authorize execution."""
+import sqlite3
 import json
 from datetime import datetime, timezone
 from .common import Invalid, canonical, digest, identifier, iso_time, safe_data
@@ -20,6 +21,7 @@ def decoded(row):
 
 def latest(db, app_id, identity, kind):
     """Resolve a current app-owned revision without crossing document kinds."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     row=db.execute('SELECT * FROM discovery_documents WHERE app_id=? AND id=? ORDER BY version DESC LIMIT 1',(app_id,identifier(identity))).fetchone()
     result=decoded(row)
     if result['kind']!=kind:raise Invalid('Research document kind differs')
@@ -28,6 +30,7 @@ def latest(db, app_id, identity, kind):
 
 def append(db, app_id, identity, expected, kind, data, stamp):
     """Bound append-only history and reject stale writers inside their transaction."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     identity=identifier(identity);count(expected,0,99);safe_data(data)
     row=db.execute('SELECT version,kind FROM discovery_documents WHERE app_id=? AND id=? ORDER BY version DESC LIMIT 1',(app_id,identity)).fetchone()
     if (row['version'] if row else 0)!=expected:raise Invalid('Research revision changed; reload before saving')
@@ -69,6 +72,7 @@ def review_times(data, source, stamp):
 
 def reviews(db, app_id):
     """Choose the newest review per reference, retaining only exact app/source bindings later."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     result={}
     for row in db.execute("SELECT * FROM discovery_documents WHERE app_id=? AND kind='REVIEW' ORDER BY rowid",(app_id,)):
         item=decoded(row);result[item['data']['reference_id']]=item
@@ -77,6 +81,7 @@ def reviews(db, app_id):
 
 def source_results(db, app_id, app, filters, stamp):
     """Inspect at most 1000 saved references once and freeze each reasoned decision."""
+    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     refs=db.execute('SELECT id FROM creative_references WHERE app_id=? ORDER BY identity LIMIT 1001',(app_id,)).fetchall()
     if len(refs)>1000:raise Invalid('Research supports at most 1000 sources')
     reviewed=reviews(db,app_id);result=[]

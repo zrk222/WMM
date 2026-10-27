@@ -1,0 +1,310 @@
+{
+  "name": "native-sqlite-entry",
+  "language": "python",
+  "modules": [
+    {
+      "name": "creative_briefs",
+      "path": "mission_control/creative_briefs.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "bound_record",
+          "args": [
+            "db",
+            "app_id",
+            "item_id",
+            "kind",
+            "app"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "latest_proof",
+          "args": [
+            "db",
+            "app_id",
+            "record",
+            "app"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "critical_findings",
+          "args": [
+            "db",
+            "app_id"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "bind",
+          "args": [
+            "db",
+            "store",
+            "app_id",
+            "data"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "creative_library",
+      "path": "mission_control/creative_library.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "latest_capture",
+          "args": [
+            "db",
+            "app_id",
+            "reference_id"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "append_capture",
+          "args": [
+            "db",
+            "app_id",
+            "reference_id",
+            "data",
+            "version"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "write_reference",
+          "args": [
+            "db",
+            "app_id",
+            "data"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "restore_reference",
+          "args": [
+            "db",
+            "app_id",
+            "row",
+            "seen"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "discovery_store",
+      "path": "mission_control/discovery_store.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "latest",
+          "args": [
+            "db",
+            "app_id",
+            "identity",
+            "kind"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "append",
+          "args": [
+            "db",
+            "app_id",
+            "identity",
+            "expected",
+            "kind",
+            "data",
+            "stamp"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "reviews",
+          "args": [
+            "db",
+            "app_id"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "source_results",
+          "args": [
+            "db",
+            "app_id",
+            "app",
+            "filters",
+            "stamp"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "funnel_store",
+      "path": "mission_control/funnel_store.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "app_context",
+          "args": [
+            "db",
+            "app_id",
+            "expected"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "cohort_binding",
+          "args": [
+            "db",
+            "app_id",
+            "plan",
+            "app"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "creative_binding",
+          "args": [
+            "db",
+            "store",
+            "app_id",
+            "ref"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "research_binding",
+          "args": [
+            "db",
+            "app_id",
+            "ref",
+            "stamp"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "insert",
+          "args": [
+            "self",
+            "db",
+            "app_id",
+            "funnel_id",
+            "value",
+            "stamp"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "managed_media_store",
+      "path": "mission_control/managed_media_store.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "_manifest",
+          "args": [
+            "db",
+            "app_id",
+            "expected"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_history",
+          "args": [
+            "db",
+            "app_id",
+            "media_id"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_reviewer_current",
+          "args": [
+            "db",
+            "app_id",
+            "review"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_public",
+          "args": [
+            "db",
+            "store",
+            "app_id",
+            "row",
+            "include_history",
+            "verify_bytes",
+            "original_verified"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "derivative_snapshot",
+          "args": [
+            "db",
+            "store",
+            "app_id",
+            "media_id",
+            "expected_sha256",
+            "capture",
+            "verify_bytes"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "_insert_review",
+          "args": [
+            "db",
+            "app_id",
+            "media_id",
+            "request",
+            "principal",
+            "role_version"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "packaging_bindings",
+      "path": "mission_control/packaging_bindings.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "shot_claims",
+          "args": [
+            "db",
+            "app_id",
+            "shots"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "packaging_store",
+      "path": "mission_control/packaging_store.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "latest",
+          "args": [
+            "db",
+            "app_id",
+            "identity",
+            "kind"
+          ],
+          "returns": "object"
+        }
+      ]
+    }
+  ]
+}

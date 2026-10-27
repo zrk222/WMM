@@ -1,0 +1,6 @@
+# Plan: content-packaging-t4
+Spec: specs/content-packaging-t4.md
+Architect verdict: PASS for scoped modal lifecycle, pure authoring/preview models, thin shared backend calls and safe local-only thumbnail URLs. Product workflow: product. Nanna audience: app founders planning a specific creative; mission: turn a promising reference into an original title, opening and shootable plan. Story spine: choose outcome, assemble evidence, compare context, save a revision, inspect missing proof and next action. No predicted marketing outcome is used as evidence.
+
+- [x] T1 | slice=mission_control | files=mission_control/static/packaging-model.js,mission_control/packaging_contract.py,tests/packaging_model.test.cjs | verify=`node --test tests/packaging_model.test.cjs` | Pure field/reference models, canonical script hashes, neutral deterministic preview and reports.
+- [x] T2 | slice=mission_control | files=mission_control/static/packaging-ui.js,mission_control/static/packaging.css,mission_control/static/app.js,mission_control/static/ui-stories.js,mission_control/static/index.html,mission_control/server.py,tests/packaging_ui.test.cjs,tests/test_packaging_ui_http.py | verify=`node --test tests/packaging_ui.test.cjs` | Guided authoring, lost-response recovery, modal isolation, preview, exports and rendered desktop/mobile acceptance.

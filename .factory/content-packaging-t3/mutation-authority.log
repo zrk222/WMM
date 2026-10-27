@@ -1,0 +1,19 @@
+F
+======================================================================
+FAIL: test_owner_revocation_before_business_transaction_prevents_commit (tests.test_packaging_clients.PackagingClientTests.test_owner_revocation_before_business_transaction_prevents_commit)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[USER_PROFILE]\AppData\Local\Programs\Python\Python311\Lib\unittest\async_case.py", line 90, in _callTestMethod
+    if self._callMaybeAsync(method) is not None:
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "[USER_PROFILE]\AppData\Local\Programs\Python\Python311\Lib\unittest\async_case.py", line 117, in _callMaybeAsync
+    return self._asyncioTestContext.run(func, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "[USER_PROFILE]\Documents\Codex\2026-09-22\re-2\outputs\WMM-packaging\tests\test_packaging_clients.py", line 110, in test_owner_revocation_before_business_transaction_prevents_commit
+    with patch('mission_control.packaging_store.contract.variant',side_effect=revoke),self.assertRaises(ClientError):self.owner_call('save',self.variant())
+AssertionError: ClientError not raised
+
+----------------------------------------------------------------------
+Ran 1 test in 0.777s
+
+FAILED (failures=1)

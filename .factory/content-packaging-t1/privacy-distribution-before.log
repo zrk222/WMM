@@ -1,0 +1,12 @@
+.factory\content-packaging-doctor.json: credential or private path pattern
+.factory\content-packaging-t1\build.log: credential or private path pattern
+.factory\content-packaging-t1\coverage-run.log: credential or private path pattern
+.factory\content-packaging-t1\coverage.log: credential or private path pattern
+.factory\content-packaging-t1\lint.log: credential or private path pattern
+.factory\content-packaging-t1\mutation-immutable-delete.log: credential or private path pattern
+.factory\content-packaging-t1\mutation-manifest.log: credential or private path pattern
+.factory\content-packaging-t1\mutation-precommit.log: credential or private path pattern
+.factory\content-packaging-t1\mutation-script-binding.log: credential or private path pattern
+.factory\content-packaging-t1\mutation-source-hash.log: credential or private path pattern
+.factory\content-packaging-t1\regressions.log: credential or private path pattern
+.factory\content-packaging-t1\tests.log: credential or private path pattern

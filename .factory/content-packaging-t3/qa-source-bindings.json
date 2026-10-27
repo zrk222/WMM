@@ -1,0 +1,387 @@
+{
+  "base": "4395f10",
+  "bindings": [
+    {
+      "original": "mission_control/server.py",
+      "original_sha256": "43ed397f29820897492dc085b4b8331a2235a1157f218f8b8c0799d344000d33",
+      "symbol": "Handler.get_history",
+      "line": 310,
+      "end_line": 321,
+      "extracted_sha256": "13413c2d87dec884f64d03fccca659dcc7a8ac5c0bc4ce585eeb70437dd0381d"
+    },
+    {
+      "original": "mission_control/server.py",
+      "original_sha256": "43ed397f29820897492dc085b4b8331a2235a1157f218f8b8c0799d344000d33",
+      "symbol": "Handler.post",
+      "line": 407,
+      "end_line": 428,
+      "extracted_sha256": "6682acaed7828b12d58081b24d66252b80f206bfa8043ccc4b65017c77052ec0"
+    },
+    {
+      "original": "mission_control/server.py",
+      "original_sha256": "43ed397f29820897492dc085b4b8331a2235a1157f218f8b8c0799d344000d33",
+      "symbol": "Handler.retry_worker",
+      "line": 448,
+      "end_line": 458,
+      "extracted_sha256": "99dc82d0e70b234d001a56301298fee31d2203a0e9d12a16f42325962ef4c6c1"
+    },
+    {
+      "original": "mission_control/server.py",
+      "original_sha256": "43ed397f29820897492dc085b4b8331a2235a1157f218f8b8c0799d344000d33",
+      "symbol": "owner_domain_post",
+      "line": 37,
+      "end_line": 44,
+      "extracted_sha256": "1985c1fd9d8ed61d8c558c53f63090eabe517179eed5ad370bc4409907a2c04c"
+    },
+    {
+      "original": "mission_control/operation_catalog.py",
+      "original_sha256": "2fc3cc01b725d4125d2942877575c610702d283752eecddee6755011bd61d1e4",
+      "symbol": "catalog",
+      "line": 73,
+      "end_line": 91,
+      "extracted_sha256": "0fc7098de4a80f6ce350ec3e63b83138277693321d49f7e9a3a40410f4141e17"
+    }
+  ],
+  "unchanged": [
+    {
+      "path": "mission_control/server.py",
+      "symbol": "media_range",
+      "ast_sha256": "7f00aaa48339d9c2cab2a2c98bf52d03299f01846da9e5dd166ee29db042493f"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Server.__init__",
+      "ast_sha256": "b6aaf6405d1d459020e2179350b0d1ad4ab9d9db285202c5a4b303a867125958"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Server.server_close",
+      "ast_sha256": "10d38635e6464cc11e55683451d786945d96422d2273a41eb6ba3256b3159065"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.log_message",
+      "ast_sha256": "119167ae6627fa9af26f4dff3a761aa5918488b917fa294d2ca5d7723d5e4983"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.send",
+      "ast_sha256": "28e2fccf58abab5aa9c224f09473f18aa7e5bd18333a70f9667c8b1031c5f9c5"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.session",
+      "ast_sha256": "0078465893abf386169938f906dd02978e8c65d4c00948502d8980bdb1b32515"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.boundary",
+      "ast_sha256": "aaae1ebc110441f5bc09e565b3287bfacdfde02349763a04314965d11117e2d1"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.do_GET",
+      "ast_sha256": "64b7a033cbbf3475e1bb00d1f381223c13df38ac35b9cdb3bed69ead5f2092c6"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.do_POST",
+      "ast_sha256": "5326ab5495224d87e01c01ef4ac9935355576be30f53ee24eabc5f214fd534a7"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.dispatch",
+      "ast_sha256": "fac3dd562f1808c55623f2af5a5044b4dc309cf247528c3035aab31c86364689"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.webhook_handler",
+      "ast_sha256": "b5ce47727814eca24c47b272e7f70fc2fa1b42bd0ec1cf3234f599a58d7f6c37"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.get",
+      "ast_sha256": "9c5f0ed15e25050f1383e0f49638aa3bab2384a8b80edf9925b80691a77e3ae5"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.get_weekly_review",
+      "ast_sha256": "91618d0ad6da3744a798d5a771ba9850cbc9fdc010e10f7a415808479514b641"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.callback_page",
+      "ast_sha256": "cb226546555dcdd5446868c16fa41871c4e70d66bd5a06ff4634bbc583c3e501"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.get_app",
+      "ast_sha256": "14eb9d9302862041fa76cd499bca71d971b1e62812ae89a5874800873be9a2ef"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.get_setup_discovery",
+      "ast_sha256": "c0de172c4b8b2d16b9b64d3b6181de3fc359c43024ad3933928b2d4b1bc9a2db"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.get_instrumentation",
+      "ast_sha256": "260ad71798ed9c6bb378e13e4a0f90ffc8a974a716fbf05bee9098eac6ed22f3"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.get_social_progress",
+      "ast_sha256": "e23259a82e1c7c169abe6beb8f270c41d5941748223a4d3b6c7648f51a6d266e"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.get_asset",
+      "ast_sha256": "71082b065aaa09c737c7734bab49ce739e5bc03d9987aba0412341e0f4d48941"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.get_measurement",
+      "ast_sha256": "68e0a461010c871b99c154905334b3f20a4ef708d6555a7d72445cd8b6640043"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.get_video",
+      "ast_sha256": "70eb1b7ed9e14335a42fbb99b24468be548f30f31f8c6af0061971147208118f"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.get_hypit_video",
+      "ast_sha256": "ffc02235dd8b4b4f1e55f971b2d46dcb2d93a47470b84d032a3473b1384a296c"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.video",
+      "ast_sha256": "5f7898e1c3aa7433010c5853afcde699b8ac3fd39acdf71b086ad3dc16bd62b4"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.payment_webhook",
+      "ast_sha256": "2437bec96e621a10fbd5aa124943e5354288fc85e0da03dcd3a70e0d03d0019c"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.body",
+      "ast_sha256": "f5ec7b4cbdefa210f79f3f84560819d4e0798dca7b38fe6ece444b6e4f7dd106"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.storekit_webhook",
+      "ast_sha256": "793690a37626a284bc9669661f6da3ffc6f1dfdb65967945ee31f714f8d11118"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_data",
+      "ast_sha256": "3b27aa76012e547570c1b3ec8f38cfa0cd7f73d6ee266d9b697d66deb9ce2f6f"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_limit",
+      "ast_sha256": "4729b5802643cfdef75e839b1eadc99f7cec43c5a92ebe8241414a702ae977d5"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.attribution_body",
+      "ast_sha256": "3e13a36db347affe906e67033a4875eededa9fc1754230061bc1f801e2272191"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.agent_access",
+      "ast_sha256": "c9700c2c835d452b17597040df6efbf2922aed0f8add0d5ea12a0f6d27efc3f7"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_app",
+      "ast_sha256": "022bf0ac1a10939ed09bbfb62c5e4d6c4f8fd5c3ba47987107ad55c1ea2c8dc8"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_tracking",
+      "ast_sha256": "24139616678d62003e2220e072d44a5ee525584c6bedfd12820a2d448e1d2307"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_sequence",
+      "ast_sha256": "64a9415900e1cb8b11bbb7ea8c99ef4ef209393c8548b78ba924c43b3b7aac67"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_resolution",
+      "ast_sha256": "cac40119fdd11784cf4bfaf5736653e9a7e650d76b5250c60ad9bbd8c7437719"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_pmf_research",
+      "ast_sha256": "a429c443435bda0621deeffe7906586024670433e992a818211cb68a878de236"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_followup",
+      "ast_sha256": "c996bdc8d3a40fca57feadf162cf54494d7c4189226c9252209b7b80cdf9391f"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_aeo",
+      "ast_sha256": "6afec8fed90ddb25e76c1ee9e4f99887df35f48c4a85931e53168579eb1d7265"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_insights",
+      "ast_sha256": "1e2709703291d7f667f26fbb32adbb2919a1af3df42f92499f8781f1abef1f77"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_storekit",
+      "ast_sha256": "c052d395a1a0890b02cba520cedac987f1e1a6d86ab612d42fa20ebfa69cd7e6"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.attribution_webhook",
+      "ast_sha256": "46fa30acd7fc9f464571a693887951254b3864bba4e2d4c3910ca527b37430f7"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_attribution",
+      "ast_sha256": "2eb19f5d5628b81d685248dc6ef49242381eed54031891621eb23e3a0a44707a"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_identity",
+      "ast_sha256": "b1a32cd3447af3bef3ff7f61ced848d304b59cf46bd264feb6b48cae2ea79fc7"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_agent_grants",
+      "ast_sha256": "939d17e3af33d8ff1eb648317e3a1331cf2e5baf598fb87bad5185d21b61856e"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_agent_reviews",
+      "ast_sha256": "e5e4499affbd7a5d504f8bd09ecb38eb86beff621bc2d90fcf474cc21c89035e"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_access",
+      "ast_sha256": "92fb0518725d95e01a6be4f7bb470baddad9dc7f0ae004e0b87956bf66c09b2f"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_verified_review",
+      "ast_sha256": "c6812b6567f73118a00340a5518fb35f427a0261d4c3b0a787c61008614b1529"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_release_selection",
+      "ast_sha256": "ed10fcd7d48245655aadc060cef9a19eaa34f1f43c1fbde658c58cde5be4fb5b"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_connection",
+      "ast_sha256": "3204d1fe75d7ee52411bd360ca40667d1b9798f8d4ccbdd4d2fe0ed409fe1503"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_setup_discovery",
+      "ast_sha256": "86b5c7fa7b9e8919f66a97b11892211182f06f7075f97473975d6bbae541801c"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_play",
+      "ast_sha256": "5384fef7392a4638d6cff4125bc906a7cba149be07b1381f227c583311419731"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.play_callback",
+      "ast_sha256": "656d4025c07a67b9c60765c4f352aa49457caefea3090006cde00519156d5cec"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_inspection",
+      "ast_sha256": "a2ddcd9d82fd391298b5b67700139fe0d7513e30697cda3d2b3135c7208179dd"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_provider_action",
+      "ast_sha256": "a08b0fb27a1465c4ff07114512b83f39de453ef2916832fdf40c8c5d0c8a6b1a"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_payments",
+      "ast_sha256": "792ff7737eb2d7fd53063938ef4df9221e95ba8888520b1d8eb8cee1bad39427"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_learning",
+      "ast_sha256": "de8a6d761651b8cf671e3bafca5295cf0e4336f429393fe693fa6e2b66d15c86"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_experiment",
+      "ast_sha256": "f059c57d2b8f391897f9c9d0e86acfaeee6726f396b68e012bfede7ad8af252e"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_reference",
+      "ast_sha256": "6f8e4416dda4ae1fed89874627a7113bc32d42b678b10faa778be3e6169e4982"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_ranking",
+      "ast_sha256": "107d780b775b12b025c75aac478352614aa854c8a7c5959ae49c333780439a3a"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_production",
+      "ast_sha256": "658a6de9f046b8225354613f0bdf148d92b0c5d106b6f6cb8a306c60a0a97305"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "Handler.post_acquisition",
+      "ast_sha256": "22a7144d448396c35bfc57c6cd64ab19a07d505568b09ea353a57a3aea031136"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "check_timezone_support",
+      "ast_sha256": "9c2b59770f9454407dcda6e0ac85300321bf93b02810d9e1b3b908c398b4c8de"
+    },
+    {
+      "path": "mission_control/server.py",
+      "symbol": "main",
+      "ast_sha256": "033a1f844815fdb1f7258b937f5427dbb3d4beb3a4ddac50f710b5d23d97b0fa"
+    },
+    {
+      "path": "mission_control/operation_catalog.py",
+      "symbol": "descriptor",
+      "ast_sha256": "8344ca4072c99c632011a6af6d3e2bb2f13b579ce55d639df5617c971517084b"
+    },
+    {
+      "path": "mission_control/operation_catalog.py",
+      "symbol": "path_segment",
+      "ast_sha256": "4cd1940d7f178477a371a6fbd11bacb30a1453a2c5d7005cd5f542f6feb5c080"
+    },
+    {
+      "path": "mission_control/operation_catalog.py",
+      "symbol": "exact_keys",
+      "ast_sha256": "552a451628fdc0d11e8beb43d99e8e465638e2a0cddcc9abb59aa5a5dd80692a"
+    },
+    {
+      "path": "mission_control/operation_catalog.py",
+      "symbol": "local_constraints",
+      "ast_sha256": "8fcb8be125df2cdd54b7c79199778011dceae2145a6ab30a24f2d559bf2700a2"
+    },
+    {
+      "path": "mission_control/operation_catalog.py",
+      "symbol": "pipeline_input",
+      "ast_sha256": "eaa7be5426ee69e66bc71f2d7c18ff11da365eafbb0b0e9d3034845a425093ca"
+    },
+    {
+      "path": "mission_control/operation_catalog.py",
+      "symbol": "request_data",
+      "ast_sha256": "c99f82e12500debc4e98a5f4742de9da7f7c4b1486324354bef9d9f1c15d9f87"
+    }
+  ]
+}

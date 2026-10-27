@@ -1,0 +1,6 @@
+$ <LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\python.exe -m coverage run --data-file=.factory/content-packaging-t1/coverage --source=mission_control.packaging_contract,mission_control.packaging_store,mission_control.packaging_bindings -m unittest tests.test_packaging
+...............
+----------------------------------------------------------------------
+Ran 15 tests in 4.843s
+
+OK

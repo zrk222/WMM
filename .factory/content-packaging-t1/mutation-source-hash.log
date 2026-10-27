@@ -1,0 +1,39 @@
+test_closed_inputs_foreign_reads_and_append_only_sql (tests.test_packaging.PackagingTests.test_closed_inputs_foreign_reads_and_append_only_sql) ... ok
+test_database_source_tampering_and_precommit_manifest_change_roll_back (tests.test_packaging.PackagingTests.test_database_source_tampering_and_precommit_manifest_change_roll_back) ... ok
+test_draft_missing_evidence_and_restart_history (tests.test_packaging.PackagingTests.test_draft_missing_evidence_and_restart_history) ... ok
+test_existing_collection_bindings_and_timestamped_source_shots (tests.test_packaging.PackagingTests.test_existing_collection_bindings_and_timestamped_source_shots) ... ok
+test_explicit_rowid_replace_preserves_history_for_both_trigger_modes (tests.test_packaging.PackagingTests.test_explicit_rowid_replace_preserves_history_for_both_trigger_modes) ... ok
+test_gaps_variant_binding_shot_claims_and_script_changes (tests.test_packaging.PackagingTests.test_gaps_variant_binding_shot_claims_and_script_changes) ... ok
+test_manifest_changes_and_atomic_stale_denial (tests.test_packaging.PackagingTests.test_manifest_changes_and_atomic_stale_denial) ... ok
+test_media_unknown_revoked_and_stale_rights_are_never_usable (tests.test_packaging.PackagingTests.test_media_unknown_revoked_and_stale_rights_are_never_usable) ... ok
+test_real_asset_bytes_and_claim_failure_readback (tests.test_packaging.PackagingTests.test_real_asset_bytes_and_claim_failure_readback) ... ok
+test_replace_cannot_overwrite_history_with_recursive_triggers_disabled (tests.test_packaging.PackagingTests.test_replace_cannot_overwrite_history_with_recursive_triggers_disabled) ... ok
+test_rowid_guard_upgrade_and_reserved_negative_sentinel_fail_closed (tests.test_packaging.PackagingTests.test_rowid_guard_upgrade_and_reserved_negative_sentinel_fail_closed) ... ok
+test_script_shots_original_missing_and_stale_variant (tests.test_packaging.PackagingTests.test_script_shots_original_missing_and_stale_variant) ... FAIL
+test_shot_contract_boundaries (tests.test_packaging.PackagingTests.test_shot_contract_boundaries) ... ok
+test_source_brief_assets_claims_exact_bindings (tests.test_packaging.PackagingTests.test_source_brief_assets_claims_exact_bindings) ... FAIL
+test_source_changes_during_save_roll_back (tests.test_packaging.PackagingTests.test_source_changes_during_save_roll_back) ... ok
+
+======================================================================
+FAIL: test_script_shots_original_missing_and_stale_variant (tests.test_packaging.PackagingTests.test_script_shots_original_missing_and_stale_variant)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM-packaging\tests\test_packaging.py", line 84, in test_script_shots_original_missing_and_stale_variant
+    self.assertEqual(self.packaging.read(self.app, 'shots-one', 'SHOTS')['source_status'], 'STALE')
+AssertionError: 'CURRENT' != 'STALE'
+- CURRENT
++ STALE
+
+
+======================================================================
+FAIL: test_source_brief_assets_claims_exact_bindings (tests.test_packaging.PackagingTests.test_source_brief_assets_claims_exact_bindings)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM-packaging\tests\test_packaging.py", line 66, in test_source_brief_assets_claims_exact_bindings
+    with self.assertRaises(Invalid):self.save(changed, 'bad-hash')
+AssertionError: Invalid not raised
+
+----------------------------------------------------------------------
+Ran 15 tests in 4.857s
+
+FAILED (failures=2)
