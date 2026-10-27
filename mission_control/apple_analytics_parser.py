@@ -1,5 +1,6 @@
 """Offline validation of complete Apple App Downloads Standard instances."""
 import csv
+from collections import Counter
 from datetime import date
 import gzip
 import hashlib
@@ -7,7 +8,7 @@ import io
 import re
 import zlib
 
-from .common import Invalid
+from .common import Invalid, canonical
 
 MAX_SEGMENTS = 50
 MAX_COMPRESSED = 16777216
@@ -15,7 +16,7 @@ MAX_DECOMPRESSED = 67108864
 MAX_ROWS = 250000
 REQUIRED = frozenset(('date', 'app apple identifier', 'download type', 'counts'))
 TYPES = {'first-time download': 'first_download', 'redownload': 'redownload',
-         'manual update': 'update', 'automatic update': 'update'}
+         'manual update': 'update', 'auto-update': 'update', 'restore': 'restore'}
 
 
 def _day(value):
@@ -53,7 +54,7 @@ def _name(value):
 
 def _rows(data, app_id, budget):
     try:
-        reader = csv.reader(io.StringIO(data.decode('utf-8-sig'), newline=''), strict=True)
+        reader = csv.reader(io.StringIO(data.decode('utf-8-sig'), newline=''), delimiter='\t', strict=True)
         headers = next(reader)
         names = [_name(value) for value in headers]
         if len(set(names)) != len(names) or not REQUIRED.issubset(names):
@@ -108,6 +109,8 @@ def parse_instance(app_id, processing_date, segments, complete):
             row.update(segment_id=identity, processing_date=processing_date,
                        source_sha256=sources[-1]['sha256'])
             rows.append(row)
+    if not rows:
+        raise Invalid('Apple report instance contains no observations')
     return dict(app_id=app_id, processing_date=processing_date, rows=rows, sources=sources, complete=True)
 
 
@@ -115,7 +118,7 @@ def _accept_group(latest, day, processing, values):
     previous = latest.get(day)
     if previous is None or processing > previous[0]:
         latest[day] = (processing, values)
-    elif processing == previous[0] and values != previous[1]:
+    elif processing == previous[0] and Counter(canonical(row) for row in values) != Counter(canonical(row) for row in previous[1]):
         raise Invalid('Conflicting Apple report instances for the same date')
 
 
