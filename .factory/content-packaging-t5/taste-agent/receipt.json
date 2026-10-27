@@ -1,0 +1,44 @@
+{
+  "agent_actions": [],
+  "authority": {
+    "approval": false,
+    "connector": false,
+    "credential": false,
+    "deployment": false,
+    "execution": false,
+    "merge": false,
+    "messaging": false,
+    "publication": false,
+    "repair": false,
+    "signing": false
+  },
+  "candidate_sha256": "ca9d15a22c7e70174aac56ed844b3a78d5823d755177fd5bb904827d6681eec0",
+  "checks": 7,
+  "contract_sha256": "f5420092546672c55d2c202e33e365524bcb4de2338f5a87da72153f77aa3e83",
+  "errors": [],
+  "inapplicability_evidence": {
+    "accessibility": {
+      "actual_sha256": "d25ec403beaa817803d1f0a2a822dc2bd4e3d8294ddb10b9e80ac4ac060e7623",
+      "current": true,
+      "kind": "review",
+      "path": ".factory/content-packaging-t5/taste-agent/review.md",
+      "sha256": "d25ec403beaa817803d1f0a2a822dc2bd4e3d8294ddb10b9e80ac4ac060e7623"
+    }
+  },
+  "limits": [
+    "Recorded evidence completeness and hashes only; observations require review.",
+    "Inapplicability review evidence is hash-bound but its judgment and identity are not authenticated.",
+    "Each contract/observation JSON input and evidence artifact is limited to 16 MiB; total evidence hashing is limited to 128 MiB, 4096 artifact references, and 4096 required check/profile pairs.",
+    "No project command or provider is executed.",
+    "No approval, certification or deployment authority."
+  ],
+  "observations_sha256": "b3369241d3d142c1d86207cdac77b78055d84aae192b1e56b2a96dea70c58656",
+  "project_id": "WMM-agent-creative-taste-reads",
+  "receipt_sha256": "c5ed0bdb6d096d14dcaac8603c513ea9a6e3972ac3bfb330efaebc20bf88eb14",
+  "resource_usage": {
+    "artifact_references": 97,
+    "bytes_hashed": 5315884
+  },
+  "schema": "factory.workflow-audit.receipt.v1",
+  "state": "PASS"
+}

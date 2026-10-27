@@ -1,0 +1,6 @@
+..Executing <Task pending name='Task-10' coro=<TasteClientTests.test_owner_cli_mcp_read_history_and_discovery_parity() running at <LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM-packaging\tests\test_creative_taste_clients.py:35> cb=[_run_until_complete_cb() at <LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py:181] created at <LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py:100> took 0.937 seconds
+..................................
+----------------------------------------------------------------------
+Ran 36 tests in 19.658s
+
+OK

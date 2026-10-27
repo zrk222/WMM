@@ -1,0 +1,100 @@
+E.Executing <Task finished name='Task-10' coro=<TasteClientTests.test_owner_cli_mcp_read_history_and_discovery_parity() done, defined at <LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-client-mutant-o40skuiw\tests\test_creative_taste_clients.py:27> exception=ClientError('WMM rejected the operation; HTTP 400. Refresh current app/source data before retrying.') created at <LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py:100> took 0.641 seconds
+E
+======================================================================
+ERROR: test_current_agent_read_exposes_stale_guidance_without_approving_it (tests.test_creative_taste_clients.TasteClientTests.test_current_agent_read_exposes_stale_guidance_without_approving_it)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-client-mutant-o40skuiw\mission_control\operator_client.py", line 183, in request
+    with self.opener.open(request,timeout=request_timeout(path,body)) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 525, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 634, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 563, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 496, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 643, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 400: Bad Request
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\unittest\async_case.py", line 90, in _callTestMethod
+    if self._callMaybeAsync(method) is not None:
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\unittest\async_case.py", line 117, in _callMaybeAsync
+    return self._asyncioTestContext.run(func, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-client-mutant-o40skuiw\tests\test_creative_taste_clients.py", line 67, in test_current_agent_read_exposes_stale_guidance_without_approving_it
+    value=agent.call(self.envelope('packaging.taste-read',dict(id=saved['id'])))
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-client-mutant-o40skuiw\mission_control\operator_client.py", line 165, in call
+    return self.request('POST','/api/agent-operations/call',envelope)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-client-mutant-o40skuiw\mission_control\operator_client.py", line 186, in request
+    reject_http(error,path,body)
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-client-mutant-o40skuiw\mission_control\operator_client.py", line 137, in reject_http
+    raise ClientError('HTTP_REJECTED','WMM rejected the operation; HTTP '+str(error.code)+'. Refresh current app/source data before retrying.',error.code) from error
+mission_control.operator_client.ClientError: WMM rejected the operation; HTTP 400. Refresh current app/source data before retrying.
+
+======================================================================
+ERROR: test_owner_cli_mcp_read_history_and_discovery_parity (tests.test_creative_taste_clients.TasteClientTests.test_owner_cli_mcp_read_history_and_discovery_parity)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-client-mutant-o40skuiw\mission_control\operator_client.py", line 183, in request
+    with self.opener.open(request,timeout=request_timeout(path,body)) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 525, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 634, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 563, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 496, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 643, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 400: Bad Request
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\unittest\async_case.py", line 90, in _callTestMethod
+    if self._callMaybeAsync(method) is not None:
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\unittest\async_case.py", line 112, in _callMaybeAsync
+    return self._asyncioRunner.run(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-client-mutant-o40skuiw\tests\test_creative_taste_clients.py", line 32, in test_owner_cli_mcp_read_history_and_discovery_parity
+    expected=self.owner_call('taste-read',body);history=self.owner_call('taste-history',{})
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-client-mutant-o40skuiw\tests\test_packaging_clients.py", line 37, in owner_call
+    return self.owner.request('POST','/api/apps/'+APP+'/packaging/'+action,body)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-client-mutant-o40skuiw\mission_control\operator_client.py", line 186, in request
+    reject_http(error,path,body)
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-taste-client-mutant-o40skuiw\mission_control\operator_client.py", line 137, in reject_http
+    raise ClientError('HTTP_REJECTED','WMM rejected the operation; HTTP '+str(error.code)+'. Refresh current app/source data before retrying.',error.code) from error
+mission_control.operator_client.ClientError: WMM rejected the operation; HTTP 400. Refresh current app/source data before retrying.
+
+----------------------------------------------------------------------
+Ran 3 tests in 7.339s
+
+FAILED (errors=2)

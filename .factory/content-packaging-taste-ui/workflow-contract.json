@@ -1,0 +1,194 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "WMM-owner-taste-ui",
+  "candidate": [
+    {
+      "path": "mission_control/static/packaging-model.js",
+      "kind": "source",
+      "sha256": "6892f065841bbe3b66c2a37eec03791febf90f444cb2811014091f7325ec875b"
+    },
+    {
+      "path": "mission_control/static/packaging-ui.js",
+      "kind": "source",
+      "sha256": "dfe53e55e1e1b26d408da791fcf7e7c5f11b7b937114e2f5e1d57c2512807df4"
+    },
+    {
+      "path": "mission_control/static/app.js",
+      "kind": "source",
+      "sha256": "9d76eb7a754e66360cbbe8e978be9fc2e54e3148d7fc97552448c5b3ef69ac25"
+    },
+    {
+      "path": "mission_control/static/ui-stories.js",
+      "kind": "source",
+      "sha256": "b522b1102a7daa802a484f8e158e88a0d13663fabd5f3815d965c2d3e9c66fb6"
+    },
+    {
+      "path": "tests/packaging_model.test.cjs",
+      "kind": "source",
+      "sha256": "e0be43bc391efe9e5464cf72a7e9879a50f3bae82eca7bc24fe6e554caca37ec"
+    },
+    {
+      "path": "tests/packaging_ui.test.cjs",
+      "kind": "source",
+      "sha256": "e5de7f84a975899e1a39cf7a78430613aebb6ce138120bdeed200376f8a83895"
+    },
+    {
+      "path": "tools/test_creative_taste_browser.py",
+      "kind": "source",
+      "sha256": "ae27a19d99ca352d937144f5831177fd970aa5c01d86a5cd0e3bbfeff10ac2c5"
+    },
+    {
+      "path": "specs/content-packaging-taste-ui.ssat.yaml",
+      "kind": "source",
+      "sha256": "2fead95a39d6ef01b81d697d4724982bdbed843a37fc50a8c168bc89b1b01a2d"
+    },
+    {
+      "path": ".factory/content-packaging-t5/taste_ui_qa.py",
+      "kind": "source",
+      "sha256": "aa6049b199c87d30cb4ffc8f89c8376f0d998e7dd490a221b5b0e42b9cb855bf"
+    },
+    {
+      "path": ".factory/content-packaging-t5/taste_ui_mutations.py",
+      "kind": "source",
+      "sha256": "b1477dcfcd09f1d0b18852570798d79de4483a7143016041ea789414d6e02612"
+    },
+    {
+      "path": ".factory/content-packaging-t5/taste_ui_design.py",
+      "kind": "source",
+      "sha256": "67b173a2fd89938b731d1117bf7d22fb1d675c29df717ca44383b11da5eb5a87"
+    },
+    {
+      "path": ".factory/content-packaging-t5/taste_ui_workflow.py",
+      "kind": "source",
+      "sha256": "4eee90403b6585d141751decbf0074696d659fd4eb5de4ae83ce372f2ce5b2b3"
+    },
+    {
+      "path": ".factory/content-packaging-taste-ui/qa-scope/packaging-model.js",
+      "kind": "source",
+      "sha256": "bf15970bfaaed1f50e386365a9a751dc37911671ebbaa27d260837fa76a7af7e"
+    },
+    {
+      "path": ".factory/content-packaging-taste-ui/qa-scope/packaging-ui.js",
+      "kind": "source",
+      "sha256": "0da4ef1532ebc647584c7bbf470d51521ed694528ad535ecb84a32bc28a44374"
+    },
+    {
+      "path": ".factory/content-packaging-t5/taste-ui-scope.md",
+      "kind": "contract",
+      "sha256": "7a86e003366eecbf6dad2320d914a9e8df97adfc46eca77819f258e10b9f8105"
+    },
+    {
+      "path": ".factory/content-packaging-taste-ui/review.md",
+      "kind": "review",
+      "sha256": "352e384cd7aeaa8e6296640764890c45b9c3f39a4dee148f14b101c86bfe2cb9"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "Owner browser creates and revises exact video direction then exports JSON/CSV/PDF."
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "All12 examples, bounded exclusions and exact scope/policy/source receipts."
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": true,
+      "reason": "Actual lost response after commit reconciles without a second write."
+    },
+    {
+      "category": "state_consistency",
+      "applicable": true,
+      "reason": "Late responses and app switches clear private UI; revisions retain the selected guidance."
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "Escape text, neutralize CSV, scoped owner writes and two killed admission mutants."
+    },
+    {
+      "category": "performance",
+      "applicable": true,
+      "reason": "Existing bounded history and at most12 examples; no measured latency claim."
+    },
+    {
+      "category": "accessibility",
+      "applicable": true,
+      "reason": "Actual desktop/mobile keyboard, labels, focus and no overflow; prescribed design checks."
+    },
+    {
+      "category": "external_effects",
+      "applicable": true,
+      "reason": "Synthetic local owner data and user report downloads only; no provider/render/publish."
+    }
+  ],
+  "checks": [
+    {
+      "id": "happy_path",
+      "category": "happy_path",
+      "requirement": "Owner browser creates and revises exact video direction then exports JSON/CSV/PDF.",
+      "profiles": [
+        "Windows-Node-Chromium1440-390-synthetic-owner"
+      ]
+    },
+    {
+      "id": "validation",
+      "category": "validation",
+      "requirement": "All12 examples, bounded exclusions and exact scope/policy/source receipts.",
+      "profiles": [
+        "Windows-Node-Chromium1440-390-synthetic-owner"
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "category": "failure_recovery",
+      "requirement": "Actual lost response after commit reconciles without a second write.",
+      "profiles": [
+        "Windows-Node-Chromium1440-390-synthetic-owner"
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "category": "state_consistency",
+      "requirement": "Late responses and app switches clear private UI; revisions retain the selected guidance.",
+      "profiles": [
+        "Windows-Node-Chromium1440-390-synthetic-owner"
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "category": "security_privacy",
+      "requirement": "Escape text, neutralize CSV, scoped owner writes and two killed admission mutants.",
+      "profiles": [
+        "Windows-Node-Chromium1440-390-synthetic-owner"
+      ]
+    },
+    {
+      "id": "performance",
+      "category": "performance",
+      "requirement": "Existing bounded history and at most12 examples; no measured latency claim.",
+      "profiles": [
+        "Windows-Node-Chromium1440-390-synthetic-owner"
+      ]
+    },
+    {
+      "id": "accessibility",
+      "category": "accessibility",
+      "requirement": "Actual desktop/mobile keyboard, labels, focus and no overflow; prescribed design checks.",
+      "profiles": [
+        "Windows-Node-Chromium1440-390-synthetic-owner"
+      ]
+    },
+    {
+      "id": "external_effects",
+      "category": "external_effects",
+      "requirement": "Synthetic local owner data and user report downloads only; no provider/render/publish.",
+      "profiles": [
+        "Windows-Node-Chromium1440-390-synthetic-owner"
+      ]
+    }
+  ]
+}

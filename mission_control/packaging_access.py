@@ -7,7 +7,7 @@ from .funnel_store import app_context
 from .packaging_store import Packaging, decode, readback
 from . import packaging_contract as contract
 
-ACTIONS={'save','read','history','reconcile','checklist'}
+ACTIONS={'save','read','history','reconcile','checklist','taste-review','taste-read','taste-reconcile','taste-history'}
 SAVE_FIELDS={'id','version','kind','manifest_version','data'}
 
 
@@ -50,6 +50,9 @@ def reconcile(store, app_id, body):
 
 def dispatch(store, app_id, action, body):
     """Existing owner/grant gateways provide exact authority for domain calls."""
+    if action in {'taste-review','taste-read','taste-reconcile','taste-history'}:
+        from .creative_taste_store import dispatch as taste
+        return taste(store,app_id,action,body)
     service=Packaging(store)
     if action=='checklist':
         from .packaging_handoff import preview

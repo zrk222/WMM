@@ -1,0 +1,22 @@
+[
+  {
+    "name": "owner",
+    "status": "KILLED",
+    "exit": 1
+  },
+  {
+    "name": "app",
+    "status": "KILLED",
+    "exit": 1
+  },
+  {
+    "name": "revision",
+    "status": "KILLED",
+    "exit": 1
+  },
+  {
+    "name": "immutable",
+    "status": "KILLED",
+    "exit": 1
+  }
+]

@@ -1,0 +1,11 @@
+[
+  {
+    "source": "mission_control/packaging_access.py",
+    "sha256": "136b40221af39768316c7e2bf769df411d03b2040eb01b05154d4e2a5f921dfb",
+    "symbols": [
+      "dispatch"
+    ],
+    "extracted": ".factory/content-packaging-t5/taste-agent/qa-scope/packaging_access.py",
+    "extracted_sha256": "f36d535e4058a30e238d0c07c3171b734fce04d37c13d99fe05ca0100e40ef37"
+  }
+]

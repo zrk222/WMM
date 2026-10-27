@@ -1,0 +1,65 @@
+{
+  "file": ".factory\\content-packaging-taste-ui\\rendered-modal.html",
+  "overall": 95,
+  "passed": true,
+  "scores": {
+    "halo": 100,
+    "fluency": 100,
+    "trust": 100,
+    "peak": 75,
+    "horn": 100
+  },
+  "attribution": {
+    "stage": "design_audit",
+    "n_checked": 5,
+    "n_passed": 5,
+    "units": [
+      {
+        "unit": "criterion:fluency",
+        "stage": "design_audit",
+        "passed": true,
+        "evidence": "score=100; threshold=60",
+        "failure_class": null
+      },
+      {
+        "unit": "criterion:halo",
+        "stage": "design_audit",
+        "passed": true,
+        "evidence": "score=100; threshold=60",
+        "failure_class": null
+      },
+      {
+        "unit": "criterion:horn",
+        "stage": "design_audit",
+        "passed": true,
+        "evidence": "score=100; threshold=60",
+        "failure_class": null
+      },
+      {
+        "unit": "criterion:peak",
+        "stage": "design_audit",
+        "passed": true,
+        "evidence": "score=75; threshold=60",
+        "failure_class": null
+      },
+      {
+        "unit": "criterion:trust",
+        "stage": "design_audit",
+        "passed": true,
+        "evidence": "score=100; threshold=60",
+        "failure_class": null
+      }
+    ],
+    "rate": 1.0,
+    "dominant_failure_class": null
+  },
+  "hard_failures": [],
+  "findings": [
+    {
+      "law": "peak",
+      "level": "warn",
+      "code": "P_NO_INLINE_VALID",
+      "message": "Form without inline validation feedback (gentle confirmation)."
+    }
+  ]
+}
