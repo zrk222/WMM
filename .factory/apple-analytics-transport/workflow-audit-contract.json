@@ -1,0 +1,151 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "WMM-apple-analytics-segment-transport-T2",
+  "candidate": [
+    {
+      "path": "mission_control/apple_analytics.py",
+      "sha256": "e866728327fc96b9e9fbea70642ec0ea211f01e12678dec1ba8c32c62d8cf331",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/apple_analytics_parser.py",
+      "sha256": "14a1d9d503e2169f354cc62d16d3189365995a2210b262f1929a7b2aad771e07",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/apple_segments.py",
+      "sha256": "a4bf6379a25652d187e28d668cbe2ca28056ebded7413a455e73357098be98ce",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/providers.py",
+      "sha256": "80bcbe64b10bff262fabf243317f23d3554a96c2406d35aebe567739c7089e67",
+      "kind": "source"
+    },
+    {
+      "path": "plans/apple-analytics-metrics.md",
+      "sha256": "f16c9924b234df6b0725857db0a1aeaf8095c495f4329dcfb39b18cddf70ff19",
+      "kind": "contract"
+    },
+    {
+      "path": "specs/apple-analytics-metrics.md",
+      "sha256": "cbcc9326110dd0f960f2c01067f2131be86e2b5ec81a1361327a970466698dfc",
+      "kind": "contract"
+    },
+    {
+      "path": ".factory/apple-analytics-transport/scope-review.md",
+      "sha256": "a6719fe4205e82c0604b69fb9b67a98b92de6a0470d276d5729a48248af44c3a",
+      "kind": "review"
+    },
+    {
+      "path": "tests/test_apple_metrics_transport.py",
+      "sha256": "0e159c0c578f88061d712727876e38c9d978c4cf3a3e7f251a0d0f6ab159b362",
+      "kind": "test"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "Verify complete selected-app report instances produce only fully verified parser-ready segment bytes."
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "Reject foreign scope, unsafe destinations, malformed metadata, damaged bytes and incomplete segment inventories."
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": true,
+      "reason": "Reject empty, partial, oversized or failed segment reads without returning or persisting partial observations."
+    },
+    {
+      "category": "state_consistency",
+      "applicable": true,
+      "reason": "Bind segment retrieval to the selected app, supported report family, verified instance and complete segment listing."
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "Do not attach API credentials to signed downloads; reject redirects and keep signed URLs out of results and errors."
+    },
+    {
+      "category": "performance",
+      "applicable": true,
+      "reason": "Enforce declared per-segment, segment-count, aggregate-byte and request-time bounds."
+    },
+    {
+      "category": "accessibility",
+      "applicable": false,
+      "reason": "This backend transport packet changes no visible UI, focus, keyboard, or assistive-technology behavior.",
+      "review_evidence": {
+        "path": ".factory/apple-analytics-transport/scope-review.md",
+        "sha256": "a6719fe4205e82c0604b69fb9b67a98b92de6a0470d276d5729a48248af44c3a",
+        "kind": "review"
+      }
+    },
+    {
+      "category": "external_effects",
+      "applicable": true,
+      "reason": "The transport is GET-only; acceptance runs offline with a mocked opener and does not contact Apple or mutate a provider."
+    }
+  ],
+  "checks": [
+    {
+      "id": "happy_path",
+      "category": "happy_path",
+      "requirement": "Download every segment for a complete verified selected-app report instance and return only id, size, checksum and bytes.",
+      "profiles": [
+        "Windows-CPython-3.11.9-urllib-synthetic-offline"
+      ]
+    },
+    {
+      "id": "validation",
+      "category": "validation",
+      "requirement": "Reject foreign ancestry, unsafe signed destinations, malformed segment metadata, byte-size/checksum mismatch and partial paging.",
+      "profiles": [
+        "Windows-CPython-3.11.9-urllib-synthetic-offline"
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "category": "failure_recovery",
+      "requirement": "On empty, incomplete or failed segment reads, fail closed without returning a partial instance.",
+      "profiles": [
+        "Windows-CPython-3.11.9-urllib-synthetic-offline"
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "category": "state_consistency",
+      "requirement": "Verify app, supported report family, instance and complete segment inventory before requesting any signed bytes.",
+      "profiles": [
+        "Windows-CPython-3.11.9-urllib-synthetic-offline"
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "category": "security_privacy",
+      "requirement": "Send no Apple API authorization to a signed URL; block redirects and exclude signed URLs from results and errors.",
+      "profiles": [
+        "Windows-CPython-3.11.9-urllib-synthetic-offline"
+      ]
+    },
+    {
+      "id": "performance",
+      "category": "performance",
+      "requirement": "Enforce the specified 16 MiB per-segment cap, 50-segment cap, aggregate byte cap and 15-second request timeout.",
+      "profiles": [
+        "Windows-CPython-3.11.9-urllib-synthetic-offline"
+      ]
+    },
+    {
+      "id": "external_effects",
+      "category": "external_effects",
+      "requirement": "Use HTTPS GET only for signed report bytes; no Apple credentials, live provider request or external write in this packet.",
+      "profiles": [
+        "Windows-CPython-3.11.9-urllib-synthetic-offline"
+      ]
+    }
+  ]
+}
