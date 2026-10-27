@@ -1,0 +1,46 @@
+{
+  "schema": "prestige.render_receipt.v1",
+  "target": "file:///<LOCAL_PROFILE>/Documents/Codex/2026-09-22/re-2/outputs/WMM-packaging/.factory/content-packaging-checklist-ui/rendered-modal.html",
+  "passed": true,
+  "viewports": [
+    {
+      "viewport": "desktop",
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "passed": true,
+      "findings": [],
+      "evidence": {
+        "title": "WMM production checklist acceptance fixture",
+        "text_chars": 1751,
+        "body_hidden": false,
+        "horizontal_overflow_px": 0,
+        "visible_actions": 8,
+        "regions": 1,
+        "overlaps": []
+      },
+      "screenshot": ".factory\\content-packaging-checklist-ui\\render\\desktop.png"
+    },
+    {
+      "viewport": "mobile",
+      "size": {
+        "width": 390,
+        "height": 844
+      },
+      "passed": true,
+      "findings": [],
+      "evidence": {
+        "title": "WMM production checklist acceptance fixture",
+        "text_chars": 1751,
+        "body_hidden": false,
+        "horizontal_overflow_px": 0,
+        "visible_actions": 8,
+        "regions": 1,
+        "overlaps": []
+      },
+      "screenshot": ".factory\\content-packaging-checklist-ui\\render\\mobile.png"
+    }
+  ],
+  "receipt_path": ".factory\\content-packaging-checklist-ui\\render\\render-receipt.json"
+}

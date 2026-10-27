@@ -80,7 +80,9 @@ def shotlist(value):
 def agent_contract():
     """Describe actual preparation controls without promoting drafts to execution."""
     return dict(schema='growth.packaging-contract.v1',kinds=['VARIANT','SHOTS'],
-                operations=['packaging.save','packaging.read','packaging.history','packaging.reconcile'],
+                operations=['packaging.save','packaging.read','packaging.history','packaging.reconcile','packaging.checklist'],
+                checklist_fields=['manifest_version','shots'],
+                checklist_effect='Read-only exact SHOTS reference; missing media/rights/claims and editing decisions grant no execution authority.',
                 save_fields=['id','version','kind','manifest_version','data'],
                 variant_fields=['audience','app_outcome','title','thumbnail','opening_frame','hook','cta','sources','creative','app_proofs'],
                 shotlist_fields=['variant','script','shots'],

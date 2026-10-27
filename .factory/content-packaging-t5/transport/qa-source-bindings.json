@@ -1,0 +1,24 @@
+[
+  {
+    "source": "mission_control/packaging_access.py",
+    "sha256": "f8d0feb41003f065b905b37067fe37f520c2dd1faf5f827fbcca2666538878cd",
+    "symbols": [
+      "dispatch"
+    ],
+    "unchanged_other_functions": true,
+    "extracted": ".factory/content-packaging-t5/transport/qa-scope/packaging_access.py",
+    "extracted_sha256": "26f80fb58aae07c54d362dfcc51970b7e4cf22a4a9f8cff101e2306a8bdbc5e5",
+    "baseline_commit": "51503a047e085874d179549aa3f397dbe508adf6"
+  },
+  {
+    "source": "mission_control/packaging_contract.py",
+    "sha256": "4378da19586e3607c215b575c4ba9adc1f33466e797b26d0cc7a11f0945109b7",
+    "symbols": [
+      "agent_contract"
+    ],
+    "unchanged_other_functions": true,
+    "extracted": ".factory/content-packaging-t5/transport/qa-scope/packaging_contract.py",
+    "extracted_sha256": "6092d8ac78213f9dce48ff9775496e187ad9da0036bcbcc5a0e9af6bf19644df",
+    "baseline_commit": "51503a047e085874d179549aa3f397dbe508adf6"
+  }
+]

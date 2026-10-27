@@ -1,0 +1,6 @@
+Executing <Task pending name='Task-2' coro=<HandoffClientsTests.test_owner_cli_mcp_parity_and_read_only_effect() running at <LOCAL_PROFILE>\Documents\Codex\2026-09-22\re-2\outputs\WMM-packaging\tests\test_packaging_handoff_clients.py:34> cb=[_run_until_complete_cb() at <LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py:181] created at <LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py:100> took 0.406 seconds
+..
+----------------------------------------------------------------------
+Ran 2 tests in 3.743s
+
+OK

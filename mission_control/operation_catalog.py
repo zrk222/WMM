@@ -10,6 +10,7 @@ def descriptor(method,suffix,effect,required=(),optional=(),resource=False):
 
 
 OPERATIONS={
+    'packaging.checklist':descriptor('POST','/packaging/checklist','READ_PRIVATE_LOCAL_DATA',('manifest_version','shots')),
     'packaging.history':descriptor('POST','/packaging/history','READ_PRIVATE_LOCAL_DATA',(),('offset',)),
     'packaging.read':descriptor('POST','/packaging/read','READ_PRIVATE_LOCAL_DATA',('id','kind'),('version',)),
     'packaging.save':descriptor('POST','/packaging/save','WRITE_LOCAL_PLAN',('id','version','kind','manifest_version','data')),

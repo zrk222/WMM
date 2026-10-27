@@ -1,0 +1,7 @@
+# Production handoff requirements review
+
+This is a requirements-only packet, not implementation or runtime proof. Six requirements preserve current owner review, app/source/script hashes, original media rights, explicit frame/audio decisions, shared Projects service, existing execution gateways, telemetry/cancel/reconciliation and matching owner/CLI/MCP controls. No renderer, queue or credential store is added. Existing source allows MANAGED and NATIVE editor clips; still ASSET evidence does not prove a timed video source. Hypit still needs explicit supported-operation integration and actual output/readback.
+
+The source inspection covered packaging_store/bindings/access, creative_briefs, creative_taste, video_edit_projects/contract and hypit_authoring. Existing service constraints of 24 clips/1440 frames are retained. User-supplied direction cannot grant authority. Full native platform claims, real effects and measured outcomes remain separate.
+
+Fresh doctor passes. Strict requirements pass with zero warnings. Validator deletion/inversion challenge rejects all six requirement mutations. No runtime source, UI, provider settings or credentials changed. Performance, accessibility and runtime state checks are inapplicable to this requirements-only packet; they are explicitly required in the implementation acceptance and cannot be treated as passed here. No deployment, publication, spending, external message or activation occurred.

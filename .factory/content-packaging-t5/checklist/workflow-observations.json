@@ -1,0 +1,392 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "63bf461b3aa5c91ab257b48f3039ba4a78d67863cee2857d0ac1aa0548077ad0",
+  "candidate_sha256": "7780ac7f4b497d2a83d1b7cbc7cf21b4fca8b48187aefe0398b9a3ac85e7b685",
+  "observations": [
+    {
+      "id": "happy_path",
+      "profile": "Windows-Python3.11-SQLite-synthetic-media-checklist",
+      "status": "PASS",
+      "reason": "Read-only checklist returns exact ordered shot and source evidence through existing services.",
+      "execution_identity": "37 combined unittest regressions, three temporary-tree source mutants, Forge function QA, local source-candidate security scan",
+      "observed_at": "2026-10-27T00:15:14.096555+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/checklist/regressions.log",
+          "kind": "log",
+          "sha256": "0b4f566c45ee3831b7b00297800f2b357a8fbadd7f0695d5a834b0c9957adb62"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/qa.json",
+          "kind": "log",
+          "sha256": "7cf29a8234e00f0ec13e143f4f34bbf4ad41d112f426b839a448ff8aae63eb3d"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/build.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/security.json",
+          "kind": "log",
+          "sha256": "aef5c602a33e323c3e1b1f4594fc72ec9c471040b027a75037b2563ac3195d37"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutations.json",
+          "kind": "log",
+          "sha256": "3a3b18cb1e9e9cf399f5ea7d5f2b7e00153e4cdc6cff8a848b9eaff5987b410a"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-identity.log",
+          "kind": "log",
+          "sha256": "4c98278c0e5aee0c11df72097b4915ee652a8acaca129659adae68b71e63809e"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-rights.log",
+          "kind": "log",
+          "sha256": "12f89d28749dbb847cc50a53538b18a9e4a704a26a3d8914cd602f4cf566ee34"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-authority.log",
+          "kind": "log",
+          "sha256": "7485004903ba80788f460973a4eb9658327e133d96432c3fb284e31b15471a06"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-Python3.11-SQLite-synthetic-media-checklist",
+      "status": "PASS",
+      "reason": "Closed input, foreign documents, changed app/variant/revision/hash and stale bytes are checked.",
+      "execution_identity": "37 combined unittest regressions, three temporary-tree source mutants, Forge function QA, local source-candidate security scan",
+      "observed_at": "2026-10-27T00:15:14.098556+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/checklist/regressions.log",
+          "kind": "log",
+          "sha256": "0b4f566c45ee3831b7b00297800f2b357a8fbadd7f0695d5a834b0c9957adb62"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/qa.json",
+          "kind": "log",
+          "sha256": "7cf29a8234e00f0ec13e143f4f34bbf4ad41d112f426b839a448ff8aae63eb3d"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/build.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/security.json",
+          "kind": "log",
+          "sha256": "aef5c602a33e323c3e1b1f4594fc72ec9c471040b027a75037b2563ac3195d37"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutations.json",
+          "kind": "log",
+          "sha256": "3a3b18cb1e9e9cf399f5ea7d5f2b7e00153e4cdc6cff8a848b9eaff5987b410a"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-identity.log",
+          "kind": "log",
+          "sha256": "4c98278c0e5aee0c11df72097b4915ee652a8acaca129659adae68b71e63809e"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-rights.log",
+          "kind": "log",
+          "sha256": "12f89d28749dbb847cc50a53538b18a9e4a704a26a3d8914cd602f4cf566ee34"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-authority.log",
+          "kind": "log",
+          "sha256": "7485004903ba80788f460973a4eb9658327e133d96432c3fb284e31b15471a06"
+        }
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "profile": "Windows-Python3.11-SQLite-synthetic-media-checklist",
+      "status": "PASS",
+      "reason": "Missing/stale media and rights remain visible without job execution or state mutation.",
+      "execution_identity": "37 combined unittest regressions, three temporary-tree source mutants, Forge function QA, local source-candidate security scan",
+      "observed_at": "2026-10-27T00:15:14.099556+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/checklist/regressions.log",
+          "kind": "log",
+          "sha256": "0b4f566c45ee3831b7b00297800f2b357a8fbadd7f0695d5a834b0c9957adb62"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/qa.json",
+          "kind": "log",
+          "sha256": "7cf29a8234e00f0ec13e143f4f34bbf4ad41d112f426b839a448ff8aae63eb3d"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/build.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/security.json",
+          "kind": "log",
+          "sha256": "aef5c602a33e323c3e1b1f4594fc72ec9c471040b027a75037b2563ac3195d37"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutations.json",
+          "kind": "log",
+          "sha256": "3a3b18cb1e9e9cf399f5ea7d5f2b7e00153e4cdc6cff8a848b9eaff5987b410a"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-identity.log",
+          "kind": "log",
+          "sha256": "4c98278c0e5aee0c11df72097b4915ee652a8acaca129659adae68b71e63809e"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-rights.log",
+          "kind": "log",
+          "sha256": "12f89d28749dbb847cc50a53538b18a9e4a704a26a3d8914cd602f4cf566ee34"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-authority.log",
+          "kind": "log",
+          "sha256": "7485004903ba80788f460973a4eb9658327e133d96432c3fb284e31b15471a06"
+        }
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "profile": "Windows-Python3.11-SQLite-synthetic-media-checklist",
+      "status": "PASS",
+      "reason": "Repeated preview is identical; exact hash identities reject silent parent changes; audit/job counts remain unchanged.",
+      "execution_identity": "37 combined unittest regressions, three temporary-tree source mutants, Forge function QA, local source-candidate security scan",
+      "observed_at": "2026-10-27T00:15:14.101555+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/checklist/regressions.log",
+          "kind": "log",
+          "sha256": "0b4f566c45ee3831b7b00297800f2b357a8fbadd7f0695d5a834b0c9957adb62"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/qa.json",
+          "kind": "log",
+          "sha256": "7cf29a8234e00f0ec13e143f4f34bbf4ad41d112f426b839a448ff8aae63eb3d"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/build.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/security.json",
+          "kind": "log",
+          "sha256": "aef5c602a33e323c3e1b1f4594fc72ec9c471040b027a75037b2563ac3195d37"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutations.json",
+          "kind": "log",
+          "sha256": "3a3b18cb1e9e9cf399f5ea7d5f2b7e00153e4cdc6cff8a848b9eaff5987b410a"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-identity.log",
+          "kind": "log",
+          "sha256": "4c98278c0e5aee0c11df72097b4915ee652a8acaca129659adae68b71e63809e"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-rights.log",
+          "kind": "log",
+          "sha256": "12f89d28749dbb847cc50a53538b18a9e4a704a26a3d8914cd602f4cf566ee34"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-authority.log",
+          "kind": "log",
+          "sha256": "7485004903ba80788f460973a4eb9658327e133d96432c3fb284e31b15471a06"
+        }
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "profile": "Windows-Python3.11-SQLite-synthetic-media-checklist",
+      "status": "PASS",
+      "reason": "Twenty exact Python sources CLEAN with complete declared coverage; three mutants killed; synthetic output excludes storage paths.",
+      "execution_identity": "37 combined unittest regressions, three temporary-tree source mutants, Forge function QA, local source-candidate security scan",
+      "observed_at": "2026-10-27T00:15:14.102555+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/checklist/regressions.log",
+          "kind": "log",
+          "sha256": "0b4f566c45ee3831b7b00297800f2b357a8fbadd7f0695d5a834b0c9957adb62"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/qa.json",
+          "kind": "log",
+          "sha256": "7cf29a8234e00f0ec13e143f4f34bbf4ad41d112f426b839a448ff8aae63eb3d"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/build.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/security.json",
+          "kind": "log",
+          "sha256": "aef5c602a33e323c3e1b1f4594fc72ec9c471040b027a75037b2563ac3195d37"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutations.json",
+          "kind": "log",
+          "sha256": "3a3b18cb1e9e9cf399f5ea7d5f2b7e00153e4cdc6cff8a848b9eaff5987b410a"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-identity.log",
+          "kind": "log",
+          "sha256": "4c98278c0e5aee0c11df72097b4915ee652a8acaca129659adae68b71e63809e"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-rights.log",
+          "kind": "log",
+          "sha256": "12f89d28749dbb847cc50a53538b18a9e4a704a26a3d8914cd602f4cf566ee34"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-authority.log",
+          "kind": "log",
+          "sha256": "7485004903ba80788f460973a4eb9658327e133d96432c3fb284e31b15471a06"
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "profile": "Windows-Python3.11-SQLite-synthetic-media-checklist",
+      "status": "PASS",
+      "reason": "Existing contract bounds cap shots and references; no new queue or provider reads; no latency claim.",
+      "execution_identity": "37 combined unittest regressions, three temporary-tree source mutants, Forge function QA, local source-candidate security scan",
+      "observed_at": "2026-10-27T00:15:14.104555+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/checklist/regressions.log",
+          "kind": "log",
+          "sha256": "0b4f566c45ee3831b7b00297800f2b357a8fbadd7f0695d5a834b0c9957adb62"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/qa.json",
+          "kind": "log",
+          "sha256": "7cf29a8234e00f0ec13e143f4f34bbf4ad41d112f426b839a448ff8aae63eb3d"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/build.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/security.json",
+          "kind": "log",
+          "sha256": "aef5c602a33e323c3e1b1f4594fc72ec9c471040b027a75037b2563ac3195d37"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutations.json",
+          "kind": "log",
+          "sha256": "3a3b18cb1e9e9cf399f5ea7d5f2b7e00153e4cdc6cff8a848b9eaff5987b410a"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-identity.log",
+          "kind": "log",
+          "sha256": "4c98278c0e5aee0c11df72097b4915ee652a8acaca129659adae68b71e63809e"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-rights.log",
+          "kind": "log",
+          "sha256": "12f89d28749dbb847cc50a53538b18a9e4a704a26a3d8914cd602f4cf566ee34"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-authority.log",
+          "kind": "log",
+          "sha256": "7485004903ba80788f460973a4eb9658327e133d96432c3fb284e31b15471a06"
+        }
+      ]
+    },
+    {
+      "id": "external_effects",
+      "profile": "Windows-Python3.11-SQLite-synthetic-media-checklist",
+      "status": "PASS",
+      "reason": "Temporary synthetic SQLite and media inspector only; no network, render, publication, spend or activation.",
+      "execution_identity": "37 combined unittest regressions, three temporary-tree source mutants, Forge function QA, local source-candidate security scan",
+      "observed_at": "2026-10-27T00:15:14.105555+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/content-packaging-t5/checklist/regressions.log",
+          "kind": "log",
+          "sha256": "0b4f566c45ee3831b7b00297800f2b357a8fbadd7f0695d5a834b0c9957adb62"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/qa.json",
+          "kind": "log",
+          "sha256": "7cf29a8234e00f0ec13e143f4f34bbf4ad41d112f426b839a448ff8aae63eb3d"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/lint.log",
+          "kind": "log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/build.log",
+          "kind": "log",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/security.json",
+          "kind": "log",
+          "sha256": "aef5c602a33e323c3e1b1f4594fc72ec9c471040b027a75037b2563ac3195d37"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutations.json",
+          "kind": "log",
+          "sha256": "3a3b18cb1e9e9cf399f5ea7d5f2b7e00153e4cdc6cff8a848b9eaff5987b410a"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-identity.log",
+          "kind": "log",
+          "sha256": "4c98278c0e5aee0c11df72097b4915ee652a8acaca129659adae68b71e63809e"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-rights.log",
+          "kind": "log",
+          "sha256": "12f89d28749dbb847cc50a53538b18a9e4a704a26a3d8914cd602f4cf566ee34"
+        },
+        {
+          "path": ".factory/content-packaging-t5/checklist/mutation-authority.log",
+          "kind": "log",
+          "sha256": "7485004903ba80788f460973a4eb9658327e133d96432c3fb284e31b15471a06"
+        }
+      ]
+    }
+  ]
+}

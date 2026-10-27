@@ -1,0 +1,131 @@
+{
+  "grade": "A",
+  "passed": true,
+  "metrics": {
+    "coverage_intent": 0.67,
+    "max_complexity": 6,
+    "security_score": 100,
+    "doc_ratio": 1.0,
+    "composite": 88.5,
+    "complexity_policy": "hard",
+    "coverage_assessment": "static_name_match",
+    "behavioral_proof_status": "not_measured_static_only",
+    "scope": {
+      "kind": "feature",
+      "code_files": [
+        ".factory/content-packaging-t5/transport/qa-scope/packaging_access.py",
+        ".factory/content-packaging-t5/transport/qa-scope/packaging_contract.py",
+        "mission_control/packaging_handoff.py"
+      ]
+    },
+    "skipped_paths": [],
+    "inventory_complete": true,
+    "function_inventory_complete": true,
+    "function_inventory": [
+      {
+        "path": ".factory/content-packaging-t5/transport/qa-scope/packaging_access.py",
+        "parser": "python-ast",
+        "status": "exact",
+        "symbols": 1
+      },
+      {
+        "path": ".factory/content-packaging-t5/transport/qa-scope/packaging_contract.py",
+        "parser": "python-ast",
+        "status": "exact",
+        "symbols": 1
+      },
+      {
+        "path": "mission_control/packaging_handoff.py",
+        "parser": "python-ast",
+        "status": "exact",
+        "symbols": 4
+      }
+    ],
+    "advisory_function_metrics": [],
+    "unknown_security_calls": [
+      ".factory/content-packaging-t5/transport/qa-scope/packaging_access.py:Invalid",
+      ".factory/content-packaging-t5/transport/qa-scope/packaging_access.py:Packaging",
+      ".factory/content-packaging-t5/transport/qa-scope/packaging_access.py:body.get",
+      ".factory/content-packaging-t5/transport/qa-scope/packaging_access.py:exact_keys",
+      ".factory/content-packaging-t5/transport/qa-scope/packaging_access.py:history",
+      ".factory/content-packaging-t5/transport/qa-scope/packaging_access.py:preview",
+      ".factory/content-packaging-t5/transport/qa-scope/packaging_access.py:reconcile",
+      ".factory/content-packaging-t5/transport/qa-scope/packaging_access.py:service.read",
+      ".factory/content-packaging-t5/transport/qa-scope/packaging_access.py:service.save",
+      ".factory/content-packaging-t5/transport/qa-scope/packaging_contract.py:dict",
+      "mission_control/packaging_handoff.py:Invalid",
+      "mission_control/packaging_handoff.py:TypeError",
+      "mission_control/packaging_handoff.py:any",
+      "mission_control/packaging_handoff.py:app_context",
+      "mission_control/packaging_handoff.py:connection",
+      "mission_control/packaging_handoff.py:count",
+      "mission_control/packaging_handoff.py:db.execute",
+      "mission_control/packaging_handoff.py:derivative_snapshot",
+      "mission_control/packaging_handoff.py:dict",
+      "mission_control/packaging_handoff.py:digest",
+      "mission_control/packaging_handoff.py:document",
+      "mission_control/packaging_handoff.py:exact",
+      "mission_control/packaging_handoff.py:gaps.append",
+      "mission_control/packaging_handoff.py:latest",
+      "mission_control/packaging_handoff.py:media_choices",
+      "mission_control/packaging_handoff.py:readback",
+      "mission_control/packaging_handoff.py:reference",
+      "mission_control/packaging_handoff.py:result.append",
+      "mission_control/packaging_handoff.py:shot_row",
+      "mission_control/packaging_handoff.py:type"
+    ],
+    "security_analysis": "bounded_pattern_inventory"
+  },
+  "findings": [],
+  "attribution": {
+    "stage": "qa_audit",
+    "n_checked": 6,
+    "n_passed": 4,
+    "units": [
+      {
+        "unit": "qa_audit:.factory/content-packaging-t5/transport/qa-scope/packaging_access.py:dispatch",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t5/transport/qa-scope/packaging_contract.py:agent_contract",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_handoff.py:document",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_handoff.py:media_choices",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_handoff.py:shot_row",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_handoff.py:preview",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      }
+    ],
+    "rate": 0.6666666666666666,
+    "dominant_failure_class": "inconsistent_logic"
+  }
+}

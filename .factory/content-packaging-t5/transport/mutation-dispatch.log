@@ -1,0 +1,42 @@
+Executing <Task pending name='Task-2' coro=<HandoffClientsTests.test_owner_cli_mcp_parity_and_read_only_effect() running at <LOCAL_PROFILE>\AppData\Local\Temp\tmp2009_7oz\tests\test_packaging_handoff_clients.py:34> cb=[_run_until_complete_cb() at <LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py:181] created at <LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py:100> took 0.531 seconds
+FFF
+======================================================================
+FAIL: test_owner_cli_mcp_parity_and_read_only_effect (tests.test_packaging_handoff_clients.HandoffClientsTests.test_owner_cli_mcp_parity_and_read_only_effect)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\unittest\async_case.py", line 90, in _callTestMethod
+    if self._callMaybeAsync(method) is not None:
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\unittest\async_case.py", line 112, in _callMaybeAsync
+    return self._asyncioRunner.run(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmp2009_7oz\tests\test_packaging_handoff_clients.py", line 40, in test_owner_cli_mcp_parity_and_read_only_effect
+    self.assertFalse(expected['execution_authority'])
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_scopes_revisions_forged_fields_and_revocation_reject (tests.test_packaging_handoff_clients.HandoffClientsTests.test_scopes_revisions_forged_fields_and_revocation_reject) (invalid={'manifest_version': 1, 'shots': {'kind': 'SHOTS', 'id': 'client-shots', 'version': 1, 'sha256': '0000000000000000000000000000000000000000000000000000000000000000'}})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmp2009_7oz\tests\test_packaging_handoff_clients.py", line 49, in test_scopes_revisions_forged_fields_and_revocation_reject
+    with self.subTest(invalid=invalid),self.assertRaises((ClientError,Invalid)):
+AssertionError: (<class 'mission_control.operator_client.ClientError'>, <class 'mission_control.common.Invalid'>) not raised
+
+======================================================================
+FAIL: test_scopes_revisions_forged_fields_and_revocation_reject (tests.test_packaging_handoff_clients.HandoffClientsTests.test_scopes_revisions_forged_fields_and_revocation_reject) (invalid={'manifest_version': 999, 'shots': {'kind': 'SHOTS', 'id': 'client-shots', 'version': 1, 'sha256': '60a7e17fe007b5467c36dfdf645a73c9df7b837efaa526685290c7fc05550e6d'}})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\tmp2009_7oz\tests\test_packaging_handoff_clients.py", line 49, in test_scopes_revisions_forged_fields_and_revocation_reject
+    with self.subTest(invalid=invalid),self.assertRaises((ClientError,Invalid)):
+AssertionError: (<class 'mission_control.operator_client.ClientError'>, <class 'mission_control.common.Invalid'>) not raised
+
+----------------------------------------------------------------------
+Ran 2 tests in 6.554s
+
+FAILED (failures=3)
