@@ -21,6 +21,7 @@ class PreparedAppleMetrics:
     partitions: tuple
     connection_hash: str
     metadata_source_hash: str
+    operation: str = 'analytics_metrics'
 
     def summary(self, statuses):
         """Return bounded, secret-free job evidence after persistence commits."""
@@ -30,7 +31,7 @@ class PreparedAppleMetrics:
             values.append(dict(event_date=item['partition']['event_date'], status=status,
                 observation_count=len(instance['rows']), source_count=len(instance['sources']),
                 source_hash=digest(sorted(instance['sources'],key=lambda source:source['id']))))
-        return dict(operation='analytics_metrics',provider='app_store',
+        return dict(operation=self.operation,provider='app_store',
             app_id=self.identity['app_id'],store_app_id=self.identity['store_app_id'],
             report_id=self.identity['report_id'],report_family=self.identity['report_family'],
             granularity=self.identity['granularity'],coverage='COMPLETE',
@@ -52,6 +53,9 @@ def report_options(provider,options):
     if operation == 'release_inventory':
         return release_options(provider, options)
     if operation in ("reviews", "subscription_catalog", "analytics_reports") and provider=="app_store" and set(options)=={"operation"}:
+        return options
+    if operation=='analytics_metrics_latest' and provider=='app_store' and set(options)=={'operation','report_id'}:
+        analytics_identity(options['report_id'])
         return options
     if operation=='analytics_metrics' and provider=='app_store' and set(options)=={'operation','report_id','instance_id'}:
         analytics_identity(options['report_id']);analytics_identity(options['instance_id'])
@@ -122,7 +126,7 @@ def read_report(binding,app_id,options,connection_id=None,connection_version=Non
     if binding["provider"]=="apple_ads":
         headers["X-AP-Context"]="adAccountId="+numeric_scope(binding,"account_id")
     reader=Reader(headers)
-    if options['operation']=='analytics_metrics':
+    if options['operation'] in ('analytics_metrics','analytics_metrics_latest'):
         return prepare_analytics_metrics(reader,binding,app_id,store_id,options,
                                          connection_id,connection_version)
     if options["operation"]=="reviews":
@@ -154,17 +158,29 @@ def prepare_analytics_metrics(reader,binding,app_id,store_id,options,connection_
             or report['coverage']!='COMPLETE'
             or report['name']!='App Downloads Standard'):
         raise Invalid('Choose a complete App Downloads Standard report from this app')
-    selected=next((item for item in report['instances'] if item['id']==options['instance_id']),None)
-    if selected is None or selected['granularity']!='DAILY':
-        raise Invalid('Choose a complete daily downloads report instance')
-    segments=read_instance_segments(reader,store_id,options['report_id'],options['instance_id'])
+    if options['operation']=='analytics_metrics_latest':
+        daily=[item for item in report['instances'] if item['granularity']=='DAILY']
+        if not daily:
+            raise Invalid('No complete daily downloads report instance is available yet')
+        latest_date=max(item['processing_date'] for item in daily)
+        newest=[item for item in daily if item['processing_date']==latest_date]
+        if len(newest)!=1:
+            raise Invalid('Apple returned ambiguous latest daily report instances')
+        selected=newest[0]
+    else:
+        selected=next((item for item in report['instances'] if item['id']==options['instance_id']),None)
+        if selected is None or selected['granularity']!='DAILY':
+            raise Invalid('Choose a complete daily downloads report instance')
+    selected_id=selected['id']
+    segments=read_instance_segments(reader,store_id,options['report_id'],selected_id)
     key=dict(app_id=app_id,store_app_id=store_id,connection_id=connection_id,
         connection_version=connection_version,report_id=options['report_id'],
         report_family=report['name'],granularity=selected['granularity'])
     partitions=tuple(parse_partitions(key,selected['processing_date'],segments,True))
     public_binding={name:value for name,value in binding.items() if not name.startswith('_')}
     return PreparedAppleMetrics(identity=key,partitions=partitions,
-        connection_hash=digest(public_binding),metadata_source_hash=digest(reader.hashes))
+        connection_hash=digest(public_binding),metadata_source_hash=digest(reader.hashes),
+        operation=options['operation'])
 
 
 def google_report(binding,app_id,options):

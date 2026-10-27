@@ -9,7 +9,7 @@ Status: implementation pending; native provider readback and full product accept
 - When `AM_DOWNLOADS` reads download data, the system shall distinguish first-time downloads, redownloads and updates and shall not equate downloads with installs or revenue. [AM4]
 - When `AM_UNKNOWN` encounters an unknown, suppressed, unavailable, stale, partial or malformed report, the system shall return that state without substituting zero or implying complete coverage. [AM5]
 - When `AM_RECONCILE` sees repeated segments, late data or corrections, the system shall preserve source identities and replace each affected report date with the complete set from the newest processing date without double counting across retries and restarts. [AM6]
-- When `AM_SCHEDULE` refreshes supported app reports on a user-configured schedule, the system shall store failure, last success, coverage and recovery information through the existing durable worker. [AM7]
+- When `AM_SCHEDULE` refreshes supported app reports on an owner-opted-in schedule, the system shall select the newest complete daily App Downloads Standard instance for the bound app and current connection, record freshness, coverage, last success and failures, and use no more than three transient attempts per queued read. A changed or disconnected app/connection shall disable the schedule until the owner reviews it. [AM7]
 - When an owner or admitted agent inspects `AM_SURFACE`, the system shall return supported observations with observation times, coverage and data caveats through the existing interface and authorized operation surfaces. [AM8]
 - When `AM_PRIVACY` stores or exports a result, the system shall exclude provider credentials, signed download URLs and unrelated apps, and shall not perform provider writes. [AM9]
 
@@ -54,6 +54,14 @@ Scenario: Scheduled recovery
  Given AM_SCHEDULE has a configured refresh and its provider read fails
  When AM_SCHEDULE resumes after restart
  Then AM_SCHEDULE retains failure and last success while retrying within its schedule
+Scenario: Scheduled latest complete report
+ Given AM_SCHEDULE is explicitly enabled for one app and one Apple connection
+ When a scheduled refresh runs
+ Then AM_SCHEDULE selects the newest complete daily downloads instance for that app and keeps incomplete data out of stored metrics
+Scenario: Stale scheduled authority
+ Given AM_SCHEDULE is bound to an app or connection version
+ When the app or connection changes before dispatch or commit
+ Then AM_SCHEDULE stores no observations and stops until the owner reviews the current connection
 Scenario: Owner and agent readback
  Given AM_SURFACE has a supported report and an admitted agent
  When AM_SURFACE displays the observed metrics

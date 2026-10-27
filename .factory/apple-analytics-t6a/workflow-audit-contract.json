@@ -1,0 +1,136 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "WMM-apple-analytics-latest-selection-T6a",
+  "candidate": [
+    {
+      "path": "mission_control/provider_reports.py",
+      "sha256": "ae81e9473184af5ec528f9d07a0d764b9dfa6096ae52b64897bcdcbbe5062c1f",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/marketing_agent_manifest.py",
+      "sha256": "0e4076c76f70af5aa42a27ec65483c462b4a5804a2e8580a4bba21a2313e5f19",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_apple_metrics_schedule_selection.py",
+      "sha256": "957aa72e8c4d6a7e0990a2032a2e745ad3c9da109381b6216176fd9e52ef3ab4",
+      "kind": "test"
+    },
+    {
+      "path": "specs/apple-analytics-metrics.md",
+      "sha256": "4f663d01065dba511d88cc502ed4b1e237ef2a10ef7b143326935241be29cef1",
+      "kind": "contract"
+    },
+    {
+      "path": ".factory/apple-analytics-t6a/scope-review.md",
+      "sha256": "dd176908e5152b0eea86c35a9b6affee79778cd8e3728fdc3d8d99ed181834df",
+      "kind": "review"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "Select the unique newest complete daily downloads instance while retaining explicit exact-instance selection."
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "Reject unsupported provider/fields, partial inventory, missing daily instances and ambiguous newest dates."
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": true,
+      "reason": "Missing, incomplete or ambiguous inventory stops before requesting signed segments."
+    },
+    {
+      "category": "state_consistency",
+      "applicable": true,
+      "reason": "Bind downloaded segments to the single selected instance and preserve the prior exact-selection operation."
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "Allow the new agent operation only through the app-scoped Apple read manifest and closed option schema."
+    },
+    {
+      "category": "performance",
+      "applicable": true,
+      "reason": "The selector operates over the existing bounded report inventory, which caps discovery to three pages of one hundred instances."
+    },
+    {
+      "category": "accessibility",
+      "applicable": false,
+      "reason": "This backend-only selector adds no interface or input behavior.",
+      "review_evidence": {
+        "path": ".factory/apple-analytics-t6a/scope-review.md",
+        "sha256": "dd176908e5152b0eea86c35a9b6affee79778cd8e3728fdc3d8d99ed181834df",
+        "kind": "review"
+      }
+    },
+    {
+      "category": "external_effects",
+      "applicable": true,
+      "reason": "Apple analytics reads and segment downloads are external effects. Tests mock both and assert only the selected instance is requested; no live provider call is claimed."
+    }
+  ],
+  "checks": [
+    {
+      "id": "happy_path",
+      "category": "happy_path",
+      "requirement": "Choose the unique newest complete daily instance for analytics_metrics_latest and keep exact analytics_metrics selection unchanged.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ]
+    },
+    {
+      "id": "validation",
+      "category": "validation",
+      "requirement": "Require a valid App Downloads Standard report identity and reject unsupported, partial, absent or ambiguous selection.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "category": "failure_recovery",
+      "requirement": "Do not download report bytes when inventory or newest-instance selection is incomplete or ambiguous.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "category": "state_consistency",
+      "requirement": "Return the selected instance identity and parse its segments with that same report/instance ancestry.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "category": "security_privacy",
+      "requirement": "Authorize analytics_metrics_latest only for the configured app_store source under the current agent manifest.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ]
+    },
+    {
+      "id": "performance",
+      "category": "performance",
+      "requirement": "Bound latest-instance selection to the existing paginated inventory limit and avoid unbounded search or retries.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ]
+    },
+    {
+      "id": "external_effects",
+      "category": "external_effects",
+      "requirement": "Use the selected report/instance read path only; all test provider and signed-segment interactions remain mocked.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ]
+    }
+  ]
+}
