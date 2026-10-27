@@ -1,0 +1,257 @@
+{
+  "grade": "A",
+  "passed": true,
+  "metrics": {
+    "coverage_intent": 0.76,
+    "max_complexity": 9,
+    "security_score": 100,
+    "doc_ratio": 1.0,
+    "composite": 91.6,
+    "complexity_policy": "hard",
+    "coverage_assessment": "static_name_match",
+    "behavioral_proof_status": "not_measured_static_only",
+    "scope": {
+      "kind": "feature",
+      "code_files": [
+        ".factory/content-packaging-t5/editor/qa-scope/video_edit_contract.py",
+        ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py",
+        "mission_control/packaging_editor.py"
+      ]
+    },
+    "skipped_paths": [],
+    "inventory_complete": true,
+    "function_inventory_complete": true,
+    "function_inventory": [
+      {
+        "path": ".factory/content-packaging-t5/editor/qa-scope/video_edit_contract.py",
+        "parser": "python-ast",
+        "status": "exact",
+        "symbols": 2
+      },
+      {
+        "path": ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py",
+        "parser": "python-ast",
+        "status": "exact",
+        "symbols": 8
+      },
+      {
+        "path": "mission_control/packaging_editor.py",
+        "parser": "python-ast",
+        "status": "exact",
+        "symbols": 7
+      }
+    ],
+    "advisory_function_metrics": [],
+    "unknown_security_calls": [
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_contract.py:Invalid",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_contract.py:clip",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_contract.py:deepcopy",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_contract.py:dict",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_contract.py:exact",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_contract.py:isinstance",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_contract.py:len",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_contract.py:output_frames",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_contract.py:project_shape",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_contract.py:provenance",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_contract.py:required",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_contract.py:sum",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:Invalid",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:TypeError",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:action.lower",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:actor.items",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:app_version",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:append",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:bind_sources",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:binding",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:canonical",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:connection",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:db.execute",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:db.execute('SELECT * FROM apps WHERE id=?', (app_id,)).fetchone",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:db.execute('SELECT * FROM video_project_heads WHERE app_id=? AND id=?', (app_id, identity)).fetchone",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:db.execute('SELECT * FROM video_project_revisions WHERE app_id=? AND id=? AND revision=?', (app_id, identity, number)).fetchone",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:db.execute('SELECT * FROM video_project_revisions WHERE app_id=? AND request_key=?', (app_id, request_key)).fetchone",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:db.execute('SELECT 1 FROM video_project_heads WHERE app_id=? AND id=?', (app_id, identity)).fetchone",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:db.execute('SELECT count(*) FROM video_project_heads WHERE app_id=?', (app_id,)).fetchone",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:definition",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:dict",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:digest",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:head",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:identifier",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:integer",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:json.loads",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:next_state",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:now",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:preserve_origin",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:replay",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:required",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:revision",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:row_view",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:saved_data",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:self.caller",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:self.current",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:self.store.app",
+      ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:type",
+      "mission_control/packaging_editor.py:Invalid",
+      "mission_control/packaging_editor.py:TypeError",
+      "mission_control/packaging_editor.py:app_context",
+      "mission_control/packaging_editor.py:connection",
+      "mission_control/packaging_editor.py:count",
+      "mission_control/packaging_editor.py:current",
+      "mission_control/packaging_editor.py:db.execute",
+      "mission_control/packaging_editor.py:decode",
+      "mission_control/packaging_editor.py:definition",
+      "mission_control/packaging_editor.py:dict",
+      "mission_control/packaging_editor.py:digest",
+      "mission_control/packaging_editor.py:document",
+      "mission_control/packaging_editor.py:evidence",
+      "mission_control/packaging_editor.py:exact",
+      "mission_control/packaging_editor.py:hashed",
+      "mission_control/packaging_editor.py:identifier",
+      "mission_control/packaging_editor.py:isinstance",
+      "mission_control/packaging_editor.py:latest",
+      "mission_control/packaging_editor.py:len",
+      "mission_control/packaging_editor.py:ordered_clips",
+      "mission_control/packaging_editor.py:provenance",
+      "mission_control/packaging_editor.py:reference",
+      "mission_control/packaging_editor.py:result.append",
+      "mission_control/packaging_editor.py:row.get",
+      "mission_control/packaging_editor.py:saved_data",
+      "mission_control/packaging_editor.py:selected.get",
+      "mission_control/packaging_editor.py:selected.pop",
+      "mission_control/packaging_editor.py:selected_media",
+      "mission_control/packaging_editor.py:source.get",
+      "mission_control/packaging_editor.py:type",
+      "mission_control/packaging_editor.py:zip"
+    ],
+    "security_analysis": "bounded_pattern_inventory"
+  },
+  "findings": [],
+  "attribution": {
+    "stage": "qa_audit",
+    "n_checked": 17,
+    "n_passed": 13,
+    "units": [
+      {
+        "unit": "qa_audit:.factory/content-packaging-t5/editor/qa-scope/video_edit_contract.py:project_shape",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t5/editor/qa-scope/video_edit_contract.py:definition",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:revision",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:head",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:app_version",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:saved_data",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:replay",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:append",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:write",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:.factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py:current",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_editor.py:provenance",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_editor.py:evidence",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_editor.py:selected_media",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_editor.py:preserve_origin",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_editor.py:binding",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_editor.py:ordered_clips",
+        "stage": "qa_audit",
+        "passed": false,
+        "evidence": "coverage_intent=0; required=1",
+        "failure_class": "inconsistent_logic"
+      },
+      {
+        "unit": "qa_audit:mission_control/packaging_editor.py:prepare",
+        "stage": "qa_audit",
+        "passed": true,
+        "evidence": "metrics within thresholds",
+        "failure_class": null
+      }
+    ],
+    "rate": 0.7647058823529411,
+    "dominant_failure_class": "inconsistent_logic"
+  }
+}
