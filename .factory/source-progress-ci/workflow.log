@@ -1,0 +1,58 @@
+{
+  "agent_actions": [],
+  "authority": {
+    "approval": false,
+    "connector": false,
+    "credential": false,
+    "deployment": false,
+    "execution": false,
+    "merge": false,
+    "messaging": false,
+    "publication": false,
+    "repair": false,
+    "signing": false
+  },
+  "candidate_sha256": "d710f525fc3656d4434eb50e67d7acebab96e34f05b88c47467d0939797a88fe",
+  "checks": 5,
+  "contract_sha256": "c4bead5614aa3105d9c52b52984974d0c30182d35d820978ba3168bdde2a1761",
+  "errors": [],
+  "inapplicability_evidence": {
+    "accessibility": {
+      "actual_sha256": "148fe5dd3f042b1408da29bb41eb9f022fcd4a9d622d2fe88f29018e74966291",
+      "current": true,
+      "kind": "review",
+      "path": ".factory/source-progress-ci/scope.md",
+      "sha256": "148fe5dd3f042b1408da29bb41eb9f022fcd4a9d622d2fe88f29018e74966291"
+    },
+    "external_effects": {
+      "actual_sha256": "148fe5dd3f042b1408da29bb41eb9f022fcd4a9d622d2fe88f29018e74966291",
+      "current": true,
+      "kind": "review",
+      "path": ".factory/source-progress-ci/scope.md",
+      "sha256": "148fe5dd3f042b1408da29bb41eb9f022fcd4a9d622d2fe88f29018e74966291"
+    },
+    "performance": {
+      "actual_sha256": "148fe5dd3f042b1408da29bb41eb9f022fcd4a9d622d2fe88f29018e74966291",
+      "current": true,
+      "kind": "review",
+      "path": ".factory/source-progress-ci/scope.md",
+      "sha256": "148fe5dd3f042b1408da29bb41eb9f022fcd4a9d622d2fe88f29018e74966291"
+    }
+  },
+  "limits": [
+    "Recorded evidence completeness and hashes only; observations require review.",
+    "Inapplicability review evidence is hash-bound but its judgment and identity are not authenticated.",
+    "Each contract/observation JSON input and evidence artifact is limited to 16 MiB; total evidence hashing is limited to 128 MiB, 4096 artifact references, and 4096 required check/profile pairs.",
+    "No project command or provider is executed.",
+    "No approval, certification or deployment authority."
+  ],
+  "observations_sha256": "3ae0087fdd891fa152debe954b2c88b2f4dc176c5c980f919293ae95eda919e5",
+  "project_id": "WMM-source-progress-ci-clock",
+  "receipt_sha256": "9092e5088a7c9565e49c3172f241e99adb0bc80e0a6d87d4d40f34a7dd2999e0",
+  "resource_usage": {
+    "artifact_references": 18,
+    "bytes_hashed": 66896
+  },
+  "schema": "factory.workflow-audit.receipt.v1",
+  "state": "PASS"
+}

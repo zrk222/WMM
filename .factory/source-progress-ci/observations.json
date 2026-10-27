@@ -1,0 +1,107 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "c4bead5614aa3105d9c52b52984974d0c30182d35d820978ba3168bdde2a1761",
+  "candidate_sha256": "d710f525fc3656d4434eb50e67d7acebab96e34f05b88c47467d0939797a88fe",
+  "observations": [
+    {
+      "id": "happy",
+      "profile": "Windows-CPython-3.11-synthetic-SQLite",
+      "status": "PASS",
+      "reason": "Synthetic collection dispatch succeeds inside a stable approved hour",
+      "execution_identity": "python .factory/source-progress-ci/seal.py",
+      "observed_at": "2026-10-27T04:12:38.121985+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/source-progress-ci/tests.log",
+          "sha256": "9cddd49b8be98bdd3f6708504c7cce65188d44cc0b745dda51a39645cf4165d6",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/source-progress-ci/lint.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-CPython-3.11-synthetic-SQLite",
+      "status": "PASS",
+      "reason": "Existing stale and foreign approval rejection remains tested",
+      "execution_identity": "python .factory/source-progress-ci/seal.py",
+      "observed_at": "2026-10-27T04:12:38.121985+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/source-progress-ci/tests.log",
+          "sha256": "9cddd49b8be98bdd3f6708504c7cce65188d44cc0b745dda51a39645cf4165d6",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/source-progress-ci/lint.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "recovery",
+      "profile": "Windows-CPython-3.11-synthetic-SQLite",
+      "status": "PASS",
+      "reason": "Existing tests retain failed results and expose repair",
+      "execution_identity": "python .factory/source-progress-ci/seal.py",
+      "observed_at": "2026-10-27T04:12:38.121985+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/source-progress-ci/tests.log",
+          "sha256": "9cddd49b8be98bdd3f6708504c7cce65188d44cc0b745dda51a39645cf4165d6",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/source-progress-ci/lint.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "state",
+      "profile": "Windows-CPython-3.11-synthetic-SQLite",
+      "status": "PASS",
+      "reason": "Synthetic persisted child status remains app scoped across restart",
+      "execution_identity": "python .factory/source-progress-ci/seal.py",
+      "observed_at": "2026-10-27T04:12:38.121985+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/source-progress-ci/tests.log",
+          "sha256": "9cddd49b8be98bdd3f6708504c7cce65188d44cc0b745dda51a39645cf4165d6",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/source-progress-ci/lint.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "privacy",
+      "profile": "Windows-CPython-3.11-synthetic-SQLite",
+      "status": "PASS",
+      "reason": "Foreign source jobs cannot satisfy collection and production authority is unchanged",
+      "execution_identity": "python .factory/source-progress-ci/seal.py",
+      "observed_at": "2026-10-27T04:12:38.121985+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/source-progress-ci/tests.log",
+          "sha256": "9cddd49b8be98bdd3f6708504c7cce65188d44cc0b745dda51a39645cf4165d6",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/source-progress-ci/lint.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "kind": "log"
+        }
+      ]
+    }
+  ]
+}

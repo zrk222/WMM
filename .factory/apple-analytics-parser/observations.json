@@ -1,0 +1,462 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "4de8b6560300fe79a9f6c619e192d81643e609637819e797cc4486a54a39697c",
+  "candidate_sha256": "d172d3e09bcca124136beff8b669e1e23bb16e068c40eebf6119501780ea3c92",
+  "observations": [
+    {
+      "id": "happy",
+      "profile": "Windows-CPython-3.11-synthetic-offline",
+      "status": "PASS",
+      "reason": "Parse synthetic named-column download categories and source hashes",
+      "execution_identity": "python .factory/apple-analytics-parser/seal.py",
+      "observed_at": "2026-10-27T03:51:19.937514+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-parser/scope.md",
+          "sha256": "a65028867124c166515c1f3a8c68b1d511c66733a7da7964a4a9e0ca47338df5",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/tests.log",
+          "sha256": "65398adc5f45dde221fc78e35c8d9357b0f2f047d9f7b6278441eaf481040c58",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/lint.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/quality.json",
+          "sha256": "20e67ed6a3b06047367ca33c92c7e6e6968729c85d2936cb78ac2c4bf516f00a",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/security.json",
+          "sha256": "5c677a160115fac168b670f78c1769fae985c0023f02af8949e5e4103a82a006",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/requirements.log",
+          "sha256": "16ddabe926567d0a1931e4fa6389b5eb24ead31549d26621a70366a44ccccc26",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutations.json",
+          "sha256": "4c57c3ee4c3a31dc736814c0ca5de127f082f6fb9bc6bc5a81ee17a5c9678a05",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-baseline.log",
+          "sha256": "e6572c3557fad97d49d550e0f92d0b3a3fb67239576c030a95535b95e541de63",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-checksum.log",
+          "sha256": "af6dcd13ee19fa180087c2318938625e5a2efc2de04f5c1def3607d1233b84e6",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-foreign_app.log",
+          "sha256": "5b6f20d4510417c31996a136c8e5a740339312fe4ba8efee3ae1eb62b4f8b250",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-correction.log",
+          "sha256": "787c920a25ef2b7b0408d23ec8ac4cd7ae661f5ad4ce12ca4e76887a0d48aef4",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-CPython-3.11-synthetic-offline",
+      "status": "PASS",
+      "reason": "Reject invalid size, checksum, schema, date, count and foreign app",
+      "execution_identity": "python .factory/apple-analytics-parser/seal.py",
+      "observed_at": "2026-10-27T03:51:19.937514+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-parser/scope.md",
+          "sha256": "a65028867124c166515c1f3a8c68b1d511c66733a7da7964a4a9e0ca47338df5",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/tests.log",
+          "sha256": "65398adc5f45dde221fc78e35c8d9357b0f2f047d9f7b6278441eaf481040c58",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/lint.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/quality.json",
+          "sha256": "20e67ed6a3b06047367ca33c92c7e6e6968729c85d2936cb78ac2c4bf516f00a",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/security.json",
+          "sha256": "5c677a160115fac168b670f78c1769fae985c0023f02af8949e5e4103a82a006",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/requirements.log",
+          "sha256": "16ddabe926567d0a1931e4fa6389b5eb24ead31549d26621a70366a44ccccc26",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutations.json",
+          "sha256": "4c57c3ee4c3a31dc736814c0ca5de127f082f6fb9bc6bc5a81ee17a5c9678a05",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-baseline.log",
+          "sha256": "e6572c3557fad97d49d550e0f92d0b3a3fb67239576c030a95535b95e541de63",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-checksum.log",
+          "sha256": "af6dcd13ee19fa180087c2318938625e5a2efc2de04f5c1def3607d1233b84e6",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-foreign_app.log",
+          "sha256": "5b6f20d4510417c31996a136c8e5a740339312fe4ba8efee3ae1eb62b4f8b250",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-correction.log",
+          "sha256": "787c920a25ef2b7b0408d23ec8ac4cd7ae661f5ad4ce12ca4e76887a0d48aef4",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "recovery",
+      "profile": "Windows-CPython-3.11-synthetic-offline",
+      "status": "PASS",
+      "reason": "Reject an incomplete instance without changing prior parsed observations",
+      "execution_identity": "python .factory/apple-analytics-parser/seal.py",
+      "observed_at": "2026-10-27T03:51:19.937514+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-parser/scope.md",
+          "sha256": "a65028867124c166515c1f3a8c68b1d511c66733a7da7964a4a9e0ca47338df5",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/tests.log",
+          "sha256": "65398adc5f45dde221fc78e35c8d9357b0f2f047d9f7b6278441eaf481040c58",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/lint.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/quality.json",
+          "sha256": "20e67ed6a3b06047367ca33c92c7e6e6968729c85d2936cb78ac2c4bf516f00a",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/security.json",
+          "sha256": "5c677a160115fac168b670f78c1769fae985c0023f02af8949e5e4103a82a006",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/requirements.log",
+          "sha256": "16ddabe926567d0a1931e4fa6389b5eb24ead31549d26621a70366a44ccccc26",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutations.json",
+          "sha256": "4c57c3ee4c3a31dc736814c0ca5de127f082f6fb9bc6bc5a81ee17a5c9678a05",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-baseline.log",
+          "sha256": "e6572c3557fad97d49d550e0f92d0b3a3fb67239576c030a95535b95e541de63",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-checksum.log",
+          "sha256": "af6dcd13ee19fa180087c2318938625e5a2efc2de04f5c1def3607d1233b84e6",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-foreign_app.log",
+          "sha256": "5b6f20d4510417c31996a136c8e5a740339312fe4ba8efee3ae1eb62b4f8b250",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-correction.log",
+          "sha256": "787c920a25ef2b7b0408d23ec8ac4cd7ae661f5ad4ce12ca4e76887a0d48aef4",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "consistency",
+      "profile": "Windows-CPython-3.11-synthetic-offline",
+      "status": "PASS",
+      "reason": "Replace older dates with newer complete data and reject conflicting or cross-app instances",
+      "execution_identity": "python .factory/apple-analytics-parser/seal.py",
+      "observed_at": "2026-10-27T03:51:19.937514+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-parser/scope.md",
+          "sha256": "a65028867124c166515c1f3a8c68b1d511c66733a7da7964a4a9e0ca47338df5",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/tests.log",
+          "sha256": "65398adc5f45dde221fc78e35c8d9357b0f2f047d9f7b6278441eaf481040c58",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/lint.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/quality.json",
+          "sha256": "20e67ed6a3b06047367ca33c92c7e6e6968729c85d2936cb78ac2c4bf516f00a",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/security.json",
+          "sha256": "5c677a160115fac168b670f78c1769fae985c0023f02af8949e5e4103a82a006",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/requirements.log",
+          "sha256": "16ddabe926567d0a1931e4fa6389b5eb24ead31549d26621a70366a44ccccc26",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutations.json",
+          "sha256": "4c57c3ee4c3a31dc736814c0ca5de127f082f6fb9bc6bc5a81ee17a5c9678a05",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-baseline.log",
+          "sha256": "e6572c3557fad97d49d550e0f92d0b3a3fb67239576c030a95535b95e541de63",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-checksum.log",
+          "sha256": "af6dcd13ee19fa180087c2318938625e5a2efc2de04f5c1def3607d1233b84e6",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-foreign_app.log",
+          "sha256": "5b6f20d4510417c31996a136c8e5a740339312fe4ba8efee3ae1eb62b4f8b250",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-correction.log",
+          "sha256": "787c920a25ef2b7b0408d23ec8ac4cd7ae661f5ad4ce12ca4e76887a0d48aef4",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "privacy",
+      "profile": "Windows-CPython-3.11-synthetic-offline",
+      "status": "PASS",
+      "reason": "Validate app identity and do not expose provider credentials or URLs",
+      "execution_identity": "python .factory/apple-analytics-parser/seal.py",
+      "observed_at": "2026-10-27T03:51:19.937514+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-parser/scope.md",
+          "sha256": "a65028867124c166515c1f3a8c68b1d511c66733a7da7964a4a9e0ca47338df5",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/tests.log",
+          "sha256": "65398adc5f45dde221fc78e35c8d9357b0f2f047d9f7b6278441eaf481040c58",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/lint.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/quality.json",
+          "sha256": "20e67ed6a3b06047367ca33c92c7e6e6968729c85d2936cb78ac2c4bf516f00a",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/security.json",
+          "sha256": "5c677a160115fac168b670f78c1769fae985c0023f02af8949e5e4103a82a006",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/requirements.log",
+          "sha256": "16ddabe926567d0a1931e4fa6389b5eb24ead31549d26621a70366a44ccccc26",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutations.json",
+          "sha256": "4c57c3ee4c3a31dc736814c0ca5de127f082f6fb9bc6bc5a81ee17a5c9678a05",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-baseline.log",
+          "sha256": "e6572c3557fad97d49d550e0f92d0b3a3fb67239576c030a95535b95e541de63",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-checksum.log",
+          "sha256": "af6dcd13ee19fa180087c2318938625e5a2efc2de04f5c1def3607d1233b84e6",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-foreign_app.log",
+          "sha256": "5b6f20d4510417c31996a136c8e5a740339312fe4ba8efee3ae1eb62b4f8b250",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-correction.log",
+          "sha256": "787c920a25ef2b7b0408d23ec8ac4cd7ae661f5ad4ce12ca4e76887a0d48aef4",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "bounds",
+      "profile": "Windows-CPython-3.11-synthetic-offline",
+      "status": "PASS",
+      "reason": "Enforce segment, compressed and decompressed size limits on synthetic inputs",
+      "execution_identity": "python .factory/apple-analytics-parser/seal.py",
+      "observed_at": "2026-10-27T03:51:19.937514+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-parser/scope.md",
+          "sha256": "a65028867124c166515c1f3a8c68b1d511c66733a7da7964a4a9e0ca47338df5",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/tests.log",
+          "sha256": "65398adc5f45dde221fc78e35c8d9357b0f2f047d9f7b6278441eaf481040c58",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/lint.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/quality.json",
+          "sha256": "20e67ed6a3b06047367ca33c92c7e6e6968729c85d2936cb78ac2c4bf516f00a",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/security.json",
+          "sha256": "5c677a160115fac168b670f78c1769fae985c0023f02af8949e5e4103a82a006",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/requirements.log",
+          "sha256": "16ddabe926567d0a1931e4fa6389b5eb24ead31549d26621a70366a44ccccc26",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutations.json",
+          "sha256": "4c57c3ee4c3a31dc736814c0ca5de127f082f6fb9bc6bc5a81ee17a5c9678a05",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-baseline.log",
+          "sha256": "e6572c3557fad97d49d550e0f92d0b3a3fb67239576c030a95535b95e541de63",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-checksum.log",
+          "sha256": "af6dcd13ee19fa180087c2318938625e5a2efc2de04f5c1def3607d1233b84e6",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-foreign_app.log",
+          "sha256": "5b6f20d4510417c31996a136c8e5a740339312fe4ba8efee3ae1eb62b4f8b250",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-correction.log",
+          "sha256": "787c920a25ef2b7b0408d23ec8ac4cd7ae661f5ad4ce12ca4e76887a0d48aef4",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "effects",
+      "profile": "Windows-CPython-3.11-synthetic-offline",
+      "status": "PASS",
+      "reason": "Run offline without provider writes, network, credential access or database mutations",
+      "execution_identity": "python .factory/apple-analytics-parser/seal.py",
+      "observed_at": "2026-10-27T03:51:19.937514+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-parser/scope.md",
+          "sha256": "a65028867124c166515c1f3a8c68b1d511c66733a7da7964a4a9e0ca47338df5",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/tests.log",
+          "sha256": "65398adc5f45dde221fc78e35c8d9357b0f2f047d9f7b6278441eaf481040c58",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/lint.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/quality.json",
+          "sha256": "20e67ed6a3b06047367ca33c92c7e6e6968729c85d2936cb78ac2c4bf516f00a",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/security.json",
+          "sha256": "5c677a160115fac168b670f78c1769fae985c0023f02af8949e5e4103a82a006",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/requirements.log",
+          "sha256": "16ddabe926567d0a1931e4fa6389b5eb24ead31549d26621a70366a44ccccc26",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutations.json",
+          "sha256": "4c57c3ee4c3a31dc736814c0ca5de127f082f6fb9bc6bc5a81ee17a5c9678a05",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-baseline.log",
+          "sha256": "e6572c3557fad97d49d550e0f92d0b3a3fb67239576c030a95535b95e541de63",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-checksum.log",
+          "sha256": "af6dcd13ee19fa180087c2318938625e5a2efc2de04f5c1def3607d1233b84e6",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-foreign_app.log",
+          "sha256": "5b6f20d4510417c31996a136c8e5a740339312fe4ba8efee3ae1eb62b4f8b250",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-parser/mutation-correction.log",
+          "sha256": "787c920a25ef2b7b0408d23ec8ac4cd7ae661f5ad4ce12ca4e76887a0d48aef4",
+          "kind": "log"
+        }
+      ]
+    }
+  ]
+}

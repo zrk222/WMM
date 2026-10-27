@@ -1,5 +1,6 @@
 """Source handoff truth, bounded invalid indexes, and restart readback."""
 import unittest
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 from mission_control.common import canonical, now
 from mission_control.db import connection
@@ -21,9 +22,18 @@ class SourceProgressTests(unittest.TestCase):
         self.store.save_app('sample-one', {**app['data'], 'store_app_id': '123'}, app['version'])
         self.store.save_record('sample-one', dict(kind='connection', title='Synthetic source', source='Fixture',
             data=dict(provider='app_store', store_app_id='123', account_id='0', env_ref='SYNTHETIC_TOKEN')))
-        job = Resolutions(self.store).start('sample-one', self.request('collect_sources'))
-        self.assertTrue(run_once(self.store))
+        # The approved collection hash is hourly: keep the synthetic approval and
+        # dispatch in one hour even when CI happens to cross the real UTC boundary.
+        fixed = datetime.now(timezone.utc)
+        class FixedDatetime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return fixed if tz is not None else fixed.replace(tzinfo=None)
+        with patch('mission_control.campaign_inputs.datetime', FixedDatetime):
+            job = Resolutions(self.store).start('sample-one', self.request('collect_sources'))
+            self.assertTrue(run_once(self.store))
         row = Resolutions(self.store).history('sample-one')[0]
+        self.assertEqual(row['job_status'], 'SUCCEEDED', row.get('summary'))
         return job, [r['job_id'] for r in row['children']]
 
     def projected(self, store=None):
@@ -81,6 +91,26 @@ class SourceProgressTests(unittest.TestCase):
             db.execute("UPDATE jobs SET status='UNRECOGNIZED' WHERE id=?", (ids[0],))
         self.assertEqual(self.projected()['status'], 'NEEDS_RESOLUTION')
         self.assertEqual(state(['SUCCEEDED', 'UNRECOGNIZED']), 'NEEDS_RESOLUTION')
+
+    def test_collection_proposal_crossing_hour_stops_before_child_reads(self):
+        app = self.store.app('sample-one')
+        self.store.save_app('sample-one', {**app['data'], 'store_app_id': '123'}, app['version'])
+        self.store.save_record('sample-one', dict(kind='connection', title='Synthetic source', source='Fixture',
+            data=dict(provider='app_store', store_app_id='123', account_id='0', env_ref='SYNTHETIC_TOKEN')))
+        fixed = datetime.now(timezone.utc).replace(minute=59, second=59, microsecond=0)
+        class ControlledDatetime(datetime):
+            current = fixed
+            @classmethod
+            def now(cls, tz=None):
+                return cls.current if tz is not None else cls.current.replace(tzinfo=None)
+        with patch('mission_control.campaign_inputs.datetime', ControlledDatetime), \
+             patch('mission_control.worker.read_report', side_effect=AssertionError('No stale provider read')):
+            Resolutions(self.store).start('sample-one', self.request('collect_sources'))
+            ControlledDatetime.current = fixed + timedelta(seconds=2)
+            self.assertTrue(run_once(self.store))
+        row = Resolutions(self.store).history('sample-one')[0]
+        self.assertEqual(row['status'], 'BLOCKED')
+        self.assertEqual(row['children'], [])
 
     def test_maximum_collection_uses_twelve_local_lookups_and_invalid_index_uses_none(self):
         from unittest.mock import MagicMock

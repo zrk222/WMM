@@ -1,0 +1,44 @@
+{
+  "agent_actions": [],
+  "authority": {
+    "approval": false,
+    "connector": false,
+    "credential": false,
+    "deployment": false,
+    "execution": false,
+    "merge": false,
+    "messaging": false,
+    "publication": false,
+    "repair": false,
+    "signing": false
+  },
+  "candidate_sha256": "d172d3e09bcca124136beff8b669e1e23bb16e068c40eebf6119501780ea3c92",
+  "checks": 7,
+  "contract_sha256": "4de8b6560300fe79a9f6c619e192d81643e609637819e797cc4486a54a39697c",
+  "errors": [],
+  "inapplicability_evidence": {
+    "accessibility": {
+      "actual_sha256": "a65028867124c166515c1f3a8c68b1d511c66733a7da7964a4a9e0ca47338df5",
+      "current": true,
+      "kind": "review",
+      "path": ".factory/apple-analytics-parser/scope.md",
+      "sha256": "a65028867124c166515c1f3a8c68b1d511c66733a7da7964a4a9e0ca47338df5"
+    }
+  },
+  "limits": [
+    "Recorded evidence completeness and hashes only; observations require review.",
+    "Inapplicability review evidence is hash-bound but its judgment and identity are not authenticated.",
+    "Each contract/observation JSON input and evidence artifact is limited to 16 MiB; total evidence hashing is limited to 128 MiB, 4096 artifact references, and 4096 required check/profile pairs.",
+    "No project command or provider is executed.",
+    "No approval, certification or deployment authority."
+  ],
+  "observations_sha256": "2a3284cf243dd39e4bfe5425dcded4d4f049f8cc0bdec0b17f63a7b469a454e0",
+  "project_id": "WMM-apple-analytics-parser",
+  "receipt_sha256": "2e9779c1269283883f55512e954d4584252cbfd6ee77ff1d25708af97d37f2b9",
+  "resource_usage": {
+    "artifact_references": 85,
+    "bytes_hashed": 187241
+  },
+  "schema": "factory.workflow-audit.receipt.v1",
+  "state": "PASS"
+}
