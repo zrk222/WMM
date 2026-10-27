@@ -1,6 +1,6 @@
 {
   "source": ".github/workflows/checks.yml",
-  "sha256": "c87d2d7fb3aba5cf724af153960c86715ee2b9a0e77c3dc3752c36ed82c2fa3c",
+  "sha256": "0afa234009446dcf42ba650d022958d030fb27acf6343821d9c8c39c6d0256e8",
   "yaml_valid": true,
   "same_four_shards": true,
   "same_regression_runner": true,

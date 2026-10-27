@@ -55,10 +55,12 @@ jobs:
       - name: Install declared optional MCP test profile
         run: |
           python -m pip install --only-binary :all: -r docs/requirements-mcp.txt
+      - name: Install native Linux credential dependency
+        run: python -m pip install SecretStorage==3.3.3
       - name: Install optional native integration-test tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends ffmpeg fonts-dejavu-core
+          sudo apt-get install --yes --no-install-recommends ffmpeg fonts-dejavu-core dbus gnome-keyring
       - name: Verify full test-profile prerequisites
         run: python -c "from zoneinfo import ZoneInfo; from importlib.metadata import version; from mission_control.media_native import capability; ZoneInfo('America/Toronto'); assert capability()['status'] == 'READY', capability(); assert version('mcp') == '1.30.0', version('mcp')"
       - name: Check clean distribution
@@ -70,4 +72,11 @@ jobs:
           test "${#test_files[@]}" -gt 0
           node --test "${test_files[@]}"
       - name: Run isolated synthetic regressions
-        run: python -X utf8 tools/run_ci_tests.py --shards 4 --index ${{ matrix.shard }}
+        env:
+          WMM_CI_SHARD: ${{ matrix.shard }}
+        run: |
+          dbus-run-session -- bash -euo pipefail -c '
+            export XDG_DATA_HOME="$(mktemp -d "$RUNNER_TEMP/wmm-keyring.XXXXXX")"
+            printf "%s\n" "disposable-synthetic-ci-keyring" | gnome-keyring-daemon --unlock --components=secrets
+            python -X utf8 tools/run_ci_tests.py --shards 4 --index "$WMM_CI_SHARD"
+          '

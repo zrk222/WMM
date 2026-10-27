@@ -8,6 +8,6 @@ test_nested_inventory_preserves_duplicate_ids_objects_and_module_order (tests.te
 test_plan_only_reports_inventory_without_executing_or_claiming_pass (tests.test_ci_runner.ShardTests.test_plan_only_reports_inventory_without_executing_or_claiming_pass) ... ok
 
 ----------------------------------------------------------------------
-Ran 8 tests in 2.916s
+Ran 8 tests in 3.786s
 
 OK

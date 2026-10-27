@@ -11,10 +11,19 @@ source = Path('.github/workflows/checks.yml')
 workflow = yaml.safe_load(source.read_text())
 windows, ubuntu = (workflow['jobs'][name] for name in ('windows', 'ubuntu'))
 assert windows['strategy'] == ubuntu['strategy']
-assert windows['steps'][-1]['run'] == ubuntu['steps'][-1]['run']
+assert 'python -X utf8 tools/run_ci_tests.py --shards 4 --index "$WMM_CI_SHARD"' in ubuntu['steps'][-1]['run']
+assert ubuntu['steps'][-1]['env']['WMM_CI_SHARD'] == '${{ matrix.shard }}'
+assert 'dbus-run-session -- bash -euo pipefail' in ubuntu['steps'][-1]['run']
+assert 'mktemp -d "$RUNNER_TEMP/wmm-keyring.XXXXXX"' in ubuntu['steps'][-1]['run']
 assert ubuntu['runs-on'] == 'ubuntu-24.04'
 assert workflow['permissions'] == {'contents': 'read'}
 assert all(not step.get('continue-on-error') for step in ubuntu['steps'])
+bash = Path('C:/Program Files/Git/bin/bash.exe')
+if bash.exists():
+    for step in ubuntu['steps']:
+        if 'run' in step:
+            result = subprocess.run([str(bash), '-n'], input=step['run'].encode(), capture_output=True)
+            assert result.returncode == 0, result.stderr.decode()
 for path, command in [('runner.log', ['python', '-m', 'unittest', 'tests.test_ci_runner', '-v']), ('privacy.log', ['python', 'tools/check_distribution.py'])]:
     result = subprocess.run(command, capture_output=True)
     (P/path).write_bytes((result.stdout+result.stderr).replace(b'\r\n', b'\n'))
