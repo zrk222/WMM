@@ -11,7 +11,7 @@ class OperationCatalogTests(unittest.TestCase):
         self.assertFalse(value['full_agent_operation'])
         self.assertEqual(value['operations']['media.sources']['method'],'GET')
         self.assertEqual(value['operations']['media.sources']['suffix'],'/media/sources')
-        self.assertEqual(len(value['operations']),58)
+        self.assertEqual(len(value['operations']),60)
         for action in ('history','read','save','reconcile'):
             operation=value['operations']['packaging.'+action]
             self.assertEqual(operation['method'],'POST')

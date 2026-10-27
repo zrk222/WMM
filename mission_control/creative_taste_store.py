@@ -155,7 +155,23 @@ def reconcile(store, app_id, body):
                     caller_commit_identity='NOT_PROVEN', execution_authority=False)
 
 
+def history(store, app_id, body):
+    """Page compact app-owned identities; currentness is assessed by exact reads."""
+    from .operation_catalog import exact_keys
+    exact_keys(body, set(), {'offset'})
+    offset = count(body.get('offset', 0), 0, 2000)
+    with connection(store.path) as db:
+        db.execute('BEGIN');app_context(db, app_id)
+        total = db.execute('SELECT count(*) FROM creative_taste_reviews WHERE app_id=?', (app_id,)).fetchone()[0]
+        rows = db.execute('SELECT id,version,hash,created FROM creative_taste_reviews WHERE app_id=? ORDER BY created,id,version LIMIT 100 OFFSET ?', (app_id, offset)).fetchall()
+        items = [dict(row) for row in rows]
+    following = offset + len(items)
+    return dict(items=items, total=total, offset=offset, limit=100,
+                next_offset=following if following < total else None,
+                source_status='NOT_CHECKED', execution_authority=False)
+
+
 def dispatch(store, app_id, action, body):
     """Keep the owner review route closed; agent proposals cannot approve themselves."""
-    handlers = {'taste-review': save, 'taste-read': read, 'taste-reconcile': reconcile}
+    handlers = {'taste-review': save, 'taste-read': read, 'taste-reconcile': reconcile, 'taste-history': history}
     return handlers[action](store, app_id, body)

@@ -1,0 +1,12 @@
+[
+  {
+    "name": "dispatch",
+    "status": "KILLED",
+    "exit": 1
+  },
+  {
+    "name": "effect",
+    "status": "KILLED",
+    "exit": 1
+  }
+]

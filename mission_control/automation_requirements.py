@@ -22,7 +22,7 @@ WORKFLOWS = {
         'growth.history', 'growth.save', 'customer.history', 'customer.save',
         'measurement.read', 'snapshot.export', 'cohort.define', 'events.import',
         'billing.save','funnel.list','funnel.review','funnel.read','funnel.save','funnel.observations','funnel.import','funnel.report',
-        'packaging.history','packaging.read','packaging.save','packaging.reconcile','packaging.checklist',
+        'packaging.history','packaging.read','packaging.save','packaging.reconcile','packaging.checklist','packaging.taste-read','packaging.taste-history',
         'discovery.history','discovery.read','discovery.review','discovery.collect','discovery.watch','discovery.attempt','discovery.handoff'], blockers=[]),
     'experiment_preparation': dict(name='Local experiment preparation', operations=[
         'experiment.register', 'experiment.evaluate', 'experiment.action'], blockers=[]),
