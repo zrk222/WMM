@@ -3,6 +3,47 @@ import XCTest
 
 final class BridgeAgentTests: XCTestCase {
     @MainActor
+    func testNativeSnapshotExportRestoreAndOwnerReadBackWithoutCompanion() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let databaseID = UUID()
+        let identity = LocalIdentity(vault: KeychainVault(databaseID: databaseID, appID: UUID()))
+        let session = try await identity.begin()
+        let source = try DomainBridge(store: LocalStore(applicationSupport: folder, databaseID: databaseID), identity: identity)
+        let target = try DomainBridge(store: LocalStore(applicationSupport: folder, databaseID: UUID()), identity: identity)
+        let appID = "backup-" + UUID().uuidString.lowercased()
+        let setup = try JSONSerialization.data(withJSONObject: ["app_id": appID, "confirm_owner": true,
+            "manifest": ["name": "Synthetic snapshot app", "release": "build-1", "locale": "en-US", "currency": "USD"]] as [String: Any])
+        _ = try await source.createWorkspace(session: session, request: setup)
+        let bytes = try await source.snapshotExport(session: session, appID: appID)
+        let file = folder.appendingPathComponent("synthetic-snapshot.json")
+        try bytes.write(to: file, options: [.atomic, .completeFileProtection])
+        let model = NativeSnapshotModel(selectedApp: nil, execute: { action, selected, data in
+            guard action == "restore" else { throw DomainBridge.Failure.invalidRequest }
+            return try await target.snapshotRestore(session: session, appID: selected, request: data, confirmed: true)
+        })
+        model.select(file)
+        XCTAssertEqual(model.preview?.appID, appID)
+        await model.restore(confirmed: false)
+        let empty = try await target.workspaces(session: session)
+        XCTAssertTrue(try JSONDecoder().decode(NativeWorkspaceList.self, from: empty).apps.isEmpty)
+        await model.restore(confirmed: true)
+        XCTAssertNil(model.preview)
+        let restored = try await target.workspaces(session: session)
+        XCTAssertEqual(try JSONDecoder().decode(NativeWorkspaceList.self, from: restored).apps.first?.id, appID)
+        do {
+            _ = try await target.snapshotRestore(session: session, appID: appID, request: bytes, confirmed: true)
+            XCTFail("Restore overwrote an existing workspace")
+        } catch {}
+        await identity.lock()
+        do {
+            _ = try await target.snapshotExport(session: session, appID: appID)
+            XCTFail("Locked snapshot exported")
+        } catch {}
+        await source.close(); await target.close()
+    }
+
+    @MainActor
     func testNativeProviderSetupUsesSharedRecordsAndProtectedKeychainWithoutNetworking() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }

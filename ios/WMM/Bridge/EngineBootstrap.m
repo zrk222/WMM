@@ -428,4 +428,35 @@ static NSData *WMMResultBytes(PyObject *value, NSError **error) {
         return result;
     }
 }
++ (NSData *)snapshotExport:(NSString *)handle session:(NSString *)session appID:(NSString *)appID error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        PyObject *value = runtime ? PyObject_CallMethod(runtime, "snapshot_export", "ss", session.UTF8String, appID.UTF8String) : NULL;
+        NSData *result = nil;
+        if (value && PyBytes_Check(value) && PyBytes_Size(value) > 0 && PyBytes_Size(value) <= 33554432)
+            result = [NSData dataWithBytes:PyBytes_AsString(value) length:(NSUInteger)PyBytes_Size(value)];
+        if (!result) {
+            PyErr_Clear();
+            if (error) *error = [NSError errorWithDomain:@"WMM.Engine" code:4 userInfo:@{NSLocalizedDescriptionKey:@"Snapshot export was not confirmed."}];
+        }
+        Py_XDECREF(value); PyGILState_Release(gil); return result;
+    }
+}
+
++ (NSData *)snapshotRestore:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                       request:(NSData *)request confirmed:(BOOL)confirmed error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        PyObject *body = confirmed && request.length > 0 && request.length <= 33554432
+            ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
+        PyObject *value = runtime && body ? PyObject_CallMethod(runtime, "snapshot_restore", "ssOO",
+            session.UTF8String, appID.UTF8String, body, Py_True) : NULL;
+        NSData *result = WMMResultBytes(value,error);
+        Py_XDECREF(value); Py_XDECREF(body); PyGILState_Release(gil); return result;
+    }
+}
 @end

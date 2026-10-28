@@ -51,5 +51,10 @@ typedef NSData * _Nullable (^WMMNativeVaultCallback)(NSData *request);
 + (nullable NSData *)agentCall:(NSString *)handle session:(NSString *)session credential:(NSString *)credential
                        request:(NSData *)request error:(NSError **)error
     NS_SWIFT_NAME(agentCall(handle:session:credential:request:));
++ (nullable NSData *)snapshotExport:(NSString *)handle session:(NSString *)session appID:(NSString *)appID error:(NSError **)error
+    NS_SWIFT_NAME(snapshotExport(handle:session:appID:));
++ (nullable NSData *)snapshotRestore:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                              request:(NSData *)request confirmed:(BOOL)confirmed error:(NSError **)error
+    NS_SWIFT_NAME(snapshotRestore(handle:session:appID:request:confirmed:));
 @end
 NS_ASSUME_NONNULL_END

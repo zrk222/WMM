@@ -14,6 +14,7 @@ struct WorkflowNavigation: View {
     @State private var inference: NativeInferenceModel?
     @State private var editingApp: NativeWorkspace?
     @State private var evidence: NativeEvidenceModel?
+    @State private var snapshots: NativeSnapshotModel?
 
     var body: some View {
         NavigationStack {
@@ -72,7 +73,10 @@ struct WorkflowNavigation: View {
                                 }.disabled(model.busy).accessibilityHint("Open this app's current marketing stages")
                             }
                         }
-                        Section { Button("Add your app", systemImage: "plus") { showingCreate = true }.disabled(model.busy) }
+                        Section {
+                            Button("Add your app", systemImage: "plus") { showingCreate = true }.disabled(model.busy)
+                            Button("Restore a workspace", systemImage: "arrow.down.doc") { snapshots = model.makeSnapshots() }.disabled(model.busy)
+                        }
                     }
                 }
             }
@@ -87,6 +91,7 @@ struct WorkflowNavigation: View {
                         if model.snapshot != nil {
                             Menu("Workspace tools", systemImage: "square.grid.2x2") {
                             Button("Your evidence", systemImage: "doc.text") { evidence = model.makeEvidence() }.disabled(model.busy)
+                            Button("Backup & restore", systemImage: "externaldrive") { snapshots = model.makeSnapshots() }.disabled(model.busy)
                             Button("Edit app facts", systemImage: "pencil") { editingApp = model.snapshot?.app }.disabled(model.busy)
                             Button("Your media", systemImage: "film") {
                                 showingMedia = true
@@ -128,6 +133,7 @@ struct WorkflowNavigation: View {
             .sheet(item: $inference) { NativeInferenceView(model: $0) }
             .sheet(item: $editingApp) { CreateWorkspaceView(model: model, editing: $0) }
             .sheet(item: $evidence) { NativeEvidenceView(model: $0) }
+            .sheet(item: $snapshots) { NativeSnapshotView(model: $0) }
         }
         .privacySensitive()
         .overlay { if scenePhase != .active { Color(uiColor: .systemBackground).ignoresSafeArea() } }
@@ -140,6 +146,7 @@ struct WorkflowNavigation: View {
         .onChange(of: model.unlocked) { _, value in if !value { inference = nil; providers = nil; scheduler = nil; agents = nil; editor = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { editingApp = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { evidence = nil } }
+        .onChange(of: model.unlocked) { _, value in if !value { snapshots = nil } }
     }
 }
 

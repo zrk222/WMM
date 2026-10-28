@@ -58,6 +58,14 @@ class Runtime:
     def owner_call(self, session, payload):
         return self.owner.call(session, payload)
 
+    def snapshot_export(self,session,app_id):
+        from .ios_snapshots import NativeSnapshots
+        return NativeSnapshots(self.service,self.identities).export(session,app_id)
+
+    def snapshot_restore(self,session,app_id,payload,confirmed):
+        from .ios_snapshots import NativeSnapshots
+        return NativeSnapshots(self.service,self.identities).restore(session,app_id,payload,confirmed)
+
     def native_providers(self,session,app_id,action,payload):
         from .ios_provider_access import NativeProviderAccess
         return NativeProviderAccess(self.service,self.identities,self.vault_callback).call(session,app_id,action,payload)

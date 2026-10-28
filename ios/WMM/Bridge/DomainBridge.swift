@@ -49,6 +49,18 @@ actor DomainBridge {
         return try EngineBootstrap.evidenceForm(handle: handle, session: session.nonce.uuidString, appID: appID)
     }
 
+    func snapshotExport(session: LocalIdentity.Session, appID: String) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        return try EngineBootstrap.snapshotExport(handle: handle, session: session.nonce.uuidString, appID: appID)
+    }
+
+    func snapshotRestore(session: LocalIdentity.Session, appID: String, request: Data, confirmed: Bool) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        guard confirmed, !request.isEmpty, request.count <= 33_554_432 else { throw Failure.invalidRequest }
+        return try EngineBootstrap.snapshotRestore(handle: handle, session: session.nonce.uuidString,
+            appID: appID, request: request, confirmed: confirmed)
+    }
+
     func updateWorkspace(session: LocalIdentity.Session, appID: String, request: Data) throws -> Data {
         guard let handle else { throw Failure.closed }
         guard !request.isEmpty, request.count <= 1_048_576 else { throw Failure.invalidRequest }

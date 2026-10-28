@@ -385,4 +385,26 @@ final class NativeWorkspaceModel: ObservableObject {
             return result
         })
     }
+
+    func makeSnapshots() -> NativeSnapshotModel? {
+        guard unlocked, let bridge, let session else { return nil }
+        let ticket = generation
+        let selected = snapshot?.app.id
+        return NativeSnapshotModel(selectedApp: selected, execute: { [weak self] action, appID, bytes in
+            guard let self, self.unlocked, self.generation == ticket else { throw DomainBridge.Failure.closed }
+            let result: Data
+            if action == "export" {
+                guard selected == appID, self.snapshot?.app.id == selected else { throw DomainBridge.Failure.closed }
+                result = try await bridge.snapshotExport(session: session, appID: appID)
+            } else {
+                guard action == "restore" else { throw DomainBridge.Failure.invalidRequest }
+                result = try await bridge.snapshotRestore(session: session, appID: appID, request: bytes, confirmed: true)
+                let listing = try await bridge.workspaces(session: session)
+                guard self.unlocked, self.generation == ticket else { throw DomainBridge.Failure.closed }
+                self.apps = try JSONDecoder().decode(NativeWorkspaceList.self, from: listing).apps
+            }
+            guard self.unlocked, self.generation == ticket else { throw DomainBridge.Failure.closed }
+            return result
+        })
+    }
 }
