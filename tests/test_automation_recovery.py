@@ -11,7 +11,13 @@ from mission_control.automation_health import COMPONENTS, Supervision
 from mission_control.store import Store
 from mission_control.worker import Runner, enqueue, jobs
 
-TICKS = ("Schedules", "Insights", "Followup")
+TICKS = ("Schedules", "Insights", "AppleMetricsSchedules", "Followup")
+
+
+def tick_target(name):
+    if name == "AppleMetricsSchedules":
+        return "mission_control.apple_metrics_schedule.AppleMetricsSchedules.tick"
+    return "mission_control.worker." + name + ".tick"
 
 
 class AutomationRecoveryTests(unittest.TestCase):
@@ -26,7 +32,7 @@ class AutomationRecoveryTests(unittest.TestCase):
             with self.subTest(failed=failed), ExitStack() as stack:
                 calls = {}
                 for name in TICKS:
-                    calls[name] = stack.enter_context(patch("mission_control.worker." + name + ".tick",
+                    calls[name] = stack.enter_context(patch(tick_target(name),
                         side_effect=OSError("api_key=secret") if name == failed else None, return_value=0))
                 enqueue(self.store,"sample-one","pipeline",{"stage":0},failed)
                 runner = Runner(self.store)
@@ -38,6 +44,8 @@ class AutomationRecoveryTests(unittest.TestCase):
                 self.assertIsNone(health["last_success"])
                 self.assertNotIn("secret",json.dumps(health))
                 self.assertEqual(health["components"]["queue"]["status"],"RUNNING")
+                apple_status = health["components"]["apple_metrics"]["status"]
+                self.assertEqual(apple_status,"RECOVERING" if failed == "AppleMetricsSchedules" else "RUNNING")
 
     def test_three_attempts_backoff_pause_and_explicit_retry(self):
         supervisor=Supervision();clock=[100.0]
@@ -74,7 +82,7 @@ class AutomationRecoveryTests(unittest.TestCase):
 
     def test_queue_failure_does_not_block_schedules_or_repeat_before_due(self):
         with ExitStack() as stack:
-            calls=[stack.enter_context(patch("mission_control.worker."+n+".tick",return_value=0)) for n in TICKS]
+            calls=[stack.enter_context(patch(tick_target(n),return_value=0)) for n in TICKS]
             queue=stack.enter_context(patch("mission_control.worker.run_once",side_effect=OSError("private")))
             self.assertFalse(self.runner.poll());self.assertFalse(self.runner.poll())
             self.assertEqual(queue.call_count,1)
