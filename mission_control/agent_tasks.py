@@ -66,7 +66,7 @@ def proposal(store,app_id,body):
 
 
 class AgentWork:
-    def __init__(self,store):self.store=store
+    def __init__(self,store,on_start=None):self.store=store;self.on_start=on_start
 
     def start(self,app_id,body):
         """Freeze one exact app/connection approval and idempotent durable job."""
@@ -88,7 +88,9 @@ class AgentWork:
                 raise Invalid('Finish or cancel this app current agent work before approving another request')
             db.execute('INSERT INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)',
                 (uid(),app_id,'agent_run',canonical(data),'QUEUED',now(),now(),key))
-            return json_job(db.execute('SELECT * FROM jobs WHERE app_id=? AND request_key=?',(app_id,key)).fetchone())
+            job=json_job(db.execute('SELECT * FROM jobs WHERE app_id=? AND request_key=?',(app_id,key)).fetchone())
+            if self.on_start is not None:self.on_start(db,job)
+            return job
 
 
 def replay(row,body):
@@ -135,17 +137,17 @@ def live_guard(store,job,stop=None):
     return alive
 
 
-def execute(store,job,stop=None):
+def execute(store,job,stop=None,access=None,transport=None):
     """Interrupted inference is not replayed because allowance may already be consumed."""
     if job['attempts']!=1:raise Invalid('Interrupted inference may have consumed allowance; approve a new request instead of replay')
     data=job['data']
     if set(data)!={'envelope','envelope_hash','original_request'} or digest(data['envelope'])!=data['envelope_hash']:
         raise Invalid('Agent approval envelope integrity failed')
-    frozen=data['envelope'];access=AgentAccess(store);row=guard(store,job['app_id'],frozen)
+    frozen=data['envelope'];access=access or AgentAccess(store);row=guard(store,job['app_id'],frozen)
     alive=live_guard(store,job,stop);alive();secret=access.secret(job['app_id'],row)
     if frozen['provider'] in NATIVE:
         result,usage=native_run(frozen['provider'],row['data']['tool'],frozen['prompt'],frozen['model'],secret,alive)
-    else:result,usage=api_run(row['data'],secret,frozen['prompt'],frozen['max_output_tokens'],alive)
+    else:result,usage=(transport or api_run)(row['data'],secret,frozen['prompt'],frozen['max_output_tokens'],alive)
     alive();guard(store,job['app_id'],frozen)
     result=draft(result,frozen['source_ids'])
     if secret and secret in canonical(result):raise Invalid('Agent result exposed a protected key and was rejected')

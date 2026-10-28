@@ -46,6 +46,7 @@ class NativeProjectGenerationTests(unittest.TestCase):
             self.assertIn('"WMM/Jobs/NativeJobsView.swift"',text)
             self.assertIn('"WMM/Providers/ProviderAuthentication.swift"',text)
             self.assertIn('"WMM/Providers/NativeProviderView.swift"',text)
+            self.assertIn('"WMM/Agents/NativeInferenceView.swift"',text)
             self.assertIn('"WMM/Identity/NativeSessionAuthority.swift"',text)
             self.assertIn('"WMM/Workflow/WorkflowNavigation.swift"',text)
             self.assertIn('"WMM/Workflow/NativeWorkspaceModel.swift"',text)

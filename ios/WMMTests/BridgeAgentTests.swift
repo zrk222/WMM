@@ -27,6 +27,24 @@ final class BridgeAgentTests: XCTestCase {
         XCTAssertEqual(model.listing?.native_inference, "NOT_RUN")
         let bytes = try await bridge.providers(session: session, appID: appID, action: "view", request: Data("{}".utf8))
         XCTAssertFalse(String(decoding: bytes, as: UTF8.self).contains("synthetic-private-key"))
+        let inference = NativeInferenceModel(execute: { action, request in
+            if action == "profiles" {
+                return try await bridge.providers(session: session, appID: appID, action: "view", request: request)
+            }
+            return try await bridge.inference(session: session, appID: appID, action: action, request: request)
+        })
+        await inference.refresh()
+        XCTAssertTrue(inference.history.isEmpty)
+        await inference.prepare(task: "connection_test", focus: "", profileID: profile.id)
+        XCTAssertNil(inference.message)
+        XCTAssertEqual(inference.prepared?.destination, "https://api.openai.com/v1")
+        XCTAssertEqual(inference.prepared?.proposal.connection_id, profile.id)
+        XCTAssertEqual(inference.prepared?.source_hash.count, 64)
+        XCTAssertNil(inference.job)
+        inference.discardPreview()
+        XCTAssertNil(inference.prepared)
+        await inference.refresh()
+        XCTAssertTrue(inference.history.isEmpty) // Preview/discard must not create a request or transmit a key.
         await model.disconnect(profile)
         XCTAssertEqual(model.listing?.profiles.first?.status, "DISCONNECTED")
         XCTAssertEqual(model.listing?.cleanup_pending, 0)

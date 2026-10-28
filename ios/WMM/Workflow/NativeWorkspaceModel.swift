@@ -316,4 +316,24 @@ final class NativeWorkspaceModel: ObservableObject {
             return result
         })
     }
+
+    func makeInference() -> NativeInferenceModel? {
+        guard unlocked, let app = snapshot?.app, let bridge, let session else { return nil }
+        let ticket = generation
+        return NativeInferenceModel(execute: { [weak self] action, request in
+            guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else {
+                throw DomainBridge.Failure.closed
+            }
+            let result: Data
+            if action == "profiles" {
+                result = try await bridge.providers(session: session, appID: app.id, action: "view", request: request)
+            } else {
+                result = try await bridge.inference(session: session, appID: app.id, action: action, request: request)
+            }
+            guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else {
+                throw DomainBridge.Failure.closed
+            }
+            return result
+        })
+    }
 }

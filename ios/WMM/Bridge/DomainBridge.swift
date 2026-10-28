@@ -171,6 +171,14 @@ actor DomainBridge {
             appID: appID, action: action, request: request)
     }
 
+    func inference(session: LocalIdentity.Session, appID: String, action: String, request: Data) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        guard ["prepare", "start", "run", "read", "history", "mode"].contains(action),
+              !request.isEmpty, request.count <= 1_048_576 else { throw Failure.invalidRequest }
+        return try EngineBootstrap.inference(handle: handle, session: session.nonce.uuidString,
+            appID: appID, action: action, request: request)
+    }
+
     func agentCall(session: LocalIdentity.Session, credential: Data, request: Data) throws -> Data {
         guard let handle else { throw Failure.closed }
         guard credential.count == 48, let text = String(data: credential, encoding: .utf8),

@@ -383,4 +383,21 @@ static NSData *WMMResultBytes(PyObject *value, NSError **error) {
         PyGILState_Release(gil);
     }
 }
+
++ (NSData *)inference:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                action:(NSString *)action request:(NSData *)request error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        BOOL known = [@[@"prepare", @"start", @"run", @"read", @"history", @"mode"] containsObject:action];
+        PyObject *body = known && request.length > 0 && request.length <= 1048576
+            ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
+        PyObject *value = runtime && body ? PyObject_CallMethod(runtime, "native_inference", "sssO",
+            session.UTF8String, appID.UTF8String, action.UTF8String, body) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); Py_XDECREF(body); PyGILState_Release(gil);
+        return result;
+    }
+}
 @end

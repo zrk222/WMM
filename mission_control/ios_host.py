@@ -62,6 +62,10 @@ class Runtime:
         from .ios_provider_access import NativeProviderAccess
         return NativeProviderAccess(self.service,self.identities,self.vault_callback).call(session,app_id,action,payload)
 
+    def native_inference(self,session,app_id,action,payload):
+        from .ios_inference import NativeInference
+        return NativeInference(self.service,self.identities,self.vault_callback).call(session,app_id,action,payload)
+
     def native_jobs(self, session, app_id, action, payload):
         from .ios_jobs import NativeJobs
         return NativeJobs(self.service, self.identities).call(session, app_id, action, payload)

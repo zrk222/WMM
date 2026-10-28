@@ -4,6 +4,43 @@ import PDFKit
 @testable import WMM
 
 final class ProviderIntakeTests: XCTestCase {
+    @MainActor
+    func testInferencePreviewAndUncertainRequestRecoveryDoNotAutomaticallyResend() async throws {
+        var actions: [String] = []
+        let requestID = UUID().uuidString.lowercased()
+        let model = NativeInferenceModel(execute: { action, _ in
+            actions.append(action)
+            let response: [String: Any]
+            switch action {
+            case "profiles": response = ["profiles": [], "routing": ["version": 0, "data": ["mode": "byok"]]]
+            case "history": response = ["items": []]
+            case "prepare": response = ["proposal": ["task": "connection_test", "focus": "", "connection_id": "synthetic",
+                "provider": "openai_api", "model": "synthetic", "prompt": "Synthetic preview", "max_output_tokens": 256],
+                "source_hash": String(repeating: "a", count: 64), "cost": "UNKNOWN", "destination": "https://api.openai.com/v1"]
+            case "start": response = ["id": requestID, "status": "QUEUED"]
+            case "run": throw URLError(.networkConnectionLost)
+            case "read": response = ["id": requestID, "status": "UNKNOWN", "result": ["status": "RECONCILE_REQUIRED", "cost": "UNKNOWN"]]
+            default: throw URLError(.unsupportedURL)
+            }
+            return try JSONSerialization.data(withJSONObject: response)
+        })
+        await model.prepare(task: "connection_test", focus: "", profileID: "synthetic")
+        XCTAssertEqual(actions, ["prepare"])
+        XCTAssertNotNil(model.prepared)
+        await model.approve()
+        XCTAssertEqual(model.job?.id, requestID)
+        XCTAssertEqual(model.job?.status, "QUEUED")
+        XCTAssertNotNil(model.message)
+        XCTAssertFalse(model.busy)
+        await model.open(requestID)
+        XCTAssertEqual(model.job?.status, "UNKNOWN")
+        XCTAssertNil(model.prepared)
+        await model.approve()
+        await model.refresh()
+        XCTAssertEqual(actions.filter { $0 == "start" }.count, 1)
+        XCTAssertEqual(actions.filter { $0 == "run" }.count, 1)
+    }
+
     func testSelectedOriginalBytesAndNoAutomaticRightsApproval() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }

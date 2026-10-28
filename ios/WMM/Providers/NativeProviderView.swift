@@ -83,7 +83,7 @@ struct NativeProviderView: View {
             Form {
                 Section {
                     Text("Bring a provider API key for this app. The key stays in your device's protected Keychain. Saved profile metadata contains an opaque reference, not the key.")
-                    Text("This screen configures access only. Native inference and OAuth acceptance are unfinished. Desktop CLI subscriptions cannot run on iOS; an API key does not confer subscription access.").font(.callout)
+                    Text("Save your API profile here, then open Agent drafting to review and approve an exact request. OAuth and native device acceptance remain unfinished. Desktop CLI subscriptions cannot run on iOS; an API key does not confer subscription access.").font(.callout)
                 }
                 Section("Add an API profile") {
                     Picker("Adapter", selection: $provider) {
