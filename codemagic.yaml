@@ -5,6 +5,10 @@ workflows:
     max_build_duration: 120
     environment:
       xcode: latest
+    cache:
+      cache_paths:
+        - ios/Python.xcframework
+        - ios/runtime-cache.json
     scripts:
       - name: Record source and toolchain
         script: |

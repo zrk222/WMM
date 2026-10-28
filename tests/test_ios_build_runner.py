@@ -3,6 +3,7 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 import tempfile
+import json
 
 path=Path(__file__).resolve().parents[1]/'ios/Build/run_simulators.py'
 spec=importlib.util.spec_from_file_location('ios_simulator_runner',path)
@@ -12,6 +13,21 @@ builder=importlib.util.module_from_spec(buildspec);buildspec.loader.exec_module(
 
 
 class SimulatorSelectionTests(unittest.TestCase):
+    def test_runtime_reuse_requires_source_toolchain_and_current_bytes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            framework=Path(folder)/'Python.xcframework';framework.mkdir()
+            binary=framework/'synthetic-binary';binary.write_bytes(b'synthetic fixture')
+            identity={'source_commit':'source-a','xcode':'toolchain-a'}
+            receipt=framework.parent/'runtime-cache.json'
+            receipt.write_text(json.dumps({'identity':identity,'tree_sha256':builder.tree_hash(framework)}))
+            self.assertTrue(builder.reusable_framework(framework,identity))
+            self.assertFalse(builder.reusable_framework(framework,dict(identity,xcode='toolchain-b')))
+            self.assertFalse(builder.reusable_framework(framework,dict(identity,source_commit='source-b')))
+            binary.write_bytes(b'changed')
+            self.assertFalse(builder.reusable_framework(framework,identity))
+            receipt.unlink()
+            self.assertFalse(builder.reusable_framework(framework,identity))
+
     def test_source_commit_and_annotated_tag_have_separate_checks(self):
         lock={'source_commit':'commit-id','source_tag_object':'tag-object-id','source_tag':'v3.14.0'}
         with patch.object(builder,'run',side_effect=['commit-id','tag-object-id','']):
