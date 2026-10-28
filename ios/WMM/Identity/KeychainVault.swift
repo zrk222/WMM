@@ -15,7 +15,7 @@ actor KeychainVault {
         service = "com.wizemarketingmachine.secrets.\(databaseID.uuidString).\(appID.uuidString)"
     }
 
-    private func query(_ reference: String) throws -> [String: Any] {
+    nonisolated private func query(_ reference: String) throws -> [String: Any] {
         guard !reference.isEmpty, reference.utf8.count <= 200,
               reference.unicodeScalars.allSatisfy({ CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_.")).contains($0) }) else {
             throw Failure.invalidScope
@@ -42,7 +42,7 @@ actor KeychainVault {
         }
     }
 
-    func read(reference: String) throws -> Data? {
+    nonisolated func read(reference: String) throws -> Data? {
         var match = try query(reference)
         match[kSecReturnData as String] = true
         match[kSecMatchLimit as String] = kSecMatchLimitOne

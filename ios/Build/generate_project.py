@@ -10,20 +10,21 @@ def obj(label,isa,**fields):
 def ref(path,kind,tree='<group>'):
     return obj(path,'PBXFileReference',path=path,lastKnownFileType=kind,sourceTree=tree)
 def build(name,file,**extra):return obj(name,'PBXBuildFile',fileRef=file,**extra)
-sources=['WMM/WMMApp.swift','WMM/Identity/KeychainVault.swift','WMM/Identity/LocalIdentity.swift','WMM/Storage/LocalStore.swift','WMM/Bridge/EngineBootstrap.m','WMM/Media/TimelineRenderer.swift','WMM/Media/MediaInspector.swift','WMM/Media/MediaIntake.swift','WMM/Reports/ReportExport.swift']
+sources=['WMM/WMMApp.swift','WMM/Identity/KeychainVault.swift','WMM/Identity/LocalIdentity.swift','WMM/Identity/NativeSessionAuthority.swift','WMM/Bridge/DomainBridge.swift','WMM/Storage/LocalStore.swift','WMM/Bridge/EngineBootstrap.m','WMM/Media/TimelineRenderer.swift','WMM/Media/MediaInspector.swift','WMM/Media/MediaIntake.swift','WMM/Reports/ReportExport.swift']
 types=lambda p:'sourcecode.c.objc' if p.endswith('.m') else 'sourcecode.swift'
 files=[ref(p,types(p)) for p in sources]
 testfile=ref('WMMTests/StorageIdentityTests.swift','sourcecode.swift')
 intaketest=ref('WMMTests/ProviderIntakeTests.swift','sourcecode.swift')
 mediatest=ref('WMMTests/MediaConformanceTests.swift','sourcecode.swift')
 enginetest=ref('WMMTests/EngineBootstrapTests.swift','sourcecode.swift')
+bridgetest=ref('WMMTests/BridgeAgentTests.swift','sourcecode.swift')
 framework=ref('Python.xcframework','wrapper.xcframework')
 app=obj('product-app','PBXFileReference',explicitFileType='wrapper.application',path='WMM.app',sourceTree='BUILT_PRODUCTS_DIR')
 test=obj('product-tests','PBXFileReference',explicitFileType='wrapper.cfbundle',path='WMMTests.xctest',sourceTree='BUILT_PRODUCTS_DIR')
 products=obj('products','PBXGroup',children=[app,test],name='Products',sourceTree='<group>')
-group=obj('main','PBXGroup',children=files+[testfile,intaketest,mediatest,enginetest,framework,products],sourceTree='<group>')
+group=obj('main','PBXGroup',children=files+[testfile,intaketest,mediatest,enginetest,bridgetest,framework,products],sourceTree='<group>')
 sourcephase=obj('app-sources','PBXSourcesBuildPhase',buildActionMask=2147483647,files=[build('build-'+p,f) for p,f in zip(sources,files)],runOnlyForDeploymentPostprocessing=0)
-testphase=obj('test-sources','PBXSourcesBuildPhase',buildActionMask=2147483647,files=[build('build-test',testfile),build('build-intake-test',intaketest),build('build-media-test',mediatest),build('build-engine-test',enginetest)],runOnlyForDeploymentPostprocessing=0)
+testphase=obj('test-sources','PBXSourcesBuildPhase',buildActionMask=2147483647,files=[build('build-test',testfile),build('build-intake-test',intaketest),build('build-media-test',mediatest),build('build-engine-test',enginetest),build('build-bridge-test',bridgetest)],runOnlyForDeploymentPostprocessing=0)
 link=obj('frameworks','PBXFrameworksBuildPhase',buildActionMask=2147483647,files=[build('link-python',framework)],runOnlyForDeploymentPostprocessing=0)
 resources=obj('resources','PBXResourcesBuildPhase',buildActionMask=2147483647,files=[],runOnlyForDeploymentPostprocessing=0)
 runtime=obj('runtime','PBXShellScriptBuildPhase',buildActionMask=2147483647,files=[],inputPaths=[],outputPaths=[],runOnlyForDeploymentPostprocessing=0,shellPath='/bin/bash',shellScript='bash "$PROJECT_DIR/Build/package_runtime.sh"',alwaysOutOfDate=1)
@@ -34,7 +35,7 @@ def configs(name,base):
         settings=dict(base,SWIFT_OPTIMIZATION_LEVEL='-Onone' if mode=='Debug' else '-O')
         values.append(obj(name+mode,'XCBuildConfiguration',name=mode,buildSettings=settings))
     return obj(name+'configs','XCConfigurationList',buildConfigurations=values,defaultConfigurationIsVisible=0,defaultConfigurationName='Release')
-common={'IPHONEOS_DEPLOYMENT_TARGET':'17.0','SWIFT_VERSION':'5.0','SDKROOT':'iphoneos','TARGETED_DEVICE_FAMILY':'1,2','CODE_SIGN_STYLE':'Automatic','GENERATE_INFOPLIST_FILE':'YES','ENABLE_USER_SCRIPT_SANDBOXING':'NO','CLANG_ENABLE_MODULES':'YES'}
+common={'IPHONEOS_DEPLOYMENT_TARGET':'17.0','SWIFT_VERSION':'5.0','SDKROOT':'iphoneos','TARGETED_DEVICE_FAMILY':'1,2','CODE_SIGN_STYLE':'Automatic','GENERATE_INFOPLIST_FILE':'YES','ENABLE_USER_SCRIPT_SANDBOXING':'NO','CLANG_ENABLE_MODULES':'YES','CLANG_ENABLE_OBJC_ARC':'YES'}
 ac=configs('app',dict(common,PRODUCT_BUNDLE_IDENTIFIER='com.wizemarketingmachine.app',PRODUCT_NAME='$(TARGET_NAME)',SWIFT_OBJC_BRIDGING_HEADER='WMM/WMM-Bridging-Header.h',FRAMEWORK_SEARCH_PATHS=['$(inherited)','$(PROJECT_DIR)'],HEADER_SEARCH_PATHS=['$(BUILT_PRODUCTS_DIR)/Python.framework/Headers'],LD_RUNPATH_SEARCH_PATHS=['$(inherited)','@executable_path/Frameworks'],ENABLE_TESTABILITY='YES',INFOPLIST_KEY_UIApplicationSceneManifest_Generation='YES',INFOPLIST_KEY_UILaunchScreen_Generation='YES'))
 tc=configs('tests',dict(common,PRODUCT_BUNDLE_IDENTIFIER='com.wizemarketingmachine.tests',PRODUCT_NAME='$(TARGET_NAME)',TEST_HOST='$(BUILT_PRODUCTS_DIR)/WMM.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/WMM',BUNDLE_LOADER='$(TEST_HOST)'))
 target=obj('app-target','PBXNativeTarget',name='WMM',buildConfigurationList=ac,buildPhases=[sourcephase,link,resources,runtime,embed],buildRules=[],dependencies=[],productName='WMM',productReference=app,productType='com.apple.product-type.application')

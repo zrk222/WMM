@@ -37,6 +37,9 @@ class NativeProjectGenerationTests(unittest.TestCase):
             self.assertEqual(len(target_ids),1)
             text=(project/'project.pbxproj').read_text(encoding='utf-8')
             self.assertIn('"WMMTests/EngineBootstrapTests.swift"',text)
+            self.assertIn('"WMMTests/BridgeAgentTests.swift"',text)
+            self.assertIn('"WMM/Bridge/DomainBridge.swift"',text)
+            self.assertIn('"WMM/Identity/NativeSessionAuthority.swift"',text)
             self.assertIn('"WMMTests/MediaConformanceTests.swift"',text)
             for target_id in target_ids:self.assertIn('"'+target_id+'"',text)
             initial={p.relative_to(project).as_posix():p.read_bytes() for p in project.rglob('*') if p.is_file()}

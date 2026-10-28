@@ -1,6 +1,58 @@
 #import "EngineBootstrap.h"
 #import <Python/Python.h>
 
+// Accessed only under the class monitor and Python GIL. Handles carry no authority.
+static PyObject *WMMRuntimes = NULL;
+
+static void WMMVerifierDestroy(PyObject *capsule) {
+    void *retained = PyCapsule_GetPointer(capsule, "wmm.native.identity");
+    if (retained) CFRelease(retained);
+}
+
+static PyObject *WMMVerifyIdentity(PyObject *capsule, PyObject *argument) {
+    Py_ssize_t size = 0;
+    const char *bytes = PyUnicode_AsUTF8AndSize(argument, &size);
+    if (!bytes || size != 36) {
+        PyErr_Clear();
+        PyErr_SetString(PyExc_PermissionError, "A current native session is required");
+        return NULL;
+    }
+    void *retained = PyCapsule_GetPointer(capsule, "wmm.native.identity");
+    if (!retained) return NULL;
+    WMMNativeIdentityVerifier verifier = (__bridge WMMNativeIdentityVerifier)retained;
+    NSString *session = [[NSString alloc] initWithBytes:bytes length:(NSUInteger)size encoding:NSUTF8StringEncoding];
+    NSDictionary *value = verifier(session);
+    if (!value) Py_RETURN_NONE;
+    NSData *data = [NSJSONSerialization dataWithJSONObject:value options:0 error:nil];
+    if (!data || data.length > 4096) {
+        PyErr_SetString(PyExc_PermissionError, "Native identity metadata is unavailable");
+        return NULL;
+    }
+    PyObject *json = PyImport_ImportModule("json");
+    PyObject *text = PyUnicode_DecodeUTF8(data.bytes, (Py_ssize_t)data.length, "strict");
+    PyObject *result = json && text ? PyObject_CallMethod(json, "loads", "O", text) : NULL;
+    Py_XDECREF(text); Py_XDECREF(json);
+    return result;
+}
+
+static PyMethodDef WMMVerifierMethod = {"verify_native_identity", WMMVerifyIdentity, METH_O,
+                                      "Recheck the native session and protected principal."};
+
+static NSData *WMMResultBytes(PyObject *value, NSError **error) {
+    NSData *result = nil;
+    if (value && PyBytes_Check(value)) {
+        Py_ssize_t length = PyBytes_Size(value);
+        if (length > 0 && length <= 16777216)
+            result = [NSData dataWithBytes:PyBytes_AsString(value) length:(NSUInteger)length];
+    }
+    if (!result) {
+        PyErr_Clear();
+        if (error) *error = [NSError errorWithDomain:@"WMM.Engine" code:4
+            userInfo:@{NSLocalizedDescriptionKey: @"The operation was denied or could not finish. Saved state must be read back before retrying."}];
+    }
+    return result;
+}
+
 @implementation EngineBootstrap
 + (NSData *)inventoryWithError:(NSError **)error {
     @synchronized(self) {
@@ -69,6 +121,80 @@
         Py_XDECREF(activated); Py_XDECREF(policy);
         PyGILState_Release(gil);
         return result;
+    }
+}
+
++ (NSString *)openDatabase:(NSURL *)database verifier:(WMMNativeIdentityVerifier)verifier error:(NSError **)error {
+    @synchronized(self) {
+        if (!database.isFileURL || !database.path.isAbsolutePath || !verifier || ![self inventoryWithError:error])
+            return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        void *retained = CFBridgingRetain([verifier copy]);
+        PyObject *capsule = PyCapsule_New(retained, "wmm.native.identity", WMMVerifierDestroy);
+        if (!capsule) CFRelease(retained);
+        PyObject *callback = capsule ? PyCFunction_New(&WMMVerifierMethod, capsule) : NULL;
+        PyObject *module = callback ? PyImport_ImportModule("mission_control.ios_host") : NULL;
+        PyObject *type = module ? PyObject_GetAttrString(module, "Runtime") : NULL;
+        PyObject *runtime = type ? PyObject_CallFunction(type, "sO", database.path.UTF8String, callback) : NULL;
+        if (!WMMRuntimes) WMMRuntimes = PyDict_New();
+        NSString *handle = NSUUID.UUID.UUIDString;
+        if (!runtime || !WMMRuntimes || PyDict_SetItemString(WMMRuntimes, handle.UTF8String, runtime) != 0) {
+            PyErr_Clear(); handle = nil;
+            if (error) *error = [NSError errorWithDomain:@"WMM.Engine" code:5
+                userInfo:@{NSLocalizedDescriptionKey: @"The protected local workspace could not open."}];
+        }
+        Py_XDECREF(runtime); Py_XDECREF(type); Py_XDECREF(module); Py_XDECREF(callback); Py_XDECREF(capsule);
+        PyGILState_Release(gil);
+        return handle;
+    }
+}
+
++ (NSData *)ownerCall:(NSString *)handle session:(NSString *)session request:(NSData *)request error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        PyObject *payload = request.length > 0 && request.length <= 1048576
+            ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
+        // One fixed dispatch, with no speculative call or automatic retry.
+        PyObject *value = runtime && payload ? PyObject_CallMethod(runtime, "owner_call", "sO", session.UTF8String, payload) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); Py_XDECREF(payload);
+        PyGILState_Release(gil);
+        return result;
+    }
+}
+
++ (NSData *)enroll:(NSString *)handle session:(NSString *)session appID:(NSString *)appID error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        PyObject *value = runtime ? PyObject_CallMethod(runtime, "enroll", "ss", session.UTF8String, appID.UTF8String) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); PyGILState_Release(gil);
+        return result;
+    }
+}
+
++ (NSData *)workspaces:(NSString *)handle session:(NSString *)session error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        PyObject *value = runtime ? PyObject_CallMethod(runtime, "workspaces", "s", session.UTF8String) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); PyGILState_Release(gil);
+        return result;
+    }
+}
+
++ (void)close:(NSString *)handle {
+    @synchronized(self) {
+        if (!Py_IsInitialized()) return;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        if (WMMRuntimes && PyDict_DelItemString(WMMRuntimes, handle.UTF8String) != 0) PyErr_Clear();
+        PyGILState_Release(gil);
     }
 }
 @end

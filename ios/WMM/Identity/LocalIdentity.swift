@@ -11,11 +11,15 @@ actor LocalIdentity {
     }
     enum Failure: Error { case corruptIdentity, expiredOrRevokedSession, operationInProgress }
     private let vault: KeychainVault
+    nonisolated let authority: NativeSessionAuthority
     private var generation = UUID()
     private var admitted: Session?
     private var mutating = false
 
-    init(vault: KeychainVault) { self.vault = vault }
+    init(vault: KeychainVault) {
+        self.vault = vault
+        self.authority = NativeSessionAuthority(vault: vault)
+    }
 
     func begin(now: Date = Date()) async throws -> Session {
         guard !mutating else { throw Failure.operationInProgress }
@@ -36,6 +40,7 @@ actor LocalIdentity {
         let value = Session(principal: principal, generation: startingGeneration, nonce: UUID(),
                             expiresAt: now.addingTimeInterval(900))
         admitted = value
+        authority.admit(value)
         return value
     }
 
@@ -48,7 +53,10 @@ actor LocalIdentity {
         }
     }
 
-    func lock() { admitted = nil; generation = UUID() }
+    func lock() {
+        authority.revoke()
+        admitted = nil; generation = UUID()
+    }
 
     func forgetPrincipal() async throws {
         guard !mutating else { throw Failure.operationInProgress }
