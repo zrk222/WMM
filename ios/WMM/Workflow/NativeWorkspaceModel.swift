@@ -11,6 +11,11 @@ struct NativeWorkspace: Decodable, Identifiable {
 }
 struct NativeWorkspaceList: Decodable { let apps: [NativeWorkspace] }
 struct NativeWorkflowSnapshot: Decodable {
+    struct Activity: Decodable, Identifiable {
+        let id: Int
+        let action: String
+        let created: String
+    }
     struct Stage: Decodable, Identifiable {
         let id: Int
         let title: String
@@ -20,6 +25,7 @@ struct NativeWorkflowSnapshot: Decodable {
     }
     let app: NativeWorkspace
     let stages: [Stage]
+    let audit: [Activity]
 }
 
 @MainActor

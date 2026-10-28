@@ -30,6 +30,9 @@ struct WorkflowNavigation: View {
                     List {
                         Section("Your next steps") {
                             Text("Follow these stages to turn app facts into reviewed marketing work. Readiness shows current evidence; it does not mean a campaign has run.")
+                            Button("Refresh stages and activity", systemImage: "arrow.clockwise") {
+                                Task { await model.open(snapshot.app) }
+                            }.disabled(model.busy)
                         }
                         ForEach(snapshot.stages) { stage in
                             Section("\(stage.id). \(stage.title)") {
@@ -37,6 +40,19 @@ struct WorkflowNavigation: View {
                                 Label(stage.status == "READY" ? "Inputs ready" : "Evidence needed",
                                       systemImage: stage.status == "READY" ? "checkmark.circle" : "list.bullet.clipboard")
                                 ForEach(Array(stage.missing.enumerated()), id: \.offset) { item in Text(item.element).font(.callout) }
+                            }
+                        }
+                        Section("Recorded activity") {
+                            DisclosureGroup("Recent workspace actions (\(snapshot.audit.count))") {
+                                Text("Latest recorded actions appear first. A saved plan or approval does not establish execution or a measured result. Open Work and recovery for job steps and Results & reports for observed outcomes.").font(.callout)
+                                if snapshot.audit.isEmpty { Text("No recorded actions in this workspace yet.") }
+                                ForEach(snapshot.audit) { item in
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(item.action.replacingOccurrences(of: ".", with: " ").replacingOccurrences(of: "_", with: " "))
+                                        Text(item.created).font(.caption).foregroundStyle(.secondary)
+                                        Text("Receipt \(item.id)").font(.caption).textSelection(.enabled)
+                                    }.accessibilityElement(children: .combine)
+                                }
                             }
                         }
                     }
