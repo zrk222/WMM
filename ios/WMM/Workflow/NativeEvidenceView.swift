@@ -164,36 +164,43 @@ struct NativeEvidenceView: View {
             }
         } catch { localMessage = "Use a whole number for counts and minor currency amounts, choose Yes or No for flags, and enter a JSON object for structured details." }
     }
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
+    private var introduction: some View {
+        Section {
                     Text("Record what you observed, where it came from and the exact release. These shared evidence forms support your marketing stages; they do not run tests or create proof for you.")
                     Text("Keep passwords, API keys and customer conversations out of evidence. Add protected connections through Provider access.").font(.callout)
                 }
-                Section("Evidence to record") {
+    }
+    private var recordFields: some View {
+        Section("Evidence to record") {
                     Picker("Type", selection: $kind) {
                         ForEach(model.fields.keys.sorted(), id: \.self) { key in Text(model.labels[key] ?? key).tag(key) }
                     }.disabled(selected != nil)
                     TextField("Evidence title", text: $title)
                     TextField("Source or receipt reference", text: $source, axis: .vertical)
-                    ForEach(model.fields[kind] ?? [], id: \.self) { field in
+                    ForEach(model.fields[kind] ?? [], id: \.self) { field in evidenceField(field) }
+                }
+    }
+    private func fieldValue(_ field: String) -> Binding<String> {
+        Binding(get: { values[field] ?? "" }, set: { values[field] = $0 })
+    }
+    private var summaryStatuses: [String] { (model.readiness?.statuses ?? []).filter { $0 != "N/A" } }
+    @ViewBuilder private func evidenceField(_ field: String) -> some View {
                         if kind == "readiness", field == "result" {
-                            Picker("Checklist summary", selection: Binding(get: { values[field] ?? "" }, set: { values[field] = $0 })) {
+                            Picker("Checklist summary", selection: fieldValue(field)) {
                                 Text("Choose").tag("")
-                                ForEach((model.readiness?.statuses ?? []).filter { $0 != "N/A" }, id: \.self) { status in Text(status).tag(status) }
+                                ForEach(summaryStatuses, id: \.self) { status in Text(status).tag(status) }
                             }
                         } else if flags.contains(field) {
-                            Picker(field.replacingOccurrences(of: "_", with: " "), selection: Binding(get: { values[field] ?? "" }, set: { values[field] = $0 })) {
+                            Picker(field.replacingOccurrences(of: "_", with: " "), selection: fieldValue(field)) {
                                 Text("Choose").tag(""); Text("Yes").tag("true"); Text("No").tag("false")
                             }
                         } else {
-                            TextField(field.replacingOccurrences(of: "_", with: " "), text: Binding(get: { values[field] ?? "" }, set: { values[field] = $0 }), axis: .vertical)
+                            TextField(field.replacingOccurrences(of: "_", with: " "), text: fieldValue(field), axis: .vertical)
                                 .textInputAutocapitalization(.never).autocorrectionDisabled()
                         }
-                    }
-                }
-                if kind == "readiness", let checklist = model.readiness {
+    }
+    @ViewBuilder private var journeyChecklist: some View {
+        if kind == "readiness", let checklist = model.readiness {
                     Section("Core journey checklist") {
                         Text("Record each test's expected behavior, what happened, and its receipt. NOT_RUN preserves missing evidence. The engine checks that your summary agrees with these observations.").font(.callout)
                         TextField("Tested build SHA256", text: $candidateHash).textInputAutocapitalization(.never).autocorrectionDisabled()
@@ -204,7 +211,9 @@ struct NativeEvidenceView: View {
                         }
                     }
                 }
-                Section("Structured supporting details") {
+    }
+    private var supportingDetails: some View {
+        Section("Structured supporting details") {
                     DisclosureGroup("Additional evidence fields") {
                         Text("Use a JSON object for additional domain-specific fields such as an uploaded asset file_id. Guided fields above take precedence; the shared engine validates the complete record.").font(.caption)
                         TextEditor(text: $extra).frame(minHeight: 130).font(.system(.body, design: .monospaced))
@@ -215,18 +224,32 @@ struct NativeEvidenceView: View {
                         .disabled(!confirmed || title.isEmpty || source.isEmpty || model.fields[kind] == nil)
                     Button("Start a new record") { reset() }
                 }
-                if let message = localMessage ?? model.message { Section("Action result") { Text(message) } }
-                Section("Saved evidence") {
+    }
+    private var savedRecords: some View {
+        Section("Saved evidence") {
                     if model.records.isEmpty { Text("No evidence records yet. Choose a type and add your first observation.") }
                     ForEach(model.records) { record in Button("\(record.title) · revision \(record.version)") { edit(record) } }
                 }
+    }
+    private var formSignature: [String] {
+        [title, source, extra] + values.keys.sorted().map { values[$0] ?? "" }
+    }
+    var body: some View {
+        NavigationStack {
+            Form {
+                introduction
+                recordFields
+                journeyChecklist
+                supportingDetails
+                if let message = localMessage ?? model.message { Section("Action result") { Text(message) } }
+                savedRecords
             }.disabled(model.busy)
             .navigationTitle("Your evidence")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() }.disabled(model.busy) }
                 ToolbarItem(placement: .primaryAction) { Button("Refresh") { confirmed = false; Task { await model.refresh() } }.disabled(model.busy) } }
             .overlay { if model.busy { ProgressView("Reading or saving app evidence...").padding().background(.regularMaterial) } }
             .onChange(of: kind) { _, _ in if selected == nil { values = [:]; extra = "{}" }; confirmed = false }
-            .onChange(of: [title, source, extra] + values.keys.sorted().map { values[$0] ?? "" }) { _, _ in confirmed = false }
+            .onChange(of: formSignature) { _, _ in confirmed = false }
             .onChange(of: journeys) { _, _ in confirmed = false }
             .onChange(of: [candidateHash, testedLocale]) { _, _ in confirmed = false }
             .task { await model.refresh(); journeys = model.readiness?.journeys.map { .init(id: $0) } ?? [] }
