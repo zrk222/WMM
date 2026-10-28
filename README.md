@@ -2,6 +2,8 @@
 
 Research your audience, prepare creative work and review app growth evidence in one local workspace. **Wize Marketing Machine (WMM)** turns app facts, research references, media and analytics into saved marketing packets, creative briefs, app store checks, subscription experiment plans and PDF reports.
 
+**Designed for your personal AI agent to operate on your behalf.** Connect a compatible agent through CLI or MCP, give it a specific app-marketing objective and permissions, and let it carry out supported workflows, bring you approval decisions and report verified results. You can inspect, edit and operate the same workspace yourself. [Agent-specific operating guides](docs/personal-agent-operations.md) cover Instinct, Hark Pro, Meta Muse, Codex/Dots, Claude Duet, Grok Bot and agent teams; each connection must be verified in your environment.
+
 ## What WMM does for you
 
 1. **Collect:** app details, audience research, approved claims, media and results from imports or supported analytics connections.
