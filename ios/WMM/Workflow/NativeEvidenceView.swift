@@ -198,16 +198,9 @@ struct NativeEvidenceView: View {
                         Text("Record each test's expected behavior, what happened, and its receipt. NOT_RUN preserves missing evidence. The engine checks that your summary agrees with these observations.").font(.callout)
                         TextField("Tested build SHA256", text: $candidateHash).textInputAutocapitalization(.never).autocorrectionDisabled()
                         TextField("Tested locale", text: $testedLocale).textInputAutocapitalization(.never).autocorrectionDisabled()
-                        ForEach($journeys) { $journey in
-                            DisclosureGroup(journey.id.replacingOccurrences(of: "_", with: " ") + " · " + journey.status) {
-                                Picker("Observed status", selection: $journey.status) {
-                                    ForEach(checklist.statuses.filter { $0 != "N/A" || !checklist.required.contains(journey.id) }, id: \.self) { status in Text(status).tag(status) }
-                                }
-                                TextField("Expected behavior", text: $journey.expected, axis: .vertical)
-                                TextField("What you observed", text: $journey.observed, axis: .vertical)
-                                TextField("Evidence reference", text: $journey.evidence, axis: .vertical)
-                                if journey.status == "N/A" { TextField("Why this journey does not apply", text: $journey.reason, axis: .vertical) }
-                            }
+                        ForEach($journeys) { entry in
+                            NativeJourneyFields(journey: entry, statuses: checklist.statuses,
+                                required: checklist.required.contains(entry.wrappedValue.id))
                         }
                     }
                 }
@@ -239,5 +232,32 @@ struct NativeEvidenceView: View {
             .task { await model.refresh(); journeys = model.readiness?.journeys.map { .init(id: $0) } ?? [] }
             .interactiveDismissDisabled(model.busy)
         }.privacySensitive()
+    }
+}
+
+/// Keep the bound row outside the form's result builder so Swift does not need
+/// to infer a nested Binding/ForEach/filter expression as one giant type.
+@MainActor
+private struct NativeJourneyFields: View {
+    @Binding var journey: NativeEvidenceModel.Journey
+    let statuses: [String]
+    let required: Bool
+
+    private var allowedStatuses: [String] {
+        statuses.filter { $0 != "N/A" || !required }
+    }
+
+    var body: some View {
+        DisclosureGroup(journey.id.replacingOccurrences(of: "_", with: " ") + " · " + journey.status) {
+            Picker("Observed status", selection: $journey.status) {
+                ForEach(allowedStatuses, id: \.self) { status in Text(status).tag(status) }
+            }
+            TextField("Expected behavior", text: $journey.expected, axis: .vertical)
+            TextField("What you observed", text: $journey.observed, axis: .vertical)
+            TextField("Evidence reference", text: $journey.evidence, axis: .vertical)
+            if journey.status == "N/A" {
+                TextField("Why this journey does not apply", text: $journey.reason, axis: .vertical)
+            }
+        }
     }
 }
