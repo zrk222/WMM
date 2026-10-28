@@ -77,3 +77,34 @@ class NativeMediaTests(unittest.TestCase):
         with patch.object(Media,'_insert_review',staticmethod(write_then_lock)):
             with self.assertRaises(PermissionError):adapter.review(self.session,'new-app',item['id'],self.decision(item))
         with connection(self.path) as db:self.assertEqual(db.execute('SELECT count(*) FROM managed_media_reviews').fetchone()[0],0)
+
+    def test_fixed_host_upload_verifies_native_evidence_and_preserves_review_path(self):
+        self.owned()
+        proof=json.dumps(media_fixture.synthetic_inspection(media_fixture.RAW,'.mp4')).encode()
+        payload=b'{"manifest_version":1,"request_key":"native-host-upload"}'
+        item=json.loads(self.runtime.native_media_upload(self.session,'new-app','clip.mp4',media_fixture.RAW,payload,proof))
+        self.assertFalse(item['reuse_available'])
+        listing=json.loads(self.runtime.native_media_list(self.session,'new-app'))
+        self.assertEqual(listing['items'][0]['id'],item['id'])
+        reviewed=json.loads(self.runtime.native_media_review(self.session,'new-app',item['id'],self.decision(item)))
+        self.assertTrue(reviewed['reuse_available'])
+        self.assertNotIn('storage_name',json.dumps(listing))
+        malformed=json.loads(proof);malformed['metadata']['width']=99999
+        with self.assertRaises(Invalid):self.runtime.native_media_upload(self.session,'new-app','clip.mp4',media_fixture.RAW,
+            b'{"manifest_version":1,"request_key":"invalid-proof"}',json.dumps(malformed).encode())
+        with self.assertRaises(Invalid):self.runtime.native_media_upload(self.session,'new-app','clip.mp4',b'changed',payload,proof)
+
+    def test_native_inspection_parser_rejects_hidden_fields_and_invalid_decode_proof(self):
+        from copy import deepcopy
+        self.owned()
+        proof=media_fixture.synthetic_inspection(media_fixture.RAW,'.mp4')
+        cases=[]
+        for field,value in [('frame_rate',True),('frame_rate',float('inf')),('width',1),('audio','yes')]:
+            altered=deepcopy(proof);altered['metadata'][field]=value;cases.append(altered)
+        altered=deepcopy(proof);altered['decoded']['video_frames']=0;cases.append(altered)
+        altered=deepcopy(proof);altered['metadata']['role']='OWNER';cases.append(altered)
+        for index,invalid in enumerate(cases):
+            payload=json.dumps(dict(manifest_version=1,request_key=f'invalid-{index}')).encode()
+            with self.subTest(index=index),self.assertRaises(Invalid):
+                self.runtime.native_media_upload(self.session,'new-app','clip.mp4',media_fixture.RAW,payload,json.dumps(invalid).encode())
+        self.assertEqual(json.loads(self.runtime.native_media_list(self.session,'new-app'))['items'],[])

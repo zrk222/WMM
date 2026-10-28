@@ -57,6 +57,19 @@ class Runtime:
     def owner_call(self, session, payload):
         return self.owner.call(session, payload)
 
+    def native_media_upload(self,session,app_id,filename,raw,payload,inspection):
+        from .ios_media_adapter import NativeMediaAdapter,inspection_from_native
+        return NativeMediaAdapter(self.service,self.identities,inspection_from_native(inspection)).upload(
+            session,app_id,filename,raw,payload)
+
+    def native_media_list(self,session,app_id):
+        from .ios_media_adapter import NativeMediaAdapter,no_native_inspection
+        return NativeMediaAdapter(self.service,self.identities,no_native_inspection).list(session,app_id)
+
+    def native_media_review(self,session,app_id,media_id,payload):
+        from .ios_media_adapter import NativeMediaAdapter,no_native_inspection
+        return NativeMediaAdapter(self.service,self.identities,no_native_inspection).review(session,app_id,media_id,payload)
+
     def enroll(self, session, app_id):
         return self.owner.enroll(session, app_id, {'confirm_owner': True})
 

@@ -112,6 +112,46 @@ final class MediaConformanceTests: XCTestCase {
         } catch {}
     }
 
+    func testNativeOriginalIntakeAndOwnerReviewThroughEmbeddedEngine() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let database = UUID()
+        let store = try LocalStore(applicationSupport: folder, databaseID: database)
+        let identity = LocalIdentity(vault: KeychainVault(databaseID: database, appID: UUID()))
+        let session = try await identity.begin()
+        let bridge = try DomainBridge(store: store, identity: identity)
+        let appID = "media-" + UUID().uuidString.lowercased()
+        let setup = try JSONSerialization.data(withJSONObject: ["app_id": appID, "confirm_owner": true,
+            "manifest": ["name": "Synthetic intake", "release": "build-1", "locale": "en-US", "currency": "USD"]] as [String: Any])
+        _ = try await bridge.createWorkspace(session: session, request: setup)
+        let source = folder.appendingPathComponent("original.mp4")
+        try await syntheticVideo(at: source, frames: 48, color: CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+        let key = UUID().uuidString
+        let uploaded = try await bridge.uploadMedia(session: session, appID: appID,
+            filename: "original.mp4", original: source, manifestVersion: 1, requestKey: key)
+        let item = try JSONDecoder().decode(NativeMediaItem.self, from: uploaded)
+        XCTAssertFalse(item.reuse_available)
+        XCTAssertEqual(item.rights_status, "UNKNOWN")
+        let replay = try await bridge.uploadMedia(session: session, appID: appID,
+            filename: "original.mp4", original: source, manifestVersion: 1, requestKey: key)
+        XCTAssertEqual(try JSONDecoder().decode(NativeMediaItem.self, from: replay).id, item.id)
+        let decision = try JSONSerialization.data(withJSONObject: ["expected_version": 0, "manifest_version": 1,
+            "source_sha256": item.source_sha256, "status": "ALLOWED", "basis": "OWNED",
+            "evidence": "Synthetic generated test source"] as [String: Any])
+        let reviewed = try await bridge.reviewMedia(session: session, appID: appID, mediaID: item.id, request: decision)
+        XCTAssertTrue(try JSONDecoder().decode(NativeMediaItem.self, from: reviewed).reuse_available)
+        let listing = try await bridge.mediaList(session: session, appID: appID)
+        XCTAssertEqual(try JSONDecoder().decode(NativeMediaList.self, from: listing).items.count, 1)
+        await identity.lock()
+        do {
+            _ = try await bridge.mediaList(session: session, appID: appID)
+            XCTFail("Locked media access admitted")
+        } catch {}
+        await bridge.close()
+        try await identity.forgetPrincipal()
+    }
+
     func testInvalidPlanCannotInvokeResolver() async throws {
         let json = Data("{}".utf8)
         XCTAssertThrowsError(try JSONDecoder().decode(NativeRenderPlan.self,from:json))

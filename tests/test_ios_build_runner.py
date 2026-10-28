@@ -13,6 +13,12 @@ builder=importlib.util.module_from_spec(buildspec);buildspec.loader.exec_module(
 
 
 class SimulatorSelectionTests(unittest.TestCase):
+    def test_packaging_uses_one_supported_host_architecture(self):
+        for arch in ('arm64','x86_64'):
+            self.assertEqual(runner.simulator_architecture(arch),arch)
+        for invalid in ('arm64 x86_64','arm64e','','unknown'):
+            with self.assertRaises(ValueError):runner.simulator_architecture(invalid)
+
     def test_runtime_reuse_requires_source_toolchain_and_current_bytes(self):
         with tempfile.TemporaryDirectory() as folder:
             framework=Path(folder)/'Python.xcframework';framework.mkdir()

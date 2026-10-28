@@ -30,12 +30,14 @@ final class NativeWorkspaceModel: ObservableObject {
     @Published private(set) var apps: [NativeWorkspace] = []
     @Published private(set) var snapshot: NativeWorkflowSnapshot?
     @Published private(set) var report: AppReport?
+    @Published private(set) var media: [NativeMediaItem] = []
     @Published private(set) var message: String?
     private var identity: LocalIdentity?
     private var bridge: DomainBridge?
     private var session: LocalIdentity.Session?
     private var generation = UUID()
     private var authentication: LAContext?
+    var selectionContext: UUID { generation }
 
     private func installationID(_ key: String) throws -> UUID {
         if let text = UserDefaults.standard.string(forKey: key) {
@@ -87,7 +89,7 @@ final class NativeWorkspaceModel: ObservableObject {
     func lock() {
         generation = UUID(); authentication?.invalidate(); authentication = nil
         identity?.authority.revoke()
-        session = nil; apps = []; snapshot = nil; report = nil; unlocked = false; busy = false; activity = ""; message = nil
+        session = nil; apps = []; snapshot = nil; report = nil; media = []; unlocked = false; busy = false; activity = ""; message = nil
         if let identity { Task { await identity.lock() } }
     }
 
@@ -114,7 +116,7 @@ final class NativeWorkspaceModel: ObservableObject {
 
     func open(_ app: NativeWorkspace) async {
         guard !busy, unlocked, let bridge, let session else { return }
-        busy = true; message = nil; snapshot = nil; report = nil; activity = "Reading app evidence and evaluating twelve stages…"
+        busy = true; message = nil; snapshot = nil; report = nil; media = []; activity = "Reading app evidence and evaluating twelve stages…"
         let ticket = generation
         defer { if generation == ticket { busy = false; activity = "" } }
         do {
@@ -147,5 +149,68 @@ final class NativeWorkspaceModel: ObservableObject {
         }
     }
 
-    func clearSelection() { snapshot = nil; report = nil }
+    func loadMedia() async {
+        guard !busy, unlocked, let bridge, let session, let app = snapshot?.app else { return }
+        busy = true; message = nil; activity = "Reading your app's original media and reuse decisions…"
+        let ticket = generation
+        defer { if generation == ticket { busy = false; activity = "" } }
+        do {
+            let bytes = try await bridge.mediaList(session: session, appID: app.id)
+            let result = try JSONDecoder().decode(NativeMediaList.self, from: bytes)
+            guard generation == ticket, snapshot?.app.id == app.id else { return }
+            media = result.items
+        } catch {
+            guard generation == ticket else { return }
+            message = "Media could not be refreshed. Unlock again if your session expired. Retained originals are unchanged."
+        }
+    }
+
+    func importMedia(data: Data, filename: String, requestKey: String) async {
+        guard !busy, unlocked, let bridge, let session, let app = snapshot?.app else { return }
+        busy = true; message = nil; activity = "Decoding the selected original and saving its exact bytes…"
+        let ticket = generation
+        defer { if generation == ticket { busy = false; activity = "" } }
+        do {
+            guard !data.isEmpty, data.count <= LocalStore.maximumMediaBytes else { throw MediaIntake.Failure.oversized }
+            let suffix = URL(fileURLWithPath: filename).pathExtension.lowercased()
+            guard ["mp4", "mov", "webm"].contains(suffix) else { throw MediaIntake.Failure.invalidFile }
+            let staging = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + "." + suffix)
+            defer { try? FileManager.default.removeItem(at: staging) }
+            try data.write(to: staging, options: [.withoutOverwriting, .completeFileProtection])
+            _ = try await bridge.uploadMedia(session: session, appID: app.id, filename: filename,
+                original: staging, manifestVersion: app.version, requestKey: requestKey)
+            let bytes = try await bridge.mediaList(session: session, appID: app.id)
+            let result = try JSONDecoder().decode(NativeMediaList.self, from: bytes)
+            guard generation == ticket, snapshot?.app.id == app.id else { return }
+            media = result.items
+            message = "Original saved. Review your reuse rights before adding it to production."
+        } catch {
+            guard generation == ticket else { return }
+            message = "Import was not confirmed. Check the library before retrying. Supported originals are MP4, MOV or WebM up to 64 MiB and 60 seconds; the native decoder must accept the video."
+        }
+    }
+
+    func reviewMedia(_ item: NativeMediaItem, status: String, basis: String, evidence: String) async -> Bool {
+        guard !busy, unlocked, let bridge, let session, let app = snapshot?.app else { return false }
+        busy = true; message = nil; activity = "Saving your exact source-bound reuse decision…"
+        let ticket = generation
+        defer { if generation == ticket { busy = false; activity = "" } }
+        do {
+            let body = try JSONSerialization.data(withJSONObject: ["expected_version": item.review_version,
+                "manifest_version": app.version, "source_sha256": item.source_sha256,
+                "status": status, "basis": basis, "evidence": evidence] as [String: Any])
+            _ = try await bridge.reviewMedia(session: session, appID: app.id, mediaID: item.id, request: body)
+            let bytes = try await bridge.mediaList(session: session, appID: app.id)
+            let result = try JSONDecoder().decode(NativeMediaList.self, from: bytes)
+            guard generation == ticket, snapshot?.app.id == app.id else { return false }
+            media = result.items; message = "Your reuse decision is saved with this original's hash and current app revision."
+            return true
+        } catch {
+            guard generation == ticket else { return false }
+            message = "The decision was not confirmed. Refresh the library and review its current source and review version."
+            return false
+        }
+    }
+
+    func clearSelection() { snapshot = nil; report = nil; media = [] }
 }

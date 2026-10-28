@@ -46,6 +46,31 @@ actor DomainBridge {
         return try EngineBootstrap.report(handle: handle, session: session.nonce.uuidString, appID: appID)
     }
 
+    func uploadMedia(session: LocalIdentity.Session, appID: String, filename: String,
+                     original: URL, manifestVersion: Int, requestKey: String) async throws -> Data {
+        guard let handle else { throw Failure.closed }
+        // Produce inspection here from actual bytes, never from an agent envelope.
+        let inspection = try await MediaInspector.inspectOriginal(original)
+        try Task.checkCancellation()
+        let content = try MediaIntake.readBounded(original)
+        let body = try JSONSerialization.data(withJSONObject: [
+            "manifest_version": manifestVersion, "request_key": requestKey] as [String: Any])
+        guard self.handle == handle else { throw Failure.closed }
+        return try EngineBootstrap.uploadMedia(handle: handle, session: session.nonce.uuidString,
+            appID: appID, filename: filename, content: content, request: body, inspection: inspection)
+    }
+
+    func mediaList(session: LocalIdentity.Session, appID: String) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        return try EngineBootstrap.mediaList(handle: handle, session: session.nonce.uuidString, appID: appID)
+    }
+
+    func reviewMedia(session: LocalIdentity.Session, appID: String, mediaID: String, request: Data) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        return try EngineBootstrap.reviewMedia(handle: handle, session: session.nonce.uuidString,
+            appID: appID, mediaID: mediaID, request: request)
+    }
+
     deinit {
         if let handle { EngineBootstrap.close(handle) }
     }

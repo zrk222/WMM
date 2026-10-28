@@ -216,6 +216,55 @@ static NSData *WMMResultBytes(PyObject *value, NSError **error) {
     }
 }
 
++ (NSData *)uploadMedia:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+               filename:(NSString *)filename content:(NSData *)content request:(NSData *)request
+             inspection:(NSData *)inspection error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        BOOL bounded = content.length > 0 && content.length <= 67108864 && request.length > 0 &&
+            request.length <= 1048576 && inspection.length > 0 && inspection.length <= 16384;
+        PyObject *raw = bounded ? PyBytes_FromStringAndSize(content.bytes, (Py_ssize_t)content.length) : NULL;
+        PyObject *body = raw ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
+        PyObject *proof = body ? PyBytes_FromStringAndSize(inspection.bytes, (Py_ssize_t)inspection.length) : NULL;
+        PyObject *value = runtime && proof ? PyObject_CallMethod(runtime, "native_media_upload", "sssOOO",
+            session.UTF8String, appID.UTF8String, filename.UTF8String, raw, body, proof) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); Py_XDECREF(proof); Py_XDECREF(body); Py_XDECREF(raw);
+        PyGILState_Release(gil);
+        return result;
+    }
+}
+
++ (NSData *)mediaList:(NSString *)handle session:(NSString *)session appID:(NSString *)appID error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        PyObject *value = runtime ? PyObject_CallMethod(runtime, "native_media_list", "ss", session.UTF8String, appID.UTF8String) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); PyGILState_Release(gil);
+        return result;
+    }
+}
+
++ (NSData *)reviewMedia:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                mediaID:(NSString *)mediaID request:(NSData *)request error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        PyObject *body = request.length > 0 && request.length <= 1048576
+            ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
+        PyObject *value = runtime && body ? PyObject_CallMethod(runtime, "native_media_review", "sssO",
+            session.UTF8String, appID.UTF8String, mediaID.UTF8String, body) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); Py_XDECREF(body); PyGILState_Release(gil);
+        return result;
+    }
+}
+
 + (void)close:(NSString *)handle {
     @synchronized(self) {
         if (!Py_IsInitialized()) return;

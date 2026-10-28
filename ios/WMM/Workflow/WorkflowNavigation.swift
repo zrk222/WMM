@@ -6,6 +6,7 @@ struct WorkflowNavigation: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showingCreate = false
     @State private var showingResults = false
+    @State private var showingMedia = false
 
     var body: some View {
         NavigationStack {
@@ -61,6 +62,10 @@ struct WorkflowNavigation: View {
                     ToolbarItem(placement: .topBarTrailing) { Button("Lock", systemImage: "lock") { model.lock() } }
                     ToolbarItem(placement: .bottomBar) {
                         if model.snapshot != nil {
+                            Button("Your media", systemImage: "film") {
+                                showingMedia = true
+                                Task { await model.loadMedia() }
+                            }.disabled(model.busy)
                             Button("Results & reports", systemImage: "chart.bar.doc.horizontal") {
                                 showingResults = true
                                 Task { await model.loadReport() }
@@ -78,14 +83,15 @@ struct WorkflowNavigation: View {
             }
             .sheet(isPresented: $showingCreate) { CreateWorkspaceView(model: model) }
             .sheet(isPresented: $showingResults) { NativeResultsView(model: model) }
+            .sheet(isPresented: $showingMedia) { NativeMediaLibrary(model: model) }
         }
         .privacySensitive()
         .overlay { if scenePhase != .active { Color(uiColor: .systemBackground).ignoresSafeArea() } }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background { showingCreate = false; showingResults = false; model.lock() }
+            if phase == .background { showingCreate = false; showingResults = false; showingMedia = false; model.lock() }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataWillBecomeUnavailableNotification)) { _ in
-            showingCreate = false; showingResults = false; model.lock()
+            showingCreate = false; showingResults = false; showingMedia = false; model.lock()
         }
     }
 }

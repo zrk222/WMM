@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 cd "$PROJECT_DIR"
+case "${ARCHS:-}" in
+  arm64|x86_64) ;;
+  *) echo 'error: CPython runtime packaging requires one supported architecture per build.' >&2; exit 1 ;;
+esac
 test -f Python.xcframework/build/utils.sh || {
   echo 'error: Missing built Python.xcframework. Runtime packaging is required, not optional.' >&2
   exit 1

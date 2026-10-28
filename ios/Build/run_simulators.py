@@ -4,6 +4,12 @@ import json,platform,subprocess,sys
 
 IOS=Path(__file__).resolve().parents[1]
 
+def simulator_architecture(machine):
+    # CPython's pinned install helper selects lib-$ARCHS, one architecture only.
+    if machine not in ('arm64','x86_64'):
+        raise ValueError('Unsupported Apple simulator host architecture')
+    return machine
+
 def select_devices(inventory):
     available=[d for runtime,devices in inventory['devices'].items() if 'iOS' in runtime
                for d in devices if d.get('isAvailable') is True]
@@ -17,6 +23,7 @@ def select_devices(inventory):
 
 def main():
     if platform.system()!='Darwin':raise SystemExit('Simulator tests NOT_RUN: Apple host required')
+    architecture=simulator_architecture(platform.machine())
     evidence=IOS/'build-evidence';evidence.mkdir(exist_ok=True)
     raw=subprocess.check_output(['xcrun','simctl','list','devices','available','-j'],text=True)
     inventory=json.loads(raw);devices=select_devices(inventory)
@@ -31,7 +38,7 @@ def main():
         argv=['xcodebuild','test','-project',str(IOS/'WMM.xcodeproj'),'-scheme','WMM',
               '-destination',f'platform=iOS Simulator,id={device["udid"]}',
               '-derivedDataPath',str(IOS/'DerivedData'),'-resultBundlePath',str(result),
-              'CODE_SIGNING_ALLOWED=NO']
+              'CODE_SIGNING_ALLOWED=NO','ONLY_ACTIVE_ARCH=YES',f'ARCHS={architecture}']
         completed=subprocess.run(argv)
         outcomes.append(dict(family=family,device=device,command=argv,exit_code=completed.returncode,
                              xcresult_exists=result.is_dir(),physical_device_acceptance='NOT_RUN'))

@@ -3,6 +3,45 @@ from .common import Invalid
 from .ios_bridge import decode_document, encode_response
 
 
+def inspection_from_native(proof):
+    """Accept only the dedicated signed-host inspection parameter, not agent input.
+
+    Reuse shared metadata normalization and original-byte verification. This parser
+    validates a trusted decoder's evidence; it cannot prove a caller ran AVFoundation.
+    """
+    from fractions import Fraction
+    from .managed_media_validation import media_metadata
+    if not isinstance(proof,bytes) or len(proof)>16384:raise Invalid('Native inspection exceeds its evidence bound')
+    result=decode_document(proof)
+    if not isinstance(result,dict) or set(result)!={'sha256','bytes','metadata','decoded'}:
+        raise Invalid('Use exact native inspection fields')
+    metadata=result['metadata']
+    if not isinstance(metadata,dict) or type(metadata.get('audio')) is not bool:
+        raise Invalid('Native inspection metadata is malformed')
+    keys={'codec','width','height','duration_seconds','frame_rate','audio'}
+    if metadata['audio']:keys.add('audio_metadata')
+    if set(metadata)!=keys or type(metadata['frame_rate']) not in (int,float):raise Invalid('Native metadata fields differ')
+    try:rate=Fraction(str(metadata['frame_rate'])).limit_denominator(1000000)
+    except (ValueError,OverflowError):raise Invalid('Native frame rate is malformed') from None
+    streams=[dict(codec_type='video',codec_name=metadata['codec'],width=metadata['width'],height=metadata['height'],
+                  avg_frame_rate=f'{rate.numerator}/{rate.denominator}')]
+    if metadata['audio']:
+        audio=metadata['audio_metadata']
+        if not isinstance(audio,dict) or set(audio)!={'codec','channels','sample_rate'} or type(audio['sample_rate']) is not int:
+            raise Invalid('Native audio evidence is malformed')
+        streams.append(dict(codec_type='audio',codec_name=audio['codec'],channels=audio['channels'],sample_rate=str(audio['sample_rate'])))
+    result['metadata']=media_metadata(dict(streams=streams,format=dict(duration=metadata['duration_seconds'])))
+    def inspect(raw,suffix,alive=lambda:None):
+        alive()
+        # Media._validated verifies digest, size and decoded picture/audio counts.
+        return result
+    return inspect
+
+
+def no_native_inspection(*args,**kwargs):
+    raise Invalid('Native original inspection is required before upload')
+
+
 class NativeMediaAdapter:
     def __init__(self, service, identities, inspector):
         from .managed_media_store import Media

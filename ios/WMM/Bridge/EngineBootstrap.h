@@ -17,6 +17,15 @@ typedef NSDictionary<NSString *, id> * _Nullable (^WMMNativeIdentityVerifier)(NS
                           error:(NSError **)error NS_SWIFT_NAME(workspaces(handle:session:));
 + (nullable NSData *)report:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
                       error:(NSError **)error NS_SWIFT_NAME(report(handle:session:appID:));
++ (nullable NSData *)uploadMedia:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                       filename:(NSString *)filename content:(NSData *)content request:(NSData *)request
+                     inspection:(NSData *)inspection error:(NSError **)error
+    NS_SWIFT_NAME(uploadMedia(handle:session:appID:filename:content:request:inspection:));
++ (nullable NSData *)mediaList:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                         error:(NSError **)error NS_SWIFT_NAME(mediaList(handle:session:appID:));
++ (nullable NSData *)reviewMedia:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                        mediaID:(NSString *)mediaID request:(NSData *)request error:(NSError **)error
+    NS_SWIFT_NAME(reviewMedia(handle:session:appID:mediaID:request:));
 + (void)close:(NSString *)handle;
 @end
 NS_ASSUME_NONNULL_END

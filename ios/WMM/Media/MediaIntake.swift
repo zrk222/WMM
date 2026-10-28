@@ -52,9 +52,10 @@ enum MediaIntake {
 /// Copy during transfer lifetime; never retain Photos' ephemeral URL as app storage.
 struct SelectedMovie: Transferable {
     let data: Data
+    let filename: String
     static var transferRepresentation: some TransferRepresentation {
         FileRepresentation(importedContentType: .movie) { received in
-            SelectedMovie(data: try MediaIntake.readBounded(received.file))
+            SelectedMovie(data: try MediaIntake.readBounded(received.file), filename: received.file.lastPathComponent)
         }
     }
 }
