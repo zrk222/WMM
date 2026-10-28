@@ -13,6 +13,31 @@ builder=importlib.util.module_from_spec(buildspec);buildspec.loader.exec_module(
 
 
 class SimulatorSelectionTests(unittest.TestCase):
+    def test_timeouts_record_exact_phase_and_cannot_pass(self):
+        import subprocess
+        from types import SimpleNamespace
+        device=dict(name='iPhone Test',udid='phone',state='Shutdown')
+        for step,expected in ((0,'boot timeout'),(1,'boot readiness timeout'),(2,'compile and test timeout')):
+            with tempfile.TemporaryDirectory() as folder:
+                evidence=Path(folder);calls=[]
+                def execute(argv,**kwargs):
+                    calls.append((argv,kwargs))
+                    if len(calls)-1==step:raise subprocess.TimeoutExpired(argv,kwargs['timeout'])
+                    return SimpleNamespace(returncode=0)
+                with patch.object(runner.subprocess,'run',side_effect=execute):
+                    result=runner.run_device(device,'x86_64',evidence)
+                self.assertEqual(result['exit_code'],124)
+                self.assertEqual(result['phase'],expected)
+                self.assertEqual(json.loads((evidence/'iphone-phase.json').read_text())['phase'],expected)
+                self.assertTrue(all(c[1]['timeout']>0 for c in calls))
+
+    def test_success_without_xcresult_is_failure(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as folder,patch.object(runner.subprocess,'run',return_value=SimpleNamespace(returncode=0)):
+            result=runner.run_device(dict(name='iPad Test',udid='tablet'),'arm64',Path(folder))
+            self.assertEqual(result['exit_code'],1)
+            self.assertEqual(result['phase'],'missing xcresult')
+
     def test_phone_failure_still_runs_tablet_and_remains_failure(self):
         inventory={'devices':{'iOS':[
             {'name':'iPhone Test','udid':'phone','isAvailable':True},

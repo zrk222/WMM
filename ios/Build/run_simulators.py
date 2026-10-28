@@ -1,8 +1,45 @@
 """Codemagic native simulator runner; selects only actual available device IDs."""
 from pathlib import Path
 import json,platform,subprocess,sys
+from datetime import datetime,timezone
 
 IOS=Path(__file__).resolve().parents[1]
+BOOT_TIMEOUT=300
+TEST_TIMEOUT=1200
+
+
+def phase(evidence,family,name):
+    value=dict(family=family,phase=name,observed_at=datetime.now(timezone.utc).isoformat())
+    (evidence/f'{family}-phase.json').write_text(json.dumps(value,indent=2),encoding='utf-8')
+    print('WMM_NATIVE_PHASE '+json.dumps(value),flush=True)
+
+
+def run_device(device,architecture,evidence):
+    family='iphone' if device['name'].startswith('iPhone') else 'ipad'
+    result=evidence/f'{family}.xcresult'
+    if result.exists():raise SystemExit(f'Existing {result.name} retained; use a fresh build workspace')
+    argv=['xcodebuild','test','-project',str(IOS/'WMM.xcodeproj'),'-scheme','WMM',
+          '-destination',f'platform=iOS Simulator,id={device["udid"]}',
+          '-derivedDataPath',str(IOS/'DerivedData'),'-resultBundlePath',str(result),
+          'CODE_SIGNING_ALLOWED=YES','CODE_SIGN_IDENTITY=-','CODE_SIGNING_REQUIRED=YES','ONLY_ACTIVE_ARCH=YES',f'ARCHS={architecture}']
+    state='boot';code=0
+    try:
+        phase(evidence,family,state)
+        subprocess.run(['xcrun','simctl','boot',device['udid']],check=device.get('state')!='Booted',timeout=BOOT_TIMEOUT)
+        state='boot readiness';phase(evidence,family,state)
+        subprocess.run(['xcrun','simctl','bootstatus',device['udid'],'-b'],check=True,timeout=BOOT_TIMEOUT)
+        state='compile and test';phase(evidence,family,state)
+        completed=subprocess.run(argv,timeout=TEST_TIMEOUT)
+        code=completed.returncode
+        state='completed' if code==0 else 'test failed'
+        if not result.is_dir():code=code or 1;state='missing xcresult'
+    except subprocess.TimeoutExpired:
+        code=124;state+=' timeout'
+    except subprocess.CalledProcessError as error:
+        code=error.returncode or 1;state+=' failed'
+    phase(evidence,family,state)
+    return dict(family=family,device=device,command=argv,exit_code=code,phase=state,
+                xcresult_exists=result.is_dir(),physical_device_acceptance='NOT_RUN')
 
 def simulator_architecture(machine):
     # CPython's pinned install helper selects lib-$ARCHS, one architecture only.
@@ -30,20 +67,8 @@ def main():
     (evidence/'selected-simulators.json').write_text(json.dumps(devices,indent=2),encoding='utf-8')
     outcomes=[]
     for device in devices:
-        family='iphone' if device['name'].startswith('iPhone') else 'ipad'
-        result=evidence/f'{family}.xcresult'
-        if result.exists():raise SystemExit(f'Existing {result.name} retained; use a fresh build workspace')
-        subprocess.run(['xcrun','simctl','boot',device['udid']],check=device.get('state')!='Booted')
-        subprocess.run(['xcrun','simctl','bootstatus',device['udid'],'-b'],check=True)
-        argv=['xcodebuild','test','-project',str(IOS/'WMM.xcodeproj'),'-scheme','WMM',
-              '-destination',f'platform=iOS Simulator,id={device["udid"]}',
-              '-derivedDataPath',str(IOS/'DerivedData'),'-resultBundlePath',str(result),
-              'CODE_SIGNING_ALLOWED=YES','CODE_SIGN_IDENTITY=-','CODE_SIGNING_REQUIRED=YES','ONLY_ACTIVE_ARCH=YES',f'ARCHS={architecture}']
-        completed=subprocess.run(argv)
-        outcomes.append(dict(family=family,device=device,command=argv,exit_code=completed.returncode,
-                             xcresult_exists=result.is_dir(),physical_device_acceptance='NOT_RUN'))
+        outcomes.append(run_device(device,architecture,evidence))
         (evidence/'simulator-outcomes.json').write_text(json.dumps(outcomes,indent=2),encoding='utf-8')
-        if not result.is_dir():raise SystemExit('xcodebuild produced no xcresult; acceptance incomplete')
     # A phone assertion failure must remain a failure without hiding tablet
     # evidence. Collect both actual inventories and retain each exit code.
     failed=next((item['exit_code'] for item in outcomes if item['exit_code']),0)
