@@ -30,6 +30,9 @@ typedef NSDictionary<NSString *, id> * _Nullable (^WMMNativeIdentityVerifier)(NS
                          action:(NSString *)action request:(NSData *)request error:(NSError **)error
     NS_SWIFT_NAME(production(handle:session:appID:action:request:));
 + (void)close:(NSString *)handle;
++ (nullable NSData *)jobs:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                    action:(NSString *)action request:(NSData *)request error:(NSError **)error
+    NS_SWIFT_NAME(jobs(handle:session:appID:action:request:));
 + (nullable NSData *)agentAccess:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
                           action:(NSString *)action request:(NSData *)request error:(NSError **)error
     NS_SWIFT_NAME(agentAccess(handle:session:appID:action:request:));

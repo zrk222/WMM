@@ -9,6 +9,7 @@ struct WorkflowNavigation: View {
     @State private var showingMedia = false
     @State private var editor: NativeEditorModel?
     @State private var agents: NativeAgentAccessModel?
+    @State private var scheduler: LocalScheduler?
 
     var body: some View {
         NavigationStack {
@@ -73,6 +74,8 @@ struct WorkflowNavigation: View {
                                 .disabled(model.busy)
                             Button("Your agents", systemImage: "person.crop.circle.badge.checkmark") { agents = model.makeAgentAccess() }
                                 .disabled(model.busy)
+                            Button("Work and recovery", systemImage: "clock.arrow.circlepath") { scheduler = model.makeScheduler() }
+                                .disabled(model.busy)
                             Button("Results & reports", systemImage: "chart.bar.doc.horizontal") {
                                 showingResults = true
                                 Task { await model.loadReport() }
@@ -94,16 +97,17 @@ struct WorkflowNavigation: View {
             .sheet(isPresented: $showingMedia) { NativeMediaLibrary(model: model) }
             .sheet(item: $editor) { NativeEditorView(model: $0) }
             .sheet(item: $agents) { NativeAgentAccessView(model: $0) }
+            .sheet(item: $scheduler) { NativeJobsView(model: $0) }
         }
         .privacySensitive()
         .overlay { if scenePhase != .active { Color(uiColor: .systemBackground).ignoresSafeArea() } }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background { agents = nil; editor = nil; showingCreate = false; showingResults = false; showingMedia = false; model.lock() }
+            if phase == .background { scheduler = nil; agents = nil; editor = nil; showingCreate = false; showingResults = false; showingMedia = false; model.lock() }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataWillBecomeUnavailableNotification)) { _ in
-            agents = nil; editor = nil; showingCreate = false; showingResults = false; showingMedia = false; model.lock()
+            scheduler = nil; agents = nil; editor = nil; showingCreate = false; showingResults = false; showingMedia = false; model.lock()
         }
-        .onChange(of: model.unlocked) { _, value in if !value { agents = nil; editor = nil } }
+        .onChange(of: model.unlocked) { _, value in if !value { scheduler = nil; agents = nil; editor = nil } }
     }
 }
 

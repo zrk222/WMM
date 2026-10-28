@@ -57,6 +57,10 @@ class Runtime:
     def owner_call(self, session, payload):
         return self.owner.call(session, payload)
 
+    def native_jobs(self, session, app_id, action, payload):
+        from .ios_jobs import NativeJobs
+        return NativeJobs(self.service, self.identities).call(session, app_id, action, payload)
+
     def native_agent_access(self, session, app_id, action, payload):
         from .ios_agent_access import NativeAgentAccess
         return NativeAgentAccess(self.service, self.identities).manage(session, app_id, action, payload)
