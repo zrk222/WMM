@@ -94,7 +94,7 @@ def check_ci_contract(root):
     if not any(step.get('run')=='python tools/check_platform_receipts.py --ci-contract' for step in contract.get('steps',[])):
         errors.append('Missing contract validation job')
     native=jobs.get('native-simulators',{})
-    if native.get('runs-on')!='macos-15' or native.get('needs')!='contract':errors.append('Native profile needs its declared Apple host and contract gate')
+    if native.get('runs-on')!='macos-15-intel' or native.get('needs')!='contract':errors.append('Native profile needs its declared Apple host and contract gate')
     if native.get('if')!="github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'":errors.append('Native profile must run on reviewed pull requests and explicit dispatch')
     if type(native.get('timeout-minutes')) is not int or not 1<=native['timeout-minutes']<=120:errors.append('Native build needs a bounded timeout')
     runs=[step.get('run','') for step in native.get('steps',[])]

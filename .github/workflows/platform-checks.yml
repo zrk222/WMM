@@ -18,7 +18,7 @@
     "native-simulators": {
       "if": "github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'",
       "needs": "contract",
-      "runs-on": "macos-15",
+      "runs-on": "macos-15-intel",
       "timeout-minutes": 120,
       "steps": [
         {"uses": "actions/checkout@11d5960a326750d5838078e36cf38b85af677262"},
