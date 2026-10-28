@@ -126,7 +126,7 @@ actor TimelineRenderer {
         let filterContext = CIContext()
         #endif
         stage = "create video composition"
-        let videoComposition = AVMutableVideoComposition(asset: composition, applyingCIFiltersWithHandler: { request in
+        let videoComposition = try await AVMutableVideoComposition.videoComposition(with: composition, applyingCIFiltersWithHandler: { request in
             let frame = Int((CMTimeGetSeconds(request.compositionTime) * 24).rounded(.down))
             guard let clip = plan.clips.first(where: { frame >= $0.output_start_frame && frame < $0.output_start_frame + $0.output_frame_count }) else {
                 request.finish(with: NSError(domain: "WMM.Render", code: 1)); return
@@ -179,6 +179,13 @@ actor TimelineRenderer {
         return destination
         } catch is CancellationError {
             throw Failure.cancelledAt(stage: stage, taskCancelled: Task.isCancelled)
+        } catch {
+            let failure = error as NSError
+            // Preserve the failing operation without exposing media paths or
+            // provider data in diagnostic output. Foundation cancellation need
+            // not bridge to Swift's CancellationError type.
+            print("WMM_RENDER_FAILURE stage=\(stage); domain=\(failure.domain); code=\(failure.code)")
+            throw error
         }
     }
 
