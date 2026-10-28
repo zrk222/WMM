@@ -5,6 +5,16 @@ import PDFKit
 
 final class ProviderIntakeTests: XCTestCase {
     @MainActor
+    func testSavedJourneyDecodesOptionalObservationFieldsWithoutInventingPass() throws {
+        let minimal = Data("{\"id\":\"core_value\",\"status\":\"NOT_RUN\"}".utf8)
+        let row = try JSONDecoder().decode(NativeEvidenceModel.Journey.self, from: minimal)
+        XCTAssertEqual(row.status, "NOT_RUN")
+        XCTAssertTrue(row.evidence.isEmpty)
+        XCTAssertTrue(row.reason.isEmpty)
+        let roundTrip = try JSONDecoder().decode(NativeEvidenceModel.Journey.self, from: JSONEncoder().encode(row))
+        XCTAssertEqual(row, roundTrip)
+    }
+    @MainActor
     func testInferencePreviewAndUncertainRequestRecoveryDoNotAutomaticallyResend() async throws {
         var actions: [String] = []
         let requestID = UUID().uuidString.lowercased()

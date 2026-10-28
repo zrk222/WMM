@@ -69,6 +69,7 @@ class Runtime:
     def evidence_form(self,session,app_id):
         """Expose shared evidence fields without connection records or credentials."""
         from .catalog import FIELDS,LABELS
+        from .journey_readiness import JOURNEYS,REQUIRED,STATUSES
         from .operation_authority import bound_owner,protected
         user=self.identities.fresh(session)
         envelope=dict(app_id=app_id,operation='native.evidence.form',input={})
@@ -78,7 +79,8 @@ class Runtime:
                 records=[r for r in self.service.store.records(app_id) if r['kind']!='connection']
                 return encode_response(dict(app_id=app_id,manifest_version=app['version'],
                     fields={k:v for k,v in FIELDS.items() if k!='connection'},
-                    labels={k:v for k,v in LABELS.items() if k!='connection'},records=records))
+                    labels={k:v for k,v in LABELS.items() if k!='connection'},records=records,
+                    readiness=dict(journeys=list(JOURNEYS),required=sorted(REQUIRED),statuses=sorted(STATUSES))))
 
     def native_jobs(self, session, app_id, action, payload):
         from .ios_jobs import NativeJobs

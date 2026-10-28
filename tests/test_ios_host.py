@@ -84,6 +84,9 @@ class NativeRuntimeTests(unittest.TestCase):
         form=json.loads(self.runtime.evidence_form(self.session,'new-app'))
         self.assertEqual(form['fields']['measurement'],FIELDS['measurement'])
         self.assertNotIn('connection',form['fields'])
+        from mission_control.journey_readiness import JOURNEYS,REQUIRED
+        self.assertEqual(form['readiness']['journeys'],list(JOURNEYS))
+        self.assertEqual(set(form['readiness']['required']),REQUIRED)
         body=dict(id='measurement-proof',manifest_version=form['manifest_version'],kind='measurement',
                   title='Synthetic observation',source='Synthetic test receipt',data=dict(release='build-1',result='PASS',
                   attribution_method='synthetic method',consent_review=True,refund_reconciliation=True))

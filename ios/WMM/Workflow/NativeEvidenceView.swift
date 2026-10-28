@@ -3,6 +3,28 @@ import SwiftUI
 
 @MainActor
 final class NativeEvidenceModel: ObservableObject, Identifiable {
+    struct Readiness: Decodable {
+        let journeys: [String]; let required: [String]; let statuses: [String]
+    }
+    struct Journey: Codable, Identifiable, Equatable {
+        let id: String
+        var status = "NOT_RUN"
+        var expected = ""
+        var observed = ""
+        var evidence = ""
+        var reason = ""
+        enum CodingKeys: String, CodingKey { case id, status, expected, observed, evidence, reason }
+        init(id: String) { self.id = id }
+        init(from decoder: Decoder) throws {
+            let row = try decoder.container(keyedBy: CodingKeys.self)
+            id = try row.decode(String.self, forKey: .id)
+            status = try row.decode(String.self, forKey: .status)
+            expected = try row.decodeIfPresent(String.self, forKey: .expected) ?? ""
+            observed = try row.decodeIfPresent(String.self, forKey: .observed) ?? ""
+            evidence = try row.decodeIfPresent(String.self, forKey: .evidence) ?? ""
+            reason = try row.decodeIfPresent(String.self, forKey: .reason) ?? ""
+        }
+    }
     struct Record: Identifiable {
         let id: String; let kind: String; let title: String; let source: String; let version: Int
         let data: [String: Any]
@@ -11,6 +33,7 @@ final class NativeEvidenceModel: ObservableObject, Identifiable {
     @Published private(set) var fields: [String: [String]] = [:]
     @Published private(set) var labels: [String: String] = [:]
     @Published private(set) var records: [Record] = []
+    @Published private(set) var readiness: Readiness?
     @Published private(set) var busy = false
     @Published private(set) var message: String?
     private var manifestVersion: Int?
@@ -33,6 +56,8 @@ final class NativeEvidenceModel: ObservableObject, Identifiable {
             parsed.append(Record(id: id, kind: kind, title: title, source: source, version: revision, data: data))
         }
         manifestVersion = version; fields = schema; self.labels = labels; records = parsed
+        guard let checklist = value["readiness"] else { throw DomainBridge.Failure.invalidRequest }
+        readiness = try JSONDecoder().decode(Readiness.self, from: JSONSerialization.data(withJSONObject: checklist))
     }
     func refresh() async {
         guard !busy else { return }; busy = true; message = nil; defer { busy = false }
@@ -71,17 +96,31 @@ struct NativeEvidenceView: View {
     @State private var extra = "{}"
     @State private var confirmed = false
     @State private var localMessage: String?
+    @State private var journeys: [NativeEvidenceModel.Journey] = []
+    @State private var candidateHash = ""
+    @State private var testedLocale = ""
     private let flags = Set(["authentic", "rights_cleared", "consent_review", "refund_reconciliation", "installed", "fresh_install", "signed_out", "restore_tested", "trial_eligibility_tested", "mature", "confirmed"])
     private let integers = Set(["p0_count", "eligible", "retained", "installs", "activated", "paid", "budget_minor", "daily_cap_minor", "price_minor", "amount_minor", "acquisition_cost_minor", "net_proceeds_minor", "delivery_cost_minor", "refunds_minor", "rating"])
 
     private func reset() {
         selected = nil; identity = UUID().uuidString.lowercased(); title = ""; source = ""
         values = [:]; extra = "{}"; confirmed = false; localMessage = nil
+        journeys = model.readiness?.journeys.map { .init(id: $0) } ?? []
+        candidateHash = ""; testedLocale = ""
     }
     private func edit(_ record: NativeEvidenceModel.Record) {
         kind = record.kind; selected = record; identity = record.id; title = record.title; source = record.source
         values = [:]
         var additional = record.data
+        candidateHash = additional["candidate_sha256"] as? String ?? ""
+        testedLocale = additional["locale"] as? String ?? ""
+        if let raw = additional["journeys"], let bytes = try? JSONSerialization.data(withJSONObject: raw),
+           let saved = try? JSONDecoder().decode([NativeEvidenceModel.Journey].self, from: bytes) {
+            journeys = saved
+        } else { journeys = model.readiness?.journeys.map { .init(id: $0) } ?? [] }
+        if kind == "readiness" {
+            for key in ["journeys", "journey_schema", "candidate_sha256", "locale"] { additional.removeValue(forKey: key) }
+        }
         for field in model.fields[kind] ?? [] {
             if let value = additional.removeValue(forKey: field) {
                 if flags.contains(field), let flag = value as? Bool { values[field] = flag ? "true" : "false" }
@@ -113,6 +152,12 @@ struct NativeEvidenceView: View {
                     data[field] = object
                 } else { data[field] = text }
             }
+            if kind == "readiness" {
+                data["journey_schema"] = 1
+                data["candidate_sha256"] = candidateHash
+                data["locale"] = testedLocale
+                data["journeys"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(journeys))
+            }
             if await model.save(identity: identity, revision: selected?.version, kind: kind, title: title,
                                 source: source, values: data, confirmed: confirmed) {
                 selected = model.records.first { $0.id == identity }; confirmed = false
@@ -133,7 +178,12 @@ struct NativeEvidenceView: View {
                     TextField("Evidence title", text: $title)
                     TextField("Source or receipt reference", text: $source, axis: .vertical)
                     ForEach(model.fields[kind] ?? [], id: \.self) { field in
-                        if flags.contains(field) {
+                        if kind == "readiness", field == "result" {
+                            Picker("Checklist summary", selection: Binding(get: { values[field] ?? "" }, set: { values[field] = $0 })) {
+                                Text("Choose").tag("")
+                                ForEach((model.readiness?.statuses ?? []).filter { $0 != "N/A" }, id: \.self) { status in Text(status).tag(status) }
+                            }
+                        } else if flags.contains(field) {
                             Picker(field.replacingOccurrences(of: "_", with: " "), selection: Binding(get: { values[field] ?? "" }, set: { values[field] = $0 })) {
                                 Text("Choose").tag(""); Text("Yes").tag("true"); Text("No").tag("false")
                             }
@@ -143,9 +193,27 @@ struct NativeEvidenceView: View {
                         }
                     }
                 }
+                if kind == "readiness", let checklist = model.readiness {
+                    Section("Core journey checklist") {
+                        Text("Record each test's expected behavior, what happened, and its receipt. NOT_RUN preserves missing evidence. The engine checks that your summary agrees with these observations.").font(.callout)
+                        TextField("Tested build SHA256", text: $candidateHash).textInputAutocapitalization(.never).autocorrectionDisabled()
+                        TextField("Tested locale", text: $testedLocale).textInputAutocapitalization(.never).autocorrectionDisabled()
+                        ForEach($journeys) { $journey in
+                            DisclosureGroup(journey.id.replacingOccurrences(of: "_", with: " ") + " · " + journey.status) {
+                                Picker("Observed status", selection: $journey.status) {
+                                    ForEach(checklist.statuses.filter { $0 != "N/A" || !checklist.required.contains(journey.id) }, id: \.self) { status in Text(status).tag(status) }
+                                }
+                                TextField("Expected behavior", text: $journey.expected, axis: .vertical)
+                                TextField("What you observed", text: $journey.observed, axis: .vertical)
+                                TextField("Evidence reference", text: $journey.evidence, axis: .vertical)
+                                if journey.status == "N/A" { TextField("Why this journey does not apply", text: $journey.reason, axis: .vertical) }
+                            }
+                        }
+                    }
+                }
                 Section("Structured supporting details") {
                     DisclosureGroup("Additional evidence fields") {
-                        Text("Use a JSON object for domain-specific fields such as the readiness journey matrix, candidate SHA256, tested locale or uploaded asset file_id. Required fields above take precedence; the shared engine validates the complete record.").font(.caption)
+                        Text("Use a JSON object for additional domain-specific fields such as an uploaded asset file_id. Guided fields above take precedence; the shared engine validates the complete record.").font(.caption)
                         TextEditor(text: $extra).frame(minHeight: 130).font(.system(.body, design: .monospaced))
                             .textInputAutocapitalization(.never).autocorrectionDisabled().accessibilityLabel("Additional evidence JSON object")
                     }
@@ -166,7 +234,9 @@ struct NativeEvidenceView: View {
             .overlay { if model.busy { ProgressView("Reading or saving app evidence...").padding().background(.regularMaterial) } }
             .onChange(of: kind) { _, _ in if selected == nil { values = [:]; extra = "{}" }; confirmed = false }
             .onChange(of: [title, source, extra] + values.keys.sorted().map { values[$0] ?? "" }) { _, _ in confirmed = false }
-            .task { await model.refresh() }
+            .onChange(of: journeys) { _, _ in confirmed = false }
+            .onChange(of: [candidateHash, testedLocale]) { _, _ in confirmed = false }
+            .task { await model.refresh(); journeys = model.readiness?.journeys.map { .init(id: $0) } ?? [] }
             .interactiveDismissDisabled(model.busy)
         }.privacySensitive()
     }
