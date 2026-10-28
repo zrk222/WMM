@@ -29,6 +29,7 @@ final class NativeWorkspaceModel: ObservableObject {
     @Published private(set) var activity = ""
     @Published private(set) var apps: [NativeWorkspace] = []
     @Published private(set) var snapshot: NativeWorkflowSnapshot?
+    @Published private(set) var report: AppReport?
     @Published private(set) var message: String?
     private var identity: LocalIdentity?
     private var bridge: DomainBridge?
@@ -86,7 +87,7 @@ final class NativeWorkspaceModel: ObservableObject {
     func lock() {
         generation = UUID(); authentication?.invalidate(); authentication = nil
         identity?.authority.revoke()
-        session = nil; apps = []; snapshot = nil; unlocked = false; busy = false; activity = ""; message = nil
+        session = nil; apps = []; snapshot = nil; report = nil; unlocked = false; busy = false; activity = ""; message = nil
         if let identity { Task { await identity.lock() } }
     }
 
@@ -113,7 +114,7 @@ final class NativeWorkspaceModel: ObservableObject {
 
     func open(_ app: NativeWorkspace) async {
         guard !busy, unlocked, let bridge, let session else { return }
-        busy = true; message = nil; snapshot = nil; activity = "Reading app evidence and evaluating twelve stages…"
+        busy = true; message = nil; snapshot = nil; report = nil; activity = "Reading app evidence and evaluating twelve stages…"
         let ticket = generation
         defer { if generation == ticket { busy = false; activity = "" } }
         do {
@@ -129,5 +130,22 @@ final class NativeWorkspaceModel: ObservableObject {
         }
     }
 
-    func clearSelection() { snapshot = nil }
+    func loadReport() async {
+        guard !busy, unlocked, let bridge, let session, let app = snapshot?.app else { return }
+        busy = true; message = nil; report = nil; activity = "Reading app-scoped analytics and report evidence…"
+        let ticket = generation
+        defer { if generation == ticket { busy = false; activity = "" } }
+        do {
+            let data = try await bridge.report(session: session, appID: app.id)
+            let value = try JSONDecoder().decode(AppReport.self, from: data)
+            try ReportExport.validate(value)
+            guard generation == ticket, snapshot?.app.id == app.id, value.appID == app.id else { return }
+            report = value
+        } catch {
+            guard generation == ticket else { return }
+            message = "The report could not be read. Unlock again if your session expired; saved observations remain available."
+        }
+    }
+
+    func clearSelection() { snapshot = nil; report = nil }
 }

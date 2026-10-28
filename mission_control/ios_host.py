@@ -110,3 +110,28 @@ class Runtime:
                 (user['principal'],))]
             self.identities.local(session, user['principal'], user['session_generation'])
         return encode_response({'apps': rows})
+
+    def report(self, session, app_id):
+        """Project one consistent app-owned read transaction with current authority."""
+        import json
+        from .common import now, iso_time
+        from .db import connection
+        from .ios_reports import projection
+        from .ledger import report
+        from .review_access import member, exact_role
+        from .store import decode
+        user = self.identities.fresh(session)
+        observed = now()
+        with connection(self.service.store.path) as db:
+            # Serialize the source snapshot and role check with local mutations.
+            db.execute('BEGIN IMMEDIATE')
+            role = member(db, app_id, user['principal'], 'OWNER')
+            app = decode(db.execute('SELECT * FROM apps WHERE id=?',(app_id,)).fetchone())
+            records = [decode(r) for r in db.execute('SELECT * FROM records WHERE app_id=? ORDER BY updated,id',(app_id,))]
+            cohorts = [json.loads(r['data']) for r in db.execute('SELECT data FROM growth_cohorts WHERE app_id=? ORDER BY id',(app_id,))]
+            events = [dict(cohort_id=r['cohort_id'],data=json.loads(r['data'])) for r in db.execute('SELECT cohort_id,data FROM growth_events WHERE app_id=? ORDER BY provider,external_id',(app_id,))]
+            reports = [report(c,[r['data'] for r in events if r['cohort_id']==c['cohort_id']],iso_time(observed)) for c in cohorts]
+            result = encode_response(projection(app,records,reports,observed))
+            self.identities.local(session,user['principal'],user['session_generation'])
+            exact_role(db,app_id,user['principal'],role['version'],'OWNER')
+        return result

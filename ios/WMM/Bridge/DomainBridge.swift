@@ -41,6 +41,11 @@ actor DomainBridge {
         handle = nil
     }
 
+    func report(session: LocalIdentity.Session, appID: String) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        return try EngineBootstrap.report(handle: handle, session: session.nonce.uuidString, appID: appID)
+    }
+
     deinit {
         if let handle { EngineBootstrap.close(handle) }
     }

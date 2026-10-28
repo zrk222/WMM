@@ -16,6 +16,7 @@ final class BridgeAgentTests: XCTestCase {
         try await identity.forgetPrincipal()
     }
 
+    @MainActor
     func testEmbeddedRuntimeUsesNativeIdentityAndClosesWithoutServer() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -50,6 +51,13 @@ final class BridgeAgentTests: XCTestCase {
         XCTAssertEqual(workspace.app.id, appID)
         XCTAssertEqual(workspace.stages.map(\.id), Array(1...12))
         XCTAssertTrue(workspace.stages.allSatisfy { ["READY", "BLOCKED"].contains($0.status) })
+        let reportData = try await bridge.report(session: session, appID: appID)
+        let report = try JSONDecoder().decode(AppReport.self, from: reportData)
+        XCTAssertEqual(report.appID, appID)
+        XCTAssertTrue(report.rows.contains { $0.observed == nil })
+        XCTAssertFalse(try ReportExport.json(report).isEmpty)
+        XCTAssertFalse(try ReportExport.csv(report).isEmpty)
+        XCTAssertTrue(try ReportExport.pdf(report).starts(with: Data("%PDF".utf8)))
         await identity.lock()
         do {
             _ = try await bridge.workspaces(session: session)

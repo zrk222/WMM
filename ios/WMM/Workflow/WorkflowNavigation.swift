@@ -5,6 +5,7 @@ struct WorkflowNavigation: View {
     @StateObject private var model = NativeWorkspaceModel()
     @Environment(\.scenePhase) private var scenePhase
     @State private var showingCreate = false
+    @State private var showingResults = false
 
     var body: some View {
         NavigationStack {
@@ -58,6 +59,14 @@ struct WorkflowNavigation: View {
                         if model.snapshot != nil { Button("Your apps") { model.clearSelection() } }
                     }
                     ToolbarItem(placement: .topBarTrailing) { Button("Lock", systemImage: "lock") { model.lock() } }
+                    ToolbarItem(placement: .bottomBar) {
+                        if model.snapshot != nil {
+                            Button("Results & reports", systemImage: "chart.bar.doc.horizontal") {
+                                showingResults = true
+                                Task { await model.loadReport() }
+                            }.disabled(model.busy)
+                        }
+                    }
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -68,14 +77,15 @@ struct WorkflowNavigation: View {
                 }.padding().frame(maxWidth: .infinity).background(.regularMaterial)
             }
             .sheet(isPresented: $showingCreate) { CreateWorkspaceView(model: model) }
+            .sheet(isPresented: $showingResults) { NativeResultsView(model: model) }
         }
         .privacySensitive()
         .overlay { if scenePhase != .active { Color(uiColor: .systemBackground).ignoresSafeArea() } }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background { showingCreate = false; model.lock() }
+            if phase == .background { showingCreate = false; showingResults = false; model.lock() }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataWillBecomeUnavailableNotification)) { _ in
-            showingCreate = false; model.lock()
+            showingCreate = false; showingResults = false; model.lock()
         }
     }
 }

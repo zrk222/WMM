@@ -15,6 +15,8 @@ typedef NSDictionary<NSString *, id> * _Nullable (^WMMNativeIdentityVerifier)(NS
                       error:(NSError **)error NS_SWIFT_NAME(enroll(handle:session:appID:));
 + (nullable NSData *)workspaces:(NSString *)handle session:(NSString *)session
                           error:(NSError **)error NS_SWIFT_NAME(workspaces(handle:session:));
++ (nullable NSData *)report:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                      error:(NSError **)error NS_SWIFT_NAME(report(handle:session:appID:));
 + (void)close:(NSString *)handle;
 @end
 NS_ASSUME_NONNULL_END

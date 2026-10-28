@@ -42,6 +42,7 @@ class NativeProjectGenerationTests(unittest.TestCase):
             self.assertIn('"WMM/Identity/NativeSessionAuthority.swift"',text)
             self.assertIn('"WMM/Workflow/WorkflowNavigation.swift"',text)
             self.assertIn('"WMM/Workflow/NativeWorkspaceModel.swift"',text)
+            self.assertIn('"WMM/Reports/NativeResultsView.swift"',text)
             self.assertIn('"INFOPLIST_KEY_NSFaceIDUsageDescription"',text)
             self.assertIn('"WMMTests/MediaConformanceTests.swift"',text)
             for target_id in target_ids:self.assertIn('"'+target_id+'"',text)

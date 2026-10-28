@@ -204,6 +204,18 @@ static NSData *WMMResultBytes(PyObject *value, NSError **error) {
     }
 }
 
++ (NSData *)report:(NSString *)handle session:(NSString *)session appID:(NSString *)appID error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        PyObject *value = runtime ? PyObject_CallMethod(runtime, "report", "ss", session.UTF8String, appID.UTF8String) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); PyGILState_Release(gil);
+        return result;
+    }
+}
+
 + (void)close:(NSString *)handle {
     @synchronized(self) {
         if (!Py_IsInitialized()) return;
