@@ -4,10 +4,61 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import copy
 
 path=Path(__file__).resolve().parents[1]/'tools/check_platform_receipts.py'
 spec=importlib.util.spec_from_file_location('platform_receipts',path)
 checker=importlib.util.module_from_spec(spec);spec.loader.exec_module(checker)
+
+
+class NativeCIContractTests(unittest.TestCase):
+    def setUp(self):
+        folder=tempfile.TemporaryDirectory();self.addCleanup(folder.cleanup)
+        self.root=Path(folder.name)
+        self.workflow=self.root/'.github/workflows/platform-checks.yml'
+        self.workflow.parent.mkdir(parents=True)
+        self.value=json.loads((checker.ROOT/'.github/workflows/platform-checks.yml').read_text())
+        (self.root/'ios/Build').mkdir(parents=True)
+        for script in ('build_runtime.py','generate_project.py','run_simulators.py'):
+            (self.root/'ios/Build'/script).write_text('# synthetic stage')
+
+    def check(self,value):
+        self.workflow.write_text(json.dumps(value))
+        return checker.check_ci_contract(self.root)
+
+    def test_declared_contract_is_not_runtime_acceptance(self):
+        result=self.check(self.value)
+        self.assertEqual(result['state'],'CI_CONTRACT_VALID')
+        self.assertFalse(result['certifies_runtime'])
+        self.assertEqual(result['native_execution'],'NOT_ESTABLISHED')
+        self.assertEqual(result['physical_acceptance'],'NOT_ESTABLISHED')
+
+    def test_deleted_stage_fails_and_missing_script_fails(self):
+        for stage in (2,3,4,5):
+            changed=copy.deepcopy(self.value)
+            del changed['jobs']['native-simulators']['steps'][stage]
+            with self.subTest(stage=stage):self.assertEqual(self.check(changed)['state'],'INCOMPLETE')
+        (self.root/'ios/Build/run_simulators.py').unlink()
+        self.assertEqual(self.check(self.value)['state'],'INCOMPLETE')
+
+    def test_wrong_host_unpinned_action_and_ignored_failure_fail(self):
+        for change in ('host','pin','ignore','dispatch','dependency'):
+            value=copy.deepcopy(self.value);job=value['jobs']['native-simulators']
+            if change=='host':job['runs-on']='ubuntu-24.04'
+            elif change=='pin':job['steps'][0]['uses']='actions/checkout@main'
+            elif change=='ignore':job['steps'][5]['continue-on-error']=True
+            elif change=='dependency':job.pop('needs')
+            else:value['on'].pop('workflow_dispatch')
+            with self.subTest(change=change):self.assertEqual(self.check(value)['state'],'INCOMPLETE')
+
+    def test_evidence_must_survive_failures_with_source_identity(self):
+        for change in ('upload','missing','app','source'):
+            value=copy.deepcopy(self.value);steps=value['jobs']['native-simulators']['steps']
+            if change=='upload':steps[-1]['if']='success()'
+            elif change=='missing':steps[-1]['with']['if-no-files-found']='ignore'
+            elif change=='app':steps[-1]['with']['path']='ios/build-evidence/**'
+            else:steps[2]['run']=steps[2]['run'].replace('git rev-parse HEAD','echo fixture')
+            with self.subTest(change=change):self.assertEqual(self.check(value)['state'],'INCOMPLETE')
 
 
 class NativeReceiptTests(unittest.TestCase):
@@ -15,6 +66,8 @@ class NativeReceiptTests(unittest.TestCase):
         temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
         self.root=Path(temporary.name);self.evidence=self.root/'evidence';self.evidence.mkdir()
         for directory in ('ios','mission_control','specs','plans','package','tools','tests'):(self.root/directory).mkdir()
+        (self.root/'.github/workflows').mkdir(parents=True)
+        (self.root/'.github/workflows/platform-checks.yml').write_text('{}')
         (self.root/'ios/App.swift').write_text('synthetic native source')
         (self.root/'mission_control/core.py').write_text('synthetic shared source')
         for p in ('codemagic.yaml','plans/ios-client.md','package/acquisition_analysis.py','tools/check_platform_receipts.py','tests/ios_acceptance.md'):(self.root/p).write_text('synthetic')

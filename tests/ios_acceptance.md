@@ -66,8 +66,15 @@ Required artifact categories per family are `xcresult_summary`, `signed_app`,
 Inspect original xcresult, signature verification, installation/device and workflow
 readbacks independently. Never rename an unrelated log to fill a category.
 
-The simulator workflow is currently declared in `codemagic.yaml`; Windows/Ubuntu
-shared regressions remain in `.github/workflows/checks.yml`. The planned
-`.github/workflows/platform-checks.yml`, native UI/device suite coverage and complete
-signed acceptance receipts remain separate required deliverables. This guide and
-receipt checker alone do not close T11–T14 or the full iOS goal.
+The simulator workflow is declared in `codemagic.yaml`; Windows/Ubuntu shared
+regressions remain in `.github/workflows/checks.yml`. The additional
+`.github/workflows/platform-checks.yml` checks configuration on affected pull
+requests and runs a macOS simulator profile on those requests or manual dispatch, using the same
+runtime builder, target generator and iPhone/iPad runner. Failed runs retain logs
+and xcresult artifacts. It introduces no signing credentials or publication.
+
+Run `python tools/check_platform_receipts.py --ci-contract` to check that wiring.
+`CI_CONTRACT_VALID` establishes configuration only. It does not establish that a
+native job ran, that media passed, or that physical devices were accepted. Native
+UI/device coverage and complete signed acceptance receipts remain required. This
+guide and checker alone do not close T11 through T14 or the full iOS goal.

@@ -25,7 +25,7 @@ def source_inventory(root):
             if any(part in {'.build','DerivedData','build-evidence','Python.xcframework','__pycache__'} for part in relative.parts):continue
             if path.is_file() and path.suffix.lower() in {'.py','.swift','.m','.h','.sh','.plist','.entitlements','.pbxproj','.xcscheme','.xctestplan','.lock'}:
                 paths.add(relative.as_posix())
-    paths.update(('codemagic.yaml','specs/ios-client.md','plans/ios-client.md','package/acquisition_analysis.py',
+    paths.update(('codemagic.yaml','.github/workflows/platform-checks.yml','specs/ios-client.md','plans/ios-client.md','package/acquisition_analysis.py',
                   'tools/check_platform_receipts.py','tests/ios_acceptance.md'))
     return [{'path':p,'sha256':sha(root/p)} for p in sorted(paths)]
 
@@ -82,12 +82,53 @@ def check(root,evidence):
                 limits='Hashes and declared coverage only. Inspect xcresult, signing, install/device, accessibility and workflow artifacts independently; this command does not authenticate observations or establish full product functionality.')
 
 
+def check_ci_contract(root):
+    """Inspect declared build wiring only; never assert an Apple run occurred."""
+    errors=[]
+    path=root/'.github/workflows/platform-checks.yml'
+    value=json.loads(path.read_text(encoding='utf-8'))
+    if value.get('permissions')!={'contents':'read'}:errors.append('Use read-only workflow permissions')
+    if 'workflow_dispatch' not in value.get('on',{}):errors.append('Native verification needs an explicit dispatch entry')
+    jobs=value.get('jobs',{})
+    contract=jobs.get('contract',{})
+    if not any(step.get('run')=='python tools/check_platform_receipts.py --ci-contract' for step in contract.get('steps',[])):
+        errors.append('Missing contract validation job')
+    native=jobs.get('native-simulators',{})
+    if native.get('runs-on')!='macos-15' or native.get('needs')!='contract':errors.append('Native profile needs its declared Apple host and contract gate')
+    if native.get('if')!="github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'":errors.append('Native profile must run on reviewed pull requests and explicit dispatch')
+    if type(native.get('timeout-minutes')) is not int or not 1<=native['timeout-minutes']<=120:errors.append('Native build needs a bounded timeout')
+    runs=[step.get('run','') for step in native.get('steps',[])]
+    combined='\n'.join(runs)
+    for script in ('build_runtime.py','generate_project.py','run_simulators.py'):
+        if not (root/'ios/Build'/script).is_file() or not any('python3 ios/Build/'+script in run and run.startswith('set -euo pipefail\n') for run in runs):
+            errors.append('Missing fail-closed native stage: '+script)
+    for identity in ('git rev-parse HEAD','xcodebuild -version','xcrun simctl list devices available -j'):
+        if identity not in combined:errors.append('Missing actual build identity: '+identity)
+    uploads=[step for step in native.get('steps',[]) if step.get('uses','').startswith('actions/upload-artifact@')]
+    if len(uploads)!=1:errors.append('Exactly one native evidence upload is required')
+    else:
+        upload=uploads[0];config=upload.get('with',{})
+        if upload.get('if')!='always()' or config.get('if-no-files-found')!='error':errors.append('Retain failed runs and reject absent artifacts')
+        for artifact in ('ios/build-evidence/**','ios/DerivedData/Logs/Test/**','ios/DerivedData/Build/Products/Debug-iphonesimulator/WMM.app'):
+            if artifact not in config.get('path','').splitlines():errors.append('Missing native artifact: '+artifact)
+    for job in jobs.values():
+        if job.get('continue-on-error'):errors.append('Native gate failures must not be ignored')
+        for step in job.get('steps',[]):
+            if step.get('continue-on-error'):errors.append('Native gate failures must not be ignored')
+            if 'uses' in step and not re.fullmatch(r'actions/[a-z-]+@[0-9a-f]{40}',step['uses']):errors.append('Actions must use exact commit pins')
+    return dict(state='INCOMPLETE' if errors else 'CI_CONTRACT_VALID',errors=errors,
+                certifies_runtime=False,native_execution='NOT_ESTABLISHED',physical_acceptance='NOT_ESTABLISHED',
+                limits='Configuration inspection only. A manual Apple-host execution and physical iPhone/iPad acceptance remain separate requirements.')
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--profile',choices=['ios'],required=True)
+    mode=parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument('--profile',choices=['ios'])
+    mode.add_argument('--ci-contract',action='store_true')
     parser.add_argument('--evidence',type=Path,default=ROOT/'.factory/ios-acceptance')
     args=parser.parse_args()
-    try:result=check(ROOT,args.evidence)
+    try:result=check_ci_contract(ROOT) if args.ci_contract else check(ROOT,args.evidence)
     except (OSError,ValueError,TypeError,KeyError,AttributeError):
         result=dict(state='INCOMPLETE',errors=['Unreadable or malformed receipt/source evidence'],certifies_runtime=False)
     print(json.dumps(result,indent=2))
