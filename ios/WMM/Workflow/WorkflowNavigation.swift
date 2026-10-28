@@ -176,6 +176,7 @@ private struct CreateWorkspaceView: View {
                 }
                 if let message = model.message { Section { Text(message) } }
             }
+            .disabled(model.busy)
             .navigationTitle(editing == nil ? "Add your app" : "Edit app facts")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(model.busy) }
