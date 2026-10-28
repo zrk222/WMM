@@ -2,8 +2,11 @@
 from .operation_catalog import request_data
 
 
-def execute(service,envelope):
+def execute(service,envelope,*,caller='SCOPED_AGENT'):
     """An authenticated gateway admits first; this internal dispatcher adds no authority."""
+    from .common import Invalid
+    if caller not in ('LOCAL_SESSION','SCOPED_AGENT'):
+        raise Invalid('Unknown operation caller')
     from .agent_operations import discovery
     from .customer_workflow_store import CustomerWorkflows
     from .experiments import Experiments
@@ -45,14 +48,14 @@ def execute(service,envelope):
         'funnel.import':lambda:Funnels(store).ingest(app,dict(body,funnel_id=resource)),
         'funnel.report':lambda:Funnels(store).report(app,resource),
         'media.sources':lambda:Media(store).sources(app),
-        'editor.list':lambda:Projects(store,'SCOPED_AGENT').list(app),
+        'editor.list':lambda:Projects(store,caller).list(app),
         'editor.renders':lambda:EditRenders(store).list(app),
         'editor.queue':lambda:EditRenders(store).queue(app,body),
-        'editor.read':lambda:Projects(store,'SCOPED_AGENT').read(app,resource),
-        'editor.save':lambda:Projects(store,'SCOPED_AGENT').save(app,body),
-        'editor.edit':lambda:Projects(store,'SCOPED_AGENT').edit(app,resource,body),
-        'editor.history':lambda:Projects(store,'SCOPED_AGENT').history(app,resource,body),
-        'editor.diff':lambda:Projects(store,'SCOPED_AGENT').diff(app,resource,body),
+        'editor.read':lambda:Projects(store,caller).read(app,resource),
+        'editor.save':lambda:Projects(store,caller).save(app,body),
+        'editor.edit':lambda:Projects(store,caller).edit(app,resource,body),
+        'editor.history':lambda:Projects(store,caller).history(app,resource,body),
+        'editor.diff':lambda:Projects(store,caller).diff(app,resource,body),
         'job.cancel':lambda:service.cancel(app,resource),
         'operations.read':lambda:discovery(store.app(app)),
         'growth.read':lambda:service.subscription_review(app),
