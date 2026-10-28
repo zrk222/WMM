@@ -3,6 +3,41 @@ import XCTest
 
 final class BridgeAgentTests: XCTestCase {
     @MainActor
+    func testNativeProviderSetupUsesSharedRecordsAndProtectedKeychainWithoutNetworking() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let databaseID = UUID()
+        let store = try LocalStore(applicationSupport: folder, databaseID: databaseID)
+        let identity = LocalIdentity(vault: KeychainVault(databaseID: databaseID, appID: UUID()))
+        let session = try await identity.begin()
+        let bridge = try DomainBridge(store: store, identity: identity)
+        let appID = "provider-" + UUID().uuidString.lowercased()
+        let setup = try JSONSerialization.data(withJSONObject: ["app_id": appID, "confirm_owner": true,
+            "manifest": ["name": "Synthetic provider app", "release": "build-1", "locale": "en-US", "currency": "USD"]] as [String: Any])
+        _ = try await bridge.createWorkspace(session: session, request: setup)
+        let model = NativeProviderModel(execute: { action, request in
+            try await bridge.providers(session: session, appID: appID, action: action, request: request)
+        })
+        let saved = await model.save(provider: "openai_api", label: "Synthetic protected API",
+            model: "synthetic-model", endpoint: "", key: "synthetic-private-key-0123456789",
+            allowCharges: true, confirmed: true)
+        XCTAssertTrue(saved)
+        let profile = try XCTUnwrap(model.listing?.profiles.first)
+        XCTAssertTrue(profile.data.protected_key)
+        XCTAssertEqual(model.listing?.native_inference, "NOT_RUN")
+        let bytes = try await bridge.providers(session: session, appID: appID, action: "view", request: Data("{}".utf8))
+        XCTAssertFalse(String(decoding: bytes, as: UTF8.self).contains("synthetic-private-key"))
+        await model.disconnect(profile)
+        XCTAssertEqual(model.listing?.profiles.first?.status, "DISCONNECTED")
+        XCTAssertEqual(model.listing?.cleanup_pending, 0)
+        await identity.lock()
+        await model.refresh()
+        XCTAssertNotNil(model.message)
+        await bridge.close()
+        try await identity.forgetPrincipal()
+    }
+
+    @MainActor
     func testNativeScopedAgentRetainsCredentialAndRespectsRevocationAndLock() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }

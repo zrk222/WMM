@@ -26,7 +26,7 @@ actor KeychainVault {
                 kSecAttrSynchronizable as String: false]
     }
 
-    func save(_ value: Data, reference: String) throws {
+    nonisolated func save(_ value: Data, reference: String) throws {
         guard !value.isEmpty, value.count <= 65536 else { throw Failure.invalidResult }
         let match = try query(reference)
         let attributes: [String: Any] = [
@@ -54,7 +54,7 @@ actor KeychainVault {
         return data
     }
 
-    func delete(reference: String) throws {
+    nonisolated func delete(reference: String) throws {
         let status = SecItemDelete(try query(reference) as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else { throw Failure.status(status) }
         guard try read(reference: reference) == nil else { throw Failure.invalidResult }

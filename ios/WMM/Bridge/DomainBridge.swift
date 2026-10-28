@@ -9,9 +9,10 @@ actor DomainBridge {
     init(store: LocalStore, identity: LocalIdentity) throws {
         storeRoot = store.root.standardizedFileURL.resolvingSymlinksInPath()
         let authority = identity.authority
+        let providerStorage = try ProviderAuthentication(database: store.database)
         handle = try EngineBootstrap.open(database: store.database, verifier: { nonce in
             authority.verify(nonce)
-        })
+        }, vault: { request in providerStorage.invoke(request) })
     }
 
     func workspaces(session: LocalIdentity.Session) throws -> Data {
@@ -158,6 +159,15 @@ actor DomainBridge {
             throw Failure.invalidRequest
         }
         return try EngineBootstrap.jobs(handle: handle, session: session.nonce.uuidString,
+            appID: appID, action: action, request: request)
+    }
+
+    func providers(session: LocalIdentity.Session, appID: String, action: String, request: Data) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        guard ["view", "save", "disconnect", "cleanup"].contains(action), !request.isEmpty, request.count <= 1_048_576 else {
+            throw Failure.invalidRequest
+        }
+        return try EngineBootstrap.providers(handle: handle, session: session.nonce.uuidString,
             appID: appID, action: action, request: request)
     }
 

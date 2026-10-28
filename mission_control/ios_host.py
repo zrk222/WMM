@@ -47,15 +47,20 @@ class NativeIdentities:
 
 class Runtime:
     """One app-container database with fixed owner entry points and scoped agents."""
-    def __init__(self, database_path, verifier):
+    def __init__(self, database_path, verifier, vault_callback=None):
         from .service import Service
         from .store import Store
         self.identities = NativeIdentities(verifier)
         self.service = Service(Store(database_path, seed=False))
         self.owner = OwnerAdapter(self.service, self.identities)
+        self.vault_callback = vault_callback
 
     def owner_call(self, session, payload):
         return self.owner.call(session, payload)
+
+    def native_providers(self,session,app_id,action,payload):
+        from .ios_provider_access import NativeProviderAccess
+        return NativeProviderAccess(self.service,self.identities,self.vault_callback).call(session,app_id,action,payload)
 
     def native_jobs(self, session, app_id, action, payload):
         from .ios_jobs import NativeJobs

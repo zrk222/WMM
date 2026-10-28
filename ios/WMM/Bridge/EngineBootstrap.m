@@ -35,6 +35,27 @@ static PyObject *WMMVerifyIdentity(PyObject *capsule, PyObject *argument) {
     return result;
 }
 
+static void WMMVaultDestroy(PyObject *capsule) {
+    void *retained = PyCapsule_GetPointer(capsule, "wmm.native.vault");
+    if (retained) CFRelease(retained);
+}
+static PyObject *WMMVaultInvoke(PyObject *capsule, PyObject *argument) {
+    if (!PyBytes_Check(argument) || PyBytes_Size(argument) < 1 || PyBytes_Size(argument) > 8192) {
+        PyErr_SetString(PyExc_ValueError, "Invalid protected storage request"); return NULL;
+    }
+    void *retained = PyCapsule_GetPointer(capsule, "wmm.native.vault");
+    if (!retained) return NULL;
+    WMMNativeVaultCallback callback = (__bridge WMMNativeVaultCallback)retained;
+    NSData *request = [NSData dataWithBytes:PyBytes_AsString(argument) length:(NSUInteger)PyBytes_Size(argument)];
+    NSData *result = callback(request);
+    if (!result || result.length > 8192) {
+        PyErr_SetString(PyExc_ValueError, "Protected storage unavailable"); return NULL;
+    }
+    return PyBytes_FromStringAndSize(result.bytes, (Py_ssize_t)result.length);
+}
+static PyMethodDef WMMVaultMethod = {"native_protected_storage", WMMVaultInvoke, METH_O,
+    "Trusted native protected storage callback"};
+
 static PyMethodDef WMMVerifierMethod = {"verify_native_identity", WMMVerifyIdentity, METH_O,
                                       "Recheck the native session and protected principal."};
 
@@ -124,9 +145,9 @@ static NSData *WMMResultBytes(PyObject *value, NSError **error) {
     }
 }
 
-+ (NSString *)openDatabase:(NSURL *)database verifier:(WMMNativeIdentityVerifier)verifier error:(NSError **)error {
++ (NSString *)openDatabase:(NSURL *)database verifier:(WMMNativeIdentityVerifier)verifier vault:(WMMNativeVaultCallback)vault error:(NSError **)error {
     @synchronized(self) {
-        if (!database.isFileURL || !database.path.isAbsolutePath || !verifier || ![self inventoryWithError:error])
+        if (!database.isFileURL || !database.path.isAbsolutePath || !verifier || !vault || ![self inventoryWithError:error])
             return nil;
         PyGILState_STATE gil = PyGILState_Ensure();
         void *retained = CFBridgingRetain([verifier copy]);
@@ -135,7 +156,12 @@ static NSData *WMMResultBytes(PyObject *value, NSError **error) {
         PyObject *callback = capsule ? PyCFunction_New(&WMMVerifierMethod, capsule) : NULL;
         PyObject *module = callback ? PyImport_ImportModule("mission_control.ios_host") : NULL;
         PyObject *type = module ? PyObject_GetAttrString(module, "Runtime") : NULL;
-        PyObject *runtime = type ? PyObject_CallFunction(type, "sO", database.path.UTF8String, callback) : NULL;
+        void *vaultRetained = CFBridgingRetain([vault copy]);
+        PyObject *vaultCapsule = PyCapsule_New(vaultRetained, "wmm.native.vault", WMMVaultDestroy);
+        if (!vaultCapsule) CFRelease(vaultRetained);
+        PyObject *vaultCallback = vaultCapsule ? PyCFunction_New(&WMMVaultMethod, vaultCapsule) : NULL;
+        PyObject *runtime = type && vaultCallback ? PyObject_CallFunction(type, "sOO", database.path.UTF8String, callback, vaultCallback) : NULL;
+        Py_XDECREF(vaultCallback); Py_XDECREF(vaultCapsule);
         if (!WMMRuntimes) WMMRuntimes = PyDict_New();
         NSString *handle = NSUUID.UUID.UUIDString;
         if (!runtime || !WMMRuntimes || PyDict_SetItemString(WMMRuntimes, handle.UTF8String, runtime) != 0) {
@@ -309,6 +335,23 @@ static NSData *WMMResultBytes(PyObject *value, NSError **error) {
         PyObject *body = known && request.length > 0 && request.length <= 1048576
             ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
         PyObject *value = runtime && body ? PyObject_CallMethod(runtime, "native_jobs", "sssO",
+            session.UTF8String, appID.UTF8String, action.UTF8String, body) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); Py_XDECREF(body); PyGILState_Release(gil);
+        return result;
+    }
+}
+
++ (NSData *)providers:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                action:(NSString *)action request:(NSData *)request error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        BOOL known = [@[@"view", @"save", @"disconnect", @"cleanup"] containsObject:action];
+        PyObject *body = known && request.length > 0 && request.length <= 1048576
+            ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
+        PyObject *value = runtime && body ? PyObject_CallMethod(runtime, "native_providers", "sssO",
             session.UTF8String, appID.UTF8String, action.UTF8String, body) : NULL;
         NSData *result = WMMResultBytes(value, error);
         Py_XDECREF(value); Py_XDECREF(body); PyGILState_Release(gil);

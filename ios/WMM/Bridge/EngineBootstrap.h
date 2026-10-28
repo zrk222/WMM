@@ -2,11 +2,12 @@
 
 NS_ASSUME_NONNULL_BEGIN
 typedef NSDictionary<NSString *, id> * _Nullable (^WMMNativeIdentityVerifier)(NSString *session);
+typedef NSData * _Nullable (^WMMNativeVaultCallback)(NSData *request);
 /// Loads only bundled Python. No REPL, arbitrary script or remote code interface.
 @interface EngineBootstrap : NSObject
 + (nullable NSData *)inventoryWithError:(NSError **)error NS_SWIFT_NAME(inventory());
-+ (nullable NSString *)openDatabase:(NSURL *)database verifier:(WMMNativeIdentityVerifier)verifier
-                              error:(NSError **)error NS_SWIFT_NAME(open(database:verifier:));
++ (nullable NSString *)openDatabase:(NSURL *)database verifier:(WMMNativeIdentityVerifier)verifier vault:(WMMNativeVaultCallback)vault
+                              error:(NSError **)error NS_SWIFT_NAME(open(database:verifier:vault:));
 + (nullable NSData *)ownerCall:(NSString *)handle session:(NSString *)session request:(NSData *)request
                          error:(NSError **)error NS_SWIFT_NAME(ownerCall(handle:session:request:));
 + (nullable NSData *)createWorkspace:(NSString *)handle session:(NSString *)session request:(NSData *)request
@@ -30,6 +31,9 @@ typedef NSDictionary<NSString *, id> * _Nullable (^WMMNativeIdentityVerifier)(NS
                          action:(NSString *)action request:(NSData *)request error:(NSError **)error
     NS_SWIFT_NAME(production(handle:session:appID:action:request:));
 + (void)close:(NSString *)handle;
++ (nullable NSData *)providers:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                         action:(NSString *)action request:(NSData *)request error:(NSError **)error
+    NS_SWIFT_NAME(providers(handle:session:appID:action:request:));
 + (nullable NSData *)jobs:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
                     action:(NSString *)action request:(NSData *)request error:(NSError **)error
     NS_SWIFT_NAME(jobs(handle:session:appID:action:request:));

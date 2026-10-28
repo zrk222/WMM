@@ -27,7 +27,9 @@ def queue_retirement(db,app_id,reference,delay=0):
 
 
 class AgentAccess:
-    def __init__(self,store):self.store=store
+    def __init__(self,store,vault_factory=None):
+        self.store=store
+        self.vault_factory=vault_factory
 
     def get(self,app_id,identity):
         """Never find a connection by ID without its selected app scope."""
@@ -69,7 +71,7 @@ class AgentAccess:
         """Register crash recovery before touching protected storage."""
         reference=uid()
         with connection(self.store.path) as db:queue_retirement(db,app_id,reference,300)
-        try:Vault().put(target(self.store,app_id,reference),{'api_key':key})
+        try:(self.vault_factory or Vault)().put(target(self.store,app_id,reference),{'api_key':key})
         except Exception:
             self.retire(app_id,{'data':{'credential_ref':reference}});raise
         return reference
@@ -99,7 +101,7 @@ class AgentAccess:
         reference=data.get('credential_ref')
         if not reference:return
         staged=db.execute('SELECT 1 FROM agent_retirements WHERE app_id=? AND reference=?',(app_id,reference)).fetchone()
-        if not staged or not Vault().get(target(self.store,app_id,reference)):raise Invalid('Protected key stage expired; save this connection again')
+        if not staged or not (self.vault_factory or Vault)().get(target(self.store,app_id,reference)):raise Invalid('Protected key stage expired; save this connection again')
         db.execute('DELETE FROM agent_retirements WHERE app_id=? AND reference=?',(app_id,reference))
 
     def retire(self,app_id,previous):
@@ -118,7 +120,7 @@ class AgentAccess:
             if pending is None or pending['eligible']>time.time():return
             active=db.execute("SELECT 1 FROM agent_connections WHERE app_id=? AND status!='DISCONNECTED' AND json_extract(data,'$.credential_ref')=?",(app_id,reference)).fetchone()
             if active:raise Invalid('Cleanup cannot remove an active provider key')
-            Vault().delete(target(self.store,app_id,reference))
+            (self.vault_factory or Vault)().delete(target(self.store,app_id,reference))
             db.execute('DELETE FROM agent_retirements WHERE app_id=? AND reference=?',(app_id,reference))
 
     def cleanup(self,app_id):
@@ -168,7 +170,7 @@ class AgentAccess:
         """Resolve only the selected connection's protected key just before use."""
         reference=row['data'].get('credential_ref')
         if not reference:return None
-        value=Vault().get(target(self.store,app_id,reference))
+        value=(self.vault_factory or Vault)().get(target(self.store,app_id,reference))
         if not value or set(value)!={'api_key'}:raise Invalid('Protected provider key is unavailable; reconnect this app profile')
         return value['api_key']
 

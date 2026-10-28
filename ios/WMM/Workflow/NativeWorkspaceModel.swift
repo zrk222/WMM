@@ -301,4 +301,19 @@ final class NativeWorkspaceModel: ObservableObject {
             return result
         })
     }
+
+    func makeProviders() -> NativeProviderModel? {
+        guard unlocked, let app = snapshot?.app, let bridge, let session else { return nil }
+        let ticket = generation
+        return NativeProviderModel(execute: { [weak self] action, request in
+            guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else {
+                throw DomainBridge.Failure.closed
+            }
+            let result = try await bridge.providers(session: session, appID: app.id, action: action, request: request)
+            guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else {
+                throw DomainBridge.Failure.closed
+            }
+            return result
+        })
+    }
 }
