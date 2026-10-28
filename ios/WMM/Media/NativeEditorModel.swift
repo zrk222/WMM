@@ -40,14 +40,14 @@ final class NativeEditorModel: ObservableObject, Identifiable {
     @Published private(set) var message: String?
     @Published private(set) var output: URL?
     private var outputProjectHash: String?
-    private let execute: (String, String?, [String: Any]) async throws -> Data
-    private let render: (NativeEditProject) async throws -> URL
-    private let cancelRender: () async -> Void
+    private let execute: @MainActor (String, String?, [String: Any]) async throws -> Data
+    private let render: @MainActor (NativeEditProject) async throws -> URL
+    private let cancelRender: @MainActor () async -> Void
 
     init(appID: String, manifestVersion: Int, locale: String,
-         execute: @escaping (String, String?, [String: Any]) async throws -> Data,
-         render: @escaping (NativeEditProject) async throws -> URL,
-         cancelRender: @escaping () async -> Void) {
+         execute: @escaping @MainActor (String, String?, [String: Any]) async throws -> Data,
+         render: @escaping @MainActor (NativeEditProject) async throws -> URL,
+         cancelRender: @escaping @MainActor () async -> Void) {
         self.appID = appID; self.manifestVersion = manifestVersion; self.locale = locale
         self.execute = execute; self.render = render; self.cancelRender = cancelRender
     }
