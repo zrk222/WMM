@@ -45,6 +45,8 @@ def reusable_framework(target,identity):
 def main():
     if platform.system()!='Darwin' or shutil.which('xcodebuild') is None:
         raise SystemExit('Native runtime build NOT_RUN: macOS and full Xcode are required')
+    if sys.version_info<(3,12):
+        raise SystemExit('Pinned CPython Apple build tools require host Python 3.12 or newer')
     lock=json.loads((IOS/'Build/Runtime.lock').read_text())
     target=IOS/'Python.xcframework'
     identity=cache_identity(lock,run('xcodebuild','-version'))

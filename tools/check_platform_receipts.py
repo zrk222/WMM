@@ -98,6 +98,8 @@ def check_ci_contract(root):
     if native.get('if')!="github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'":errors.append('Native profile must run on reviewed pull requests and explicit dispatch')
     if type(native.get('timeout-minutes')) is not int or not 1<=native['timeout-minutes']<=120:errors.append('Native build needs a bounded timeout')
     runs=[step.get('run','') for step in native.get('steps',[])]
+    if not any(step.get('uses','').startswith('actions/setup-python@') and step.get('with',{}).get('python-version')=='3.13' for step in native.get('steps',[])):
+        errors.append('Pinned Apple build tools require the declared Python 3.13 host')
     combined='\n'.join(runs)
     for script in ('build_runtime.py','generate_project.py','run_simulators.py'):
         if not (root/'ios/Build'/script).is_file() or not any('python3 ios/Build/'+script in run and run.startswith('set -euo pipefail\n') for run in runs):

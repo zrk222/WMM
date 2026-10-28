@@ -42,9 +42,10 @@ class NativeCIContractTests(unittest.TestCase):
         self.assertEqual(self.check(self.value)['state'],'INCOMPLETE')
 
     def test_wrong_host_unpinned_action_and_ignored_failure_fail(self):
-        for change in ('host','pin','ignore','dispatch','dependency'):
+        for change in ('host','python','pin','ignore','dispatch','dependency'):
             value=copy.deepcopy(self.value);job=value['jobs']['native-simulators']
             if change=='host':job['runs-on']='ubuntu-24.04'
+            elif change=='python':job['steps'][1]['with']['python-version']='3.11'
             elif change=='pin':job['steps'][0]['uses']='actions/checkout@main'
             elif change=='ignore':job['steps'][5]['continue-on-error']=True
             elif change=='dependency':job.pop('needs')
