@@ -17,10 +17,13 @@ enum ReportExport {
     enum Failure: Error { case invalidReport, cannotPaginate }
 
     static func validate(_ report: AppReport) throws {
+        let timestamp = ISO8601DateFormatter()
+        timestamp.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let validDate = timestamp.date(from: report.observedAt) != nil || ISO8601DateFormatter().date(from: report.observedAt) != nil
         guard !report.appID.isEmpty, report.appID.count <= 200,
               !report.appName.isEmpty, report.appName.count <= 200,
               report.sourceHash.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
-              ISO8601DateFormatter().date(from: report.observedAt) != nil,
+              validDate,
               report.rows.count <= 1000,
               report.rows.allSatisfy({ $0.metric.count <= 200 && ($0.observed?.count ?? 0) <= 4000 && $0.evidence.count <= 4000 }) else {
             throw Failure.invalidReport

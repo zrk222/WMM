@@ -20,7 +20,7 @@ final class ProviderIntakeTests: XCTestCase {
     @MainActor
     func testReportUnknownAndFormulaNeutralization() throws {
         let report = AppReport(appID: "synthetic-app", appName: "Synthetic 東京", sourceHash: String(repeating: "a", count: 64),
-                               observedAt: "2026-10-27T12:00:00Z", rows: [
+                               observedAt: "2026-10-27T12:00:00.123456Z", rows: [
                                 .init(metric: "=SUM(1,2)", observed: nil, evidence: "Synthetic fixture, not measured growth")])
         let csv = String(decoding: try ReportExport.csv(report), as: UTF8.self)
         XCTAssertTrue(csv.contains("'=SUM(1,2)"))

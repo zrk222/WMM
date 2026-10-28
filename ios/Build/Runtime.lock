@@ -1,13 +1,13 @@
 {
   "schema": "wmm.ios-runtime-input.v1",
   "source_repository": "https://github.com/python/cpython.git",
-  "source_tag": "v3.14.0",
-  "source_tag_object": "ac991beb29b1783316c4016c99468c008568d08a",
-  "source_commit": "ebf955df7a89ed0c7968f79faec1de49f61ed7cb",
+  "source_tag": "v3.14.10",
+  "source_tag_object": "9b739d95093ad87304a1db8a38745a0d2bbd8fb1",
+  "source_commit": "b703b2c5e704341d61e367b9b940b77ed11dded0",
   "upstream_build": ["python3", "Apple", "build", "iOS"],
   "minimum_ios": "17.0",
   "framework_sha256": null,
   "build_acceptance": "NOT_RUN",
   "dependency_and_security_review": "REQUIRED_BEFORE_RELEASE",
-  "note": "Pinned baseline source input; no prebuilt runtime hash or native acceptance is asserted. Refresh source pin after compatibility and dependency review."
+  "note": "Maintenance source includes upstream macOS/iOS dup3 and pipe2 SDK fixes. No prebuilt runtime hash or native acceptance is asserted; retain dependency and runtime verification before release."
 }
