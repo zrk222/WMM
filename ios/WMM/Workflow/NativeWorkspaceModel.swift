@@ -4,7 +4,7 @@ import LocalAuthentication
 import UIKit
 
 struct NativeWorkspace: Decodable, Identifiable {
-    struct Manifest: Decodable { let name: String; let job: String? }
+    struct Manifest: Decodable { let name: String; let job: String?; let locale: String? }
     let id: String
     let version: Int
     let data: Manifest
@@ -37,6 +37,7 @@ final class NativeWorkspaceModel: ObservableObject {
     private var session: LocalIdentity.Session?
     private var generation = UUID()
     private var authentication: LAContext?
+    private var editorRenderer: TimelineRenderer?
     var selectionContext: UUID { generation }
 
     private func installationID(_ key: String) throws -> UUID {
@@ -91,6 +92,7 @@ final class NativeWorkspaceModel: ObservableObject {
         identity?.authority.revoke()
         session = nil; apps = []; snapshot = nil; report = nil; media = []; unlocked = false; busy = false; activity = ""; message = nil
         if let identity { Task { await identity.lock() } }
+        if let editorRenderer { Task { await editorRenderer.cancel() } }
     }
 
     func create(appID: String, manifest: [String: String], confirmed: Bool) async -> Bool {
@@ -212,5 +214,47 @@ final class NativeWorkspaceModel: ObservableObject {
         }
     }
 
-    func clearSelection() { snapshot = nil; report = nil; media = [] }
+    func makeEditor() -> NativeEditorModel? {
+        guard unlocked, let app = snapshot?.app, let bridge, let session else { return nil }
+        let ticket = generation
+        let renderer = TimelineRenderer(); editorRenderer = renderer
+        return NativeEditorModel(appID: app.id, manifestVersion: app.version, locale: app.data.locale ?? "en-US",
+            execute: { [weak self] operation, resource, input in
+                guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else {
+                    throw DomainBridge.Failure.closed
+                }
+                let bytes: Data
+                if operation == "native.media.list" {
+                    bytes = try await bridge.mediaList(session: session, appID: app.id)
+                } else {
+                    guard ["editor.list", "editor.read", "editor.save", "editor.edit", "editor.history"].contains(operation) else {
+                        throw DomainBridge.Failure.invalidRequest
+                    }
+                    var envelope: [String: Any] = ["app_id": app.id, "operation": operation, "input": input]
+                    if let resource { envelope["resource_id"] = resource }
+                    bytes = try await bridge.call(session: session, request: JSONSerialization.data(withJSONObject: envelope))
+                }
+                guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else {
+                    throw DomainBridge.Failure.closed
+                }
+                return bytes
+            }, render: { [weak self] project in
+                guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else {
+                    throw DomainBridge.Failure.closed
+                }
+                let packet = try await bridge.prepareProduction(session: session, appID: app.id,
+                    projectID: project.id, revision: project.revision, projectHash: project.hash)
+                let output = try await bridge.renderProduction(session: session, packet: packet, renderer: renderer)
+                guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else {
+                    try? FileManager.default.removeItem(at: output)
+                    throw DomainBridge.Failure.closed
+                }
+                return output
+            }, cancelRender: { await renderer.cancel() })
+    }
+
+    func clearSelection() {
+        if let editorRenderer { Task { await editorRenderer.cancel() } }
+        snapshot = nil; report = nil; media = []
+    }
 }

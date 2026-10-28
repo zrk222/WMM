@@ -3,6 +3,7 @@ import PhotosUI
 import UniformTypeIdentifiers
 
 struct NativeMediaItem: Decodable, Identifiable {
+    struct Metadata: Decodable { let duration_seconds: Double }
     let id: String
     let filename: String
     let source_sha256: String
@@ -11,6 +12,7 @@ struct NativeMediaItem: Decodable, Identifiable {
     let rights_reason: String
     let reuse_available: Bool
     let review_version: Int
+    let metadata: Metadata?
 }
 struct NativeMediaList: Decodable { let items: [NativeMediaItem] }
 

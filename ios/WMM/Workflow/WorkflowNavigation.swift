@@ -7,6 +7,7 @@ struct WorkflowNavigation: View {
     @State private var showingCreate = false
     @State private var showingResults = false
     @State private var showingMedia = false
+    @State private var editor: NativeEditorModel?
 
     var body: some View {
         NavigationStack {
@@ -66,6 +67,8 @@ struct WorkflowNavigation: View {
                                 showingMedia = true
                                 Task { await model.loadMedia() }
                             }.disabled(model.busy)
+                            Button("Edit video", systemImage: "slider.horizontal.3") { editor = model.makeEditor() }
+                                .disabled(model.busy)
                             Button("Results & reports", systemImage: "chart.bar.doc.horizontal") {
                                 showingResults = true
                                 Task { await model.loadReport() }
@@ -84,15 +87,17 @@ struct WorkflowNavigation: View {
             .sheet(isPresented: $showingCreate) { CreateWorkspaceView(model: model) }
             .sheet(isPresented: $showingResults) { NativeResultsView(model: model) }
             .sheet(isPresented: $showingMedia) { NativeMediaLibrary(model: model) }
+            .sheet(item: $editor) { NativeEditorView(model: $0) }
         }
         .privacySensitive()
         .overlay { if scenePhase != .active { Color(uiColor: .systemBackground).ignoresSafeArea() } }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background { showingCreate = false; showingResults = false; showingMedia = false; model.lock() }
+            if phase == .background { editor = nil; showingCreate = false; showingResults = false; showingMedia = false; model.lock() }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataWillBecomeUnavailableNotification)) { _ in
-            showingCreate = false; showingResults = false; showingMedia = false; model.lock()
+            editor = nil; showingCreate = false; showingResults = false; showingMedia = false; model.lock()
         }
+        .onChange(of: model.unlocked) { _, value in if !value { editor = nil } }
     }
 }
 

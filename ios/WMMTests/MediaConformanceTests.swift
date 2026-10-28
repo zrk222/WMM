@@ -162,7 +162,41 @@ final class MediaConformanceTests: XCTestCase {
         let output = try await bridge.renderProduction(session: session, packet: packet, renderer: TimelineRenderer())
         XCTAssertTrue(output.path.hasPrefix(store.root.path + "/native-exports/"))
         try await MediaInspector.verify(output, plan: packet.plan, expectsAudio: false)
+        let editor = await NativeEditorModel(appID: appID, manifestVersion: 1, locale: "en-US", execute: { operation, resource, input in
+            if operation == "native.media.list" { return try await bridge.mediaList(session: session, appID: appID) }
+            var envelope: [String: Any] = ["app_id": appID, "operation": operation, "input": input]
+            if let resource { envelope["resource_id"] = resource }
+            return try await bridge.call(session: session, request: JSONSerialization.data(withJSONObject: envelope))
+        }, render: { saved in
+            let prepared = try await bridge.prepareProduction(session: session, appID: appID,
+                projectID: saved.id, revision: saved.revision, projectHash: saved.hash)
+            return try await bridge.renderProduction(session: session, packet: prepared, renderer: TimelineRenderer())
+        }, cancelRender: {})
+        await editor.refresh()
+        let projects = await editor.projects
+        XCTAssertEqual(projects.count, 1)
+        try await editor.open(XCTUnwrap(projects.first))
+        let before = await editor.selected
+        XCTAssertEqual(before?.revision, 1)
+        await editor.edit(["operation": "duplicate", "clip_id": "clip-one", "new_id": "clip-two"])
+        let duplicated = await editor.selected
+        XCTAssertEqual(duplicated?.data.definition.clips.count, 2)
+        XCTAssertEqual(duplicated?.revision, 2)
+        await editor.history("UNDO")
+        let undone = await editor.selected
+        XCTAssertEqual(undone?.data.definition.clips.count, 1)
+        await editor.history("REDO")
+        let redone = await editor.selected
+        XCTAssertEqual(redone?.data.definition.clips.count, 2)
+        await editor.edit(["operation": "delete", "clip_id": "unknown-clip"])
+        let rejected = await editor.message
+        XCTAssertNotNil(rejected)
+        await editor.export()
+        let shareable = await editor.prepareShare()
+        XCTAssertNotNil(shareable)
         await identity.lock()
+        let lockedShare = await editor.prepareShare()
+        XCTAssertNil(lockedShare)
         do {
             _ = try await bridge.mediaList(session: session, appID: appID)
             XCTFail("Locked media access admitted")

@@ -45,6 +45,8 @@ class NativeProjectGenerationTests(unittest.TestCase):
             self.assertIn('"WMM/Workflow/NativeWorkspaceModel.swift"',text)
             self.assertIn('"WMM/Reports/NativeResultsView.swift"',text)
             self.assertIn('"WMM/Media/NativeMediaLibrary.swift"',text)
+            self.assertIn('"WMM/Media/NativeEditorModel.swift"',text)
+            self.assertIn('"WMM/Media/NativeEditorView.swift"',text)
             self.assertIn('"INFOPLIST_KEY_NSFaceIDUsageDescription"',text)
             self.assertIn('"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]"',text)
             self.assertNotIn('"CODE_SIGN_ENTITLEMENTS" =',text)
