@@ -40,7 +40,7 @@ final class StorageIdentityTests: XCTestCase {
         XCTAssertNil(removed)
     }
 
-    func testOriginalMediaIsImmutableAndProtected() throws {
+    func testOriginalMediaIsImmutable() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }
         let store = try LocalStore(applicationSupport: folder, databaseID: UUID())
@@ -50,7 +50,18 @@ final class StorageIdentityTests: XCTestCase {
         XCTAssertThrowsError(try store.retainMedia(Data("changed".utf8), id: id))
         XCTAssertEqual(try Data(contentsOf: path), data)
         XCTAssertThrowsError(try store.retainMedia(Data(), id: UUID()))
+    }
+
+    func testOriginalMediaProtectionOnPhysicalDevice() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Simulator does not establish device file protection. Required physical iPhone/iPad acceptance remains NOT_RUN.")
+        #else
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = try LocalStore(applicationSupport: folder, databaseID: UUID())
+        let path = try store.retainMedia(Data("synthetic-original".utf8), id: UUID())
         let attributes = try FileManager.default.attributesOfItem(atPath: path.path)
         XCTAssertEqual(attributes[.protectionKey] as? FileProtectionType, .complete)
+        #endif
     }
 }

@@ -76,6 +76,8 @@ actor TimelineRenderer {
         guard let video = composition.addMutableTrack(withMediaType: .video,
                 preferredTrackID: kCMPersistentTrackID_Invalid) else { throw Failure.missingVideo }
         var sourceTransforms: [String: CGAffineTransform] = [:]
+        var sourceAssets: [AVURLAsset] = []
+        defer { withExtendedLifetime(sourceAssets) {} }
         var retainedAudio = false
         for clip in plan.clips {
             try Task.checkCancellation()
@@ -83,6 +85,7 @@ actor TimelineRenderer {
             let url = try await resolve(clip.source)
             guard url.isFileURL else { throw Failure.invalidPlan }
             let asset = AVURLAsset(url: url)
+            sourceAssets.append(asset)
             let duration = try await asset.load(.duration)
             let end = CMTime(value: Int64(clip.source_out_frame), timescale: 24)
             guard duration.isNumeric, CMTimeCompare(duration, end) >= 0 else { throw Failure.sourceTooShort }
@@ -106,12 +109,19 @@ actor TimelineRenderer {
         // The CI filtering API processes the first enabled video track. Stitch
         // segments on that track so later clips cannot disappear from its input.
         let orientations = sourceTransforms
+        // Hosted simulators need not expose a usable Metal device. Keep the same
+        // filters and frame checks, using Core Image's native CPU renderer there.
+        #if targetEnvironment(simulator)
+        let filterContext = CIContext(options: [.useSoftwareRenderer: true])
+        #else
+        let filterContext = CIContext()
+        #endif
         let videoComposition = AVMutableVideoComposition(asset: composition, applyingCIFiltersWithHandler: { request in
             let frame = Int((CMTimeGetSeconds(request.compositionTime) * 24).rounded(.down))
             guard let clip = plan.clips.first(where: { frame >= $0.output_start_frame && frame < $0.output_start_frame + $0.output_frame_count }) else {
                 request.finish(with: NSError(domain: "WMM.Render", code: 1)); return
             }
-            request.finish(with: Self.transform(request.sourceImage.transformed(by: orientations[clip.id] ?? .identity), clip: clip, plan: plan), context: nil)
+            request.finish(with: Self.transform(request.sourceImage.transformed(by: orientations[clip.id] ?? .identity), clip: clip, plan: plan), context: filterContext)
         })
         videoComposition.renderSize = CGSize(width: CGFloat(plan.width), height: CGFloat(plan.height))
         videoComposition.frameDuration = CMTime(value: 1, timescale: 24)
