@@ -85,7 +85,7 @@ if result.returncode:
 receipt = json.loads(result.stdout)
 (audit_dir / "workflow-audit-receipt.json").write_text(
     json.dumps(receipt, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
-    encoding="utf-16",
+    encoding="utf-8",
 )
 print(f"candidate_sources={len(contract['candidate'])}")
 print(f"observations={len(observations['observations'])}")

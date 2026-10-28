@@ -1,4 +1,4 @@
-$ python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport -v
+﻿$ python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport -v
 test_initialized_schema_is_idempotent (tests.test_apple_metrics.AppleMetricsTests.test_initialized_schema_is_idempotent) ... ok
 test_multiday_sql_failure_rolls_back_entire_savepoint (tests.test_apple_metrics.AppleMetricsTests.test_multiday_sql_failure_rolls_back_entire_savepoint) ... ok
 test_reconciliation_is_idempotent_and_new_processing_date_replaces (tests.test_apple_metrics.AppleMetricsTests.test_reconciliation_is_idempotent_and_new_processing_date_replaces) ... ERROR
@@ -59,19 +59,19 @@ test_size_checksum_encoding_and_error_failures_are_sanitized (tests.test_apple_m
 ERROR: test_reconciliation_is_idempotent_and_new_processing_date_replaces (tests.test_apple_metrics.AppleMetricsTests.test_reconciliation_is_idempotent_and_new_processing_date_replaces)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "C:\Users\rkatz\Documents\Codex\2026-09-22\re-2\outputs\WMM\tests\test_apple_metrics.py", line 78, in test_reconciliation_is_idempotent_and_new_processing_date_replaces
+  File "[local path]", line 78, in test_reconciliation_is_idempotent_and_new_processing_date_replaces
     same = persist(self.path, [('2026-01-01', 'First-time download', '7')])
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\rkatz\Documents\Codex\2026-09-22\re-2\outputs\WMM\tests\test_apple_metrics.py", line 42, in persist
+  File "[local path]", line 42, in persist
     return reconcile_offline_instance(db, identity() if report_identity is None
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\rkatz\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\apple_metrics.py", line 63, in reconcile_offline_instance
+  File "[local path]", line 63, in reconcile_offline_instance
     statuses = [dict(partition=item['partition'], status=_reconcile(
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\rkatz\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\apple_metrics.py", line 63, in <listcomp>
+  File "[local path]", line 63, in <listcomp>
     statuses = [dict(partition=item['partition'], status=_reconcile(
                                                          ^^^^^^^^^^^
-  File "C:\Users\rkatz\Documents\Codex\2026-09-22\re-2\outputs\WMM\mission_control\apple_metrics_store.py", line 88, in _reconcile
+  File "[local path]", line 88, in _reconcile
     raise Invalid('Conflicting Apple metrics processing version')
 mission_control.common.Invalid: Conflicting Apple metrics processing version
 

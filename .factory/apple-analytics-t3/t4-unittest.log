@@ -20,6 +20,6 @@ test_requires_existing_transaction_and_existing_local_app (tests.test_apple_metr
 test_splits_multi_day_instance_and_preserves_event_meanings_and_zero (tests.test_apple_metrics.AppleMetricsTests.test_splits_multi_day_instance_and_preserves_event_meanings_and_zero) ... ok
 
 ----------------------------------------------------------------------
-Ran 19 tests in 0.872s
+Ran 19 tests in 0.739s
 
 OK

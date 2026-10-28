@@ -56,6 +56,6 @@ test_signed_read_has_no_authorization_and_blocks_redirects (tests.test_apple_met
 test_size_checksum_encoding_and_error_failures_are_sanitized (tests.test_apple_metrics_transport.AppleSignedSegmentTests.test_size_checksum_encoding_and_error_failures_are_sanitized) ... ok
 
 ----------------------------------------------------------------------
-Ran 55 tests in 4.450s
+Ran 55 tests in 3.056s
 
 OK

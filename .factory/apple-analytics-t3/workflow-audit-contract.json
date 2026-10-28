@@ -24,7 +24,7 @@
     },
     {
       "path": "mission_control/db.py",
-      "sha256": "95b00569bf24d5745f61c84cb0e5fef5eaf474178ce77481dfd5319bff034f7f",
+      "sha256": "45453b059d904f793ed4eabd4d1d9a1c5b75d6ab60cbd4c8d381409ed1b1fac8",
       "kind": "source"
     },
     {
@@ -54,18 +54,23 @@
     },
     {
       "path": "specs/apple-analytics-metrics.md",
-      "sha256": "bb3d9576be443de7a843ec72d46028f6ef43a57278177199baf77c3c07a8610f",
+      "sha256": "4f663d01065dba511d88cc502ed4b1e237ef2a10ef7b143326935241be29cef1",
       "kind": "contract"
     },
     {
       "path": "plans/apple-analytics-metrics.md",
-      "sha256": "71202628db0fb3e212d0c32fa0ba0f2ea7ea51ecd836b241158708c1a69202a0",
+      "sha256": "7016a0d0a6b59d1559b8697d2dbcef5fabce2ea5aa249748c5783473162e890a",
       "kind": "contract"
     },
     {
       "path": ".factory/apple-analytics-t3/scope-review.md",
       "sha256": "ac269f2ccd377a6a660da572d9af4faecc900301eab62e8722172321e400ddcb",
       "kind": "review"
+    },
+    {
+      "path": ".factory/apple-analytics-t3/build_audit.py",
+      "sha256": "a40107015c06220ec93dd46e5dfad68d1e7b2af6fba3ba56a33e9eef6a02363a",
+      "kind": "audit_tool"
     }
   ],
   "applicability": [

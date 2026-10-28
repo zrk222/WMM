@@ -12,9 +12,9 @@
     "repair": false,
     "signing": false
   },
-  "candidate_sha256": "173bb18920cb6065f19031b125d8805607a0568a897730c94fac3e8fcaa80cdb",
+  "candidate_sha256": "299af42c8b93dd4ccaff68e9a9913482c2762aa54ff2e1ce1194c371d5db707b",
   "checks": 6,
-  "contract_sha256": "42875f5c8473817d52e1b8793e2c6626c9cd359c4c450cd79c24954f6a8d1a7e",
+  "contract_sha256": "fc7c469433e8032f5c3f0f63925cc277ef1fd4a68c8db4453b32db33303d6e13",
   "errors": [],
   "inapplicability_evidence": {
     "accessibility": {
@@ -39,12 +39,12 @@
     "No project command or provider is executed.",
     "No approval, certification or deployment authority."
   ],
-  "observations_sha256": "3abd63b6bd9562bda7bb024de5a2c02a84fa2065355881b125a0108f703dad19",
+  "observations_sha256": "a43eccc3e87c20f015294c107ea6ff0cee896312c33540ed45b29954f27ac98c",
   "project_id": "WMM-apple-analytics-parse-reconcile-T3",
-  "receipt_sha256": "1599476a411460dd0f1440f788f3f5d004c912afe5a3dab8e614452b30174f71",
+  "receipt_sha256": "49b8722ac117d87764edf41b9e97a107a01ff40ed90d7ac077faabfce9d517ae",
   "resource_usage": {
-    "artifact_references": 27,
-    "bytes_hashed": 198663
+    "artifact_references": 28,
+    "bytes_hashed": 214307
   },
   "schema": "factory.workflow-audit.receipt.v1",
   "state": "PASS"

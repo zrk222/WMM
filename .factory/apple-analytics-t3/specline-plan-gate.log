@@ -1,2 +1,2 @@
 $ specline gate plan apple-analytics-metrics --approver codex-user-authorized --root .
-{"gate": "plan", "tasks": 8, "sha": "bb3d9576be443de7", "approval_seal": "7299bc8d843132d281bbee91e99f43ea8f309e1f11886d9d9a360292f95344fd"}
+{"gate": "plan", "tasks": 13, "sha": "4f663d01065dba51", "approval_seal": "827350cd502cf783dbf132c04a1395bf11ee449d4e7dde7f532ca114392de787"}

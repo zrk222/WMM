@@ -5,6 +5,12 @@ import subprocess
 import sys
 
 ROOT=pathlib.Path(__file__).resolve().parents[1]
+
+def decode_text(data):
+    if data.startswith((b'\xff\xfe',b'\xfe\xff')):return data.decode('utf-16')
+    if data.startswith(b'\xef\xbb\xbf'):return data.decode('utf-8-sig')
+    return data.decode('utf-8')
+
 def files():
     if (ROOT/'.git').exists():
         result=subprocess.run(['git','ls-files','-z'],cwd=ROOT,capture_output=True,check=True)
@@ -22,7 +28,9 @@ def check():
         if path.is_symlink() or not path.resolve().is_relative_to(ROOT):issues.append(str(rel)+': escaping path');continue
         if path.suffix in ('.sqlite','.sqlite3','.db','.png','.jpeg','.jpg','.zip','.pyc'):
             issues.append(str(rel)+': operational/binary file');continue
-        text=path.read_text(encoding='utf-8')
+        try:text=decode_text(path.read_bytes())
+        except UnicodeDecodeError:
+            issues.append(str(rel)+': unrecognized text encoding');continue
         for pattern in patterns:
             if re.search(pattern,text):issues.append(str(rel)+': credential or private path pattern')
     if issues:raise SystemExit('\n'.join(issues))

@@ -1,6 +1,6 @@
 {
-  "candidate_sha256": "ce9079f2cb97bf3cba522f5872b8038298bc69a4f6d31c30479a650be3377e8a",
-  "contract_sha256": "4d11be46547e065fcde84e82a5d340ef2b42850b4bc5fc9b6ca149f6c0d961e3",
+  "candidate_sha256": "6fe39c0b93ff0dee9f25880e2df754c51473b74a34dc2688289a7b2855d0b218",
+  "contract_sha256": "511a3214e26178d2e9b5d201869d14882f67efb0e897b50db57ac531bdcedffe",
   "observations": [
     {
       "artifacts": [
@@ -12,7 +12,7 @@
       ],
       "execution_identity": "python .factory/apple-analytics-t8/run-focused-ecc.py",
       "id": "happy_path",
-      "observed_at": "2026-10-28T01:17:35+00:00",
+      "observed_at": "2026-10-28T01:27:17+00:00",
       "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
       "reason": "The owner-opt-in schedule survived database reopen, queued the latest complete daily read, and committed the 9-count synthetic observation with a successful durable job.",
       "status": "PASS"
@@ -27,7 +27,7 @@
       ],
       "execution_identity": "python .factory/apple-analytics-t8/run-focused-ecc.py",
       "id": "validation",
-      "observed_at": "2026-10-28T01:17:35+00:00",
+      "observed_at": "2026-10-28T01:27:17+00:00",
       "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
       "reason": "Tests rejected invalid owner choices and cadence, missing app, stale schedule version, and invalid or changed Apple connection state.",
       "status": "PASS"
@@ -42,7 +42,7 @@
       ],
       "execution_identity": "python .factory/apple-analytics-t8/run-focused-ecc.py",
       "id": "failure_recovery",
-      "observed_at": "2026-10-28T01:17:35+00:00",
+      "observed_at": "2026-10-28T01:27:17+00:00",
       "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
       "reason": "Tests confirmed pause and connection rotation fence persistence, transient transport retries stop after three attempts, and three terminal failures require explicit resume.",
       "status": "PASS"
@@ -57,7 +57,7 @@
       ],
       "execution_identity": "python .factory/apple-analytics-t8/run-focused-ecc.py",
       "id": "state_consistency",
-      "observed_at": "2026-10-28T01:17:35+00:00",
+      "observed_at": "2026-10-28T01:27:17+00:00",
       "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
       "reason": "Tests confirmed current schedule/app/connection binding and atomic metric plus job readback, including stale in-flight work rejection.",
       "status": "PASS"
@@ -72,7 +72,7 @@
       ],
       "execution_identity": "python .factory/apple-analytics-t8/run-focused-ecc.py",
       "id": "security_privacy",
-      "observed_at": "2026-10-28T01:17:35+00:00",
+      "observed_at": "2026-10-28T01:27:17+00:00",
       "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
       "reason": "Public status omitted the connection hash and synthetic credential; provider operations remained read-only and app-scoped.",
       "status": "PASS"
@@ -87,7 +87,7 @@
       ],
       "execution_identity": "python .factory/apple-analytics-t8/run-focused-ecc.py",
       "id": "performance",
-      "observed_at": "2026-10-28T01:17:35+00:00",
+      "observed_at": "2026-10-28T01:27:17+00:00",
       "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
       "reason": "The schedule tick is capped at 100 rows and the scheduled transient retry loop at three attempts; bounded behavior tests passed.",
       "status": "PASS"
@@ -102,7 +102,7 @@
       ],
       "execution_identity": "python .factory/apple-analytics-t8/run-focused-ecc.py",
       "id": "external_effects",
-      "observed_at": "2026-10-28T01:17:35+00:00",
+      "observed_at": "2026-10-28T01:27:17+00:00",
       "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
       "reason": "Apple report and signed-segment operations used synthetic fixtures and mocks; no live Apple request was made.",
       "status": "PASS"

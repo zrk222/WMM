@@ -3,12 +3,12 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / '.factory' / 'apple-analytics-t3'
-CF = Path(r'C:\Users\rkatz\Documents\Codex\2026-09-24\op\work\code-factory-review2')
 PROFILE = 'Windows-CPython-3.11.9-SQLite-synthetic-offline'
 BASE_COMMIT = '4d3fad78b8a16a4b31013a9c58055c64256c4420'
 
@@ -21,15 +21,29 @@ def run(name, args):
     result = subprocess.run(args, cwd=ROOT, capture_output=True, text=True,
                             encoding='utf-8', errors='replace')
     path = OUT / (name + '.log')
-    path.write_text('$ ' + ' '.join(map(str, args)) + '\n' + result.stdout + result.stderr,
+    output = result.stdout + result.stderr
+    output = re.sub(r'(?i)\b[a-z]:[/\\]users[/\\][^\s"\']+', '[local path]', output)
+    path.write_text('$ ' + ' '.join(map(str, args)) + '\n' + output,
                     encoding='utf-8')
     if result.returncode:
         raise SystemExit(f'{name} failed with exit {result.returncode}; inspect {path}')
     return path
 
 
+def redact_historical_failure_paths():
+    path = OUT / 'unittest-first-failure.log'
+    if not path.exists():
+        return
+    payload = path.read_bytes()
+    encoding = 'utf-16' if payload.startswith((b'\xff\xfe', b'\xfe\xff')) else 'utf-8-sig'
+    text = payload.decode(encoding, errors='replace')
+    text = re.sub(r'(?i)\b[a-z]:[/\\]users[/\\][^\s"\']+', '[local path]', text)
+    path.write_bytes(text.encode(encoding))
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
+    redact_historical_failure_paths()
     run('factory-doctor', ['factory', 'doctor', '--strict', '--json'])
     run('specline-strict', ['specline', 'strict', 'apple-analytics-metrics', '--root', '.', '--json'])
     run('specline-spec-gate', ['specline', 'gate', 'spec', 'apple-analytics-metrics', '--root', '.'])
@@ -62,6 +76,7 @@ def main():
         ('specs/apple-analytics-metrics.md', 'contract'),
         ('plans/apple-analytics-metrics.md', 'contract'),
         ('.factory/apple-analytics-t3/scope-review.md', 'review'),
+        ('.factory/apple-analytics-t3/build_audit.py', 'audit_tool'),
     ]
     candidate = [dict(path=path, sha256=sha(path), kind=kind) for path, kind in candidates]
     review_path = '.factory/apple-analytics-t3/scope-review.md'
@@ -129,7 +144,7 @@ def main():
     command = [sys.executable, '-m', 'factoryline.cli', 'audit', 'workflows',
         '--root', str(ROOT), '--contract', '.factory/apple-analytics-t3/workflow-audit-contract.json',
         '--observations', '.factory/apple-analytics-t3/workflow-audit-observations.json', '--json']
-    audit = subprocess.run(command, cwd=CF, capture_output=True, text=True,
+    audit = subprocess.run(command, cwd=ROOT, capture_output=True, text=True,
                            encoding='utf-8', errors='replace')
     receipt = OUT / 'workflow-audit-receipt.json'
     receipt.write_text(audit.stdout, encoding='utf-8')

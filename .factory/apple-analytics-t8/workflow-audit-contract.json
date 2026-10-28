@@ -105,7 +105,7 @@
     {
       "kind": "audit-tool",
       "path": ".factory/apple-analytics-t8/refresh-audit.py",
-      "sha256": "f06ffe9125fffb3b0550b948118de2ed7672d62ddcdec2c0cae7f368e38167dd"
+      "sha256": "9c04827f2ed3a6d8dc136c8bcc8f61b9d814fdbb944a7d6b76242d9a61e42a60"
     }
   ],
   "checks": [
