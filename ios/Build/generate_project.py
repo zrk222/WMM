@@ -1,6 +1,6 @@
 """Deterministically create native app and XCTest targets without XcodeGen."""
 from pathlib import Path
-import hashlib,json
+import hashlib,json,uuid
 
 IOS=Path(__file__).resolve().parents[1]
 objects={}
@@ -16,13 +16,14 @@ files=[ref(p,types(p)) for p in sources]
 testfile=ref('WMMTests/StorageIdentityTests.swift','sourcecode.swift')
 intaketest=ref('WMMTests/ProviderIntakeTests.swift','sourcecode.swift')
 mediatest=ref('WMMTests/MediaConformanceTests.swift','sourcecode.swift')
+enginetest=ref('WMMTests/EngineBootstrapTests.swift','sourcecode.swift')
 framework=ref('Python.xcframework','wrapper.xcframework')
 app=obj('product-app','PBXFileReference',explicitFileType='wrapper.application',path='WMM.app',sourceTree='BUILT_PRODUCTS_DIR')
 test=obj('product-tests','PBXFileReference',explicitFileType='wrapper.cfbundle',path='WMMTests.xctest',sourceTree='BUILT_PRODUCTS_DIR')
 products=obj('products','PBXGroup',children=[app,test],name='Products',sourceTree='<group>')
-group=obj('main','PBXGroup',children=files+[testfile,intaketest,mediatest,framework,products],sourceTree='<group>')
+group=obj('main','PBXGroup',children=files+[testfile,intaketest,mediatest,enginetest,framework,products],sourceTree='<group>')
 sourcephase=obj('app-sources','PBXSourcesBuildPhase',buildActionMask=2147483647,files=[build('build-'+p,f) for p,f in zip(sources,files)],runOnlyForDeploymentPostprocessing=0)
-testphase=obj('test-sources','PBXSourcesBuildPhase',buildActionMask=2147483647,files=[build('build-test',testfile),build('build-intake-test',intaketest),build('build-media-test',mediatest)],runOnlyForDeploymentPostprocessing=0)
+testphase=obj('test-sources','PBXSourcesBuildPhase',buildActionMask=2147483647,files=[build('build-test',testfile),build('build-intake-test',intaketest),build('build-media-test',mediatest),build('build-engine-test',enginetest)],runOnlyForDeploymentPostprocessing=0)
 link=obj('frameworks','PBXFrameworksBuildPhase',buildActionMask=2147483647,files=[build('link-python',framework)],runOnlyForDeploymentPostprocessing=0)
 resources=obj('resources','PBXResourcesBuildPhase',buildActionMask=2147483647,files=[],runOnlyForDeploymentPostprocessing=0)
 runtime=obj('runtime','PBXShellScriptBuildPhase',buildActionMask=2147483647,files=[],inputPaths=[],outputPaths=[],runOnlyForDeploymentPostprocessing=0,shellPath='/bin/bash',shellScript='bash "$PROJECT_DIR/Build/package_runtime.sh"',alwaysOutOfDate=1)
@@ -54,4 +55,14 @@ def entry(identity,name):return f'<BuildableReference BuildableIdentifier="prima
 (shared/'WMM.xcscheme').write_text(f'''<?xml version="1.0" encoding="UTF-8"?>
 <Scheme LastUpgradeVersion="1600" version="1.3"><BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES"><BuildActionEntries><BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">{entry(target,'WMM.app')}</BuildActionEntry></BuildActionEntries></BuildAction><TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB"><Testables><TestableReference skipped="NO">{entry(tests,'WMMTests.xctest')}</TestableReference></Testables></TestAction><LaunchAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" debugServiceExtension="internal" allowLocationSimulation="YES"><BuildableProductRunnable runnableDebuggingMode="0">{entry(target,'WMM.app')}</BuildableProductRunnable></LaunchAction><ProfileAction buildConfiguration="Release"/><AnalyzeAction buildConfiguration="Debug"/><ArchiveAction buildConfiguration="Release" revealArchiveInOrganizer="YES"/></Scheme>
 ''',encoding='utf-8')
+plans=folder/'xcshareddata/xctestplans';plans.mkdir(parents=True,exist_ok=True)
+for name in ('WMMCoreContract','WMMDeviceAcceptance'):
+    plan={'version':1,'configurations':[{'id':str(uuid.uuid5(uuid.NAMESPACE_URL,'wmm/test-plan/'+name)),'name':name,'options':{}}],
+          'defaultOptions':{},'testTargets':[{'parallelizable':False,'target':{
+              'containerPath':'container:WMM.xcodeproj','identifier':tests,'name':'WMMTests'}}]}
+    (plans/(name+'.xctestplan')).write_text(json.dumps(plan,indent=2)+'\n',encoding='utf-8')
+scheme=shared/'WMM.xcscheme'
+body=scheme.read_text(encoding='utf-8')
+body=body.replace('<Testables>', '<TestPlans><TestPlanReference reference="container:WMM.xcodeproj/xcshareddata/xctestplans/WMMCoreContract.xctestplan" default="YES"/><TestPlanReference reference="container:WMM.xcodeproj/xcshareddata/xctestplans/WMMDeviceAcceptance.xctestplan"/></TestPlans><Testables>')
+scheme.write_text(body,encoding='utf-8')
 print('Generated WMM app and XCTest project; native build remains NOT_RUN')
