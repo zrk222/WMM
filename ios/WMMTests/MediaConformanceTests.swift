@@ -74,6 +74,8 @@ final class MediaConformanceTests: XCTestCase {
         let output = try await renderer.render(timeline,destination:destination,resolve:{ source in
             source.id.hasPrefix("1111") ? red : blue
         }, validateAuthority:{})
+        XCTAssertEqual(output, destination)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: destination.path))
         try await MediaInspector.verify(output,plan:timeline,expectsAudio:false)
         // Verify exact decoded frame positions, avoiding approximate seek/image
         // generation as a second, unrelated async pipeline in this frame test.
@@ -105,6 +107,19 @@ final class MediaConformanceTests: XCTestCase {
         XCTAssertEqual(reader.status, .completed)
         XCTAssertEqual(frame, 48)
         XCTAssertEqual(checked, 2)
+        let deniedOutput = folder.appendingPathComponent("denied.mp4")
+        var authorityChecks = 0
+        do {
+            _ = try await renderer.render(timeline, destination: deniedOutput, resolve: { source in
+                source.id.hasPrefix("1111") ? red : blue
+            }, validateAuthority: {
+                authorityChecks += 1
+                if authorityChecks > 1 { throw DomainBridge.Failure.closed }
+            })
+            XCTFail("Output returned after authority was revoked")
+        } catch DomainBridge.Failure.closed {}
+        XCTAssertEqual(authorityChecks, 2)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: deniedOutput.path))
     }
 
     func testOriginalInspectionDecodesRealFramesAndRejectsCorruptBytes() async throws {

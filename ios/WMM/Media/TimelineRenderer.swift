@@ -140,8 +140,13 @@ actor TimelineRenderer {
         }
         active = exporter
         guard !cancelled else { throw Failure.cancelled }
-        let staging = destination.deletingLastPathComponent().appendingPathComponent(UUID().uuidString + ".mp4")
-        defer { try? FileManager.default.removeItem(at: staging) }
+        // AVFoundation can retain URL-backed readers after export/verification.
+        // Keep one private URL throughout: renaming a recently decoded asset can
+        // invalidate a subsequent AVURLAsset load. The caller receives this URL
+        // only after decoding and authority checks; failure removes partial bytes.
+        let staging = destination
+        var accepted = false
+        defer { if !accepted { try? FileManager.default.removeItem(at: staging) } }
         exporter.outputURL = staging; exporter.outputFileType = .mp4
         exporter.videoComposition = videoComposition
         exporter.timeRange = CMTimeRange(start: .zero, duration: CMTime(value: Int64(plan.output_frame_count), timescale: 24))
@@ -170,7 +175,7 @@ actor TimelineRenderer {
         try await validateAuthority()
         guard !cancelled else { throw Failure.cancelled }
         try FileManager.default.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: staging.path)
-        try FileManager.default.moveItem(at: staging, to: destination)
+        accepted = true
         return destination
         } catch is CancellationError {
             throw Failure.cancelledAt(stage: stage, taskCancelled: Task.isCancelled)
