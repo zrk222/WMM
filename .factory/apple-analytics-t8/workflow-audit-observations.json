@@ -1,0 +1,112 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "89a7ba4732e068207be8821659901a4965d53d3fee5d0a41996c558860b821f9",
+  "candidate_sha256": "b287411337cbbeeadb0d0eb49e3af209a119ac1b042b3765643a1bd55aa64ada",
+  "observations": [
+    {
+      "id": "happy_path",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "The owner-opt-in schedule survived database reopen, queued the latest complete daily read, and committed the 9-count synthetic observation with a successful durable job.",
+      "execution_identity": "python -m unittest tests.test_apple_analytics tests.test_apple_analytics_parser tests.test_apple_metrics tests.test_apple_metrics_transport tests.test_apple_metrics_store tests.test_apple_metrics_worker tests.test_apple_metrics_schedule_selection tests.test_apple_metrics_schedule tests.test_apple_metrics_contract tests.test_provider_reports tests.test_analytics_read_indexes tests.test_analytics_refresh_session -v",
+      "observed_at": "2026-10-27T17:03:54+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t8/apple-tests.log",
+          "sha256": "d20fc0ebfef6b681b1c8ffda6ad5c76c5afda7014b8489c36f5431704eb8a234",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "Tests rejected invalid owner choices and cadence, missing app, stale schedule version, and invalid or changed Apple connection state.",
+      "execution_identity": "python -m unittest tests.test_apple_analytics tests.test_apple_analytics_parser tests.test_apple_metrics tests.test_apple_metrics_transport tests.test_apple_metrics_store tests.test_apple_metrics_worker tests.test_apple_metrics_schedule_selection tests.test_apple_metrics_schedule tests.test_apple_metrics_contract tests.test_provider_reports tests.test_analytics_read_indexes tests.test_analytics_refresh_session -v",
+      "observed_at": "2026-10-27T17:03:54+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t8/apple-tests.log",
+          "sha256": "d20fc0ebfef6b681b1c8ffda6ad5c76c5afda7014b8489c36f5431704eb8a234",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "Tests confirmed pause and connection rotation fence persistence, transient transport retries stop after three attempts, and three terminal failures require explicit resume.",
+      "execution_identity": "python -m unittest tests.test_apple_analytics tests.test_apple_analytics_parser tests.test_apple_metrics tests.test_apple_metrics_transport tests.test_apple_metrics_store tests.test_apple_metrics_worker tests.test_apple_metrics_schedule_selection tests.test_apple_metrics_schedule tests.test_apple_metrics_contract tests.test_provider_reports tests.test_analytics_read_indexes tests.test_analytics_refresh_session -v",
+      "observed_at": "2026-10-27T17:03:54+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t8/apple-tests.log",
+          "sha256": "d20fc0ebfef6b681b1c8ffda6ad5c76c5afda7014b8489c36f5431704eb8a234",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "Tests confirmed current schedule/app/connection binding and atomic metric plus job readback, including stale in-flight work rejection.",
+      "execution_identity": "python -m unittest tests.test_apple_analytics tests.test_apple_analytics_parser tests.test_apple_metrics tests.test_apple_metrics_transport tests.test_apple_metrics_store tests.test_apple_metrics_worker tests.test_apple_metrics_schedule_selection tests.test_apple_metrics_schedule tests.test_apple_metrics_contract tests.test_provider_reports tests.test_analytics_read_indexes tests.test_analytics_refresh_session -v",
+      "observed_at": "2026-10-27T17:03:54+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t8/apple-tests.log",
+          "sha256": "d20fc0ebfef6b681b1c8ffda6ad5c76c5afda7014b8489c36f5431704eb8a234",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "Public status omitted the connection hash and synthetic credential; provider operations remained read-only and app-scoped.",
+      "execution_identity": "python -m unittest tests.test_apple_analytics tests.test_apple_analytics_parser tests.test_apple_metrics tests.test_apple_metrics_transport tests.test_apple_metrics_store tests.test_apple_metrics_worker tests.test_apple_metrics_schedule_selection tests.test_apple_metrics_schedule tests.test_apple_metrics_contract tests.test_provider_reports tests.test_analytics_read_indexes tests.test_analytics_refresh_session -v",
+      "observed_at": "2026-10-27T17:03:54+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t8/apple-tests.log",
+          "sha256": "d20fc0ebfef6b681b1c8ffda6ad5c76c5afda7014b8489c36f5431704eb8a234",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "The schedule tick is capped at 100 rows and the scheduled transient retry loop at three attempts; bounded behavior tests passed.",
+      "execution_identity": "python -m unittest tests.test_apple_analytics tests.test_apple_analytics_parser tests.test_apple_metrics tests.test_apple_metrics_transport tests.test_apple_metrics_store tests.test_apple_metrics_worker tests.test_apple_metrics_schedule_selection tests.test_apple_metrics_schedule tests.test_apple_metrics_contract tests.test_provider_reports tests.test_analytics_read_indexes tests.test_analytics_refresh_session -v",
+      "observed_at": "2026-10-27T17:03:54+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t8/apple-tests.log",
+          "sha256": "d20fc0ebfef6b681b1c8ffda6ad5c76c5afda7014b8489c36f5431704eb8a234",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "external_effects",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "Apple report and signed-segment operations used synthetic fixtures and mocks; no live Apple request was made.",
+      "execution_identity": "python -m unittest tests.test_apple_analytics tests.test_apple_analytics_parser tests.test_apple_metrics tests.test_apple_metrics_transport tests.test_apple_metrics_store tests.test_apple_metrics_worker tests.test_apple_metrics_schedule_selection tests.test_apple_metrics_schedule tests.test_apple_metrics_contract tests.test_provider_reports tests.test_analytics_read_indexes tests.test_analytics_refresh_session -v",
+      "observed_at": "2026-10-27T17:03:54+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t8/apple-tests.log",
+          "sha256": "d20fc0ebfef6b681b1c8ffda6ad5c76c5afda7014b8489c36f5431704eb8a234",
+          "kind": "log"
+        }
+      ]
+    }
+  ]
+}

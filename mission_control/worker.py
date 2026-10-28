@@ -84,6 +84,9 @@ def process(store,job,stop=None):
         return execute(app,records,job["data"].get("stage",0),Ledger(store.path).reports(app["id"]),catalog,release,
                        progress=lambda code,stage:emit(store,job,code,stage))
     binding=current_connection(store,app["id"],job["data"])["data"]
+    if 'analytics_schedule_id' in job['data']:
+        from .apple_metrics_schedule import check_scheduled
+        check_scheduled(store,job)
     from .credential_vault import namespace
     binding={**binding,"_vault_namespace":namespace(store.path)}
     if "options" in job["data"]:
@@ -96,6 +99,9 @@ def process(store,job,stop=None):
     else:
         result=sync(binding,app["id"])
     current_connection(store,app["id"],job["data"])
+    if 'analytics_schedule_id' in job['data']:
+        from .apple_metrics_schedule import check_scheduled
+        check_scheduled(store,job)
     return result
 
 
@@ -109,6 +115,9 @@ def _persist_prepared_apple_metrics(db,store,job,prepared):
             or json.loads(current['data'])!=job['data']):
         return None,None
     try:
+        if 'analytics_schedule_id' in job['data']:
+            from .apple_metrics_schedule import check_scheduled_db
+            check_scheduled_db(db,job)
         identity=prepared.identity
         if (identity['app_id']!=job['app_id']
                 or identity['connection_id']!=job['data'].get('connection_id')
@@ -197,6 +206,16 @@ def failed_result(job,error):
         return dict(error='Drive import stopped at a source, permission or validation boundary.',
                     next_action='Inspect the private Drive import and reconnect, review or retry explicitly.',
                     external_execution='READ_ATTEMPT_MAY_HAVE_OCCURRED'),'BLOCKED',0
+    if job['action']=='sync' and 'analytics_schedule_id' in job['data']:
+        if transient_read_error(error) and job['attempts']<3:
+            delay=5*job['attempts']
+            return dict(status='RETRY_WAIT',summary='Transient scheduled Apple read failure; bounded retry queued',
+                attempt=job['attempts'],retry_in_seconds=delay,
+                next_action='The worker will retry this same owner-enabled read within its three-attempt limit',
+                external_execution='READ_RETRY_PENDING'),'RUNNING',delay
+        return dict(error='Scheduled Apple analytics read failed; review the connection and latest job result',
+            next_action='Open the Apple analytics schedule, review the failure, and reconnect or resume explicitly',
+            external_execution='READ_ATTEMPT_MAY_HAVE_OCCURRED'),'BLOCKED',0
     result={'error':str(error),'next_action':'Review inputs or connection, then create a new run','external_execution':'NOT_RUN'}
     if job['action']!='sync' or 'agent_policy_sha256' not in job['data'] or job['attempts']>=3:
         return result,'BLOCKED',0
@@ -237,6 +256,9 @@ def run_once(store,stop=None):
         if changed:
             from .workflow_telemetry import append
             append(db,job,'RETRY_WAIT' if retry_delay else status)
+            if 'analytics_schedule_id' in job['data']:
+                from .apple_metrics_schedule import complete_job
+                complete_job(db,job,result,status)
             if job['action']=='agent_run':
                 from .agent_tasks import complete as agent_complete
                 agent_complete(db,job,result,status)
@@ -286,6 +308,8 @@ class Runner:
         self.supervision.begin()
         self.supervision.attempt("experiments",lambda:Schedules(self.store).tick(),1)
         self.supervision.attempt("analytics",lambda:Insights(self.store).tick(),1)
+        from .apple_metrics_schedule import AppleMetricsSchedules
+        self.supervision.attempt("apple_metrics",lambda:AppleMetricsSchedules(self.store).tick(),1)
         self.supervision.attempt("followup",lambda:Followup(self.store).tick(),1)
         from .social_renewal import Renewal
         self.supervision.attempt("social",lambda:Renewal(self.store).tick(),60)
