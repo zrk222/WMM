@@ -4,6 +4,11 @@
 @implementation EngineBootstrap
 + (NSData *)inventoryWithError:(NSError **)error {
     @synchronized(self) {
+        static BOOL startupFailed = NO;
+        if (startupFailed) {
+            if (error) *error = [NSError errorWithDomain:@"WMM.Engine" code:2 userInfo:nil];
+            return nil;
+        }
         if (!Py_IsInitialized()) {
             NSString *base = NSBundle.mainBundle.resourcePath;
             PyPreConfig preconfig;
@@ -35,6 +40,8 @@
             if (!path || PyList_Insert(PySys_GetObject("path"), 0, path) != 0) {
                 Py_XDECREF(path);
                 PyErr_Clear();
+                startupFailed = YES;
+                PyEval_SaveThread();
                 if (error) *error = [NSError errorWithDomain:@"WMM.Engine" code:2 userInfo:nil];
                 return nil;
             }
@@ -42,7 +49,10 @@
             PyEval_SaveThread();
         }
         PyGILState_STATE gil = PyGILState_Ensure();
-        PyObject *module = PyImport_ImportModule("mission_control.ios_capabilities");
+        PyObject *policy = PyImport_ImportModule("mission_control.ios_runtime_policy");
+        PyObject *activated = policy ? PyObject_CallMethod(policy, "activate", NULL) : NULL;
+        if (!activated) startupFailed = YES;
+        PyObject *module = activated ? PyImport_ImportModule("mission_control.ios_capabilities") : NULL;
         PyObject *value = module ? PyObject_CallMethod(module, "inventory", NULL) : NULL;
         PyObject *common = value ? PyImport_ImportModule("mission_control.common") : NULL;
         PyObject *encoded = common ? PyObject_CallMethod(common, "canonical", "O", value) : NULL;
@@ -56,6 +66,7 @@
                 userInfo:@{NSLocalizedDescriptionKey: @"The bundled domain inventory could not load."}];
         }
         Py_XDECREF(encoded); Py_XDECREF(common); Py_XDECREF(value); Py_XDECREF(module);
+        Py_XDECREF(activated); Py_XDECREF(policy);
         PyGILState_Release(gil);
         return result;
     }
