@@ -27,7 +27,7 @@ def check():
               r'\bsk-proj-[A-Za-z0-9_-]{30,}',r'C:[/\\]Users[/\\][^/\\\s]+']
     for path in files():
         rel=path.relative_to(ROOT)
-        if path.is_symlink() or not path.resolve().is_relative_to(ROOT):issues.append(str(rel)+': escaping path');continue
+        if path.is_symlink() or not path.resolve().is_relative_to(ROOT.resolve()):issues.append(str(rel)+': escaping path');continue
         if rel.as_posix() in {'docs/images/overview.png','docs/images/pipeline.png','docs/images/results.png'}:
             try:
                 manifest=json.loads((ROOT/'docs/images/provenance.json').read_text(encoding='utf-8'))

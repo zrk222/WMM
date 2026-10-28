@@ -12,6 +12,19 @@ import check_distribution as distribution
 
 
 class DistributionTextEncodingTests(unittest.TestCase):
+    def test_resolves_root_alias_without_allowing_escape(self):
+        with tempfile.TemporaryDirectory() as folder:
+            base=Path(folder)
+            root=base/'repo';root.mkdir()
+            source=root/'safe.txt';source.write_text('safe',encoding='utf-8')
+            alias=root/'..'/'repo'
+            with patch.object(distribution,'ROOT',alias),patch.object(distribution,'files',return_value=[alias/'safe.txt']):
+                distribution.check()
+            outside=base/'outside.txt';outside.write_text('outside',encoding='utf-8')
+            with patch.object(distribution,'ROOT',root),patch.object(distribution,'files',return_value=[root/'..'/'outside.txt']):
+                with self.assertRaisesRegex(SystemExit,'escaping path'):
+                    distribution.check()
+
     def test_synthetic_screenshots_require_current_manifest_and_known_path(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
