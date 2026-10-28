@@ -43,8 +43,11 @@ def main():
         outcomes.append(dict(family=family,device=device,command=argv,exit_code=completed.returncode,
                              xcresult_exists=result.is_dir(),physical_device_acceptance='NOT_RUN'))
         (evidence/'simulator-outcomes.json').write_text(json.dumps(outcomes,indent=2),encoding='utf-8')
-        if completed.returncode:raise SystemExit(completed.returncode)
         if not result.is_dir():raise SystemExit('xcodebuild produced no xcresult; acceptance incomplete')
+    # A phone assertion failure must remain a failure without hiding tablet
+    # evidence. Collect both actual inventories and retain each exit code.
+    failed=next((item['exit_code'] for item in outcomes if item['exit_code']),0)
+    if failed:raise SystemExit(failed)
     print('iPhone and iPad simulator test commands passed; inspect xcresult coverage. Physical device acceptance NOT_RUN.')
 
 if __name__=='__main__':main()

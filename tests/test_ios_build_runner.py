@@ -13,6 +13,30 @@ builder=importlib.util.module_from_spec(buildspec);buildspec.loader.exec_module(
 
 
 class SimulatorSelectionTests(unittest.TestCase):
+    def test_phone_failure_still_runs_tablet_and_remains_failure(self):
+        inventory={'devices':{'iOS':[
+            {'name':'iPhone Test','udid':'phone','isAvailable':True},
+            {'name':'iPad Test','udid':'tablet','isAvailable':True}]}}
+        with tempfile.TemporaryDirectory() as folder:
+            commands=[]
+            def execute(argv,**kwargs):
+                from types import SimpleNamespace
+                commands.append(argv)
+                if argv[0]=='xcodebuild':
+                    Path(argv[argv.index('-resultBundlePath')+1]).mkdir()
+                    return SimpleNamespace(returncode=65 if 'platform=iOS Simulator,id=phone' in argv else 0)
+                return SimpleNamespace(returncode=0)
+            with patch.object(runner,'IOS',Path(folder)),patch.object(runner.platform,'system',return_value='Darwin'), \
+                 patch.object(runner.platform,'machine',return_value='arm64'), \
+                 patch.object(runner.subprocess,'check_output',return_value=json.dumps(inventory)), \
+                 patch.object(runner.subprocess,'run',side_effect=execute):
+                with self.assertRaises(SystemExit) as failure:runner.main()
+            self.assertEqual(failure.exception.code,65)
+            outcomes=json.loads((Path(folder)/'build-evidence/simulator-outcomes.json').read_text())
+            self.assertEqual([item['family'] for item in outcomes],['iphone','ipad'])
+            self.assertEqual([item['exit_code'] for item in outcomes],[65,0])
+            self.assertTrue(all(item['xcresult_exists'] for item in outcomes))
+
     def test_packaging_uses_one_supported_host_architecture(self):
         for arch in ('arm64','x86_64'):
             self.assertEqual(runner.simulator_architecture(arch),arch)
