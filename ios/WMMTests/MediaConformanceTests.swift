@@ -62,24 +62,32 @@ final class MediaConformanceTests: XCTestCase {
     }
 
     func testActualTrimStitchSpeedAndDecodedColorOrder() async throws {
+        var phase = "create fixture directory"
+        defer { print("WMM_STITCH_PHASE=\(phase); taskCancelled=\(Task.isCancelled)") }
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at:folder,withIntermediateDirectories:true)
         defer { try? FileManager.default.removeItem(at:folder) }
         let red = folder.appendingPathComponent("red.mp4"), blue = folder.appendingPathComponent("blue.mp4")
+        phase = "write red source"
         try await syntheticVideo(at:red,frames:48,color:CGColor(red:1,green:0,blue:0,alpha:1))
+        phase = "write blue source"
         try await syntheticVideo(at:blue,frames:48,color:CGColor(red:0,green:0,blue:1,alpha:1))
+        phase = "compile native plan"
         let timeline = try plan()
         let renderer = TimelineRenderer()
         let destination = folder.appendingPathComponent("stitched.mp4")
+        phase = "render with internal decode and authority checks"
         let output = try await renderer.render(timeline,destination:destination,resolve:{ source in
             source.id.hasPrefix("1111") ? red : blue
         }, validateAuthority:{})
         XCTAssertEqual(output, destination)
         XCTAssertTrue(FileManager.default.fileExists(atPath: destination.path))
+        phase = "independent output verification"
         try await MediaInspector.verify(output,plan:timeline,expectsAudio:false)
         // Verify exact decoded frame positions, avoiding approximate seek/image
         // generation as a second, unrelated async pipeline in this frame test.
         let renderedAsset = AVURLAsset(url: output)
+        phase = "open final output track"
         let tracks = try await renderedAsset.loadTracks(withMediaType: .video)
         let track = try XCTUnwrap(tracks.first)
         let reader = try AVAssetReader(asset: renderedAsset)
@@ -89,6 +97,7 @@ final class MediaConformanceTests: XCTestCase {
         reader.add(decoded)
         XCTAssertTrue(reader.startReading())
         var frame = 0, checked = 0
+        phase = "verify decoded red and blue frame order"
         while let sample = decoded.copyNextSampleBuffer() {
             if frame == 6 || frame == 30 {
                 let pixels = try XCTUnwrap(CMSampleBufferGetImageBuffer(sample))
@@ -109,6 +118,7 @@ final class MediaConformanceTests: XCTestCase {
         XCTAssertEqual(checked, 2)
         let deniedOutput = folder.appendingPathComponent("denied.mp4")
         var authorityChecks = 0
+        phase = "reject revoked authority and remove partial output"
         do {
             _ = try await renderer.render(timeline, destination: deniedOutput, resolve: { source in
                 source.id.hasPrefix("1111") ? red : blue
@@ -120,6 +130,7 @@ final class MediaConformanceTests: XCTestCase {
         } catch DomainBridge.Failure.closed {}
         XCTAssertEqual(authorityChecks, 2)
         XCTAssertFalse(FileManager.default.fileExists(atPath: deniedOutput.path))
+        phase = "completed all assertions"
     }
 
     func testOriginalInspectionDecodesRealFramesAndRejectsCorruptBytes() async throws {
