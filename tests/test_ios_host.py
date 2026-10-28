@@ -67,6 +67,17 @@ class NativeRuntimeTests(unittest.TestCase):
         reopened=Runtime(self.path,self.verify)
         self.assertEqual([a['id'] for a in json.loads(reopened.workspaces(self.session))['apps']],['new-app'])
 
+    def test_native_workspace_navigation_reads_actual_twelve_stage_engine_state(self):
+        self.runtime.create_workspace(self.session,self.creation())
+        request=json.dumps(dict(app_id='new-app',operation='workspace.read',input={})).encode()
+        snapshot=json.loads(self.runtime.owner_call(self.session,request))
+        self.assertEqual(snapshot['app']['id'],'new-app')
+        self.assertEqual([s['id'] for s in snapshot['stages']],list(range(1,13)))
+        for stage in snapshot['stages']:
+            self.assertIn(stage['status'],('READY','BLOCKED'))
+            self.assertIsInstance(stage['missing'],list)
+            self.assertTrue(stage['description'])
+
     def test_creation_never_claims_foreign_or_unowned_existing_workspaces(self):
         for app in ('own','other'):
             with self.assertRaises(PermissionError):self.runtime.create_workspace(self.session,self.creation(app))

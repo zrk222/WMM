@@ -10,7 +10,7 @@ def obj(label,isa,**fields):
 def ref(path,kind,tree='<group>'):
     return obj(path,'PBXFileReference',path=path,lastKnownFileType=kind,sourceTree=tree)
 def build(name,file,**extra):return obj(name,'PBXBuildFile',fileRef=file,**extra)
-sources=['WMM/WMMApp.swift','WMM/Identity/KeychainVault.swift','WMM/Identity/LocalIdentity.swift','WMM/Identity/NativeSessionAuthority.swift','WMM/Bridge/DomainBridge.swift','WMM/Storage/LocalStore.swift','WMM/Bridge/EngineBootstrap.m','WMM/Media/TimelineRenderer.swift','WMM/Media/MediaInspector.swift','WMM/Media/MediaIntake.swift','WMM/Reports/ReportExport.swift']
+sources=['WMM/WMMApp.swift','WMM/Workflow/WorkflowNavigation.swift','WMM/Workflow/NativeWorkspaceModel.swift','WMM/Identity/KeychainVault.swift','WMM/Identity/LocalIdentity.swift','WMM/Identity/NativeSessionAuthority.swift','WMM/Bridge/DomainBridge.swift','WMM/Storage/LocalStore.swift','WMM/Bridge/EngineBootstrap.m','WMM/Media/TimelineRenderer.swift','WMM/Media/MediaInspector.swift','WMM/Media/MediaIntake.swift','WMM/Reports/ReportExport.swift']
 types=lambda p:'sourcecode.c.objc' if p.endswith('.m') else 'sourcecode.swift'
 files=[ref(p,types(p)) for p in sources]
 testfile=ref('WMMTests/StorageIdentityTests.swift','sourcecode.swift')
@@ -36,7 +36,7 @@ def configs(name,base):
         values.append(obj(name+mode,'XCBuildConfiguration',name=mode,buildSettings=settings))
     return obj(name+'configs','XCConfigurationList',buildConfigurations=values,defaultConfigurationIsVisible=0,defaultConfigurationName='Release')
 common={'IPHONEOS_DEPLOYMENT_TARGET':'17.0','SWIFT_VERSION':'5.0','SDKROOT':'iphoneos','TARGETED_DEVICE_FAMILY':'1,2','CODE_SIGN_STYLE':'Automatic','GENERATE_INFOPLIST_FILE':'YES','ENABLE_USER_SCRIPT_SANDBOXING':'NO','CLANG_ENABLE_MODULES':'YES','CLANG_ENABLE_OBJC_ARC':'YES'}
-ac=configs('app',dict(common,PRODUCT_BUNDLE_IDENTIFIER='com.wizemarketingmachine.app',PRODUCT_NAME='$(TARGET_NAME)',SWIFT_OBJC_BRIDGING_HEADER='WMM/WMM-Bridging-Header.h',FRAMEWORK_SEARCH_PATHS=['$(inherited)','$(PROJECT_DIR)'],HEADER_SEARCH_PATHS=['$(BUILT_PRODUCTS_DIR)/Python.framework/Headers'],LD_RUNPATH_SEARCH_PATHS=['$(inherited)','@executable_path/Frameworks'],ENABLE_TESTABILITY='YES',INFOPLIST_KEY_UIApplicationSceneManifest_Generation='YES',INFOPLIST_KEY_UILaunchScreen_Generation='YES'))
+ac=configs('app',dict(common,PRODUCT_BUNDLE_IDENTIFIER='com.wizemarketingmachine.app',PRODUCT_NAME='$(TARGET_NAME)',SWIFT_OBJC_BRIDGING_HEADER='WMM/WMM-Bridging-Header.h',FRAMEWORK_SEARCH_PATHS=['$(inherited)','$(PROJECT_DIR)'],HEADER_SEARCH_PATHS=['$(BUILT_PRODUCTS_DIR)/Python.framework/Headers'],LD_RUNPATH_SEARCH_PATHS=['$(inherited)','@executable_path/Frameworks'],ENABLE_TESTABILITY='YES',INFOPLIST_KEY_UIApplicationSceneManifest_Generation='YES',INFOPLIST_KEY_UILaunchScreen_Generation='YES',INFOPLIST_KEY_NSFaceIDUsageDescription='Unlock your private marketing workspace.'))
 tc=configs('tests',dict(common,PRODUCT_BUNDLE_IDENTIFIER='com.wizemarketingmachine.tests',PRODUCT_NAME='$(TARGET_NAME)',TEST_HOST='$(BUILT_PRODUCTS_DIR)/WMM.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/WMM',BUNDLE_LOADER='$(TEST_HOST)'))
 target=obj('app-target','PBXNativeTarget',name='WMM',buildConfigurationList=ac,buildPhases=[sourcephase,link,resources,runtime,embed],buildRules=[],dependencies=[],productName='WMM',productReference=app,productType='com.apple.product-type.application')
 proxy=obj('test-proxy','PBXContainerItemProxy',containerPortal=key('project'),proxyType=1,remoteGlobalIDString=target,remoteInfo='WMM')

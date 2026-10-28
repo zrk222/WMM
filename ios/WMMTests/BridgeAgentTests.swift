@@ -44,6 +44,12 @@ final class BridgeAgentTests: XCTestCase {
         let read = try JSONSerialization.data(withJSONObject: ["app_id": appID, "operation": "growth.history", "input": [:]] as [String: Any])
         let history = try await bridge.call(session: session, request: read)
         XCTAssertEqual((try JSONSerialization.jsonObject(with: history) as? [String: Any])?["app_id"] as? String, appID)
+        let workspaceRequest = try JSONSerialization.data(withJSONObject: ["app_id": appID, "operation": "workspace.read", "input": [:]] as [String: Any])
+        let workspaceBytes = try await bridge.call(session: session, request: workspaceRequest)
+        let workspace = try JSONDecoder().decode(NativeWorkflowSnapshot.self, from: workspaceBytes)
+        XCTAssertEqual(workspace.app.id, appID)
+        XCTAssertEqual(workspace.stages.map(\.id), Array(1...12))
+        XCTAssertTrue(workspace.stages.allSatisfy { ["READY", "BLOCKED"].contains($0.status) })
         await identity.lock()
         do {
             _ = try await bridge.workspaces(session: session)

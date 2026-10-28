@@ -1,0 +1,133 @@
+import Foundation
+import SwiftUI
+import LocalAuthentication
+import UIKit
+
+struct NativeWorkspace: Decodable, Identifiable {
+    struct Manifest: Decodable { let name: String; let job: String? }
+    let id: String
+    let version: Int
+    let data: Manifest
+}
+struct NativeWorkspaceList: Decodable { let apps: [NativeWorkspace] }
+struct NativeWorkflowSnapshot: Decodable {
+    struct Stage: Decodable, Identifiable {
+        let id: Int
+        let title: String
+        let description: String
+        let status: String
+        let missing: [String]
+    }
+    let app: NativeWorkspace
+    let stages: [Stage]
+}
+
+@MainActor
+final class NativeWorkspaceModel: ObservableObject {
+    @Published private(set) var unlocked = false
+    @Published private(set) var busy = false
+    @Published private(set) var activity = ""
+    @Published private(set) var apps: [NativeWorkspace] = []
+    @Published private(set) var snapshot: NativeWorkflowSnapshot?
+    @Published private(set) var message: String?
+    private var identity: LocalIdentity?
+    private var bridge: DomainBridge?
+    private var session: LocalIdentity.Session?
+    private var generation = UUID()
+    private var authentication: LAContext?
+
+    private func installationID(_ key: String) throws -> UUID {
+        if let text = UserDefaults.standard.string(forKey: key) {
+            guard let id = UUID(uuidString: text) else { throw CocoaError(.coderReadCorrupt) }
+            return id
+        }
+        let id = UUID()
+        // Public container routing metadata, never a credential.
+        UserDefaults.standard.set(id.uuidString, forKey: key)
+        return id
+    }
+
+    func unlock() async {
+        guard !busy else { return }
+        busy = true; message = nil; activity = "Confirming device authentication…"
+        let ticket = generation
+        defer { if generation == ticket { busy = false; activity = "" } }
+        do {
+            let context = LAContext(); authentication = context
+            guard try await context.evaluatePolicy(.deviceOwnerAuthentication,
+                localizedReason: "Unlock your private app marketing workspace.") else { return }
+            guard generation == ticket, UIApplication.shared.applicationState == .active else { return }
+            activity = "Opening the protected local engine…"
+            if identity == nil {
+                let databaseID = try installationID("wmm.local-database-id")
+                let identityID = try installationID("wmm.local-identity-namespace")
+                let support = try FileManager.default.url(for: .applicationSupportDirectory,
+                    in: .userDomainMask, appropriateFor: nil, create: true)
+                let store = try LocalStore(applicationSupport: support, databaseID: databaseID)
+                let local = LocalIdentity(vault: KeychainVault(databaseID: databaseID, appID: identityID))
+                let transport = try await Task.detached { try DomainBridge(store: store, identity: local) }.value
+                guard generation == ticket else { await transport.close(); return }
+                identity = local; bridge = transport
+            }
+            guard let identity, let bridge else { throw CocoaError(.fileReadUnknown) }
+            let admitted = try await identity.begin()
+            guard generation == ticket else { await identity.lock(); return }
+            let data = try await bridge.workspaces(session: admitted)
+            let list = try JSONDecoder().decode(NativeWorkspaceList.self, from: data)
+            guard generation == ticket else { await identity.lock(); return }
+            session = admitted; apps = list.apps; unlocked = true; authentication = nil
+        } catch {
+            guard generation == ticket else { return }
+            identity?.authority.revoke(); session = nil; unlocked = false
+            message = "Your workspace could not unlock. Check device authentication and the bundled engine, then try again. Saved work is retained."
+        }
+    }
+
+    func lock() {
+        generation = UUID(); authentication?.invalidate(); authentication = nil
+        identity?.authority.revoke()
+        session = nil; apps = []; snapshot = nil; unlocked = false; busy = false; activity = ""; message = nil
+        if let identity { Task { await identity.lock() } }
+    }
+
+    func create(appID: String, manifest: [String: String], confirmed: Bool) async -> Bool {
+        guard !busy, unlocked, confirmed, let bridge, let session else { return false }
+        busy = true; message = nil; activity = "Saving your app and owner permissions…"
+        let ticket = generation
+        defer { if generation == ticket { busy = false; activity = "" } }
+        do {
+            let request = try JSONSerialization.data(withJSONObject: [
+                "app_id": appID, "manifest": manifest, "confirm_owner": true] as [String: Any])
+            _ = try await bridge.createWorkspace(session: session, request: request)
+            let data = try await bridge.workspaces(session: session)
+            let list = try JSONDecoder().decode(NativeWorkspaceList.self, from: data)
+            guard generation == ticket else { return false }
+            apps = list.apps; message = "Your app is saved. Open it to see its evidence and next steps."
+            return true
+        } catch {
+            guard generation == ticket else { return false }
+            message = "Workspace creation was not confirmed. Your form is retained; retrying the same setup uses the same app identifier."
+            return false
+        }
+    }
+
+    func open(_ app: NativeWorkspace) async {
+        guard !busy, unlocked, let bridge, let session else { return }
+        busy = true; message = nil; snapshot = nil; activity = "Reading app evidence and evaluating twelve stages…"
+        let ticket = generation
+        defer { if generation == ticket { busy = false; activity = "" } }
+        do {
+            let request = try JSONSerialization.data(withJSONObject: [
+                "app_id": app.id, "operation": "workspace.read", "input": [:]] as [String: Any])
+            let data = try await bridge.call(session: session, request: request)
+            let value = try JSONDecoder().decode(NativeWorkflowSnapshot.self, from: data)
+            guard generation == ticket, value.app.id == app.id else { return }
+            snapshot = value
+        } catch {
+            guard generation == ticket else { return }
+            message = "This app could not be read. Unlock again if your session expired, or retry the read. Saved evidence is retained."
+        }
+    }
+
+    func clearSelection() { snapshot = nil }
+}
