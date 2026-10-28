@@ -47,10 +47,10 @@ def request_view(db,request):
         reconciliation_required=checkpoint['state'] in ('RUNNING','UNKNOWN','CANCEL_REQUESTED'))
 
 
-def run_operation(service,envelope):
+def run_operation(service,envelope,executor=None):
     """Record only known local validation failures as failed; other exceptions stay unknown."""
     try:
-        value=execute(service,envelope)
+        value=(executor or execute)(service,envelope)
     except EffectUncertain:
         return dict(outcome='UNKNOWN',error='LOCAL_RESULT_UNCONFIRMED')
     except (Invalid,PermissionError,KeyError):
@@ -71,9 +71,10 @@ def result_receipt(value):
 
 class ReviewedDispatch:
     """No caller-supplied principal, replacement envelope or human approval capability."""
-    def __init__(self,service,clock=None):
+    def __init__(self,service,clock=None,executor=None):
         self.service=service
         self.clock=clock or (lambda:datetime.now(timezone.utc))
+        self.executor=executor
 
     def prepare(self,token,identity,envelope):
         """Reserve preparation and freeze exact intent in one transaction."""
@@ -115,7 +116,7 @@ class ReviewedDispatch:
         from .operation_authority import bound_agent
         review=dict(id=identity,input_hash=request['input_hash'],packet_hash=claimed['hash'],revision=claimed['revision'])
         with bound_agent(self.service.store,request['envelope'],admission,review),admitted_caller(admission):
-            result=run_operation(self.service,request['envelope'])
+            result=run_operation(self.service,request['envelope'],self.executor)
         return self.complete(app_id,identity,grant['agent_id'],result)
 
     def complete(self,app_id,identity,agent_id,result):

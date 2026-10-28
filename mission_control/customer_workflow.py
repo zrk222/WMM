@@ -60,23 +60,45 @@ def exclusion_data(value):
     return {key: required(value[key], key, 500) for key in ("feature", "reason")}
 
 
+def prototype_observation_time(value, observed):
+    """Require a consented, dated result with a supported task outcome."""
+    at = iso_time(value['observed_at'])
+    if at > observed:
+        raise Invalid('Prototype observation cannot be in the future')
+    if value['consent'] is not True:
+        raise Invalid('Prototype observation requires research consent')
+    if value['task_outcome'] not in ('COMPLETED', 'PARTIAL', 'NOT_COMPLETED'):
+        raise Invalid('Choose completed, partial or not completed for the observed task')
+    return at
+
+
+def prototype_duration(value):
+    """Preserve unknown timing and reject malformed or implausible durations."""
+    duration = value['duration_seconds']
+    if duration is not None and (type(duration) is not int or not 0 <= duration <= 86400):
+        raise Invalid('Prototype duration must be unknown or whole seconds from 0 through 86400')
+    return duration
+
+
+def prototype_feature_ids(value, features):
+    """Bind a prototype observation to distinct features in the saved workflow."""
+    refs = value['feature_ids']
+    known = {row['id'] for row in features}
+    if not isinstance(refs, list) or not 1 <= len(refs) <= 20:
+        raise Invalid('Prototype result needs distinct tested features from this workflow')
+    if any(not isinstance(ref, str) or ref not in known for ref in refs) or len(set(refs)) != len(refs):
+        raise Invalid('Prototype result needs distinct tested features from this workflow')
+    return list(refs)
+
+
 def prototype_result(value, features, observed):
     """Record a supplied consented task observation without participant identity."""
-    exact(value, {'observed_at','evidence_sha256','task_outcome','feedback','duration_seconds','consent','feature_ids'})
-    at=iso_time(value['observed_at'])
-    if at>observed:raise Invalid('Prototype observation cannot be in the future')
-    if value['consent'] is not True:raise Invalid('Prototype observation requires research consent')
-    if value['task_outcome'] not in ('COMPLETED','PARTIAL','NOT_COMPLETED'):
-        raise Invalid('Choose completed, partial or not completed for the observed task')
-    duration=value['duration_seconds']
-    if duration is not None and (type(duration) is not int or not 0<=duration<=86400):
-        raise Invalid('Prototype duration must be unknown or whole seconds from 0 through 86400')
-    refs=value['feature_ids'];known={row['id'] for row in features}
-    if not isinstance(refs,list) or not 1<=len(refs)<=20 or any(not isinstance(r,str) or r not in known for r in refs) or len(set(refs))!=len(refs):
-        raise Invalid('Prototype result needs distinct tested features from this workflow')
-    return dict(observed_at=at.isoformat(),evidence_sha256=hashed(value['evidence_sha256']),
-        task_outcome=value['task_outcome'],feedback=public_excerpt(value['feedback']),
-        duration_seconds=duration,consent=True,feature_ids=list(refs))
+    exact(value, {'observed_at', 'evidence_sha256', 'task_outcome', 'feedback', 'duration_seconds', 'consent', 'feature_ids'})
+    at = prototype_observation_time(value, observed)
+    return dict(observed_at=at.isoformat(), evidence_sha256=hashed(value['evidence_sha256']),
+                task_outcome=value['task_outcome'], feedback=public_excerpt(value['feedback']),
+                duration_seconds=prototype_duration(value), consent=True,
+                feature_ids=prototype_feature_ids(value, features))
 
 def workflow_data(value, observed) -> dict:
     """Normalize a bounded source-to-feature proposal while preserving explicit unknowns."""

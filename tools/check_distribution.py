@@ -3,8 +3,16 @@ import pathlib
 import re
 import subprocess
 import sys
+import json
+import hashlib
 
 ROOT=pathlib.Path(__file__).resolve().parents[1]
+
+def decode_text(data):
+    if data.startswith((b'\xff\xfe',b'\xfe\xff')):return data.decode('utf-16')
+    if data.startswith(b'\xef\xbb\xbf'):return data.decode('utf-8-sig')
+    return data.decode('utf-8')
+
 def files():
     if (ROOT/'.git').exists():
         result=subprocess.run(['git','ls-files','-z'],cwd=ROOT,capture_output=True,check=True)
@@ -19,10 +27,23 @@ def check():
               r'\bsk-proj-[A-Za-z0-9_-]{30,}',r'C:[/\\]Users[/\\][^/\\\s]+']
     for path in files():
         rel=path.relative_to(ROOT)
-        if path.is_symlink() or not path.resolve().is_relative_to(ROOT):issues.append(str(rel)+': escaping path');continue
+        if path.is_symlink() or not path.resolve().is_relative_to(ROOT.resolve()):issues.append(str(rel)+': escaping path');continue
+        if rel.as_posix() in {'docs/images/overview.png','docs/images/pipeline.png','docs/images/results.png'}:
+            try:
+                manifest=json.loads((ROOT/'docs/images/provenance.json').read_text(encoding='utf-8'))
+                data=path.read_bytes()
+                if (manifest.get('synthetic') is not True or
+                    not data.startswith(b'\x89PNG\r\n\x1a\n') or
+                    manifest['images'][path.name]!=hashlib.sha256(data).hexdigest()):
+                    raise ValueError('Screenshot provenance mismatch')
+            except (OSError,ValueError,KeyError,AssertionError):
+                issues.append(str(rel)+': missing or mismatched synthetic screenshot provenance')
+            continue
         if path.suffix in ('.sqlite','.sqlite3','.db','.png','.jpeg','.jpg','.zip','.pyc'):
             issues.append(str(rel)+': operational/binary file');continue
-        text=path.read_text(encoding='utf-8')
+        try:text=decode_text(path.read_bytes())
+        except UnicodeDecodeError:
+            issues.append(str(rel)+': unrecognized text encoding');continue
         for pattern in patterns:
             if re.search(pattern,text):issues.append(str(rel)+': credential or private path pattern')
     if issues:raise SystemExit('\n'.join(issues))

@@ -16,7 +16,7 @@ from mission_control.common import Invalid, digest
 from mission_control.growth_review_store import GrowthReviews
 from mission_control.customer_workflow_store import CustomerWorkflows
 from mission_control.experiments import Experiments
-from mission_control.subscription_review import review_status, subscription_experiments, ads_sources, review_issues, source_recovery_issues
+from mission_control.subscription_review import recovery_issues, review_status, subscription_experiments, ads_sources, review_issues, source_recovery_issues
 
 
 class SubscriptionReviewTests(unittest.TestCase):
@@ -68,6 +68,17 @@ class SubscriptionReviewTests(unittest.TestCase):
              ('benchmarks','invalid-account','SOURCE_REVIEW_NEEDED')])
         self.assertNotIn('PRIVATE',str(issues))
         self.assertEqual(source_recovery_issues(dict(history=customers['history'][2:]),sources[1:]),[])
+
+    def test_recovery_issues_reports_saved_evidence_and_experiment_repairs(self):
+        growth = dict(history=[dict(id='listing-one', kind='ASO_LISTING',
+            readout=dict(availability='CURRENT_LOCAL_EVIDENCE', analysis=dict(status='NEEDS_REPAIR')))])
+        experiments = [dict(id='experiment-one', current_source_findings=['billing evidence expired'])]
+        before = copy.deepcopy((growth, experiments))
+        issues = recovery_issues(growth, experiments)
+        self.assertEqual([(row['area'], row['id'], row['code']) for row in issues],
+            [('saved_review', 'listing-one', 'NEEDS_REPAIR'),
+             ('subscription_experiments', 'experiment-one', 'SOURCE_REVIEW_NEEDED')])
+        self.assertEqual((growth, experiments), before)
 
     def test_real_expired_removed_and_stale_customer_workflows_require_recovery(self):
         app = self.configure();store=self.server.service.store

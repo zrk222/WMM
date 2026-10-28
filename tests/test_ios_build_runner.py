@@ -1,0 +1,94 @@
+import importlib.util
+from pathlib import Path
+import unittest
+from unittest.mock import patch
+import tempfile
+import json
+
+path=Path(__file__).resolve().parents[1]/'ios/Build/run_simulators.py'
+spec=importlib.util.spec_from_file_location('ios_simulator_runner',path)
+runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
+buildspec=importlib.util.spec_from_file_location('ios_runtime_builder',path.with_name('build_runtime.py'))
+builder=importlib.util.module_from_spec(buildspec);buildspec.loader.exec_module(builder)
+
+
+class SimulatorSelectionTests(unittest.TestCase):
+    def test_phone_failure_still_runs_tablet_and_remains_failure(self):
+        inventory={'devices':{'iOS':[
+            {'name':'iPhone Test','udid':'phone','isAvailable':True},
+            {'name':'iPad Test','udid':'tablet','isAvailable':True}]}}
+        with tempfile.TemporaryDirectory() as folder:
+            commands=[]
+            def execute(argv,**kwargs):
+                from types import SimpleNamespace
+                commands.append(argv)
+                if argv[0]=='xcodebuild':
+                    Path(argv[argv.index('-resultBundlePath')+1]).mkdir()
+                    return SimpleNamespace(returncode=65 if 'platform=iOS Simulator,id=phone' in argv else 0)
+                return SimpleNamespace(returncode=0)
+            with patch.object(runner,'IOS',Path(folder)),patch.object(runner.platform,'system',return_value='Darwin'), \
+                 patch.object(runner.platform,'machine',return_value='arm64'), \
+                 patch.object(runner.subprocess,'check_output',return_value=json.dumps(inventory)), \
+                 patch.object(runner.subprocess,'run',side_effect=execute):
+                with self.assertRaises(SystemExit) as failure:runner.main()
+            self.assertEqual(failure.exception.code,65)
+            outcomes=json.loads((Path(folder)/'build-evidence/simulator-outcomes.json').read_text())
+            self.assertEqual([item['family'] for item in outcomes],['iphone','ipad'])
+            self.assertEqual([item['exit_code'] for item in outcomes],[65,0])
+            self.assertTrue(all(item['xcresult_exists'] for item in outcomes))
+
+    def test_packaging_uses_one_supported_host_architecture(self):
+        for arch in ('arm64','x86_64'):
+            self.assertEqual(runner.simulator_architecture(arch),arch)
+        for invalid in ('arm64 x86_64','arm64e','','unknown'):
+            with self.assertRaises(ValueError):runner.simulator_architecture(invalid)
+
+    def test_runtime_reuse_requires_source_toolchain_and_current_bytes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            framework=Path(folder)/'Python.xcframework';framework.mkdir()
+            binary=framework/'synthetic-binary';binary.write_bytes(b'synthetic fixture')
+            identity={'source_commit':'source-a','xcode':'toolchain-a'}
+            receipt=framework.parent/'runtime-cache.json'
+            receipt.write_text(json.dumps({'identity':identity,'tree_sha256':builder.tree_hash(framework)}))
+            self.assertTrue(builder.reusable_framework(framework,identity))
+            self.assertFalse(builder.reusable_framework(framework,dict(identity,xcode='toolchain-b')))
+            self.assertFalse(builder.reusable_framework(framework,dict(identity,source_commit='source-b')))
+            binary.write_bytes(b'changed')
+            self.assertFalse(builder.reusable_framework(framework,identity))
+            receipt.unlink()
+            self.assertFalse(builder.reusable_framework(framework,identity))
+
+    def test_source_commit_and_annotated_tag_have_separate_checks(self):
+        lock={'source_commit':'commit-id','source_tag_object':'tag-object-id','source_tag':'v3.14.0'}
+        with patch.object(builder,'run',side_effect=['commit-id','tag-object-id','']):
+            builder.verify_source(Path('source'),lock)
+        with patch.object(builder,'run',return_value='tag-object-id'):
+            with self.assertRaisesRegex(SystemExit,'commit differs'):
+                builder.verify_source(Path('source'),lock)
+        with patch.object(builder,'run',side_effect=['commit-id','changed-tag']):
+            with self.assertRaisesRegex(SystemExit,'tag object differs'):
+                builder.verify_source(Path('source'),lock)
+
+    def test_source_framework_requires_packaging_helper(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);framework=root/'cross-build/iOS/Python.xcframework'
+            framework.mkdir(parents=True);(framework/'Info.plist').write_text('fixture')
+            with self.assertRaisesRegex(SystemExit,'helper is absent'):builder.framework_output(root)
+            (framework/'build').mkdir();(framework/'build/utils.sh').write_text('fixture')
+            self.assertEqual(builder.framework_output(root),framework)
+
+    def test_selects_actual_available_ios_phone_and_tablet_only(self):
+        inventory={'devices':{'com.apple.CoreSimulator.SimRuntime.iOS-26-0':[
+            {'name':'iPhone Test','udid':'actual-phone-id','isAvailable':True},
+            {'name':'iPad Test','udid':'actual-tablet-id','isAvailable':True},
+            {'name':'iPhone Unavailable','udid':'bad','isAvailable':False}],
+            'com.apple.CoreSimulator.SimRuntime.tvOS-26-0':[
+            {'name':'iPhone Not iOS','udid':'tv','isAvailable':True}]}}
+        self.assertEqual([d['udid'] for d in runner.select_devices(inventory)],['actual-phone-id','actual-tablet-id'])
+
+    def test_missing_ipad_does_not_pass_as_complete_coverage(self):
+        inventory={'devices':{'iOS':[{'name':'iPhone Test','udid':'phone','isAvailable':True}]}}
+        with self.assertRaisesRegex(ValueError,'iPad'):runner.select_devices(inventory)
+
+    def test_no_device_inventory_is_not_a_pass(self):
+        with self.assertRaises(ValueError):runner.select_devices({'devices':{}})

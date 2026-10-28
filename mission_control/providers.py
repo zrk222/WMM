@@ -1,10 +1,12 @@
 """Real read-only Apple API adapters, fixed hosts and app-specific references."""
+import hashlib
 import json
 import os
 import re
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, build_opener, HTTPRedirectHandler
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
+from .apple_analytics_parser import MAX_COMPRESSED
 from .common import Invalid, required, now, digest
 from .apple_ads_preflight import ENDPOINT, inventory_request, shape_inventory
 
@@ -55,12 +57,69 @@ def report_destination(url,body):
     query_paths=("/v1/campaigns/query","/v1/reports/apps/campaigns/query","/v1/reports/apps/keywords/query","/v1/reports/apps/searchterms/query")
     allowed=False
     if parsed.hostname=="api.appstoreconnect.apple.com":
-        apple_paths = r'/v1/(?:apps/\d+(?:/customerReviews|/subscriptionGroups|/analyticsReportRequests)?|subscriptionGroups/\d+/subscriptions|appStoreVersions/[A-Za-z0-9-]{1,80}(?:/appStoreVersionLocalizations)?|appStoreVersionLocalizations/[A-Za-z0-9-]{1,80}/appScreenshotSets|appScreenshotSets/[A-Za-z0-9-]{1,80}/appScreenshots|analyticsReportRequests/[A-Za-z0-9-]{1,200}/reports|analyticsReports/[A-Za-z0-9-]{1,200}/instances)'
+        apple_paths = r'/v1/(?:apps/\d+(?:/customerReviews|/subscriptionGroups|/analyticsReportRequests)?|subscriptionGroups/\d+/subscriptions|appStoreVersions/[A-Za-z0-9-]{1,80}(?:/appStoreVersionLocalizations)?|appStoreVersionLocalizations/[A-Za-z0-9-]{1,80}/appScreenshotSets|appScreenshotSets/[A-Za-z0-9-]{1,80}/appScreenshots|analyticsReportRequests/[A-Za-z0-9-]{1,200}/reports|analyticsReports/[A-Za-z0-9-]{1,200}/instances|analyticsReportInstances/[A-Za-z0-9-]{1,200}/segments)'
         allowed=body is None and re.fullmatch(apple_paths,parsed.path)
     if parsed.hostname=="api.ads.apple.com":
         allowed=parsed.path in query_paths and body is not None and not parsed.query
     if not allowed:
         raise Invalid("Unapproved provider report destination")
+
+
+_APPLE_ANALYTICS_SEGMENT_HOST=re.compile(r"asp-[a-z0-9-]{1,100}\.s3\.[a-z0-9-]{1,50}\.amazonaws\.com")
+
+
+def analytics_segment_destination(url):
+    """Accept only the signed S3 host shape Apple documents for report segments."""
+    if not isinstance(url,str) or not 1<=len(url)<=8192:
+        raise Invalid("Unapproved Apple analytics segment destination")
+    try:
+        parsed=urlsplit(url)
+        decoded=unquote(parsed.path)
+        port=parsed.port
+    except (ValueError,UnicodeError):
+        raise Invalid("Unapproved Apple analytics segment destination") from None
+    if (parsed.scheme!="https" or not parsed.hostname
+            or parsed.netloc!=parsed.hostname or port is not None
+            or not _APPLE_ANALYTICS_SEGMENT_HOST.fullmatch(parsed.hostname)
+            or parsed.username is not None or parsed.password is not None
+            or parsed.fragment or not parsed.query or len(parsed.query)>4096
+            or not decoded.startswith("/reports/") or "\\" in decoded
+            or any(part in (".","..") for part in decoded.split("/"))):
+        raise Invalid("Unapproved Apple analytics segment destination")
+    return url
+
+
+def download_analytics_segment(url,size_in_bytes,checksum):
+    """Fetch Apple’s signed report bytes without API credentials or redirects."""
+    analytics_segment_destination(url)
+    if (type(size_in_bytes) is not int or not 1<=size_in_bytes<=MAX_COMPRESSED
+            or not isinstance(checksum,str) or not re.fullmatch(r"[0-9a-fA-F]{32}",checksum)):
+        raise Invalid("Invalid Apple analytics segment metadata")
+    request=Request(url,headers={"Accept":"application/octet-stream, application/gzip, */*",
+                                "Accept-Encoding":"identity"},method="GET")
+    try:
+        with build_opener(NoRedirect()).open(request,timeout=15) as response:
+            if response.getcode()!=200:
+                raise Invalid("Apple analytics segment download returned an unexpected status")
+            headers=getattr(response,"headers",None)
+            content_length=headers.get("Content-Length") if headers is not None else None
+            if content_length is not None and (not re.fullmatch(r"\d{1,9}",content_length)
+                                               or int(content_length)!=size_in_bytes):
+                raise Invalid("Apple analytics segment size did not match its metadata")
+            encoding=headers.get("Content-Encoding") if headers is not None else None
+            if encoding not in (None,"","identity"):
+                raise Invalid("Apple analytics segment used an unexpected content encoding")
+            raw=response.read(MAX_COMPRESSED+1)
+    except HTTPError:
+        raise Invalid("Apple analytics segment download failed; verify access and retry") from None
+    except (URLError,TimeoutError):
+        raise Invalid("Apple analytics segment download failed; verify access and retry") from None
+    if len(raw)>MAX_COMPRESSED or len(raw)!=size_in_bytes:
+        raise Invalid("Apple analytics segment size did not match its metadata")
+    actual=hashlib.md5(raw,usedforsecurity=False).hexdigest()
+    if actual!=checksum.lower():
+        raise Invalid("Apple analytics segment checksum did not match its metadata")
+    return raw
 
 
 def report_bytes(request,timeout):

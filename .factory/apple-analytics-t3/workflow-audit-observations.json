@@ -1,0 +1,127 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "fc7c469433e8032f5c3f0f63925cc277ef1fd4a68c8db4453b32db33303d6e13",
+  "candidate_sha256": "299af42c8b93dd4ccaff68e9a9913482c2762aa54ff2e1ce1194c371d5db707b",
+  "observations": [
+    {
+      "id": "happy_path",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-offline",
+      "status": "PASS",
+      "reason": "Named synthetic tests parse multi-day downloads and persist/read back source-bound app partitions.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport -v; python -m unittest tests.test_apple_metrics_transport tests.test_apple_metrics -v",
+      "observed_at": "2026-10-28T01:30:43.006494+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t3/unittest.log",
+          "sha256": "7a2a118dc631c9e4afc736ad3b2676e7d33c5628ea6ff332bdd9776c43d75bfe",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-t3/t4-unittest.log",
+          "sha256": "06c1aea0bdd0e06df3a6d2337563c877df7340b7e3a98e794ee43ce914bcb146",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-offline",
+      "status": "PASS",
+      "reason": "Named tests reject malformed gzip/checksum/date/schema, foreign app identity, duplicate segment identity, closed-key violations, and URL-like dimensions.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport -v; python -m unittest tests.test_apple_metrics_transport tests.test_apple_metrics -v",
+      "observed_at": "2026-10-28T01:30:43.025487+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t3/unittest.log",
+          "sha256": "7a2a118dc631c9e4afc736ad3b2676e7d33c5628ea6ff332bdd9776c43d75bfe",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-t3/t4-unittest.log",
+          "sha256": "06c1aea0bdd0e06df3a6d2337563c877df7340b7e3a98e794ee43ce914bcb146",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-offline",
+      "status": "PASS",
+      "reason": "A synthetic SQLite trigger fails the second event date and the test confirms the savepoint leaves zero partial rows.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport -v; python -m unittest tests.test_apple_metrics_transport tests.test_apple_metrics -v",
+      "observed_at": "2026-10-28T01:30:43.025487+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t3/unittest.log",
+          "sha256": "7a2a118dc631c9e4afc736ad3b2676e7d33c5628ea6ff332bdd9776c43d75bfe",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-t3/t4-unittest.log",
+          "sha256": "06c1aea0bdd0e06df3a6d2337563c877df7340b7e3a98e794ee43ce914bcb146",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-offline",
+      "status": "PASS",
+      "reason": "Tests verify INSERTED/UNCHANGED/REPLACED/STALE behavior, no summation, explicit zero, absent dates and persistence integrity.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport -v; python -m unittest tests.test_apple_metrics_transport tests.test_apple_metrics -v",
+      "observed_at": "2026-10-28T01:30:43.026490+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t3/unittest.log",
+          "sha256": "7a2a118dc631c9e4afc736ad3b2676e7d33c5628ea6ff332bdd9776c43d75bfe",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-t3/t4-unittest.log",
+          "sha256": "06c1aea0bdd0e06df3a6d2337563c877df7340b7e3a98e794ee43ce914bcb146",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-offline",
+      "status": "PASS",
+      "reason": "Tests confirm signed URL extras are absent from outputs, unsafe labels fail, and store ingestion remains disabled.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport -v; python -m unittest tests.test_apple_metrics_transport tests.test_apple_metrics -v",
+      "observed_at": "2026-10-28T01:30:43.026490+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t3/unittest.log",
+          "sha256": "7a2a118dc631c9e4afc736ad3b2676e7d33c5628ea6ff332bdd9776c43d75bfe",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-t3/t4-unittest.log",
+          "sha256": "06c1aea0bdd0e06df3a6d2337563c877df7340b7e3a98e794ee43ce914bcb146",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-offline",
+      "status": "PASS",
+      "reason": "The parser and storage enforce segment, row, decompression, partition-count and local byte ceilings before accepting data.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport -v; python -m unittest tests.test_apple_metrics_transport tests.test_apple_metrics -v",
+      "observed_at": "2026-10-28T01:30:43.026490+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t3/unittest.log",
+          "sha256": "7a2a118dc631c9e4afc736ad3b2676e7d33c5628ea6ff332bdd9776c43d75bfe",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-t3/t4-unittest.log",
+          "sha256": "06c1aea0bdd0e06df3a6d2337563c877df7340b7e3a98e794ee43ce914bcb146",
+          "kind": "log"
+        }
+      ]
+    }
+  ]
+}

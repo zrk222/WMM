@@ -1,0 +1,10 @@
+{
+  "source": "Isolated local WMM server; built-in synthetic examples only",
+  "synthetic": true,
+  "captured_at": "2026-10-28T02:49:48.851066+00:00",
+  "images": {
+    "overview.png": "bd5a1993ef5685b8bd8375ccece7e74a67b1010231da4651c2b0052d5aedf0fb",
+    "pipeline.png": "384e65c306ca65fabe0f7ae6fca478124067b38342f91bc49596d47237d3717e",
+    "results.png": "e46e440b18c33d91fe1ce4cd2795ab50434cf896fd4217f7de956253bed72d58"
+  }
+}

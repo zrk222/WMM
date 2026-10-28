@@ -91,10 +91,10 @@ def _manifest(db, app_id, expected):
     return row['version']
 
 
-def _validated(raw, suffix, alive):
+def _validated(raw, suffix, alive, inspector=None):
     if type(raw) is not bytes or not 1 <= len(raw) <= MAX_BYTES:
         raise Invalid('Imported video must contain 1 through 67108864 bytes')
-    result = inspect(raw, suffix, alive=alive)
+    result = (inspect if inspector is None else inspector)(raw, suffix, alive=alive)
     expected = {'sha256': hashlib.sha256(raw).hexdigest(), 'bytes': len(raw)}
     if not isinstance(result, dict) or result.get('sha256') != expected['sha256'] or result.get('bytes') != expected['bytes']:
         raise Invalid('Video inspection did not match the supplied original bytes')
@@ -419,8 +419,11 @@ def _public(db, store, app_id, row, include_history=False, verify_bytes=False, o
 
 class Media:
     """Private app-scoped media intake, owner review and fail-closed resolution."""
-    def __init__(self, store):
+    def __init__(self, store, *, inspector=None):
+        if inspector is not None and not callable(inspector):
+            raise TypeError('Media inspector must be a trusted callable')
         self.store = store
+        self.inspector = inspector
 
     def upload(self, app_id, filename, raw, body, alive=lambda: None):
         """Validate exact bytes, then immutably retain them under a generated name."""
@@ -442,7 +445,7 @@ class Media:
                 result = self._replay(db, app_id, prior, manifest, basename, raw, provenance)
                 alive()
                 return result
-        result = _validated(raw, suffix, alive)
+        result = _validated(raw, suffix, alive, self.inspector)
         request_hash = _request_hash(manifest, basename, result['sha256'], result['bytes'], provenance)
         return self._commit_upload(app_id, manifest, request_key, request_hash, basename, raw, result, alive, provenance)
 

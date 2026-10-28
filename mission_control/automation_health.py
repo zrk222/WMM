@@ -4,7 +4,7 @@ import threading
 import time
 from .common import now
 
-COMPONENTS = ("experiments", "analytics", "followup", "social", "queue")
+COMPONENTS = ("experiments", "analytics", "apple_metrics", "followup", "social", "queue")
 
 
 class Supervision:

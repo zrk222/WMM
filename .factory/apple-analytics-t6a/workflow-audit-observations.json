@@ -1,0 +1,147 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "a6634e3ed28cec343c66ed8bd3ec447352a1943f6fab6e737213385273093da5",
+  "candidate_sha256": "6e9d60ff3c5c27a01398ac48e90ca0f8a8a3c11f35cc2b2f95df265a69efc702",
+  "observations": [
+    {
+      "id": "happy_path",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "The latest selector chooses the newest daily instance, excludes a newer weekly instance, and retains the explicit exact-selection path.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport tests.test_apple_metrics_worker tests.test_apple_metrics_schedule_selection tests.test_provider_reports tests.test_apple_analytics -v",
+      "observed_at": "2026-10-27T16:48:17+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t6a/apple-tests.log",
+          "sha256": "c9cf69be0864e0a2b7458c43dfd14b8335fc81a7afafa2eaa9c80306a48d4604",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-t6a/first-failure.log",
+          "sha256": "e60230d96cb1d2fa1310a69866faf62753d27fe4324bee4d784ac66361fe35f1",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "Tests reject partial inventory, missing/ambiguous daily instances, extra fields and non-Apple providers.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport tests.test_apple_metrics_worker tests.test_apple_metrics_schedule_selection tests.test_provider_reports tests.test_apple_analytics -v",
+      "observed_at": "2026-10-27T16:48:17+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t6a/apple-tests.log",
+          "sha256": "c9cf69be0864e0a2b7458c43dfd14b8335fc81a7afafa2eaa9c80306a48d4604",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-t6a/first-failure.log",
+          "sha256": "e60230d96cb1d2fa1310a69866faf62753d27fe4324bee4d784ac66361fe35f1",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "Partial and ambiguous inventory tests assert that no segment request is made.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport tests.test_apple_metrics_worker tests.test_apple_metrics_schedule_selection tests.test_provider_reports tests.test_apple_analytics -v",
+      "observed_at": "2026-10-27T16:48:17+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t6a/apple-tests.log",
+          "sha256": "c9cf69be0864e0a2b7458c43dfd14b8335fc81a7afafa2eaa9c80306a48d4604",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-t6a/first-failure.log",
+          "sha256": "e60230d96cb1d2fa1310a69866faf62753d27fe4324bee4d784ac66361fe35f1",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "The selected report and instance IDs are passed together to the bounded segment downloader; exact-instance tests remain green.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport tests.test_apple_metrics_worker tests.test_apple_metrics_schedule_selection tests.test_provider_reports tests.test_apple_analytics -v",
+      "observed_at": "2026-10-27T16:48:17+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t6a/apple-tests.log",
+          "sha256": "c9cf69be0864e0a2b7458c43dfd14b8335fc81a7afafa2eaa9c80306a48d4604",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-t6a/first-failure.log",
+          "sha256": "e60230d96cb1d2fa1310a69866faf62753d27fe4324bee4d784ac66361fe35f1",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "The current agent manifest authorizes only the app-scoped analytics_metrics_latest read.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport tests.test_apple_metrics_worker tests.test_apple_metrics_schedule_selection tests.test_provider_reports tests.test_apple_analytics -v",
+      "observed_at": "2026-10-27T16:48:17+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t6a/apple-tests.log",
+          "sha256": "c9cf69be0864e0a2b7458c43dfd14b8335fc81a7afafa2eaa9c80306a48d4604",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-t6a/first-failure.log",
+          "sha256": "e60230d96cb1d2fa1310a69866faf62753d27fe4324bee4d784ac66361fe35f1",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "The existing analytics inventory tests enforce bounded pagination; selector work is linear over that bounded set.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport tests.test_apple_metrics_worker tests.test_apple_metrics_schedule_selection tests.test_provider_reports tests.test_apple_analytics -v",
+      "observed_at": "2026-10-27T16:48:17+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t6a/apple-tests.log",
+          "sha256": "c9cf69be0864e0a2b7458c43dfd14b8335fc81a7afafa2eaa9c80306a48d4604",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-t6a/first-failure.log",
+          "sha256": "e60230d96cb1d2fa1310a69866faf62753d27fe4324bee4d784ac66361fe35f1",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "external_effects",
+      "profile": "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked",
+      "status": "PASS",
+      "reason": "Provider calls are mocked and tests assert the single selected instance; no live Apple call was executed.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport tests.test_apple_metrics_worker tests.test_apple_metrics_schedule_selection tests.test_provider_reports tests.test_apple_analytics -v",
+      "observed_at": "2026-10-27T16:48:17+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-t6a/apple-tests.log",
+          "sha256": "c9cf69be0864e0a2b7458c43dfd14b8335fc81a7afafa2eaa9c80306a48d4604",
+          "kind": "log"
+        },
+        {
+          "path": ".factory/apple-analytics-t6a/first-failure.log",
+          "sha256": "e60230d96cb1d2fa1310a69866faf62753d27fe4324bee4d784ac66361fe35f1",
+          "kind": "log"
+        }
+      ]
+    }
+  ]
+}

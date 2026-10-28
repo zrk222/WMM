@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "configurations": [
+    {
+      "id": "029459e6-5b24-5067-9f99-8e752063ed71",
+      "name": "WMMDeviceAcceptance",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {},
+  "testTargets": [
+    {
+      "parallelizable": false,
+      "target": {
+        "containerPath": "container:WMM.xcodeproj",
+        "identifier": "9805CBD60EB4F66728D5D195",
+        "name": "WMMTests"
+      }
+    }
+  ]
+}

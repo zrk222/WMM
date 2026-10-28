@@ -1,4 +1,5 @@
 """Bounded source-linked customer reviews and current Apple Ads report reads."""
+from dataclasses import dataclass
 from datetime import date, datetime, timezone
 import re
 import time
@@ -8,7 +9,38 @@ from .providers import credential,report_request
 from .ads_reports import REPORT_PATHS, read_keywords
 from .subscription_catalog import read_catalog
 from .release_inventory import read_inventory, release_options
-from .apple_analytics import read_analytics
+from .apple_analytics import identity as analytics_identity, read_analytics
+from .apple_segments import read_instance_segments
+from .apple_metrics import parse_partitions
+
+
+@dataclass(frozen=True)
+class PreparedAppleMetrics:
+    """Validated report data awaiting atomic worker persistence and completion."""
+    identity: dict
+    partitions: tuple
+    connection_hash: str
+    metadata_source_hash: str
+    operation: str = 'analytics_metrics'
+
+    def summary(self, statuses):
+        """Return bounded, secret-free job evidence after persistence commits."""
+        values=[]
+        for item,status in zip(self.partitions,statuses):
+            instance=item['instance']
+            values.append(dict(event_date=item['partition']['event_date'], status=status,
+                observation_count=len(instance['rows']), source_count=len(instance['sources']),
+                source_hash=digest(sorted(instance['sources'],key=lambda source:source['id']))))
+        return dict(operation=self.operation,provider='app_store',
+            app_id=self.identity['app_id'],store_app_id=self.identity['store_app_id'],
+            report_id=self.identity['report_id'],report_family=self.identity['report_family'],
+            granularity=self.identity['granularity'],coverage='COMPLETE',
+            processing_date=self.partitions[0]['instance']['processing_date'],
+            observed_at=now(),partition_count=len(values),
+            observation_count=sum(item['observation_count'] for item in values),
+            partitions=values,metadata_source_hash=self.metadata_source_hash,
+            external_writes=False,event_data_finality='UNKNOWN',
+            interpretation='Download events are not installs, sales, revenue, or measured lift.')
 
 
 def report_options(provider,options):
@@ -21,6 +53,12 @@ def report_options(provider,options):
     if operation == 'release_inventory':
         return release_options(provider, options)
     if operation in ("reviews", "subscription_catalog", "analytics_reports") and provider=="app_store" and set(options)=={"operation"}:
+        return options
+    if operation=='analytics_metrics_latest' and provider=='app_store' and set(options)=={'operation','report_id'}:
+        analytics_identity(options['report_id'])
+        return options
+    if operation=='analytics_metrics' and provider=='app_store' and set(options)=={'operation','report_id','instance_id'}:
+        analytics_identity(options['report_id']);analytics_identity(options['instance_id'])
         return options
     if operation not in ("campaign_report", *REPORT_PATHS) or provider!="apple_ads" or set(options)!={"operation","start","end","campaign_ids"}:
         raise Invalid("Choose customer reviews or a dated Apple Ads campaign, keyword or search-term report")
@@ -78,7 +116,7 @@ def numeric_scope(binding,key):
     return value
 
 
-def read_report(binding,app_id,options):
+def read_report(binding,app_id,options,connection_id=None,connection_version=None):
     """Dispatch a validated app-scoped read; results never authorize external writes."""
     report_options(binding.get("provider"),options)
     if binding.get('provider')=='google_play':
@@ -88,6 +126,9 @@ def read_report(binding,app_id,options):
     if binding["provider"]=="apple_ads":
         headers["X-AP-Context"]="adAccountId="+numeric_scope(binding,"account_id")
     reader=Reader(headers)
+    if options['operation'] in ('analytics_metrics','analytics_metrics_latest'):
+        return prepare_analytics_metrics(reader,binding,app_id,store_id,options,
+                                         connection_id,connection_version)
     if options["operation"]=="reviews":
         report=reviews(reader,store_id)
     elif options["operation"]=="subscription_catalog":
@@ -104,6 +145,42 @@ def read_report(binding,app_id,options):
     return dict(report,provider=binding["provider"],app_id=app_id,store_app_id=store_id,
                 observed_at=now(),source_hash=digest(reader.hashes),page_source_hashes=reader.hashes,
                 request=options,external_writes=False,scope=("Catalog observation only; approval, prices, purchase and restore require separate verification" if options['operation']=='subscription_catalog' else "Provider observation only; installs do not prove paid or retained customers"))
+
+
+def prepare_analytics_metrics(reader,binding,app_id,store_id,options,connection_id,connection_version):
+    """Read one explicit complete downloads instance and prepare local partitions."""
+    connection_id=analytics_identity(connection_id)
+    if type(connection_version) is not int or not 1<=connection_version<=2147483647:
+        raise Invalid('Apple analytics read requires the current connection version')
+    inventory=read_analytics(reader,store_id)
+    report=next((item for item in inventory['reports'] if item['id']==options['report_id']),None)
+    if (inventory['coverage']!='COMPLETE' or report is None
+            or report['coverage']!='COMPLETE'
+            or report['name']!='App Downloads Standard'):
+        raise Invalid('Choose a complete App Downloads Standard report from this app')
+    if options['operation']=='analytics_metrics_latest':
+        daily=[item for item in report['instances'] if item['granularity']=='DAILY']
+        if not daily:
+            raise Invalid('No complete daily downloads report instance is available yet')
+        latest_date=max(item['processing_date'] for item in daily)
+        newest=[item for item in daily if item['processing_date']==latest_date]
+        if len(newest)!=1:
+            raise Invalid('Apple returned ambiguous latest daily report instances')
+        selected=newest[0]
+    else:
+        selected=next((item for item in report['instances'] if item['id']==options['instance_id']),None)
+        if selected is None or selected['granularity']!='DAILY':
+            raise Invalid('Choose a complete daily downloads report instance')
+    selected_id=selected['id']
+    segments=read_instance_segments(reader,store_id,options['report_id'],selected_id)
+    key=dict(app_id=app_id,store_app_id=store_id,connection_id=connection_id,
+        connection_version=connection_version,report_id=options['report_id'],
+        report_family=report['name'],granularity=selected['granularity'])
+    partitions=tuple(parse_partitions(key,selected['processing_date'],segments,True))
+    public_binding={name:value for name,value in binding.items() if not name.startswith('_')}
+    return PreparedAppleMetrics(identity=key,partitions=partitions,
+        connection_hash=digest(public_binding),metadata_source_hash=digest(reader.hashes),
+        operation=options['operation'])
 
 
 def google_report(binding,app_id,options):

@@ -19,12 +19,13 @@ APP=dict(id='sample-one',version=1,data=dict(name='Synthetic app',job='Evaluate 
 
 
 class GuideTests(unittest.TestCase):
-    def test_four_distinct_primary_documented_profiles_classify_unknown_connections(self):
+    def test_six_primary_documented_profiles_classify_unknown_connections(self):
         guide=discovery(APP)['personal_agent_guide'];rows=guide['profiles']
-        self.assertEqual({r['id'] for r in rows},{'grok-bot','meta-muse','instinct','hark-pro'})
-        self.assertEqual(len(rows),4)
+        self.assertEqual({r['id'] for r in rows},{'grok-bot','meta-muse','instinct','hark-pro','codex-dots','claude-duet'})
+        self.assertEqual(len(rows),6)
         domains={'grok-bot':{'docs.x.ai','x.ai'},'meta-muse':{'research.meta.ai','introducing.muse.ai','platform.muse.ai'},
-                 'instinct':{'instinct.com'},'hark-pro':{'hark.com'}}
+                 'instinct':{'instinct.com'},'hark-pro':{'hark.com'},
+                 'codex-dots':{'learn.chatgpt.com','help.openai.com'},'claude-duet':{'claude.com'}}
         for row in rows:
             self.assertTrue(row['verified']);self.assertTrue(row['unknown'])
             self.assertTrue(row['instruction']);self.assertTrue(row['result'])
@@ -32,9 +33,30 @@ class GuideTests(unittest.TestCase):
                 self.assertEqual(urlsplit(source).scheme,'https')
                 self.assertIn(urlsplit(source).hostname,domains[row['id']])
         self.assertEqual(rows[0]['route'],'CONDITIONAL_APPROVED_LOCAL_COMMAND')
-        self.assertTrue(all(r['route'].startswith('BLOCKED_') for r in rows[1:]))
+        self.assertTrue(all(r['route'].startswith('BLOCKED_') for r in rows[1:4]+rows[5:]))
+        self.assertEqual(rows[4]['route'],'CONDITIONAL_CONNECTED_COMPUTER_TASK')
         self.assertFalse(guide['execution_authority']);self.assertFalse(guide['connection_verified'])
         self.assertEqual(guide['live_provider_acceptance'],'NOT_RUN')
+
+    def test_owner_protocol_and_team_handoff_survive_real_discovery_without_authority(self):
+        guide=discovery(APP)['personal_agent_guide']
+        protocol=guide['owner_operating_protocol']
+        self.assertEqual(protocol,operating_manifest(APP)['owner_operating_protocol'])
+        viral=protocol['creative_rules']['viral_only']
+        self.assertEqual((viral['minimum_views'],viral['minimum_creator_baseline_multiple'],viral['combination']),(100000,10,'AND'))
+        self.assertTrue(viral['ugc_intake_exempt'])
+        self.assertEqual(len({r['wmm_runbook']['first_action'] for r in guide['profiles']}),6)
+        team=guide['team_operating_contract']
+        self.assertEqual(team['authority'],'ADVISORY_ONLY')
+        self.assertIn('distinct authenticated human',team['review'])
+        self.assertIn('resource_ids_and_revisions',team['handoff_fields'])
+        self.assertEqual(guide['other_hosts']['route'],'CAPABILITY_VERIFICATION_REQUIRED')
+        # A consumer cannot mutate another app/agent's fresh contract in process.
+        guide['profiles'][0]['wmm_runbook']['context']='tampered'
+        guide['owner_operating_protocol']['creative_rules']['viral_only']['minimum_views']=1
+        fresh=discovery(APP)['personal_agent_guide']
+        self.assertNotEqual(fresh['profiles'][0]['wmm_runbook']['context'],'tampered')
+        self.assertEqual(fresh['owner_operating_protocol']['creative_rules']['viral_only']['minimum_views'],100000)
 
     def test_current_app_policy_catalog_and_output_changes_invalidate_guide_hash(self):
         value=discovery(APP);guide=value['personal_agent_guide']

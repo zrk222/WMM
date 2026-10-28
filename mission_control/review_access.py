@@ -38,7 +38,7 @@ class Access:
         return {"configured":bool(rows),"members":rows,"bootstrap":"First verified owner on this trusted local workstation",
                 "identity_provider":"GITHUB","external_execution":"NOT_IMPLEMENTED","snapshot_authority":"NOT_EXPORTED"}
 
-    def bootstrap(self,app_id,user,body):
+    def bootstrap(self,app_id,user,body,*,commit_check=None):
         """Establish exactly one verified owner on an unconfigured local workspace."""
         self.store.app(app_id)
         if body!={"confirm_owner":True}:raise Invalid("Confirm that you are establishing the first owner for this local app")
@@ -47,6 +47,7 @@ class Access:
             if db.execute("SELECT 1 FROM operator_roles WHERE app_id=?",(app_id,)).fetchone():raise Invalid("This app already has an owner; ask that owner to assign your role")
             self.write(db,app_id,user,"OWNER","ACTIVE",1,user["principal"])
             audit(db,app_id,"access.owner_established",{"principal":user["principal"],"policy":"TRUSTED_LOCAL_BOOTSTRAP"})
+            if commit_check is not None:commit_check()
         return self.list(app_id)
 
     def save(self,app_id,owner,user,body):

@@ -92,7 +92,12 @@ class DeliveryTests(unittest.TestCase):
         response = answer(); response['items'][0]['source_ids'] = ['creative_taste']
         observed = []
         def provider(profile, secret, text, output_limit, alive):
-            context = json.loads(text.split('\nApproved app context: ', 1)[1])
+            # The cache-friendly prompt keeps task/source instructions after
+            # the approved context. Decode only its JSON value, then verify
+            # the following section instead of parsing the whole suffix.
+            context, end = json.JSONDecoder().raw_decode(text.split('\nApproved app context: ', 1)[1])
+            suffix = text.split('\nApproved app context: ', 1)[1][end:]
+            self.assertTrue(suffix.startswith('\nApproved source IDs: '))
             row = next(s for s in context['sources'] if s['id']=='creative_taste')
             self.assertEqual(row['data'], guidance())
             self.assertEqual(row['sha256'], digest(row['data']))
@@ -102,8 +107,8 @@ class DeliveryTests(unittest.TestCase):
             return response, {}
         with patch('mission_control.agent_tasks.api_run', side_effect=provider):
             self.assertTrue(run_once(self.store))
+        self.assertEqual(self.result()['status'], 'SUCCEEDED', self.result())
         self.assertEqual(len(observed), 1)
-        self.assertEqual(self.result()['status'], 'SUCCEEDED')
         self.assertEqual(self.result()['result']['publication'], 'NOT_RUN')
 
     def test_changed_policy_invalidates_previously_approved_proposal_without_request(self):

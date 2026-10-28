@@ -1,0 +1,2 @@
+$ specline gate spec apple-analytics-metrics --root .
+{"gate": "spec", "sha": "4f663d01065dba51"}

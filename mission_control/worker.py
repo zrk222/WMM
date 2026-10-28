@@ -8,7 +8,7 @@ from .db import connection
 from .pipeline import execute
 from .providers import sync
 from .ledger import Ledger
-from .provider_reports import read_report
+from .provider_reports import PreparedAppleMetrics, read_report
 from .experiments import Experiments
 from .experiment_schedules import Schedules
 from .insights import Insights
@@ -84,17 +84,81 @@ def process(store,job,stop=None):
         return execute(app,records,job["data"].get("stage",0),Ledger(store.path).reports(app["id"]),catalog,release,
                        progress=lambda code,stage:emit(store,job,code,stage))
     binding=current_connection(store,app["id"],job["data"])["data"]
+    if 'analytics_schedule_id' in job['data']:
+        from .apple_metrics_schedule import check_scheduled
+        check_scheduled(store,job)
     from .credential_vault import namespace
     binding={**binding,"_vault_namespace":namespace(store.path)}
     if "options" in job["data"]:
         if job['data']['options'].get('operation')=='subscription_catalog':
             from .subscription_readiness import validate_catalog_scope
             validate_catalog_scope(app,binding)
-        result=read_report(binding,app["id"],job["data"]["options"])
+        result=read_report(binding,app["id"],job["data"]["options"],
+            connection_id=job["data"].get("connection_id"),
+            connection_version=job["data"].get("connection_version"))
     else:
         result=sync(binding,app["id"])
     current_connection(store,app["id"],job["data"])
+    if 'analytics_schedule_id' in job['data']:
+        from .apple_metrics_schedule import check_scheduled
+        check_scheduled(store,job)
     return result
+
+
+def _persist_prepared_apple_metrics(db,store,job,prepared):
+    """Commit local partitions only with the still-leased job completion."""
+    db.execute('BEGIN IMMEDIATE')
+    current=db.execute('SELECT action,data,status,attempts,lease FROM jobs WHERE id=? AND app_id=?',
+        (job['id'],job['app_id'])).fetchone()
+    if (current is None or current['action']!='sync' or current['status']!='RUNNING'
+            or current['attempts']!=job['attempts'] or current['lease']<time.time()
+            or json.loads(current['data'])!=job['data']):
+        return None,None
+    try:
+        if 'analytics_schedule_id' in job['data']:
+            from .apple_metrics_schedule import check_scheduled_db
+            check_scheduled_db(db,job)
+        identity=prepared.identity
+        if (identity['app_id']!=job['app_id']
+                or identity['connection_id']!=job['data'].get('connection_id')
+                or identity['connection_version']!=job['data'].get('connection_version')):
+            raise Invalid('Apple analytics result no longer matches the leased app connection')
+        connection=db.execute('SELECT version,data FROM records WHERE app_id=? AND id=? AND kind=?',
+            (job['app_id'],identity['connection_id'],'connection')).fetchone()
+        if connection is None or connection['version']!=identity['connection_version']:
+            raise Invalid('Apple analytics connection changed before persistence')
+        binding=json.loads(connection['data'])
+        if (digest(binding)!=prepared.connection_hash or binding.get('provider')!='app_store'
+                or str(binding.get('store_app_id'))!=identity['store_app_id']):
+            raise Invalid('Apple analytics source changed before persistence')
+        app_row=db.execute('SELECT id,data,version FROM apps WHERE id=?',(job['app_id'],)).fetchone()
+        if app_row is None:
+            raise Invalid('Apple analytics app was removed before persistence')
+        app=dict(app_row);app['data']=json.loads(app['data'])
+        if ('manifest_version' in job['data'] and job['data']['manifest_version']!=app['version']):
+            raise Invalid('Apple analytics app changed before persistence')
+        if 'agent_policy_sha256' in job['data']:
+            from .marketing_agent_manifest import authorize_read
+            authorize_read(app,binding,job['data'])
+
+        from .apple_metrics_store import _reconcile
+        db.execute('SAVEPOINT apple_metrics_job')
+        try:
+            statuses=[_reconcile(db,item['partition'],item['instance'])
+                      for item in prepared.partitions]
+            db.execute('RELEASE SAVEPOINT apple_metrics_job')
+        except BaseException:
+            db.execute('ROLLBACK TO SAVEPOINT apple_metrics_job')
+            db.execute('RELEASE SAVEPOINT apple_metrics_job')
+            raise
+        return prepared.summary(statuses),'SUCCEEDED'
+    except Invalid as exc:
+        return dict(error=str(exc),next_action='Refresh the report selection or connection, then retry the read',
+                    external_execution='READ_COMPLETED_NO_METRIC_PARTITIONS_WRITTEN'),'BLOCKED'
+    except Exception:
+        return dict(error='Apple analytics observations could not be saved.',
+                    next_action='Review local storage and the worker status before retrying',
+                    external_execution='READ_COMPLETED_NO_METRIC_PARTITIONS_WRITTEN'),'BLOCKED'
 
 
 def process_media(store,job,stop):
@@ -142,6 +206,16 @@ def failed_result(job,error):
         return dict(error='Drive import stopped at a source, permission or validation boundary.',
                     next_action='Inspect the private Drive import and reconnect, review or retry explicitly.',
                     external_execution='READ_ATTEMPT_MAY_HAVE_OCCURRED'),'BLOCKED',0
+    if job['action']=='sync' and 'analytics_schedule_id' in job['data']:
+        if transient_read_error(error) and job['attempts']<3:
+            delay=5*job['attempts']
+            return dict(status='RETRY_WAIT',summary='Transient scheduled Apple read failure; bounded retry queued',
+                attempt=job['attempts'],retry_in_seconds=delay,
+                next_action='The worker will retry this same owner-enabled read within its three-attempt limit',
+                external_execution='READ_RETRY_PENDING'),'RUNNING',delay
+        return dict(error='Scheduled Apple analytics read failed; review the connection and latest job result',
+            next_action='Open the Apple analytics schedule, review the failure, and reconnect or resume explicitly',
+            external_execution='READ_ATTEMPT_MAY_HAVE_OCCURRED'),'BLOCKED',0
     result={'error':str(error),'next_action':'Review inputs or connection, then create a new run','external_execution':'NOT_RUN'}
     if job['action']!='sync' or 'agent_policy_sha256' not in job['data'] or job['attempts']>=3:
         return result,'BLOCKED',0
@@ -174,10 +248,17 @@ def run_once(store,stop=None):
     except Exception as exc:
         result,status,retry_delay=failed_result(job,exc)
     with connection(store.path) as db:
+        if isinstance(result,PreparedAppleMetrics):
+            result,status=_persist_prepared_apple_metrics(db,store,job,result)
+            if status is None:
+                return True
         changed=db.execute("UPDATE jobs SET status=?,result=?,lease=?,updated=? WHERE id=? AND status='RUNNING' AND attempts=?",(status,canonical(result),time.time()+retry_delay if retry_delay else 0,now(),job["id"],job["attempts"])).rowcount
         if changed:
             from .workflow_telemetry import append
             append(db,job,'RETRY_WAIT' if retry_delay else status)
+            if 'analytics_schedule_id' in job['data']:
+                from .apple_metrics_schedule import complete_job
+                complete_job(db,job,result,status)
             if job['action']=='agent_run':
                 from .agent_tasks import complete as agent_complete
                 agent_complete(db,job,result,status)
@@ -227,6 +308,8 @@ class Runner:
         self.supervision.begin()
         self.supervision.attempt("experiments",lambda:Schedules(self.store).tick(),1)
         self.supervision.attempt("analytics",lambda:Insights(self.store).tick(),1)
+        from .apple_metrics_schedule import AppleMetricsSchedules
+        self.supervision.attempt("apple_metrics",lambda:AppleMetricsSchedules(self.store).tick(),1)
         self.supervision.attempt("followup",lambda:Followup(self.store).tick(),1)
         from .social_renewal import Renewal
         self.supervision.attempt("social",lambda:Renewal(self.store).tick(),60)

@@ -6,7 +6,8 @@ import unittest
 from unittest.mock import patch
 from mission_control.common import Invalid
 from mission_control.customer_workflow import (workflow_data, workflow_readout, bounded_rows,
-    public_excerpt, observation_data, feature_data, exclusion_data)
+    public_excerpt, observation_data, feature_data, exclusion_data, prototype_observation_time,
+    prototype_duration, prototype_feature_ids)
 
 OBSERVED = datetime.fromisoformat("2026-10-22T12:00:00+00:00")
 
@@ -31,6 +32,27 @@ def prototype():
 
 
 class CustomerWorkflowTests(unittest.TestCase):
+    def test_prototype_observation_time_requires_consent_valid_outcome_and_past_date(self):
+        value = prototype()
+        self.assertEqual(prototype_observation_time(value, OBSERVED), datetime.fromisoformat(value['observed_at']))
+        for changes in (dict(consent=False), dict(task_outcome='PAID'), dict(observed_at='2999-01-01T00:00:00+00:00')):
+            with self.subTest(changes=changes), self.assertRaises(Invalid):
+                prototype_observation_time(dict(value, **changes), OBSERVED)
+
+    def test_prototype_duration_preserves_unknown_and_rejects_malformed_values(self):
+        for duration in (None, 0, 86400):
+            self.assertEqual(prototype_duration(dict(prototype(), duration_seconds=duration)), duration)
+        for duration in (True, -1, 86401, 0.5):
+            with self.subTest(duration=duration), self.assertRaises(Invalid):
+                prototype_duration(dict(prototype(), duration_seconds=duration))
+
+    def test_prototype_feature_ids_require_distinct_saved_features(self):
+        features = proposal()['features']
+        self.assertEqual(prototype_feature_ids(prototype(), features), ['renewal-report'])
+        for refs in ([], ['foreign'], ['renewal-report', 'renewal-report'], [1]):
+            with self.subTest(refs=refs), self.assertRaises(Invalid):
+                prototype_feature_ids(dict(prototype(), feature_ids=refs), features)
+
     def test_prototype_result_validates_observed_facts_without_demand_claims(self):
         for outcome in ('COMPLETED','PARTIAL','NOT_COMPLETED'):
             value=dict(proposal(),prototype_result=dict(prototype(),task_outcome=outcome))

@@ -1,0 +1,112 @@
+{
+  "schema": "factory.workflow-audit.observations.v1",
+  "contract_sha256": "e68cc38967dee5d923e61403149022c98e3a3a5701fbda31af8bc7167dfa369f",
+  "candidate_sha256": "32d4012dd27b65003f84e0a19bf5e70195521010e3ac63cc76e4a7faa60e6093",
+  "observations": [
+    {
+      "id": "happy_path",
+      "profile": "Windows-CPython-3.11.9-urllib-synthetic-offline",
+      "status": "PASS",
+      "reason": "Named happy-path transport test passed with a synthetic provider payload and fully verified segment bytes.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics_transport tests.test_apple_analytics tests.test_apple_analytics_parser tests.test_apple_metrics_contract tests.test_apple_metrics_store -v",
+      "observed_at": "2026-10-27T15:57:11.499397+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-transport/unittest.log",
+          "sha256": "2deae2a39f47d1b0d7fd83ff81e94135ab80577f9a6df4c56600e63985bc84e9",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "profile": "Windows-CPython-3.11.9-urllib-synthetic-offline",
+      "status": "PASS",
+      "reason": "Malformed, foreign, unsafe, oversized and checksum-mismatched inputs were rejected by named offline tests.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics_transport tests.test_apple_analytics tests.test_apple_analytics_parser tests.test_apple_metrics_contract tests.test_apple_metrics_store -v",
+      "observed_at": "2026-10-27T15:57:11.499397+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-transport/unittest.log",
+          "sha256": "2deae2a39f47d1b0d7fd83ff81e94135ab80577f9a6df4c56600e63985bc84e9",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "profile": "Windows-CPython-3.11.9-urllib-synthetic-offline",
+      "status": "PASS",
+      "reason": "Empty and partial inventories and transport failures fail closed; invalid manifests perform no downloads.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics_transport tests.test_apple_analytics tests.test_apple_analytics_parser tests.test_apple_metrics_contract tests.test_apple_metrics_store -v",
+      "observed_at": "2026-10-27T15:57:11.499397+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-transport/unittest.log",
+          "sha256": "2deae2a39f47d1b0d7fd83ff81e94135ab80577f9a6df4c56600e63985bc84e9",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "profile": "Windows-CPython-3.11.9-urllib-synthetic-offline",
+      "status": "PASS",
+      "reason": "Tests verify app/report/instance ancestry and require complete segment inventory before download.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics_transport tests.test_apple_analytics tests.test_apple_analytics_parser tests.test_apple_metrics_contract tests.test_apple_metrics_store -v",
+      "observed_at": "2026-10-27T15:57:11.499397+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-transport/unittest.log",
+          "sha256": "2deae2a39f47d1b0d7fd83ff81e94135ab80577f9a6df4c56600e63985bc84e9",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "profile": "Windows-CPython-3.11.9-urllib-synthetic-offline",
+      "status": "PASS",
+      "reason": "Tests prove no Authorization header, redirect following, signed URL result, or URL-bearing failure message.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics_transport tests.test_apple_analytics tests.test_apple_analytics_parser tests.test_apple_metrics_contract tests.test_apple_metrics_store -v",
+      "observed_at": "2026-10-27T15:57:11.499397+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-transport/unittest.log",
+          "sha256": "2deae2a39f47d1b0d7fd83ff81e94135ab80577f9a6df4c56600e63985bc84e9",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "profile": "Windows-CPython-3.11.9-urllib-synthetic-offline",
+      "status": "PASS",
+      "reason": "Tests exercise byte, count, aggregate and request-time bounds with an offline mocked transport.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics_transport tests.test_apple_analytics tests.test_apple_analytics_parser tests.test_apple_metrics_contract tests.test_apple_metrics_store -v",
+      "observed_at": "2026-10-27T15:57:11.499397+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-transport/unittest.log",
+          "sha256": "2deae2a39f47d1b0d7fd83ff81e94135ab80577f9a6df4c56600e63985bc84e9",
+          "kind": "log"
+        }
+      ]
+    },
+    {
+      "id": "external_effects",
+      "profile": "Windows-CPython-3.11.9-urllib-synthetic-offline",
+      "status": "PASS",
+      "reason": "Only a mocked HTTPS GET was exercised; no live Apple/API credentials or provider writes were used.",
+      "execution_identity": "python -m unittest tests.test_apple_metrics_transport tests.test_apple_analytics tests.test_apple_analytics_parser tests.test_apple_metrics_contract tests.test_apple_metrics_store -v",
+      "observed_at": "2026-10-27T15:57:11.499397+00:00",
+      "artifacts": [
+        {
+          "path": ".factory/apple-analytics-transport/unittest.log",
+          "sha256": "2deae2a39f47d1b0d7fd83ff81e94135ab80577f9a6df4c56600e63985bc84e9",
+          "kind": "log"
+        }
+      ]
+    }
+  ]
+}

@@ -15,3 +15,8 @@ artifacts/
 node_modules/
 .wrangler/
 *.log
+ios/.build/
+ios/Python.xcframework/
+ios/DerivedData/
+ios/build-evidence/
+ios/runtime-cache.json

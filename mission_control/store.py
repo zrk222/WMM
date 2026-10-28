@@ -198,8 +198,9 @@ class Store:
                 files[file_id]={"id":file_id,"sha256":record["data"]["sha256"],"base64":base64.b64encode(raw).decode()}
         return list(files.values())
 
-    def restore(self, body):
+    def restore(self, body, *, finalize=None):
         """Verify a snapshot and refuse conflict or cross-app overwrites."""
+        if finalize is not None and not callable(finalize):raise TypeError('Restore finalizer must be a trusted callable')
         payload = body.get("payload")
         if not isinstance(payload,dict) or body.get("sha256") != digest(payload):
             raise Invalid("Snapshot integrity check failed")
@@ -214,10 +215,10 @@ class Store:
             raise Invalid("Snapshot contains another app's evidence")
         data = app_data(app["data"])
         files=self._restore_files(payload.get("files",[]),records)
-        self._commit_restore(app_id,data,records,files,payload.get("ledger"),payload.get("experiments"),payload.get("schedules"),payload.get("references"),payload.get("production"),payload.get("rankings"),payload.get("acquisition"),payload.get("media"),payload.get("learning"),payload.get("payments"),payload.get("storekit"),payload.get("capabilities"),payload.get("attribution"),payload.get("aeo"),payload.get("followup"),payload.get("pmf_research"),payload.get("inspection_history"),payload.get("customer_workflows"),payload.get("growth_reviews"))
+        self._commit_restore(app_id,data,records,files,payload.get("ledger"),payload.get("experiments"),payload.get("schedules"),payload.get("references"),payload.get("production"),payload.get("rankings"),payload.get("acquisition"),payload.get("media"),payload.get("learning"),payload.get("payments"),payload.get("storekit"),payload.get("capabilities"),payload.get("attribution"),payload.get("aeo"),payload.get("followup"),payload.get("pmf_research"),payload.get("inspection_history"),payload.get("customer_workflows"),payload.get("growth_reviews"),finalize=finalize)
         return self.app(app_id)
 
-    def _commit_restore(self,app_id,data,records,files,ledger=None,experiments=None,schedules=None,references=None,production=None,rankings=None,acquisition=None,media=None,learning=None,payments=None,storekit=None,capabilities=None,attribution=None,aeo=None,followup=None,pmf_research=None,inspection_history=None,customer_workflows=None,growth_reviews=None):
+    def _commit_restore(self,app_id,data,records,files,ledger=None,experiments=None,schedules=None,references=None,production=None,rankings=None,acquisition=None,media=None,learning=None,payments=None,storekit=None,capabilities=None,attribution=None,aeo=None,followup=None,pmf_research=None,inspection_history=None,customer_workflows=None,growth_reviews=None,*,finalize=None):
         """Commit records only after exclusive file writes, cleaning owned files on failure."""
         from .learning_portable import restore_learning
         from .payment_portable import restore_payments
@@ -260,6 +261,10 @@ class Store:
                     with path.open("xb") as output:
                         created.append(path)
                         output.write(raw)
+                # A native host can establish the newly restored workspace owner
+                # and recheck its session in this same transaction. This callable
+                # is never deserialized from a snapshot or model request.
+                if finalize is not None:finalize(db,app_id)
         except Exception:
             for path in created:
                 path.unlink(missing_ok=True)

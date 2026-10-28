@@ -1,0 +1,171 @@
+{
+  "applicability": [
+    {
+      "applicable": true,
+      "category": "happy_path",
+      "reason": "Exercise explicit owner enable, durable dispatch, current-source worker read and persistent success readback."
+    },
+    {
+      "applicable": true,
+      "category": "validation",
+      "reason": "Reject invalid cadence, missing owner opt-in, stale versions, invalid app identity and ambiguous Apple connections."
+    },
+    {
+      "applicable": true,
+      "category": "failure_recovery",
+      "reason": "Bound transient retries, disable on connection rotation, fence pause races and block after three terminal failures."
+    },
+    {
+      "applicable": true,
+      "category": "state_consistency",
+      "reason": "Bind reads to schedule/app/connection versions and atomically persist metrics with job completion."
+    },
+    {
+      "applicable": true,
+      "category": "security_privacy",
+      "reason": "Do not copy credential material into schedule status; keep the scheduled operation read-only and app-scoped."
+    },
+    {
+      "applicable": true,
+      "category": "performance",
+      "reason": "Inspect at most 100 schedules per tick and limit each scheduled read to three transient attempts."
+    },
+    {
+      "applicable": false,
+      "category": "accessibility",
+      "reason": "This backend-only slice adds no user interface or input behavior.",
+      "review_evidence": {
+        "kind": "review",
+        "path": ".factory/apple-analytics-t8/scope-review.md",
+        "sha256": "4f9586871d38fcd88508630220b30d1448b3b5d6b334ea80dadcb020946ce101"
+      }
+    },
+    {
+      "applicable": true,
+      "category": "external_effects",
+      "reason": "The worker reads Apple Analytics externally; all test provider and signed-segment calls are mocked, with no live account claim."
+    }
+  ],
+  "candidate": [
+    {
+      "kind": "source",
+      "path": "mission_control/apple_metrics_schedule.py",
+      "sha256": "5550abe6dcf46b92faeeed6a1ca2243674b7cc44494b26442ff4d2160367acd3"
+    },
+    {
+      "kind": "source",
+      "path": "mission_control/automation_health.py",
+      "sha256": "44c5c30267f0c36b12c1b380465dfde9807cd0de04df4e8e2a5cea07db687f59"
+    },
+    {
+      "kind": "source",
+      "path": "mission_control/db.py",
+      "sha256": "45453b059d904f793ed4eabd4d1d9a1c5b75d6ab60cbd4c8d381409ed1b1fac8"
+    },
+    {
+      "kind": "source",
+      "path": "mission_control/worker.py",
+      "sha256": "3b7ba989c086b47dbe7770317d994ac4478acf72b7ff7f915380e2f59b510ea6"
+    },
+    {
+      "kind": "test",
+      "path": "tests/test_apple_metrics_schedule.py",
+      "sha256": "907130e001b2d649385344a9e92e09d32479b0c5b2b92b5bfae7ee4031a95dcd"
+    },
+    {
+      "kind": "test",
+      "path": "tests/test_automation_recovery.py",
+      "sha256": "4389c1a0c55e2c15d9086229febc81a412a3db528a3e3852fe20bd929018eaac"
+    },
+    {
+      "kind": "test",
+      "path": "tests/test_play_collection.py",
+      "sha256": "ec9ee591f015b99d9bae4330cb8823b8103f66232612ef25ae7e60fede3e2362"
+    },
+    {
+      "kind": "contract",
+      "path": "specs/apple-analytics-metrics.md",
+      "sha256": "4f663d01065dba511d88cc502ed4b1e237ef2a10ef7b143326935241be29cef1"
+    },
+    {
+      "kind": "plan",
+      "path": "plans/apple-analytics-metrics.md",
+      "sha256": "7016a0d0a6b59d1559b8697d2dbcef5fabce2ea5aa249748c5783473162e890a"
+    },
+    {
+      "kind": "review",
+      "path": ".factory/apple-analytics-t8/scope-review.md",
+      "sha256": "4f9586871d38fcd88508630220b30d1448b3b5d6b334ea80dadcb020946ce101"
+    },
+    {
+      "kind": "test",
+      "path": ".factory/apple-analytics-t8/run-focused-ecc.py",
+      "sha256": "77d1ec7275e0a51e901ef5d2a52c0ab959353f40e0d7711b0a4d22565c05ac2c"
+    },
+    {
+      "kind": "audit-tool",
+      "path": ".factory/apple-analytics-t8/refresh-audit.py",
+      "sha256": "9c04827f2ed3a6d8dc136c8bcc8f61b9d814fdbb944a7d6b76242d9a61e42a60"
+    }
+  ],
+  "checks": [
+    {
+      "category": "happy_path",
+      "id": "happy_path",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ],
+      "requirement": "Owner opt-in survives restart, queues the latest-complete daily download read and records the metrics and successful job state."
+    },
+    {
+      "category": "validation",
+      "id": "validation",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ],
+      "requirement": "Validate explicit owner choice, 24-168 hour cadence, current schedule version, numeric app identity and exactly one valid matching Apple connection."
+    },
+    {
+      "category": "failure_recovery",
+      "id": "failure_recovery",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ],
+      "requirement": "Stop persistence after pause or connection rotation, cap transient retry attempts at three, and disable after three terminal failures until explicit resume."
+    },
+    {
+      "category": "state_consistency",
+      "id": "state_consistency",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ],
+      "requirement": "Fence stale jobs with schedule/app/connection versions and commit observations together with the leased job completion."
+    },
+    {
+      "category": "security_privacy",
+      "id": "security_privacy",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ],
+      "requirement": "Expose no credential reference or connection hash in schedule status and grant no provider write, campaign, spending or publication operation."
+    },
+    {
+      "category": "performance",
+      "id": "performance",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ],
+      "requirement": "Keep each poll bounded to 100 schedule rows and each scheduled provider read to three transient attempts."
+    },
+    {
+      "category": "external_effects",
+      "id": "external_effects",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ],
+      "requirement": "Exercise report reads and segment downloads with deterministic mocks only; make no live Apple account or provider acceptance claim."
+    }
+  ],
+  "project_id": "WMM-apple-analytics-schedule-T8-T9",
+  "schema": "factory.workflow-audit.contract.v1"
+}

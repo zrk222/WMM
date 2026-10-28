@@ -1,0 +1,81 @@
+﻿$ python -m unittest tests.test_apple_metrics tests.test_apple_metrics_store tests.test_apple_metrics_contract tests.test_apple_analytics_parser tests.test_apple_metrics_transport -v
+test_initialized_schema_is_idempotent (tests.test_apple_metrics.AppleMetricsTests.test_initialized_schema_is_idempotent) ... ok
+test_multiday_sql_failure_rolls_back_entire_savepoint (tests.test_apple_metrics.AppleMetricsTests.test_multiday_sql_failure_rolls_back_entire_savepoint) ... ok
+test_reconciliation_is_idempotent_and_new_processing_date_replaces (tests.test_apple_metrics.AppleMetricsTests.test_reconciliation_is_idempotent_and_new_processing_date_replaces) ... ERROR
+test_rejects_duplicate_segment_identity_and_private_dimension_values (tests.test_apple_metrics.AppleMetricsTests.test_rejects_duplicate_segment_identity_and_private_dimension_values) ... ok
+test_rejects_malformed_foreign_partial_and_unsupported_observations (tests.test_apple_metrics.AppleMetricsTests.test_rejects_malformed_foreign_partial_and_unsupported_observations) ... ok
+test_requires_existing_transaction_and_existing_local_app (tests.test_apple_metrics.AppleMetricsTests.test_requires_existing_transaction_and_existing_local_app) ... ok
+test_splits_multi_day_instance_and_preserves_event_meanings_and_zero (tests.test_apple_metrics.AppleMetricsTests.test_splits_multi_day_instance_and_preserves_event_meanings_and_zero) ... ok
+test_all_identity_components_isolate_partitions (tests.test_apple_metrics_store.AppleMetricsStoreTests.test_all_identity_components_isolate_partitions) ... ok
+test_changed_same_version_source_provenance_rejected (tests.test_apple_metrics_store.AppleMetricsStoreTests.test_changed_same_version_source_provenance_rejected) ... ok
+test_complete_partition_survives_reopen_with_provenance (tests.test_apple_metrics_store.AppleMetricsStoreTests.test_complete_partition_survives_reopen_with_provenance) ... ok
+test_concurrent_offline_transactions_serialize_exact_duplicate (tests.test_apple_metrics_store.AppleMetricsStoreTests.test_concurrent_offline_transactions_serialize_exact_duplicate) ... ok
+test_conflicting_same_version_preserves_data_and_timestamp (tests.test_apple_metrics_store.AppleMetricsStoreTests.test_conflicting_same_version_preserves_data_and_timestamp) ... ok
+test_disabled_ingestion_does_not_open_database_or_validate_input (tests.test_apple_metrics_store.AppleMetricsStoreTests.test_disabled_ingestion_does_not_open_database_or_validate_input) ... ok
+test_missing_dates_remain_absent_and_explicit_zero_is_stored (tests.test_apple_metrics_store.AppleMetricsStoreTests.test_missing_dates_remain_absent_and_explicit_zero_is_stored) ... ok
+test_multiset_idempotence_ignores_order_preserves_multiplicity (tests.test_apple_metrics_store.AppleMetricsStoreTests.test_multiset_idempotence_ignores_order_preserves_multiplicity) ... ok
+test_newer_processing_date_replaces_without_summing (tests.test_apple_metrics_store.AppleMetricsStoreTests.test_newer_processing_date_replaces_without_summing) ... ok
+test_older_processing_result_is_noop_including_timestamp (tests.test_apple_metrics_store.AppleMetricsStoreTests.test_older_processing_result_is_noop_including_timestamp) ... ok
+test_partial_empty_foreign_and_invalid_refresh_preserve_prior (tests.test_apple_metrics_store.AppleMetricsStoreTests.test_partial_empty_foreign_and_invalid_refresh_preserve_prior) ... ok
+test_partition_and_total_byte_limits_preserve_existing_data (tests.test_apple_metrics_store.AppleMetricsStoreTests.test_partition_and_total_byte_limits_preserve_existing_data) ... ok
+test_partition_count_limit_is_per_app_and_replacements_do_not_grow_history (tests.test_apple_metrics_store.AppleMetricsStoreTests.test_partition_count_limit_is_per_app_and_replacements_do_not_grow_history) ... ok
+test_read_rejects_corrupt_payload_metadata_hashes_and_timestamps (tests.test_apple_metrics_store.AppleMetricsStoreTests.test_read_rejects_corrupt_payload_metadata_hashes_and_timestamps) ... ok
+test_requires_transaction_and_existing_app (tests.test_apple_metrics_store.AppleMetricsStoreTests.test_requires_transaction_and_existing_app) ... ok
+test_sql_failure_rolls_back_and_preserves_timestamp (tests.test_apple_metrics_store.AppleMetricsStoreTests.test_sql_failure_rolls_back_and_preserves_timestamp) ... ok
+test_transaction_exception_rolls_back_replacement_and_other_partition (tests.test_apple_metrics_store.AppleMetricsStoreTests.test_transaction_exception_rolls_back_replacement_and_other_partition) ... ok
+test_aggregate_source_and_serialized_envelope_boundaries (tests.test_apple_metrics_contract.AppleMetricsContractTests.test_aggregate_source_and_serialized_envelope_boundaries) ... ok
+test_bad_rows_do_not_partially_validate (tests.test_apple_metrics_contract.AppleMetricsContractTests.test_bad_rows_do_not_partially_validate) ... ok
+test_basic_label_and_credential_syntax_boundary (tests.test_apple_metrics_contract.AppleMetricsContractTests.test_basic_label_and_credential_syntax_boundary) ... ok
+test_documented_standard_dimensions_allow_realistic_labels_only (tests.test_apple_metrics_contract.AppleMetricsContractTests.test_documented_standard_dimensions_allow_realistic_labels_only) ... ok
+test_fingerprint_is_order_independent_and_preserves_multiplicity (tests.test_apple_metrics_contract.AppleMetricsContractTests.test_fingerprint_is_order_independent_and_preserves_multiplicity) ... ok
+test_incomplete_foreign_empty_or_malformed_envelopes_rejected (tests.test_apple_metrics_contract.AppleMetricsContractTests.test_incomplete_foreign_empty_or_malformed_envelopes_rejected) ... ok
+test_parser_envelope_zero_unknown_and_defensive_copy (tests.test_apple_metrics_contract.AppleMetricsContractTests.test_parser_envelope_zero_unknown_and_defensive_copy) ... ok
+test_partition_identity_is_closed_typed_and_source_scoped (tests.test_apple_metrics_contract.AppleMetricsContractTests.test_partition_identity_is_closed_typed_and_source_scoped) ... ok
+test_provenance_is_required_bounded_and_unique (tests.test_apple_metrics_contract.AppleMetricsContractTests.test_provenance_is_required_bounded_and_unique) ... ok
+test_bounds_and_bad_gzip_are_rejected (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_bounds_and_bad_gzip_are_rejected) ... ok
+test_documented_tsv_and_download_categories (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_documented_tsv_and_download_categories) ... ok
+test_foreign_app_invalid_rows_and_duplicate_headers_rejected (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_foreign_app_invalid_rows_and_duplicate_headers_rejected) ... ok
+test_header_only_instance_is_unknown_not_complete (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_header_only_instance_is_unknown_not_complete) ... ok
+test_invalid_checksum_size_or_incomplete_never_parse (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_invalid_checksum_size_or_incomplete_never_parse) ... ok
+test_multiple_segments_and_segment_identity (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_multiple_segments_and_segment_identity) ... ok
+test_named_columns_categories_and_unknown_values (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_named_columns_categories_and_unknown_values) ... ok
+test_reconcile_replaces_whole_older_date_and_keeps_other_dates (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_reconcile_replaces_whole_older_date_and_keeps_other_dates) ... ok
+test_reordered_identical_segments_do_not_conflict (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_reordered_identical_segments_do_not_conflict) ... ok
+test_unsupported_comma_delimiter_is_rejected (tests.test_apple_analytics_parser.AppleAnalyticsParserTests.test_unsupported_comma_delimiter_is_rejected) ... ok
+test_app_report_or_instance_mismatch_stops_before_segment_request (tests.test_apple_metrics_transport.AppleMetricsTransportTests.test_app_report_or_instance_mismatch_stops_before_segment_request) ... ok
+test_apple_segment_endpoint_is_allowlisted (tests.test_apple_metrics_transport.AppleMetricsTransportTests.test_apple_segment_endpoint_is_allowlisted) ... ok
+test_complete_selected_report_downloads_segments_without_returning_signed_url (tests.test_apple_metrics_transport.AppleMetricsTransportTests.test_complete_selected_report_downloads_segments_without_returning_signed_url) ... ok
+test_count_and_aggregate_byte_bounds_preflight_before_download (tests.test_apple_metrics_transport.AppleMetricsTransportTests.test_count_and_aggregate_byte_bounds_preflight_before_download) ... ok
+test_empty_inventory_and_wrong_segment_parent_are_rejected (tests.test_apple_metrics_transport.AppleMetricsTransportTests.test_empty_inventory_and_wrong_segment_parent_are_rejected) ... ok
+test_incomplete_segment_page_stops_before_any_download (tests.test_apple_metrics_transport.AppleMetricsTransportTests.test_incomplete_segment_page_stops_before_any_download) ... ok
+test_malformed_segment_metadata_is_rejected_before_download (tests.test_apple_metrics_transport.AppleMetricsTransportTests.test_malformed_segment_metadata_is_rejected_before_download) ... ok
+test_apple_documented_signed_s3_destination_shape_is_required (tests.test_apple_metrics_transport.AppleSignedSegmentTests.test_apple_documented_signed_s3_destination_shape_is_required) ... ok
+test_oversized_segment_is_rejected_without_network (tests.test_apple_metrics_transport.AppleSignedSegmentTests.test_oversized_segment_is_rejected_without_network) ... ok
+test_response_body_cap_is_enforced_when_content_length_is_missing (tests.test_apple_metrics_transport.AppleSignedSegmentTests.test_response_body_cap_is_enforced_when_content_length_is_missing) ... ok
+test_signed_read_has_no_authorization_and_blocks_redirects (tests.test_apple_metrics_transport.AppleSignedSegmentTests.test_signed_read_has_no_authorization_and_blocks_redirects) ... ok
+test_size_checksum_encoding_and_error_failures_are_sanitized (tests.test_apple_metrics_transport.AppleSignedSegmentTests.test_size_checksum_encoding_and_error_failures_are_sanitized) ... ok
+
+======================================================================
+ERROR: test_reconciliation_is_idempotent_and_new_processing_date_replaces (tests.test_apple_metrics.AppleMetricsTests.test_reconciliation_is_idempotent_and_new_processing_date_replaces)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[local path]", line 78, in test_reconciliation_is_idempotent_and_new_processing_date_replaces
+    same = persist(self.path, [('2026-01-01', 'First-time download', '7')])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "[local path]", line 42, in persist
+    return reconcile_offline_instance(db, identity() if report_identity is None
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "[local path]", line 63, in reconcile_offline_instance
+    statuses = [dict(partition=item['partition'], status=_reconcile(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "[local path]", line 63, in <listcomp>
+    statuses = [dict(partition=item['partition'], status=_reconcile(
+                                                         ^^^^^^^^^^^
+  File "[local path]", line 88, in _reconcile
+    raise Invalid('Conflicting Apple metrics processing version')
+mission_control.common.Invalid: Conflicting Apple metrics processing version
+
+----------------------------------------------------------------------
+Ran 55 tests in 4.003s
+
+FAILED (errors=1)

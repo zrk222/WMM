@@ -8,7 +8,7 @@ from unittest.mock import patch
 from mission_control.common import Invalid, canonical, digest
 from mission_control.db import connection
 from mission_control.store import Store
-from mission_control.benchmark_ads import source_connection, source_report, report_rows, report_window, count_value, report_currency, spend_minor, aggregate_metric, project_saved_ads
+from mission_control.benchmark_ads import source_connection, source_report, report_identity, report_rows, report_window, count_value, report_currency, spend_minor, aggregate_metric, project_saved_ads
 from mission_control.benchmark_context import compare_benchmark
 from mission_control.currency_units import minor_units, SOURCE_SHA256
 from tests.test_benchmark_context import records
@@ -51,6 +51,21 @@ class BenchmarkAdsTests(unittest.TestCase):
     def change_report(self, report):
         with connection(self.store.path) as db:
             db.execute("UPDATE jobs SET result=? WHERE id='job-one'", (canonical(report),))
+
+    def test_report_identity_checks_provider_app_hash_and_timeline(self):
+        report = dict(provider="apple_ads", app_id="sample-one", source_hash="a" * 64,
+                      observed_at="2026-10-23T11:00:00+00:00")
+        job = dict(created="2026-10-23T10:00:00+00:00", updated="2026-10-23T11:30:00+00:00")
+        self.assertIsNone(report_identity(report, job, "sample-one", "a" * 64, "2026-10-23T12:00:00+00:00"))
+        for changed_report, changed_job, app_id, source_hash, as_of in (
+            (dict(report, provider="other"), job, "sample-one", "a" * 64, "2026-10-23T12:00:00+00:00"),
+            (dict(report, app_id="sample-two"), job, "sample-one", "a" * 64, "2026-10-23T12:00:00+00:00"),
+            (report, job, "sample-one", "b" * 64, "2026-10-23T12:00:00+00:00"),
+            (dict(report, observed_at="2026-10-23T12:01:00+00:00"), job, "sample-one", "a" * 64, "2026-10-23T12:00:00+00:00"),
+            (report, dict(created="2026-10-23T11:01:00+00:00", updated="2026-10-23T11:30:00+00:00"), "sample-one", "a" * 64, "2026-10-23T12:00:00+00:00"),
+        ):
+            with self.subTest(report=changed_report, job=changed_job), self.assertRaises(Invalid):
+                report_identity(changed_report, changed_job, app_id, source_hash, as_of)
 
     def test_ads_projection_uses_real_saved_totals_and_retains_operator_classification(self):
         value = self.project()

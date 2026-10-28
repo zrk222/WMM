@@ -1,0 +1,146 @@
+{
+  "schema": "factory.workflow-audit.contract.v1",
+  "project_id": "WMM-apple-analytics-worker-T5",
+  "candidate": [
+    {
+      "path": "mission_control/provider_reports.py",
+      "sha256": "65bdead3673cd3bbe2c3e35b624bd7cd47f73e0c0f3fee31fcc9c6322b8107b6",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/worker.py",
+      "sha256": "5530ebe779374eab3f9b09e7cf4c8721bead23e277de9b039120c600949f4fbf",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/marketing_agent_manifest.py",
+      "sha256": "bcf623892fc20a2e1361a68bb8b5d7ba5f40efce7ed737c8eda423fbc0ad410b",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_apple_metrics_worker.py",
+      "sha256": "e62080e5c6ea2e9493df4d632634436fed5d84cb0200d5d5b2b7b7256c7224ab",
+      "kind": "test"
+    },
+    {
+      "path": "specs/apple-analytics-metrics.md",
+      "sha256": "bb3d9576be443de7a843ec72d46028f6ef43a57278177199baf77c3c07a8610f",
+      "kind": "contract"
+    },
+    {
+      "path": "plans/apple-analytics-metrics.md",
+      "sha256": "0d7eb695671362d27dea8a7b3f0a916dc900da1537b0449b0e77f653c7177e65",
+      "kind": "contract"
+    },
+    {
+      "path": ".factory/apple-analytics-t5/scope-review.md",
+      "sha256": "9f29e459f00f1aef266506b509bc281059c350297c06b27c62dda883e8757000",
+      "kind": "review"
+    }
+  ],
+  "applicability": [
+    {
+      "category": "happy_path",
+      "applicable": true,
+      "reason": "A complete selected Apple downloads instance is parsed, saved with source provenance, read back, and completed atomically with its leased worker job."
+    },
+    {
+      "category": "validation",
+      "applicable": true,
+      "reason": "Closed provider/options validation rejects partial or unselected report inventory before segment download."
+    },
+    {
+      "category": "failure_recovery",
+      "applicable": true,
+      "reason": "Connection rotation after read and a synthetic SQLite write failure prevent partition persistence and leave a bounded blocked result."
+    },
+    {
+      "category": "state_consistency",
+      "applicable": true,
+      "reason": "Partition rows and successful job result commit in one current-lease transaction; stale or changed connection state is not accepted."
+    },
+    {
+      "category": "security_privacy",
+      "applicable": true,
+      "reason": "Agent allowlist, current connection hash, app scope, secret and signed-URL redaction, bounded endpoint, and safe provider errors are covered."
+    },
+    {
+      "category": "performance",
+      "applicable": true,
+      "reason": "Segment count/byte and parser/storage size limits are enforced before expensive download or persistence."
+    },
+    {
+      "category": "accessibility",
+      "applicable": false,
+      "reason": "This backend-only slice changes no visible interface, keyboard behavior, or assistive-technology output.",
+      "review_evidence": {
+        "path": ".factory/apple-analytics-t5/scope-review.md",
+        "sha256": "9f29e459f00f1aef266506b509bc281059c350297c06b27c62dda883e8757000",
+        "kind": "review"
+      }
+    },
+    {
+      "category": "external_effects",
+      "applicable": true,
+      "reason": "Provider report discovery and signed downloads are read effects. Local tests mock them and assert the bounded read-only transport contract; a live account read is not claimed."
+    }
+  ],
+  "checks": [
+    {
+      "id": "happy_path",
+      "category": "happy_path",
+      "requirement": "Fetch and persist only the explicitly selected complete daily App Downloads Standard instance; save its source-bound partitions and job completion atomically.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ]
+    },
+    {
+      "id": "validation",
+      "category": "validation",
+      "requirement": "Reject unsupported provider/options and partial, missing, unselected, or non-daily report instances before accepting metrics.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "category": "failure_recovery",
+      "requirement": "On connection rotation or SQLite failure, persist no metric partition and record a sanitized blocked job result.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ]
+    },
+    {
+      "id": "state_consistency",
+      "category": "state_consistency",
+      "requirement": "Require the same app, connection version/hash, agent policy, lease and attempt at persistence; keep partitions and job completion in one transaction.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "category": "security_privacy",
+      "requirement": "Do not expose credentials or signed URLs; allow only the bounded analytics read for agents and keep result scope app-bound.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ]
+    },
+    {
+      "id": "performance",
+      "category": "performance",
+      "requirement": "Enforce transport, segment, parser, decompression, partition and per-app storage limits.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ]
+    },
+    {
+      "id": "external_effects",
+      "category": "external_effects",
+      "requirement": "Use only permitted read requests; signed segment requests omit API authorization and block redirects. Live Apple calls remain unrun.",
+      "profiles": [
+        "Windows-CPython-3.11.9-SQLite-synthetic-fixtures-Apple-network-mocked"
+      ]
+    }
+  ]
+}
