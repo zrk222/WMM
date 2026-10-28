@@ -44,6 +44,13 @@ actor DomainBridge {
         handle = nil
     }
 
+    func updateWorkspace(session: LocalIdentity.Session, appID: String, request: Data) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        guard !request.isEmpty, request.count <= 1_048_576 else { throw Failure.invalidRequest }
+        return try EngineBootstrap.updateWorkspace(handle: handle, session: session.nonce.uuidString,
+            appID: appID, request: request)
+    }
+
     func report(session: LocalIdentity.Session, appID: String) throws -> Data {
         guard let handle else { throw Failure.closed }
         return try EngineBootstrap.report(handle: handle, session: session.nonce.uuidString, appID: appID)

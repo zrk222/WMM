@@ -170,6 +170,19 @@ final class BridgeAgentTests: XCTestCase {
         XCTAssertTrue(preparedJob.events.contains { $0.code == "STAGE_BLOCKED" })
         await scheduler.resume(preparedJob)
         XCTAssertEqual(scheduler.progress?.runs.first?.attempts, 1)
+        let revision = try JSONSerialization.data(withJSONObject: ["version": workspace.app.version,
+            "confirm_update": true, "changes": ["name": "Revised synthetic app", "job": "Improve activation",
+            "audience": "Synthetic owners", "activation": "Create a first plan", "release": "build-2",
+            "locale": "en-US", "currency": "USD"]] as [String: Any])
+        let updated = try JSONDecoder().decode(NativeWorkspace.self,
+            from: await bridge.updateWorkspace(session: session, appID: appID, request: revision))
+        XCTAssertEqual(updated.version, workspace.app.version + 1)
+        XCTAssertEqual(updated.data.name, "Revised synthetic app")
+        XCTAssertEqual(updated.data.audience, "Synthetic owners")
+        do {
+            _ = try await bridge.updateWorkspace(session: session, appID: appID, request: revision)
+            XCTFail("Stale native revision overwrote current app facts")
+        } catch {}
         await identity.lock()
         await scheduler.refresh()
         XCTAssertNotNil(scheduler.message)

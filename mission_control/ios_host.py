@@ -112,6 +112,25 @@ class Runtime:
     def enroll(self, session, app_id):
         return self.owner.enroll(session, app_id, {'confirm_owner': True})
 
+    def update_workspace(self, session, app_id, payload):
+        """Edit selected app facts without replacing other settings or authority."""
+        from .ios_bridge import decode_document
+        from .operation_authority import bound_owner, protected
+        body=decode_document(payload)
+        fields={'name','job','audience','activation','release','locale','currency'}
+        if (not isinstance(body,dict) or set(body)!={'version','changes','confirm_update'}
+                or body['confirm_update'] is not True or type(body['version']) is not int
+                or not isinstance(body['changes'],dict) or set(body['changes'])!=fields
+                or any(not isinstance(value,str) for value in body['changes'].values())):
+            raise Invalid('Confirm the exact versioned app-facts update')
+        user=self.identities.fresh(session)
+        envelope=dict(app_id=app_id,operation='native.workspace.update',input=body)
+        with bound_owner(self.service.store,envelope,self.identities,session,user):
+            with protected(self.service.store,envelope):
+                current=self.service.store.app(app_id)
+                result=self.service.store.save_app(app_id,dict(current['data'],**body['changes']),body['version'])
+                return encode_response(result)
+
     def create_workspace(self, session, payload):
         """One explicit local owner action, committed with its first membership.
 

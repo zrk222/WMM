@@ -4,7 +4,10 @@ import LocalAuthentication
 import UIKit
 
 struct NativeWorkspace: Decodable, Identifiable {
-    struct Manifest: Decodable { let name: String; let job: String?; let locale: String? }
+    struct Manifest: Decodable {
+        let name: String; let job: String?; let locale: String?
+        let audience: String?; let activation: String?; let release: String?; let currency: String?
+    }
     let id: String
     let version: Int
     let data: Manifest
@@ -139,6 +142,29 @@ final class NativeWorkspaceModel: ObservableObject {
         } catch {
             guard generation == ticket else { return }
             message = "This app could not be read. Unlock again if your session expired, or retry the read. Saved evidence is retained."
+        }
+    }
+
+    func update(_ app: NativeWorkspace, changes: [String: String], confirmed: Bool) async -> Bool {
+        guard unlocked, !busy, confirmed, snapshot?.app.id == app.id, let bridge, let session else { return false }
+        let ticket = generation
+        busy = true; message = nil; activity = "Saving your versioned app facts..."
+        defer { if generation == ticket { busy = false; activity = "" } }
+        do {
+            let request = try JSONSerialization.data(withJSONObject: ["version": app.version,
+                "changes": changes, "confirm_update": true] as [String: Any])
+            _ = try await bridge.updateWorkspace(session: session, appID: app.id, request: request)
+            let read = try JSONSerialization.data(withJSONObject: ["app_id": app.id, "operation": "workspace.read", "input": [:]] as [String: Any])
+            let value = try JSONDecoder().decode(NativeWorkflowSnapshot.self, from: await bridge.call(session: session, request: read))
+            let list = try JSONDecoder().decode(NativeWorkspaceList.self, from: await bridge.workspaces(session: session))
+            guard unlocked, generation == ticket, snapshot?.app.id == app.id, value.app.id == app.id else { return false }
+            snapshot = value; apps = list.apps; report = nil; media = []
+            message = "App facts saved. Review refreshed evidence gaps before preparing new work."
+            return true
+        } catch {
+            guard generation == ticket else { return false }
+            message = "The update was not confirmed. Refresh this workspace before trying again; a changed revision or owner session cannot overwrite saved work."
+            return false
         }
     }
 

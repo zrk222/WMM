@@ -78,6 +78,49 @@ class NativeRuntimeTests(unittest.TestCase):
             self.assertIsInstance(stage['missing'],list)
             self.assertTrue(stage['description'])
 
+    def update_payload(self, version=1, **extra):
+        fields=dict(name='Revised app',job='Improve activation',audience='Synthetic owners',
+                    activation='Create first plan',release='build-2',locale='en-US',currency='USD')
+        return json.dumps(dict(version=version,changes=fields,confirm_update=True,**extra)).encode()
+
+    def test_native_app_facts_preserve_settings_and_reject_stale_revision(self):
+        body=json.loads(self.creation());body['manifest']['brand_voice']='Retain this setting'
+        self.runtime.create_workspace(self.session,json.dumps(body).encode())
+        result=json.loads(self.runtime.update_workspace(self.session,'new-app',self.update_payload()))
+        self.assertEqual(result['version'],2)
+        self.assertEqual(result['data']['name'],'Revised app')
+        self.assertEqual(result['data']['brand_voice'],'Retain this setting')
+        self.assertEqual(result['data']['authorized_spend_minor'],0)
+        with self.assertRaises(Invalid):self.runtime.update_workspace(self.session,'new-app',self.update_payload())
+        self.assertEqual(self.runtime.service.store.app('new-app')['version'],2)
+
+    def test_native_app_facts_cannot_edit_authority_or_foreign_apps(self):
+        self.runtime.create_workspace(self.session,self.creation())
+        with self.assertRaises(PermissionError):self.runtime.update_workspace(self.session,'other',self.update_payload())
+        for key,value in [('authorized_spend_minor',100),('principal','other-owner')]:
+            body=json.loads(self.update_payload());body['changes'][key]=value
+            with self.assertRaises(Invalid):self.runtime.update_workspace(self.session,'new-app',json.dumps(body).encode())
+        self.available=False
+        with self.assertRaises(PermissionError):self.runtime.update_workspace(self.session,'new-app',self.update_payload())
+
+    def test_native_app_facts_lock_before_commit_rolls_back_audit_and_manifest(self):
+        from unittest.mock import patch
+        from mission_control.db import connection
+        self.runtime.create_workspace(self.session,self.creation())
+        # Revoke after the UPDATE/audit inside the real transaction, before its
+        # shared protected-connection commit check.
+        import mission_control.store as store_module
+        audit=store_module.audit
+        def lock_after_audit(db,app,action,detail):
+            audit(db,app,action,detail)
+            self.available=False
+        with patch.object(store_module,'audit',side_effect=lock_after_audit):
+            with self.assertRaises(PermissionError):self.runtime.update_workspace(self.session,'new-app',self.update_payload())
+        self.available=True
+        self.assertEqual(self.runtime.service.store.app('new-app')['version'],1)
+        with connection(self.path) as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM audit WHERE app_id='new-app'").fetchone()[0],2)
+
     def test_creation_never_claims_foreign_or_unowned_existing_workspaces(self):
         for app in ('own','other'):
             with self.assertRaises(PermissionError):self.runtime.create_workspace(self.session,self.creation(app))

@@ -12,6 +12,7 @@ struct WorkflowNavigation: View {
     @State private var scheduler: LocalScheduler?
     @State private var providers: NativeProviderModel?
     @State private var inference: NativeInferenceModel?
+    @State private var editingApp: NativeWorkspace?
 
     var body: some View {
         NavigationStack {
@@ -84,6 +85,7 @@ struct WorkflowNavigation: View {
                     ToolbarItem(placement: .bottomBar) {
                         if model.snapshot != nil {
                             Menu("Workspace tools", systemImage: "square.grid.2x2") {
+                            Button("Edit app facts", systemImage: "pencil") { editingApp = model.snapshot?.app }.disabled(model.busy)
                             Button("Your media", systemImage: "film") {
                                 showingMedia = true
                                 Task { await model.loadMedia() }
@@ -122,6 +124,7 @@ struct WorkflowNavigation: View {
             .sheet(item: $scheduler) { NativeJobsView(model: $0) }
             .sheet(item: $providers) { NativeProviderView(model: $0) }
             .sheet(item: $inference) { NativeInferenceView(model: $0) }
+            .sheet(item: $editingApp) { CreateWorkspaceView(model: model, editing: $0) }
         }
         .privacySensitive()
         .overlay { if scenePhase != .active { Color(uiColor: .systemBackground).ignoresSafeArea() } }
@@ -132,12 +135,14 @@ struct WorkflowNavigation: View {
             inference = nil; providers = nil; scheduler = nil; agents = nil; editor = nil; showingCreate = false; showingResults = false; showingMedia = false; model.lock()
         }
         .onChange(of: model.unlocked) { _, value in if !value { inference = nil; providers = nil; scheduler = nil; agents = nil; editor = nil } }
+        .onChange(of: model.unlocked) { _, value in if !value { editingApp = nil } }
     }
 }
 
 @MainActor
 private struct CreateWorkspaceView: View {
     @ObservedObject var model: NativeWorkspaceModel
+    var editing: NativeWorkspace? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var appID = "app-" + UUID().uuidString.lowercased()
     @State private var name = ""
@@ -148,11 +153,14 @@ private struct CreateWorkspaceView: View {
     @State private var locale = "en-US"
     @State private var currency = "USD"
     @State private var confirmed = false
+    @State private var loaded = false
 
     var body: some View {
         NavigationStack {
             Form {
-                Section { Text("Tell us what your app does and who it helps. This creates a private local workspace and establishes you as its first owner.") }
+                Section { Text(editing == nil
+                    ? "Tell us what your app does and who it helps. This creates a private local workspace and establishes you as its first owner."
+                    : "Update what your app does and who it helps. Saving creates a new app revision and refreshes its evidence checks. Existing approvals and plans remain bound to their original app facts.") }
                 Section("Your app and its purpose") {
                     TextField("App name", text: $name)
                     TextField("Marketing outcome", text: $objective, axis: .vertical)
@@ -163,24 +171,38 @@ private struct CreateWorkspaceView: View {
                     TextField("Currency", text: $currency).textInputAutocapitalization(.characters).autocorrectionDisabled()
                 }
                 Section {
-                    Toggle("I own this local app workspace", isOn: $confirmed)
+                    Toggle(editing == nil ? "I own this local app workspace" : "I confirm these revised app facts", isOn: $confirmed)
                     Text("You control later agent permissions and approvals. This does not connect accounts, publish a campaign or authorize spending.").font(.callout)
                 }
                 if let message = model.message { Section { Text(message) } }
             }
-            .navigationTitle("Add your app")
+            .navigationTitle(editing == nil ? "Add your app" : "Edit app facts")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(model.busy) }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Create") { Task {
-                        let saved = await model.create(appID: appID, manifest: ["name": name, "job": objective,
+                    Button(editing == nil ? "Create" : "Save revision") { Task {
+                        let facts = ["name": name, "job": objective,
                             "audience": audience, "activation": activation, "release": release,
-                            "locale": locale, "currency": currency], confirmed: confirmed)
+                            "locale": locale, "currency": currency]
+                        let saved: Bool
+                        if let editing { saved = await model.update(editing, changes: facts, confirmed: confirmed) }
+                        else { saved = await model.create(appID: appID, manifest: facts, confirmed: confirmed) }
                         if saved { dismiss() }
                     }}.disabled(model.busy || !confirmed || [name, objective, audience, activation, release, locale, currency].contains { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
                 }
             }
             .interactiveDismissDisabled(model.busy)
+            .onAppear {
+                guard !loaded else { return }; loaded = true
+                if let editing {
+                    name = editing.data.name; objective = editing.data.job ?? ""
+                    audience = editing.data.audience ?? ""; activation = editing.data.activation ?? ""
+                    release = editing.data.release ?? ""; locale = editing.data.locale ?? ""
+                    currency = editing.data.currency ?? ""
+                }
+            }
+            .onChange(of: [name, objective, audience, activation, release, locale, currency]) { _, _ in confirmed = false }
+            .onChange(of: model.unlocked) { _, value in if !value { dismiss() } }
         }
     }
 }
