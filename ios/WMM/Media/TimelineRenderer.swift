@@ -73,6 +73,9 @@ actor TimelineRenderer {
             throw Failure.invalidPlan
         }
         let composition = AVMutableComposition()
+        guard let video = composition.addMutableTrack(withMediaType: .video,
+                preferredTrackID: kCMPersistentTrackID_Invalid) else { throw Failure.missingVideo }
+        var sourceTransforms: [String: CGAffineTransform] = [:]
         var retainedAudio = false
         for clip in plan.clips {
             try Task.checkCancellation()
@@ -83,8 +86,7 @@ actor TimelineRenderer {
             let duration = try await asset.load(.duration)
             let end = CMTime(value: Int64(clip.source_out_frame), timescale: 24)
             guard duration.isNumeric, CMTimeCompare(duration, end) >= 0 else { throw Failure.sourceTooShort }
-            guard let sourceVideo = try await asset.loadTracks(withMediaType: .video).first,
-                  let video = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+            guard let sourceVideo = try await asset.loadTracks(withMediaType: .video).first else {
                 throw Failure.missingVideo
             }
             let start = CMTime(value: Int64(clip.output_start_frame), timescale: 24)
@@ -92,7 +94,7 @@ actor TimelineRenderer {
                                     duration: CMTime(value: Int64(clip.source_out_frame - clip.source_in_frame), timescale: 24))
             let scaled = CMTime(value: Int64(clip.output_frame_count), timescale: 24)
             try video.insertTimeRange(range, of: sourceVideo, at: start)
-            video.preferredTransform = try await sourceVideo.load(.preferredTransform)
+            sourceTransforms[clip.id] = try await sourceVideo.load(.preferredTransform)
             video.scaleTimeRange(CMTimeRange(start: start, duration: range.duration), toDuration: scaled)
             if clip.audio == "RETAIN", let sourceAudio = try await asset.loadTracks(withMediaType: .audio).first,
                let audio = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
@@ -101,12 +103,15 @@ actor TimelineRenderer {
                 retainedAudio = true
             }
         }
+        // The CI filtering API processes the first enabled video track. Stitch
+        // segments on that track so later clips cannot disappear from its input.
+        let orientations = sourceTransforms
         let videoComposition = AVMutableVideoComposition(asset: composition, applyingCIFiltersWithHandler: { request in
             let frame = Int((CMTimeGetSeconds(request.compositionTime) * 24).rounded(.down))
             guard let clip = plan.clips.first(where: { frame >= $0.output_start_frame && frame < $0.output_start_frame + $0.output_frame_count }) else {
                 request.finish(with: NSError(domain: "WMM.Render", code: 1)); return
             }
-            request.finish(with: Self.transform(request.sourceImage, clip: clip, plan: plan), context: nil)
+            request.finish(with: Self.transform(request.sourceImage.transformed(by: orientations[clip.id] ?? .identity), clip: clip, plan: plan), context: nil)
         })
         videoComposition.renderSize = CGSize(width: CGFloat(plan.width), height: CGFloat(plan.height))
         videoComposition.frameDuration = CMTime(value: 1, timescale: 24)
@@ -120,6 +125,13 @@ actor TimelineRenderer {
         exporter.outputURL = staging; exporter.outputFileType = .mp4
         exporter.videoComposition = videoComposition
         exporter.timeRange = CMTimeRange(start: .zero, duration: CMTime(value: Int64(plan.output_frame_count), timescale: 24))
+        // A stalled codec/compositor must not leave a durable job running forever.
+        let watchdog = Task {
+            do { try await Task.sleep(nanoseconds: 180_000_000_000) }
+            catch { return }
+            exporter.cancelExport()
+        }
+        defer { watchdog.cancel() }
         await withTaskCancellationHandler(operation: {
             await withCheckedContinuation { continuation in
                 exporter.exportAsynchronously { continuation.resume() }

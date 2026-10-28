@@ -1,5 +1,6 @@
 """Validate generated build inputs; Apple parser/build acceptance remains separate."""
 import json
+import plistlib
 from pathlib import Path
 import shutil
 import subprocess
@@ -45,6 +46,10 @@ class NativeProjectGenerationTests(unittest.TestCase):
             self.assertIn('"WMM/Reports/NativeResultsView.swift"',text)
             self.assertIn('"WMM/Media/NativeMediaLibrary.swift"',text)
             self.assertIn('"INFOPLIST_KEY_NSFaceIDUsageDescription"',text)
+            self.assertIn('"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]"',text)
+            self.assertNotIn('"CODE_SIGN_ENTITLEMENTS" =',text)
+            entitlements=plistlib.loads((ROOT/'ios/WMM/Simulator.entitlements').read_bytes())
+            self.assertEqual(entitlements['keychain-access-groups'],[entitlements['application-identifier']])
             self.assertIn('"WMMTests/MediaConformanceTests.swift"',text)
             for target_id in target_ids:self.assertIn('"'+target_id+'"',text)
             initial={p.relative_to(project).as_posix():p.read_bytes() for p in project.rglob('*') if p.is_file()}

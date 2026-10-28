@@ -143,10 +143,33 @@ final class MediaConformanceTests: XCTestCase {
         XCTAssertTrue(try JSONDecoder().decode(NativeMediaItem.self, from: reviewed).reuse_available)
         let listing = try await bridge.mediaList(session: session, appID: appID)
         XCTAssertEqual(try JSONDecoder().decode(NativeMediaList.self, from: listing).items.count, 1)
+        let clip: [String: Any] = ["id": "clip-one",
+            "source": ["kind": "MANAGED", "id": item.id, "sha256": item.source_sha256],
+            "role": "HOOK", "in_frame": 0, "out_frame": 24, "speed_percent": 100,
+            "transform": ["crop": ["x": 0, "y": 0, "width": 10000, "height": 10000],
+                "rotation": 0, "flip_x": false, "flip_y": false, "fit": "CONTAIN", "background": "#102124"] as [String: Any],
+            "effects": ["brightness": 0, "contrast": 100, "saturation": 100]]
+        let definition: [String: Any] = ["title": "Synthetic native edit", "purpose": "Verify retained original.",
+            "locale": "en-US", "output": "SQUARE", "clips": [clip]]
+        let save = try JSONSerialization.data(withJSONObject: ["app_id": appID, "operation": "editor.save",
+            "input": ["id": "native-edit", "revision": 0, "manifest_version": 1,
+                "data": definition, "request_key": UUID().uuidString] as [String: Any]] as [String: Any])
+        let saved = try await bridge.call(session: session, request: save)
+        let project = try XCTUnwrap(JSONSerialization.jsonObject(with: saved) as? [String: Any])
+        let projectHash = try XCTUnwrap(project["hash"] as? String)
+        let packet = try await bridge.prepareProduction(session: session, appID: appID,
+            projectID: "native-edit", revision: 1, projectHash: projectHash)
+        let output = try await bridge.renderProduction(session: session, packet: packet, renderer: TimelineRenderer())
+        XCTAssertTrue(output.path.hasPrefix(store.root.path + "/native-exports/"))
+        try await MediaInspector.verify(output, plan: packet.plan, expectsAudio: false)
         await identity.lock()
         do {
             _ = try await bridge.mediaList(session: session, appID: appID)
             XCTFail("Locked media access admitted")
+        } catch {}
+        do {
+            try await bridge.validateProduction(session: session, packet: packet)
+            XCTFail("Locked production packet admitted")
         } catch {}
         await bridge.close()
         try await identity.forgetPrincipal()

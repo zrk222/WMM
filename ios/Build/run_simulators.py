@@ -38,7 +38,7 @@ def main():
         argv=['xcodebuild','test','-project',str(IOS/'WMM.xcodeproj'),'-scheme','WMM',
               '-destination',f'platform=iOS Simulator,id={device["udid"]}',
               '-derivedDataPath',str(IOS/'DerivedData'),'-resultBundlePath',str(result),
-              'CODE_SIGNING_ALLOWED=NO','ONLY_ACTIVE_ARCH=YES',f'ARCHS={architecture}']
+              'CODE_SIGNING_ALLOWED=YES','CODE_SIGN_IDENTITY=-','CODE_SIGNING_REQUIRED=YES','ONLY_ACTIVE_ARCH=YES',f'ARCHS={architecture}']
         completed=subprocess.run(argv)
         outcomes.append(dict(family=family,device=device,command=argv,exit_code=completed.returncode,
                              xcresult_exists=result.is_dir(),physical_device_acceptance='NOT_RUN'))

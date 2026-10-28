@@ -18,7 +18,7 @@ struct LocalStore {
         try Self.createProtectedDirectory(media)
     }
 
-    private static func createProtectedDirectory(_ url: URL) throws {
+    static func createProtectedDirectory(_ url: URL) throws {
         let manager = FileManager.default
         if manager.fileExists(atPath: url.path) {
             let values = try url.resourceValues(forKeys: [.isSymbolicLinkKey, .isDirectoryKey])

@@ -70,6 +70,24 @@ class Runtime:
         from .ios_media_adapter import NativeMediaAdapter,no_native_inspection
         return NativeMediaAdapter(self.service,self.identities,no_native_inspection).review(session,app_id,media_id,payload)
 
+    def native_production(self,session,app_id,action,payload):
+        """Fixed signed-host interface; absent from public agent operation JSON."""
+        from .ios_bridge import decode_document
+        from .ios_production import NativeProduction
+        body=decode_document(payload)
+        fields={'project_id','revision','project_hash'}
+        if action in ('validate','source'):fields.add('packet_hash')
+        if action=='source':fields.update(('kind','source_id','sha256'))
+        if action not in ('prepare','validate','source') or not isinstance(body,dict) or set(body)!=fields:
+            raise Invalid('Use an exact native production action and saved project binding')
+        production=NativeProduction(self.service,self.identities)
+        args=(session,app_id,body['project_id'],body['revision'],body['project_hash'])
+        if action=='prepare':return production.prepare(*args)
+        if action=='validate':return encode_response(production.validate(*args,body['packet_hash']))
+        path=production.source(*args,body['packet_hash'],body['kind'],body['source_id'],body['sha256'])
+        # This native-only response must not be forwarded to an agent or report.
+        return encode_response({'path':str(path)})
+
     def enroll(self, session, app_id):
         return self.owner.enroll(session, app_id, {'confirm_owner': True})
 

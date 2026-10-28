@@ -301,6 +301,7 @@
 "ENABLE_USER_SCRIPT_SANDBOXING" = "NO";
 "CLANG_ENABLE_MODULES" = "YES";
 "CLANG_ENABLE_OBJC_ARC" = "YES";
+"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = "WMM/Simulator.entitlements";
 "PRODUCT_BUNDLE_IDENTIFIER" = "com.wizemarketingmachine.app";
 "PRODUCT_NAME" = "$(TARGET_NAME)";
 "SWIFT_OBJC_BRIDGING_HEADER" = "WMM/WMM-Bridging-Header.h";
@@ -327,6 +328,7 @@
 "ENABLE_USER_SCRIPT_SANDBOXING" = "NO";
 "CLANG_ENABLE_MODULES" = "YES";
 "CLANG_ENABLE_OBJC_ARC" = "YES";
+"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = "WMM/Simulator.entitlements";
 "PRODUCT_BUNDLE_IDENTIFIER" = "com.wizemarketingmachine.app";
 "PRODUCT_NAME" = "$(TARGET_NAME)";
 "SWIFT_OBJC_BRIDGING_HEADER" = "WMM/WMM-Bridging-Header.h";
