@@ -48,6 +48,76 @@ class NativeRuntimeTests(unittest.TestCase):
         if not self.available or token!=self.session:return None
         return dict(principal=self.principal,session_generation=self.generation,expires_at_epoch=time.time()+300)
 
+    def creation(self, app='new-app', **extra):
+        body=dict(app_id=app,manifest=dict(name='My synthetic app',job='Improve activation',release='build-1',locale='en-US',currency='USD'),confirm_owner=True)
+        body.update(extra)
+        return json.dumps(body).encode()
+
+    def test_creation_and_owner_are_atomic_idempotent_and_persisted(self):
+        from mission_control.db import connection
+        payload=self.creation()
+        result=json.loads(self.runtime.create_workspace(self.session,payload))
+        self.assertEqual(result['status'],'LOCAL_WORKSPACE_CREATED')
+        self.assertEqual(result['app']['version'],1)
+        self.assertEqual(result['app']['data']['authorized_spend_minor'],0)
+        self.assertEqual(json.loads(self.runtime.create_workspace(self.session,payload)),result)
+        with connection(self.path) as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM operator_roles WHERE app_id='new-app'").fetchone()[0],1)
+            self.assertEqual(db.execute("SELECT count(*) FROM audit WHERE app_id='new-app'").fetchone()[0],2)
+        reopened=Runtime(self.path,self.verify)
+        self.assertEqual([a['id'] for a in json.loads(reopened.workspaces(self.session))['apps']],['new-app'])
+
+    def test_creation_never_claims_foreign_or_unowned_existing_workspaces(self):
+        for app in ('own','other'):
+            with self.assertRaises(PermissionError):self.runtime.create_workspace(self.session,self.creation(app))
+        self.runtime.create_workspace(self.session,self.creation())
+        self.principal=str(uuid4())
+        with self.assertRaises(PermissionError):self.runtime.create_workspace(self.session,self.creation())
+
+    def test_revoked_session_during_creation_rolls_back_workspace_membership_and_audit(self):
+        from unittest.mock import patch
+        from mission_control.db import connection
+        from mission_control.review_access import Access
+        original=Access.write
+        def write_then_lock(instance,*args):
+            original(instance,*args)
+            self.available=False
+        with patch.object(Access,'write',write_then_lock):
+            with self.assertRaises(PermissionError):self.runtime.create_workspace(self.session,self.creation())
+        with connection(self.path) as db:
+            for table in ('apps','operator_roles','audit'):
+                field='id' if table=='apps' else 'app_id'
+                self.assertEqual(db.execute(f'SELECT count(*) FROM {table} WHERE {field}=?',('new-app',)).fetchone()[0],0)
+
+    def test_creation_rejects_invalid_confirmation_duplicates_scope_and_manifest(self):
+        invalid=[self.creation(confirm_owner=False),self.creation(role='OWNER'),self.creation(app='../outside'),
+                 self.creation(manifest=[]),self.creation(manifest={'name':''}),
+                 b'{"app_id":"a","app_id":"b","manifest":{},"confirm_owner":true}',
+                 self.creation(manifest={'name':'Bad','nested':float('nan')})]
+        for payload in invalid:
+            with self.subTest(payload=payload),self.assertRaises(Invalid):
+                self.runtime.create_workspace(self.session,payload)
+        self.assertEqual(json.loads(self.runtime.workspaces(self.session)),{'apps':[]})
+
+    def test_concurrent_creation_cannot_establish_two_owners(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from mission_control.db import connection
+        other_principal=str(uuid4())
+        def other_verify(token):
+            return dict(self.verify(token),principal=other_principal)
+        other=Runtime(self.path,other_verify)
+        payload=self.creation()
+        def attempt(runtime):
+            try:
+                runtime.create_workspace(self.session,payload)
+                return 'CREATED'
+            except PermissionError:return 'DENIED'
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results=list(pool.map(attempt,[self.runtime,other]))
+        self.assertEqual(sorted(results),['CREATED','DENIED'])
+        with connection(self.path) as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM operator_roles WHERE app_id='new-app'").fetchone()[0],1)
+
     def test_explicit_owner_enrollment_scoped_read_and_process_reopen(self):
         self.assertEqual(json.loads(self.runtime.workspaces(self.session)),{'apps':[]})
         result=json.loads(self.runtime.enroll(self.session,'own'))

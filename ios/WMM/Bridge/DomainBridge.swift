@@ -29,6 +29,13 @@ actor DomainBridge {
         return try EngineBootstrap.ownerCall(handle: handle, session: session.nonce.uuidString, request: request)
     }
 
+    /// Fixed first-app path. The request must include explicit owner confirmation.
+    func createWorkspace(session: LocalIdentity.Session, request: Data) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        guard !request.isEmpty, request.count <= 1_048_576 else { throw Failure.invalidRequest }
+        return try EngineBootstrap.createWorkspace(handle: handle, session: session.nonce.uuidString, request: request)
+    }
+
     func close() {
         if let handle { EngineBootstrap.close(handle) }
         handle = nil

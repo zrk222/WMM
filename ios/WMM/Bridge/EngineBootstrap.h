@@ -9,6 +9,8 @@ typedef NSDictionary<NSString *, id> * _Nullable (^WMMNativeIdentityVerifier)(NS
                               error:(NSError **)error NS_SWIFT_NAME(open(database:verifier:));
 + (nullable NSData *)ownerCall:(NSString *)handle session:(NSString *)session request:(NSData *)request
                          error:(NSError **)error NS_SWIFT_NAME(ownerCall(handle:session:request:));
++ (nullable NSData *)createWorkspace:(NSString *)handle session:(NSString *)session request:(NSData *)request
+                               error:(NSError **)error NS_SWIFT_NAME(createWorkspace(handle:session:request:));
 + (nullable NSData *)enroll:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
                       error:(NSError **)error NS_SWIFT_NAME(enroll(handle:session:appID:));
 + (nullable NSData *)workspaces:(NSString *)handle session:(NSString *)session

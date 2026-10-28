@@ -60,6 +60,45 @@ class Runtime:
     def enroll(self, session, app_id):
         return self.owner.enroll(session, app_id, {'confirm_owner': True})
 
+    def create_workspace(self, session, payload):
+        """One explicit local owner action, committed with its first membership.
+
+        Workspace IDs are immutable creation keys. Repeating an identical creation
+        returns the existing result only for its current owner; nothing overwrites.
+        """
+        from .common import canonical, identifier, now
+        from .db import connection
+        from .ios_bridge import decode_document
+        from .review_access import Access, member
+        from .store import app_data, audit, decode
+        body = decode_document(payload)
+        if not isinstance(body, dict) or set(body) != {'app_id', 'manifest', 'confirm_owner'} or body['confirm_owner'] is not True:
+            raise Invalid('Confirm ownership and provide an exact app identifier and manifest')
+        if not isinstance(body['manifest'], dict): raise Invalid('Use an app manifest object')
+        app_id = identifier(body['app_id'])
+        manifest = app_data(body['manifest'])
+        user = self.identities.fresh(session)
+        def current():
+            self.identities.local(session, user['principal'], user['session_generation'])
+        with connection(self.service.store.path) as db:
+            db.execute('BEGIN IMMEDIATE')
+            existing = db.execute('SELECT * FROM apps WHERE id=?', (app_id,)).fetchone()
+            if existing is not None:
+                member(db, app_id, user['principal'], 'OWNER')
+                if existing['version'] != 1 or existing['data'] != canonical(manifest):
+                    raise Invalid('Workspace already exists with different setup; reload it')
+            else:
+                db.execute('INSERT INTO apps(id,data,updated) VALUES(?,?,?)', (app_id, canonical(manifest), now()))
+                audit(db, app_id, 'workspace.saved', {'version': 1})
+                Access(self.service.store).write(db, app_id, user, 'OWNER', 'ACTIVE', 1, user['principal'])
+                audit(db, app_id, 'access.owner_established',
+                      {'principal': user['principal'], 'policy': 'NATIVE_LOCAL_BOOTSTRAP'})
+            current()
+            row = db.execute('SELECT * FROM apps WHERE id=?', (app_id,)).fetchone()
+            result = encode_response({'app': decode(row), 'identity_provider': 'NATIVE_DEVICE',
+                                      'status': 'LOCAL_WORKSPACE_CREATED', 'publication': 'NOT_RUN'})
+        return result
+
     def workspaces(self, session):
         from .db import connection
         from .store import decode

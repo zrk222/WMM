@@ -23,8 +23,8 @@ def _unique_object(pairs):
     return value
 
 
-def decode_request(payload):
-    """Reject oversized, ambiguous and nonfinite JSON before native dispatch."""
+def decode_document(payload):
+    """Decode bounded finite JSON; each fixed entry point validates its own schema."""
     if not isinstance(payload, bytes) or not 1 <= len(payload) <= MAX_REQUEST_BYTES:
         raise Invalid('Use bounded UTF-8 request bytes')
     try:
@@ -33,6 +33,12 @@ def decode_request(payload):
         canonical(value)
     except (UnicodeError, ValueError, RecursionError) as error:
         raise Invalid('Invalid finite UTF-8 JSON request') from error
+    return value
+
+
+def decode_request(payload):
+    """Reject oversized, ambiguous and nonfinite operation envelopes."""
+    value = decode_document(payload)
     request_data(value)
     return value
 

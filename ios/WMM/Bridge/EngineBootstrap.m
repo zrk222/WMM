@@ -165,6 +165,21 @@ static NSData *WMMResultBytes(PyObject *value, NSError **error) {
     }
 }
 
++ (NSData *)createWorkspace:(NSString *)handle session:(NSString *)session request:(NSData *)request error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        PyObject *payload = request.length > 0 && request.length <= 1048576
+            ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
+        PyObject *value = runtime && payload ? PyObject_CallMethod(runtime, "create_workspace", "sO", session.UTF8String, payload) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); Py_XDECREF(payload);
+        PyGILState_Release(gil);
+        return result;
+    }
+}
+
 + (NSData *)enroll:(NSString *)handle session:(NSString *)session appID:(NSString *)appID error:(NSError **)error {
     @synchronized(self) {
         if (![self inventoryWithError:error]) return nil;
