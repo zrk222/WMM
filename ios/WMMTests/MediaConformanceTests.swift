@@ -88,6 +88,30 @@ final class MediaConformanceTests: XCTestCase {
         }
     }
 
+    func testOriginalInspectionDecodesRealFramesAndRejectsCorruptBytes() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let source = folder.appendingPathComponent("original.mp4")
+        try await syntheticVideo(at: source, frames: 48, color: CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+        let proof = try await MediaInspector.inspectOriginal(source)
+        let value = try XCTUnwrap(JSONSerialization.jsonObject(with: proof) as? [String: Any])
+        let metadata = try XCTUnwrap(value["metadata"] as? [String: Any])
+        let decoded = try XCTUnwrap(value["decoded"] as? [String: Any])
+        XCTAssertEqual(metadata["width"] as? Int, 720)
+        XCTAssertEqual(metadata["height"] as? Int, 720)
+        XCTAssertEqual(metadata["audio"] as? Bool, false)
+        XCTAssertEqual(decoded["video_frames"] as? Int, 48)
+        XCTAssertEqual(decoded["audio_frames"] as? Int, 0)
+        XCTAssertEqual(value["bytes"] as? Int, try Data(contentsOf: source).count)
+        let corrupt = folder.appendingPathComponent("corrupt.mp4")
+        try Data("synthetic invalid video".utf8).write(to: corrupt)
+        do {
+            _ = try await MediaInspector.inspectOriginal(corrupt)
+            XCTFail("Corrupt original accepted as decoded")
+        } catch {}
+    }
+
     func testInvalidPlanCannotInvokeResolver() async throws {
         let json = Data("{}".utf8)
         XCTAssertThrowsError(try JSONDecoder().decode(NativeRenderPlan.self,from:json))
