@@ -2,6 +2,50 @@ import XCTest
 @testable import WMM
 
 final class BridgeAgentTests: XCTestCase {
+    @MainActor
+    func testNativeScopedAgentRetainsCredentialAndRespectsRevocationAndLock() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let databaseID = UUID()
+        let store = try LocalStore(applicationSupport: folder, databaseID: databaseID)
+        let identity = LocalIdentity(vault: KeychainVault(databaseID: databaseID, appID: UUID()))
+        let session = try await identity.begin()
+        let bridge = try DomainBridge(store: store, identity: identity)
+        let appID = "agent-" + UUID().uuidString.lowercased()
+        let setup = try JSONSerialization.data(withJSONObject: ["app_id": appID, "confirm_owner": true,
+            "manifest": ["name": "Synthetic agent app", "release": "build-1", "locale": "en-US", "currency": "USD"]] as [String: Any])
+        _ = try await bridge.createWorkspace(session: session, request: setup)
+        let vault = KeychainVault(databaseID: databaseID, appID: UUID())
+        let runtime = ScopedAgentRuntime(bridge: bridge, session: session, vault: vault)
+        let model = NativeAgentAccessModel(appID: appID, manifestVersion: 1, runtime: runtime, execute: { action, request in
+            try await bridge.agentAccess(session: session, appID: appID, action: action, request: request)
+        })
+        await model.refresh()
+        XCTAssertTrue(model.grants.isEmpty)
+        await model.issue(agentID: "synthetic-agent", selected: ["workspace.read"], reviewed: [], hours: 1, maxCalls: 2, confirmed: true)
+        let grant = try XCTUnwrap(model.grants.first)
+        await model.verify(grant)
+        XCTAssertEqual(model.grants.first?.used, 1)
+        XCTAssertTrue(model.message?.contains("Local scoped access verified") == true)
+        let listing = try await bridge.agentAccess(session: session, appID: appID, action: "list", request: Data("{}".utf8))
+        XCTAssertFalse(String(decoding: listing, as: UTF8.self).contains("wmmg_"))
+        await model.revoke(try XCTUnwrap(model.grants.first))
+        XCTAssertEqual(model.grants.first?.status, "REVOKED")
+        let request = try JSONSerialization.data(withJSONObject: ["app_id": appID, "operation": "workspace.read", "input": [:]] as [String: Any])
+        do {
+            _ = try await runtime.call(grantID: grant.id, request: request)
+            XCTFail("Revoked local credential remained usable")
+        } catch {}
+        await identity.lock()
+        do {
+            _ = try await bridge.agentAccess(session: session, appID: appID, action: "list", request: Data("{}".utf8))
+            XCTFail("Locked owner read agent grants")
+        } catch {}
+        await runtime.cancel()
+        await bridge.close()
+        try await identity.forgetPrincipal()
+    }
+
     func testProtectedNativeVerifierRejectsLockExpiryAndPrincipalChange() async throws {
         let vault = KeychainVault(databaseID: UUID(), appID: UUID())
         let identity = LocalIdentity(vault: vault)

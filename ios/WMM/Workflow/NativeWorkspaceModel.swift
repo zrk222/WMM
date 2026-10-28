@@ -38,6 +38,7 @@ final class NativeWorkspaceModel: ObservableObject {
     private var generation = UUID()
     private var authentication: LAContext?
     private var editorRenderer: TimelineRenderer?
+    private var agentRuntime: ScopedAgentRuntime?
     var selectionContext: UUID { generation }
 
     private func installationID(_ key: String) throws -> UUID {
@@ -93,6 +94,7 @@ final class NativeWorkspaceModel: ObservableObject {
         session = nil; apps = []; snapshot = nil; report = nil; media = []; unlocked = false; busy = false; activity = ""; message = nil
         if let identity { Task { await identity.lock() } }
         if let editorRenderer { Task { await editorRenderer.cancel() } }
+        if let agentRuntime { Task { await agentRuntime.cancel() } }
     }
 
     func create(appID: String, manifest: [String: String], confirmed: Bool) async -> Bool {
@@ -253,8 +255,35 @@ final class NativeWorkspaceModel: ObservableObject {
             }, cancelRender: { await renderer.cancel() })
     }
 
+    func makeAgentAccess() -> NativeAgentAccessModel? {
+        guard unlocked, let app = snapshot?.app, let bridge, let session else { return nil }
+        do {
+            let databaseID = try installationID("wmm.local-database-id")
+            let appNamespace = try installationID("wmm.agent-namespace." + app.id)
+            let vault = KeychainVault(databaseID: databaseID, appID: appNamespace)
+            let runtime = ScopedAgentRuntime(bridge: bridge, session: session, vault: vault)
+            agentRuntime = runtime
+            let ticket = generation
+            return NativeAgentAccessModel(appID: app.id, manifestVersion: app.version, runtime: runtime,
+                execute: { [weak self] action, request in
+                    guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else {
+                        throw DomainBridge.Failure.closed
+                    }
+                    let result = try await bridge.agentAccess(session: session, appID: app.id, action: action, request: request)
+                    guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else {
+                        throw DomainBridge.Failure.closed
+                    }
+                    return result
+                })
+        } catch {
+            message = "The app's agent credential namespace could not open. Saved grants are retained; unlock and retry."
+            return nil
+        }
+    }
+
     func clearSelection() {
         if let editorRenderer { Task { await editorRenderer.cancel() } }
+        if let agentRuntime { Task { await agentRuntime.cancel() } }
         snapshot = nil; report = nil; media = []
     }
 }

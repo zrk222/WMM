@@ -8,6 +8,7 @@ struct WorkflowNavigation: View {
     @State private var showingResults = false
     @State private var showingMedia = false
     @State private var editor: NativeEditorModel?
+    @State private var agents: NativeAgentAccessModel?
 
     var body: some View {
         NavigationStack {
@@ -63,16 +64,20 @@ struct WorkflowNavigation: View {
                     ToolbarItem(placement: .topBarTrailing) { Button("Lock", systemImage: "lock") { model.lock() } }
                     ToolbarItem(placement: .bottomBar) {
                         if model.snapshot != nil {
+                            Menu("Workspace tools", systemImage: "square.grid.2x2") {
                             Button("Your media", systemImage: "film") {
                                 showingMedia = true
                                 Task { await model.loadMedia() }
                             }.disabled(model.busy)
                             Button("Edit video", systemImage: "slider.horizontal.3") { editor = model.makeEditor() }
                                 .disabled(model.busy)
+                            Button("Your agents", systemImage: "person.crop.circle.badge.checkmark") { agents = model.makeAgentAccess() }
+                                .disabled(model.busy)
                             Button("Results & reports", systemImage: "chart.bar.doc.horizontal") {
                                 showingResults = true
                                 Task { await model.loadReport() }
                             }.disabled(model.busy)
+                            }
                         }
                     }
                 }
@@ -88,16 +93,17 @@ struct WorkflowNavigation: View {
             .sheet(isPresented: $showingResults) { NativeResultsView(model: model) }
             .sheet(isPresented: $showingMedia) { NativeMediaLibrary(model: model) }
             .sheet(item: $editor) { NativeEditorView(model: $0) }
+            .sheet(item: $agents) { NativeAgentAccessView(model: $0) }
         }
         .privacySensitive()
         .overlay { if scenePhase != .active { Color(uiColor: .systemBackground).ignoresSafeArea() } }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background { editor = nil; showingCreate = false; showingResults = false; showingMedia = false; model.lock() }
+            if phase == .background { agents = nil; editor = nil; showingCreate = false; showingResults = false; showingMedia = false; model.lock() }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataWillBecomeUnavailableNotification)) { _ in
-            editor = nil; showingCreate = false; showingResults = false; showingMedia = false; model.lock()
+            agents = nil; editor = nil; showingCreate = false; showingResults = false; showingMedia = false; model.lock()
         }
-        .onChange(of: model.unlocked) { _, value in if !value { editor = nil } }
+        .onChange(of: model.unlocked) { _, value in if !value { agents = nil; editor = nil } }
     }
 }
 

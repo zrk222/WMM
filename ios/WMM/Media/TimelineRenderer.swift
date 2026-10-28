@@ -54,7 +54,8 @@ struct NativeRenderPlan: Decodable {
 
 /// Resolver and authority checks are trusted host adapters, never paths in a model response.
 actor TimelineRenderer {
-    enum Failure: Error { case invalidPlan, missingVideo, sourceTooShort, exportFailed, cancelled }
+    enum Failure: Error { case invalidPlan, missingVideo, sourceTooShort, exportFailed, cancelled
+        case cancelledAt(stage: String, taskCancelled: Bool) }
     private var active: AVAssetExportSession?
     private var rendering = false
     private var cancelled = false
@@ -67,6 +68,8 @@ actor TimelineRenderer {
         guard !rendering else { throw Failure.invalidPlan }
         rendering = true; cancelled = false
         defer { rendering = false; active = nil }
+        var stage = "validate plan"
+        do {
         try plan.validateBounds()
         try await validateAuthority()
         guard destination.isFileURL, !FileManager.default.fileExists(atPath: destination.path), active == nil else {
@@ -82,13 +85,16 @@ actor TimelineRenderer {
         for clip in plan.clips {
             try Task.checkCancellation()
             guard !cancelled else { throw Failure.cancelled }
+            stage = "resolve " + clip.id
             let url = try await resolve(clip.source)
             guard url.isFileURL else { throw Failure.invalidPlan }
             let asset = AVURLAsset(url: url)
             sourceAssets.append(asset)
+            stage = "duration " + clip.id
             let duration = try await asset.load(.duration)
             let end = CMTime(value: Int64(clip.source_out_frame), timescale: 24)
             guard duration.isNumeric, CMTimeCompare(duration, end) >= 0 else { throw Failure.sourceTooShort }
+            stage = "video track " + clip.id
             guard let sourceVideo = try await asset.loadTracks(withMediaType: .video).first else {
                 throw Failure.missingVideo
             }
@@ -96,8 +102,11 @@ actor TimelineRenderer {
             let range = CMTimeRange(start: CMTime(value: Int64(clip.source_in_frame), timescale: 24),
                                     duration: CMTime(value: Int64(clip.source_out_frame - clip.source_in_frame), timescale: 24))
             let scaled = CMTime(value: Int64(clip.output_frame_count), timescale: 24)
+            stage = "orientation " + clip.id
+            let orientation = try await sourceVideo.load(.preferredTransform)
+            stage = "insert " + clip.id
             try video.insertTimeRange(range, of: sourceVideo, at: start)
-            sourceTransforms[clip.id] = try await sourceVideo.load(.preferredTransform)
+            sourceTransforms[clip.id] = orientation
             video.scaleTimeRange(CMTimeRange(start: start, duration: range.duration), toDuration: scaled)
             if clip.audio == "RETAIN", let sourceAudio = try await asset.loadTracks(withMediaType: .audio).first,
                let audio = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
@@ -116,6 +125,7 @@ actor TimelineRenderer {
         #else
         let filterContext = CIContext()
         #endif
+        stage = "create video composition"
         let videoComposition = AVMutableVideoComposition(asset: composition, applyingCIFiltersWithHandler: { request in
             let frame = Int((CMTimeGetSeconds(request.compositionTime) * 24).rounded(.down))
             guard let clip = plan.clips.first(where: { frame >= $0.output_start_frame && frame < $0.output_start_frame + $0.output_frame_count }) else {
@@ -142,6 +152,7 @@ actor TimelineRenderer {
             exporter.cancelExport()
         }
         defer { watchdog.cancel() }
+        stage = "export composition"
         await withTaskCancellationHandler(operation: {
             await withCheckedContinuation { continuation in
                 exporter.exportAsynchronously { continuation.resume() }
@@ -152,13 +163,18 @@ actor TimelineRenderer {
             if exporter.status == .cancelled { throw Failure.cancelled }
             throw Failure.exportFailed
         }
+        stage = "decode output"
         try await MediaInspector.verify(staging, plan: plan, expectsAudio: retainedAudio)
+        stage = "recheck sources"
         for clip in plan.clips { _ = try await resolve(clip.source) }
         try await validateAuthority()
         guard !cancelled else { throw Failure.cancelled }
         try FileManager.default.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: staging.path)
         try FileManager.default.moveItem(at: staging, to: destination)
         return destination
+        } catch is CancellationError {
+            throw Failure.cancelledAt(stage: stage, taskCancelled: Task.isCancelled)
+        }
     }
 
     private static func transform(_ input: CIImage, clip: NativeRenderPlan.Clip, plan: NativeRenderPlan) -> CIImage {

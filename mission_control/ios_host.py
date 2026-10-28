@@ -57,6 +57,14 @@ class Runtime:
     def owner_call(self, session, payload):
         return self.owner.call(session, payload)
 
+    def native_agent_access(self, session, app_id, action, payload):
+        from .ios_agent_access import NativeAgentAccess
+        return NativeAgentAccess(self.service, self.identities).manage(session, app_id, action, payload)
+
+    def native_agent_call(self, session, credential, payload):
+        from .ios_agent_access import NativeAgentAccess
+        return NativeAgentAccess(self.service, self.identities).call(session, credential, payload)
+
     def native_media_upload(self,session,app_id,filename,raw,payload,inspection):
         from .ios_media_adapter import NativeMediaAdapter,inspection_from_native
         return NativeMediaAdapter(self.service,self.identities,inspection_from_native(inspection)).upload(

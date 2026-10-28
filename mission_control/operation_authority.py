@@ -17,12 +17,12 @@ def store_identity(store):return str(Path(store.path).resolve())
 
 
 @contextmanager
-def bound_agent(store,envelope,admission,review=None):
+def bound_agent(store,envelope,admission,review=None,host_check=None):
     """Only authenticated dispatchers bind this context; retain no bearer credential."""
     from .db import connection
     context=dict(store=store_identity(store),envelope=canonical(envelope),grant_id=admission['grant_id'],
         agent_id=admission['agent_id'],attempt=admission['attempt'],review=review,
-        execution_id=admission.get('automation_execution_id'))
+        execution_id=admission.get('automation_execution_id'),host_check=host_check)
     with connection(store.path) as db:
         row=db.execute('SELECT * FROM agent_grants WHERE id=?',(context['grant_id'],)).fetchone()
         if row is None:raise PermissionError('Admitted grant is unavailable')
@@ -48,6 +48,7 @@ def bound_owner(store,envelope,identities,session,user):
 
 
 def check_agent(db,context,envelope):
+    if context.get('host_check') is not None:context['host_check']()
     from .agent_grants import current
     from .agent_review_policy import ordinary_dispatch
     row=db.execute('SELECT * FROM agent_grants WHERE id=?',(context['grant_id'],)).fetchone()

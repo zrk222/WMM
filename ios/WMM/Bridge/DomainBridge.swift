@@ -142,4 +142,21 @@ actor DomainBridge {
     deinit {
         if let handle { EngineBootstrap.close(handle) }
     }
+
+    func agentAccess(session: LocalIdentity.Session, appID: String, action: String, request: Data) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        guard ["list", "issue", "revoke"].contains(action), !request.isEmpty, request.count <= 1_048_576 else {
+            throw Failure.invalidRequest
+        }
+        return try EngineBootstrap.agentAccess(handle: handle, session: session.nonce.uuidString,
+            appID: appID, action: action, request: request)
+    }
+
+    func agentCall(session: LocalIdentity.Session, credential: Data, request: Data) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        guard credential.count == 48, let text = String(data: credential, encoding: .utf8),
+              !request.isEmpty, request.count <= 1_048_576 else { throw Failure.invalidRequest }
+        return try EngineBootstrap.agentCall(handle: handle, session: session.nonce.uuidString,
+            credential: text, request: request)
+    }
 }

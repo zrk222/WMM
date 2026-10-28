@@ -75,17 +75,36 @@ final class MediaConformanceTests: XCTestCase {
             source.id.hasPrefix("1111") ? red : blue
         }, validateAuthority:{})
         try await MediaInspector.verify(output,plan:timeline,expectsAudio:false)
-        let generator = AVAssetImageGenerator(asset:AVURLAsset(url:output))
-        generator.requestedTimeToleranceBefore = .zero; generator.requestedTimeToleranceAfter = .zero
-        let context = CIContext()
-        for (frame,redExpected) in [(6,true),(30,false)] {
-            let cg = try generator.copyCGImage(at:CMTime(value:Int64(frame),timescale:24),actualTime:nil)
-            let image = CIImage(cgImage:cg)
-            var pixel = [UInt8](repeating:0,count:4)
-            context.render(image,toBitmap:&pixel,rowBytes:4,bounds:CGRect(x:360,y:360,width:1,height:1),format:.RGBA8,colorSpace:CGColorSpaceCreateDeviceRGB())
-            if redExpected { XCTAssertGreaterThan(Int(pixel[0]),Int(pixel[2])+100) }
-            else { XCTAssertGreaterThan(Int(pixel[2]),Int(pixel[0])+100) }
+        // Verify exact decoded frame positions, avoiding approximate seek/image
+        // generation as a second, unrelated async pipeline in this frame test.
+        let renderedAsset = AVURLAsset(url: output)
+        let tracks = try await renderedAsset.loadTracks(withMediaType: .video)
+        let track = try XCTUnwrap(tracks.first)
+        let reader = try AVAssetReader(asset: renderedAsset)
+        let decoded = AVAssetReaderTrackOutput(track: track,
+            outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
+        guard reader.canAdd(decoded) else { throw TimelineRenderer.Failure.exportFailed }
+        reader.add(decoded)
+        XCTAssertTrue(reader.startReading())
+        var frame = 0, checked = 0
+        while let sample = decoded.copyNextSampleBuffer() {
+            if frame == 6 || frame == 30 {
+                let pixels = try XCTUnwrap(CMSampleBufferGetImageBuffer(sample))
+                CVPixelBufferLockBaseAddress(pixels, .readOnly)
+                defer { CVPixelBufferUnlockBaseAddress(pixels, .readOnly) }
+                let base = try XCTUnwrap(CVPixelBufferGetBaseAddress(pixels))
+                let offset = 360 * CVPixelBufferGetBytesPerRow(pixels) + 360 * 4
+                let blue = Int(base.load(fromByteOffset: offset, as: UInt8.self))
+                let red = Int(base.load(fromByteOffset: offset + 2, as: UInt8.self))
+                if frame == 6 { XCTAssertGreaterThan(red, blue + 100) }
+                else { XCTAssertGreaterThan(blue, red + 100) }
+                checked += 1
+            }
+            frame += 1
         }
+        XCTAssertEqual(reader.status, .completed)
+        XCTAssertEqual(frame, 48)
+        XCTAssertEqual(checked, 2)
     }
 
     func testOriginalInspectionDecodesRealFramesAndRejectsCorruptBytes() async throws {

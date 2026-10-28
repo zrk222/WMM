@@ -40,6 +40,8 @@ class NativeProjectGenerationTests(unittest.TestCase):
             self.assertIn('"WMMTests/EngineBootstrapTests.swift"',text)
             self.assertIn('"WMMTests/BridgeAgentTests.swift"',text)
             self.assertIn('"WMM/Bridge/DomainBridge.swift"',text)
+            self.assertIn('"WMM/Agents/ScopedAgentRuntime.swift"',text)
+            self.assertIn('"WMM/Agents/NativeAgentAccessView.swift"',text)
             self.assertIn('"WMM/Identity/NativeSessionAuthority.swift"',text)
             self.assertIn('"WMM/Workflow/WorkflowNavigation.swift"',text)
             self.assertIn('"WMM/Workflow/NativeWorkspaceModel.swift"',text)
