@@ -66,6 +66,20 @@ class Runtime:
         from .ios_inference import NativeInference
         return NativeInference(self.service,self.identities,self.vault_callback).call(session,app_id,action,payload)
 
+    def evidence_form(self,session,app_id):
+        """Expose shared evidence fields without connection records or credentials."""
+        from .catalog import FIELDS,LABELS
+        from .operation_authority import bound_owner,protected
+        user=self.identities.fresh(session)
+        envelope=dict(app_id=app_id,operation='native.evidence.form',input={})
+        with bound_owner(self.service.store,envelope,self.identities,session,user):
+            with protected(self.service.store,envelope):
+                app=self.service.store.app(app_id)
+                records=[r for r in self.service.store.records(app_id) if r['kind']!='connection']
+                return encode_response(dict(app_id=app_id,manifest_version=app['version'],
+                    fields={k:v for k,v in FIELDS.items() if k!='connection'},
+                    labels={k:v for k,v in LABELS.items() if k!='connection'},records=records))
+
     def native_jobs(self, session, app_id, action, payload):
         from .ios_jobs import NativeJobs
         return NativeJobs(self.service, self.identities).call(session, app_id, action, payload)

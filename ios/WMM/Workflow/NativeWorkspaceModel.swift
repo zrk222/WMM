@@ -368,4 +368,21 @@ final class NativeWorkspaceModel: ObservableObject {
             return result
         })
     }
+
+    func makeEvidence() -> NativeEvidenceModel? {
+        guard unlocked, let app = snapshot?.app, let bridge, let session else { return nil }
+        let ticket = generation
+        return NativeEvidenceModel(execute: { [weak self] action, request in
+            guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            let result: Data
+            if action == "form" { result = try await bridge.evidenceForm(session: session, appID: app.id) }
+            else {
+                guard action == "save", let input = try JSONSerialization.jsonObject(with: request) as? [String: Any] else { throw DomainBridge.Failure.invalidRequest }
+                let envelope = try JSONSerialization.data(withJSONObject: ["app_id": app.id, "operation": "evidence.save", "input": input] as [String: Any])
+                result = try await bridge.call(session: session, request: envelope)
+            }
+            guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            return result
+        })
+    }
 }

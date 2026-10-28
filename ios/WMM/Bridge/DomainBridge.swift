@@ -44,6 +44,11 @@ actor DomainBridge {
         handle = nil
     }
 
+    func evidenceForm(session: LocalIdentity.Session, appID: String) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        return try EngineBootstrap.evidenceForm(handle: handle, session: session.nonce.uuidString, appID: appID)
+    }
+
     func updateWorkspace(session: LocalIdentity.Session, appID: String, request: Data) throws -> Data {
         guard let handle else { throw Failure.closed }
         guard !request.isEmpty, request.count <= 1_048_576 else { throw Failure.invalidRequest }

@@ -78,6 +78,25 @@ class NativeRuntimeTests(unittest.TestCase):
             self.assertIsInstance(stage['missing'],list)
             self.assertTrue(stage['description'])
 
+    def test_native_evidence_form_uses_shared_schema_and_versioned_owner_save(self):
+        from mission_control.catalog import FIELDS
+        self.runtime.create_workspace(self.session,self.creation())
+        form=json.loads(self.runtime.evidence_form(self.session,'new-app'))
+        self.assertEqual(form['fields']['measurement'],FIELDS['measurement'])
+        self.assertNotIn('connection',form['fields'])
+        body=dict(id='measurement-proof',manifest_version=form['manifest_version'],kind='measurement',
+                  title='Synthetic observation',source='Synthetic test receipt',data=dict(release='build-1',result='PASS',
+                  attribution_method='synthetic method',consent_review=True,refund_reconciliation=True))
+        envelope=dict(app_id='new-app',operation='evidence.save',input=body)
+        saved=json.loads(self.runtime.owner_call(self.session,json.dumps(envelope).encode()))
+        self.assertEqual(saved['version'],1)
+        form=json.loads(self.runtime.evidence_form(self.session,'new-app'))
+        self.assertEqual(form['records'][0]['id'],body['id'])
+        with self.assertRaises(Invalid):self.runtime.owner_call(self.session,json.dumps(envelope).encode())
+        with self.assertRaises(PermissionError):self.runtime.evidence_form(self.session,'other')
+        self.available=False
+        with self.assertRaises(PermissionError):self.runtime.evidence_form(self.session,'new-app')
+
     def update_payload(self, version=1, **extra):
         fields=dict(name='Revised app',job='Improve activation',audience='Synthetic owners',
                     activation='Create first plan',release='build-2',locale='en-US',currency='USD')

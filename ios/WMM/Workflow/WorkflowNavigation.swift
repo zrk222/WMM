@@ -13,6 +13,7 @@ struct WorkflowNavigation: View {
     @State private var providers: NativeProviderModel?
     @State private var inference: NativeInferenceModel?
     @State private var editingApp: NativeWorkspace?
+    @State private var evidence: NativeEvidenceModel?
 
     var body: some View {
         NavigationStack {
@@ -85,6 +86,7 @@ struct WorkflowNavigation: View {
                     ToolbarItem(placement: .bottomBar) {
                         if model.snapshot != nil {
                             Menu("Workspace tools", systemImage: "square.grid.2x2") {
+                            Button("Your evidence", systemImage: "doc.text") { evidence = model.makeEvidence() }.disabled(model.busy)
                             Button("Edit app facts", systemImage: "pencil") { editingApp = model.snapshot?.app }.disabled(model.busy)
                             Button("Your media", systemImage: "film") {
                                 showingMedia = true
@@ -125,6 +127,7 @@ struct WorkflowNavigation: View {
             .sheet(item: $providers) { NativeProviderView(model: $0) }
             .sheet(item: $inference) { NativeInferenceView(model: $0) }
             .sheet(item: $editingApp) { CreateWorkspaceView(model: model, editing: $0) }
+            .sheet(item: $evidence) { NativeEvidenceView(model: $0) }
         }
         .privacySensitive()
         .overlay { if scenePhase != .active { Color(uiColor: .systemBackground).ignoresSafeArea() } }
@@ -136,6 +139,7 @@ struct WorkflowNavigation: View {
         }
         .onChange(of: model.unlocked) { _, value in if !value { inference = nil; providers = nil; scheduler = nil; agents = nil; editor = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { editingApp = nil } }
+        .onChange(of: model.unlocked) { _, value in if !value { evidence = nil } }
     }
 }
 

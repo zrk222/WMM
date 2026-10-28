@@ -170,6 +170,22 @@ final class BridgeAgentTests: XCTestCase {
         XCTAssertTrue(preparedJob.events.contains { $0.code == "STAGE_BLOCKED" })
         await scheduler.resume(preparedJob)
         XCTAssertEqual(scheduler.progress?.runs.first?.attempts, 1)
+        let evidence = NativeEvidenceModel(execute: { action, request in
+            if action == "form" { return try await bridge.evidenceForm(session: session, appID: appID) }
+            let body = try JSONSerialization.jsonObject(with: request)
+            let envelope = try JSONSerialization.data(withJSONObject: ["app_id": appID, "operation": "evidence.save", "input": body])
+            return try await bridge.call(session: session, request: envelope)
+        })
+        await evidence.refresh()
+        XCTAssertNotNil(evidence.fields["measurement"])
+        XCTAssertNil(evidence.fields["connection"])
+        let evidenceID = UUID().uuidString.lowercased()
+        let evidenceSaved = await evidence.save(identity: evidenceID, revision: nil, kind: "measurement",
+            title: "Synthetic measurement observation", source: "Synthetic test receipt",
+            values: ["release": "build-1", "result": "PASS", "attribution_method": "Synthetic observation",
+                     "consent_review": true, "refund_reconciliation": true], confirmed: true)
+        XCTAssertTrue(evidenceSaved)
+        XCTAssertEqual(evidence.records.first { $0.id == evidenceID }?.version, 1)
         let revision = try JSONSerialization.data(withJSONObject: ["version": workspace.app.version,
             "confirm_update": true, "changes": ["name": "Revised synthetic app", "job": "Improve activation",
             "audience": "Synthetic owners", "activation": "Create a first plan", "release": "build-2",
