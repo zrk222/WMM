@@ -1,9 +1,36 @@
-# WMM — Wize Marketing Machine
+# Wize Marketing Machine — App Marketing & Growth Workspace
 
-A local marketing operations workspace for planning, evidence collection,
-creative experiments and app-specific growth decisions. Keep multiple apps in
-separate workspaces, review agent recommendations, and retain a record of what
-was actually tested or executed.
+Research your audience, prepare creative work and review app growth evidence in one local workspace. **Wize Marketing Machine (WMM)** turns app facts, research references, media and analytics into saved marketing packets, creative briefs, app store checks, subscription experiment plans and PDF reports.
+
+## What WMM does for you
+
+1. **Collect:** app details, audience research, approved claims, media and results from imports or supported analytics connections.
+2. **Prepare:** follow the twelve-stage app marketing workflow, revise creative work, validate ASO copy and define paywall or offer experiments. Users and compatible agents share scoped approval controls.
+3. **Review:** inspect saved outputs, execution records and experiment evidence. Export PDF reports and see what needs attention next.
+
+Use it for app marketing research, app store optimization (ASO), video marketing workflows, subscription experiments and marketing analytics. Results describe recorded evidence; they do not promise installs or revenue.
+
+**[Explore the visual product overview](docs/index.html)** · [Connect your agent through CLI or MCP](docs/agent-quickstart.md)
+
+## Potential outcomes for your team
+
+- **Faster research-to-creative turnaround:** compare time from idea to reviewed brief or creative.
+- **Less duplicated effort:** reuse app context, sources and prior decisions; track rework hours.
+- **Better funnel decisions:** examine paywall, trial, paid conversion, renewal and retention evidence to locate where users drop off.
+- **More disciplined acquisition:** compare compatible cost and cohort evidence to decide which experiment to continue, revise or stop.
+- **Accountable delegation:** connect an agent, define its authority, then inspect approvals and saved results.
+
+The business targets are more useful installs, stronger conversion and retention, and less wasted acquisition cost. These are potential outcomes to measure in your app, not guaranteed gains or results established by WMM's demo data.
+
+## See the workspace
+
+Actual WMM screens captured using synthetic example data in an isolated local database. These are product demonstrations, not customer campaign results.
+
+![Wize Marketing Machine overview and next actions](docs/images/overview.png)
+
+![Twelve-stage app marketing pipeline and evidence readiness](docs/images/pipeline.png)
+
+![App marketing analytics and results workspace](docs/images/results.png)
 
 ## Start locally
 

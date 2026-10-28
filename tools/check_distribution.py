@@ -3,6 +3,8 @@ import pathlib
 import re
 import subprocess
 import sys
+import json
+import hashlib
 
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 
@@ -26,6 +28,17 @@ def check():
     for path in files():
         rel=path.relative_to(ROOT)
         if path.is_symlink() or not path.resolve().is_relative_to(ROOT):issues.append(str(rel)+': escaping path');continue
+        if rel.as_posix() in {'docs/images/overview.png','docs/images/pipeline.png','docs/images/results.png'}:
+            try:
+                manifest=json.loads((ROOT/'docs/images/provenance.json').read_text(encoding='utf-8'))
+                data=path.read_bytes()
+                if (manifest.get('synthetic') is not True or
+                    not data.startswith(b'\x89PNG\r\n\x1a\n') or
+                    manifest['images'][path.name]!=hashlib.sha256(data).hexdigest()):
+                    raise ValueError('Screenshot provenance mismatch')
+            except (OSError,ValueError,KeyError,AssertionError):
+                issues.append(str(rel)+': missing or mismatched synthetic screenshot provenance')
+            continue
         if path.suffix in ('.sqlite','.sqlite3','.db','.png','.jpeg','.jpg','.zip','.pyc'):
             issues.append(str(rel)+': operational/binary file');continue
         try:text=decode_text(path.read_bytes())
