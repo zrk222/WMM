@@ -12,6 +12,7 @@ struct WorkflowNavigation: View {
     @State private var scheduler: LocalScheduler?
     @State private var providers: NativeProviderModel?
     @State private var inference: NativeInferenceModel?
+    @State private var agentLoop: NativeAgentLoopModel?
     @State private var editingApp: NativeWorkspace?
     @State private var evidence: NativeEvidenceModel?
     @State private var snapshots: NativeSnapshotModel?
@@ -120,6 +121,7 @@ struct WorkflowNavigation: View {
                             Button("Apple analytics", systemImage: "app.badge.checkmark") { storeConnection = model.makeStoreConnection() }.disabled(model.busy)
                             Button("Agent drafting", systemImage: "text.bubble") { inference = model.makeInference() }
                                 .disabled(model.busy)
+                            Button("Agent work", systemImage: "person.badge.key") { agentLoop = model.makeAgentLoop() }.disabled(model.busy)
                             Button("Results & reports", systemImage: "chart.bar.doc.horizontal") {
                                 showingResults = true
                                 Task { await model.loadReport() }
@@ -144,6 +146,7 @@ struct WorkflowNavigation: View {
             .sheet(item: $scheduler) { NativeJobsView(model: $0) }
             .sheet(item: $providers) { NativeProviderView(model: $0) }
             .sheet(item: $inference) { NativeInferenceView(model: $0) }
+            .sheet(item: $agentLoop) { NativeAgentLoopView(model: $0) }
             .sheet(item: $editingApp) { CreateWorkspaceView(model: model, editing: $0) }
             .sheet(item: $evidence) { NativeEvidenceView(model: $0) }
             .sheet(item: $snapshots) { NativeSnapshotView(model: $0) }
@@ -166,6 +169,7 @@ struct WorkflowNavigation: View {
         .onChange(of: model.unlocked) { _, value in if !value { humanReview = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { insights = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { storeConnection = nil } }
+        .onChange(of: model.unlocked) { _, value in if !value { agentLoop = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { evidence = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { snapshots = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { automation = nil } }

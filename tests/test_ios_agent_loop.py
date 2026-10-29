@@ -21,14 +21,17 @@ class NativeAgentLoopTests(unittest.TestCase):
     setup_inference=inference_fixture.NativeInferenceTests.setup_inference
     transport=inference_fixture.NativeInferenceTests.transport
 
-    def setup_loop(self,model=None):
+    def setup_loop(self,model=None,context_name=None):
         self.setup_inference()
+        app=self.runtime.service.store.app('new-app')
+        if context_name is not None:
+            app=self.runtime.service.store.save_app('new-app',dict(app['data'],name=context_name),app['version'])
         # Fixture marks the already configured synthetic profile as tested.
         with connection(self.path) as db:
             db.execute("UPDATE agent_connections SET status='TESTED' WHERE id=?",(self.profile_id,))
         self.inference.call(self.session,'new-app','mode',json.dumps({'version':0,'confirm_api_mode':True}).encode())
         access=NativeAgentAccess(self.runtime.service,self.runtime.identities)
-        grant=dict(agent_id='native-agent',manifest_version=1,operations=['growth.history','workspace.read'],
+        grant=dict(agent_id='native-agent',manifest_version=app['version'],operations=['growth.history','workspace.read'],
                    expires=(datetime.now(timezone.utc)+timedelta(hours=1)).isoformat(),max_calls=10)
         issued=json.loads(access.manage(self.session,'new-app','issue',json.dumps({'confirm_scope':True,'grant':grant}).encode()))
         self.grant=issued['grant'];self.token=issued['token'];self.model_calls=0
@@ -189,6 +192,23 @@ class NativeAgentLoopTests(unittest.TestCase):
             self.assertEqual(output,proposal);self.assertEqual(usage['total_tokens'],7)
             self.assertEqual(request(profile,key,'Approved draft')[0],answer())
             self.assertEqual(wire.return_value.request.call_count,2)
+
+    def test_focus_private_material_is_rejected_before_any_provider_call(self):
+        self.setup_loop();request=self.request()
+        fake_path='C:'+ '/Users/example/private'
+        for focus in ('Inspect '+fake_path, 'Inspect ghp_'+('x'*20),
+                      'Inspect '+fake_path+' ghp_'+('x'*20)):
+            with self.subTest(focus=focus):
+                request['focus']=focus
+                with self.assertRaises(Invalid):self.call('prepare',request)
+        self.assertEqual(self.model_calls,0)
+        self.assertEqual(self.call('history')['items'],[])
+
+    def test_app_context_private_material_is_rejected_before_any_provider_call(self):
+        self.setup_loop(context_name='Inspect '+'C:'+ '/Users/example/private ghp_'+('x'*20))
+        with self.assertRaises(Invalid):self.call('prepare',self.request())
+        self.assertEqual(self.model_calls,0)
+        self.assertEqual(self.call('history')['items'],[])
 
     def test_reserved_review_required_tool_uses_existing_separate_checker(self):
         from mission_control.agent_checkpoints import Checkpoints

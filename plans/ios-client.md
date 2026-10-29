@@ -45,7 +45,7 @@ and the hash-bound workflow audit over these two documents and ignored evidence.
 Strict or surviving requirement mutations block the requirements commit. Automated
 gates never establish independent human architecture review or release approval.
 
-## Implementation packets - all unchecked
+## Implementation packets and remaining acceptance
 
 - [ ] T1 | slice=mission_control | files=mission_control/ios_bridge.py,mission_control/ios_capabilities.py | verify=`python -m unittest tests.test_ios_contract_inventory -v` | Bind `ios_standalone`, `ios_reuse`, `ios_workflows`; split import-safe shared core and desktop-only modules, define fixed bridge and capability contracts. Supporting edits require separately reviewed file ownership and CF scope.
 - [ ] T2 | slice=tests | files=tests/test_ios_contract_inventory.py,tests/test_ios_operation_conformance.py | verify=`python -m unittest tests.test_ios_contract_inventory tests.test_ios_operation_conformance -v` | Bind `ios_workflows`, `ios_authority`, `ios_agents`; enumerate the 53-operation floor plus owner/domain gaps and prove shared operation/denial fixtures for T1 and T5. This test packet runs with its implementation dependencies.
@@ -77,9 +77,16 @@ evidence before a local implementation-complete claim. Forge scaffold/fill/smoke
 and native media/device gates are NOT_RUN for this requirements-only packet; no
 dummy Swift targets or empty manifests may be used to manufacture a pass.
 
-Current blocker: no macOS/Xcode host or iOS device in this environment. Requirements
-can be validated locally; app compilation, signing, installation, Keychain lock
-behavior, native media parity and on-device continuity cannot. App Store review,
-provider OAuth permissions, provider outcomes and publication remain separate gates.
+Current execution environment: local development runs on Windows; Apple-hosted CI
+builds the actual Swift target and bundled engine on iPhone and iPad simulators.
+PRs 40-42 are merged, through `2828a6caa09493e98cd0a53cead7b208be6797f8`.
+PR 42 passed all eight Windows/Ubuntu lanes and 30 iPhone tests (zero failures,
+one physical-device skip); its iPad run stopped at simulator boot readiness before
+tests. PR 43 addresses that bounded infrastructure deadline and retains failures.
+Physical-device lock, installation, lifecycle and accessibility evidence remains
+outstanding support/release work. The owner explicitly excludes physical-device
+testing from merge/integration blockers. Full workflow parity is still incomplete;
+App Store review, provider OAuth permissions, provider outcomes and publication
+remain separate gates.
 The contract preserves full requested scope even when a platform/provider adapter
 is temporarily unavailable; that state is retained work, not a scope reduction.

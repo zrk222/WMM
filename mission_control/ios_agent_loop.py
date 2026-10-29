@@ -169,6 +169,7 @@ class NativeAgentLoop:
                 'App ID: '+app_id+'\nTask: '+body['task']+'\nFocus: '+body['focus']+
                 '\nApproved app context: '+canonical(base['context'])+'\nAllowed operation contracts: '+canonical(allowed))
         if previous is not None:prompt+='\nUnverified caller-supplied feedback: '+canonical(feedback)
+        reject_private_material(prompt)
         if len(prompt.encode())>MAX_PROMPT_BYTES:raise Invalid('Turn prompt exceeds the supported size')
         frozen=dict(base, prompt=prompt, max_output_tokens=1024, external_effect='MODEL_REQUEST_ONLY_NO_TOOL_EXECUTION',
                     native_grant=grant, native_turn=turn, prior_turn_id=previous)

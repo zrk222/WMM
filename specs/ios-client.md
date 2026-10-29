@@ -1,5 +1,5 @@
 # Spec: ios-client
-Status: REQUIREMENTS CANDIDATE / IMPLEMENTATION AND DEVICE ACCEPTANCE NOT_RUN
+Status: IMPLEMENTATION UNDERWAY / FULL WORKFLOW AND DEVICE ACCEPTANCE INCOMPLETE
 Parent: platform-parity T4; additive to every accepted WMM requirement.
 Baseline inspected: 91c59d3. This packet changes no runtime source or app target.
 
