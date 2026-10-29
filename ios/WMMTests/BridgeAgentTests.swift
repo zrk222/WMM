@@ -3,6 +3,52 @@ import XCTest
 
 final class BridgeAgentTests: XCTestCase {
     @MainActor
+    func testStandingControlsUseCurrentNativeOwnerAndBlockUntestedProfile() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let databaseID = UUID()
+        let identity = LocalIdentity(vault: KeychainVault(databaseID: databaseID, appID: UUID()))
+        let session = try await identity.begin()
+        let bridge = try DomainBridge(store: LocalStore(applicationSupport: folder, databaseID: databaseID), identity: identity)
+        let appID = "standing-" + UUID().uuidString.lowercased()
+        let setup = try JSONSerialization.data(withJSONObject: ["app_id": appID, "confirm_owner": true,
+            "manifest": ["name": "Synthetic standing workspace", "release": "build-1", "locale": "en-US", "currency": "USD"]] as [String: Any])
+        _ = try await bridge.createWorkspace(session: session, request: setup)
+        let provider = NativeProviderModel(execute: { action, request in
+            try await bridge.providers(session: session, appID: appID, action: action, request: request)
+        })
+        let saved = await provider.save(provider: "openai_api", label: "Synthetic no-network profile", model: "synthetic-model",
+            endpoint: "", key: "sk-synthetic-standing-test-only", allowCharges: true, confirmed: true)
+        XCTAssertTrue(saved)
+        let profile = try XCTUnwrap(provider.listing?.profiles.first)
+        let runtime = ScopedAgentRuntime(bridge: bridge, session: session,
+            vault: KeychainVault(databaseID: databaseID, appID: UUID()))
+        let model = NativeAutomationModel(appID: appID, manifestVersion: 1, currency: "USD", runtime: runtime,
+            execute: { action, request in
+                if action == "profiles" { return try await bridge.providers(session: session, appID: appID, action: "view", request: request) }
+                return try await bridge.automation(session: session, appID: appID, action: action, request: request)
+            })
+        await model.refresh()
+        XCTAssertTrue(model.policies.isEmpty)
+        XCTAssertTrue(model.choices.contains { $0.id == "local_evidence" })
+        await model.prepare(agent: "test-agent", purpose: "Prepare local evidence", selected: ["local_evidence"],
+            profile: profile.id, hours: 1, calls: 10, inflight: 1)
+        XCTAssertFalse(model.ready)
+        XCTAssertTrue(model.blockers.contains("FRESH_INFERENCE_TEST_REQUIRED"))
+        XCTAssertFalse(model.summary.contains("sk-synthetic-standing-test-only"))
+        await model.activate(confirmed: true)
+        XCTAssertTrue(model.policies.isEmpty)
+        do {
+            _ = try await bridge.automation(session: session, appID: "foreign-app", action: "status", request: Data("{}".utf8))
+            XCTFail("Foreign standing scope read succeeded")
+        } catch {}
+        await identity.lock()
+        await model.refresh()
+        XCTAssertNotNil(model.message)
+        await runtime.cancel(); await bridge.close()
+    }
+
+    @MainActor
     func testNativeSnapshotExportRestoreAndOwnerReadBackWithoutCompanion() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }

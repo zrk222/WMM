@@ -49,6 +49,14 @@ actor DomainBridge {
         return try EngineBootstrap.evidenceForm(handle: handle, session: session.nonce.uuidString, appID: appID)
     }
 
+    func automation(session: LocalIdentity.Session, appID: String, action: String, request: Data) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        guard ["preview", "activate", "status", "off"].contains(action), !request.isEmpty,
+              request.count <= 1_048_576 else { throw Failure.invalidRequest }
+        return try EngineBootstrap.automation(handle: handle, session: session.nonce.uuidString,
+            appID: appID, action: action, request: request)
+    }
+
     func snapshotExport(session: LocalIdentity.Session, appID: String) throws -> Data {
         guard let handle else { throw Failure.closed }
         return try EngineBootstrap.snapshotExport(handle: handle, session: session.nonce.uuidString, appID: appID)
