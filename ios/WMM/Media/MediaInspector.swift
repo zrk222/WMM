@@ -104,7 +104,11 @@ enum MediaInspector {
             guard CMSampleBufferGetImageBuffer(sample) != nil else { throw Failure.decodeFailed }
             frames += 1
         }
-        guard reader.status == .completed, frames == plan.output_frame_count else { throw Failure.decodeFailed }
+        guard reader.status == .completed, frames == plan.output_frame_count else {
+            let error = reader.error as NSError?
+            print("WMM_DECODE_FAILURE status=\(reader.status.rawValue); frames=\(frames); expected=\(plan.output_frame_count); domain=\(error?.domain ?? "none"); code=\(error?.code ?? 0)")
+            throw Failure.decodeFailed
+        }
         let audio = try await asset.loadTracks(withMediaType: .audio)
         guard expectsAudio == !audio.isEmpty else { throw Failure.invalidOutput }
         for track in audio {

@@ -69,6 +69,14 @@ def main():
     for device in devices:
         outcomes.append(run_device(device,architecture,evidence))
         (evidence/'simulator-outcomes.json').write_text(json.dumps(outcomes,indent=2),encoding='utf-8')
+        # Release this exact simulator before booting the next family. Keeping
+        # the phone running consumes the hosted runner's tablet boot resources.
+        try:
+            stopped=subprocess.run(['xcrun','simctl','shutdown',device['udid']],timeout=BOOT_TIMEOUT)
+            outcomes[-1]['shutdown_exit_code']=stopped.returncode
+        except subprocess.TimeoutExpired:
+            outcomes[-1]['shutdown_exit_code']=124
+        (evidence/'simulator-outcomes.json').write_text(json.dumps(outcomes,indent=2),encoding='utf-8')
     # A phone assertion failure must remain a failure without hiding tablet
     # evidence. Collect both actual inventories and retain each exit code.
     failed=next((item['exit_code'] for item in outcomes if item['exit_code']),0)

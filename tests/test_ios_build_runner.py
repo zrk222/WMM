@@ -61,6 +61,10 @@ class SimulatorSelectionTests(unittest.TestCase):
             self.assertEqual([item['family'] for item in outcomes],['iphone','ipad'])
             self.assertEqual([item['exit_code'] for item in outcomes],[65,0])
             self.assertTrue(all(item['xcresult_exists'] for item in outcomes))
+            phone_stop=commands.index(['xcrun','simctl','shutdown','phone'])
+            tablet_boot=commands.index(['xcrun','simctl','boot','tablet'])
+            self.assertLess(phone_stop,tablet_boot)
+            self.assertEqual([item['shutdown_exit_code'] for item in outcomes],[0,0])
 
     def test_packaging_uses_one_supported_host_architecture(self):
         for arch in ('arm64','x86_64'):
