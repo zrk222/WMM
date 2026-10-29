@@ -45,9 +45,10 @@ class Insights:
         from .common import identifier
         from uuid import UUID
         identifier(app)
-        try:
-            if str(UUID(reference)) != reference:raise ValueError()
-        except (ValueError, TypeError, AttributeError):raise Invalid('Invalid analytics credential reference') from None
+        if VAULT_FACTORY.get() is not None:
+            try:
+                if str(UUID(reference)) != reference:raise ValueError()
+            except (ValueError, TypeError, AttributeError):raise Invalid('Invalid analytics credential reference') from None
         return "AppGrowthInsights/" + namespace(self.store.path) + "/" + app + "/" + reference
 
     def vault(self, app):
