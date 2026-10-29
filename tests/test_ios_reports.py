@@ -14,6 +14,33 @@ class NativeReportTests(unittest.TestCase):
 
     def report(self):return json.loads(self.runtime.report(self.session,'new-app'))
 
+    def test_consolidated_report_is_available_to_exact_scoped_agent_without_owner_promotion(self):
+        from datetime import datetime,timedelta,timezone
+        from mission_control.ios_agent_access import NativeAgentAccess
+        self.runtime.create_workspace(self.session,self.creation())
+        access=NativeAgentAccess(self.runtime.service,self.runtime.identities)
+        scope=dict(agent_id='report-agent',manifest_version=1,operations=['report.read'],
+            expires=(datetime.now(timezone.utc)+timedelta(hours=1)).isoformat(),max_calls=10)
+        issued=json.loads(access.manage(self.session,'new-app','issue',json.dumps({'confirm_scope':True,'grant':scope}).encode()))
+        payload=json.dumps(dict(app_id='new-app',operation='report.read',input={})).encode()
+        value=json.loads(access.call(self.session,issued['token'],payload))
+        owner=self.report()
+        self.assertEqual(value['sourceHash'],owner['sourceHash'])
+        self.assertEqual(value['rows'],owner['rows'])
+        self.assertEqual(value['appID'],'new-app')
+        self.assertNotIn(issued['token'],json.dumps(value))
+        with self.assertRaises(PermissionError):
+            access.call(self.session,issued['token'],json.dumps(dict(app_id='other',operation='report.read',input={})).encode())
+        from mission_control import ios_reports
+        original=ios_reports.projection
+        def lock(*args,**kwargs):
+            result=original(*args,**kwargs);self.available=False;return result
+        with patch('mission_control.ios_reports.projection',side_effect=lock),self.assertRaises(PermissionError):
+            access.call(self.session,issued['token'],payload)
+        self.available=True
+        access.manage(self.session,'new-app','revoke',json.dumps({'id':issued['grant']['id'],'version':1,'confirm_revoke':True}).encode())
+        with self.assertRaises(PermissionError):access.call(self.session,issued['token'],payload)
+
     def test_empty_report_keeps_unknown_and_exports_no_identity_or_connections(self):
         self.runtime.create_workspace(self.session,self.creation())
         value=self.report()

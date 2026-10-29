@@ -10,6 +10,40 @@ LEDGER_FIELDS = ('installs','activated','paid','retained','activation_rate','pai
                  'delivery_cost_minor','paid_cac_minor','contribution_after_acquisition_minor')
 
 
+def snapshot(db, store, app_id, observed):
+    """One report projection for both admitted agents and the native owner host.
+
+    The caller owns the consistent transaction and current authorization context.
+    This helper neither authenticates nor promotes its caller to owner.
+    """
+    import json
+    from .common import iso_time
+    from .store import decode
+    from .ledger import report
+    from .insights import decoded as insight_decode
+    from .apple_metrics_store import KEY_FIELDS, read_partition
+    app = db.execute('SELECT * FROM apps WHERE id=?',(app_id,)).fetchone()
+    if app is None:raise Invalid('Report app is unavailable')
+    app = decode(app)
+    records = [decode(r) for r in db.execute('SELECT * FROM records WHERE app_id=? ORDER BY updated,id',(app_id,))]
+    cohorts = [json.loads(r['data']) for r in db.execute('SELECT data FROM growth_cohorts WHERE app_id=? ORDER BY id',(app_id,))]
+    events = [dict(cohort_id=r['cohort_id'],data=json.loads(r['data'])) for r in db.execute('SELECT cohort_id,data FROM growth_events WHERE app_id=? ORDER BY provider,external_id',(app_id,))]
+    reports = [report(c,[r['data'] for r in events if r['cohort_id']==c['cohort_id']],iso_time(observed)) for c in cohorts]
+    insights = [insight_decode(r) for r in db.execute('SELECT * FROM insight_reports WHERE app_id=? ORDER BY rowid DESC LIMIT 300',(app_id,))]
+    keys = [{field:r[field] for field in KEY_FIELDS} for r in db.execute(
+        'SELECT * FROM apple_metric_partitions WHERE app_id=? AND store_app_id=? ORDER BY event_date,report_id',
+        (app_id,app['data'].get('store_app_id','')))]
+    return projection(app,records,reports,observed,insights,[read_partition(store.path,key) for key in keys])
+
+
+def read(store, app_id):
+    from .db import connection
+    from .common import now
+    with connection(store.path) as db:
+        db.execute('BEGIN IMMEDIATE')
+        return snapshot(db,store,app_id,now())
+
+
 def projection(app, records, ledger_reports, observed_at, insight_reports=(), apple_partitions=()):
     from .metrics import summarize
     metrics = summarize(records, app['id'], ledger_reports)

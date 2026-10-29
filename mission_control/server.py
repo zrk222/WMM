@@ -245,6 +245,10 @@ class Handler(BaseHTTPRequestHandler):
             if urlparse(self.path).query:raise Invalid('Use the exact workflow telemetry address')
             from .workflow_telemetry import monitor
             return self.send(200,monitor(store,app_id))
+        if parts[3:]==['reports','summary']:
+            if urlparse(self.path).query:raise Invalid('Use the exact app summary report address')
+            from .ios_reports import read
+            return self.send(200,read(store,app_id))
         if parts[3:]==['subscription-growth']:
             if urlparse(self.path).query:raise Invalid('Use the exact subscription review address')
             return self.send(200,self.server.service.subscription_review(app_id))

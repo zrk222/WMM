@@ -20,7 +20,7 @@ WORKFLOWS = {
     'local_evidence': dict(name='Local evidence and measurement', operations=[
         'workspace.read', 'evidence.save', 'operations.read', 'growth.read',
         'growth.history', 'growth.save', 'customer.history', 'customer.save',
-        'measurement.read', 'snapshot.export', 'cohort.define', 'events.import',
+        'measurement.read', 'report.read', 'snapshot.export', 'cohort.define', 'events.import',
         'billing.save','funnel.list','funnel.review','funnel.read','funnel.save','funnel.observations','funnel.import','funnel.report',
         'packaging.history','packaging.read','packaging.save','packaging.reconcile','packaging.checklist','packaging.taste-read','packaging.taste-history',
         'discovery.history','discovery.read','discovery.review','discovery.collect','discovery.watch','discovery.attempt','discovery.handoff'], blockers=[]),

@@ -95,6 +95,9 @@ def owner_operating_protocol():
             'Respect call, time, cost and revision ceilings. Report actual usage and cached-token counters when supplied; unknown cost or savings stays null.',
             'Do not schedule, expand scope, contact people, publish, spend or enable providers from this manifest. Use separate current authority.'],
         'owner_reporting':{
+            'read_operation':{'operation':'report.read','mcp_tool':'wmm_report_read','input':{},
+                'source_binding':'Use sourceHash, observedAt, observed row values and evidence; null remains unknown.',
+                'boundary':'App-scoped private observations, not proof of publication, causal lift or permission to send externally.'},
             'recipient':'The authenticated owner conversation or owner-designated private destination; delivery requires applicable authorization.',
             'cadence':'Report at agreed milestones, a material failure or decision, and task completion. Do not create recurring notifications from this guide.',
             'lead':'State what changed for the owner, what is verified, and the next useful action.',

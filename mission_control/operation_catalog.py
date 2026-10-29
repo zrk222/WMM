@@ -10,6 +10,7 @@ def descriptor(method,suffix,effect,required=(),optional=(),resource=False):
 
 
 OPERATIONS={
+    'report.read':descriptor('GET','/reports/summary','READ_PRIVATE_LOCAL_DATA'),
     'packaging.taste-read':descriptor('POST','/packaging/taste-read','READ_PRIVATE_LOCAL_DATA',('id',),('version',)),
     'packaging.taste-history':descriptor('POST','/packaging/taste-history','READ_PRIVATE_LOCAL_DATA',(),('offset',)),
     'packaging.checklist':descriptor('POST','/packaging/checklist','READ_PRIVATE_LOCAL_DATA',('manifest_version','shots')),
