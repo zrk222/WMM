@@ -12,11 +12,15 @@ from .agent_contract import model_id
 from .review_access import member
 from .social_contract import reference, account_id, provider_id, reported_scopes
 
-MAX_WORKFLOWS = 11
+MAX_WORKFLOWS = 12
 MAX_ACCOUNTS = 20
 FRESH_HOURS = 24
 
 WORKFLOWS = {
+    'native_video_authoring': dict(name='On-device iPhone/iPad video production', operations=[
+        'media.sources','editor.list','editor.read','editor.save','editor.edit','editor.history','editor.diff','editor.renders',
+        'ios.scene.projects','ios.scene.read','ios.scene.save','ios.scene.plan','ios.scene.start','ios.scene.inspect','ios.scene.cancel',
+        'ios.timeline.queue','ios.timeline.inspect','ios.timeline.cancel'], blockers=[]),
     'local_evidence': dict(name='Local evidence and measurement', operations=[
         'workspace.read', 'evidence.save', 'operations.read', 'growth.read',
         'growth.history', 'growth.save', 'customer.history', 'customer.save',

@@ -9,6 +9,11 @@ from .ios_bridge import decode_document, encode_response
 # These are the only workflow operations inspected for this bounded adapter.
 # A catalog change fails closed until the native compatibility review is updated.
 NATIVE_WORKFLOWS = {
+    'native_video_authoring': frozenset({
+        'media.sources','editor.list','editor.read','editor.save','editor.edit','editor.history','editor.diff','editor.renders',
+        'ios.scene.projects','ios.scene.read','ios.scene.save','ios.scene.plan','ios.scene.start','ios.scene.inspect','ios.scene.cancel',
+        'ios.timeline.queue','ios.timeline.inspect','ios.timeline.cancel',
+    }),
     'pipeline_preparation': frozenset({'pipeline.prepare', 'jobs.read', 'job.cancel'}),
     'experiment_preparation': frozenset({
         'experiment.register', 'experiment.evaluate', 'experiment.action',

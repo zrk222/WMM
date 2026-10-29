@@ -6,12 +6,14 @@ from .common import Invalid, canonical, digest, now, required
 from .db import connection
 
 
+def execution_hash(row):
+    return digest({key:row[key] for key in ('id','policy_id','policy_version','grant_id','operation','input_hash')})
+
+
 def record_authority(db, app_id, kind, job_id):
     from .operation_authority import REQUEST
     context=REQUEST.get()
     if not context or 'grant_id' not in context:raise PermissionError('Admitted agent authority is required')
-    if context.get('execution_id') is not None:
-        raise PermissionError('Standing media execution requires a dedicated native lifecycle binding')
     values=(app_id,kind,job_id,context['grant_id'],context['grant_version'],context['envelope'],
             canonical(context['review']) if context['review'] else None)
     old=db.execute('SELECT * FROM ios_agent_media_authority WHERE app_id=? AND kind=? AND job_id=?',(app_id,kind,job_id)).fetchone()
@@ -20,6 +22,43 @@ def record_authority(db, app_id, kind, job_id):
         if actual!=values:raise PermissionError('Render belongs to a different agent admission')
     else:
         db.execute('INSERT INTO ios_agent_media_authority VALUES(?,?,?,?,?,?,?)',values)
+    if context.get('execution_id') is not None:
+        from .automation_execution import ACTIVE,execution_row
+        active=ACTIVE.get(); execution=execution_row(db,context['execution_id'])
+        if (not active or active['id']!=execution['id'] or execution['status']!='DISPATCHED'
+                or execution['grant_id']!=context['grant_id']
+                or execution['input_hash']!=digest(json.loads(context['envelope']))):
+            raise PermissionError('Native render needs its exact dispatched standing intent')
+        scope=(app_id,kind,job_id,execution['id'],execution_hash(execution))
+        previous=db.execute('SELECT * FROM ios_agent_media_standing WHERE app_id=? AND kind=? AND job_id=?',(app_id,kind,job_id)).fetchone()
+        if previous:
+            if tuple(previous)!=scope:raise PermissionError('Native render belongs to another standing execution')
+        elif old:raise PermissionError('Standing scope cannot adopt an existing native render')
+        else:db.execute('INSERT INTO ios_agent_media_standing VALUES(?,?,?,?,?)',scope)
+
+
+def check_standing(db,app_id,kind,job_id):
+    """Called both during native validation and immediately before its commit."""
+    from .automation_execution import execution_row
+    from .complete_automation import ACCESS_VERIFIER,ACCESS_STORE,checked_policy,utc
+    origin=db.execute('SELECT * FROM ios_agent_media_authority WHERE app_id=? AND kind=? AND job_id=?',(app_id,kind,job_id)).fetchone()
+    scope=db.execute('SELECT * FROM ios_agent_media_standing WHERE app_id=? AND kind=? AND job_id=?',(app_id,kind,job_id)).fetchone()
+    if not origin:raise PermissionError('Native render origin is unavailable')
+    policy=db.execute('SELECT id FROM automation_policies WHERE grant_id=?',(origin['grant_id'],)).fetchone()
+    if not scope:
+        if policy:raise PermissionError('Standing native render provenance is unavailable')
+        return False
+    if not callable(ACCESS_VERIFIER.get()) or ACCESS_STORE.get() is None:
+        raise PermissionError('Trusted native protected-access verification is required')
+    execution=execution_row(db,scope['execution_id'])
+    if (not policy or policy['id']!=execution['policy_id'] or execution['status']!='SUCCEEDED'
+            or execution_hash(execution)!=scope['execution_hash'] or execution['grant_id']!=origin['grant_id']
+            or execution['input_hash']!=digest(json.loads(origin['envelope']))):
+        raise PermissionError('Standing native execution changed or requires reconciliation')
+    current,_=checked_policy(db,execution['policy_id'],utc())
+    if current['app_id']!=app_id or current['version']!=execution['policy_version']:
+        raise PermissionError('Standing native approval scope changed')
+    return True
 
 
 def check_authority(db, app_id, kind, job_id):
@@ -36,6 +75,13 @@ def check_authority(db, app_id, kind, job_id):
     if not grant or grant['version']!=row['grant_version']:raise PermissionError('Agent render grant changed')
     observed=datetime.now(timezone.utc)
     grant_current(db,grant,envelope,observed,check_quota=False)
+    check_standing(db,app_id,kind,job_id)
+    from .operation_authority import PROTECTED
+    context=PROTECTED.get()
+    if not context or context.get('principal') is None:raise PermissionError('Current native owner completion is required')
+    binding=(app_id,kind,job_id)
+    checks=context.setdefault('native_media_checks',[])
+    if binding not in checks:checks.append(binding)
     if not row['review']:
         ordinary_dispatch(db,grant['id'],envelope['operation']);return
     review=json.loads(row['review']);request=saved_request(db,app_id,review['id']);checkpoint=read_row(db,app_id,review['id'])
