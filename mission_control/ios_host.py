@@ -108,7 +108,7 @@ class Runtime:
         from .ios_jobs import NativeJobs
         from .ios_automation import native_access
         with native_access(self.service,self.identities,session,self.vault_callback):
-            return NativeJobs(self.service, self.identities).call(session, app_id, action, payload)
+            return NativeJobs(self.service, self.identities,vault_callback=self.vault_callback).call(session, app_id, action, payload)
 
     def native_agent_access(self, session, app_id, action, payload):
         from .ios_agent_access import NativeAgentAccess

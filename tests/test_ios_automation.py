@@ -271,7 +271,7 @@ class NativeStandingTests(unittest.TestCase):
             self.assertEqual(db.execute('SELECT status FROM jobs WHERE id=?', (unrelated['id'],)).fetchone()[0], 'QUEUED')
             self.assertEqual(db.execute('SELECT status FROM jobs WHERE id=?', (queued['id'],)).fetchone()[0], 'RUNNING')
 
-    def test_native_pipeline_refuses_desktop_connection_vault_and_changed_sources(self):
+    def test_native_pipeline_reports_connection_repair_and_rejects_changed_sources(self):
         from mission_control.ios_jobs import NativeJobs
         self.setup_standing()
         user = self.runtime.identities.fresh(self.session)
@@ -281,8 +281,11 @@ class NativeStandingTests(unittest.TestCase):
             db.execute('INSERT INTO records VALUES(?,?,?,?,?,?,?,?,?,?)',
                 ('source','new-app','connection','Synthetic',json.dumps(dict(credential_ref='synthetic')), 'test','test','hash',1,'2026-01-01'))
         with patch('mission_control.connection_setup.Vault', side_effect=AssertionError('desktop vault used')):
-            with self.assertRaisesRegex(Invalid, 'NATIVE_CONNECTION_STATUS_ADAPTER_REQUIRED'):
-                jobs.queue('new-app', user, dict(stage=1, request_key='blocked'))
+            current = jobs.queue('new-app', user, dict(stage=1, request_key='current'))
+            result = json.loads(jobs.call(self.session, 'new-app', 'run', json.dumps(dict(id=current['id'])).encode()))
+            self.assertEqual(result['status'], 'SUCCEEDED')
+            self.assertEqual(result['result']['native_connection_status']['source'],
+                             dict(status='RECONNECT_REQUIRED', repair='NATIVE_PROVIDER_ONBOARDING_REQUIRED'))
             with self.assertRaisesRegex(Invalid, 'Source evidence changed'):
                 jobs.call(self.session, 'new-app', 'run', json.dumps(dict(id=queued['id'])).encode())
 

@@ -22,10 +22,10 @@ def source_hash(db, app_id):
 
 
 def require_native_sources(db, app_id):
-    """Shared pipeline status cannot inspect desktop-managed connection secrets."""
+    """Validate source records without assuming desktop credentials migrated."""
     for row in db.execute("SELECT data FROM records WHERE app_id=? AND kind='connection'", (app_id,)):
-        if json.loads(row['data']).get('credential_ref'):
-            raise Invalid('NATIVE_CONNECTION_STATUS_ADAPTER_REQUIRED')
+        if not isinstance(json.loads(row['data']), dict):
+            raise Invalid('Connection metadata needs repair')
 
 
 @contextmanager
@@ -91,10 +91,11 @@ def cancel_scoped_pipeline(service, envelope):
 
 
 class NativeJobs:
-    def __init__(self, service, identities, clock=time.time):
+    def __init__(self, service, identities, clock=time.time, vault_callback=None):
         self.service = service
         self.identities = identities
         self.clock = clock
+        self.vault_callback = vault_callback
 
     def call(self, session, app_id, action, payload):
         from .operation_authority import bound_owner, protected
@@ -107,7 +108,7 @@ class NativeJobs:
         with bound_owner(self.service.store,envelope,self.identities,session,user):
             with protected(self.service.store,envelope):
                 if action == 'queue':result = self.queue(app_id,user,body)
-                elif action == 'run':result = self.run(app_id,user,body['id'])
+                elif action == 'run':result = self.run(app_id,user,body['id'],session)
                 elif action == 'cancel':result = self.cancel(app_id,user,body['id'])
                 else:
                     from .workflow_telemetry import monitor
@@ -141,7 +142,7 @@ class NativeJobs:
         require_native_sources(db, app_id)
         return row
 
-    def run(self, app_id, user, identity):
+    def run(self, app_id, user, identity, session):
         from .automation_execution import job_execution
         from .complete_automation import ACCESS_VERIFIER, checked_policy, utc
         from .worker import json_job, process
@@ -168,8 +169,12 @@ class NativeJobs:
         try:
             # Same shared processor and durable stage events as the desktop host.
             # No global claim/advance loop: never execute another app or job type.
-            with job_execution(store,job):
-                result = process(store,job)
+            from .ios_connection_status import native_connection_status
+            from .connection_setup import Connections
+            with native_connection_status(self.service, self.identities, session, self.vault_callback):
+                with job_execution(store,job):
+                    result = process(store,job)
+                    result['native_connection_status'] = Connections(store).statuses(app_id)
             status = 'SUCCEEDED'
         except (PermissionError, Invalid):
             raise  # Lost authority retains lease/checkpoints for explicit recovery.

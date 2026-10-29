@@ -115,7 +115,7 @@ class NativeAutomation:
                         result = automation.preview(app_id, user, proposal)
                         result.update(native_readiness='READY_FOR_SCOPE_REVIEW', blockers=[], native_execution_acceptance='INCOMPLETE')
                         if 'pipeline_preparation' in proposal['selection']['workflows']:
-                            result['native_conditions'] = ['NATIVE_CONNECTION_STATUS_ADAPTER_REQUIRED_WHEN_PROTECTED_CONNECTIONS_EXIST']
+                            result['native_conditions'] = ['NATIVE_PROVIDER_ONBOARDING_REQUIRED_FOR_CONNECTION_READINESS']
                     else:
                         with native_access(self.service, self.identities, session, self.vault_callback):
                             result = automation.activate(app_id, user, dict(proposal=proposal, summary_hash=body['summary_hash']))
@@ -126,6 +126,6 @@ class NativeAutomation:
                     result = automation.status(app_id, user)
                     result['native_blockers'] = native_blockers(
                         {'workflows': list(result['catalog']['workflows'])})
-                    result['native_conditions'] = {'pipeline_preparation': ['NATIVE_CONNECTION_STATUS_ADAPTER_REQUIRED_WHEN_PROTECTED_CONNECTIONS_EXIST']}
+                    result['native_conditions'] = {'pipeline_preparation': ['NATIVE_PROVIDER_ONBOARDING_REQUIRED_FOR_CONNECTION_READINESS']}
                     result['native_execution_acceptance'] = 'INCOMPLETE'
                 return encode_response(result)
