@@ -93,6 +93,7 @@ final class BridgeAgentTests: XCTestCase {
         await model.refresh()
         XCTAssertTrue(model.policies.isEmpty)
         XCTAssertTrue(model.choices.contains { $0.id == "local_evidence" })
+        XCTAssertTrue(model.choices.contains { $0.id == "native_video_authoring" && $0.blockers.isEmpty })
         await model.prepare(agent: "test-agent", purpose: "Prepare local evidence", selected: ["local_evidence"],
             profile: profile.id, hours: 1, calls: 10, inflight: 1)
         XCTAssertFalse(model.ready)

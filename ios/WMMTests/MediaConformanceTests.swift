@@ -1,7 +1,27 @@
 import XCTest
 import AVFoundation
 import CoreImage
+import SQLite3
 @testable import WMM
+
+/// Test-only freshness fixture. Never calls an inference provider or marks a real account tested.
+private func markSyntheticNativeProfileTested(database: URL, profileID: String) throws {
+    var handle: OpaquePointer?
+    guard sqlite3_open_v2(database.path, &handle, SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK else {
+        if let handle { sqlite3_close(handle) }
+        throw CocoaError(.fileWriteUnknown)
+    }
+    defer { sqlite3_close(handle) }
+    var statement: OpaquePointer?
+    guard sqlite3_prepare_v2(handle, "UPDATE agent_connections SET status='TESTED',last_test=? WHERE id=?", -1, &statement, nil) == SQLITE_OK else {
+        throw CocoaError(.fileWriteUnknown)
+    }
+    defer { sqlite3_finalize(statement) }
+    let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+    guard sqlite3_bind_text(statement, 1, ISO8601DateFormatter().string(from: Date()), -1, transient) == SQLITE_OK,
+          sqlite3_bind_text(statement, 2, profileID, -1, transient) == SQLITE_OK,
+          sqlite3_step(statement) == SQLITE_DONE, sqlite3_changes(handle) == 1 else { throw CocoaError(.fileWriteUnknown) }
+}
 
 final class MediaConformanceTests: XCTestCase {
     @MainActor
@@ -514,7 +534,51 @@ final class MediaConformanceTests: XCTestCase {
         XCTAssertEqual(videoJob.job_id, agentJobID)
         let verifiedShare = await videoModel.verifiedURL(videoJob)
         XCTAssertEqual(verifiedShare, agentOutput)
-        await videoModel.close(); await scopedRuntime.cancel()
+        await videoModel.close()
+        // Exercise actual AVFoundation output under standing authority. The profile/key are
+        // synthetic, its freshness is a test-only SQLite fixture, and no model/network call runs.
+        let profileModel = await NativeProviderModel(execute: { action, request in
+            try await bridge.providers(session: session, appID: appID, action: action, request: request)
+        })
+        let savedProfile = await profileModel.save(provider: "openai_api", label: "Synthetic standing render fixture",
+            model: "synthetic-model", endpoint: "", key: "sk-synthetic-standing-render-only", allowCharges: true, confirmed: true)
+        XCTAssertTrue(savedProfile)
+        let profileListing = await profileModel.listing
+        let syntheticProfile = try XCTUnwrap(profileListing?.profiles.first)
+        try markSyntheticNativeProfileTested(database: store.database, profileID: syntheticProfile.id)
+        let standingProposal: [String: Any] = [
+            "selection": ["agent_id": "synthetic-standing-render", "manifest_version": 1,
+                "workflows": ["native_video_authoring"], "agent_connection_id": syntheticProfile.id,
+                "social_connection_ids": [String]()],
+            "purpose": "Verify synthetic on-device standing render and owner output receipt",
+            "limits": ["expires": ISO8601DateFormatter().string(from: Date().addingTimeInterval(3600)),
+                "max_calls": 3, "max_inflight": 1, "currency": "USD", "spend_limit_minor": 0]]
+        let scopeBytes = try await bridge.automation(session: session, appID: appID, action: "preview",
+            request: JSONSerialization.data(withJSONObject: standingProposal))
+        let scope = try XCTUnwrap(JSONSerialization.jsonObject(with: scopeBytes) as? [String: Any])
+        XCTAssertEqual(scope["native_readiness"] as? String, "READY_FOR_SCOPE_REVIEW")
+        let scopeHash = try XCTUnwrap(scope["summary_hash"] as? String)
+        let approved = try await bridge.automation(session: session, appID: appID, action: "activate",
+            request: JSONSerialization.data(withJSONObject: ["proposal": standingProposal, "summary_hash": scopeHash, "confirm_scope": true]))
+        let standingGrant = try await scopedRuntime.retainIssuedGrant(approved)
+        let standingRequest = try JSONSerialization.data(withJSONObject: ["app_id": appID, "operation": "ios.timeline.queue",
+            "input": ["project_id": "native-edit", "revision": 1, "project_hash": projectHash,
+                "request_key": UUID().uuidString.lowercased()]])
+        let standingBytes = try await scopedRuntime.call(grantID: standingGrant, request: standingRequest)
+        let standingReceipt = try XCTUnwrap(JSONSerialization.jsonObject(with: standingBytes) as? [String: Any])
+        let standingRender = try XCTUnwrap(standingReceipt["native_render"] as? [String: Any])
+        XCTAssertEqual(standingRender["status"] as? String, "SUCCEEDED")
+        let standingJob = try XCTUnwrap(standingRender["job_id"] as? String)
+        let standingOutput = try await bridge.agentTimelineArtifact(session: session, appID: appID, jobID: standingJob)
+        try await MediaInspector.verify(standingOutput, plan: packet.plan, expectsAudio: false)
+        let activeScope = try XCTUnwrap(JSONSerialization.jsonObject(with: approved) as? [String: Any])
+        let policyID = try XCTUnwrap(activeScope["policy_id"] as? String)
+        _ = try await bridge.automation(session: session, appID: appID, action: "off", request:
+            JSONSerialization.data(withJSONObject: ["id": policyID, "version": 1, "confirm_off": true]))
+        let historicalOutput = try await bridge.agentTimelineArtifact(session: session, appID: appID, jobID: standingJob)
+        XCTAssertEqual(historicalOutput, standingOutput)
+        await profileModel.disconnect(syntheticProfile)
+        await scopedRuntime.cancel()
         let editor = await NativeEditorModel(appID: appID, manifestVersion: 1, locale: "en-US", execute: { operation, resource, input in
             if operation == "native.media.list" { return try await bridge.mediaList(session: session, appID: appID) }
             var envelope: [String: Any] = ["app_id": appID, "operation": operation, "input": input]

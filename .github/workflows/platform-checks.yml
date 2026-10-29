@@ -2,7 +2,7 @@
   "name": "Native iOS platform checks",
   "on": {
     "workflow_dispatch": {},
-    "pull_request": {"paths": ["ios/**", "tools/check_platform_receipts.py", "tests/test_platform_receipts.py", ".github/workflows/platform-checks.yml"]}
+    "pull_request": {"paths": ["ios/**", "mission_control/**", "package/**", "tools/check_platform_receipts.py", "tests/test_platform_receipts.py", ".github/workflows/platform-checks.yml"]}
   },
   "permissions": {"contents": "read"},
   "jobs": {

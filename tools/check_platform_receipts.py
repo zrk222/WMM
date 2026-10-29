@@ -89,6 +89,9 @@ def check_ci_contract(root):
     value=json.loads(path.read_text(encoding='utf-8'))
     if value.get('permissions')!={'contents':'read'}:errors.append('Use read-only workflow permissions')
     if 'workflow_dispatch' not in value.get('on',{}):errors.append('Native verification needs an explicit dispatch entry')
+    paths=value.get('on',{}).get('pull_request',{}).get('paths',[])
+    if not isinstance(paths,list) or not {'ios/**','mission_control/**','package/**'}.issubset(paths):
+        errors.append('Native pull-request checks must cover Swift and bundled shared engine changes')
     jobs=value.get('jobs',{})
     contract=jobs.get('contract',{})
     if not any(step.get('run')=='python tools/check_platform_receipts.py --ci-contract' for step in contract.get('steps',[])):

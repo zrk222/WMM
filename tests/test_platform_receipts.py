@@ -41,6 +41,15 @@ class NativeCIContractTests(unittest.TestCase):
         (self.root/'ios/Build/run_simulators.py').unlink()
         self.assertEqual(self.check(self.value)['state'],'INCOMPLETE')
 
+    def test_native_trigger_cannot_omit_bundled_engine_changes(self):
+        for path in ('ios/**','mission_control/**','package/**'):
+            value=copy.deepcopy(self.value)
+            value['on']['pull_request']['paths'].remove(path)
+            with self.subTest(path=path):
+                result=self.check(value)
+                self.assertEqual(result['state'],'INCOMPLETE')
+                self.assertTrue(any('bundled shared engine' in error for error in result['errors']))
+
     def test_runtime_cache_cannot_restore_broad_or_skip_verification(self):
         for mutation in ('broad','toolchain','paths','order','save'):
             value=copy.deepcopy(self.value);steps=value['jobs']['native-simulators']['steps']
