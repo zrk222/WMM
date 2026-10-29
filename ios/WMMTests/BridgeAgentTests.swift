@@ -3,6 +3,68 @@ import XCTest
 
 final class BridgeAgentTests: XCTestCase {
     @MainActor
+    func testHumanReviewDismissalAlwaysTearsDownBusyLogin() async throws {
+        var pending: CheckedContinuation<Data, Never>?
+        var removed = false
+        let model = NativeHumanReviewModel(execute: { _, _ in
+            await withCheckedContinuation { pending = $0 }
+        }, teardown: { removed = true })
+        let login = Task { await model.login("synthetic-transient-token") }
+        for _ in 0..<100 {
+            if pending != nil { break }
+            await Task.yield()
+        }
+        XCTAssertTrue(model.busy)
+        await model.close()
+        XCTAssertTrue(removed)
+        pending?.resume(returning: Data("{\"status\":\"AUTHENTICATED\",\"login\":\"fixture\"}".utf8))
+        await login.value
+        XCTAssertTrue(model.reviewer.isEmpty)
+        XCTAssertTrue(model.ownerIdentity.isEmpty)
+        XCTAssertTrue(model.requests.isEmpty)
+    }
+    @MainActor
+    func testHumanReviewNativeHostRequiresOwnerAccountAndCurrentUnlock() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let databaseID = UUID()
+        let identity = LocalIdentity(vault: KeychainVault(databaseID: databaseID, appID: UUID()))
+        let session = try await identity.begin()
+        let bridge = try DomainBridge(store: LocalStore(applicationSupport: folder, databaseID: databaseID), identity: identity)
+        let appID = "review-" + UUID().uuidString.lowercased()
+        let setup = try JSONSerialization.data(withJSONObject: ["app_id": appID, "confirm_owner": true,
+            "manifest": ["name": "Synthetic review workspace", "release": "build-1", "locale": "en-US", "currency": "USD"]] as [String: Any])
+        _ = try await bridge.createWorkspace(session: session, request: setup)
+        let model = NativeHumanReviewModel(execute: { action, request in
+            try await bridge.humanReview(session: session, appID: appID, action: action, request: request)
+        }, teardown: { await bridge.reviewLogout() })
+        await model.refresh()
+        XCTAssertNil(model.message)
+        XCTAssertEqual(model.members.count, 1)
+        XCTAssertTrue(model.ownerIdentity.isEmpty)
+        XCTAssertTrue(model.reviewer.isEmpty)
+        XCTAssertTrue(model.requests.isEmpty)
+        do {
+            _ = try await bridge.humanReview(session: session, appID: appID, action: "reviewer_login",
+                request: JSONSerialization.data(withJSONObject: ["token": "synthetic_never_transmitted_token"]))
+            XCTFail("Reviewer login admitted without bound owner account")
+        } catch {}
+        do {
+            _ = try await bridge.humanReview(session: session, appID: appID, action: "member_save",
+                request: JSONSerialization.data(withJSONObject: ["role": "OWNER", "status": "ACTIVE", "version": NSNull()]))
+            XCTFail("Unauthenticated role escalation admitted")
+        } catch {}
+        await identity.lock()
+        await bridge.reviewLogout()
+        do {
+            _ = try await bridge.humanReview(session: session, appID: appID, action: "members_list", request: Data("{}".utf8))
+            XCTFail("Locked review access admitted")
+        } catch {}
+        await bridge.close()
+        try await identity.forgetPrincipal()
+    }
+
+    @MainActor
     func testStandingControlsUseCurrentNativeOwnerAndBlockUntestedProfile() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }

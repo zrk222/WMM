@@ -53,6 +53,18 @@ actor ScopedAgentRuntime {
         try await vault.delete(reference: reference(grantID))
     }
 
+    func review(grantID: String, action: String, request: Data) async throws -> Data {
+        guard !stopped, !request.isEmpty, request.count <= 1_048_576,
+              ["prepare", "inspect", "resume"].contains(action) else { throw Failure.cancelled }
+        let ticket = generation
+        guard let credential = try await vault.read(reference: reference(grantID)) else { throw Failure.credentialUnavailable }
+        try Task.checkCancellation()
+        guard !stopped, ticket == generation else { throw Failure.cancelled }
+        let result = try await bridge.agentReview(session: session, credential: credential, action: action, request: request)
+        guard !stopped, ticket == generation else { throw Failure.resultNeedsReconciliation }
+        return result
+    }
+
     /// Stops future dispatch. An in-flight effect needs read-back, never blind replay.
     /// Shared grant revocation remains a separate exact owner action.
     func cancel() { stopped = true; generation = UUID() }

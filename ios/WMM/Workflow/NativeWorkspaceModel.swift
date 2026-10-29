@@ -106,6 +106,7 @@ final class NativeWorkspaceModel: ObservableObject {
         if let identity { Task { await identity.lock() } }
         if let editorRenderer { Task { await editorRenderer.cancel() } }
         if let agentRuntime { Task { await agentRuntime.cancel() } }
+        if let bridge { Task { await bridge.reviewLogout() } }
     }
 
     func create(appID: String, manifest: [String: String], confirmed: Bool) async -> Bool {
@@ -366,6 +367,17 @@ final class NativeWorkspaceModel: ObservableObject {
             guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
             return result.items
         })
+    }
+
+    func makeHumanReview() -> NativeHumanReviewModel? {
+        guard unlocked, let app = snapshot?.app, let bridge, let session else { return nil }
+        let ticket = generation
+        return NativeHumanReviewModel(execute: { [weak self] action, request in
+            guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            let result = try await bridge.humanReview(session: session, appID: app.id, action: action, request: request)
+            guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            return result
+        }, teardown: { await bridge.reviewLogout() })
     }
 
     func makeAutomation() -> NativeAutomationModel? {

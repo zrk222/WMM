@@ -54,6 +54,18 @@ class Runtime:
         self.service = Service(Store(database_path, seed=False))
         self.owner = OwnerAdapter(self.service, self.identities)
         self.vault_callback = vault_callback
+        from .ios_human_review import NativeHumanReview
+        self.human_review=NativeHumanReview(self.service,self.identities)
+
+    def native_human_review(self,session,app_id,action,payload):
+        return self.human_review.call(session,app_id,action,payload)
+
+    def native_review_logout(self):
+        self.human_review.logout()
+
+    def native_agent_review(self,session,credential,action,payload):
+        from .ios_agent_access import NativeAgentAccess
+        return NativeAgentAccess(self.service,self.identities).review(session,credential,action,payload)
 
     def owner_call(self, session, payload):
         return self.owner.call(session, payload)

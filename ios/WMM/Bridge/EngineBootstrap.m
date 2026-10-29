@@ -443,6 +443,49 @@ static NSData *WMMResultBytes(PyObject *value, NSError **error) {
     }
 }
 
++ (NSData *)humanReview:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                 action:(NSString *)action request:(NSData *)request error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        BOOL known = [@[@"reviewer_login", @"reviewer_status", @"reviewer_logout", @"members_list", @"member_save",
+            @"owner_identity_login", @"owner_identity_status", @"owner_identity_logout", @"member_revoke",
+            @"review_sources", @"review_list", @"review_prepare", @"review_approve", @"agent_list", @"agent_inspect", @"agent_approve", @"agent_cancel", @"agent_reconcile"] containsObject:action];
+        PyObject *body = known && request.length > 0 && request.length <= 1048576
+            ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
+        PyObject *value = runtime && body ? PyObject_CallMethod(runtime, "native_human_review", "sssO",
+            session.UTF8String, appID.UTF8String, action.UTF8String, body) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); Py_XDECREF(body); PyGILState_Release(gil); return result;
+    }
+}
+
++ (void)reviewLogout:(NSString *)handle {
+    @synchronized(self) {
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        PyObject *value = runtime ? PyObject_CallMethod(runtime, "native_review_logout", NULL) : NULL;
+        Py_XDECREF(value); if (PyErr_Occurred()) PyErr_Clear(); PyGILState_Release(gil);
+    }
+}
+
++ (NSData *)agentReview:(NSString *)handle session:(NSString *)session credential:(NSString *)credential
+                 action:(NSString *)action request:(NSData *)request error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        BOOL known = [@[@"prepare", @"inspect", @"resume"] containsObject:action];
+        PyObject *body = known && credential.length == 48 && request.length > 0 && request.length <= 1048576
+            ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
+        PyObject *value = runtime && body ? PyObject_CallMethod(runtime, "native_agent_review", "sssO",
+            session.UTF8String, credential.UTF8String, action.UTF8String, body) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); Py_XDECREF(body); PyGILState_Release(gil); return result;
+    }
+}
+
 + (void)close:(NSString *)handle {
     @synchronized(self) {
         if (!Py_IsInitialized()) return;

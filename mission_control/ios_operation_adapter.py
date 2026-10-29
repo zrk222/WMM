@@ -57,5 +57,5 @@ class ScopedAgentAdapter:
 
     def resume_review(self, token, app_id, request_id, revision, packet_hash):
         from .agent_review_dispatch import ReviewedDispatch
-        return encode_response(ReviewedDispatch(self.service, self.clock, executor=guarded_execute).resume(
+        return encode_response(ReviewedDispatch(self.service, self.clock, executor=guarded_execute,host_check=self.host_check).resume(
             token, app_id, request_id, revision, packet_hash))
