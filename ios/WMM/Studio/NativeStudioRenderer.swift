@@ -124,6 +124,8 @@ final class NativeStudioRenderer {
             }
             let staticImage = generator == nil ? try Self.draw(title: packet.scene.title, text: item.text, size: size, background: nil) : nil
             for offset in 0..<(item.seconds * 24) {
+                // Allow owner lock and cancel actions between native frames.
+                await Task.yield()
                 try Task.checkCancellation()
                 guard !cancelled else { throw Failure.cancelled }
                 let deadline = Date().addingTimeInterval(30)
