@@ -1,8 +1,17 @@
 # Plan: ios-client
 Spec: specs/ios-client.md
 Architect verdict: PASS
-Status: implementation required and authorized by the owner's full-built-iOS instruction; every native/device gate remains NOT_RUN.
+Status: implementation underway and authorized by the owner's full-built-iOS instruction. Native app and simulator execution are proven for the merged review workflow; full workflow parity and physical-device acceptance remain incomplete.
 Parent: platform-parity T4. Follow the existing standalone architecture and scoped CF implementation gates.
+
+Current evidence (October 29, 2026): [PR 39](https://github.com/zrk222/WMM/pull/39)
+merged as `7b44cd3572514cfb74543ad56f9cf26f14d6a20d`. Native
+[run 40832996416](https://github.com/zrk222/WMM/actions/runs/40832996416)
+built and executed the bundled engine on iPhone and iPad simulators: 25 tests per
+family, zero failures and one physical-device-only skip. Windows/Ubuntu checks
+passed. PostHog and Apple connector increments are separate candidates with their
+own CI and workflow evidence. These results do not complete the unchecked T1-T14
+requirements or prove physical-device, live-provider or full agent parity.
 
 This verdict records the local architecture self-review: the selected embedding
 and native boundaries preserve the required local ownership, operation coverage

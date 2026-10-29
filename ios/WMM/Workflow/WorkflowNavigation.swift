@@ -19,6 +19,7 @@ struct WorkflowNavigation: View {
     @State private var studio: NativeStudioModel?
     @State private var humanReview: NativeHumanReviewModel?
     @State private var insights: NativeInsightsModel?
+    @State private var storeConnection: NativeStoreConnectionModel?
 
     var body: some View {
         NavigationStack {
@@ -116,6 +117,7 @@ struct WorkflowNavigation: View {
                             Button("Provider access", systemImage: "key.horizontal") { providers = model.makeProviders() }
                                 .disabled(model.busy)
                             Button("Live analytics", systemImage: "chart.line.uptrend.xyaxis") { insights = model.makeInsights() }.disabled(model.busy)
+                            Button("Apple analytics", systemImage: "app.badge.checkmark") { storeConnection = model.makeStoreConnection() }.disabled(model.busy)
                             Button("Agent drafting", systemImage: "text.bubble") { inference = model.makeInference() }
                                 .disabled(model.busy)
                             Button("Results & reports", systemImage: "chart.bar.doc.horizontal") {
@@ -149,6 +151,7 @@ struct WorkflowNavigation: View {
             .sheet(item: $studio) { NativeStudioView(model: $0) }
             .sheet(item: $humanReview) { NativeHumanReviewView(model: $0) }
             .sheet(item: $insights) { NativeInsightsView(model: $0) }
+            .sheet(item: $storeConnection) { NativeStoreConnectionView(model: $0) }
         }
         .privacySensitive()
         .overlay { if scenePhase != .active { Color(uiColor: .systemBackground).ignoresSafeArea() } }
@@ -162,6 +165,7 @@ struct WorkflowNavigation: View {
         .onChange(of: model.unlocked) { _, value in if !value { editingApp = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { humanReview = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { insights = nil } }
+        .onChange(of: model.unlocked) { _, value in if !value { storeConnection = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { evidence = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { snapshots = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { automation = nil } }
@@ -182,6 +186,7 @@ private struct CreateWorkspaceView: View {
     @State private var release = ""
     @State private var locale = "en-US"
     @State private var currency = "USD"
+    @State private var storeAppID = ""
     @State private var confirmed = false
     @State private var loaded = false
 
@@ -199,6 +204,8 @@ private struct CreateWorkspaceView: View {
                     TextField("Release or build", text: $release)
                     TextField("Locale", text: $locale).textInputAutocapitalization(.never).autocorrectionDisabled()
                     TextField("Currency", text: $currency).textInputAutocapitalization(.characters).autocorrectionDisabled()
+                    TextField("App Store app ID (optional)", text: $storeAppID).keyboardType(.numberPad)
+                    Text("Use the numeric ID from App Store Connect when connecting Apple analytics. Leave it blank for other stores.").font(.caption)
                 }
                 Section {
                     Toggle(editing == nil ? "I own this local app workspace" : "I confirm these revised app facts", isOn: $confirmed)
@@ -212,9 +219,10 @@ private struct CreateWorkspaceView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(model.busy) }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(editing == nil ? "Create" : "Save revision") { Task {
-                        let facts = ["name": name, "job": objective,
+                        var facts = ["name": name, "job": objective,
                             "audience": audience, "activation": activation, "release": release,
                             "locale": locale, "currency": currency]
+                        if editing != nil || !storeAppID.isEmpty { facts["store_app_id"] = storeAppID }
                         let saved: Bool
                         if let editing { saved = await model.update(editing, changes: facts, confirmed: confirmed) }
                         else { saved = await model.create(appID: appID, manifest: facts, confirmed: confirmed) }
@@ -230,9 +238,10 @@ private struct CreateWorkspaceView: View {
                     audience = editing.data.audience ?? ""; activation = editing.data.activation ?? ""
                     release = editing.data.release ?? ""; locale = editing.data.locale ?? ""
                     currency = editing.data.currency ?? ""
+                    storeAppID = editing.data.store_app_id ?? ""
                 }
             }
-            .onChange(of: [name, objective, audience, activation, release, locale, currency]) { _, _ in confirmed = false }
+            .onChange(of: [name, objective, audience, activation, release, locale, currency, storeAppID]) { _, _ in confirmed = false }
             .onChange(of: model.unlocked) { _, value in if !value { dismiss() } }
         }
     }

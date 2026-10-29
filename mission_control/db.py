@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS learning_active(app_id TEXT PRIMARY KEY REFERENCES ap
 CREATE TABLE IF NOT EXISTS learning_brief_uses(app_id TEXT NOT NULL REFERENCES apps(id),brief_id TEXT NOT NULL,learning_id TEXT NOT NULL,data TEXT NOT NULL,hash TEXT NOT NULL,created TEXT NOT NULL,PRIMARY KEY(app_id,brief_id));
 CREATE TABLE IF NOT EXISTS apps(id TEXT PRIMARY KEY, data TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1, updated TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS operator_roles(app_id TEXT NOT NULL REFERENCES apps(id),principal TEXT NOT NULL,login TEXT NOT NULL,role TEXT NOT NULL,status TEXT NOT NULL,version INTEGER NOT NULL,updated TEXT NOT NULL,changed_by TEXT NOT NULL,PRIMARY KEY(app_id,principal));
+CREATE TABLE IF NOT EXISTS native_store_key_cleanup(app_id TEXT NOT NULL,provider TEXT NOT NULL,credential_ref TEXT NOT NULL,PRIMARY KEY(app_id,provider,credential_ref));
 CREATE TABLE IF NOT EXISTS native_owner_review_identity(app_id TEXT PRIMARY KEY REFERENCES apps(id),native_owner TEXT NOT NULL,github_principal TEXT NOT NULL,login TEXT NOT NULL);
 CREATE TRIGGER IF NOT EXISTS native_owner_review_identity_no_replace BEFORE INSERT ON native_owner_review_identity WHEN EXISTS(SELECT 1 FROM native_owner_review_identity WHERE app_id=NEW.app_id) BEGIN SELECT RAISE(ABORT,'Native owner identity binding is immutable'); END;
 CREATE TRIGGER IF NOT EXISTS native_owner_review_identity_no_update BEFORE UPDATE ON native_owner_review_identity BEGIN SELECT RAISE(ABORT,'Native owner identity binding is immutable'); END;

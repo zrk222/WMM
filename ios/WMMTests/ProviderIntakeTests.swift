@@ -4,6 +4,68 @@ import PDFKit
 @testable import WMM
 
 final class ProviderIntakeTests: XCTestCase {
+    func testNativeAppleSignerVerifiesES256AndRejectsOtherAudiences() throws {
+        let key = P256.Signing.PrivateKey()
+        let pem = key.pemRepresentation
+        func invoke(_ operation: String, _ message: String) throws -> [String: Any] {
+            let body = try JSONSerialization.data(withJSONObject: ["operation": operation, "private_key": pem, "message": message])
+            return try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(NativeAppleSigning.invoke(body))) as? [String: Any])
+        }
+        let inspection = try invoke("inspect", "")
+        XCTAssertEqual(inspection["ok"] as? Bool, true)
+        let publicPEM = try XCTUnwrap((inspection["value"] as? [String: String])?["public_key"])
+        let publicKey = try P256.Signing.PublicKey(pemRepresentation: publicPEM)
+        func encoded(_ object: [String: Any]) throws -> String {
+            try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]).base64EncodedString()
+                .replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+        }
+        let issued = Int(Date().timeIntervalSince1970)
+        let header = try encoded(["alg": "ES256", "kid": "ABC123DE45", "typ": "JWT"])
+        let claims: [String: Any] = ["iss": UUID().uuidString.lowercased(), "iat": issued, "exp": issued + 600, "aud": "appstoreconnect-v1"]
+        let message = try header + "." + encoded(claims)
+        let signed = try invoke("sign", message)
+        XCTAssertEqual(signed["ok"] as? Bool, true)
+        let raw = try XCTUnwrap(Data(base64Encoded: XCTUnwrap((signed["value"] as? [String: String])?["signature"])))
+        XCTAssertEqual(raw.count, 64)
+        XCTAssertTrue(publicKey.isValidSignature(try P256.Signing.ECDSASignature(rawRepresentation: raw), for: Data(message.utf8)))
+        var wrong = claims; wrong["aud"] = "https://other.invalid"
+        XCTAssertEqual(try invoke("sign", header + "." + encoded(wrong))["ok"] as? Bool, false)
+        wrong = claims; wrong["exp"] = issued + 601
+        XCTAssertEqual(try invoke("sign", header + "." + encoded(wrong))["ok"] as? Bool, false)
+        XCTAssertEqual(try invoke("sign", "unstructured message")["ok"] as? Bool, false)
+        XCTAssertEqual(try invoke("inspect", "unexpected")["ok"] as? Bool, false)
+        XCTAssertFalse(String(describing: signed).contains(pem))
+    }
+
+    @MainActor
+    func testNativeStoreConnectionHostRejectsAgentAuthorityAndLockedRead() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let databaseID = UUID()
+        let identity = LocalIdentity(vault: KeychainVault(databaseID: databaseID, appID: UUID()))
+        let session = try await identity.begin()
+        let bridge = try DomainBridge(store: LocalStore(applicationSupport: folder, databaseID: databaseID), identity: identity)
+        let appID = "apple-" + UUID().uuidString.lowercased()
+        let setup = try JSONSerialization.data(withJSONObject: ["app_id": appID, "confirm_owner": true,
+            "manifest": ["name": "Synthetic Apple app", "release": "build-1", "locale": "en-US", "currency": "USD", "store_app_id": "123"]] as [String: Any])
+        _ = try await bridge.createWorkspace(session: session, request: setup)
+        let model = NativeStoreConnectionModel(storeAppID: "123", execute: { action, request in
+            try await bridge.storeConnection(session: session, appID: appID, action: action, request: request)
+        })
+        await model.refresh()
+        XCTAssertNil(model.message); XCTAssertTrue(model.connections.isEmpty); XCTAssertTrue(model.jobs.isEmpty)
+        do {
+            _ = try await bridge.storeConnection(session: session, appID: appID, action: "publish", request: Data("{}".utf8))
+            XCTFail("Unknown store write admitted")
+        } catch {}
+        await identity.lock()
+        do {
+            _ = try await bridge.storeConnection(session: session, appID: appID, action: "history", request: Data("{}".utf8))
+            XCTFail("Locked store history admitted")
+        } catch {}
+        await bridge.close(); try await identity.forgetPrincipal()
+    }
+
     func testPostHogKeychainBindingRejectsForeignScopeAndKeepsInferenceSeparate() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }

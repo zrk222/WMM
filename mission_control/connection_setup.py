@@ -4,7 +4,8 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from .common import Invalid, required, uid
 from .credential_vault import Vault, namespace, target
-from .provider_auth import LOCK, forget, native
+from .provider_auth import LOCK, forget, native, vault_for, NATIVE_CONTEXT
+from .db import connection
 
 STATUS_SOURCE = ContextVar('wmm_connection_status_source', default=None)
 
@@ -51,6 +52,34 @@ class Connections:
         self.store=store
         self.scope=namespace(store.path)
 
+    def vault(self,app_id):
+        return vault_for(self.scope,app_id) if NATIVE_CONTEXT.get() is not None else Vault()
+
+    def native_mark(self,app_id,data):
+        if NATIVE_CONTEXT.get() is None or not data or not data.get('credential_ref'):return
+        with connection(self.store.path) as db:
+            db.execute('INSERT OR IGNORE INTO native_store_key_cleanup VALUES(?,?,?)',(app_id,data['provider'],data['credential_ref']))
+
+    def native_clear(self,app_id,data):
+        if NATIVE_CONTEXT.get() is None or not data or not data.get('credential_ref'):return
+        with connection(self.store.path) as db:
+            db.execute('DELETE FROM native_store_key_cleanup WHERE app_id=? AND provider=? AND credential_ref=?',(app_id,data['provider'],data['credential_ref']))
+
+    def native_cleanup(self,app_id):
+        """Retry recorded orphan cleanup without deleting a currently active key."""
+        if NATIVE_CONTEXT.get() is None:raise PermissionError('Native cleanup requires the trusted host')
+        with connection(self.store.path) as db:
+            pending=[dict(row) for row in db.execute('SELECT provider,credential_ref FROM native_store_key_cleanup WHERE app_id=? AND provider=?',(app_id,'app_store'))]
+        active={(r['data'].get('provider'),r['data'].get('credential_ref')) for r in self.store.records(app_id)
+                if r['kind']=='connection' and r['data'].get('auth_mode')=='managed_key'}
+        removed=0;failed=0
+        for data in pending:
+            if (data['provider'],data['credential_ref']) in active:continue
+            try:
+                self.vault(app_id).delete(self.name(app_id,data));self.native_clear(app_id,data);removed+=1
+            except Invalid:failed+=1
+        return {'removed':removed,'cleanup_required':failed>0}
+
     def name(self,app_id,data):
         """Compute protected target from current database and selected app identity."""
         return target(self.scope,app_id,data["provider"],data["credential_ref"])
@@ -74,14 +103,18 @@ class Connections:
                 raise Invalid("Connection changed; reload before rotating its key")
             data["credential_ref"]=uid()
             name=self.name(app_id,data)
-            vault=Vault()
+            vault=self.vault(app_id)
+            self.native_mark(app_id,data)
+            if previous:self.native_mark(app_id,previous['data'])
             vault.put(name,config)
             try:
                 record=self.store.save_record(app_id,{"id":previous["id"] if previous else None,"version":body.get("version"),"kind":"connection",
                     "title":"Protected "+data["provider"]+" connection","source":"Local protected key setup; access remains untested","data":data})
             except Exception:
                 vault.delete(name)
+                self.native_clear(app_id,data)
                 raise
+            self.native_clear(app_id,data)
             cleanup=self.retire(vault,app_id,previous)
         return {"record":record,"status":"CONFIGURED_UNTESTED","cleanup":cleanup}
 
@@ -93,6 +126,7 @@ class Connections:
         forget(name)
         try:
             vault.delete(name)
+            self.native_clear(app_id,previous['data'])
             return "PRIOR_LOCAL_KEY_REMOVED"
         except Invalid:
             return "PRIOR_LOCAL_KEY_CLEANUP_REQUIRED"
@@ -104,8 +138,9 @@ class Connections:
             if record["version"]!=version:
                 raise Invalid("Connection changed; reload before disconnecting")
             data={**record["data"],"auth_mode":"disconnected"}
+            self.native_mark(app_id,record['data'])
             self.store.save_record(app_id,{**record,"data":data})
-            cleanup=self.retire(Vault(),app_id,record)
+            cleanup=self.retire(self.vault(app_id),app_id,record)
         return {"status":"DISCONNECTED","provider_revocation":"NOT_PERFORMED","cleanup":cleanup}
 
     def cleanup_status(self,app_id,data):
@@ -113,7 +148,7 @@ class Connections:
         if not data.get("credential_ref"):
             return "NO_PROTECTED_KEY"
         try:
-            return "REMOVAL_PENDING" if Vault().get(self.name(app_id,data)) else "NOT_PRESENT"
+            return "REMOVAL_PENDING" if self.vault(app_id).get(self.name(app_id,data)) else "NOT_PRESENT"
         except Invalid:
             return "UNCONFIRMED"
 
@@ -131,7 +166,7 @@ class Connections:
                 status="DISCONNECTED"
             elif data.get("credential_ref"):
                 try:
-                    status="PROTECTED_KEY_PRESENT" if Vault().get(self.name(app_id,data)) else "RECONNECT_REQUIRED"
+                    status="PROTECTED_KEY_PRESENT" if self.vault(app_id).get(self.name(app_id,data)) else "RECONNECT_REQUIRED"
                 except Invalid:
                     status="PROTECTED_STORAGE_UNAVAILABLE"
             result[record["id"]]={"status":status}

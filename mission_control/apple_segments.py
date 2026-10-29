@@ -40,6 +40,8 @@ def read_instance_segments(reader, store_id, report_id, instance_id, downloader=
         manifest.append(dict(id=segment_id,size=size,checksum=checksum.lower(),url=url))
     result=[]
     for item in manifest:
+        from .provider_auth import check_native_page
+        check_native_page()
         data=downloader(item['url'],item['size'],item['checksum'])
         if (not isinstance(data,bytes) or len(data)!=item['size']
                 or hashlib.md5(data,usedforsecurity=False).hexdigest()!=item['checksum']):

@@ -16,6 +16,7 @@ sources.append('WMM/Storage/NativeSnapshotView.swift')
 sources.append('WMM/Agents/NativeAutomationView.swift')
 sources.append('WMM/Agents/NativeHumanReviewView.swift')
 sources.append('WMM/Providers/NativeInsightsView.swift')
+sources.append('WMM/Providers/NativeStoreConnectionView.swift')
 sources.extend(['WMM/Studio/NativeStudioRenderer.swift','WMM/Studio/NativeStudioModel.swift','WMM/Studio/NativeStudioView.swift'])
 files=[ref(p,types(p)) for p in sources]
 testfile=ref('WMMTests/StorageIdentityTests.swift','sourcecode.swift')
