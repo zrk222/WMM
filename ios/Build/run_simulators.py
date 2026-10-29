@@ -5,6 +5,9 @@ from datetime import datetime,timezone
 
 IOS=Path(__file__).resolve().parents[1]
 BOOT_TIMEOUT=300
+# Hosted Intel simulators have exceeded five minutes during cold boot readiness.
+# Keep boot commands bounded separately; a readiness timeout remains a failure.
+BOOT_READY_TIMEOUT=600
 TEST_TIMEOUT=1200
 
 
@@ -27,7 +30,7 @@ def run_device(device,architecture,evidence):
         phase(evidence,family,state)
         subprocess.run(['xcrun','simctl','boot',device['udid']],check=device.get('state')!='Booted',timeout=BOOT_TIMEOUT)
         state='boot readiness';phase(evidence,family,state)
-        subprocess.run(['xcrun','simctl','bootstatus',device['udid'],'-b'],check=True,timeout=BOOT_TIMEOUT)
+        subprocess.run(['xcrun','simctl','bootstatus',device['udid'],'-b'],check=True,timeout=BOOT_READY_TIMEOUT)
         state='compile and test';phase(evidence,family,state)
         completed=subprocess.run(argv,timeout=TEST_TIMEOUT)
         code=completed.returncode
