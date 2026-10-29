@@ -32,7 +32,17 @@ resource limits and a private owner-report structure. Use this same protocol fro
 `operations.read` in CLI, MCP or the admitted in-process client. It is guidance;
 the actual grant, current source versions and runtime checks govern execution.
 
-Lead the owner's report with the result and one next useful action. Include:
+Lead the owner's report with the result and one next useful action.
+
+Read `report.read` (CLI/in-process) or `wmm_report_read` (MCP), with empty input
+and an app-scoped grant permitting that read. It returns the same consolidated
+analytics projection as native Results & reports: `appID`, `sourceHash`,
+`observedAt` and allowlisted metric rows. Cite each row's evidence and preserve
+null observations as unknown. Provider aggregates and Apple downloads remain
+separate from transaction evidence and causal attribution. This read never
+publishes or authorizes delivery to another person.
+
+Include:
 
 - What ran, its current stage, receipt/job ID, artifact and readback time.
 - The primary KPI, baseline, observed value, numerator/denominator, window,

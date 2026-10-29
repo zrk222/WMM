@@ -281,33 +281,17 @@ class Runtime:
 
     def report(self, session, app_id):
         """Project one consistent app-owned read transaction with current authority."""
-        import json
-        from .common import now, iso_time
+        from .common import now
         from .db import connection
-        from .ios_reports import projection
-        from .ledger import report
+        from .ios_reports import snapshot
         from .review_access import member, exact_role
-        from .store import decode
         user = self.identities.fresh(session)
         observed = now()
         with connection(self.service.store.path) as db:
             # Serialize the source snapshot and role check with local mutations.
             db.execute('BEGIN IMMEDIATE')
             role = member(db, app_id, user['principal'], 'OWNER')
-            app = decode(db.execute('SELECT * FROM apps WHERE id=?',(app_id,)).fetchone())
-            records = [decode(r) for r in db.execute('SELECT * FROM records WHERE app_id=? ORDER BY updated,id',(app_id,))]
-            cohorts = [json.loads(r['data']) for r in db.execute('SELECT data FROM growth_cohorts WHERE app_id=? ORDER BY id',(app_id,))]
-            events = [dict(cohort_id=r['cohort_id'],data=json.loads(r['data'])) for r in db.execute('SELECT cohort_id,data FROM growth_events WHERE app_id=? ORDER BY provider,external_id',(app_id,))]
-            reports = [report(c,[r['data'] for r in events if r['cohort_id']==c['cohort_id']],iso_time(observed)) for c in cohorts]
-            from .insights import decoded as insight_decode
-            insight_reports=[insight_decode(r) for r in db.execute(
-                'SELECT * FROM insight_reports WHERE app_id=? ORDER BY rowid DESC LIMIT 300',(app_id,))]
-            from .apple_metrics_store import KEY_FIELDS,read_partition
-            apple_keys=[{field:r[field] for field in KEY_FIELDS} for r in db.execute(
-                'SELECT * FROM apple_metric_partitions WHERE app_id=? AND store_app_id=? ORDER BY event_date,report_id',
-                (app_id,app['data'].get('store_app_id','')))]
-            apple_parts=[read_partition(self.service.store.path,key) for key in apple_keys]
-            result = encode_response(projection(app,records,reports,observed,insight_reports,apple_parts))
+            result = encode_response(snapshot(db,self.service.store,app_id,observed))
             self.identities.local(session,user['principal'],user['session_generation'])
             exact_role(db,app_id,user['principal'],role['version'],'OWNER')
         return result

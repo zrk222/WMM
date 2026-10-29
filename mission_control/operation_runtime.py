@@ -12,6 +12,7 @@ def execute(service,envelope,*,caller='SCOPED_AGENT'):
     from .experiments import Experiments
     from .growth_review_store import GrowthReviews
     from .ledger import Ledger
+    from .ios_reports import read as report_read
     from .worker import jobs
     from .hypit_jobs import HypitRenders
     from .creative_rendering import Renders
@@ -32,6 +33,7 @@ def execute(service,envelope,*,caller='SCOPED_AGENT'):
     app=envelope['app_id'];body=envelope['input'];store=service.store
     resource=envelope.get('resource_id')
     routes={
+        'report.read':lambda:report_read(store,app),
         'workspace.read':lambda:service.workspace(app),
         'evidence.save':lambda:save_evidence(service,app,body),
         'pipeline.prepare':lambda:service.queue(app,body),

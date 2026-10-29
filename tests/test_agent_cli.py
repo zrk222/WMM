@@ -64,6 +64,13 @@ class AgentCLITests(unittest.TestCase):
         self.assertEqual(result.returncode,0)
         self.assertEqual(value[0]['cohort']['cohort_id'],'pilot-1')
 
+    def test_cli_consolidated_report_reuses_app_scope_and_unknown_measurements(self):
+        result,value=self.call('report.read')
+        self.assertEqual(result.returncode,0)
+        self.assertEqual(value['appID'],'sample-one')
+        self.assertIsNone(next(row['observed'] for row in value['rows'] if row['metric']=='App performance'))
+        self.assertEqual(self.call('report.read',app='sample-two')[1]['appID'],'sample-two')
+
     def test_errors_are_json_nonzero_and_rejected_write_leaves_no_entry(self):
         for raw in (b'{',b'{"app_id":"sample-one","app_id":"sample-two"}',b'{"n":NaN}'):
             result,value=self.cli(raw)

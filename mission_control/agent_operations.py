@@ -20,6 +20,7 @@ def discovery(app):
                       "session": "Retain the returned session cookie; send the current csrf value in X-CSRF-Token and the loopback origin for writes. A session is not proof of human approval."},
         "reads": [{"method": "GET", "path": base, "purpose": "Inspect current app-owned workspace, jobs, evidence and resolution options"},
                   {"method": "GET", "path": base + "/measurement", "purpose": "Read current app-owned event reports"},
+                  {"method": "GET", "path": base + "/reports/summary", "purpose": "Read the source-bound consolidated analytics report; unknown observations remain null"},
                   {"method": "GET", "path": base + "/export", "purpose": "Download the private app snapshot only to an authorized local destination"}],
         "supported_resolution_tools": list(tools),
         "resolution_execution": {"method": "POST", "path": base + "/resolutions/approve",
