@@ -89,11 +89,17 @@ def check_ci_contract(root):
     value=json.loads(path.read_text(encoding='utf-8'))
     if value.get('permissions')!={'contents':'read'}:errors.append('Use read-only workflow permissions')
     if 'workflow_dispatch' not in value.get('on',{}):errors.append('Native verification needs an explicit dispatch entry')
+    paths=value.get('on',{}).get('pull_request',{}).get('paths',[])
+    if not isinstance(paths,list) or not {'ios/**','mission_control/**','package/**'}.issubset(paths):
+        errors.append('Native pull-request checks must cover Swift and bundled shared engine changes')
     jobs=value.get('jobs',{})
     contract=jobs.get('contract',{})
     if not any(step.get('run')=='python tools/check_platform_receipts.py --ci-contract' for step in contract.get('steps',[])):
         errors.append('Missing contract validation job')
     native=jobs.get('native-simulators',{})
+    strategy=native.get('strategy',{})
+    if strategy.get('fail-fast') is not False or strategy.get('matrix')!={'family':['iphone','ipad']}:
+        errors.append('Native families require independent mandatory iPhone/iPad workers with fail-fast disabled')
     if native.get('runs-on')!='macos-15-intel' or native.get('needs')!='contract':errors.append('Native profile needs its declared Apple host and contract gate')
     if native.get('if')!="github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'":errors.append('Native profile must run on reviewed pull requests and explicit dispatch')
     if type(native.get('timeout-minutes')) is not int or not 1<=native['timeout-minutes']<=120:errors.append('Native build needs a bounded timeout')
@@ -101,6 +107,8 @@ def check_ci_contract(root):
     if not any(step.get('uses','').startswith('actions/setup-python@') and step.get('with',{}).get('python-version')=='3.13' for step in native.get('steps',[])):
         errors.append('Pinned Apple build tools require the declared Python 3.13 host')
     combined='\n'.join(runs)
+    if 'python3 ios/Build/run_simulators.py --family ${{ matrix.family }}' not in combined:
+        errors.append('Each native worker must execute its exact matrix family')
     steps=native.get('steps',[])
     restores=[s for s in steps if s.get('uses','').startswith('actions/cache/restore@')]
     saves=[s for s in steps if s.get('uses','').startswith('actions/cache/save@')]
@@ -128,6 +136,8 @@ def check_ci_contract(root):
     if len(uploads)!=1:errors.append('Exactly one native evidence upload is required')
     else:
         upload=uploads[0];config=upload.get('with',{})
+        if '${{ matrix.family }}' not in config.get('name',''):
+            errors.append('Native artifacts must distinguish simulator families')
         if upload.get('if')!='always()' or config.get('if-no-files-found')!='error':errors.append('Retain failed runs and reject absent artifacts')
         for artifact in ('ios/build-evidence/**','ios/DerivedData/Logs/Test/**','ios/DerivedData/Build/Products/Debug-iphonesimulator/WMM.app'):
             if artifact not in config.get('path','').splitlines():errors.append('Missing native artifact: '+artifact)

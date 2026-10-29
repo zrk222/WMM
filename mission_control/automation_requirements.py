@@ -3,6 +3,7 @@ import sqlite3
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 import json
+from pathlib import Path
 
 from .common import Invalid, digest, iso_time
 from .db import connection
@@ -12,11 +13,15 @@ from .agent_contract import model_id
 from .review_access import member
 from .social_contract import reference, account_id, provider_id, reported_scopes
 
-MAX_WORKFLOWS = 11
+MAX_WORKFLOWS = 12
 MAX_ACCOUNTS = 20
 FRESH_HOURS = 24
 
 WORKFLOWS = {
+    'native_video_authoring': dict(name='On-device iPhone/iPad video production', operations=[
+        'media.sources','editor.list','editor.read','editor.save','editor.edit','editor.history','editor.diff','editor.renders',
+        'ios.scene.projects','ios.scene.read','ios.scene.save','ios.scene.plan','ios.scene.start','ios.scene.inspect','ios.scene.cancel',
+        'ios.timeline.queue','ios.timeline.inspect','ios.timeline.cancel'], blockers=[]),
     'local_evidence': dict(name='Local evidence and measurement', operations=[
         'workspace.read', 'evidence.save', 'operations.read', 'growth.read',
         'growth.history', 'growth.save', 'customer.history', 'customer.save',
@@ -207,11 +212,13 @@ def renewal_state(value):
     return value if isinstance(value, str) and value in allowed else 'UNKNOWN'
 
 
-def workflow_states(selected, inference, accounts):
+def workflow_states(selected, inference, accounts, native_host=False):
     """Keep incomplete selected workflows visible rather than dropping their effects."""
     result = []
     for identity in selected:
         row = deepcopy(WORKFLOWS[identity])
+        if identity == 'native_video_authoring' and not native_host:
+            row['blockers'].append('CURRENT_NATIVE_DEVICE_HOST_REQUIRED')
         if identity == 'native_screen_render':
             from .native_runtime_identity import identity as native_identity
             row['runtime'] = native_identity()
@@ -254,7 +261,17 @@ def inventory_in_db(db, app_id, user, chosen, observed):
         raise Invalid('App manifest changed; review the current scope')
     profile = inference_profile(db, app_id, chosen['agent_connection_id'], observed)
     accounts = [social_account(db, app_id, identity, observed) for identity in chosen['social_connection_ids']]
-    workflows = workflow_states(chosen['workflows'], profile, accounts)
+    native_host=False
+    if 'native_video_authoring' in chosen['workflows']:
+        from .ios_execution_context import DEVICE_HOST
+        host=DEVICE_HOST.get()
+        if host and host['user']['principal']==user['principal']:
+            databases=db.execute('PRAGMA database_list').fetchall()
+            main=next((row[2] for row in databases if row[1]=='main'),None)
+            if main and Path(main).resolve()==Path(host['store']).resolve():
+                host['identities'].local(host['session'],user['principal'],host['user']['session_generation'])
+                native_host=True
+    workflows = workflow_states(chosen['workflows'], profile, accounts,native_host=native_host)
     return dict(schema='wmm.automation-readiness.v1', selection=chosen,
                 app=dict(id=app_id, version=app['version'], hash=digest(decoded(app))),
                 owner=dict(principal=owner['principal'], role_version=owner['version']),

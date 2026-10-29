@@ -1,6 +1,6 @@
 """Codemagic native simulator runner; selects only actual available device IDs."""
 from pathlib import Path
-import json,platform,subprocess,sys
+import argparse,json,platform,subprocess,sys
 from datetime import datetime,timezone
 
 IOS=Path(__file__).resolve().parents[1]
@@ -23,6 +23,7 @@ def run_device(device,architecture,evidence):
     if result.exists():raise SystemExit(f'Existing {result.name} retained; use a fresh build workspace')
     argv=['xcodebuild','test','-project',str(IOS/'WMM.xcodeproj'),'-scheme','WMM',
           '-destination',f'platform=iOS Simulator,id={device["udid"]}',
+          '-destination-timeout','180',
           '-derivedDataPath',str(IOS/'DerivedData'),'-resultBundlePath',str(result),
           'CODE_SIGNING_ALLOWED=YES','CODE_SIGN_IDENTITY=-','CODE_SIGNING_REQUIRED=YES','ONLY_ACTIVE_ARCH=YES',f'ARCHS={architecture}']
     state='boot';code=0
@@ -50,23 +51,24 @@ def simulator_architecture(machine):
         raise ValueError('Unsupported Apple simulator host architecture')
     return machine
 
-def select_devices(inventory):
+def select_devices(inventory,family=None):
+    if family not in (None,'iphone','ipad'):raise ValueError('Select iphone or ipad explicitly')
     available=[d for runtime,devices in inventory['devices'].items() if 'iOS' in runtime
                for d in devices if d.get('isAvailable') is True]
     chosen=[]
-    for family in ('iPhone','iPad'):
-        matches=[d for d in available if d.get('name','').startswith(family) and d.get('udid')]
-        if not matches:raise ValueError(f'No available {family} simulator; install its platform before claiming coverage')
+    for prefix in (('iPhone','iPad') if family is None else (('iPhone',) if family=='iphone' else ('iPad',))):
+        matches=[d for d in available if d.get('name','').startswith(prefix) and d.get('udid')]
+        if not matches:raise ValueError(f'No available {prefix} simulator; install its platform before claiming coverage')
         # Inventory order is not a contract. Keep selection reproducible within a host.
         chosen.append(sorted(matches,key=lambda d:(d['name'],d['udid']))[0])
     return chosen
 
-def main():
+def main(family=None):
     if platform.system()!='Darwin':raise SystemExit('Simulator tests NOT_RUN: Apple host required')
     architecture=simulator_architecture(platform.machine())
     evidence=IOS/'build-evidence';evidence.mkdir(exist_ok=True)
     raw=subprocess.check_output(['xcrun','simctl','list','devices','available','-j'],text=True)
-    inventory=json.loads(raw);devices=select_devices(inventory)
+    inventory=json.loads(raw);devices=select_devices(inventory,family)
     (evidence/'selected-simulators.json').write_text(json.dumps(devices,indent=2),encoding='utf-8')
     outcomes=[]
     for device in devices:
@@ -84,6 +86,10 @@ def main():
     # evidence. Collect both actual inventories and retain each exit code.
     failed=next((item['exit_code'] for item in outcomes if item['exit_code']),0)
     if failed:raise SystemExit(failed)
-    print('iPhone and iPad simulator test commands passed; inspect xcresult coverage. Physical device acceptance NOT_RUN.')
+    label='iPhone and iPad' if family is None else ('iPhone' if family=='iphone' else 'iPad')
+    print(f'{label} simulator test commands passed; inspect xcresult coverage. Other profiles and physical device acceptance are not established by this command.')
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--family',choices=('iphone','ipad'))
+    main(parser.parse_args().family)

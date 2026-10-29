@@ -8,6 +8,7 @@ from .common import canonical,digest
 
 REQUEST=ContextVar('wmm_operation_authority',default=None)
 PROTECTED=ContextVar('wmm_protected_operation',default=None)
+NATIVE_MEDIA_CHECKING=ContextVar('wmm_native_media_checking',default=False)
 
 
 def utc():return datetime.now(timezone.utc)
@@ -105,6 +106,13 @@ def guard_connection(path,db):
     if str(Path(path).resolve())!=context['store']:
         raise PermissionError('Protected operation cannot cross its local datastore')
     check(db,context)
+    if context.get('native_media_checks') and not NATIVE_MEDIA_CHECKING.get():
+        from .ios_agent_media import check_authority
+        token=NATIVE_MEDIA_CHECKING.set(True)
+        try:
+            for app_id,kind,job_id in context['native_media_checks']:
+                check_authority(db,app_id,kind,job_id)
+        finally:NATIVE_MEDIA_CHECKING.reset(token)
 
 
 @contextmanager

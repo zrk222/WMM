@@ -83,6 +83,24 @@ Provider permissions, memory, instructions and skills do not grant WMM authority
 The local server remains authoritative. This guide does not install a connector,
 schedule a task, contact an agent or implement every product workflow.
 
+## Native standing video scope
+
+In the iPhone/iPad app, the owner can select **On-device iPhone/iPad video
+production** in standing controls after connecting and testing a protected
+inference profile. Review the exact operations, expiry and call/concurrency
+limits before switching the scope on. This scope uses existing local editor,
+scene and timeline operations; it does not authorize desktop renderers,
+publication or paid provider effects.
+
+Keep the saved job identity when a render is interrupted. Pending native renders
+occupy the approved concurrency allowance until completed or cancelled. Turning
+the scope off cancels its pending native jobs. Source access and decoded-output
+commit recheck the originating execution, current scope, grant and protected key.
+Previously completed owner artifacts remain available with current source/rights
+checks. Report those output receipts separately from publication or measured app
+sales. The configured Agent work screen still requests confirmation for each
+model transmission; a local standing scope does not remove that requirement.
+
 ## Official sources reviewed
 
 Profiles reviewed on 2026-10-28 also cover **Codex / ChatGPT Dots** and

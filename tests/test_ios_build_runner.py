@@ -13,6 +13,38 @@ builder=importlib.util.module_from_spec(buildspec);buildspec.loader.exec_module(
 
 
 class SimulatorSelectionTests(unittest.TestCase):
+    def test_isolated_family_does_not_depend_on_the_other_family(self):
+        inventory={'devices':{'iOS':[{'name':'iPad Test','udid':'tablet','isAvailable':True}]}}
+        self.assertEqual([d['udid'] for d in runner.select_devices(inventory,'ipad')],['tablet'])
+        with self.assertRaisesRegex(ValueError,'iPhone'):runner.select_devices(inventory,'iphone')
+        for invalid in ('tablet','all','',True):
+            with self.assertRaises(ValueError):runner.select_devices(inventory,invalid)
+
+    def test_one_family_command_records_only_actual_profile_and_bounded_discovery(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from types import SimpleNamespace
+        inventory={'devices':{'iOS':[{'name':'iPad Test','udid':'tablet','isAvailable':True}]}}
+        with tempfile.TemporaryDirectory() as folder:
+            commands=[];output=StringIO()
+            def execute(argv,**kwargs):
+                commands.append(argv)
+                if argv[0]=='xcodebuild':Path(argv[argv.index('-resultBundlePath')+1]).mkdir()
+                return SimpleNamespace(returncode=0)
+            with patch.object(runner,'IOS',Path(folder)),patch.object(runner.platform,'system',return_value='Darwin'), \
+                 patch.object(runner.platform,'machine',return_value='x86_64'), \
+                 patch.object(runner.subprocess,'check_output',return_value=json.dumps(inventory)), \
+                 patch.object(runner.subprocess,'run',side_effect=execute),redirect_stdout(output):
+                runner.main('ipad')
+            outcomes=json.loads((Path(folder)/'build-evidence/simulator-outcomes.json').read_text())
+            self.assertEqual([item['family'] for item in outcomes],['ipad'])
+            self.assertEqual(outcomes[0]['exit_code'],0)
+            tests=[command for command in commands if command[0]=='xcodebuild']
+            self.assertEqual(len(tests),1)
+            self.assertEqual(tests[0][tests[0].index('-destination-timeout')+1],'180')
+            self.assertIn('iPad simulator test commands passed',output.getvalue())
+            self.assertNotIn('iPhone and iPad simulator test commands passed',output.getvalue())
+
     def test_timeouts_record_exact_phase_and_cannot_pass(self):
         import subprocess
         from types import SimpleNamespace

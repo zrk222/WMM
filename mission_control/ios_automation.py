@@ -9,6 +9,11 @@ from .ios_bridge import decode_document, encode_response
 # These are the only workflow operations inspected for this bounded adapter.
 # A catalog change fails closed until the native compatibility review is updated.
 NATIVE_WORKFLOWS = {
+    'native_video_authoring': frozenset({
+        'media.sources','editor.list','editor.read','editor.save','editor.edit','editor.history','editor.diff','editor.renders',
+        'ios.scene.projects','ios.scene.read','ios.scene.save','ios.scene.plan','ios.scene.start','ios.scene.inspect','ios.scene.cancel',
+        'ios.timeline.queue','ios.timeline.inspect','ios.timeline.cancel',
+    }),
     'pipeline_preparation': frozenset({'pipeline.prepare', 'jobs.read', 'job.cancel'}),
     'experiment_preparation': frozenset({
         'experiment.register', 'experiment.evaluate', 'experiment.action',
@@ -76,7 +81,8 @@ def native_access(service, identities, session, vault_callback):
             raise Invalid('Reconnect the protected key before activation')
         identities.local(session, user['principal'], user['session_generation'])
 
-    with bound_access_verifier(verify, service.store):
+    from .ios_execution_context import native_device_context
+    with native_device_context(service,identities,session),bound_access_verifier(verify, service.store):
         yield
 
 
@@ -89,6 +95,7 @@ class NativeAutomation:
     def manage(self, session, app_id, action, payload):
         from .complete_automation import Automation, proposal_data, utc
         from .operation_authority import bound_owner, protected
+        from .ios_execution_context import native_device_context
         body = decode_document(payload)
         if not isinstance(body, dict) or action not in ('preview', 'activate', 'status', 'off'):
             raise Invalid('Choose a fixed native standing authority action')
@@ -100,7 +107,7 @@ class NativeAutomation:
             raise Invalid('Confirm the exact standing approval revision to switch OFF')
         user = self.identities.fresh(session)
         envelope = dict(app_id=app_id, operation='native.automation.' + action, input=body)
-        with bound_owner(self.service.store, envelope, self.identities, session, user):
+        with native_device_context(self.service,self.identities,session),bound_owner(self.service.store, envelope, self.identities, session, user):
             with protected(self.service.store, envelope):
                 automation = Automation(self.service.store)
                 if action in ('preview', 'activate'):

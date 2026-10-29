@@ -81,7 +81,7 @@ class StandingAuthorityTests(AuthorityFixture, unittest.TestCase):
             self.assertEqual(db.execute('SELECT count(*) FROM automation_policies').fetchone()[0], 1)
             self.assertEqual(db.execute('SELECT token_hash FROM agent_grants').fetchone()[0], token_digest(issued['token']))
         public = self.automation.status('sample-one', OWNER)
-        self.assertEqual(len(public['catalog']['workflows']),11)
+        self.assertEqual(len(public['catalog']['workflows']),12)
         self.assertEqual(public['policies'][0]['usage']['used'],0)
         self.assertNotIn('token_hash',json.dumps(public))
         self.assertNotIn(issued['token'], json.dumps(public))

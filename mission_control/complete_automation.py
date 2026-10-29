@@ -156,8 +156,12 @@ def inflight(db, policy_id):
     """Count an execution and its pending job once, preserving inspection/cancel access."""
     rows = db.execute("""SELECT id,operation FROM automation_executions WHERE policy_id=? AND status IN ('ADMITTED','DISPATCHED')
         UNION SELECT e.id,e.operation FROM automation_executions e JOIN automation_job_scopes s ON s.execution_id=e.id
-        JOIN jobs j ON j.id=s.job_id WHERE e.policy_id=? AND j.status IN ('QUEUED','RUNNING')""",
-                      (policy_id, policy_id)).fetchall()
+        JOIN jobs j ON j.id=s.job_id WHERE e.policy_id=? AND j.status IN ('QUEUED','RUNNING')
+        UNION SELECT e.id,e.operation FROM automation_executions e JOIN ios_agent_media_standing s ON s.execution_id=e.id
+        JOIN ios_studio_jobs j ON j.app_id=s.app_id AND j.id=s.job_id WHERE e.policy_id=? AND s.kind='scene' AND j.status='PREPARED'
+        UNION SELECT e.id,e.operation FROM automation_executions e JOIN ios_agent_media_standing s ON s.execution_id=e.id
+        JOIN ios_agent_timeline_jobs j ON j.app_id=s.app_id AND j.id=s.job_id WHERE e.policy_id=? AND s.kind='timeline' AND j.status='PREPARED'""",
+                      (policy_id, policy_id, policy_id, policy_id)).fetchall()
     return sum(not control_effect(OPERATIONS[row['operation']]['effect']) for row in rows)
 
 
@@ -268,6 +272,10 @@ def cancel_work(db, policy_id, stamp):
     count = 0
     for identity in jobs:
         count += db.execute("UPDATE jobs SET status='CANCELLED',updated=? WHERE id=? AND status IN ('QUEUED','RUNNING')", (stamp, identity)).rowcount
+    for kind,table in (('scene','ios_studio_jobs'),('timeline','ios_agent_timeline_jobs')):
+        owned=db.execute('SELECT s.app_id,s.job_id FROM ios_agent_media_standing s JOIN automation_executions e ON e.id=s.execution_id WHERE e.policy_id=? AND s.kind=?',(policy_id,kind)).fetchall()
+        for row in owned:
+            count+=db.execute(f"UPDATE {table} SET status='CANCELLED',updated=? WHERE app_id=? AND id=? AND status='PREPARED'",(stamp,row['app_id'],row['job_id'])).rowcount
     db.execute("UPDATE automation_executions SET status=CASE WHEN status='ADMITTED' THEN 'CANCELLED' ELSE 'CANCEL_REQUESTED' END,updated=? WHERE policy_id=? AND status IN ('ADMITTED','DISPATCHED')", (stamp, policy_id))
     return dict(owned_jobs_stopped=count, dispatched_effects='INSPECT_RECEIPTS_NOT_UNDONE')
 

@@ -73,7 +73,7 @@ class AutomationReadinessTests(unittest.TestCase):
         catalog = workflow_catalog()
         mapped = {name for row in catalog['workflows'].values() for name in row['operations']}
         self.assertEqual(mapped, set(OPERATIONS))
-        self.assertEqual(len(catalog['workflows']), 11)
+        self.assertEqual(len(catalog['workflows']), 12)
         catalog['workflows']['local_evidence']['operations'].clear()
         self.assertTrue(workflow_catalog()['workflows']['local_evidence']['operations'])
         with patch.dict(OPERATIONS, {'new.unmapped': dict(effect='NEW_EFFECT')}):
