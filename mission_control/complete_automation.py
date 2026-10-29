@@ -1,5 +1,7 @@
 """Owner-confirmed standing local authority; incomplete workflow effects stay blocked."""
 from datetime import datetime, timedelta, timezone
+from contextlib import contextmanager
+from contextvars import ContextVar
 import json
 import re
 import secrets
@@ -16,6 +18,23 @@ MAX_CALLS = 10000
 MAX_INFLIGHT = 8
 MAX_HOURS = 24
 SPEND_LIMIT_MINOR = 0
+ACCESS_VERIFIER = ContextVar('wmm_automation_access_verifier', default=None)
+ACCESS_VERIFYING = ContextVar('wmm_automation_access_verifying', default=False)
+ACCESS_STORE = ContextVar('wmm_automation_access_store', default=None)
+
+
+@contextmanager
+def bound_access_verifier(verifier, store):
+    """Trusted host-only override, scoped to the synchronous call and its commits."""
+    if not callable(verifier):
+        raise TypeError('A trusted automation access verifier is required')
+    token = ACCESS_VERIFIER.set(verifier)
+    store_token = ACCESS_STORE.set(store)
+    try:
+        yield
+    finally:
+        ACCESS_STORE.reset(store_token)
+        ACCESS_VERIFIER.reset(token)
 
 
 def utc():
@@ -69,6 +88,13 @@ def scope_summary(db, app_id, user, proposal, observed):
 
 def verify_access(store, app_id, identity):
     """Check protected access and official signed-in tool identity without inference."""
+    verifier = ACCESS_VERIFIER.get()
+    if verifier is not None:
+        token = ACCESS_VERIFYING.set(True)
+        try:
+            return verifier(store, app_id, identity)
+        finally:
+            ACCESS_VERIFYING.reset(token)
     from .agent_access import AgentAccess
     from .agent_registry import KEYED, NATIVE
     from .agent_native import identity as native_identity
@@ -107,6 +133,11 @@ def checked_policy(db, policy_id, observed):
     if grant is None:
         raise PermissionError('Standing agent grant is unavailable')
     current(db, grant, dict(app_id=row['app_id'], operation=summary['operations'][0]), observed, check_quota=False)
+    # The trusted native verifier is also checked at protected business commit.
+    # Its scoped reads re-enter this guard and must not recursively verify again.
+    if ACCESS_VERIFIER.get() is not None and not ACCESS_VERIFYING.get():
+        verify_access_from_policy = summary['inventory']['selection']['agent_connection_id']
+        verify_access(ACCESS_STORE.get(), row['app_id'], verify_access_from_policy)
     return dict(row), summary
 
 
@@ -199,6 +230,10 @@ class Automation:
             db.execute('INSERT INTO automation_policies VALUES(?,?,?,?,?,?,?,?,?,?,?)',
                        (identity, app_id, issued['grant']['id'], user['principal'], 1, 'ACTIVE', canonical(proposal), canonical(summary), digest(summary), observed.isoformat(), observed.isoformat()))
             audit(db, app_id, 'automation.owner_confirmed', dict(policy_id=identity, summary_hash=digest(summary), owner=user['principal']))
+            # Native protected storage can lock after the initial read. Recheck
+            # within the writer transaction before the protected commit guard.
+            if ACCESS_VERIFIER.get() is not None:
+                verify_access(self.store, app_id, proposal['selection']['agent_connection_id'])
         return dict(policy_id=identity, version=1, status='ACTIVE', summary=summary, **issued)
 
     def off(self, app_id, user, body):

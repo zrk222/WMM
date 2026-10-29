@@ -34,12 +34,24 @@ class NativeCIContractTests(unittest.TestCase):
         self.assertEqual(result['physical_acceptance'],'NOT_ESTABLISHED')
 
     def test_deleted_stage_fails_and_missing_script_fails(self):
-        for stage in (2,3,4,5):
+        for stage in range(2,9):
             changed=copy.deepcopy(self.value)
             del changed['jobs']['native-simulators']['steps'][stage]
             with self.subTest(stage=stage):self.assertEqual(self.check(changed)['state'],'INCOMPLETE')
         (self.root/'ios/Build/run_simulators.py').unlink()
         self.assertEqual(self.check(self.value)['state'],'INCOMPLETE')
+
+    def test_runtime_cache_cannot_restore_broad_or_skip_verification(self):
+        for mutation in ('broad','toolchain','paths','order','save'):
+            value=copy.deepcopy(self.value);steps=value['jobs']['native-simulators']['steps']
+            restore=next(s for s in steps if s.get('id')=='runtime_cache')
+            save=next(s for s in steps if s.get('uses','').startswith('actions/cache/save@'))
+            if mutation=='broad':restore['with']['restore-keys']='wmm-runtime-'
+            elif mutation=='toolchain':restore['with']['key']='wmm-runtime'
+            elif mutation=='paths':restore['with']['path']='ios/'
+            elif mutation=='order':steps.remove(save);steps.insert(0,save)
+            else:save['if']='always()'
+            with self.subTest(mutation=mutation):self.assertEqual(self.check(value)['state'],'INCOMPLETE')
 
     def test_wrong_host_unpinned_action_and_ignored_failure_fail(self):
         for change in ('host','python','pin','ignore','dispatch','dependency'):

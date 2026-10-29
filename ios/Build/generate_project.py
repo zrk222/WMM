@@ -13,6 +13,7 @@ def build(name,file,**extra):return obj(name,'PBXBuildFile',fileRef=file,**extra
 sources=['WMM/Workflow/NativeEvidenceView.swift','WMM/WMMApp.swift','WMM/Workflow/WorkflowNavigation.swift','WMM/Workflow/NativeWorkspaceModel.swift','WMM/Identity/KeychainVault.swift','WMM/Identity/LocalIdentity.swift','WMM/Identity/NativeSessionAuthority.swift','WMM/Bridge/DomainBridge.swift','WMM/Agents/ScopedAgentRuntime.swift','WMM/Agents/NativeAgentAccessView.swift','WMM/Jobs/LocalScheduler.swift','WMM/Jobs/NativeJobsView.swift','WMM/Providers/ProviderAuthentication.swift','WMM/Providers/NativeProviderView.swift','WMM/Agents/NativeInferenceView.swift','WMM/Storage/LocalStore.swift','WMM/Bridge/EngineBootstrap.m','WMM/Media/TimelineRenderer.swift','WMM/Media/MediaInspector.swift','WMM/Media/MediaIntake.swift','WMM/Media/NativeMediaLibrary.swift','WMM/Media/NativeEditorModel.swift','WMM/Media/NativeEditorView.swift','WMM/Reports/ReportExport.swift','WMM/Reports/NativeResultsView.swift']
 types=lambda p:'sourcecode.c.objc' if p.endswith('.m') else 'sourcecode.swift'
 sources.append('WMM/Storage/NativeSnapshotView.swift')
+sources.append('WMM/Agents/NativeAutomationView.swift')
 files=[ref(p,types(p)) for p in sources]
 testfile=ref('WMMTests/StorageIdentityTests.swift','sourcecode.swift')
 intaketest=ref('WMMTests/ProviderIntakeTests.swift','sourcecode.swift')

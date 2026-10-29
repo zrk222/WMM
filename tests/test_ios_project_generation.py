@@ -37,6 +37,12 @@ class NativeProjectGenerationTests(unittest.TestCase):
                 target_ids.add(target['identifier'])
             self.assertEqual(len(target_ids),1)
             text=(project/'project.pbxproj').read_text(encoding='utf-8')
+            # A new native control must ship in the app target, not merely exist
+            # in the repository beside a passing generated project.
+            for source in (ROOT/'ios/WMM').rglob('*'):
+                if source.suffix in ('.swift','.m'):
+                    relative=source.relative_to(ROOT/'ios').as_posix()
+                    self.assertIn(json.dumps(relative),text,relative+' is omitted from the native target')
             self.assertIn('"WMMTests/EngineBootstrapTests.swift"',text)
             self.assertIn('"WMMTests/BridgeAgentTests.swift"',text)
             self.assertIn('"WMM/Bridge/DomainBridge.swift"',text)

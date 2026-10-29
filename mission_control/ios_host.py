@@ -74,6 +74,10 @@ class Runtime:
         from .ios_inference import NativeInference
         return NativeInference(self.service,self.identities,self.vault_callback).call(session,app_id,action,payload)
 
+    def native_automation(self,session,app_id,action,payload):
+        from .ios_automation import NativeAutomation
+        return NativeAutomation(self.service,self.identities,self.vault_callback).manage(session,app_id,action,payload)
+
     def evidence_form(self,session,app_id):
         """Expose shared evidence fields without connection records or credentials."""
         from .catalog import FIELDS,LABELS
@@ -100,7 +104,9 @@ class Runtime:
 
     def native_agent_call(self, session, credential, payload):
         from .ios_agent_access import NativeAgentAccess
-        return NativeAgentAccess(self.service, self.identities).call(session, credential, payload)
+        from .ios_automation import native_access
+        with native_access(self.service,self.identities,session,self.vault_callback):
+            return NativeAgentAccess(self.service, self.identities).call(session, credential, payload)
 
     def native_media_upload(self,session,app_id,filename,raw,payload,inspection):
         from .ios_media_adapter import NativeMediaAdapter,inspection_from_native

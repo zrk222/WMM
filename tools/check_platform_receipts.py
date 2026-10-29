@@ -101,6 +101,24 @@ def check_ci_contract(root):
     if not any(step.get('uses','').startswith('actions/setup-python@') and step.get('with',{}).get('python-version')=='3.13' for step in native.get('steps',[])):
         errors.append('Pinned Apple build tools require the declared Python 3.13 host')
     combined='\n'.join(runs)
+    steps=native.get('steps',[])
+    restores=[s for s in steps if s.get('uses','').startswith('actions/cache/restore@')]
+    saves=[s for s in steps if s.get('uses','').startswith('actions/cache/save@')]
+    if len(restores)!=1 or len(saves)!=1:
+        errors.append('Exact runtime cache requires one restore and one save')
+    else:
+        restore=restores[0];save=saves[0];config=restore.get('with',{})
+        for identity in ('runner.os','runner.arch','steps.toolchain.outputs.xcode','ios/Build/Runtime.lock','ios/Build/build_runtime.py'):
+            if identity not in config.get('key',''):errors.append('Runtime cache missing identity: '+identity)
+        expected_paths='ios/Python.xcframework\nios/runtime-cache.json'
+        if config.get('path')!=expected_paths or save.get('with',{}).get('path')!=expected_paths or config.get('restore-keys'):
+            errors.append('Runtime cache must use exact key and framework/receipt paths only')
+        builds=[s for s in steps if 'python3 ios/Build/build_runtime.py' in s.get('run','')]
+        tests=[s for s in steps if 'python3 ios/Build/run_simulators.py' in s.get('run','')]
+        if len(builds)!=1 or len(tests)!=1 or not steps.index(restore)<steps.index(builds[0])<steps.index(save)<steps.index(tests[0]):
+            errors.append('Verify restored runtime before saving and testing')
+        if save.get('with',{}).get('key')!='${{ steps.runtime_cache.outputs.cache-primary-key }}' or save.get('if')!="steps.runtime_cache.outputs.cache-hit != 'true'":
+            errors.append('Save only the exact verified runtime cache key')
     for script in ('build_runtime.py','generate_project.py','run_simulators.py'):
         if not (root/'ios/Build'/script).is_file() or not any('python3 ios/Build/'+script in run and run.startswith('set -euo pipefail\n') for run in runs):
             errors.append('Missing fail-closed native stage: '+script)
@@ -117,7 +135,7 @@ def check_ci_contract(root):
         if job.get('continue-on-error'):errors.append('Native gate failures must not be ignored')
         for step in job.get('steps',[]):
             if step.get('continue-on-error'):errors.append('Native gate failures must not be ignored')
-            if 'uses' in step and not re.fullmatch(r'actions/[a-z-]+@[0-9a-f]{40}',step['uses']):errors.append('Actions must use exact commit pins')
+            if 'uses' in step and not re.fullmatch(r'actions/(?:[a-z-]+|cache/(?:restore|save))@[0-9a-f]{40}',step['uses']):errors.append('Actions must use exact commit pins')
     return dict(state='INCOMPLETE' if errors else 'CI_CONTRACT_VALID',errors=errors,
                 certifies_runtime=False,native_execution='NOT_ESTABLISHED',physical_acceptance='NOT_ESTABLISHED',
                 limits='Configuration inspection only. A manual Apple-host execution and physical iPhone/iPad acceptance remain separate requirements.')
