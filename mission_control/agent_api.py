@@ -16,7 +16,7 @@ def request(profile,key,prompt,max_tokens=2048,alive=lambda:None):
     return public_request(profile,key,prompt,max_tokens,alive)
 
 
-def public_request(profile,key,prompt,max_tokens,alive):
+def public_request(profile,key,prompt,max_tokens,alive,*,parse=draft):
     """Retain pinned public HTTPS inference for the existing keyed adapters."""
     url=public_url(profile['endpoint']);parts=urlsplit(url)
     anthropic=profile['provider']=='anthropic_api'
@@ -43,7 +43,15 @@ def public_request(profile,key,prompt,max_tokens,alive):
     alive();value=strict_json(raw)
     text=message(value,anthropic)
     if key in text:raise Invalid('Provider echoed a protected key; output was rejected')
-    return draft(strict_json(text.encode())),value.get('usage')
+    return parse(strict_json(text.encode())),value.get('usage')
+
+
+def request_turn(profile,key,prompt,max_tokens=1024,alive=lambda:None):
+    """One native tool-proposal turn over the same pinned, no-redirect transport."""
+    if profile['provider'] not in ('openai_api','anthropic_api','compatible_api'):
+        raise Invalid('This native turn requires a configured HTTPS API provider')
+    from .ios_agent_loop import parse_turn
+    return public_request(profile,key,prompt,max_tokens,alive,parse=parse_turn)
 
 
 def message(value,anthropic):

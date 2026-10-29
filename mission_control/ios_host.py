@@ -108,6 +108,10 @@ class Runtime:
         from .ios_inference import NativeInference
         return NativeInference(self.service,self.identities,self.vault_callback).call(session,app_id,action,payload)
 
+    def native_agent_loop(self,session,app_id,action,payload):
+        from .ios_agent_loop import NativeAgentLoop
+        return NativeAgentLoop(self.service,self.identities,self.vault_callback).call(session,app_id,action,payload)
+
     def native_automation(self,session,app_id,action,payload):
         from .ios_automation import NativeAutomation
         return NativeAutomation(self.service,self.identities,self.vault_callback).manage(session,app_id,action,payload)

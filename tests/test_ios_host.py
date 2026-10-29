@@ -53,6 +53,17 @@ class NativeRuntimeTests(unittest.TestCase):
         body.update(extra)
         return json.dumps(body).encode()
 
+    def test_native_agent_turn_host_requires_current_owner_and_fixed_action(self):
+        self.runtime.create_workspace(self.session,self.creation())
+        self.assertEqual(json.loads(self.runtime.native_agent_loop(self.session,'new-app','history',b'{}')),{'items':[]})
+        with self.assertRaises(Invalid):
+            self.runtime.native_agent_loop(self.session,'new-app','approve',b'{}')
+        with self.assertRaises(PermissionError):
+            self.runtime.native_agent_loop(self.session,'other','history',b'{}')
+        self.available=False
+        with self.assertRaises(PermissionError):
+            self.runtime.native_agent_loop(self.session,'new-app','history',b'{}')
+
     def test_creation_and_owner_are_atomic_idempotent_and_persisted(self):
         from mission_control.db import connection
         payload=self.creation()

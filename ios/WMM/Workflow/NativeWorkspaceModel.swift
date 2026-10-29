@@ -490,6 +490,39 @@ final class NativeWorkspaceModel: ObservableObject {
         })
     }
 
+    func makeAgentLoop() -> NativeAgentLoopModel? {
+        guard unlocked, let app = snapshot?.app, let bridge, let session else { return nil }
+        do {
+            let databaseID = try installationID("wmm.local-database-id")
+            let appNamespace = try installationID("wmm.agent-namespace." + app.id)
+            let runtime = ScopedAgentRuntime(bridge: bridge, session: session,
+                vault: KeychainVault(databaseID: databaseID, appID: appNamespace))
+            agentRuntime = runtime
+            let ticket = generation
+            func current() throws {
+                guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            }
+            return NativeAgentLoopModel(appID: app.id, execute: { [weak self] action, request in
+                guard self != nil else { throw DomainBridge.Failure.closed }; try current()
+                let result: Data
+                switch action {
+                case "profiles": result = try await bridge.providers(session: session, appID: app.id, action: "view", request: request)
+                case "grants": result = try await bridge.agentAccess(session: session, appID: app.id, action: "list", request: request)
+                case "api_mode": result = try await bridge.inference(session: session, appID: app.id, action: "mode", request: request)
+                default: result = try await bridge.agentLoop(session: session, appID: app.id, action: action, request: request)
+                }
+                try current(); return result
+            }, dispatch: { grant, request in
+                try current(); let result = try await runtime.call(grantID: grant, request: request); try current(); return result
+            }, review: { grant, action, request in
+                try current(); let result = try await runtime.review(grantID: grant, action: action, request: request); try current(); return result
+            }, teardown: { await runtime.cancel() })
+        } catch {
+            message = "Agent work could not open its app-scoped Keychain namespace. Unlock and refresh your saved grants."
+            return nil
+        }
+    }
+
     func makeEvidence() -> NativeEvidenceModel? {
         guard unlocked, let app = snapshot?.app, let bridge, let session else { return nil }
         let ticket = generation

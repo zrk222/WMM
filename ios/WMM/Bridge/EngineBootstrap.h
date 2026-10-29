@@ -70,6 +70,9 @@ typedef NSData * _Nullable (^WMMNativeVaultCallback)(NSData *request);
 + (nullable NSData *)inference:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
                          action:(NSString *)action request:(NSData *)request error:(NSError **)error
     NS_SWIFT_NAME(inference(handle:session:appID:action:request:));
++ (nullable NSData *)agentLoop:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                         action:(NSString *)action request:(NSData *)request error:(NSError **)error
+    NS_SWIFT_NAME(agentLoop(handle:session:appID:action:request:));
 + (nullable NSData *)providers:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
                          action:(NSString *)action request:(NSData *)request error:(NSError **)error
     NS_SWIFT_NAME(providers(handle:session:appID:action:request:));
