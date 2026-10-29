@@ -3,6 +3,32 @@ import XCTest
 
 final class NativeAgentLoopTests: XCTestCase {
     @MainActor
+    func testReservedReviewRecoveryUsesStableIdentityWithoutDispatchOrReservation() async throws {
+        let grantID = UUID().uuidString.lowercased(), turnID = UUID().uuidString.lowercased()
+        let envelope: [String: Any] = ["app_id": "loop-fixture", "operation": "evidence.save", "input": [:]]
+        var checkpointIDs: [String] = []
+        let model = NativeAgentLoopModel(appID: "loop-fixture", execute: { action, _ in
+            XCTAssertEqual(action, "read")
+            return try NativeAgentLoopModel.bytes(["id": turnID, "status": "SUCCEEDED", "tool_dispatch": "RESERVED_RECONCILE_REQUIRED",
+                "data": ["request": ["grant_id": grantID]], "result": ["turn": ["kind": "tool", "envelope": envelope]]])
+        }, dispatch: { _, _ in XCTFail("Recovery dispatched business action"); throw DomainBridge.Failure.invalidRequest },
+           review: { actualGrant, action, request in
+            XCTAssertEqual(actualGrant, grantID); XCTAssertEqual(action, "prepare")
+            let body = try NativeAgentLoopModel.object(request)
+            checkpointIDs.append(try XCTUnwrap(body["id"] as? String))
+            let actualEnvelope = try XCTUnwrap(body["envelope"] as? [String: Any])
+            XCTAssertEqual(try NativeAgentLoopModel.bytes(actualEnvelope), try NativeAgentLoopModel.bytes(envelope))
+            return try NativeAgentLoopModel.bytes(["id": "turn-" + turnID])
+        }, teardown: {})
+        await model.open(turnID); await model.prepareReservedReview()
+        await model.open(turnID); await model.prepareReservedReview()
+        XCTAssertEqual(checkpointIDs, ["turn-" + turnID, "turn-" + turnID])
+        XCTAssertFalse(model.canDispatch)
+        XCTAssertTrue(model.message?.contains("Checkpoint retained") == true)
+        await model.close()
+    }
+
+    @MainActor
     func testAgentTurnHistoryUsesBundledEngineAndCurrentUnlockedOwner() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }

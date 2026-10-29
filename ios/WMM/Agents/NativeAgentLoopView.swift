@@ -128,7 +128,7 @@ final class NativeAgentLoopModel: ObservableObject, Identifiable {
             let result: Data
             if grant.review_operations.contains(operation) {
                 activity = "Saving the independent human checkpoint…"
-                reviewID = UUID().uuidString.lowercased()
+                reviewID = "turn-" + identity
                 result = try await review(grantID, "prepare", Self.bytes(["id": reviewID, "envelope": envelope]))
                 message = "Human checkpoint saved as \(reviewID). Open Human review for the independent check, then inspect this exact checkpoint here. No business action has run."
             } else {
@@ -138,6 +138,17 @@ final class NativeAgentLoopModel: ObservableObject, Identifiable {
             }
             guard !closed else { throw DomainBridge.Failure.closed }
             toolReceipt = Self.display(try Self.object(result)); try await load()
+        }
+    }
+    func prepareReservedReview() async {
+        guard canContinue, let identity = jobID, let envelope = proposedEnvelope,
+              let grantID = savedRequest?["grant_id"] as? String else { return }
+        await perform("Creating or reading this reserved action's exact checkpoint…") {
+            let checkpoint = "turn-" + identity
+            let result = try await review(grantID, "prepare", Self.bytes(["id": checkpoint, "envelope": envelope]))
+            guard !closed else { throw DomainBridge.Failure.closed }
+            reviewID = checkpoint; toolReceipt = Self.display(try Self.object(result))
+            message = "Checkpoint retained. Complete its independent check in Human review, then inspect this exact checkpoint. This does not repeat the business action."
         }
     }
     func inspectReview(_ identity: String, resume: Bool) async {
@@ -250,6 +261,7 @@ struct NativeAgentLoopView: View {
                     if model.canContinue {
                         Section("Human checkpoint and next turn") {
                             Text("Saved checkpoint: \(model.reviewID.isEmpty ? "Inspect Human review for this app" : model.reviewID)").textSelection(.enabled)
+                            Button("Create or recover required checkpoint") { Task { await model.prepareReservedReview() } }.disabled(model.busy)
                             TextField("Exact checkpoint ID to inspect", text: $checkpoint).textInputAutocapitalization(.never).autocorrectionDisabled()
                             Button("Inspect checkpoint") { Task { await model.inspectReview(checkpoint.isEmpty ? model.reviewID : checkpoint, resume: false) } }.disabled(model.busy)
                             Button("Complete or reconcile approved checkpoint") { Task { await model.inspectReview(checkpoint.isEmpty ? model.reviewID : checkpoint, resume: true) } }.disabled(model.busy)
