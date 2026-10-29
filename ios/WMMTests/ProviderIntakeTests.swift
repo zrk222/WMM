@@ -4,6 +4,49 @@ import PDFKit
 @testable import WMM
 
 final class ProviderIntakeTests: XCTestCase {
+    func testPostHogKeychainBindingRejectsForeignScopeAndKeepsInferenceSeparate() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = try LocalStore(applicationSupport: folder, databaseID: UUID())
+        let storage = try ProviderAuthentication(database: store.database)
+        let digest = SHA256.hash(data: Data(store.database.standardizedFileURL.resolvingSymlinksInPath().path.utf8))
+            .map { String(format: "%02x", $0) }.joined()
+        let target = "AppGrowthInsights/" + String(digest.prefix(24)) + "/synthetic-app/" + UUID().uuidString.lowercased()
+        let secret: [String: Any] = ["api_key": "phx_synthetic_private_1234567890",
+            "binding": ["app_id": "synthetic-app", "id": UUID().uuidString.lowercased(), "hash": String(repeating: "a", count: 64)]]
+        func invoke(_ action: String, _ destination: String, _ value: Any) throws -> [String: Any] {
+            let request = try JSONSerialization.data(withJSONObject: ["action": action, "target": destination, "value": value])
+            let response = try XCTUnwrap(storage.invoke(request))
+            return try XCTUnwrap(JSONSerialization.jsonObject(with: response) as? [String: Any])
+        }
+        defer { _ = try? invoke("delete", target, NSNull()) }
+        XCTAssertEqual(try invoke("put", target, secret)["ok"] as? Bool, true)
+        let read = try invoke("get", target, NSNull())
+        XCTAssertEqual((read["value"] as? [String: Any])?["api_key"] as? String, secret["api_key"] as? String)
+        var foreign = secret
+        foreign["binding"] = ["app_id": "other-app", "id": UUID().uuidString.lowercased(), "hash": String(repeating: "a", count: 64)]
+        XCTAssertEqual(try invoke("put", target, foreign)["ok"] as? Bool, false)
+        XCTAssertEqual(try invoke("put", target.replacingOccurrences(of: "AppGrowthInsights/", with: "AgentGrowth/"), secret)["ok"] as? Bool, false)
+        XCTAssertEqual(try invoke("get", target.replacingOccurrences(of: String(digest.prefix(24)), with: String(repeating: "0", count: 24)), NSNull())["ok"] as? Bool, false)
+        XCTAssertEqual(try invoke("delete", target, NSNull())["ok"] as? Bool, true)
+        XCTAssertTrue(try invoke("get", target, NSNull())["value"] is NSNull)
+    }
+
+    @MainActor
+    func testNativeAnalyticsDecodesObservedCountsWithoutInventingMissingMetrics() async throws {
+        let model = NativeInsightsModel(execute: { action, _ in
+            XCTAssertEqual(action, "view")
+            return Data("{\"sources\":[],\"reports\":[{\"id\":\"synthetic-report\",\"data\":{\"observed_at\":\"2026-01-01T00:00:00Z\",\"rows\":[{\"id\":\"app_open\",\"value\":12,\"unit\":\"events\",\"period\":\"last_7_days\"}]}}]}".utf8)
+        })
+        await model.refresh()
+        XCTAssertNil(model.message)
+        XCTAssertEqual(model.reports.count, 1)
+        XCTAssertEqual(model.reports.first?.data.rows.count, 1)
+        XCTAssertEqual(model.reports.first?.data.rows.first?.value, 12)
+        model.close()
+        XCTAssertTrue(model.reports.isEmpty)
+    }
+
     @MainActor
     func testSavedJourneyDecodesOptionalObservationFieldsWithoutInventingPass() throws {
         let minimal = Data("{\"id\":\"core_value\",\"status\":\"NOT_RUN\"}".utf8)

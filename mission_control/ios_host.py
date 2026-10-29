@@ -82,6 +82,10 @@ class Runtime:
         from .ios_provider_access import NativeProviderAccess
         return NativeProviderAccess(self.service,self.identities,self.vault_callback).call(session,app_id,action,payload)
 
+    def native_insights(self,session,app_id,action,payload):
+        from .ios_insights import NativeInsights
+        return NativeInsights(self.service,self.identities,self.vault_callback).call(session,app_id,action,payload)
+
     def native_inference(self,session,app_id,action,payload):
         from .ios_inference import NativeInference
         return NativeInference(self.service,self.identities,self.vault_callback).call(session,app_id,action,payload)
@@ -266,7 +270,10 @@ class Runtime:
             cohorts = [json.loads(r['data']) for r in db.execute('SELECT data FROM growth_cohorts WHERE app_id=? ORDER BY id',(app_id,))]
             events = [dict(cohort_id=r['cohort_id'],data=json.loads(r['data'])) for r in db.execute('SELECT cohort_id,data FROM growth_events WHERE app_id=? ORDER BY provider,external_id',(app_id,))]
             reports = [report(c,[r['data'] for r in events if r['cohort_id']==c['cohort_id']],iso_time(observed)) for c in cohorts]
-            result = encode_response(projection(app,records,reports,observed))
+            from .insights import decoded as insight_decode
+            insight_reports=[insight_decode(r) for r in db.execute(
+                'SELECT * FROM insight_reports WHERE app_id=? ORDER BY rowid DESC LIMIT 300',(app_id,))]
+            result = encode_response(projection(app,records,reports,observed,insight_reports))
             self.identities.local(session,user['principal'],user['session_generation'])
             exact_role(db,app_id,user['principal'],role['version'],'OWNER')
         return result

@@ -97,3 +97,17 @@ class NativeReportTests(unittest.TestCase):
         result=projection(app,[record],[],now())
         self.assertTrue(all(r['observed'] is None for r in result['rows'] if r['metric'].endswith('activation_rate')))
         with self.assertRaises(Invalid):projection(app,[record]*100,[],now())
+
+    def test_clarity_numeric_aggregates_export_without_assuming_posthog_shape(self):
+        from mission_control.common import now,digest
+        from mission_control.insights_contract import shape_clarity
+        self.runtime.create_workspace(self.session,self.creation())
+        data=dict(observed_at=now(),coverage='SELECTED_AGGREGATES_ONLY',project_id='PRIVATE_PROJECT',
+            rows=shape_clarity([dict(metricName='Traffic',information=[dict(totalSessionCount='12',privateUrl='https://private.invalid')])]))
+        saved=dict(app_id='new-app',id='clarity-proof',source_id='source-fixture',provider='clarity',data=data,hash=digest(data))
+        result=projection(self.runtime.service.store.app('new-app'),[],[],now(),[saved])
+        row=next(r for r in result['rows'] if r['metric'].endswith('totalSessionCount'))
+        self.assertEqual(row['observed'],'12.0')
+        self.assertIn('last_72_hours',row['evidence'])
+        self.assertNotIn('PRIVATE_PROJECT',json.dumps(result))
+        self.assertNotIn('private.invalid',json.dumps(result))
