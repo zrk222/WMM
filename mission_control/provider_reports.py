@@ -100,6 +100,8 @@ class Reader:
 
     def read(self,url,body=None):
         """Keep all calls within one worker lease and retain exact source hashes."""
+        from .provider_auth import check_native_page
+        check_native_page()
         remaining=self.deadline-time.monotonic()
         if remaining<=0:
             raise Invalid("Report read budget expired; narrow the request and retry")

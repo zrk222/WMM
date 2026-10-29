@@ -7,6 +7,7 @@ struct NativeWorkspace: Decodable, Identifiable {
     struct Manifest: Decodable {
         let name: String; let job: String?; let locale: String?
         let audience: String?; let activation: String?; let release: String?; let currency: String?
+        let store_app_id: String?
     }
     let id: String
     let version: Int
@@ -386,6 +387,17 @@ final class NativeWorkspaceModel: ObservableObject {
         return NativeInsightsModel(execute: { [weak self] action, request in
             guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
             let result = try await bridge.insights(session: session, appID: app.id, action: action, request: request)
+            guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            return result
+        })
+    }
+
+    func makeStoreConnection() -> NativeStoreConnectionModel? {
+        guard unlocked, let app = snapshot?.app, let bridge, let session else { return nil }
+        let ticket = generation
+        return NativeStoreConnectionModel(storeAppID: app.data.store_app_id ?? "", execute: { [weak self] action, request in
+            guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            let result = try await bridge.storeConnection(session: session, appID: app.id, action: action, request: request)
             guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
             return result
         })

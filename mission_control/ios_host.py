@@ -86,6 +86,10 @@ class Runtime:
         from .ios_insights import NativeInsights
         return NativeInsights(self.service,self.identities,self.vault_callback).call(session,app_id,action,payload)
 
+    def native_store_connection(self,session,app_id,action,payload):
+        from .ios_store_connection import NativeStoreConnection
+        return NativeStoreConnection(self.service,self.identities,self.vault_callback,self.vault_callback).call(session,app_id,action,payload)
+
     def native_inference(self,session,app_id,action,payload):
         from .ios_inference import NativeInference
         return NativeInference(self.service,self.identities,self.vault_callback).call(session,app_id,action,payload)
@@ -188,9 +192,12 @@ class Runtime:
         fields={'name','job','audience','activation','release','locale','currency'}
         if (not isinstance(body,dict) or set(body)!={'version','changes','confirm_update'}
                 or body['confirm_update'] is not True or type(body['version']) is not int
-                or not isinstance(body['changes'],dict) or set(body['changes'])!=fields
+                or not isinstance(body['changes'],dict) or set(body['changes']) not in (fields,fields|{'store_app_id'})
                 or any(not isinstance(value,str) for value in body['changes'].values())):
             raise Invalid('Confirm the exact versioned app-facts update')
+        if body['changes'].get('store_app_id'):
+            import re
+            if not re.fullmatch(r'[0-9]{1,30}',body['changes']['store_app_id']):raise Invalid('Use the numeric App Store app ID')
         user=self.identities.fresh(session)
         envelope=dict(app_id=app_id,operation='native.workspace.update',input=body)
         with bound_owner(self.service.store,envelope,self.identities,session,user):
@@ -214,6 +221,10 @@ class Runtime:
         if not isinstance(body, dict) or set(body) != {'app_id', 'manifest', 'confirm_owner'} or body['confirm_owner'] is not True:
             raise Invalid('Confirm ownership and provide an exact app identifier and manifest')
         if not isinstance(body['manifest'], dict): raise Invalid('Use an app manifest object')
+        if body['manifest'].get('store_app_id'):
+            import re
+            if not isinstance(body['manifest']['store_app_id'],str) or not re.fullmatch(r'[0-9]{1,30}',body['manifest']['store_app_id']):
+                raise Invalid('Use the numeric App Store app ID')
         app_id = identifier(body['app_id'])
         manifest = app_data(body['manifest'])
         user = self.identities.fresh(session)
@@ -273,7 +284,12 @@ class Runtime:
             from .insights import decoded as insight_decode
             insight_reports=[insight_decode(r) for r in db.execute(
                 'SELECT * FROM insight_reports WHERE app_id=? ORDER BY rowid DESC LIMIT 300',(app_id,))]
-            result = encode_response(projection(app,records,reports,observed,insight_reports))
+            from .apple_metrics_store import KEY_FIELDS,read_partition
+            apple_keys=[{field:r[field] for field in KEY_FIELDS} for r in db.execute(
+                'SELECT * FROM apple_metric_partitions WHERE app_id=? AND store_app_id=? ORDER BY event_date,report_id',
+                (app_id,app['data'].get('store_app_id','')))]
+            apple_parts=[read_partition(self.service.store.path,key) for key in apple_keys]
+            result = encode_response(projection(app,records,reports,observed,insight_reports,apple_parts))
             self.identities.local(session,user['principal'],user['session_generation'])
             exact_role(db,app_id,user['principal'],role['version'],'OWNER')
         return result

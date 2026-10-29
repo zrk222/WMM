@@ -9,6 +9,8 @@ import struct
 import sys
 import threading
 import time
+from contextlib import contextmanager
+from contextvars import ContextVar
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, HTTPRedirectHandler, build_opener
@@ -17,6 +19,39 @@ from .credential_vault import Vault, target
 
 LOCK=threading.RLock()
 CACHE={}
+NATIVE_CONTEXT=ContextVar('wmm_store_native_context',default=None)
+NATIVE_PAGE_GUARD=ContextVar('wmm_store_native_page_guard',default=None)
+
+
+@contextmanager
+def bound_page_guard(check):
+    if NATIVE_CONTEXT.get() is None or not callable(check):raise PermissionError('Native page guard requires a trusted host')
+    token=NATIVE_PAGE_GUARD.set(check)
+    try:yield
+    finally:NATIVE_PAGE_GUARD.reset(token)
+
+
+def check_native_page():
+    if NATIVE_CONTEXT.get() is not None:
+        guard=NATIVE_PAGE_GUARD.get()
+        if guard is None:raise PermissionError('Native provider read requires an owner and job guard')
+        guard()
+
+
+@contextmanager
+def bound_native(scope,app_id,vault_factory,signer):
+    """Bind native-only storage and signing to one database/app for this call."""
+    if not callable(vault_factory) or not callable(signer):raise Invalid('Native protected storage and signer are required')
+    context=NATIVE_CONTEXT.set((scope,app_id,vault_factory,signer))
+    try:yield
+    finally:NATIVE_CONTEXT.reset(context)
+
+
+def vault_for(scope,app_id):
+    context=NATIVE_CONTEXT.get()
+    if context is None:return Vault()
+    if context[:2]!=(scope,app_id):raise PermissionError('Native credential scope changed')
+    return context[2]()
 
 
 def key_der(private_key):
@@ -137,6 +172,21 @@ class CNG:
 def native(operation,private_key,message=""):
     """Select local platform signing without a helper or persistent private-key file."""
     raw=key_der(private_key)
+    context=NATIVE_CONTEXT.get()
+    if context is not None:
+        from .ios_bridge import decode_document
+        response=decode_document(context[3](canonical(dict(operation=operation,private_key=private_key,message=message)).encode()))
+        if not isinstance(response,dict) or set(response)!={'ok','value'} or response['ok'] is not True or not isinstance(response['value'],dict):
+            raise Invalid('Native Apple signing is unavailable')
+        value=response['value']
+        if (operation=='inspect' and set(value)=={'public_key'} and isinstance(value['public_key'],str)
+                and len(value['public_key'])<=1024
+                and re.fullmatch(r'-----BEGIN PUBLIC KEY-----[\s\S]+-----END PUBLIC KEY-----\s*',value['public_key'])):return value
+        if operation=='sign' and set(value)=={'signature'} and isinstance(value['signature'],str):
+            try:
+                if len(base64.b64decode(value['signature'],validate=True))==64:return value
+            except (ValueError,TypeError):pass
+        raise Invalid('Native Apple signing response is invalid')
     if sys.platform.startswith('linux'):
         from .provider_crypto import execute
         private_scalar(raw)
@@ -216,21 +266,21 @@ def credential(binding, app_id):
     """Resolve namespace-bound secret and renew before expiry without persisting tokens."""
     name=target(binding.get("_vault_namespace"),app_id,binding.get("provider"),binding.get("credential_ref"))
     with LOCK:
-        config=Vault().get(name)
+        config=vault_for(binding.get('_vault_namespace'),app_id).get(name)
         if not config:
             CACHE.pop(name,None)
             raise Invalid("Protected key is missing for this database; reconnect through provider setup")
         clock=int(time.time())
         if binding.get('provider')=='google_play':
             return google_credential(binding,app_id,name,config,clock)
-        cached=CACHE.get(name)
+        cached=None if NATIVE_CONTEXT.get() is not None else CACHE.get(name)
         if cached and cached[1]>clock+60:
             return cached[0]
         token=jwt(config,clock)
         lifetime=600
         if binding["provider"]=="apple_ads":
             token,lifetime=exchange(config,token)
-        CACHE[name]=(token,clock+lifetime)
+        if NATIVE_CONTEXT.get() is None:CACHE[name]=(token,clock+lifetime)
         return token
 
 

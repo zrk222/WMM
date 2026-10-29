@@ -10,10 +10,10 @@ LEDGER_FIELDS = ('installs','activated','paid','retained','activation_rate','pai
                  'delivery_cost_minor','paid_cac_minor','contribution_after_acquisition_minor')
 
 
-def projection(app, records, ledger_reports, observed_at, insight_reports=()):
+def projection(app, records, ledger_reports, observed_at, insight_reports=(), apple_partitions=()):
     from .metrics import summarize
     metrics = summarize(records, app['id'], ledger_reports)
-    source_hash = digest({'app':app,'records':records,'ledger':ledger_reports,'insights':insight_reports})
+    source_hash = digest({'app':app,'records':records,'ledger':ledger_reports,'insights':insight_reports,'apple':apple_partitions})
     rows = []
     def add(label, value, evidence):
         if len(rows) >= 1000: raise Invalid('Native report exceeds 1000 rows; narrow the source evidence before exporting')
@@ -73,6 +73,15 @@ def projection(app, records, ledger_reports, observed_at, insight_reports=()):
                         proof+'; period='+metric['period']+'; provider numeric aggregate')
             else:
                 add(label,metric['value'],proof+'; period='+metric['period']+'; unit='+metric['unit'])
+    for index,item in enumerate(apple_partitions,1):
+        key=item['partition'];instance=item['instance']
+        if key['app_id']!=app['id'] or key['store_app_id']!=app['data'].get('store_app_id'):
+            raise Invalid('Apple metrics partition belongs to another selected app')
+        proof='Apple download events; source='+digest(item)+'; event_date='+key['event_date']
+        proof+='; processing_date='+instance['processing_date']+'; finality=UNKNOWN; not installs, sales, revenue or causal lift'
+        for offset,metric in enumerate(instance['rows'],1):
+            add(f'Apple partition {index}, observation {offset}: download_events',metric['count'],
+                proof+'; type='+metric['type']+'; source_type='+metric['source_type']+'; dimensions='+digest(metric['dimensions']))
     if any(len(row['metric'])>200 or len(row['evidence'])>4000 or len(row['observed'] or '')>4000 for row in rows):
         raise Invalid('Native report field exceeds the reviewed export bounds')
     return dict(appID=app['id'],appName=app['data']['name'],sourceHash=source_hash,observedAt=observed_at,rows=rows)

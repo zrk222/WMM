@@ -55,6 +55,13 @@ actor DomainBridge {
             appID: appID, action: action, request: request)
     }
 
+    func storeConnection(session: LocalIdentity.Session, appID: String, action: String, request: Data) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        guard !request.isEmpty, request.count <= 1_048_576 else { throw Failure.invalidRequest }
+        return try EngineBootstrap.storeConnection(handle: handle, session: session.nonce.uuidString,
+            appID: appID, action: action, request: request)
+    }
+
     func humanReview(session: LocalIdentity.Session, appID: String, action: String, request: Data) throws -> Data {
         guard let handle else { throw Failure.closed }
         guard !request.isEmpty, request.count <= 1_048_576 else { throw Failure.invalidRequest }
