@@ -135,6 +135,11 @@ actor TimelineRenderer {
         })
         videoComposition.renderSize = CGSize(width: CGFloat(plan.width), height: CGFloat(plan.height))
         videoComposition.frameDuration = CMTime(value: 1, timescale: 24)
+        // The filtering constructor otherwise derives frame timestamps from
+        // the source track. A 2x clip then retains all 48 source samples instead
+        // of the 24 output frames required by the compiled timeline. Use the
+        // explicit output cadence for every segment, including speed changes.
+        videoComposition.sourceTrackIDForFrameTiming = kCMPersistentTrackID_Invalid
         guard let exporter = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
             throw Failure.exportFailed
         }
