@@ -226,7 +226,9 @@ final class NativeStudioRenderer {
                 let fitted = CGSize(width: image.size.width * scale, height: image.size.height * scale)
                 image.draw(in: CGRect(x: (size.width - fitted.width) / 2, y: (size.height - fitted.height) / 2, width: fitted.width, height: fitted.height))
                 UIColor.black.withAlphaComponent(0.45).setFill()
-                context.fill(CGRect(origin: .zero, size: size))
+                // The dimming layer must composite over the video, not replace
+                // its pixels with black. Specify the blending operation directly.
+                context.fill(CGRect(origin: .zero, size: size), blendMode: .normal)
             }
             (title as NSString).draw(in: titleRect, withAttributes: titleStyle)
             (text as NSString).draw(in: textRect, withAttributes: bodyStyle)
