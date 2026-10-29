@@ -67,7 +67,7 @@ class NativeStandingTests(unittest.TestCase):
         status = self.manage('status')
         self.assertEqual(status['policies'][0]['usage']['used'], 1)
         blockers = {item['workflow']: item['reason'] for item in status['native_blockers']}
-        self.assertEqual(blockers['pipeline_preparation'], 'NATIVE_STANDING_JOB_BINDING_REQUIRED')
+        self.assertNotIn('pipeline_preparation', blockers)
         self.assertEqual(blockers['native_screen_render'], 'NATIVE_SCREEN_RENDER_ADAPTER_REQUIRED')
         self.assertNotIn('local_evidence', blockers)
         self.assertNotIn(issued['token'], json.dumps(status))
@@ -98,7 +98,7 @@ class NativeStandingTests(unittest.TestCase):
 
     def test_fixed_envelopes_and_unsupported_workflows_fail_closed(self):
         self.setup_standing()
-        for workflow in ('native_screen_render', 'pipeline_preparation', 'video_authoring_editing'):
+        for workflow in ('native_screen_render', 'video_authoring_editing'):
             preview = self.manage('preview', self.proposal([workflow]))
             self.assertEqual(preview['native_readiness'], 'BLOCKED')
             self.assertTrue(preview['blockers'][0]['reason'].startswith('NATIVE_'))
@@ -178,6 +178,133 @@ class NativeStandingTests(unittest.TestCase):
                 with self.assertRaises(Invalid): agent.call(self.session, issued['token'], request)
         with connection(self.path) as db:
             self.assertEqual(db.execute('SELECT count(*) FROM growth_review_entries').fetchone()[0], 0)
+
+    def test_standing_pipeline_queue_run_and_off_are_owner_and_scope_bound(self):
+        from mission_control.ios_jobs import NativeJobs, native_pipeline_context
+        self.setup_standing()
+        preview = self.manage('preview', self.proposal(['pipeline_preparation']))
+        issued = self.manage('activate', dict(proposal=preview['proposal'], summary_hash=preview['summary_hash'], confirm_scope=True))
+        agent = NativeAgentAccess(self.runtime.service, self.runtime.identities)
+        missing_host = json.dumps(dict(app_id='new-app', operation='pipeline.prepare',
+            input=dict(action='pipeline', data=dict(stage=1), request_key='missing-host'))).encode()
+        with native_access(self.runtime.service, self.runtime.identities, self.session, self.vault):
+            with self.assertRaises(PermissionError): agent.call(self.session, issued['token'], missing_host)
+        with connection(self.path) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM jobs').fetchone()[0], 0)
+        payload = json.dumps(dict(app_id='new-app', operation='pipeline.prepare',
+            input=dict(action='pipeline', data=dict(stage=1), request_key='native-standing-1'))).encode()
+        with native_access(self.runtime.service, self.runtime.identities, self.session, self.vault):
+            with native_pipeline_context(self.runtime.service, self.runtime.identities, self.session):
+                queued = json.loads(agent.call(self.session, issued['token'], payload))
+        self.assertEqual(queued['data']['native_runtime'], 'IOS_LOCAL_V1')
+        self.assertIn('source_hash', queued['data'])
+        jobs = NativeJobs(self.runtime.service, self.runtime.identities)
+        with native_access(self.runtime.service, self.runtime.identities, self.session, self.vault):
+            result = json.loads(jobs.call(self.session, 'new-app', 'run', json.dumps(dict(id=queued['id'])).encode()))
+        self.assertEqual(result['status'], 'SUCCEEDED')
+        self.assertEqual(result['attempts'], 1)
+        with connection(self.path) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM automation_job_scopes WHERE job_id=?', (queued['id'],)).fetchone()[0], 1)
+        self.manage('off', dict(id=issued['policy_id'], version=1, confirm_off=True))
+        with native_access(self.runtime.service, self.runtime.identities, self.session, self.vault):
+            with self.assertRaises(PermissionError): agent.call(self.session, issued['token'], payload)
+
+    def test_standing_pipeline_off_lock_foreign_and_live_lease_deny(self):
+        from mission_control.ios_jobs import NativeJobs, native_pipeline_context
+        self.setup_standing()
+        preview = self.manage('preview', self.proposal(['pipeline_preparation']))
+        issued = self.manage('activate', dict(proposal=preview['proposal'], summary_hash=preview['summary_hash'], confirm_scope=True))
+        agent = NativeAgentAccess(self.runtime.service, self.runtime.identities)
+        def enqueue(key):
+            payload = json.dumps(dict(app_id='new-app', operation='pipeline.prepare',
+                input=dict(action='pipeline', data=dict(stage=1), request_key=key))).encode()
+            with native_access(self.runtime.service, self.runtime.identities, self.session, self.vault):
+                with native_pipeline_context(self.runtime.service, self.runtime.identities, self.session):
+                    return json.loads(agent.call(self.session, issued['token'], payload))
+        queued = enqueue('standing-off')
+        jobs = NativeJobs(self.runtime.service, self.runtime.identities)
+        payload = json.dumps(dict(id=queued['id'])).encode()
+        self.vault_available = False
+        with native_access(self.runtime.service, self.runtime.identities, self.session, self.vault):
+            with self.assertRaises(Invalid): jobs.call(self.session, 'new-app', 'run', payload)
+        self.vault_available = True
+        original = self.principal
+        self.principal = str(uuid4())
+        with self.assertRaises(PermissionError): jobs.call(self.session, 'new-app', 'run', payload)
+        self.principal = original
+        import time
+        with connection(self.path) as db:
+            db.execute("UPDATE jobs SET status='RUNNING',attempts=1,lease=? WHERE id=?", (time.time()+60, queued['id']))
+        with native_access(self.runtime.service, self.runtime.identities, self.session, self.vault):
+            with self.assertRaises(Invalid): jobs.call(self.session, 'new-app', 'run', payload)
+        self.manage('off', dict(id=issued['policy_id'], version=1, confirm_off=True))
+        with connection(self.path) as db:
+            self.assertEqual(db.execute('SELECT status FROM jobs WHERE id=?', (queued['id'],)).fetchone()[0], 'CANCELLED')
+
+    def test_standing_worker_expiring_lease_fences_progress_and_unrelated_job(self):
+        import time
+        from types import SimpleNamespace
+        from mission_control import automation_execution, workflow_telemetry
+        from mission_control.ios_jobs import NativeJobs, native_pipeline_context
+        self.setup_standing()
+        preview = self.manage('preview', self.proposal(['pipeline_preparation']))
+        issued = self.manage('activate', dict(proposal=preview['proposal'], summary_hash=preview['summary_hash'], confirm_scope=True))
+        agent = NativeAgentAccess(self.runtime.service, self.runtime.identities)
+        payload = json.dumps(dict(app_id='new-app', operation='pipeline.prepare',
+            input=dict(action='pipeline', data=dict(stage=1), request_key='expires'))).encode()
+        with native_access(self.runtime.service, self.runtime.identities, self.session, self.vault):
+            with native_pipeline_context(self.runtime.service, self.runtime.identities, self.session):
+                queued = json.loads(agent.call(self.session, issued['token'], payload))
+        jobs = NativeJobs(self.runtime.service, self.runtime.identities)
+        unrelated = jobs.queue('new-app', self.runtime.identities.fresh(self.session), dict(stage=1, request_key='unrelated'))
+        observed = [time.time()]
+        emit = workflow_telemetry.emit
+        def expire_before_emit(*args, **kwargs):
+            observed[0] += 120
+            return emit(*args, **kwargs)
+        with patch.object(automation_execution, 'time', SimpleNamespace(time=lambda: observed[0])):
+            with patch.object(workflow_telemetry, 'emit', expire_before_emit):
+                with native_access(self.runtime.service, self.runtime.identities, self.session, self.vault):
+                    with self.assertRaises(PermissionError):
+                        jobs.call(self.session, 'new-app', 'run', json.dumps(dict(id=queued['id'])).encode())
+        with connection(self.path) as db:
+            self.assertEqual(db.execute('SELECT status FROM jobs WHERE id=?', (unrelated['id'],)).fetchone()[0], 'QUEUED')
+            self.assertEqual(db.execute('SELECT status FROM jobs WHERE id=?', (queued['id'],)).fetchone()[0], 'RUNNING')
+
+    def test_native_pipeline_refuses_desktop_connection_vault_and_changed_sources(self):
+        from mission_control.ios_jobs import NativeJobs
+        self.setup_standing()
+        user = self.runtime.identities.fresh(self.session)
+        jobs = NativeJobs(self.runtime.service, self.runtime.identities)
+        queued = jobs.queue('new-app', user, dict(stage=1, request_key='source-bound'))
+        with connection(self.path) as db:
+            db.execute('INSERT INTO records VALUES(?,?,?,?,?,?,?,?,?,?)',
+                ('source','new-app','connection','Synthetic',json.dumps(dict(credential_ref='synthetic')), 'test','test','hash',1,'2026-01-01'))
+        with patch('mission_control.connection_setup.Vault', side_effect=AssertionError('desktop vault used')):
+            with self.assertRaisesRegex(Invalid, 'NATIVE_CONNECTION_STATUS_ADAPTER_REQUIRED'):
+                jobs.queue('new-app', user, dict(stage=1, request_key='blocked'))
+            with self.assertRaisesRegex(Invalid, 'Source evidence changed'):
+                jobs.call(self.session, 'new-app', 'run', json.dumps(dict(id=queued['id'])).encode())
+
+    def test_standing_agent_can_cancel_only_its_policy_job(self):
+        from mission_control.ios_jobs import NativeJobs, native_pipeline_context
+        self.setup_standing()
+        preview = self.manage('preview', self.proposal(['pipeline_preparation']))
+        issued = self.manage('activate', dict(proposal=preview['proposal'], summary_hash=preview['summary_hash'], confirm_scope=True))
+        agent = NativeAgentAccess(self.runtime.service, self.runtime.identities)
+        def call(operation, body, resource=None):
+            envelope = dict(app_id='new-app', operation=operation, input=body)
+            if resource:envelope['resource_id'] = resource
+            with native_access(self.runtime.service, self.runtime.identities, self.session, self.vault):
+                with native_pipeline_context(self.runtime.service, self.runtime.identities, self.session):
+                    return json.loads(agent.call(self.session, issued['token'], json.dumps(envelope).encode()))
+        queued = call('pipeline.prepare', dict(action='pipeline', data=dict(stage=1), request_key='owned'))
+        jobs = NativeJobs(self.runtime.service, self.runtime.identities)
+        other = jobs.queue('new-app', self.runtime.identities.fresh(self.session), dict(stage=1, request_key='unrelated'))
+        with self.assertRaises(PermissionError): call('job.cancel', {}, other['id'])
+        self.assertEqual(call('job.cancel', {}, queued['id'])['status'], 'CANCELLED')
+        with connection(self.path) as db:
+            self.assertEqual(db.execute('SELECT status FROM jobs WHERE id=?', (other['id'],)).fetchone()[0], 'QUEUED')
 
 
 if __name__ == '__main__': unittest.main()

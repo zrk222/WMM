@@ -5,10 +5,12 @@ import SwiftUI
 final class NativeAutomationModel: ObservableObject, Identifiable {
     struct Choice: Identifiable { let id: String; let name: String; let blockers: [String] }
     struct Policy: Decodable, Identifiable {
+        struct Scope: Decodable { let operations: [String] }
         struct Usage: Decodable { let used: Int; let max_calls: Int; let expires: String }
         struct Execution: Decodable, Identifiable { let id: String; let operation: String; let status: String }
         let id: String; let version: Int; let status: String; let effective_status: String; let grant_id: String
         let repair: String?; let usage: Usage?; let executions: [Execution]
+        let summary: Scope?
     }
     let id = UUID()
     let appID: String; let manifestVersion: Int; let currency: String
@@ -20,6 +22,10 @@ final class NativeAutomationModel: ObservableObject, Identifiable {
     @Published private(set) var summary = ""
     @Published private(set) var blockers: [String] = []
     @Published private(set) var ready = false
+    @Published private(set) var activity = ""
+    @Published private(set) var jobProgress: NativeJobProgress?
+    @Published private(set) var pendingJob: String?
+    private var preparationKey = UUID().uuidString.lowercased()
     private var preview: [String: Any]?
     private let runtime: ScopedAgentRuntime
     private let execute: @MainActor (String, Data) async throws -> Data
@@ -102,6 +108,52 @@ final class NativeAutomationModel: ObservableObject, Identifiable {
         } catch { message = "OFF was not confirmed. Refresh the exact saved scope before trying again." }
     }
     func close() async { await runtime.cancel() }
+
+    func preparePipeline(_ policy: Policy) async {
+        guard !busy, policy.effective_status == "ACTIVE", policy.summary?.operations.contains("pipeline.prepare") == true else { return }
+        busy = true; defer { busy = false; activity = "" }; message = nil
+        do {
+            if pendingJob == nil {
+                activity = "Admitting preparation under your exact standing scope…"
+                let envelope: [String: Any] = ["app_id": appID, "operation": "pipeline.prepare",
+                    "input": ["action": "pipeline", "data": ["stage": 0], "request_key": preparationKey] as [String: Any]]
+                let bytes = try await runtime.call(grantID: policy.grant_id,
+                    request: JSONSerialization.data(withJSONObject: envelope))
+                struct Queued: Decodable { let id: String }
+                pendingJob = try JSONDecoder().decode(Queued.self, from: bytes).id
+            }
+            try await runPending()
+        } catch {
+            try? await loadProgress()
+            message = "Preparation was not confirmed. Inspect saved work before retrying. Its request key and any admitted job are retained."
+        }
+    }
+    private func loadProgress() async throws {
+        jobProgress = try JSONDecoder().decode(NativeJobProgress.self, from: await call("monitor_jobs"))
+    }
+    private func runPending() async throws {
+        guard let identity = pendingJob else { return }
+        try await loadProgress()
+        activity = "Checking the current scope and preparing twelve evidence stages…"
+        struct Finished: Decodable { let status: String }
+        let bytes = try await call("run_job", ["id": identity])
+        let result = try JSONDecoder().decode(Finished.self, from: bytes)
+        try await loadProgress(); try await load()
+        if ["SUCCEEDED", "FAILED", "CANCELLED"].contains(result.status) {
+            pendingJob = nil; preparationKey = UUID().uuidString.lowercased()
+        }
+        message = "Preparation returned \(result.status). Review its stage observations below. Prepared packets do not establish publication or measured app sales."
+    }
+    func resumePreparation() async {
+        guard !busy, pendingJob != nil else { return }; busy = true; defer { busy = false; activity = "" }
+        do { try await runPending() }
+        catch { try? await loadProgress(); message = "Resume was denied or not confirmed. Inspect the job's scope, expiry and live lease before retrying." }
+    }
+    func refreshProgress() async {
+        guard !busy else { return }; busy = true; defer { busy = false }
+        do { try await loadProgress() }
+        catch { message = "Progress could not be read. Unlock and refresh; the durable job remains saved." }
+    }
 }
 
 @MainActor
@@ -171,6 +223,10 @@ struct NativeAutomationView: View {
                     Text("Scope \(policy.id) · revision \(policy.version)").font(.caption).textSelection(.enabled)
                     if let usage = policy.usage { Text("\(usage.used)/\(usage.max_calls) calls · expires \(usage.expires)").font(.callout) }
                     if let repair = policy.repair { Text(repair).font(.callout) }
+                    if policy.summary?.operations.contains("pipeline.prepare") == true {
+                        Button("Prepare twelve stages with this agent scope") { Task { await model.preparePipeline(policy) } }
+                            .disabled(policy.effective_status != "ACTIVE" || model.pendingJob != nil)
+                    }
                     ForEach(policy.executions) { item in Text("\(item.operation) · \(item.status) · receipt \(item.id)").font(.caption).textSelection(.enabled) }
                     Button("Switch this scope OFF", role: .destructive) { stopping = policy }.disabled(policy.status != "ACTIVE")
                 }
@@ -186,6 +242,23 @@ struct NativeAutomationView: View {
                 limitsControls
                 approvalControls
                 if let message = model.message { Section("Current result") { Text(message) } }
+                if let progress = model.jobProgress {
+                    Section("Preparation progress") {
+                        Text("Observed at \(progress.observed_at)").font(.caption)
+                        ForEach(progress.runs) { run in
+                            Text("\(run.status) · \(run.processed_stages) stages checked · \(run.blocked_stages) with gaps")
+                            Text(run.activity).font(.callout)
+                            DisclosureGroup("Stage observations") {
+                                ForEach(Array(run.events.enumerated()), id: \.offset) { item in
+                                    Text("\(item.element.observed_at) · \(item.element.message)").font(.caption)
+                                }
+                            }
+                        }
+                        Button("Refresh progress") { Task { await model.refreshProgress() } }
+                        if model.pendingJob != nil { Button("Resume eligible preparation") { Task { await model.resumePreparation() } } }
+                        Text("Reopen Work and recovery to inspect saved jobs after leaving this screen. A live lease cannot be restarted.").font(.caption)
+                    }
+                }
                 savedScopes
             }.disabled(model.busy)
             .navigationTitle("Standing approval")
@@ -193,7 +266,7 @@ struct NativeAutomationView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() }.disabled(model.busy) }
                 ToolbarItem(placement: .primaryAction) { Button("Refresh") { approved = false; Task { await model.refresh() } }.disabled(model.busy) }
             }
-            .overlay { if model.busy { ProgressView("Checking current scope and protected access…").padding().background(.regularMaterial) } }
+            .overlay { if model.busy { ProgressView(model.activity.isEmpty ? "Checking current scope and protected access…" : model.activity).padding().background(.regularMaterial) } }
             .confirmationDialog("Switch this exact scope OFF?", isPresented: Binding(get: { stopping != nil }, set: { if !$0 { stopping = nil } })) {
                 if let policy = stopping { Button("Switch OFF", role: .destructive) { Task { await model.off(policy) }; stopping = nil } }
             } message: { Text("New tool admissions stop. Existing effects and receipts remain available for inspection.") }

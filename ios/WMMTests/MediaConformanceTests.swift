@@ -4,6 +4,173 @@ import CoreImage
 @testable import WMM
 
 final class MediaConformanceTests: XCTestCase {
+    @MainActor
+    func testStudioEmbeddedRevisionRenderReopenAndAuthorityDenials() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let database = UUID()
+        let store = try LocalStore(applicationSupport: folder, databaseID: database)
+        let identity = LocalIdentity(vault: KeychainVault(databaseID: database, appID: UUID()))
+        let session = try await identity.begin()
+        let bridge = try DomainBridge(store: store, identity: identity)
+        let appID = "studio-" + UUID().uuidString.lowercased()
+        let setup: [String: Any] = ["app_id": appID, "confirm_owner": true,
+            "manifest": ["name": "Synthetic studio", "release": "build-1", "locale": "en-US", "currency": "USD"]]
+        _ = try await bridge.createWorkspace(session: session, request: JSONSerialization.data(withJSONObject: setup))
+        let scene: [String: Any] = ["title": "Synthetic", "shape": "LANDSCAPE", "scenes": [
+            ["text": "First scene", "seconds": 1], ["text": "Second scene", "seconds": 1]]]
+        let saved = try await bridge.studio(session: session, appID: appID, action: "save", body: [
+            "project_id": "scene-one", "base_revision": 0, "manifest_version": 1,
+            "request_key": UUID().uuidString, "scene": scene])
+        let project = try JSONDecoder().decode(NativeStudioProject.self, from: saved)
+        struct Start: Decodable { let job: NativeStudioJob; let packet: NativeStudioPacket }
+        func start() async throws -> Start {
+            let data = try await bridge.studio(session: session, appID: appID, action: "start", body: [
+                "project_id": project.project_id, "revision": project.revision, "source_hash": project.source_hash,
+                "request_key": UUID().uuidString])
+            return try JSONDecoder().decode(Start.self, from: data)
+        }
+        let started = try await start()
+        XCTAssertEqual(started.packet.frame_count, 48)
+        let renderer = NativeStudioRenderer()
+        let output = try await bridge.studioDestination(jobID: started.job.job_id)
+        let request: [String: Any] = ["job_id": started.job.job_id, "packet_hash": started.packet.packet_hash]
+        do {
+            _ = try await renderer.render(started.packet, destination: output, validate: {
+                _ = try await bridge.studio(session: session, appID: appID, action: "validate", body: request)
+            }, finish: { url in
+                _ = try await bridge.finishStudio(session: session, appID: appID, jobID: started.job.job_id,
+                    packetHash: started.packet.packet_hash, output: url)
+                throw DomainBridge.Failure.closed // Model a lost response after commit.
+            })
+            XCTFail("Lost finish response was treated as accepted")
+        } catch DomainBridge.Failure.closed {}
+        XCTAssertTrue(FileManager.default.fileExists(atPath: output.path))
+        _ = try await bridge.finishStudio(session: session, appID: appID, jobID: started.job.job_id,
+            packetHash: started.packet.packet_hash, output: output)
+        let reopened = try await bridge.studioArtifact(session: session, appID: appID, jobID: started.job.job_id)
+        XCTAssertEqual(reopened, output)
+        let inspected = try JSONDecoder().decode(NativeStudioJob.self,
+            from: await bridge.studio(session: session, appID: appID, action: "inspect", body: ["job_id": started.job.job_id]))
+        XCTAssertEqual(inspected.status, "SUCCEEDED")
+        XCTAssertEqual(inspected.result?.frames, 48)
+
+        let cancelled = try await start()
+        _ = try await bridge.studio(session: session, appID: appID, action: "cancel", body: ["job_id": cancelled.job.job_id])
+        let denied = try await bridge.studioDestination(jobID: cancelled.job.job_id)
+        do {
+            _ = try await renderer.render(cancelled.packet, destination: denied, validate: {
+                _ = try await bridge.studio(session: session, appID: appID, action: "validate", body: [
+                    "job_id": cancelled.job.job_id, "packet_hash": cancelled.packet.packet_hash])
+            }, finish: { _ in XCTFail("Cancelled render reached completion") })
+            XCTFail("Cancelled render accepted")
+        } catch {}
+        XCTAssertFalse(FileManager.default.fileExists(atPath: denied.path))
+
+        let stale = try await start()
+        var changed = scene; changed["title"] = "Revised"
+        let savedRevision = try await bridge.studio(session: session, appID: appID, action: "save", body: ["project_id": project.project_id,
+            "base_revision": 1, "manifest_version": 1, "request_key": UUID().uuidString, "scene": changed])
+        let revision = try JSONDecoder().decode(NativeStudioProject.self, from: savedRevision)
+        do {
+            _ = try await bridge.studio(session: session, appID: appID, action: "validate", body: [
+                "job_id": stale.job.job_id, "packet_hash": stale.packet.packet_hash])
+            XCTFail("Old project revision remained current")
+        } catch {}
+        let historical = try await bridge.studioArtifact(session: session, appID: appID, jobID: started.job.job_id)
+        XCTAssertEqual(historical, output)
+        let lockedStart = try JSONDecoder().decode(Start.self, from: await bridge.studio(session: session, appID: appID, action: "start", body: [
+            "project_id": revision.project_id, "revision": revision.revision, "source_hash": revision.source_hash,
+            "request_key": UUID().uuidString]))
+        let lockedOutput = try await bridge.studioDestination(jobID: lockedStart.job.job_id)
+        var checks = 0
+        do {
+            _ = try await renderer.render(lockedStart.packet, destination: lockedOutput, validate: {
+                checks += 1
+                if checks == 2 { await identity.lock() }
+                _ = try await bridge.studio(session: session, appID: appID, action: "validate", body: [
+                    "job_id": lockedStart.job.job_id, "packet_hash": lockedStart.packet.packet_hash])
+            }, finish: { _ in XCTFail("Locked render reached completion") })
+            XCTFail("Locked render accepted")
+        } catch {}
+        XCTAssertEqual(checks, 2)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: lockedOutput.path))
+        do {
+            _ = try await bridge.studioArtifact(session: session, appID: appID, jobID: started.job.job_id)
+            XCTFail("Locked session reopened a studio artifact")
+        } catch {}
+        await bridge.close()
+        try await identity.forgetPrincipal()
+    }
+
+    @MainActor
+    func testSceneStudioRendersExactFramesAndRejectsRevokedOutput() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let value: [String: Any] = ["schema": "growth.ios-studio-packet.v1", "app_id": "synthetic-app",
+            "project_id": "scene-one", "revision": 1, "source_hash": String(repeating: "a", count: 64),
+            "manifest_version": 1, "scene": ["title": "Synthetic", "shape": "LANDSCAPE", "scenes": [
+                ["text": "First scene", "seconds": 1], ["text": "Second scene", "seconds": 1]]],
+            "fps": 24, "frame_count": 48, "status": "PREPARED_NOT_RENDERED", "execution_authority": false,
+            "packet_hash": String(repeating: "b", count: 64)]
+        let packet = try JSONDecoder().decode(NativeStudioPacket.self, from: JSONSerialization.data(withJSONObject: value))
+        let renderer = NativeStudioRenderer()
+        let destination = folder.appendingPathComponent(UUID().uuidString + ".mp4")
+        var checks = 0, finished = false
+        let output = try await renderer.render(packet, destination: destination, validate: { checks += 1 }, finish: { url in
+            let proof = try await MediaInspector.inspectOriginal(url)
+            let root = try XCTUnwrap(JSONSerialization.jsonObject(with: proof) as? [String: Any])
+            let decoded = try XCTUnwrap(root["decoded"] as? [String: Any])
+            XCTAssertEqual(decoded["video_frames"] as? Int, 48)
+            finished = true
+        })
+        XCTAssertEqual(checks, 2)
+        XCTAssertTrue(finished)
+        let asset = AVURLAsset(url: output)
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        let track = try XCTUnwrap(tracks.first)
+        let reader = try AVAssetReader(asset: asset)
+        let decoded = AVAssetReaderTrackOutput(track: track, outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
+        XCTAssertTrue(reader.canAdd(decoded)); reader.add(decoded); XCTAssertTrue(reader.startReading())
+        var index = 0, images: [Data] = []
+        while let sample = decoded.copyNextSampleBuffer() {
+            if index == 6 || index == 30 {
+                let pixels = try XCTUnwrap(CMSampleBufferGetImageBuffer(sample))
+                CVPixelBufferLockBaseAddress(pixels, .readOnly)
+                let base = try XCTUnwrap(CVPixelBufferGetBaseAddress(pixels))
+                images.append(Data(bytes: base, count: CVPixelBufferGetDataSize(pixels)))
+                CVPixelBufferUnlockBaseAddress(pixels, .readOnly)
+            }
+            index += 1
+        }
+        XCTAssertEqual(reader.status, .completed)
+        XCTAssertEqual(index, 48)
+        XCTAssertEqual(images.count, 2)
+        if images.count == 2 { XCTAssertNotEqual(images[0], images[1]) }
+        let denied = folder.appendingPathComponent(UUID().uuidString + ".mp4")
+        checks = 0; finished = false
+        do {
+            _ = try await renderer.render(packet, destination: denied, validate: {
+                checks += 1
+                if checks == 2 { throw DomainBridge.Failure.closed }
+            }, finish: { _ in finished = true })
+            XCTFail("Revoked scene output was accepted")
+        } catch DomainBridge.Failure.closed {}
+        XCTAssertEqual(checks, 2)
+        XCTAssertFalse(finished)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: denied.path))
+        let uncertain = folder.appendingPathComponent(UUID().uuidString + ".mp4")
+        do {
+            _ = try await renderer.render(packet, destination: uncertain, validate: {}, finish: { _ in
+                throw DomainBridge.Failure.closed
+            })
+            XCTFail("Failed finish was reported as accepted")
+        } catch DomainBridge.Failure.closed {}
+        XCTAssertTrue(FileManager.default.fileExists(atPath: uncertain.path), "Retain bytes while finish outcome is uncertain")
+    }
+
     private func syntheticVideo(at url: URL, frames: Int, color: CGColor) async throws {
         let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
