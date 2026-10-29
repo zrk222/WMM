@@ -3,8 +3,8 @@ import UIKit
 /// Finite time to tear down an already revoked session, never authority to run jobs.
 @MainActor
 final class NativeBackgroundCleanup {
-    typealias Begin = (@escaping @MainActor () -> Void) -> UIBackgroundTaskIdentifier
-    typealias End = (UIBackgroundTaskIdentifier) -> Void
+    typealias Begin = @MainActor (@escaping @MainActor () -> Void) -> UIBackgroundTaskIdentifier
+    typealias End = @MainActor (UIBackgroundTaskIdentifier) -> Void
     private final class Entry {
         var identifier: UIBackgroundTaskIdentifier = .invalid
         var finished = false
