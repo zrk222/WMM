@@ -169,3 +169,24 @@ class NativeStandingMediaTests(unittest.TestCase):
         with self.assertRaises((Invalid,PermissionError)):self.runtime.native_agent_timeline_source(self.session,'new-app',body)
         self.vault_available=True;self.off()
         with self.assertRaises((Invalid,PermissionError)):self.runtime.native_agent_timeline_source(self.session,'new-app',body)
+
+    def test_native_readiness_requires_current_owner_and_exact_device_store(self):
+        from types import SimpleNamespace
+        from mission_control.automation_requirements import Readiness
+        from mission_control.ios_execution_context import DEVICE_HOST,native_device_context
+        self.queue_scene()
+        reader=Readiness(self.runtime.service.store);owner=self.runtime.identities.fresh(self.session)
+        selected=self.proposal(['native_video_authoring'])['selection']
+        def readiness():return reader.report('new-app',owner,selected)['inventory']
+        outside=readiness()
+        self.assertEqual(outside['scope_status'],'BLOCKED')
+        self.assertIn('CURRENT_NATIVE_DEVICE_HOST_REQUIRED',outside['workflows'][0]['blockers'])
+        foreign=SimpleNamespace(store=SimpleNamespace(path=self.path.parent/'foreign.sqlite3'))
+        with native_device_context(foreign,self.runtime.identities,self.session):
+            self.assertEqual(readiness()['scope_status'],'BLOCKED')
+        with native_device_context(self.runtime.service,self.runtime.identities,self.session):
+            self.assertEqual(readiness()['scope_status'],'READY_FOR_SCOPE_REVIEW')
+            self.available=False
+            with self.assertRaises(PermissionError):readiness()
+        self.available=True
+        self.assertIsNone(DEVICE_HOST.get())
