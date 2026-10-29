@@ -14,7 +14,7 @@ struct NativeStudioView: View {
             Form {
                 Section {
                     Text("Write a sequence of text scenes, save a revision, then render and review it on this device.")
-                    Text("This scene profile supports text. Media, audio and the complete Studio control inventory remain separate work.").font(.caption)
+                    Text("Add an approved video to a scene and choose whether to retain its source audio.").font(.caption)
                 }
                 Section("Story") {
                     TextField("Video title", text: $model.draft.title, axis: .vertical)
@@ -33,6 +33,21 @@ struct NativeStudioView: View {
                             TextField("Scene text", text: $model.draft.scenes[index].text, axis: .vertical)
                                 .accessibilityLabel("Scene \(index + 1) text")
                             Stepper("Duration: \(model.draft.scenes[index].seconds) seconds", value: $model.draft.scenes[index].seconds, in: 1...15)
+                            Menu("Scene background") {
+                                Button("Text only") { model.draft.scenes[index].media = nil }
+                                ForEach(model.originals) { original in
+                                    Button(original.filename) {
+                                        model.draft.scenes[index].media = .init(id: original.id, sha256: original.source_sha256, in_frame: 0, audio: "MUTE")
+                                    }.disabled(!original.reuse_available)
+                                }
+                            }
+                            if let media = model.draft.scenes[index].media {
+                                Text(model.originals.first(where: { $0.id == media.id })?.filename ?? "Original unavailable; restore or choose another source").font(.caption)
+                                Stepper("Source start frame: \(media.in_frame)", value: Binding(get: { model.draft.scenes[index].media?.in_frame ?? 0 }, set: { model.draft.scenes[index].media?.in_frame = $0 }), in: 0...1439)
+                                Picker("Source audio", selection: Binding(get: { model.draft.scenes[index].media?.audio ?? "MUTE" }, set: { model.draft.scenes[index].media?.audio = $0 })) {
+                                    Text("Mute").tag("MUTE"); Text("Retain").tag("RETAIN")
+                                }
+                            }
                             HStack {
                                 Button("Move earlier") { model.draft.scenes.swapAt(index, index - 1) }.disabled(index == 0)
                                 Button("Move later") { model.draft.scenes.swapAt(index, index + 1) }.disabled(index == model.draft.scenes.count - 1)

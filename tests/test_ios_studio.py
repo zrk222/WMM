@@ -11,6 +11,9 @@ from tests import test_ios_media_adapter as fixture
 class NativeStudioTests(unittest.TestCase):
     verify = fixture.NativeMediaTests.verify
     creation = fixture.NativeMediaTests.creation
+    adapter = fixture.NativeMediaTests.adapter
+    upload = fixture.NativeMediaTests.upload
+    decision = fixture.NativeMediaTests.decision
 
     def setUp(self):
         fixture.NativeMediaTests.setUp(self)
@@ -76,3 +79,31 @@ class NativeStudioTests(unittest.TestCase):
         with self.assertRaises(Invalid):
             self.invoke('save', dict(project_id='scene-one', base_revision=0, manifest_version=1,
                 request_key='different', scene=project['scene']))
+
+    def test_media_source_is_bound_and_revocation_blocks_completion(self):
+        media = self.adapter(); item = self.upload(media)
+        media.review(self.session, 'new-app', item['id'], self.decision(item))
+        source = dict(id=item['id'], sha256=item['source_sha256'], in_frame=0, audio='MUTE')
+        scene = dict(title='Media scene', shape='PORTRAIT', scenes=[dict(text='Caption', seconds=1, media=source)])
+        for invalid in (dict(source, in_frame=True), dict(source, in_frame=1420), dict(source, audio='RETAIN', endpoint='foreign')):
+            with self.assertRaises(Invalid):
+                self.invoke('save', dict(project_id='invalid-scene', base_revision=0, manifest_version=1,
+                    request_key=str(uuid4()), scene=dict(scene, scenes=[dict(text='Caption', seconds=1, media=invalid)])))
+        project = self.invoke('save', dict(project_id='media-scene', base_revision=0, manifest_version=1,
+            request_key='save-media', scene=scene))
+        missing_audio = dict(scene, scenes=[dict(text='Caption', seconds=1, media=dict(source, audio='RETAIN'))])
+        silent = self.invoke('save', dict(project_id='silent-source', base_revision=0, manifest_version=1,
+            request_key='save-silent', scene=missing_audio))
+        with self.assertRaises(Invalid): self.invoke('plan', dict(project_id='silent-source', revision=1, source_hash=silent['source_hash']))
+        start = self.invoke('start', dict(project_id=project['project_id'], revision=1,
+            source_hash=project['source_hash'], request_key='render-media'))
+        job, packet = start['job'], start['packet']
+        studio = NativeStudio(self.runtime.service, self.runtime.identities)
+        path = studio.source(self.session, 'new-app', job['job_id'], packet['packet_hash'], item['id'], item['source_sha256'])
+        self.assertTrue(path.is_file())
+        with self.assertRaises(Invalid):
+            studio.source(self.session, 'new-app', job['job_id'], packet['packet_hash'], item['id'], '0'*64)
+        reviewed = json.loads(media.list(self.session, 'new-app'))['items'][0]
+        media.review(self.session, 'new-app', item['id'], self.decision(reviewed, 'REVOKED'))
+        with self.assertRaises(Invalid): self.invoke('validate', dict(job_id=job['job_id'], packet_hash=packet['packet_hash']))
+        with self.assertRaises(Invalid): self.invoke('finish', dict(job_id=job['job_id'], packet_hash=packet['packet_hash']), self.proof(job['job_id']))

@@ -75,6 +75,23 @@ actor DomainBridge {
         return folder.appendingPathComponent(identity.uuidString.lowercased() + ".mp4")
     }
 
+    func studioSource(session: LocalIdentity.Session, appID: String, jobID: String,
+                      packetHash: String, mediaID: String, sha256: String) throws -> URL {
+        guard let handle else { throw Failure.closed }
+        let request = try JSONSerialization.data(withJSONObject: ["job_id": jobID,
+            "packet_hash": packetHash, "media_id": mediaID, "sha256": sha256])
+        let result = try EngineBootstrap.studioSource(handle: handle, session: session.nonce.uuidString,
+            appID: appID, request: request)
+        struct Location: Decodable { let path: String }
+        let location = try JSONDecoder().decode(Location.self, from: result)
+        let url = URL(fileURLWithPath: location.path).standardizedFileURL.resolvingSymlinksInPath()
+        guard url.path.hasPrefix(storeRoot.path + "/"),
+              try url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true else {
+            throw Failure.invalidRequest
+        }
+        return url
+    }
+
     func studioArtifact(session: LocalIdentity.Session, appID: String, jobID: String) async throws -> URL {
         struct Artifact: Decodable {
             struct Proof: Decodable { let artifact_id: String; let sha256: String; let frames: Int }
