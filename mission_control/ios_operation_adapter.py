@@ -12,6 +12,16 @@ def guarded_execute(service, envelope):
     from .operation_authority import protected
     from .operation_runtime import execute
     with protected(service.store, envelope):
+        if envelope['operation'] in ('pipeline.prepare', 'job.cancel'):
+            from .ios_jobs import PIPELINE_HOST, queue_scoped_pipeline, cancel_scoped_pipeline
+            from .automation_execution import ACTIVE
+            from .complete_automation import ACCESS_VERIFIER
+            if ACTIVE.get() is not None and ACCESS_VERIFIER.get() is not None:
+                if PIPELINE_HOST.get() is None:
+                    raise PermissionError('Trusted native pipeline host is unavailable')
+                if envelope['operation'] == 'pipeline.prepare':
+                    return queue_scoped_pipeline(service, envelope)
+                return cancel_scoped_pipeline(service, envelope)
         return execute(service, envelope)
 
 

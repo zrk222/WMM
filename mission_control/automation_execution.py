@@ -3,6 +3,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 import json
+import time
 
 from .common import Invalid, digest
 
@@ -45,12 +46,22 @@ def guard_connection(path, db, committing=False):
 def check_job(db, context, execution):
     """Cancelled, modified or replaced worker leases cannot inherit old authority."""
     row = db.execute('SELECT j.*,s.execution_id,s.request_hash FROM jobs j JOIN automation_job_scopes s ON s.job_id=j.id WHERE j.id=?', (context['job_id'],)).fetchone()
-    if row is None or row['execution_id'] != execution['id'] or row['status'] != 'RUNNING' or row['attempts'] != context['attempt']:
+    if (row is None or row['execution_id'] != execution['id'] or row['status'] != 'RUNNING'
+            or row['attempts'] != context['attempt'] or row['lease'] <= time.time()):
         raise PermissionError('Standing job is cancelled or its worker lease changed')
     value = dict(row)
     value['data'] = json.loads(value['data'])
     if row['request_hash'] != job_hash(value):
         raise PermissionError('Standing job input changed after admission')
+    data = value['data']
+    if data.get('native_runtime') == 'IOS_LOCAL_V1':
+        from .ios_jobs import source_hash, require_native_sources
+        app = db.execute('SELECT version,data FROM apps WHERE id=?', (row['app_id'],)).fetchone()
+        if (app is None or app['version'] != data.get('manifest_version')
+                or digest(json.loads(app['data'])) != data.get('manifest_hash')
+                or source_hash(db, row['app_id']) != data.get('source_hash')):
+            raise PermissionError('Standing native job sources changed before commit')
+        require_native_sources(db, row['app_id'])
 
 
 def attach_job(db, job, created):

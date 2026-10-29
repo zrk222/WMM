@@ -47,6 +47,7 @@ final class NativeWorkspaceModel: ObservableObject {
     private var generation = UUID()
     private var authentication: LAContext?
     private var editorRenderer: TimelineRenderer?
+    private var studioRenderer: NativeStudioRenderer?
     private var agentRuntime: ScopedAgentRuntime?
     var selectionContext: UUID { generation }
 
@@ -98,6 +99,7 @@ final class NativeWorkspaceModel: ObservableObject {
     }
 
     func lock() {
+        studioRenderer?.cancel()
         generation = UUID(); authentication?.invalidate(); authentication = nil
         identity?.authority.revoke()
         session = nil; apps = []; snapshot = nil; report = nil; media = []; unlocked = false; busy = false; activity = ""; message = nil
@@ -313,6 +315,47 @@ final class NativeWorkspaceModel: ObservableObject {
         }
     }
 
+    func makeStudio() -> NativeStudioModel? {
+        guard unlocked, let app = snapshot?.app, let bridge, let session else { return nil }
+        let renderer = NativeStudioRenderer(); studioRenderer = renderer
+        let ticket = generation
+        return NativeStudioModel(appID: app.id, manifestVersion: app.version, execute: { [weak self] action, body in
+            guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            let result = try await bridge.studio(session: session, appID: app.id, action: action, body: body)
+            guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            return result
+        }, render: { [weak self] packet, jobID in
+            guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id,
+                  packet.app_id == app.id, packet.manifest_version == app.version else { throw DomainBridge.Failure.closed }
+            let destination = try await bridge.studioDestination(jobID: jobID)
+            return try await renderer.render(packet, destination: destination, validate: { [weak self] in
+                guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+                _ = try await bridge.studio(session: session, appID: app.id, action: "validate",
+                    body: ["job_id": jobID, "packet_hash": packet.packet_hash])
+            }, finish: { [weak self] output in
+                guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+                _ = try await bridge.finishStudio(session: session, appID: app.id, jobID: jobID,
+                    packetHash: packet.packet_hash, output: output)
+                guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            })
+        }, openArtifact: { [weak self] job in
+            guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            let output = try await bridge.studioArtifact(session: session, appID: app.id, jobID: job.job_id)
+            guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            return output
+        }, reconcile: { [weak self] job in
+            guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            let output = try await bridge.studioDestination(jobID: job.job_id)
+            _ = try await bridge.studio(session: session, appID: app.id, action: "validate",
+                body: ["job_id": job.job_id, "packet_hash": job.packet_hash])
+            _ = try await bridge.finishStudio(session: session, appID: app.id, jobID: job.job_id,
+                packetHash: job.packet_hash, output: output)
+            let accepted = try await bridge.studioArtifact(session: session, appID: app.id, jobID: job.job_id)
+            guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            return accepted
+        }, cancelRender: { renderer.cancel() })
+    }
+
     func makeAutomation() -> NativeAutomationModel? {
         guard unlocked, let app = snapshot?.app, let bridge, let session else { return nil }
         do {
@@ -328,6 +371,9 @@ final class NativeWorkspaceModel: ObservableObject {
                     let result: Data
                     if action == "profiles" {
                         result = try await bridge.providers(session: session, appID: app.id, action: "view", request: request)
+                    } else if action == "run_job" || action == "monitor_jobs" {
+                        result = try await bridge.jobs(session: session, appID: app.id,
+                            action: action == "run_job" ? "run" : "monitor", request: request)
                     } else {
                         result = try await bridge.automation(session: session, appID: app.id, action: action, request: request)
                     }
@@ -341,6 +387,7 @@ final class NativeWorkspaceModel: ObservableObject {
     }
 
     func clearSelection() {
+        studioRenderer?.cancel()
         if let editorRenderer { Task { await editorRenderer.cancel() } }
         if let agentRuntime { Task { await agentRuntime.cancel() } }
         snapshot = nil; report = nil; media = []

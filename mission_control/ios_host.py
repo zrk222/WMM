@@ -78,6 +78,16 @@ class Runtime:
         from .ios_automation import NativeAutomation
         return NativeAutomation(self.service,self.identities,self.vault_callback).manage(session,app_id,action,payload)
 
+    def native_studio(self,session,app_id,action,payload):
+        from .ios_studio import NativeStudio
+        if action=='finish':raise Invalid('Studio completion requires trusted native artifact inspection')
+        return NativeStudio(self.service,self.identities).call(session,app_id,action,payload)
+
+    def native_studio_finish(self,session,app_id,payload,inspection):
+        from .ios_studio import NativeStudio
+        from .ios_bridge import decode_document
+        return NativeStudio(self.service,self.identities).call(session,app_id,'finish',payload,inspection=decode_document(inspection))
+
     def evidence_form(self,session,app_id):
         """Expose shared evidence fields without connection records or credentials."""
         from .catalog import FIELDS,LABELS
@@ -96,7 +106,9 @@ class Runtime:
 
     def native_jobs(self, session, app_id, action, payload):
         from .ios_jobs import NativeJobs
-        return NativeJobs(self.service, self.identities).call(session, app_id, action, payload)
+        from .ios_automation import native_access
+        with native_access(self.service,self.identities,session,self.vault_callback):
+            return NativeJobs(self.service, self.identities,vault_callback=self.vault_callback).call(session, app_id, action, payload)
 
     def native_agent_access(self, session, app_id, action, payload):
         from .ios_agent_access import NativeAgentAccess
@@ -105,7 +117,8 @@ class Runtime:
     def native_agent_call(self, session, credential, payload):
         from .ios_agent_access import NativeAgentAccess
         from .ios_automation import native_access
-        with native_access(self.service,self.identities,session,self.vault_callback):
+        from .ios_jobs import native_pipeline_context
+        with native_access(self.service,self.identities,session,self.vault_callback), native_pipeline_context(self.service,self.identities,session):
             return NativeAgentAccess(self.service, self.identities).call(session, credential, payload)
 
     def native_media_upload(self,session,app_id,filename,raw,payload,inspection):

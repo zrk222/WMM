@@ -41,6 +41,26 @@ class NativeSnapshotTests(unittest.TestCase):
             self.target.snapshot_restore(self.session,'sample',original,True)
         self.assertEqual(self.target.service.store.app('sample')['version'],1)
 
+    def test_studio_revisions_restore_as_data_with_new_owner_and_no_render_jobs(self):
+        scene=dict(title='Synthetic story',shape='PORTRAIT',scenes=[dict(text='Original',seconds=1)])
+        for revision in range(2):
+            self.source.native_studio(self.session,'sample','save',canonical(dict(project_id='story',base_revision=revision,
+                manifest_version=1,request_key='save-'+str(revision),scene=dict(scene,title='Revision '+str(revision)))).encode())
+        snapshot=json.loads(self.exported())
+        self.assertEqual(len(snapshot['payload']['ios_studio']['projects']),2)
+        self.assertNotIn('owner',canonical(snapshot['payload']['ios_studio']))
+        self.target.snapshot_restore(self.session,'sample',canonical(snapshot).encode(),True)
+        detail=json.loads(self.target.native_studio(self.session,'sample','read',canonical(dict(project_id='story')).encode()))
+        self.assertEqual(detail['project']['revision'],2)
+        self.assertEqual(detail['project']['manifest_version'],1)
+        self.assertEqual(detail['jobs'],[])
+        snapshot['payload']['ios_studio']['projects'][0]['source_hash']='a'*64
+        snapshot['sha256']=digest(snapshot['payload'])
+        from mission_control.ios_host import Runtime
+        other=Runtime(self.root/'invalid.sqlite3',self.verify)
+        with self.assertRaises(Invalid):other.snapshot_restore(self.session,'sample',canonical(snapshot).encode(),True)
+        self.assertEqual(json.loads(other.workspaces(self.session))['apps'],[])
+
     def test_export_requires_current_owner_and_never_exports_grants(self):
         self.source.service.store.save_app('foreign',dict(name='Other',release='build-1',locale='en-US',currency='USD'))
         with self.assertRaises(PermissionError):self.source.snapshot_export(self.session,'foreign')

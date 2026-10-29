@@ -57,6 +57,68 @@ actor DomainBridge {
             appID: appID, action: action, request: request)
     }
 
+    func studio(session: LocalIdentity.Session, appID: String, action: String, body: [String: Any]) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        guard ["projects", "read", "save", "plan", "start", "inspect", "artifact", "cancel", "validate"].contains(action) else { throw Failure.invalidRequest }
+        let bytes = try JSONSerialization.data(withJSONObject: body)
+        guard bytes.count <= 1_048_576 else { throw Failure.invalidRequest }
+        return try EngineBootstrap.studio(handle: handle, session: session.nonce.uuidString, appID: appID, action: action, request: bytes)
+    }
+
+    func studioDestination(jobID: String) throws -> URL {
+        guard handle != nil else { throw Failure.closed }
+        guard let identity = UUID(uuidString: jobID) else { throw Failure.invalidRequest }
+        let folder = storeRoot.appendingPathComponent("native-studio-exports", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true,
+            attributes: [.protectionKey: FileProtectionType.complete])
+        guard folder.standardizedFileURL.resolvingSymlinksInPath().path == folder.path else { throw Failure.invalidRequest }
+        return folder.appendingPathComponent(identity.uuidString.lowercased() + ".mp4")
+    }
+
+    func studioArtifact(session: LocalIdentity.Session, appID: String, jobID: String) async throws -> URL {
+        struct Artifact: Decodable {
+            struct Proof: Decodable { let artifact_id: String; let sha256: String; let frames: Int }
+            let result: Proof?
+        }
+        let bytes = try studio(session: session, appID: appID, action: "artifact", body: ["job_id": jobID])
+        guard let proof = try JSONDecoder().decode(Artifact.self, from: bytes).result,
+              let identity = UUID(uuidString: proof.artifact_id) else { throw Failure.invalidRequest }
+        let folder = storeRoot.appendingPathComponent("native-studio-exports", isDirectory: true)
+        let output = folder.appendingPathComponent(identity.uuidString.lowercased() + ".mp4")
+        guard output.standardizedFileURL.resolvingSymlinksInPath() == output else { throw Failure.invalidRequest }
+        let inspection = try await MediaInspector.inspectOriginal(output)
+        guard let value = try JSONSerialization.jsonObject(with: inspection) as? [String: Any],
+              let decoded = value["decoded"] as? [String: Any], value["sha256"] as? String == proof.sha256,
+              decoded["video_frames"] as? Int == proof.frames else { throw Failure.invalidRequest }
+        let current = try studio(session: session, appID: appID, action: "artifact", body: ["job_id": jobID])
+        guard current == bytes else { throw Failure.invalidRequest }
+        return output
+    }
+
+    func finishStudio(session: LocalIdentity.Session, appID: String, jobID: String, packetHash: String, output: URL) async throws -> Data {
+        guard let handle else { throw Failure.closed }
+        let expected = storeRoot.appendingPathComponent("native-studio-exports", isDirectory: true)
+        guard output.isFileURL, output.pathExtension == "mp4",
+              output.deletingLastPathComponent().standardizedFileURL.resolvingSymlinksInPath() == expected,
+              output.standardizedFileURL.resolvingSymlinksInPath() == output,
+              let identity = UUID(uuidString: output.deletingPathExtension().lastPathComponent),
+              UUID(uuidString: jobID) == identity else { throw Failure.invalidRequest }
+        let bytes = try await MediaInspector.inspectOriginal(output)
+        guard self.handle == handle,
+              let inspected = try JSONSerialization.jsonObject(with: bytes) as? [String: Any],
+              let metadata = inspected["metadata"] as? [String: Any],
+              let decoded = inspected["decoded"] as? [String: Any],
+              let sha = inspected["sha256"] as? String, let size = inspected["bytes"] as? Int,
+              let frames = decoded["video_frames"] as? Int,
+              let width = metadata["width"] as? Int, let height = metadata["height"] as? Int,
+              let audio = metadata["audio"] as? Bool else { throw Failure.invalidRequest }
+        let proof: [String: Any] = ["artifact_id": identity.uuidString.lowercased(), "sha256": sha,
+            "bytes": size, "frames": frames, "width": width, "height": height, "audio": audio]
+        let request = try JSONSerialization.data(withJSONObject: ["job_id": jobID, "packet_hash": packetHash])
+        return try EngineBootstrap.studioFinish(handle: handle, session: session.nonce.uuidString, appID: appID,
+            request: request, inspection: JSONSerialization.data(withJSONObject: proof))
+    }
+
     func snapshotExport(session: LocalIdentity.Session, appID: String) throws -> Data {
         guard let handle else { throw Failure.closed }
         return try EngineBootstrap.snapshotExport(handle: handle, session: session.nonce.uuidString, appID: appID)

@@ -31,6 +31,12 @@ typedef NSData * _Nullable (^WMMNativeVaultCallback)(NSData *request);
                          action:(NSString *)action request:(NSData *)request error:(NSError **)error
     NS_SWIFT_NAME(production(handle:session:appID:action:request:));
 + (void)close:(NSString *)handle;
++ (nullable NSData *)studio:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                     action:(NSString *)action request:(NSData *)request error:(NSError **)error
+    NS_SWIFT_NAME(studio(handle:session:appID:action:request:));
++ (nullable NSData *)studioFinish:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                           request:(NSData *)request inspection:(NSData *)inspection error:(NSError **)error
+    NS_SWIFT_NAME(studioFinish(handle:session:appID:request:inspection:));
 + (nullable NSData *)automation:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
                          action:(NSString *)action request:(NSData *)request error:(NSError **)error
     NS_SWIFT_NAME(automation(handle:session:appID:action:request:));

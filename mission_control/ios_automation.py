@@ -9,6 +9,7 @@ from .ios_bridge import decode_document, encode_response
 # These are the only workflow operations inspected for this bounded adapter.
 # A catalog change fails closed until the native compatibility review is updated.
 NATIVE_WORKFLOWS = {
+    'pipeline_preparation': frozenset({'pipeline.prepare', 'jobs.read', 'job.cancel'}),
     'experiment_preparation': frozenset({
         'experiment.register', 'experiment.evaluate', 'experiment.action',
     }),
@@ -113,6 +114,8 @@ class NativeAutomation:
                     if action == 'preview':
                         result = automation.preview(app_id, user, proposal)
                         result.update(native_readiness='READY_FOR_SCOPE_REVIEW', blockers=[], native_execution_acceptance='INCOMPLETE')
+                        if 'pipeline_preparation' in proposal['selection']['workflows']:
+                            result['native_conditions'] = ['NATIVE_PROVIDER_ONBOARDING_REQUIRED_FOR_CONNECTION_READINESS']
                     else:
                         with native_access(self.service, self.identities, session, self.vault_callback):
                             result = automation.activate(app_id, user, dict(proposal=proposal, summary_hash=body['summary_hash']))
@@ -123,5 +126,6 @@ class NativeAutomation:
                     result = automation.status(app_id, user)
                     result['native_blockers'] = native_blockers(
                         {'workflows': list(result['catalog']['workflows'])})
+                    result['native_conditions'] = {'pipeline_preparation': ['NATIVE_PROVIDER_ONBOARDING_REQUIRED_FOR_CONNECTION_READINESS']}
                     result['native_execution_acceptance'] = 'INCOMPLETE'
                 return encode_response(result)

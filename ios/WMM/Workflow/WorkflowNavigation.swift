@@ -16,6 +16,7 @@ struct WorkflowNavigation: View {
     @State private var evidence: NativeEvidenceModel?
     @State private var snapshots: NativeSnapshotModel?
     @State private var automation: NativeAutomationModel?
+    @State private var studio: NativeStudioModel?
 
     var body: some View {
         NavigationStack {
@@ -100,6 +101,8 @@ struct WorkflowNavigation: View {
                             }.disabled(model.busy)
                             Button("Edit video", systemImage: "slider.horizontal.3") { editor = model.makeEditor() }
                                 .disabled(model.busy)
+                            Button("Scene Studio", systemImage: "text.below.photo") { studio = model.makeStudio() }
+                                .disabled(model.busy)
                             Button("Your agents", systemImage: "person.crop.circle.badge.checkmark") { agents = model.makeAgentAccess() }
                                 .disabled(model.busy)
                             Button("Standing approval", systemImage: "checkmark.shield") { automation = model.makeAutomation() }
@@ -138,6 +141,7 @@ struct WorkflowNavigation: View {
             .sheet(item: $evidence) { NativeEvidenceView(model: $0) }
             .sheet(item: $snapshots) { NativeSnapshotView(model: $0) }
             .sheet(item: $automation) { NativeAutomationView(model: $0) }
+            .sheet(item: $studio) { NativeStudioView(model: $0) }
         }
         .privacySensitive()
         .overlay { if scenePhase != .active { Color(uiColor: .systemBackground).ignoresSafeArea() } }
@@ -152,6 +156,7 @@ struct WorkflowNavigation: View {
         .onChange(of: model.unlocked) { _, value in if !value { evidence = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { snapshots = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { automation = nil } }
+        .onChange(of: model.unlocked) { _, value in if !value { studio = nil } }
     }
 }
 

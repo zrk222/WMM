@@ -1,8 +1,21 @@
 """Protected setup transaction; records carry only public metadata and references."""
 import re
+from contextlib import contextmanager
+from contextvars import ContextVar
 from .common import Invalid, required, uid
 from .credential_vault import Vault, namespace, target
 from .provider_auth import LOCK, forget, native
+
+STATUS_SOURCE = ContextVar('wmm_connection_status_source', default=None)
+
+
+@contextmanager
+def bound_status_source(source):
+    """Bind a trusted host-specific status projection to synchronous work."""
+    if not callable(source):raise TypeError('A trusted status source is required')
+    token=STATUS_SOURCE.set(source)
+    try:yield
+    finally:STATUS_SOURCE.reset(token)
 
 
 def configuration(body):
@@ -106,6 +119,8 @@ class Connections:
 
     def statuses(self,app_id):
         """Return presence only; never return private configuration or cached bearer."""
+        source=STATUS_SOURCE.get()
+        if source is not None:return source(self.store,app_id)
         result={}
         for record in self.store.records(app_id):
             if record["kind"]!="connection":
