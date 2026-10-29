@@ -88,6 +88,15 @@ class Runtime:
         from .ios_bridge import decode_document
         return NativeStudio(self.service,self.identities).call(session,app_id,'finish',payload,inspection=decode_document(inspection))
 
+    def native_studio_source(self,session,app_id,payload):
+        from .ios_studio import NativeStudio
+        from .ios_bridge import decode_document
+        body=decode_document(payload)
+        if not isinstance(body,dict) or set(body)!={'job_id','packet_hash','media_id','sha256'}:
+            raise Invalid('Exact Studio source binding required')
+        path=NativeStudio(self.service,self.identities).source(session,app_id,**body)
+        return encode_response(dict(path=str(path)))
+
     def evidence_form(self,session,app_id):
         """Expose shared evidence fields without connection records or credentials."""
         from .catalog import FIELDS,LABELS

@@ -61,6 +61,18 @@ class NativeSnapshotTests(unittest.TestCase):
         with self.assertRaises(Invalid):other.snapshot_restore(self.session,'sample',canonical(snapshot).encode(),True)
         self.assertEqual(json.loads(other.workspaces(self.session))['apps'],[])
 
+    def test_studio_media_reference_restores_without_reuse_authority_or_bytes(self):
+        media=dict(id=str(uuid4()),sha256='a'*64,in_frame=0,audio='MUTE')
+        scene=dict(title='Synthetic',shape='PORTRAIT',scenes=[dict(text='Caption',seconds=1,media=media)])
+        saved=json.loads(self.source.native_studio(self.session,'sample','save',canonical(dict(project_id='story',base_revision=0,
+            manifest_version=1,request_key='save-media',scene=scene)).encode()))
+        snapshot=self.exported()
+        self.target.snapshot_restore(self.session,'sample',snapshot,True)
+        detail=json.loads(self.target.native_studio(self.session,'sample','read',canonical(dict(project_id='story')).encode()))
+        self.assertEqual(detail['project']['scene'],scene)
+        with self.assertRaises(Invalid):
+            self.target.native_studio(self.session,'sample','plan',canonical(dict(project_id='story',revision=1,source_hash=saved['source_hash'])).encode())
+
     def test_export_requires_current_owner_and_never_exports_grants(self):
         self.source.service.store.save_app('foreign',dict(name='Other',release='build-1',locale='en-US',currency='USD'))
         with self.assertRaises(PermissionError):self.source.snapshot_export(self.session,'foreign')

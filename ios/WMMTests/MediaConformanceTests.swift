@@ -5,6 +5,112 @@ import CoreImage
 
 final class MediaConformanceTests: XCTestCase {
     @MainActor
+    func testStudioUsesApprovedVideoFramesAndRechecksSource() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let source = folder.appendingPathComponent("red.mp4")
+        try await syntheticVideo(at: source, frames: 48, color: CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+        let mediaID = UUID().uuidString.lowercased()
+        let payload: [String: Any] = ["schema": "growth.ios-studio-packet.v1", "app_id": "synthetic",
+            "project_id": "scene-one", "revision": 1, "source_hash": String(repeating: "a", count: 64),
+            "manifest_version": 1, "scene": ["title": "Title", "shape": "LANDSCAPE", "scenes": [
+                ["text": "Caption", "seconds": 1, "media": ["id": mediaID, "sha256": String(repeating: "b", count: 64), "in_frame": 12, "audio": "MUTE"]]]],
+            "fps": 24, "frame_count": 24, "status": "PREPARED_NOT_RENDERED", "execution_authority": false,
+            "packet_hash": String(repeating: "c", count: 64)]
+        let packet = try JSONDecoder().decode(NativeStudioPacket.self, from: JSONSerialization.data(withJSONObject: payload))
+        let output = folder.appendingPathComponent("output.mp4")
+        var resolutions = 0
+        let renderer = NativeStudioRenderer()
+        _ = try await renderer.render(packet, destination: output, resolve: { sourceMedia in
+            XCTAssertEqual(sourceMedia.id, mediaID); resolutions += 1; return source
+        }, validate: {}, finish: { _ in })
+        XCTAssertEqual(resolutions, 2)
+        let asset = AVURLAsset(url: output)
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        let video = try XCTUnwrap(tracks.first)
+        let reader = try AVAssetReader(asset: asset)
+        let decoded = AVAssetReaderTrackOutput(track: video, outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
+        XCTAssertTrue(reader.canAdd(decoded)); reader.add(decoded); XCTAssertTrue(reader.startReading())
+        var frames = 0
+        while let sample = decoded.copyNextSampleBuffer() {
+            if frames == 6 {
+                let pixels = try XCTUnwrap(CMSampleBufferGetImageBuffer(sample))
+                CVPixelBufferLockBaseAddress(pixels, .readOnly)
+                let base = try XCTUnwrap(CVPixelBufferGetBaseAddress(pixels))
+                let offset = 700 * CVPixelBufferGetBytesPerRow(pixels) + 100 * 4
+                XCTAssertGreaterThan(Int(base.load(fromByteOffset: offset + 2, as: UInt8.self)), Int(base.load(fromByteOffset: offset, as: UInt8.self)) + 80)
+                CVPixelBufferUnlockBaseAddress(pixels, .readOnly)
+            }
+            frames += 1
+        }
+        XCTAssertEqual(reader.status, .completed); XCTAssertEqual(frames, 24)
+        let audios = try await asset.loadTracks(withMediaType: .audio)
+        XCTAssertTrue(audios.isEmpty)
+        let denied = folder.appendingPathComponent("denied.mp4")
+        resolutions = 0
+        do {
+            _ = try await renderer.render(packet, destination: denied, resolve: { _ in
+                resolutions += 1
+                if resolutions == 2 { throw DomainBridge.Failure.closed }
+                return source
+            }, validate: {}, finish: { _ in XCTFail("Revoked source was committed") })
+            XCTFail("Revoked source accepted")
+        } catch DomainBridge.Failure.closed {}
+        XCTAssertFalse(FileManager.default.fileExists(atPath: denied.path))
+    }
+
+    @MainActor
+    func testStudioRetainsDecodedSourceAudio() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let picture = folder.appendingPathComponent("picture.mp4")
+        try await syntheticVideo(at: picture, frames: 48, color: CGColor(red: 0, green: 0, blue: 1, alpha: 1))
+        let wave = folder.appendingPathComponent("tone.wav")
+        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1))
+        let pcm = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 96000))
+        pcm.frameLength = 96000
+        let samples = try XCTUnwrap(pcm.floatChannelData?[0])
+        for index in 0..<96000 { samples[index] = 0.2 * sin(Float(index) * 2 * .pi * 440 / 48000) }
+        do {
+            let file = try AVAudioFile(forWriting: wave, settings: format.settings)
+            try file.write(from: pcm)
+        }
+        let composition = AVMutableComposition()
+        let videoSource = AVURLAsset(url: picture), soundSource = AVURLAsset(url: wave)
+        let videoTracks = try await videoSource.loadTracks(withMediaType: .video)
+        let soundTracks = try await soundSource.loadTracks(withMediaType: .audio)
+        let video = try XCTUnwrap(composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid))
+        let audio = try XCTUnwrap(composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid))
+        let duration = CMTime(value: 48, timescale: 24)
+        try video.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: try XCTUnwrap(videoTracks.first), at: .zero)
+        try audio.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: try XCTUnwrap(soundTracks.first), at: .zero)
+        let source = folder.appendingPathComponent("with-audio.mp4")
+        let exporter = try XCTUnwrap(AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality))
+        exporter.outputURL = source; exporter.outputFileType = .mp4
+        await withCheckedContinuation { continuation in exporter.exportAsynchronously { continuation.resume() } }
+        XCTAssertEqual(exporter.status, .completed)
+        let mediaID = UUID().uuidString.lowercased()
+        let payload: [String: Any] = ["schema": "growth.ios-studio-packet.v1", "app_id": "synthetic", "project_id": "sound",
+            "revision": 1, "source_hash": String(repeating: "a", count: 64), "manifest_version": 1,
+            "scene": ["title": "Title", "shape": "LANDSCAPE", "scenes": [["text": "Caption", "seconds": 1,
+                "media": ["id": mediaID, "sha256": String(repeating: "b", count: 64), "in_frame": 12, "audio": "RETAIN"]]]],
+            "fps": 24, "frame_count": 24, "status": "PREPARED_NOT_RENDERED", "execution_authority": false,
+            "packet_hash": String(repeating: "c", count: 64)]
+        let packet = try JSONDecoder().decode(NativeStudioPacket.self, from: JSONSerialization.data(withJSONObject: payload))
+        let output = folder.appendingPathComponent("result.mp4")
+        _ = try await NativeStudioRenderer().render(packet, destination: output, resolve: { _ in source }, validate: {}, finish: { _ in })
+        let proof = try await MediaInspector.inspectOriginal(output)
+        let value = try XCTUnwrap(JSONSerialization.jsonObject(with: proof) as? [String: Any])
+        let metadata = try XCTUnwrap(value["metadata"] as? [String: Any])
+        let decoded = try XCTUnwrap(value["decoded"] as? [String: Any])
+        XCTAssertEqual(metadata["audio"] as? Bool, true)
+        XCTAssertEqual(decoded["video_frames"] as? Int, 24)
+        XCTAssertGreaterThan(decoded["audio_frames"] as? Int ?? 0, 0)
+    }
+
+    @MainActor
     func testStudioEmbeddedRevisionRenderReopenAndAuthorityDenials() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

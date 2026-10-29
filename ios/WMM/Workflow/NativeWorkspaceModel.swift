@@ -328,7 +328,13 @@ final class NativeWorkspaceModel: ObservableObject {
             guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id,
                   packet.app_id == app.id, packet.manifest_version == app.version else { throw DomainBridge.Failure.closed }
             let destination = try await bridge.studioDestination(jobID: jobID)
-            return try await renderer.render(packet, destination: destination, validate: { [weak self] in
+            return try await renderer.render(packet, destination: destination, resolve: { [weak self] media in
+                guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+                let result = try await bridge.studioSource(session: session, appID: app.id, jobID: jobID,
+                    packetHash: packet.packet_hash, mediaID: media.id, sha256: media.sha256)
+                guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+                return result
+            }, validate: { [weak self] in
                 guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
                 _ = try await bridge.studio(session: session, appID: app.id, action: "validate",
                     body: ["job_id": jobID, "packet_hash": packet.packet_hash])
@@ -353,7 +359,13 @@ final class NativeWorkspaceModel: ObservableObject {
             let accepted = try await bridge.studioArtifact(session: session, appID: app.id, jobID: job.job_id)
             guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
             return accepted
-        }, cancelRender: { renderer.cancel() })
+        }, cancelRender: { renderer.cancel() }, listOriginals: { [weak self] in
+            guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            let bytes = try await bridge.mediaList(session: session, appID: app.id)
+            let result = try JSONDecoder().decode(NativeMediaList.self, from: bytes)
+            guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            return result.items
+        })
     }
 
     func makeAutomation() -> NativeAutomationModel? {

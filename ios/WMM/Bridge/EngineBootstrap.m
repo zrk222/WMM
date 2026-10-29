@@ -342,6 +342,22 @@ static NSData *WMMResultBytes(PyObject *value, NSError **error) {
     }
 }
 
++ (NSData *)studioSource:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                   request:(NSData *)request error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        PyObject *body = request.length > 0 && request.length <= 1048576
+            ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
+        PyObject *value = runtime && body ? PyObject_CallMethod(runtime, "native_studio_source", "ssO",
+            session.UTF8String, appID.UTF8String, body) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); Py_XDECREF(body); PyGILState_Release(gil);
+        return result;
+    }
+}
+
 + (NSData *)studioFinish:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
                    request:(NSData *)request inspection:(NSData *)inspection error:(NSError **)error {
     @synchronized(self) {

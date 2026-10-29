@@ -8,7 +8,7 @@ MAX_SNAPSHOT_BYTES=33_554_432
 
 def studio_projects(value):
     """Portable scene data carries no owner, credentials or execution receipts."""
-    from .hypit_authoring import scene_contract
+    from .ios_studio import studio_scene
     if not isinstance(value,list) or len(value)>1000:raise Invalid('Use at most 1000 portable scene revisions')
     seen={};result=[]
     for row in value:
@@ -18,7 +18,7 @@ def studio_projects(value):
         revision=row['revision'];manifest=row['manifest_version']
         if type(revision) is not int or revision!=seen.get(identity,0)+1 or type(manifest) is not int or manifest<1:
             raise Invalid('Portable scene revisions must be consecutive and versioned')
-        scene=scene_contract(row['scene'])
+        scene=studio_scene(row['scene'])
         if digest(scene)!=row['source_hash']:raise Invalid('Portable scene integrity changed')
         seen[identity]=revision;result.append(dict(row,project_id=identity,scene=scene))
     return result

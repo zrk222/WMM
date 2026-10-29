@@ -24,7 +24,16 @@ jobs:
         run: |
           python -m pip install --only-binary :all: -r docs/requirements-mcp.txt
       - name: Install optional native integration-test tools
-        run: choco install ffmpeg --version=9.0.2 --yes --no-progress
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'ffmpeg-9.0.2-full_build.zip'
+          Invoke-WebRequest -Uri 'https://github.com/GyanD/codexffmpeg/releases/download/9.0.2/ffmpeg-9.0.2-full_build.zip' -OutFile $archive -MaximumRetryCount 3 -RetryIntervalSec 10
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne '759d0a9831c436a0eb331ad36f236c06cb04aaa0005da46571f0e9d3d9206f6b') { throw 'FFmpeg archive digest mismatch' }
+          $destination = Join-Path $env:RUNNER_TEMP 'wmm-ffmpeg-9.0.2'
+          Expand-Archive -LiteralPath $archive -DestinationPath $destination
+          $binary = @(Get-ChildItem -LiteralPath $destination -Filter ffmpeg.exe -File -Recurse)
+          if ($binary.Count -ne 1) { throw 'Expected one pinned FFmpeg executable' }
+          if (!(Test-Path -LiteralPath (Join-Path $binary[0].DirectoryName 'ffprobe.exe'))) { throw 'Pinned FFprobe missing' }
+          $binary[0].DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Verify full test-profile prerequisites
         run: python -c "from zoneinfo import ZoneInfo; from importlib.metadata import version; from mission_control.media_native import capability; ZoneInfo('America/Toronto'); assert capability()['status'] == 'READY', capability(); assert version('mcp') == '1.30.0', version('mcp')"
       - name: Check clean distribution

@@ -34,7 +34,9 @@ final class NativeStudioModel: ObservableObject, Identifiable {
     private let openArtifact: (NativeStudioJob) async throws -> URL
     private let reconcile: (NativeStudioJob) async throws -> URL
     private let cancelRender: () async -> Void
+    private let listOriginals: () async throws -> [NativeMediaItem]
     @Published var projects: [NativeStudioProject] = []
+    @Published var originals: [NativeMediaItem] = []
     @Published var selected: NativeStudioProject?
     @Published var jobs: [NativeStudioJob] = []
     @Published var draft = NativeStudioScene(title: "", shape: "PORTRAIT", scenes: [.init(text: "", seconds: 3)])
@@ -51,10 +53,11 @@ final class NativeStudioModel: ObservableObject, Identifiable {
     init(appID: String, manifestVersion: Int, execute: @escaping Execute,
          render: @escaping Render, openArtifact: @escaping (NativeStudioJob) async throws -> URL,
          reconcile: @escaping (NativeStudioJob) async throws -> URL,
-         cancelRender: @escaping () async -> Void) {
+         cancelRender: @escaping () async -> Void,
+         listOriginals: @escaping () async throws -> [NativeMediaItem]) {
         self.appID = appID; self.manifestVersion = manifestVersion
         self.execute = execute; self.render = render; self.openArtifact = openArtifact
-        self.reconcile = reconcile; self.cancelRender = cancelRender
+        self.reconcile = reconcile; self.cancelRender = cancelRender; self.listOriginals = listOriginals
     }
 
     private func perform(_ activity: String, _ work: () async throws -> Void) async {
@@ -69,6 +72,7 @@ final class NativeStudioModel: ObservableObject, Identifiable {
         struct Listing: Decodable { let projects: [NativeStudioProject] }
         await perform("Loading saved scenes…") {
             projects = try JSONDecoder().decode(Listing.self, from: await execute("projects", [:])).projects
+            originals = try await listOriginals()
         }
     }
 
