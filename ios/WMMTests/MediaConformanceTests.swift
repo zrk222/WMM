@@ -504,16 +504,17 @@ final class MediaConformanceTests: XCTestCase {
             XCTFail("Corrupt agent output remained shareable")
         } catch {}
         try originalBytes.write(to: agentOutput)
-        let videoModel = NativeAgentVideoModel(execute: { action, request in
+        let videoModel = await NativeAgentVideoModel(execute: { action, request in
             try await bridge.agentTimeline(session: session, appID: appID, action: action,
                 body: NativeAgentLoopModel.object(request))
         }, artifact: { identity in try await bridge.agentTimelineArtifact(session: session, appID: appID, jobID: identity) })
         await videoModel.refresh()
-        let videoJob = try XCTUnwrap(videoModel.jobs.first)
+        let videoJobs = await videoModel.jobs
+        let videoJob = try XCTUnwrap(videoJobs.first)
         XCTAssertEqual(videoJob.job_id, agentJobID)
         let verifiedShare = await videoModel.verifiedURL(videoJob)
         XCTAssertEqual(verifiedShare, agentOutput)
-        videoModel.close(); await scopedRuntime.cancel()
+        await videoModel.close(); await scopedRuntime.cancel()
         let editor = await NativeEditorModel(appID: appID, manifestVersion: 1, locale: "en-US", execute: { operation, resource, input in
             if operation == "native.media.list" { return try await bridge.mediaList(session: session, appID: appID) }
             var envelope: [String: Any] = ["app_id": appID, "operation": operation, "input": input]
