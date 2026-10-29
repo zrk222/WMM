@@ -90,6 +90,20 @@ class Runtime:
         from .ios_store_connection import NativeStoreConnection
         return NativeStoreConnection(self.service,self.identities,self.vault_callback,self.vault_callback).call(session,app_id,action,payload)
 
+    def native_agent_timeline(self,session,app_id,action,payload):
+        from .ios_agent_media import NativeAgentTimeline
+        if action=='finish':raise Invalid('Timeline finish requires trusted decoded output')
+        return NativeAgentTimeline(self.service,self.identities).call(session,app_id,action,payload)
+
+    def native_agent_timeline_finish(self,session,app_id,payload,inspection):
+        from .ios_agent_media import NativeAgentTimeline
+        from .ios_bridge import decode_document
+        return NativeAgentTimeline(self.service,self.identities).call(session,app_id,'finish',payload,inspection=decode_document(inspection))
+
+    def native_agent_timeline_source(self,session,app_id,payload):
+        from .ios_agent_media import NativeAgentTimeline
+        return NativeAgentTimeline(self.service,self.identities).source(session,app_id,payload)
+
     def native_inference(self,session,app_id,action,payload):
         from .ios_inference import NativeInference
         return NativeInference(self.service,self.identities,self.vault_callback).call(session,app_id,action,payload)

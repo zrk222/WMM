@@ -29,6 +29,9 @@ class NativeAgentAccess:
             with protected(self.service.store, envelope):
                 if action == 'list':
                     result = dict(grants.list(app_id, user), operations=OPERATIONS,
+                                  native_media={'available':[name for name in OPERATIONS if name.startswith(('ios.scene.','ios.timeline.'))],
+                                      'unsupported':[name for name in OPERATIONS if name.startswith('studio.') or name in ('editor.queue','native.queue','hypit.queue')],
+                                      'standing':'NOT_SUPPORTED','completion':'TRUSTED_NATIVE_HOST_ONLY'},
                                   native_execution_acceptance='INCOMPLETE')
                 elif action == 'issue':
                     result = grants.issue(app_id, user, body['grant'])

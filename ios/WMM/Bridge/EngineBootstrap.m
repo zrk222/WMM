@@ -443,6 +443,41 @@ static NSData *WMMResultBytes(PyObject *value, NSError **error) {
     }
 }
 
++ (NSData *)agentTimeline:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                 action:(NSString *)action request:(NSData *)request error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        BOOL source = [action isEqualToString:@"source"];
+        BOOL known = [@[@"inspect", @"validate", @"cancel", @"source"] containsObject:action];
+        PyObject *body = known && request.length > 0 && request.length <= 1048576
+            ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
+        PyObject *value = runtime && body ? (source
+            ? PyObject_CallMethod(runtime, "native_agent_timeline_source", "ssO", session.UTF8String, appID.UTF8String, body)
+            : PyObject_CallMethod(runtime, "native_agent_timeline", "sssO", session.UTF8String, appID.UTF8String, action.UTF8String, body)) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); Py_XDECREF(body); PyGILState_Release(gil); return result;
+    }
+}
+
++ (NSData *)agentTimelineFinish:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                   request:(NSData *)request inspection:(NSData *)inspection error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        PyObject *body = request.length > 0 && request.length <= 1048576
+            ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
+        PyObject *proof = inspection.length > 0 && inspection.length <= 1048576
+            ? PyBytes_FromStringAndSize(inspection.bytes, (Py_ssize_t)inspection.length) : NULL;
+        PyObject *value = runtime && body && proof ? PyObject_CallMethod(runtime, "native_agent_timeline_finish", "ssOO",
+            session.UTF8String, appID.UTF8String, body, proof) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); Py_XDECREF(body); Py_XDECREF(proof); PyGILState_Release(gil); return result;
+    }
+}
+
 + (NSData *)storeConnection:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
                  action:(NSString *)action request:(NSData *)request error:(NSError **)error {
     @synchronized(self) {
