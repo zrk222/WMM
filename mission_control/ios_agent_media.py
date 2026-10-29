@@ -174,15 +174,25 @@ class NativeAgentTimeline:
         from .ios_bridge import decode_document,encode_response
         from .operation_authority import bound_owner,protected
         body=decode_document(payload)
-        fields={'inspect':{'job_id'},'validate':{'job_id','packet_hash'},'cancel':{'job_id'},'finish':{'job_id','packet_hash'}}
+        fields={'history':set(),'artifact':{'job_id'},'inspect':{'job_id'},'validate':{'job_id','packet_hash'},'cancel':{'job_id'},'finish':{'job_id','packet_hash'}}
         if action not in fields or not isinstance(body,dict) or set(body)!=fields[action] or ((action=='finish')!=(inspection is not None)):
             raise Invalid('Use an exact trusted native timeline action')
         user=self.identities.fresh(session);envelope=dict(app_id=app_id,operation='native.agent-timeline.'+action,input=body)
         with bound_owner(self.service.store,envelope,self.identities,session,user):
             with protected(self.service.store,envelope):
                 with connection(self.service.store.path) as db:
-                    db.execute('BEGIN IMMEDIATE');row=timeline_row(db,app_id,user['principal'],body['job_id'])
+                    db.execute('BEGIN IMMEDIATE')
+                    if action=='history':
+                        rows=db.execute('SELECT * FROM ios_agent_timeline_jobs WHERE app_id=? AND owner=? ORDER BY created DESC,id DESC LIMIT 100',
+                                        (app_id,user['principal'])).fetchall()
+                        return encode_response({'items':[timeline_public(row) for row in rows]})
+                    row=timeline_row(db,app_id,user['principal'],body['job_id'])
                     if action=='inspect':return encode_response(timeline_public(row))
+                    if action=='artifact':
+                        if row['status']!='SUCCEEDED' or row['result'] is None:raise Invalid('This render has no verified output')
+                        saved=json.loads(row['packet'])
+                        if timeline_packet(self.service,app_id,saved)!=saved:raise Invalid('Artifact source or app revision changed')
+                        return encode_response(timeline_public(row))
                     if action=='cancel':
                         if row['status']=='PREPARED':db.execute("UPDATE ios_agent_timeline_jobs SET status='CANCELLED',updated=? WHERE app_id=? AND id=?",(now(),app_id,row['id']))
                         elif row['status']!='CANCELLED':raise Invalid('Completed render cannot be cancelled')
