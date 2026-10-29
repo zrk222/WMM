@@ -50,6 +50,7 @@ final class NativeWorkspaceModel: ObservableObject {
     private var editorRenderer: TimelineRenderer?
     private var studioRenderer: NativeStudioRenderer?
     private var agentRuntime: ScopedAgentRuntime?
+    private let backgroundCleanup = NativeBackgroundCleanup()
     var selectionContext: UUID { generation }
 
     private func installationID(_ key: String) throws -> UUID {
@@ -65,6 +66,10 @@ final class NativeWorkspaceModel: ObservableObject {
 
     func unlock() async {
         guard !busy else { return }
+        guard !backgroundCleanup.isPending else {
+            message = "Finishing the previous session’s cleanup. Your saved work is retained. Try Unlock again when cleanup finishes."
+            return
+        }
         busy = true; message = nil; activity = "Confirming device authentication…"
         let ticket = generation
         defer { if generation == ticket { busy = false; activity = "" } }
@@ -104,10 +109,13 @@ final class NativeWorkspaceModel: ObservableObject {
         generation = UUID(); authentication?.invalidate(); authentication = nil
         identity?.authority.revoke()
         session = nil; apps = []; snapshot = nil; report = nil; media = []; unlocked = false; busy = false; activity = ""; message = nil
-        if let identity { Task { await identity.lock() } }
-        if let editorRenderer { Task { await editorRenderer.cancel() } }
-        if let agentRuntime { Task { await agentRuntime.cancel() } }
-        if let bridge { Task { await bridge.reviewLogout() } }
+        let identity = identity, editorRenderer = editorRenderer, agentRuntime = agentRuntime, bridge = bridge
+        backgroundCleanup.start {
+            await identity?.lock()
+            await editorRenderer?.cancel()
+            await agentRuntime?.cancel()
+            await bridge?.reviewLogout()
+        }
     }
 
     func create(appID: String, manifest: [String: String], confirmed: Bool) async -> Bool {
