@@ -269,7 +269,18 @@ is implemented here. Existing Windows/macOS/Linux/Ubuntu requirements remain
 additive. All proposed iOS runtime gates below are NOT_RUN because this environment
 has neither an Apple build host nor an attached iOS device.
 
-## Native support gates - all NOT_RUN
+## Native support gates - initial packet and current evidence
+
+The table below retains the requirements packet's initial observations, not the
+current implementation inventory. The native Swift application, Xcode target,
+embedded Python engine and simulator test plans now exist. For the merged review
+workflow, [run 40832996416](https://github.com/zrk222/WMM/actions/runs/40832996416)
+at `107211626bcd47cec54d4fa6c659b5484bf543bf` passed on both iPhone and iPad
+simulators (25 tests each, zero failures, one physical-device-only skip).
+[PR 39](https://github.com/zrk222/WMM/pull/39) records the corresponding merge.
+Physical-device and complete workflow acceptance are still required; the
+simulator result does not supply those observations. Later candidates require
+their own current source-bound results.
 
 Run on a declared macOS host with full Xcode after implementation. Proposed target:
 `ios/WMM.xcodeproj`, scheme `WMM`, device baseline 17.0 and additional 26 profile.
