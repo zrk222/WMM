@@ -39,6 +39,32 @@ class NativeInsightsTests(unittest.TestCase):
         with patch('mission_control.insights_transport.request', side_effect=copy.deepcopy(payloads()['posthog'])):
             return self.call('setup', body)
 
+    def test_native_all_existing_analytics_adapters_keep_keys_private_and_metrics_distinct(self):
+        self.start(); identities={}
+        for provider in ('posthog','clarity','revenuecat'):
+            body=dict(setup_body(provider),confirm_storage=True,automatic=True)
+            with patch('mission_control.insights_transport.request',side_effect=copy.deepcopy(payloads()[provider])):
+                result=self.call('setup',body)
+            identities[provider]=result['source_id']
+        view=self.call('view')
+        self.assertEqual({r['provider'] for r in view['sources']},set(identities))
+        self.assertEqual({r['provider'] for r in view['reports']},set(identities))
+        self.assertEqual(set(view['providers']),set(identities))
+        self.assertNotIn('privateUrl',json.dumps(view));self.assertNotIn('private.test',json.dumps(view))
+        for provider in identities:
+            secret=setup_body(provider)['api_key']
+            self.assertNotIn(secret,json.dumps(view))
+            for file in self.path.parent.glob(self.path.name+'*'):self.assertNotIn(secret.encode(),file.read_bytes())
+        for provider,identity in identities.items():
+            with connection(self.path) as db:db.execute('UPDATE insight_sources SET next_due=0 WHERE id=?',(identity,))
+            with patch('mission_control.insights_transport.request',side_effect=copy.deepcopy(payloads()[provider])):
+                self.assertEqual(self.call('tick')['status'],'CONNECTED')
+            with connection(self.path) as db:self.assertGreater(db.execute('SELECT next_due FROM insight_sources WHERE id=?',(identity,)).fetchone()[0],0)
+        self.assertEqual(self.call('tick')['status'],'IDLE')
+        for provider,identity in identities.items():
+            self.assertEqual(self.call('disconnect',{'id':identity,'version':1,'confirm_disconnect':True})['status'],'DISCONNECTED')
+        self.assertEqual(self.values,{})
+
     def test_setup_refresh_tick_and_disconnect_real_sqlite(self):
         self.start(); result = self.setup(automatic=True)
         sid = result['source_id']; key = setup_body()['api_key']

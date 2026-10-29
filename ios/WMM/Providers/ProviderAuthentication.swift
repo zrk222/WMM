@@ -85,7 +85,7 @@ struct ProviderAuthentication: Sendable {
               key.range(of: "^[!-~]{16,1800}$", options: .regularExpression) != nil else { return false }
         if !insights { return Set(value.keys) == ["api_key"] }
         guard Set(value.keys) == ["api_key", "binding"],
-              key.range(of: "^ph[xs]_[A-Za-z0-9_-]{16,}$", options: .regularExpression) != nil,
+              key.range(of: "^(ph[xs]_[A-Za-z0-9_-]{16,}|sk_[A-Za-z0-9_-]{16,}|[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+)$", options: .regularExpression) != nil,
               let binding = value["binding"] as? [String: String], Set(binding.keys) == ["app_id", "id", "hash"],
               binding["app_id"] == appID, let id = binding["id"], UUID(uuidString: id) != nil,
               let hash = binding["hash"], hash.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else { return false }
