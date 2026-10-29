@@ -90,6 +90,7 @@ class NativeAgentMediaTests(unittest.TestCase):
         self.assertEqual(job['status'],'PREPARED');self.assertNotIn('path',json.dumps(queued))
         host=NativeAgentTimeline(self.runtime.service,self.runtime.identities)
         request=dict(job_id=job['job_id'],packet_hash=job['packet_hash'])
+        with self.assertRaises(Invalid):host.call(self.session,'new-app','artifact',json.dumps({'job_id':job['job_id']}).encode())
         self.assertEqual(json.loads(host.call(self.session,'new-app','validate',json.dumps(request).encode())),packet)
         source=dict(request,kind='MANAGED',source_id=self.item['id'],sha256=self.item['source_sha256'])
         self.assertIn('path',json.loads(host.source(self.session,'new-app',json.dumps(source).encode())))
@@ -103,6 +104,19 @@ class NativeAgentMediaTests(unittest.TestCase):
         observed=self.call(grant['token'],'ios.timeline.inspect',{'job_id':job['job_id']})
         self.assertEqual(observed['result'],proof);self.assertNotIn('path',json.dumps(observed))
         with self.assertRaises(Invalid):self.call(grant['token'],'ios.timeline.finish',dict(request,inspection=proof))
+        history=json.loads(host.call(self.session,'new-app','history',b'{}'))
+        self.assertEqual([row['job_id'] for row in history['items']],[job['job_id']])
+        artifact_body=json.dumps({'job_id':job['job_id']}).encode()
+        self.assertEqual(json.loads(host.call(self.session,'new-app','artifact',artifact_body)),done)
+        with self.assertRaises(PermissionError):host.call(self.session,'other','artifact',artifact_body)
+        NativeAgentAccess(self.runtime.service,self.runtime.identities).manage(self.session,'new-app','revoke',
+            json.dumps({'id':grant['grant']['id'],'version':1,'confirm_revoke':True}).encode())
+        self.assertEqual(json.loads(host.call(self.session,'new-app','artifact',artifact_body)),done)
+        item=json.loads(self.media_adapter.list(self.session,'new-app'))['items'][0]
+        self.media_adapter.review(self.session,'new-app',item['id'],self.decision(item,'REVOKED'))
+        with self.assertRaises(Invalid):host.call(self.session,'new-app','artifact',artifact_body)
+        self.available=False
+        with self.assertRaises(PermissionError):host.call(self.session,'new-app','history',b'{}')
 
     def test_native_session_lock_foreign_app_and_desktop_fallback_denied(self):
         self.runtime.create_workspace(self.session,self.creation())

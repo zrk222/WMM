@@ -78,6 +78,28 @@ actor DomainBridge {
         return folder.appendingPathComponent(id.uuidString.lowercased() + ".mp4")
     }
 
+    func agentTimelineArtifact(session: LocalIdentity.Session, appID: String, jobID: String) async throws -> URL {
+        struct Artifact: Decodable {
+            struct Proof: Decodable { let artifact_id: String; let sha256: String; let bytes: Int; let frames: Int }
+            let status: String; let result: Proof?
+        }
+        let request: [String: Any] = ["job_id": jobID]
+        let bytes = try agentTimeline(session: session, appID: appID, action: "artifact", body: request)
+        let saved = try JSONDecoder().decode(Artifact.self, from: bytes)
+        guard saved.status == "SUCCEEDED", let proof = saved.result,
+              let identity = UUID(uuidString: jobID), UUID(uuidString: proof.artifact_id) == identity else { throw Failure.invalidRequest }
+        let output = storeRoot.appendingPathComponent("native-agent-timeline-exports", isDirectory: true)
+            .appendingPathComponent(identity.uuidString.lowercased() + ".mp4")
+        guard output.standardizedFileURL.resolvingSymlinksInPath() == output else { throw Failure.invalidRequest }
+        let inspection = try await MediaInspector.inspectOriginal(output)
+        guard let value = try JSONSerialization.jsonObject(with: inspection) as? [String: Any],
+              let decoded = value["decoded"] as? [String: Any], value["sha256"] as? String == proof.sha256,
+              value["bytes"] as? Int == proof.bytes, decoded["video_frames"] as? Int == proof.frames else { throw Failure.invalidRequest }
+        let current = try agentTimeline(session: session, appID: appID, action: "artifact", body: request)
+        guard current == bytes, handle != nil else { throw Failure.invalidRequest }
+        return output
+    }
+
     func agentTimelineSource(session: LocalIdentity.Session, appID: String, jobID: String, packetHash: String,
                              source: NativeRenderPlan.Source) throws -> URL {
         let bytes = try agentTimeline(session: session, appID: appID, action: "source", body: [

@@ -480,6 +480,41 @@ final class MediaConformanceTests: XCTestCase {
         let output = try await bridge.renderProduction(session: session, packet: packet, renderer: TimelineRenderer())
         XCTAssertTrue(output.path.hasPrefix(store.root.path + "/native-exports/"))
         try await MediaInspector.verify(output, plan: packet.plan, expectsAudio: false)
+        // Exercise actual scoped-agent rendering and the owner's decoded export handoff.
+        let scopedRuntime = ScopedAgentRuntime(bridge: bridge, session: session,
+            vault: KeychainVault(databaseID: database, appID: UUID()))
+        let issued = try await bridge.agentAccess(session: session, appID: appID, action: "issue",
+            request: JSONSerialization.data(withJSONObject: ["confirm_scope": true, "grant": [
+                "agent_id": "synthetic-render-agent", "manifest_version": 1, "operations": ["ios.timeline.queue"],
+                "expires": ISO8601DateFormatter().string(from: Date().addingTimeInterval(3600)), "max_calls": 2]]))
+        let grantID = try await scopedRuntime.retainIssuedGrant(issued)
+        let agentRequest = try JSONSerialization.data(withJSONObject: ["app_id": appID, "operation": "ios.timeline.queue",
+            "input": ["project_id": "native-edit", "revision": 1, "project_hash": projectHash, "request_key": UUID().uuidString.lowercased()]])
+        let rendered = try await scopedRuntime.call(grantID: grantID, request: agentRequest)
+        let receipt = try XCTUnwrap(JSONSerialization.jsonObject(with: rendered) as? [String: Any])
+        let nativeRender = try XCTUnwrap(receipt["native_render"] as? [String: Any])
+        XCTAssertEqual(nativeRender["status"] as? String, "SUCCEEDED")
+        let agentJobID = try XCTUnwrap(nativeRender["job_id"] as? String)
+        let agentOutput = try await bridge.agentTimelineArtifact(session: session, appID: appID, jobID: agentJobID)
+        try await MediaInspector.verify(agentOutput, plan: packet.plan, expectsAudio: false)
+        let originalBytes = try Data(contentsOf: agentOutput)
+        try Data("synthetic corrupt video".utf8).write(to: agentOutput)
+        do {
+            _ = try await bridge.agentTimelineArtifact(session: session, appID: appID, jobID: agentJobID)
+            XCTFail("Corrupt agent output remained shareable")
+        } catch {}
+        try originalBytes.write(to: agentOutput)
+        let videoModel = await NativeAgentVideoModel(execute: { action, request in
+            try await bridge.agentTimeline(session: session, appID: appID, action: action,
+                body: NativeAgentLoopModel.object(request))
+        }, artifact: { identity in try await bridge.agentTimelineArtifact(session: session, appID: appID, jobID: identity) })
+        await videoModel.refresh()
+        let videoJobs = await videoModel.jobs
+        let videoJob = try XCTUnwrap(videoJobs.first)
+        XCTAssertEqual(videoJob.job_id, agentJobID)
+        let verifiedShare = await videoModel.verifiedURL(videoJob)
+        XCTAssertEqual(verifiedShare, agentOutput)
+        await videoModel.close(); await scopedRuntime.cancel()
         let editor = await NativeEditorModel(appID: appID, manifestVersion: 1, locale: "en-US", execute: { operation, resource, input in
             if operation == "native.media.list" { return try await bridge.mediaList(session: session, appID: appID) }
             var envelope: [String: Any] = ["app_id": appID, "operation": operation, "input": input]

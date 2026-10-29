@@ -523,6 +523,23 @@ final class NativeWorkspaceModel: ObservableObject {
         }
     }
 
+    func makeAgentVideos() -> NativeAgentVideoModel? {
+        guard unlocked, let app = snapshot?.app, let bridge, let session else { return nil }
+        let ticket = generation
+        return NativeAgentVideoModel(execute: { [weak self] action, request in
+            guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            let body = try NativeAgentLoopModel.object(request)
+            let result = try await bridge.agentTimeline(session: session, appID: app.id, action: action, body: body)
+            guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            return result
+        }, artifact: { [weak self] identity in
+            guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            let output = try await bridge.agentTimelineArtifact(session: session, appID: app.id, jobID: identity)
+            guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            return output
+        })
+    }
+
     func makeEvidence() -> NativeEvidenceModel? {
         guard unlocked, let app = snapshot?.app, let bridge, let session else { return nil }
         let ticket = generation

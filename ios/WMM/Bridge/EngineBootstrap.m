@@ -450,7 +450,7 @@ static NSData *WMMResultBytes(PyObject *value, NSError **error) {
         PyGILState_STATE gil = PyGILState_Ensure();
         PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
         BOOL source = [action isEqualToString:@"source"];
-        BOOL known = [@[@"inspect", @"validate", @"cancel", @"source"] containsObject:action];
+        BOOL known = [@[@"history", @"artifact", @"inspect", @"validate", @"cancel", @"source"] containsObject:action];
         PyObject *body = known && request.length > 0 && request.length <= 1048576
             ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
         PyObject *value = runtime && body ? (source

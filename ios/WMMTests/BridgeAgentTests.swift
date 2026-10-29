@@ -236,6 +236,8 @@ final class BridgeAgentTests: XCTestCase {
         XCTAssertEqual(report?["sourceHash"] as? String, ownerReport?["sourceHash"] as? String)
         await model.refresh()
         XCTAssertEqual(model.grants.first?.used, 2)
+        let videoHistory = try await bridge.agentTimeline(session: session, appID: appID, action: "history", body: [:])
+        XCTAssertEqual(((try JSONSerialization.jsonObject(with: videoHistory) as? [String: Any])?["items"] as? [Any])?.count, 0)
         let listing = try await bridge.agentAccess(session: session, appID: appID, action: "list", request: Data("{}".utf8))
         XCTAssertFalse(String(decoding: listing, as: UTF8.self).contains("wmmg_"))
         await model.revoke(try XCTUnwrap(model.grants.first))
@@ -249,6 +251,10 @@ final class BridgeAgentTests: XCTestCase {
         do {
             _ = try await bridge.agentAccess(session: session, appID: appID, action: "list", request: Data("{}".utf8))
             XCTFail("Locked owner read agent grants")
+        } catch {}
+        do {
+            _ = try await bridge.agentTimeline(session: session, appID: appID, action: "history", body: [:])
+            XCTFail("Locked owner read agent video history")
         } catch {}
         await runtime.cancel()
         await bridge.close()
