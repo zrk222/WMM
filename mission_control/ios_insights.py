@@ -1,10 +1,11 @@
-"""Fixed native PostHog setup and foreground refresh through shared Insights."""
+"""Native protected analytics setup and foreground reads through shared Insights."""
 import time
 from .common import Invalid, identifier
 from .ios_bridge import decode_document, encode_response
 
 
 class NativeInsights:
+    SUPPORTED = ('posthog','clarity','revenuecat')
     def __init__(self, service, identities, vault_callback):
         self.service = service
         self.identities = identities
@@ -25,8 +26,8 @@ class NativeInsights:
         if not isinstance(body, dict):raise Invalid('Use a fixed native analytics action')
         if action == 'setup':
             if (set(body) - setup_fields - {'version', 'event_map'} or not setup_fields.issubset(body)
-                    or body['provider'] != 'posthog' or body['confirm_storage'] is not True):
-                raise Invalid('Confirm protected storage for a PostHog project')
+                    or body['provider'] not in self.SUPPORTED or body['confirm_storage'] is not True):
+                raise Invalid('Confirm protected storage for a supported analytics project')
         elif action not in fields or set(body) != fields[action]:
             raise Invalid('Use the exact fields for this native analytics action')
         user = self.identities.fresh(session)
@@ -42,14 +43,14 @@ class NativeInsights:
                         result = insights.setup(app_id, {key:value for key,value in body.items() if key != 'confirm_storage'})
                     elif action == 'view':
                         result = insights.list(app_id)
-                        result['sources'] = [row for row in result['sources'] if row['provider'] == 'posthog']
-                        result['reports'] = [row for row in result['reports'] if row['provider'] == 'posthog']
-                        result['providers'] = {'posthog': result['providers']['posthog']}
+                        result['sources'] = [row for row in result['sources'] if row['provider'] in self.SUPPORTED]
+                        result['reports'] = [row for row in result['reports'] if row['provider'] in self.SUPPORTED]
+                        result['providers'] = {name:result['providers'][name] for name in self.SUPPORTED}
                         result['execution'] = 'FOREGROUND_ONLY'
                     elif action in ('refresh', 'disconnect'):
                         with connection(self.service.store.path) as db:
                             source = insights.row(db, app_id, body['id'])
-                            if source['provider'] != 'posthog':raise Invalid('Select this app’s PostHog source')
+                            if source['provider'] not in self.SUPPORTED:raise Invalid('Select this app’s supported analytics source')
                         if action == 'refresh':
                             result = insights.refresh(app_id, body['id'], {'confirm_read':body['confirm_read']})
                         else:
@@ -57,7 +58,7 @@ class NativeInsights:
                                 {'version':body['version'], 'confirm_disconnect':body['confirm_disconnect']})
                     else:
                         with connection(self.service.store.path) as db:
-                            stored = db.execute("SELECT * FROM insight_sources WHERE app_id=? AND provider='posthog'", (app_id,)).fetchone()
+                            stored = db.execute("SELECT * FROM insight_sources WHERE app_id=? AND provider IN ('posthog','clarity','revenuecat') AND next_due<=? AND lease<=? AND status NOT IN ('DISCONNECTED','CLEANUP_REQUIRED','PERMISSION_REQUIRED') AND json_extract(data,'$.automatic')=1 ORDER BY next_due,id LIMIT 1", (app_id,time.time(),time.time())).fetchone()
                             row = insights.row(db, app_id, stored['id']) if stored else None
                         due = (row and row['data']['automatic'] and row['next_due'] <= time.time()
                                and row['lease'] <= time.time()

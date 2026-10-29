@@ -88,6 +88,14 @@ final class ProviderIntakeTests: XCTestCase {
         var foreign = secret
         foreign["binding"] = ["app_id": "other-app", "id": UUID().uuidString.lowercased(), "hash": String(repeating: "a", count: 64)]
         XCTAssertEqual(try invoke("put", target, foreign)["ok"] as? Bool, false)
+        for token in ["sk_" + String(repeating: "S", count: 24), "header.payload." + String(repeating: "S", count: 24)] {
+            var analytics = secret; analytics["api_key"] = token
+            XCTAssertEqual(try invoke("put", target, analytics)["ok"] as? Bool, true)
+            XCTAssertEqual((try invoke("get", target, NSNull())["value"] as? [String: Any])?["api_key"] as? String, token)
+            XCTAssertEqual(try invoke("put", target, foreign)["ok"] as? Bool, false)
+        }
+        var publicKey = secret; publicKey["api_key"] = "phc_" + String(repeating: "S", count: 24)
+        XCTAssertEqual(try invoke("put", target, publicKey)["ok"] as? Bool, false)
         XCTAssertEqual(try invoke("put", target.replacingOccurrences(of: "AppGrowthInsights/", with: "AgentGrowth/"), secret)["ok"] as? Bool, false)
         XCTAssertEqual(try invoke("get", target.replacingOccurrences(of: String(digest.prefix(24)), with: String(repeating: "0", count: 24)), NSNull())["ok"] as? Bool, false)
         XCTAssertEqual(try invoke("delete", target, NSNull())["ok"] as? Bool, true)
@@ -107,6 +115,24 @@ final class ProviderIntakeTests: XCTestCase {
         XCTAssertEqual(model.reports.first?.data.rows.first?.value, 12)
         model.close()
         XCTAssertTrue(model.reports.isEmpty)
+    }
+
+    @MainActor
+    func testNativeAnalyticsKeepsClarityRowsAndRevenueCatUnitsSeparate() async throws {
+        let value: [String: Any] = ["sources": [], "reports": [
+            ["id": "clarity-report", "provider": "clarity", "data": ["observed_at": "2026-01-01T00:00:00Z", "rows": [
+                ["id": "Traffic", "row": 0, "values": ["totalSessionCount": 12], "period": "last_72_hours"],
+                ["id": "Traffic", "row": 1, "values": ["totalSessionCount": 3], "period": "last_72_hours"]]]],
+            ["id": "subscription-report", "provider": "revenuecat", "data": ["observed_at": "2026-01-01T00:00:00Z", "rows": [
+                ["id": "active_trials", "value": 2, "unit": "customers", "period": "P0D"]]]]]]
+        let model = NativeInsightsModel(execute: { _, _ in try JSONSerialization.data(withJSONObject: value) })
+        await model.refresh()
+        XCTAssertNil(model.message); XCTAssertEqual(model.reports.count, 2)
+        let rows = try XCTUnwrap(model.reports.first?.data.rows)
+        XCTAssertNotEqual(rows[0].id, rows[1].id)
+        XCTAssertNil(rows[0].value); XCTAssertEqual(rows[0].values?["totalSessionCount"], 12)
+        XCTAssertEqual(model.reports.last?.data.rows.first?.unit, "customers")
+        model.close()
     }
 
     @MainActor
