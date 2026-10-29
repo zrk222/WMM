@@ -16,6 +16,7 @@
       ]
     },
     "native-simulators": {
+      "strategy": {"fail-fast": false, "matrix": {"family": ["iphone", "ipad"]}},
       "if": "github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'",
       "needs": "contract",
       "runs-on": "macos-15-intel",
@@ -28,8 +29,8 @@
         {"name": "Build pinned embedded runtime", "run": "set -euo pipefail\npython3 ios/Build/build_runtime.py 2>&1 | tee ios/build-evidence/runtime-build.log"},
         {"name": "Save verified embedded runtime before simulator tests", "if": "steps.runtime_cache.outputs.cache-hit != 'true'", "uses": "actions/cache/save@caa296126883cff596d87d8935842f9db880ef25", "with": {"path": "ios/Python.xcframework\nios/runtime-cache.json", "key": "${{ steps.runtime_cache.outputs.cache-primary-key }}"}},
         {"name": "Generate native application targets", "run": "set -euo pipefail\npython3 ios/Build/generate_project.py\nxcodebuild -list -project ios/WMM.xcodeproj > ios/build-evidence/project-targets.txt"},
-        {"name": "Test actual iPhone and iPad simulators", "run": "set -euo pipefail\npython3 ios/Build/run_simulators.py 2>&1 | tee ios/build-evidence/simulator-tests.log"},
-        {"name": "Retain native results including failures", "if": "always()", "uses": "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02", "with": {"name": "native-ios-${{ github.sha }}-${{ github.run_id }}", "path": "ios/build-evidence/**\nios/DerivedData/Logs/Test/**\nios/DerivedData/Build/Products/Debug-iphonesimulator/WMM.app", "if-no-files-found": "error", "retention-days": 14}}
+        {"name": "Test actual selected simulator family", "run": "set -euo pipefail\npython3 ios/Build/run_simulators.py --family ${{ matrix.family }} 2>&1 | tee ios/build-evidence/simulator-tests.log"},
+        {"name": "Retain native results including failures", "if": "always()", "uses": "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02", "with": {"name": "native-ios-${{ matrix.family }}-${{ github.sha }}-${{ github.run_id }}", "path": "ios/build-evidence/**\nios/DerivedData/Logs/Test/**\nios/DerivedData/Build/Products/Debug-iphonesimulator/WMM.app", "if-no-files-found": "error", "retention-days": 14}}
       ]
     }
   }

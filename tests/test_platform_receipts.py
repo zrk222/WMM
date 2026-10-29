@@ -50,6 +50,19 @@ class NativeCIContractTests(unittest.TestCase):
                 self.assertEqual(result['state'],'INCOMPLETE')
                 self.assertTrue(any('bundled shared engine' in error for error in result['errors']))
 
+    def test_native_families_are_independent_mandatory_and_keep_distinct_evidence(self):
+        for mutation in ('missing-family','fail-fast','wrong-command','same-artifact'):
+            value=copy.deepcopy(self.value);job=value['jobs']['native-simulators']
+            if mutation=='missing-family':job['strategy']['matrix']['family']=['iphone']
+            elif mutation=='fail-fast':job['strategy']['fail-fast']=True
+            elif mutation=='wrong-command':
+                step=next(s for s in job['steps'] if 'run_simulators.py' in s.get('run',''))
+                step['run']=step['run'].replace('--family ${{ matrix.family }}','--family iphone')
+            else:
+                step=next(s for s in job['steps'] if s.get('uses','').startswith('actions/upload-artifact@'))
+                step['with']['name']='same-artifact'
+            with self.subTest(mutation=mutation):self.assertEqual(self.check(value)['state'],'INCOMPLETE')
+
     def test_runtime_cache_cannot_restore_broad_or_skip_verification(self):
         for mutation in ('broad','toolchain','paths','order','save'):
             value=copy.deepcopy(self.value);steps=value['jobs']['native-simulators']['steps']
