@@ -380,6 +380,17 @@ final class NativeWorkspaceModel: ObservableObject {
         }, teardown: { await bridge.reviewLogout() })
     }
 
+    func makeInsights() -> NativeInsightsModel? {
+        guard unlocked, let app = snapshot?.app, let bridge, let session else { return nil }
+        let ticket = generation
+        return NativeInsightsModel(execute: { [weak self] action, request in
+            guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            let result = try await bridge.insights(session: session, appID: app.id, action: action, request: request)
+            guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            return result
+        })
+    }
+
     func makeAutomation() -> NativeAutomationModel? {
         guard unlocked, let app = snapshot?.app, let bridge, let session else { return nil }
         do {

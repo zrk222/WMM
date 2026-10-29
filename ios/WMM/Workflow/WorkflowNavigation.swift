@@ -18,6 +18,7 @@ struct WorkflowNavigation: View {
     @State private var automation: NativeAutomationModel?
     @State private var studio: NativeStudioModel?
     @State private var humanReview: NativeHumanReviewModel?
+    @State private var insights: NativeInsightsModel?
 
     var body: some View {
         NavigationStack {
@@ -114,6 +115,7 @@ struct WorkflowNavigation: View {
                                 .disabled(model.busy)
                             Button("Provider access", systemImage: "key.horizontal") { providers = model.makeProviders() }
                                 .disabled(model.busy)
+                            Button("Live analytics", systemImage: "chart.line.uptrend.xyaxis") { insights = model.makeInsights() }.disabled(model.busy)
                             Button("Agent drafting", systemImage: "text.bubble") { inference = model.makeInference() }
                                 .disabled(model.busy)
                             Button("Results & reports", systemImage: "chart.bar.doc.horizontal") {
@@ -146,6 +148,7 @@ struct WorkflowNavigation: View {
             .sheet(item: $automation) { NativeAutomationView(model: $0) }
             .sheet(item: $studio) { NativeStudioView(model: $0) }
             .sheet(item: $humanReview) { NativeHumanReviewView(model: $0) }
+            .sheet(item: $insights) { NativeInsightsView(model: $0) }
         }
         .privacySensitive()
         .overlay { if scenePhase != .active { Color(uiColor: .systemBackground).ignoresSafeArea() } }
@@ -158,6 +161,7 @@ struct WorkflowNavigation: View {
         .onChange(of: model.unlocked) { _, value in if !value { inference = nil; providers = nil; scheduler = nil; agents = nil; editor = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { editingApp = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { humanReview = nil } }
+        .onChange(of: model.unlocked) { _, value in if !value { insights = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { evidence = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { snapshots = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { automation = nil } }

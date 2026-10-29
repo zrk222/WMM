@@ -3,6 +3,9 @@ import hashlib
 import json
 import threading
 import time
+from contextlib import contextmanager
+from contextvars import ContextVar
+from pathlib import Path
 from .common import Invalid, canonical, digest, now, uid
 from .credential_vault import Vault, namespace
 from .db import connection, session, transaction
@@ -12,6 +15,16 @@ from .insights_transport import read, ProviderFailure
 from .event_mapping import mapping, coverage, ROLES, DEFAULTS
 
 LOCK = threading.RLock()
+VAULT_FACTORY = ContextVar('wmm_insights_vault_factory', default=None)
+
+
+@contextmanager
+def bound_vault(store, app, factory):
+    """Inject a trusted, app-scoped protected store for synchronous native calls."""
+    if not callable(factory):raise TypeError('A trusted vault factory is required')
+    token = VAULT_FACTORY.set((str(Path(store.path).resolve()), app, factory))
+    try:yield
+    finally:VAULT_FACTORY.reset(token)
 
 
 def decoded(row):
@@ -29,7 +42,20 @@ class Insights:
 
     def name(self, app, reference):
         """Compute credential targets only from owned database and opaque generated IDs."""
+        from .common import identifier
+        from uuid import UUID
+        identifier(app)
+        try:
+            if str(UUID(reference)) != reference:raise ValueError()
+        except (ValueError, TypeError, AttributeError):raise Invalid('Invalid analytics credential reference') from None
         return "AppGrowthInsights/" + namespace(self.store.path) + "/" + app + "/" + reference
+
+    def vault(self, app):
+        binding = VAULT_FACTORY.get()
+        if binding is None:return Vault()
+        if binding[:2] != (str(Path(self.store.path).resolve()), app):
+            raise PermissionError('Native analytics vault cannot cross app or datastore scope')
+        return binding[2]()
 
     def list(self, app):
         """Expose sanitized reports, presence and schedule only; never credentials or fingerprints."""
@@ -76,7 +102,11 @@ class Insights:
             sid = old["id"] if old else uid()
         self.cleanup_source(app, sid)
         value = {"api_key": body["api_key"], "binding": {"app_id": app, "id": sid, "hash": sha}}
-        Vault().put(self.name(app, reference), value)
+        # Record the opaque candidate before touching protected storage so a lock,
+        # callback failure, or process interruption cannot lose cleanup ownership.
+        with connection(self.store.path) as db:
+            db.execute("INSERT OR IGNORE INTO insight_cleanup VALUES(?,?,?)", (app, sid, reference))
+        self.vault(app).put(self.name(app, reference), value)
         return {"id": sid, "credential_ref": reference, "hash": sha, "scope": scope}, old
 
     def cleanup_source(self, app, sid):
@@ -84,14 +114,14 @@ class Insights:
         with connection(self.store.path) as db:
             stale_refs = db.execute("SELECT credential_ref FROM insight_cleanup WHERE app_id=? AND source_id=?", (app, sid)).fetchall()
         for (reference,) in stale_refs:
-            Vault().delete(self.name(app, reference))
+            self.vault(app).delete(self.name(app, reference))
             with connection(self.store.path) as db:
                 db.execute("DELETE FROM insight_cleanup WHERE app_id=? AND source_id=? AND credential_ref=?", (app, sid, reference))
 
     def read_candidate(self, app, candidate, data):
         """Count a permitted read and validate its protected binding outside a DB transaction."""
         self.reserve_candidate_read(candidate["scope"], data["provider"])
-        secret = Vault().get(self.name(app, candidate["credential_ref"]))
+        secret = self.vault(app).get(self.name(app, candidate["credential_ref"]))
         expected = {"app_id": app, "id": candidate["id"], "hash": candidate["hash"]}
         if not secret or secret.get("binding") != expected:
             raise ProviderFailure("PERMISSION_REQUIRED", "Protected candidate key could not be verified")
@@ -113,6 +143,7 @@ class Insights:
             db.execute("INSERT INTO insight_sources VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(app_id,provider) DO UPDATE SET data=excluded.data,hash=excluded.hash,scope_key=excluded.scope_key,credential_ref=excluded.credential_ref,version=excluded.version,status='CONNECTED',lease=0,next_due=excluded.next_due,last_error=NULL,updated=excluded.updated",
                        (app, sid, data["provider"], canonical(data), candidate["hash"], candidate["scope"], candidate["credential_ref"], version, "CONNECTED", 0, next_due, None, timestamp, timestamp))
             self.report(db, app, {"id": sid, "version": version, "hash": candidate["hash"], "provider": data["provider"]}, result)
+            db.execute("DELETE FROM insight_cleanup WHERE app_id=? AND source_id=? AND credential_ref=?", (app, sid, candidate['credential_ref']))
             audit(db, app, "insights.configured", {"id": sid, "provider": data["provider"], "automatic": data["automatic"]})
 
     def candidate_failure(self, old, exc, cleanup_pending):
@@ -146,7 +177,7 @@ class Insights:
         with connection(self.store.path) as db:
             rows = db.execute("SELECT c.source_id,c.credential_ref FROM insight_cleanup c LEFT JOIN insight_sources s ON s.app_id=c.app_id AND s.id=c.source_id WHERE c.app_id=? AND s.id IS NULL", (app,)).fetchall()
         for sid, reference in rows:
-            Vault().delete(self.name(app, reference))
+            self.vault(app).delete(self.name(app, reference))
             with connection(self.store.path) as db:
                 db.execute("DELETE FROM insight_cleanup WHERE app_id=? AND source_id=? AND credential_ref=?", (app, sid, reference))
 
@@ -155,7 +186,9 @@ class Insights:
         if not candidate:
             return False
         try:
-            Vault().delete(self.name(app, candidate["credential_ref"]))
+            self.vault(app).delete(self.name(app, candidate["credential_ref"]))
+            with connection(self.store.path) as db:
+                db.execute("DELETE FROM insight_cleanup WHERE app_id=? AND source_id=? AND credential_ref=?", (app, candidate['id'], candidate['credential_ref']))
             return False
         except Exception:
             with connection(self.store.path) as db:
@@ -176,7 +209,7 @@ class Insights:
         if not old:
             return "NO_PRIOR_KEY"
         try:
-            Vault().delete(self.name(app, old["credential_ref"]))
+            self.vault(app).delete(self.name(app, old["credential_ref"]))
             return "PRIOR_LOCAL_KEY_REMOVED"
         except Exception:
             with connection(self.store.path) as db:
@@ -226,7 +259,7 @@ class Insights:
     def read_reserved(self, app, sid, row):
         """Read the protected provider outside either independently committed transaction."""
         try:
-            secret = Vault().get(self.name(app, row["credential_ref"]))
+            secret = self.vault(app).get(self.name(app, row["credential_ref"]))
             if not secret or secret.get("binding") != {"app_id": app, "id": sid, "hash": row["hash"]}:
                 raise ProviderFailure("PERMISSION_REQUIRED", "Protected key is missing or bound elsewhere; reconnect")
             result = read(row["data"], secret["api_key"])
@@ -245,7 +278,9 @@ class Insights:
         """Discard stale results and store current evidence in the supplied transaction."""
         db.execute("BEGIN IMMEDIATE")
         current = self.row(db, app, row["id"])
-        if current["version"] != row["version"] or current["lease"] != row["lease"]:
+        if (current["version"] != row["version"] or current["hash"] != row["hash"]
+                or current["credential_ref"] != row["credential_ref"]
+                or current["lease"] != row["lease"] or current["lease"] <= time.time()):
             return {"status": "OBSOLETE_RESULT_DISCARDED"}
         db.execute("UPDATE insight_sources SET lease=0,status=?,last_error=?,updated=? WHERE app_id=? AND id=?", (status, error, now(), app, row["id"]))
         if result is not None:
@@ -271,7 +306,7 @@ class Insights:
                 raise Invalid("Connection changed; reload before editing event names")
             if not self.events_editable(row):
                 raise Invalid("Connect PostHog before editing event names")
-            secret = Vault().get(self.name(app, row["credential_ref"]))
+            secret = self.vault(app).get(self.name(app, row["credential_ref"]))
             if not secret or secret.get("binding") != {"app_id": app, "id": sid, "hash": row["hash"]}:
                 raise Invalid("Protected key is missing or bound elsewhere; reconnect")
             config_body = dict(row["data"], event_map=events, api_key=secret["api_key"],
@@ -297,7 +332,7 @@ class Insights:
             refs += [r[0] for r in db.execute("SELECT credential_ref FROM insight_cleanup WHERE app_id=? AND source_id=?", (app, sid))]
         for ref in refs:
             try:
-                Vault().delete(self.name(app, ref))
+                self.vault(app).delete(self.name(app, ref))
             except Invalid:
                 return {"status": "CLEANUP_REQUIRED", "error": "Reads are disabled; retry disconnect to remove remaining protected keys"}
         with connection(self.store.path) as db:

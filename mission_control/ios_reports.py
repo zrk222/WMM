@@ -10,10 +10,10 @@ LEDGER_FIELDS = ('installs','activated','paid','retained','activation_rate','pai
                  'delivery_cost_minor','paid_cac_minor','contribution_after_acquisition_minor')
 
 
-def projection(app, records, ledger_reports, observed_at):
+def projection(app, records, ledger_reports, observed_at, insight_reports=()):
     from .metrics import summarize
     metrics = summarize(records, app['id'], ledger_reports)
-    source_hash = digest({'app':app,'records':records,'ledger':ledger_reports})
+    source_hash = digest({'app':app,'records':records,'ledger':ledger_reports,'insights':insight_reports})
     rows = []
     def add(label, value, evidence):
         if len(rows) >= 1000: raise Invalid('Native report exceeds 1000 rows; narrow the source evidence before exporting')
@@ -54,6 +54,25 @@ def projection(app, records, ledger_reports, observed_at):
     if metrics['acquisition']:
         add('Acquisition worksheets',len(metrics['acquisition']),
             'App-scoped ASA/AEO worksheets are saved; detailed worksheet export is not included in this projection.')
+    # Export the latest observation per source separately from transaction totals.
+    # Public projections omit project/account identifiers and protected bindings.
+    seen = set()
+    for item in insight_reports:
+        if item['app_id'] != app['id']:raise Invalid('Analytics report belongs to another app')
+        if item['source_id'] in seen:continue
+        seen.add(item['source_id'])
+        data = item['data']
+        proof = ('Provider aggregate; provider='+item['provider']+'; observed='+data['observed_at']+
+                 '; source='+item['hash']+'; not transaction evidence or causal attribution')
+        add('Provider '+item['provider']+': coverage',data['coverage'],proof)
+        for metric in data['rows']:
+            label='Provider '+item['provider']+': '+metric['id']
+            if item['provider']=='clarity':
+                for field,value in metric['values'].items():
+                    add(label+': row '+str(metric['row'])+': '+field,value,
+                        proof+'; period='+metric['period']+'; provider numeric aggregate')
+            else:
+                add(label,metric['value'],proof+'; period='+metric['period']+'; unit='+metric['unit'])
     if any(len(row['metric'])>200 or len(row['evidence'])>4000 or len(row['observed'] or '')>4000 for row in rows):
         raise Invalid('Native report field exceeds the reviewed export bounds')
     return dict(appID=app['id'],appName=app['data']['name'],sourceHash=source_hash,observedAt=observed_at,rows=rows)
