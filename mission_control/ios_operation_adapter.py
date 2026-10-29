@@ -12,6 +12,16 @@ def guarded_execute(service, envelope):
     from .operation_authority import protected
     from .operation_runtime import execute
     with protected(service.store, envelope):
+        name=envelope['operation']
+        if name.startswith('ios.scene.'):
+            from .ios_agent_media import dispatch_scene
+            return dispatch_scene(service,envelope)
+        if name.startswith('ios.timeline.'):
+            from .ios_agent_media import dispatch_timeline
+            return dispatch_timeline(service,envelope)
+        if name.startswith('studio.') or name in ('editor.queue','native.queue','hypit.queue'):
+            from .common import Invalid
+            raise Invalid('Desktop media operation is unsupported on iOS; use a fixed native media operation')
         if envelope['operation'] in ('pipeline.prepare', 'job.cancel'):
             from .ios_jobs import PIPELINE_HOST, queue_scoped_pipeline, cancel_scoped_pipeline
             from .automation_execution import ACTIVE

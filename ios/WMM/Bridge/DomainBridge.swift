@@ -62,6 +62,58 @@ actor DomainBridge {
             appID: appID, action: action, request: request)
     }
 
+    func agentTimeline(session: LocalIdentity.Session, appID: String, action: String, body: [String: Any]) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        let request = try JSONSerialization.data(withJSONObject: body)
+        guard !request.isEmpty, request.count <= 1_048_576 else { throw Failure.invalidRequest }
+        return try EngineBootstrap.agentTimeline(handle: handle, session: session.nonce.uuidString,
+            appID: appID, action: action, request: request)
+    }
+
+    func agentTimelineDestination(jobID: String) throws -> URL {
+        guard handle != nil, let id = UUID(uuidString: jobID) else { throw Failure.closed }
+        let folder = storeRoot.appendingPathComponent("native-agent-timeline-exports", isDirectory: true)
+        try LocalStore.createProtectedDirectory(folder)
+        guard folder.standardizedFileURL.resolvingSymlinksInPath() == folder else { throw Failure.invalidRequest }
+        return folder.appendingPathComponent(id.uuidString.lowercased() + ".mp4")
+    }
+
+    func agentTimelineSource(session: LocalIdentity.Session, appID: String, jobID: String, packetHash: String,
+                             source: NativeRenderPlan.Source) throws -> URL {
+        let bytes = try agentTimeline(session: session, appID: appID, action: "source", body: [
+            "job_id": jobID, "packet_hash": packetHash, "kind": source.kind, "source_id": source.id, "sha256": source.sha256])
+        struct Location: Decodable { let path: String }
+        let location = try JSONDecoder().decode(Location.self, from: bytes)
+        let url = URL(fileURLWithPath: location.path).standardizedFileURL.resolvingSymlinksInPath()
+        guard url.path.hasPrefix(storeRoot.path + "/"),
+              try url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true else { throw Failure.invalidRequest }
+        return url
+    }
+
+    func finishAgentTimeline(session: LocalIdentity.Session, appID: String, jobID: String,
+                             packetHash: String, output: URL) async throws -> Data {
+        guard let handle else { throw Failure.closed }
+        let expected = storeRoot.appendingPathComponent("native-agent-timeline-exports", isDirectory: true)
+        guard output.isFileURL, output.pathExtension == "mp4",
+              output.deletingLastPathComponent().standardizedFileURL.resolvingSymlinksInPath() == expected,
+              output.standardizedFileURL.resolvingSymlinksInPath() == output,
+              let identity = UUID(uuidString: output.deletingPathExtension().lastPathComponent),
+              UUID(uuidString: jobID) == identity else { throw Failure.invalidRequest }
+        let bytes = try await MediaInspector.inspectOriginal(output)
+        guard self.handle == handle,
+              let inspected = try JSONSerialization.jsonObject(with: bytes) as? [String: Any],
+              let metadata = inspected["metadata"] as? [String: Any],
+              let decoded = inspected["decoded"] as? [String: Any],
+              let sha = inspected["sha256"] as? String, let size = inspected["bytes"] as? Int,
+              let frames = decoded["video_frames"] as? Int, let width = metadata["width"] as? Int,
+              let height = metadata["height"] as? Int, let audio = metadata["audio"] as? Bool else { throw Failure.invalidRequest }
+        let proof: [String: Any] = ["artifact_id": identity.uuidString.lowercased(), "sha256": sha, "bytes": size,
+            "frames": frames, "width": width, "height": height, "audio": audio]
+        return try EngineBootstrap.agentTimelineFinish(handle: handle, session: session.nonce.uuidString, appID: appID,
+            request: JSONSerialization.data(withJSONObject: ["job_id": jobID, "packet_hash": packetHash]),
+            inspection: JSONSerialization.data(withJSONObject: proof))
+    }
+
     func humanReview(session: LocalIdentity.Session, appID: String, action: String, request: Data) throws -> Data {
         guard let handle else { throw Failure.closed }
         guard !request.isEmpty, request.count <= 1_048_576 else { throw Failure.invalidRequest }

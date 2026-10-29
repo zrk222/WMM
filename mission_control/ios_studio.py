@@ -163,6 +163,9 @@ class NativeStudio:
                         body['request_key'], request_hash, 'PREPARED', None, stamp, stamp))
             return dict(job=self._job_public(self._job(db, app_id, user, job_id)), packet=packet)
         row = self._job(db, app_id, user, body['job_id'])
+        if action in ('validate','finish') and row['status']=='PREPARED':
+            from .ios_agent_media import check_authority
+            check_authority(db,app_id,'scene',row['id'])
         if action == 'inspect': return self._job_public(row)
         if action == 'artifact':
             if row['status'] != 'SUCCEEDED' or row['result'] is None:
@@ -225,6 +228,8 @@ class NativeStudio:
                     job = self._job(db, app_id, user['principal'], job_id)
                     if job['status'] != 'PREPARED' or packet_hash != job['packet_hash']:
                         raise Invalid('Studio render is not current')
+                    from .ios_agent_media import check_authority
+                    check_authority(db,app_id,'scene',job_id)
                     project = self._current(db, app_id, dict(project_id=job['project_id'], revision=job['revision'], source_hash=job['source_hash']))
                     packet = self._packet(db, app_id, project)
                     if packet['packet_hash'] != packet_hash or not any(

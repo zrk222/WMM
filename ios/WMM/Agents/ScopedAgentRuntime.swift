@@ -9,6 +9,7 @@ actor ScopedAgentRuntime {
     private let vault: KeychainVault
     private var generation = UUID()
     private var stopped = false
+    private var renderPump: NativeAgentRenderPump?
 
     init(bridge: DomainBridge, session: LocalIdentity.Session, vault: KeychainVault) {
         self.bridge = bridge; self.session = session; self.vault = vault
@@ -46,7 +47,9 @@ actor ScopedAgentRuntime {
         guard !stopped, ticket == generation else { throw Failure.cancelled }
         let result = try await bridge.agentCall(session: session, credential: credential, request: request)
         guard !stopped, ticket == generation else { throw Failure.resultNeedsReconciliation }
-        return result
+        let completed = try await completeRender(request: request, response: result)
+        guard !stopped, ticket == generation else { throw Failure.resultNeedsReconciliation }
+        return completed
     }
 
     func forgetCredential(grantID: String) async throws {
@@ -55,17 +58,39 @@ actor ScopedAgentRuntime {
 
     func review(grantID: String, action: String, request: Data) async throws -> Data {
         guard !stopped, !request.isEmpty, request.count <= 1_048_576,
-              ["prepare", "inspect", "resume"].contains(action) else { throw Failure.cancelled }
+              ["prepare", "inspect", "resume", "recover"].contains(action) else { throw Failure.cancelled }
         let ticket = generation
         guard let credential = try await vault.read(reference: reference(grantID)) else { throw Failure.credentialUnavailable }
         try Task.checkCancellation()
         guard !stopped, ticket == generation else { throw Failure.cancelled }
-        let result = try await bridge.agentReview(session: session, credential: credential, action: action, request: request)
+        // Recovery reads the immutable preparation receipt; it never resumes the
+        // reviewed business operation or changes ordinary inspection behavior.
+        let bridgeAction = action == "recover" ? "inspect" : action
+        let result = try await bridge.agentReview(session: session, credential: credential, action: bridgeAction, request: request)
         guard !stopped, ticket == generation else { throw Failure.resultNeedsReconciliation }
-        return result
+        let completed = ["resume", "recover"].contains(action) ? try await completeRender(request: request, response: result, reviewed: true) : result
+        guard !stopped, ticket == generation else { throw Failure.resultNeedsReconciliation }
+        return completed
+    }
+
+    private func completeRender(request: Data, response: Data, reviewed: Bool = false) async throws -> Data {
+        let document = try JSONSerialization.jsonObject(with: reviewed ? response : request) as? [String: Any]
+        let envelope = reviewed ? document?["envelope"] as? [String: Any] : document
+        guard let operation = envelope?["operation"] as? String,
+              ["ios.scene.start", "ios.timeline.queue"].contains(operation) else { return response }
+        guard !stopped else { throw Failure.resultNeedsReconciliation }
+        if renderPump == nil {
+            let bridge = self.bridge, session = self.session
+            renderPump = await MainActor.run { NativeAgentRenderPump(bridge: bridge, session: session) }
+        }
+        guard let renderPump, !stopped else { throw Failure.resultNeedsReconciliation }
+        return try await renderPump.complete(request: request, response: response, reviewed: reviewed)
     }
 
     /// Stops future dispatch. An in-flight effect needs read-back, never blind replay.
     /// Shared grant revocation remains a separate exact owner action.
-    func cancel() { stopped = true; generation = UUID() }
+    func cancel() async {
+        stopped = true; generation = UUID()
+        if let renderPump { await renderPump.cancel() }
+    }
 }
