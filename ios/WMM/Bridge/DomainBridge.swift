@@ -44,6 +44,25 @@ actor DomainBridge {
         handle = nil
     }
 
+    func reviewLogout() {
+        if let handle { EngineBootstrap.reviewLogout(handle: handle) }
+    }
+
+    func humanReview(session: LocalIdentity.Session, appID: String, action: String, request: Data) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        guard !request.isEmpty, request.count <= 1_048_576 else { throw Failure.invalidRequest }
+        return try EngineBootstrap.humanReview(handle: handle, session: session.nonce.uuidString,
+            appID: appID, action: action, request: request)
+    }
+
+    func agentReview(session: LocalIdentity.Session, credential: Data, action: String, request: Data) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        guard let token = String(data: credential, encoding: .utf8), token.utf8.count == 48,
+              !request.isEmpty, request.count <= 1_048_576 else { throw Failure.invalidRequest }
+        return try EngineBootstrap.agentReview(handle: handle, session: session.nonce.uuidString,
+            credential: token, action: action, request: request)
+    }
+
     func evidenceForm(session: LocalIdentity.Session, appID: String) throws -> Data {
         guard let handle else { throw Failure.closed }
         return try EngineBootstrap.evidenceForm(handle: handle, session: session.nonce.uuidString, appID: appID)
