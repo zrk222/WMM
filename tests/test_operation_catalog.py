@@ -11,7 +11,10 @@ class OperationCatalogTests(unittest.TestCase):
         self.assertFalse(value['full_agent_operation'])
         self.assertEqual(value['operations']['media.sources']['method'],'GET')
         self.assertEqual(value['operations']['media.sources']['suffix'],'/media/sources')
-        self.assertEqual(len(value['operations']),60)
+        self.assertEqual(len(value['operations']),70)
+        native_media={name for name in value['operations'] if name.startswith(('ios.scene.','ios.timeline.'))}
+        self.assertEqual(native_media,{'ios.scene.projects','ios.scene.read','ios.scene.save','ios.scene.plan',
+            'ios.scene.start','ios.scene.inspect','ios.scene.cancel','ios.timeline.queue','ios.timeline.inspect','ios.timeline.cancel'})
         for action in ('history','read','save','reconcile'):
             operation=value['operations']['packaging.'+action]
             self.assertEqual(operation['method'],'POST')

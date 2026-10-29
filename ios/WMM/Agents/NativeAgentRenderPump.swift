@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 
 /// Executes only an admitted, persisted native render intent. Models never supply
@@ -90,8 +91,14 @@ final class NativeAgentRenderPump {
                 try await self.bridge.agentTimelineSource(session: self.session, appID: appID, jobID: jobID, packetHash: prepared.packet_hash, source: source)
             }, validateAuthority: validate)
         } else {
+            var expectsAudio = false
+            for clip in prepared.plan.clips where clip.audio == "RETAIN" {
+                let source = try await bridge.agentTimelineSource(session: session, appID: appID,
+                    jobID: jobID, packetHash: prepared.packet_hash, source: clip.source)
+                if !(try await AVURLAsset(url: source).loadTracks(withMediaType: .audio)).isEmpty { expectsAudio = true }
+            }
             try await MediaInspector.verify(destination, plan: prepared.plan,
-                expectsAudio: prepared.plan.clips.contains { $0.audio == "RETAIN" })
+                expectsAudio: expectsAudio)
         }
         try await checkCadence(destination, expectedFrames: prepared.plan.output_frame_count)
         _ = try await bridge.finishAgentTimeline(session: session, appID: appID, jobID: jobID, packetHash: prepared.packet_hash, output: destination)

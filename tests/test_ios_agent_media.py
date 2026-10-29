@@ -159,5 +159,36 @@ class NativeAgentMediaTests(unittest.TestCase):
             json.dumps({'id':grant['grant']['id'],'version':1,'confirm_revoke':True}).encode())
         self.assertEqual(self.studio('artifact',{'job_id':job['job_id']})['result'],proof)
 
+    def check_retained_source_audio(self,has_audio):
+        from tests.test_video_edit_projects import project_data
+        self.runtime.create_workspace(self.session,self.creation())
+        def inspect(raw,suffix,alive):
+            result=fixture.media_fixture.synthetic_inspection(raw,suffix,alive)
+            result['metadata']['audio']=has_audio
+            result['decoded']['audio_frames']=1024 if has_audio else 0
+            return result
+        adapter=self.adapter(inspect);item=self.upload(adapter)
+        adapter.review(self.session,'new-app',item['id'],self.decision(item))
+        definition=project_data(item['id'],item['source_sha256'])
+        definition['clips'][0]['source']['kind']='MANAGED';definition['clips'][0]['out_frame']=24
+        definition['clips'][0]['audio']='RETAIN'
+        body=dict(id='audio-edit',revision=0,manifest_version=1,data=definition,request_key='audio-project')
+        project=json.loads(self.runtime.owner_call(self.session,json.dumps(dict(app_id='new-app',operation='editor.save',input=body)).encode()))
+        grant=self.issue(['ios.timeline.queue'])
+        job=self.call(grant['token'],'ios.timeline.queue',dict(project_id=project['id'],revision=1,project_hash=project['hash'],request_key='audio-render'))
+        packet=job['packet'];identity=job['job']['job_id'];host=NativeAgentTimeline(self.runtime.service,self.runtime.identities)
+        request=dict(job_id=identity,packet_hash=packet['packet_hash'])
+        proof=dict(artifact_id=identity,sha256='a'*64,bytes=100,frames=packet['plan']['output_frame_count'],
+                   width=packet['plan']['width'],height=packet['plan']['height'],audio=not has_audio)
+        with self.assertRaises(Invalid):host.call(self.session,'new-app','finish',json.dumps(request).encode(),inspection=proof)
+        proof['audio']=has_audio
+        self.assertEqual(json.loads(host.call(self.session,'new-app','finish',json.dumps(request).encode(),inspection=proof))['status'],'SUCCEEDED')
+
+    def test_retain_silent_source_requires_silent_output(self):
+        self.check_retained_source_audio(False)
+
+    def test_retain_audio_source_requires_audio_output(self):
+        self.check_retained_source_audio(True)
+
 
 if __name__=='__main__':unittest.main()

@@ -109,6 +109,25 @@ def timeline_public(row):
                 result=json.loads(row['result']) if row['result'] else None)
 
 
+def expected_timeline_audio(db,store,app_id,packet):
+    """Resolve audio only from verified app-owned source metadata, not output claims."""
+    from .creative_rendering import artifact_file
+    from .managed_media_store import derivative_snapshot
+    from .video_edit_projects import source_binding
+    for clip in packet['plan']['clips']:
+        if clip['audio']!='RETAIN':continue
+        source=clip['source'];binding=source_binding(db,store,app_id,source)
+        if binding['sha256']!=source['sha256']:raise Invalid('Timeline source hash changed')
+        if source['kind']=='MANAGED':
+            metadata=derivative_snapshot(db,store,app_id,source['id'],source['sha256'])[0]['metadata']
+        elif source['kind']=='NATIVE':
+            metadata=artifact_file(store,app_id,source['id'])[1]['artifact']['metadata']
+        else:raise Invalid('Unsupported native timeline source')
+        if type(metadata.get('audio')) is not bool:raise Invalid('Timeline source audio evidence is unavailable')
+        if metadata['audio']:return True
+    return False
+
+
 def dispatch_timeline(service,envelope):
     from uuid import uuid4
     from .operation_authority import REQUEST
@@ -179,7 +198,7 @@ class NativeAgentTimeline:
                     saved=json.loads(row['packet']);current=timeline_packet(self.service,app_id,saved)
                     if current!=saved or current['packet_hash']!=row['packet_hash']:raise Invalid('Timeline packet changed')
                     if action=='validate':return encode_response(saved)
-                    self.validate_inspection(row,saved,inspection)
+                    self.validate_inspection(row,saved,inspection,expected_timeline_audio(db,self.service.store,app_id,saved))
                     db.execute("UPDATE ios_agent_timeline_jobs SET status='SUCCEEDED',result=?,updated=? WHERE app_id=? AND id=?",(canonical(inspection),now(),app_id,row['id']))
                     return encode_response(timeline_public(timeline_row(db,app_id,user['principal'],row['id'])))
 
@@ -206,10 +225,10 @@ class NativeAgentTimeline:
                     return encode_response({'path':str(path)})
 
     @staticmethod
-    def validate_inspection(row,packet,inspection):
+    def validate_inspection(row,packet,inspection,expected_audio):
         import re
         fields={'artifact_id','sha256','bytes','frames','width','height','audio'}
-        plan=packet['plan'];expected_audio=any(clip.get('audio')=='RETAIN' for clip in plan['clips'])
+        plan=packet['plan']
         if (not isinstance(inspection,dict) or set(inspection)!=fields or inspection['artifact_id']!=row['id']
                 or not isinstance(inspection['sha256'],str) or not re.fullmatch('[a-f0-9]{64}',inspection['sha256'])
                 or type(inspection['bytes']) is not int or not 0<inspection['bytes']<=67108864
