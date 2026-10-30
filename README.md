@@ -36,6 +36,9 @@ Actual WMM screens captured using synthetic example data in an isolated local da
 
 ## Start locally
 
+Already running WMM? Start with [your first evidence packet](#your-first-evidence-packet)
+before working through the full pipeline.
+
 Install **Python 3.11 or newer**, clone this repository, and run:
 
 ```powershell
@@ -53,11 +56,14 @@ First setup needs internet access. No API key, paid account, Node.js or cloud
 service is required for the core workspace.
 Stop the foreground server with Ctrl+C. Data persists on your machine.
 
-Windows is the supported platform for protected credential connections and
-native agent discovery. The core server uses Python's standard library plus
-the declared IANA timezone data package;
-macOS/Linux protected credential and native CLI integrations are not supported
-by this release. Do not deploy this workstation server to a public host or
+Protected desktop credentials use Windows Credential Manager on Windows and
+[Secret Service on Linux/Ubuntu](docs/linux-protected-credentials.md). Linux
+requires the documented dependencies and an unlocked desktop keyring; no plaintext
+fallback is used. The desktop Python credential adapter does not support macOS.
+The separate [native iPhone/iPad app](ios/) uses on-device Keychain and media
+execution; simulator checks do not establish full parity or physical-device
+acceptance. Native agent discovery and individual workflows retain their own
+platform checks. Do not deploy this workstation server to a public host or
 expose it through a reverse proxy. It intentionally binds only to loopback.
 
 To use another port or choose a local database location:
@@ -86,7 +92,29 @@ origin and grant setup. Follow the [agent quickstart](docs/agent-quickstart.md)
 for a usable call, optional MCP setup, authority modes and recovery. These
 module commands do not require a globally installed `wmm` executable.
 
-## First campaign workflow
+## Your first evidence packet
+
+Start with one useful deliverable, then expand when you need the next stage.
+
+1. **Choose one app and outcome.** In **Add an app**, enter the app's audience,
+   consumer job and useful activation. Pick one question, such as where people
+   leave the install-to-paid funnel. Missing measurements stay unknown.
+2. **Bring one source.** In **Evidence & assets**, add a relevant reference or
+   actual results import. Alternatively, configure your own supported source in
+   **Connections**. Account access is optional for a research packet.
+3. **Save one packet.** Open **Pipeline**, choose the relevant preparation stage
+   and review its saved deliverable, sources and missing inputs. Work through
+   other stages as the task requires; a saved packet is not a published campaign.
+4. **Leave with one decision.** Record what the evidence supports and the next
+   action. A connected agent can read `report.read` and return the
+   [owner report](docs/personal-agent-operations.md#first-task-and-owner-report)
+   with receipts, unknowns and any approval needed.
+
+For a first-use check, record elapsed time from opening the workspace to the
+saved packet and where setup stopped. Five minutes is a usability target,
+not a measured onboarding result or a promise about installation time.
+
+## Continue the campaign workflow
 
 1. Use **Add an app**, or edit one of the clearly labeled example workspaces.
    Enter its consumer job, audience, release, website and useful activation.
@@ -179,8 +207,8 @@ official CLI; it is not a general-purpose API entitlement.
 ## Optional connections
 
 Use **Connections** to configure your own supported project IDs and authorized
-server-side keys. Windows Credential Manager protects saved secrets, scoped to
-the app and local database location. Never paste credentials into evidence,
+server-side keys. The selected native protected vault stores saved secrets,
+scoped to the app and local database location. Never paste credentials into evidence,
 campaign text, screenshots or Git. Connection tests do not install analytics SDKs
 in the apps you promote. Automatic aggregate reads run only while WMM is running.
 
