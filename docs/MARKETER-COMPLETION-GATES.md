@@ -92,8 +92,14 @@ installs declared native dependencies and records OS/runtime/source identity.
 Run the Linux Secret Service and supported native-agent/media profiles too.
 Platform-specific unavailable checks must be named, justified and remain gaps;
 dropping failing suites or calling skips full parity does not satisfy acceptance.
-Retain Windows regressions. Native iOS/macOS build/device work remains separate.
-Current checks.yml runs only windows-latest; manual Linux checks are insufficient.
+The Windows and Ubuntu lanes are implemented in `.github/workflows/checks.yml`,
+with four shards each, the same discovered Python/Node suites and Linux native
+keyring dependencies. [Run 40875042321](https://github.com/zrk222/WMM/actions/runs/40875042321)
+passed all eight lanes for source `d3ee08374deb3d1276a0582e6956e462efcfd340`.
+This closes the Windows/Ubuntu CI-lane gap for that tested source. It does not
+establish every Linux workflow or macOS support. Independent iPhone/iPad simulator
+jobs are defined in `platform-checks.yml`; physical-device and full-parity
+acceptance remain separate.
 
 ## MV6: Scope discipline
 
@@ -119,5 +125,21 @@ one of these workflows lacks implementation or acceptance.
 Every MV gate needs exact implementation plus applicable source-bound CF/workflow
 and real execution evidence. Local preparation, CI, device support, protected
 activation, provider effects and measured outcomes retain separate statuses.
-All six gates are currently incomplete. This document grants no provider access,
+MV5's Windows/Ubuntu CI-lane requirement has verified evidence above; MV1–MV4
+and the trial-dependent MV6 freeze remain open. This document grants no provider access,
 external write, production activation, spending, public hosting or outreach.
+
+## Next owner-run WizeMe trial handoff
+
+Use the [first evidence packet](../README.md#your-first-evidence-packet) to start.
+The operating agent should first inspect saved WizeMe setup and existing receipts,
+then return one private baseline packet: selected app/source, primary metric,
+numerator/denominator, dates/timezone, data freshness, missing coverage and hashes.
+If a live source is unavailable, retain that state and offer the supported import
+fallback; do not manufacture observations or copy credentials into the packet.
+
+Before execution, present one proposed intervention with expected mechanism,
+observation window, stop rule, rollback and exact approval needed. Reconcile an
+uncertain provider effect before retrying. At follow-up, report the observed
+change and confounders, including no change or an inconclusive result. A public
+case study requires a separate disclosure review and publication authorization.

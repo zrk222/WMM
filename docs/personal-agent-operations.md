@@ -83,6 +83,29 @@ Provider permissions, memory, instructions and skills do not grant WMM authority
 The local server remains authoritative. This guide does not install a connector,
 schedule a task, contact an agent or implement every product workflow.
 
+## First task and owner report
+
+Start from one app and one measurable owner objective. Inspect existing setup
+and evidence before asking questions or requesting another connection. Prepare
+one useful packet first; do not require all twelve stages before returning value.
+Use the current catalog and grant to select supported operations. Missing access
+means a concrete connection or import step, not permission to change host security.
+
+After each meaningful milestone, give the owner this short private readout:
+
+| Item | Required content |
+| --- | --- |
+| Result | What completed, failed, remains pending or is unknown; exact job/receipt and readback time |
+| Evidence | Primary KPI, baseline and observed value, numerator/denominator, window, source freshness and coverage |
+| Resources | Observed costs/currency, calls and tokens; unknown values stay null with a reason |
+| Decision | One recommended next action, its rationale and any exact human approval needed |
+
+Use `report.read` for the consolidated observations and link supporting saved
+receipts. Do not infer sales from public views, downloads or a completed render.
+Keep this report in the owner conversation unless another destination is explicitly
+authorized. The [WizeMe trial handoff](MARKETER-COMPLETION-GATES.md#next-owner-run-wizeme-trial-handoff)
+applies the same protocol to baseline, approved execution and follow-up evidence.
+
 ## Native standing video scope
 
 In the iPhone/iPad app, the owner can select **On-device iPhone/iPad video

@@ -8,7 +8,7 @@ Unlock the desktop keyring with the operating system's password manager before c
 
 Validation uses synthetic secrets in a disposable isolated keyring. Run `WMM_ISOLATED_NATIVE_KEYRING=1 python3 -m unittest tests.test_linux_vault_native -v` only inside a dedicated disposable D-Bus/keyring environment. This test deletes its synthetic values, verifies absence and then locks that isolated collection. Do not enable this test against an operator's desktop keyring.
 
-This adapter does not establish complete Linux or Ubuntu workflow support. Native agent discovery, process lifecycle, media workflows and the complete platform acceptance contract remain required. iOS and macOS protected backends and cross-device pairing are separate incomplete work.
+This adapter does not establish complete Linux or Ubuntu workflow support. Native agent discovery, process lifecycle, media workflows and the complete platform acceptance contract retain separate checks. The desktop Python credential adapter has no macOS backend. The separate native iPhone/iPad application uses Keychain; its simulator, physical-device and full-parity acceptance must be assessed independently. Cross-device pairing is separate work.
 
 Official API references: [SecretStorage](https://secretstorage.readthedocs.io/en/latest/), [collection operations](https://secretstorage.readthedocs.io/en/latest/collection.html), [Jeepney blocking replies](https://jeepney.readthedocs.io/en/latest/api/blocking.html).
 
