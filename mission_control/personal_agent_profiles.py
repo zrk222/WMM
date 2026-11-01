@@ -125,7 +125,7 @@ def team_operating_contract():
         handoff_fields=['app_id','manifest_version','app_hash','policy_sha256','catalog_sha256','owner_objective',
                         'assigned_operations','resource_ids_and_revisions','authority_and_budget_limits',
                         'receipt_ids','status','artifacts','unknowns','next_action'],
-        concurrency='Parallelize independent reads; serialize changes to one resource and reload after revision conflicts. Do not duplicate queues or external effects.',
+        concurrency='Parallelize independent permitted reads within current limits; serialize mutations and readbacks and reload after revision conflicts. Do not duplicate queues or external effects.',
         review='An agent reviewer is advisory and cannot replace a required distinct authenticated human checker. Shared host accounts do not create distinct human identities.',
         reconciliation='Keep per-worker receipts and scopes. UNKNOWN stays unknown until reconciled; the coordinator must not mark the whole goal complete while required work is missing.',
         owner_delivery='Consolidate verified results, actual resource use, limits and one next useful decision into the authorized owner conversation.')

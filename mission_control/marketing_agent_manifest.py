@@ -12,7 +12,7 @@ PROVIDER_READS = {'app_store':APPLE_READ_OPERATIONS,'apple_ads':('identity_inven
 def operating_manifest(app):
     """Bind expert operating rules and implemented capabilities to exact app intent."""
     return {
-        'schema':'growth.marketing-agent-manifest.v1', 'policy_version':11,
+        'schema':'growth.marketing-agent-manifest.v1', 'policy_version':12,
         'app_id':app['id'], 'manifest_version':app['version'],
         'release':app['data'].get('release'), 'locale':app['data'].get('locale'),
         'store_app_id':app['data'].get('store_app_id'),
@@ -89,6 +89,16 @@ def owner_operating_protocol():
             'reuse':'Discovery qualification never grants reuse rights. Require current rights and exact source hashes before production.',
             'direction':'Use current app-bound creative taste, audience, hook, beat, treatment and owner edits; preview and inspect the actual render.',
             'claims':'Use authentic app capabilities and substantiated proof. Do not promise virality, installs, revenue or unmeasured savings.'},
+        'execution_efficiency':{
+            'authority':'ADVISORY_ONLY',
+            'scope':'One app and one owner outcome per task; stop at its acceptance criteria or current resource limit.',
+            'discovery':'Discover actual available host tools and permitted transport before calls. Read operations.read on the exact WMM runtime; select only relevant implemented operations.',
+            'snapshot_reuse':'Reuse a current app/version/policy/catalog-bound snapshot and referenced evidence. Reload affected inputs after changes, revision conflicts or stale observations; cached discovery never renews a grant or approval.',
+            'bounded_reads':'Read the smallest relevant fields or artifact sections. Set call, time, token and cost bounds from current authority before work; unknown metering stays null and is not an unlimited allowance.',
+            'concurrency':'Parallelize only independent permitted reads within current limits; serialize mutations and their readbacks. Delegate only with explicit user and host permission.',
+            'handoff':'Pass objective, app/version/scope hashes, resource revisions, allowed operations, remaining bounds, receipt/artifact references, status, unknowns and next action; avoid full transcripts and private credentials.',
+            'recovery':'On uncertain effects, inspect the saved job, request key, receipt and current resource state; reconcile UNKNOWN before any retry. Never replay an uncertain mutation.',
+            'measurement':'Report observed calls, tokens, elapsed time and costs when available; unknowns need a reason. Claim efficiency gains only against a measured comparable baseline.'},
         'efficiency':[
             'Prefer current reusable evidence over repeated collection; show observation dates and stale or failed reads.',
             'Use the smallest sufficient operation and approved inference model; keep stable prompt instructions before changing app/task context.',

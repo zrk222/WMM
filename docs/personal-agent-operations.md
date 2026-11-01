@@ -106,6 +106,23 @@ Keep this report in the owner conversation unless another destination is explici
 authorized. The [WizeMe trial handoff](MARKETER-COMPLETION-GATES.md#next-owner-run-wizeme-trial-handoff)
 applies the same protocol to baseline, approved execution and follow-up evidence.
 
+## Efficient task execution
+
+The shared `owner_operating_protocol.execution_efficiency` applies to all six
+profiles and other teams. Discover available host capabilities and demonstrate
+`operations.read` on the exact WMM runtime before selecting a relevant operation.
+Keep one app and one owner outcome per task. Reuse current app/version/policy/
+catalog-bound snapshots and evidence references; reload affected inputs after
+changes, conflicts or stale observations. Cached discovery never renews authority.
+
+Read only relevant fields or artifact sections and establish current call, time,
+token and cost bounds. Parallelize independent permitted reads within those
+limits; serialize mutations and readbacks. Pass compact scope hashes, revisions,
+remaining bounds and receipt references between permitted workers. Reconcile
+uncertain effects against saved jobs and current state before any retry.
+Report actual resource use or null with a reason. These instructions do not
+enforce budgets at the host or prove measured efficiency gains.
+
 ## Native standing video scope
 
 In the iPhone/iPad app, the owner can select **On-device iPhone/iPad video

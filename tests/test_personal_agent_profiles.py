@@ -74,6 +74,25 @@ class GuideTests(unittest.TestCase):
         guide['profiles'][0]['sources'].append('untrusted')
         self.assertNotIn('untrusted',discovery(APP)['personal_agent_guide']['profiles'][0]['sources'])
 
+    def test_shared_efficiency_contract_is_discovered_hash_bound_and_isolated(self):
+        guide=discovery(APP)['personal_agent_guide']
+        protocol=guide['owner_operating_protocol']['execution_efficiency']
+        self.assertEqual(protocol,operating_manifest(APP)['owner_operating_protocol']['execution_efficiency'])
+        self.assertEqual(protocol['authority'],'ADVISORY_ONLY')
+        self.assertIn('operations.read',protocol['discovery'])
+        self.assertIn('never renews a grant or approval',protocol['snapshot_reuse'])
+        self.assertIn('unknown metering stays null',protocol['bounded_reads'])
+        self.assertIn('serialize mutations and their readbacks',protocol['concurrency'])
+        self.assertIn('Never replay an uncertain mutation',protocol['recovery'])
+        self.assertIn('measured comparable baseline',protocol['measurement'])
+        original_hash=guide['guide_sha256']
+        protocol['authority']='tampered'
+        changed=copy.deepcopy(guide);changed.pop('guide_sha256')
+        self.assertNotEqual(digest(changed),original_hash)
+        fresh=discovery(APP)['personal_agent_guide']
+        self.assertEqual(fresh['guide_sha256'],original_hash)
+        self.assertFalse(fresh['execution_authority'])
+
     def test_discovery_is_offline_and_instructions_do_not_expand_authority(self):
         with patch('builtins.open',side_effect=AssertionError('No private file reads')), \
              patch('socket.create_connection',side_effect=AssertionError('No network')), \
