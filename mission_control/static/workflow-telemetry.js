@@ -4,16 +4,35 @@
 })(typeof globalThis==='object'?globalThis:this,function(){
   'use strict';
   const POLL_MS=2000,esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  let generation=0,timer=null,mounted=null;
-  function panel(){return '<section class="panel" id="workflow-monitor" aria-label="Live workflow progression"><h2>Live workflow progression</h2><p>Follow the actual stage, current activity and saved outcome. Updates arrive every two seconds while this view is visible.</p><p data-live-status role="status">Loading worker observations…</p><button class="button outline" type="button" data-action="telemetry-refresh">Refresh progress</button><div data-live-runs></div></section>';}
+  let generation=0,timer=null,mounted=null,opening=null;
+  function panel(){return '<section class="panel" id="workflow-monitor" aria-label="Live workflow progression"><h2>See what your agent is doing</h2><p>Follow the recorded stage, current activity and saved result. A processed stage records work attempted; inspect its outcome to see what completed or still needs your decision.</p><p data-live-status role="status">Loading worker observations…</p><button class="button outline" type="button" data-action="telemetry-refresh">Refresh progress</button><div data-live-runs></div></section>';}
+  function nextAction(status){
+    const actions={QUEUED:'Waiting for the worker. Inspect the run to check its saved status.',RUNNING:'Work is running. Inspect its recorded steps and any saved output.',RETRY_WAIT:'Waiting for a permitted worker retry. Inspect the previous attempt before taking action.',FAILED:'Inspect the job status and any saved output before deciding whether to retry.',BLOCKED:'Inspect the job status and missing evidence or access before trying again.',SUCCEEDED:'Review the saved output and choose your next action. Completion alone does not establish app sales.',CANCELLED:'Work was cancelled. Inspect receipts for work that already completed.',UNKNOWN:'Inspect and reconcile the job status. Do not automatically resend uncertain work.',CANCEL_REQUESTED:'Cancellation is pending. Inspect the job status before starting replacement work.'};
+    return actions[status]||'Inspect the recorded status and any saved output. Unrecognized states do not establish completion.';
+  }
   function markup(data){
     if(!data.runs.length)return '<p>No workflow runs yet. Start an approved workflow to see its stages here.</p>';
-    return data.runs.map(run=>`<article class="panel"><h3>${esc(run.action)} · ${esc(run.status)}</h3><p>Attempt ${esc(run.attempts)} · ${esc(run.processed_stages)} stages processed · ${esc(run.blocked_stages)} blocked</p><p>${run.latest?.stage?`Stage ${esc(run.latest.stage)}: ${esc(run.latest.stage_title)} · `:''}${esc(run.activity)}</p><p>Last worker event: ${esc(run.latest?.observed_at||'No event recorded')}. Job updated: ${esc(run.updated)}.</p><details><summary>Observed steps (${run.events.length})</summary><ol>${run.events.map(event=>`<li>${esc(event.observed_at)} · ${event.stage?`Stage ${esc(event.stage)} · `:''}${esc(event.message)}</li>`).join('')}</ol></details></article>`).join('');
+    return data.runs.map(run=>`<article class="panel"><h3>${esc(run.action)} · ${esc(run.status)}</h3><p>Attempt ${esc(run.attempts)} · ${esc(run.processed_stages)} stages processed · ${esc(run.blocked_stages)} blocked</p><p>${run.latest?.stage?`Stage ${esc(run.latest.stage)}: ${esc(run.latest.stage_title)} · `:''}${esc(run.activity)}</p><p>Last worker event: ${esc(run.latest?.observed_at||'No event recorded')}. Job updated: ${esc(run.updated)}.</p><p><strong>Next action:</strong> ${esc(nextAction(run.status))}</p>${typeof run.id==='string'&&run.id?`<button type="button" class="button outline" data-action="telemetry-open-job" data-id="${esc(run.id)}">Inspect run and saved output</button>`:''}<details><summary>Observed steps (${run.events.length})</summary><ol>${run.events.map(event=>`<li>${esc(event.observed_at)} · ${event.stage?`Stage ${esc(event.stage)} · `:''}${esc(event.message)}</li>`).join('')}</ol></details></article>`).join('');
+  }
+  async function openResult(node,deps){
+    if(node.disabled||opening)return;
+    const app=deps.state.app,view=deps.state.view,principal=deps.state.workspace?.identity?.principal,id=node.dataset.id;
+    const expectedGeneration=(deps.state.refreshGeneration||0)+1;
+    const current=()=>deps.state.app===app&&deps.state.view===view&&deps.state.workspace?.identity?.principal===principal&&deps.state.refreshGeneration===expectedGeneration;
+    const operation={app,view,principal,id};opening=operation;node.disabled=true;
+    try{
+      const receipt=await deps.refresh();
+      if(!current())return;
+      if(!receipt||receipt.app!==app||receipt.generation!==expectedGeneration||receipt.workspace!==deps.state.workspace||receipt.workspace.app?.id!==app)throw new Error('Current refresh did not apply.');
+      if(!deps.state.workspace.jobs.some(job=>job.id===id))return deps.toast('This run is outside the current saved history. Refresh progress to inspect current runs.');
+      return deps.openJob(id);
+    }catch(error){if(current())deps.toast('The saved run could not refresh. Your observations are preserved. Refresh progress and try again.');}
+    finally{if(opening===operation)opening=null;if(node.isConnected)node.disabled=false;}
   }
   function clear(){generation++;if(timer!==null)clearTimeout(timer);timer=null;mounted=null;}
   function mount(deps){
     clear();const node=deps.document.querySelector('#workflow-monitor');if(!node)return;
-    const ticket={node,app:deps.state.app,version:++generation,pending:false};mounted=ticket;
+    const ticket={node,app:deps.state.app,version:++generation,pending:false,failures:0};mounted=ticket;
     const valid=()=>mounted===ticket&&generation===ticket.version&&deps.state.app===ticket.app&&node.isConnected;
     async function poll(){
       if(!valid())return;
@@ -25,14 +44,15 @@
           if(!valid())return;if(data.app_id!==ticket.app)throw new Error('Wrong app progress received.');
           const target=node.querySelector('[data-live-runs]');
           if(!target.contains(deps.document.activeElement))target.innerHTML=markup(data);
-          node.querySelector('[data-live-status]').textContent=`Connected · last refresh ${data.observed_at}. Processed stages are observations, not a success percentage.`;
-        }catch(error){if(valid())node.querySelector('[data-live-status]').textContent='Updates unavailable — showing the last saved observations. Refresh to retry.';}
+          ticket.failures=0;
+          node.querySelector('[data-live-status]').textContent=`Connected · last refresh ${data.observed_at}. Updates checked every two seconds while visible. Processed stages are observations, not a success percentage.`;
+        }catch(error){if(valid()){ticket.failures++;node.querySelector('[data-live-status]').textContent='Updates unavailable — showing the last saved observations. Automatic retries slow down after failed reads. Select Refresh progress to retry.';}}
         finally{ticket.pending=false;}
       }
-      if(valid())timer=setTimeout(poll,POLL_MS);
+      if(valid())timer=setTimeout(poll,Math.min(32000,POLL_MS*2**Math.min(ticket.failures,4)));
     }
     node.querySelector('[data-action=telemetry-refresh]').onclick=()=>{if(timer!==null)clearTimeout(timer);timer=null;poll();};
     poll();
   }
-  return {panel,markup,mount,clear,POLL_MS};
+  return {panel,markup,mount,clear,openResult,nextAction,POLL_MS};
 });

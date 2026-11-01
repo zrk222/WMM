@@ -203,9 +203,15 @@ class SubscriptionReviewTests(unittest.TestCase):
             plan[arm] = dict(variant_type="SUBSCRIPTION", cohort_id="experiment-" + arm, source_record_id=record["id"], configuration=config)
         with patch("mission_control.experiments.now", return_value=REGISTER):
             row = Experiments(store).create("sample-one", plan)
-        value = self.request("/api/apps/sample-one/subscription-growth")[1]
+        with patch("mission_control.subscription_review.datetime", wraps=datetime) as observed:
+            observed.now.return_value = datetime(2026, 10, 23, tzinfo=timezone.utc)
+            value = self.request("/api/apps/sample-one/subscription-growth")[1]
         self.assertEqual(value["experiments"][0]["id"], row["id"])
         self.assertEqual(value["experiments"][0]["current_source_findings"], [])
+        expired = subscription_experiments(store, store.app("sample-one"), "2026-11-02T00:00:00+00:00")
+        self.assertIn("control: Subscription eligibility evidence is future or expired",
+                      expired[0]["current_source_findings"])
+        self.assertEqual(expired[0]["review_state"], "SOURCE_REVIEW_NEEDED")
         record = sources["control"]
         store.save_record("sample-one", dict(record, data=dict(record["data"], result="FAIL")))
         result = subscription_experiments(store, store.app("sample-one"), "2026-10-23T00:00:00+00:00")

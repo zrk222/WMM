@@ -7,7 +7,7 @@ function guidedButton(tool,cls="outline") {
 function guidedOverviewPanel() {
   const g=state.workspace.workflow;
   const title=g.steps.find(s=>s.id===g.next_step)?.title||g.next_action.title;
-  return `<section class="panel guided-summary"><div class="section-heading"><div><p class="eyebrow">NEXT AGENT WORK / YOUR APPROVAL</p><h2>${esc(title)}</h2></div>${button("Continue workflow","guided-continue","","")}</div><p>${g.local_ready_count} of 12 local input checks ready. Review the agent’s action and evidence; publication and measured results need separate proof.</p>${button("See the complete workflow","guided-open")}</section>`;
+  return `<section class="panel guided-summary"><div class="section-heading"><div><p class="eyebrow">YOUR NEXT MARKETING DECISION</p><h2>${esc(title)}</h2></div>${button(`Continue: ${g.next_action.title}`,"guided-continue","","")}</div><p>You choose the app facts, research references, uploaded media and analytics connections to use. WMM turns the saved inputs into preparation packets and reports. Connected-source reads and agent actions keep their own scope and approval checks.</p><p><strong>${g.local_ready_count} of 12 local input checks ready.</strong> Start with this step and inspect its saved packet: the work prepared, its sources and any missing evidence. Open the other stages when you need them. Publication and measured app results need separate proof.</p>${button("See the complete workflow","guided-open")}</section>`;
 }
 
 function guidedStep(step) {

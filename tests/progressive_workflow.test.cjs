@@ -23,3 +23,8 @@ test('all locally ready stages remain available without claiming execution compl
  const states=context.guidedEvidenceStates();for(const text of ['Inputs ready','Execution approved','Outcome observed','Missing results stay unknown'])assert.ok(states.includes(text));
  assert.ok(!/all.*complete|growth guaranteed/i.test(states));
 });
+
+test('overview names chosen inputs, saved packet and exact next action without hiding stages',()=>{
+ const g=guide();g.next_action.title='<img src=x>';context.state={workspace:{workflow:g}};const html=context.guidedOverviewPanel();
+ assert.match(html,/You choose the app facts/);assert.match(html,/saved packet/);assert.match(html,/Continue: &lt;img/);assert.ok(!html.includes('<img'));assert.match(html,/See the complete workflow/);
+});
