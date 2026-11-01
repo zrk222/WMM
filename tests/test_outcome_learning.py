@@ -33,7 +33,7 @@ FINAL="2026-10-11T01:00:00+00:00"
 @contextmanager
 def clock(stamp):
     with ExitStack() as stack:
-        for module in ("creative_briefs","creative_analysis","creative_library","experiments","outcome_links","learning_contract","outcome_learning","ledger"):
+        for module in ("creative_briefs","creative_analysis","creative_library","production_feasibility","experiments","outcome_links","learning_contract","outcome_learning","ledger"):
             stack.enter_context(patch("mission_control."+module+".now",return_value=stamp))
         stack.enter_context(patch("tests.test_creative_production.now",return_value=stamp))
         for module in ("ledger", "subscription_review"):
