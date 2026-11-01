@@ -55,6 +55,7 @@ async function refresh() {
   localStorage.setItem("growth-app",app);
   $("#app-name").textContent=state.workspace.app.data.name;
   render();
+  return {app,generation,workspace};
 }
 
 function currentWorkspace() {
@@ -316,7 +317,7 @@ function resultsView() {
 }
 
 function growthReviewServices() {
-  return {state,modal,api,refresh,toast,openExperiment,uuid:()=>crypto.randomUUID(),FormData,document,
+  return {state,modal,api,refresh,toast,openExperiment,openJob,uuid:()=>crypto.randomUUID(),FormData,document,
     close:()=>$("#modal").close(),pageReports:WMMPageReports,browser:window,ui:WMMGrowthReview};
 }
 
@@ -907,7 +908,7 @@ async function handleAction(node) {
   if(action.startsWith("acq-"))return acquisitionAction(node);
   if(action.startsWith("aeo-"))return aeoAction(node);
   if(action.startsWith("reference-"))return referenceAction(node);
-  const simple={reload:initialize,close:()=>$("#modal").close(),"edit-app":()=>appForm(false),"add-app":()=>appForm(true),"run-all":()=>queue("pipeline",{stage:0}),"run-stage":()=>queue("pipeline",{stage:Number(id)}),stage:()=>openStage(id),record:()=>openRecord(id),job:()=>openJob(id),provider:()=>connectionSetup(id),upload:()=>$("#asset-file").click(),restore:()=>$("#restore-file").click(),"add-evidence":()=>evidenceForm(node.dataset.kind || "readiness"),"add-connection":()=>evidenceForm("connection",null,{provider:id,env_ref:`GROWTH_${state.app.toUpperCase().replaceAll("-","_")}_${id.toUpperCase()}_TOKEN`}),sync:()=>queue("sync",{connection_id:id}),"prepare-review":prepareReview,review:()=>openReview(id)};
+  const simple={"telemetry-open-job":()=>WMMTelemetry.openResult(node,growthReviewServices()),reload:initialize,close:()=>$("#modal").close(),"edit-app":()=>appForm(false),"add-app":()=>appForm(true),"run-all":()=>queue("pipeline",{stage:0}),"run-stage":()=>queue("pipeline",{stage:Number(id)}),stage:()=>openStage(id),record:()=>openRecord(id),job:()=>openJob(id),provider:()=>connectionSetup(id),upload:()=>$("#asset-file").click(),restore:()=>$("#restore-file").click(),"add-evidence":()=>evidenceForm(node.dataset.kind || "readiness"),"add-connection":()=>evidenceForm("connection",null,{provider:id,env_ref:`GROWTH_${state.app.toUpperCase().replaceAll("-","_")}_${id.toUpperCase()}_TOKEN`}),sync:()=>queue("sync",{connection_id:id}),"prepare-review":prepareReview,review:()=>openReview(id)};
   if(simple[action]) return simple[action]();
   if(action==="disconnect-connection") return disconnectForm(id);
   if(action==="confirm-disconnect") {const result=await api(`/api/apps/${state.app}/connections/${id}/disconnect`,{version:Number(node.dataset.version)});$("#modal").close();await refresh();return toast(result.cleanup==="PRIOR_LOCAL_KEY_CLEANUP_REQUIRED"?"Connection disabled; protected key cleanup needs attention. Use Disconnect locally again to remove it. Provider revocation was not performed.":"Local access removed. Provider key revocation was not performed.");}
