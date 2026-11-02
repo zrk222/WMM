@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,6 +38,16 @@ def verify_binary(binary, folder, env):
     spec.loader.exec_module(module)
     import anyio
     anyio.run(module.mcp_smoke, binary, str(folder))
+
+
+def wait_removed(install, timeout=30):
+    """Allow the uninstaller helper to finish self-deletion; never remove its files."""
+    deadline = time.monotonic() + timeout
+    while install.exists() and any(install.iterdir()):
+        if time.monotonic() >= deadline:
+            remaining = ', '.join(sorted(p.name for p in install.iterdir())[:10])
+            raise AssertionError('Uninstall left program entries: ' + remaining)
+        time.sleep(0.1)
 
 
 def main():
@@ -73,8 +84,8 @@ def main():
         if marker.read_text(encoding='utf-8') != 'synthetic private workspace':
             raise AssertionError('Upgrade changed the workspace fixture')
         run([install / 'unins000.exe','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART'], temp, env)
-        if (binary.exists() or (install.exists() and any(install.iterdir())) or
-                marker.read_text(encoding='utf-8') != 'synthetic private workspace'):
+        wait_removed(install)
+        if binary.exists() or marker.read_text(encoding='utf-8') != 'synthetic private workspace':
             raise AssertionError('Uninstall did not remove program or preserve workspace fixture')
     print(json.dumps(dict(status='PASS', install='VERIFIED', upgrade='VERIFIED', uninstall='VERIFIED',
                           workspace='SYNTHETIC_PRESERVED', provider='NOT_RUN')))

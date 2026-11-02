@@ -1,0 +1,19 @@
+name: linux-package
+language: python
+modules:
+- name: build_linux_package
+  path: tools/build_linux_package.py
+  language: python
+  functions: []
+- name: test_linux_package
+  path: tools/test_linux_package.py
+  language: python
+  functions: []
+- name: test_linux_package_contract
+  path: tests/test_linux_package_contract.py
+  language: python
+  functions: []
+dependencies:
+- from: test_linux_package_contract
+  to: test_linux_package
+invariants: []

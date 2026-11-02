@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "debian-format-native-layout",
+      "kind": "python",
+      "run": "import unittest; from tests import test_linux_package_contract as t; suite=unittest.TestSuite([t.LinuxPackageContractTests('test_standard_library_archive_has_exact_debian_member_order_and_safe_tars'),t.LinuxPackageContractTests('test_archive_validation_rejects_scripts_and_escaping_payload')]); result=unittest.TextTestRunner().run(suite); assert result.wasSuccessful()"
+    }
+  ]
+}

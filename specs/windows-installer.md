@@ -49,3 +49,6 @@ Scenario: private_boundary
 ## Authorized parameters
 INSTALL_TIMEOUT_SECONDS = 180
 SELF_TEST_TIMEOUT_SECONDS = 90
+
+Uninstaller helper cleanup observation deadline in seconds:
+timeout = 30

@@ -1,0 +1,9 @@
+Package: wize-marketing-machine
+Version: 0.1.0
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Wize Marketing Machine
+Depends: libc6, libgcc-s1, libstdc++6, libx11-6, libxext6, libxrender1, libglib2.0-0, libgl1, libtk8.6, dbus-user-session, gnome-keyring, xdg-utils, ffmpeg, fonts-dejavu-core
+Description: Private local marketing workspace
+ Owner-operated desktop runtime with protected local credentials.
