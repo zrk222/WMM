@@ -7,11 +7,12 @@ import unittest
 from unittest.mock import patch
 
 from mission_control.campaign_schedule import CampaignSchedules, tick
-from mission_control.common import Invalid, canonical
+from mission_control.common import Invalid, canonical, digest
 from mission_control.db import connection
 from mission_control.operation_authority import bound_owner, protected
 from mission_control.worker import claim, run_once
 from tests.test_campaign_access import CampaignGatewayTests
+from tests.test_campaign_execution import FakePaidTransport
 from tests.test_verified_review import OWNER
 
 
@@ -26,6 +27,7 @@ class ScheduleTests(unittest.TestCase):
         CampaignGatewayTests.setUp(self)
         from mission_control import campaign_schedule
         original = campaign_schedule.CampaignExecutionService
+        self.real_service_class = original
         wire = patch.object(campaign_schedule, 'CampaignExecutionService',
                             side_effect=lambda store, checker: original(store, checker, self.wire))
         wire.start()
@@ -253,7 +255,7 @@ class ScheduleTests(unittest.TestCase):
     def test_check_lease_and_check_content_reject_changed_binding(self):
         from mission_control.campaign_schedule_authority import check_lease, check_content
         from mission_control.common import digest
-        stamp = datetime.now(timezone.utc)
+        stamp = datetime.fromtimestamp(time.time()-1, timezone.utc)
         body = dict(item_id='item', due_at=stamp.isoformat(), request={'content_hash':'a'*64})
         summary = dict(batch_id='batch', app_id='sample-one', scope_id='scope',
                        scope_hash='approved', owner='owner', items=[body])
@@ -296,6 +298,196 @@ class ScheduleTests(unittest.TestCase):
             self.assertEqual(tick(self.store), 20)
             self.assertEqual(tick(self.store), 1)
         self.assertEqual(self.wire.posts, 0)
+
+    def paid_fixture(self):
+        organic = self.activate()
+        self.owner_call('publish', {'scope_id': organic['scope_id'], 'request': self.post})
+        self.wire = FakePaidTransport()
+        creds = patch.object(self.real_service_class, '_credentials',
+                      return_value=({}, 'synthetic-secret', {'access_token':'synthetic-token','page_token':'synthetic-token'}))
+        creds.start()
+        self.addCleanup(creds.stop)
+        target = {'countries':['CA']}
+        self.scope.update(ad_account_id='456', max_campaigns=2, max_campaign_minor=100, max_total_minor=100,
+                          approved_targeting_hashes=[digest(target)], billing_acknowledged=True,
+                          ordinary_ad_attestation=True)
+        scope = self.activate()
+        due = datetime.now(timezone.utc) + timedelta(seconds=30)
+        request = dict(request_id='33333333-3333-4333-8333-333333333333', post_id='123_777',
+            content_hash=self.content, rights_hash='b'*64, targeting_hash=digest(target), targeting=target,
+            lifetime_budget_minor=80, end_time=(due+timedelta(minutes=30)).isoformat(), name='Synthetic promotion')
+        return scope, due, request
+
+    def paid_batch(self, scope, due, requests):
+        service = CampaignSchedules(self.store)
+        items = [dict(due_at=due.isoformat(), operation='campaign.ad-launch', request=request) for request in requests]
+        with self.owner_bound():
+            draft = service.prepare('sample-one', dict(scope_id=scope['scope_id'], items=items))
+            active = service.activate('sample-one', draft['summary']['batch_id'], draft['summary_hash'])
+        return service, active
+
+    def test_paid_schedule_verified_promotion_and_retained_commitment(self):
+        scope, due, request = self.paid_fixture()
+        service, active = self.paid_batch(scope, due, [request])
+        with patch('time.time', return_value=due.timestamp()+1):
+            tick(self.store)
+            run_once(self.store)
+            run_once(self.store)
+        with self.owner_bound():
+            item = service.status('sample-one', active['id'])['items'][0]
+        self.assertEqual(item['effective_status'], 'ACTIVE_VERIFIED')
+        self.assertEqual(item['intent']['commitment'], 80)
+        self.assertEqual(len(self.wire.objects), 4)
+
+    def test_paid_unknown_response_retains_commitment_and_never_replays(self):
+        scope, due, request = self.paid_fixture()
+        service, active = self.paid_batch(scope, due, [request])
+        self.wire.fail_kind = 'adset'
+        with patch('time.time', return_value=due.timestamp()+1):
+            tick(self.store)
+            run_once(self.store)
+            run_once(self.store)
+        with self.owner_bound():
+            item = service.status('sample-one', active['id'])['items'][0]
+        self.assertEqual(item['intent']['status'], 'UNKNOWN')
+        self.assertEqual(item['intent']['commitment'], 80)
+        self.assertEqual(item['effective_status'], 'NEEDS_RECONCILIATION')
+        self.assertEqual(item['job_status'], 'BLOCKED')
+
+    def test_paid_review_rejects_unverified_post_and_outside_targeting(self):
+        scope, due, request = self.paid_fixture()
+        service = CampaignSchedules(self.store)
+        for bad in (dict(request, post_id='123_999'), dict(request, targeting_hash='a'*64)):
+            with self.owner_bound():
+                with self.assertRaises((Invalid, PermissionError)):
+                    service.prepare('sample-one', dict(scope_id=scope['scope_id'],
+                        items=[dict(due_at=due.isoformat(), operation='campaign.ad-launch', request=bad)]))
+        self.assertEqual(len(self.wire.objects), 0)
+
+    def test_paid_due_jobs_preserve_account_wide_commitment_limit(self):
+        scope, due, request = self.paid_fixture()
+        other = dict(request, request_id='44444444-4444-4444-8444-444444444444')
+        service, active = self.paid_batch(scope, due, [request, other])
+        with patch('time.time', return_value=due.timestamp()+1):
+            tick(self.store)
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                self.assertEqual(sum(pool.map(lambda _: run_once(self.store), range(2))), 2)
+        with self.owner_bound():
+            items = service.status('sample-one', active['id'])['items']
+        self.assertCountEqual([item['job_status'] for item in items], ['SUCCEEDED','BLOCKED'])
+        self.assertEqual(sum(item['intent']['commitment'] for item in items if item['intent']), 80)
+        self.assertEqual(len(self.wire.objects), 4)
+
+    def test_paid_job_lease_expiry_does_not_dispatch(self):
+        scope, due, request = self.paid_fixture()
+        service, active = self.paid_batch(scope, due, [request])
+        with patch('time.time', return_value=due.timestamp()+1):
+            tick(self.store)
+            self.assertIsNotNone(claim(self.store))
+        with patch('time.time', return_value=due.timestamp()+100):
+            self.assertIsNone(claim(self.store))
+        with self.owner_bound():
+            item = service.status('sample-one', active['id'])['items'][0]
+        self.assertEqual(item['job_status'], 'BLOCKED')
+        self.assertEqual(len(self.wire.objects), 0)
+
+    def test_paid_operation_tampering_is_blocked_before_provider(self):
+        scope, due, request = self.paid_fixture()
+        service, active = self.paid_batch(scope, due, [request])
+        with patch('time.time', return_value=due.timestamp()+1):
+            tick(self.store)
+            with connection(self.store.path) as db:
+                db.execute("UPDATE jobs SET data=replace(data,'campaign.ad-launch','campaign.publish') WHERE action='campaign_ad'")
+            run_once(self.store)
+        with self.owner_bound():
+            item = service.status('sample-one', active['id'])['items'][0]
+        self.assertEqual(item['job_status'], 'BLOCKED')
+        self.assertEqual(len(self.wire.objects), 0)
+
+    def test_paid_worker_argument_substitution_is_blocked(self):
+        from mission_control.worker import process
+        scope, due, request = self.paid_fixture()
+        service, active = self.paid_batch(scope, due, [request])
+        with patch('time.time', return_value=due.timestamp()+1):
+            tick(self.store)
+            job = claim(self.store)
+            altered = dict(job, data=dict(job['data'], request=dict(request, name='Unapproved name')))
+            with self.assertRaises(PermissionError):
+                process(self.store, altered)
+        self.assertEqual(len(self.wire.objects), 0)
+
+    def test_paid_off_during_mutation_retains_receipt_and_commitment(self):
+        scope, due, request = self.paid_fixture()
+        service, active = self.paid_batch(scope, due, [request])
+        create = self.wire.create_paid
+        def create_then_off(kind, account, fields, token, secret, alive):
+            result = create(kind, account, fields, token, secret, alive)
+            if kind == 'campaign':
+                with self.owner_bound():
+                    service.revoke('sample-one', active['id'], active['version'])
+            return result
+        self.wire.create_paid = create_then_off
+        with patch('time.time', return_value=due.timestamp()+1):
+            tick(self.store)
+            run_once(self.store)
+            run_once(self.store)
+        with self.owner_bound():
+            item = service.status('sample-one', active['id'])['items'][0]
+        self.assertEqual(item['job_status'], 'BLOCKED')
+        self.assertEqual(item['intent']['commitment'], 80)
+        self.assertEqual(item['effective_status'], 'NEEDS_RECONCILIATION')
+        self.assertEqual(len(self.wire.objects), 1)
+
+    def test_paid_scope_revocation_retains_separate_owner_pause(self):
+        scope, due, request = self.paid_fixture()
+        service, active = self.paid_batch(scope, due, [request])
+        with patch('time.time', return_value=due.timestamp()+1):
+            tick(self.store)
+            run_once(self.store)
+        result = self.owner_call('revoke', {'scope_id': scope['scope_id']})
+        self.assertEqual(result['pause_results'][0]['status'], 'PAUSED_campaign')
+        with self.owner_bound():
+            stopped = service.status('sample-one', active['id'])['items'][0]
+        self.assertEqual(stopped['effective_status'], 'PAUSED_VERIFIED')
+        self.assertEqual(stopped['intent']['commitment'], 80)
+
+    def test_paid_crash_pending_step_requires_reconciliation_no_replay(self):
+        scope, due, request = self.paid_fixture()
+        service, active = self.paid_batch(scope, due, [request])
+        create = self.wire.create_paid
+        def crash(kind, account, fields, token, secret, alive):
+            if kind == 'adset':
+                alive()
+                raise KeyboardInterrupt('synthetic abrupt worker loss')
+            return create(kind, account, fields, token, secret, alive)
+        self.wire.create_paid = crash
+        with patch('time.time', return_value=due.timestamp()+1):
+            tick(self.store)
+            with self.assertRaises(KeyboardInterrupt):
+                run_once(self.store)
+        with patch('time.time', return_value=due.timestamp()+100):
+            self.assertIsNone(claim(self.store))
+        with self.owner_bound():
+            item = service.status('sample-one', active['id'])['items'][0]
+        self.assertEqual(item['job_status'], 'BLOCKED')
+        self.assertEqual(item['intent']['status'], 'PENDING_CREATE_adset')
+        self.assertEqual(item['intent']['commitment'], 80)
+        self.assertEqual(item['effective_status'], 'NEEDS_RECONCILIATION')
+        self.assertEqual(len(self.wire.objects), 1)
+        observed = self.owner_call('reconcile', {'scope_id':scope['scope_id'], 'intent_id':item['intent']['id']})
+        self.assertEqual(observed['status'], 'UNKNOWN')
+        self.assertEqual(observed['commitment'], 80)
+
+    def test_paid_review_rejects_end_outside_scope_and_before_due(self):
+        scope, due, request = self.paid_fixture()
+        service = CampaignSchedules(self.store)
+        for end in (due-timedelta(seconds=1), due+timedelta(hours=2)):
+            item = dict(due_at=due.isoformat(), operation='campaign.ad-launch',
+                        request=dict(request, end_time=end.isoformat()))
+            with self.owner_bound():
+                with self.assertRaises((Invalid, PermissionError)):
+                    service.prepare('sample-one', dict(scope_id=scope['scope_id'], items=[item]))
+        self.assertEqual(len(self.wire.objects), 0)
 
 
 if __name__ == '__main__':

@@ -1,0 +1,180 @@
+{
+  "name": "automation-agreement",
+  "language": "python",
+  "modules": [
+    {
+      "name": "agreement",
+      "path": "mission_control/automation_agreement.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "selection",
+          "args": [
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "saved_object",
+          "args": [
+            "raw"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "owned",
+          "args": [
+            "db",
+            "table",
+            "app_id",
+            "identity",
+            "principal"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "local_scope",
+          "args": [
+            "db",
+            "app_id",
+            "principal",
+            "identity",
+            "observed"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "campaign_blockers",
+          "args": [
+            "scope",
+            "row",
+            "app",
+            "owner",
+            "account",
+            "observed"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "campaign_receipts",
+          "args": [
+            "db",
+            "app_id",
+            "scope_id"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "campaign_scope",
+          "args": [
+            "db",
+            "app",
+            "owner",
+            "identity",
+            "observed"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "batch_row",
+          "args": [
+            "db",
+            "app_id",
+            "principal",
+            "identity"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "batch_item",
+          "args": [
+            "db",
+            "app_id",
+            "row",
+            "expected",
+            "scope"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "scheduled_request",
+          "args": [
+            "db",
+            "app_id",
+            "body",
+            "scope"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "item_view",
+          "args": [
+            "db",
+            "app_id",
+            "row",
+            "body",
+            "job",
+            "scope_id"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "batch_scope",
+          "args": [
+            "db",
+            "app_id",
+            "row",
+            "summary",
+            "scope"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "uncertainty",
+          "args": [
+            "local",
+            "campaign",
+            "batch"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "build_summary",
+          "args": [
+            "db",
+            "app",
+            "owner",
+            "chosen",
+            "observed"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "owner_http",
+      "path": "mission_control/agent_grant_http.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "owner",
+          "args": [
+            "store",
+            "app_id",
+            "action",
+            "user",
+            "body"
+          ],
+          "returns": "object"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "owner_http",
+      "to": "agreement"
+    }
+  ],
+  "invariants": []
+}

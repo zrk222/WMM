@@ -53,7 +53,9 @@ def owner(store,app_id,action,user,body):
     grants=Grants(store)
     from .complete_automation import Automation
     automation=Automation(store)
-    controls={'automation-readiness':lambda:goal_readiness(store,app_id,user,body),
+    from .automation_agreement import Agreement
+    controls={'agreement-preview':lambda:Agreement(store).preview(app_id,user,body),
+              'automation-readiness':lambda:goal_readiness(store,app_id,user,body),
               'automation-preview':lambda:automation.preview(app_id,user,body),
               'automation-activate':lambda:automation.activate(app_id,user,body),
               'automation-off':lambda:automation.off(app_id,user,body)}

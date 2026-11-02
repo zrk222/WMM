@@ -762,6 +762,7 @@ async function formSubmit(event) {
     event.preventDefault();toast("App changed. Wait for this app to load and reopen the form.");return;
   }
   const formId=form.getAttribute("id");
+  if(formId==='agreement-form'){event.preventDefault();return WMMAgreement.submit(form);}
   if(formId==='goal-readiness-form'){event.preventDefault();return WMMGoalReadiness.submit(form);}
   if(formId==='standing-scope-form'){event.preventDefault();return WMMCompleteAutomation.submit(form,growthReviewServices());}
   if(['video-project-create-form','video-project-edit-form'].includes(formId)){event.preventDefault();return WMMVideoEditor.submit(form,growthReviewServices());}
@@ -870,6 +871,7 @@ async function saveEvidence(data,form) {
 }
 
 async function handleAction(node) {
+  if(node.dataset.action==='agreement-report')return WMMAgreement.report();
   if(node.dataset.action.startsWith('veditor-'))return WMMVideoEditor.action(node,growthReviewServices());
   if(node.dataset.action.startsWith('studio-'))return WMMStudio.action(node,growthReviewServices());
   if(node.dataset.action.startsWith('drive-'))return WMMDrive.action(node,growthReviewServices());

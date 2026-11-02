@@ -13,7 +13,7 @@ CURRENT = ContextVar('wmm_scheduled_campaign', default=None)
 @contextmanager
 def bound(store, job):
     """Bind only a worker-owned job; validation happens at every effect boundary."""
-    token = CURRENT.set((str(store.path.resolve()), job['id'], job['attempts']))
+    token = CURRENT.set((str(store.path.resolve()), job['id'], job['attempts'], digest(job['data'])))
     try:
         yield
     finally:
@@ -25,7 +25,7 @@ def check(store, app_id, actor, scope, action):
     active = CURRENT.get()
     if active is None:
         return False
-    if action != 'RUN_POST' or actor != 'schedule:' + active[1] or active[0] != str(store.path.resolve()):
+    if action not in ('RUN_POST', 'RUN_AD') or actor != 'schedule:' + active[1] or active[0] != str(store.path.resolve()):
         raise PermissionError('Scheduled capability cannot authorize this operation')
     with connection(store.path) as db:
         row = db.execute('''SELECT b.id AS batch_id,b.summary,b.summary_hash,b.status AS batch_status,
@@ -38,13 +38,18 @@ def check(store, app_id, actor, scope, action):
         summary = json.loads(row['summary'])
         body = json.loads(row['body'])
         data = json.loads(row['data'])
+        if digest(data) != active[3]:
+            raise PermissionError('Scheduled worker input changed')
+        operation = body.get('operation', 'campaign.publish')
+        if (action, operation) not in (('RUN_POST', 'campaign.publish'), ('RUN_AD', 'campaign.ad-launch')):
+            raise PermissionError('Scheduled operation does not match effect')
         check_lease(row, app_id, active)
         check_content(row, data, body, summary, app_id, scope)
     return True
 
 
 def check_lease(row, app_id, active):
-    if (row['app_id'] != app_id or row['action'] != 'campaign_post'
+    if (row['app_id'] != app_id or row['action'] not in ('campaign_post', 'campaign_ad')
             or row['batch_status'] != 'ACTIVE' or row['item_status'] != 'QUEUED'
             or row['job_status'] != 'RUNNING' or row['attempts'] != active[2]
             or row['lease'] <= time.time() or row['due'] > time.time()):
@@ -54,6 +59,11 @@ def check_lease(row, app_id, active):
 def check_content(row, data, body, summary, app_id, scope):
     expected = {'batch_id': summary['batch_id'], 'item_id': body['item_id'],
                 'scope_id': summary['scope_id'], 'request': body['request']}
+    if 'operation' in body:
+        expected['operation'] = body['operation']
+    expected_job = 'campaign_ad' if body.get('operation') == 'campaign.ad-launch' else 'campaign_post'
+    if row['action'] != expected_job:
+        raise PermissionError('Scheduled worker operation changed')
     if (digest(summary) != row['summary_hash'] or digest(body) != row['body_hash']
             or body not in summary['items'] or data != expected
             or body['item_id'] != data['item_id']

@@ -1,9 +1,9 @@
-"""Finite owner-reviewed one-shot Page post schedules."""
+"""Finite owner-reviewed Page post and existing-post promotion schedules."""
 import json
 import time
 from datetime import datetime, timezone
 
-from .campaign_contract import post_data
+from .campaign_contract import ad_data, post_data
 from .campaign_execution import CampaignExecutionService, row_scope
 from .common import Invalid, canonical, digest, iso_time, now, uid
 from .db import connection
@@ -45,23 +45,49 @@ def checked_scope(db, service, app_id, actor, scope_id):
     return scope
 
 
-def prepare_items(items, scope):
+def prepare_items(items, scope, db, app_id):
     prepared, seen = [], set()
     for item in items:
-        if not isinstance(item, dict) or set(item) != {'due_at', 'request'}:
-            raise Invalid('Each scheduled item needs an exact due time and post')
-        due = iso_time(item['due_at'])
-        if not datetime.now(timezone.utc) < due < iso_time(scope['expires_at']):
-            raise Invalid('Scheduled post must be due before scope expiry')
-        post = post_data(item['request'])
-        if (post['content_hash'] not in scope['approved_content_hashes']
-                or post['rights_hash'] not in scope['approved_rights_hashes']):
-            raise PermissionError('Scheduled post is outside campaign approval')
+        due, operation, post = prepare_item(item, scope, db, app_id)
         if post['request_id'] in seen:
             raise Invalid('Scheduled request identities must be unique')
         seen.add(post['request_id'])
-        prepared.append(dict(item_id=uid(), due_at=due.isoformat(), request=post))
+        value = dict(item_id=uid(), due_at=due.isoformat(), request=post)
+        if 'operation' in item:
+            value['operation'] = operation
+        prepared.append(value)
     return prepared
+
+
+def prepare_item(item, scope, db, app_id):
+    if not isinstance(item, dict) or set(item) not in ({'due_at', 'request'}, {'due_at', 'request', 'operation'}):
+        raise Invalid('Each scheduled item needs an exact due time and post')
+    due = iso_time(item['due_at'])
+    if not datetime.now(timezone.utc) < due < iso_time(scope['expires_at']):
+        raise Invalid('Scheduled post must be due before scope expiry')
+    operation = item.get('operation', 'campaign.publish')
+    if operation not in ('campaign.publish', 'campaign.ad-launch'):
+        raise Invalid('Unsupported scheduled campaign operation')
+    post = ad_data(item['request']) if operation == 'campaign.ad-launch' else post_data(item['request'])
+    if (post['content_hash'] not in scope['approved_content_hashes']
+            or post['rights_hash'] not in scope['approved_rights_hashes']):
+        raise PermissionError('Scheduled post is outside campaign approval')
+    if operation == 'campaign.ad-launch':
+        check_paid_review(db, app_id, scope, post, due)
+    return due, operation, post
+
+
+def check_paid_review(db, app_id, scope, body, due):
+    if (not scope['ad_account_id'] or body['targeting_hash'] not in scope['approved_targeting_hashes']
+            or body['lifetime_budget_minor'] > scope['max_campaign_minor']
+            or body['lifetime_budget_minor'] > scope['max_total_minor']
+            or not due < iso_time(body['end_time']) <= iso_time(scope['expires_at'])):
+        raise PermissionError('Paid promotion exceeds the approved scope')
+    post = db.execute("""SELECT 1 FROM campaign_intents WHERE app_id=? AND page_id=? AND remote_id=?
+        AND status='VERIFIED' AND content_hash=? AND rights_hash=?""",
+        (app_id, scope['page_id'], body['post_id'], body['content_hash'], body['rights_hash'])).fetchone()
+    if post is None:
+        raise PermissionError('Schedule only a verified saved Page post')
 
 
 def validate_items(rows, summary):
@@ -94,7 +120,9 @@ class CampaignSchedules:
             db.execute('BEGIN IMMEDIATE')
             scope = checked_scope(db, service, app_id, actor, body['scope_id'])
             identity = uid()
-            prepared = prepare_items(items, scope)
+            prepared = prepare_items(items, scope, db, app_id)
+            if any(item.get('operation') == 'campaign.ad-launch' for item in prepared):
+                service._check(db, app_id, actor, scope, 'RUN_AD')
             summary = dict(batch_id=identity, app_id=app_id, owner=actor,
                            scope_id=scope['scope_id'], scope_hash=scope['approval_hash'], items=prepared)
             stamp = now()
@@ -140,13 +168,7 @@ class CampaignSchedules:
                 raise Invalid('Scheduled batch summary needs repair')
             items = []
             for item in db.execute('SELECT * FROM campaign_schedule_items WHERE batch_id=? ORDER BY due,id', (batch_id,)):
-                job = db.execute('SELECT status,result FROM jobs WHERE id=?', (item['job_id'],)).fetchone() if item['job_id'] else None
-                body = json.loads(item['body'])
-                intent = db.execute('SELECT id,status,remote_id FROM campaign_intents WHERE app_id=? AND request_id=?',
-                                    (app_id, body['request']['request_id'])).fetchone()
-                items.append(dict(item_id=item['id'], due_at=body['due_at'], status=item['status'],
-                                  job_id=item['job_id'], job_status=job['status'] if job else None,
-                                  intent=dict(intent) if intent else None))
+                items.append(item_status(db, app_id, row['scope_id'], item))
             return dict(id=row['id'], status=row['status'], version=row['version'],
                         scope_id=row['scope_id'], summary=summary,
                         summary_hash=row['summary_hash'], items=items)
@@ -181,6 +203,42 @@ def audit(db, app_id, action, detail):
                (app_id, 'campaign_schedule.' + action, canonical(detail), now()))
 
 
+def item_status(db, app_id, scope_id, item):
+    job = db.execute('SELECT status,result FROM jobs WHERE id=?', (item['job_id'],)).fetchone() if item['job_id'] else None
+    body = json.loads(item['body'])
+    operation = body.get('operation', 'campaign.publish')
+    if operation == 'campaign.ad-launch':
+        intent = db.execute('SELECT id,status,ids,commitment,currency FROM campaign_paid_intents WHERE app_id=? AND scope_id=? AND request_id=? AND request_hash=?',
+                            (app_id, scope_id, body['request']['request_id'], digest(body['request']))).fetchone()
+    else:
+        intent = db.execute('SELECT id,status,remote_id FROM campaign_intents WHERE app_id=? AND scope_id=? AND request_id=? AND request_hash=?',
+                            (app_id, scope_id, body['request']['request_id'], digest(body['request']))).fetchone()
+    intent = dict(intent) if intent else None
+    if intent and 'ids' in intent:
+        intent['ids'] = json.loads(intent['ids'])
+    return dict(item_id=item['id'], due_at=body['due_at'], status=item['status'],
+                operation=operation, effective_status=effective_status(item['status'], job, intent, operation),
+                job_id=item['job_id'], job_status=job['status'] if job else None, intent=intent)
+
+
+def effective_status(item_status, job, intent, operation):
+    if intent:
+        state = intent['status']
+        if state == 'VERIFIED' and operation == 'campaign.publish':
+            return 'VERIFIED'
+        if state == 'ACTIVE_campaign' and operation == 'campaign.ad-launch':
+            return 'ACTIVE_VERIFIED'
+        if state == 'PAUSED_campaign':
+            return 'PAUSED_VERIFIED'
+        if job and job['status'] == 'RUNNING':
+            return 'RUNNING'
+        return 'NEEDS_RECONCILIATION'
+    if job:
+        return {'QUEUED':'QUEUED','RUNNING':'RUNNING','CANCELLED':'CANCELLED',
+                'BLOCKED':'BLOCKED','FAILED':'BLOCKED','SUCCEEDED':'NEEDS_RECONCILIATION'}.get(job['status'], 'BLOCKED')
+    return item_status
+
+
 def tick(store):
     """Atomically enqueue each due item once; no provider calls occur here."""
     initialize(store)
@@ -200,9 +258,13 @@ def tick(store):
                 db.execute("UPDATE campaign_schedule_items SET status='BLOCKED',updated=? WHERE id=?", (now(), row['id']))
                 continue
             data = dict(batch_id=row['batch_id'], item_id=row['id'], scope_id=row['scope_id'], request=body['request'])
+            operation = body.get('operation', 'campaign.publish')
+            if 'operation' in body:
+                data['operation'] = operation
+            action = 'campaign_ad' if operation == 'campaign.ad-launch' else 'campaign_post'
             job_id = uid()
             db.execute('INSERT INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)',
-                       (job_id, row['app_id'], 'campaign_post', canonical(data), 'QUEUED', now(), now(), 'campaign-schedule-' + row['id']))
+                       (job_id, row['app_id'], action, canonical(data), 'QUEUED', now(), now(), 'campaign-schedule-' + row['id']))
             db.execute("UPDATE campaign_schedule_items SET status='QUEUED',job_id=?,updated=? WHERE id=? AND status='READY'",
                        (job_id, now(), row['id']))
             audit(db, row['app_id'], 'queued', dict(batch_id=row['batch_id'], item_id=row['id'], job_id=job_id))
@@ -216,4 +278,5 @@ def execute(store, job):
     with bound(store, job):
         service = CampaignExecutionService(store, policy_checker(store))
         data = job['data']
-        return service.run_post(job['app_id'], 'schedule:' + job['id'], data['scope_id'], data['request'])
+        run = service.run_ad if data.get('operation') == 'campaign.ad-launch' else service.run_post
+        return run(job['app_id'], 'schedule:' + job['id'], data['scope_id'], data['request'])

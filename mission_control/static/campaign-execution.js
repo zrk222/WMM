@@ -16,21 +16,23 @@ async function campaignHash(value) {
 }
 
 function campaignBound(form) {
-  if(form.dataset.app!==state.app||Number(form.dataset.version)!==state.workspace.app.version)
+  if(form.isConnected===false||form.dataset.app!==state.app||Number(form.dataset.version)!==state.workspace.app.version||
+     (form.dataset.principal!==undefined&&form.dataset.principal!==(state.workspace.identity?.principal||'')))
     throw new Error('App changed. Reopen campaign automation and review its current scope.');
 }
 
-async function campaignOpen() {
-  const app=state.app,version=state.workspace.app.version,history=await api(`/api/apps/${app}/campaigns/history`,{});
+async function campaignOpen(source=null) {
+  const app=state.app,version=state.workspace.app.version,principal=state.workspace.identity?.principal,history=await api(`/api/apps/${app}/campaigns/history`,{});
+  if(state.workspace.app.version!==version||app!==state.app||state.workspace.identity?.principal!==principal||(source&&!source.isConnected))return;
   const schedules=await api(`/api/apps/${app}/campaigns/schedule-history`,{});
-  if(state.workspace.app.version!==version)return;
-  if(app!==state.app)return;
+  if(state.workspace.app.version!==version||app!==state.app||state.workspace.identity?.principal!==principal||(source&&!source.isConnected))return;
   const accounts=(state.workspace.social_access?.accounts||[]).filter(r=>r.provider==='facebook'&&r.status==='CONNECTED_READ_TESTED');
   modal('Campaign automation',`<form id="campaign-scope-form" class="modal-content" data-app="${esc(app)}" data-version="${state.workspace.app.version}"><p>Choose the work once, review its exact limits, then let your agent operate within them. Account permissions are checked separately before execution.</p><label class="field">Facebook Page connection<select name="connection_id" required><option value="">Choose a connected Page</option>${accounts.map(r=>`<option value="${esc(r.id)}">${esc(r.data.destination.name)} · ${esc(r.data.destination.id)}</option>`).join('')}</select></label>${accounts.length?'':notice('Connect a Facebook Page first. Select publishing or ad access during setup, complete official login, then return here.','warning')}<label class="field">Approved post copy<textarea name="posts" rows="6" maxlength="50000" required placeholder="Write one post. Separate additional posts with a line containing ---"></textarea></label><p>Up to 20 exact posts per review. The workflow uses your approved words; it does not invent product claims.</p><label class="field">App or landing-page link<input name="link" type="url" placeholder="https://your-app.example" maxlength="2048"></label><label class="field">Rights and claims evidence<textarea name="rights" maxlength="2000" required placeholder="Explain your authority to use this copy and media, and where its app claims are substantiated."></textarea></label><label class="field">Authority expires in hours<input name="hours" type="number" min="1" max="24" value="1" required></label><details><summary>Optional paid Meta campaign</summary><p>Leave the ad account empty for free organic publishing. Media limits exclude taxes, fees and currency conversion; provider reports may lag. A campaign's maximum approved media budget is reserved before activation.</p><label class="field">Numeric ad-account ID<input name="ad_account_id" inputmode="numeric" pattern="[0-9]+" maxlength="40"></label><label class="field">Currency<input name="currency" pattern="[A-Z]{3}" maxlength="3" value="${esc(state.workspace.app.data.currency||'USD')}" required></label><label class="field">Maximum media budget in minor units<input name="budget" type="number" min="0" max="100000000" value="0" step="1"></label><label class="field">Audience country codes<input name="countries" value="CA" maxlength="100" placeholder="CA, US"></label><label class="check-row"><input name="billing" type="checkbox"> I approve this media commitment and understand separate provider taxes, fees and billing delays.</label><label class="check-row"><input name="ordinary" type="checkbox"> I confirm this is outside Meta special ad categories (including housing, employment, financial products and political or social-issue advertising).</label></details><p id="campaign-error" role="alert"></p><div class="modal-actions"><button class="button primary" type="submit">Review exact automation scope</button>${button('Cancel','close')}</div></form><section class="modal-content"><h3>Saved scopes</h3>${history.scopes.length?history.scopes.map(s=>`<p>${esc(s.page_id)} · ${esc(s.status)} · expires ${esc(s.expires_at)} ${button('Inspect saved scope','campaign-status',`data-id="${esc(s.scope_id)}"`)}</p>`).join(''):'<p>No saved scopes for this owner and app yet.</p>'}<h3>Saved schedules</h3>${(schedules.batches||[]).map(b=>`<p>${esc(b.status)} · ${esc(b.items.length)} posts ${button('Inspect scheduled batch','campaign-schedule-status',`data-batch="${esc(b.id)}"`)}</p>`).join('')||'<p>No saved scheduled batch yet.</p>'}</section>`);
+  $('#campaign-scope-form').dataset.principal=principal||'';
 }
 
 async function campaignSubmit(form) {
-  const submit=form.querySelector('[type=submit]');submit.disabled=true;
+  const submit=form.querySelector('[type=submit]');if(submit.disabled)return;submit.disabled=true;
   try {
     campaignBound(form);const app=state.app,values=Object.fromEntries(new FormData(form));
     const selected=state.workspace.social_access.accounts.find(r=>r.id===values.connection_id&&r.provider==='facebook');
@@ -47,26 +49,32 @@ async function campaignSubmit(form) {
     const targeting={countries:[...new Set(values.countries.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean))].sort()};
     const targetingHash=await campaignHash(targeting),expires=new Date(Date.now()+hours*3600000).toISOString();
     const scope={connection_id:selected.id,page_id:selected.data.destination.id,ad_account_id:values.ad_account_id.trim()||null,currency:values.currency.trim(),expires_at:expires,max_posts:posts.length,max_calls:500,max_campaigns:paid?1:0,max_campaign_minor:paid?budget:0,max_total_minor:paid?budget:0,approved_content_hashes:[...new Set(posts.map(p=>p.content_hash))],approved_rights_hashes:[rightsHash],approved_targeting_hashes:paid?[targetingHash]:[],billing_acknowledged:values.billing==='on',ordinary_ad_attestation:values.ordinary==='on'};
-    const saved=await api(`/api/apps/${app}/campaigns/prepare`,{scope});campaignBound(form);
+    campaignBound(form);const saved=await api(`/api/apps/${app}/campaigns/prepare`,{scope});campaignBound(form);
     modal('Approve your campaign scope',`<div id="campaign-review" class="modal-content" data-app="${esc(app)}" data-version="${state.workspace.app.version}"><p>Page ${esc(saved.page_id)} · ${posts.length} exact posts · expires ${esc(saved.expires_at)}.</p><p>Ad account: ${esc(saved.ad_account_id||'None — organic publishing only')}. Maximum media commitment: ${saved.max_total_minor} minor units ${esc(saved.currency)}. ${esc(saved.billing_notice)}</p><p>Rights evidence: ${esc(rights)}. ${esc(saved.rights_notice)}</p>${posts.map(p=>`<section class="panel"><p>${esc(p.message)}</p><p>${esc(p.link||'No link')}</p><small>Content hash: ${esc(p.content_hash)}</small></section>`).join('')}<details><summary>Exact authority and limits</summary><pre>${esc(JSON.stringify(saved,null,2))}</pre></details><p>Approval permits these supported effects without reviewing each post again. It does not guarantee reach, installs or revenue.</p><p id="campaign-error" role="alert"></p>${button('Approve scope and enable automation','campaign-activate','', 'primary')}${button('Cancel','close')}</div>`);
+    $('#campaign-review').dataset.principal=state.workspace.identity?.principal||'';
     $('#campaign-review').campaign={scope:saved,posts,targeting,targetingHash,budget,expires,adRequestID:crypto.randomUUID()};
   } catch(error) {if(form.isConnected)form.querySelector('#campaign-error').textContent=error.message;}
   finally {submit.disabled=false;}
 }
 
-async function campaignStatus(scopeID,plan=null) {
-  const app=state.app,result=await api(`/api/apps/${app}/campaigns/status`,{scope_id:scopeID});
-  if(app!==state.app)return;
+async function campaignStatus(scopeID,plan=null,source=null) {
+  const app=state.app,version=state.workspace.app.version,principal=state.workspace.identity?.principal,result=await api(`/api/apps/${app}/campaigns/status`,{scope_id:scopeID});
+  if(app!==state.app||version!==state.workspace.app.version||principal!==state.workspace.identity?.principal||(source&&!source.isConnected))return;
   const scope=result.scope;
   modal('Campaign progress',`<div id="campaign-progress" class="modal-content" data-app="${esc(app)}" data-version="${state.workspace.app.version}" data-id="${esc(scopeID)}"><p>Scope: <strong>${esc(scope.status)}</strong> · Page ${esc(scope.page_id)} · expires ${esc(scope.expires_at)}.</p><p>Media ceiling: ${scope.max_total_minor} minor units ${esc(scope.currency)}. Calls used: ${esc(scope.call_allowance_units_used??scope.calls_used??'Unknown')}/${scope.max_calls}.</p><p id="campaign-activity" role="status">Saved provider states shown below. A post ID or ad status does not establish app sales.</p>${result.intents.map(row=>`<section class="panel"><h3>${esc(row.status)}</h3><p>Receipt: ${esc(row.id)}</p><p>Provider ID: ${esc(row.remote_id||(row.ids?Object.values(row.ids).join(', '):'Not confirmed'))}</p><pre>${esc(JSON.stringify(row.result,null,2))}</pre>${button('Read provider status','campaign-reconcile',`data-intent="${esc(row.id)}"`)}${button('Pause owned paid campaign','campaign-pause',`data-intent="${esc(row.id)}"`)}</section>`).join('')||'<p>No effects have been dispatched for this scope.</p>'}<p id="campaign-error" role="alert"></p><div class="button-row">${plan&&scope.status==='ACTIVE'?button('Run approved workflow','campaign-run','','primary'):''}${plan?.posts&&!scope.ad_account_id&&scope.status==='ACTIVE'?button('Schedule approved posts','campaign-schedule-open'):''}${button('Campaign report / Save PDF','campaign-report')}${button('Refresh saved receipts','campaign-status',`data-id="${esc(scopeID)}"`)}${button('Turn off this scope','campaign-revoke')}</div></div>`);
-  $('#campaign-progress').campaign={...(plan||{}),scope,snapshot:result,read_at:new Date().toISOString()};
+  const progress=$('#campaign-progress');
+  progress.dataset.principal=principal||'';
+  progress.campaign={...(plan||{}),scope,snapshot:result,read_at:new Date().toISOString()};
+  if(scope.status==='ACTIVE'&&scope.ad_account_id&&campaignVerifiedPosts(result).length){
+    progress.querySelector('.button-row').insertAdjacentHTML('afterbegin',button('Schedule verified post promotion','campaign-schedule-paid-open'));
+  }
 }
 
 async function campaignAction(node) {
   const action=node.dataset.action;
-  if(action==='campaign-open')return campaignOpen();
+  if(action==='campaign-open')return campaignOpen(node);
   if(action.startsWith('campaign-schedule-'))return campaignScheduleAction(node);
-  if(action==='campaign-status')return campaignStatus(node.dataset.id);
+  if(action==='campaign-status')return campaignStatus(node.dataset.id,null,node);
   if(action==='campaign-report')return campaignReport($('#campaign-progress'));
   const panel=$('#campaign-review')||$('#campaign-progress');if(!panel)return;
   if(panel.dataset.busy==='true')return;
@@ -76,7 +84,7 @@ async function campaignAction(node) {
     campaignBound(panel);const app=state.app,plan=panel.campaign,scope=plan.scope;
     if(action==='campaign-activate') {
       await api(`/api/apps/${app}/campaigns/activate`,{scope_id:scope.scope_id,approval_hash:scope.approval_hash});
-      campaignBound(panel);return campaignStatus(scope.scope_id,plan);
+      campaignBound(panel);return campaignStatus(scope.scope_id,plan,panel);
     }
     if(action==='campaign-run') {
       stopWatching=campaignWatch(panel,scope.scope_id);
@@ -92,12 +100,12 @@ async function campaignAction(node) {
         $('#campaign-activity').textContent='Creating, verifying and activating the approved paid campaign…';
         await api(`/api/apps/${app}/campaigns/ad-launch`,{scope_id:scope.scope_id,request:{request_id:plan.adRequestID,post_id:firstPost.remote_id,content_hash:plan.posts[0].content_hash,rights_hash:plan.posts[0].rights_hash,targeting_hash:plan.targetingHash,targeting:plan.targeting,lifetime_budget_minor:plan.budget,end_time:plan.expires,name:'WMM approved app campaign'}});
       }
-      campaignBound(panel);return campaignStatus(scope.scope_id);
+      campaignBound(panel);return campaignStatus(scope.scope_id,null,panel);
     }
     const operation=action==='campaign-revoke'?'revoke':action==='campaign-pause'?'pause':action==='campaign-reconcile'?'reconcile':null;
     if(!operation)return;
     await api(`/api/apps/${app}/campaigns/${operation}`,{scope_id:scope.scope_id,...(operation==='revoke'?{}:{intent_id:node.dataset.intent})});
-    campaignBound(panel);return campaignStatus(scope.scope_id);
+    campaignBound(panel);return campaignStatus(scope.scope_id,null,panel);
   } catch(error) {if(panel.isConnected)panel.querySelector('#campaign-error').textContent=error.message;}
   finally {stopWatching();panel.dataset.busy='false';if(panel.isConnected)panel.querySelectorAll('button').forEach(b=>b.disabled=false);}
 }
@@ -153,27 +161,74 @@ function campaignScheduleItems(posts,values,expires,clock=Date.now()){
  if(!Array.isArray(posts)||!posts.length||posts.length>20)throw new Error('Schedule one to twenty reviewed posts.');
  return posts.map((request,index)=>{const date=new Date(values['due_'+index]);if(!Number.isFinite(date.getTime())||date.getTime()<=clock||date.getTime()>=Date.parse(expires))throw new Error('Choose future due times strictly before campaign scope expiry.');return {due_at:date.toISOString(),request};});
 }
+function campaignVerifiedPosts(snapshot){
+ return (snapshot.intents||[]).filter(r=>!r.kind&&r.status==='VERIFIED'&&r.remote_id&&r.scope_id===snapshot.scope.scope_id&&r.page_id===snapshot.scope.page_id);
+}
+function campaignPaidScheduleItem(scope,post,values,targetingHash,requestID,clock=Date.now()){
+ if(scope.status!=='ACTIVE'||!scope.ad_account_id||!post||post.status!=='VERIFIED'||post.scope_id!==scope.scope_id||post.page_id!==scope.page_id)throw new Error('Select a verified post in this active paid scope.');
+ const due=new Date(values.due_at),end=new Date(values.end_time),expiry=Date.parse(scope.expires_at);
+ if(!Number.isFinite(expiry)||!Number.isFinite(due.getTime())||!Number.isFinite(end.getTime())||due.getTime()<=clock||end<=due||end.getTime()>expiry)throw new Error('Choose a future start and later end within the scope expiry.');
+ const budget=Number(values.budget),name=values.name.trim(),countries=values.countries.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean);
+ if(!Number.isSafeInteger(budget)||budget<=0||budget>scope.max_campaign_minor||budget>scope.max_total_minor)throw new Error('Choose a positive media budget within the approved limits.');
+ if(!name||name.length>100||!countries.length||countries.length>20||countries.some(c=>!/^[A-Z]{2}$/.test(c))||new Set(countries).size!==countries.length)throw new Error('Provide a campaign name and unique two-letter country codes.');
+ const targeting={countries:countries.sort()};
+ if(!scope.approved_targeting_hashes.includes(targetingHash))throw new Error('These countries are outside the approved scope.');
+ return {due_at:due.toISOString(),operation:'campaign.ad-launch',request:{request_id:requestID,post_id:post.remote_id,content_hash:post.content_hash,rights_hash:post.rights_hash,targeting_hash:targetingHash,lifetime_budget_minor:budget,end_time:end.toISOString(),targeting,name}};
+}
+function campaignSchedulePaidOpen(){
+ const panel=$('#campaign-progress');if(!panel)throw new Error('Open a saved paid scope first.');campaignBound(panel);
+ const plan=panel.campaign,posts=campaignVerifiedPosts(plan.snapshot),scope=plan.scope;
+ if(scope.status!=='ACTIVE'||!scope.ad_account_id||!posts.length)throw new Error('An active paid scope and verified post are required.');
+ modal('Schedule a verified post promotion','<form id="campaign-schedule-form" class="modal-content" data-app="'+esc(state.app)+'" data-version="'+state.workspace.app.version+'" data-principal="'+esc(state.workspace.identity?.principal||'')+'"><p>Select a saved verified Page post. The campaign runs only while WMM is running and must end by '+esc(scope.expires_at)+'. The media commitment excludes provider taxes and fees.</p><label class="field">Verified Page post<select name="post_id" required>'+posts.map(p=>'<option value="'+esc(p.remote_id)+'">'+esc(p.remote_id)+' · content '+esc(p.content_hash)+'</option>').join('')+'</select></label><label class="field">Audience country codes<input name="countries" required placeholder="CA, US"></label><label class="field">Media budget in minor units ('+esc(scope.currency)+')<input name="budget" type="number" min="1" max="'+esc(scope.max_campaign_minor)+'" step="1" required></label><label class="field">Start local date and time<input name="due_at" type="datetime-local" required></label><label class="field">End local date and time<input name="end_time" type="datetime-local" required></label><label class="field">Campaign name<input name="name" maxlength="100" required></label><p id="campaign-error" role="alert"></p><button type="submit" class="button primary">Review exact promotion</button>'+button('Cancel','close')+'</form>');
+ const form=$('#campaign-schedule-form');form.campaign=plan;form.paidPosts=posts;form.requestID=crypto.randomUUID();
+}
 function campaignScheduleOpen(){
  const panel=$('#campaign-progress');if(!panel)throw new Error('Open the approved campaign plan first.');campaignBound(panel);
- const plan=panel.campaign;if(plan.scope.ad_account_id)throw new Error('Scheduled paid launches are not implemented. Use the exact paid workflow controls.');
+ const plan=panel.campaign;if(plan.scope.ad_account_id)throw new Error('Use Schedule verified post promotion for this paid scope.');
  if(!plan.posts?.length)throw new Error('Prepare exact posts before scheduling.');
- modal('Choose when the approved posts run','<form id="campaign-schedule-form" class="modal-content" data-app="'+esc(state.app)+'" data-version="'+state.workspace.app.version+'"><p>The local worker publishes these exact posts while WMM is running. Closing the browser does not stop it; shutting down the host does. Future due times must be before '+esc(plan.scope.expires_at)+'. No paid launch is scheduled.</p>'+plan.posts.map((p,i)=>'<section class="panel"><p>'+esc(p.message)+'</p><label class="field">Post '+(i+1)+' local date and time<input name="due_'+i+'" type="datetime-local" required></label></section>').join('')+'<p id="campaign-error" role="alert"></p><button type="submit" class="button">Review exact scheduled batch</button>'+button('Cancel','close')+'</form>');$('#campaign-schedule-form').campaign=plan;
+ modal('Choose when the approved posts run','<form id="campaign-schedule-form" class="modal-content" data-app="'+esc(state.app)+'" data-version="'+state.workspace.app.version+'" data-principal="'+esc(state.workspace.identity?.principal||'')+'"><p>The local worker publishes these exact posts while WMM is running. Closing the browser does not stop it; shutting down the host does. Future due times must be before '+esc(plan.scope.expires_at)+'. No paid launch is scheduled.</p>'+plan.posts.map((p,i)=>'<section class="panel"><p>'+esc(p.message)+'</p><label class="field">Post '+(i+1)+' local date and time<input name="due_'+i+'" type="datetime-local" required></label></section>').join('')+'<p id="campaign-error" role="alert"></p><button type="submit" class="button">Review exact scheduled batch</button>'+button('Cancel','close')+'</form>');$('#campaign-schedule-form').campaign=plan;
 }
 async function campaignScheduleSubmit(form){
  const submit=form.querySelector('[type=submit]');if(submit.disabled)return;submit.disabled=true;
- try{campaignBound(form);const app=state.app,plan=form.campaign,values=Object.fromEntries(new FormData(form));const items=campaignScheduleItems(plan.posts,values,plan.scope.expires_at);const saved=await api('/api/apps/'+app+'/campaigns/schedule-prepare',{scope_id:plan.scope.scope_id,items});campaignBound(form);
- modal('Approve the scheduled batch','<div id="campaign-schedule-review" class="modal-content" data-app="'+esc(app)+'" data-version="'+state.workspace.app.version+'"><p>Review every exact post and UTC due time. Activation permits the dedicated worker to run this batch under the existing campaign scope; it does not widen that scope or permit new copy.</p>'+saved.summary.items.map(i=>'<section class="panel"><h3>'+esc(i.due_at)+'</h3><p>'+esc(i.request.message)+'</p><p>'+esc(i.request.link||'No link')+'</p></section>').join('')+'<p>Summary hash: '+esc(saved.summary_hash)+'</p><p>OFF cancels undispatched items. Dispatched posts may already exist; inspect their receipts. This schedule cannot run paid campaigns.</p><p id="campaign-error" role="alert"></p>'+button('Approve exact batch and schedule','campaign-schedule-activate','','primary')+button('Cancel','close')+'</div>');$('#campaign-schedule-review').campaign=saved;
+ try{campaignBound(form);const app=state.app,plan=form.campaign,values=Object.fromEntries(new FormData(form));let items;
+ if(form.paidPosts){const countries=values.countries.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean).sort();const hash=await campaignHash({countries});campaignBound(form);items=[campaignPaidScheduleItem(plan.scope,form.paidPosts.find(p=>p.remote_id===values.post_id),values,hash,form.requestID)];}
+ else items=campaignScheduleItems(plan.posts,values,plan.scope.expires_at);
+ campaignBound(form);const saved=await api('/api/apps/'+app+'/campaigns/schedule-prepare',{scope_id:plan.scope.scope_id,items});campaignBound(form);
+ modal('Approve the scheduled batch','<div id="campaign-schedule-review" class="modal-content" data-app="'+esc(app)+'" data-version="'+state.workspace.app.version+'" data-principal="'+esc(state.workspace.identity?.principal||'')+'"><p>Review the exact UTC schedule. Activation uses the existing campaign scope and does not widen it.</p>'+saved.summary.items.map(i=>campaignScheduleReviewItem(i,plan.scope)).join('')+'<p>Summary hash: '+esc(saved.summary_hash)+'</p><p>OFF cancels undispatched items. Dispatched effects may already exist; inspect their receipts. Provider taxes and fees are separate; commitments remain held.</p><p id="campaign-error" role="alert"></p>'+button('Approve exact batch and schedule','campaign-schedule-activate','','primary')+button('Cancel','close')+'</div>');$('#campaign-schedule-review').campaign=saved;
  }catch(e){if(form.isConnected)form.querySelector('#campaign-error').textContent=e.message;}finally{submit.disabled=false;}
 }
-async function campaignScheduleStatus(batch){
- const app=state.app,version=state.workspace.app.version,data=await api('/api/apps/'+app+'/campaigns/schedule-status',{batch_id:batch});if(state.app!==app||state.workspace.app.version!==version)return;
- modal('Scheduled campaign progress','<div id="campaign-schedule-progress" class="modal-content" data-app="'+esc(app)+'" data-version="'+version+'"><h3>'+esc(data.status)+'</h3><p>Batch '+esc(data.id)+' · '+esc(data.items.length)+' exact posts. WMM must remain running. Delivery and app sales are separate observations.</p>'+data.items.map(i=>'<section class="panel"><h3>'+esc(i.status)+'</h3><p>Due: '+esc(i.due_at)+' · worker: '+esc(i.job_status||'Not queued')+'</p><p>Provider receipt: '+esc(i.intent?.status||'Not confirmed')+' · '+esc(i.intent?.remote_id||'No provider ID')+'</p></section>').join('')+'<p id="campaign-error" role="alert"></p>'+button('Refresh scheduled receipts','campaign-schedule-status','data-batch="'+esc(data.id)+'"')+button('Turn scheduled batch OFF','campaign-schedule-off')+button('Report / Save PDF','campaign-schedule-report')+'</div>');$('#campaign-schedule-progress').campaign=data;
+function campaignScheduleReviewItem(item,scope){
+ const r=item.request;if(item.operation==='campaign.ad-launch')return '<section class="panel"><h3>Promote verified post '+esc(r.post_id)+'</h3><p>Account '+esc(scope.ad_account_id)+' · Page '+esc(scope.page_id)+'</p><p>Countries '+esc(r.targeting.countries.join(', '))+' · media budget '+esc(r.lifetime_budget_minor)+' minor '+esc(scope.currency)+'</p><p>Starts '+esc(item.due_at)+' · ends '+esc(r.end_time)+' · name '+esc(r.name)+'</p><p>Content '+esc(r.content_hash)+' · rights '+esc(r.rights_hash)+' · targeting '+esc(r.targeting_hash)+'</p></section>';
+ return '<section class="panel"><h3>'+esc(item.due_at)+'</h3><p>'+esc(r.message)+'</p><p>'+esc(r.link||'No link')+'</p></section>';
+}
+async function campaignScheduleStatus(batch,source=null){
+ const app=state.app,version=state.workspace.app.version,principal=state.workspace.identity?.principal,data=await api('/api/apps/'+app+'/campaigns/schedule-status',{batch_id:batch});if(state.app!==app||state.workspace.app.version!==version||state.workspace.identity?.principal!==principal||(source&&!source.isConnected))return;
+ modal('Scheduled campaign progress','<div id="campaign-schedule-progress" class="modal-content" data-app="'+esc(app)+'" data-version="'+version+'" data-principal="'+esc(principal||'')+'"><h3>'+esc(data.status)+'</h3><p>Batch '+esc(data.id)+' · '+esc(data.items.length)+' scheduled items. WMM must remain running. Saved provider state does not establish app sales.</p>'+data.items.map(i=>campaignScheduleProgressItem(i,data)).join('')+'<p id="campaign-error" role="alert"></p>'+button('Refresh scheduled receipts','campaign-schedule-status','data-batch="'+esc(data.id)+'"')+button('Turn scheduled batch OFF','campaign-schedule-off')+button('Report / Save PDF','campaign-schedule-report')+'</div>');$('#campaign-schedule-progress').campaign=data;
+}
+function campaignScheduleProgressItem(item,data){
+ const request=data.summary?.items?.find(r=>r.item_id===item.item_id)?.request||{},intent=item.intent||{},ids=intent.remote_id||Object.entries(intent.ids||{}).map(([k,v])=>k+': '+v).join(', ')||'Not confirmed';
+ const budget=item.operation==='campaign.ad-launch'?'<p>Approved budget '+esc(request.lifetime_budget_minor)+' minor '+esc(intent.currency||'units')+' · retained commitment '+esc(intent.commitment??'Not reserved')+'</p>':'';
+ return '<section class="panel"><h3>'+esc(item.operation||'campaign.publish')+' · '+esc(item.effective_status||item.status)+'</h3><p>Due '+esc(item.due_at)+' · worker '+esc(item.job_status||'Not queued')+' · intent '+esc(intent.status||'Not confirmed')+'</p><p>Provider IDs: '+esc(ids)+'</p>'+budget+'</section>';
+}
+function campaignScheduleReport(data){
+ const report=WMMPageReports.model(state);report.title='Scheduled campaign batch';report.purpose='Inspect saved schedule states and provider identities.';
+ report.metrics=[{label:'Scheduled items',value:data.items.length,unit:'count',source:'Current owner schedule status'},{label:'Verified post receipts',value:data.items.filter(i=>i.effective_status==='VERIFIED').length,unit:'count',source:'Saved campaign intents'}];
+ report.notes=['Schedule report uses saved local receipts; provider status may have changed.','No post text, credentials or rights prose in this report. Saved receipts do not establish app growth.',...data.items.map(i=>campaignScheduleReportLine(i,data))];
+ return report;
+}
+function campaignScheduleReportLine(item,data){
+ const request=data.summary?.items?.find(r=>r.item_id===item.item_id)?.request||{},intent=item.intent||{};
+ const ids=Object.entries(intent.ids||{}).filter(([k,v])=>['campaign','adset','creative','ad'].includes(k)&&/^[0-9]{1,40}$/.test(v)).map(([k,v])=>k+': '+v);
+ if(/^[0-9]{1,40}_[0-9]{1,40}$/.test(intent.remote_id||''))ids.push(intent.remote_id);
+ const status=/^[A-Z_]{1,40}$/.test(item.effective_status||'')?item.effective_status:'UNCONFIRMED',due=Number.isFinite(Date.parse(item.due_at))?new Date(item.due_at).toISOString():'Unknown';
+ const paid=item.operation==='campaign.ad-launch',amount=Number.isSafeInteger(request.lifetime_budget_minor)?request.lifetime_budget_minor:'Unknown',held=Number.isSafeInteger(intent.commitment)?intent.commitment:'Not reserved',currency=/^[A-Z]{3}$/.test(intent.currency||'')?intent.currency:'units';
+ return (paid?'campaign.ad-launch':'campaign.publish')+' · '+due+' · '+status+' · IDs '+(ids.join(', ')||'Unconfirmed')+(paid?' · approved '+amount+' minor '+currency+' · retained '+held:'');
 }
 async function campaignScheduleAction(node){
- const action=node.dataset.action;if(action==='campaign-schedule-open')return campaignScheduleOpen();if(action==='campaign-schedule-status')return campaignScheduleStatus(node.dataset.batch);
+ const action=node.dataset.action;if(action==='campaign-schedule-open')return campaignScheduleOpen();if(action==='campaign-schedule-paid-open')return campaignSchedulePaidOpen();if(action==='campaign-schedule-status')return campaignScheduleStatus(node.dataset.batch,node);
  const panel=$('#campaign-schedule-review')||$('#campaign-schedule-progress');if(!panel||panel.dataset.busy==='true')return;campaignBound(panel);panel.dataset.busy='true';node.disabled=true;
- try{const app=state.app,data=panel.campaign;if(action==='campaign-schedule-report'){const report=WMMPageReports.model(state);report.title='Scheduled campaign batch';report.purpose='Inspect exact saved schedule states and delivery identities.';report.metrics=[{label:'Scheduled items',value:data.items.length,unit:'count',source:'Current owner schedule status'},{label:'Confirmed delivery receipts',value:data.items.filter(i=>i.intent?.status==='VERIFIED').length,unit:'count',source:'Saved campaign intents'}];report.notes=['Batch '+data.id+'; status '+data.status,'No post text, credentials or rights prose in this report. Delivery is not measured app growth.',...data.items.map(i=>i.due_at+' · '+i.status+' · '+(i.intent?.status||'Unconfirmed'))];return WMMPageReports.openReport(report,window);}
- if(action==='campaign-schedule-activate'){await api('/api/apps/'+app+'/campaigns/schedule-activate',{batch_id:data.summary.batch_id,summary_hash:data.summary_hash});campaignBound(panel);return campaignScheduleStatus(data.summary.batch_id);}
- if(action==='campaign-schedule-off'){await api('/api/apps/'+app+'/campaigns/schedule-off',{batch_id:data.id,version:data.version});campaignBound(panel);return campaignScheduleStatus(data.id);}
+ try{const app=state.app,data=panel.campaign;if(action==='campaign-schedule-report')return WMMPageReports.openReport(campaignScheduleReport(data),window);
+ if(action==='campaign-schedule-activate'){await api('/api/apps/'+app+'/campaigns/schedule-activate',{batch_id:data.summary.batch_id,summary_hash:data.summary_hash});campaignBound(panel);return campaignScheduleStatus(data.summary.batch_id,panel);}
+ if(action==='campaign-schedule-off'){await api('/api/apps/'+app+'/campaigns/schedule-off',{batch_id:data.id,version:data.version});campaignBound(panel);return campaignScheduleStatus(data.id,panel);}
  }catch(e){if(panel.isConnected)panel.querySelector('#campaign-error').textContent=e.message;}finally{panel.dataset.busy='false';node.disabled=false;}
 }

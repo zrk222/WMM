@@ -1,0 +1,31 @@
+name: campaign-schedule-paid
+language: python
+modules:
+- name: campaign_schedule
+  path: mission_control/campaign_schedule.py
+  language: python
+  functions: []
+- name: campaign_schedule_authority
+  path: mission_control/campaign_schedule_authority.py
+  language: python
+  functions: []
+- name: worker
+  path: mission_control/worker.py
+  language: python
+  functions: []
+- name: test_campaign_schedule
+  path: tests/test_campaign_schedule.py
+  language: python
+  functions: []
+dependencies:
+- from: campaign_schedule
+  to: campaign_schedule_authority
+- from: worker
+  to: campaign_schedule
+- from: test_campaign_schedule
+  to: campaign_schedule
+- from: test_campaign_schedule
+  to: campaign_schedule_authority
+- from: test_campaign_schedule
+  to: worker
+invariants: []

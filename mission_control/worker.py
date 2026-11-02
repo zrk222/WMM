@@ -52,10 +52,10 @@ def claim(store):
     """Atomically lease one queued or expired job within the retry limit."""
     with connection(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
-        db.execute("UPDATE jobs SET status='BLOCKED',result=?,updated=? WHERE action='campaign_post' AND status='RUNNING' AND lease<?",
+        db.execute("UPDATE jobs SET status='BLOCKED',result=?,updated=? WHERE action IN ('campaign_post','campaign_ad') AND status='RUNNING' AND lease<?",
                    (canonical({"error":"Scheduled post was interrupted; inspect its saved intent before any retry","external_execution":"UNKNOWN"}),now(),time.time()))
         db.execute("UPDATE jobs SET status='FAILED',result=?,updated=? WHERE status='RUNNING' AND lease<? AND attempts>=3",(canonical({"error":"Recovery attempt limit reached; review the job before retry"}),now(),time.time()))
-        row=db.execute("SELECT * FROM jobs WHERE (status='QUEUED' OR (status='RUNNING' AND lease<? AND action!='campaign_post')) AND attempts<3 ORDER BY created LIMIT 1",(time.time(),)).fetchone()
+        row=db.execute("SELECT * FROM jobs WHERE (status='QUEUED' OR (status='RUNNING' AND lease<? AND action NOT IN ('campaign_post','campaign_ad'))) AND attempts<3 ORDER BY created LIMIT 1",(time.time(),)).fetchone()
         if not row:
             return None
         db.execute("UPDATE jobs SET status='RUNNING',attempts=attempts+1,lease=?,updated=? WHERE id=?",(time.time()+60,now(),row["id"]))
@@ -65,7 +65,7 @@ def claim(store):
 
 def process(store,job,stop=None):
     """Prepare local packets or perform a configured read-only provider request."""
-    if job['action'] in ('campaign_post','agent_run'):
+    if job['action'] in ('campaign_post','campaign_ad','agent_run'):
         return process_special(store,job,stop)
     if job['action'] in ('drive_import','hypit_render','edit_render','render'):
         return process_media(store,job,stop)
@@ -108,7 +108,7 @@ def process(store,job,stop=None):
 
 def process_special(store,job,stop):
     """Dispatch scoped special work without widening the generic queue API."""
-    if job['action']=='campaign_post':
+    if job['action'] in ('campaign_post','campaign_ad'):
         from .campaign_schedule import execute
         return execute(store,job)
     from .agent_tasks import execute
@@ -212,7 +212,7 @@ def current_connection(store,app_id,data):
 
 def failed_result(job,error):
     """Only already-permitted transient source reads get the existing bounded retry."""
-    if job['action'] in ('campaign_post','drive_import'):
+    if job['action'] in ('campaign_post','campaign_ad','drive_import'):
         return failed_special(job)
     if job['action']=='sync' and 'analytics_schedule_id' in job['data']:
         if transient_read_error(error) and job['attempts']<3:
@@ -237,8 +237,8 @@ def failed_result(job,error):
 
 def failed_special(job):
     """Failures of special jobs never inherit generic retries."""
-    if job['action']=='campaign_post':
-        return dict(error='Scheduled post stopped; inspect its saved campaign intent before any retry.',
+    if job['action'] in ('campaign_post','campaign_ad'):
+        return dict(error='Scheduled campaign stopped; inspect its saved campaign intent before any retry.',
                     next_action='Review the exact intent and provider state.',
                     external_execution='UNKNOWN_OR_NOT_DISPATCHED'),'BLOCKED',0
     return dict(error='Drive import stopped at a source, permission or validation boundary.',
