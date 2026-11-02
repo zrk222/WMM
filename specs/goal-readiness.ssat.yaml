@@ -1,0 +1,36 @@
+{
+  "name": "goal-readiness",
+  "language": "python",
+  "modules": [
+    {
+      "name": "goal_owner_readiness",
+      "path": "mission_control/agent_grant_http.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "owner",
+          "args": [
+            "store",
+            "app_id",
+            "action",
+            "user",
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "goal_readiness",
+          "args": [
+            "store",
+            "app_id",
+            "user",
+            "body"
+          ],
+          "returns": "object"
+        }
+      ]
+    }
+  ],
+  "dependencies": [],
+  "invariants": []
+}

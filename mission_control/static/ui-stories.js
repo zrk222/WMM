@@ -78,6 +78,8 @@
   define('video-project-create-form','Give this video one audience and one intended action.','Choose a current source video and save an editable project with its source hash.','Name the edit, describe its purpose and create the draft before changing clips.');
   define('video-project-edit-form','Shape the saved video for the people you want to reach.','Your timing, framing and color choices become a new shared project revision. Rendering creates an actual MP4.','Save field edits before clip commands or rendering, then preview the exact output and review it before use.');
   define('packaging-taste-form','Describe how your app should look and sound.','Your selected examples explain style. Your rules and exclusions stay attached to this app and the current guidance policy.','Review the fields, then save your owner-reviewed direction.');
+  define('campaign-schedule-form','Choose when your exact approved posts run.','WMM saves a finite batch with exact post copy, due times and the existing campaign approval hash.','Review the batch, approve its schedule and keep WMM running. OFF cancels undispatched items; inspect receipts for work already sent.');
+  define('goal-readiness-form','Connect only what your selected goal needs.','WMM checks the current owner, app, selected workflows and connection revisions without issuing a grant or starting work.','Repair any listed blocker, then review the separate exact automation or campaign agreement.');
   Object.freeze(FORMS);
   const DIALOGS=Object.freeze({
     'Your video direction':['Give your editor and agent the same clear direction.','WMM keeps your reviewed voice, visual rules, examples and exclusions as exact saved revisions.','Create your direction or inspect a revision before using it in production.'],

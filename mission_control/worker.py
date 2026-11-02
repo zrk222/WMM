@@ -52,8 +52,10 @@ def claim(store):
     """Atomically lease one queued or expired job within the retry limit."""
     with connection(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
+        db.execute("UPDATE jobs SET status='BLOCKED',result=?,updated=? WHERE action='campaign_post' AND status='RUNNING' AND lease<?",
+                   (canonical({"error":"Scheduled post was interrupted; inspect its saved intent before any retry","external_execution":"UNKNOWN"}),now(),time.time()))
         db.execute("UPDATE jobs SET status='FAILED',result=?,updated=? WHERE status='RUNNING' AND lease<? AND attempts>=3",(canonical({"error":"Recovery attempt limit reached; review the job before retry"}),now(),time.time()))
-        row=db.execute("SELECT * FROM jobs WHERE (status='QUEUED' OR (status='RUNNING' AND lease<?)) AND attempts<3 ORDER BY created LIMIT 1",(time.time(),)).fetchone()
+        row=db.execute("SELECT * FROM jobs WHERE (status='QUEUED' OR (status='RUNNING' AND lease<? AND action!='campaign_post')) AND attempts<3 ORDER BY created LIMIT 1",(time.time(),)).fetchone()
         if not row:
             return None
         db.execute("UPDATE jobs SET status='RUNNING',attempts=attempts+1,lease=?,updated=? WHERE id=?",(time.time()+60,now(),row["id"]))
@@ -63,9 +65,8 @@ def claim(store):
 
 def process(store,job,stop=None):
     """Prepare local packets or perform a configured read-only provider request."""
-    if job['action']=='agent_run':
-        from .agent_tasks import execute as agent_execute
-        return agent_execute(store,job,stop)
+    if job['action'] in ('campaign_post','agent_run'):
+        return process_special(store,job,stop)
     if job['action'] in ('drive_import','hypit_render','edit_render','render'):
         return process_media(store,job,stop)
     app=store.app(job["app_id"])
@@ -103,6 +104,15 @@ def process(store,job,stop=None):
         from .apple_metrics_schedule import check_scheduled
         check_scheduled(store,job)
     return result
+
+
+def process_special(store,job,stop):
+    """Dispatch scoped special work without widening the generic queue API."""
+    if job['action']=='campaign_post':
+        from .campaign_schedule import execute
+        return execute(store,job)
+    from .agent_tasks import execute
+    return execute(store,job,stop)
 
 
 def _persist_prepared_apple_metrics(db,store,job,prepared):
@@ -202,10 +212,8 @@ def current_connection(store,app_id,data):
 
 def failed_result(job,error):
     """Only already-permitted transient source reads get the existing bounded retry."""
-    if job['action']=='drive_import':
-        return dict(error='Drive import stopped at a source, permission or validation boundary.',
-                    next_action='Inspect the private Drive import and reconnect, review or retry explicitly.',
-                    external_execution='READ_ATTEMPT_MAY_HAVE_OCCURRED'),'BLOCKED',0
+    if job['action'] in ('campaign_post','drive_import'):
+        return failed_special(job)
     if job['action']=='sync' and 'analytics_schedule_id' in job['data']:
         if transient_read_error(error) and job['attempts']<3:
             delay=5*job['attempts']
@@ -225,6 +233,17 @@ def failed_result(job,error):
         attempt=job['attempts'],retry_in_seconds=delay,
         next_action='Worker will retry this same approved read within its three-attempt limit',
         external_execution='READ_RETRY_PENDING'),'RUNNING',delay
+
+
+def failed_special(job):
+    """Failures of special jobs never inherit generic retries."""
+    if job['action']=='campaign_post':
+        return dict(error='Scheduled post stopped; inspect its saved campaign intent before any retry.',
+                    next_action='Review the exact intent and provider state.',
+                    external_execution='UNKNOWN_OR_NOT_DISPATCHED'),'BLOCKED',0
+    return dict(error='Drive import stopped at a source, permission or validation boundary.',
+                next_action='Inspect the private Drive import and reconnect, review or retry explicitly.',
+                external_execution='READ_ATTEMPT_MAY_HAVE_OCCURRED'),'BLOCKED',0
 
 
 def run_once(store,stop=None):
@@ -247,11 +266,17 @@ def run_once(store,stop=None):
         status="SUCCEEDED"
     except Exception as exc:
         result,status,retry_delay=failed_result(job,exc)
+    persist_job_result(store,job,result,status,retry_delay)
+    return True
+
+
+def persist_job_result(store,job,result,status,retry_delay):
+    """Commit only the still-owned result and its existing telemetry/hooks."""
     with connection(store.path) as db:
         if isinstance(result,PreparedAppleMetrics):
             result,status=_persist_prepared_apple_metrics(db,store,job,result)
             if status is None:
-                return True
+                return
         changed=db.execute("UPDATE jobs SET status=?,result=?,lease=?,updated=? WHERE id=? AND status='RUNNING' AND attempts=?",(status,canonical(result),time.time()+retry_delay if retry_delay else 0,now(),job["id"],job["attempts"])).rowcount
         if changed:
             from .workflow_telemetry import append
@@ -263,7 +288,7 @@ def run_once(store,stop=None):
                 from .agent_tasks import complete as agent_complete
                 agent_complete(db,job,result,status)
             db.execute("INSERT INTO audit(app_id,action,detail,created) VALUES(?,?,?,?)",(job["app_id"],"job."+status.lower(),canonical({"id":job["id"],"action":job["action"],"result_hash":digest(result)}),now()))
-    return True
+
 
 
 def transient_read_error(error):
@@ -310,6 +335,8 @@ class Runner:
         self.supervision.attempt("analytics",lambda:Insights(self.store).tick(),1)
         from .apple_metrics_schedule import AppleMetricsSchedules
         self.supervision.attempt("apple_metrics",lambda:AppleMetricsSchedules(self.store).tick(),1)
+        from .campaign_schedule import tick as campaign_tick
+        self.supervision.attempt("campaign_schedule",lambda:campaign_tick(self.store),1)
         self.supervision.attempt("followup",lambda:Followup(self.store).tick(),1)
         from .social_renewal import Renewal
         self.supervision.attempt("social",lambda:Renewal(self.store).tick(),60)

@@ -96,7 +96,7 @@ function render() {
 
   automationDecorateWorkflow();
   WMMPageReports.decorate(state,document);
-  if(state.view==="overview"){const report=$("#main .page-reporting");if(report)$("#goal-advanced").prepend(report);}
+  if(state.view==="overview"){const report=$("#main .page-reporting");if(report)$("#goal-advanced > summary").insertAdjacentElement("afterend",report);}
   if(["workflow","agents","activity","research"].includes(state.view)){
     $("#main .page-heading").insertAdjacentHTML("afterend",WMMTelemetry.panel());
     WMMTelemetry.mount(growthReviewServices());
@@ -762,6 +762,7 @@ async function formSubmit(event) {
     event.preventDefault();toast("App changed. Wait for this app to load and reopen the form.");return;
   }
   const formId=form.getAttribute("id");
+  if(formId==='goal-readiness-form'){event.preventDefault();return WMMGoalReadiness.submit(form);}
   if(formId==='standing-scope-form'){event.preventDefault();return WMMCompleteAutomation.submit(form,growthReviewServices());}
   if(['video-project-create-form','video-project-edit-form'].includes(formId)){event.preventDefault();return WMMVideoEditor.submit(form,growthReviewServices());}
   if(formId==='studio-source-form'||form.hasAttribute('data-studio-parameter')){event.preventDefault();return WMMStudio.submit(form,growthReviewServices());}
@@ -775,6 +776,7 @@ async function formSubmit(event) {
   if(formId==="customer-workflow-form") {event.preventDefault();return WMMCustomerWorkflow.submit(form,growthReviewServices());}
   if(formId==="growth-review-form") {event.preventDefault();return WMMGrowthReview.submit(form,growthReviewServices());}
   if((formId||'').startsWith('agent-')) {event.preventDefault();return agentSubmit(form);}
+  if(formId==='campaign-schedule-form'){event.preventDefault();return campaignScheduleSubmit(form);}
   if(formId==='campaign-scope-form'){event.preventDefault();return campaignSubmit(form);}
   if((formId||'').startsWith('social-')) {event.preventDefault();return socialSubmit(form);}
   if(formId==='play-setup-form') {event.preventDefault();return playSubmit(form);}

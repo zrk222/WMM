@@ -59,3 +59,5 @@
 /* Three primary choices; advanced tools remain available without horizontal navigation. */
 #navigation>details{width:100%;margin:8px 0}#navigation>details>summary{color:#dfe9e6;padding:10px 12px;border-radius:10px}#navigation>details>summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}#navigation>details .nav-item{width:100%}[data-action="goal-select"][aria-pressed="true"]{border:2px solid var(--forest);background:#edf2e8}
 @media(max-width:760px){.sidebar #navigation{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible;align-items:start}.sidebar #navigation>.nav-item{min-width:0;width:100%;white-space:normal;justify-content:center;text-align:center;padding:10px 6px;gap:4px}.sidebar #navigation>details{grid-column:1/-1;margin:0}.sidebar #navigation>details>summary{justify-content:center}.sidebar #navigation>details .nav-item{min-width:0;white-space:normal}}
+
+.modal-content li,.modal-content small{overflow-wrap:anywhere}.modal-content fieldset{min-width:0}

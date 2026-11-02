@@ -27,6 +27,9 @@ def identity(store,app_id):
 def policy_checker(store):
     """Recheck the live gateway and owner relationship at every effect boundary."""
     def verify(app_id,actor,scope,action):
+        from .campaign_schedule_authority import check
+        if check(store,app_id,actor,scope,action):
+            return
         context,current_actor=identity(store,app_id)
         if actor!=current_actor:raise PermissionError('Campaign actor changed')
         if action in {'PREPARE','ACTIVATE','REVOKE'} and 'principal' not in context:
@@ -52,8 +55,7 @@ def scope_owner(store,context,actor):
 
 def dispatch(store,app_id,action,body):
     """All clients share the same scope, budget, idempotency and provider checks."""
-    if action not in FIELDS or not isinstance(body,dict) or set(body)!=FIELDS[action]:
-        raise Invalid('Use the exact campaign operation fields')
+    validate_fields(action,body)
     context,actor=identity(store,app_id)
     if action in OWNER_ACTIONS and 'principal' not in context:
         raise PermissionError('Agents cannot create, activate or widen campaign authority')
@@ -78,3 +80,9 @@ def dispatch(store,app_id,action,body):
             'pause':lambda:service.run_pause(app_id,actor,scope_id,body['intent_id']),
             'reconcile':lambda:service.reconcile(app_id,actor,scope_id,body['intent_id'])}
     return routes[action]()
+
+
+def validate_fields(action,body):
+    """Close every owner and agent campaign payload before resolving authority."""
+    if action not in FIELDS or not isinstance(body,dict) or set(body)!=FIELDS[action]:
+        raise Invalid('Use the exact campaign operation fields')
