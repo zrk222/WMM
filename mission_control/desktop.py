@@ -3,6 +3,7 @@ import errno
 import json
 import os
 from pathlib import Path
+import signal
 import sys
 import threading
 import webbrowser
@@ -26,19 +27,26 @@ def data_directory(platform=None, environ=None, home=None):
 class DesktopRuntime:
     """Own exactly one listener and its existing workers; no startup registration."""
 
-    def __init__(self, directory=None, preferred_port=8765):
+    def __init__(self, directory=None, preferred_port=8765, fixed_port=False):
         from mission_control.server import Server, check_timezone_support
         from mission_control.store import Store
+        from mission_control.workspace_lock import WorkspaceLock
         check_timezone_support()
         self.directory = Path(directory) if directory is not None else data_directory()
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
-        store = Store(self.directory / 'mission-control.sqlite3')
+        self.lock = WorkspaceLock(self.directory)
+        self.lock.acquire()
         try:
-            self.server = Server(('127.0.0.1', preferred_port), store)
-        except OSError as error:
-            if error.errno not in (errno.EADDRINUSE, errno.EACCES, 10048, 10013):
-                raise
-            self.server = Server(('127.0.0.1', 0), store)
+            store = Store(self.directory / 'mission-control.sqlite3')
+            try:
+                self.server = Server(('127.0.0.1', preferred_port), store)
+            except OSError as error:
+                if fixed_port or error.errno not in (errno.EADDRINUSE, errno.EACCES, 10048, 10013):
+                    raise
+                self.server = Server(('127.0.0.1', 0), store)
+        except BaseException:
+            self.lock.release()
+            raise
         self.origin = 'http://127.0.0.1:' + str(self.server.server_port)
         self.thread = None
         self.closed = False
@@ -49,11 +57,15 @@ class DesktopRuntime:
             raise RuntimeError('This desktop runtime is closed')
         if self.thread is not None:
             return self.origin
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
-        self.thread.start()
-        if workers:
-            self.server.runner.start()
-            self.server.audit_runner.start()
+        try:
+            self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+            self.thread.start()
+            if workers:
+                self.server.runner.start()
+                self.server.audit_runner.start()
+        except BaseException:
+            self.close()
+            raise
         return self.origin
 
     def close(self):
@@ -61,13 +73,57 @@ class DesktopRuntime:
         if self.closed:
             return
         self.closed = True
-        for worker in (self.server.runner, self.server.audit_runner):
-            if worker.thread is not None and worker.thread.ident is not None:
+        try:
+            failed = stop_workers(self.server)
+            if self.thread is not None and self.thread.ident is not None:
+                self.server.shutdown()
+                self.thread.join(timeout=10)
+            self.server.server_close()
+        finally:
+            if stopped_runtime(self.server, self.thread):
+                self.lock.release()
+        if failed:
+            raise failed
+
+
+def stop_workers(server):
+    failed = None
+    for worker in (server.runner, server.audit_runner):
+        if worker.thread is not None and worker.thread.ident is not None:
+            try:
                 worker.stop()
-        if self.thread is not None:
-            self.server.shutdown()
-            self.thread.join(timeout=10)
-        self.server.server_close()
+            except Exception as error:
+                failed = failed or error
+    return failed
+
+
+def stopped_runtime(server, thread):
+    workers = (server.runner, server.audit_runner)
+    return not any(w.thread is not None and w.thread.is_alive() for w in workers) and (
+        thread is None or not thread.is_alive())
+
+
+def headless():
+    """Run the same workspace without a GUI, browser or startup registration."""
+    stopped = threading.Event()
+    previous = {}
+    def request_stop(signum, frame):
+        stopped.set()
+    try:
+        for name in ('SIGINT', 'SIGTERM'):
+            sig = getattr(signal, name, None)
+            if sig is not None:
+                previous[sig] = signal.signal(sig, request_stop)
+        runtime = DesktopRuntime(fixed_port=True)
+        try:
+            origin = runtime.start()
+            print(json.dumps(dict(status='RUNNING', origin=origin, mode='HEADLESS')), flush=True)
+            stopped.wait()
+        finally:
+            runtime.close()
+    finally:
+        for sig, handler in previous.items():
+            signal.signal(sig, handler)
 
 
 def dispatch(arguments):
@@ -123,8 +179,11 @@ def main(arguments=None):
     if arguments == ['--self-test']:
         self_test()
         return
+    if arguments == ['--headless']:
+        headless()
+        return
     if arguments:
-        raise SystemExit('Use the desktop app, --check, --agent-cli or --mcp')
+        raise SystemExit('Use the desktop app, --headless, --check, --agent-cli or --mcp')
     import tkinter as tk
     from tkinter import messagebox
     controller = tk.Tk()
