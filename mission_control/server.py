@@ -181,7 +181,7 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith("/api/apps/"):
             return self.get_app(path)
         scripts=('/agent-control.js','/subscription-authoring.js','/customer-workflow.js','/growth-review.js','/page-reporting.js','/setup-discovery.js','/google-play.js','/play-callback.js','/drive-callback.js','/social-access.js','/campaign-execution.js','/campaign-monitor.js','/campaign-owner-reports.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
-                 '/workflow-automation.js','/followup.js','/aeo.js','/public-store-readback.js',
+                 '/workflow-automation.js','/followup.js','/aeo.js','/public-store-readback.js','/apple-analytics.js',
                  '/pmf-workflow.js','/pmf-research.js','/audit-runtime.js','/automatic-preparation.js','/campaign-sequence.js','/experiment-tracking.js',
                  '/spytok-workflow.js','/production-feasibility.js','/spira-workflow.js','/journey-readiness.js','/workflow-telemetry.js','/ui-stories.js','/complete-automation.js','/video-editor.js','/studio-controls.js','/managed-media.js','/drive-library.js','/discovery-model.js','/discovery-ui.js','/packaging-model.js','/packaging-ui.js','/funnel-model.js','/funnel-ui.js')
         if path in scripts:

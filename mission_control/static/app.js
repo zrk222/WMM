@@ -73,6 +73,7 @@ function render() {
   WMMDiscovery.invalidate(state);
   WMMPackaging.invalidate(state);
   WMMFunnels.invalidate(state);
+  WMMAppleAnalytics.invalidate(state);
   $("#edit-app").disabled=!currentWorkspace();
   document.querySelectorAll(".nav-item").forEach(node=>{
     node.classList.toggle("active",node.dataset.view===state.view);
@@ -325,7 +326,7 @@ function resultsView() {
 }
 
 function growthReviewServices() {
-  return {state,modal,api,refresh,toast,openExperiment,openJob,uuid:()=>crypto.randomUUID(),FormData,document,
+  return {state,modal,api,refresh,toast,openExperiment,openJob,connectionSetup,openAccess:()=>{state.view="activity";render();},uuid:()=>crypto.randomUUID(),FormData,document,
     close:()=>$("#modal").close(),pageReports:WMMPageReports,browser:window,ui:WMMGrowthReview};
 }
 
@@ -454,7 +455,7 @@ function historicalForm(id) {
 }
 
 function connectionsView() {
-  return heading("Connect with clarity","Connect each app’s evidence, then verify actual access.")+WMMDrive.panel()+googlePlayPanel()+socialPanel()+campaignPanel()+releaseInventoryPanel()+subscriptionPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyConnectionsView();
+  return heading("Connect with clarity","Connect each app’s evidence, then verify actual access.")+WMMAppleAnalytics.panel()+WMMDrive.panel()+googlePlayPanel()+socialPanel()+campaignPanel()+releaseInventoryPanel()+subscriptionPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyConnectionsView();
 }
 
 function legacyConnectionsView() {
@@ -509,6 +510,7 @@ function activityView() {
 }
 
 function modal(title,html,eyebrow="WORKSPACE") {
+  WMMAppleAnalytics.clear();
   WMMAgentControl.clear();
   WMMCompleteAutomation.clear();
   WMMVideoEditor.clear();
@@ -769,6 +771,7 @@ async function formSubmit(event) {
     event.preventDefault();toast("App changed. Wait for this app to load and reopen the form.");return;
   }
   const formId=form.getAttribute("id");
+  if(formId==='apple-analytics-form'){event.preventDefault();return WMMAppleAnalytics.submit(form,growthReviewServices());}
   if(formId==='agreement-form'){event.preventDefault();return WMMAgreement.submit(form);}
   if(formId==='goal-readiness-form'){event.preventDefault();return WMMGoalReadiness.submit(form);}
   if(formId==='standing-scope-form'){event.preventDefault();return WMMCompleteAutomation.submit(form,growthReviewServices());}
@@ -890,6 +893,7 @@ async function handleAction(node) {
   if(node.dataset.action.startsWith('standing-'))return WMMCompleteAutomation.action(node,growthReviewServices());
   if(node.dataset.action==="retry-workspace")return refresh();
   if(!currentWorkspace()&&!["reload","close","add-app"].includes(node.dataset.action))return toast("Wait for this app to load, then try again.");
+  if(node.dataset.action.startsWith('apple-analytics-'))return WMMAppleAnalytics.action(node,growthReviewServices());
   if(node.dataset.action.startsWith("control-"))return WMMAgentControl.action(node,growthReviewServices());
   if(node.dataset.action.startsWith("growth-"))return WMMGrowthReview.action(node,growthReviewServices());
   if(node.dataset.action.startsWith("subscription-plan-"))return WMMSubscriptionAuthoring.action(node,growthReviewServices());
@@ -968,7 +972,7 @@ $("#app-select").addEventListener("change",async event=>{state.app=event.target.
 $("#add-app").addEventListener("click",()=>appForm(true));
 $("#edit-app").addEventListener("click",()=>appForm(false));
 $("#close-modal").addEventListener("click",()=>$("#modal").close());
-$("#modal").addEventListener("close",()=>{WMMAgentControl.clear();WMMCompleteAutomation.clear();WMMVideoEditor.clear();WMMStudio.clear();WMMMedia.clear();WMMDrive.clear();WMMDiscovery.clear();WMMPackaging.clear();WMMFunnels.clear();delete $("#modal-body").dataset.job;});
+$("#modal").addEventListener("close",()=>{WMMAppleAnalytics.clear();WMMAgentControl.clear();WMMCompleteAutomation.clear();WMMVideoEditor.clear();WMMStudio.clear();WMMMedia.clear();WMMDrive.clear();WMMDiscovery.clear();WMMPackaging.clear();WMMFunnels.clear();delete $("#modal-body").dataset.job;});
 document.addEventListener("input",event=>{
   if(event.target.id==="reference-search"){const position=event.target.selectionStart;state.referenceFilter=event.target.value;render();$("#reference-search").focus();$("#reference-search").setSelectionRange(position,position);return;}
   if(event.target.closest("#experiment-form"))return samplePreview();
