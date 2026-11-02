@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "waiting-cadence-and-source-integrity",
+      "kind": "python",
+      "run": "import unittest; suite=unittest.defaultTestLoader.loadTestsFromNames(['tests.test_apple_metrics_schedule','tests.test_apple_metrics_schedule_selection']); result=unittest.TextTestRunner().run(suite); assert result.wasSuccessful()"
+    }
+  ]
+}
