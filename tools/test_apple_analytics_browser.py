@@ -73,7 +73,7 @@ def journey(browser, width, height):
         assert saved['enabled'] and saved['interval_hours'] == 48
         assert saved['last_success'] is None
         # A queued read and saved schedule are not fabricated numeric evidence.
-        expect(root).to_contain_text('Last success: Not recorded')
+        expect(root).to_contain_text('Last metrics collected: Not recorded')
         assert root.evaluate('(node) => node.scrollWidth <= node.clientWidth + 1')
         page.locator('#modal').screenshot(path=str(OUT / f'analytics-{width}.png'))
         rendered = page.evaluate(r'''() => {
