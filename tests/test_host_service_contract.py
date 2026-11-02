@@ -5,6 +5,7 @@ from pathlib import Path
 import runpy
 import subprocess
 import sys
+import tempfile
 import types
 import unittest
 from unittest.mock import patch
@@ -70,6 +71,30 @@ class HostServiceContractTests(unittest.TestCase):
                          'WMM_LINUX_PACKAGE_TEST': '1'}):
                 with self.assertRaisesRegex(RuntimeError, 'explicitly enabled root'):
                     preflight(env)
+
+    def test_stages_only_the_standalone_script_and_runs_without_checkout_imports(self):
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            staged = WRAPPER['stage_harness'](folder)
+            self.assertEqual(staged.read_bytes(), SCRIPT.read_bytes())
+            self.assertEqual([p.name for p in folder.iterdir()], ['test_host_service.py'])
+            result = subprocess.run([sys.executable, '-I', str(staged)], cwd=folder,
+                                    env=dict(os.environ, CI='false'),
+                                    capture_output=True, text=True, timeout=10)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('explicitly isolated', result.stderr)
+
+    def test_child_command_uses_staged_script_and_minimal_environment(self):
+        parent = Path('/tmp/wmm-host-user-example')
+        home = parent / 'home'
+        runtime = Path('/run/user/12345')
+        staged = parent / 'test_host_service.py'
+        argv = WRAPPER['child_command']('wmm-ci-example', home, runtime, parent, staged)
+        self.assertEqual(argv[:6], ['runuser', '-u', 'wmm-ci-example', '--', '/usr/bin/env', '-i'])
+        self.assertIn(f'RUNNER_TEMP={parent}', argv)
+        self.assertIn(f'HOME={home}', argv)
+        self.assertEqual(argv[-2:], [str(WRAPPER['SYSTEM_PYTHON']), str(staged)])
+        self.assertFalse(any('GITHUB_TOKEN=' in item or 'WMM_ISOLATED_NATIVE_KEYRING=' in item for item in argv))
 
 
 if __name__ == '__main__':

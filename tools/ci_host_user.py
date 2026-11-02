@@ -12,6 +12,8 @@ from uuid import uuid4
 ROOT = Path(__file__).resolve().parents[1]
 BINARY = Path('/usr/lib/wize-marketing-machine/WMM')
 UNIT = Path('/usr/share/wize-marketing-machine/wmm-worker.service')
+TEMP_ROOT = Path('/tmp')
+SYSTEM_PYTHON = Path('/usr/bin/python3')
 
 
 def preflight(env):
@@ -26,14 +28,17 @@ def preflight(env):
             or not re.fullmatch(r'/[A-Za-z0-9_./-]+', str(temp))
             or not Path('/run/systemd/system').is_dir() or not BINARY.is_file()
             or not os.access(BINARY, os.X_OK) or not UNIT.is_file()
-            or not os.access(UNIT, os.R_OK)):
+            or not os.access(UNIT, os.R_OK) or not SYSTEM_PYTHON.is_file()
+            or not os.access(SYSTEM_PYTHON, os.X_OK)
+            or not TEMP_ROOT.is_dir() or TEMP_ROOT.is_symlink()
+            or TEMP_ROOT.stat().st_uid != 0 or not TEMP_ROOT.stat().st_mode & 0o1000):
         raise RuntimeError('CI temporary path, installed WMM, unit or systemd is unavailable')
     for executable in ('useradd', 'userdel', 'runuser', 'systemctl', 'loginctl'):
         if not shutil.which(executable):
             raise RuntimeError(f'Missing required CI executable: {executable}')
     if command('systemctl', 'is-active', 'systemd-logind.service', check=False).returncode != 0:
         raise RuntimeError('An active systemd-logind service is required for disposable user managers')
-    return temp
+    return TEMP_ROOT
 
 
 def command(*argv, check=True, timeout=90):
@@ -50,6 +55,28 @@ def wait_user_manager(uid):
             return
         time.sleep(.25)
     raise RuntimeError('Disposable user manager or bus did not start')
+
+
+def stage_harness(parent):
+    """Copy only the standalone script; the isolated user never traverses the checkout."""
+    data = (ROOT / 'tools/test_host_service.py').read_bytes()
+    staged = parent / 'test_host_service.py'
+    with staged.open('xb') as target:
+        target.write(data)
+    staged.chmod(0o644)
+    if staged.read_bytes() != data:
+        raise RuntimeError('Staged CI harness differs from the source script')
+    return staged
+
+
+def child_command(name, home, runtime, parent, staged):
+    child_env = [f'HOME={home}', f'USER={name}', f'LOGNAME={name}',
+                 f'XDG_RUNTIME_DIR={runtime}', f'DBUS_SESSION_BUS_ADDRESS=unix:path={runtime}/bus',
+                 f'RUNNER_TEMP={parent}', 'PATH=/usr/sbin:/usr/bin:/sbin:/bin',
+                 'CI=true', 'GITHUB_ACTIONS=true', 'WMM_HOST_SERVICE_CI=1',
+                 'WMM_ISOLATED_USER_MANAGER=1']
+    return ['runuser', '-u', name, '--', '/usr/bin/env', '-i', *child_env,
+            str(SYSTEM_PYTHON), str(staged)]
 
 
 def run_host_service(env):
@@ -73,6 +100,7 @@ def run_host_service(env):
     uid = None
     try:
         parent.chmod(0o711)
+        staged = stage_harness(parent)
         command('useradd', '--no-create-home', '--gid', 'nogroup', '--home-dir', str(home),
                 '--shell', '/usr/sbin/nologin', '--password', '!', name)
         created = True
@@ -88,22 +116,14 @@ def run_host_service(env):
             raise RuntimeError('Refusing a pre-existing user manager, runtime or lingering state')
         home.mkdir(mode=0o700)
         os.chown(home, uid, account.pw_gid)
-        for path, mode in ((temp, '-x'), (ROOT / 'tools/test_host_service.py', '-r'),
-                           (UNIT, '-r'),
-                           (Path(sys.executable), '-x')):
+        for path, mode in ((parent, '-x'), (staged, '-r'), (UNIT, '-r'), (SYSTEM_PYTHON, '-x')):
             command('runuser', '-u', name, '--', '/usr/bin/test', mode, path)
         manager_attempted = True
         command('loginctl', 'enable-linger', name)
         command('systemctl', 'start', f'user@{uid}.service')
         wait_user_manager(uid)
-        child_env = [f'HOME={home}', f'USER={name}', f'LOGNAME={name}',
-                     f'XDG_RUNTIME_DIR={runtime}', f'DBUS_SESSION_BUS_ADDRESS=unix:path={runtime}/bus',
-                     f'RUNNER_TEMP={temp}', 'PATH=/usr/sbin:/usr/bin:/sbin:/bin',
-                     'CI=true', 'GITHUB_ACTIONS=true', 'WMM_HOST_SERVICE_CI=1',
-                     'WMM_ISOLATED_USER_MANAGER=1']
         try:
-            result = command('runuser', '-u', name, '--', '/usr/bin/env', '-i', *child_env,
-                             sys.executable, ROOT / 'tools/test_host_service.py', timeout=240)
+            result = command(*child_command(name, home, runtime, parent, staged), timeout=240)
         except subprocess.CalledProcessError as exc:
             raise RuntimeError(f'Disposable host lifecycle failed: {exc.stdout}\n{exc.stderr}') from exc
         print(result.stdout, end='')
