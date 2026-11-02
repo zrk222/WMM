@@ -1,5 +1,5 @@
 """Exact owner HTTP schedule review; provider wire is synthetic and network-denied."""
-import time,unittest
+import unittest
 from datetime import datetime,timedelta,timezone
 from unittest.mock import patch
 from urllib.request import Request
@@ -19,16 +19,16 @@ class ScheduleHTTPTests(unittest.TestCase):
  activate=fixture.CampaignGatewayTests.activate
  def prepare_batch(self):
   scope=self.activate()
-  return self.owner_call("schedule-prepare",{"scope_id":scope["scope_id"],"items":[{"due_at":(datetime.now(timezone.utc)+timedelta(seconds=1)).isoformat(),"request":self.post}]})
+  return self.owner_call("schedule-prepare",{"scope_id":scope["scope_id"],"items":[{"due_at":(datetime.now(timezone.utc)+timedelta(minutes=10)).isoformat(),"request":self.post}]})
  def test_owner_reviews_exact_hash_then_worker_publishes_once_without_browser(self):
   saved=self.prepare_batch();batch=saved["summary"]["batch_id"]
   with self.assertRaises(ClientError):self.owner_call("schedule-activate",{"batch_id":batch,"summary_hash":"0"*64})
   self.owner_call("schedule-activate",{"batch_id":batch,"summary_hash":saved["summary_hash"]})
   self.assertEqual(self.wire.posts,0)
-  time.sleep(1.05)
+  due=datetime.fromisoformat(saved["summary"]["items"][0]["due_at"]).timestamp()+1
   from mission_control.campaign_schedule import tick
   original=CampaignExecutionService
-  with patch("mission_control.campaign_schedule.CampaignExecutionService",side_effect=lambda store,checker:original(store,checker,self.wire)),patch("mission_control.campaign_transport.MetaTransport.request",side_effect=AssertionError("Real provider forbidden")):
+  with patch("mission_control.campaign_schedule.time.time",return_value=due),patch("mission_control.campaign_schedule.CampaignExecutionService",side_effect=lambda store,checker:original(store,checker,self.wire)),patch("mission_control.campaign_transport.MetaTransport.request",side_effect=AssertionError("Real provider forbidden")):
    self.assertEqual(tick(self.store),1);self.assertEqual(tick(self.store),0);self.assertTrue(run_once(self.store));self.assertFalse(run_once(self.store))
   result=self.owner_call("schedule-status",{"batch_id":batch})
   self.assertEqual(self.wire.posts,1);self.assertEqual(result["items"][0]["intent"]["status"],"VERIFIED")
