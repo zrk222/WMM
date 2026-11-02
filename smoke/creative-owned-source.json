@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "finite-plan-rejects-missing-owner-selection",
+      "kind": "python",
+      "run": "import unittest; from mission_control.creative_batches import plan_data; unittest.TestCase().assertRaises(ValueError, plan_data, None, None, 'fixture', {})"
+    }
+  ]
+}

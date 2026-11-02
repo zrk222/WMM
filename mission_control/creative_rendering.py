@@ -33,17 +33,22 @@ def current_request(db,store,app_id,request):
     if render_request(db,store,app_id,body)!=request:raise Invalid("Frozen render inputs changed; prepare a new job")
 
 
-def owned(db,job):
+def owned(db,job,store=None):
     """Keep attempt identity and cancellation authoritative throughout artifact creation."""
     row=db.execute("SELECT status,attempts FROM jobs WHERE id=? AND app_id=?",(job["id"],job["app_id"])).fetchone()
     if not row or row["status"]!="RUNNING" or row["attempts"]!=job["attempts"]:raise Invalid("Render cancelled or superseded; no artifact was committed")
+    linked=db.execute("SELECT 1 FROM creative_batch_variants WHERE app_id=? AND job_id=?",(job["app_id"],job["id"])).fetchone()
+    if linked:
+        if store is None:raise Invalid("Batch render authority is unavailable")
+        from .creative_batch_authority import guard_render
+        guard_render(db,store,job)
 
 
 def heartbeat(store,job,stop=None):
     """Renew only the owned attempt; worker shutdown terminates its private process."""
     if stop is not None and stop.is_set():raise Invalid("Worker stopped; retry the saved render")
     with connection(store.path) as db:
-        owned(db,job)
+        owned(db,job,store)
         db.execute("UPDATE jobs SET lease=?,updated=? WHERE id=? AND attempts=? AND status=?",(time.time()+60,now(),job["id"],job["attempts"],"RUNNING"))
 
 
@@ -100,7 +105,7 @@ class Renders:
         app_id=job["app_id"];request=job["data"];root=folder_for(self.store,app_id)
         root.mkdir(parents=True,exist_ok=True)
         with connection(self.store.path) as db:
-            owned(db,job);current_request(db,self.store,app_id,request)
+            owned(db,job,self.store);current_request(db,self.store,app_id,request)
             previous=db.execute("SELECT * FROM creative_renders WHERE app_id=? AND job_id=?",(app_id,job["id"])).fetchone()
         if previous:
             row=decoded(previous);artifact_file(self.store,app_id,row["id"])
@@ -131,7 +136,7 @@ class Renders:
         data=dict(request=request,artifact=artifact,renderer="NATIVE_FFMPEG",publication="NOT_RUN",visual_review="REQUIRED",audio="SILENT_CAPTIONED")
         try:
             with connection(self.store.path) as db:
-                db.execute("BEGIN IMMEDIATE");owned(db,job);current_request(db,self.store,app_id,request)
+                db.execute("BEGIN IMMEDIATE");owned(db,job,self.store);current_request(db,self.store,app_id,request)
                 with target.open("xb") as destination:created=True;destination.write(output.read_bytes())
                 db.execute("INSERT INTO creative_renders VALUES(?,?,?,?,?,?)",(app_id,render_id,job["id"],canonical(data),digest(data),now()))
                 db.execute("INSERT INTO audit(app_id,action,detail,created) VALUES(?,?,?,?)",(app_id,"render.completed",canonical({"id":render_id,"hash":digest(data)}),now()))

@@ -49,6 +49,7 @@ final class NativeWorkspaceModel: ObservableObject {
     private var authentication: LAContext?
     private var editorRenderer: TimelineRenderer?
     private var studioRenderer: NativeStudioRenderer?
+    private var studioBatchPump: NativeAgentRenderPump?
     private var agentRuntime: ScopedAgentRuntime?
     private let backgroundCleanup = NativeBackgroundCleanup()
     var selectionContext: UUID { generation }
@@ -109,11 +110,13 @@ final class NativeWorkspaceModel: ObservableObject {
         generation = UUID(); authentication?.invalidate(); authentication = nil
         identity?.authority.revoke()
         session = nil; apps = []; snapshot = nil; report = nil; media = []; unlocked = false; busy = false; activity = ""; message = nil
-        let identity = identity, editorRenderer = editorRenderer, agentRuntime = agentRuntime, bridge = bridge
+        let identity = identity, editorRenderer = editorRenderer, agentRuntime = agentRuntime, bridge = bridge, batchPump = studioBatchPump
+        studioBatchPump = nil
         backgroundCleanup.start {
             await identity?.lock()
             await editorRenderer?.cancel()
             await agentRuntime?.cancel()
+            await batchPump?.cancel()
             await bridge?.reviewLogout()
         }
     }
@@ -375,6 +378,33 @@ final class NativeWorkspaceModel: ObservableObject {
             let result = try JSONDecoder().decode(NativeMediaList.self, from: bytes)
             guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
             return result.items
+        }, batchExecute: { [weak self] operation, input in
+            guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id,
+                  ["workspace.read", "evidence.save", "creative.source.save", "creative.analysis.save", "creative.profile.save", "creative.requirement.save", "creative.brief.save", "creative.batch.plan", "creative.batch.create", "creative.batch.list", "creative.batch.cancel"].contains(operation) else { throw DomainBridge.Failure.closed }
+            let request = try JSONSerialization.data(withJSONObject: ["app_id": app.id, "operation": operation, "input": input])
+            let result = try await bridge.call(session: session, request: request)
+            guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            return result
+        }, runBatch: { [weak self] request, response in
+            guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            let pump = NativeAgentRenderPump(bridge: bridge, session: session)
+            self.studioBatchPump = pump
+            defer { if self.studioBatchPump === pump { self.studioBatchPump = nil } }
+            let result = try await pump.complete(request: request, response: response)
+            guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            return result
+        }, cancelBatchRender: { [weak self] in
+            await self?.studioBatchPump?.cancel()
+        }, batchArtifact: { [weak self] batchID, ordinal in
+            guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            let result = try await bridge.creativeBatchArtifact(session: session, appID: app.id, batchID: batchID, ordinal: ordinal)
+            guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            return result
+        }, uploadCreativeStill: { [weak self] filename, original in
+            guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            let result = try await bridge.uploadCreativeStill(session: session, appID: app.id, filename: filename, original: original)
+            guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else { throw DomainBridge.Failure.closed }
+            return result
         })
     }
 
@@ -443,6 +473,7 @@ final class NativeWorkspaceModel: ObservableObject {
 
     func clearSelection() {
         studioRenderer?.cancel()
+        if let studioBatchPump { Task { await studioBatchPump.cancel() } }
         if let editorRenderer { Task { await editorRenderer.cancel() } }
         if let agentRuntime { Task { await agentRuntime.cancel() } }
         snapshot = nil; report = nil; media = []
@@ -456,6 +487,21 @@ final class NativeWorkspaceModel: ObservableObject {
                 throw DomainBridge.Failure.closed
             }
             let result = try await bridge.jobs(session: session, appID: app.id, action: action, request: request)
+            guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else {
+                throw DomainBridge.Failure.closed
+            }
+            return result
+        })
+    }
+
+    func makeExperimentMonitoring() -> NativeExperimentMonitoringModel? {
+        guard unlocked, let app = snapshot?.app, let bridge, let session else { return nil }
+        let ticket = generation
+        return NativeExperimentMonitoringModel(appID: app.id, manifestVersion: app.version, execute: { [weak self] request in
+            guard let self, self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else {
+                throw DomainBridge.Failure.closed
+            }
+            let result = try await bridge.call(session: session, request: request)
             guard self.unlocked, self.generation == ticket, self.snapshot?.app.id == app.id else {
                 throw DomainBridge.Failure.closed
             }

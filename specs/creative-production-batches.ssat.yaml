@@ -1,0 +1,31 @@
+{
+  "name": "creative-production-batches",
+  "language": "python",
+  "modules": [
+    {"name": "creative_batches", "path": "mission_control/creative_batches.py", "language": "python", "functions": [
+      {"name": "plan_data", "args": ["db", "store", "app_id", "data"], "returns": "dict"},
+      {"name": "prepare", "args": ["store", "app_id", "data"], "returns": "object"},
+      {"name": "inspect_output", "args": ["store", "app_id", "render_id"], "returns": "object"}
+    ]},
+    {"name": "creative_rendering", "path": "mission_control/creative_rendering.py", "language": "python", "functions": [
+      {"name": "render_request", "args": ["db", "store", "app_id", "body"], "returns": "object"},
+      {"name": "current_request", "args": ["db", "store", "app_id", "request"], "returns": "object"}
+    ]},
+    {"name": "ios_creative_batch", "path": "mission_control/ios_creative_batch.py", "language": "python", "functions": [
+      {"name": "native_packet", "args": ["db", "store", "app_id", "variant"], "returns": "dict"},
+      {"name": "native_source", "args": ["db", "store", "app_id", "packet", "source_id", "sha256"], "returns": "object"}
+    ]},
+    {"name": "creative_batch_authority", "path": "mission_control/creative_batch_authority.py", "language": "python", "functions": [
+      {"name": "guard_batch", "args": ["db", "store", "row"], "returns": "object"},
+      {"name": "guard_render", "args": ["db", "store", "job"], "returns": "object"}
+    ]},
+    {"name": "creative_library", "path": "mission_control/creative_library.py", "language": "python", "functions": [
+      {"name": "reference_data", "args": ["data"], "returns": "object"}
+    ]},
+    {"name": "creative_briefs", "path": "mission_control/creative_briefs.py", "language": "python", "functions": [
+      {"name": "bind", "args": ["db", "store", "app_id", "data"], "returns": "object"}
+    ]}
+  ],
+  "dependencies": [{"from": "creative_batches", "to": "creative_rendering"}, {"from": "creative_batches", "to": "creative_batch_authority"}, {"from": "creative_rendering", "to": "creative_batch_authority"}, {"from": "creative_rendering", "to": "creative_briefs"}, {"from": "ios_creative_batch", "to": "creative_batch_authority"}, {"from": "ios_creative_batch", "to": "creative_rendering"}, {"from": "creative_briefs", "to": "creative_library"}],
+  "tests": {"command": "python -m unittest tests.test_creative_batches -q"}
+}

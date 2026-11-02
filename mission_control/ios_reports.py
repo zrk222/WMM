@@ -10,7 +10,7 @@ LEDGER_FIELDS = ('installs','activated','paid','retained','activation_rate','pai
                  'delivery_cost_minor','paid_cac_minor','contribution_after_acquisition_minor')
 
 
-def snapshot(db, store, app_id, observed):
+def snapshot(db, store, app_id, observed, *, include_handoffs=True, include_workflows=True):
     """One report projection for both admitted agents and the native owner host.
 
     The caller owns the consistent transaction and current authorization context.
@@ -22,6 +22,7 @@ def snapshot(db, store, app_id, observed):
     from .ledger import report
     from .insights import decoded as insight_decode
     from .apple_metrics_store import KEY_FIELDS, read_partition
+    from .agent_handoffs import report_summary
     app = db.execute('SELECT * FROM apps WHERE id=?',(app_id,)).fetchone()
     if app is None:raise Invalid('Report app is unavailable')
     app = decode(app)
@@ -33,27 +34,72 @@ def snapshot(db, store, app_id, observed):
     keys = [{field:r[field] for field in KEY_FIELDS} for r in db.execute(
         'SELECT * FROM apple_metric_partitions WHERE app_id=? AND store_app_id=? ORDER BY event_date,report_id',
         (app_id,app['data'].get('store_app_id','')))]
-    return projection(app,records,reports,observed,insights,[read_partition(store.path,key) for key in keys])
+    monitoring=monitoring_summary(db,app_id) if include_workflows else None
+    batches=batch_summary(db,app_id) if include_workflows else None
+    handoffs=report_summary(db,app_id,iso_time(observed)) if include_workflows and include_handoffs else None
+    return projection(app,records,reports,observed,insights,[read_partition(store.path,key) for key in keys],monitoring,batches,handoffs)
 
 
-def read(store, app_id):
+def monitoring_summary(db,app_id):
+    """Summarize current local observation limits without exposing owner identities."""
+    from .common import iso_time
+    from .experiment_schedules import STATUSES
+    rows=db.execute('SELECT s.experiment_id,s.status,s.enabled,l.expires,l.max_observations,l.reserved FROM experiment_schedules s LEFT JOIN experiment_schedule_limits l ON l.app_id=s.app_id AND l.experiment_id=s.experiment_id AND l.schedule_version=s.version WHERE s.app_id=? ORDER BY s.updated DESC,s.experiment_id LIMIT 20',(app_id,)).fetchall()
+    total=db.execute('SELECT count(*) FROM experiment_schedules WHERE app_id=?',(app_id,)).fetchone()[0]
+    items=[]
+    for row in rows:
+        try:expiry=iso_time(row['expires']).isoformat() if row['expires'] else None
+        except (Invalid,ValueError,TypeError):expiry=None
+        maximum,reserved=row['max_observations'],row['reserved']
+        valid=type(maximum) is int and 1<=maximum<=30 and type(reserved) is int and 0<=reserved<=maximum
+        items.append(dict(status=row['status'] if row['status'] in STATUSES else 'UNKNOWN',expires=expiry,remaining=maximum-reserved if valid else None))
+    return dict(total=total,items=items,truncated=total>len(rows))
+
+
+def batch_summary(db,app_id):
+    """Summarize local production states without exporting plans, authority or inputs."""
+    rows=db.execute('SELECT id,state,reserved_frames,created FROM creative_batches WHERE app_id=? ORDER BY created DESC,id LIMIT 20',(app_id,)).fetchall()
+    total=db.execute('SELECT count(*) FROM creative_batches WHERE app_id=?',(app_id,)).fetchone()[0]
+    states={'ACTIVE','COMPLETED','CANCELLED','CANCEL_PENDING_HOLD','BLOCKED_HOLD','FAILED','RECONCILE_REQUIRED'}
+    items=[dict(state=r['state'] if r['state'] in states else 'UNKNOWN',reserved_frames=r['reserved_frames'] if type(r['reserved_frames']) is int and 0<=r['reserved_frames']<=11520 else None) for r in rows]
+    return dict(total=total,items=items,truncated=total>len(rows))
+
+
+def read(store, app_id, *, include_handoffs=True):
     from .db import connection
     from .common import now
     with connection(store.path) as db:
         db.execute('BEGIN IMMEDIATE')
-        return snapshot(db,store,app_id,now())
+        return snapshot(db,store,app_id,now(),include_handoffs=include_handoffs)
 
 
-def projection(app, records, ledger_reports, observed_at, insight_reports=(), apple_partitions=()):
+def projection(app, records, ledger_reports, observed_at, insight_reports=(), apple_partitions=(), monitoring=None, batches=None, handoffs=None):
     from .metrics import summarize
     metrics = summarize(records, app['id'], ledger_reports)
-    source_hash = digest({'app':app,'records':records,'ledger':ledger_reports,'insights':insight_reports,'apple':apple_partitions})
+    source = {'app':app,'records':records,'ledger':ledger_reports,'insights':insight_reports,'apple':apple_partitions}
+    for name,value in (('monitoring',monitoring),('batches',batches),('handoffs',handoffs)):
+        if value is not None:source[name]=value
+    source_hash = digest(source)
     rows = []
     def add(label, value, evidence):
         if len(rows) >= 1000: raise Invalid('Native report exceeds 1000 rows; narrow the source evidence before exporting')
         rows.append(dict(metric=label,observed=None if value is None else str(value),evidence=evidence))
     add('Report scope','Supplied observations; no causal lift established',source_hash)
     add('Units','Rates are fractions from 0 to 1; money fields marked minor use the stated currency minor unit.',source_hash)
+    if monitoring is not None:
+        add('Experiment monitoring',monitoring['total'],'Local finite schedules; observations do not authorize external actions. Truncated='+str(monitoring['truncated']))
+        for index,item in enumerate(monitoring['items'],1):
+            add('Experiment schedule '+str(index),item['status'],'Remaining='+str(item['remaining'])+'; expiry='+str(item['expires'])+'; unknown metrics are not zero.')
+    if batches is not None:
+        add('Creative batches',batches['total'],'Local production only; publication NOT_RUN; human visual review remains required. Truncated='+str(batches['truncated']))
+        for index,item in enumerate(batches['items'],1):
+            add('Creative batch '+str(index),item['state'],'Reserved frames='+str(item['reserved_frames'])+'; publication NOT_RUN.')
+    if handoffs is not None:
+        add('Agent handoffs',handoffs['total'],handoffs['scope']+'; truncated='+str(handoffs['truncated'])+'; '+handoffs['next_action'])
+        add('Handoff lifecycle counts',None,'All saved handoffs: '+str(handoffs['status_counts'])+'; recent effective states: '+str(handoffs['recent_effective_counts']))
+        for index,item in enumerate(handoffs['items'],1):
+            details='; '.join(field+'='+str(item[field]) for field in ('id','job_id','job_action','job_status','source_kind','created','expires','context_status','context_changes') if field in item)
+            add('Agent handoff '+str(index),item.get('status'), 'Saved metadata only; '+details)
     if not any(metrics[key] for key in ('cohorts','retention','event_ledger','acquisition')):
         add('App performance',None,'No app-scoped cohort, retention, acquisition or event observations are saved.')
     for index, cohort in enumerate(metrics['cohorts'],1):

@@ -18,6 +18,7 @@ struct WorkflowNavigation: View {
     @State private var evidence: NativeEvidenceModel?
     @State private var snapshots: NativeSnapshotModel?
     @State private var automation: NativeAutomationModel?
+    @State private var experimentMonitoring: NativeExperimentMonitoringModel?
     @State private var studio: NativeStudioModel?
     @State private var humanReview: NativeHumanReviewModel?
     @State private var insights: NativeInsightsModel?
@@ -114,6 +115,8 @@ struct WorkflowNavigation: View {
                                 .disabled(model.busy)
                             Button("Standing approval", systemImage: "checkmark.shield") { automation = model.makeAutomation() }
                                 .disabled(model.busy)
+                            Button("Experiment monitoring", systemImage: "chart.bar.xaxis") { experimentMonitoring = model.makeExperimentMonitoring() }
+                                .disabled(model.busy)
                             Button("Work and recovery", systemImage: "clock.arrow.circlepath") { scheduler = model.makeScheduler() }
                                 .disabled(model.busy)
                             Button("Provider access", systemImage: "key.horizontal") { providers = model.makeProviders() }
@@ -154,6 +157,7 @@ struct WorkflowNavigation: View {
             .sheet(item: $evidence) { NativeEvidenceView(model: $0) }
             .sheet(item: $snapshots) { NativeSnapshotView(model: $0) }
             .sheet(item: $automation) { NativeAutomationView(model: $0) }
+            .sheet(item: $experimentMonitoring) { NativeExperimentMonitoringView(model: $0) }
             .sheet(item: $studio) { NativeStudioView(model: $0) }
             .sheet(item: $humanReview) { NativeHumanReviewView(model: $0) }
             .sheet(item: $insights) { NativeInsightsView(model: $0) }
@@ -168,6 +172,7 @@ struct WorkflowNavigation: View {
             inference = nil; providers = nil; scheduler = nil; agents = nil; editor = nil; showingCreate = false; showingResults = false; showingMedia = false; model.lock()
         }
         .onChange(of: model.unlocked) { _, value in if !value { inference = nil; providers = nil; scheduler = nil; agents = nil; editor = nil } }
+        .onChange(of: model.unlocked) { _, value in if !value { experimentMonitoring = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { editingApp = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { humanReview = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { insights = nil } }

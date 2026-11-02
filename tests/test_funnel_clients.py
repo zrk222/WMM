@@ -114,7 +114,12 @@ class FunnelClientsTests(unittest.IsolatedAsyncioTestCase):
         catalog=workflow_catalog()
         self.assertTrue({'funnel.list','funnel.read','funnel.save','funnel.import','funnel.observations','funnel.report'}<=set(catalog['workflows']['local_evidence']['operations']))
         self.assertTrue(catalog['workflows']['complete_analytics']['blockers'])
-        self.assertEqual({name for row in catalog['workflows'].values()for name in row['operations']},set(catalog['operations']))
+        bundled={name for row in catalog['workflows'].values() for name in row['operations']}
+        unbundled=set(catalog['unbundled_operations'])
+        self.assertFalse(bundled & unbundled)
+        self.assertEqual(bundled | unbundled,set(catalog['operations']))
+        self.assertTrue({'creative.batch.create','creative.source.save','handoff.create','handoff.resume',
+                         'experiment.schedule','experiment.schedule-run'} <= unbundled)
 
     def test_owner_role_revoked_before_write_transaction_cannot_commit(self):
         import threading

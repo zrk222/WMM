@@ -4,7 +4,7 @@ import json
 from .common import Invalid,amount,digest,iso_time,now,required,safe_data
 from .db import connection
 from .creative_analysis import latest,append,saved_items
-from .creative_library import latest_capture,source_url
+from .creative_library import latest_capture,source_url,verify_owned_source
 from .experiments import asset_intact
 from .production_feasibility import bound as production_bound
 
@@ -95,6 +95,7 @@ def bind(db,store,app_id,data):
     if analysis["hash"]!=data["analysis_hash"]:raise Invalid("Analysis changed; reload the current inspection")
     capture=latest_capture(db,app_id,analysis["data"]["reference_id"])
     if capture["hash"]!=analysis["data"]["capture_hash"]:raise Invalid("Source changed; correct the inspection before preparing a brief")
+    verify_owned_source(db,store,app_id,capture["data"])
     records=bind_proofs(db,store,app_id,app,data);critical_findings(db,app_id)
     frozen={"definition":requested,"app":app,"app_hash":digest(app),"analysis":analysis,"source":capture,"records":records,"production":production_bound(db,app_id,app,capture,data["channel"])}
     return dict(frozen,content=compose(frozen),state="PREPARED",render="NOT_RUN",publication="NOT_RUN")

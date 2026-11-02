@@ -26,6 +26,8 @@ def issue_data(body,observed):
     names=body['operations']
     if not isinstance(names,list) or not names or any(not isinstance(name,str) or name not in OPERATIONS for name in names):
         raise Invalid('Select only fixed local operation names')
+    if set(names)&{'experiment.schedule','experiment.schedule-run'}:
+        raise Invalid('Experiment monitoring requires a verified owner')
     if len(names)!=len(set(names)):raise Invalid('Grant operations must be unique')
     agent_review_policy.validate(body)
     if type(body['max_calls']) is not int or not 1<=body['max_calls']<=10000:
@@ -49,6 +51,8 @@ def app_scope(db,app_id):
 
 def current(db,row,envelope,observed,check_quota=True):
     """Check delegated scope, owner membership and quota before reserving admission."""
+    if envelope['operation'] in ('experiment.schedule','experiment.schedule-run'):
+        raise PermissionError('Experiment monitoring requires a verified owner')
     if row['status']!='ACTIVE' or iso_time(row['expires'])<=observed:
         raise PermissionError('Agent grant is revoked or expired')
     if row['app_id']!=envelope['app_id'] or envelope['operation'] not in json.loads(row['operations']):
@@ -73,6 +77,128 @@ def consume(db,row,envelope,observed):
     db.execute('UPDATE agent_grants SET used=used+1,updated=? WHERE id=?',(observed.isoformat(),row['id']))
     audit(db,row['app_id'],'agent_grant.admitted',dict(grant_id=row['id'],agent_id=row['agent_id'],operation=envelope['operation'],attempt=row['used']+1))
     return dict(grant_id=row['id'],agent_id=row['agent_id'],attempt=row['used']+1)
+
+
+def capture_batch_authority(db,store,app_id,operation,plan_hash,expires):
+    """Capture finite, secret-free provenance only from an exact protected admission."""
+    from .operation_authority import PROTECTED,check,store_identity
+    context=PROTECTED.get();observed=datetime.now(timezone.utc);deadline=iso_time(expires)
+    if not context or context.get('store')!=store_identity(store):raise PermissionError('Protected batch admission is required')
+    envelope=json.loads(context['envelope'])
+    if envelope['app_id']!=app_id or envelope['operation']!=operation or not re.fullmatch('[a-f0-9]{64}',plan_hash or ''):
+        raise PermissionError('Batch admission does not match the exact plan')
+    body=envelope.get('input')
+    if (operation!='creative.batch.create' or not isinstance(body,dict) or set(body)!={'plan','plan_hash','request_key'}
+            or not isinstance(body['plan'],str) or body['plan_hash']!=plan_hash):
+        raise PermissionError('Batch plan or expiry differs from the admitted request')
+    from .operator_client import strict_json
+    try:plan=strict_json(body['plan'].encode('utf-8'))
+    except (Invalid,UnicodeError):raise PermissionError('Batch plan is not canonical JSON') from None
+    if (not isinstance(plan,dict) or canonical(plan)!=body['plan']
+            or digest(plan)!=plan_hash or plan.get('expires')!=expires):
+        raise PermissionError('Batch plan or expiry differs from the admitted request')
+    if not observed<deadline<=observed+timedelta(hours=24):raise Invalid('Batch authority must expire within 24 hours')
+    check(db,context)
+    version,app_hash=app_scope(db,app_id)
+    result=dict(schema='growth.batch-authority.v1',app_id=app_id,operation=operation,plan_hash=plan_hash,
+                envelope_hash=digest(envelope),expires=deadline.isoformat(),app_version=version,app_hash=app_hash)
+    if 'grant_id' not in context:
+        result.update(kind='OWNER',principal=context['principal'],role_version=context['role_version'])
+        return result
+    grant=db.execute('SELECT * FROM agent_grants WHERE id=?',(context['grant_id'],)).fetchone()
+    if deadline>iso_time(grant['expires']):raise PermissionError('Batch deadline exceeds the source grant')
+    result.update(kind='AGENT',grant_id=grant['id'],grant_version=grant['version'],agent_id=grant['agent_id'],
+                  attempt=context['attempt'],review=context['review'],execution_id=context.get('execution_id'),
+                  native_host_required=context.get('host_check') is not None)
+    if result['execution_id']:
+        from .automation_execution import execution_row
+        from .ios_agent_media import execution_hash
+        row=execution_row(db,result['execution_id'])
+        result['execution_hash']=execution_hash(row)
+    return result
+
+
+def check_batch_authority(db,store,app_id,reference,plan_hash):
+    """Recheck retained owner, grant, checkpoint and standing scope without reviving a session."""
+    from .review_access import exact_role
+    observed=datetime.now(timezone.utc)
+    if (not isinstance(reference,dict) or reference.get('schema')!='growth.batch-authority.v1'
+            or reference.get('app_id')!=app_id or reference.get('plan_hash')!=plan_hash
+            or iso_time(reference.get('expires'))<=observed
+            or app_scope(db,app_id)!=(reference.get('app_version'),reference.get('app_hash'))):
+        raise PermissionError('Batch authority changed or expired')
+    if reference.get('kind')=='OWNER':
+        exact_role(db,app_id,reference['principal'],reference['role_version'],'OWNER')
+        return
+    if reference.get('kind')!='AGENT':raise PermissionError('Unknown batch authority')
+    row=db.execute('SELECT * FROM agent_grants WHERE id=?',(reference.get('grant_id'),)).fetchone()
+    if not row or row['version']!=reference.get('grant_version') or row['agent_id']!=reference.get('agent_id'):
+        raise PermissionError('Batch source grant changed')
+    current(db,row,dict(app_id=app_id,operation=reference['operation']),observed,check_quota=False)
+    if reference.get('native_host_required'):
+        from .ios_host import NativeIdentities
+        from .operation_authority import PROTECTED,check,store_identity
+        host=PROTECTED.get()
+        if (not host or not isinstance(host.get('identities'),NativeIdentities) or host.get('store')!=store_identity(store)
+                or host.get('principal')!=row['owner'] or json.loads(host['envelope']).get('app_id')!=app_id):
+            raise PermissionError('Fresh native owner and host verification are required')
+        check(db,host)
+    if type(reference.get('attempt')) is not int or not 1<=reference['attempt']<=row['used']:
+        raise PermissionError('Batch source admission is unavailable')
+    review=reference.get('review')
+    if review is None:
+        agent_review_policy.ordinary_dispatch(db,row['id'],reference['operation'])
+    else:
+        from .agent_review_dispatch import saved_request
+        from .agent_checkpoints import read_row,current as checkpoint_current
+        request=saved_request(db,app_id,review['id']);checkpoint=read_row(db,app_id,review['id'])
+        if (request['grant_id']!=row['id'] or request['input_hash']!=review['input_hash']
+                or digest(request['envelope'])!=reference['envelope_hash'] or checkpoint['state']!='SUCCEEDED'
+                or checkpoint['hash']!=review['packet_hash'] or checkpoint['packet']['input_hash']!=request['input_hash']
+                or checkpoint['packet']['agent_id']!=row['agent_id']):
+            raise PermissionError('Batch review is no longer current')
+        checkpoint_current(db,checkpoint,observed)
+    identity=reference.get('execution_id')
+    policy=db.execute('SELECT id FROM automation_policies WHERE grant_id=?',(row['id'],)).fetchone()
+    if identity:
+        from .automation_execution import execution_row
+        from .ios_agent_media import execution_hash
+        from .complete_automation import checked_policy,ACCESS_VERIFIER
+        if reference.get('native_host_required') and not callable(ACCESS_VERIFIER.get()):
+            raise PermissionError('Fresh native protected-access verification is required')
+        execution=execution_row(db,identity)
+        if (not policy or policy['id']!=execution['policy_id'] or execution['status']!='SUCCEEDED'
+                or execution['grant_id']!=row['id'] or execution_hash(execution)!=reference.get('execution_hash')):
+            raise PermissionError('Batch standing execution requires reconciliation')
+        checked,_=checked_policy(db,execution['policy_id'],observed)
+        if checked['version']!=execution['policy_version']:raise PermissionError('Batch standing authority changed')
+    elif policy:
+        raise PermissionError('Batch standing execution provenance is unavailable')
+
+
+def batch_authority_pending(db,reference):
+    """Defer a queued child while its exact parent is still completing; grants no authority."""
+    if not isinstance(reference,dict) or reference.get('kind')!='AGENT':return False
+    try:
+        if iso_time(reference.get('expires'))<=datetime.now(timezone.utc):return False
+    except (Invalid,TypeError,ValueError):return False
+    grant=db.execute('SELECT status,version,expires FROM agent_grants WHERE id=?',(reference.get('grant_id'),)).fetchone()
+    if not grant or grant['status']!='ACTIVE' or grant['version']!=reference.get('grant_version'):return False
+    try:
+        if iso_time(grant['expires'])<=datetime.now(timezone.utc):return False
+    except (Invalid,TypeError,ValueError):return False
+    review=reference.get('review')
+    if isinstance(review,dict):
+        row=db.execute('SELECT data FROM agent_checkpoints WHERE app_id=? AND id=?',(reference.get('app_id'),review.get('id'))).fetchone()
+        if row:
+            try:
+                if json.loads(row['data']).get('state')=='RUNNING':return True
+            except (ValueError,TypeError,AttributeError):pass
+    identity=reference.get('execution_id')
+    if identity:
+        row=db.execute('SELECT status FROM automation_executions WHERE id=?',(identity,)).fetchone()
+        if row and row['status']=='DISPATCHED':return True
+    return False
 
 
 def issue_in_db(db,app_id,user,body,observed,token):

@@ -9,6 +9,26 @@ concurrency:
 permissions:
   contents: read
 jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - name: Install declared browser test profile
+        run: |
+          python -m pip install --require-hashes --only-binary :all: -r requirements.txt
+          python -m pip install --only-binary :all: -r docs/requirements-browser.txt
+          python -m playwright install --with-deps chromium
+          sudo apt-get install --yes --no-install-recommends ffmpeg fonts-dejavu-core
+      - name: Verify local render prerequisites before queueing
+        run: python -c "from mission_control.media_native import capability; result = capability(); assert result['status'] == 'READY', result"
+      - name: Exercise actual owner batch flow at desktop and mobile widths
+        env:
+          WMM_BROWSER_TEST_PROFILE: '1'
+        run: python -m unittest tests.test_creative_batches_browser -v
   windows:
     runs-on: windows-latest
     timeout-minutes: 45
@@ -40,6 +60,9 @@ jobs:
           $binary[0].DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Verify full test-profile prerequisites
         run: python -c "from zoneinfo import ZoneInfo; from importlib.metadata import version; from mission_control.media_native import capability; ZoneInfo('America/Toronto'); assert capability()['status'] == 'READY', capability(); assert version('mcp') == '1.30.0', version('mcp')"
+      - name: Verify batch inspection with pinned FFmpeg 9
+        if: matrix.shard == 0
+        run: python -m unittest tests.test_creative_batches.CreativeBatchTests.test_real_batch_render_inspection_and_completion tests.test_creative_batches.CreativeBatchTests.test_real_output_is_decoded_but_visual_review_remains_unknown -v
       - name: Check clean distribution
         run: python tools/check_distribution.py
       - name: Verify all browser logic suites

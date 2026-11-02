@@ -147,6 +147,78 @@ class Runtime:
             path=NativeStudio(self.service,self.identities).source(session,app_id,**body)
         return encode_response(dict(path=str(path)))
 
+    def native_creative_batch(self,session,app_id,action,payload):
+        """Admit a foreground native batch operation using the live device owner."""
+        from .ios_bridge import decode_document
+        from .ios_automation import native_access
+        from .ios_creative_batch import native_start,native_validate
+        from .operation_authority import bound_owner,protected
+        body=decode_document(payload)
+        fields={'start':{'batch_id','ordinal'},'validate':{'batch_id','ordinal','packet_hash'}}
+        if action not in fields or not isinstance(body,dict) or set(body)!=fields[action]:raise Invalid('Use an exact native batch request')
+        user=self.identities.fresh(session);envelope=dict(app_id=app_id,operation='native.creative-batch.'+action,input=body)
+        with native_access(self.service,self.identities,session,self.vault_callback),bound_owner(self.service.store,envelope,self.identities,session,user),protected(self.service.store,envelope):
+            call=native_start if action=='start' else native_validate
+            return encode_response(call(self.service.store,app_id,**body))
+
+    def native_creative_batch_source(self,session,app_id,payload):
+        """Resolve only the current native owner's packet-bound app-local still."""
+        from .ios_bridge import decode_document
+        from .ios_automation import native_access
+        from .ios_creative_batch import native_source_for_job
+        from .operation_authority import bound_owner,protected
+        body=decode_document(payload)
+        if not isinstance(body,dict) or set(body)!={'batch_id','ordinal','packet_hash','source_id','sha256'}:raise Invalid('Use an exact native batch source')
+        user=self.identities.fresh(session);envelope=dict(app_id=app_id,operation='native.creative-batch.source',input=body)
+        with native_access(self.service,self.identities,session,self.vault_callback),bound_owner(self.service.store,envelope,self.identities,session,user),protected(self.service.store,envelope):
+            path=native_source_for_job(self.service.store,app_id,**body)
+            return encode_response(dict(path=str(path)))
+
+    def native_creative_batch_finish(self,session,app_id,payload,inspection):
+        """Commit only inspection supplied by the trusted native host bridge."""
+        from .ios_bridge import decode_document
+        from .ios_automation import native_access
+        from .ios_creative_batch import native_finish
+        from .operation_authority import bound_owner,protected
+        body=decode_document(payload);proof=decode_document(inspection)
+        if not isinstance(body,dict) or set(body)!={'batch_id','ordinal','packet_hash'}:raise Invalid('Use an exact native batch completion')
+        user=self.identities.fresh(session);envelope=dict(app_id=app_id,operation='native.creative-batch.finish',input=body)
+        with native_access(self.service,self.identities,session,self.vault_callback),bound_owner(self.service.store,envelope,self.identities,session,user),protected(self.service.store,envelope):
+            return encode_response(native_finish(self.service.store,app_id,inspection=proof,**body))
+
+    def native_creative_batch_stopped(self,session,app_id,payload):
+        """Accept only the trusted host's confirmed stopped-writer acknowledgement."""
+        from .ios_bridge import decode_document
+        from .ios_automation import native_access
+        from .ios_creative_batch import native_ack_stopped
+        from .operation_authority import bound_owner,protected
+        body=decode_document(payload)
+        if not isinstance(body,dict) or set(body)!={'batch_id','ordinal','packet_hash'}:raise Invalid('Use an exact stopped native batch attempt')
+        user=self.identities.fresh(session);envelope=dict(app_id=app_id,operation='native.creative-batch.stopped',input=body)
+        with native_access(self.service,self.identities,session,self.vault_callback),bound_owner(self.service.store,envelope,self.identities,session,user),protected(self.service.store,envelope):
+            return encode_response(native_ack_stopped(self.service.store,app_id,**body))
+
+    def native_creative_batch_artifact(self,session,app_id,payload):
+        """Resolve a reviewed native artifact only for the freshly verified owner."""
+        from .ios_bridge import decode_document
+        from .ios_automation import native_access
+        from .ios_creative_batch import native_artifact
+        from .operation_authority import bound_owner,protected
+        body=decode_document(payload)
+        if not isinstance(body,dict) or set(body)!={'batch_id','ordinal'}:raise Invalid('Use an exact native batch artifact')
+        user=self.identities.fresh(session);envelope=dict(app_id=app_id,operation='native.creative-batch.artifact',input=body)
+        with native_access(self.service,self.identities,session,self.vault_callback),bound_owner(self.service.store,envelope,self.identities,session,user),protected(self.service.store,envelope):
+            return encode_response(native_artifact(self.service.store,app_id,**body))
+
+    def native_creative_still_upload(self,session,app_id,filename,raw):
+        """Accept still bytes only from the native host after its local image decode."""
+        from .ios_automation import native_access
+        from .operation_authority import bound_owner,protected
+        if not isinstance(filename,str) or not isinstance(raw,bytes) or not 0<len(raw)<=8388608:raise Invalid('Use a bounded PNG or JPEG still')
+        user=self.identities.fresh(session);envelope=dict(app_id=app_id,operation='native.creative-still.upload',input={'filename':filename})
+        with native_access(self.service,self.identities,session,self.vault_callback),bound_owner(self.service.store,envelope,self.identities,session,user),protected(self.service.store,envelope):
+            return encode_response(self.service.upload(app_id,filename,raw))
+
     def evidence_form(self,session,app_id):
         """Expose shared evidence fields without connection records or credentials."""
         from .catalog import FIELDS,LABELS

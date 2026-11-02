@@ -88,19 +88,34 @@ OPERATIONS={
     'billing.save':descriptor('POST','/records','WRITE_LOCAL_EVIDENCE',('id','manifest_version','kind','title','source','data')),
     'experiment.register':descriptor('POST','/experiments','WRITE_LOCAL_PLAN',('manifest_version','name','hypothesis','owner','primary_metric','baseline_rate','minimum_detectable_effect','treatment_allocation','analysis_at','assignment_method','assignment_source','guardrails','stop_rule','rollback_plan','control','treatment')),
     'experiment.evaluate':descriptor('POST','/experiments/{resource_id}/evaluate','WRITE_LOCAL_ASSESSMENT',(),(),True),
+    'experiment.schedule':descriptor('POST','/experiments/{resource_id}/schedule','OWNER_ONLY_LOCAL_MONITORING',('enabled','interval_hours','version'),('manifest_version','expires_at','max_observations'),True),
+    'experiment.schedule-run':descriptor('POST','/experiments/{resource_id}/schedule-run','OWNER_ONLY_LOCAL_MONITORING',(),(),True),
+    'creative.batch.plan':descriptor('POST','/production/batches/plan','READ_PRIVATE_LOCAL_DATA',('variants','max_total_frames','runtime','expires')),
+    'creative.batch.create':descriptor('POST','/production/batches/create','QUEUE_LOCAL_PREPARATION',('plan','plan_hash','request_key')),
+    'creative.batch.list':descriptor('POST','/production/batches/list','READ_PRIVATE_LOCAL_DATA'),
+    'creative.batch.cancel':descriptor('POST','/production/batches/cancel','CANCEL_LOCAL_JOB',('batch_id',)),
+    'creative.source.save':descriptor('POST','/production/sources/save','WRITE_LOCAL_EVIDENCE',('data',),('id','version')),
+    'creative.analysis.save':descriptor('POST','/production/analyses/save','WRITE_LOCAL_EVIDENCE',('data',),('id','version')),
+    'creative.profile.save':descriptor('POST','/production/profile/save','WRITE_LOCAL_EVIDENCE',('data',),('id','version')),
+    'creative.requirement.save':descriptor('POST','/production/requirement/save','WRITE_LOCAL_EVIDENCE',('data',),('id','version')),
+    'creative.brief.save':descriptor('POST','/production/briefs/save','WRITE_LOCAL_PLAN',('data',),('id','version')),
+    'handoff.create':descriptor('POST','/agent-handoffs','WRITE_LOCAL_PLAN',('job_id','recipient','operations','expires')),
+    'handoff.resume':descriptor('POST','/agent-handoffs/{resource_id}/resume','READ_PRIVATE_LOCAL_DATA',('version','payload_hash'),(),True),
     'experiment.action':descriptor('POST','/experiments/{resource_id}/actions','WRITE_LOCAL_DECISION',('operation','version'),('source','observed_at','decision','reason','assessment_hash','target'),True)
 }
 
 
 def catalog():
     """Return inspectable transport capabilities without granting agent or human authority."""
-    value=dict(schema='growth.operation-catalog.v1',operations=copy.deepcopy(OPERATIONS),
+    value=dict(schema='growth.operation-catalog.v1',operations=copy.deepcopy({key:rule for key,rule in OPERATIONS.items() if key not in ('experiment.schedule','experiment.schedule-run')}),
         envelope=dict(required=['app_id','operation','input'],optional=['resource_id']),
         input_validation='Exact top-level fields here; authoritative nested domain checks run on the existing server.',
         transport='EXACT_LOOPBACK_HTTP_WITH_SCOPED_BEARER_OR_TRUSTED_LOCAL_SESSION',
         authority='Scoped bearer grants enforce current app, owner role, operations, expiry, revocation and call limits. Trusted local browser sessions are separate; neither grants human approval.',
         review=dict(prepare='/api/agent-operations/reviews/prepare',status='/api/agent-operations/reviews/status',resume='/api/agent-operations/reviews/resume',
-            approval='SEPARATE_FRESH_HUMAN_IDENTITY_DISTINCT_CHECKER',policy='OWNER_SELECTED_WRITE_OPERATIONS',input='IMMUTABLE_EXACT_ENVELOPE_AND_GRANT',replay='DENIED_AFTER_CLAIM'),
+            approval='SEPARATE_FRESH_HUMAN_IDENTITY_DISTINCT_CHECKER',policy='OWNER_SELECTED_WRITE_OPERATIONS',input='IMMUTABLE_EXACT_ENVELOPE_AND_GRANT',replay='DENIED_AFTER_CLAIM',
+            mandatory_operations=['creative.source.save','creative.analysis.save','creative.profile.save','creative.requirement.save','creative.brief.save'],
+            conditional='evidence.save asset authenticity or rights assertions require a verified owner or exact distinct-checker reviewed agent'),
         workflow=dict(sequence=['workspace.read','evidence.save','pipeline.prepare','jobs.read'],
             job_submission='QUEUED_IS_NOT_COMPLETED',job_result='Read the saved job status and result; pipeline preparation never publishes or spends.',
             cancellation='Stops future local work where supported; running effects and receipts require inspection.'),

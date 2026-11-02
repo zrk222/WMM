@@ -2,6 +2,8 @@
 import hashlib
 import json
 import os
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 import shutil
 import subprocess
@@ -12,6 +14,27 @@ from .common import Invalid
 SHAPES={"PORTRAIT":(720,1280),"LANDSCAPE":(1280,720)}
 MAX_BYTES=8388608
 FONT_PATHS=(Path(os.environ.get("WINDIR","C:/Windows"))/"Fonts/segoeui.ttf",Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
+_CHILDREN=ContextVar("wmm_native_render_children",default=None)
+
+
+@contextmanager
+def track_children():
+    """Track only this attempt; uncertain child cleanup never proves a stop."""
+    state={"active":0,"uncertain":False};token=_CHILDREN.set(state)
+    try:yield state
+    finally:_CHILDREN.reset(token)
+
+
+def child_started():
+    state=_CHILDREN.get()
+    if state is not None:state["active"]+=1
+
+
+def child_finished(confirmed):
+    state=_CHILDREN.get()
+    if state is not None:
+        state["active"]-=1
+        if not confirmed:state["uncertain"]=True
 
 
 def capability():
@@ -44,7 +67,10 @@ def invoke(argv,cwd,alive,deadline):
     """Poll a private child, heartbeat ownership, and terminate only that child on failure."""
     flags=subprocess.CREATE_NO_WINDOW if os.name=="nt" else 0
     with (Path(cwd)/"native.log").open("wb") as log:
-        process=subprocess.Popen(argv,cwd=cwd,stdin=subprocess.DEVNULL,stdout=log,stderr=log,creationflags=flags)
+        child_started()
+        try:process=subprocess.Popen(argv,cwd=cwd,stdin=subprocess.DEVNULL,stdout=log,stderr=log,creationflags=flags)
+        except BaseException:
+            child_finished(False);raise
         try:
             while process.poll() is None:
                 alive()
@@ -53,10 +79,14 @@ def invoke(argv,cwd,alive,deadline):
             if process.returncode:raise Invalid("Native media processing failed; verify that the selected screen decodes correctly and FFmpeg supports H.264/drawtext")
             alive()
         finally:
-            if process.poll() is None:
-                process.terminate()
-                try:process.wait(timeout=3)
-                except subprocess.TimeoutExpired:process.kill();process.wait(timeout=3)
+            confirmed=False
+            try:
+                if process.poll() is None:
+                    process.terminate()
+                    try:process.wait(timeout=3)
+                    except subprocess.TimeoutExpired:process.kill();process.wait(timeout=3)
+                confirmed=process.poll() is not None
+            finally:child_finished(confirmed)
 
 
 def video_metadata(path,tools=None):
@@ -65,7 +95,11 @@ def video_metadata(path,tools=None):
     if not tools.get("ffprobe"):raise Invalid("FFprobe is required to validate video bytes")
     flags=subprocess.CREATE_NO_WINDOW if os.name=="nt" else 0
     try:
-        result=subprocess.run([tools["ffprobe"],"-v","error","-protocol_whitelist","file,pipe","-show_streams","-show_format","-of","json",str(path)],capture_output=True,timeout=15,creationflags=flags)
+        child_started()
+        try:result=subprocess.run([tools["ffprobe"],"-v","error","-protocol_whitelist","file,pipe","-show_streams","-show_format","-of","json",str(path)],capture_output=True,timeout=15,creationflags=flags)
+        except BaseException:
+            child_finished(False);raise
+        else:child_finished(True)
         if result.returncode:raise Invalid("Video bytes did not decode; no artifact was accepted")
         parsed=json.loads(result.stdout);streams=parsed["streams"]
         if len(streams)!=1 or streams[0].get("codec_type")!="video":raise Invalid("Rendered media must contain exactly one silent video stream")

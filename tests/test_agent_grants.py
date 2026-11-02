@@ -143,3 +143,15 @@ class GrantTests(unittest.TestCase):
         with self.assertRaises(ClientError) as error:client.call(self.envelope())
         self.assertEqual(error.exception.status,403)
         self.assertEqual(self.owner.call(self.envelope())['history'],[])
+
+    def test_owner_only_monitoring_cannot_be_granted_or_admitted_from_tampered_scope(self):
+        for operation in ('experiment.schedule','experiment.schedule-run'):
+            with self.assertRaises(ClientError):self.issue([operation])
+        issued=self.issue(['growth.read'])
+        with connection(self.store.path) as db:
+            db.execute('UPDATE agent_grants SET operations=? WHERE id=?',
+                       (json.dumps(['experiment.schedule','experiment.schedule-run']),issued['grant']['id']))
+        for operation,body in (('experiment.schedule',dict(enabled=False,interval_hours=1,version=1)),
+                               ('experiment.schedule-run',{})):
+            envelope=dict(app_id='sample-one',operation=operation,resource_id='experiment-one',input=body)
+            with self.assertRaises(PermissionError):self.grants.admit(issued['token'],envelope)
