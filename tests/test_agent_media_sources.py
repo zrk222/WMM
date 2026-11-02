@@ -66,4 +66,8 @@ class MediaSourceClientsTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('media.sources',workflows['video_authoring_editing']['operations'])
         self.assertIn('COMPLETE_AGENT_AND_HUMAN_EDITOR_REQUIRED',workflows['video_authoring_editing']['blockers'])
         self.assertNotIn('media.sources',workflows['paid_effects']['operations'])
-        self.assertEqual({name for row in workflows.values()for name in row['operations']},set(catalog['operations']))
+        bundled={name for row in workflows.values() for name in row['operations']}
+        unbundled=set(catalog['unbundled_operations'])
+        self.assertFalse(bundled & unbundled)
+        self.assertEqual(bundled | unbundled,set(catalog['operations']))
+        self.assertTrue({'creative.batch.create','handoff.resume','experiment.schedule'} <= unbundled)
