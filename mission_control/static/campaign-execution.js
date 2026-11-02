@@ -1,7 +1,7 @@
 "use strict";
 /* Owner scope is authority; this view cannot issue authority for an agent. */
 function campaignPanel() {
-  return `<section class="panel"><h2>Campaign automation</h2><p>Approve your exact posts, Page, audience, time window and media budget. Your agent can then publish and run supported Meta campaigns inside that scope. Inspect saved delivery receipts and stop future work here.</p>${button('Review campaign automation','campaign-open')}</section>`;
+  return `<section class="panel"><h2>Campaign automation</h2><p>Approve your exact posts, Page, audience, time window and media budget. Your agent can then publish and run supported Meta campaigns inside that scope. Inspect saved delivery receipts and stop future work here.</p>${button('Review campaign automation','campaign-open')}${button('Monitor approved campaigns','campaign-monitor-open')}</section>`;
 }
 
 function campaignStable(value) {

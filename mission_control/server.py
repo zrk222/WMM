@@ -38,7 +38,7 @@ def owner_domain_post(parts):
     """Resolve only fixed private domain modules, retaining lazy imports."""
     if len(parts)<4 or parts[:2]!=['api','apps']:return None
     module={'drive':'drive_http','media':'managed_media_http','funnels':'funnel_http',
-            'discovery':'discovery_http','packaging':'packaging_http','campaigns':'campaign_http'}.get(parts[3])
+            'discovery':'discovery_http','packaging':'packaging_http','campaigns':'campaign_http','campaign-monitor':'campaign_monitor_http'}.get(parts[3])
     if module is None:return None
     from importlib import import_module
     return import_module('.'+module,__package__).post
@@ -179,7 +179,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200,{"ledger":json.loads((root/"research-ledger.json").read_text(encoding="utf-8-sig")),"acquisition":json.loads((root/"acquisition-profiles.json").read_text(encoding="utf-8-sig"))})
         if path.startswith("/api/apps/"):
             return self.get_app(path)
-        scripts=('/agent-control.js','/subscription-authoring.js','/customer-workflow.js','/growth-review.js','/page-reporting.js','/setup-discovery.js','/google-play.js','/play-callback.js','/drive-callback.js','/social-access.js','/campaign-execution.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
+        scripts=('/agent-control.js','/subscription-authoring.js','/customer-workflow.js','/growth-review.js','/page-reporting.js','/setup-discovery.js','/google-play.js','/play-callback.js','/drive-callback.js','/social-access.js','/campaign-execution.js','/campaign-monitor.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
                  '/workflow-automation.js','/followup.js','/aeo.js','/public-store-readback.js',
                  '/pmf-workflow.js','/pmf-research.js','/audit-runtime.js','/automatic-preparation.js','/campaign-sequence.js','/experiment-tracking.js',
                  '/spytok-workflow.js','/production-feasibility.js','/spira-workflow.js','/journey-readiness.js','/workflow-telemetry.js','/ui-stories.js','/complete-automation.js','/video-editor.js','/studio-controls.js','/managed-media.js','/drive-library.js','/discovery-model.js','/discovery-ui.js','/packaging-model.js','/packaging-ui.js','/funnel-model.js','/funnel-ui.js')

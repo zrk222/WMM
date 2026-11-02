@@ -1,0 +1,261 @@
+{
+  "name": "campaign-monitor",
+  "language": "python",
+  "modules": [
+    {
+      "name": "monitor",
+      "path": "mission_control/campaign_monitor.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "initialize",
+          "args": [
+            "store"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "whole",
+          "args": [
+            "value",
+            "low",
+            "high"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "proposal",
+          "args": [
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "actor",
+          "args": [
+            "store",
+            "app_id"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "source",
+          "args": [
+            "db",
+            "app_id",
+            "principal",
+            "scope_id"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "check_connection",
+          "args": [
+            "row",
+            "config",
+            "scope"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "target_row",
+          "args": [
+            "db",
+            "app_id",
+            "scope_id",
+            "target"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "checked",
+          "args": [
+            "db",
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "view",
+          "args": [
+            "db",
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "last_observation",
+          "args": [
+            "db",
+            "row",
+            "summary"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "owned",
+          "args": [
+            "db",
+            "app_id",
+            "principal",
+            "identity"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "tick",
+          "args": [
+            "store"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "eligible",
+          "args": [
+            "db",
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "block",
+          "args": [
+            "db",
+            "identity"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "queue",
+          "args": [
+            "db",
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "execute",
+          "args": [
+            "store",
+            "job",
+            "transport"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "protect",
+          "args": [
+            "store",
+            "job",
+            "service",
+            "capability",
+            "result"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "pause_reason",
+          "args": [
+            "result",
+            "conditions"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "monitor_authority",
+      "path": "mission_control/campaign_monitor_authority.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "bound",
+          "args": [
+            "store",
+            "job"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "validate",
+          "args": [
+            "db",
+            "store",
+            "app_id",
+            "actor",
+            "scope",
+            "action"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "check",
+          "args": [
+            "store",
+            "app_id",
+            "actor",
+            "scope",
+            "action"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "admit",
+          "args": [
+            "store",
+            "remote"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "remote_check",
+          "args": [
+            "store",
+            "remote"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "monitor_http",
+      "path": "mission_control/campaign_monitor_http.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "dispatch",
+          "args": [
+            "store",
+            "app_id",
+            "action",
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "post",
+          "args": [
+            "handler",
+            "parts"
+          ],
+          "returns": "object"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "monitor_authority",
+      "to": "monitor"
+    },
+    {
+      "from": "monitor_http",
+      "to": "monitor"
+    },
+    {
+      "from": "monitor",
+      "to": "monitor_authority"
+    }
+  ],
+  "invariants": []
+}

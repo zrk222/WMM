@@ -51,10 +51,13 @@ class FramingTests(unittest.TestCase):
                 connection=Mock();connection.gettimeout.return_value=17
                 stream=SimpleNamespace(read1=Mock(side_effect=result)) if isinstance(result,Exception) else io.BytesIO(result)
                 handler=SimpleNamespace(headers=headers(),connection=connection,rfile=stream)
-                if result==b'{}':self.assertEqual(read_body(handler),b'{}')
-                else:
-                    with self.assertRaises(Invalid) as error:read_body(handler)
-                    self.assertNotIn('private path',str(error.exception))
+                # This unit test isolates timeout restoration from wall-clock jitter.
+                # Real stalled/trickle HTTP tests below still enforce elapsed deadlines.
+                with patch('mission_control.http_body.time.monotonic',return_value=0):
+                    if result==b'{}':self.assertEqual(read_body(handler),b'{}')
+                    else:
+                        with self.assertRaises(Invalid) as error:read_body(handler)
+                        self.assertNotIn('private path',str(error.exception))
                 self.assertTrue(0<connection.settimeout.call_args_list[0].args[0]<=5)
                 self.assertEqual(connection.settimeout.call_args_list[-1].args,(17,))
 

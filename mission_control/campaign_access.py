@@ -27,8 +27,7 @@ def identity(store,app_id):
 def policy_checker(store):
     """Recheck the live gateway and owner relationship at every effect boundary."""
     def verify(app_id,actor,scope,action):
-        from .campaign_schedule_authority import check
-        if check(store,app_id,actor,scope,action):
+        if retained_check(store,app_id,actor,scope,action):
             return
         context,current_actor=identity(store,app_id)
         if actor!=current_actor:raise PermissionError('Campaign actor changed')
@@ -42,6 +41,16 @@ def policy_checker(store):
         elif scope.get('owner_principal',current_actor)!=current_actor:
             raise PermissionError('Campaign scope belongs to another owner')
     return verify
+
+
+def retained_check(store,app_id,actor,scope,action):
+    """Try closed host-job capabilities before existing owner or grant access."""
+    from .campaign_monitor_authority import check as monitor_check
+    from .campaign_schedule_authority import check as schedule_check
+    for check in (monitor_check,schedule_check):
+        if check(store,app_id,actor,scope,action):
+            return True
+    return False
 
 
 def scope_owner(store,context,actor):
