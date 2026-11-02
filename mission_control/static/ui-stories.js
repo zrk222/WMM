@@ -88,6 +88,7 @@
   define('creative-batch-form','Prepare a finite set of local videos from reviewed briefs.','WMM shows the selected variants, expiry and frame allowance before any batch is queued.','Choose the current briefs and shapes, review the exact plan, then queue only if it matches your intent. Publishing remains separate.');
   Object.freeze(FORMS);
   const DIALOGS=Object.freeze({
+    'Review exact video batch':['Review the exact videos before creating the batch.','The plan binds each variant to its brief, source and cleared stills, with a finite frame allowance and expiry.','Check the captions and output limits, then queue the reviewed plan if it matches your intent. Publication remains separate.'],
     'Your video direction':['Give your editor and agent the same clear direction.','WMM keeps your reviewed voice, visual rules, examples and exclusions as exact saved revisions.','Create your direction or inspect a revision before using it in production.'],
     'Guide your video editor':['Describe how your app should look and sound.','Your selected examples explain style. Your rules and exclusions stay attached to this app and the current guidance policy.','Review the fields, then save your owner-reviewed direction.'],
     'Your reviewed video direction':['Your creative direction is saved and inspectable.','The status shows whether the app, owner review, examples and policy remain current. This guidance grants no footage reuse or production authority.','Revise stale direction or export the exact saved review for your editor.'],
