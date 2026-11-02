@@ -39,11 +39,11 @@ async def mcp_smoke(binary, folder):
 def main():
     binary = ROOT/'dist/desktop/WMM'/('WMM.exe' if sys.platform == 'win32' else 'WMM')
     with tempfile.TemporaryDirectory() as folder:
-        for arguments in (['--check'], ['--self-test'], ['--agent-cli', 'catalog']):
+        for arguments in (['--check'], ['--self-test'], ['--vault-self-test'], ['--agent-cli', 'catalog']):
             result = subprocess.run([str(binary), *arguments], cwd=folder, check=True,
                                     capture_output=True, text=True, timeout=90)
             value = json.loads(result.stdout)
-            if arguments == ['--self-test']:
+            if arguments in (['--self-test'], ['--vault-self-test']):
                 assert value['status'] == 'PASS'
             print(json.dumps(dict(command=arguments, exit_code=result.returncode)))
         import anyio

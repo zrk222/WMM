@@ -20,6 +20,8 @@ def command():
             '--collect-all', 'tzdata', '--copy-metadata', 'mcp',
             '--collect-submodules', 'mcp.server', '--collect-submodules', 'mcp.shared',
             '--collect-submodules', 'mcp.client', '--exclude-module', 'mcp.cli']
+    if sys.platform.startswith('linux'):
+        argv += ['--collect-all', 'secretstorage', '--collect-submodules', 'jeepney']
     # A console-enabled executable is needed for stdio MCP/CLI transport.
     # Windows users launch the terminal-free .vbs shortcut supplied alongside it.
     for path in DATA:

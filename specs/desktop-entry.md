@@ -11,6 +11,8 @@ A terminal-free desktop entry over the existing loopback WMM server. Bundled run
 - When the owner closes the desktop controller, the system shall stop workers and close the local server through `clean_shutdown`.
 - The system shall route explicit agent CLI and MCP arguments through the packaged executable, including MCP initialization, discovery, ping and catalog access without a workspace through `frozen_dispatch`.
 
+- The system shall include its Linux protected-storage dependency in native bundles and return a successful synthetic native credential roundtrip with verified cleanup through `bundled_vault`.
+
 ### Acceptance criteria (Gherkin)
 ```gherkin
 Scenario: private_data
@@ -29,6 +31,10 @@ Scenario: frozen_dispatch
  Given a frozen agent command
  When `frozen_dispatch` launches or closes the desktop
  Then the existing adapter executes without requiring a system Python command
+Scenario: bundled_vault
+ Given a clean native runtime and unlocked isolated user secret store
+ When `bundled_vault` writes reads and removes one synthetic unique credential
+ Then the expected value is read and its deletion verified without returning its contents
 ```
 
 ## SHOULD - Technical

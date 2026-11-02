@@ -167,6 +167,27 @@ def self_test():
                           provider_execution='NOT_RUN', data='DISPOSABLE_SYNTHETIC')))
 
 
+def vault_self_test():
+    """Roundtrip only a unique disposable WMM item; never return secret bytes."""
+    from uuid import uuid4
+    from mission_control.credential_vault import Vault
+    vault = Vault()
+    name = 'WMM/disposable-package-test/' + str(uuid4())
+    value = {'probe': 'synthetic-private-' + str(uuid4())}
+    if vault.get(name) is not None:
+        raise RuntimeError('Disposable credential address is already occupied')
+    try:
+        vault.put(name, value)
+        if vault.get(name) != value:
+            raise RuntimeError('Protected credential readback did not match')
+    finally:
+        vault.delete(name)
+    if vault.get(name) is not None:
+        raise RuntimeError('Disposable credential cleanup could not be verified')
+    print(json.dumps(dict(status='PASS', native_protected_storage=True,
+                          synthetic_item_removed=True, secret_contents_returned=False)))
+
+
 def main(arguments=None):
     """Show a small controller; shutting the browser alone leaves approved work running."""
     arguments = sys.argv[1:] if arguments is None else arguments
@@ -178,6 +199,9 @@ def main(arguments=None):
         return
     if arguments == ['--self-test']:
         self_test()
+        return
+    if arguments == ['--vault-self-test']:
+        vault_self_test()
         return
     if arguments == ['--headless']:
         headless()

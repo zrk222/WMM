@@ -281,6 +281,46 @@ class DesktopEntryTests(unittest.TestCase):
         self.assertNotIn("--onefile", argv)
         self.assertIn("mcp", argv)
 
+    def test_disposable_vault_probe_verifies_cleanup_without_secret_output(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from mission_control.desktop import vault_self_test
+        saved = {}
+        vault = Mock()
+        vault.get.side_effect = lambda key: saved.get(key)
+        vault.put.side_effect = lambda key, value: saved.__setitem__(key, value)
+        vault.delete.side_effect = lambda key: saved.pop(key, None)
+        output = StringIO()
+        with patch('mission_control.credential_vault.Vault', return_value=vault), redirect_stdout(output):
+            vault_self_test()
+        self.assertFalse(saved)
+        self.assertEqual(vault.put.call_count, 1)
+        self.assertEqual(vault.delete.call_count, 1)
+        self.assertTrue(vault.put.call_args.args[0].startswith('WMM/disposable-package-test/'))
+        self.assertNotIn('synthetic-private-', output.getvalue())
+        self.assertTrue(json.loads(output.getvalue())['synthetic_item_removed'])
+
+    def test_disposable_vault_probe_cleans_up_failed_readback(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from mission_control.desktop import vault_self_test
+        vault = Mock()
+        vault.get.side_effect = [None, {'wrong': 'value'}]
+        output = StringIO()
+        with patch('mission_control.credential_vault.Vault', return_value=vault), redirect_stdout(output):
+            with self.assertRaises(RuntimeError):
+                vault_self_test()
+        vault.delete.assert_called_once()
+        self.assertEqual(output.getvalue(), '')
+
+    def test_linux_bundle_explicitly_collects_protected_storage(self):
+        import runpy
+        with patch('sys.platform', 'linux'):
+            argv = runpy.run_path(str(Path(__file__).resolve().parents[1]/'tools/build_desktop.py'))['command']()
+        self.assertIn('secretstorage', argv)
+        self.assertIn('jeepney', argv)
+
+
 
 if __name__ == "__main__":
     unittest.main()
