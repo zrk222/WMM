@@ -1,0 +1,105 @@
+name: Desktop runtime packages
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'mission_control/desktop.py'
+      - 'tools/build_desktop.py'
+      - 'tools/smoke_desktop_bundle.py'
+      - 'tools/test_windows_installer.py'
+      - 'packaging/windows/**'
+      - 'packaging/linux/**'
+      - 'tools/build_linux_package.py'
+      - 'tools/test_linux_package.py'
+      - '.github/workflows/desktop-packages.yml'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  bundle:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - name: Install declared build dependencies
+        run: |
+          python -m pip install --require-hashes --only-binary :all: -r requirements.txt
+          python -m pip install --only-binary :all: pyinstaller==6.22.3 -r docs/requirements-mcp.txt
+      - name: Install Linux protected-storage build dependency
+        if: runner.os == 'Linux'
+        run: |
+          python -m pip install --only-binary :all: SecretStorage==3.3.3
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends dbus gnome-keyring
+      - name: Verify desktop entry
+        run: python -m unittest tests.test_desktop_entry -v
+      - name: Build folder runtime
+        run: python tools/build_desktop.py
+      - name: Smoke Windows executable and native protected storage
+        if: runner.os == 'Windows'
+        run: python tools/smoke_desktop_bundle.py
+      - name: Smoke Linux executable with isolated encrypted Secret Service
+        if: runner.os == 'Linux'
+        run: |
+          dbus-run-session -- bash -euo pipefail -c '
+            export XDG_DATA_HOME="$(mktemp -d "$RUNNER_TEMP/wmm-package-keyring.XXXXXX")"
+            printf "%s\n" "disposable-synthetic-package-keyring" | gnome-keyring-daemon --unlock --components=secrets
+            python tools/smoke_desktop_bundle.py
+          '
+      - name: Build Ubuntu desktop package
+        if: runner.os == 'Linux'
+        run: python tools/build_linux_package.py
+      - name: Verify isolated Ubuntu install upgrade and removal
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install --yes --no-install-recommends libtk8.6 libgl1 xdg-utils ffmpeg fonts-dejavu-core
+          sudo env CI=true WMM_LINUX_PACKAGE_TEST=1 WMM_ISOLATED_NATIVE_KEYRING=1 WMM_TEST_PYTHON="$(command -v python)" WMM_TEST_ROOT="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" dbus-run-session -- bash -euo pipefail -c '
+            export XDG_DATA_HOME="$(mktemp -d "$RUNNER_TEMP/wmm-deb-keyring.XXXXXX")"
+            printf "%s\n" "disposable-synthetic-deb-keyring" | gnome-keyring-daemon --unlock --components=secrets
+            "$WMM_TEST_PYTHON" "$WMM_TEST_ROOT/tools/test_linux_package.py"
+          '
+      - name: Retain Ubuntu installer
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: WMM-Ubuntu-${{ github.sha }}
+          path: dist/linux/*.deb
+          if-no-files-found: error
+          retention-days: 7
+      - name: Verify isolated Windows installation upgrade and uninstall
+        if: runner.os == 'Windows'
+        env:
+          WMM_INSTALLER_TEST: '1'
+        run: python tools/test_windows_installer.py
+      - name: Compile per-user Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $compiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (!(Test-Path -LiteralPath $compiler)) { throw 'Inno Setup compiler missing on runner' }
+          & $compiler 'packaging\windows\WMM.iss'
+          if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed' }
+      - name: Retain Windows installer
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: WMM-Setup-${{ github.sha }}
+          path: dist/installer/WMM-Setup.exe
+          if-no-files-found: error
+          retention-days: 7
+      - name: Retain runtime without operational data
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: WMM-desktop-${{ matrix.os }}-${{ github.sha }}
+          path: dist/desktop/WMM/
+          if-no-files-found: error
+          retention-days: 7

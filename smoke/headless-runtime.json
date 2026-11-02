@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "workspace-lock-contention-and-fixed-port",
+      "kind": "python",
+      "run": "import unittest; suite=unittest.defaultTestLoader.loadTestsFromNames(['tests.test_workspace_lock.WorkspaceLockTests.test_competing_subprocess_and_abrupt_exit_release','tests.test_desktop_entry.DesktopEntryTests.test_fixed_port_fails_closed_and_releases_workspace']); result=unittest.TextTestRunner().run(suite); assert result.wasSuccessful()"
+    }
+  ]
+}

@@ -1,0 +1,251 @@
+{
+  "name": "campaign-owner-reports",
+  "language": "python",
+  "modules": [
+    {
+      "name": "private_reports",
+      "path": "mission_control/campaign_owner_reports.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "initialize",
+          "args": [
+            "store"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "selection",
+          "args": [
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "exact",
+          "args": [
+            "body",
+            "fields"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "proposal",
+          "args": [
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "object_data",
+          "args": [
+            "raw"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "owned_resource",
+          "args": [
+            "db",
+            "table",
+            "app",
+            "owner",
+            "identity"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "binding",
+          "args": [
+            "db",
+            "store",
+            "app_id",
+            "owner",
+            "chosen"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "experiment_source",
+          "args": [
+            "db",
+            "app_id",
+            "identity"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "assessment_view",
+          "args": [
+            "row",
+            "definition_hash"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "effect_view",
+          "args": [
+            "data"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "campaign_view",
+          "args": [
+            "db",
+            "app_id",
+            "owner",
+            "scope_id"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "definitions",
+          "args": [
+            "db",
+            "app_id",
+            "metrics"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "comparison",
+          "args": [
+            "db",
+            "app_id",
+            "owner",
+            "key",
+            "current"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "build",
+          "args": [
+            "db",
+            "store",
+            "app_id",
+            "owner",
+            "chosen"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "next_action",
+          "args": [
+            "campaign",
+            "observation",
+            "coverage",
+            "experiment"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "report_view",
+          "args": [
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "save_report",
+          "args": [
+            "db",
+            "store",
+            "app_id",
+            "owner",
+            "chosen",
+            "key",
+            "plan_id"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "plan_view",
+          "args": [
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "checked_plan",
+          "args": [
+            "db",
+            "store",
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "tick",
+          "args": [
+            "store"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "report_due",
+          "args": [
+            "db",
+            "store",
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "block",
+          "args": [
+            "db",
+            "identity"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "enqueue",
+          "args": [
+            "db",
+            "row"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "execute",
+          "args": [
+            "store",
+            "job"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "job_authority",
+          "args": [
+            "db",
+            "store",
+            "job"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "dispatch",
+          "args": [
+            "store",
+            "app",
+            "action",
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "post",
+          "args": [
+            "handler",
+            "parts"
+          ],
+          "returns": "object"
+        }
+      ]
+    }
+  ],
+  "dependencies": [],
+  "invariants": []
+}

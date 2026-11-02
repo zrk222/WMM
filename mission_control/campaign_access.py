@@ -27,6 +27,8 @@ def identity(store,app_id):
 def policy_checker(store):
     """Recheck the live gateway and owner relationship at every effect boundary."""
     def verify(app_id,actor,scope,action):
+        if retained_check(store,app_id,actor,scope,action):
+            return
         context,current_actor=identity(store,app_id)
         if actor!=current_actor:raise PermissionError('Campaign actor changed')
         if action in {'PREPARE','ACTIVATE','REVOKE'} and 'principal' not in context:
@@ -41,6 +43,16 @@ def policy_checker(store):
     return verify
 
 
+def retained_check(store,app_id,actor,scope,action):
+    """Try closed host-job capabilities before existing owner or grant access."""
+    from .campaign_monitor_authority import check as monitor_check
+    from .campaign_schedule_authority import check as schedule_check
+    for check in (monitor_check,schedule_check):
+        if check(store,app_id,actor,scope,action):
+            return True
+    return False
+
+
 def scope_owner(store,context,actor):
     """Resolve only the authenticated owner behind the currently admitted grant."""
     if 'grant_id' not in context:return actor
@@ -52,8 +64,7 @@ def scope_owner(store,context,actor):
 
 def dispatch(store,app_id,action,body):
     """All clients share the same scope, budget, idempotency and provider checks."""
-    if action not in FIELDS or not isinstance(body,dict) or set(body)!=FIELDS[action]:
-        raise Invalid('Use the exact campaign operation fields')
+    validate_fields(action,body)
     context,actor=identity(store,app_id)
     if action in OWNER_ACTIONS and 'principal' not in context:
         raise PermissionError('Agents cannot create, activate or widen campaign authority')
@@ -78,3 +89,9 @@ def dispatch(store,app_id,action,body):
             'pause':lambda:service.run_pause(app_id,actor,scope_id,body['intent_id']),
             'reconcile':lambda:service.reconcile(app_id,actor,scope_id,body['intent_id'])}
     return routes[action]()
+
+
+def validate_fields(action,body):
+    """Close every owner and agent campaign payload before resolving authority."""
+    if action not in FIELDS or not isinstance(body,dict) or set(body)!=FIELDS[action]:
+        raise Invalid('Use the exact campaign operation fields')

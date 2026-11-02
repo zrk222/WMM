@@ -38,7 +38,7 @@ def owner_domain_post(parts):
     """Resolve only fixed private domain modules, retaining lazy imports."""
     if len(parts)<4 or parts[:2]!=['api','apps']:return None
     module={'drive':'drive_http','media':'managed_media_http','funnels':'funnel_http',
-            'discovery':'discovery_http','packaging':'packaging_http','campaigns':'campaign_http'}.get(parts[3])
+            'discovery':'discovery_http','packaging':'packaging_http','campaigns':'campaign_http','campaign-monitor':'campaign_monitor_http','campaign-owner-reports':'campaign_owner_reports'}.get(parts[3])
     if module is None:return None
     from importlib import import_module
     return import_module('.'+module,__package__).post
@@ -66,7 +66,8 @@ class Server(ThreadingHTTPServer):
     def server_close(self):
         """Retain native cleanup outcome separately from listening-socket closure."""
         try:
-            self.studio_shutdown_result=self.service.studio.shutdown()
+            if hasattr(self,'service'):
+                self.studio_shutdown_result=self.service.studio.shutdown()
         finally:super().server_close()
 
 
@@ -178,7 +179,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200,{"ledger":json.loads((root/"research-ledger.json").read_text(encoding="utf-8-sig")),"acquisition":json.loads((root/"acquisition-profiles.json").read_text(encoding="utf-8-sig"))})
         if path.startswith("/api/apps/"):
             return self.get_app(path)
-        scripts=('/agent-control.js','/subscription-authoring.js','/customer-workflow.js','/growth-review.js','/page-reporting.js','/setup-discovery.js','/google-play.js','/play-callback.js','/drive-callback.js','/social-access.js','/campaign-execution.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
+        scripts=('/agent-control.js','/subscription-authoring.js','/customer-workflow.js','/growth-review.js','/page-reporting.js','/setup-discovery.js','/google-play.js','/play-callback.js','/drive-callback.js','/social-access.js','/campaign-execution.js','/campaign-monitor.js','/campaign-owner-reports.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
                  '/workflow-automation.js','/followup.js','/aeo.js','/public-store-readback.js',
                  '/pmf-workflow.js','/pmf-research.js','/audit-runtime.js','/automatic-preparation.js','/campaign-sequence.js','/experiment-tracking.js',
                  '/spytok-workflow.js','/production-feasibility.js','/spira-workflow.js','/journey-readiness.js','/workflow-telemetry.js','/ui-stories.js','/complete-automation.js','/video-editor.js','/studio-controls.js','/managed-media.js','/drive-library.js','/discovery-model.js','/discovery-ui.js','/packaging-model.js','/packaging-ui.js','/funnel-model.js','/funnel-ui.js')
@@ -196,7 +197,10 @@ class Handler(BaseHTTPRequestHandler):
         query=urlparse(self.path).query
         if query and not re.fullmatch(r'offset=(0|[1-9][0-9]{0,8})',query):
             raise Invalid('Use only the weekly review offset')
-        return self.send(200,review(self.server.service,int(query.split('=')[1]) if query else 0))
+        session=self.session()
+        public=self.server.identities.public(session)
+        user=self.server.identities.local(session,public['principal']) if public.get('status')=='AUTHENTICATED' else None
+        return self.send(200,review(self.server.service,int(query.split('=')[1]) if query else 0,user=user))
 
     def callback_page(self,path):
         """Serve local callback assets without processing provider codes in a GET."""

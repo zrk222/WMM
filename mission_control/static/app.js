@@ -86,16 +86,17 @@ function render() {
     return;
   }
   $("#main").setAttribute("aria-busy","false");
-  const views={weekly:weeklyView,overview:overview,workflow:guidedView,pipeline:pipelineView,evidence:evidenceView,results:resultsView,connections:connectionsView,agents:agentAccessView,activity:activityView,research:researchView};
+  const views={weekly:weeklyView,overview:goalOverview,workflow:guidedView,pipeline:pipelineView,evidence:evidenceView,results:resultsView,connections:connectionsView,agents:agentAccessView,activity:activityView,research:researchView};
   $("#main").innerHTML=views[state.view]();
   if(["agents","activity"].includes(state.view))$("#main .page-heading").insertAdjacentHTML("afterend",WMMAgentControl.panel(state));
   if(["agents","activity"].includes(state.view))$("#main .page-heading").insertAdjacentHTML("afterend",WMMCompleteAutomation.panel(state));
   if(state.view==='research')$("#main .page-heading").insertAdjacentHTML('afterend',WMMVideoEditor.panel());
   if(state.view==='research')$("#main .page-heading").insertAdjacentHTML('afterend',WMMStudio.panel());
   if(state.view==='research')$("#main .page-heading").insertAdjacentHTML('afterend',WMMDiscovery.panel()+WMMPackaging.panel(state)+WMMMedia.panel()+WMMDrive.panel());
-  if(state.view==="overview")$("#main .hero").insertAdjacentHTML("afterend",WMMPageReports.overviewStory()+guidedOverviewPanel());
+
   automationDecorateWorkflow();
   WMMPageReports.decorate(state,document);
+  if(state.view==="overview"){const report=$("#main .page-reporting");if(report)$("#goal-advanced > summary").insertAdjacentElement("afterend",report);}
   if(["workflow","agents","activity","research"].includes(state.view)){
     $("#main .page-heading").insertAdjacentHTML("afterend",WMMTelemetry.panel());
     WMMTelemetry.mount(growthReviewServices());
@@ -107,33 +108,40 @@ function summary() {
   return `<div class="summary-grid"><div class="summary-card"><p class="metric-label">Stages with required evidence</p><div class="metric-value">${ready}<small> / 12</small></div><p class="metric-note">Local readiness, not publication</p></div><div class="summary-card"><p class="metric-label">Evidence & assets</p><div class="metric-value">${w.records.length}</div><p class="metric-note">Versioned and scoped to this app</p></div><div class="summary-card"><p class="metric-label">Authorized ad spending</p><div class="metric-value">0<small> authorized</small></div><p class="metric-note">Provider changes require exact approval</p></div></div>`;
 }
 
+function visibleWeeklyExceptions(value,principal){return value.exceptions.filter(card=>!card.owner_only||(value.owner_operations_principal===principal&&card.owner_principal===principal));}
+
 function weeklyView() {
   const value=state.weeklyReview;
   const intro=heading("Your weekly exceptions","Review what needs attention across your apps. Saved local evidence; no campaign execution.",button("Refresh review","weekly-refresh"));
   if(state.weeklyLoading)return intro+'<p role="status">Reviewing saved app evidence…</p>';
   if(state.weeklyError)return intro+notice(state.weeklyError+" Refresh to retry; saved work is preserved.","error");
   if(!value)return intro+empty("Start your portfolio review","Gather saved evidence across up to five apps per page.",button("Review apps","weekly-refresh"));
-  const cards=value.exceptions.map(c=>`<article class="panel"><p class="eyebrow">${esc(c.app_name)} / ${esc(c.category)}</p><h2>${esc(c.title)}</h2>${status(c.state)}<p>${esc(c.reason)}</p><p><strong>Recommended next step:</strong> ${esc(c.next_action)}</p><p class="description">Owner: ${esc(c.owner)} · Cost unknown · Change from prior review not assessed.</p>${button("Open recovery","weekly-recover",`data-app="${esc(c.app_id)}" data-tool="${esc(c.resolution_route)}"`)}<details><summary>Source and limits</summary><p>App ${esc(c.source_receipt.app_id)} · setup version ${esc(c.source_receipt.manifest_version)} · reviewed ${esc(c.source_receipt.observed_at)}</p><p class="app-mono">${esc(c.source_receipt.source_hash||"Source unavailable")}</p><p>Local input checks do not prove retained value, permission to spend or measured growth.</p></details></article>`).join('');
+  const visible=visibleWeeklyExceptions(value,state.workspace.identity?.principal);
+  const cards=visible.map(c=>`<article class="panel"><p class="eyebrow">${esc(c.app_name)} / ${esc(c.category)}</p><h2>${esc(c.title)}</h2>${status(c.state)}<p>${esc(c.reason)}</p><p><strong>Recommended next step:</strong> ${esc(c.next_action)}</p><p class="description">Owner: ${esc(c.owner)} · Cost unknown · Change from prior review not assessed.</p>${button("Open recovery","weekly-recover",`data-app="${esc(c.app_id)}" data-tool="${esc(c.resolution_route)}" data-resource="${esc(c.action?.resource_id||'')}" data-scope="${esc(c.action?.scope_id||'')}"`)}<details><summary>Source and limits</summary><p>App ${esc(c.source_receipt.app_id)} · setup version ${esc(c.source_receipt.manifest_version)} · reviewed ${esc(c.source_receipt.observed_at)}</p><p class="app-mono">${esc(c.source_receipt.source_hash||"Source unavailable")}</p><p>Local input checks do not prove retained value, permission to spend or measured growth.</p></details></article>`).join('');
   const coverage=value.coverage;
-  return intro+`<p role="status">Apps ${coverage.offset+1}–${coverage.offset+coverage.evaluated} of ${coverage.total_apps} reviewed · ${value.exceptions.length} exceptions on this page.</p>`+(cards||notice("No exceptions on this page. Local-ready inputs still require independent outcome and permission checks."))+`<details class="panel"><summary>Routine local-ready checks</summary>${value.apps.map(a=>`<p><strong>${esc(a.app_name)}</strong>: ${esc(a.local_ready.join(', ')||'No local-ready prerequisite checks')}</p>`).join('')}</details><div class="toolbar">${coverage.offset?button("First apps","weekly-page",'data-offset="0"'):''}${coverage.next_offset!==null?button("Next apps","weekly-page",`data-offset="${coverage.next_offset}"`):''}</div>`;
+  return intro+`<p role="status">Apps ${coverage.offset+1}–${coverage.offset+coverage.evaluated} of ${coverage.total_apps} reviewed · ${visible.length} exceptions on this page.</p>`+(cards||notice("No exceptions on this page. Local-ready inputs still require independent outcome and permission checks."))+`<details class="panel"><summary>Routine local-ready checks</summary>${value.apps.map(a=>`<p><strong>${esc(a.app_name)}</strong>: ${esc(a.local_ready.join(', ')||'No local-ready prerequisite checks')}</p>`).join('')}</details><div class="toolbar">${coverage.offset?button("First apps","weekly-page",'data-offset="0"'):''}${coverage.next_offset!==null?button("Next apps","weekly-page",`data-offset="${coverage.next_offset}"`):''}</div>`;
 }
 
 async function weeklyAction(node) {
   const generation=state.weeklyGeneration=(state.weeklyGeneration||0)+1;
   if(node.dataset.action==='weekly-recover') {
     const app=node.dataset.app,tool=node.dataset.tool;
-    const allowed=new Set(['workspace','readiness','measurement','results','retention','findings']);
+    const allowed=new Set(['workspace','readiness','measurement','results','retention','findings','monitor','campaign','owner_reports']);
     if(!allowed.has(tool)||!state.boot.apps.some(a=>a.id===app))throw new Error('Refresh this review before opening recovery.');
     state.app=app;$('#app-select').value=app;
     await refresh();
     if(state.weeklyGeneration!==generation||state.view!=='weekly'||state.app!==app||!currentWorkspace())return;
+    if(tool==='monitor'){await WMMCampaignMonitor.open();return node.dataset.resource?WMMCampaignMonitor.inspect(node.dataset.resource):undefined;}
+    if(tool==='campaign')return node.dataset.scope?campaignStatus(node.dataset.scope):campaignOpen();
+    if(tool==='owner_reports'){await WMMOwnerReports.open();return node.dataset.resource?WMMOwnerReports.inspect('plan',node.dataset.resource):undefined;}
     return tool==='workspace'?guidedNavigate('overview'):guidedOpenTool(tool);
   }
   const offset=node.dataset.action==='weekly-page'?Number(node.dataset.offset):0;
   state.weeklyLoading=true;state.weeklyError='';render();
   try {
+    const principal=state.workspace.identity?.principal;
     const result=await api('/api/weekly-review?offset='+offset);
-    if(state.weeklyGeneration!==generation||state.view!=='weekly')return;
+    if(state.weeklyGeneration!==generation||state.view!=='weekly'||principal!==state.workspace.identity?.principal)return;
     state.weeklyReview=result;
   } catch(error) {
     if(state.weeklyGeneration!==generation||state.view!=='weekly')return;
@@ -151,7 +159,7 @@ function flow() {
   return `<div class="flow-line">${["Plan","Launch","Learn"].map((name,i)=>`<div class="flow-phase"><span class="phase-number">${i+1}</span><span>${name}<small>${["Establish the truth","Prepare the experiment","Measure useful growth"][i]}</small></span></div>`).join("")}</div>`;
 }
 
-function overview() {
+function detailedOverview() {
   const w=state.workspace, next=w.stages.find(s=>s.status!=="READY") || w.stages[10];
   const recent=w.jobs.slice(0,3);
   return `<section class="hero"><div><p class="eyebrow">WIZE MARKETING MACHINE</p><h1>Plan your app marketing.<br>Prepare the work.<br>Measure results.</h1><p>Designed for your personal AI agent to operate on your behalf, with permissions you control and verified results reported back to you. You can inspect, edit and operate the same workspace yourself. Turn your app details, audience research, video references and analytics into a marketing plan you can act on. Wize Marketing Machine organizes creative briefs, video editing work, app store checks and subscription experiments. You receive saved work packets, approval records and PDF reports showing the evidence, results and next actions for each app. Use them to shorten creative turnaround, reduce repeated work and find conversion bottlenecks. Your business targets are more useful installs, stronger paid conversion and retention, and less wasted acquisition cost; measure actual gains in your app results.</p><button type="button" class="button light" data-view="workflow">Open Guided workflow →</button></div><div class="hero-art" aria-hidden="true"><div class="orbit"></div><div class="orbit second"></div><div class="orbit third">↗</div></div></section>${summary()}${automaticPreparationPanel()}<div class="two-column"><section class="panel"><p class="eyebrow">YOUR NEXT BEST ACTION</p><h2>${esc(next.title)}</h2><div class="next-step"><div class="step-icon" aria-hidden="true">${next.id}</div><div><h3>${esc(next.missing[0] || "Review a mature experiment")}</h3><p>${esc(next.description)}</p>${button("Open this stage","stage",`data-id="${next.id}"`)}</div></div></section><section class="panel"><p class="eyebrow">RECENT RUNS</p><h2>Work you can inspect</h2>${recent.length?recent.map(job=>`<div class="next-step"><div><h3>${job.action==="pipeline"?"Pipeline preparation":job.action==="experiment"?"Experiment analysis":"Provider read"}</h3><p>${esc(new Date(job.created).toLocaleString())}</p>${status(job.status)} <button class="text-button" data-action="job" data-id="${esc(job.id)}">View result ↗</button></div></div>`).join(""):`<p class="description">Your first run will create a saved packet for every stage, including the evidence still needed.</p><button class="text-button" data-view="pipeline">Explore the pipeline ↗</button>`}</section></div><div class="section-heading"><div><h2>A clear path from plan to learning</h2><p>Twelve connected stages. Each one has a purpose.</p></div><button class="text-button" data-view="pipeline">View all stages →</button></div>${flow()}<div class="stage-grid">${w.stages.slice(0,3).map(stageCard).join("")}</div>`;
@@ -761,6 +769,8 @@ async function formSubmit(event) {
     event.preventDefault();toast("App changed. Wait for this app to load and reopen the form.");return;
   }
   const formId=form.getAttribute("id");
+  if(formId==='agreement-form'){event.preventDefault();return WMMAgreement.submit(form);}
+  if(formId==='goal-readiness-form'){event.preventDefault();return WMMGoalReadiness.submit(form);}
   if(formId==='standing-scope-form'){event.preventDefault();return WMMCompleteAutomation.submit(form,growthReviewServices());}
   if(['video-project-create-form','video-project-edit-form'].includes(formId)){event.preventDefault();return WMMVideoEditor.submit(form,growthReviewServices());}
   if(formId==='studio-source-form'||form.hasAttribute('data-studio-parameter')){event.preventDefault();return WMMStudio.submit(form,growthReviewServices());}
@@ -774,6 +784,9 @@ async function formSubmit(event) {
   if(formId==="customer-workflow-form") {event.preventDefault();return WMMCustomerWorkflow.submit(form,growthReviewServices());}
   if(formId==="growth-review-form") {event.preventDefault();return WMMGrowthReview.submit(form,growthReviewServices());}
   if((formId||'').startsWith('agent-')) {event.preventDefault();return agentSubmit(form);}
+  if(formId==='owner-report-form'){event.preventDefault();return WMMOwnerReports.submit(form);}
+  if(formId==='campaign-monitor-form'){event.preventDefault();return WMMCampaignMonitor.submit(form);}
+  if(formId==='campaign-schedule-form'){event.preventDefault();return campaignScheduleSubmit(form);}
   if(formId==='campaign-scope-form'){event.preventDefault();return campaignSubmit(form);}
   if((formId||'').startsWith('social-')) {event.preventDefault();return socialSubmit(form);}
   if(formId==='play-setup-form') {event.preventDefault();return playSubmit(form);}
@@ -867,6 +880,7 @@ async function saveEvidence(data,form) {
 }
 
 async function handleAction(node) {
+  if(node.dataset.action==='agreement-report')return WMMAgreement.report();
   if(node.dataset.action.startsWith('veditor-'))return WMMVideoEditor.action(node,growthReviewServices());
   if(node.dataset.action.startsWith('studio-'))return WMMStudio.action(node,growthReviewServices());
   if(node.dataset.action.startsWith('drive-'))return WMMDrive.action(node,growthReviewServices());
@@ -881,7 +895,10 @@ async function handleAction(node) {
   if(node.dataset.action.startsWith("subscription-plan-"))return WMMSubscriptionAuthoring.action(node,growthReviewServices());
   if(node.dataset.action.startsWith('funnel-'))return WMMFunnels.action(node,growthReviewServices());
   if(node.dataset.action.startsWith("customer-"))return WMMCustomerWorkflow.action(node,growthReviewServices());
+  if(node.dataset.action.startsWith('goal-'))return goalAction(node);
   if(node.dataset.action.startsWith('agent-'))return agentAction(node);
+  if(node.dataset.action.startsWith('owner-report-'))return WMMOwnerReports.action(node);
+  if(node.dataset.action.startsWith('campaign-monitor-'))return WMMCampaignMonitor.action(node);
   if(node.dataset.action.startsWith('campaign-'))return campaignAction(node);
   if(node.dataset.action.startsWith('social-'))return socialAction(node);
   if(node.dataset.action.startsWith('play-'))return playAction(node);

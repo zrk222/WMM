@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "per-user-installer-closed-contract",
+      "kind": "python",
+      "run": "import runpy; m=runpy.run_path('tools/test_windows_installer.py'); denied=False\ntry: m['compiler']({})\nexcept RuntimeError: denied=True\nassert denied; text=open('packaging/windows/WMM.iss',encoding='utf-8').read(); assert 'PrivilegesRequired=lowest' in text and '[UninstallDelete]' not in text and 'skipifsilent' in text"
+    }
+  ]
+}

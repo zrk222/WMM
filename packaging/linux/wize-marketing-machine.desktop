@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Wize Marketing Machine
+Comment=Open the private local marketing workspace
+Exec=/usr/bin/wize-marketing-machine
+Terminal=false
+Categories=Office;

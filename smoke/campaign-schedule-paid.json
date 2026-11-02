@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "scheduled-paid-budget-and-recovery",
+      "kind": "python",
+      "run": "import unittest; suite=unittest.defaultTestLoader.loadTestsFromNames(['tests.test_campaign_schedule.ScheduleTests.test_paid_due_jobs_preserve_account_wide_commitment_limit','tests.test_campaign_schedule.ScheduleTests.test_paid_crash_pending_step_requires_reconciliation_no_replay']); result=unittest.TextTestRunner().run(suite); assert result.wasSuccessful()"
+    }
+  ]
+}

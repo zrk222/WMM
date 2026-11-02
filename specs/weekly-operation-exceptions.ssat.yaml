@@ -1,0 +1,47 @@
+{
+  "name": "weekly-operation-exceptions",
+  "language": "python",
+  "modules": [
+    {
+      "name": "weekly",
+      "path": "mission_control/weekly_inbox.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "project",
+          "args": [
+            "workspace"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "review",
+          "args": [
+            "service",
+            "offset",
+            "user"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "trusted_principal",
+          "args": [
+            "user"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "operation_exceptions",
+          "args": [
+            "store",
+            "app",
+            "user"
+          ],
+          "returns": "object"
+        }
+      ]
+    }
+  ],
+  "dependencies": [],
+  "invariants": []
+}

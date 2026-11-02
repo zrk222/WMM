@@ -1,0 +1,15 @@
+name: windows-installer
+language: python
+modules:
+- name: test_windows_installer
+  path: tools/test_windows_installer.py
+  language: python
+  functions: []
+- name: test_windows_installer_contract
+  path: tests/test_windows_installer_contract.py
+  language: python
+  functions: []
+dependencies:
+- from: test_windows_installer_contract
+  to: test_windows_installer
+invariants: []

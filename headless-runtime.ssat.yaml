@@ -1,0 +1,29 @@
+name: headless-runtime
+language: python
+modules:
+- name: desktop
+  path: mission_control/desktop.py
+  language: python
+  functions: []
+- name: workspace_lock
+  path: mission_control/workspace_lock.py
+  language: python
+  functions: []
+- name: test_desktop_entry
+  path: tests/test_desktop_entry.py
+  language: python
+  functions: []
+- name: test_workspace_lock
+  path: tests/test_workspace_lock.py
+  language: python
+  functions: []
+dependencies:
+- from: desktop
+  to: workspace_lock
+- from: test_desktop_entry
+  to: desktop
+- from: test_desktop_entry
+  to: workspace_lock
+- from: test_workspace_lock
+  to: workspace_lock
+invariants: []

@@ -53,11 +53,27 @@ def owner(store,app_id,action,user,body):
     grants=Grants(store)
     from .complete_automation import Automation
     automation=Automation(store)
-    if action==['automation-preview']:return automation.preview(app_id,user,body)
-    if action==['automation-activate']:return automation.activate(app_id,user,body)
-    if action==['automation-off']:return automation.off(app_id,user,body)
+    from .automation_agreement import Agreement
+    controls={'agreement-preview':lambda:Agreement(store).preview(app_id,user,body),
+              'automation-readiness':lambda:goal_readiness(store,app_id,user,body),
+              'automation-preview':lambda:automation.preview(app_id,user,body),
+              'automation-activate':lambda:automation.activate(app_id,user,body),
+              'automation-off':lambda:automation.off(app_id,user,body)}
+    if len(action)==1 and action[0] in controls:return controls[action[0]]()
     if action==['automation-status'] and body=={}:return automation.status(app_id,user)
     if action==['issue']:return grants.issue(app_id,user,body)
     if action==['revoke']:return grants.revoke(app_id,user,body)
     if action==['list'] and body=={}:return grants.list(app_id,user)
     raise Invalid('Unknown owner grant-management action')
+
+
+def goal_readiness(store,app_id,user,body):
+    """Project selected readiness without issuing authority or opening protected access."""
+    from .automation_requirements import Readiness
+    report=Readiness(store).report(app_id,user,body)
+    ready=report['inventory']['scope_status']=='READY_FOR_SCOPE_REVIEW'
+    return dict(report,status='success' if ready else 'warning',
+                summary='Selected requirements are ready for scope review.' if ready else 'Selected requirements need repair before scope review.',
+                next_actions=['Review the current exact scope with the owner; this inventory grants no authority.'] if ready else
+                             ['Repair the listed workflow and connection blockers, then check readiness again.'],
+                artifacts=[],authority_issued=False)

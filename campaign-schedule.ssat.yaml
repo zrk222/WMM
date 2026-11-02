@@ -1,0 +1,58 @@
+name: campaign-schedule
+language: python
+modules:
+- name: campaign_schedule
+  path: mission_control/campaign_schedule.py
+  language: python
+  functions: []
+- name: campaign_schedule_authority
+  path: mission_control/campaign_schedule_authority.py
+  language: python
+  functions: []
+- name: campaign_access
+  path: mission_control/campaign_access.py
+  language: python
+  functions:
+  - name: policy_checker
+    args: [store]
+    returns: unknown
+- name: worker
+  path: mission_control/worker.py
+  language: python
+  functions:
+  - name: claim
+    args: [store]
+    returns: unknown
+  - name: process
+    args: [store, job, stop=None]
+    returns: unknown
+  - name: process_special
+    args: [store, job, stop]
+    returns: unknown
+  - name: failed_result
+    args: [job, error]
+    returns: unknown
+  - name: failed_special
+    args: [job]
+    returns: unknown
+  - name: poll
+    args: [self]
+    returns: unknown
+- name: test_campaign_schedule
+  path: tests/test_campaign_schedule.py
+  language: python
+  functions: []
+dependencies:
+- from: campaign_schedule
+  to: campaign_access
+- from: campaign_schedule
+  to: campaign_schedule_authority
+- from: campaign_access
+  to: campaign_schedule_authority
+- from: worker
+  to: campaign_schedule
+- from: test_campaign_schedule
+  to: campaign_schedule
+- from: test_campaign_schedule
+  to: worker
+invariants: []
