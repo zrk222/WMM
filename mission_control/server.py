@@ -38,7 +38,8 @@ def owner_domain_post(parts):
     """Resolve only fixed private domain modules, retaining lazy imports."""
     if len(parts)<4 or parts[:2]!=['api','apps']:return None
     module={'drive':'drive_http','media':'managed_media_http','funnels':'funnel_http',
-            'discovery':'discovery_http','packaging':'packaging_http','campaigns':'campaign_http','campaign-monitor':'campaign_monitor_http','campaign-owner-reports':'campaign_owner_reports'}.get(parts[3])
+            'discovery':'discovery_http','packaging':'packaging_http','campaigns':'campaign_http','campaign-monitor':'campaign_monitor_http','campaign-owner-reports':'campaign_owner_reports',
+            'apple-analytics':'apple_metrics_http'}.get(parts[3])
     if module is None:return None
     from importlib import import_module
     return import_module('.'+module,__package__).post

@@ -189,7 +189,7 @@ class Service:
         if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest()!=data.get("sha256"):
             raise Invalid("Asset file is missing or its hash changed. Upload it again.")
 
-    def queue(self,app_id,body):
+    def queue(self,app_id,body,*,commit_check=None):
         """Validate the requested stage or connection before durable job submission."""
         if body.get("action") in ("render","hypit_render","edit_render","drive_import"):raise Invalid("Use the guided media workflow to validate source proof and authority first")
         if not isinstance(body.get("data",{}),dict):
@@ -200,7 +200,8 @@ class Service:
                 raise Invalid("Choose a stage from 1 to 12, or 0 for all stages")
         if body.get("action")=="sync":
             body={**body,'data':self.sync_data(app_id,body['data'])}
-        return enqueue(self.store,app_id,body.get("action"),body.get("data",{}),body.get("request_key"))
+        args=(self.store,app_id,body.get("action"),body.get("data",{}),body.get("request_key"))
+        return enqueue(*args) if commit_check is None else enqueue(*args,commit_check=commit_check)
 
     def sync_data(self,app_id,data):
         """Validate the exact current connection and report before durable submission."""

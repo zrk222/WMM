@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "owner-analytics-transaction-and-redaction",
+      "kind": "python",
+      "run": "import unittest; suite=unittest.defaultTestLoader.loadTestsFromName('tests.test_apple_metrics_http'); result=unittest.TextTestRunner().run(suite); assert result.wasSuccessful()"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+name: apple-analytics-http
+language: python
+modules:
+- name: apple_metrics_http
+  path: mission_control/apple_metrics_http.py
+  language: python
+  functions: []
+- name: apple_metrics_schedule
+  path: mission_control/apple_metrics_schedule.py
+  language: python
+  functions: []
+- name: service
+  path: mission_control/service.py
+  language: python
+  functions: []
+- name: worker
+  path: mission_control/worker.py
+  language: python
+  functions: []
+- name: server
+  path: mission_control/server.py
+  language: python
+  functions: []
+- name: test_apple_metrics_http
+  path: tests/test_apple_metrics_http.py
+  language: python
+  functions: []
+- name: test_apple_metrics_http_route
+  path: tests/test_apple_metrics_http_route.py
+  language: python
+  functions: []
+dependencies:
+- from: apple_metrics_http
+  to: apple_metrics_schedule
+- from: apple_metrics_http
+  to: service
+- from: service
+  to: worker
+- from: test_apple_metrics_http
+  to: apple_metrics_http
+- from: test_apple_metrics_http_route
+  to: server
+invariants: []

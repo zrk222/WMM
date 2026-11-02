@@ -77,12 +77,14 @@ class AppleMetricsSchedules:
             row = db.execute('SELECT * FROM apple_metrics_schedules WHERE app_id=?', (app_id,)).fetchone()
             return public_row(db, row)
 
-    def save(self, app_id, body):
+    def save(self, app_id, body, *, commit_check=None):
         """Create, replace or pause an explicitly owner-approved app schedule."""
         self.store.app(app_id)
         body = configuration(body)
         with connection(self.store.path) as db:
             db.execute('BEGIN IMMEDIATE')
+            if commit_check is not None:
+                commit_check(db)
             old = db.execute('SELECT * FROM apple_metrics_schedules WHERE app_id=?', (app_id,)).fetchone()
             expected = old['version'] if old else None
             if body['version'] != expected:

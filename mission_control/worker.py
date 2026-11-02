@@ -16,13 +16,16 @@ from .followup import Followup
 from .automation_health import Supervision
 
 
-def enqueue(store,app_id,action,data,request_key):
+def enqueue(store,app_id,action,data,request_key,*,commit_check=None):
     """Persist an idempotent app-scoped job while rejecting a reused key with different input."""
     store.app(app_id)
     if action not in ("pipeline","sync","render","hypit_render","edit_render","drive_import"):
         raise Invalid("Unknown job action")
     request_key=required(request_key,"Request key",120)
     with connection(store.path) as db:
+        db.execute("BEGIN IMMEDIATE")
+        if commit_check is not None:
+            commit_check(db)
         inserted=db.execute("INSERT OR IGNORE INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)",(uid(),app_id,action,canonical(data),"QUEUED",now(),now(),request_key)).rowcount
         row=db.execute("SELECT * FROM jobs WHERE app_id=? AND request_key=?",(app_id,request_key)).fetchone()
         if row["action"]!=action or row["data"]!=canonical(data):
