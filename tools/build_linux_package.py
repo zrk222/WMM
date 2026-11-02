@@ -74,6 +74,7 @@ def main():
         for source, destination in (
             ('wize-marketing-machine', 'usr/bin/wize-marketing-machine'),
             ('wize-marketing-machine.desktop', 'usr/share/applications/wize-marketing-machine.desktop'),
+            ('wmm-worker.service', 'usr/share/wize-marketing-machine/wmm-worker.service'),
         ):
             target = stage / destination
             target.parent.mkdir(parents=True, exist_ok=True)

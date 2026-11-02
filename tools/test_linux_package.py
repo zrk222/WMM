@@ -33,7 +33,9 @@ def inspect_archive(raw, control=False):
                 continue
             allowed = ('usr', 'usr/lib', 'usr/bin', 'usr/share', 'usr/share/applications',
                        'usr/lib/wize-marketing-machine', 'usr/bin/wize-marketing-machine',
-                       'usr/share/applications/wize-marketing-machine.desktop')
+                       'usr/share/applications/wize-marketing-machine.desktop',
+                       'usr/share/wize-marketing-machine',
+                       'usr/share/wize-marketing-machine/wmm-worker.service')
             if name not in allowed and not name.startswith('usr/lib/wize-marketing-machine/'):
                 raise RuntimeError('Package payload escapes the WMM program layout')
             if posixpath.normpath(name) != name or name.startswith('/'):
@@ -48,6 +50,7 @@ def inspect_archive(raw, control=False):
 
 def preflight(env):
     if (not sys.platform.startswith('linux') or os.geteuid() != 0 or env.get('CI') != 'true'
+            or env.get('GITHUB_ACTIONS') != 'true' or env.get('WMM_HOST_SERVICE_CI') != '1'
             or env.get('WMM_LINUX_PACKAGE_TEST') != '1' or env.get('WMM_ISOLATED_NATIVE_KEYRING') != '1'
             or not env.get('DBUS_SESSION_BUS_ADDRESS')):
         raise RuntimeError('Package testing requires an explicitly enabled isolated root Ubuntu CI keyring session')
@@ -64,7 +67,8 @@ def preflight(env):
     if existing.returncode == 0 and existing.stdout.strip() not in ('', 'not-installed'):
         raise RuntimeError('WMM package already exists; refusing to alter it')
     targets = ('/usr/lib/wize-marketing-machine', '/usr/bin/wize-marketing-machine',
-               '/usr/share/applications/wize-marketing-machine.desktop')
+               '/usr/share/applications/wize-marketing-machine.desktop',
+               '/usr/share/wize-marketing-machine')
     if any(Path(path).exists() or Path(path).is_symlink() for path in targets):
         raise RuntimeError('WMM target path already exists; refusing to alter it')
     return package
@@ -102,13 +106,18 @@ def main():
             if not binary.is_file() or not Path('/usr/bin/wize-marketing-machine').is_file():
                 raise AssertionError('Installed runtime is incomplete')
             verify_binary(binary, env)
+            unit = Path('/usr/share/wize-marketing-machine/wmm-worker.service')
+            if unit.read_bytes() != (ROOT / 'packaging/linux/wmm-worker.service').read_bytes():
+                raise AssertionError('Installed opt-in service does not match its reviewed template')
+            import runpy
+            runpy.run_path(str(ROOT / 'tools/ci_host_user.py'))['run_host_service'](env)
             run(['dpkg', '-i', package], env)
             if marker.read_text(encoding='utf-8') != 'synthetic private workspace':
                 raise AssertionError('Upgrade changed the workspace fixture')
         finally:
             if attempted:
                 run(['dpkg', '-r', PACKAGE], env)
-        if binary.exists() or marker.read_text(encoding='utf-8') != 'synthetic private workspace':
+        if binary.exists() or unit.exists() or marker.read_text(encoding='utf-8') != 'synthetic private workspace':
             raise AssertionError('Removal did not remove runtime or preserve workspace fixture')
     print(json.dumps(dict(status='PASS', install='VERIFIED', upgrade='VERIFIED', removal='VERIFIED',
                           workspace='SYNTHETIC_PRESERVED', provider='NOT_RUN')))

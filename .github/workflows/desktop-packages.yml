@@ -11,6 +11,8 @@ on:
       - 'packaging/linux/**'
       - 'tools/build_linux_package.py'
       - 'tools/test_linux_package.py'
+      - 'tools/test_host_service.py'
+      - 'tools/ci_host_user.py'
       - '.github/workflows/desktop-packages.yml'
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -62,7 +64,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get install --yes --no-install-recommends libtk8.6 libgl1 xdg-utils ffmpeg fonts-dejavu-core
-          sudo env CI=true WMM_LINUX_PACKAGE_TEST=1 WMM_ISOLATED_NATIVE_KEYRING=1 WMM_TEST_PYTHON="$(command -v python)" WMM_TEST_ROOT="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" dbus-run-session -- bash -euo pipefail -c '
+          sudo env CI=true GITHUB_ACTIONS=true WMM_HOST_SERVICE_CI=1 WMM_LINUX_PACKAGE_TEST=1 WMM_ISOLATED_NATIVE_KEYRING=1 WMM_TEST_PYTHON="$(command -v python)" WMM_TEST_ROOT="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" dbus-run-session -- bash -euo pipefail -c '
             export XDG_DATA_HOME="$(mktemp -d "$RUNNER_TEMP/wmm-deb-keyring.XXXXXX")"
             printf "%s\n" "disposable-synthetic-deb-keyring" | gnome-keyring-daemon --unlock --components=secrets
             "$WMM_TEST_PYTHON" "$WMM_TEST_ROOT/tools/test_linux_package.py"

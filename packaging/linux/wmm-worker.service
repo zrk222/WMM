@@ -1,0 +1,18 @@
+# Optional owner-managed user service. Install and enable only by explicit choice.
+# Protected credentials require this user's logged-in, unlocked Secret Service keyring.
+[Unit]
+Description=Wize Marketing Machine owner worker
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=exec
+ExecStart=/usr/lib/wize-marketing-machine/WMM --headless
+UMask=0077
+Restart=on-failure
+RestartSec=10
+KillSignal=SIGTERM
+TimeoutStopSec=60
+
+[Install]
+WantedBy=default.target

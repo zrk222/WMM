@@ -2,6 +2,8 @@
 
 Detailed setup, evidence collection, tracking and recovery for Wize Marketing Machine. For the short product tour, see the [repository overview](../README.md).
 
+For an installed app without a Python setup, use the [desktop first-run guide](desktop-first-run.md). To keep approved work on your own host, use the [optional always-on runtime](always-on-runtime.md). Source setup remains available below.
+
 ## Start locally
 
 Already running WMM? Start with [your first evidence packet](#your-first-evidence-packet)
