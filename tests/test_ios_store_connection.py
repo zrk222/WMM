@@ -14,7 +14,8 @@ from tests import test_ios_host as fixture
 from tests.test_apple_analytics import pages
 from tests.test_apple_metrics_transport import readiness_pages, segment
 
-KEY='-----BEGIN PRIVATE KEY-----\nQUJDRA==\n-----END PRIVATE KEY-----'
+# Fresh transport-only payload for the stub signer; never an enrolled provider key.
+KEY='-----BEGIN PRIVATE KEY-----\n'+base64.b64encode(uuid4().bytes).decode()+'\n-----END PRIVATE KEY-----'
 
 
 class NativeStoreConnectionTests(unittest.TestCase):
