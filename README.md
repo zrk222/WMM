@@ -291,4 +291,4 @@ publish posts or prove live provider integration. The full test profile also
 requires FFmpeg and FFprobe on PATH and a supported Segoe UI font. These native
 tools are optional for normal non-video use; the CI profile installs them.
 See [release scope](RELEASE-SCOPE.md)
-and [security guidance](SECURITY.md). Licensed under the [Apache License, Version 2.0](LICENSE).
+and [security guidance](SECURITY.md). Source-available under the [WMM Personal and Internal Business Use License](LICENSE). Personal trials and internal use are free; resale, hosting and paid client services require a commercial agreement. [Licensing and prior Apache rights](docs/licensing.md).
