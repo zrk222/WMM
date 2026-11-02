@@ -197,7 +197,10 @@ class Handler(BaseHTTPRequestHandler):
         query=urlparse(self.path).query
         if query and not re.fullmatch(r'offset=(0|[1-9][0-9]{0,8})',query):
             raise Invalid('Use only the weekly review offset')
-        return self.send(200,review(self.server.service,int(query.split('=')[1]) if query else 0))
+        session=self.session()
+        public=self.server.identities.public(session)
+        user=self.server.identities.local(session,public['principal']) if public.get('status')=='AUTHENTICATED' else None
+        return self.send(200,review(self.server.service,int(query.split('=')[1]) if query else 0,user=user))
 
     def callback_page(self,path):
         """Serve local callback assets without processing provider codes in a GET."""

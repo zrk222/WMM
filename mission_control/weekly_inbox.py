@@ -1,58 +1,579 @@
 """Bounded portfolio exceptions over saved workspaces; no external execution."""
+
 from .common import Invalid, digest, now
 from .weekly_controls import decision_controls
 
-ROUTES = {'readiness': 'readiness', 'measurement': 'measurement', 'economics': 'results', 'retention': 'retention'}
+ROUTES = {
+    "readiness": "readiness",
+    "measurement": "measurement",
+    "economics": "results",
+    "retention": "retention",
+}
 
 
 def project(workspace):
     """Project only the selected app's evidence, not its credentials or conversations."""
-    app = workspace['app']
-    controls = decision_controls(app, workspace['records'], workspace['stages'])
-    receipt = dict(app_id=app['id'], manifest_version=app['version'],
-                   source_hash=controls['source_hash'], observed_at=now())
+    app = workspace["app"]
+    controls = decision_controls(app, workspace["records"], workspace["stages"])
+    receipt = dict(
+        app_id=app["id"],
+        manifest_version=app["version"],
+        source_hash=controls["source_hash"],
+        observed_at=now(),
+    )
     cards = []
-    for record in workspace['records']:
-        if record['kind'] == 'review' and record['data'].get('confirmed') is True and record['data'].get('severity') == 'P0':
-            cards.append(dict(id=digest([app['id'], record['id'], record['hash']]),
-                category='critical', priority=0, state='NEEDS_REPAIR', title='Resolve confirmed critical finding',
-                reason=record['title'], next_action='Investigate, repair and retest before acquisition.', resolution_route='findings'))
-    for gate in controls['gates']:
-        if gate['state'] != 'LOCAL_INPUTS_READY':
-            stage = next((s for s in workspace['stages'] if s['id'] == gate['stage']), {})
-            cards.append(dict(id=digest([app['id'], gate['id'], controls['source_hash']]),
-                category=gate['id'], priority=gate['stage'], state=gate['state'], title=gate['id'].title()+' needs evidence',
-                reason=(stage.get('missing') or ['Current source evidence is unavailable.'])[0],
-                next_action=gate['next_action'], resolution_route=ROUTES[gate['id']]))
+    for record in workspace["records"]:
+        if (
+            record["kind"] == "review"
+            and record["data"].get("confirmed") is True
+            and record["data"].get("severity") == "P0"
+        ):
+            cards.append(
+                dict(
+                    id=digest([app["id"], record["id"], record["hash"]]),
+                    category="critical",
+                    priority=0,
+                    state="NEEDS_REPAIR",
+                    title="Resolve confirmed critical finding",
+                    reason=record["title"],
+                    next_action="Investigate, repair and retest before acquisition.",
+                    resolution_route="findings",
+                )
+            )
+    for gate in controls["gates"]:
+        if gate["state"] != "LOCAL_INPUTS_READY":
+            stage = next(
+                (s for s in workspace["stages"] if s["id"] == gate["stage"]), {}
+            )
+            cards.append(
+                dict(
+                    id=digest([app["id"], gate["id"], controls["source_hash"]]),
+                    category=gate["id"],
+                    priority=gate["stage"],
+                    state=gate["state"],
+                    title=gate["id"].title() + " needs evidence",
+                    reason=(
+                        stage.get("missing")
+                        or ["Current source evidence is unavailable."]
+                    )[0],
+                    next_action=gate["next_action"],
+                    resolution_route=ROUTES[gate["id"]],
+                )
+            )
     for card in cards:
-        card.update(app_id=app['id'], app_name=app['data']['name'], source_receipt=receipt,
-                    change='NOT_COMPARED_WITH_PRIOR_REVIEW', cost_minor=None, owner='App operator')
-    return dict(app_id=app['id'], app_name=app['data']['name'], source_receipt=receipt, exceptions=cards,
-                local_ready=[g['id'] for g in controls['gates'] if g['state'] == 'LOCAL_INPUTS_READY'])
+        card.update(
+            app_id=app["id"],
+            app_name=app["data"]["name"],
+            source_receipt=receipt,
+            change="NOT_COMPARED_WITH_PRIOR_REVIEW",
+            cost_minor=None,
+            owner="App operator",
+        )
+    return dict(
+        app_id=app["id"],
+        app_name=app["data"]["name"],
+        source_receipt=receipt,
+        exceptions=cards,
+        local_ready=[
+            g["id"] for g in controls["gates"] if g["state"] == "LOCAL_INPUTS_READY"
+        ],
+    )
 
 
-def review(service, offset=0):
+def review(service, offset=0, user=None):
     """Read at most five workspaces; retain every failed source and explicit coverage."""
     if type(offset) is not int or offset < 0:
-        raise Invalid('Use a nonnegative portfolio offset')
+        raise Invalid("Use a nonnegative portfolio offset")
     apps = service.store.apps()
     if offset > len(apps):
-        raise Invalid('Portfolio changed; restart the weekly review')
+        raise Invalid("Portfolio changed; restart the weekly review")
     rows = []
-    for app in apps[offset:offset+5]:
+    for app in apps[offset : offset + 5]:
         try:
-            row = project(service.workspace(app['id']))
+            row = project(service.workspace(app["id"]))
+            row["exceptions"].extend(operation_exceptions(service.store, app, user))
         except Exception:
-            row = dict(app_id=app['id'], app_name=app['data']['name'], local_ready=[],
-                exceptions=[dict(id=digest([app['id'], 'unavailable']), app_id=app['id'], app_name=app['data']['name'],
-                    priority=1, category='source', state='UNAVAILABLE', title='Workspace evidence unavailable',
-                    reason='Saved evidence could not be evaluated. No success or zero result is inferred.',
-                    next_action='Open this workspace and retry loading its saved evidence.', resolution_route='workspace',
-                    source_receipt=dict(app_id=app['id'], manifest_version=app['version'], source_hash=None, observed_at=now()),
-                    change='NOT_COMPARED_WITH_PRIOR_REVIEW', cost_minor=None, owner='App operator')])
+            row = dict(
+                app_id=app["id"],
+                app_name=app["data"]["name"],
+                local_ready=[],
+                exceptions=[
+                    dict(
+                        id=digest([app["id"], "unavailable"]),
+                        app_id=app["id"],
+                        app_name=app["data"]["name"],
+                        priority=1,
+                        category="source",
+                        state="UNAVAILABLE",
+                        title="Workspace evidence unavailable",
+                        reason="Saved evidence could not be evaluated. No success or zero result is inferred.",
+                        next_action="Open this workspace and retry loading its saved evidence.",
+                        resolution_route="workspace",
+                        source_receipt=dict(
+                            app_id=app["id"],
+                            manifest_version=app["version"],
+                            source_hash=None,
+                            observed_at=now(),
+                        ),
+                        change="NOT_COMPARED_WITH_PRIOR_REVIEW",
+                        cost_minor=None,
+                        owner="App operator",
+                    )
+                ],
+            )
         rows.append(row)
-    return dict(schema='growth.weekly-exception-inbox.v1', observed_at=now(), apps=rows,
-        exceptions=sorted([c for r in rows for c in r['exceptions']], key=lambda c:(c['priority'], c['app_id'])),
-        coverage=dict(offset=offset, evaluated=len(rows), total_apps=len(apps), next_offset=offset+5 if offset+5<len(apps) else None),
-        authority='NO_EXECUTION_AUTHORITY', spend_allowed=False, scale_allowed=False, learning_pilot_allowed=False,
-        limits='Saved local evidence only. No prior-review comparison, independent outcome verification or campaign execution.')
+    return dict(
+        schema="growth.weekly-exception-inbox.v1",
+        observed_at=now(),
+        apps=rows,
+        owner_operations_principal=trusted_principal(user),
+        exceptions=sorted(
+            [c for r in rows for c in r["exceptions"]],
+            key=lambda c: (c["priority"], c["app_id"]),
+        ),
+        coverage=dict(
+            offset=offset,
+            evaluated=len(rows),
+            total_apps=len(apps),
+            next_offset=offset + 5 if offset + 5 < len(apps) else None,
+        ),
+        authority="NO_EXECUTION_AUTHORITY",
+        spend_allowed=False,
+        scale_allowed=False,
+        learning_pilot_allowed=False,
+        limits="Saved local evidence only. No prior-review comparison, independent outcome verification or campaign execution.",
+    )
+
+
+def trusted_principal(user):
+    """Only the server-supplied authenticated session principal enables private reads."""
+    if not isinstance(user, dict):
+        return None
+    value = user.get("principal")
+    return value if isinstance(value, str) and 1 <= len(value) <= 200 else None
+
+
+def operation_exceptions(store, app, user):
+    """Read only bounded owner-owned local rows; anonymous legacy callers see none."""
+    principal = trusted_principal(user)
+    if principal is None or not hasattr(store, "path"):
+        return []
+    from .db import connection
+    from .review_access import member
+
+    with connection(store.path) as db:
+        db.execute("BEGIN")
+        try:
+            member(db, app["id"], principal, "OWNER")
+        except PermissionError:
+            return []
+        tables = {
+            row["name"]
+            for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        if "campaign_scopes" not in tables:
+            return []
+        try:
+            return _operation_rows(db, app, principal, tables)
+        except Exception:
+            return [
+                _card(
+                    app,
+                    principal,
+                    "operation_source",
+                    "operation-source",
+                    "UNAVAILABLE",
+                    "Saved operational evidence unavailable",
+                    "Owner-scoped saved operational rows could not be evaluated.",
+                    "Open the campaign controls and inspect local saved state before retrying this review.",
+                    "campaign",
+                    {},
+                    {"status": "UNAVAILABLE"},
+                    2,
+                )
+            ]
+
+
+def _operation_rows(db, app, principal, tables):
+    scopes = {
+        r["id"]: r
+        for r in db.execute(
+            "SELECT * FROM campaign_scopes WHERE app_id=? AND owner=? ORDER BY updated DESC,id LIMIT 50",
+            (app["id"], principal),
+        )
+    }
+    cards = []
+    unresolved = set()
+    for table, paid in (("campaign_paid_intents", True), ("campaign_intents", False)):
+        if table not in tables:
+            continue
+        sql = (
+            "SELECT i.* FROM "
+            + table
+            + " i JOIN campaign_scopes s ON s.app_id=i.app_id AND s.id=i.scope_id "
+            "WHERE i.app_id=? AND s.owner=? ORDER BY i.updated DESC,i.id LIMIT 100"
+        )
+        for row in db.execute(sql, (app["id"], principal)):
+            if row["scope_id"] not in scopes:
+                continue
+            card = _intent_card(app, principal, scopes[row["scope_id"]], row, paid)
+            if card:
+                cards.append(card)
+                unresolved.add(row["id"])
+    if "campaign_monitors" in tables:
+        for row in db.execute(
+            "SELECT * FROM campaign_monitors WHERE app_id=? AND owner=? ORDER BY updated DESC,id LIMIT 50",
+            (app["id"], principal),
+        ):
+            card = _plan_card(db, app, principal, row, "monitor", unresolved)
+            if card:
+                cards.append(card)
+    if "campaign_report_plans" in tables:
+        for row in db.execute(
+            "SELECT * FROM campaign_report_plans WHERE app_id=? AND owner=? ORDER BY updated DESC,id LIMIT 50",
+            (app["id"], principal),
+        ):
+            card = _plan_card(db, app, principal, row, "owner_reports", unresolved)
+            if card:
+                cards.append(card)
+    if {"campaign_schedule_batches", "campaign_schedule_items"} <= tables:
+        cards.extend(
+            _schedule_cards(
+                db,
+                app,
+                principal,
+                scopes,
+                {
+                    c["action"].get("scope_id")
+                    for c in cards
+                    if c["category"] == "delivery"
+                },
+            )
+        )
+    return list({card["id"]: card for card in cards}.values())
+
+
+def _schedule_cards(db, app, principal, scopes, unresolved_scopes):
+    from .common import iso_time
+
+    cards = []
+    rows = db.execute(
+        "SELECT b.id,b.scope_id,b.status,b.summary_hash,b.updated, count(i.id) AS pending FROM campaign_schedule_batches b JOIN campaign_schedule_items i ON i.batch_id=b.id WHERE b.app_id=? AND b.owner=? AND b.status='ACTIVE' AND i.status IN ('READY','QUEUED','BLOCKED') GROUP BY b.id ORDER BY b.updated DESC LIMIT 50",
+        (app["id"], principal),
+    )
+    for row in rows:
+        scope = scopes.get(row["scope_id"])
+        if scope is None:
+            continue
+        if scope["id"] in unresolved_scopes:
+            continue
+        data = _saved(scope["summary"])
+        try:
+            expired = iso_time(data["expires_at"]) <= iso_time(now())
+        except (KeyError, TypeError, Invalid):
+            expired = True
+        if not expired:
+            failed = db.execute(
+                "SELECT 1 FROM campaign_schedule_items i LEFT JOIN jobs j ON j.id=i.job_id AND j.app_id=? WHERE i.batch_id=? AND (i.status='BLOCKED' OR j.status IN ('BLOCKED','FAILED','UNKNOWN')) LIMIT 1",
+                (app["id"], row["id"]),
+            ).fetchone()
+            if not failed:
+                continue
+        source = dict(
+            id=row["id"],
+            scope_id=row["scope_id"],
+            status="EXPIRED_PENDING_WORK" if expired else "BLOCKED",
+            summary_hash=row["summary_hash"],
+            pending_items=row["pending"],
+            updated=row["updated"],
+        )
+        cards.append(
+            _card(
+                app,
+                principal,
+                "scheduled_campaign",
+                row["id"],
+                source["status"],
+                "Review unfinished scheduled campaign work",
+                "The campaign approval expired with pending work."
+                if expired
+                else "A saved scheduled campaign job needs review.",
+                "Inspect the exact batch and delivery receipts; reconcile uncertainty before approving replacement work.",
+                "campaign",
+                dict(scope_id=row["scope_id"], batch_id=row["id"]),
+                source,
+                2,
+            )
+        )
+    return cards
+
+
+def _saved(raw):
+    import json
+
+    if not isinstance(raw, str) or len(raw) > 65536:
+        return {}
+    try:
+        value = json.loads(raw)
+    except (TypeError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _intent_card(app, principal, scope, row, paid):
+    state = row["status"]
+    allowed = {"UNKNOWN", "DISPATCHING", "ACKNOWLEDGED", "VERIFYING"} | {
+        "PENDING_" + name
+        for name in (
+            "CREATE_campaign",
+            "CREATE_adset",
+            "CREATE_creative",
+            "CREATE_ad",
+            "ACTIVE_adset",
+            "ACTIVE_ad",
+            "ACTIVE_campaign",
+            "PAUSED_campaign",
+        )
+    }
+    if state not in allowed:
+        return None
+    uncertain = state in (
+        "UNKNOWN",
+        "DISPATCHING",
+        "ACKNOWLEDGED",
+        "VERIFYING",
+    ) or state.startswith("PENDING_")
+    if not uncertain:
+        return None
+    # Revoked/OFF scheduling is intentional; unresolved dispatch receipts still
+    # need reconciliation because OFF does not undo a dispatched effect.
+    identities = {
+        key: row[key]
+        for key in ("id", "request_id", "request_hash", "status", "updated")
+    }
+    if paid:
+        ids = _saved(row["ids"])
+        identities.update(
+            provider_ids=_provider_ids(ids),
+            retained_commitment_minor=row["commitment"],
+            currency=row["currency"],
+        )
+    else:
+        remote = row["remote_id"]
+        identities["provider_ids"] = {"post": remote} if _provider_id(remote) else {}
+    return _card(
+        app,
+        principal,
+        "delivery",
+        row["id"],
+        state,
+        "Reconcile uncertain campaign delivery",
+        "A saved provider effect is unconfirmed. Retained commitments are not released by uncertainty.",
+        "Inspect this exact receipt and reconcile its saved provider IDs before any retry.",
+        "campaign",
+        dict(scope_id=scope["id"], intent_id=row["id"]),
+        identities,
+        1,
+    )
+
+
+def _provider_id(value):
+    import re
+
+    return (
+        isinstance(value, str)
+        and re.fullmatch(r"[0-9]{1,40}(?:_[0-9]{1,40})?", value) is not None
+    )
+
+
+def _provider_ids(ids):
+    return {
+        key: value
+        for key, value in ids.items()
+        if key in ("campaign", "adset", "creative", "ad") and _provider_id(value)
+    }
+
+
+def _plan_card(db, app, principal, row, tool, unresolved):
+    if row["status"] == "OFF":
+        return None
+    summary = _saved(row["summary"])
+    if not summary or digest(summary) != row["summary_hash"]:
+        return _card(
+            app,
+            principal,
+            tool,
+            row["id"],
+            "INTEGRITY_REVIEW_REQUIRED",
+            "Review damaged automation state",
+            "Saved approval integrity could not be verified.",
+            "Open the exact saved controls and review its approval before enabling work.",
+            tool,
+            {},
+            dict(
+                id=row["id"],
+                version=row["version"],
+                status="INTEGRITY_REVIEW_REQUIRED",
+                updated=row["updated"],
+            ),
+            2,
+        )
+    proposal = summary.get("proposal", {})
+    if tool == "monitor" and any(
+        target.get("intent_id") in unresolved
+        for target in proposal.get("targets", [])
+        if isinstance(target, dict)
+    ):
+        return None
+    job = _owned_job(db, app, row, tool)
+    issue = _plan_issue(row, proposal, job, tool)
+    if issue is None:
+        return None
+    state, title, reason, repair = issue
+    source = dict(
+        id=row["id"],
+        version=row["version"],
+        status=row["status"],
+        summary_hash=row["summary_hash"],
+        updated=row["updated"],
+        last_job=dict(id=job["id"], status=job["status"], updated=job["updated"])
+        if job
+        else None,
+    )
+    return _card(
+        app,
+        principal,
+        tool,
+        row["id"],
+        state,
+        title,
+        reason,
+        repair,
+        tool,
+        {},
+        source,
+        2,
+    )
+
+
+def _owned_job(db, app, row, tool):
+    if not row["last_job"]:
+        return None
+    job = db.execute(
+        "SELECT id,app_id,action,status,data,updated FROM jobs WHERE id=? AND app_id=?",
+        (row["last_job"], app["id"]),
+    ).fetchone()
+    if job is None:
+        return None
+    expected = "campaign_monitor" if tool == "monitor" else "campaign_owner_report"
+    data = _saved(job["data"])
+    key = "monitor_id" if tool == "monitor" else "plan_id"
+    if (
+        job["status"]
+        not in {
+            "QUEUED",
+            "RUNNING",
+            "SUCCEEDED",
+            "FAILED",
+            "BLOCKED",
+            "UNKNOWN",
+            "CANCELLED",
+            "INTERRUPTED",
+        }
+        or job["action"] != expected
+        or data.get(key) != row["id"]
+        or data.get("summary_hash") != row["summary_hash"]
+    ):
+        return None
+    return job
+
+
+def _plan_issue(row, proposal, job, tool):
+    name = "Campaign monitor" if tool == "monitor" else "Private report plan"
+    repair = (
+        "Open the exact monitor controls and inspect its last observation before approving replacement work."
+        if tool == "monitor"
+        else "Open private reports, inspect the failed snapshot job and review current source bindings before another plan."
+    )
+    limit = proposal.get("max_runs" if tool == "monitor" else "max_reports")
+    finished = (
+        type(limit) is int
+        and row["runs"] >= limit
+        and (job is None or job["status"] == "SUCCEEDED")
+    )
+    if finished:
+        return None
+    if row["status"] == "BLOCKED" or (
+        job and job["status"] in ("FAILED", "BLOCKED", "UNKNOWN")
+    ):
+        return (
+            "BLOCKED",
+            name + " needs a decision",
+            "Saved local work stopped at a validation, authority or execution boundary.",
+            repair,
+        )
+    if row["status"] != "ACTIVE":
+        return None
+    from .common import iso_time
+
+    try:
+        expired = iso_time(proposal["expires_at"]) <= iso_time(now())
+    except (Invalid, KeyError, TypeError):
+        return (
+            "INTEGRITY_REVIEW_REQUIRED",
+            name + " needs review",
+            "Saved expiry could not be verified.",
+            repair,
+        )
+    limit = proposal.get("max_runs" if tool == "monitor" else "max_reports")
+    if expired and type(limit) is int and row["runs"] < limit:
+        return (
+            "EXPIRED",
+            name + " expired with unfinished planned work",
+            "The finite approval ended before all planned runs were dispatched.",
+            repair,
+        )
+    return None
+
+
+def _card(
+    app,
+    principal,
+    category,
+    identity,
+    state,
+    title,
+    reason,
+    repair,
+    tool,
+    refs,
+    source,
+    priority,
+):
+    receipt = dict(
+        app_id=app["id"],
+        manifest_version=app["version"],
+        source_hash=digest(source),
+        observed_at=now(),
+        source_updated_at=source.get("updated"),
+    )
+    return dict(
+        id=digest([app["id"], category, identity]),
+        app_id=app["id"],
+        app_name=app["data"]["name"],
+        category=category,
+        priority=priority,
+        state=state,
+        title=title,
+        reason=reason,
+        next_action=repair,
+        resolution_route=tool,
+        action=dict(tool=tool, resource_id=identity, **refs),
+        source_receipt=receipt,
+        change="CURRENT_EXCEPTION_NO_PRIOR_DELIVERY_COMPARISON",
+        cost_minor=None,
+        owner="App owner",
+        owner_only=True,
+        owner_principal=principal,
+        evidence=source,
+    )

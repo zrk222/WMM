@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from playwright.sync_api import sync_playwright, expect
 from tests.test_campaign_monitor_integration import CampaignMonitorIntegrationTests
+from mission_control.db import connection
 OUT = ROOT / ".factory/goal-first-automation"
 
 def run(browser, width):
@@ -63,8 +64,25 @@ def run(browser, width):
         progress.get_by_role("button", name="Turn monitor OFF", exact=True).click()
         expect(page.locator("#monitor-progress")).to_contain_text("Monitoring off")
         assert f.job()["status"] == "SUCCEEDED"
+        with connection(f.store.path) as db:
+            db.execute("UPDATE campaign_paid_intents SET status='UNKNOWN' WHERE id=?",(f.intent["id"],))
+        page.locator("#close-modal").click()
+        page.locator("#navigation > details > summary").click()
+        page.locator("#navigation [data-view=weekly]").click()
+        page.get_by_role("button",name="Refresh review",exact=True).click()
+        card=page.locator("article.panel").filter(has=page.get_by_role("heading",name="Reconcile uncertain campaign delivery",exact=True))
+        expect(card).to_be_visible()
+        card.get_by_role("button",name="Open recovery",exact=True).click()
+        expect(page.locator("#campaign-progress")).to_contain_text("UNKNOWN")
+        page.locator("#close-modal").click()
+        page.locator("#navigation > [data-view=activity]").click()
+        page.get_by_role("button",name="Sign out of review session",exact=True).click()
+        expect(page.get_by_role("button",name="Sign in for verified review",exact=True)).to_be_visible()
+        page.locator("#navigation [data-view=weekly]").click()
+        expect(page.get_by_role("heading",name="Reconcile uncertain campaign delivery",exact=True)).to_have_count(0)
+        assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
         assert not errors, errors
-        return dict(width=width, status="PASS", exact_review=True, no_job_before_approval=True, worker_pause="SYNTHETIC_PAUSED_VERIFIED", private_report=True, off=True, no_overflow=True, javascript_errors=errors)
+        return dict(width=width, status="PASS", exact_review=True, no_job_before_approval=True, worker_pause="SYNTHETIC_PAUSED_VERIFIED", private_report=True, owner_exception_recovery=True, signed_out_private_cache_hidden=True, off=True, no_overflow=True, javascript_errors=errors)
     except Exception:
         print(json.dumps({"errors": errors, "body": page.locator("body").inner_text()[-5000:]}))
         raise
