@@ -22,6 +22,9 @@ jobs:
           python -m pip install --require-hashes --only-binary :all: -r requirements.txt
           python -m pip install --only-binary :all: -r docs/requirements-browser.txt
           python -m playwright install --with-deps chromium
+          sudo apt-get install --yes --no-install-recommends ffmpeg fonts-dejavu-core
+      - name: Verify local render prerequisites before queueing
+        run: python -c "from mission_control.media_native import capability; result = capability(); assert result['status'] == 'READY', result"
       - name: Exercise actual owner batch flow at desktop and mobile widths
         env:
           WMM_BROWSER_TEST_PROFILE: '1'
