@@ -1,0 +1,2 @@
+# Test-only dependency; Chromium is provisioned once by the dedicated CI job.
+playwright==1.57.0

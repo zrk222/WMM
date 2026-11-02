@@ -371,7 +371,7 @@ def build(db, store, app_id, owner, chosen):
         db, "campaign_monitors", app_id, owner, chosen["monitor_id"]
     )
     monitor_summary = object_data(monitor["summary"])
-    metrics = snapshot(db, store, app_id, observed)
+    metrics = snapshot(db, store, app_id, observed, include_workflows=False)
     campaign = campaign_view(db, app_id, owner, chosen["scope_id"])
     experiment = experiment_source(db, app_id, chosen["experiment_id"])
     metric_hash = definitions(db, app_id, metrics)

@@ -1,13 +1,18 @@
-"""Real local browser exercise of the owner-reviewed finite batch flow."""
+"""Real browser exercise run by the separately provisioned browser CI profile."""
+import os
 import unittest
 
-from playwright.sync_api import expect, sync_playwright
+BROWSER_PROFILE = os.environ.get("WMM_BROWSER_TEST_PROFILE") == "1"
+if BROWSER_PROFILE:
+    # Missing dependencies must fail the declared profile, rather than skip it.
+    from playwright.sync_api import expect, sync_playwright
 
 from mission_control.db import connection
 from tests import test_agent_grants as grants
 from tests.test_creative_rendering import prepared_render
 
 
+@unittest.skipUnless(BROWSER_PROFILE, "Run with WMM_BROWSER_TEST_PROFILE=1 in the declared browser profile")
 class CreativeBatchBrowserTests(unittest.TestCase):
     def test_owner_reviews_queues_and_cancels_in_desktop_and_mobile_viewports(self):
         with sync_playwright() as playwright:

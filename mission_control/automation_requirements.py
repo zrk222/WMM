@@ -58,13 +58,34 @@ WORKFLOWS = {
         blockers=['EXACT_OWNER_CAMPAIGN_SCOPE_REQUIRED']),
 }
 
+# These operations remain separately approved through exact scoped grants or a
+# current owner session; they are not added to existing standing policies.
+UNBUNDLED_OPERATIONS = {
+    'creative.source.save': 'video_authoring_editing',
+    'creative.analysis.save': 'video_authoring_editing',
+    'creative.profile.save': 'video_authoring_editing',
+    'creative.requirement.save': 'video_authoring_editing',
+    'creative.brief.save': 'video_authoring_editing',
+    'creative.batch.plan': 'video_authoring_editing',
+    'creative.batch.create': 'video_authoring_editing',
+    'creative.batch.list': 'video_authoring_editing',
+    'creative.batch.cancel': 'video_authoring_editing',
+    'handoff.create': 'pipeline_preparation',
+    'handoff.resume': 'pipeline_preparation',
+    'experiment.schedule': 'OWNER_ONLY',
+    'experiment.schedule-run': 'OWNER_ONLY',
+}
+
 
 def workflow_catalog():
     """Reject operation drift instead of silently widening an automation policy."""
     mapped = {name for row in WORKFLOWS.values() for name in row['operations']}
-    if mapped != set(OPERATIONS):
+    unbundled = set(UNBUNDLED_OPERATIONS)
+    if (mapped & unbundled or mapped | unbundled != set(OPERATIONS)
+            or any(group != 'OWNER_ONLY' and group not in WORKFLOWS for group in UNBUNDLED_OPERATIONS.values())):
         raise Invalid('Automation workflow map changed; review every fixed operation')
-    value = dict(workflows=deepcopy(WORKFLOWS), operations=deepcopy(OPERATIONS))
+    value = dict(workflows=deepcopy(WORKFLOWS), operations=deepcopy(OPERATIONS),
+                 unbundled_operations=deepcopy(UNBUNDLED_OPERATIONS))
     return dict(value, sha256=digest(value))
 
 

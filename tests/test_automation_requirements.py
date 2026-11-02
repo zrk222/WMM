@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from mission_control.automation_requirements import Readiness, WORKFLOWS, workflow_catalog, verification
+from mission_control.automation_requirements import Readiness, WORKFLOWS, UNBUNDLED_OPERATIONS, workflow_catalog, verification
 from mission_control.common import Invalid, canonical, digest
 from mission_control.db import connection
 from mission_control.operation_catalog import OPERATIONS
@@ -72,7 +72,9 @@ class AutomationReadinessTests(unittest.TestCase):
     def test_inventory_maps_every_operation_and_rejects_catalog_drift(self):
         catalog = workflow_catalog()
         mapped = {name for row in catalog['workflows'].values() for name in row['operations']}
-        self.assertEqual(mapped, set(OPERATIONS))
+        unbundled=set(catalog['unbundled_operations'])
+        self.assertFalse(mapped & unbundled)
+        self.assertEqual(mapped | unbundled, set(OPERATIONS))
         self.assertEqual(len(catalog['workflows']), 12)
         catalog['workflows']['local_evidence']['operations'].clear()
         self.assertTrue(workflow_catalog()['workflows']['local_evidence']['operations'])
@@ -82,6 +84,29 @@ class AutomationReadinessTests(unittest.TestCase):
         with patch.dict(OPERATIONS, {}, clear=True):
             with self.assertRaises(Invalid):
                 self.report()
+
+    def test_new_operations_stay_explicitly_unbundled_and_owner_only_is_not_grantable(self):
+        from mission_control.agent_grants import issue_data
+        from mission_control.operation_catalog import catalog
+        expected={
+            'creative.source.save','creative.analysis.save','creative.profile.save','creative.requirement.save',
+            'creative.brief.save','creative.batch.plan','creative.batch.create','creative.batch.list','creative.batch.cancel',
+            'handoff.create','handoff.resume','experiment.schedule','experiment.schedule-run'}
+        self.assertEqual(set(UNBUNDLED_OPERATIONS),expected)
+        bundled={name for row in WORKFLOWS.values() for name in row['operations']}
+        self.assertFalse(expected & bundled)
+        owner_only={'experiment.schedule','experiment.schedule-run'}
+        self.assertEqual({name for name,group in UNBUNDLED_OPERATIONS.items() if group=='OWNER_ONLY'},owner_only)
+        self.assertTrue((expected-owner_only).issubset(catalog()['operations']))
+        self.assertFalse(owner_only & set(catalog()['operations']))
+        for name in expected:
+            body=dict(agent_id='fixture',manifest_version=1,operations=[name],expires=(NOW+timedelta(hours=1)).isoformat(),max_calls=1)
+            if name in owner_only:
+                with self.subTest(name=name),self.assertRaises(Invalid):issue_data(body,NOW)
+            else:issue_data(body,NOW)
+        for changed in ({'workspace.read':'local_evidence'},{'handoff.create':'UNKNOWN_WORKFLOW'}):
+            with self.subTest(changed=changed),patch.dict(UNBUNDLED_OPERATIONS,changed),self.assertRaises(Invalid):workflow_catalog()
+        with patch.dict(UNBUNDLED_OPERATIONS,{},clear=True),self.assertRaises(Invalid):workflow_catalog()
 
     def test_native_media_inventory_is_explicit_and_standing_remains_blocked(self):
         from mission_control.ios_automation import native_blockers

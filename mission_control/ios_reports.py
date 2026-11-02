@@ -10,7 +10,7 @@ LEDGER_FIELDS = ('installs','activated','paid','retained','activation_rate','pai
                  'delivery_cost_minor','paid_cac_minor','contribution_after_acquisition_minor')
 
 
-def snapshot(db, store, app_id, observed, *, include_handoffs=True):
+def snapshot(db, store, app_id, observed, *, include_handoffs=True, include_workflows=True):
     """One report projection for both admitted agents and the native owner host.
 
     The caller owns the consistent transaction and current authorization context.
@@ -34,9 +34,9 @@ def snapshot(db, store, app_id, observed, *, include_handoffs=True):
     keys = [{field:r[field] for field in KEY_FIELDS} for r in db.execute(
         'SELECT * FROM apple_metric_partitions WHERE app_id=? AND store_app_id=? ORDER BY event_date,report_id',
         (app_id,app['data'].get('store_app_id','')))]
-    monitoring=monitoring_summary(db,app_id)
-    batches=batch_summary(db,app_id)
-    handoffs=report_summary(db,app_id,iso_time(observed)) if include_handoffs else None
+    monitoring=monitoring_summary(db,app_id) if include_workflows else None
+    batches=batch_summary(db,app_id) if include_workflows else None
+    handoffs=report_summary(db,app_id,iso_time(observed)) if include_workflows and include_handoffs else None
     return projection(app,records,reports,observed,insights,[read_partition(store.path,key) for key in keys],monitoring,batches,handoffs)
 
 
@@ -76,7 +76,10 @@ def read(store, app_id, *, include_handoffs=True):
 def projection(app, records, ledger_reports, observed_at, insight_reports=(), apple_partitions=(), monitoring=None, batches=None, handoffs=None):
     from .metrics import summarize
     metrics = summarize(records, app['id'], ledger_reports)
-    source_hash = digest({'app':app,'records':records,'ledger':ledger_reports,'insights':insight_reports,'apple':apple_partitions,'monitoring':monitoring,'batches':batches,'handoffs':handoffs})
+    source = {'app':app,'records':records,'ledger':ledger_reports,'insights':insight_reports,'apple':apple_partitions}
+    for name,value in (('monitoring',monitoring),('batches',batches),('handoffs',handoffs)):
+        if value is not None:source[name]=value
+    source_hash = digest(source)
     rows = []
     def add(label, value, evidence):
         if len(rows) >= 1000: raise Invalid('Native report exceeds 1000 rows; narrow the source evidence before exporting')

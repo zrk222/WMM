@@ -211,6 +211,33 @@ class CampaignOwnerReportsTests(unittest.TestCase):
         self.assertEqual(self.fixture.wire.posts, 1)
         self.assertEqual(len(self.fixture.wire.objects), 4)
 
+    def test_workflow_activity_does_not_change_business_kpi_coverage(self):
+        before = self.capture()["report"]
+        stamp = now()
+        with connection(self.store.path) as db:
+            db.execute(
+                "INSERT INTO creative_batches VALUES(?,?,?,?,?,?,?,?,?,?)",
+                ("sample", "synthetic-batch", "synthetic-key", "hash",
+                 "PRIVATE_PLAN", "hash", "ACTIVE", 360, stamp, stamp),
+            )
+            db.execute(
+                "INSERT INTO agent_handoffs VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("synthetic-handoff", "sample", None, "PRIVATE_RECIPIENT",
+                 "PRIVATE_PAYLOAD", "hash", stamp, stamp, "READY", None, None, 1),
+            )
+        after = self.capture()["report"]
+        self.assertEqual(before["kpi_coverage"], after["kpi_coverage"])
+        self.assertEqual(after["kpi_coverage"]["available_rows"], 0)
+        self.assertEqual(after["kpis"]["rows"], before["kpis"]["rows"])
+        self.assertEqual(after["comparison"]["status"], "COMPATIBLE_SAVED_OBSERVATIONS")
+        self.assertEqual(after["comparison"]["changes"], [])
+        self.assertNotIn("PRIVATE_PAYLOAD", canonical(after))
+        self.cohort()
+        with_kpis = self.capture()["report"]
+        self.assertGreater(with_kpis["kpi_coverage"]["available_rows"], 0)
+        self.assertTrue(any(row["metric"].startswith("Cohort 1:")
+                            for row in with_kpis["kpis"]["rows"]))
+
     def test_capture_idempotent_key_and_selection_race(self):
         key = str(uuid.uuid4())
         first = self.capture(key=key)
@@ -435,8 +462,8 @@ class CampaignOwnerReportsTests(unittest.TestCase):
     def test_source_summary_tamper_and_snapshot_role_race_roll_back_capture(self):
         original = core.snapshot
 
-        def revoke(db, store, app_id, observed):
-            result = original(db, store, app_id, observed)
+        def revoke(db, store, app_id, observed, **kwargs):
+            result = original(db, store, app_id, observed, **kwargs)
             db.execute(
                 "UPDATE operator_roles SET version=version+1 WHERE app_id='sample'"
             )
