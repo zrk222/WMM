@@ -76,7 +76,8 @@ def relay_base(value):
 
 def configuration(body,port=8765):
     """Validate one app-owned developer setup with read-only initial permissions."""
-    exact(body,('provider','client_id','client_secret','redirect_uri','native_enabled','version'))
+    if not isinstance(body,dict):raise Invalid('Use a social setup object')
+    exact(body,('provider','client_id','client_secret','redirect_uri','native_enabled','version',*(['campaign_access'] if 'campaign_access' in body else [])))
     provider=provider_id(body['provider']);native=body['native_enabled']
     if type(native) is not bool or (native and provider!='linkedin'):raise Invalid('Native enablement applies only to an approved LinkedIn app')
     client=opaque(body['client_id'],'client ID',128,3)
@@ -84,8 +85,16 @@ def configuration(body,port=8765):
     if provider in ('facebook','instagram') and not client.isdigit():raise Invalid('Use the numeric provider app ID')
     configuration_secret(provider,native,body['client_secret'])
     if type(body['version']) is not int or body['version']<0:raise Invalid('Use the current setup version, or zero for new setup')
-    return dict(provider=provider,client_id=client,native_enabled=native,
-                redirect_uri=redirect(provider,native,body['redirect_uri'],port),scopes=list(PROVIDERS[provider]['scopes']))
+    mode=body.get('campaign_access','read')
+    if mode not in ('read','publish','ads') or (provider!='facebook' and mode!='read'):
+        raise Invalid('Campaign access applies only to Facebook; choose read, publish or ads')
+    scopes=list(PROVIDERS[provider]['scopes'])
+    if mode in ('publish','ads'):scopes.append('pages_manage_posts')
+    if mode=='ads':scopes.extend(['ads_management','ads_read'])
+    value=dict(provider=provider,client_id=client,native_enabled=native,
+               redirect_uri=redirect(provider,native,body['redirect_uri'],port),scopes=scopes)
+    if mode!='read':value['campaign_access']=mode
+    return value
 
 
 def configuration_secret(provider,native,secret):

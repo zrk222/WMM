@@ -16,6 +16,7 @@
   });
   const FORMS={};
   function define(ids,mission,result,next){for(const id of ids.split(' '))FORMS[id]=Object.freeze([mission,result,next]);}
+  define('campaign-scope-form','Turn your approved app message into a bounded campaign.','WMM records exact Page, copy, rights, audience, time and media limits before saving provider delivery receipts.','Review the scope and permissions, approve it, then run the workflow. Compare measured app outcomes afterward.');
   define('packaging-variant-form','Turn one app outcome into a clear title and opening.','WMM saves a creative revision with the source ideas and app proof you select.','Fill the message, choose an uploaded thumbnail and save. Compare that saved revision before preparing shots.');
   define('packaging-shots-form','Give every script beat a shot you can produce.','WMM saves ordered script segments, shots, source times, selected footage and claim links as one revision.','Describe each shot, select its material and save the checklist. Resolve missing evidence before production.');
   define('packaging-preview-form','See your title and thumbnail beside competing ideas.','WMM builds a repeatable desktop or mobile comparison from your saved sources and uploaded images. This produces simulation notes, not measured CTR.','Choose two or three source cards, select the viewing size and compare. Record what you would change.');

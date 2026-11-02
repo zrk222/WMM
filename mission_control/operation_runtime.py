@@ -22,6 +22,11 @@ def execute(service,envelope,*,caller='SCOPED_AGENT'):
     from .funnel_founder_review import review as funnel_review
     from .video_edit_jobs import EditRenders
     request_data(envelope)
+    if envelope['operation'].startswith('campaign.'):
+        from .campaign_access import dispatch
+        from .operation_authority import protected
+        with protected(service.store,envelope):
+            return dispatch(service.store,envelope['app_id'],envelope['operation'].split('.')[1],envelope['input'])
     if envelope['operation'].startswith('studio.'):
         return service.studio.dispatch(envelope)
     if envelope['operation'].startswith('packaging.'):
@@ -39,6 +44,8 @@ def execute(service,envelope,*,caller='SCOPED_AGENT'):
         'pipeline.prepare':lambda:service.queue(app,body),
         'jobs.read':lambda:jobs(store,app),
         'hypit.read':lambda:HypitRenders(store).list(app),
+        'hypit.plan':lambda:HypitRenders(store).plan(app,body),
+        'hypit.reuse':lambda:HypitRenders(store).reuse(app,body),
         'hypit.queue':lambda:HypitRenders(store).queue(app,body),
         'native.read':lambda:Renders(store).list(app),
         'native.queue':lambda:Renders(store).queue(app,body),

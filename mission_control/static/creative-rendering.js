@@ -57,8 +57,36 @@ function openRender(id) {
   $("#modal video").addEventListener("error",()=>{$("#video-error").textContent="Video could not load. Check the saved artifact in Activity, then render a fresh version if it is missing or changed.";});
 }
 
+async function reviewHypitPlan(form,data) {
+  const app=form.dataset.app,plan=await api(`/api/apps/${app}/production/hypit-plan`,{data});
+  if(app!==state.app||!form.isConnected)return;
+  const scene=plan.scene,issues=plan.readiness.remediation;
+  modal('Review your Hypit production',`<div id="hypit-plan" class="modal-content" data-app="${esc(app)}"><p>${scene.width} × ${scene.height} · ${scene.frame_rate} fps · ${scene.duration_seconds} seconds. This preflight starts no build.</p><p>Text-density flags are advisory. Check actual frames, captions, sound and your app's call to action before accepting the result.</p><ol>${scene.scenes.map(s=>`<li>${s.start_seconds}–${s.end_seconds}s · ${s.words} words · ${s.words_per_second} words/second · ${esc(s.density_advisory)}</li>`).join('')}</ol>${issues.length?notice(issues.join(' '),'warning'):'<p>Local tools were detected. Compiler and browser readiness are checked at render time.</p>'}<h3>Reuse a matching video</h3>${plan.reuse_candidates.items.length?plan.reuse_candidates.items.map(r=>`<p>${esc(r.render_id)} · ${(r.artifact_bytes/1048576).toFixed(2)} MiB ${button('Reuse this verified artifact','render-reuse',`data-id="${esc(r.render_id)}"`)}</p>`).join(''):'<p>No matching verified artifact in this bounded search.</p>'}<p>Inspected ${plan.reuse_candidates.scanned} saved rows; ${plan.reuse_candidates.unavailable} unavailable.${plan.reuse_candidates.truncated?' Older matches may remain outside this scan.':''}</p><details><summary>Source binding and preflight details</summary><pre>${json(plan)}</pre></details><p id="form-error" role="alert"></p><div class="modal-actions">${button('Queue a new Hypit render','render-plan-queue',issues.length?'disabled':'','primary')}${button('Edit production choices','render-create')}${button('Cancel','close')}</div></div>`);
+  $('#hypit-plan').production={data,source_hash:plan.source_hash,input_hash:plan.input_hash,request_key:form.dataset.key};
+}
+
 async function renderingAction(node) {
   const action=node.dataset.action,id=node.dataset.id;
+  if(['render-reuse','render-plan-queue'].includes(action)) {
+    const panel=$('#hypit-plan');if(!panel||panel.dataset.app!==state.app)throw new Error('App changed; review production again.');
+    if(panel.dataset.busy==='true')return;
+    panel.dataset.busy='true';node.disabled=true;
+    try {
+      const app=state.app,plan=panel.production;
+      if(action==='render-reuse') {
+        const reused=await api(`/api/apps/${app}/production/hypit-reuse`,{data:plan.data,render_id:id,source_hash:plan.source_hash});
+        if(state.app!==app||!panel.isConnected)return;
+        await refresh();return openRender(reused.render_id);
+      }
+      const current=await api(`/api/apps/${app}/production/hypit-plan`,{data:plan.data});
+      if(state.app!==app||!panel.isConnected)return;
+      if(current.source_hash!==plan.source_hash||current.input_hash!==plan.input_hash)throw new Error('Production changed; review the current plan before rendering.');
+      await api(`/api/apps/${app}/production/hypit-renders`,{data:plan.data,request_key:plan.request_key});
+      if(state.app!==app||!panel.isConnected)return;
+      $('#modal').close();await refresh();toast('Hypit render queued. Inspect the saved result before using it.');
+      return;
+    } finally {panel.dataset.busy='false';node.disabled=false;}
+  }
   if(action==="render-create")return renderForm();
   if(action==="render-open")return openRender(id);
   if(action==="render-receipt")return download(`${state.app}-${id}-render.json`,renderRows().find(r=>r.id===id));
@@ -75,6 +103,7 @@ document.addEventListener("submit",async event=>{
     if(form.dataset.app!==state.app)throw new Error("App changed. Reopen the render form in the selected app.");
     const data=Object.fromEntries(new FormData(form)),endpoint=renderEndpoint(data.renderer);delete data.renderer;
     data.brief_hash=state.workspace.briefs.find(b=>b.id===data.brief_id).current.hash;
+    if(endpoint==='hypit-renders')return await reviewHypitPlan(form,data);
     await api(`/api/apps/${form.dataset.app}/production/${endpoint}`,{data,request_key:form.dataset.key});
     $("#modal").close();await refresh();toast("Video queued. The render status will update here; publication remains unexecuted.");
   } catch(error){$("#form-error").textContent=error.message;}finally{submit.disabled=false;}

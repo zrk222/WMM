@@ -121,7 +121,7 @@ not a measured onboarding result or a promise about installation time.
 2. Follow **Workflow** and **Pipeline**. Each of the twelve stages explains its
    deliverable, missing inputs and acceptance checks. Unknown inputs stay unknown.
 3. Add real evidence in **Evidence & assets**. Preparation creates saved stage
-   packets; it does not publish campaigns or prove product readiness.
+   packets; that first-evidence path does not publish campaigns or prove product readiness.
 4. Optionally connect an agent in **Your agents**. Inspect its exact proposed
    context and operation, approve it, then review the draft and its sources.
 5. Use the evidence-resolution actions to gather supported public observations
@@ -195,13 +195,11 @@ limits still apply. See [PostHog experiments](https://posthog.com/docs/experimen
 | Creative work | Local assets, briefs, rankings; optional detected FFmpeg tools for supported rendering |
 | Experiments | Local A/B plans, schedules, evidence evaluation and retained learning |
 | Social connections | Guided Facebook, Instagram, TikTok and LinkedIn setup; requires your own developer apps, allowed scopes and provider approval |
+| Campaign automation | Owner-approved Facebook Page posts and finite Meta paid campaigns, shared UI/CLI/MCP gates, durable IDs, bounded commitments and protective pause |
+| Hypit production checks | Dry-run timing/readability/readiness, explicit source-bound artifact reuse and the existing editor/Studio handoff |
 | External changes | A narrowly supported App Store promotional-text action requires separate verified maker/checker review and exact final approval |
 
-**This release is not a fully autonomous advertising or social publishing
-service.** Broad campaign publication, autonomous spending and guaranteed growth
-are not implemented. Preparing a packet or passing a local fixture does not mean
-a campaign ran. Provider availability, permissions and API limits remain external
-requirements. A model subscription is usable only through a supported installed
+**Run supported campaigns inside an owner-approved scope.** The Facebook Page and Meta ad adapter can publish approved text/link posts and create, verify, activate, monitor and pause finite paid campaigns. Use exact account/content/targeting hashes, expiry, quotas and media-budget ceilings; default spending is zero. [Campaign setup, recovery and evidence limits](docs/campaign-automation.md). Other provider mutation adapters and universal hands-off operation remain unfinished. Growth is measured, never guaranteed. Provider permissions, account access and platform review remain external requirements. A model subscription is usable only through a supported installed
 official CLI; it is not a general-purpose API entitlement.
 
 ## Optional connections

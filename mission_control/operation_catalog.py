@@ -10,6 +10,12 @@ def descriptor(method,suffix,effect,required=(),optional=(),resource=False):
 
 
 OPERATIONS={
+    'campaign.history':descriptor('POST','/campaigns/history','READ_PRIVATE_LOCAL_DATA'),
+    'campaign.status':descriptor('POST','/campaigns/status','READ_PRIVATE_LOCAL_DATA',('scope_id',)),
+    'campaign.publish':descriptor('POST','/campaigns/publish','PUBLISH_WITH_STANDING_CAMPAIGN_AUTHORITY',('scope_id','request')),
+    'campaign.ad-launch':descriptor('POST','/campaigns/ad-launch','SPEND_WITH_STANDING_CAMPAIGN_AUTHORITY',('scope_id','request')),
+    'campaign.pause':descriptor('POST','/campaigns/pause','PAUSE_OWNED_EXTERNAL_CAMPAIGN',('scope_id','intent_id')),
+    'campaign.reconcile':descriptor('POST','/campaigns/reconcile','READ_OWNED_PROVIDER_STATUS',('scope_id','intent_id')),
     'report.read':descriptor('GET','/reports/summary','READ_PRIVATE_LOCAL_DATA'),
     'packaging.taste-read':descriptor('POST','/packaging/taste-read','READ_PRIVATE_LOCAL_DATA',('id',),('version',)),
     'packaging.taste-history':descriptor('POST','/packaging/taste-history','READ_PRIVATE_LOCAL_DATA',(),('offset',)),
@@ -30,6 +36,8 @@ OPERATIONS={
     'pipeline.prepare':descriptor('POST','/jobs','QUEUE_LOCAL_PREPARATION',('action','data','request_key')),
     'jobs.read':descriptor('GET','/jobs','READ_PRIVATE_LOCAL_DATA'),
     'hypit.read':descriptor('GET','/hypit-renders','READ_PRIVATE_LOCAL_DATA'),
+    'hypit.plan':descriptor('POST','/production/hypit-plan','READ_PRIVATE_EXECUTION_PLAN',('data',)),
+    'hypit.reuse':descriptor('POST','/production/hypit-reuse','READ_PRIVATE_LOCAL_ARTIFACT',('data','render_id','source_hash')),
     'hypit.queue':descriptor('POST','/production/hypit-renders','QUEUE_LOCAL_PREPARATION',('data','request_key')),
     'studio.plan':descriptor('POST','/studio/plan','READ_PRIVATE_EXECUTION_PLAN',('source_job_id','manifest_version')),
     'studio.start':descriptor('POST','/studio/start','START_OWNED_LOCAL_NATIVE_SESSION',('source_job_id','manifest_version','summary_hash','request_key')),
@@ -96,7 +104,7 @@ def catalog():
         workflow=dict(sequence=['workspace.read','evidence.save','pipeline.prepare','jobs.read'],
             job_submission='QUEUED_IS_NOT_COMPLETED',job_result='Read the saved job status and result; pipeline preparation never publishes or spends.',
             cancellation='Stops future local work where supported; running effects and receipts require inspection.'),
-        denied=['human_approval','identity_login','credentials','provider_mutation','publish','spend','arbitrary_http','shell_execution'],
+        denied=['human_approval','identity_login','credentials','arbitrary_provider_mutation','unscoped_publish','unbounded_spend','arbitrary_http','shell_execution'],
         full_agent_operation=False,remaining=['Full-domain operation coverage','Full-domain CLI/MCP conformance','Provider-specific authorized effect adapters'])
     from .funnel_contract import agent_contract
     from .discovery_contract import agent_contract as discovery_contract

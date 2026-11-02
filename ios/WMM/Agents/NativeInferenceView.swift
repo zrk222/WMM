@@ -5,7 +5,9 @@ import SwiftUI
 final class NativeInferenceModel: ObservableObject, Identifiable {
     struct Profiles: Decodable {
         struct Routing: Decodable { struct Config: Decodable { let mode: String }; let version: Int; let data: Config }
+        struct DraftRecipe: Decodable, Identifiable { let id: String; let task: String; let focus: String; let item_titles: [String] }
         let profiles: [NativeProviderModel.Profile]; let routing: Routing
+        let draft_recipes: [DraftRecipe]?
     }
     struct Prepared: Decodable {
         struct Envelope: Decodable {
@@ -109,6 +111,13 @@ final class NativeInferenceModel: ObservableObject, Identifiable {
         }
     }
 
+    func selectRecipe(_ identity: String) -> Profiles.DraftRecipe? {
+        guard !busy, let selected = profiles?.draft_recipes?.first(where: { $0.id == identity }),
+              selected.task == "original_copy", selected.focus.count <= 1000, selected.item_titles.count == 8 else { return nil }
+        prepared = nil
+        return selected
+    }
+
     func discardPreview() { if !busy { prepared = nil } }
 }
 
@@ -142,6 +151,14 @@ struct NativeInferenceView: View {
                         Text("Draft original copy").tag("original_copy")
                         Text("Critique an experiment").tag("experiment_critique")
                     }
+                    ForEach(model.profiles?.draft_recipes ?? []) { recipe in
+                        Button("Use eight-piece content pack") {
+                            if let selected = model.selectRecipe(recipe.id) {
+                                task = selected.task; focus = selected.focus; approved = false
+                            }
+                        }
+                    }
+                    Text("One app benefit becomes a carousel outline, email, blog outline, three social posts and two ad angles. Review the drafts before using them.").font(.caption)
                     TextField("Specific app-marketing focus", text: $focus, axis: .vertical)
                     Text("Test a configured profile first. Draft tasks also require API access mode; switching mode clears prior task routes.").font(.caption)
                     Text("Current access mode: \(model.profiles?.routing.data.mode ?? "Unknown")").font(.caption)

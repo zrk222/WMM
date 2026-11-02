@@ -105,6 +105,17 @@ class AccessTests(unittest.TestCase):
         self.assertNotIn('agent_connections',canonical(snapshot));self.assertNotIn(body()['api_key'],canonical(snapshot))
         self.assertNotIn('AgentGrowth/',canonical(snapshot))
 
+    def test_recipe_discovery_is_fresh_and_does_not_create_or_execute_work(self):
+        from mission_control.draft_recipes import CONTENT_PACK_FOCUS
+        first=self.flow.view('sample-one')
+        self.assertEqual(first['draft_recipes'][0]['focus'],CONTENT_PACK_FOCUS)
+        self.assertEqual(first['draft_recipes'][0]['task'],'original_copy')
+        self.assertEqual(len(first['draft_recipes'][0]['item_titles']),8)
+        first['draft_recipes'][0]['item_titles'].clear()
+        self.assertEqual(len(self.flow.view('sample-one')['draft_recipes'][0]['item_titles']),8)
+        self.assertEqual(self.flow.view('sample-one')['profiles'],[])
+        self.assertFalse(FakeVault.values)
+
     def test_scope_version_rotation_disconnect_and_no_cross_app_keys(self):
         identity=self.save();old=self.flow.get('sample-one',identity);old_target=target(self.store,'sample-one',old['data']['credential_ref'])
         with self.assertRaises(Invalid):self.flow.get('sample-two',identity)

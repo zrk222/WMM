@@ -54,6 +54,19 @@ class NativeAgentLoopTests(unittest.TestCase):
         body=dict(request=request,source_hash=prepared['source_hash'],request_key=key or str(uuid4()),confirm_transmission=True)
         return prepared,self.call('start',body),body
 
+    def test_context_and_operation_prefix_stays_stable_when_focus_changes(self):
+        self.setup_loop();request=self.request()
+        first=self.call('prepare',request)
+        second=self.call('prepare',dict(request,focus='A different approved focus'))
+        prefix=lambda value:value['proposal']['prompt'].split('\nFocus: ')[0]
+        self.assertEqual(prefix(first),prefix(second))
+        self.assertNotEqual(first['source_hash'],second['source_hash'])
+        self.assertLess(first['proposal']['prompt'].index('Approved app context:'),
+                        first['proposal']['prompt'].index('\nFocus: '))
+        other=self.call('prepare',dict(request,operations=['workspace.read']))
+        self.assertNotEqual(prefix(first),prefix(other))
+        self.assertEqual(self.model_calls,0)
+
     def test_one_tool_then_explicit_reviewed_feedback_then_final(self):
         self.setup_loop();request=self.request();preview,ready,start=self.approve(request)
         self.assertEqual(ready['status'],'READY');self.assertEqual(self.model_calls,0)

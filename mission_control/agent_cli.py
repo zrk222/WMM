@@ -9,7 +9,7 @@ from .operator_client import OperatorClient,ClientError,strict_json,MAX_BYTES,gr
 
 def parser():
     """Accept only a canonical local origin and operation data on stdin."""
-    result=argparse.ArgumentParser(description='WMM trusted-local operation client; no human approval or provider-write commands.')
+    result=argparse.ArgumentParser(description='WMM typed operation client; campaign effects require a separate owner-approved scope and scoped grant. This client cannot approve itself.')
     result.add_argument('command',choices=('catalog','call','review-prepare','review-status','review-resume'))
     result.add_argument('--origin',help='Exact WMM origin, for example http://127.0.0.1:57599')
     result.add_argument('--use-grant',action='store_true',help='Use WMM_AGENT_GRANT from the process environment; never fall back to session authority')

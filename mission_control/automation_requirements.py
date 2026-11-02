@@ -34,7 +34,7 @@ WORKFLOWS = {
     'pipeline_preparation': dict(name='Local pipeline preparation', operations=[
         'pipeline.prepare', 'jobs.read', 'job.cancel'], blockers=[]),
     'hypit_caption_render': dict(name='Local Hypit caption composition', operations=[
-        'hypit.read', 'hypit.queue', 'jobs.read', 'job.cancel'],
+        'hypit.read', 'hypit.plan', 'hypit.reuse', 'hypit.queue', 'jobs.read', 'job.cancel'],
         blockers=['LOCAL_MEDIA_RUNTIME_VERIFICATION_REQUIRED']),
     'native_screen_render': dict(name='Local app-screen video', operations=[
         'native.read', 'native.queue', 'jobs.read', 'job.cancel'], blockers=[]),
@@ -48,12 +48,14 @@ WORKFLOWS = {
         blockers=['COMPLETE_AGENT_AND_HUMAN_EDITOR_REQUIRED']),
     'complete_analytics': dict(name='Complete KPI analytics and reports', operations=[],
         blockers=['COMPLETE_KPI_OPERATION_COVERAGE_REQUIRED']),
-    'social_publish': dict(name='Publish to selected social accounts', operations=[],
-        blockers=['PUBLICATION_ADAPTER_REQUIRED']),
+    'social_publish': dict(name='Publish inside a separately approved campaign scope', operations=[
+        'campaign.history','campaign.status','campaign.publish','campaign.reconcile'],
+        blockers=['EXACT_OWNER_CAMPAIGN_SCOPE_REQUIRED']),
     'release_delivery': dict(name='Build and deployment delivery', operations=[],
         blockers=['RELEASE_EFFECT_OPERATION_COVERAGE_REQUIRED']),
-    'paid_effects': dict(name='Paid provider effects', operations=[],
-        blockers=['PRICING_AND_ATOMIC_BUDGET_ENFORCEMENT_REQUIRED']),
+    'paid_effects': dict(name='Paid effects inside a separately approved campaign scope', operations=[
+        'campaign.ad-launch','campaign.pause'],
+        blockers=['EXACT_OWNER_CAMPAIGN_SCOPE_REQUIRED']),
 }
 
 
@@ -192,7 +194,7 @@ def social_account(db, app_id, identity, observed):
                 expires_at=row['expires'], refresh_expires_at=row['refresh_expires'],
                 renewal=renewal_state(facts.get('renewal')),
                 binding_sha256=digest(dict(connection=dict(row), config=dict(config) if config else None)),
-                publishing_implemented=False,
+                publishing_implemented=row['provider']=='facebook',
                 protected_access='REVALIDATE_AT_ACTIVATION_AND_DISPATCH',
                 repair='Verify the exact account, destination and required read/publish scopes through official onboarding.')
 
@@ -228,6 +230,10 @@ def workflow_states(selected, inference, accounts, native_host=False):
             row['blockers'].append('FRESH_INFERENCE_TEST_REQUIRED')
         if identity == 'social_publish' and not any(account['status'] == 'TESTED_FRESH' for account in accounts):
             row['blockers'].append('FRESH_DESTINATION_ACCOUNT_REQUIRED')
+        if identity == 'social_publish' and (not accounts or any(account['provider']!='facebook' for account in accounts)):
+            row['blockers'].append('PUBLICATION_ADAPTER_REQUIRED')
+        if identity in ('social_publish','paid_effects'):
+            row['repair']='Open Connections → Campaign automation to approve exact external scope; use a separately issued campaign grant. This local-work policy cannot issue campaign authority.'
         row.update(id=identity, status='BLOCKED' if row['blockers'] else 'READY_FOR_SCOPE_REVIEW')
         result.append(row)
     return result

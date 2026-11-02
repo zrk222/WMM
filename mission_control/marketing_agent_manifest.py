@@ -12,7 +12,7 @@ PROVIDER_READS = {'app_store':APPLE_READ_OPERATIONS,'apple_ads':('identity_inven
 def operating_manifest(app):
     """Bind expert operating rules and implemented capabilities to exact app intent."""
     return {
-        'schema':'growth.marketing-agent-manifest.v1', 'policy_version':12,
+        'schema':'growth.marketing-agent-manifest.v1', 'policy_version':14,
         'app_id':app['id'], 'manifest_version':app['version'],
         'release':app['data'].get('release'), 'locale':app['data'].get('locale'),
         'store_app_id':app['data'].get('store_app_id'),
@@ -22,7 +22,10 @@ def operating_manifest(app):
         'owner_operating_protocol':owner_operating_protocol(),
         'human_role':'APPROVE_OR_EDIT',
         'supported_execution':{'provider_reads':list(READ_OPERATIONS), 'max_reads_per_collection':12,
-                               'provider_writes':[], 'spend_minor':0},
+                               'provider_writes':['campaign.publish','campaign.ad-launch','campaign.pause'], 'spend_minor':0,
+                               'external_authority':'SEPARATE_CURRENT_OWNER_CAMPAIGN_SCOPE_AND_SCOPED_GRANT',
+                               'provider_scope':'SUPPORTED_FACEBOOK_PAGE_AND_META_AD_OPERATIONS_ONLY',
+                               'runtime_readiness':'VERIFY_CURRENT_ACCOUNT_SCOPES_BILLING_AND_BUDGET_BEFORE_EFFECT'},
         'supported_resolution_tools':['collect_sources','inspect_site','refresh_analytics','evaluate_experiment','reuse_observation','inspect_tracking','discover_setup'],
         'resolution_approval_seconds':1800,
         'sequence_contract':{'approval':'EXACT_ORDERED_ACTIONS','resume':'SAVED_CHECKPOINT',
@@ -51,15 +54,19 @@ def operating_manifest(app):
         'completion_rules':['Queued is not executed', 'Prepared is not published',
                             'Provider observation is not verified business lift',
                             'All required acceptance checks need current source-bound readback'],
-        'unimplemented_execution':['Live campaign mutation adapters', 'Live A/B assignment and exposure',
+        'unimplemented_execution':['Other social/ad provider mutation adapters', 'Live A/B assignment and exposure',
                                    'Complete autonomous resolution of every pipeline stage']
     }
 
 
 def owner_operating_protocol():
     """Portable operating instructions; these never grant authority or prove results."""
+    from .agent_contract import output_contract
+    from .draft_recipes import catalog as draft_recipes
     return {
         'schema':'growth.owner-operating-protocol.v1',
+        'draft_output_contract':output_contract(),
+        'draft_recipes':draft_recipes(),
         'purpose':'Help this app acquire, activate and retain paying users through evidence-backed marketing experiments.',
         'success_brief':{
             'required_context':['owner_outcome','audience','app_value_and_authentic_proof','primary_kpi',
@@ -89,6 +96,13 @@ def owner_operating_protocol():
             'reuse':'Discovery qualification never grants reuse rights. Require current rights and exact source hashes before production.',
             'direction':'Use current app-bound creative taste, audience, hook, beat, treatment and owner edits; preview and inspect the actual render.',
             'claims':'Use authentic app capabilities and substantiated proof. Do not promise virality, installs, revenue or unmeasured savings.'},
+        'campaign_automation':{
+            'scope_owner':'Only a fresh authenticated owner can prepare and activate exact content/account/targeting/budget scope.',
+            'agent_operations':['campaign.history','campaign.status','campaign.publish','campaign.ad-launch','campaign.reconcile','campaign.pause'],
+            'approval':'Use existing exact scope and grant; no per-post reapproval inside that scope and no agent self-expansion.',
+            'money':'Reserve maximum media liability in the exact account/currency; unresolved and paused holds survive restarts and replacement scopes. Taxes/fees and reporting delay remain explicit.',
+            'verification':'Read saved provider IDs, actual status and spend; drift requires permitted protective pause or owner escalation. Never equate delivery with app growth.',
+            'recovery':'No blind replay of UNKNOWN. OFF attempts provider pause but cannot undo dispatched work or incurred charges.'},
         'execution_efficiency':{
             'authority':'ADVISORY_ONLY',
             'scope':'One app and one owner outcome per task; stop at its acceptance criteria or current resource limit.',

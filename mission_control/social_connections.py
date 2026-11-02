@@ -39,7 +39,7 @@ class Connections:
         for row in rows:
             value=public(row);value['reconnect_required']=row['expires'] is not None and row['expires']<=time.time()
             result.append(value)
-        return dict(accounts=result,publishing_implemented=False,automatic_ad_spend=False)
+        return dict(accounts=result,publishing_implemented=True,publication_providers=['facebook'],automatic_ad_spend=False,paid_campaign_execution_implemented=True)
 
     def confirm(self,app_id,body):
         """An explicit destination and exact prior version are required to adopt access."""

@@ -2,6 +2,7 @@
 from copy import deepcopy
 from .common import digest
 from .creative_taste import guidance
+from .agent_workflow_protocol import build as workflow_protocol
 
 
 PROFILES = (
@@ -146,14 +147,18 @@ def creative_handoff(app):
 
 def operating_guide(app, policy, local_catalog):
     """Derive one current app-bound guide without I/O, host access or agent invocation."""
+    protocol=workflow_protocol(local_catalog)
     value = dict(schema='growth.personal-agent-operations.v1',
         scope=dict(app_id=app['id'], manifest_version=app['version'], app_hash=digest(app['data']),
                    policy_sha256=digest(policy), catalog_sha256=digest(local_catalog)),
         profiles=[dict(deepcopy(p),documentation_reviewed='2026-10-28',
-                       wmm_runbook=deepcopy(HOST_RUNBOOKS[p['id']])) for p in PROFILES],
+                       wmm_runbook=deepcopy(HOST_RUNBOOKS[p['id']]),
+                       workflow_protocol_ref=protocol['protocol_sha256'],
+                       upgrade_rule='Use the shared current operation/workflow protocol through this host verified route; unsupported access never becomes authority.') for p in PROFILES],
         live_provider_acceptance='NOT_RUN',
         team_operating_contract=team_operating_contract(),
-        other_hosts=dict(route='CAPABILITY_VERIFICATION_REQUIRED',
+        workflow_protocol=protocol,
+        other_hosts=dict(route='CAPABILITY_VERIFICATION_REQUIRED',workflow_protocol_ref=protocol['protocol_sha256'],
             instruction='Identify actual execution location, supported CLI/MCP or in-process transport, credential handling, approval and reporting tools. '
                         'Perform permitted operations.read and verify app hashes before acting. Use the shared owner protocol; unsupported access stays explicit.'),
         execution_authority=False, connection_verified=False,

@@ -30,5 +30,7 @@ SECRET_FIELDS=('client_secret','access_token','refresh_token','page_token','veri
 
 def catalog():
     """Expose protocols and honest entitlement states, never configured secrets."""
-    return {key:dict(deepcopy(value),publishing_implemented=False,automatic_ad_spend=False,
+    return {key:dict(deepcopy(value),publishing_implemented=key=='facebook',automatic_ad_spend=False,
+                     paid_campaign_execution_implemented=key=='facebook',
+                     execution_authority='SEPARATE_OWNER_SCOPE_AND_CURRENT_PERMISSIONS_REQUIRED',
                      setup_required=True) for key,value in PROVIDERS.items()}
