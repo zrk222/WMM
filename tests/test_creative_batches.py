@@ -17,6 +17,7 @@ from mission_control.db import connection
 from mission_control.operation_authority import bound_agent, bound_owner, protected
 from mission_control.operator_identity import Identities
 from mission_control.operation_runtime import execute
+from mission_control.media_native import invoke
 from mission_control.review_access import Access
 from mission_control.service import Service
 from mission_control.store import Store
@@ -82,6 +83,22 @@ class CreativeBatchTests(unittest.TestCase):
         path.write_bytes(b"changed")
         with self.assertRaises(Invalid):
             inspect_output(self.store, APP, job["result"]["render_id"])
+
+    def test_real_output_inspection_with_removed_vsync_option(self):
+        queued = Renders(self.store).queue(APP, dict(data=self.request, request_key="ffmpeg9-fixture"))
+        self.assertTrue(run_once(self.store))
+        job = next(row for row in jobs(self.store, APP) if row["id"] == queued["id"])
+        self.assertEqual(job["status"], "SUCCEEDED", job["result"])
+
+        def ffmpeg_without_legacy_vsync(argv, cwd, alive, deadline):
+            if "-vsync" in argv:
+                raise Invalid("Synthetic FFmpeg 9 rejects the removed vsync option")
+            return invoke(argv, cwd, alive, deadline)
+
+        with patch("mission_control.creative_batches.invoke", side_effect=ffmpeg_without_legacy_vsync):
+            result = inspect_output(self.store, APP, job["result"]["render_id"])
+        self.assertEqual(result["decoded_frames"], 4)
+        self.assertEqual(result["captions"], "UNKNOWN_HUMAN_REVIEW_REQUIRED")
 
     def create(self, selection, key):
         plan = Batch(self.store).plan(APP, selection)

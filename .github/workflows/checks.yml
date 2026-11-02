@@ -60,6 +60,9 @@ jobs:
           $binary[0].DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Verify full test-profile prerequisites
         run: python -c "from zoneinfo import ZoneInfo; from importlib.metadata import version; from mission_control.media_native import capability; ZoneInfo('America/Toronto'); assert capability()['status'] == 'READY', capability(); assert version('mcp') == '1.30.0', version('mcp')"
+      - name: Verify batch inspection with pinned FFmpeg 9
+        if: matrix.shard == 0
+        run: python -m unittest tests.test_creative_batches.CreativeBatchTests.test_real_batch_render_inspection_and_completion tests.test_creative_batches.CreativeBatchTests.test_real_output_is_decoded_but_visual_review_remains_unknown -v
       - name: Check clean distribution
         run: python tools/check_distribution.py
       - name: Verify all browser logic suites

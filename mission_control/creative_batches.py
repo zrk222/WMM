@@ -81,7 +81,7 @@ def inspect_output(store, app_id, render_id):
     with tempfile.TemporaryDirectory(prefix="inspect-", dir=path.parent) as temporary:
         folder = Path(temporary)
         invoke([tools["ffmpeg"], "-v", "error", "-nostdin", "-protocol_whitelist", "file,pipe",
-                "-i", str(path), "-vf", "select=" + expression, "-vsync", "0", "-f", "framemd5", "-"],
+                "-i", str(path), "-vf", "select=" + expression, "-fps_mode", "passthrough", "-f", "framemd5", "-"],
                folder, lambda: None, time.monotonic() + 30)
         decoded = [line for line in (folder / "native.log").read_bytes().splitlines() if line and not line.startswith(b"#")]
     if len(decoded) != 4:
