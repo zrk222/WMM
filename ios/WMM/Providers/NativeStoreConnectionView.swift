@@ -265,7 +265,6 @@ struct NativeStoreConnectionView: View {
             if model.jobs.isEmpty { Text("No Apple reads queued for this owner and app.") }
             ForEach(model.jobs) { job in
                 DisclosureGroup("\(job.operation) · \(job.status)") {
-                    Text(job.detail).font(.caption.monospaced()).textSelection(.enabled)
                     if ["QUEUED", "RUNNING"].contains(job.status) {
                         Button("Inspect and resume this read") { Task { await model.resume(job) } }.disabled(model.busy)
                     }
@@ -277,6 +276,7 @@ struct NativeStoreConnectionView: View {
                     } else if job.metricsAvailability == .available {
                         Button("Open saved download metrics") { Task { await model.inspectMetrics(job) } }.disabled(model.busy)
                     }
+                    Text(job.detail).font(.caption.monospaced()).textSelection(.enabled)
                 }
             }
         }
