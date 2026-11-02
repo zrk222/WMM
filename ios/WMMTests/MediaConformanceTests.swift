@@ -245,14 +245,20 @@ final class MediaConformanceTests: XCTestCase {
         let renderer = NativeStudioRenderer()
         let destination = folder.appendingPathComponent(UUID().uuidString + ".mp4")
         var checks = 0, finished = false
-        let output = try await renderer.render(packet, destination: destination, validate: { checks += 1 }, finish: { url in
+        let output = try await renderer.render(packet, destination: destination, validate: {
+            checks += 1
+            // Initial admission, one check at the start of each 24-frame scene,
+            // then the final authority check after the output is assembled.
+            XCTAssertEqual(FileManager.default.fileExists(atPath: destination.path), checks == 4)
+        }, finish: { url in
+            XCTAssertEqual(checks, 4)
             let proof = try await MediaInspector.inspectOriginal(url)
             let root = try XCTUnwrap(JSONSerialization.jsonObject(with: proof) as? [String: Any])
             let decoded = try XCTUnwrap(root["decoded"] as? [String: Any])
             XCTAssertEqual(decoded["video_frames"] as? Int, 48)
             finished = true
         })
-        XCTAssertEqual(checks, 2)
+        XCTAssertEqual(checks, 4)
         XCTAssertTrue(finished)
         let asset = AVURLAsset(url: output)
         let tracks = try await asset.loadTracks(withMediaType: .video)
@@ -280,11 +286,14 @@ final class MediaConformanceTests: XCTestCase {
         do {
             _ = try await renderer.render(packet, destination: denied, validate: {
                 checks += 1
-                if checks == 2 { throw DomainBridge.Failure.closed }
+                if checks == 4 {
+                    XCTAssertTrue(FileManager.default.fileExists(atPath: denied.path))
+                    throw DomainBridge.Failure.closed
+                }
             }, finish: { _ in finished = true })
             XCTFail("Revoked scene output was accepted")
         } catch DomainBridge.Failure.closed {}
-        XCTAssertEqual(checks, 2)
+        XCTAssertEqual(checks, 4)
         XCTAssertFalse(finished)
         XCTAssertFalse(FileManager.default.fileExists(atPath: denied.path))
         let uncertain = folder.appendingPathComponent(UUID().uuidString + ".mp4")
