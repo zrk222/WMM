@@ -203,8 +203,27 @@ function campaignScheduleReviewItem(item,scope){
 }
 async function campaignScheduleStatus(batch,source=null){
  const app=state.app,version=state.workspace.app.version,principal=state.workspace.identity?.principal,data=await api('/api/apps/'+app+'/campaigns/schedule-status',{batch_id:batch});if(state.app!==app||state.workspace.app.version!==version||state.workspace.identity?.principal!==principal||(source&&!source.isConnected))return;
- modal('Scheduled campaign progress','<div id="campaign-schedule-progress" class="modal-content" data-app="'+esc(app)+'" data-version="'+version+'" data-principal="'+esc(principal||'')+'"><h3>'+esc(data.status)+'</h3><p>Batch '+esc(data.id)+' · '+esc(data.items.length)+' scheduled items. WMM must remain running. Saved provider state does not establish app sales.</p>'+data.items.map(i=>campaignScheduleProgressItem(i,data)).join('')+'<p id="campaign-error" role="alert"></p>'+button('Refresh scheduled receipts','campaign-schedule-status','data-batch="'+esc(data.id)+'"')+button('Turn scheduled batch OFF','campaign-schedule-off')+button('Report / Save PDF','campaign-schedule-report')+'</div>');$('#campaign-schedule-progress').campaign=data;
+ modal('Scheduled campaign progress','<div id="campaign-schedule-progress" class="modal-content" data-app="'+esc(app)+'" data-version="'+version+'" data-principal="'+esc(principal||'')+'"><h3 id="schedule-batch-state">'+esc(data.status)+'</h3><p>Batch '+esc(data.id)+' · '+esc(data.items.length)+' scheduled items. WMM must remain running. Saved provider state does not establish app sales.</p><p id="schedule-live-stage" role="status">Saved stages refresh while this dialog is visible. Provider observation times may lag.</p><div id="schedule-live-items">'+data.items.map(i=>campaignScheduleProgressItem(i,data)).join('')+'</div><p id="campaign-error" role="alert"></p>'+button('Refresh scheduled receipts','campaign-schedule-status','data-batch="'+esc(data.id)+'"')+button('Turn scheduled batch OFF','campaign-schedule-off')+button('Report / Save PDF','campaign-schedule-report')+'</div>');const progress=$('#campaign-schedule-progress');progress.campaign=data;campaignScheduleWatch(progress);
 }
+function campaignScheduleWatch(panel){
+ let stopped=false,timer=null,reads=0,failures=0,inflight=false;
+ const batch=panel.campaign.id,valid=()=>{try{campaignBound(panel);return !stopped;}catch{return false;}};
+ const again=delay=>{if(valid()&&reads<120)timer=setTimeout(poll,delay);};
+ const poll=async()=>{
+  if(!valid()||inflight||reads>=120)return;
+  if(document.hidden||panel.dataset.busy==='true'){again(5000);return;}
+  inflight=true;reads++;
+  try{
+   const data=await api('/api/apps/'+panel.dataset.app+'/campaigns/schedule-status',{batch_id:batch});
+   if(!valid()||panel.dataset.busy==='true'||data.id!==batch||data.version<panel.campaign.version)return;
+   const changed=campaignStable(data)!==campaignStable(panel.campaign);panel.campaign=data;failures=0;
+   if(changed){panel.querySelector('#schedule-batch-state').textContent=data.status;panel.querySelector('#schedule-live-items').innerHTML=data.items.map(i=>campaignScheduleProgressItem(i,data)).join('');panel.querySelector('#schedule-live-stage').textContent='Saved stage: '+data.status+'. '+data.items.map(i=>i.effective_status||i.status).join(', ')+'. Provider status and app outcomes remain separate.';}
+  }catch{failures++;if(valid())panel.querySelector('#schedule-live-stage').textContent='Saved stage refresh failed. Existing work continues; refresh receipts before any retry.';}
+  finally{inflight=false;again(Math.min(60000,5000*2**Math.min(failures,4)));}
+ };
+ again(5000);return ()=>{stopped=true;clearTimeout(timer);};
+}
+
 function campaignScheduleProgressItem(item,data){
  const request=data.summary?.items?.find(r=>r.item_id===item.item_id)?.request||{},intent=item.intent||{},ids=intent.remote_id||Object.entries(intent.ids||{}).map(([k,v])=>k+': '+v).join(', ')||'Not confirmed';
  const budget=item.operation==='campaign.ad-launch'?'<p>Approved budget '+esc(request.lifetime_budget_minor)+' minor '+esc(intent.currency||'units')+' · retained commitment '+esc(intent.commitment??'Not reserved')+'</p>':'';

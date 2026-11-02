@@ -32,7 +32,7 @@ with sync_playwright() as playwright:
             if(path.endsWith('/campaigns/status'))return window.fixtureCampaign;
             if(path.endsWith('schedule-prepare'))return {summary:{batch_id:'batch',items:body.items},summary_hash:'synthetic-hash'};
             if(path.endsWith('schedule-activate'))return {};
-            if(path.endsWith('schedule-status'))return {id:'batch',status:'ACTIVE',version:2,summary:{items:[{item_id:'i',request:{lifetime_budget_minor:80,message:'PRIVATE COPY'}}]},items:[{item_id:'i',due_at:new Date().toISOString(),operation:'campaign.ad-launch',effective_status:'NEEDS_RECONCILIATION',status:'QUEUED',job_status:'BLOCKED',intent:{status:'UNKNOWN',ids:{campaign:'123'},commitment:80,currency:'CAD'}}]};
+            if(path.endsWith('schedule-status')){window.scheduleReads=(window.scheduleReads||0)+1;return {id:'batch',status:'ACTIVE',version:2,summary:{items:[{item_id:'i',request:{lifetime_budget_minor:80,message:'PRIVATE COPY'}}]},items:[{item_id:'i',due_at:new Date().toISOString(),operation:'campaign.ad-launch',effective_status:window.scheduleReads>1?'PAUSED_VERIFIED':'NEEDS_RECONCILIATION',status:'QUEUED',job_status:'BLOCKED',intent:{status:'UNKNOWN',ids:{campaign:'123'},commitment:80,currency:'CAD'}}]};}
             throw Error('Unexpected request')};
           document.addEventListener('submit',e=>{e.preventDefault();campaignScheduleSubmit(e.target)});
           document.addEventListener('click',e=>{const b=e.target.closest('[data-action]');if(b)campaignScheduleAction(b)});
@@ -67,14 +67,18 @@ with sync_playwright() as playwright:
         progress = page.locator('#campaign-schedule-progress')
         expect(progress).to_contain_text('NEEDS_RECONCILIATION')
         expect(progress).to_contain_text('retained commitment 80')
-        progress.get_by_role('button',name='Report / Save PDF').click()
+        report_button = progress.get_by_role('button',name='Report / Save PDF')
+        report_button.focus()
+        expect(progress).to_contain_text('PAUSED_VERIFIED', timeout=12000)
+        expect(report_button).to_be_focused()
+        report_button.click()
         assert 'PRIVATE COPY' not in json.dumps(page.evaluate('window.savedReport'))
         assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
         assert not errors, errors
         calls = page.evaluate('window.calls')
-        assert [x['path'].split('/')[-1] for x in calls] == ['status','schedule-prepare','schedule-activate','schedule-status']
+        assert [x['path'].split('/')[-1] for x in calls] == ['status','schedule-prepare','schedule-activate','schedule-status','schedule-status']
         assert calls[1]['body']['items'][0]['operation'] == 'campaign.ad-launch'
-        results.append({'width':width,'review':True,'progress':True,'keyboard_focus':True,'report_redacted':True,'network':'blocked','js_errors':errors})
+        results.append({'width':width,'review':True,'progress':True,'keyboard_focus':True,'live_saved_stage':True,'report_redacted':True,'network':'blocked','js_errors':errors})
         context.close()
     browser.close()
 print(json.dumps(results))

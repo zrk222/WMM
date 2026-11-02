@@ -13,6 +13,8 @@ Let an owner review and schedule an exact existing verified Page post promotion 
 - When schedule progress is displayed, the system shall show effective state, saved provider IDs and retained commitment through `progress_report`.
 - The system shall return a saved schedule report without creative copy or rights prose through `report_privacy`.
 
+- When the progress dialog stays visible, the system shall refresh saved receipt stages with one bounded in-flight read and discard stale app, owner, version or closed-dialog responses through `live_saved_progress`.
+
 ### Acceptance criteria (Gherkin)
 ```gherkin
 Scenario: verified_post
@@ -39,6 +41,10 @@ Scenario: report_privacy
   Given a saved campaign batch containing creative text
   When `report_privacy` creates a report
   Then creative text and rights prose are omitted
+Scenario: live_saved_progress
+  Given a visible scheduled progress dialog
+  When `live_saved_progress` reads its current saved receipt
+  Then the execution stage updates without resetting focus or repeating an effect
 ```
 
 ## SHOULD - Technical
@@ -55,3 +61,5 @@ Existing scope builder uses max_calls = 500. Synthetic saved scope fixtures use:
 max_calls = 500
 max_campaign_minor = 100
 max_total_minor = 100
+
+timeout = 12000
