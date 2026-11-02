@@ -20,6 +20,8 @@ def main():
                     page=browser.new_page(viewport=dict(width=width,height=height));errors=[]
                     page.on('pageerror',lambda e:errors.append(str(e)))
                     page.goto(f'http://127.0.0.1:{server.server_port}/');page.locator('#main h1').wait_for()
+                    advanced=page.locator('#navigation summary')
+                    advanced.focus();advanced.press('Enter')
                     page.locator('[data-view="weekly"]').click()
                     page.get_by_role('button',name='Review apps',exact=True).click()
                     expect(page.locator('#main')).to_contain_text('8 exceptions on this page')

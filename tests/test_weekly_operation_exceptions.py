@@ -201,7 +201,8 @@ class WeeklyOperationTests(unittest.TestCase):
         with connection(self.store.path) as db:
             db.execute("UPDATE campaign_monitors SET status='OFF'")
             scope = db.execute(
-                "SELECT * FROM campaign_scopes WHERE app_id='sample'"
+                "SELECT * FROM campaign_scopes WHERE app_id='sample' AND id=?",
+                (self.fixture.fixture.scope["scope_id"],),
             ).fetchone()
             import json
 
