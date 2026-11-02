@@ -14,7 +14,8 @@ from tests import test_ios_host as fixture
 from tests.test_apple_analytics import pages
 from tests.test_apple_metrics_transport import readiness_pages, segment
 
-KEY='-----BEGIN PRIVATE KEY-----\nQUJDRA==\n-----END PRIVATE KEY-----'
+# Fresh transport-only payload for the stub signer; never an enrolled provider key.
+KEY='-----BEGIN PRIVATE KEY-----\n'+base64.b64encode(uuid4().bytes).decode()+'\n-----END PRIVATE KEY-----'
 
 
 class NativeStoreConnectionTests(unittest.TestCase):
@@ -172,6 +173,30 @@ class NativeStoreConnectionTests(unittest.TestCase):
         history=self.call('history')['jobs'];self.assertEqual({row['id'] for row in history},{job['id'],inventory['id']})
         self.assertNotIn('X-Amz-Signature',json.dumps(history))
         with self.assertRaises(Invalid):self.call('run_inventory',{'id':job['id']})
+
+    def test_empty_daily_inventory_is_waiting_without_saved_metrics(self):
+        self.start()
+        record=self.setup()['record']
+        job=self.queue_metrics(record)
+        with patch('mission_control.provider_reports.report_request',side_effect=pages()) as reader, \
+             patch('mission_control.provider_reports.read_instance_segments') as download:
+            done=self.call('run_metrics',{'id':job['id']})
+        self.assertEqual(reader.call_count,4)
+        download.assert_not_called()
+        self.assertEqual(done['status'],'SUCCEEDED')
+        self.assertEqual(done['result']['schema'],'wmm.apple_metrics.waiting.v1')
+        self.assertEqual(done['result']['status'],'WAITING_FOR_REPORTS')
+        self.assertEqual(done['result']['report_id'],'report-1')
+        self.assertIsNone(done['result']['metric_observations'])
+        self.assertNotIn('partitions',done['result'])
+        self.assertEqual(self.call('history')['jobs'][0]['result']['status'],'WAITING_FOR_REPORTS')
+        with patch('mission_control.provider_reports.report_request') as provider:
+            self.assertEqual(self.call('run_metrics',{'id':job['id']})['result'],done['result'])
+        provider.assert_not_called()
+        with self.assertRaises(Invalid):
+            self.call('metrics',{'id':job['id']})
+        with connection(self.path) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM apple_metric_partitions').fetchone()[0],0)
 
     def test_metrics_wrong_report_foreign_app_and_empty_segments_store_nothing(self):
         self.start();record=self.setup()['record']

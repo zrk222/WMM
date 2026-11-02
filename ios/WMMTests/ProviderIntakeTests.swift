@@ -66,6 +66,56 @@ final class ProviderIntakeTests: XCTestCase {
         await bridge.close(); try await identity.forgetPrincipal()
     }
 
+    @MainActor
+    func testNativeStoreHistoryDistinguishesWaitingFromSavedMetrics() async throws {
+        let hash = String(repeating: "a", count: 64)
+        let data: [String: Any] = ["connection_id": "connection-1", "connection_version": 2,
+            "options": ["operation": "analytics_metrics_latest", "report_id": "report-1"]]
+        let common: [String: Any] = ["operation": "analytics_metrics_latest", "provider": "app_store",
+            "app_id": "synthetic-app", "store_app_id": "123", "report_id": "report-1",
+            "report_family": "App Downloads Standard", "granularity": "DAILY", "coverage": "COMPLETE",
+            "metadata_source_hash": hash, "observed_at": "2026-01-01T00:00:00Z", "external_writes": false]
+        var waiting = common
+        waiting.merge(["schema": "wmm.apple_metrics.waiting.v1", "status": "WAITING_FOR_REPORTS",
+            "connection_id": "connection-1", "connection_version": 2, "connection_hash": hash,
+            "metric_observations": NSNull()]) { _, new in new }
+        var numeric = common
+        numeric.merge(["partition_count": 1, "observation_count": 1, "partitions": [["event_date": "2026-01-01",
+            "status": "INSERTED", "observation_count": 1, "source_count": 1, "source_hash": hash]]]) { _, new in new }
+        var malformed = waiting; malformed["metric_observations"] = 0
+        var foreign = waiting; foreign["connection_id"] = "another-connection"
+        var empty = numeric; empty["partition_count"] = 0; empty["partitions"] = []
+        var booleanCount = numeric; booleanCount["partition_count"] = true
+        let rows: [[String: Any]] = [
+            ["id": "waiting", "app_id": "synthetic-app", "status": "SUCCEEDED", "data": data, "result": waiting],
+            ["id": "numeric", "app_id": "synthetic-app", "status": "SUCCEEDED", "data": data, "result": numeric],
+            ["id": "malformed", "app_id": "synthetic-app", "status": "SUCCEEDED", "data": data, "result": malformed],
+            ["id": "foreign", "app_id": "synthetic-app", "status": "SUCCEEDED", "data": data, "result": foreign],
+            ["id": "empty", "app_id": "synthetic-app", "status": "SUCCEEDED", "data": data, "result": empty],
+            ["id": "boolean-count", "app_id": "synthetic-app", "status": "SUCCEEDED", "data": data, "result": booleanCount],
+        ]
+        var calls: [String] = []
+        let model = NativeStoreConnectionModel(storeAppID: "123", execute: { action, _ in
+            calls.append(action)
+            let response: [String: Any] = action == "history" ? ["jobs": rows] : ["connections": []]
+            return try JSONSerialization.data(withJSONObject: response)
+        })
+        await model.refresh()
+        XCTAssertNil(model.message)
+        let waitingJob = try XCTUnwrap(model.jobs.first(where: { $0.id == "waiting" }))
+        XCTAssertEqual(waitingJob.metricsAvailability, .waiting)
+        XCTAssertEqual(model.jobs.first(where: { $0.id == "numeric" })?.metricsAvailability, .available)
+        XCTAssertEqual(model.jobs.first(where: { $0.id == "malformed" })?.metricsAvailability, .unavailable)
+        for id in ["foreign", "empty", "boolean-count"] {
+            XCTAssertEqual(model.jobs.first(where: { $0.id == id })?.metricsAvailability, .unavailable)
+        }
+        model.metrics = "stale previous read"
+        await model.inspectMetrics(waitingJob)
+        XCTAssertEqual(calls, ["view", "history"])
+        XCTAssertTrue(model.metrics.isEmpty)
+        model.close()
+    }
+
     func testPostHogKeychainBindingRejectsForeignScopeAndKeepsInferenceSeparate() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }

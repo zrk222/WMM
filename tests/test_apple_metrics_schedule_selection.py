@@ -68,19 +68,36 @@ class AppleMetricsScheduleSelectionTests(unittest.TestCase):
                 {'operation':'analytics_metrics_latest','report_id':REPORT},'connection-1',2)
         download.assert_not_called()
 
-    def test_latest_rejects_missing_or_ambiguous_daily_instance(self):
-        for rows in (
-            [{'id':'weekly','processing_date':'2026-10-27','granularity':'WEEKLY'}],
-            [{'id':'a','processing_date':'2026-10-26','granularity':'DAILY'},
-             {'id':'b','processing_date':'2026-10-26','granularity':'DAILY'}],
-        ):
-            with self.subTest(rows=rows), \
-                 patch('mission_control.provider_reports.read_analytics',return_value=inventory(rows)), \
-                 patch('mission_control.provider_reports.read_instance_segments') as download, \
+    def test_latest_waits_for_daily_and_rejects_ambiguous_daily(self):
+        for rows in ([], [{'id':'weekly','processing_date':'2026-10-27','granularity':'WEEKLY'}]):
+            prepared, download = self.prepare({'operation':'analytics_metrics_latest','report_id':REPORT}, rows)
+            self.assertEqual(prepared.partitions, ())
+            self.assertEqual(prepared.summary([])['status'], 'WAITING_FOR_REPORTS')
+            self.assertIsNone(prepared.summary([])['metric_observations'])
+            download.assert_not_called()
+        rows=[{'id':'a','processing_date':'2026-10-26','granularity':'DAILY'},
+              {'id':'b','processing_date':'2026-10-26','granularity':'DAILY'}]
+        with patch('mission_control.provider_reports.read_analytics',return_value=inventory(rows)), \
+             patch('mission_control.provider_reports.read_instance_segments') as download, \
+             self.assertRaises(Invalid):
+            prepare_analytics_metrics(self.reader,self.binding,APP,STORE_APP,
+                {'operation':'analytics_metrics_latest','report_id':REPORT},'connection-1',2)
+        download.assert_not_called()
+
+    def test_waiting_requires_complete_selected_report_and_source_evidence(self):
+        for value in ({'coverage':'PARTIAL','reports':inventory([])['reports']},
+                      {'coverage':'COMPLETE','reports':[]},
+                      {'coverage':'COMPLETE','reports':[{'id':REPORT,'name':'App Downloads Standard',
+                                                          'coverage':'PARTIAL','instances':[]}]}):
+            with self.subTest(value=value), patch('mission_control.provider_reports.read_analytics',return_value=value), \
                  self.assertRaises(Invalid):
                 prepare_analytics_metrics(self.reader,self.binding,APP,STORE_APP,
                     {'operation':'analytics_metrics_latest','report_id':REPORT},'connection-1',2)
-            download.assert_not_called()
+        reader=Reader()
+        reader.hashes=[]
+        with patch('mission_control.provider_reports.read_analytics',return_value=inventory([])),self.assertRaises(Invalid):
+            prepare_analytics_metrics(reader,self.binding,APP,STORE_APP,
+                {'operation':'analytics_metrics_latest','report_id':REPORT},'connection-1',2)
 
     def test_agent_manifest_allows_latest_read_only_operation(self):
         self.assertIn('analytics_metrics_latest',APPLE_READ_OPERATIONS)

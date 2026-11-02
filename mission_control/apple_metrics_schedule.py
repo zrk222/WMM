@@ -1,9 +1,10 @@
 """Owner-opt-in, app-bound Apple Analytics refresh scheduling."""
 import json
+import re
 import time
 
 from .apple_analytics import identity as analytics_identity
-from .common import Invalid, canonical, digest, now, safe_data, uid
+from .common import Invalid, canonical, digest, iso_time, now, safe_data, uid
 from .db import connection
 
 MIN_INTERVAL_HOURS = 24
@@ -77,12 +78,14 @@ class AppleMetricsSchedules:
             row = db.execute('SELECT * FROM apple_metrics_schedules WHERE app_id=?', (app_id,)).fetchone()
             return public_row(db, row)
 
-    def save(self, app_id, body):
+    def save(self, app_id, body, *, commit_check=None):
         """Create, replace or pause an explicitly owner-approved app schedule."""
         self.store.app(app_id)
         body = configuration(body)
         with connection(self.store.path) as db:
             db.execute('BEGIN IMMEDIATE')
+            if commit_check is not None:
+                commit_check(db)
             old = db.execute('SELECT * FROM apple_metrics_schedules WHERE app_id=?', (app_id,)).fetchone()
             expected = old['version'] if old else None
             if body['version'] != expected:
@@ -183,11 +186,78 @@ def disable(db, row, status, reason):
     schedule_audit(db, row['app_id'], 'disabled', {'schedule_id': row['id'], 'status': status})
 
 
+WAITING_FIELDS = {'schema','status','operation','provider','app_id','store_app_id','connection_id',
+                  'connection_version','report_id','report_family','granularity','coverage',
+                  'metadata_source_hash','connection_hash','observed_at','metric_observations','external_writes'}
+
+
+def waiting_marker(result):
+    return isinstance(result, dict) and (result.get('status') == 'WAITING_FOR_REPORTS'
+        or result.get('schema') == 'wmm.apple_metrics.waiting.v1')
+
+
+def valid_waiting(db, row, job, result):
+    """Accept only a complete waiting result bound to this still-current scheduled job."""
+    try:
+        if not isinstance(result, dict) or set(result) != WAITING_FIELDS:
+            return False
+        check_scheduled_db(db, job)
+        app = db.execute('SELECT data FROM apps WHERE id=?', (row['app_id'],)).fetchone()
+        record = db.execute('SELECT data FROM records WHERE app_id=? AND id=? AND kind=?',
+                            (row['app_id'], row['connection_id'], 'connection')).fetchone()
+        if app is None or record is None:
+            return False
+        app_data, binding = json.loads(app['data']), json.loads(record['data'])
+        if (result['schema'] != 'wmm.apple_metrics.waiting.v1' or result['status'] != 'WAITING_FOR_REPORTS'
+                or result['operation'] != 'analytics_metrics_latest' or result['provider'] != 'app_store'
+                or result['app_id'] != row['app_id'] or result['store_app_id'] != app_data.get('store_app_id')
+                or result['connection_id'] != row['connection_id']
+                or type(result['connection_version']) is not int or result['connection_version'] != row['connection_version']
+                or result['report_id'] != row['report_id'] or result['report_family'] != 'App Downloads Standard'
+                or result['granularity'] != 'DAILY' or result['coverage'] != 'COMPLETE'
+                or result['metric_observations'] is not None or result['external_writes'] is not False
+                or result['connection_hash'] != digest(binding)
+                or not isinstance(result['metadata_source_hash'], str)
+                or not re.fullmatch(r'[0-9a-f]{64}', result['metadata_source_hash'])):
+            return False
+        iso_time(result['observed_at'])
+        return True
+    except (Invalid, TypeError, ValueError, KeyError, AttributeError):
+        return False
+
+
+def valid_numeric(db, row, job, result):
+    """Recognize only an actual complete downloads partition summary as numeric success."""
+    try:
+        if not isinstance(result, dict):
+            return False
+        check_scheduled_db(db, job)
+        app = db.execute('SELECT data FROM apps WHERE id=?', (row['app_id'],)).fetchone()
+        if app is None:
+            return False
+        if (result.get('operation') != 'analytics_metrics_latest' or result.get('provider') != 'app_store'
+                or result.get('app_id') != row['app_id']
+                or result.get('store_app_id') != json.loads(app['data']).get('store_app_id')
+                or result.get('report_id') != row['report_id'] or result.get('report_family') != 'App Downloads Standard'
+                or result.get('granularity') != 'DAILY' or result.get('coverage') != 'COMPLETE'
+                or result.get('external_writes') is not False or type(result.get('partition_count')) is not int
+                or result['partition_count'] < 1 or not isinstance(result.get('partitions'), list)
+                or len(result['partitions']) != result['partition_count']
+                or type(result.get('observation_count')) is not int or result['observation_count'] < 0
+                or not isinstance(result.get('metadata_source_hash'), str)
+                or not re.fullmatch(r'[0-9a-f]{64}', result['metadata_source_hash'])):
+            return False
+        iso_time(result.get('observed_at'))
+        return True
+    except (Invalid, TypeError, ValueError, KeyError, AttributeError):
+        return False
+
+
 def reconcile(db, row):
     """Apply each terminal job result once and stop after three consecutive failures."""
     if not row['last_job']:
         return True
-    job = db.execute('SELECT status,result FROM jobs WHERE app_id=? AND id=?',
+    job = db.execute('SELECT * FROM jobs WHERE app_id=? AND id=?',
                      (row['app_id'], row['last_job'])).fetchone()
     if job is None:
         disable(db, row, 'BLOCKED', 'Scheduled job record is missing; review before resuming')
@@ -196,9 +266,17 @@ def reconcile(db, row):
         return False
     if row['reconciled_job'] == row['last_job']:
         return True
-    result = json.loads(job['result'] or '{}')
-    failures = 0 if job['status'] == 'SUCCEEDED' else row['failures'] + 1
-    last_error = None if job['status'] == 'SUCCEEDED' else safe_failure(result)
+    try:
+        result = json.loads(job['result'] or '{}')
+        job_input = json.loads(job['data'])
+    except (TypeError, ValueError):
+        result, job_input = {}, {}
+    job_data = dict(job)
+    job_data['data'] = job_input
+    success = job['status'] == 'SUCCEEDED' and (valid_waiting(db, row, job_data, result) if waiting_marker(result)
+                                                 else valid_numeric(db, row, job_data, result))
+    failures = 0 if success else row['failures'] + 1
+    last_error = None if success else safe_failure(result)
     status = 'ENABLED' if failures < MAX_FAILURES else 'BLOCKED'
     enabled = int(failures < MAX_FAILURES and job['status'] != 'CANCELLED')
     if job['status'] == 'CANCELLED':
@@ -206,7 +284,7 @@ def reconcile(db, row):
     db.execute('UPDATE apple_metrics_schedules SET failures=?,reconciled_job=?,last_error=?,enabled=?,status=?,updated=? WHERE app_id=?',
         (failures, row['last_job'], last_error, enabled, status, now(), row['app_id']))
     schedule_audit(db, row['app_id'], 'reconciled', {'job_id': row['last_job'],
-        'status': job['status'], 'failures': failures})
+        'status': 'INVALID_RESULT' if job['status'] == 'SUCCEEDED' and not success else job['status'], 'failures': failures})
     return bool(enabled)
 
 
@@ -281,10 +359,22 @@ def complete_job(db, job, result, status):
     if not row['enabled']:
         return
     if status == 'SUCCEEDED':
-        db.execute("UPDATE apple_metrics_schedules SET failures=0,reconciled_job=?,last_success=?,last_error=NULL,status='ENABLED',updated=? WHERE app_id=?",
-            (job['id'], now(), now(), job['app_id']))
-        schedule_audit(db, job['app_id'], 'completed', {'job_id': job['id'], 'status': status})
-        return
+        if waiting_marker(result):
+            if valid_waiting(db, row, job, result):
+                db.execute("UPDATE apple_metrics_schedules SET failures=0,reconciled_job=?,last_error=NULL,status='ENABLED',updated=? WHERE app_id=?",
+                    (job['id'], now(), job['app_id']))
+                schedule_audit(db, job['app_id'], 'waiting', {'job_id': job['id'], 'status': 'WAITING_FOR_REPORTS'})
+                return
+            result = {'error':'Scheduled Apple analytics waiting result failed its source check'}
+            status = 'BLOCKED'
+        elif valid_numeric(db, row, job, result):
+            db.execute("UPDATE apple_metrics_schedules SET failures=0,reconciled_job=?,last_success=?,last_error=NULL,status='ENABLED',updated=? WHERE app_id=?",
+                (job['id'], now(), now(), job['app_id']))
+            schedule_audit(db, job['app_id'], 'completed', {'job_id': job['id'], 'status': status})
+            return
+        else:
+            result = {'error':'Scheduled Apple analytics result failed its source check'}
+            status = 'BLOCKED'
     if status == 'CANCELLED':
         disable(db, row, 'PAUSED', 'Scheduled read was cancelled; review the schedule before resuming')
         return

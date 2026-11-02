@@ -61,7 +61,11 @@ Actual screens with synthetic example data—not customer campaign results.
 
 </details>
 
-## Start locally
+## Start with the desktop app
+
+[Install WMM and make your first useful marketing packet](docs/desktop-first-run.md). Windows and Ubuntu preview installers include the runtime; Python is not required. The guide identifies the current installer downloads, private data locations and first task. For unattended work, choose the [optional owner-managed always-on host](docs/always-on-runtime.md).
+
+## Start from source
 
 Install **Python 3.11+**, clone the repository and run:
 

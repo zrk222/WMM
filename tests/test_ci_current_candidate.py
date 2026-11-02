@@ -5,7 +5,9 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-BASELINES = {".github/workflows/checks.yml":"b8ed50e004bbaeef30facd54f7ccb9937459c66c1f3eae40884b3284e16b5d17",".github/workflows/platform-checks.yml":"8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",".github/workflows/desktop-packages.yml":"0da1ab96f991f41905abcd73a027c787f7ae93177ca69f2e241796640f93d833"}
+# The desktop job adds explicit disposable host-service acceptance; both native
+# package jobs and all application/platform matrices remain present.
+BASELINES = {".github/workflows/checks.yml":"b8ed50e004bbaeef30facd54f7ccb9937459c66c1f3eae40884b3284e16b5d17",".github/workflows/platform-checks.yml":"8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",".github/workflows/desktop-packages.yml":"e706a3cecaff27d02493a91b6e22b9b6719d435d16b7e0c47a2dbf9c45362349"}
 GROUP = "${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}"
 
 def job_digest(path):

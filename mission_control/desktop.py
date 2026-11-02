@@ -118,7 +118,12 @@ def headless():
         try:
             origin = runtime.start()
             print(json.dumps(dict(status='RUNNING', origin=origin, mode='HEADLESS')), flush=True)
-            stopped.wait()
+            # A finite wait returns control to Python so Windows can dispatch
+            # pending console signal handlers even while the worker is idle.
+            while True:
+                stopped.wait(0.5)
+                if stopped.is_set():
+                    break
         finally:
             runtime.close()
     finally:

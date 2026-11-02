@@ -1,10 +1,16 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import CoreFoundation
 
 @MainActor
 final class NativeStoreConnectionModel: ObservableObject, Identifiable {
+    static let waitingMessage = "Apple returned no daily report; no new metrics were collected. Read again later while the app is open."
     struct Connection: Identifiable { let id: String; let version: Int; let storeAppID: String; let status: String }
-    struct Job: Identifiable { let id: String; let status: String; let operation: String; let detail: String }
+    enum MetricsAvailability: Equatable { case notApplicable, waiting, available, unavailable }
+    struct Job: Identifiable {
+        let id: String; let status: String; let operation: String; let detail: String
+        let metricsAvailability: MetricsAvailability
+    }
     let id = UUID()
     let storeAppID: String
     @Published var connections: [Connection] = []
@@ -27,6 +33,72 @@ final class NativeStoreConnectionModel: ObservableObject, Identifiable {
     private func pretty(_ value: Any) throws -> String {
         String(data: try JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys]), encoding: .utf8) ?? ""
     }
+    private static func integer(_ value: Any?) -> Int? {
+        guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
+              number.doubleValue.isFinite, number.doubleValue == Double(number.intValue) else { return nil }
+        return number.intValue
+    }
+    private static func hash(_ value: Any?) -> Bool {
+        guard let value = value as? String else { return false }
+        return value.range(of: "^[0-9a-f]{64}$", options: .regularExpression) != nil
+    }
+    private static func isFalse(_ value: Any?) -> Bool {
+        guard let number = value as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() else { return false }
+        return !number.boolValue
+    }
+    static func metricsAvailability(_ row: [String: Any], storeAppID: String) -> MetricsAvailability {
+        guard row["status"] as? String == "SUCCEEDED",
+              let data = row["data"] as? [String: Any],
+              let options = data["options"] as? [String: Any],
+              options["operation"] as? String == "analytics_metrics_latest" else { return .notApplicable }
+        guard let result = row["result"] as? [String: Any],
+              let appID = row["app_id"] as? String, !appID.isEmpty,
+              let reportID = options["report_id"] as? String, !reportID.isEmpty,
+              result["app_id"] as? String == appID, result["store_app_id"] as? String == storeAppID,
+              result["report_id"] as? String == reportID,
+              result["operation"] as? String == "analytics_metrics_latest",
+              result["provider"] as? String == "app_store",
+              result["report_family"] as? String == "App Downloads Standard",
+              result["granularity"] as? String == "DAILY", result["coverage"] as? String == "COMPLETE",
+              isFalse(result["external_writes"]),
+              let observed = result["observed_at"] as? String, !observed.isEmpty,
+              hash(result["metadata_source_hash"]) else { return .unavailable }
+        if result["schema"] as? String == "wmm.apple_metrics.waiting.v1" {
+            let fields: Set<String> = ["schema", "status", "operation", "provider", "app_id", "store_app_id",
+                "connection_id", "connection_version", "report_id", "report_family", "granularity", "coverage",
+                "metadata_source_hash", "connection_hash", "observed_at", "metric_observations", "external_writes"]
+            guard Set(result.keys) == fields,
+                  result["status"] as? String == "WAITING_FOR_REPORTS", result["metric_observations"] is NSNull,
+                  let connectionID = data["connection_id"] as? String, !connectionID.isEmpty,
+                  let connectionVersion = integer(data["connection_version"]), connectionVersion > 0,
+                  result["connection_id"] as? String == connectionID,
+                  integer(result["connection_version"]) == connectionVersion,
+                  hash(result["connection_hash"]),
+                  result["partitions"] == nil, result["partition_count"] == nil else { return .unavailable }
+            return .waiting
+        }
+        guard result["schema"] == nil, result["status"] == nil,
+              let count = integer(result["partition_count"]), count > 0,
+              let total = integer(result["observation_count"]), total >= 0,
+              let partitions = result["partitions"] as? [[String: Any]], partitions.count == count,
+              partitions.allSatisfy({ entry in
+                  guard let eventDate = entry["event_date"] as? String, !eventDate.isEmpty,
+                        let state = entry["status"] as? String, ["INSERTED", "REPLACED", "UNCHANGED"].contains(state),
+                        let observations = integer(entry["observation_count"]), observations >= 0,
+                        let sources = integer(entry["source_count"]), sources > 0,
+                        hash(entry["source_hash"]) else { return false }
+                  return true
+              }) else { return .unavailable }
+        var observedTotal = 0
+        for entry in partitions {
+            guard let observations = integer(entry["observation_count"]) else { return .unavailable }
+            let (sum, overflow) = observedTotal.addingReportingOverflow(observations)
+            guard !overflow else { return .unavailable }
+            observedTotal = sum
+        }
+        guard observedTotal == total else { return .unavailable }
+        return .available
+    }
     private func load() async throws {
         let view = try await call("view")
         connections = try (view["connections"] as? [[String: Any]] ?? []).compactMap { row in
@@ -39,8 +111,10 @@ final class NativeStoreConnectionModel: ObservableObject, Identifiable {
             guard let id = row["id"] as? String, let status = row["status"] as? String else { return nil }
             let data = row["data"] as? [String: Any]
             let options = data?["options"] as? [String: Any]
-            return Job(id: id, status: status, operation: options?["operation"] as? String ?? "analytics_reports", detail: try pretty(row))
+            return Job(id: id, status: status, operation: options?["operation"] as? String ?? "analytics_reports",
+                detail: try pretty(row), metricsAvailability: Self.metricsAvailability(row, storeAppID: storeAppID))
         }
+        metrics = ""
     }
     private func perform(_ work: () async throws -> Void) async {
         guard !busy, !closed else { return }; busy = true; message = nil; defer { busy = false }
@@ -78,16 +152,25 @@ final class NativeStoreConnectionModel: ObservableObject, Identifiable {
             guard let id = job["id"] as? String else { throw DomainBridge.Failure.invalidRequest }
             _ = try await call("run_" + operation, ["id": id])
             requests.removeValue(forKey: identity)
-            try await load(); message = "Read finished. Inspect the saved receipt and its coverage before interpreting the result."
+            try await load()
+            message = jobs.first(where: { $0.id == id })?.metricsAvailability == .waiting
+                ? Self.waitingMessage : "Read finished. Inspect the saved receipt and its coverage before interpreting the result."
         }
     }
     func resume(_ job: Job) async {
         await perform {
             _ = try await call(job.operation == "analytics_reports" ? "run_inventory" : "run_metrics", ["id": job.id])
             try await load()
+            if jobs.first(where: { $0.id == job.id })?.metricsAvailability == .waiting { message = Self.waitingMessage }
         }
     }
     func inspectMetrics(_ job: Job) async {
+        guard !closed else { return }
+        guard job.metricsAvailability == .available else {
+            metrics = ""
+            message = "No saved download metrics are available for this read. Review its receipt before reading again."
+            return
+        }
         await perform { metrics = try pretty(await call("metrics", ["id": job.id])) }
     }
     func close() { closed = true; connections = []; jobs = []; metrics = "" }
@@ -182,14 +265,18 @@ struct NativeStoreConnectionView: View {
             if model.jobs.isEmpty { Text("No Apple reads queued for this owner and app.") }
             ForEach(model.jobs) { job in
                 DisclosureGroup("\(job.operation) · \(job.status)") {
-                    Text(job.detail).font(.caption.monospaced()).textSelection(.enabled)
                     if ["QUEUED", "RUNNING"].contains(job.status) {
                         Button("Inspect and resume this read") { Task { await model.resume(job) } }.disabled(model.busy)
                     }
                     if job.status == "BLOCKED" { Text("This read stopped. Repair the connection or source, then explicitly queue a new read above.").font(.caption) }
-                    if job.status == "SUCCEEDED", job.operation == "analytics_metrics_latest" {
+                    if job.metricsAvailability == .waiting {
+                        Text(NativeStoreConnectionModel.waitingMessage).font(.caption)
+                    } else if job.metricsAvailability == .unavailable {
+                        Text("Saved download metrics are unavailable for this receipt. Review the source before reading again.").font(.caption)
+                    } else if job.metricsAvailability == .available {
                         Button("Open saved download metrics") { Task { await model.inspectMetrics(job) } }.disabled(model.busy)
                     }
+                    Text(job.detail).font(.caption.monospaced()).textSelection(.enabled)
                 }
             }
         }

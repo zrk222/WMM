@@ -24,14 +24,19 @@ class LinuxPackageContractTests(unittest.TestCase):
             self.assertIn(dependency, control)
         self.assertEqual(launcher.strip(), '#!/bin/sh\nexec /usr/lib/wize-marketing-machine/WMM')
         self.assertIn('Exec=/usr/bin/wize-marketing-machine', desktop)
-        self.assertEqual({p.name for p in folder.iterdir()}, {'control','wize-marketing-machine','wize-marketing-machine.desktop'})
+        self.assertEqual({p.name for p in folder.iterdir()}, {'control','wize-marketing-machine','wize-marketing-machine.desktop','wmm-worker.service'})
 
     def test_non_ci_preflight_rejects_before_package_commands(self):
+        commands = unittest.mock.Mock(side_effect=AssertionError('Package commands must not run'))
         with patch('sys.platform', 'linux'), \
              patch('os.geteuid', return_value=0, create=True), \
-             patch.dict(preflight.__globals__, {'run': unittest.mock.Mock()}):
-            with self.assertRaisesRegex(RuntimeError, 'isolated root Ubuntu'):
-                preflight({'CI':'false'})
+             patch.dict(preflight.__globals__, {'run': commands}):
+            for env in ({'CI':'false'}, {'CI':'true','GITHUB_ACTIONS':'true',
+                       'WMM_LINUX_PACKAGE_TEST':'1','WMM_ISOLATED_NATIVE_KEYRING':'1',
+                       'DBUS_SESSION_BUS_ADDRESS':'synthetic'}):
+                with self.assertRaisesRegex(RuntimeError, 'isolated root Ubuntu'):
+                    preflight(env)
+            commands.assert_not_called()
 
 
     def test_archive_validation_rejects_scripts_and_escaping_payload(self):
@@ -46,6 +51,7 @@ class LinuxPackageContractTests(unittest.TestCase):
             return out.getvalue()
         inspect_archive(archive('./control'), control=True)
         inspect_archive(archive('./usr/lib/wize-marketing-machine/WMM'))
+        inspect_archive(archive('./usr/share/wize-marketing-machine/wmm-worker.service'))
         for value, control in ((archive('./postinst'), True), (archive('./etc/profile'), False),
                                (archive('./usr/lib/wize-marketing-machine/link', '/etc/passwd'), False),
                                (archive('./usr/lib/wize-marketing-machine/../../etc/passwd'), False)):

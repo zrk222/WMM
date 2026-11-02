@@ -1,0 +1,25 @@
+name: apple-metrics-waiting
+language: python
+modules:
+- name: provider_reports
+  path: mission_control/provider_reports.py
+  language: python
+  functions: []
+- name: apple_metrics_schedule
+  path: mission_control/apple_metrics_schedule.py
+  language: python
+  functions: []
+- name: test_apple_metrics_schedule
+  path: tests/test_apple_metrics_schedule.py
+  language: python
+  functions: []
+- name: test_apple_metrics_schedule_selection
+  path: tests/test_apple_metrics_schedule_selection.py
+  language: python
+  functions: []
+dependencies:
+- from: test_apple_metrics_schedule
+  to: apple_metrics_schedule
+- from: test_apple_metrics_schedule_selection
+  to: provider_reports
+invariants: []

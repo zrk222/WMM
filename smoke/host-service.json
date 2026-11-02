@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "host-service-source-contract-and-ci-preflight",
+      "kind": "python",
+      "run": "import unittest; suite=unittest.defaultTestLoader.loadTestsFromName('tests.test_host_service_contract'); result=unittest.TextTestRunner().run(suite); assert result.wasSuccessful()"
+    }
+  ]
+}

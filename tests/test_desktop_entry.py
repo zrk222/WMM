@@ -168,7 +168,7 @@ class DesktopEntryTests(unittest.TestCase):
         ):
             headless()
         factory.assert_called_once_with(fixed_port=True)
-        event.return_value.wait.assert_called_once()
+        event.return_value.wait.assert_called_once_with(0.5)
         runtime.close.assert_called_once()
         browser.assert_not_called()
 
@@ -186,7 +186,8 @@ class DesktopEntryTests(unittest.TestCase):
         runtime.start.return_value = "http://127.0.0.1:8765"
         stop = Mock()
 
-        def interrupt():
+        def interrupt(timeout):
+            self.assertEqual(timeout, 0.5)
             handlers[__import__("signal").SIGTERM](__import__("signal").SIGTERM, None)
 
         stop.wait.side_effect = interrupt

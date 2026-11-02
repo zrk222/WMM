@@ -25,6 +25,16 @@ class PreparedAppleMetrics:
 
     def summary(self, statuses):
         """Return bounded, secret-free job evidence after persistence commits."""
+        if not self.partitions:
+            if self.operation != 'analytics_metrics_latest' or statuses:
+                raise Invalid('Invalid empty Apple analytics preparation')
+            return dict(schema='wmm.apple_metrics.waiting.v1',status='WAITING_FOR_REPORTS',
+                operation=self.operation,provider='app_store',app_id=self.identity['app_id'],
+                store_app_id=self.identity['store_app_id'],connection_id=self.identity['connection_id'],
+                connection_version=self.identity['connection_version'],report_id=self.identity['report_id'],
+                report_family=self.identity['report_family'],granularity='DAILY',coverage='COMPLETE',
+                metadata_source_hash=self.metadata_source_hash,connection_hash=self.connection_hash,
+                observed_at=now(),metric_observations=None,external_writes=False)
         values=[]
         for item,status in zip(self.partitions,statuses):
             instance=item['instance']
@@ -163,7 +173,14 @@ def prepare_analytics_metrics(reader,binding,app_id,store_id,options,connection_
     if options['operation']=='analytics_metrics_latest':
         daily=[item for item in report['instances'] if item['granularity']=='DAILY']
         if not daily:
-            raise Invalid('No complete daily downloads report instance is available yet')
+            if not reader.hashes:
+                raise Invalid('Apple analytics inventory lacks source evidence')
+            key=dict(app_id=app_id,store_app_id=store_id,connection_id=connection_id,
+                connection_version=connection_version,report_id=options['report_id'],
+                report_family=report['name'],granularity='DAILY')
+            public_binding={name:value for name,value in binding.items() if not name.startswith('_')}
+            return PreparedAppleMetrics(identity=key,partitions=(),connection_hash=digest(public_binding),
+                metadata_source_hash=digest(reader.hashes),operation=options['operation'])
         latest_date=max(item['processing_date'] for item in daily)
         newest=[item for item in daily if item['processing_date']==latest_date]
         if len(newest)!=1:
