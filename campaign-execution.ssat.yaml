@@ -1,0 +1,37 @@
+name: campaign-execution
+language: python
+modules:
+- name: campaign_contract
+  path: mission_control/campaign_contract.py
+  language: python
+  functions: []
+- name: campaign_locks
+  path: mission_control/campaign_locks.py
+  language: python
+  functions: []
+- name: campaign_transport
+  path: mission_control/campaign_transport.py
+  language: python
+  functions: []
+- name: campaign_execution
+  path: mission_control/campaign_execution.py
+  language: python
+  functions: []
+- name: test_campaign_execution
+  path: tests/test_campaign_execution.py
+  language: python
+  functions: []
+dependencies:
+- from: campaign_transport
+  to: campaign_contract
+- from: campaign_execution
+  to: campaign_contract
+- from: campaign_execution
+  to: campaign_transport
+- from: campaign_execution
+  to: campaign_locks
+- from: test_campaign_execution
+  to: campaign_execution
+- from: test_campaign_execution
+  to: campaign_transport
+invariants: []

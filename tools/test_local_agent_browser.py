@@ -12,6 +12,7 @@ from mission_control.server import Server
 from tests.test_local_agent_access import LocalAccessTests
 from tests.test_agent_access import answer,connection_test_fixture
 from mission_control.common import canonical
+from mission_control.draft_recipes import CONTENT_PACK_FOCUS, CONTENT_PACK_TITLES
 
 
 def snapshot(page,out,name):
@@ -53,16 +54,20 @@ def run_viewport(browser,width,out):
             select.select_option(label='Local browser model')
         page.get_by_role('button',name='Save task routes',exact=True).click()
         expect(page.locator('#modal')).not_to_be_visible()
-        fixture.model.value['choices'][0]['message']['content']=canonical(answer())
+        fixture.model.value['choices'][0]['message']['content']=canonical(dict(summary='Synthetic app content pack',items=[dict(title=title,detail='Synthetic source-bound app copy with a first-value action.',source_ids=['app_manifest']) for title in CONTENT_PACK_TITLES],unknowns=['No measured marketing results']))
         page.get_by_role('button',name='Prepare agent work',exact=True).click()
-        page.get_by_label('Focus (optional)',exact=True).fill('A reviewed synthetic local request')
+        page.get_by_role('button',name='Use eight-piece content pack',exact=True).focus()
+        page.keyboard.press('Enter')
+        expect(page.get_by_label('Focus (optional)',exact=True)).to_have_value(CONTENT_PACK_FOCUS)
+        expect(page.locator('#agent-work-form select[name=task]')).to_have_value('original_copy')
+        assert len(fixture.model.calls)==1
         page.get_by_role('button',name='Review proposed work',exact=True).click()
-        expect(page.locator('#agent-approve-form')).to_contain_text('A reviewed synthetic local request')
+        expect(page.locator('#agent-approve-form')).to_contain_text(CONTENT_PACK_FOCUS)
         assert len(fixture.model.calls)==1
         snapshot(page,out,f'local-review-{width}')
         page.get_by_role('button',name='Approve and run once',exact=True).click()
         expect(page.locator('#agent-job-status')).to_contain_text('SUCCEEDED',timeout=15000)
-        expect(page.locator('#agent-run')).to_contain_text('Try a bounded test')
+        for title in CONTENT_PACK_TITLES:expect(page.locator('#agent-run')).to_contain_text(title)
         assert len(fixture.model.calls)==2
         page.locator('#close-modal').click()
         page.get_by_role('button',name='Report / Save PDF',exact=True).focus()
@@ -72,7 +77,7 @@ def run_viewport(browser,width,out):
         with fitz.open(pdfpath) as pdf:
             text='\n'.join(p.get_text() for p in pdf)
             assert 'Your agents' in text and 'Configured model profiles' in text and 'Evidence boundaries' in text
-            assert 'A reviewed synthetic local request' not in text
+            assert CONTENT_PACK_FOCUS not in text
         popup.close()
         page.reload();page.locator('[data-view=agents]').click()
         expect(page.locator('#main')).to_contain_text('Local browser model')
@@ -92,7 +97,7 @@ def run_viewport(browser,width,out):
 
 def main():
     out=ROOT/'.factory/local-agent-api';out.mkdir(parents=True,exist_ok=True)
-    paths=['mission_control/local_agent_api.py','mission_control/agent_contract.py','mission_control/agent_access.py','mission_control/agent_api.py','mission_control/agent_registry.py','mission_control/static/agent-access.js','tools/test_local_agent_browser.py']
+    paths=['mission_control/local_agent_api.py','mission_control/agent_contract.py','mission_control/agent_access.py','mission_control/agent_api.py','mission_control/agent_registry.py','mission_control/static/agent-access.js','tools/test_local_agent_browser.py','mission_control/draft_recipes.py']
     hashes={p:hashlib.sha256((ROOT/p).read_bytes()).hexdigest() for p in paths}
     with sync_playwright() as p:
         browser=p.chromium.launch();observations=[run_viewport(browser,w,out) for w in (1440,390)]

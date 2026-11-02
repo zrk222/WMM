@@ -11,7 +11,22 @@ class OperationCatalogTests(unittest.TestCase):
         self.assertFalse(value['full_agent_operation'])
         self.assertEqual(value['operations']['media.sources']['method'],'GET')
         self.assertEqual(value['operations']['media.sources']['suffix'],'/media/sources')
-        self.assertEqual(len(value['operations']),71)
+        self.assertEqual(len(value['operations']),79)
+        expected_effects={
+            'campaign.history':'READ_PRIVATE_LOCAL_DATA',
+            'campaign.status':'READ_PRIVATE_LOCAL_DATA',
+            'campaign.publish':'PUBLISH_WITH_STANDING_CAMPAIGN_AUTHORITY',
+            'campaign.ad-launch':'SPEND_WITH_STANDING_CAMPAIGN_AUTHORITY',
+            'campaign.pause':'PAUSE_OWNED_EXTERNAL_CAMPAIGN',
+            'campaign.reconcile':'READ_OWNED_PROVIDER_STATUS',
+            'hypit.plan':'READ_PRIVATE_EXECUTION_PLAN',
+            'hypit.reuse':'READ_PRIVATE_LOCAL_ARTIFACT',
+        }
+        self.assertEqual({name for name in value['operations'] if name.startswith('campaign.')},
+                         {name for name in expected_effects if name.startswith('campaign.')})
+        for name,effect in expected_effects.items():
+            self.assertEqual(value['operations'][name]['effect'],effect)
+            self.assertEqual(value['operations'][name]['method'],'POST')
         self.assertEqual(value['operations']['report.read']['effect'],'READ_PRIVATE_LOCAL_DATA')
         native_media={name for name in value['operations'] if name.startswith(('ios.scene.','ios.timeline.'))}
         self.assertEqual(native_media,{'ios.scene.projects','ios.scene.read','ios.scene.save','ios.scene.plan',

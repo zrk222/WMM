@@ -120,7 +120,8 @@ class CampaignInputTests(unittest.TestCase):
             with self.assertRaises(Invalid):authorize_read(app,self.binding['data'],{**task,**change})
         policy=operating_manifest(app)
         self.assertEqual(policy['human_role'],'APPROVE_OR_EDIT')
-        self.assertEqual(policy['supported_execution']['provider_writes'],[])
+        self.assertEqual(policy['supported_execution']['provider_writes'],['campaign.publish','campaign.ad-launch','campaign.pause'])
+        self.assertEqual(policy['supported_execution']['external_authority'],'SEPARATE_CURRENT_OWNER_CAMPAIGN_SCOPE_AND_SCOPED_GRANT')
         self.assertEqual(policy['supported_execution']['spend_minor'],0)
         self.assertEqual(plan['policy_sha256'],digest(policy))
 

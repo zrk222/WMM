@@ -28,7 +28,7 @@ class Setup:
         with connection(self.store.path) as db:
             rows=[decoded(row) for row in db.execute('SELECT * FROM social_configs WHERE app_id=? ORDER BY provider',(app_id,))]
         for row in rows:row['protected_secret']=bool(row.pop('secret_ref'))
-        return dict(providers=catalog(),configurations=rows,publication_implemented=False,automatic_ad_spend=False)
+        return dict(providers=catalog(),configurations=rows,publication_implemented=True,publication_providers=['facebook'],automatic_ad_spend=False,paid_campaign_execution_implemented=True)
 
     def packet(self,app_id,provider,native=False):
         """Populate known app facts and official steps; never invent a developer app."""

@@ -38,7 +38,7 @@ def owner_domain_post(parts):
     """Resolve only fixed private domain modules, retaining lazy imports."""
     if len(parts)<4 or parts[:2]!=['api','apps']:return None
     module={'drive':'drive_http','media':'managed_media_http','funnels':'funnel_http',
-            'discovery':'discovery_http','packaging':'packaging_http'}.get(parts[3])
+            'discovery':'discovery_http','packaging':'packaging_http','campaigns':'campaign_http'}.get(parts[3])
     if module is None:return None
     from importlib import import_module
     return import_module('.'+module,__package__).post
@@ -178,7 +178,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200,{"ledger":json.loads((root/"research-ledger.json").read_text(encoding="utf-8-sig")),"acquisition":json.loads((root/"acquisition-profiles.json").read_text(encoding="utf-8-sig"))})
         if path.startswith("/api/apps/"):
             return self.get_app(path)
-        scripts=('/agent-control.js','/subscription-authoring.js','/customer-workflow.js','/growth-review.js','/page-reporting.js','/setup-discovery.js','/google-play.js','/play-callback.js','/drive-callback.js','/social-access.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
+        scripts=('/agent-control.js','/subscription-authoring.js','/customer-workflow.js','/growth-review.js','/page-reporting.js','/setup-discovery.js','/google-play.js','/play-callback.js','/drive-callback.js','/social-access.js','/campaign-execution.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/guided-workflow.js','/subscriptions.js',
                  '/workflow-automation.js','/followup.js','/aeo.js','/public-store-readback.js',
                  '/pmf-workflow.js','/pmf-research.js','/audit-runtime.js','/automatic-preparation.js','/campaign-sequence.js','/experiment-tracking.js',
                  '/spytok-workflow.js','/production-feasibility.js','/spira-workflow.js','/journey-readiness.js','/workflow-telemetry.js','/ui-stories.js','/complete-automation.js','/video-editor.js','/studio-controls.js','/managed-media.js','/drive-library.js','/discovery-model.js','/discovery-ui.js','/packaging-model.js','/packaging-ui.js','/funnel-model.js','/funnel-ui.js')
@@ -438,7 +438,7 @@ class Handler(BaseHTTPRequestHandler):
             raw=read_body(self)
         else:
             raw=self.attribution_body(path,parts) if any(k in parts for k in ('setup-discovery','play','attribution','agent-access','social-access','social')) else self.body(self.post_limit(path,parts))
-        strict=any(kind in parts for kind in ('studio','workflow-evidence','video-projects','video-edit-renders','agent-reviews','agent-grants','subscription-growth','customer-workflows','setup-discovery','play','attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
+        strict=any(kind in parts for kind in ('studio','production','workflow-evidence','video-projects','video-edit-renders','agent-reviews','agent-grants','subscription-growth','customer-workflows','setup-discovery','play','attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
         if strict:
             from .payment_signature import unique_pairs,bounded_tree
             data=json.loads(raw,object_pairs_hook=unique_pairs,parse_constant=lambda _:(_ for _ in ()).throw(Invalid('Nonfinite JSON is forbidden')))
@@ -863,6 +863,10 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts)==5 and parts[4]=="briefs":return self.send(201,Briefs(store).save(parts[2],data))
         if len(parts)==5 and parts[4]=="renders":return self.send(201,Renders(store).queue(parts[2],data))
         if len(parts)==5 and parts[4]=="hypit-renders":return self.send(201,HypitRenders(store).queue(parts[2],data))
+        if len(parts)==5 and parts[4] in ("hypit-plan","hypit-reuse") and self.path!="/"+"/".join(parts):
+            raise Invalid("Use the exact Hypit preflight or reuse address")
+        if len(parts)==5 and parts[4]=="hypit-plan":return self.send(200,HypitRenders(store).plan(parts[2],data))
+        if len(parts)==5 and parts[4]=="hypit-reuse":return self.send(200,HypitRenders(store).reuse(parts[2],data))
         raise KeyError("Creative production route not found")
 
     def post_acquisition(self,parts,data):

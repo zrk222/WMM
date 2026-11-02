@@ -59,6 +59,36 @@ class UsageTests(unittest.TestCase):
         self.assertEqual(details['usage_issues'], ['INVALID_CACHE_READ_TOKENS'])
         self.assertNotIn('SYNTHETIC_PRIVATE_USAGE', canonical(details))
 
+    def test_deepseek_cache_hit_and_miss_are_distinct_reported_subsets(self):
+        raw = dict(prompt_tokens=100, completion_tokens=20, total_tokens=120,
+                   prompt_cache_hit_tokens=80, prompt_cache_miss_tokens=20,
+                   cache_creation_input_tokens=3, unknown_provider_field=999)
+        result = observation(raw)
+        self.assertEqual(result, dict(usage=dict(input_tokens=100, output_tokens=20,
+            total_tokens=120, cache_read_tokens=80, cache_miss_tokens=20,
+            cache_write_tokens=3), usage_status='REPORTED', usage_issues=[]))
+        for count in (0, MAX_TOKENS):
+            value = observation(dict(prompt_cache_hit_tokens=count, prompt_cache_miss_tokens=count))
+            self.assertEqual(value['usage'], dict(cache_read_tokens=count, cache_miss_tokens=count))
+            self.assertEqual(value['usage_status'], 'PARTIAL')
+            self.assertNotIn('total_tokens', value['usage'])
+            self.assertNotIn('cache_write_tokens', value['usage'])
+
+    def test_deepseek_cache_alias_conflicts_and_malformed_counts_remain_unknown(self):
+        for invalid in (True, False, -1, 1.5, '12', None, [], {}, MAX_TOKENS + 1):
+            for field, canonical_name in (('prompt_cache_hit_tokens','cache_read_tokens'),
+                                          ('prompt_cache_miss_tokens','cache_miss_tokens')):
+                with self.subTest(field=field, invalid=invalid):
+                    value = observation({field:invalid, 'output_tokens':0})
+                    self.assertEqual(value['usage'], dict(output_tokens=0))
+                    self.assertEqual(value['usage_issues'], ['INVALID_' + canonical_name.upper()])
+        matched = observation(dict(prompt_cache_hit_tokens=8, cached_input_tokens=8))
+        self.assertEqual(matched['usage'], dict(cache_read_tokens=8))
+        conflict = observation(dict(prompt_cache_hit_tokens=8, cached_input_tokens=9, prompt_cache_miss_tokens=2))
+        self.assertEqual(conflict, dict(usage=dict(cache_miss_tokens=2), usage_status='PARTIAL',
+                                        usage_issues=['CONFLICT_CACHE_READ_TOKENS']))
+        self.assertEqual(observation({})['usage'], {})
+
     def test_native_codex_and_claude_usage_maps_through_the_same_contract(self):
         draft = connection_test_fixture()
         events = [dict(type='item.completed', item=dict(type='agent_message', text=canonical(draft))),
@@ -111,6 +141,27 @@ class DurableUsageTests(unittest.TestCase):
         self.assertEqual(saved['status'], 'SUCCEEDED', saved['result'])
         self.assertEqual(saved['result']['usage'], dict(input_tokens=9, output_tokens=2, total_tokens=11))
         self.assertEqual(len(model.calls), 1)
+
+    def test_deepseek_counts_survive_worker_storage_restart_and_idempotent_replay(self):
+        queued = self.approve()
+        raw = dict(prompt_cache_hit_tokens=8, prompt_cache_miss_tokens=2, secret='SYNTHETIC_PRIVATE_USAGE')
+        with patch('mission_control.agent_tasks.api_run', return_value=(connection_test_fixture(), raw)) as inference:
+            self.assertTrue(run_once(self.store))
+            inference.assert_called_once()
+        saved = self.saved(queued['id'])
+        self.assertEqual(saved['status'], 'SUCCEEDED', saved['result'])
+        self.assertEqual(saved['result']['usage'], dict(cache_read_tokens=8, cache_miss_tokens=2))
+        self.assertEqual(saved['result']['usage_status'], 'PARTIAL')
+        self.assertEqual(saved['result']['cost'], 'UNKNOWN')
+        self.assertEqual(saved['result']['quota'], 'UNKNOWN')
+        self.assertNotIn('SYNTHETIC_PRIVATE_USAGE', canonical(saved))
+        self.store = Store(self.store.path)
+        with patch('mission_control.agent_tasks.api_run') as inference:
+            replay = AgentWork(self.store).start('sample-one', queued['data']['original_request'])
+            self.assertEqual(replay['id'], queued['id'])
+            self.assertFalse(run_once(self.store))
+            inference.assert_not_called()
+        self.assertEqual(self.saved(queued['id'])['result'], saved['result'])
 
     def test_missing_and_invalid_telemetry_do_not_discard_successful_drafts(self):
         for raw, status in ((None, 'UNAVAILABLE'), ({'input_tokens': True}, 'INVALID')):

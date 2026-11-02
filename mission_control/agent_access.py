@@ -6,6 +6,7 @@ from .credential_vault import Vault,namespace
 from .agent_registry import catalog,REGISTRY,TASKS,KEYED,NATIVE
 from .agent_contract import profile,exact
 from .agent_native import locate
+from .draft_recipes import catalog as draft_recipes
 
 
 def target(store,app_id,reference):
@@ -48,7 +49,7 @@ class AgentAccess:
             tool=row['data'].pop('tool',None)
             if tool:row['data']['tool_identity']=dict(fingerprint=tool['fingerprint'],version=tool.get('package_version'))
             row['data']['protected_key']=bool(row['data'].pop('credential_ref',None))
-        return dict(providers=catalog(),tasks=TASKS,profiles=profiles,
+        return dict(providers=catalog(),tasks=TASKS,profiles=profiles,draft_recipes=draft_recipes(),
             routing=decoded(route) if route else dict(version=0,data={'mode':'subscription','routes':{}}),
             app_billing=False,automatic_fallback=False,cleanup_pending=cleanup)
 

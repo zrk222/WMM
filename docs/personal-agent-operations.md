@@ -108,6 +108,11 @@ applies the same protocol to baseline, approved execution and follow-up evidence
 
 ## Efficient task execution
 
+The current protocol also exposes `draft_output_contract` and `draft_recipes`.
+For a multi-channel text pack, follow the exact task/focus in the content recipe
+through the existing owner-reviewed copy workflow. It adds no model-call tool,
+grant or autonomous transmission. See the [recipe and runtime boundaries](deterministic-agent-refinements.md).
+
 The shared `owner_operating_protocol.execution_efficiency` applies to all six
 profiles and other teams. Discover available host capabilities and demonstrate
 `operations.read` on the exact WMM runtime before selecting a relevant operation.
@@ -180,3 +185,9 @@ a child finishing its assignment does not prove the whole goal is complete.
 
 These sources establish documented capabilities, not this user's installed host
 configuration, subscription eligibility, tool registration or live connectivity.
+# Current workflow upgrades
+
+Use the catalog-derived [shared agent protocol](personal-agent-upgrades.md),
+[owner-approved campaign automation](campaign-automation.md), and
+[Hypit preflight/reuse](hypit-production-preflight.md). Each named host profile
+references the same current protocol hash; its own transport limitations remain.

@@ -82,6 +82,16 @@ class HypitRenders:
     def __init__(self, store):
         self.store = store
 
+    def plan(self, app_id, body):
+        """Inspect guided inputs and reusable results without starting work."""
+        from .hypit_preflight import plan
+        return plan(self.store, app_id, body)
+
+    def reuse(self, app_id, body):
+        """Explicitly select a freshly verified retained artifact; never enqueue."""
+        from .hypit_preflight import reuse
+        return reuse(self.store, app_id, body)
+
     def queue(self, app_id, body):
         """Freeze the current brief before creating an idempotent local render job."""
         from .worker import enqueue

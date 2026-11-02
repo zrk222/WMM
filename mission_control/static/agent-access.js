@@ -45,9 +45,20 @@ function agentRoutes() {
   modal("Choose how agents work",`<form id="agent-routes-form" class="modal-content" data-app="${esc(state.app)}" data-version="${route.version}"><div class="field"><label for="agent-route-mode">Access mode</label><select id="agent-route-mode" name="mode">${[['subscription','Existing subscriptions'],['byok','API keys only'],['local','Local model servers only'],['mixed','Mix by task']].map(([id,name])=>`<option value="${id}" ${route.data.mode===id?'selected':''}>${name}</option>`).join('')}</select></div>${Object.keys(access.tasks).map(task=>`<div class="field"><label for="agent-route-${esc(task)}">${esc(label(task))}</label><select id="agent-route-${esc(task)}" name="${task}">${options(route.data.routes[task])}</select></div>`).join('')}<p>Recommendations use tested connections in this access mode. Comparative quality and cost are not measured. An unavailable route needs another approval; it never silently changes provider.</p><p id="agent-error" role="alert"></p><div class="modal-actions"><button class="button primary" type="submit">Save task routes</button>${button("Cancel","close")}</div></form>`);
 }
 
+function agentChooseRecipe(id) {
+  const form=$('#agent-work-form');
+  if(!form||form.dataset.app!==state.app)return toast('Reopen agent work for the current app.');
+  const selected=(state.workspace.agent_access.draft_recipes||[]).find(r=>r.id===id);
+  if(!selected||!(selected.task in state.workspace.agent_access.tasks)||typeof selected.focus!=='string'||selected.focus.length>1000)return toast('Reload this app to choose a current recipe.');
+  form.querySelector('[name=task]').value=selected.task;
+  const focus=form.querySelector('[name=focus]');focus.value=selected.focus;focus.focus();
+  form.querySelector('#agent-error').textContent='Eight-piece content pack selected. Review the proposed work before sending it.';
+}
+
 function agentWorkForm(focus='') {
   const access=state.workspace.agent_access;
-  modal("What should your agent prepare?",`<form id="agent-work-form" class="modal-content" data-app="${esc(state.app)}"><label class="field">Task<select name="task">${Object.keys(access.tasks).map(t=>`<option value="${t}">${esc(label(t))}</option>`).join('')}</select></label><label class="field">Focus (optional)<textarea name="focus" maxlength="1000" rows="3" placeholder="For example: propose a small test for our first useful user outcome.">${esc(focus)}</textarea></label><p>The agent sources public app facts, workflow gaps and saved provider observations automatically. You review the exact transmission before execution. Personal histories and uploaded documents are not included.</p><p id="agent-error" role="alert"></p><div class="modal-actions"><button class="button primary" type="submit">Review proposed work</button>${button("Cancel","close")}</div></form>`);
+  const recipes=(access.draft_recipes||[]).map(r=>button("Use eight-piece content pack","agent-recipe",`data-id="${esc(r.id)}"`)).join('');
+  modal("What should your agent prepare?",`<form id="agent-work-form" class="modal-content" data-app="${esc(state.app)}">${recipes}<p>Turn one app benefit into a carousel outline, email, blog outline, three social posts and two ad angles. Review all eight drafts before using them.</p><label class="field">Task<select name="task">${Object.keys(access.tasks).map(t=>`<option value="${t}">${esc(label(t))}</option>`).join('')}</select></label><label class="field">Focus (optional)<textarea name="focus" maxlength="1000" rows="3" placeholder="For example: propose a small test for our first useful user outcome.">${esc(focus)}</textarea></label><p>The agent sources public app facts, workflow gaps and saved provider observations automatically. You review the exact transmission before execution. Personal histories and uploaded documents are not included.</p><p id="agent-error" role="alert"></p><div class="modal-actions"><button class="button primary" type="submit">Review proposed work</button>${button("Cancel","close")}</div></form>`);
 }
 
 function agentFeedbackSummary(context) {
@@ -108,6 +119,7 @@ async function agentAction(node) {
   if(action==='agent-setup')return agentSetup(id,node.dataset.profile);
   if(action==='agent-routes')return agentRoutes();
   if(action==='agent-work')return agentWorkForm();
+  if(action==='agent-recipe')return agentChooseRecipe(id);
   if(action==='agent-test')return agentReview({task:'connection_test',focus:'',connection_id:id});
   if(action==='agent-detect') {
     const found=await api(`/api/apps/${app}/agent-access/detect`,{provider:id});if(state.app!==app)return;

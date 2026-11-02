@@ -17,8 +17,22 @@ class SocialContractTests(unittest.TestCase):
         for name in PROVIDERS:
             value=configuration(setup(name));self.assertEqual(value['scopes'],PROVIDERS[name]['scopes'])
             self.assertNotIn('client_secret',value)
-            self.assertFalse(catalog()[name]['publishing_implemented']);self.assertFalse(catalog()[name]['automatic_ad_spend'])
+            self.assertEqual(catalog()[name]['publishing_implemented'],name=='facebook');self.assertFalse(catalog()[name]['automatic_ad_spend'])
+            self.assertEqual(catalog()[name]['paid_campaign_execution_implemented'],name=='facebook')
         self.assertNotIn('instagram_basic',PROVIDERS['instagram']['scopes'])
+
+    def test_facebook_campaign_permissions_require_explicit_new_setup_selection(self):
+        base=configuration(setup('facebook'))
+        self.assertNotIn('pages_manage_posts',base['scopes'])
+        publish=configuration({**setup('facebook'),'campaign_access':'publish'})
+        self.assertIn('pages_manage_posts',publish['scopes'])
+        self.assertNotIn('ads_management',publish['scopes'])
+        paid=configuration({**setup('facebook'),'campaign_access':'ads'})
+        self.assertTrue({'pages_manage_posts','ads_management','ads_read'}<=set(paid['scopes']))
+        for provider,mode in [('instagram','publish'),('tiktok','ads'),('facebook','arbitrary')]:
+            with self.subTest(provider=provider,mode=mode),self.assertRaises(Invalid):
+                configuration({**setup(provider),'campaign_access':mode})
+        self.assertEqual(configuration(setup('facebook')),base)
 
     def test_native_and_https_callbacks_are_explicit_and_exact(self):
         self.assertEqual(configuration(setup(),4321)['redirect_uri'],'http://127.0.0.1:4321/social/callback/tiktok')

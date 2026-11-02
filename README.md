@@ -1,294 +1,85 @@
-# Wize Marketing Machine — App Marketing & Growth Workspace
+# Wize Marketing Machine
 
-Research your audience, prepare creative work and review app growth evidence in one local workspace. **Wize Marketing Machine (WMM)** turns app facts, research references, media and analytics into saved marketing packets, creative briefs, app store checks, subscription experiment plans and PDF reports.
+**Your app marketing, operated by your personal AI agent.**
 
-**Designed for your personal AI agent to operate on your behalf.** Connect a compatible agent through CLI or MCP, give it a specific app-marketing objective and permissions, and let it carry out supported workflows, bring you approval decisions and report verified results. You can inspect, edit and operate the same workspace yourself. [Agent-specific operating guides](docs/personal-agent-operations.md) cover Instinct, Hark Pro, Meta Muse, Codex/Dots, Claude Duet, Grok Bot and agent teams; each connection must be verified in your environment.
+You have an app to grow. The research is in one place, the video clips in another, and yesterday’s decisions are buried in a chat. Wize Marketing Machine (WMM) brings that work together so your agent can pick up the next task—and show you what it finished.
 
-## What WMM does for you
+WMM collects app facts, research, media and analytics. It turns them into marketing briefs, edited creative, store checks, experiments and reports. With the right connected account and your approved scope, it also publishes Facebook Page posts and runs bounded Meta campaigns.
 
-1. **Collect:** app details, audience research, approved claims, media and results from imports or supported analytics connections.
-2. **Prepare:** follow the twelve-stage app marketing workflow, revise creative work, validate ASO copy and define paywall or offer experiments. Users and compatible agents share scoped approval controls.
-3. **Review:** inspect saved outputs, execution records and experiment evidence. Export PDF reports and see what needs attention next.
+**You choose the goal and permissions. Your agent does the supported work. You get the files, receipts, results and next decision.** The same controls are available for you to inspect and use yourself.
 
-Use it for app marketing research, app store optimization (ASO), video marketing workflows, subscription experiments and marketing analytics. Results describe recorded evidence; they do not promise installs or revenue.
+[See the visual tour](docs/index.html) · [Connect your agent](docs/agent-quickstart.md) · [Detailed setup and operator guide](docs/workspace-guide.md)
 
-**[Explore the visual product overview](docs/index.html)** · [Connect your agent through CLI or MCP](docs/agent-quickstart.md)
+## From “market my app” to work you can inspect
 
-## Potential outcomes for your team
+1. **Tell WMM what your app does.** Add its audience, the problem it solves and the action you want users to take.
+2. **Bring the material.** Add research, upload clips or select Drive media, and connect your own supported analytics accounts.
+3. **Give your agent a clear job.** Research a hook, prepare a video, check a listing, run an approved campaign or assess an experiment.
+4. **See what happened.** Follow progress, review the creative, inspect delivery receipts and export the evidence. Decide what to keep, change or stop.
 
-- **Faster research-to-creative turnaround:** compare time from idea to reviewed brief or creative.
-- **Less duplicated effort:** reuse app context, sources and prior decisions; track rework hours.
-- **Better funnel decisions:** examine paywall, trial, paid conversion, renewal and retention evidence to locate where users drop off.
-- **More disciplined acquisition:** compare compatible cost and cohort evidence to decide which experiment to continue, revise or stop.
-- **Accountable delegation:** connect an agent, define its authority, then inspect approvals and saved results.
+The aim is shorter creative cycles, less repeated research and better decisions about installs, activation, paid conversion and retention. Measure those changes on your app; WMM does not guarantee growth or turn public video views into sales evidence.
 
-The business targets are more useful installs, stronger conversion and retention, and less wasted acquisition cost. These are potential outcomes to measure in your app, not guaranteed gains or results established by WMM's demo data.
+## What is included today
 
-## See the workspace
+| Your job | WMM’s working tools |
+| --- | --- |
+| **Organize the app** | Separate app workspaces, versioned facts, the twelve-stage pipeline, readiness checks, next actions, history and noncredential snapshots. |
+| **Find useful creative references** | App-scoped discovery queries, industry/narrative/treatment filters, saved collections, source snapshots, watch attempts and evidence cards that feed creative briefs. Viral-only qualification requires **100,000 views AND 10× a documented creator baseline**. Uploaded UGC follows its own intake path. |
+| **Choose the packaging before production** | Title and thumbnail concepts, creator-relative outlier research, remix workspaces, feed previews, creative taste guidance and review checklists. A preview is a design check, not a measured performance prediction. |
+| **Make and revise content** | Eight-piece copy packs; local and selected Google Drive media; UGC and clip intake; timeline editing, trimming, ordering and stitching; human/agent edits and history. Hypit guided renders create timed title/caption scenes; editor/Studio handles richer projects. Preflight checks timing, text density and prerequisites; explicit verified-render reuse avoids queuing a new build. |
+| **Improve the app’s sales journey** | ASO, ASA and AEO worksheets, store/listing checks, funnel plans, paywall/offer experiments, cohorts, event/billing imports and experiment assessments. App Store promotional text has its own maker/checker approval path. |
+| **Collect and understand results** | Supported App Store Connect, Apple Ads, Google Play, PostHog, Clarity and RevenueCat paths, plus imports. Coverage varies by source and platform. Reports retain dates, definitions, denominators and missing data; PDF and data exports support review and handoff. |
+| **Execute supported campaigns** | Facebook Page text/link publishing and fixed Meta engagement campaigns: exact owner scope, content/rights/targeting review, expiry, quotas, media-budget ceilings, saved provider IDs, reconciliation and protective pause. Other networks do not gain publishing support merely by connecting OAuth. |
+| **Delegate and monitor** | CLI/MCP operations, app-scoped grants, manual or bounded autonomous work, approval checkpoints, progress, durable jobs, cancellation and recovery. Provider-reported token/cache usage stays separate from estimated cost. |
 
-Actual WMM screens captured using synthetic example data in an isolated local database. These are product demonstrations, not customer campaign results.
+[Campaign controls and limits](docs/campaign-automation.md) · [Hypit production guide](docs/hypit-production-preflight.md) · [Agent workflow upgrades](docs/personal-agent-upgrades.md)
 
-![Wize Marketing Machine overview and next actions](docs/images/overview.png)
+## Built for personal agents—including Grok Bot
 
-![Twelve-stage app marketing pipeline and evidence readiness](docs/images/pipeline.png)
+The current CLI/MCP catalog exposes **79 operations**. Named profiles for **Grok Bot, Instinct, Hark Pro, Meta Muse, Codex/Dots and Claude Duet**, plus generic agents and teams, share one current operating protocol. It tells an agent to check the app and permissions, reuse current evidence, run within limits, verify the saved result and report back to its owner.
 
-![App marketing analytics and results workspace](docs/images/results.png)
+**For Grok Bot:** verify a separately approved local command connection to the computer running WMM, then read the current operation guide. Keep the repeatable method in a private skill. Use scoped grants, retain request IDs and serialize changes to the same resource. Return the artifact, actual status, KPI evidence, resource use and next action in your conversation.
+
+A cloud browser cannot reach another computer’s localhost. Each host still needs a verified execution path; the manifest supplies guidance, not connectivity or account permission. [Agent-specific setup and owner reports](docs/personal-agent-operations.md).
+
+Try this first task:
+
+> Read my app and current permissions. Find the next useful marketing action, prepare its deliverable and ask only for decisions outside your approved scope. Report what you completed, link the evidence, show what remains unknown and recommend one next step. Do not publish or spend without the exact campaign authority.
+
+## See WMM working
+
+Actual screens with synthetic example data—not customer campaign results.
+
+![WMM overview: app context and next actions](docs/images/overview.png)
+
+<details>
+<summary>See the pipeline and analytics screens</summary>
+
+![Twelve-stage app marketing pipeline](docs/images/pipeline.png)
+
+![Analytics and results workspace](docs/images/results.png)
+
+</details>
 
 ## Start locally
 
-Already running WMM? Start with [your first evidence packet](#your-first-evidence-packet)
-before working through the full pipeline.
+Install **Python 3.11+**, clone the repository and run:
 
-Install **Python 3.11 or newer**, clone this repository, and run:
-
-```powershell
+~~~sh
 git clone https://github.com/zrk222/WMM.git
 cd WMM
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --require-hashes --only-binary :all: -r requirements.txt
-.\.venv\Scripts\python.exe -X utf8 -m mission_control.server
-```
+python -m pip install --require-hashes --only-binary :all: -r requirements.txt
+python -X utf8 -m mission_control.server
+~~~
 
-Open **http://127.0.0.1:8765/**. On Windows you can also right-click
-`mission_control/launch.ps1` and run it with PowerShell. It creates a private
-Python environment and installs the hash-pinned timezone data automatically.
-First setup needs internet access. No API key, paid account, Node.js or cloud
-service is required for the core workspace.
-Stop the foreground server with Ctrl+C. Data persists on your machine.
+Open **http://127.0.0.1:8765/**, add one app and prepare one evidence packet. A private virtual environment is recommended; [Windows/Linux setup, optional tools and recovery](docs/workspace-guide.md) cover the details. Core use needs no model API key or paid service. Provider and video workflows need their own prerequisites.
 
-Protected desktop credentials use Windows Credential Manager on Windows and
-[Secret Service on Linux/Ubuntu](docs/linux-protected-credentials.md). Linux
-requires the documented dependencies and an unlocked desktop keyring; no plaintext
-fallback is used. The desktop Python credential adapter does not support macOS.
-The separate [native iPhone/iPad app](ios/) uses on-device Keychain and media
-execution; simulator checks do not establish full parity or physical-device
-acceptance. Native agent discovery and individual workflows retain their own
-platform checks. Do not deploy this workstation server to a public host or
-expose it through a reverse proxy. It intentionally binds only to loopback.
+**Platforms:** protected desktop credentials use Windows Credential Manager or a configured Linux/Ubuntu Secret Service. The desktop macOS credential adapter is unsupported. The separate [native iPhone/iPad app](ios/) uses on-device Keychain and media execution; see its current acceptance limits rather than assuming desktop parity. Keep the desktop server private on loopback.
 
-To use another port or choose a local database location:
+**Your accounts stay yours.** Bring your own supported keys/OAuth or installed official agent CLI. A subscription is not a general API entitlement. Snapshots do not carry credentials or execution authority. Default ad spending is zero; an enabled campaign needs a separate exact owner scope. Media limits exclude provider taxes, fees and currency effects. Live provider behavior and business gains require actual account evidence.
 
-```powershell
-.\.venv\Scripts\python.exe -X utf8 -m mission_control.server --port 8766 --database ./data/workspace.sqlite3
-```
+## License and development
 
-## CLI and MCP access
+Free personal evaluation and internal business use under the [WMM Personal and Internal Business Use License](LICENSE). Resale, hosting, white-label products and paid external-client services require a separate commercial agreement. [Prior Apache grants and third-party rights remain preserved](docs/licensing.md).
 
-Both adapters live in this repository. From its root, using the Python
-environment selected for WMM:
-
-```powershell
-python -m mission_control.agent_cli catalog
-python -m mission_control.agent_setup --origin http://127.0.0.1:8765
-```
-
-The first command discovers current operations offline. The second reports the
-selected interpreter and optional MCP dependencies, and prints a scoped-grant
-MCP host configuration with absolute paths. Use your actual WMM port. It does
-not contact WMM, install packages or register a host.
-
-Open **Your agents → Connect your agent through CLI or MCP** for the running
-origin and grant setup. Follow the [agent quickstart](docs/agent-quickstart.md)
-for a usable call, optional MCP setup, authority modes and recovery. These
-module commands do not require a globally installed `wmm` executable.
-
-## Your first evidence packet
-
-Start with one useful deliverable, then expand when you need the next stage.
-
-1. **Choose one app and outcome.** In **Add an app**, enter the app's audience,
-   consumer job and useful activation. Pick one question, such as where people
-   leave the install-to-paid funnel. Missing measurements stay unknown.
-2. **Bring one source.** In **Evidence & assets**, add a relevant reference or
-   actual results import. Alternatively, configure your own supported source in
-   **Connections**. Account access is optional for a research packet.
-3. **Save one packet.** Open **Pipeline**, choose the relevant preparation stage
-   and review its saved deliverable, sources and missing inputs. Work through
-   other stages as the task requires; a saved packet is not a published campaign.
-4. **Leave with one decision.** Record what the evidence supports and the next
-   action. A connected agent can read `report.read` and return the
-   [owner report](docs/personal-agent-operations.md#first-task-and-owner-report)
-   with receipts, unknowns and any approval needed.
-
-For a first-use check, record elapsed time from opening the workspace to the
-saved packet and where setup stopped. Five minutes is a usability target,
-not a measured onboarding result or a promise about installation time.
-
-## Continue the campaign workflow
-
-1. Use **Add an app**, or edit one of the clearly labeled example workspaces.
-   Enter its consumer job, audience, release, website and useful activation.
-2. Follow **Workflow** and **Pipeline**. Each of the twelve stages explains its
-   deliverable, missing inputs and acceptance checks. Unknown inputs stay unknown.
-3. Add real evidence in **Evidence & assets**. Preparation creates saved stage
-   packets; it does not publish campaigns or prove product readiness.
-4. Optionally connect an agent in **Your agents**. Inspect its exact proposed
-   context and operation, approve it, then review the draft and its sources.
-5. Use the evidence-resolution actions to gather supported public observations
-   or review a proposed remedy. Reuse is limited to current, matching evidence.
-6. In **Results**, import actual cohort and retention evidence. Define an
-   experiment before inspecting its results; retain uncertainty and guardrails.
-
-No private app details, notebook research, customer records, account credentials
-or operational databases are supplied. Example apps start unverified.
-
-### Approve a plan and follow its progress
-
-In **Pipeline**, choose **Review execution plan**. WMM proposes the available
-evidence actions from the app's current gaps and connected sources. Remove any
-actions you do not want, then approve the list. The local worker records each
-result, continues independent approved actions after a failed check, and resumes
-saved checkpoints when the service restarts. Keep WMM running for work to advance;
-closing the browser does not cancel it.
-
-Use **Inspect progress** to open the evidence or **Stop this plan** to cancel
-remaining work owned by that plan. Reads started elsewhere are retained. Approval
-expires after 30 minutes; changed app or source details can require fresh review.
-An ended run means its approved actions were attempted, not that the campaign is
-ready or published. Missing access leads to connection setup and another review.
-
-### Inspect experiment tracking
-
-In **Pipeline**, select **Inspect live tracking** for a registered experiment.
-WMM derives the expected PostHog flag key, variant split and event scope. Review
-the setup, then approve the read-only check. Its project, flag and aggregate reads
-use the app's protected PostHog connection. Results and permission/setup failures
-remain available under **Saved tracking reads**. Stop a pending check at any time.
-
-The tracking review also offers a **browser integration package**. Its fixed
-module, config, example and guide include source hashes for the exact app release
-and experiment. Integrate it through the app repository's normal review process;
-downloading is not installation. It wraps an existing PostHog client with current
-consent and identified-user checks, fresh remote flags, same-origin IndexedDB
-assignment state and stable assignment/exposure event UUIDs. SDK acceptance is
-reported as **queued, not delivered**. DOM visibility is not proof of human
-attention. Native adapters, cross-device state, concurrent-test interference and
-a genuine provider pilot remain separate work.
-
-The agent also proposes eligible tracking checks in **Review execution plan** and
-the evidence-resolution choices. Review the exact experiment, source, project,
-release, locale and observation window, then keep or remove actions before
-approval. The worker records a native tracking receipt before the parent action
-can finish. Dispatch and restart retain the original approval expiry. Stopping
-the owning sequence also stops its active tracking checks. Missing setup, no
-observations and permission failures remain resolution work rather than success.
-
-The key needs project, feature-flag and query read access. No write permission is
-used. Your app must separately implement the displayed assignment and exposure
-event contract. Counts deduplicate provider distinct IDs; they do not establish
-human views, complete instrumentation, conversion or causal lift. This release
-does not create flags, install the SDK or launch an A/B campaign. Reads can repeat
-under the existing worker recovery limit after an interruption; provider usage
-limits still apply. See [PostHog experiments](https://posthog.com/docs/experiments).
-
-## Capabilities and boundaries
-
-| Capability | Included behavior |
-| --- | --- |
-| App registry | Versioned local manifests, isolated workspaces, snapshots |
-| Twelve-stage pipeline | Readiness checks, missing-evidence remedies, durable preparation jobs |
-| Approved follow-through | Editable finite evidence-action lists, saved checkpoints, cancellation and result links |
-| Agent assistance | Supported native Codex/Claude discovery and BYOK setup, exact context review, saved drafts and typed action feedback |
-| Analytics | Optional PostHog, Microsoft Clarity and RevenueCat aggregate reads using your authorized keys |
-| Google Play | Guided Android package discovery, protected Desktop OAuth, queued release and subscription catalog reads |
-| ASA / AEO | App-specific worksheets, public-site observations, source-bound recommendations |
-| Creative work | Local assets, briefs, rankings; optional detected FFmpeg tools for supported rendering |
-| Experiments | Local A/B plans, schedules, evidence evaluation and retained learning |
-| Social connections | Guided Facebook, Instagram, TikTok and LinkedIn setup; requires your own developer apps, allowed scopes and provider approval |
-| External changes | A narrowly supported App Store promotional-text action requires separate verified maker/checker review and exact final approval |
-
-**This release is not a fully autonomous advertising or social publishing
-service.** Broad campaign publication, autonomous spending and guaranteed growth
-are not implemented. Preparing a packet or passing a local fixture does not mean
-a campaign ran. Provider availability, permissions and API limits remain external
-requirements. A model subscription is usable only through a supported installed
-official CLI; it is not a general-purpose API entitlement.
-
-## Optional connections
-
-Use **Connections** to configure your own supported project IDs and authorized
-server-side keys. The selected native protected vault stores saved secrets,
-scoped to the app and local database location. Never paste credentials into evidence,
-campaign text, screenshots or Git. Connection tests do not install analytics SDKs
-in the apps you promote. Automatic aggregate reads run only while WMM is running.
-
-For social OAuth, see [callback relay setup](callback_relay/README.md). No shared
-relay, developer app, login or provider account is bundled. Providers may require
-review before granting scopes. Saved local authorization cannot bypass that.
-
-### Let the agent collect app setup details
-
-Save a public website in **App setup**, then choose **Discover app details**.
-The agent reads that saved source through the robots-first public inspector and
-creates a local draft. The same action is available in missing-evidence agent
-resolution options. Agent job results link directly to the draft review.
-
-Compare suggestions with saved values, edit as needed, check only the fields to
-change and choose **Approve selected changes**. Conflicts remain explicit. Apple
-Store IDs and Android packages are separate; confirm the Android track yourself.
-Website claims and page language do not prove ownership, readiness or tested
-locales. Release and activation evidence still need separate verification.
-
-Drafts expire after one hour and become stale when app setup changes. Up to 64
-drafts are retained per app; removing a draft preserves app details, connections
-and audit history. Missing or denied sources offer retry, edit, connection and
-evidence paths. No private login, publication or spending is performed.
-
-### Google Play setup
-
-In **Connections → Google Play**, review the exact Android package and Play
-track. You can import an `app.json`, `AndroidManifest.xml`, `build.gradle` or
-`build.gradle.kts`; WMM reads explicit metadata without executing the project.
-Confirm build variants yourself. Android identity stays separate from the
-numeric Apple Store ID in App setup.
-
-Enable the Google Play Developer API in your own Google Cloud project, create
-a **Desktop app** OAuth client and select its downloaded JSON file. The account
-must have permission for the target app in Play Console. WMM opens Google's
-official consent URL with PKCE and returns to this running instance's actual
-loopback port. Keep WMM running until verification finishes. The required
-`androidpublisher` scope is broad; WMM's adapter permits only these two read
-operations, and cannot limit the scope Google grants. Restrict app access in
-Play Console. No shared OAuth client or Google account is included.
-
-A successful release read is required before the protected connection replaces
-existing access. Read releases or the subscription catalog from the panel;
-dated observations, queued jobs, errors, retry and reconnect controls remain
-available. Windows Credential Manager holds the client and refresh grant.
-Access on macOS/Linux is not implemented; there is no plaintext fallback.
-
-Release inventory excludes obsolete releases and does not prove country
-availability, rollout fraction or store readiness. Catalog reads do not test
-localized checkout, purchase or restore. Install Referrer, Android attribution
-and Google Play publication are separate, unfinished integrations. Automated
-tests simulate Google consent and responses; they do not verify your live app.
-
-Optional security/audit tools must already be installed and detected. They are
-not downloaded or executed merely by starting the core application.
-
-## Local data and recovery
-
-The default database is `mission_control/data/mission-control.sqlite3`; uploaded
-files live beside it. Keep this directory private. Back it up with WMM stopped,
-including its associated files. The UI also offers per-app JSON snapshots;
-restored snapshots do not restore credentials, verified roles or execution
-authority. Reconnect and reauthorize on the new installation. Never replace a
-live database with an older snapshot without preserving the current copy.
-
-This is a trusted-workstation application, not multi-user hosted authentication.
-Loopback, Host checks, HTTP-only sessions, CSRF checks and a restrictive content
-policy are enabled. Do not disable them to expose the app remotely.
-
-## Development checks
-
-```powershell
-.\.venv\Scripts\python.exe -X utf8 -m unittest discover -s tests -p "test_*.py"
-.\.venv\Scripts\python.exe tools/check_distribution.py
-```
-
-Tests use synthetic data and temporary databases. They do not make purchases,
-publish posts or prove live provider integration. The full test profile also
-requires FFmpeg and FFprobe on PATH and a supported Segoe UI font. These native
-tools are optional for normal non-video use; the CI profile installs them.
-See [release scope](RELEASE-SCOPE.md)
-and [security guidance](SECURITY.md). Licensed under the [Apache License, Version 2.0](LICENSE).
+[Development checks](docs/workspace-guide.md#development-checks) · [Release scope](RELEASE-SCOPE.md) · [Security guidance](SECURITY.md)

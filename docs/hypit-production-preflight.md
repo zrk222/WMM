@@ -1,0 +1,11 @@
+# Hypit guided production preflight
+
+The guided preflight checks the current approved short-video brief using the same request and scene rules as the existing Hypit render queue. It reports scene windows, canvas dimensions and a simple words-per-second heuristic. A flagged scene deserves review; an unflagged scene is not proof of readability, accessibility, visual quality or marketing performance. The heuristic counts whitespace-separated words and may not suit every language.
+
+The current guided render authors title and caption scenes from approved brief copy. It is not a general-purpose generated-video or rich visual editor. To work with custom components, other media or sound, use the existing Hypit project and Studio workflow, then inspect representative frames and playback. The preflight does not create a Studio project, review imagery or export a video.
+
+The launcher, Node, FFmpeg, FFprobe and supported local font are checked for presence without starting a process. Compiler, browser, local endpoint and actual render readiness remain unverified until the existing runtime performs its own checks. Missing prerequisites are reported with repair guidance. Preflight neither installs dependencies nor starts a worker, build, provider request or paid job.
+
+The input hash binds the full proof-checked guided request and derived scene. The source hash binds the generated fixed authored files; it excludes the locally selected font and runtime. At most 50 recent app-owned records are inspected and at most five matching artifact files are checked for byte hash, receipt size, current source and brief proof. A truncated result means other history may exist; absence from the list is not proof that no reusable output exists.
+
+Reuse is an explicit selection: it repeats current proof, source, app ownership and artifact-byte checks and returns the existing render receipt. It does not enqueue work, change the normal queue behavior, render, publish or establish that anyone has watched the result. Existing outputs without matching authored-source provenance are not offered. This WMM retained-artifact selection is distinct from selecting Run Candidates inside a Hypit project. No saved time, avoided cost or provider charge is inferred.

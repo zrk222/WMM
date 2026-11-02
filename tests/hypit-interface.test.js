@@ -41,12 +41,13 @@ test('renderer form and preview choose exact routes with escaped approved captio
   f.context.openRender('native');assert.match(f.markup(),/\/renders\/native\/preview/);
 });
 
-test('submission preserves brief proof and retry identity and blocks stale app forms',async()=>{
+test('Hypit submission preserves brief proof and retry identity while deferring builds to preflight review',async()=>{
   const f=fixture(),submit={disabled:false};
   const form={id:'render-form',dataset:{app:'sample-one',key:'fixed-retry'},querySelector:()=>submit,values:[['renderer','HYPIT_LOCAL'],['brief_id','brief'],['shape','PORTRAIT']]};
   await f.listeners.submit({target:form,preventDefault(){}});
-  assert.equal(f.calls[0].url,'/api/apps/sample-one/production/hypit-renders');
-  assert.equal(f.calls[0].body.request_key,'fixed-retry');
+  assert.equal(f.calls[0].url,'/api/apps/sample-one/production/hypit-plan');
+  assert.equal(f.calls[0].body.request_key,undefined);
+  assert.equal(form.dataset.key,'fixed-retry');
   assert.equal(f.calls[0].body.data.brief_hash,'hash');assert.equal(f.calls[0].body.data.renderer,undefined);
   form.dataset.app='sample-two';await f.listeners.submit({target:form,preventDefault(){}});
   assert.equal(f.calls.length,1);assert.match(f.error.textContent,/App changed/);assert.equal(submit.disabled,false);

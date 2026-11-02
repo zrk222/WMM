@@ -446,7 +446,7 @@ function historicalForm(id) {
 }
 
 function connectionsView() {
-  return heading("Connect with clarity","Connect each app’s evidence, then verify actual access.")+WMMDrive.panel()+googlePlayPanel()+socialPanel()+releaseInventoryPanel()+subscriptionPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyConnectionsView();
+  return heading("Connect with clarity","Connect each app’s evidence, then verify actual access.")+WMMDrive.panel()+googlePlayPanel()+socialPanel()+campaignPanel()+releaseInventoryPanel()+subscriptionPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyConnectionsView();
 }
 
 function legacyConnectionsView() {
@@ -774,6 +774,7 @@ async function formSubmit(event) {
   if(formId==="customer-workflow-form") {event.preventDefault();return WMMCustomerWorkflow.submit(form,growthReviewServices());}
   if(formId==="growth-review-form") {event.preventDefault();return WMMGrowthReview.submit(form,growthReviewServices());}
   if((formId||'').startsWith('agent-')) {event.preventDefault();return agentSubmit(form);}
+  if(formId==='campaign-scope-form'){event.preventDefault();return campaignSubmit(form);}
   if((formId||'').startsWith('social-')) {event.preventDefault();return socialSubmit(form);}
   if(formId==='play-setup-form') {event.preventDefault();return playSubmit(form);}
   if(formId==="aeo-form") {event.preventDefault();return aeoSubmit(form);}
@@ -881,6 +882,7 @@ async function handleAction(node) {
   if(node.dataset.action.startsWith('funnel-'))return WMMFunnels.action(node,growthReviewServices());
   if(node.dataset.action.startsWith("customer-"))return WMMCustomerWorkflow.action(node,growthReviewServices());
   if(node.dataset.action.startsWith('agent-'))return agentAction(node);
+  if(node.dataset.action.startsWith('campaign-'))return campaignAction(node);
   if(node.dataset.action.startsWith('social-'))return socialAction(node);
   if(node.dataset.action.startsWith('play-'))return playAction(node);
   if(node.dataset.action.startsWith('setup-'))return setupAction(node);

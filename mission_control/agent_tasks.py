@@ -5,7 +5,8 @@ from .common import Invalid,canonical,digest,now,iso_time,uid
 from .db import connection
 from .agent_access import AgentAccess
 from .agent_registry import REGISTRY,TASKS,NATIVE
-from .agent_contract import exact,prompt,bounded_text,draft
+from .agent_contract import exact,prompt,bounded_text,draft,output_contract
+from .draft_recipes import recipe,validate as validate_recipe
 from .agent_native import run as native_run
 from .agent_api import request as api_run
 from .worker import json_job
@@ -59,6 +60,7 @@ def proposal(store,app_id,body):
         routing_hash=digest(routing),task=task,focus=body['focus'],prompt=text,provider=row['data']['provider'],
         model=row['data']['model'],max_output_tokens=256 if task=='connection_test' else 2048,
         external_effect='MODEL_REQUEST_ONLY_NO_PUBLICATION',fallback='REQUIRES_ANOTHER_APPROVAL')
+    frozen.update(output_contract_hash=digest(output_contract()),draft_recipe=recipe(task,body['focus']))
     frozen.update(context=context,context_hash=digest(context),
                   source_ids=[s['id'] for s in context['sources']] if context else [])
     return dict(proposal=frozen,source_hash=digest(frozen),cost='Existing provider allowance or approved API charges; exact cost/quota unknown',
@@ -106,6 +108,9 @@ def guard(store,app_id,frozen):
     if frozen['schema']!=SCHEMA or frozen['app_id']!=app_id or frozen['app_version']!=app['version'] or frozen['app_hash']!=digest(app['data']):
         raise Invalid('Agent app facts changed; approve the current task')
     if iso_time(now())>iso_time(frozen['expires_at']):raise Invalid('Agent task approval expired')
+    if (frozen.get('output_contract_hash')!=digest(output_contract())
+            or frozen.get('draft_recipe')!=recipe(frozen['task'],frozen['focus'])):
+        raise Invalid('Agent output contract or recipe changed; review the current task')
     guard_context(store,app_id,frozen)
     row,routing=selected(store,app_id,frozen['task'],frozen['connection_id'])
     if row['version']!=frozen['connection_version'] or digest(row['data'])!=frozen['connection_hash'] or digest(routing)!=frozen['routing_hash']:
@@ -150,10 +155,13 @@ def execute(store,job,stop=None,access=None,transport=None):
     else:result,usage=(transport or api_run)(row['data'],secret,frozen['prompt'],frozen['max_output_tokens'],alive)
     alive();guard(store,job['app_id'],frozen)
     result=draft(result,frozen['source_ids'])
+    pack=validate_recipe(result,frozen['draft_recipe'])
     if secret and secret in canonical(result):raise Invalid('Agent result exposed a protected key and was rejected')
     measured=usage_observation(usage)
-    return dict(status='DRAFT_READY',draft=result,sha256=digest(result),**measured,quota='UNKNOWN',cost='UNKNOWN',
+    accepted=dict(status='DRAFT_READY',draft=result,sha256=digest(result),**measured,quota='UNKNOWN',cost='UNKNOWN',
         publication='NOT_RUN',automatically_verified=False,next_actions=['Review this draft and its unknowns before preparing any external action'])
+    if pack is not None:accepted['draft_recipe']=pack
+    return accepted
 
 
 def complete(db,job,result,status):
