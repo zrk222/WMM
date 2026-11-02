@@ -65,7 +65,7 @@ def claim(store):
 
 def process(store,job,stop=None):
     """Prepare local packets or perform a configured read-only provider request."""
-    if job['action'] in ('campaign_post','campaign_ad','campaign_monitor','agent_run'):
+    if job['action'] in ('campaign_post','campaign_ad','campaign_monitor','campaign_owner_report','agent_run'):
         return process_special(store,job,stop)
     if job['action'] in ('drive_import','hypit_render','edit_render','render'):
         return process_media(store,job,stop)
@@ -108,6 +108,9 @@ def process(store,job,stop=None):
 
 def process_special(store,job,stop):
     """Dispatch scoped special work without widening the generic queue API."""
+    if job['action']=='campaign_owner_report':
+        from .campaign_owner_reports import execute
+        return execute(store,job)
     if job['action']=='campaign_monitor':
         from .campaign_monitor import execute
         return execute(store,job)
@@ -342,6 +345,8 @@ class Runner:
         self.supervision.attempt("campaign_schedule",lambda:campaign_tick(self.store),1)
         from .campaign_monitor import tick as monitor_tick
         self.supervision.attempt("campaign_monitor",lambda:monitor_tick(self.store),1)
+        from .campaign_owner_reports import tick as owner_reports_tick
+        self.supervision.attempt("owner_reports",lambda:owner_reports_tick(self.store),1)
         self.supervision.attempt("followup",lambda:Followup(self.store).tick(),1)
         from .social_renewal import Renewal
         self.supervision.attempt("social",lambda:Renewal(self.store).tick(),60)
