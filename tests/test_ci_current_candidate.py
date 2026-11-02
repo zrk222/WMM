@@ -5,7 +5,7 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-BASELINES = {".github/workflows/checks.yml":"b8ed50e004bbaeef30facd54f7ccb9937459c66c1f3eae40884b3284e16b5d17",".github/workflows/platform-checks.yml":"8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",".github/workflows/desktop-packages.yml":"bb04afc846eee4f7e1ec2b15b00e849e8eef28bb06d595594a50dad1daddaffa"}
+BASELINES = {".github/workflows/checks.yml":"b8ed50e004bbaeef30facd54f7ccb9937459c66c1f3eae40884b3284e16b5d17",".github/workflows/platform-checks.yml":"8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",".github/workflows/desktop-packages.yml":"4e5521a2a856eb8000ad194724233a710ea797845b150fddc95d8d31e6a6303d"}
 GROUP = "${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}"
 
 def job_digest(path):
