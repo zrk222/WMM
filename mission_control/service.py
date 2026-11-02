@@ -149,6 +149,10 @@ class Service:
         workspace['play']=PlayConnections(self.store).status(app_id)
         from .setup_discovery import SetupDiscovery
         workspace['setup_discovery']=SetupDiscovery(self.store).list(app_id)
+        from .apple_metrics_schedule import AppleMetricsSchedules
+        workspace['apple_analytics_schedule']=AppleMetricsSchedules(self.store).get(app_id)
+        if workspace['apple_analytics_schedule'] is not None:
+            workspace['apple_analytics_schedule']['last_error']=None
         workspace['subscription_growth']=self.subscription_review(app_id,expected=app)
         return workspace
 
