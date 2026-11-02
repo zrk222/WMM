@@ -66,7 +66,8 @@ class Server(ThreadingHTTPServer):
     def server_close(self):
         """Retain native cleanup outcome separately from listening-socket closure."""
         try:
-            self.studio_shutdown_result=self.service.studio.shutdown()
+            if hasattr(self,'service'):
+                self.studio_shutdown_result=self.service.studio.shutdown()
         finally:super().server_close()
 
 
