@@ -98,3 +98,47 @@ async function guidedAction(node) {
     else toast(error.message);
   } finally {state.guidedPending=false;node.disabled=false;}
 }
+
+/* Goal choice is local presentation only; existing services retain every approval. */
+const WMMGoalJourney=(()=>{
+ const choices=Object.freeze({
+  research:{title:"Find a useful marketing angle",description:"Compare sourced references and prepare the next experiment.",tool:"sources",next:"Add a research reference",view:"research",need:"Research references and authentic app facts"},
+  creative:{title:"Produce or revise a video",description:"Bring your clips, choose the message and review the creative before production.",tool:"render",next:"Open creative production",view:"research",need:"Approved brief, cleared media and production tools"},
+  campaign:{title:"Run an approved campaign",description:"Review exact Facebook Page posts and optional Meta engagement campaigns, with limits you choose.",tool:"campaign",next:"Review campaign setup",view:"connections",need:"Facebook Page permissions, exact content and separate campaign approval"},
+  measurement:{title:"Understand app results",description:"Find the next conversion or retention question supported by your measurements.",tool:"results",next:"Review measurement evidence",view:"results",need:"Your analytics connection or an actual results import"}
+ });
+ const key=app=>"wmm-goal-choice:"+app;
+ const fixed=id=>Object.hasOwn(choices,id)?id:"";
+ function read(storage,app){try{return fixed(storage?.getItem(key(app)));}catch{return "";}}
+ function save(storage,app,id){if(!fixed(id))throw new Error("Choose one of the displayed goals.");try{if(!storage)return false;storage.setItem(key(app),id);return true;}catch{return false;}}
+ function model(workspace,id){
+  const goal=choices[fixed(id)];
+  return {app_id:workspace.app.id,version:workspace.app.version,objective:workspace.app.data.job||"",goal:goal?{id,...goal}:null,
+   accounts:(workspace.social_access?.accounts||[]).filter(a=>a.provider==="facebook").map(a=>({status:a.status,destination:a.data?.destination?.name||"Facebook Page"})),
+   classification:"PRESENTATION_ONLY_NO_AUTHORITY"};
+ }
+ function view(workspace,id,html){
+  const m=model(workspace,id),g=m.goal;
+  const cards=Object.entries(choices).map(([name,c])=>`<button type="button" class="button outline" data-action="goal-select" data-goal="${name}" data-app="${html(m.app_id)}" data-version="${m.version}" aria-pressed="${name===id}">${html(c.title)}</button>`).join("");
+  const next=g?`<section class="panel" aria-label="Your selected goal"><h2>${html(g.title)}</h2><p>${html(g.description)}</p><p><strong>Bring:</strong> ${html(g.need)}.</p><p>${g.id==="campaign"?m.accounts.length?m.accounts.map(a=>html(a.destination)+": "+html(a.status)).join(" · "):"No Facebook Page connection is saved for this app.":"Use saved evidence or configure your own supported connection. Missing measurements remain unknown."}</p><p>Account setup is not execution approval. Existing workflow and campaign checks still apply.</p><div class="toolbar"><button type="button" class="button" data-action="goal-next" data-goal="${g.id}" data-app="${html(m.app_id)}" data-version="${m.version}">${html(g.next)}</button><button type="button" class="button outline" data-view="connections">Check connections</button><button type="button" class="button outline" data-view="agents">Connect your agent</button></div></section>`:"<p>Choose one goal to see the relevant tools. This selection starts no work and grants no permission.</p>";
+  return `<section class="panel" aria-label="Choose your marketing goal"><h2>What would you like to accomplish?</h2><p>Start with one useful result. Your agent and you use the same saved app facts, tools and approval checks.</p><p><strong>Your app purpose:</strong> ${html(m.objective||"Add the problem your app solves in App setup.")}</p><div class="toolbar" role="group" aria-label="Marketing goals">${cards}</div><p id="goal-message" role="status" aria-live="polite"></p></section>${next}`;
+ }
+ function browserStorage(){try{return globalThis.localStorage??null;}catch{return null;}}
+ return {read,save,model,view,choices,browserStorage};
+})();
+
+function goalOverview(){
+ const id=state.goalChoice?.app===state.app?state.goalChoice.id:WMMGoalJourney.read(WMMGoalJourney.browserStorage(),state.app);
+ return heading("Set your goal","Choose one outcome. Watch the work. Review what happened.")+WMMGoalJourney.view(state.workspace,id,esc)+`<details class="panel" id="goal-advanced"><summary>Advanced app overview and twelve-stage diagnostics</summary>${detailedOverview().replace(/<h1>/g,"<h2>").replace(/<\/h1>/g,"</h2>")}</details>`;
+}
+
+function goalAction(node){
+ if(node.dataset.app!==state.app||Number(node.dataset.version)!==state.workspace?.app.version)throw new Error("App changed. Choose the goal again for the current app.");
+ const id=node.dataset.goal;if(!Object.hasOwn(WMMGoalJourney.choices,id))throw new Error("Choose one of the displayed goals.");
+ if(node.dataset.action==="goal-select"){const saved=WMMGoalJourney.save(WMMGoalJourney.browserStorage(),state.app,id);state.goalChoice={app:state.app,id};render();const target=document.querySelector(`[data-action="goal-next"][data-goal="${id}"]`);target?.focus();const msg=document.querySelector("#goal-message");if(msg)msg.textContent=saved?"Goal selected for this app. No work has started.":"Goal selected for this session. Browser storage is unavailable; no work has started.";return;}
+ if(node.dataset.action!=="goal-next")throw new Error("Unknown goal action.");
+ if(id==="campaign")return campaignOpen();
+ if(id==="creative")return guidedNavigate("research");
+ if(id==="research")return guidedOpenTool("sources");
+ return guidedNavigate("results");
+}

@@ -71,19 +71,21 @@
       <label class="sr-only" for="app-select">Select app workspace</label>
       <select id="app-select" aria-label="Select app workspace"><option>Loading apps…</option></select>
       <nav aria-label="Main navigation" id="navigation">
-        <button class="nav-item" data-view="weekly"><span aria-hidden="true">◎</span> Weekly review</button>
-        <button class="nav-item active" data-view="overview"><span aria-hidden="true">◫</span> Overview</button>
-        <button class="nav-item" data-view="workflow"><span aria-hidden="true">→</span> Guided workflow</button>
-        <button class="nav-item" data-view="pipeline"><span aria-hidden="true">⌘</span> Pipeline</button>
-        <button class="nav-item" data-view="evidence"><span aria-hidden="true">▱</span> Evidence & assets</button>
-        <button class="nav-item" data-view="results"><span aria-hidden="true">↗</span> Results</button>
-        <button class="nav-item" data-view="connections"><span aria-hidden="true">⊞</span> Connections</button>
-        <button class="nav-item" data-view="agents"><span aria-hidden="true">✦</span> Your agents</button>
-        <button class="nav-item" data-view="activity"><span aria-hidden="true">◷</span> Activity & reviews</button>
-        <button class="nav-item" data-view="research"><span aria-hidden="true">◈</span> Research & playbook</button>
+        <button class="nav-item active" data-view="overview"><span aria-hidden="true">◫</span> Set your goal</button>
+        <button class="nav-item" data-view="activity"><span aria-hidden="true">◷</span> Watch the work</button>
+        <button class="nav-item" data-view="results"><span aria-hidden="true">↗</span> Review results</button>
+        <details><summary>Advanced tools</summary>
+          <button class="nav-item" data-view="weekly">Weekly review</button>
+          <button class="nav-item" data-view="workflow">Guided workflow</button>
+          <button class="nav-item" data-view="pipeline">Pipeline</button>
+          <button class="nav-item" data-view="evidence">Evidence & assets</button>
+          <button class="nav-item" data-view="connections">Connections</button>
+          <button class="nav-item" data-view="agents">Your agents</button>
+          <button class="nav-item" data-view="research">Research & playbook</button>
+        </details>
       </nav>
       <button id="add-app" class="sidebar-add">＋ Add an app</button>
-      <div class="sidebar-foot"><span class="online-dot" aria-hidden="true"></span><span>Private local workspace<br><small>No automatic ad spending</small></span></div>
+      <div class="sidebar-foot"><span class="online-dot" aria-hidden="true"></span><span>Private local workspace<br><small>Campaigns need exact approval</small></span></div>
     </aside>
     <div class="workspace">
       <header class="topbar"><div class="breadcrumb">Portfolio <span aria-hidden="true">/</span> <strong id="app-name">Loading…</strong></div><div class="top-actions"><span class="local-badge">LOCAL</span><button class="button subtle mobile-add" data-action="add-app" aria-label="Add an app">＋</button><button class="button subtle" id="edit-app">App setup <span aria-hidden="true">↗</span></button></div></header>

@@ -86,16 +86,17 @@ function render() {
     return;
   }
   $("#main").setAttribute("aria-busy","false");
-  const views={weekly:weeklyView,overview:overview,workflow:guidedView,pipeline:pipelineView,evidence:evidenceView,results:resultsView,connections:connectionsView,agents:agentAccessView,activity:activityView,research:researchView};
+  const views={weekly:weeklyView,overview:goalOverview,workflow:guidedView,pipeline:pipelineView,evidence:evidenceView,results:resultsView,connections:connectionsView,agents:agentAccessView,activity:activityView,research:researchView};
   $("#main").innerHTML=views[state.view]();
   if(["agents","activity"].includes(state.view))$("#main .page-heading").insertAdjacentHTML("afterend",WMMAgentControl.panel(state));
   if(["agents","activity"].includes(state.view))$("#main .page-heading").insertAdjacentHTML("afterend",WMMCompleteAutomation.panel(state));
   if(state.view==='research')$("#main .page-heading").insertAdjacentHTML('afterend',WMMVideoEditor.panel());
   if(state.view==='research')$("#main .page-heading").insertAdjacentHTML('afterend',WMMStudio.panel());
   if(state.view==='research')$("#main .page-heading").insertAdjacentHTML('afterend',WMMDiscovery.panel()+WMMPackaging.panel(state)+WMMMedia.panel()+WMMDrive.panel());
-  if(state.view==="overview")$("#main .hero").insertAdjacentHTML("afterend",WMMPageReports.overviewStory()+guidedOverviewPanel());
+
   automationDecorateWorkflow();
   WMMPageReports.decorate(state,document);
+  if(state.view==="overview"){const report=$("#main .page-reporting");if(report)$("#goal-advanced").prepend(report);}
   if(["workflow","agents","activity","research"].includes(state.view)){
     $("#main .page-heading").insertAdjacentHTML("afterend",WMMTelemetry.panel());
     WMMTelemetry.mount(growthReviewServices());
@@ -151,7 +152,7 @@ function flow() {
   return `<div class="flow-line">${["Plan","Launch","Learn"].map((name,i)=>`<div class="flow-phase"><span class="phase-number">${i+1}</span><span>${name}<small>${["Establish the truth","Prepare the experiment","Measure useful growth"][i]}</small></span></div>`).join("")}</div>`;
 }
 
-function overview() {
+function detailedOverview() {
   const w=state.workspace, next=w.stages.find(s=>s.status!=="READY") || w.stages[10];
   const recent=w.jobs.slice(0,3);
   return `<section class="hero"><div><p class="eyebrow">WIZE MARKETING MACHINE</p><h1>Plan your app marketing.<br>Prepare the work.<br>Measure results.</h1><p>Designed for your personal AI agent to operate on your behalf, with permissions you control and verified results reported back to you. You can inspect, edit and operate the same workspace yourself. Turn your app details, audience research, video references and analytics into a marketing plan you can act on. Wize Marketing Machine organizes creative briefs, video editing work, app store checks and subscription experiments. You receive saved work packets, approval records and PDF reports showing the evidence, results and next actions for each app. Use them to shorten creative turnaround, reduce repeated work and find conversion bottlenecks. Your business targets are more useful installs, stronger paid conversion and retention, and less wasted acquisition cost; measure actual gains in your app results.</p><button type="button" class="button light" data-view="workflow">Open Guided workflow →</button></div><div class="hero-art" aria-hidden="true"><div class="orbit"></div><div class="orbit second"></div><div class="orbit third">↗</div></div></section>${summary()}${automaticPreparationPanel()}<div class="two-column"><section class="panel"><p class="eyebrow">YOUR NEXT BEST ACTION</p><h2>${esc(next.title)}</h2><div class="next-step"><div class="step-icon" aria-hidden="true">${next.id}</div><div><h3>${esc(next.missing[0] || "Review a mature experiment")}</h3><p>${esc(next.description)}</p>${button("Open this stage","stage",`data-id="${next.id}"`)}</div></div></section><section class="panel"><p class="eyebrow">RECENT RUNS</p><h2>Work you can inspect</h2>${recent.length?recent.map(job=>`<div class="next-step"><div><h3>${job.action==="pipeline"?"Pipeline preparation":job.action==="experiment"?"Experiment analysis":"Provider read"}</h3><p>${esc(new Date(job.created).toLocaleString())}</p>${status(job.status)} <button class="text-button" data-action="job" data-id="${esc(job.id)}">View result ↗</button></div></div>`).join(""):`<p class="description">Your first run will create a saved packet for every stage, including the evidence still needed.</p><button class="text-button" data-view="pipeline">Explore the pipeline ↗</button>`}</section></div><div class="section-heading"><div><h2>A clear path from plan to learning</h2><p>Twelve connected stages. Each one has a purpose.</p></div><button class="text-button" data-view="pipeline">View all stages →</button></div>${flow()}<div class="stage-grid">${w.stages.slice(0,3).map(stageCard).join("")}</div>`;
@@ -881,6 +882,7 @@ async function handleAction(node) {
   if(node.dataset.action.startsWith("subscription-plan-"))return WMMSubscriptionAuthoring.action(node,growthReviewServices());
   if(node.dataset.action.startsWith('funnel-'))return WMMFunnels.action(node,growthReviewServices());
   if(node.dataset.action.startsWith("customer-"))return WMMCustomerWorkflow.action(node,growthReviewServices());
+  if(node.dataset.action.startsWith('goal-'))return goalAction(node);
   if(node.dataset.action.startsWith('agent-'))return agentAction(node);
   if(node.dataset.action.startsWith('campaign-'))return campaignAction(node);
   if(node.dataset.action.startsWith('social-'))return socialAction(node);
