@@ -2,6 +2,7 @@
 import json
 import threading
 import time
+from contextlib import nullcontext
 from urllib.error import HTTPError, URLError
 from .common import Invalid, canonical, digest, now, required, uid
 from .db import connection
@@ -19,21 +20,26 @@ from .automation_health import Supervision
 def enqueue(store,app_id,action,data,request_key,*,commit_check=None):
     """Persist an idempotent app-scoped job while rejecting a reused key with different input."""
     store.app(app_id)
-    if action not in ("pipeline","sync","render","hypit_render","edit_render","drive_import"):
-        raise Invalid("Unknown job action")
-    request_key=required(request_key,"Request key",120)
     with connection(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
         if commit_check is not None:
             commit_check(db)
-        inserted=db.execute("INSERT OR IGNORE INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)",(uid(),app_id,action,canonical(data),"QUEUED",now(),now(),request_key)).rowcount
-        row=db.execute("SELECT * FROM jobs WHERE app_id=? AND request_key=?",(app_id,request_key)).fetchone()
-        if row["action"]!=action or row["data"]!=canonical(data):
-            raise Invalid("Request key already used for a different job")
-        result=json_job(row)
-        from .automation_execution import attach_job
-        attach_job(db,result,bool(inserted))
-        return result
+        return enqueue_db(db,store,app_id,action,data,request_key)
+
+
+def enqueue_db(db,store,app_id,action,data,request_key):
+    """Queue using the caller's existing transaction and authority guards."""
+    if not db.in_transaction:raise Invalid("Job admission requires an existing write transaction")
+    if not db.execute("SELECT 1 FROM apps WHERE id=?",(app_id,)).fetchone():raise KeyError("App workspace not found")
+    if action not in ("pipeline","sync","render","hypit_render","edit_render","drive_import"):raise Invalid("Unknown job action")
+    request_key=required(request_key,"Request key",120)
+    inserted=db.execute("INSERT OR IGNORE INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)",(uid(),app_id,action,canonical(data),"QUEUED",now(),now(),request_key)).rowcount
+    row=db.execute("SELECT * FROM jobs WHERE app_id=? AND request_key=?",(app_id,request_key)).fetchone()
+    if row["action"]!=action or row["data"]!=canonical(data):raise Invalid("Request key already used for a different job")
+    result=json_job(row)
+    from .automation_execution import attach_job
+    attach_job(db,result,bool(inserted))
+    return result
 
 
 def json_job(row):
@@ -57,8 +63,24 @@ def claim(store):
         db.execute("BEGIN IMMEDIATE")
         db.execute("UPDATE jobs SET status='BLOCKED',result=?,updated=? WHERE action IN ('campaign_post','campaign_ad','campaign_monitor') AND status='RUNNING' AND lease<?",
                    (canonical({"error":"Scheduled post was interrupted; inspect its saved intent before any retry","external_execution":"UNKNOWN"}),now(),time.time()))
+        db.execute("UPDATE creative_batches SET state='BLOCKED_HOLD',updated=? WHERE state='ACTIVE' AND EXISTS (SELECT 1 FROM creative_batch_variants v JOIN jobs j ON j.id=v.job_id WHERE v.app_id=creative_batches.app_id AND v.batch_id=creative_batches.id AND j.status='RUNNING' AND j.lease<?)",(now(),time.time()))
+        db.execute("UPDATE creative_batch_variants SET native_state='STOP_PENDING' WHERE job_id IN (SELECT id FROM jobs WHERE status='RUNNING') AND EXISTS (SELECT 1 FROM creative_batches b WHERE b.app_id=creative_batch_variants.app_id AND b.id=creative_batch_variants.batch_id AND b.state='BLOCKED_HOLD')")
+        db.execute("UPDATE creative_batch_variants SET native_state='CANCELLED' WHERE job_id IN (SELECT id FROM jobs WHERE status='QUEUED') AND EXISTS (SELECT 1 FROM creative_batches b WHERE b.app_id=creative_batch_variants.app_id AND b.id=creative_batch_variants.batch_id AND b.state='BLOCKED_HOLD')")
+        db.execute("UPDATE jobs SET status='BLOCKED',result=?,updated=? WHERE action='render' AND status='RUNNING' AND lease<? AND EXISTS (SELECT 1 FROM creative_batch_variants v JOIN creative_batches b ON b.app_id=v.app_id AND b.id=v.batch_id WHERE v.job_id=jobs.id AND b.state='BLOCKED_HOLD')",(canonical({"error":"Render lease expired; inspect the retained batch hold before recovery","external_execution":"UNKNOWN"}),now(),time.time()))
+        db.execute("UPDATE jobs SET status='CANCELLED',updated=? WHERE action='render' AND status='QUEUED' AND EXISTS (SELECT 1 FROM creative_batch_variants v JOIN creative_batches b ON b.app_id=v.app_id AND b.id=v.batch_id WHERE v.job_id=jobs.id AND b.state='BLOCKED_HOLD')",(now(),))
         db.execute("UPDATE jobs SET status='FAILED',result=?,updated=? WHERE status='RUNNING' AND lease<? AND attempts>=3",(canonical({"error":"Recovery attempt limit reached; review the job before retry"}),now(),time.time()))
-        row=db.execute("SELECT * FROM jobs WHERE (status='QUEUED' OR (status='RUNNING' AND lease<? AND action NOT IN ('campaign_post','campaign_ad','campaign_monitor'))) AND attempts<3 ORDER BY created LIMIT 1",(time.time(),)).fetchone()
+        candidates=db.execute("SELECT * FROM jobs WHERE (status='QUEUED' OR (status='RUNNING' AND lease<? AND action NOT IN ('campaign_post','campaign_ad','campaign_monitor'))) AND attempts<3 ORDER BY created",(time.time(),))
+        row=None
+        for candidate in candidates:
+            batch=db.execute("SELECT b.* FROM creative_batches b JOIN creative_batch_variants v ON v.app_id=b.app_id AND v.batch_id=b.id WHERE v.app_id=? AND v.job_id=?",(candidate['app_id'],candidate['id'])).fetchone()
+            if batch:
+                from .creative_batch_authority import bound_plan
+                from .agent_grants import batch_authority_pending
+                try: pending=batch_authority_pending(db,bound_plan(batch)['authority'])
+                except (Invalid,ValueError,TypeError,KeyError): pending=False
+                if pending:continue
+            row=candidate
+            break
         if not row:
             return None
         db.execute("UPDATE jobs SET status='RUNNING',attempts=attempts+1,lease=?,updated=? WHERE id=?",(time.time()+60,now(),row["id"]))
@@ -264,18 +286,26 @@ def run_once(store,stop=None):
     if not job:
         return progressed
     retry_delay=0
-    try:
-        guard_owned(store,job)
-        from .automation_execution import job_execution
-        with job_execution(store,job):
-            from .workflow_telemetry import emit
-            emit(store,job,'STARTED')
-            result=process(store,job) if stop is None else process(store,job,stop)
-        guard_owned(store,job)
-        status="BLOCKED" if job["action"]=="campaign_monitor" and isinstance(result,dict) and result.get("status")=="BLOCKED" else "SUCCEEDED"
-    except Exception as exc:
-        result,status,retry_delay=failed_result(job,exc)
+    if job['action']=='render':
+        from .media_native import track_children
+        tracking=track_children()
+    else:tracking=nullcontext(None)
+    with tracking as children:
+        try:
+            guard_owned(store,job)
+            from .automation_execution import job_execution
+            with job_execution(store,job):
+                from .workflow_telemetry import emit
+                emit(store,job,'STARTED')
+                result=process(store,job) if stop is None else process(store,job,stop)
+            guard_owned(store,job)
+            status="BLOCKED" if job["action"]=="campaign_monitor" and isinstance(result,dict) and result.get("status")=="BLOCKED" else "SUCCEEDED"
+        except Exception as exc:
+            result,status,retry_delay=failed_result(job,exc)
     persist_job_result(store,job,result,status,retry_delay)
+    if children is not None and children['active']==0 and not children['uncertain']:
+        from .creative_batches import ack_desktop_stop
+        ack_desktop_stop(store,job)
     return True
 
 
@@ -341,6 +371,8 @@ class Runner:
             return False
         self.supervision.begin()
         self.supervision.attempt("experiments",lambda:Schedules(self.store).tick(),1)
+        from .creative_batches import Batch
+        self.supervision.attempt("creative_batches",lambda:Batch(self.store).tick(),1)
         self.supervision.attempt("analytics",lambda:Insights(self.store).tick(),1)
         from .apple_metrics_schedule import AppleMetricsSchedules
         self.supervision.attempt("apple_metrics",lambda:AppleMetricsSchedules(self.store).tick(),1)

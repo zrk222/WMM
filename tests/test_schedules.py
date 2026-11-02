@@ -6,7 +6,8 @@ import tempfile
 import time
 import unittest
 from unittest.mock import patch
-from mission_control.common import Invalid,digest
+from mission_control.common import Invalid,digest,iso_time
+from datetime import timedelta
 from mission_control.db import connection
 from mission_control.experiments import Experiments
 from mission_control.experiment_schedules import (Schedules,configuration,check_scheduled,export_schedules,validate_restored_schedule,
@@ -26,13 +27,18 @@ class ScheduleTests(unittest.TestCase):
         with patch("mission_control.experiments.now",return_value=EXPOSE):self.experiments.act("sample-one",self.e["id"],dict(operation="observe",version=1,source="Synthetic receipt",observed_at=EXPOSE))
         for arm in ("control","treatment"):
             self.service.events("sample-one",{"cohort_id":plan[arm]["cohort_id"],"events":observations(arm,activations=10 if arm=="control" else 16)})
+        from mission_control.review_access import Access
+        self.owner={"principal":"github:987654","login":"synthetic-owner"}
+        Access(self.store).bootstrap("sample-one",self.owner,{"confirm_owner":True})
 
     def tearDown(self):self.tmp.cleanup()
 
     def setting(self):return self.schedules.list("sample-one")[0]
 
-    def save(self,enabled=True,version=None,stamp=ANALYZE):
-        with patch("mission_control.experiment_schedules.now",return_value=stamp):return self.schedules.save("sample-one",self.e["id"],dict(enabled=enabled,interval_hours=24,version=version))
+    def save(self,enabled=True,version=None,stamp=ANALYZE,max_observations=30,expires_at=None):
+        body=dict(enabled=enabled,interval_hours=24,version=version)
+        if enabled:body.update(manifest_version=self.store.app("sample-one")["version"],expires_at=expires_at or (iso_time(stamp)+timedelta(days=90)).isoformat(),max_observations=max_observations)
+        with patch("mission_control.experiment_schedules.now",return_value=stamp):return self.schedules.save("sample-one",self.e["id"],body,owner=self.owner["principal"])
 
     def tick(self,stamp=ANALYZE):
         with patch("mission_control.experiment_schedules.now",return_value=stamp):return self.schedules.tick()
@@ -61,6 +67,71 @@ class ScheduleTests(unittest.TestCase):
         self.assertFalse(jobs(self.store,"sample-one")[0]["result"]["new_assessment"])
         self.assertEqual(len(self.experiments.list("sample-one")[0]["assessments"]),1)
 
+    def test_finite_reservation_concurrency_and_exhaustion(self):
+        from concurrent.futures import ThreadPoolExecutor
+        self.save(max_observations=2)
+        with patch("mission_control.experiment_schedules.now",return_value=ANALYZE):
+            with ThreadPoolExecutor(max_workers=2) as pool:results=list(pool.map(lambda _:self.schedules.tick(),range(2)))
+        self.assertEqual(sum(results),1)
+        self.assertEqual(self.setting()["finite_limit"]["remaining"],1)
+        self.execute();self.tick()
+        later="2026-10-03T00:00:00+00:00"
+        self.assertEqual(self.tick(later),1)
+        self.assertEqual(self.setting()["finite_limit"]["remaining"],0)
+        self.execute(later);self.tick(later)
+        self.assertEqual(self.setting()["status"],"EXHAUSTED")
+        self.assertEqual(len(jobs(self.store,"sample-one")),2)
+        self.assertEqual(self.tick("2026-10-04T00:00:00+00:00"),0)
+
+    def test_interrupted_lease_reuses_reservation_without_extra_observation(self):
+        self.save(max_observations=1);self.tick();first=claim(self.store)
+        with connection(self.store.path) as db:db.execute("UPDATE jobs SET lease=0 WHERE id=?",(first["id"],))
+        self.assertTrue(self.execute())
+        self.tick()
+        saved=jobs(self.store,"sample-one")
+        self.assertEqual(len(saved),1);self.assertEqual(saved[0]["id"],first["id"])
+        self.assertEqual(saved[0]["status"],"SUCCEEDED");self.assertEqual(saved[0]["attempts"],2)
+        self.assertEqual(self.setting()["finite_limit"]["reserved"],1)
+        self.assertEqual(self.setting()["status"],"EXHAUSTED")
+
+    def test_owner_and_finite_bounds_are_required(self):
+        body=dict(enabled=True,interval_hours=24,version=None,manifest_version=self.store.app("sample-one")["version"],expires_at=(iso_time(ANALYZE)+timedelta(days=7)).isoformat(),max_observations=2)
+        with patch("mission_control.experiment_schedules.now",return_value=ANALYZE):
+            with self.assertRaises(PermissionError):self.schedules.save("sample-one",self.e["id"],body)
+            for change in ({"max_observations":0},{"max_observations":31},{"max_observations":True},{"expires_at":ANALYZE},{"expires_at":(iso_time(ANALYZE)+timedelta(days=91)).isoformat()},{"manifest_version":999}):
+                with self.subTest(change=change),self.assertRaises(Invalid):self.schedules.save("sample-one",self.e["id"],dict(body,**change),owner=self.owner["principal"])
+        self.assertEqual(self.schedules.list("sample-one"),[])
+
+    def test_owner_app_or_expiry_change_blocks_queued_assessment(self):
+        for kind in ("owner","app","expiry"):
+            with self.subTest(kind=kind):
+                if kind!="owner":
+                    self.tearDown();self.setUp()
+                self.save();self.tick();running=claim(self.store)
+                with connection(self.store.path) as db:
+                    if kind=="owner":db.execute("UPDATE operator_roles SET version=version+1 WHERE app_id=? AND principal=?",("sample-one",self.owner["principal"]))
+                    if kind=="app":db.execute("UPDATE apps SET version=version+1 WHERE id=?",("sample-one",))
+                    if kind=="expiry":db.execute("UPDATE experiment_schedule_limits SET expires=? WHERE app_id=?",(ANALYZE,"sample-one"))
+                with patch("mission_control.experiment_schedules.now",return_value=ANALYZE),self.assertRaises(Invalid):process(self.store,running)
+                self.assertEqual(self.experiments.list("sample-one")[0]["assessments"],[])
+
+    def test_legacy_schedule_requires_fresh_authorization(self):
+        self.save();self.tick()
+        with connection(self.store.path) as db:db.execute("DELETE FROM experiment_schedule_limits WHERE app_id=?",("sample-one",))
+        self.assertEqual(self.tick(),0)
+        self.assertEqual(self.setting()["status"],"BLOCKED")
+        self.assertEqual(jobs(self.store,"sample-one")[0]["status"],"CANCELLED")
+
+    def test_foreground_run_uses_only_the_exact_reserved_experiment(self):
+        self.save(max_observations=1)
+        with patch("mission_control.experiment_schedules.now",return_value=ANALYZE),patch("mission_control.experiments.now",return_value=ANALYZE):
+            with self.assertRaises(PermissionError):self.schedules.run_foreground("sample-one",self.e["id"],owner="foreign")
+            result=self.schedules.run_foreground("sample-one",self.e["id"],owner=self.owner["principal"])
+            self.assertEqual(result["status"],"SUCCEEDED")
+            self.assertEqual(self.schedules.run_foreground("sample-one",self.e["id"],owner=self.owner["principal"])["status"],"EXHAUSTED")
+        self.assertEqual(len(jobs(self.store,"sample-one")),1)
+        self.assertEqual(len(self.experiments.list("sample-one")[0]["assessments"]),1)
+
     def test_dispatch_transaction_rolls_back_on_failed_audit(self):
         self.save();before=self.setting()
         with patch("mission_control.experiment_schedules.schedule_audit",side_effect=OSError("synthetic disk failure")),self.assertRaises(OSError):self.tick()
@@ -68,7 +139,7 @@ class ScheduleTests(unittest.TestCase):
         self.assertEqual(self.tick(),1)
 
     def test_pause_cancels_queue_and_rejects_replaced_running_input(self):
-        self.save();self.tick();job=jobs(self.store,"sample-one")[0]
+        self.save();self.tick()
         self.save(False,version=1)
         self.assertEqual(jobs(self.store,"sample-one")[0]["status"],"CANCELLED");self.assertFalse(self.execute())
         self.save(True,version=2);self.tick();running=claim(self.store)
@@ -130,6 +201,18 @@ class ScheduleTests(unittest.TestCase):
         runner.retry_failed()
         self.assertFalse(runner.poll());self.assertEqual(runner.health["status"],"RUNNING")
         self.assertIsNotNone(runner.health["last_success"])
+
+    def test_creative_batch_supervision_failure_is_isolated_and_retryable(self):
+        runner=Runner(self.store)
+        with patch("mission_control.creative_batches.Batch.tick",side_effect=OSError("synthetic private diagnostic")):
+            runner.poll()
+        health=runner.health
+        self.assertEqual(health["components"]["creative_batches"]["status"],"RECOVERING")
+        self.assertEqual(health["components"]["experiments"]["status"],"RUNNING")
+        self.assertEqual(health["components"]["queue"]["status"],"RUNNING")
+        self.assertNotIn("synthetic private diagnostic",json.dumps(health))
+        runner.retry_failed();runner.poll()
+        self.assertEqual(runner.health["components"]["creative_batches"]["status"],"RUNNING")
 
     def test_schedule_helpers_preserve_receipts_and_disable_restore(self):
         self.save();self.tick();row=self.setting()

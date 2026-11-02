@@ -253,7 +253,14 @@ class Handler(BaseHTTPRequestHandler):
         if parts[3:]==['reports','summary']:
             if urlparse(self.path).query:raise Invalid('Use the exact app summary report address')
             from .ios_reports import read
-            return self.send(200,read(store,app_id))
+            from .operation_authority import bound_owner,protected
+            session=self.session();envelope=dict(app_id=app_id,operation='report.read',input={})
+            try:
+                user=self.server.identities.fresh(session)
+                with bound_owner(store,envelope,self.server.identities,session,user),protected(store,envelope):
+                    return self.send(200,read(store,app_id))
+            except PermissionError:
+                return self.send(200,read(store,app_id,include_handoffs=False))
         if parts[3:]==['subscription-growth']:
             if urlparse(self.path).query:raise Invalid('Use the exact subscription review address')
             return self.send(200,self.server.service.subscription_review(app_id))
@@ -443,7 +450,7 @@ class Handler(BaseHTTPRequestHandler):
             raw=read_body(self)
         else:
             raw=self.attribution_body(path,parts) if any(k in parts for k in ('setup-discovery','play','attribution','agent-access','social-access','social')) else self.body(self.post_limit(path,parts))
-        strict=any(kind in parts for kind in ('studio','production','workflow-evidence','video-projects','video-edit-renders','agent-reviews','agent-grants','subscription-growth','customer-workflows','setup-discovery','play','attribution','insights','aeo','release-selection','agent-access','social-access','social')) or path=='/api/restore'
+        strict=any(kind in parts for kind in ('studio','production','references','workflow-evidence','video-projects','video-edit-renders','agent-reviews','agent-grants','agent-handoffs','subscription-growth','customer-workflows','setup-discovery','play','attribution','insights','aeo','release-selection','agent-access','social-access','social','experiments')) or path=='/api/restore'
         if strict:
             from .payment_signature import unique_pairs,bounded_tree
             data=json.loads(raw,object_pairs_hook=unique_pairs,parse_constant=lambda _:(_ for _ in ()).throw(Invalid('Nonfinite JSON is forbidden')))
@@ -537,6 +544,8 @@ class Handler(BaseHTTPRequestHandler):
         if action=='workflow-evidence':
             if len(parts)!=4 or urlparse(self.path).query:raise Invalid('Use the exact workflow evidence address')
             from .operation_runtime import save_evidence
+            if self.asset_rights_assertion(data):
+                return self.save_owner_asset(parts,app_id,data,lambda:save_evidence(service,app_id,data))
             return self.send(201,save_evidence(service,app_id,data))
         if action=='subscription-growth':
             if parts[4:]!=['entries'] or urlparse(self.path).query:raise Invalid('Use the exact growth review entry address')
@@ -551,6 +560,17 @@ class Handler(BaseHTTPRequestHandler):
             if urlparse(self.path).query:
                 raise Invalid('Use the exact campaign input collection address')
             return self.send(201,CampaignInputs(service.store).start(app_id,data))
+        if action=='agent-handoffs':
+            if len(parts)!=4:raise PermissionError('Handoff resume requires a scoped agent admission')
+            if self.path!='/'+ '/'.join(parts):raise Invalid('Use the exact handoff address')
+            from .agent_handoffs import Handoffs
+            from .operation_authority import bound_owner,protected
+            session=self.session();user=self.server.identities.fresh(session)
+            envelope=dict(app_id=app_id,operation='handoff.create',input=data)
+            with bound_owner(service.store,envelope,self.server.identities,session,user),protected(service.store,envelope):
+                return self.send(201,Handoffs(service.store).create(app_id,user,data))
+        if action=='records' and self.asset_rights_assertion(data):
+            return self.save_owner_asset(parts,app_id,data,lambda:service.evidence(app_id,data))
         routes={"records":lambda:service.evidence(app_id,data),"jobs":lambda:service.queue(app_id,data),
                 "reviews":lambda:service.prepare_review(app_id,data),"cohorts":lambda:service.cohort(app_id,data),"events":lambda:service.events(app_id,data)}
         handlers={"agent-reviews":self.post_agent_reviews,"agent-grants":self.post_agent_grants,"setup-discovery":self.post_setup_discovery,"play":self.post_play,"experiment-tracking":self.post_tracking,"sequences":self.post_sequence,"resolutions":self.post_resolution,"release-selection":self.post_release_selection,"inspections":self.post_inspection,
@@ -835,16 +855,21 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts)==6 and parts[5]=="evaluate" and not data:return self.send(200,experiments.evaluate(parts[2],parts[4]))
         if len(parts)==6 and parts[5]=="schedule":
             from .experiment_schedules import Schedules
-            return self.send(200,Schedules(self.server.service.store).save(parts[2],parts[4],data))
+            from .operation_authority import bound_owner,protected
+            if self.path!="/"+"/".join(parts):raise Invalid("Use the exact experiment schedule address")
+            session=self.session();user=self.server.identities.fresh(session);store=self.server.service.store
+            envelope=dict(app_id=parts[2],operation='experiment.schedule.owner',input={})
+            with bound_owner(store,envelope,self.server.identities,session,user),protected(store,envelope):
+                return self.send(200,Schedules(store).save(parts[2],parts[4],data,owner=user['principal']))
         raise KeyError("Experiment route not found")
 
     def post_reference(self,parts,data):
         """Scope source save, preview and explicit import to the chosen workspace."""
         from .creative_library import Library
         library=Library(self.server.service.store)
-        if len(parts)==4:return self.send(201,library.save(parts[2],data))
+        if len(parts)==4:return self.owner_creative_write(parts,data,'creative.source.save',lambda:library.save(parts[2],data))
         if len(parts)==5 and parts[4]=="preview":return self.send(200,library.preview(parts[2],data))
-        if len(parts)==5 and parts[4]=="import":return self.send(201,library.commit(parts[2],data))
+        if len(parts)==5 and parts[4]=="import":return self.owner_creative_write(parts,data,'creative.source.import',lambda:library.commit(parts[2],data))
         raise KeyError("Source library route not found")
 
     def post_ranking(self,parts,data):
@@ -855,6 +880,30 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts)==5 and parts[4]=="run":return self.send(201,ranking.run(parts[2],data))
         raise KeyError("Ranking route not found")
 
+    @staticmethod
+    def asset_rights_assertion(data):
+        """Recognize explicit claims that a human reviewed a creative still."""
+        fields=data.get('data') if isinstance(data,dict) else None
+        return isinstance(data,dict) and data.get('kind')=='asset' and isinstance(fields,dict) and (fields.get('authentic') is True or fields.get('rights_cleared') is True)
+
+    def save_owner_asset(self,parts,app_id,data,save):
+        """Bind direct local asset assertions to the current app owner's session."""
+        from .operation_authority import bound_owner,protected
+        if len(parts)!=4 or self.path!='/'+ '/'.join(parts):raise Invalid('Use the exact asset evidence address')
+        session=self.session();user=self.server.identities.fresh(session)
+        envelope=dict(app_id=app_id,operation='evidence.save',input=data)
+        with bound_owner(self.server.service.store,envelope,self.server.identities,session,user),protected(self.server.service.store,envelope):
+            return self.send(201,save())
+
+    def owner_creative_write(self,parts,data,operation,save):
+        """Protect legacy creative evidence writes with current owner authority."""
+        from .operation_authority import bound_owner,protected
+        if self.path!='/'+ '/'.join(parts):raise Invalid('Use the exact creative evidence address')
+        store=self.server.service.store;session=self.session();user=self.server.identities.fresh(session)
+        envelope=dict(app_id=parts[2],operation=operation,input=data)
+        with bound_owner(store,envelope,self.server.identities,session,user),protected(store,envelope):
+            return self.send(201,save())
+
     def post_production(self,parts,data):
         """Accept only scoped inspection and original brief preparation actions."""
         from .creative_analysis import Analyses
@@ -863,9 +912,27 @@ class Handler(BaseHTTPRequestHandler):
         from .hypit_jobs import HypitRenders
         from .production_feasibility import Capabilities
         store=self.server.service.store
-        if len(parts)==5 and parts[4] in ("profile","requirement"):return self.send(201,Capabilities(store).save(parts[2],parts[4],data))
-        if len(parts)==5 and parts[4]=="analyses":return self.send(201,Analyses(store).save(parts[2],data))
-        if len(parts)==5 and parts[4]=="briefs":return self.send(201,Briefs(store).save(parts[2],data))
+        creative_saves={'sources':'source','analyses':'analysis','profile':'profile','requirement':'requirement','briefs':'brief'}
+        if len(parts)==6 and parts[4] in creative_saves and parts[5]=='save':
+            from .operation_authority import bound_owner
+            from .operation_runtime import execute
+            if self.path!='/'+ '/'.join(parts):raise Invalid('Use the exact creative evidence address')
+            session=self.session();user=self.server.identities.fresh(session)
+            envelope=dict(app_id=parts[2],operation='creative.'+creative_saves[parts[4]]+'.save',input=data)
+            with bound_owner(store,envelope,self.server.identities,session,user):
+                return self.send(200,execute(self.server.service,envelope,caller='LOCAL_SESSION'))
+        if len(parts)==6 and parts[4]=='batches' and parts[5] in ('plan','create','list','cancel'):
+            from .operation_authority import bound_owner
+            from .operation_runtime import execute
+            if self.path!='/'+ '/'.join(parts):raise Invalid('Use the exact creative batch address')
+            session=self.session();user=self.server.identities.fresh(session)
+            envelope=dict(app_id=parts[2],operation='creative.batch.'+parts[5],input=data)
+            with bound_owner(store,envelope,self.server.identities,session,user):
+                return self.send(200,execute(self.server.service,envelope,caller='LOCAL_SESSION'))
+        if len(parts)==5 and parts[4] in ("profile","requirement"):
+            return self.owner_creative_write(parts,data,'creative.'+parts[4]+'.save',lambda:Capabilities(store).save(parts[2],parts[4],data))
+        if len(parts)==5 and parts[4]=="analyses":return self.owner_creative_write(parts,data,'creative.analysis.save',lambda:Analyses(store).save(parts[2],data))
+        if len(parts)==5 and parts[4]=="briefs":return self.owner_creative_write(parts,data,'creative.brief.save',lambda:Briefs(store).save(parts[2],data))
         if len(parts)==5 and parts[4]=="renders":return self.send(201,Renders(store).queue(parts[2],data))
         if len(parts)==5 and parts[4]=="hypit-renders":return self.send(201,HypitRenders(store).queue(parts[2],data))
         if len(parts)==5 and parts[4] in ("hypit-plan","hypit-reuse") and self.path!="/"+"/".join(parts):

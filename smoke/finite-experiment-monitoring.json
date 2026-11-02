@@ -1,0 +1,14 @@
+{
+  "checks": [
+    {
+      "name": "finite-concurrent-reservation-and-exhaustion",
+      "kind": "python",
+      "run": "import unittest; s=unittest.defaultTestLoader.loadTestsFromName('tests.test_schedules.ScheduleTests.test_finite_reservation_concurrency_and_exhaustion'); assert s.countTestCases()==1; r=unittest.TextTestRunner(verbosity=0).run(s); assert r.wasSuccessful()"
+    },
+    {
+      "name": "revoked-owner-app-and-expiry-block-observation",
+      "kind": "python",
+      "run": "import unittest; s=unittest.defaultTestLoader.loadTestsFromName('tests.test_schedules.ScheduleTests.test_owner_app_or_expiry_change_blocks_queued_assessment'); assert s.countTestCases()==1; r=unittest.TextTestRunner(verbosity=0).run(s); assert r.wasSuccessful()"
+    }
+  ]
+}

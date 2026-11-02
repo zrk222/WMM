@@ -7,15 +7,32 @@ struct NativeAgentGrant: Decodable, Identifiable {
     let review_operations: [String]
 }
 
+struct NativeHandoffJob: Decodable, Identifiable {
+    let id: String; let action: String; let status: String
+}
+
+struct NativeHandoff: Decodable, Identifiable {
+    struct Context: Decodable { struct Resources: Decodable { let unverified_field_count: Int }; let resources: Resources }
+    let id: String; let recipient: String; let version: Int; let payload_hash: String
+    let status: String; let effective_status: String; let job_id: String; let job_action: String; let job_status: String
+    let request_key_hash: String; let created: String; let expires: String; let next_action: String
+    let context_status: String; let context_changes: [String]
+    let operations: [String]
+    let context: Context
+}
+
 @MainActor
 final class NativeAgentAccessModel: ObservableObject, Identifiable {
     struct Operation: Decodable { let effect: String; let method: String }
     struct Listing: Decodable { let grants: [NativeAgentGrant]; let operations: [String: Operation] }
+    struct HandoffListing: Decodable { let handoffs: [NativeHandoff] }
     let id = UUID()
     let appID: String
     let manifestVersion: Int
     @Published private(set) var grants: [NativeAgentGrant] = []
     @Published private(set) var operations: [String: Operation] = [:]
+    @Published private(set) var handoffs: [NativeHandoff] = []
+    @Published private(set) var handoffJobs: [NativeHandoffJob] = []
     @Published private(set) var busy = false
     @Published private(set) var message: String?
     private let execute: @MainActor (String, Data) async throws -> Data
@@ -30,6 +47,8 @@ final class NativeAgentAccessModel: ObservableObject, Identifiable {
         let bytes = try await execute("list", Data("{}".utf8))
         let listing = try JSONDecoder().decode(Listing.self, from: bytes)
         grants = listing.grants; operations = listing.operations
+        let handoffBytes = try await execute("handoff-list", Data("{}".utf8))
+        handoffs = try JSONDecoder().decode(HandoffListing.self, from: handoffBytes).handoffs
     }
 
     func refresh() async {
@@ -79,6 +98,50 @@ final class NativeAgentAccessModel: ObservableObject, Identifiable {
         } catch { message = "Scoped access was not verified. Check the stored token, workspace.read permission, quota, expiry and owner session. Refresh before retrying." }
     }
 
+    func loadHandoffJobs() async {
+        guard !busy, let grant = grants.first(where: { $0.status == "ACTIVE" && $0.operations.contains("jobs.read") }) else {
+            message = "A current grant with jobs.read is needed to inspect saved jobs."; return
+        }
+        busy = true; message = nil; defer { busy = false }
+        do {
+            let request = try JSONSerialization.data(withJSONObject: ["app_id": appID, "operation": "jobs.read", "input": [:]] as [String: Any])
+            handoffJobs = try JSONDecoder().decode([NativeHandoffJob].self, from: await runtime.call(grantID: grant.id, request: request))
+            try await load()
+        } catch { message = "Saved jobs could not be read with this grant. Check its scope, quota and current owner session." }
+    }
+
+    func createHandoff(jobID: String, recipient: String, selected: Set<String>) async {
+        guard !busy, !jobID.isEmpty, !recipient.isEmpty, !selected.isEmpty else { return }
+        busy = true; message = nil; defer { busy = false }
+        do {
+            let expires = ISO8601DateFormatter().string(from: Date().addingTimeInterval(3600))
+            let body = try JSONSerialization.data(withJSONObject: ["job_id": jobID, "recipient": recipient, "operations": selected.sorted(), "expires": expires] as [String: Any])
+            _ = try await execute("handoff-create", body); try await load()
+            message = "Handoff saved. No work was started and no authority was transferred."
+        } catch { message = "Handoff was not saved. Refresh the app and check the job and selected operations." }
+    }
+
+    func resumeHandoff(_ handoff: NativeHandoff, grant: NativeAgentGrant) async {
+        guard !busy else { return }; busy = true; message = nil; defer { busy = false }
+        do {
+            let request = try JSONSerialization.data(withJSONObject: ["app_id": appID, "operation": "handoff.resume", "resource_id": handoff.id,
+                "input": ["version": handoff.version, "payload_hash": handoff.payload_hash]] as [String: Any])
+            let bytes = try await runtime.call(grantID: grant.id, request: request)
+            let value = try JSONSerialization.jsonObject(with: bytes) as? [String: Any]
+            guard value?["resume"] as? String == "RESUME_ADMITTED", value?["job_id"] as? String == handoff.job_id else { throw DomainBridge.Failure.invalidRequest }
+            try await load(); message = "Replacement admitted to the original job context. Inspect its current status before any separately authorized action."
+        } catch { message = "Handoff admission was not confirmed. Refresh and inspect the existing job; do not start a replacement job blindly." }
+    }
+
+    func revokeHandoff(_ handoff: NativeHandoff) async {
+        guard !busy else { return }; busy = true; message = nil; defer { busy = false }
+        do {
+            let body = try JSONSerialization.data(withJSONObject: ["id": handoff.id, "version": handoff.version])
+            _ = try await execute("handoff-revoke", body); try await load()
+            message = "Handoff revoked. Existing work and results remain available for inspection."
+        } catch { message = "Revocation was not confirmed. Refresh this handoff before retrying." }
+    }
+
     func close() async { await runtime.cancel() }
 }
 
@@ -93,6 +156,9 @@ struct NativeAgentAccessView: View {
     @State private var maxCalls = 100
     @State private var confirmed = false
     @State private var revoking: NativeAgentGrant?
+    @State private var handoffJob = ""
+    @State private var handoffRecipient = ""
+    @State private var handoffOperations: Set<String> = ["jobs.read"]
 
     var body: some View {
         NavigationStack {
@@ -145,6 +211,41 @@ struct NativeAgentAccessView: View {
                             Button("Verify local tool access") { Task { await model.verify(grant) } }
                                 .disabled(model.busy || grant.status != "ACTIVE" || !grant.operations.contains("workspace.read"))
                             Button("Revoke grant", role: .destructive) { revoking = grant }.disabled(model.busy || grant.status != "ACTIVE")
+                        }
+                    }
+                }
+                Section("Task handoffs") {
+                    Text("Keep the original job and its request digest. Handoffs do not start work or transfer authority. Native-only job records are not yet supported.")
+                    Button("Load saved jobs") { Task { await model.loadHandoffJobs() } }.disabled(model.busy)
+                    Picker("Job", selection: $handoffJob) {
+                        Text("Choose a job").tag("")
+                        ForEach(model.handoffJobs) { job in Text("\(job.action) · \(job.status)").tag(job.id) }
+                    }
+                    Picker("Replacement agent", selection: $handoffRecipient) {
+                        Text("Choose an agent").tag("")
+                        ForEach(Array(Set(model.grants.filter { $0.status == "ACTIVE" }.map(\.agent_id))).sorted(), id: \.self) { agent in Text(agent).tag(agent) }
+                    }
+                    DisclosureGroup("Continuation operations") {
+                        ForEach(model.operations.keys.filter { !$0.hasPrefix("handoff.") }.sorted(), id: \.self) { name in
+                            Toggle(name, isOn: Binding(get: { handoffOperations.contains(name) }, set: { enabled in
+                                if enabled { handoffOperations.insert(name) } else { handoffOperations.remove(name) }
+                            }))
+                        }
+                    }
+                    Button("Save one-hour handoff") { Task { await model.createHandoff(jobID: handoffJob, recipient: handoffRecipient, selected: handoffOperations) } }
+                        .disabled(model.busy || handoffJob.isEmpty || handoffRecipient.isEmpty || handoffOperations.isEmpty)
+                    ForEach(model.handoffs) { handoff in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("\(handoff.job_action) · \(handoff.job_status) · \(handoff.effective_status)").font(.headline)
+                            Text("To \(handoff.recipient) · job \(handoff.job_id)")
+                            Text("Request digest \(handoff.request_key_hash) · saved \(handoff.created) · expires \(handoff.expires)").font(.caption)
+                            Text("Context \(handoff.context_status) \(handoff.context_changes.joined(separator: ", "))").font(.caption)
+                            Text("Resource revisions cover allowlisted references; \(handoff.context.resources.unverified_field_count) identifier fields need separate checks.").font(.caption)
+                            Text(handoff.next_action).font(.caption)
+                            if let grant = model.grants.first(where: { $0.agent_id == handoff.recipient && $0.status == "ACTIVE" && $0.operations.contains("handoff.resume") }) {
+                                Button("Admit replacement") { Task { await model.resumeHandoff(handoff, grant: grant) } }.disabled(model.busy || !["READY", "CLAIMED"].contains(handoff.effective_status))
+                            }
+                            Button("Revoke handoff", role: .destructive) { Task { await model.revokeHandoff(handoff) } }.disabled(model.busy || handoff.status == "REVOKED")
                         }
                     }
                 }

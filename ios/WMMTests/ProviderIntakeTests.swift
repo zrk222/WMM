@@ -246,6 +246,50 @@ final class ProviderIntakeTests: XCTestCase {
     }
 
     @MainActor
+    func testFiniteExperimentMonitoringUsesCurrentOwnerEnvelope() async throws {
+        var operations: [String] = []
+        var savedBody: [String: Any] = [:]
+        var version = 3
+        var scheduleRows: [[String: Any]] = []
+        let snapshot: () throws -> Data = {
+            try JSONSerialization.data(withJSONObject: [
+                "app": ["id": "sample-one", "version": version, "data": ["name": "Synthetic"]],
+                "experiments": [["id": "experiment-1", "hash": "hash-1", "state": "OBSERVING",
+                    "data": ["name": "Synthetic experiment", "analysis_at": "2026-10-01T00:00:00Z"]]],
+                "schedules": scheduleRows
+            ])
+        }
+        let model = NativeExperimentMonitoringModel(appID: "sample-one", manifestVersion: 3) { bytes in
+            let envelope = try XCTUnwrap(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+            let operation = try XCTUnwrap(envelope["operation"] as? String)
+            operations.append(operation)
+            if operation == "workspace.read" { return try snapshot() }
+            if operation == "experiment.schedule" {
+                savedBody = try XCTUnwrap(envelope["input"] as? [String: Any])
+                scheduleRows = [["experiment_id": "experiment-1", "version": 1, "enabled": true,
+                    "status": "ENABLED", "interval_hours": 24, "next_due": "2026-10-01T00:00:00Z",
+                    "last_job_status": NSNull(), "finite_limit": ["expires_at": "2026-12-01T00:00:00Z",
+                        "max_observations": 7, "reserved": 0, "remaining": 7]]]
+                return Data("{}".utf8)
+            }
+            if operation == "experiment.schedule-run" { return Data("{\"status\":\"SUCCEEDED\"}".utf8) }
+            throw DomainBridge.Failure.invalidRequest
+        }
+        await model.refresh()
+        let experiment = try XCTUnwrap(model.experiments.first)
+        await model.save(experiment, enabled: true, hours: 24, observations: 7, days: 7)
+        XCTAssertEqual(savedBody["manifest_version"] as? Int, 3)
+        XCTAssertEqual(savedBody["max_observations"] as? Int, 7)
+        XCTAssertEqual(savedBody["interval_hours"] as? Int, 24)
+        await model.run(experiment)
+        XCTAssertTrue(operations.contains("experiment.schedule-run"))
+        let before = operations.filter { $0 == "experiment.schedule" }.count
+        version = 4
+        await model.save(experiment, enabled: true, hours: 24, observations: 7, days: 7)
+        XCTAssertEqual(operations.filter { $0 == "experiment.schedule" }.count, before)
+    }
+
+    @MainActor
     func testReportUnknownAndFormulaNeutralization() throws {
         let report = AppReport(appID: "synthetic-app", appName: "Synthetic 東京", sourceHash: String(repeating: "a", count: 64),
                                observedAt: "2026-10-27T12:00:00.123456Z", rows: [

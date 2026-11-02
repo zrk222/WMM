@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 
 /// Serialized in-process owner transport. A handle identifies a database, not a role.
 actor DomainBridge {
@@ -182,6 +183,91 @@ actor DomainBridge {
         return folder.appendingPathComponent(identity.uuidString.lowercased() + ".mp4")
     }
 
+    func creativeBatch(session: LocalIdentity.Session, appID: String, action: String, body: [String: Any]) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        guard ["start", "validate"].contains(action) else { throw Failure.invalidRequest }
+        let request = try JSONSerialization.data(withJSONObject: body)
+        guard !request.isEmpty, request.count <= 1_048_576 else { throw Failure.invalidRequest }
+        return try EngineBootstrap.creativeBatch(handle: handle, session: session.nonce.uuidString, appID: appID, action: action, request: request)
+    }
+
+    func creativeBatchDestination(jobID: String) throws -> URL {
+        guard handle != nil else { throw Failure.closed }
+        guard let identity = UUID(uuidString: jobID) else { throw Failure.invalidRequest }
+        let folder = storeRoot.appendingPathComponent("native-batch-exports", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true,
+            attributes: [.protectionKey: FileProtectionType.complete])
+        guard folder.standardizedFileURL.resolvingSymlinksInPath().path == folder.path else { throw Failure.invalidRequest }
+        return folder.appendingPathComponent(identity.uuidString.lowercased() + ".mp4")
+    }
+
+    func creativeBatchSource(session: LocalIdentity.Session, appID: String, batchID: String,
+                             ordinal: Int, packetHash: String, sourceID: String, sha256: String) throws -> URL {
+        guard let handle else { throw Failure.closed }
+        let request = try JSONSerialization.data(withJSONObject: ["batch_id": batchID, "ordinal": ordinal,
+            "packet_hash": packetHash, "source_id": sourceID, "sha256": sha256])
+        let result = try EngineBootstrap.creativeBatchSource(handle: handle, session: session.nonce.uuidString, appID: appID, request: request)
+        struct Location: Decodable { let path: String }
+        let location = try JSONDecoder().decode(Location.self, from: result)
+        let url = URL(fileURLWithPath: location.path).standardizedFileURL.resolvingSymlinksInPath()
+        guard url.path.hasPrefix(storeRoot.path + "/"),
+              try url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true else { throw Failure.invalidRequest }
+        return url
+    }
+
+    func creativeBatchArtifact(session: LocalIdentity.Session, appID: String, batchID: String, ordinal: Int) async throws -> URL {
+        guard let handle else { throw Failure.closed }
+        let request = try JSONSerialization.data(withJSONObject: ["batch_id": batchID, "ordinal": ordinal])
+        let bytes = try EngineBootstrap.creativeBatchArtifact(handle: handle, session: session.nonce.uuidString, appID: appID, request: request)
+        struct Artifact: Decodable, Equatable { let path: String; let sha256: String; let frames: Int }
+        let proof = try JSONDecoder().decode(Artifact.self, from: bytes)
+        let output = URL(fileURLWithPath: proof.path)
+        let folder = storeRoot.appendingPathComponent("native-batch-exports", isDirectory: true)
+        guard output.isFileURL, output.pathExtension == "mp4",
+              output.deletingLastPathComponent().standardizedFileURL.resolvingSymlinksInPath() == folder,
+              output.standardizedFileURL.resolvingSymlinksInPath() == output,
+              UUID(uuidString: output.deletingPathExtension().lastPathComponent) != nil else { throw Failure.invalidRequest }
+        let inspection = try await MediaInspector.inspectOriginal(output)
+        guard self.handle == handle,
+              let info = try JSONSerialization.jsonObject(with: inspection) as? [String: Any],
+              let decoded = info["decoded"] as? [String: Any],
+              info["sha256"] as? String == proof.sha256,
+              decoded["video_frames"] as? Int == proof.frames else { throw Failure.invalidRequest }
+        let current = try EngineBootstrap.creativeBatchArtifact(handle: handle, session: session.nonce.uuidString, appID: appID, request: request)
+        guard try JSONDecoder().decode(Artifact.self, from: current) == proof, self.handle == handle else { throw Failure.invalidRequest }
+        return output
+    }
+
+    func creativeBatchStopped(session: LocalIdentity.Session, appID: String, batchID: String,
+                              ordinal: Int, packetHash: String) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        let request = try JSONSerialization.data(withJSONObject: ["batch_id": batchID, "ordinal": ordinal, "packet_hash": packetHash])
+        return try EngineBootstrap.creativeBatchStopped(handle: handle, session: session.nonce.uuidString, appID: appID, request: request)
+    }
+
+    func finishCreativeBatch(session: LocalIdentity.Session, appID: String, batchID: String, ordinal: Int,
+                             jobID: String, packetHash: String, output: URL) async throws -> Data {
+        guard let handle else { throw Failure.closed }
+        let expected = storeRoot.appendingPathComponent("native-batch-exports", isDirectory: true)
+        guard output.isFileURL, output.pathExtension == "mp4",
+              output.deletingLastPathComponent().standardizedFileURL.resolvingSymlinksInPath() == expected,
+              output.standardizedFileURL.resolvingSymlinksInPath() == output,
+              let identity = UUID(uuidString: output.deletingPathExtension().lastPathComponent),
+              UUID(uuidString: jobID) == identity else { throw Failure.invalidRequest }
+        let bytes = try await MediaInspector.inspectOriginal(output)
+        guard self.handle == handle,
+              let inspected = try JSONSerialization.jsonObject(with: bytes) as? [String: Any],
+              let metadata = inspected["metadata"] as? [String: Any], let decoded = inspected["decoded"] as? [String: Any],
+              let sha = inspected["sha256"] as? String, let size = inspected["bytes"] as? Int,
+              let frames = decoded["video_frames"] as? Int, let width = metadata["width"] as? Int,
+              let height = metadata["height"] as? Int, let audio = metadata["audio"] as? Bool else { throw Failure.invalidRequest }
+        let proof: [String: Any] = ["artifact_id": identity.uuidString.lowercased(), "sha256": sha,
+            "bytes": size, "frames": frames, "width": width, "height": height, "audio": audio]
+        let request = try JSONSerialization.data(withJSONObject: ["batch_id": batchID, "ordinal": ordinal, "packet_hash": packetHash])
+        return try EngineBootstrap.creativeBatchFinish(handle: handle, session: session.nonce.uuidString, appID: appID,
+            request: request, inspection: JSONSerialization.data(withJSONObject: proof))
+    }
+
     func studioSource(session: LocalIdentity.Session, appID: String, jobID: String,
                       packetHash: String, mediaID: String, sha256: String) throws -> URL {
         guard let handle else { throw Failure.closed }
@@ -265,6 +351,32 @@ actor DomainBridge {
     func report(session: LocalIdentity.Session, appID: String) throws -> Data {
         guard let handle else { throw Failure.closed }
         return try EngineBootstrap.report(handle: handle, session: session.nonce.uuidString, appID: appID)
+    }
+
+    func uploadCreativeStill(session: LocalIdentity.Session, appID: String, filename: String, original: URL) throws -> Data {
+        guard let handle, original.isFileURL else { throw Failure.closed }
+        let scoped = original.startAccessingSecurityScopedResource()
+        defer { if scoped { original.stopAccessingSecurityScopedResource() } }
+        let values = try original.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+        guard values.isRegularFile == true, values.isSymbolicLink != true else { throw Failure.invalidRequest }
+        let file = try FileHandle(forReadingFrom: original)
+        defer { try? file.close() }
+        var content = Data()
+        while let chunk = try file.read(upToCount: 262144), !chunk.isEmpty {
+            guard content.count + chunk.count <= 8_388_608 else { throw Failure.invalidRequest }
+            content.append(chunk)
+        }
+        guard !content.isEmpty, let source = CGImageSourceCreateWithData(content as CFData, nil),
+              let type = CGImageSourceGetType(source) as String?, ["public.png", "public.jpeg"].contains(type),
+              CGImageSourceGetCount(source) == 1,
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int,
+              width > 0, height > 0, width <= 8192, height <= 8192, width * height <= 16_777_216,
+              CGImageSourceCreateImageAtIndex(source, 0, [kCGImageSourceShouldCacheImmediately: true] as CFDictionary) != nil,
+              self.handle == handle else { throw Failure.invalidRequest }
+        return try EngineBootstrap.uploadCreativeStill(handle: handle, session: session.nonce.uuidString,
+            appID: appID, filename: filename, content: content)
     }
 
     func uploadMedia(session: LocalIdentity.Session, appID: String, filename: String,
@@ -364,7 +476,7 @@ actor DomainBridge {
 
     func agentAccess(session: LocalIdentity.Session, appID: String, action: String, request: Data) throws -> Data {
         guard let handle else { throw Failure.closed }
-        guard ["list", "issue", "revoke"].contains(action), !request.isEmpty, request.count <= 1_048_576 else {
+        guard ["list", "issue", "revoke", "handoff-list", "handoff-create", "handoff-revoke"].contains(action), !request.isEmpty, request.count <= 1_048_576 else {
             throw Failure.invalidRequest
         }
         return try EngineBootstrap.agentAccess(handle: handle, session: session.nonce.uuidString,

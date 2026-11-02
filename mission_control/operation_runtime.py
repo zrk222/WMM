@@ -22,6 +22,63 @@ def execute(service,envelope,*,caller='SCOPED_AGENT'):
     from .funnel_founder_review import review as funnel_review
     from .video_edit_jobs import EditRenders
     request_data(envelope)
+    if envelope['operation']=='evidence.save' and envelope['input']['kind']=='asset':
+        data=envelope['input']['data']
+        if isinstance(data,dict) and (data.get('authentic') is True or data.get('rights_cleared') is True):
+            from .operation_authority import REQUEST,protected
+            context=REQUEST.get()
+            owner=caller=='LOCAL_SESSION' and context and context.get('principal') and 'grant_id' not in context
+            reviewed=caller=='SCOPED_AGENT' and context and context.get('grant_id') and context.get('review')
+            if not owner and not reviewed:raise PermissionError('Asset authenticity and rights require a current owner or independently reviewed request')
+            with protected(service.store,envelope):return save_evidence(service,envelope['app_id'],envelope['input'])
+    if envelope['operation'] in ('creative.source.save','creative.analysis.save','creative.profile.save',
+                                 'creative.requirement.save','creative.brief.save'):
+        from .operation_authority import REQUEST,protected
+        from .creative_library import Library
+        from .creative_analysis import Analyses
+        from .production_feasibility import Capabilities
+        from .creative_briefs import Briefs
+        context=REQUEST.get()
+        owner=caller=='LOCAL_SESSION' and context and context.get('principal') and 'grant_id' not in context
+        reviewed=caller=='SCOPED_AGENT' and context and context.get('grant_id') and context.get('review')
+        if not owner and not reviewed:
+            raise PermissionError('Creative source, inspection and rights assertions require a current owner or independently reviewed request')
+        app=envelope['app_id'];body=envelope['input'];store=service.store
+        if ('id' in body)!=('version' in body):raise Invalid('Supply both resource ID and exact version for a correction')
+        routes={'creative.source.save':lambda:Library(store).save(app,body),
+                'creative.analysis.save':lambda:Analyses(store).save(app,body),
+                'creative.profile.save':lambda:Capabilities(store).save(app,'profile',body),
+                'creative.requirement.save':lambda:Capabilities(store).save(app,'requirement',body),
+                'creative.brief.save':lambda:Briefs(store).save(app,body)}
+        with protected(store,envelope):return routes[envelope['operation']]()
+    if envelope['operation'].startswith('creative.batch.'):
+        from .operation_authority import protected
+        from .creative_batches import Batch
+        batch=Batch(service.store);action=envelope['operation'].removeprefix('creative.batch.')
+        with protected(service.store,envelope):
+            if action=='plan':return batch.plan(envelope['app_id'],envelope['input'])
+            if action=='create':return batch.create(envelope['app_id'],envelope['input'])
+            if action=='list':return batch.list(envelope['app_id'])
+            if action=='cancel':return batch.cancel(envelope['app_id'],envelope['input']['batch_id'])
+            raise Invalid('Unknown creative batch operation')
+    if envelope['operation'] in ('handoff.create','handoff.resume'):
+        from .operation_authority import protected
+        from .agent_handoffs import Handoffs
+        if caller!='SCOPED_AGENT':raise PermissionError('A scoped agent admission is required')
+        with protected(service.store,envelope):
+            handoffs=Handoffs(service.store)
+            if envelope['operation']=='handoff.create':return handoffs.create(envelope['app_id'],None,envelope['input'])
+            return handoffs.resume(envelope['app_id'],dict(envelope['input'],id=envelope['resource_id']))
+    if envelope['operation'] in ('experiment.schedule','experiment.schedule-run'):
+        from .operation_authority import REQUEST,protected
+        from .experiment_schedules import Schedules
+        context=REQUEST.get()
+        if caller!='LOCAL_SESSION' or not context or not context.get('principal') or 'grant_id' in context:
+            raise PermissionError('Experiment monitoring requires a verified owner')
+        with protected(service.store,envelope):
+            if envelope['operation']=='experiment.schedule-run':
+                return Schedules(service.store).run_foreground(envelope['app_id'],envelope['resource_id'],owner=context['principal'])
+            return Schedules(service.store).save(envelope['app_id'],envelope['resource_id'],envelope['input'],owner=context['principal'])
     if envelope['operation'].startswith('campaign.'):
         from .campaign_access import dispatch
         from .operation_authority import protected

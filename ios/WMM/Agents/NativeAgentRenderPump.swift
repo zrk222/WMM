@@ -26,6 +26,10 @@ final class NativeAgentRenderPump {
             envelope = try JSONSerialization.jsonObject(with: request) as? [String: Any]
             prepared = output
         }
+        if let envelope, envelope["operation"] as? String == "creative.batch.create", let prepared {
+            output["native_batch"] = await renderBatch(envelope: envelope, batch: prepared)
+            return try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys])
+        }
         guard let envelope, let appID = envelope["app_id"] as? String,
               let operation = envelope["operation"] as? String,
               ["ios.scene.start", "ios.timeline.queue"].contains(operation), let prepared,
@@ -43,6 +47,66 @@ final class NativeAgentRenderPump {
             output["native_render"] = ["job_id": jobID, "status": "RECONCILE_REQUIRED"]
         }
         return try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys])
+    }
+
+    private func renderBatch(envelope: [String: Any], batch: [String: Any]) async -> [[String: Any]] {
+        guard let appID = envelope["app_id"] as? String, let batchID = batch["id"] as? String,
+              let plan = batch["plan"] as? [String: Any], plan["runtime"] as? String == "IOS",
+              let version = plan["manifest_version"] as? Int, let variants = batch["variants"] as? [[String: Any]] else { return [] }
+        var results: [[String: Any]] = []
+        for variant in variants {
+            guard !stopped, let ordinal = variant["ordinal"] as? Int else { break }
+            if variant["status"] as? String == "SUCCEEDED" {
+                results.append(["ordinal": ordinal, "status": "SUCCEEDED"]); continue
+            }
+            var runningHash: String?
+            do {
+                let started = try await bridge.creativeBatch(session: session, appID: appID, action: "start",
+                    body: ["batch_id": batchID, "ordinal": ordinal])
+                guard let value = try JSONSerialization.jsonObject(with: started) as? [String: Any],
+                      let status = value["status"] as? String, let jobID = value["job_id"] as? String else { throw DomainBridge.Failure.invalidRequest }
+                guard let rawPacket = value["packet"] as? [String: Any] else { throw DomainBridge.Failure.invalidRequest }
+                let packet = try JSONDecoder().decode(NativeCreativePacket.self, from: JSONSerialization.data(withJSONObject: rawPacket))
+                guard packet.app_id == appID else { throw DomainBridge.Failure.invalidRequest }
+                if status == "SUCCEEDED" {
+                    results.append(["ordinal": ordinal, "job_id": jobID, "status": "SUCCEEDED"]); continue
+                }
+                let studio = try packet.studioPacket(jobID: jobID, manifestVersion: version)
+                let destination = try await bridge.creativeBatchDestination(jobID: jobID)
+                if status == "RECONCILE_REQUIRED" {
+                    if FileManager.default.fileExists(atPath: destination.path) {
+                        _ = try await bridge.finishCreativeBatch(session: session, appID: appID, batchID: batchID,
+                            ordinal: ordinal, jobID: jobID, packetHash: packet.packet_hash, output: destination)
+                        results.append(["ordinal": ordinal, "job_id": jobID, "status": "SUCCEEDED"])
+                    } else { results.append(["ordinal": ordinal, "job_id": jobID, "status": status]) }
+                    continue
+                }
+                guard status == "RUNNING" else { throw DomainBridge.Failure.invalidRequest }
+                runningHash = packet.packet_hash
+                func validate() async throws {
+                    guard !stopped else { throw DomainBridge.Failure.closed }
+                    _ = try await bridge.creativeBatch(session: session, appID: appID, action: "validate",
+                        body: ["batch_id": batchID, "ordinal": ordinal, "packet_hash": packet.packet_hash])
+                }
+                _ = try await scene.render(studio, destination: destination, resolveStill: { still in
+                    try await self.bridge.creativeBatchSource(session: self.session, appID: appID, batchID: batchID,
+                        ordinal: ordinal, packetHash: packet.packet_hash, sourceID: still.id, sha256: still.sha256)
+                }, validate: validate, finish: { output in
+                    try await self.checkCadence(output, expectedFrames: packet.frame_count)
+                    _ = try await self.bridge.finishCreativeBatch(session: self.session, appID: appID, batchID: batchID,
+                        ordinal: ordinal, jobID: jobID, packetHash: packet.packet_hash, output: output)
+                })
+                results.append(["ordinal": ordinal, "job_id": jobID, "status": "SUCCEEDED"])
+            } catch {
+                if scene.stopConfirmed, let hash = runningHash {
+                    _ = try? await bridge.creativeBatchStopped(session: session, appID: appID,
+                        batchID: batchID, ordinal: ordinal, packetHash: hash)
+                }
+                results.append(["ordinal": ordinal, "status": "RECONCILE_REQUIRED"])
+                break
+            }
+        }
+        return results
     }
 
     private func renderScene(appID: String, jobID: String, packet: [String: Any]) async throws -> Data {

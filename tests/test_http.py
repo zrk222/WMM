@@ -266,6 +266,14 @@ class HTTPTests(unittest.TestCase):
         data=json.loads(raw) if content_type.startswith("application/json") else raw
         return response.status,data,response.headers
 
+    def sign_in_owner(self,app):
+        from mission_control.review_access import Access
+        from tests.test_verified_review import OWNER,OWNER_TOKEN,synthetic_identity
+        Access(self.server.service.store).bootstrap(app,OWNER,{'confirm_owner':True})
+        identity=patch('mission_control.operator_identity.github_read',side_effect=synthetic_identity)
+        identity.start();self.addCleanup(identity.stop)
+        self.assertEqual(self.request('/api/identity/login',{'token':OWNER_TOKEN})[0],200)
+
     def test_static_security_headers_and_workspace(self):
         """GET exercises do_GET, dispatch, boundary, get/get_app and send headers."""
         code,body,headers=self.request("/")
@@ -290,18 +298,23 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request(url.replace("sample-one","sample-two")+"/actions",dict(operation="cancel",version=2,reason="Wrong scope"))[0],400)
         self.assertEqual(self.request(url+"/evaluate",{"unexpected":True})[0],404)
         self.assertEqual(self.request(url+"/actions",dict(operation="cancel",version=1,reason="Stale"))[0],400)
-        code,schedule,_=self.request(url+"/schedule",dict(enabled=True,interval_hours=24,version=None))
+        from datetime import timedelta
+        from mission_control.common import now,iso_time
+        self.sign_in_owner('sample-one')
+        body=dict(enabled=True,interval_hours=24,version=None,manifest_version=self.server.service.store.app('sample-one')['version'],expires_at=(iso_time(now())+timedelta(days=7)).isoformat(),max_observations=2)
+        code,schedule,_=self.request(url+"/schedule",body)
         self.assertEqual(code,200);self.assertTrue(schedule["enabled"])
-        self.assertEqual(self.request(url.replace("sample-one","sample-two")+"/schedule",dict(enabled=True,interval_hours=24,version=None))[0],400)
-        self.assertEqual(self.request(url+"/schedule",dict(enabled=True,interval_hours=24,version=None))[0],400)
+        self.assertEqual(self.request(url.replace("sample-one","sample-two")+"/schedule",body)[0],403)
+        self.assertEqual(self.request(url+"/schedule",body)[0],400)
         self.assertEqual(self.request(url+"/actions",dict(operation="cancel",version=2,reason="Done"))[0],200)
         self.assertFalse(self.request("/api/apps/sample-one")[1]["schedules"][0]["enabled"])
 
     def test_creative_source_save_preview_commit_and_scope(self):
+        self.sign_in_owner('sample-one')
         data=reference();url="/api/apps/sample-one/references"
         code,saved,_=self.request(url,{"data":data});self.assertEqual(code,201)
         self.assertEqual(self.request("/api/apps/sample-one")[1]["references"][0]["current"]["data"],data)
-        self.assertEqual(self.request("/api/apps/sample-two/references",dict(id=saved["id"],version=1,data=data))[0],400)
+        self.assertEqual(self.request("/api/apps/sample-two/references",dict(id=saved["id"],version=1,data=data))[0],403)
         code,preview,_=self.request(url+"/preview",{"rows":[reference(post_id="source-2")]});self.assertEqual(code,200)
         self.assertEqual(self.request(url+"/import",{k:preview[k] for k in ("rows","preview_hash")})[0],201)
         self.assertEqual(self.request(url,{"data":reference(permission_confirmed=False)})[0],400)
@@ -314,10 +327,11 @@ class HTTPTests(unittest.TestCase):
 
     def test_production_routes_scope_version_and_currentness(self):
         source,analysis,records,data=ready_production(self.server.service.store)
+        self.sign_in_owner('production-test')
         url="/api/apps/production-test/production"
         code,brief,_=self.request(url+"/briefs",{"data":data});self.assertEqual(code,201)
         self.assertEqual(self.request("/api/apps/production-test")[1]["briefs"][0]["current"]["id"],brief["id"])
-        self.assertEqual(self.request(url.replace("production-test","sample-two")+"/briefs",{"data":data})[0],400)
+        self.assertEqual(self.request(url.replace("production-test","sample-two")+"/briefs",{"data":data})[0],403)
         self.assertEqual(self.request(url+"/analyses",{"data":None})[0],400)
         self.assertEqual(self.request(url+"/analyses",{"data":{"reference_id":[]}})[0],400)
         self.assertEqual(self.request(url+"/briefs",{"data":dict(data,analysis_id=[])})[0],400)

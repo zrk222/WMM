@@ -11,7 +11,14 @@ class OperationCatalogTests(unittest.TestCase):
         self.assertFalse(value['full_agent_operation'])
         self.assertEqual(value['operations']['media.sources']['method'],'GET')
         self.assertEqual(value['operations']['media.sources']['suffix'],'/media/sources')
-        self.assertEqual(len(value['operations']),79)
+        self.assertTrue({'creative.batch.plan','creative.batch.create','creative.batch.list','creative.batch.cancel',
+                         'handoff.create','handoff.resume'}.issubset(value['operations']))
+        reviewed={'creative.source.save','creative.analysis.save','creative.profile.save',
+                  'creative.requirement.save','creative.brief.save'}
+        self.assertEqual(set(value['review']['mandatory_operations']),reviewed)
+        for name in reviewed:
+            self.assertEqual(value['operations'][name]['required'],['data'])
+            self.assertEqual(value['operations'][name]['optional'],['id','version'])
         expected_effects={
             'campaign.history':'READ_PRIVATE_LOCAL_DATA',
             'campaign.status':'READ_PRIVATE_LOCAL_DATA',

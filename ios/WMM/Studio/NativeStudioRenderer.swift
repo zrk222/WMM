@@ -1,4 +1,6 @@
 import AVFoundation
+import CryptoKit
+import ImageIO
 import UIKit
 
 struct NativeStudioScene: Codable, Equatable {
@@ -9,10 +11,17 @@ struct NativeStudioScene: Codable, Equatable {
         var audio: String
     }
     struct Item: Codable, Equatable, Identifiable {
+        struct Still: Codable, Equatable {
+            var id: String
+            var sha256: String
+        }
         var text: String
         var seconds: Int
         var media: Media? = nil
+        var frames: Int? = nil
+        var still: Still? = nil
         var id: String { text + "-" + String(seconds) }
+        var frameCount: Int { frames ?? seconds * 24 }
     }
     var title: String
     var shape: String
@@ -34,9 +43,9 @@ struct NativeStudioPacket: Decodable {
     let packet_hash: String
 
     func validateBounds() throws {
-        func literal(_ value: String) -> Bool {
+        func literal(_ value: String, maximum: Int = 240) -> Bool {
             let scalars = value.unicodeScalars
-            return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && scalars.count <= 240 &&
+            return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && scalars.count <= maximum &&
                 scalars.allSatisfy { scalar in
                     let n = scalar.value
                     return (n == 9 || n == 10 || n == 13 || (32...0xd7ff).contains(n) ||
@@ -48,17 +57,69 @@ struct NativeStudioPacket: Decodable {
               fps == 24, revision > 0, manifest_version > 0,
               ["PORTRAIT", "LANDSCAPE"].contains(scene.shape), literal(scene.title),
               (1...12).contains(scene.scenes.count), scene.scenes.allSatisfy({ item in
-                  guard (1...15).contains(item.seconds), literal(item.text) else { return false }
+                  guard (1...15).contains(item.seconds), literal(item.text, maximum: item.still == nil ? 240 : 456), (1...360).contains(item.frameCount),
+                        !(item.media != nil && item.still != nil), item.frames == nil || item.still != nil else { return false }
+                  if let still = item.still {
+                      let name = (still.id as NSString).deletingPathExtension
+                      guard UUID(uuidString: name) != nil,
+                            ["png", "jpg", "jpeg"].contains((still.id as NSString).pathExtension),
+                            still.sha256.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else { return false }
+                  }
                   guard let media = item.media else { return true }
                   return UUID(uuidString: media.id) != nil && media.sha256.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil &&
                       (0...1439).contains(media.in_frame) && media.in_frame + item.seconds * 24 <= 1440 && ["MUTE", "RETAIN"].contains(media.audio)
               }),
               (1...60).contains(scene.scenes.reduce(0) { $0 + $1.seconds }),
-              frame_count == 24 * scene.scenes.reduce(0, { $0 + $1.seconds }),
+              frame_count == scene.scenes.reduce(0, { $0 + $1.frameCount }),
               source_hash.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
               packet_hash.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else {
             throw NativeStudioRenderer.Failure.invalidPacket
         }
+    }
+}
+
+/// A reviewed creative variant projected by the embedded Python domain.
+struct NativeCreativePacket: Decodable {
+    struct Scene: Decodable {
+        let start_frame: Int
+        let frame_count: Int
+        let caption: String
+        let source_id: String
+        let source_hash: String
+    }
+    let schema: String
+    let app_id: String
+    let title: String
+    let shape: String
+    let fps: Int
+    let frame_count: Int
+    let scenes: [Scene]
+    let audio: String
+    let publication: String
+    let packet_hash: String
+
+    func studioPacket(jobID: String, manifestVersion: Int) throws -> NativeStudioPacket {
+        guard schema == "growth.ios-creative-batch-packet.v1", fps == 24,
+              audio == "SILENT", publication == "NOT_RUN", scenes.count == 4,
+              UUID(uuidString: jobID) != nil,
+              packet_hash.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else {
+            throw NativeStudioRenderer.Failure.invalidPacket
+        }
+        var offset = 0
+        var items: [NativeStudioScene.Item] = []
+        for scene in scenes {
+            guard scene.start_frame == offset, (1...360).contains(scene.frame_count) else { throw NativeStudioRenderer.Failure.invalidPacket }
+            offset += scene.frame_count
+            items.append(.init(text: scene.caption, seconds: (scene.frame_count + 23) / 24,
+                frames: scene.frame_count, still: .init(id: scene.source_id, sha256: scene.source_hash)))
+        }
+        guard offset == frame_count else { throw NativeStudioRenderer.Failure.invalidPacket }
+        let packet = NativeStudioPacket(schema: "growth.ios-studio-packet.v1", app_id: app_id,
+            project_id: jobID, revision: 1, source_hash: packet_hash, manifest_version: manifestVersion,
+            scene: .init(title: title, shape: shape, scenes: items), fps: fps, frame_count: frame_count,
+            status: "PREPARED_NOT_RENDERED", execution_authority: false, packet_hash: packet_hash)
+        try packet.validateBounds()
+        return packet
     }
 }
 
@@ -71,15 +132,22 @@ final class NativeStudioRenderer {
     private var exporter: AVAssetExportSession?
     private var rendering = false
     private var cancelled = false
+    private(set) var stopConfirmed = false
 
     func cancel() { cancelled = true; writer?.cancelWriting(); exporter?.cancelExport() }
 
     func render(_ packet: NativeStudioPacket, destination: URL,
                 resolve: (NativeStudioScene.Media) async throws -> URL = { _ in throw Failure.unavailable },
+                resolveStill: (NativeStudioScene.Item.Still) async throws -> URL = { _ in throw Failure.unavailable },
                 validate: () async throws -> Void, finish: (URL) async throws -> Void) async throws -> URL {
         guard !rendering else { throw Failure.unavailable }
-        rendering = true; cancelled = false
-        defer { rendering = false; writer = nil; exporter = nil }
+        rendering = true; cancelled = false; stopConfirmed = false
+        defer {
+            let writerStopped = writer == nil || [.completed, .failed, .cancelled].contains(writer!.status)
+            let exporterStopped = exporter == nil || [.completed, .failed, .cancelled].contains(exporter!.status)
+            stopConfirmed = writerStopped && exporterStopped
+            rendering = false; writer = nil; exporter = nil
+        }
         try packet.validateBounds()
         try await validate()
         guard destination.isFileURL, !FileManager.default.fileExists(atPath: destination.path) else { throw Failure.invalidPacket }
@@ -122,12 +190,25 @@ final class NativeStudioRenderer {
                 generator = source
                 sources.append((media, url, frame, item.seconds * 24))
             }
-            let staticImage = generator == nil ? try Self.draw(title: packet.scene.title, text: item.text, size: size, background: nil) : nil
-            for offset in 0..<(item.seconds * 24) {
+            let stillImage: CGImage?
+            if let still = item.still {
+                let url = try await resolveStill(still)
+                let bytes = try Self.readStill(url, expectedHash: still.sha256)
+                guard let source = CGImageSourceCreateWithData(bytes as CFData, nil),
+                      let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                        kCGImageSourceCreateThumbnailFromImageAlways: true,
+                        kCGImageSourceCreateThumbnailWithTransform: true,
+                        kCGImageSourceThumbnailMaxPixelSize: 1280,
+                        kCGImageSourceShouldCacheImmediately: true] as CFDictionary) else { throw Failure.unavailable }
+                stillImage = image
+            } else { stillImage = nil }
+            let staticImage = generator == nil ? try Self.draw(title: packet.scene.title, text: item.text, size: size, background: stillImage) : nil
+            for offset in 0..<item.frameCount {
                 // Allow owner lock and cancel actions between native frames.
                 await Task.yield()
                 try Task.checkCancellation()
                 guard !cancelled else { throw Failure.cancelled }
+                if offset % 24 == 0 { try await validate() }
                 let deadline = Date().addingTimeInterval(30)
                 while !input.isReadyForMoreMediaData {
                     try Task.checkCancellation()
@@ -191,6 +272,7 @@ final class NativeStudioRenderer {
         }
         try FileManager.default.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: destination.path)
         for (media, _, _, _) in sources { _ = try await resolve(media) }
+        for item in packet.scene.scenes { if let still = item.still { _ = try await resolveStill(still) } }
         try await validate()
         finishStarted = true
         try await finish(destination)
@@ -198,6 +280,20 @@ final class NativeStudioRenderer {
         // concurrent cancel arrives while that commit is returning.
         accepted = true
         return destination
+    }
+
+    private static func readStill(_ url: URL, expectedHash: String) throws -> Data {
+        guard url.isFileURL else { throw Failure.invalidPacket }
+        let file = try FileHandle(forReadingFrom: url)
+        defer { try? file.close() }
+        var bytes = Data()
+        while let chunk = try file.read(upToCount: 262144), !chunk.isEmpty {
+            guard bytes.count + chunk.count <= 8_388_608 else { throw Failure.unavailable }
+            bytes.append(chunk)
+        }
+        let hash = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+        guard !bytes.isEmpty, hash == expectedHash else { throw Failure.invalidPacket }
+        return bytes
     }
 
     private static func draw(title: String, text: String, size: CGSize, background: CGImage?) throws -> CGImage {

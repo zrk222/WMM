@@ -314,7 +314,7 @@ static NSData *WMMResultBytes(PyObject *value, NSError **error) {
         if (![self inventoryWithError:error]) return nil;
         PyGILState_STATE gil = PyGILState_Ensure();
         PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
-        BOOL known = [@[@"list", @"issue", @"revoke"] containsObject:action];
+        BOOL known = [@[@"list", @"issue", @"revoke", @"handoff-list", @"handoff-create", @"handoff-revoke"] containsObject:action];
         PyObject *body = known && request.length > 0 && request.length <= 1048576
             ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
         PyObject *value = runtime && body ? PyObject_CallMethod(runtime, "native_agent_access", "sssO",
@@ -351,6 +351,105 @@ static NSData *WMMResultBytes(PyObject *value, NSError **error) {
         PyObject *body = request.length > 0 && request.length <= 1048576
             ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
         PyObject *value = runtime && body ? PyObject_CallMethod(runtime, "native_studio_source", "ssO",
+            session.UTF8String, appID.UTF8String, body) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); Py_XDECREF(body); PyGILState_Release(gil);
+        return result;
+    }
+}
+
++ (NSData *)creativeBatch:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                    action:(NSString *)action request:(NSData *)request error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        BOOL known = [@[@"start", @"validate"] containsObject:action];
+        PyObject *body = known && request.length > 0 && request.length <= 1048576
+            ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
+        PyObject *value = runtime && body ? PyObject_CallMethod(runtime, "native_creative_batch", "sssO",
+            session.UTF8String, appID.UTF8String, action.UTF8String, body) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); Py_XDECREF(body); PyGILState_Release(gil);
+        return result;
+    }
+}
+
++ (NSData *)creativeBatchSource:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                          request:(NSData *)request error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        PyObject *body = request.length > 0 && request.length <= 1048576
+            ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
+        PyObject *value = runtime && body ? PyObject_CallMethod(runtime, "native_creative_batch_source", "ssO",
+            session.UTF8String, appID.UTF8String, body) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); Py_XDECREF(body); PyGILState_Release(gil);
+        return result;
+    }
+}
+
++ (NSData *)creativeBatchFinish:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                          request:(NSData *)request inspection:(NSData *)inspection error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        PyObject *body = request.length > 0 && request.length <= 1048576
+            ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
+        PyObject *proof = inspection.length > 0 && inspection.length <= 1048576
+            ? PyBytes_FromStringAndSize(inspection.bytes, (Py_ssize_t)inspection.length) : NULL;
+        PyObject *value = runtime && body && proof ? PyObject_CallMethod(runtime, "native_creative_batch_finish", "ssOO",
+            session.UTF8String, appID.UTF8String, body, proof) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); Py_XDECREF(body); Py_XDECREF(proof); PyGILState_Release(gil);
+        return result;
+    }
+}
+
++ (NSData *)creativeBatchStopped:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                           request:(NSData *)request error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        PyObject *body = request.length > 0 && request.length <= 1048576
+            ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
+        PyObject *value = runtime && body ? PyObject_CallMethod(runtime, "native_creative_batch_stopped", "ssO",
+            session.UTF8String, appID.UTF8String, body) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); Py_XDECREF(body); PyGILState_Release(gil);
+        return result;
+    }
+}
+
++ (NSData *)uploadCreativeStill:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                       filename:(NSString *)filename content:(NSData *)content error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        PyObject *raw = content.length > 0 && content.length <= 8388608
+            ? PyBytes_FromStringAndSize(content.bytes, (Py_ssize_t)content.length) : NULL;
+        PyObject *value = runtime && raw ? PyObject_CallMethod(runtime, "native_creative_still_upload", "sssO",
+            session.UTF8String, appID.UTF8String, filename.UTF8String, raw) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); Py_XDECREF(raw); PyGILState_Release(gil);
+        return result;
+    }
+}
+
++ (NSData *)creativeBatchArtifact:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                           request:(NSData *)request error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        PyObject *body = request.length > 0 && request.length <= 1048576
+            ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
+        PyObject *value = runtime && body ? PyObject_CallMethod(runtime, "native_creative_batch_artifact", "ssO",
             session.UTF8String, appID.UTF8String, body) : NULL;
         NSData *result = WMMResultBytes(value, error);
         Py_XDECREF(value); Py_XDECREF(body); PyGILState_Release(gil);

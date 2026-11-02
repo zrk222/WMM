@@ -430,17 +430,35 @@ async function handleExperiment(node) {
 function experimentSchedulePanel(e) {
   const schedule=state.workspace.schedules?.find(s=>s.experiment_id===e.id);
   const active=e.state!=="PLANNED"&&e.state!=="CANCELLED";
-  return `<section class="panel schedule-panel"><h3>Automatic evidence analysis</h3>${schedule?`<p>${status(schedule.status)} · every ${schedule.interval_hours} hours · failures ${schedule.failures} / 3</p><p class="description">Next due ${esc(new Date(schedule.next_due).toLocaleString())}${schedule.last_job_status?` · latest job ${esc(label(schedule.last_job_status))}`:""}</p>`:"<p>Disabled until you explicitly configure it.</p>"}${notice("Runs while this local Mission Control service is open. Pausing cancels queued analysis; running local assessment may finish. No campaign, publication or spending executes.")}${active?button(schedule?.enabled?"Configure or pause analysis":"Enable automatic analysis","experiment-schedule",`data-id="${esc(e.id)}"`):notice("Record exposure before scheduling; cancelled experiments remain stopped.")}${schedule?.last_job?button("Inspect scheduled run","job",`data-id="${esc(schedule.last_job)}"`):""}</section>`;
+  const limit=schedule?.finite_limit;
+  return `<section class="panel schedule-panel"><h3>Automatic evidence analysis</h3>${schedule?`<p>${status(schedule.status)} · every ${schedule.interval_hours} hours · failures ${schedule.failures} / 3</p><p class="description">Next due ${esc(new Date(schedule.next_due).toLocaleString())}${schedule.last_job_status?` · latest job ${esc(label(schedule.last_job_status))}`:""}</p>${limit?`<p>${esc(limit.remaining)} of ${esc(limit.max_observations)} observations remaining · expires ${esc(new Date(limit.expires_at).toLocaleString())}</p>`:notice("This older schedule needs a new owner authorization before it can run.","warning")}`:"<p>Disabled until you explicitly configure it.</p>"}${notice("Runs while this local service is open. Pausing cancels queued analysis and blocks an assessment that has not yet committed. No campaign, publication or spending executes.")}${active?button(schedule?.enabled?"Configure or pause analysis":"Enable automatic analysis","experiment-schedule",`data-id="${esc(e.id)}"`):notice("Record exposure before scheduling; cancelled experiments remain stopped.")}${schedule?.last_job?button("Inspect scheduled run","job",`data-id="${esc(schedule.last_job)}"`):""}</section>`;
+}
+
+function experimentScheduleIdentity() {
+  const w=state.workspace||{},identity=w.identity||{},role=(w.access?.members||[]).find(m=>m.principal===identity.principal&&m.status==="ACTIVE");
+  return {app:state.app,manifest:w.app?.version,principal:identity.principal,status:identity.status,expires:identity.expires_at_epoch,role:role?.role,roleVersion:role?.version,csrf:state.boot?.csrf};
 }
 
 function experimentScheduleForm(id) {
   const schedule=state.workspace.schedules?.find(s=>s.experiment_id===id);
-  modal("Automatic evidence analysis",`<form id="experiment-schedule-form" data-app="${esc(state.app)}" data-id="${esc(id)}" data-version="${schedule?.version||""}"><div class="modal-content">${notice("Enable local assessment only. The first run waits for the fixed analysis date. Three operational failures pause the schedule; resume after inspecting the cause. Restored snapshots require explicit enable.")}<div class="form-grid">${field("enabled",schedule?.enabled??false,"boolean")}${field("interval_hours",schedule?.interval_hours||24,"number","Whole hours, from 1 through 168")}</div><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><button type="submit" class="button">Save analysis schedule</button></div></form>`);
+  const identity=experimentScheduleIdentity(),experiment=state.workspace.experiments.find(e=>e.id===id);
+  if(identity.status!=="AUTHENTICATED"||identity.role!=="OWNER")return modal("Owner access required",`<div class="modal-content">${notice("Sign in as the current app owner to authorize or pause local monitoring.","warning")}${identity.status!=="AUTHENTICATED"?button("Sign in","identity-login"):!state.workspace.access?.configured?button("Establish app owner","access-bootstrap"):""}</div>`);
+  const expires=schedule?.finite_limit?.expires_at||new Date(Date.now()+7*86400000).toISOString();
+  modal("Automatic evidence analysis",`<form id="experiment-schedule-form" data-app="${esc(identity.app)}" data-id="${esc(id)}" data-version="${schedule?.version||""}" data-binding="${esc(JSON.stringify(identity))}" data-source="${esc(experiment.hash)}"><div class="modal-content">${notice("Enable a finite local assessment. The first run waits for the fixed analysis date; choose an expiry after that date and within 90 days. Saving an enabled schedule creates a new finite allowance. Failed or interrupted runs use a reservation. Three operational failures pause the schedule. Restored snapshots need fresh owner authorization.")}<div class="form-grid">${field("enabled",schedule?.enabled??false,"boolean")}${field("interval_hours",schedule?.interval_hours||24,"number","Whole hours, from 1 through 168")}${field("max_observations",schedule?.finite_limit?.max_observations||7,"number","Maximum 1 through 30 local observations")}${field("expires_at",expires,"text","ISO timestamp with timezone; at most 90 days")}</div><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><button type="submit" class="button">Save analysis schedule</button></div></form>`);
 }
 
 async function saveExperimentSchedule(form) {
+  if(form.dataset.submitting==="true")throw new Error("This schedule is already being saved.");
   const data=Object.fromEntries(new FormData(form));
-  await api(`/api/apps/${form.dataset.app}/experiments/${form.dataset.id}/schedule`,{enabled:data.enabled==="true",interval_hours:Number(data.interval_hours),version:form.dataset.version?Number(form.dataset.version):null});
+  const binding=form.dataset.binding,valid=()=>form.isConnected&&JSON.stringify(experimentScheduleIdentity())===binding&&state.workspace.experiments.some(e=>e.id===form.dataset.id&&e.hash===form.dataset.source);
+  if(!valid())throw new Error("App or owner session changed. Reopen this schedule.");
+  const body={enabled:data.enabled==="true",interval_hours:Number(data.interval_hours),version:form.dataset.version?Number(form.dataset.version):null};
+  if(body.enabled)Object.assign(body,{manifest_version:state.workspace.app.version,expires_at:data.expires_at,max_observations:Number(data.max_observations)});
+  form.dataset.submitting="true";
+  try {
+    await api(`/api/apps/${form.dataset.app}/experiments/${form.dataset.id}/schedule`,body);
+    if(!valid())throw new Error("App or owner session changed. Refresh to inspect the saved schedule.");
+  } finally {delete form.dataset.submitting;}
 }
 
 function cohortForm() {

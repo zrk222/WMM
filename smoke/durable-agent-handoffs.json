@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "owner-handoff-original-job-and-secret-free-result",
+      "kind": "python",
+      "run": "import unittest; s=unittest.defaultTestLoader.loadTestsFromName('tests.test_agent_handoffs.HandoffTests.test_owner_handoff_resumes_original_without_exposing_key_or_new_job'); assert s.countTestCases()==1; r=unittest.TextTestRunner(verbosity=0).run(s); assert r.wasSuccessful()"
+    }
+  ]
+}

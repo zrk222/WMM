@@ -4,8 +4,10 @@ import csv
 import io
 import ipaddress
 import json
+import re
 from datetime import timezone
 from urllib.parse import urlsplit,parse_qs
+from uuid import UUID
 from .common import Invalid,amount,canonical,digest,iso_time,now,required,safe_data,uid
 from .db import connection
 from .ledger import opaque
@@ -49,12 +51,61 @@ def reference_data(data):
     for key,bound in bounds.items():result[key]=required(data[key],key.replace("_"," "),bound)
     result["post_id"]=opaque(data["post_id"],"Public post ID")
     result["creator_id"]=opaque(data["creator_id"],"Public creator ID") if data["creator_id"] is not None else None
-    result["url"]=source_url(data["url"])
+    result["url"]=reference_location(data)
     reference_dates(result)
     if result["metric_value"] is not None:
         amount(result["metric_value"],"Observed count")
         if result["metric_kind"]=="UNKNOWN" or result["metric_at"] is None:raise Invalid("Observed counts need a known metric and timestamp")
     return result
+
+
+def reference_location(data):
+    """Keep public URLs and typed owner asset identities distinct."""
+    value=owned_reference(data)
+    return value if value is not None else source_url(data["url"])
+
+
+def _owned_identity(value):
+    """Parse a canonical typed asset URI without accepting paths or URLs."""
+    parsed=urlsplit(value);parts=parsed.path.strip("/").split("/")
+    try:
+        if (parsed.scheme!="wmm-owned" or parsed.netloc!="asset" or parsed.query or parsed.fragment
+                or len(parts)!=2 or parsed.path!="/"+"/".join(parts) or str(UUID(parts[0]))!=parts[0]
+                or not re.fullmatch(r"[a-f0-9]{64}",parts[1])):raise ValueError()
+    except (ValueError,AttributeError):raise Invalid("Use an exact owned app asset reference") from None
+    return parts
+
+
+def _owned_observations(data,asset_id):
+    """Reject unsupported public claims and require explicit permission."""
+    if data.get("platform")!="other" or data.get("post_id")!=asset_id or data.get("rights")!="LICENSED":
+        raise Invalid("Owned still references require explicit rights and unknown public metrics")
+    if data.get("permission_confirmed") is not True or data.get("metric_kind")!="UNKNOWN":
+        raise Invalid("Owned still references require explicit rights and unknown public metrics")
+    if data.get("metric_value") is not None or data.get("metric_at") is not None or data.get("published_at") is not None:
+        raise Invalid("Owned still references require explicit rights and unknown public metrics")
+
+
+def owned_reference(data):
+    """Recognize only an explicit local asset identity with unknown public metrics."""
+    value=data.get("url")
+    if not isinstance(value,str) or not value.startswith("wmm-owned:"):return None
+    parts=_owned_identity(value);_owned_observations(data,parts[0])
+    return value
+
+
+def verify_owned_source(db,store,app_id,data):
+    """Recheck current same-app rights, authentic asset and exact retained bytes."""
+    value=owned_reference(data)
+    if value is None:return
+    asset_id,expected=urlsplit(value).path.strip("/").split("/")
+    row=db.execute("SELECT data FROM records WHERE app_id=? AND id=? AND kind='asset'",(app_id,asset_id)).fetchone()
+    if not row:raise Invalid("Owned source asset is unavailable in this app")
+    asset=json.loads(row["data"])
+    from .experiments import asset_intact
+    if (asset.get("authentic") is not True or asset.get("rights_cleared") is not True
+            or asset.get("sha256")!=expected or not asset_intact(store.path.parent/"files"/app_id,asset)):
+        raise Invalid("Owned source rights or exact app image bytes changed")
 
 
 def reference_dates(data):
@@ -165,6 +216,7 @@ class Library:
         data=reference_data(body["data"])
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
+            verify_owned_source(db,self.store,app_id,data)
             if "id" not in body:return write_reference(db,app_id,data)
             current=latest_capture(db,app_id,body["id"])
             if type(body["version"]) is not int or current["version"]!=body["version"]:raise Invalid("Reference changed; reload before refreshing")
@@ -177,6 +229,8 @@ class Library:
     def preview(self,app_id,body):
         """Preview provenance, unknown values and conflicts before explicit atomic commit."""
         self.store.app(app_id);rows=import_rows(body);existing={r["identity"]:r for r in self.list(app_id)}
+        with connection(self.store.path) as db:
+            for row in rows:verify_owned_source(db,self.store,app_id,row)
         conflicts=[identity(r) for r in rows if identity(r) in existing and existing[identity(r)]["current"]["hash"]!=digest(r)]
         return {"rows":rows,"preview_hash":digest(rows),"conflicts":conflicts,"provenance":"OPERATOR_IMPORT; permission and observations are supplied, not independently verified"}
 
@@ -188,6 +242,7 @@ class Library:
         if digest(rows)!=body["preview_hash"]:raise Invalid("Import preview changed; preview again")
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
+            for row in rows:verify_owned_source(db,self.store,app_id,row)
             return {"results":[write_reference(db,app_id,row) for row in rows],"provenance":"OPERATOR_IMPORT"}
 
 

@@ -1,0 +1,10 @@
+{
+ "name":"finite-experiment-monitoring",
+ "language":"python",
+ "modules":[
+  {"name":"schedules","path":"mission_control/experiment_schedules.py","language":"python","functions":[{"name":"configuration","args":["body"],"returns":"object"},{"name":"check_scheduled","args":["db","current","data"],"returns":"object"}]},
+  {"name":"experiments","path":"mission_control/experiments.py","language":"python","functions":[{"name":"lookup","args":["db","app_id","experiment_id"],"returns":"object"}]}
+ ],
+ "dependencies":[{"from":"schedules","to":"experiments"}],
+ "invariants":[]
+}

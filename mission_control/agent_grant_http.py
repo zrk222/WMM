@@ -51,6 +51,11 @@ def call(handler):
 def owner(store,app_id,action,user,body):
     """Only the HTTP adapter's freshly authenticated owner can manage credentials."""
     grants=Grants(store)
+    from .agent_handoffs import Handoffs
+    handoffs=Handoffs(store)
+    if action==['handoff-create']:return handoffs.create(app_id,user,body)
+    if action==['handoff-list'] and body=={}:return handoffs.list(app_id,user)
+    if action==['handoff-revoke']:return handoffs.revoke(app_id,user,body)
     from .complete_automation import Automation
     automation=Automation(store)
     from .automation_agreement import Agreement

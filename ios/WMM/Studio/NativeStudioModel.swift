@@ -22,6 +22,13 @@ struct NativeStudioJob: Decodable, Identifiable {
     var id: String { job_id }
 }
 
+struct NativeCreativeBrief: Identifiable {
+    let id: String
+    let hash: String
+    let objective: String
+    let seconds: Int
+}
+
 @MainActor
 final class NativeStudioModel: ObservableObject, Identifiable {
     typealias Execute = (String, [String: Any]) async throws -> Data
@@ -29,12 +36,17 @@ final class NativeStudioModel: ObservableObject, Identifiable {
     let id = UUID()
     let appID: String
     let manifestVersion: Int
+    let firstUse: NativeCreativeFirstUse
     private let execute: Execute
     private let render: Render
     private let openArtifact: (NativeStudioJob) async throws -> URL
     private let reconcile: (NativeStudioJob) async throws -> URL
     private let cancelRender: () async -> Void
     private let listOriginals: () async throws -> [NativeMediaItem]
+    private let batchExecute: (String, [String: Any]) async throws -> Data
+    private let runBatch: (Data, Data) async throws -> Data
+    private let cancelBatchRender: () async -> Void
+    private let batchArtifact: (String, Int) async throws -> URL
     @Published var projects: [NativeStudioProject] = []
     @Published var originals: [NativeMediaItem] = []
     @Published var selected: NativeStudioProject?
@@ -48,16 +60,35 @@ final class NativeStudioModel: ObservableObject, Identifiable {
     @Published var busy = false
     private var activeJob: String?
     private var cancelRequested = false
+    private var activeBatch: String?
+    private var reviewedBatch: [String: Any]?
+    private var savedBatches: [[String: Any]] = []
+    private var selectedBatchArtifact: (String, Int)?
+    @Published var batchBriefs: [NativeCreativeBrief] = []
+    @Published var batchBriefID = ""
+    @Published var batchBothShapes = false
+    @Published var batchReview: String?
+    @Published var batchProgress: [String] = []
+    @Published var batchOutput: URL?
     var hasUnsavedChanges: Bool { selected.map { $0.scene != draft } ?? true }
 
     init(appID: String, manifestVersion: Int, execute: @escaping Execute,
          render: @escaping Render, openArtifact: @escaping (NativeStudioJob) async throws -> URL,
          reconcile: @escaping (NativeStudioJob) async throws -> URL,
          cancelRender: @escaping () async -> Void,
-         listOriginals: @escaping () async throws -> [NativeMediaItem]) {
+         listOriginals: @escaping () async throws -> [NativeMediaItem],
+         batchExecute: @escaping (String, [String: Any]) async throws -> Data,
+         runBatch: @escaping (Data, Data) async throws -> Data,
+         cancelBatchRender: @escaping () async -> Void,
+         batchArtifact: @escaping (String, Int) async throws -> URL,
+         uploadCreativeStill: @escaping (String, URL) async throws -> Data) {
         self.appID = appID; self.manifestVersion = manifestVersion
+        self.firstUse = NativeCreativeFirstUse(appID: appID, manifestVersion: manifestVersion,
+                                               execute: batchExecute, upload: uploadCreativeStill)
         self.execute = execute; self.render = render; self.openArtifact = openArtifact
         self.reconcile = reconcile; self.cancelRender = cancelRender; self.listOriginals = listOriginals
+        self.batchExecute = batchExecute; self.runBatch = runBatch; self.cancelBatchRender = cancelBatchRender
+        self.batchArtifact = batchArtifact
     }
 
     private func perform(_ activity: String, _ work: () async throws -> Void) async {
@@ -73,7 +104,126 @@ final class NativeStudioModel: ObservableObject, Identifiable {
         await perform("Loading saved scenes…") {
             projects = try JSONDecoder().decode(Listing.self, from: await execute("projects", [:])).projects
             originals = try await listOriginals()
+            try await refreshBatches()
         }
+    }
+
+    private func refreshBatches() async throws {
+        let bytes = try await batchExecute("workspace.read", [:])
+        guard let workspace = try JSONSerialization.jsonObject(with: bytes) as? [String: Any],
+              let briefs = workspace["briefs"] as? [[String: Any]] else { throw NativeStudioRenderer.Failure.invalidPacket }
+        batchBriefs = briefs.compactMap { item in
+            guard item["evidence_status"] as? String == "CURRENT", let id = item["id"] as? String,
+                  let current = item["current"] as? [String: Any], let hash = current["hash"] as? String,
+                  let data = current["data"] as? [String: Any], let definition = data["definition"] as? [String: Any],
+                  definition["channel"] as? String == "SHORT_VIDEO", let objective = definition["objective"] as? String,
+                  let seconds = definition["duration_seconds"] as? Int else { return nil }
+            return NativeCreativeBrief(id: id, hash: hash, objective: objective, seconds: seconds)
+        }
+        if !batchBriefs.contains(where: { $0.id == batchBriefID }) { batchBriefID = batchBriefs.first?.id ?? "" }
+        let listing = try await batchExecute("creative.batch.list", [:])
+        guard let object = try JSONSerialization.jsonObject(with: listing) as? [String: Any],
+              let items = object["items"] as? [[String: Any]] else { throw NativeStudioRenderer.Failure.invalidPacket }
+        savedBatches = items.filter { ($0["plan"] as? [String: Any])?["runtime"] as? String == "IOS" }
+        batchProgress = savedBatches.map { item in
+            let state = item["state"] as? String ?? "UNKNOWN"
+            let variants = item["variants"] as? [[String: Any]] ?? []
+            return "\(state): " + variants.map { ($0["status"] as? String ?? "UNKNOWN") }.joined(separator: ", ") + " · not published"
+        }
+    }
+
+    func prepareBatch() async {
+        guard let brief = batchBriefs.first(where: { $0.id == batchBriefID }) else { return }
+        await perform("Preparing your exact batch…") {
+            let shapes = batchBothShapes ? ["PORTRAIT", "LANDSCAPE"] : ["PORTRAIT"]
+            let variants = shapes.map { ["brief_id": brief.id, "brief_hash": brief.hash, "shape": $0] }
+            let expiry = ISO8601DateFormatter().string(from: Date().addingTimeInterval(3600))
+            let input: [String: Any] = ["variants": variants, "max_total_frames": brief.seconds * 24 * shapes.count,
+                                        "runtime": "IOS", "expires": expiry]
+            let bytes = try await batchExecute("creative.batch.plan", input)
+            guard let result = try JSONSerialization.jsonObject(with: bytes) as? [String: Any],
+                  let plan = result["plan"] as? [String: Any], let encoded = result["plan_json"] as? String, let hash = result["plan_hash"] as? String,
+                  let rows = plan["variants"] as? [[String: Any]] else { throw NativeStudioRenderer.Failure.invalidPacket }
+            let captions = rows.enumerated().map { index, row in
+                let brief = row["brief"] as? [String: Any] ?? [:]
+                let data = brief["data"] as? [String: Any] ?? [:]
+                let content = data["content"] as? [String: Any] ?? [:]
+                let screens = content["screens"] as? [[String: Any]] ?? []
+                let source = data["source"] as? [String: Any] ?? [:]
+                let stills = screens.map { "Still \($0["file_id"] as? String ?? "") · SHA-256 \($0["sha256"] as? String ?? "")" }.joined(separator: "\n")
+                return "Variant \(index + 1) · \(row["shape"] as? String ?? "")\n" +
+                    ((row["captions"] as? [String]) ?? []).joined(separator: "\n") +
+                    "\nBrief \(row["brief_hash"] as? String ?? "") · source \(source["hash"] as? String ?? "")\n" + stills
+            }.joined(separator: "\n\n")
+            batchReview = "\(shapes.count) video(s), \(brief.seconds * 24 * shapes.count) frames, on this device. Expires in 1 hour. Each video is limited to 8 MiB.\n\n\(captions)\n\nReview captions and framing after rendering. Nothing is published."
+            reviewedBatch = ["plan": encoded, "plan_hash": hash, "request_key": UUID().uuidString]
+        }
+    }
+
+    func clearBatchReview() {
+        reviewedBatch = nil
+        batchReview = nil
+    }
+
+    func queueBatch() async {
+        guard let body = reviewedBatch else { return }
+        await perform("Rendering your reviewed batch on this device…") {
+            cancelRequested = false
+            let request = try JSONSerialization.data(withJSONObject: ["app_id": appID, "operation": "creative.batch.create", "input": body])
+            let response = try await batchExecute("creative.batch.create", body)
+            guard let object = try JSONSerialization.jsonObject(with: response) as? [String: Any],
+                  let id = object["id"] as? String else { throw NativeStudioRenderer.Failure.invalidPacket }
+            activeBatch = id
+            defer { activeBatch = nil }
+            if cancelRequested {
+                _ = try await batchExecute("creative.batch.cancel", ["batch_id": id])
+                throw NativeStudioRenderer.Failure.cancelled
+            }
+            _ = try await runBatch(request, response)
+            reviewedBatch = nil; batchReview = nil
+            try await refreshBatches()
+            message = "Batch status updated. Review the local videos and any unresolved items before sharing."
+        }
+    }
+
+    func resumeBatch(_ index: Int) async {
+        guard savedBatches.indices.contains(index), savedBatches[index]["state"] as? String == "ACTIVE",
+              let id = savedBatches[index]["id"] as? String else { return }
+        await perform("Inspecting the interrupted batch on this device…") {
+            cancelRequested = false; activeBatch = id
+            defer { activeBatch = nil }
+            let request = try JSONSerialization.data(withJSONObject: ["app_id": appID, "operation": "creative.batch.create", "input": [:]])
+            let response = try JSONSerialization.data(withJSONObject: savedBatches[index])
+            _ = try await runBatch(request, response)
+            try await refreshBatches()
+            message = "Interrupted batch inspected. Any unresolved attempt keeps its original identity and reservation."
+        }
+    }
+
+    func completedVariants(_ index: Int) -> [Int] {
+        guard savedBatches.indices.contains(index), let variants = savedBatches[index]["variants"] as? [[String: Any]] else { return [] }
+        return variants.compactMap { $0["status"] as? String == "SUCCEEDED" ? $0["ordinal"] as? Int : nil }
+    }
+
+    func previewBatch(_ index: Int, ordinal: Int) async {
+        guard savedBatches.indices.contains(index), let id = savedBatches[index]["id"] as? String,
+              let variants = savedBatches[index]["variants"] as? [[String: Any]],
+              variants.contains(where: { $0["status"] as? String == "SUCCEEDED" && $0["ordinal"] as? Int == ordinal }) else { return }
+        batchOutput = nil; selectedBatchArtifact = nil
+        await perform("Checking the saved video and its source…") {
+            batchOutput = try await batchArtifact(id, ordinal)
+            selectedBatchArtifact = (id, ordinal)
+            message = "Local video decoded. Check captions, audio and framing before sharing."
+        }
+    }
+
+    func prepareBatchShare() async -> URL? {
+        guard !busy, let (id, ordinal) = selectedBatchArtifact else { return nil }
+        batchOutput = nil
+        await perform("Rechecking the saved video before sharing…") {
+            batchOutput = try await batchArtifact(id, ordinal)
+        }
+        return batchOutput
     }
 
     private func read(_ projectID: String) async throws {
@@ -203,5 +353,9 @@ final class NativeStudioModel: ObservableObject, Identifiable {
         cancelRequested = true
         await cancelRender()
         if let job = activeJob { _ = try? await execute("cancel", ["job_id": job]) }
+        if let batch = activeBatch {
+            _ = try? await batchExecute("creative.batch.cancel", ["batch_id": batch])
+            await cancelBatchRender()
+        }
     }
 }

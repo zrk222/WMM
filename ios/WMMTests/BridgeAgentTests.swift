@@ -3,6 +3,41 @@ import XCTest
 
 final class BridgeAgentTests: XCTestCase {
     @MainActor
+    func testNativeHandoffRetainsOriginalJobWithSeparateGrant() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let databaseID = UUID()
+        let identity = LocalIdentity(vault: KeychainVault(databaseID: databaseID, appID: UUID()))
+        let session = try await identity.begin()
+        let bridge = try DomainBridge(store: LocalStore(applicationSupport: folder, databaseID: databaseID), identity: identity)
+        let appID = "handoff-" + UUID().uuidString.lowercased()
+        let setup = try JSONSerialization.data(withJSONObject: ["app_id": appID, "confirm_owner": true,
+            "manifest": ["name": "Synthetic handoff", "release": "build-1", "locale": "en-US", "currency": "USD"]] as [String: Any])
+        _ = try await bridge.createWorkspace(session: session, request: setup)
+        let scheduler = LocalScheduler(execute: { action, request in
+            try await bridge.jobs(session: session, appID: appID, action: action, request: request)
+        })
+        await scheduler.prepare()
+        let job = try XCTUnwrap(scheduler.progress?.runs.first)
+        let runtime = ScopedAgentRuntime(bridge: bridge, session: session, vault: KeychainVault(databaseID: databaseID, appID: UUID()))
+        let model = NativeAgentAccessModel(appID: appID, manifestVersion: 1, runtime: runtime, execute: { action, request in
+            try await bridge.agentAccess(session: session, appID: appID, action: action, request: request)
+        })
+        await model.refresh()
+        await model.issue(agentID: "replacement", selected: ["jobs.read", "handoff.resume"], reviewed: [], hours: 1, maxCalls: 10, confirmed: true)
+        let grant = try XCTUnwrap(model.grants.first)
+        await model.loadHandoffJobs()
+        XCTAssertTrue(model.handoffJobs.contains { $0.id == job.id })
+        await model.createHandoff(jobID: job.id, recipient: grant.agent_id, selected: ["jobs.read"])
+        let handoff = try XCTUnwrap(model.handoffs.first)
+        XCTAssertEqual(handoff.job_id, job.id)
+        await model.resumeHandoff(handoff, grant: grant)
+        XCTAssertTrue(model.message?.contains("original job context") == true)
+        XCTAssertEqual(model.handoffs.first?.status, "CLAIMED")
+        await model.close(); await bridge.close(); try await identity.forgetPrincipal()
+    }
+
+    @MainActor
     func testHumanReviewDismissalAlwaysTearsDownBusyLogin() async throws {
         var pending: CheckedContinuation<Data, Never>?
         var removed = false

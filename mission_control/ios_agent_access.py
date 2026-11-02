@@ -12,9 +12,10 @@ class NativeAgentAccess:
     def manage(self, session, app_id, action, payload):
         from .agent_grants import Grants
         from .operation_authority import bound_owner, protected
-        from .operation_catalog import OPERATIONS
+        from .operation_catalog import catalog
+        from .agent_handoffs import Handoffs
         body = decode_document(payload)
-        if not isinstance(body, dict) or action not in ('list', 'issue', 'revoke'):
+        if not isinstance(body, dict) or action not in ('list', 'issue', 'revoke', 'handoff-list', 'handoff-create', 'handoff-revoke'):
             raise Invalid('Choose a fixed native owner grant action')
         if action == 'list' and body:
             raise Invalid('Grant listing accepts no body fields')
@@ -22,21 +23,31 @@ class NativeAgentAccess:
             raise Invalid('Explicit owner confirmation of the exact grant scope is required')
         if action == 'revoke' and (set(body) != {'id', 'version', 'confirm_revoke'} or body['confirm_revoke'] is not True):
             raise Invalid('Confirm the exact current grant revocation')
+        if action == 'handoff-list' and body:
+            raise Invalid('Handoff listing accepts no body fields')
         user = self.identities.fresh(session)
         envelope = dict(app_id=app_id, operation='native.agent-access.' + action, input=body)
         grants = Grants(self.service.store)
+        handoffs = Handoffs(self.service.store)
         with bound_owner(self.service.store, envelope, self.identities, session, user):
             with protected(self.service.store, envelope):
                 if action == 'list':
-                    result = dict(grants.list(app_id, user), operations=OPERATIONS,
-                                  native_media={'available':[name for name in OPERATIONS if name.startswith(('ios.scene.','ios.timeline.'))],
-                                      'unsupported':[name for name in OPERATIONS if name.startswith('studio.') or name in ('editor.queue','native.queue','hypit.queue')],
+                    operations=catalog()['operations']
+                    result = dict(grants.list(app_id, user), operations=operations,
+                                  native_media={'available':[name for name in operations if name.startswith(('ios.scene.','ios.timeline.'))],
+                                      'unsupported':[name for name in operations if name.startswith('studio.') or name in ('editor.queue','native.queue','hypit.queue')],
                                       'standing':'EXACT_NATIVE_VIDEO_POLICY_REQUIRED','completion':'TRUSTED_NATIVE_HOST_ONLY'},
                                   native_execution_acceptance='INCOMPLETE')
                 elif action == 'issue':
                     result = grants.issue(app_id, user, body['grant'])
-                else:
+                elif action == 'revoke':
                     result = grants.revoke(app_id, user, {key: body[key] for key in ('id', 'version')})
+                elif action == 'handoff-list':
+                    result = handoffs.list(app_id,user)
+                elif action == 'handoff-create':
+                    result = handoffs.create(app_id,user,body)
+                else:
+                    result = handoffs.revoke(app_id,user,body)
         return encode_response(result)
 
     def call(self, session, credential, payload):

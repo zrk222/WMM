@@ -277,3 +277,131 @@ struct NativeAutomationView: View {
         }.privacySensitive()
     }
 }
+
+/// Foreground owner controls use the same finite Python scheduler as desktop.
+@MainActor
+final class NativeExperimentMonitoringModel: ObservableObject, Identifiable {
+    struct Experiment: Decodable, Identifiable {
+        struct Definition: Decodable { let name: String; let analysis_at: String }
+        let id: String; let hash: String; let state: String; let data: Definition
+    }
+    struct Schedule: Decodable {
+        struct Limit: Decodable { let expires_at: String; let max_observations: Int; let reserved: Int; let remaining: Int }
+        let experiment_id: String; let version: Int; let enabled: Bool; let status: String
+        let interval_hours: Int; let next_due: String; let last_job_status: String?; let finite_limit: Limit?
+    }
+    struct Snapshot: Decodable { let app: NativeWorkspace; let experiments: [Experiment]; let schedules: [Schedule] }
+    let id = UUID()
+    let appID: String; let manifestVersion: Int
+    @Published private(set) var experiments: [Experiment] = []
+    @Published private(set) var schedules: [Schedule] = []
+    @Published private(set) var busy = false
+    @Published private(set) var message: String?
+    private let execute: @MainActor (Data) async throws -> Data
+    init(appID: String, manifestVersion: Int, execute: @escaping @MainActor (Data) async throws -> Data) {
+        self.appID = appID; self.manifestVersion = manifestVersion; self.execute = execute
+    }
+    private func call(_ operation: String, resource: String? = nil, input: [String: Any] = [:]) async throws -> Data {
+        var envelope: [String: Any] = ["app_id": appID, "operation": operation, "input": input]
+        if let resource { envelope["resource_id"] = resource }
+        return try await execute(JSONSerialization.data(withJSONObject: envelope))
+    }
+    private func load() async throws {
+        let result = try JSONDecoder().decode(Snapshot.self, from: await call("workspace.read"))
+        guard result.app.id == appID, result.app.version == manifestVersion else { throw DomainBridge.Failure.closed }
+        experiments = result.experiments; schedules = result.schedules
+    }
+    func refresh() async {
+        guard !busy else { return }; busy = true; defer { busy = false }; message = nil
+        do { try await load() } catch { message = "Monitoring could not be read. Reopen the current workspace and try again." }
+    }
+    func save(_ experiment: Experiment, enabled: Bool, hours: Int, observations: Int, days: Int) async {
+        guard !busy else { return }; busy = true; defer { busy = false }; message = nil
+        do {
+            let expectedVersion = schedules.first(where: { $0.experiment_id == experiment.id })?.version
+            try await load()
+            guard let current = experiments.first(where: { $0.id == experiment.id && $0.hash == experiment.hash }),
+                  current.state != "PLANNED", current.state != "CANCELLED" else { throw DomainBridge.Failure.closed }
+            let saved = schedules.first(where: { $0.experiment_id == experiment.id })
+            guard saved?.version == expectedVersion else { throw DomainBridge.Failure.closed }
+            let version: Any = saved.map { $0.version as Any } ?? NSNull()
+            var body: [String: Any] = ["enabled": enabled, "interval_hours": enabled ? hours : (saved?.interval_hours ?? hours), "version": version]
+            if enabled {
+                body["manifest_version"] = manifestVersion
+                body["expires_at"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(Double(days) * 86400))
+                body["max_observations"] = observations
+            }
+            _ = try await call("experiment.schedule", resource: experiment.id, input: body)
+            try await load()
+            message = enabled ? "Finite monitoring saved. Open this screen and run due work while the app is active." : "Monitoring paused. Prior observations remain available."
+        } catch { message = "The schedule was not confirmed. Check the owner session, current app and expiry after the analysis date, then refresh." }
+    }
+    func run(_ experiment: Experiment) async {
+        guard !busy else { return }; busy = true; defer { busy = false }; message = nil
+        do {
+            let expectedVersion = schedules.first(where: { $0.experiment_id == experiment.id && $0.enabled })?.version
+            try await load()
+            guard let expectedVersion, experiments.contains(where: { $0.id == experiment.id && $0.hash == experiment.hash }),
+                  schedules.contains(where: { $0.experiment_id == experiment.id && $0.enabled && $0.version == expectedVersion }) else { throw DomainBridge.Failure.closed }
+            let raw = try await call("experiment.schedule-run", resource: experiment.id)
+            guard let result = try JSONSerialization.jsonObject(with: raw) as? [String: Any], let status = result["status"] as? String else { throw DomainBridge.Failure.invalidRequest }
+            try await load(); message = "Local observation: \(status). Inspect the experiment evidence for its result."
+        } catch { message = "The observation was not confirmed. Refresh the saved schedule before trying again." }
+    }
+}
+
+@MainActor
+struct NativeExperimentMonitoringView: View {
+    @ObservedObject var model: NativeExperimentMonitoringModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var hours = 24
+    @State private var observations = 7
+    @State private var days = 7
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Text("Owner-approved local observations are finite. This app runs them only when you open it and choose Run due observation; iOS does not provide an always-on worker.")
+                    Text("An observation does not authorize publication, spending or a provider change. Missing or immature evidence remains unknown.").font(.callout)
+                    Text("Saving enabled monitoring creates a new finite allowance; it does not renew automatically.").font(.callout)
+                }
+                Section("Limits for a new approval") {
+                    Stepper("Every \(hours) hours", value: $hours, in: 1...168)
+                    Stepper("At most \(observations) observations", value: $observations, in: 1...30)
+                    Stepper("Expires in \(days) days", value: $days, in: 1...90)
+                    Text("Expiry must be later than the experiment's fixed analysis date.").font(.caption)
+                }
+                Section("Experiments") {
+                    if model.experiments.isEmpty { Text("No registered experiments in this workspace.") }
+                    ForEach(model.experiments) { experiment in
+                        let schedule = model.schedules.first(where: { $0.experiment_id == experiment.id })
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(experiment.data.name).font(.headline)
+                            Text("\(experiment.state) · analysis \(experiment.data.analysis_at)").font(.caption)
+                            if let schedule {
+                                Text("\(schedule.status) · every \(schedule.interval_hours) hours")
+                                if let limit = schedule.finite_limit {
+                                    Text("\(limit.remaining) of \(limit.max_observations) observations remaining · expires \(limit.expires_at)").font(.callout)
+                                } else { Text("Fresh owner authorization is required for this older schedule.").font(.callout) }
+                                if let status = schedule.last_job_status { Text("Latest job: \(status)").font(.caption) }
+                            }
+                            if experiment.state != "PLANNED" && experiment.state != "CANCELLED" {
+                                Button("Save finite monitoring") { Task { await model.save(experiment, enabled: true, hours: hours, observations: observations, days: days) } }
+                                if schedule?.enabled == true {
+                                    Button("Run due observation") { Task { await model.run(experiment) } }
+                                    Button("Pause monitoring", role: .destructive) { Task { await model.save(experiment, enabled: false, hours: hours, observations: observations, days: days) } }
+                                }
+                            } else { Text("Record exposure before scheduling. Cancelled tests remain stopped.").font(.caption) }
+                        }
+                    }
+                }
+                if let message = model.message { Section("Current result") { Text(message) } }
+            }.disabled(model.busy)
+            .navigationTitle("Experiment monitoring")
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }; ToolbarItem(placement: .primaryAction) { Button("Refresh") { Task { await model.refresh() } } } }
+            .overlay { if model.busy { ProgressView("Checking current monitoring…").padding().background(.regularMaterial) } }
+            .task { await model.refresh() }
+            .interactiveDismissDisabled(model.busy)
+        }.privacySensitive()
+    }
+}

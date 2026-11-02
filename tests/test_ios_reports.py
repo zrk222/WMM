@@ -52,6 +52,29 @@ class NativeReportTests(unittest.TestCase):
         self.assertNotIn(self.principal,encoded)
         self.assertNotIn(self.session,encoded)
 
+    def test_three_bounded_sections_are_source_bound_and_redacted(self):
+        from mission_control.common import now
+        from mission_control.db import connection
+        self.runtime.create_workspace(self.session,self.creation())
+        before=self.report();stamp=now()
+        with connection(self.runtime.service.store.path) as db:
+            db.execute('INSERT INTO experiments VALUES(?,?,?,?,?,?,?,?)',('new-app','private-experiment','{}','hash','OBSERVING',1,stamp,stamp))
+            db.execute('INSERT INTO experiment_schedules VALUES(?,?,?,?,?,?,?,?,?,?,?)',('new-app','private-experiment',1,24,1,stamp,None,None,0,'ENABLED',stamp))
+            db.execute('INSERT INTO experiment_schedule_limits VALUES(?,?,?,?,?,?,?,?,?,?)',('new-app','private-experiment',1,'PRIVATE_OWNER',1,1,'hash','2099-01-01T00:00:00+00:00',5,2))
+            for index in range(21):
+                db.execute('INSERT INTO creative_batches VALUES(?,?,?,?,?,?,?,?,?,?)',('new-app',str(index),'key-'+str(index),'hash','PRIVATE_PLAN','hash','ACTIVE',360,stamp,stamp))
+            db.execute('INSERT INTO agent_handoffs VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',('private-id','new-app',None,'PRIVATE_RECIPIENT','PRIVATE_PAYLOAD','hash',stamp,stamp,'READY',None,None,1))
+        value=self.report();rows={r['metric']:r for r in value['rows']};encoded=json.dumps(value)
+        self.assertNotEqual(before['sourceHash'],value['sourceHash'])
+        self.assertEqual(rows['Experiment monitoring']['observed'],'1')
+        self.assertIn('Remaining=3',rows['Experiment schedule 1']['evidence'])
+        self.assertEqual(rows['Creative batches']['observed'],'21')
+        self.assertIn('Truncated=True',rows['Creative batches']['evidence'])
+        self.assertEqual(rows['Agent handoffs']['observed'],'1')
+        self.assertEqual(rows['Agent handoff 1']['observed'],'UNAVAILABLE')
+        for secret in ('PRIVATE_OWNER','PRIVATE_PLAN','PRIVATE_RECIPIENT','PRIVATE_PAYLOAD','private-experiment'):
+            self.assertNotIn(secret,encoded)
+
     def test_actual_cohort_arithmetic_and_source_hash_changes(self):
         self.runtime.create_workspace(self.session,self.creation())
         before=self.report()

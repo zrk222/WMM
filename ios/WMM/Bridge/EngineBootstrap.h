@@ -59,6 +59,24 @@ typedef NSData * _Nullable (^WMMNativeVaultCallback)(NSData *request);
 + (nullable NSData *)studioSource:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
                            request:(NSData *)request error:(NSError **)error
     NS_SWIFT_NAME(studioSource(handle:session:appID:request:));
++ (nullable NSData *)creativeBatch:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                             action:(NSString *)action request:(NSData *)request error:(NSError **)error
+    NS_SWIFT_NAME(creativeBatch(handle:session:appID:action:request:));
++ (nullable NSData *)creativeBatchSource:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                                   request:(NSData *)request error:(NSError **)error
+    NS_SWIFT_NAME(creativeBatchSource(handle:session:appID:request:));
++ (nullable NSData *)creativeBatchFinish:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                                   request:(NSData *)request inspection:(NSData *)inspection error:(NSError **)error
+    NS_SWIFT_NAME(creativeBatchFinish(handle:session:appID:request:inspection:));
++ (nullable NSData *)creativeBatchStopped:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                                    request:(NSData *)request error:(NSError **)error
+    NS_SWIFT_NAME(creativeBatchStopped(handle:session:appID:request:));
++ (nullable NSData *)creativeBatchArtifact:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                                   request:(NSData *)request error:(NSError **)error
+    NS_SWIFT_NAME(creativeBatchArtifact(handle:session:appID:request:));
++ (nullable NSData *)uploadCreativeStill:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                               filename:(NSString *)filename content:(NSData *)content error:(NSError **)error
+    NS_SWIFT_NAME(uploadCreativeStill(handle:session:appID:filename:content:));
 + (nullable NSData *)automation:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
                          action:(NSString *)action request:(NSData *)request error:(NSError **)error
     NS_SWIFT_NAME(automation(handle:session:appID:action:request:));

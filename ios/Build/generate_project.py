@@ -21,7 +21,7 @@ sources.append('WMM/Agents/NativeAgentRenderPump.swift')
 sources.append('WMM/Agents/NativeAgentLoopView.swift')
 sources.append('WMM/Media/NativeAgentVideoView.swift')
 sources.append('WMM/Workflow/NativeBackgroundCleanup.swift')
-sources.extend(['WMM/Studio/NativeStudioRenderer.swift','WMM/Studio/NativeStudioModel.swift','WMM/Studio/NativeStudioView.swift'])
+sources.extend(['WMM/Studio/NativeStudioRenderer.swift','WMM/Studio/NativeStudioModel.swift','WMM/Studio/NativeStudioView.swift','WMM/Studio/NativeCreativeFirstUse.swift'])
 files=[ref(p,types(p)) for p in sources]
 testfile=ref('WMMTests/StorageIdentityTests.swift','sourcecode.swift')
 intaketest=ref('WMMTests/ProviderIntakeTests.swift','sourcecode.swift')

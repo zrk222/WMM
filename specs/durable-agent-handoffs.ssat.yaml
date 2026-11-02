@@ -1,0 +1,21 @@
+name: durable-agent-handoffs
+language: python
+modules:
+  - name: agent_handoffs
+    path: mission_control/agent_handoffs.py
+    language: python
+    functions:
+      - name: create
+        args: [self, app_id, user, body]
+        returns: object
+      - name: list
+        args: [self, app_id, user]
+        returns: object
+      - name: revoke
+        args: [self, app_id, user, body]
+        returns: object
+      - name: resume
+        args: [self, app_id, body]
+        returns: object
+dependencies: []
+invariants: []

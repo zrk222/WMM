@@ -1,0 +1,10 @@
+{
+  "name": "creative-batch-authority",
+  "language": "python",
+  "modules": [{"name": "creative_batch_authority", "path": "mission_control/creative_batch_authority.py", "language": "python", "functions": [
+    {"name": "guard_batch", "args": ["db", "store", "row"], "returns": "unknown"},
+    {"name": "guard_render", "args": ["db", "store", "job"], "returns": "unknown"}
+  ]}],
+  "dependencies": [],
+  "tests": {"command": "python -m unittest tests.test_creative_batches -q"}
+}
