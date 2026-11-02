@@ -17,7 +17,9 @@ def command():
             '--workpath', str(ROOT/'.factory/desktop-build'),
             '--specpath', str(ROOT/'.factory/desktop-build'),
             '--paths', str(ROOT), '--collect-submodules', 'mission_control',
-            '--collect-all', 'tzdata', '--collect-all', 'mcp']
+            '--collect-all', 'tzdata', '--copy-metadata', 'mcp',
+            '--collect-submodules', 'mcp.server', '--collect-submodules', 'mcp.shared',
+            '--collect-submodules', 'mcp.client', '--exclude-module', 'mcp.cli']
     # A console-enabled executable is needed for stdio MCP/CLI transport.
     # Windows users launch the terminal-free .vbs shortcut supplied alongside it.
     for path in DATA:
