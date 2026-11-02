@@ -1,0 +1,113 @@
+{
+  "name": "campaign-monitor-integration",
+  "language": "python",
+  "modules": [
+    {
+      "name": "router",
+      "path": "mission_control/server.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "owner_domain_post",
+          "args": [
+            "parts"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "campaign_policy",
+      "path": "mission_control/campaign_access.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "policy_checker",
+          "args": [
+            "store"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "retained_check",
+          "args": [
+            "store",
+            "app_id",
+            "actor",
+            "scope",
+            "action"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "worker",
+      "path": "mission_control/worker.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "claim",
+          "args": [
+            "store"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "process",
+          "args": [
+            "store",
+            "job",
+            "stop"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "process_special",
+          "args": [
+            "store",
+            "job",
+            "stop"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "failed_result",
+          "args": [
+            "job",
+            "error"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "failed_special",
+          "args": [
+            "job"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "run_once",
+          "args": [
+            "store",
+            "stop"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "health",
+      "path": "mission_control/automation_health.py",
+      "language": "python",
+      "functions": []
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "router",
+      "to": "worker"
+    }
+  ],
+  "invariants": []
+}
