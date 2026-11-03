@@ -8,8 +8,11 @@ TASKS={
 FACTS=('name','website','release','locale','job','audience','activation','brand_voice','brand_boundaries')
 SOURCE_IDS=('app_manifest',)+tuple('stage_'+str(n) for n in range(1,13))+('release_observation','subscription_observation','ledger_state','action_feedback','creative_taste')
 NATIVE=('codex','claude','kimi','glm_coding')
-KEYED=('glm_coding','openai_api','anthropic_api','compatible_api','local_api')
+KEYED=('glm_coding','openai_api','anthropic_api','compatible_api','local_api','cloudflare_api')
 REGISTRY={
+    'cloudflare_api':dict(name='Cloudflare Workers AI',mode='byok',tool=None,
+        link='https://dash.cloudflare.com/',endpoint='',
+        explanation='Use your Cloudflare account and API token for Workers AI. Free-only requires a Workers Free account. WMM cannot prevent charges on an already-paid account or from other clients.'),
     'codex':dict(name='Codex subscription',mode='subscription',tool='codex',
         link='https://developers.openai.com/codex/auth',endpoint='',
         explanation='Use the official Codex CLI and its existing ChatGPT sign-in. API keys are not used for this route.'),

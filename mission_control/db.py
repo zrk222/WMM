@@ -201,6 +201,8 @@ def initialize(path):
     with connection(path) as db:
         db.execute("PRAGMA journal_mode=WAL")
         db.executescript(SCHEMA)
+        from .onesignal_setup import SCHEMA as ONESIGNAL_SCHEMA
+        db.executescript(ONESIGNAL_SCHEMA)
         db.execute("BEGIN IMMEDIATE")
         columns={row["name"] for row in db.execute("PRAGMA table_info(creative_batch_variants)")}
         if "native_state" not in columns:db.execute("ALTER TABLE creative_batch_variants ADD COLUMN native_state TEXT NOT NULL DEFAULT 'PREPARED'")

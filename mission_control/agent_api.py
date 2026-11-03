@@ -18,6 +18,11 @@ def request(profile,key,prompt,max_tokens=2048,alive=lambda:None):
 
 def public_request(profile,key,prompt,max_tokens,alive,*,parse=draft):
     """Retain pinned public HTTPS inference for the existing keyed adapters."""
+    if profile['provider']=='cloudflare_api':
+        from .cloudflare_inference import verify
+        policy=verify(profile)
+        if type(max_tokens) is not int or not 1<=max_tokens<=policy['max_output_tokens']:
+            raise Invalid('Cloudflare request exceeds the approved output limit')
     url=public_url(profile['endpoint']);parts=urlsplit(url)
     anthropic=profile['provider']=='anthropic_api'
     route=parts.path.rstrip('/')+('/messages' if anthropic else '/chat/completions')
@@ -48,7 +53,7 @@ def public_request(profile,key,prompt,max_tokens,alive,*,parse=draft):
 
 def request_turn(profile,key,prompt,max_tokens=1024,alive=lambda:None):
     """One native tool-proposal turn over the same pinned, no-redirect transport."""
-    if profile['provider'] not in ('openai_api','anthropic_api','compatible_api'):
+    if profile['provider'] not in ('openai_api','anthropic_api','compatible_api','cloudflare_api'):
         raise Invalid('This native turn requires a configured HTTPS API provider')
     from .ios_agent_loop import parse_turn
     return public_request(profile,key,prompt,max_tokens,alive,parse=parse_turn)

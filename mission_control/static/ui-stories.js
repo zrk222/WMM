@@ -86,8 +86,10 @@
   define('agreement-form','See your automation permissions together.','WMM reads selected existing local, campaign and scheduled scopes into one current summary without granting new authority.','Check accounts, exact actions, deadlines and resource allowances; use the separate scope controls to change or stop work.');
   define('agent-handoff-form','Keep an existing task available to another authorized agent.','WMM saves bounded task context for the original job; a handoff starts no work and grants no execution authority.','Choose the job, recipient, permitted operation and expiry. The recipient needs its own current grant.');
   define('creative-batch-form','Prepare a finite set of local videos from reviewed briefs.','WMM shows the selected variants, expiry and frame allowance before any batch is queued.','Choose the current briefs and shapes, review the exact plan, then queue only if it matches your intent. Publishing remains separate.');
+  define('onesignal-key-form onesignal-read-form onesignal-create-form onesignal-channel-form onesignal-recovery-form','Connect your OneSignal app.','WMM keeps keys protected and reads the exact selected app.','Review provider changes or recovery readback before confirming.');
   Object.freeze(FORMS);
   const DIALOGS=Object.freeze({
+    'Connect Cloudflare Workers AI':['Connect Cloudflare once.','Choose free or paid inference and set your limits.','Save your protected connection, then test it.'],
     'Review exact video batch':['Review the exact videos before creating the batch.','The plan binds each variant to its brief, source and cleared stills, with a finite frame allowance and expiry.','Check the captions and output limits, then queue the reviewed plan if it matches your intent. Publication remains separate.'],
     'Your video direction':['Give your editor and agent the same clear direction.','WMM keeps your reviewed voice, visual rules, examples and exclusions as exact saved revisions.','Create your direction or inspect a revision before using it in production.'],
     'Guide your video editor':['Describe how your app should look and sound.','Your selected examples explain style. Your rules and exclusions stay attached to this app and the current guidance policy.','Review the fields, then save your owner-reviewed direction.'],
@@ -108,6 +110,7 @@
     return `<section class="wmm-page-story" aria-label="How to use this page"><h3>${esc(row[0])}</h3><p>${esc(row[1])}</p><p><strong>What goes in:</strong> ${esc(row[2])}</p><p><strong>What you get:</strong> ${esc(row[3])}</p><p><strong>Your next step:</strong> ${esc(row[4])}</p></section>`;
   }
   function dialog(title,markup){
+    if(title==='OneSignal setup')return '<aside class="notice" aria-label="Task guide"><p>Keys stay protected on this device. Review provider changes before applying them.</p></aside>';
     const found=[...markup.matchAll(/<form\b[^>]*\sid=["']([^"']+)["']/g)].map(match=>match[1]);
     const rows=found.map(id=>FORMS[id]);
     if(rows.some(row=>!row))return `<aside class="notice" aria-label="Task guide"><p>Review ${esc(title)}. Check the exact inputs, result and action described below before continuing.</p></aside>`;

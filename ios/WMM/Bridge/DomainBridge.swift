@@ -501,6 +501,14 @@ actor DomainBridge {
             appID: appID, action: action, request: request)
     }
 
+    func oneSignalSetup(session: LocalIdentity.Session, appID: String, action: String, request: Data) throws -> Data {
+        guard let handle else { throw Failure.closed }
+        guard ["status", "history", "save-key", "read", "bind", "prepare", "execute", "reconcile", "recovery-prepare", "recovery-confirm", "cleanup"].contains(action),
+              !request.isEmpty, request.count <= 65_536 else { throw Failure.invalidRequest }
+        return try EngineBootstrap.oneSignalSetup(handle: handle, session: session.nonce.uuidString,
+            appID: appID, action: action, request: request)
+    }
+
     func inference(session: LocalIdentity.Session, appID: String, action: String, request: Data) throws -> Data {
         guard let handle else { throw Failure.closed }
         guard ["prepare", "start", "run", "read", "history", "mode"].contains(action),

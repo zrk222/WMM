@@ -1,7 +1,45 @@
 import XCTest
+import CryptoKit
 @testable import WMM
 
 final class BridgeAgentTests: XCTestCase {
+    func testOneSignalKeychainNamespaceRejectsMalformedChunkTargets() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = try LocalStore(applicationSupport: folder, databaseID: UUID())
+        let adapter = try ProviderAuthentication(database: store.database)
+        let hash = SHA256.hash(data: Data(store.database.standardizedFileURL.resolvingSymlinksInPath().path.utf8)).map { String(format: "%02x", $0) }.joined()
+        let prefix = "OneSignal/" + String(hash.prefix(24)) + "/synthetic/" + String(repeating: "a", count: 24) + "/" + UUID().uuidString.lowercased() + "/"
+        func invoke(_ target: String) throws -> [String: Any] {
+            let input = try JSONSerialization.data(withJSONObject: ["action": "put", "target": target, "value": ["value": "c3ludGhldGlj"]])
+            return try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(adapter.invoke(input))) as? [String: Any])
+        }
+        XCTAssertEqual(try invoke(prefix + String(repeating: "b", count: 16))["ok"] as? Bool, true)
+        XCTAssertEqual(try invoke(prefix + "../escape")["ok"] as? Bool, false)
+        XCTAssertEqual(try invoke(prefix + "invalid")["ok"] as? Bool, false)
+    }
+
+    @MainActor
+    func testOneSignalOwnerBridgeStoresSyntheticKeyInDeviceKeychain() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let databaseID = UUID()
+        let identity = LocalIdentity(vault: KeychainVault(databaseID: databaseID, appID: UUID()))
+        let session = try await identity.begin()
+        let bridge = try DomainBridge(store: LocalStore(applicationSupport: folder, databaseID: databaseID), identity: identity)
+        let appID = "onesignal-" + UUID().uuidString.lowercased()
+        let setup = try JSONSerialization.data(withJSONObject: ["app_id": appID, "confirm_owner": true,
+            "manifest": ["name": "Synthetic app", "release": "build-1", "locale": "en-US", "currency": "USD"]] as [String: Any])
+        _ = try await bridge.createWorkspace(session: session, request: setup)
+        let input = try JSONSerialization.data(withJSONObject: ["kind": "app", "key": "synthetic-onesignal-key-123456", "version": 0])
+        let saved = try await bridge.oneSignalSetup(session: session, appID: appID, action: "save-key", request: input)
+        let value = try XCTUnwrap(JSONSerialization.jsonObject(with: saved) as? [String: Any])
+        XCTAssertEqual(value["state"] as? String, "KEY_SAVED_UNBOUND")
+        let status = try await bridge.oneSignalSetup(session: session, appID: appID, action: "status", request: Data("{}".utf8))
+        XCTAssertFalse(String(decoding: status, as: UTF8.self).contains("synthetic-onesignal-key"))
+        XCTAssertEqual((try JSONSerialization.jsonObject(with: status) as? [String: Any])?["protected_key"] as? Bool, true)
+    }
+
     @MainActor
     func testNativeHandoffRetainsOriginalJobWithSeparateGrant() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

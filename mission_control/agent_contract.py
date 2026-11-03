@@ -45,7 +45,12 @@ def model_id(value,required_model=False):
 
 def profile(body):
     """Separate subscription access, coding-plan credentials and paid API consent."""
-    exact(body,('provider','label','model','endpoint','api_key','allow_api_charges','id','version'))
+    fields=('provider','label','model','endpoint','api_key','allow_api_charges','id','version')
+    if isinstance(body,dict) and body.get('provider')=='cloudflare_api':
+        exact(body,fields+('account_id','billing_mode','daily_request_limit','max_output_tokens'))
+        from .cloudflare_inference import validated_profile
+        return validated_profile(body)
+    exact(body,fields)
     provider=body['provider']
     if not isinstance(provider,str) or provider not in REGISTRY:raise Invalid('Choose a supported agent adapter')
     entry=REGISTRY[provider]

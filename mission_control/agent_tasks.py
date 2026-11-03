@@ -60,6 +60,10 @@ def proposal(store,app_id,body):
         routing_hash=digest(routing),task=task,focus=body['focus'],prompt=text,provider=row['data']['provider'],
         model=row['data']['model'],max_output_tokens=256 if task=='connection_test' else 2048,
         external_effect='MODEL_REQUEST_ONLY_NO_PUBLICATION',fallback='REQUIRES_ANOTHER_APPROVAL')
+    if row['data']['provider']=='cloudflare_api':
+        from .cloudflare_inference import verify
+        policy=verify(row['data']);frozen['billing_policy']=policy
+        frozen['max_output_tokens']=min(frozen['max_output_tokens'],policy['max_output_tokens'])
     frozen.update(output_contract_hash=digest(output_contract()),draft_recipe=recipe(task,body['focus']))
     frozen.update(context=context,context_hash=digest(context),
                   source_ids=[s['id'] for s in context['sources']] if context else [])
@@ -88,8 +92,12 @@ class AgentWork:
             guard(self.store,app_id,frozen)
             if db.execute("SELECT 1 FROM jobs WHERE app_id=? AND action='agent_run' AND status IN ('QUEUED','RUNNING')",(app_id,)).fetchone():
                 raise Invalid('Finish or cancel this app current agent work before approving another request')
+            created=now()
+            if frozen['provider']=='cloudflare_api':
+                from .cloudflare_inference import reserve
+                reserve(db,app_id,frozen,created)
             db.execute('INSERT INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)',
-                (uid(),app_id,'agent_run',canonical(data),'QUEUED',now(),now(),key))
+                (uid(),app_id,'agent_run',canonical(data),'QUEUED',created,created,key))
             job=json_job(db.execute('SELECT * FROM jobs WHERE app_id=? AND request_key=?',(app_id,key)).fetchone())
             if self.on_start is not None:self.on_start(db,job)
             return job
@@ -115,6 +123,13 @@ def guard(store,app_id,frozen):
     row,routing=selected(store,app_id,frozen['task'],frozen['connection_id'])
     if row['version']!=frozen['connection_version'] or digest(row['data'])!=frozen['connection_hash'] or digest(routing)!=frozen['routing_hash']:
         raise Invalid('Agent route or connection changed; approve a new task')
+    if row['data']['provider']=='cloudflare_api':
+        from .cloudflare_inference import verify
+        policy=verify(row['data'])
+        default_cap=1024 if 'native_turn' in frozen else 256 if frozen['task']=='connection_test' else 2048
+        cap=min(default_cap,policy['max_output_tokens'])
+        if frozen.get('billing_policy')!=policy or frozen.get('max_output_tokens')!=cap or frozen.get('model')!=row['data']['model'] or frozen.get('provider')!='cloudflare_api':
+            raise Invalid('Cloudflare policy or approved output limit changed')
     return row
 
 
@@ -149,6 +164,8 @@ def execute(store,job,stop=None,access=None,transport=None):
     if set(data)!={'envelope','envelope_hash','original_request'} or digest(data['envelope'])!=data['envelope_hash']:
         raise Invalid('Agent approval envelope integrity failed')
     frozen=data['envelope'];access=access or AgentAccess(store);row=guard(store,job['app_id'],frozen)
+    if row['data']['provider']=='cloudflare_api' and digest({k:v for k,v in frozen.items() if k!='expires_at'})!=data['original_request'].get('source_hash'):
+        raise Invalid('Cloudflare approval no longer matches the reviewed proposal')
     alive=live_guard(store,job,stop);alive();secret=access.secret(job['app_id'],row)
     if frozen['provider'] in NATIVE:
         result,usage=native_run(frozen['provider'],row['data']['tool'],frozen['prompt'],frozen['model'],secret,alive)

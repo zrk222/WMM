@@ -526,6 +526,23 @@ static NSData *WMMResultBytes(PyObject *value, NSError **error) {
     }
 }
 
++ (NSData *)oneSignalSetup:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                    action:(NSString *)action request:(NSData *)request error:(NSError **)error {
+    @synchronized(self) {
+        if (![self inventoryWithError:error]) return nil;
+        PyGILState_STATE gil = PyGILState_Ensure();
+        PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
+        BOOL known = [@[@"status", @"history", @"save-key", @"read", @"bind", @"prepare", @"execute", @"reconcile", @"recovery-prepare", @"recovery-confirm", @"cleanup"] containsObject:action];
+        PyObject *body = known && request.length > 0 && request.length <= 65536
+            ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
+        PyObject *value = runtime && body ? PyObject_CallMethod(runtime, "native_onesignal", "sssO",
+            session.UTF8String, appID.UTF8String, action.UTF8String, body) : NULL;
+        NSData *result = WMMResultBytes(value, error);
+        Py_XDECREF(value); Py_XDECREF(body); PyGILState_Release(gil);
+        return result;
+    }
+}
+
 + (NSData *)agentCall:(NSString *)handle session:(NSString *)session credential:(NSString *)credential
                request:(NSData *)request error:(NSError **)error {
     @synchronized(self) {

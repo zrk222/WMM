@@ -54,6 +54,36 @@ class NativeAgentLoopTests(unittest.TestCase):
         body=dict(request=request,source_hash=prepared['source_hash'],request_key=key or str(uuid4()),confirm_transmission=True)
         return prepared,self.call('start',body),body
 
+    def cloudflare_profile(self):
+        from tests.test_cloudflare_inference import cloudflare
+        profile={**cloudflare(),'max_output_tokens':64}
+        saved=json.loads(self.runtime.native_providers(self.session,'new-app','save',json.dumps(dict(confirm_storage=True,profile=profile)).encode()))
+        self.profile_id=saved['connection']
+        with connection(self.path) as db:db.execute("UPDATE agent_connections SET status='TESTED' WHERE id=?",(self.profile_id,))
+
+    def test_cloudflare_turn_caps_output_and_counts_against_draft_approvals(self):
+        from mission_control.agent_tasks import AgentWork,proposal
+        seen=[]
+        def model(profile,key,prompt,max_tokens,alive):
+            alive();seen.append(max_tokens);return {'kind':'final','summary':'Synthetic','unknowns':[]},None
+        self.setup_loop(model);self.cloudflare_profile()
+        preview,queued,_=self.approve(self.request())
+        self.assertEqual(preview['proposal']['max_output_tokens'],64)
+        self.assertEqual(self.call('run',{'id':queued['id']})['status'],'SUCCEEDED');self.assertEqual(seen,[64])
+        draft=dict(task='connection_test',focus='',connection_id=self.profile_id)
+        reviewed=proposal(self.runtime.service.store,'new-app',draft)
+        with self.assertRaisesRegex(Invalid,'daily approval limit'):
+            AgentWork(self.runtime.service.store).start('new-app',{**draft,'source_hash':reviewed['source_hash'],'request_key':str(uuid4())})
+
+    def test_cloudflare_uncertain_draft_blocks_native_turn(self):
+        from mission_control.agent_tasks import AgentWork,proposal
+        self.setup_loop();self.cloudflare_profile()
+        draft=dict(task='connection_test',focus='',connection_id=self.profile_id)
+        reviewed=proposal(self.runtime.service.store,'new-app',draft)
+        job=AgentWork(self.runtime.service.store).start('new-app',{**draft,'source_hash':reviewed['source_hash'],'request_key':str(uuid4())})
+        with connection(self.path) as db:db.execute("UPDATE jobs SET status='UNKNOWN' WHERE id=?",(job['id'],))
+        with self.assertRaisesRegex(Invalid,'daily approval limit'):self.approve(self.request())
+
     def test_context_and_operation_prefix_stays_stable_when_focus_changes(self):
         self.setup_loop();request=self.request()
         first=self.call('prepare',request)

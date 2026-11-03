@@ -33,8 +33,11 @@ Current source correction: insights.py and insights_transport.py already provide
 read-only PostHog/Clarity/RevenueCat adapters; Insights.tick and worker supervision
 support automatic refresh (21600 seconds). providers.py/provider_reports.py have
 App Store and ad reads. These source paths contradict an assertion that every
-number is manually imported. They do not prove WizeMe is connected or that ASC
-funnel/retention analytics exists. Actual WizeMe read/schedule acceptance is due.
+number is manually imported. The [WizeMe dogfooding record](WIZEME-DOGFOODING.md)
+now documents a real authenticated Apple report-inventory read and the first due
+read of an enabled 24-hour schedule on November 3, 2026. Both returned
+`WAITING_FOR_REPORTS`; numerical funnel/retention data and a later cadence refresh
+remain unverified. MV1 is partially evidenced, not complete.
 
 ## MV2: One real governed execution loop
 

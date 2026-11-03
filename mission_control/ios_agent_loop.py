@@ -108,6 +108,8 @@ class NativeAgentLoop:
         if data.get('owner')!=user['principal'] or data.get('schema')!=SCHEMA:
             raise PermissionError('This native agent turn belongs to another owner')
         if digest(data['frozen'])!=data['frozen_hash']:raise Invalid('Native agent turn integrity changed')
+        if data['frozen'].get('provider')=='cloudflare_api' and digest({k:v for k,v in data['frozen'].items() if k!='expires_at'})!=data.get('source_hash'):
+            raise Invalid('Cloudflare turn no longer matches the reviewed proposal')
         return row
 
     def grant(self,db,app_id,user,identity,operations,expected=None):
@@ -172,7 +174,8 @@ class NativeAgentLoop:
         if previous is not None:prompt+='\nUnverified caller-supplied feedback: '+canonical(feedback)
         reject_private_material(prompt)
         if len(prompt.encode())>MAX_PROMPT_BYTES:raise Invalid('Turn prompt exceeds the supported size')
-        frozen=dict(base, prompt=prompt, max_output_tokens=1024, external_effect='MODEL_REQUEST_ONLY_NO_TOOL_EXECUTION',
+        cap=min(1024,base['billing_policy']['max_output_tokens']) if base['provider']=='cloudflare_api' else 1024
+        frozen=dict(base, prompt=prompt, max_output_tokens=cap, external_effect='MODEL_REQUEST_ONLY_NO_TOOL_EXECUTION',
                     native_grant=grant, native_turn=turn, prior_turn_id=previous)
         from .agent_access import AgentAccess
         profile=AgentAccess(self.service.store).get(app_id,base['connection_id'])
@@ -210,8 +213,12 @@ class NativeAgentLoop:
             self.grant(db,app_id,user,body['request']['grant_id'],body['request']['operations'],frozen['native_grant'])
             from .agent_tasks import guard
             guard(store,app_id,frozen)
+            created=now()
+            if frozen['provider']=='cloudflare_api':
+                from .cloudflare_inference import reserve
+                reserve(db,app_id,frozen,created)
             db.execute('INSERT INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)',
-                       (uid(),app_id,'ios_agent_turn',canonical(data),STATES['READY'],now(),now(),key))
+                       (uid(),app_id,'ios_agent_turn',canonical(data),STATES['READY'],created,created,key))
             row=db.execute('SELECT * FROM jobs WHERE app_id=? AND request_key=?',(app_id,key)).fetchone()
             from .store import audit
             audit(db,app_id,'native.agent_turn.approved',{'id':row['id'],'owner':user['principal'],'source_hash':body['source_hash']})
@@ -278,7 +285,7 @@ class NativeAgentLoop:
         try:
             alive();profile=guard(store,app_id,data['frozen']);secret=access.secret(app_id,profile)
             if secret and secret in data['frozen']['prompt']:raise Invalid('Prompt contains protected credential material')
-            value,usage=(self.transport or request_turn)(profile['data'],secret,data['frozen']['prompt'],1024,alive)
+            value,usage=(self.transport or request_turn)(profile['data'],secret,data['frozen']['prompt'],data['frozen']['max_output_tokens'],alive)
             turn=parse_turn(value)
             if secret and secret in canonical(turn):raise Invalid('Provider echoed a protected credential')
             if turn['kind']=='tool':

@@ -29,7 +29,7 @@ class NativeVault:
 
 
 class NativeProviderAccess:
-    SUPPORTED = ('openai_api','anthropic_api','compatible_api')
+    SUPPORTED = ('openai_api','anthropic_api','compatible_api','cloudflare_api')
 
     def __init__(self,service,identities,vault_callback):
         self.service=service;self.identities=identities;self.vault_callback=vault_callback

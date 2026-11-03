@@ -19,6 +19,8 @@ WMM collects app facts, research, media and analytics. It turns them into market
 
 The aim is shorter creative cycles, less repeated research and better decisions about installs, activation, paid conversion and retention. Measure those changes on your app; WMM does not guarantee growth or turn public video views into sales evidence.
 
+[Follow the WizeMe dogfooding journey](docs/WIZEME-DOGFOODING.md): dated operations, verified receipts and the next measurement step.
+
 ## What is included today
 
 | Your job | WMM’s working tools |

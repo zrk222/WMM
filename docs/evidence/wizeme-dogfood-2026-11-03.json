@@ -1,0 +1,82 @@
+{
+  "schema": "wmm.dogfood.public-receipt-index.v1",
+  "snapshot_date_utc": "2026-11-03",
+  "product": "Wize Marketing Machine",
+  "dogfood_app": "WizeMe.APP",
+  "originals_access": "OWNER_PRIVATE_NOT_PUBLICLY_DISTRIBUTED",
+  "independent_audit": false,
+  "receipts": [
+    {
+      "id": "E01",
+      "kind": "LIVE_WORKSPACE_READBACK",
+      "observed_at": "2026-11-03T05:01:11.449Z",
+      "source_sha256": "5adc7d40ed67d067f9aaabb75b6c997232041f9c0501f71d3b4995daead43e04",
+      "operations": [
+        {
+          "at_utc": "2026-11-02T16:44:00.686376Z",
+          "action": "scoped_agent_read_grant_issued"
+        },
+        {
+          "at_utc": "2026-11-02T16:44:26.315708Z",
+          "action": "workspace_read_admitted"
+        },
+        {
+          "at_utc": "2026-11-02T16:44:27.100321Z",
+          "action": "jobs_read_admitted"
+        },
+        {
+          "at_utc": "2026-11-02T16:45:02.661080Z",
+          "action": "grant_revoked"
+        },
+        {
+          "at_utc": "2026-11-03T03:59:24.328839Z",
+          "action": "apple_analytics_inventory_read",
+          "status": "WAITING_FOR_REPORTS",
+          "selected_report_families": 5,
+          "available_instances": 0,
+          "metric_observations": null
+        },
+        {
+          "at_utc": "2026-11-03T04:00:04.449245Z",
+          "action": "scheduled_apple_read",
+          "job_status": "SUCCEEDED",
+          "data_status": "WAITING_FOR_REPORTS",
+          "metric_observations": null
+        }
+      ],
+      "schedule_enabled": true,
+      "interval_hours": 24,
+      "later_24_hour_refresh_verified": false
+    },
+    {
+      "id": "E02",
+      "kind": "SYNTHETIC_REQUESTS_TO_LIVE_DEPLOYMENT",
+      "observed_at": "2026-11-03T03:53:40.322Z",
+      "source_sha256": "4487b464f960052f1633681a5f3d8004f05cfd54bd629aa4994b5734d15a634d",
+      "passed": 5,
+      "total": 5,
+      "facebook_account_connection_verified": false
+    },
+    {
+      "id": "E03",
+      "kind": "LIVE_OFFICIAL_ONESIGNAL_MCP_READ",
+      "observed_at": "2026-11-03T04:26:42.166Z",
+      "source_sha256": "c6ffcb50eb9794604b3e1b8670a093188dc14bf3aa06e886c7de35a958f0bda8",
+      "tool": "list_apps",
+      "tool_completed": true,
+      "intended_app_found": true,
+      "platform_readiness": null,
+      "sdk_readiness": null,
+      "device_registration": null,
+      "notification_delivery": "NOT_RUN"
+    }
+  ],
+  "unproven": [
+    "campaign_publication",
+    "notification_delivery",
+    "ad_spending",
+    "numerical_baseline",
+    "measured_growth",
+    "time_savings"
+  ]
+}
