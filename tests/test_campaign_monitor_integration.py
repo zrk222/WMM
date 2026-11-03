@@ -20,6 +20,7 @@ from mission_control.common import canonical, now
 from mission_control.db import connection
 from mission_control.operator_client import OperatorClient, ClientError
 from mission_control.server import Server, owner_domain_post
+from mission_control.social_contract import configuration
 from mission_control.worker import (
     claim,
     failed_result,
@@ -381,8 +382,14 @@ class CampaignMonitorIntegrationTests(unittest.TestCase):
                 "page_identity": dict(id="123", name="Synthetic Page"),
             }[operation]
 
+        config = configuration(dict(provider="facebook", client_id="12345",
+                                    client_secret="synthetic-secret", native_enabled=False,
+                                    redirect_uri="https://relay.example/cb/facebook", version=0,
+                                    campaign_access="publish"))
+        self.assertEqual(config["campaign_access"], "publish")
+        self.assertIn("pages_manage_posts", config["scopes"])
         credentials = (
-            dict(client_id="12345"),
+            config,
             "synthetic-secret",
             dict(
                 access_token="synthetic-user-token", page_token="synthetic-page-token"
