@@ -55,16 +55,32 @@ class CreativeBatchBrowserTests(unittest.TestCase):
                                 self.assertEqual(db.execute("SELECT count(*) FROM creative_batches").fetchone()[0], 0)
                             page.get_by_role("button", name="Queue reviewed batch", exact=True).click()
                             expect(page.locator("#modal")).to_contain_text("publication not run")
+                            page.evaluate("""() => {
+                                const original = window.fetch;
+                                window.delayedBatchRefreshes = 0;
+                                window.fetch = async (...args) => {
+                                    const response = await original(...args);
+                                    if (String(args[0]).endsWith('/production/batches/list')) {
+                                        window.delayedBatchRefreshes++;
+                                        await new Promise(resolve => setTimeout(resolve, 300));
+                                    }
+                                    return response;
+                                };
+                            }""")
                             with page.expect_response(lambda response: response.url.endswith("/production/batches/cancel") and response.request.method == "POST") as cancelled:
                                 page.locator("#modal").get_by_role("button", name="Cancel batch", exact=True).click()
                             self.assertEqual(cancelled.value.status, 200, cancelled.value.text())
                             with connection(fixture.store.path) as db:
                                 row = db.execute("SELECT state FROM creative_batches").fetchone()
                                 self.assertEqual(row["state"], "CANCELLED")
+                            # The cancel response precedes the list refresh and modal replacement.
+                            expect(page.locator("#modal .next-step strong")).to_contain_text("CANCELLED")
+                            self.assertEqual(page.evaluate("window.delayedBatchRefreshes"), 1)
                             self.assertFalse(page.evaluate("document.documentElement.scrollWidth > innerWidth"))
                             page.locator("#modal").get_by_role("button", name="Refresh", exact=True).focus()
                             page.keyboard.press("Tab")
                             self.assertTrue(page.evaluate("document.activeElement.matches('button,input,select,a')"))
+                            expect(page.locator("#modal").get_by_role("button", name="Close", exact=True)).to_be_focused()
                             self.assertEqual(errors, [])
                         finally:
                             if context:
