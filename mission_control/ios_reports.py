@@ -23,6 +23,7 @@ def snapshot(db, store, app_id, observed, *, include_handoffs=True, include_work
     from .insights import decoded as insight_decode
     from .apple_metrics_store import KEY_FIELDS, read_partition
     from .agent_handoffs import report_summary
+    from .apple_readiness_report import summary as apple_readiness
     app = db.execute('SELECT * FROM apps WHERE id=?',(app_id,)).fetchone()
     if app is None:raise Invalid('Report app is unavailable')
     app = decode(app)
@@ -37,7 +38,8 @@ def snapshot(db, store, app_id, observed, *, include_handoffs=True, include_work
     monitoring=monitoring_summary(db,app_id) if include_workflows else None
     batches=batch_summary(db,app_id) if include_workflows else None
     handoffs=report_summary(db,app_id,iso_time(observed)) if include_workflows and include_handoffs else None
-    return projection(app,records,reports,observed,insights,[read_partition(store.path,key) for key in keys],monitoring,batches,handoffs)
+    apple_health=apple_readiness(db,app_id,app['data'].get('store_app_id'),observed) if include_workflows else None
+    return projection(app,records,reports,observed,insights,[read_partition(store.path,key) for key in keys],monitoring,batches,handoffs,apple_health)
 
 
 def monitoring_summary(db,app_id):
@@ -73,11 +75,11 @@ def read(store, app_id, *, include_handoffs=True):
         return snapshot(db,store,app_id,now(),include_handoffs=include_handoffs)
 
 
-def projection(app, records, ledger_reports, observed_at, insight_reports=(), apple_partitions=(), monitoring=None, batches=None, handoffs=None):
+def projection(app, records, ledger_reports, observed_at, insight_reports=(), apple_partitions=(), monitoring=None, batches=None, handoffs=None, apple_health=None):
     from .metrics import summarize
     metrics = summarize(records, app['id'], ledger_reports)
     source = {'app':app,'records':records,'ledger':ledger_reports,'insights':insight_reports,'apple':apple_partitions}
-    for name,value in (('monitoring',monitoring),('batches',batches),('handoffs',handoffs)):
+    for name,value in (('monitoring',monitoring),('batches',batches),('handoffs',handoffs),('apple_health',apple_health)):
         if value is not None:source[name]=value
     source_hash = digest(source)
     rows = []
@@ -86,6 +88,13 @@ def projection(app, records, ledger_reports, observed_at, insight_reports=(), ap
         rows.append(dict(metric=label,observed=None if value is None else str(value),evidence=evidence))
     add('Report scope','Supplied observations; no causal lift established',source_hash)
     add('Units','Rates are fractions from 0 to 1; money fields marked minor use the stated currency minor unit.',source_hash)
+    if apple_health is not None:
+        add('Apple schedule',apple_health['schedule'],'Local scheduled-read configuration; this does not establish app performance.')
+        add('Apple scheduled read',apple_health['read'],'Latest current-source scheduled read; an empty report is not a zero metric.')
+        add('Apple read observed',apple_health['observed_at'],'Time of the verified read or terminal job state, if available.')
+        add('Apple next due',apple_health['next_due'],'Next local scheduled-read time, if enabled.')
+        add('Apple next action',apple_health['next_action'],'No provider write or campaign action is authorized by this report.')
+        add('Apple numeric outcome',None,'Schedule readiness is not a numeric metric; saved download observations are listed separately.')
     if monitoring is not None:
         add('Experiment monitoring',monitoring['total'],'Local finite schedules; observations do not authorize external actions. Truncated='+str(monitoring['truncated']))
         for index,item in enumerate(monitoring['items'],1):
