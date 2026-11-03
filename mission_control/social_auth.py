@@ -65,6 +65,7 @@ def exchange_code(config,secret,code,verifier,alive=lambda:None):
         short=parse(provider,raw,time.time(),requested_scopes=scopes)
         raw=request(provider,'long',dict(client_id=config['client_id'],client_secret=secret,
                     fb_exchange_token=short.credentials['access_token']),alive=alive,deadline=deadline)
+        return parse(provider,raw,time.time(),requested_scopes=scopes,facebook_long_missing_expiry=True)
     return parse(provider,raw,time.time(),requested_scopes=scopes)
 
 

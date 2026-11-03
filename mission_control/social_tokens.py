@@ -23,11 +23,12 @@ def token_object(raw):
     return raw
 
 
-def parse(provider,raw,issued_at,prior=None,short=False,requested_scopes=None):
+def parse(provider,raw,issued_at,prior=None,short=False,requested_scopes=None,facebook_long_missing_expiry=False):
     """Preserve actual lifetime/scope reporting and require a usable protected token."""
     provider_id(provider);value=token_object(raw);prior=prior or {}
     credentials=credential_fields(value)
-    expires=None if short else issued_at+seconds(value.get('expires_in'))
+    if facebook_long_missing_expiry and (provider!='facebook' or short):raise Invalid('Unsupported provisional social expiry')
+    expires=None if short or (facebook_long_missing_expiry and 'expires_in' not in value) else issued_at+seconds(value.get('expires_in'))
     subject=account_id(value['open_id']) if provider=='tiktok' else prior.get('subject_id')
     if provider=='instagram' and short:subject=account_id(value.get('user_id'))
     required=list(PROVIDERS[provider]['scopes']) if requested_scopes is None else requested_scopes

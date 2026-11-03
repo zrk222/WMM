@@ -1,6 +1,7 @@
 """Real private HTTP boundary, exact JSON, callback consumption and account scope."""
-import json,time,unittest
+import http.cookiejar,json,time,unittest
 from urllib.parse import parse_qs,urlsplit
+from urllib.request import build_opener,HTTPCookieProcessor,Request
 from unittest.mock import patch
 from tests import test_http as fixtures
 from tests.test_measurement_connectors import FakeVault
@@ -16,6 +17,43 @@ class SocialHTTPTests(unittest.TestCase):
 
     def request(self,path,body=None,headers=None,raw=None):
         return fixtures.HTTPTests.request(self,path,body,{'Content-Type':'application/json',**(headers or {})},raw)
+
+    def test_callback_navigation_preserves_existing_session_and_fresh_bootstrap(self):
+        sessions=dict(self.server.sessions)
+        routes=('/social/callback/facebook?state=synthetic&code=synthetic',
+                '/social/callback/instagram?state=synthetic&error=denied',
+                '/social/callback/tiktok?state=synthetic&code=synthetic',
+                '/social/callback/linkedin?state=synthetic&code=synthetic',
+                '/?state=synthetic&code=synthetic',
+                '/index.html?state=drive_synthetic&error=denied')
+        with patch('mission_control.social_callbacks.exchange_code') as exchange:
+            for route in routes:
+                with self.subTest(route=route):
+                    with build_opener().open(self.base+route) as response:
+                        self.assertEqual(response.status,200)
+                        self.assertIsNone(response.headers.get('Set-Cookie'))
+                        self.assertIn(b'<html',response.read().lower())
+                    self.assertEqual(self.server.sessions,sessions)
+            exchange.assert_not_called()
+        self.assertEqual(self.request('/social/callback/facebook',headers={'Host':'wrong.example'})[0],403)
+        self.assertEqual(self.server.sessions,sessions)
+        FakeVault.values={};base='/api/apps/sample-one/social-access/save'
+        with patch('mission_control.social_secrets.Vault',FakeVault):
+            self.assertEqual(self.request(base,body(),{'X-CSRF-Token':'wrong'})[0],403)
+            self.assertEqual(self.request(base,body(),{'Origin':'https://wrong.example'})[0],403)
+            self.assertEqual(self.request(base,body(),{'Host':'wrong.example'})[0],403)
+            self.assertEqual(self.request(base,body())[0],200)
+        fresh=build_opener(HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        with fresh.open(self.base+'/social/callback/facebook?state=synthetic&code=synthetic') as response:
+            self.assertIsNone(response.headers.get('Set-Cookie'))
+        self.assertEqual(self.server.sessions,sessions)
+        with fresh.open(self.base+'/api/bootstrap') as response:
+            self.assertIn('SameSite=Strict',response.headers['Set-Cookie'])
+            bootstrap=json.load(response)
+        self.assertTrue(bootstrap['csrf']);self.assertEqual(len(self.server.sessions),len(sessions)+1)
+        request=Request(self.base+'/api/identity/logout',data=b'{}',method='POST',
+                        headers={'Content-Type':'application/json','X-CSRF-Token':bootstrap['csrf'],'Origin':self.base})
+        with fresh.open(request) as response:self.assertEqual(response.status,200)
 
     def test_strict_setup_scope_unknown_authority_and_static_callbacks(self):
         FakeVault.values={};base='/api/apps/sample-one/social-access'

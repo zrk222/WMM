@@ -11,6 +11,8 @@ from mission_control.social_flows import Flows,public
 from mission_control.social_callbacks import callback
 from mission_control.social_profiles import Identity
 from mission_control.social_tokens import parse
+from mission_control.social_registry import PROVIDERS
+from mission_control.social_secrets import Secrets
 from tests.test_measurement_connectors import FakeVault
 from tests.test_social_setup import body
 from tests.test_social_providers import token
@@ -53,6 +55,43 @@ class SocialFlowTests(unittest.TestCase):
         with patch('mission_control.social_callbacks.exchange_code') as network:
             with self.assertRaisesRegex(Invalid,'already used'):callback(self.store,request)
             network.assert_not_called()
+
+    def test_facebook_long_exchange_missing_ttl_requires_inspected_future_expiry(self):
+        self.setup.save('sample-one',body('facebook'))
+        permissions=PROVIDERS['facebook']['scopes'];expiry=int(time.time())+3600
+        for inspected,ttl,expected in [(expiry,None,'AWAITING_DESTINATION'),(None,None,'UNCONFIRMED'),
+                                       (0,None,'UNCONFIRMED'),(True,None,'UNCONFIRMED'),
+                                       (int(time.time())-1,None,'UNCONFIRMED'),
+                                       (int(time.time())+6*366*86400,None,'UNCONFIRMED'),
+                                       (expiry,7200,'AWAITING_DESTINATION'),(expiry,600,'AWAITING_DESTINATION')]:
+            with self.subTest(inspected=inspected,ttl=ttl):
+                started=self.flows.start('sample-one','facebook',1)
+                state=parse_qs(urlsplit(started['authorization_url']).query)['state'][0]
+                request=dict(provider='facebook',state=state,code='synthetic-code',error='')
+                meta=[dict(access_token='synthetic-app-access'),
+                      dict(data=dict(is_valid=True,app_id='123456',user_id='123',scopes=permissions,expires_at=inspected)),
+                      dict(id='123',name='Synthetic person'),
+                      dict(data=[dict(permission=s,status='granted') for s in permissions]),dict(data=[])]
+                long=dict(access_token='synthetic-long',token_type='bearer')
+                if ttl is not None:long['expires_in']=ttl
+                before=time.time()
+                stage=Secrets.stage
+                with patch('mission_control.social_auth.request',side_effect=[token('facebook'),long]),\
+                     patch('mission_control.social_profiles.request',side_effect=meta),\
+                     patch.object(Secrets,'stage',autospec=True,side_effect=stage) as staging:
+                    result=callback(self.store,request)
+                self.assertEqual(staging.call_count,1 if expected=='AWAITING_DESTINATION' else 0)
+                self.assertEqual(result['status'],expected)
+                if expected=='AWAITING_DESTINATION':
+                    expires=result['data']['facts']['expires_at']
+                    if ttl==600:self.assertTrue(before+600<=expires<=time.time()+600)
+                    else:self.assertEqual(expires,expiry)
+                    self.flows.stop('sample-one',started['flow_id'])
+                else:
+                    self.assertNotIn('synthetic-long',str(FakeVault.values))
+                with patch('mission_control.social_callbacks.exchange_code') as network:
+                    with self.assertRaises(Invalid):callback(self.store,request)
+                    network.assert_not_called()
 
     def test_wrong_provider_expired_or_changed_setup_cannot_exchange(self):
         started,request=self.begin()
