@@ -23,18 +23,19 @@ def token_object(raw):
     return raw
 
 
-def parse(provider,raw,issued_at,prior=None,short=False):
+def parse(provider,raw,issued_at,prior=None,short=False,requested_scopes=None):
     """Preserve actual lifetime/scope reporting and require a usable protected token."""
     provider_id(provider);value=token_object(raw);prior=prior or {}
     credentials=credential_fields(value)
     expires=None if short else issued_at+seconds(value.get('expires_in'))
     subject=account_id(value['open_id']) if provider=='tiktok' else prior.get('subject_id')
     if provider=='instagram' and short:subject=account_id(value.get('user_id'))
-    scopes=parse_scopes(provider,value,prior)
+    required=list(PROVIDERS[provider]['scopes']) if requested_scopes is None else requested_scopes
+    scopes=parse_scopes(provider,value,prior,required)
     refresh_expiry=refresh_lifetime(provider,value,issued_at,prior)
     facts=dict(provider=provider,subject_id=subject,issued_at=issued_at,expires_at=expires,
                refresh_expires_at=refresh_expiry,reported_scopes=scopes,
-               requested_scopes=list(PROVIDERS[provider]['scopes']),renewal=renewal(provider,credentials,short))
+               requested_scopes=list(required),renewal=renewal(provider,credentials,short))
     if provider=='tiktok' and 'refresh_token' not in credentials:raise SocialError('INVALID_RESPONSE')
     return Grant(credentials,facts)
 
@@ -47,10 +48,10 @@ def credential_fields(value):
     return credentials
 
 
-def parse_scopes(provider,value,prior):
+def parse_scopes(provider,value,prior,required=None):
     """Only reported permissions are labelled granted; missing reports stay unknown."""
     field='permissions' if provider=='instagram' else 'scope'
-    if field in value:return reported_scopes(value[field],PROVIDERS[provider]['scopes'])
+    if field in value:return reported_scopes(value[field],PROVIDERS[provider]['scopes'] if required is None else required)
     if provider=='tiktok':raise SocialError('INVALID_RESPONSE')
     return prior.get('reported_scopes')
 

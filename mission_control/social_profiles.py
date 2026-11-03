@@ -2,9 +2,8 @@
 import time
 from dataclasses import dataclass
 from .common import Invalid
-from .social_auth import app_secret_proof
+from .social_auth import app_secret_proof,validated_scopes
 from .social_contract import account_id,display,reported_scopes,opaque
-from .social_registry import PROVIDERS
 from .social_transport import request,SocialError
 
 
@@ -68,18 +67,19 @@ def instagram(raw,grant):
 
 def facebook(config,secret,access,alive):
     """Inspect the app binding, user identity, actual permissions and owned Pages."""
+    required=validated_scopes(config)
     app=request('facebook','app_token',dict(client_id=config['client_id'],client_secret=secret),alive=alive)
     app_access=opaque(app.get('access_token'))
     inspection=request('facebook','inspect',dict(input_token=access,access_token=app_access),alive=alive).get('data')
     if not isinstance(inspection,dict) or inspection.get('is_valid') is not True:raise Invalid('Facebook grant is no longer valid; reconnect')
     if account_id(inspection.get('app_id'))!=config['client_id']:raise Invalid('Facebook grant belongs to a different developer app')
     subject=account_id(inspection.get('user_id'))
-    scopes=reported_scopes(inspection.get('scopes'),PROVIDERS['facebook']['scopes'])
+    scopes=reported_scopes(inspection.get('scopes'),required)
     proof={'appsecret_proof':app_secret_proof(access,secret)}
     user=request('facebook','identity',proof,bearer=access,alive=alive)
     if account_id(user.get('id'))!=subject:raise Invalid('Facebook account differs from the inspected grant; reconnect')
     permissions=page_rows('permissions',access,proof,alive)
-    granted=reported_scopes([row.get('permission') for row in permissions if row.get('status')=='granted'],PROVIDERS['facebook']['scopes'])
+    granted=reported_scopes([row.get('permission') for row in permissions if row.get('status')=='granted'],required)
     if not set(scopes)<=set(granted):raise Invalid('Facebook permission inspection changed; reconnect')
     pages=page_rows('pages',access,proof,alive);choices=[];seen=set()
     for page in pages:
