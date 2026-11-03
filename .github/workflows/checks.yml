@@ -25,10 +25,10 @@ jobs:
           sudo apt-get install --yes --no-install-recommends ffmpeg fonts-dejavu-core
       - name: Verify local render prerequisites before queueing
         run: python -c "from mission_control.media_native import capability; result = capability(); assert result['status'] == 'READY', result"
-      - name: Exercise actual owner batch flow at desktop and mobile widths
+      - name: Exercise owner batch and OneSignal browser flows at desktop and mobile widths
         env:
           WMM_BROWSER_TEST_PROFILE: '1'
-        run: python -m unittest tests.test_creative_batches_browser -v
+        run: python -m unittest tests.test_creative_batches_browser tests.test_onesignal_ui_browser tests.test_onesignal_browser_integration -v
   windows:
     runs-on: windows-latest
     timeout-minutes: 45

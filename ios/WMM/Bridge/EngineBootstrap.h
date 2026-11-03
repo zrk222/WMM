@@ -94,6 +94,9 @@ typedef NSData * _Nullable (^WMMNativeVaultCallback)(NSData *request);
 + (nullable NSData *)providers:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
                          action:(NSString *)action request:(NSData *)request error:(NSError **)error
     NS_SWIFT_NAME(providers(handle:session:appID:action:request:));
++ (nullable NSData *)oneSignalSetup:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
+                            action:(NSString *)action request:(NSData *)request error:(NSError **)error
+    NS_SWIFT_NAME(oneSignalSetup(handle:session:appID:action:request:));
 + (nullable NSData *)jobs:(NSString *)handle session:(NSString *)session appID:(NSString *)appID
                     action:(NSString *)action request:(NSData *)request error:(NSError **)error
     NS_SWIFT_NAME(jobs(handle:session:appID:action:request:));

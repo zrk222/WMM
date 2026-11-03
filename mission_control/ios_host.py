@@ -82,6 +82,10 @@ class Runtime:
         from .ios_provider_access import NativeProviderAccess
         return NativeProviderAccess(self.service,self.identities,self.vault_callback).call(session,app_id,action,payload)
 
+    def native_onesignal(self,session,app_id,action,payload):
+        from .ios_onesignal_setup import NativeOneSignalSetup
+        return NativeOneSignalSetup(self.service.store,self.identities,self.vault_callback).call(session,app_id,action,payload)
+
     def native_insights(self,session,app_id,action,payload):
         from .ios_insights import NativeInsights
         return NativeInsights(self.service,self.identities,self.vault_callback).call(session,app_id,action,payload)

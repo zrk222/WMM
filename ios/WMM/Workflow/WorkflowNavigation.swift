@@ -22,6 +22,7 @@ struct WorkflowNavigation: View {
     @State private var studio: NativeStudioModel?
     @State private var humanReview: NativeHumanReviewModel?
     @State private var insights: NativeInsightsModel?
+    @State private var oneSignal: NativeOneSignalSetupModel?
     @State private var storeConnection: NativeStoreConnectionModel?
 
     var body: some View {
@@ -119,10 +120,12 @@ struct WorkflowNavigation: View {
                                 .disabled(model.busy)
                             Button("Work and recovery", systemImage: "clock.arrow.circlepath") { scheduler = model.makeScheduler() }
                                 .disabled(model.busy)
-                            Button("Provider access", systemImage: "key.horizontal") { providers = model.makeProviders() }
-                                .disabled(model.busy)
+                            Menu("Connections", systemImage: "link") {
+                                Button("Provider access", systemImage: "key.horizontal") { providers = model.makeProviders() }.disabled(model.busy)
+                                Button("Connect OneSignal", systemImage: "bell.badge") { oneSignal = model.makeOneSignalSetup() }.disabled(model.busy)
+                                Button("Apple analytics", systemImage: "app.badge.checkmark") { storeConnection = model.makeStoreConnection() }.disabled(model.busy)
+                            }
                             Button("Live analytics", systemImage: "chart.line.uptrend.xyaxis") { insights = model.makeInsights() }.disabled(model.busy)
-                            Button("Apple analytics", systemImage: "app.badge.checkmark") { storeConnection = model.makeStoreConnection() }.disabled(model.busy)
                             Button("Agent drafting", systemImage: "text.bubble") { inference = model.makeInference() }
                                 .disabled(model.busy)
                             Button("Agent work", systemImage: "person.badge.key") { agentLoop = model.makeAgentLoop() }.disabled(model.busy)
@@ -161,17 +164,18 @@ struct WorkflowNavigation: View {
             .sheet(item: $studio) { NativeStudioView(model: $0) }
             .sheet(item: $humanReview) { NativeHumanReviewView(model: $0) }
             .sheet(item: $insights) { NativeInsightsView(model: $0) }
+            .sheet(item: $oneSignal) { NativeOneSignalSetupView(model: $0) }
             .sheet(item: $storeConnection) { NativeStoreConnectionView(model: $0) }
         }
         .privacySensitive()
         .overlay { if scenePhase != .active { Color(uiColor: .systemBackground).ignoresSafeArea() } }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background { inference = nil; providers = nil; scheduler = nil; agents = nil; editor = nil; showingCreate = false; showingResults = false; showingMedia = false; model.lock() }
+            if phase == .background { oneSignal = nil; inference = nil; providers = nil; scheduler = nil; agents = nil; editor = nil; showingCreate = false; showingResults = false; showingMedia = false; model.lock() }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataWillBecomeUnavailableNotification)) { _ in
-            inference = nil; providers = nil; scheduler = nil; agents = nil; editor = nil; showingCreate = false; showingResults = false; showingMedia = false; model.lock()
+            oneSignal = nil; inference = nil; providers = nil; scheduler = nil; agents = nil; editor = nil; showingCreate = false; showingResults = false; showingMedia = false; model.lock()
         }
-        .onChange(of: model.unlocked) { _, value in if !value { inference = nil; providers = nil; scheduler = nil; agents = nil; editor = nil } }
+        .onChange(of: model.unlocked) { _, value in if !value { oneSignal = nil; inference = nil; providers = nil; scheduler = nil; agents = nil; editor = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { experimentMonitoring = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { editingApp = nil } }
         .onChange(of: model.unlocked) { _, value in if !value { humanReview = nil } }
