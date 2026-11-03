@@ -14,14 +14,27 @@ def fresh_state():
     return state,hashlib.sha256(state.encode()).hexdigest(),secrets.token_urlsafe(48)
 
 
+def validated_scopes(config):
+    """Rebuild the selected permission set and reject altered persisted setup."""
+    provider=provider_id(config['provider']);entry=PROVIDERS[provider]
+    mode=config.get('campaign_access','read')
+    if mode not in ('read','publish','ads') or (provider!='facebook' and mode!='read'):
+        raise Invalid('Social permission configuration changed; prepare setup again')
+    scopes=list(entry['scopes'])
+    if mode in ('publish','ads'):scopes.append('pages_manage_posts')
+    if mode=='ads':scopes.extend(['ads_management','ads_read'])
+    if config.get('scopes')!=scopes:raise Invalid('Social permission configuration changed; prepare setup again')
+    return scopes
+
+
 def authorization(config,state,verifier,rerequest=False):
-    """Generate the exact official URL from validated setup and fixed initial scopes."""
+    """Generate the exact official URL from the validated selected scopes."""
     provider=provider_id(config['provider']);entry=PROVIDERS[provider]
     opaque(state,'OAuth state',128,43)
-    if config['scopes']!=entry['scopes']:raise Invalid('Social permission configuration changed; prepare setup again')
+    scopes=validated_scopes(config)
     fields={'client_key' if provider=='tiktok' else 'client_id':config['client_id'],
             'redirect_uri':config['redirect_uri'],'response_type':'code',
-            'scope':entry['separator'].join(entry['scopes']),'state':state}
+            'scope':entry['separator'].join(scopes),'state':state}
     native=provider=='linkedin' and config['native_enabled']
     if provider=='tiktok' or native:fields.update(code_challenge=challenge(provider,verifier),code_challenge_method='S256')
     if provider=='facebook' and rerequest:fields['auth_type']='rerequest'
@@ -41,30 +54,30 @@ def code_fields(config,secret,code,verifier):
 
 def exchange_code(config,secret,code,verifier,alive=lambda:None):
     """No automatic replay: an authorization code may already have been consumed."""
-    provider=config['provider'];fields,operation=code_fields(config,secret,code,verifier)
+    provider=config['provider'];scopes=validated_scopes(config);fields,operation=code_fields(config,secret,code,verifier)
     deadline=time.monotonic()+60
     raw=request(provider,operation,fields,alive=alive,deadline=deadline)
     if provider=='instagram':
-        short=parse(provider,raw,time.time(),short=True)
+        short=parse(provider,raw,time.time(),short=True,requested_scopes=scopes)
         extended=request(provider,'long',{'client_secret':secret,'access_token':short.credentials['access_token']},alive=alive,deadline=deadline)
-        return parse(provider,extended,time.time(),prior=short.facts)
+        return parse(provider,extended,time.time(),prior=short.facts,requested_scopes=scopes)
     if provider=='facebook':
-        short=parse(provider,raw,time.time())
+        short=parse(provider,raw,time.time(),requested_scopes=scopes)
         raw=request(provider,'long',dict(client_id=config['client_id'],client_secret=secret,
                     fb_exchange_token=short.credentials['access_token']),alive=alive,deadline=deadline)
-    return parse(provider,raw,time.time())
+    return parse(provider,raw,time.time(),requested_scopes=scopes)
 
 
 def refresh(config,secret,credentials,facts,alive=lambda:None):
     """Only documented renewal grants run; absent entitlement offers reauthorization."""
-    provider=config['provider'];clock=time.time()
+    provider=config['provider'];scopes=validated_scopes(config);clock=time.time()
     if facts['expires_at'] is None or facts['expires_at']<=clock:raise Invalid('Social access expired; reconnect through the official login')
     if provider=='instagram':
         if clock-facts['issued_at']<86400:raise Invalid('Instagram token renewal is not due until the long-lived token is at least24hours old')
         fields={'access_token':credentials['access_token']}
     else:fields=refresh_fields(config,secret,credentials,facts,clock)
     value=request(provider,'refresh',fields,alive=alive)
-    grant=parse(provider,value,clock,prior=facts)
+    grant=parse(provider,value,clock,prior=facts,requested_scopes=scopes)
     if provider=='linkedin' and 'refresh_token' not in grant.credentials:
         grant=Grant({**grant.credentials,'refresh_token':credentials['refresh_token']},
                     {**grant.facts,'renewal':'REFRESH_TOKEN'})

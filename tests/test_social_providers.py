@@ -7,6 +7,7 @@ from mission_control.social_auth import fresh_state,authorization,exchange_code,
 from mission_control.social_tokens import Grant,parse
 from mission_control.social_profiles import verify,selected_page
 from mission_control.social_registry import PROVIDERS
+from mission_control.social_contract import configuration
 
 
 def config(provider,native=False):
@@ -22,6 +23,33 @@ def token(provider='tiktok',**changes):
 
 
 class SocialProviderTests(unittest.TestCase):
+    def test_authorize_exact_owner_selected_facebook_permissions(self):
+        state,_,verifier=fresh_state()
+        body=dict(provider='facebook',client_id='123456',client_secret='synthetic-secret',
+                  native_enabled=False,redirect_uri='https://relay.example/cb/facebook',version=0)
+        for mode,extra in [('read',[]),('publish',['pages_manage_posts']),
+                           ('ads',['pages_manage_posts','ads_management','ads_read'])]:
+            selected=configuration({**body,'campaign_access':mode})
+            expected=PROVIDERS['facebook']['scopes']+extra
+            with self.subTest(mode=mode):
+                self.assertEqual(selected['scopes'],expected)
+                query=parse_qs(urlsplit(authorization(selected,state,verifier)).query)
+                self.assertEqual(query['scope'],[PROVIDERS['facebook']['separator'].join(expected)])
+                for scopes in (expected[:-1],expected+['unexpected'],expected+[expected[-1]],list(reversed(expected))):
+                    with self.subTest(scopes=scopes),self.assertRaises(Invalid):
+                        authorization({**selected,'scopes':scopes},state,verifier)
+        for provider in ('instagram','tiktok','linkedin'):
+            for mode in ('publish','ads'):
+                with self.subTest(provider=provider,mode=mode),self.assertRaises(Invalid):
+                    authorization({**config(provider),'campaign_access':mode},state,verifier)
+        for mode in ('invalid',None,True,[]):
+            with self.subTest(mode=mode),self.assertRaises(Invalid):
+                authorization({**config('facebook'),'campaign_access':mode},state,verifier)
+        with patch('mission_control.social_auth.request') as request:
+            with self.assertRaises(Invalid):
+                exchange_code({**config('facebook'),'scopes':['unexpected']},'synthetic-secret','synthetic-code',verifier)
+            request.assert_not_called()
+
     def test_authorize_uses_provider_specific_pkce_without_secret(self):
         state,digest,verifier=fresh_state()
         self.assertEqual(digest,hashlib.sha256(state.encode()).hexdigest())
@@ -55,6 +83,30 @@ class SocialProviderTests(unittest.TestCase):
             exchange_code(config('linkedin',True),'','synthetic-code','V'*64)
         self.assertEqual(request.call_args.args[1],'code_native')
         self.assertNotIn('client_secret',request.call_args.args[2])
+
+    def test_facebook_selected_permissions_follow_token_and_inspection(self):
+        selected={**config('facebook'),'campaign_access':'publish',
+                  'scopes':PROVIDERS['facebook']['scopes']+['pages_manage_posts']}
+        with patch('mission_control.social_auth.request',side_effect=[token('facebook'),token('facebook')]):
+            grant=exchange_code(selected,'synthetic-secret','synthetic-code','V'*64)
+        self.assertEqual(grant.facts['requested_scopes'],selected['scopes'])
+        self.assertIsNone(grant.facts['reported_scopes'])
+        with patch('mission_control.social_auth.request',return_value=token('facebook',scope=' '.join(PROVIDERS['facebook']['scopes']))):
+            with self.assertRaises(Invalid):exchange_code(selected,'synthetic-secret','synthetic-code','V'*64)
+        def responses(inspected,granted):
+            return [dict(access_token='synthetic-app-access'),
+                    dict(data=dict(is_valid=True,app_id='123456',user_id='123',scopes=inspected,expires_at=int(time.time())+3600)),
+                    dict(id='123',name='Synthetic person'),
+                    dict(data=[dict(permission=s,status='granted') for s in granted]),dict(data=[])]
+        for mode,extra in [('publish',['pages_manage_posts']),('ads',['pages_manage_posts','ads_management','ads_read'])]:
+            required=PROVIDERS['facebook']['scopes']+extra
+            current={**selected,'campaign_access':mode,'scopes':required}
+            with patch('mission_control.social_profiles.request',side_effect=responses(required,required)):
+                self.assertEqual(set(verify(current,'synthetic-secret',grant).permissions),set(required))
+            for inspected,granted in [(required[:-1],required),(required,required[:-1])]:
+                with self.subTest(mode=mode,inspected=inspected,granted=granted):
+                    with patch('mission_control.social_profiles.request',side_effect=responses(inspected,granted)):
+                        with self.assertRaises(Invalid):verify(current,'synthetic-secret',grant)
 
     def test_token_scope_lifetime_wrapper_and_subject_validation(self):
         for value in (token(scope='video.publish'),token(expires_in=True),token(token_type='MAC'),
