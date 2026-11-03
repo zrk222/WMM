@@ -38,10 +38,10 @@ function campaignManifestDialog() {
   modal("Agent operating rules",`<div class="modal-content"><h3>${esc(state.workspace.app.data.name)}</h3><p>${esc(p.objective||"No app objective is recorded yet.")}</p><p>You approve or edit. This installed execution profile supports app-owned provider reads only; publication, spending and live A/B execution are not enabled.</p><h3>Evidence standards</h3><ul>${p.source_rules.map(s=>`<li>${esc(s)}</li>`).join("")}</ul><h3>Resolution workflow</h3><ul>${p.resolution_contract.map(s=>`<li>${esc(s)}</li>`).join("")}</ul><h3>A/B operating contract</h3><ul>${p.ab_contract.map(s=>`<li>${esc(s)}</li>`).join("")}</ul><details><summary>Exact versioned manifest</summary><pre>${json(p)}</pre></details></div><div class="modal-actions">${button("Edit app objective","edit-app")}${button("Close","close")}</div>`,"ENFORCED SOURCE-COLLECTION PROFILE");
 }
 
-function openAutomaticPreparation() {
+function openAutomaticPreparation({firstPacket=false}={}) {
   const p=state.workspace.preparation;
   modal("Your prepared workflow",`<div class="modal-content">${notice("These are working drafts, not completed campaigns. Use each step's button to open its current workflow. Nothing is published and no money is spent here.")}<h3>${p.ready_count} of 12 steps have the required local inputs</h3>${p.outputs.map(o=>stagePacketCard(o)).join("")}<details><summary>Technical source reference</summary><p class="app-mono">${esc(p.source_hash)}</p></details></div><div class="modal-actions">${button("Download all packets","automatic-download")}${button("Close","close")}</div>`,"CURRENT WORKFLOW");
-  if(p.recommendations)$("#modal .modal-content").insertAdjacentHTML("afterbegin",automationPanel("packet-automation"));
+  if(p.recommendations&&!firstPacket)$("#modal .modal-content").insertAdjacentHTML("afterbegin",automationPanel("packet-automation"));
 }
 
 async function automaticPreparationAction(node) {
@@ -77,7 +77,7 @@ async function automaticPreparationAction(node) {
     } finally {if(node.isConnected)node.disabled=false;}
     return;
   }
-  if(node.dataset.action==="automatic-open")return openAutomaticPreparation();
+  if(node.dataset.action==="automatic-open")return openAutomaticPreparation({firstPacket:node.dataset.firstPacket==="true"});
   if(node.dataset.action==="automatic-download")return download(`${state.app}-current-work.json`,state.workspace.preparation);
   if(node.dataset.action==="automatic-packet") {
     const output=state.workspace.preparation.outputs.find(o=>o.stage===Number(node.dataset.stage));
