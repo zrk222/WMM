@@ -5,7 +5,7 @@ import SwiftUI
 @MainActor
 final class NativeAgentLoopModel: ObservableObject, Identifiable {
     struct Prepared: Decodable {
-        struct Proposal: Decodable { let provider: String; let model: String; let prompt: String; let native_turn: Int }
+        struct Proposal: Decodable { let provider: String; let model: String; let prompt: String; let native_turn: Int; let max_output_tokens: Int; let billing_policy: NativeProviderModel.BillingPolicy? }
         let proposal: Proposal; let source_hash: String; let destination: String; let cost: String
     }
     struct History: Decodable {
@@ -235,6 +235,11 @@ struct NativeAgentLoopView: View {
                     Section("Review model transmission · turn \(prepared.proposal.native_turn)/3") {
                         Text("\(prepared.proposal.provider) · \(prepared.proposal.model)")
                         Text(prepared.destination).textSelection(.enabled)
+                        Text("Maximum output: \(prepared.proposal.max_output_tokens) tokens")
+                        if let policy = prepared.proposal.billing_policy {
+                            Text("Cloudflare account: \(policy.account_id). Billing: \(policy.mode == "paid" ? "Paid inference allowed" : "Free allowance only"). Connection output cap: \(policy.max_output_tokens) tokens. Daily limit: \(policy.daily_request_limit) approvals per WMM connection on the UTC approval day.")
+                            Text("Free-only requires a Workers Free account. WMM cannot prevent charges on an already-paid account or from other clients. The approval limit is not a provider-usage ceiling or dollar cap.").font(.caption)
+                        }
                         Text(prepared.cost).font(.callout)
                         Text(prepared.proposal.prompt).textSelection(.enabled)
                         Text("Source hash: \(prepared.source_hash)").font(.caption).textSelection(.enabled)

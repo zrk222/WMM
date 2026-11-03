@@ -47,6 +47,15 @@ class NativeProviderTests(unittest.TestCase):
             audit=' '.join(str(tuple(row)) for row in db.execute('SELECT * FROM audit'))
         self.assertNotIn(body()['api_key'],rows+audit)
 
+    def test_cloudflare_native_profile_is_stored_with_policy_and_protected_key(self):
+        from tests.test_cloudflare_inference import cloudflare
+        self.setup_access();saved=self.save(cloudflare())
+        data=self.call('view')['profiles'][0]['data']
+        self.assertEqual(saved['status'],'CONFIGURED_UNTESTED')
+        self.assertEqual(data['billing_policy']['mode'],'free')
+        self.assertEqual(data['billing_policy']['daily_request_limit'],1)
+        self.assertTrue(data['protected_key']);self.assertNotIn(cloudflare()['api_key'],json.dumps(data))
+
     def test_rotation_and_disconnect_remove_only_retired_keys(self):
         self.setup_access();self.save()
         old=list(self.values)

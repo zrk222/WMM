@@ -116,6 +116,23 @@ final class NativeAgentLoopTests: XCTestCase {
     }
 
     @MainActor
+    func testCloudflareNativeProfileSerializesExplicitPaidPolicy() async throws {
+        var saved: [String: Any] = [:]
+        let model = NativeProviderModel(execute: { action, request in
+            if action == "save" {
+                let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: request) as? [String: Any])
+                saved = try XCTUnwrap(payload["profile"] as? [String: Any])
+                return Data("{}".utf8)
+            }
+            return Data("{\"profiles\":[],\"cleanup_pending\":0,\"native_inference\":\"NOT_RUN\"}".utf8)
+        })
+        let success = await model.save(provider: "cloudflare_api", label: "Synthetic", model: "@cf/test/model", endpoint: "", key: "synthetic-key-0123456789", allowCharges: true, confirmed: true, accountID: String(repeating: "a", count: 32), billingMode: "paid", dailyLimit: 7, outputLimit: 64)
+        XCTAssertTrue(success); XCTAssertEqual(saved["billing_mode"] as? String, "paid")
+        XCTAssertEqual(saved["allow_api_charges"] as? Bool, true); XCTAssertEqual(saved["daily_request_limit"] as? Int, 7)
+        XCTAssertEqual(saved["max_output_tokens"] as? Int, 64); XCTAssertEqual(saved["account_id"] as? String, String(repeating: "a", count: 32))
+    }
+
+    @MainActor
     func testClosingDuringPreparationCannotPublishOrSendPrompt() async throws {
         var pending: CheckedContinuation<Data, Never>?
         var sends = 0, closed = false
@@ -128,7 +145,7 @@ final class NativeAgentLoopTests: XCTestCase {
         for _ in 0..<100 { if pending != nil { break }; await Task.yield() }
         XCTAssertNotNil(pending)
         await model.close()
-        pending?.resume(returning: try NativeAgentLoopModel.bytes(["proposal": ["provider": "openai_api", "model": "fixture", "prompt": "Synthetic fixture", "native_turn": 1],
+        pending?.resume(returning: try NativeAgentLoopModel.bytes(["proposal": ["provider": "openai_api", "model": "fixture", "prompt": "Synthetic fixture", "native_turn": 1, "max_output_tokens": 1024],
             "source_hash": String(repeating: "a", count: 64), "destination": "https://example.invalid", "cost": "UNKNOWN"]))
         await preparation.value; await model.approve()
         XCTAssertTrue(closed); XCTAssertNil(model.prepared); XCTAssertEqual(sends, 0)

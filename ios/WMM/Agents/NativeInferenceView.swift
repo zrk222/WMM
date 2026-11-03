@@ -13,6 +13,7 @@ final class NativeInferenceModel: ObservableObject, Identifiable {
         struct Envelope: Decodable {
             let task: String; let focus: String; let connection_id: String
             let provider: String; let model: String; let prompt: String; let max_output_tokens: Int
+            let billing_policy: NativeProviderModel.BillingPolicy?
         }
         let proposal: Envelope; let source_hash: String; let cost: String; let destination: String
     }
@@ -171,6 +172,10 @@ struct NativeInferenceView: View {
                         Text("API endpoint: \(prepared.destination)").font(.callout).textSelection(.enabled)
                         Text("\(prepared.proposal.provider) · \(prepared.proposal.model)").font(.headline)
                         Text("Maximum output: \(prepared.proposal.max_output_tokens) tokens")
+                        if let policy = prepared.proposal.billing_policy {
+                            Text("Cloudflare account: \(policy.account_id). Billing: \(policy.mode == "paid" ? "Paid inference allowed" : "Free allowance only"). Connection output cap: \(policy.max_output_tokens) tokens. Daily limit: \(policy.daily_request_limit) approvals per WMM connection on the UTC approval day.")
+                            Text("Free-only requires a Workers Free account. WMM cannot prevent charges on an already-paid account or from other clients. The approval limit is not a provider-usage ceiling or dollar cap.").font(.caption)
+                        }
                         Text(prepared.cost).font(.callout)
                         Text(prepared.proposal.prompt).font(.body).textSelection(.enabled)
                         Text("Approved source hash: \(prepared.source_hash)").font(.caption).textSelection(.enabled)
