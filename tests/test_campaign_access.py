@@ -30,10 +30,9 @@ class CampaignGatewayTests(unittest.TestCase):
         self.post=dict(request_id='22222222-2222-4222-8222-222222222222',message=self.message,link=None,content_hash=self.content,rights_hash='b'*64)
         # Only the remote provider is synthetic. The owner, scope, grant, quota,
         # protected transaction and durable intent paths are real.
-        original=CampaignExecutionService
-        self.factory=patch('mission_control.campaign_execution.CampaignExecutionService',side_effect=lambda store,checker:original(store,checker,self.wire))
-        self.factory.start();self.addCleanup(self.factory.stop)
-        self.preflight=patch.object(original,'_preflight',lambda flow,app,actor,scope_id,action,active=True:(flow.get_scope(app,scope_id),'synthetic-secret','synthetic-token'))
+        self.transport=patch('mission_control.campaign_execution.MetaTransport',side_effect=lambda:self.wire)
+        self.transport.start();self.addCleanup(self.transport.stop)
+        self.preflight=patch.object(CampaignExecutionService,'_preflight',lambda flow,app,actor,scope_id,action,active=True:(flow.get_scope(app,scope_id),'synthetic-secret','synthetic-token'))
         self.preflight.start();self.addCleanup(self.preflight.stop)
 
     def owner_call(self,action,body):
