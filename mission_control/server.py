@@ -113,6 +113,8 @@ class Handler(BaseHTTPRequestHandler):
         expected=f"127.0.0.1:{self.server.server_port}"
         if self.headers.get("Host")!=expected:
             raise PermissionError("Use the exact local Mission Control address")
+        if not write and self.callback_page(urlparse(self.path).path):
+            return None
         csrf=self.session()
         if write:
             if self.headers.get("Origin",f"http://{expected}")!=f"http://{expected}":

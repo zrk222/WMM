@@ -1,7 +1,8 @@
 """Consume one official callback; token results never enter browser responses."""
 from dataclasses import asdict
+import time
 from .common import Invalid
-from .social_contract import exact,provider_id,opaque
+from .social_contract import exact,provider_id,opaque,seconds
 from .social_auth import exchange_code
 from .social_profiles import verify
 from .social_flows import Flows,public
@@ -32,7 +33,11 @@ def exchange(flows,row,code):
         grant=exchange_code(config['data'],settings.get('client_secret',''),code,proof,alive)
         identity=verify(config['data'],settings.get('client_secret',''),grant,alive);alive()
         facts={**grant.facts,'subject_id':identity.subject_id}
-        if identity.expires_at is not None:facts['expires_at']=min(facts['expires_at'],identity.expires_at)
+        if facts['expires_at'] is None:
+            if provider!='facebook' or type(identity.expires_at) is not int:raise Invalid('Provider did not supply a verified access expiry')
+            seconds(identity.expires_at-int(time.time()))
+            facts['expires_at']=identity.expires_at
+        elif identity.expires_at is not None:facts['expires_at']=min(facts['expires_at'],identity.expires_at)
         staged=flows.secrets.stage(app_id,provider,grant.credentials)
         data=dict(identity=asdict(identity),facts=facts)
         return flows.finish(row,'AWAITING_DESTINATION',dict(next_action='CONFIRM_DESTINATION',publishing_implemented=False),staged,data)

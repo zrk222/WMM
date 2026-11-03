@@ -84,6 +84,22 @@ class SocialProviderTests(unittest.TestCase):
         self.assertEqual(request.call_args.args[1],'code_native')
         self.assertNotIn('client_secret',request.call_args.args[2])
 
+    def test_facebook_long_exchange_unknown_ttl_is_narrow_and_explicit_invalid_is_rejected(self):
+        missing=dict(access_token='synthetic-long',token_type='bearer')
+        with patch('mission_control.social_auth.request',side_effect=[token('facebook'),missing]):
+            grant=exchange_code(config('facebook'),'synthetic-secret','synthetic-code','V'*64)
+        self.assertIsNone(grant.facts['expires_at'])
+        for value in (None,0,-1,True,'3600'):
+            with self.subTest(value=value):
+                with patch('mission_control.social_auth.request',side_effect=[token('facebook'),{**missing,'expires_in':value}]):
+                    with self.assertRaises(Invalid):exchange_code(config('facebook'),'synthetic-secret','synthetic-code','V'*64)
+        for provider in ('facebook','instagram','linkedin','tiktok'):
+            with self.subTest(provider=provider),self.assertRaises(Invalid):
+                parse(provider,missing,time.time())
+        for provider in ('instagram','linkedin','tiktok'):
+            with self.subTest(provider=provider),self.assertRaises(Invalid):
+                parse(provider,missing,time.time(),facebook_long_missing_expiry=True)
+
     def test_facebook_selected_permissions_follow_token_and_inspection(self):
         selected={**config('facebook'),'campaign_access':'publish',
                   'scopes':PROVIDERS['facebook']['scopes']+['pages_manage_posts']}
