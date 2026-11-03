@@ -59,7 +59,7 @@ async function refresh() {
 }
 
 function currentWorkspace() {
-  return state.workspace?.app.id===state.app;
+  return Boolean(state.app && state.workspace?.app?.id===state.app);
 }
 
 function render() {
@@ -540,7 +540,7 @@ function modal(title,html,eyebrow="WORKSPACE") {
   WMMFunnels.clear();
   $("#modal-title").textContent=title;$("#modal-eyebrow").textContent=eyebrow;$("#modal-body").innerHTML=html;
   $("#modal-body").insertAdjacentHTML("afterbegin",WMMStories.dialog(title,html));
-  automationAttach();
+  if(currentWorkspace()) automationAttach();
   if(!$("#modal").open) $("#modal").showModal();
 }
 
@@ -785,10 +785,10 @@ function serverDownload(path,name) {
 
 async function formSubmit(event) {
   const form=event.target;
-  if(!form.isConnected||(!currentWorkspace()&&!(form.id==="app-form"&&form.dataset.new==="true"))) {
+  const formId=form.getAttribute("id");
+  if(!form.isConnected||(!currentWorkspace()&&!(formId==="app-form"&&form.dataset.new==="true"))) {
     event.preventDefault();toast("App changed. Wait for this app to load and reopen the form.");return;
   }
-  const formId=form.getAttribute("id");
   if(formId==='apple-analytics-form'){event.preventDefault();return WMMAppleAnalytics.submit(form,growthReviewServices());}
   if(formId==='agreement-form'){event.preventDefault();return WMMAgreement.submit(form);}
   if(formId==='goal-readiness-form'){event.preventDefault();return WMMGoalReadiness.submit(form);}
@@ -841,7 +841,7 @@ async function formSubmit(event) {
     if(formId==="connection-setup-form") return await saveConnection(form);
     if(formId==="reference-import-form")return await previewReferences(form);
     const data=Object.fromEntries(new FormData(form));
-    if(["app-form","evidence-form","experiment-form"].includes(formId))automationCheckForm(form);
+    if(["app-form","evidence-form","experiment-form"].includes(formId)&&!(formId==='app-form'&&form.dataset.new==='true'&&!currentWorkspace()))automationCheckForm(form);
     if(formId==="provider-report-form") {
       if(form.dataset.app!==state.app)throw new Error("App changed. Close this form and reopen the report in the selected workspace.");
       await queue("sync",{connection_id:form.dataset.connection,connection_version:Number(form.dataset.version),options:{operation:data.operation,start:data.start,end:data.end,campaign_ids:data.campaign_ids.split(",").map(v=>v.trim()).filter(Boolean)}});
@@ -872,7 +872,7 @@ async function saveApp(data,isNew,form) {
   const previous=isNew?{}:state.workspace.app.data;
   await api("/api/apps",{id,data:{...previous,...data},version:isNew?null:Number(form.dataset.manifestVersion)});
   state.app=id;
-  if(isNew)state.view="workflow";
+  if(isNew)state.view="overview";
 }
 
 async function saveEvidence(data,form) {
