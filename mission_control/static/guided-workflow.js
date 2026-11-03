@@ -129,7 +129,7 @@ const WMMGoalJourney=(()=>{
 
 function goalOverview(){
  const id=state.goalChoice?.app===state.app?state.goalChoice.id:WMMGoalJourney.read(WMMGoalJourney.browserStorage(),state.app);
- return heading("Set your goal","Choose one outcome. Watch the work. Review what happened.")+WMMGoalJourney.view(state.workspace,id,esc)+button("Review combined automation agreement","goal-agreement")+button("Monitor approved campaigns","campaign-monitor-open")+button("Review private campaign outcomes","owner-report-open")+`<details class="panel" id="goal-advanced"><summary>Advanced app overview and twelve-stage diagnostics</summary>${detailedOverview().replace(/<h1>/g,"<h2>").replace(/<\/h1>/g,"</h2>")}</details>`;
+ return heading("Set your goal","Choose one outcome. Watch the work. Review what happened.")+WMMGoalJourney.view(state.workspace,id,esc)+button("Open your first packet","automatic-open",'data-first-packet="true"')+`<details class="panel" id="goal-advanced"><summary>Advanced app overview and twelve-stage diagnostics</summary><div class="toolbar">${button("Review combined automation agreement","goal-agreement")}${button("Monitor approved campaigns","campaign-monitor-open")}${button("Review private campaign outcomes","owner-report-open")}</div>${detailedOverview().replace(/<h1>/g,"<h2>").replace(/<\/h1>/g,"</h2>")}</details>`;
 }
 
 function goalAction(node){

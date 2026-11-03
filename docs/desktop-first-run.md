@@ -20,7 +20,7 @@ Your data stays outside the installed program. Windows uses your local applicati
 
 1. **Add your app.** Use **Add an app**, then describe who it helps, the problem it solves and the action a new user should complete. Keep the first goal narrow: for example, get someone to finish their first useful session.
 2. **Choose “Find a useful marketing angle.”** Add a real reference you want to study, with its source. A saved reference is research; viral-only qualification still requires 100,000 views and 10× a documented creator baseline.
-3. **Inspect the saved work.** Open **Advanced tools → Guided workflow → Inspect current packets**. Read the prepared work, its source records and the missing inputs. This is your first evidence packet; it does not require publication or ad spend.
+3. **Inspect the saved work.** Choose **Open your first packet** on **Set your goal**. Read the prepared work, its source records and the missing inputs. This is your first evidence packet; it does not require publication or ad spend.
 4. **Take the next useful action.** Revise the brief or creative, add the missing source, or connect your own analytics in **Review results**. Keep the packet and export its report for your agent or teammate.
 
 Core preparation needs no model key or paid account. Connected reads, video tools and campaign execution show their own prerequisites. The goal-specific **Check connections for this goal** control identifies the selected agent and account setup. Owner sign-in is required before inspecting private account readiness or granting authority.
