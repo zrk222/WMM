@@ -286,7 +286,7 @@
       "id": "STORE_CVR",
       "family": "acquisition",
       "title": "Store Cvr",
-      "definition": "provider-defined first acquisition / eligible listing visitors",
+      "definition": "provider-specific store conversion. Apple total downloads and pre-orders / unique device impressions, counting each pre-order once",
       "current_coverage": "MISSING_STORE_ANALYTICS",
       "required_status": "REQUIRED_NOT_COMPLETE",
       "required_scope": [

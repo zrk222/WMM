@@ -93,10 +93,43 @@
       "allowance_limit": 60,
       "publish_intents": 0,
       "publication": "NOT_DISPATCHED"
+    },
+    {
+      "id": "E06",
+      "kind": "LIVE_APPROVED_POST_VERIFIED_AFTER_RESTART",
+      "observed_at": "2026-11-04T01:29:50.844195+00:00",
+      "source_sha256": "dae8995f0baa3101bdc7eb41006adfb0c88f8544fd5db1fdac3bea4314f7a2a7",
+      "status": "VERIFIED",
+      "publish_intents_after_restart": 1,
+      "approved_message_and_link_match": true,
+      "permalink": "https://www.facebook.com/122102679789533699/posts/122102676339533699",
+      "measured_business_effect": null
+    },
+    {
+      "id": "E07",
+      "kind": "LIVE_APPLE_INVENTORY_REFRESH",
+      "observed_at": "2026-11-04T01:26:43.428578+00:00",
+      "source_sha256": "ee30f902d376c48e36a30e03a8e6b84d7e27732321fe57fcd992643dfdf8cc0c",
+      "job_status": "SUCCEEDED",
+      "data_status": "WAITING_FOR_REPORTS",
+      "report_families": 5,
+      "available_instances": 0,
+      "metric_observations": null
+    },
+    {
+      "id": "E08",
+      "kind": "LIVE_BACKGROUND_MONITOR_AND_PRIVATE_OWNER_REPORT",
+      "observed_at": "2026-11-04T01:31:48.213892+00:00",
+      "source_sha256": "be1e5c201fb420240547b39b33d4efdd3980aa61b8070674bc07a15cd454e029",
+      "monitor_status": "OBSERVED",
+      "post_status": "VERIFIED",
+      "monitor_runs": 1,
+      "provider_units_used": 15,
+      "provider_units_limit": 16,
+      "owner_report_saved": true
     }
   ],
   "unproven": [
-    "campaign_publication",
     "notification_delivery",
     "ad_spending",
     "numerical_baseline",

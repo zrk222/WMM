@@ -1,4 +1,4 @@
-# Complete analytics: report-to-acceptance coverage
+# Analytics coverage and implementation gaps
 
 The 2026-10-25 report is incorporated into existing UPG-08. All eight KPI families remain required. This matrix records definitions and missing stages; it does not implement collectors.
 
@@ -8,6 +8,12 @@ The 2026-10-25 report is incorporated into existing UPG-08. All eight KPI famili
 - Supplied cohort CAC and useful-value retention and subscription conversion already exist.
 - RevenueCat overview is not exact individual LTV or an MMP identity join.
 - No assumption that existing Android Publisher permission grants GCS analytics download.
+
+Apple's conversion rate uses total downloads and pre-orders divided by unique
+device impressions. A pre-order is counted once across the pre-order and download
+events. A product-page-view denominator would define a different funnel metric.
+Keep provider-specific denominators and availability thresholds with each result.
+[Apple metric definitions](https://developer.apple.com/help/app-store-connect-analytics/reference/metrics-definitions)
 
 ## Required metrics
 
@@ -20,7 +26,7 @@ The 2026-10-25 report is incorporated into existing UPG-08. All eight KPI famili
 | ROAS_D30 | MISSING | attributed cohort revenue through day30 / matched cohort spend |
 | PAYBACK | MISSING | first mature horizon cumulative net contribution recovers acquisition cost |
 | LTV_CAC | MISSING | same-cohort declared observed or modeled LTV / same-cohort CAC |
-| STORE_CVR | MISSING_STORE_ANALYTICS | provider-defined first acquisition / eligible listing visitors |
+| STORE_CVR | MISSING_STORE_ANALYTICS | provider-specific store conversion. Apple total downloads and pre-orders / unique device impressions, counting each pre-order once |
 | STORE_IMPRESSIONS | MISSING_STORE_ANALYTICS | provider count at declared unique or total grain |
 | KEYWORD_RANK | MISSING_ORGANIC_RANK | dated store-country-locale-device query position |
 | LISTING_EXPERIMENT | MISSING | provider-exposed variant views installs and declared uncertainty |
