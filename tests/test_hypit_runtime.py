@@ -1,5 +1,9 @@
 """Fixed owned runtime lifecycle, endpoint admission and uncertain-build boundaries."""
 from pathlib import Path
+import hashlib
+import os
+import shutil
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -21,6 +25,65 @@ def status():
 
 
 class RuntimeTests(unittest.TestCase):
+    @unittest.skipUnless(os.environ.get('WMM_HYPIT_NATIVE_TEST') == '1', 'explicit local Hypit runtime proof')
+    def test_actual_hypit_compiles_and_renders_managed_video(self):
+        ffmpeg = shutil.which('ffmpeg')
+        self.assertTrue(ffmpeg and shutil.which('ffprobe') and shutil.which('hypit'))
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); original = root / 'original.mp4'; folder = root / 'project'; folder.mkdir()
+            subprocess.run([ffmpeg, '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
+                '-f', 'lavfi', '-i', 'color=c=red:s=64x64:r=24:d=1',
+                '-f', 'lavfi', '-i', 'color=c=blue:s=64x64:r=24:d=1',
+                '-filter_complex', '[0:v][1:v]concat=n=2:v=1:a=0[out]', '-map', '[out]',
+                '-c:v', 'libx264', '-pix_fmt', 'yuv420p', str(original)],
+                check=True, capture_output=True, timeout=40)
+            raw = original.read_bytes()
+            media = {'id': '11111111-1111-1111-1111-111111111111',
+                     'sha256': hashlib.sha256(raw).hexdigest(), 'in_frame': 24, 'audio': 'MUTE'}
+            value = dict(title='Synthetic', shape='PORTRAIT', schema='growth.hypit-footage-scene.v1',
+                         scenes=[dict(text='Demo', seconds=1, media=media)])
+            try:
+                receipt = render(folder, value, sources={0: raw})
+            except Exception:
+                # Preserve the original failure while attempting to stop only this test's runtime.
+                if (folder / '.hypit/runtimes/local/runtime.sqlite').is_file():
+                    subprocess.run([shutil.which('hypit'), 'runtime', 'down', '--runtime', 'runtime.json', '--json'],
+                                   cwd=folder, capture_output=True, timeout=60, check=False)
+                raise
+            self.assertEqual(receipt['publication'], 'NOT_RUN')
+            self.assertGreater(receipt['artifact']['bytes'], 0)
+            output = subprocess.run([ffmpeg, '-hide_banner', '-loglevel', 'error', '-i', str(folder / 'video.mp4'),
+                '-vf', 'crop=2:2:200:500,format=rgb24', '-frames:v', '1', '-f', 'rawvideo', 'pipe:1'],
+                check=True, capture_output=True, timeout=20).stdout
+            self.assertGreater(output[2], 100)
+            self.assertLess(output[0], 60)
+
+    def test_real_managed_snapshot_is_cut_at_the_selected_normalized_frame(self):
+        ffmpeg = shutil.which('ffmpeg')
+        if not ffmpeg or not shutil.which('ffprobe'):
+            self.skipTest('FFmpeg and FFprobe are required for real frame verification')
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); original = root / 'source.mp4'; folder = root / 'project'; folder.mkdir()
+            subprocess.run([ffmpeg, '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
+                '-f', 'lavfi', '-i', 'color=c=red:s=64x64:r=24:d=1',
+                '-f', 'lavfi', '-i', 'color=c=blue:s=64x64:r=24:d=1',
+                '-filter_complex', '[0:v][1:v]concat=n=2:v=1:a=0[out]', '-map', '[out]',
+                '-c:v', 'libx264', '-pix_fmt', 'yuv420p', str(original)], check=True, capture_output=True, timeout=40)
+            raw = original.read_bytes()
+            media = {'id': '11111111-1111-1111-1111-111111111111',
+                     'sha256': hashlib.sha256(raw).hexdigest(), 'in_frame': 24, 'audio': 'MUTE'}
+            value = dict(title='Frame fixture', shape='PORTRAIT', schema='growth.hypit-footage-scene.v1',
+                         scenes=[dict(text='Actual frame', seconds=1, media=media)])
+            receipt = stage(folder, value, sources={0: raw})
+            output = subprocess.run([ffmpeg, '-hide_banner', '-loglevel', 'error', '-i',
+                str(folder / 'assets/scene0.mp4'), '-frames:v', '1', '-f', 'rawvideo',
+                '-pix_fmt', 'rgb24', 'pipe:1'], check=True, capture_output=True, timeout=20).stdout
+            self.assertGreater(output[2], 150)
+            self.assertLess(output[0], 50)
+            source_current(folder, receipt)
+            (folder / 'assets/scene0.mp4').write_bytes(b'changed')
+            with self.assertRaises(Invalid): source_current(folder, receipt)
+
     def test_stage_only_fixed_files_and_reject_existing_or_unknown_inputs(self):
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)

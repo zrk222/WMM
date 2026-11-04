@@ -61,6 +61,8 @@ WORKFLOWS = {
 # These operations remain separately approved through exact scoped grants or a
 # current owner session; they are not added to existing standing policies.
 UNBUNDLED_OPERATIONS = {
+    'organic-video.claim': 'viral_discovery',
+    'organic-video.submit': 'viral_discovery',
     'creative.source.save': 'video_authoring_editing',
     'creative.analysis.save': 'video_authoring_editing',
     'creative.profile.save': 'video_authoring_editing',

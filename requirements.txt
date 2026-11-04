@@ -1,2 +1,4 @@
 # IANA timezone data is required on Windows for scheduling and daylight saving.
 tzdata==2025.3 --hash=sha256:06a47e5700f3081aab02b2e513160914ff0694bce9947d6b76ebd6bf57cfc5d1
+# Native Windows CryptoAPI certificate validation for GitHub operator identity.
+truststore==0.10.5 ; sys_platform == "win32" --hash=sha256:9aaaedaefaf06d8b206278cf8b5012bc897f485a874503501e12d776df78951c

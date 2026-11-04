@@ -31,6 +31,8 @@ OPERATIONS={
     'discovery.watch':descriptor('POST','/discovery/watch','WRITE_LOCAL_EVIDENCE',('id','version','manifest_version','data')),
     'discovery.attempt':descriptor('POST','/discovery/attempt','WRITE_LOCAL_EVIDENCE',('id','manifest_version','watch_id','watch_hash','collection_id','collection_hash','source_results')),
     'discovery.handoff':descriptor('POST','/discovery/handoff','READ_PRIVATE_LOCAL_DATA',('manifest_version','collection_id','collection_hash','reference_id','review_hash')),
+    'organic-video.claim':descriptor('POST','/organic-video/claim','WRITE_LOCAL_EVIDENCE',('task_id','task_hash')),
+    'organic-video.submit':descriptor('POST','/organic-video/submit','WRITE_LOCAL_EVIDENCE',('task_id','result')),
     'workspace.read':descriptor('GET','','READ_PRIVATE_LOCAL_DATA'),
     'evidence.save':descriptor('POST','/workflow-evidence','WRITE_LOCAL_EVIDENCE',('id','manifest_version','kind','title','source','data'),('version',)),
     'pipeline.prepare':descriptor('POST','/jobs','QUEUE_LOCAL_PREPARATION',('action','data','request_key')),

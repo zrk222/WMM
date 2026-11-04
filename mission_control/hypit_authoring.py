@@ -1,6 +1,7 @@
 """Data-only Hypit composition authoring; no request-supplied code or endpoints."""
 import hashlib
 import json
+import re
 from xml.sax.saxutils import escape
 from .common import Invalid, canonical, digest
 from .media_native import SHAPES
@@ -9,6 +10,7 @@ MAX_SCENES = 12
 MAX_TEXT = 240
 MAX_SECONDS = 60
 FPS = 24
+FOOTAGE_SCHEMA = 'growth.hypit-footage-scene.v1'
 
 
 def literal(value):
@@ -28,17 +30,25 @@ def xml_character(code):
 
 def scene_contract(value):
     """Freeze exact finite data before content can reach the markup compiler."""
-    if not isinstance(value, dict) or set(value) != {'title', 'shape', 'scenes'}:
+    if not isinstance(value, dict) or set(value) not in ({'title', 'shape', 'scenes'}, {'schema', 'title', 'shape', 'scenes'}):
         raise Invalid('Choose only title, shape and scenes')
+    footage = 'schema' in value
+    if footage and value['schema'] != FOOTAGE_SCHEMA:
+        raise Invalid('Use the supported footage scene version')
     if not isinstance(value['shape'], str) or value['shape'] not in SHAPES:
         raise Invalid('Choose portrait or landscape')
     scenes = value['scenes']
     if not isinstance(scenes, list) or not 1 <= len(scenes) <= MAX_SCENES:
         raise Invalid('Use 1 through 12 scenes')
-    normalized = [scene_item(item) for item in scenes]
+    normalized = [footage_item(item) if footage else scene_item(item) for item in scenes]
     if sum(item['seconds'] for item in normalized) > MAX_SECONDS:
         raise Invalid('Keep the composition within 60 seconds')
-    return dict(title=literal(value['title']), shape=value['shape'], scenes=normalized)
+    result = dict(title=literal(value['title']), shape=value['shape'], scenes=normalized)
+    if footage:
+        if not any('media' in item for item in normalized):
+            raise Invalid('Choose at least one managed footage segment')
+        result['schema'] = FOOTAGE_SCHEMA
+    return result
 
 
 def scene_item(item):
@@ -51,6 +61,25 @@ def scene_item(item):
     return dict(text=literal(item['text']), seconds=seconds)
 
 
+def footage_item(item):
+    """Use the existing studio media identity and 24-fps source frame contract."""
+    if not isinstance(item, dict) or set(item) not in ({'text', 'seconds'}, {'text', 'seconds', 'media'}):
+        raise Invalid('Each footage scene needs text, seconds and optional managed media')
+    result = scene_item({'text': item['text'], 'seconds': item['seconds']})
+    if 'media' not in item:
+        return result
+    media = item['media']
+    if (not isinstance(media, dict) or set(media) != {'id', 'sha256', 'in_frame', 'audio'}
+            or not isinstance(media['id'], str) or not re.fullmatch(r'[a-f0-9-]{36}', media['id'])
+            or not isinstance(media['sha256'], str) or not re.fullmatch(r'[a-f0-9]{64}', media['sha256'])
+            or type(media['in_frame']) is not int or not 0 <= media['in_frame'] <= 1439
+            or media['in_frame'] + result['seconds'] * FPS > 1440
+            or media['audio'] != 'MUTE'):
+        raise Invalid('Choose managed footage, a valid source frame and MUTE audio')
+    result['media'] = dict(media)
+    return result
+
+
 def composition(value):
     """Emit a fixed vocabulary; literal text never becomes an attribute or import."""
     width, height = SHAPES[value['shape']]
@@ -58,19 +87,29 @@ def composition(value):
     windows = []
     tracks = []
     layers = []
+    media_declarations = []
+    media_layers = []
     start = 0
     for index, item in enumerate(value['scenes']):
         name = 'scene' + str(index)
         windows.append(f'<time:Window id="{name}" from="{start}s" for="{item["seconds"]}s"/>')
         tracks.append(f'<typo:Flow id="{name}" timeline={{clock.timeline}} within={{body}} style={{body-style}} z="20" align="center" block-align="center" during={{clock.{name}}}>{escape(item["text"])}</typo:Flow>')
         layers.append(f'<film:Track source={{{name}.visual}}/>')
+        if 'media' in item:
+            media_declarations.append(f'<media:Video id="original{index}" src="./assets/scene{index}.mp4"/>\n'
+                f'<mediaop:Normalize id="normalized{index}" source={{original{index}}} video="primary-moving" audio="none" span-authority="video" clock={{fps}}/>\n'
+                f'<visual:Track id="footage{index}" timeline={{clock.timeline}}><visual:Clip id="clip{index}" media={{normalized{index}.media}} during={{clock.{name}}} frame={{body}} z="0" fit="contain"/></visual:Track>')
+            media_layers.append(f'<film:Track source={{footage{index}.visual}}/>')
         start += item['seconds']
+    imports = ('<import as="mediaop" from="@hypit/media-operations@1"/>\n'
+               '<import as="visual" from="@hypit/visual-track@1"/>\n') if media_declarations else ''
+    media_source = '\n'.join(media_declarations) + '\n' if media_declarations else ''
     return f'''<?svml using="@hypit/markup@1"?>
 <svml>
 <import as="time" from="@hypit/timeline-author@1"/>
 <import as="space" from="@hypit/spatial@1"/>
 <import as="media" from="@hypit/media@1"/>
-<import as="typo" from="@hypit/text-fine@1"/>
+{imports}<import as="typo" from="@hypit/text-fine@1"/>
 <import as="film" from="@hypit/film@1"/>
 <import as="html" from="@hypit/html-video@1"/>
 <import as="style" source="./style.svs"/>
@@ -82,10 +121,10 @@ def composition(value):
 <media:Font id="font" src="./font.ttf" weight="400" style="normal"/>
 <typo:Style id="title-style" recipe={{style.text.title}} font={{font}}/>
 <typo:Style id="body-style" recipe={{style.text.body}} font={{font}}/>
-<typo:Flow id="title" timeline={{clock.timeline}} within={{heading}} style={{title-style}} z="10" align="center" block-align="center" during={{clock.window}}>{escape(value['title'])}</typo:Flow>
+{media_source}<typo:Flow id="title" timeline={{clock.timeline}} within={{heading}} style={{title-style}} z="10" align="center" block-align="center" during={{clock.window}}>{escape(value['title'])}</typo:Flow>
 {''.join(tracks)}
 <film:Film id="main" canvas={{canvas.canvas}} timeline={{clock.timeline}} appearance={{style.film.main}}>
-<film:Track source={{title.visual}}/>{''.join(layers)}
+{''.join(media_layers)}<film:Track source={{title.visual}}/>{''.join(layers)}
 </film:Film>
 <html:Video id="final" composition={{main.composition}} timeline={{clock.timeline}}/>
 </svml>

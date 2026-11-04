@@ -1,10 +1,9 @@
 """Read-only guided Hypit preflight and explicit content-bound reuse."""
 import shutil
 from .common import Invalid, digest
-from .creative_rendering import render_request
 from .db import connection
 from .hypit_authoring import FPS, project
-from .hypit_jobs import artifact_file, brief_scene, capability, current_inputs, saved
+from .hypit_jobs import artifact_file, capability, current_inputs, resolve_inputs, saved
 from .media_native import SHAPES, capability as media_capability
 
 SCAN_LIMIT = 50
@@ -16,8 +15,8 @@ def inputs(store, app_id, body):
     """Resolve precisely the same currently approved request and scene as queue."""
     store.app(app_id)
     with connection(store.path) as db:
-        request = render_request(db, store, app_id, body)
-    return dict(request=request, scene=brief_scene(request))
+        result, _ = resolve_inputs(db, store, app_id, body)
+    return result
 
 
 def source_hashes(scene):
@@ -96,7 +95,8 @@ def check_candidate(store, app_id, render_id, expected_inputs, expected_sources)
     artifact = checked_artifact(path, data)
     return dict(render_id=render_id, artifact_hash=artifact['sha256'], artifact_bytes=artifact.get('bytes'),
                 input_hash=digest(stored_inputs), source_hash=digest(expected_sources),
-                authoring_mode='APPROVED_BRIEF_CAPTIONS', visual_review='REQUIRED', publication='NOT_RUN')
+                authoring_mode='APPROVED_MANAGED_FOOTAGE' if 'media_bindings' in stored_inputs else 'APPROVED_BRIEF_CAPTIONS',
+                visual_review='REQUIRED', publication='NOT_RUN')
 
 
 def candidates(store, app_id, current, sources):
@@ -131,8 +131,8 @@ def plan(store, app_id, body):
                     method='Whitespace-separated words divided by scene seconds.',
                     note='A flag prompts visual and listening review; no flag is not a quality or accessibility pass.'),
                 reuse_candidates=candidates(store, app_id, current, sources),
-                authoring_mode='APPROVED_BRIEF_CAPTIONS', visual_review='REQUIRED', publication='NOT_RUN',
-                next_steps=['Explicitly reuse a verified candidate or queue a new guided captions render.',
+                authoring_mode='APPROVED_MANAGED_FOOTAGE' if 'media_bindings' in current else 'APPROVED_BRIEF_CAPTIONS', visual_review='REQUIRED', publication='NOT_RUN',
+                next_steps=['Explicitly reuse a verified candidate or queue the selected guided render.',
                             'For richer authored visuals or sound, continue in the existing Hypit Studio workflow.',
                             'Inspect frames and playback before choosing a final export.'])
 

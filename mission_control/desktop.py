@@ -151,9 +151,19 @@ def dispatch(arguments):
 
 def self_test():
     """Exercise bundled assets and actual loopback APIs in a disposable private database."""
+    import ssl
     import tempfile
     from urllib.request import build_opener, ProxyHandler
     from mission_control.operation_catalog import catalog
+    from mission_control.operator_identity import _identity_trust_context
+    context = _identity_trust_context()
+    assert context.verify_mode == ssl.CERT_REQUIRED
+    assert context.check_hostname
+    assert context.minimum_version >= ssl.TLSVersion.TLSv1_2
+    identity_tls = dict(
+        profile='WINDOWS_NATIVE_TRUSTSTORE' if sys.platform == 'win32' else 'STDLIB_DEFAULT',
+        context_constructed=True, certificate_required=True, check_hostname=True,
+        minimum_tls_version=context.minimum_version.name)
     with tempfile.TemporaryDirectory() as folder:
         runtime = DesktopRuntime(Path(folder), 0)
         try:
@@ -169,7 +179,8 @@ def self_test():
         finally:
             runtime.close()
     print(json.dumps(dict(status='PASS', actual_loopback=True, bundled_assets=True,
-                          provider_execution='NOT_RUN', data='DISPOSABLE_SYNTHETIC')))
+                          provider_execution='NOT_RUN', data='DISPOSABLE_SYNTHETIC',
+                          identity_tls=identity_tls)))
 
 
 def vault_self_test():

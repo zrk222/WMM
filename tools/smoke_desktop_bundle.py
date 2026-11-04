@@ -103,6 +103,13 @@ def main():
             value = json.loads(result.stdout)
             if arguments in (['--self-test'], ['--vault-self-test']):
                 assert value['status'] == 'PASS'
+            if arguments == ['--self-test']:
+                tls = value['identity_tls']
+                assert tls['profile'] == ('WINDOWS_NATIVE_TRUSTSTORE' if sys.platform == 'win32' else 'STDLIB_DEFAULT')
+                assert tls['context_constructed'] is True
+                assert tls['certificate_required'] is True
+                assert tls['check_hostname'] is True
+                assert tls['minimum_tls_version'] == 'TLSv1_2'
             print(json.dumps(dict(command=arguments, exit_code=result.returncode)))
         import anyio
         anyio.run(mcp_smoke, binary, folder)

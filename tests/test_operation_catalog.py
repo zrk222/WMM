@@ -48,6 +48,23 @@ class OperationCatalogTests(unittest.TestCase):
         self.assertEqual(catalog()['operations']['workspace.read']['suffix'],'')
         self.assertIn('human_approval',value['denied'])
 
+    def test_external_video_collector_never_exposes_owner_preparation_or_tool_authority(self):
+        from mission_control.automation_requirements import workflow_catalog
+        operations = catalog()['operations']
+        self.assertNotIn('organic-video.prepare', operations)
+        self.assertEqual({name for name in operations if name.startswith('organic-video.')},
+                         {'organic-video.claim', 'organic-video.submit'})
+        for action, fields in (('claim', ['task_id', 'task_hash']), ('submit', ['task_id', 'result'])):
+            rule = operations['organic-video.' + action]
+            self.assertEqual(rule['required'], fields)
+            self.assertEqual(rule['effect'], 'WRITE_LOCAL_EVIDENCE')
+            self.assertEqual(rule['suffix'], '/organic-video/' + action)
+            self.assertEqual(rule['optional'], [])
+        workflows = workflow_catalog()
+        self.assertEqual(workflows['workflows']['viral_discovery']['operations'], [])
+        for action in ('claim', 'submit'):
+            self.assertEqual(workflows['unbundled_operations']['organic-video.' + action], 'viral_discovery')
+
     def test_path_segment_rejects_encoded_query_traversal_and_host_syntax(self):
         self.assertEqual(path_segment('sample-one'),'sample-one')
         for value in (None,True,'../other','one/other','one?approve=true','%2fother','https://other','Upper','one#x','one_2','one\r\nHost:x'):

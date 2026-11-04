@@ -1,0 +1,87 @@
+name: organic-video-automation
+language: python
+modules:
+- name: organic_video_discovery
+  path: mission_control/organic_video_discovery.py
+  language: python
+  functions:
+  - name: discovery_task
+    args: [app, policy, query]
+    returns: object
+  - name: validate_submission
+    args: [task, result]
+    returns: object
+  - name: qualify_submission
+    args: [task, result]
+    returns: object
+- name: organic_video_collector
+  path: mission_control/organic_video_collector.py
+  language: python
+  functions:
+  - name: prepare
+    args: [store, app_id, actor, body]
+    returns: object
+  - name: claim
+    args: [store, app_id, actor, body]
+    returns: object
+  - name: submit
+    args: [store, app_id, actor, body]
+    returns: object
+- name: organic_video_policy
+  path: mission_control/organic_video_policy.py
+  language: python
+  functions:
+  - name: validate_policy
+    args: [body]
+    returns: object
+  - name: admit_output
+    args: [policy, output, evidence]
+    returns: object
+- name: campaign_video_transport
+  path: mission_control/campaign_video_transport.py
+  language: python
+  functions:
+  - name: create
+    args: [page, metadata, context]
+    returns: object
+  - name: upload
+    args: [video_id, artifact, context]
+    returns: object
+  - name: read
+    args: [video_id, context]
+    returns: object
+  - name: publish
+    args: [video_id, metadata, context]
+    returns: object
+- name: campaign_video_execution
+  path: mission_control/campaign_video_execution.py
+  language: python
+  functions:
+  - name: create_intent
+    args: [store, app_id, actor, body]
+    returns: object
+  - name: execute
+    args: [store, app_id, actor, intent_id, transport]
+    returns: object
+  - name: reconcile
+    args: [store, app_id, actor, intent_id, transport]
+    returns: object
+- name: organic_video_workflow
+  path: mission_control/organic_video_workflow.py
+  language: python
+  functions:
+  - name: prepare
+    args: [store, app_id, actor, body]
+    returns: object
+dependencies:
+- from: organic_video_collector
+  to: organic_video_discovery
+- from: campaign_video_execution
+  to: campaign_video_transport
+- from: organic_video_workflow
+  to: organic_video_collector
+- from: organic_video_workflow
+  to: organic_video_policy
+- from: organic_video_workflow
+  to: campaign_video_execution
+invariants: []
