@@ -16,6 +16,7 @@ evidence, make one approved change, then measure what happened.
 | Nov 4, 01:15–01:29 | Ran the separately approved replacement schedule, then restarted WMM and reconciled its saved post ID. | Meta acknowledged one post. The current attachment readback matched the approved message and link, and WMM saved `VERIFIED`. One publish intent remained after restart. | E06 |
 | Nov 4, 01:26 | Refreshed the private Apple analytics inventory. | The authorized read succeeded. All five report families still had zero instances and numerical observations remained unavailable. | E07 |
 | Nov 4, 01:31 | Ran one bounded background monitor read and generated the private owner report. | The monitor independently returned `VERIFIED`; the report retained its source receipts and missing business measurements. | E08 |
+| Nov 4, 06:45 | Refreshed the running WMM process to the merged version, then used the owner API to inspect its installed-agent setup and saved report. | Agent setup returned the current source-runtime launch details without changing grants. The report hash passed, and the same single verified post intent remained after restart. This was saved local evidence, with no fresh Meta or Apple read. | E09 |
 
 The delivered change can be inspected on the public Page. [Published WizeMe.APP post](https://www.facebook.com/122102679789533699/posts/122102676339533699)
 
