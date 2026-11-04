@@ -10,12 +10,13 @@ from .organic_video_collector import prepare
 POLICY_ACTIONS = {'policy-create': 'create', 'policy-read': 'read', 'policy-revoke': 'revoke',
                   'policy-reserve': 'reserve', 'policy-admit': 'admit'}
 INTENT_ACTIONS = {'intent-create', 'intent-read', 'intent-execute', 'intent-reconcile'}
+SCHEDULE_ACTIONS = {'schedule-prepare', 'schedule-activate', 'schedule-status', 'schedule-revoke'}
 
 
 def post(handler, parts):
     """Preparing research is owner-only; recipient agents use the scoped gateway."""
     if (len(parts) != 5 or parts[:2] != ['api', 'apps']
-            or parts[3] != 'organic-video' or parts[4] not in {'prepare', 'task-read', 'intake', *POLICY_ACTIONS, *INTENT_ACTIONS}):
+            or parts[3] != 'organic-video' or parts[4] not in {'prepare', 'task-read', 'intake', *POLICY_ACTIONS, *INTENT_ACTIONS, *SCHEDULE_ACTIONS}):
         raise Invalid('Use the exact video research preparation address')
     identifier(parts[2])
     if handler.command != 'POST' or handler.path != '/' + '/'.join(parts):
@@ -39,6 +40,8 @@ def post(handler, parts):
         with protected(store, envelope) as actor:
             if action == 'prepare':
                 result = prepare(store, parts[2], actor, body)
+            elif action in SCHEDULE_ACTIONS:
+                result = schedule(store, parts[2], action, body)
             elif action == 'intake':
                 from .organic_video_intake import adopt
                 result = adopt(store, parts[2], actor, body)
@@ -80,3 +83,19 @@ def post(handler, parts):
                 from .organic_video_policy import Policies
                 result = getattr(Policies(store), POLICY_ACTIONS[action])(parts[2], body)
             return handler.send(200, result)
+
+
+def schedule(store, app_id, action, body):
+    from .campaign_contract import exact
+    from .organic_video_schedule import VideoSchedules
+    service = VideoSchedules(store)
+    if action == 'schedule-prepare':
+        return service.prepare(app_id, body)
+    if action == 'schedule-activate':
+        return service.activate(app_id, body)
+    if action == 'schedule-status':
+        exact(body, ('batch_id',))
+        return service.status(app_id, body['batch_id'])
+    exact(body, ('batch_id', 'version'))
+    from .campaign_schedule import CampaignSchedules
+    return CampaignSchedules(store).revoke(app_id, body['batch_id'], body['version'])

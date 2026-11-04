@@ -3,7 +3,7 @@ import json
 import threading
 import unittest
 from unittest.mock import patch
-from urllib.request import Request
+from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 
 from mission_control.operator_client import OperatorClient, ClientError
@@ -125,6 +125,41 @@ class PolicyHTTPTests(unittest.TestCase):
         for action,body in (('intent-create',dict(approved=True)),('intent-execute',dict(intent_id=uid(),force=True)),
                             ('intent-reconcile',dict(intent_id=uid(),actor='forged'))):
             with self.subTest(action=action),self.assertRaises(ClientError):self.request(action,body)
+
+    def test_owner_reviews_and_activates_exact_video_schedule_then_turns_it_off(self):
+        from datetime import datetime, timedelta, timezone
+        policy = self.request('policy-create', dict(request_id=uid(), policy=dict(self.f.policy, max_calls=40)))
+        admitted = self.request('policy-admit', self.f.admission(policy, reserve_calls=40))
+        output = admitted['data']['output']
+        intent = self.request('intent-create', dict(schema=REEL_SCHEMA, request_id=uid(), app_id=fixtures.APP,
+            page_id='123', policy_id=policy['id'], policy_hash=policy['hash'], admission_id=admitted['id'],
+            admission_hash=admitted['hash'], artifact_id=output['artifact_id'], artifact_sha256=output['artifact_sha256'],
+            caption=output['caption'], rights_hashes=sorted({x['rights_hash'] for x in admitted['data']['proofs']['sources']})))
+        body = dict(policy_id=policy['id'], policy_hash=policy['hash'], items=[dict(intent_id=intent['id'],
+                    due_at=(datetime.now(timezone.utc)+timedelta(minutes=1)).isoformat())])
+        draft = self.request('schedule-prepare', body)
+        identity = draft['summary']['batch_id']
+        with self.assertRaises(ClientError):
+            self.request('schedule-activate', dict(batch_id=identity, summary_hash='0'*64))
+        active = self.request('schedule-activate', dict(batch_id=identity, summary_hash=draft['summary_hash']))
+        self.assertEqual(active['status'], 'ACTIVE')
+        self.assertEqual(self.request('schedule-status', dict(batch_id=identity)), active)
+        issued = self.owner.request('POST', '/api/apps/'+fixtures.APP+'/agent-grants/issue', dict(
+            agent_id='schedule-reader', manifest_version=self.store.app(fixtures.APP)['version'],
+            operations=['organic-video.policy-read'], expires=(datetime.now(timezone.utc)+timedelta(hours=1)).isoformat(), max_calls=2))
+        bearer = Request(self.origin+self.base+'schedule-status', method='POST',
+            data=json.dumps(dict(batch_id=identity)).encode(), headers={'Origin':self.origin,
+                'Content-Type':'application/json','Authorization':'Bearer '+issued['token']})
+        with self.assertRaises(HTTPError) as denied:
+            urlopen(bearer, timeout=10)
+        self.assertEqual(denied.exception.code, 403)
+        denied.exception.close()
+        with self.assertRaises(ClientError):
+            self.request('schedule-revoke', dict(batch_id=identity, version=active['version']-1))
+        stopped = self.request('schedule-revoke', dict(batch_id=identity, version=active['version']))
+        self.assertEqual(stopped['status'], 'OFF')
+        with connection(self.store.path) as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM jobs WHERE action='campaign_post'").fetchone()[0], 0)
 
 
 class IntakeHTTPTests(unittest.TestCase):
