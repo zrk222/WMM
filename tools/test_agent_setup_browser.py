@@ -8,7 +8,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from playwright.sync_api import sync_playwright, expect
 from mission_control import agent_setup
-from mission_control.db import connection
 from mission_control.worker import jobs
 from tests.test_campaign_access import CampaignGatewayTests
 from tests.test_verified_review import OWNER_TOKEN
@@ -37,6 +36,8 @@ def run(browser, width, packaged, output):
             page.get_by_label('GitHub identity token', exact=True).fill(OWNER_TOKEN)
             page.get_by_role('button', name='Verify my identity', exact=True).click()
             expect(page.get_by_role('button', name='Review agent setup', exact=True)).to_be_visible()
+            before = fixture.owner.request('POST', '/api/apps/sample-one/agent-grants/list', {})
+            assert before['grants'] == []
             requests.clear()
             page.get_by_role('button', name='Review agent setup', exact=True).press('Enter')
             dialog = page.locator('#agent-control-dialog')
@@ -54,8 +55,7 @@ def run(browser, width, packaged, output):
             assert value['mcp_config']['mcpServers']['wmm-local']['args'][-1] == '--use-grant'
             assert OWNER_TOKEN not in json.dumps(value)
             assert not jobs(fixture.store, 'sample-one') and fixture.wire.posts == 0
-            with connection(fixture.store.path) as db:
-                assert db.execute('SELECT count(*) FROM agent_grants').fetchone()[0] == 0
+            assert fixture.owner.request('POST', '/api/apps/sample-one/agent-grants/list', {}) == before
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
             page.locator('#modal').screenshot(path=str(output / f'{kind}-{width}.png'))
             (output / f'{kind}-{width}.html').write_text(page.content(), encoding='utf-8')
