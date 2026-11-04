@@ -88,4 +88,7 @@
 #onesignal-root .onesignal-status p{margin:12px 0}
 #onesignal-root .onesignal-tools{display:flex;flex-wrap:wrap;gap:12px}
 #onesignal-root code{font-size:16px}
+.organic-policy-workspace{overflow-wrap:anywhere}
+.organic-policy-workspace fieldset{min-width:0}
+.organic-policy-workspace :is(input,textarea,select)[aria-invalid=true]{border-color:var(--red);outline:2px solid var(--red)}
 @media(max-width:480px){#onesignal-root .onesignal-steps{gap:6px}#onesignal-root .onesignal-steps li{grid-template-columns:16px minmax(0,1fr);font-size:16px;column-gap:3px}}

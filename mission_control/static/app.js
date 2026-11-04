@@ -72,6 +72,7 @@ function render() {
   WMMDrive.invalidate(state);
   WMMDiscovery.invalidate(state);
   WMMOrganicResearch.invalidate(state);
+  window.WMMOrganicPolicy?.invalidate(state);
   WMMPackaging.invalidate(state);
   WMMFunnels.invalidate(state);
   WMMAppleAnalytics.invalidate(state);
@@ -95,7 +96,7 @@ function render() {
   if(["agents","activity"].includes(state.view))$("#main .page-heading").insertAdjacentHTML("afterend",WMMCompleteAutomation.panel(state));
   if(state.view==='research')$("#main .page-heading").insertAdjacentHTML('afterend',WMMVideoEditor.panel());
   if(state.view==='research')$("#main .page-heading").insertAdjacentHTML('afterend',WMMStudio.panel());
-  if(state.view==='research')$("#main .page-heading").insertAdjacentHTML('afterend',WMMOrganicResearch.panel()+WMMDiscovery.panel()+WMMPackaging.panel(state)+WMMMedia.panel()+WMMDrive.panel());
+  if(state.view==='research')$("#main .page-heading").insertAdjacentHTML('afterend',WMMOrganicResearch.panel()+(window.WMMOrganicPolicy?.panel()||'')+WMMDiscovery.panel()+WMMPackaging.panel(state)+WMMMedia.panel()+WMMDrive.panel());
 
   automationDecorateWorkflow();
   WMMPageReports.decorate(state,document);
@@ -540,6 +541,7 @@ function modal(title,html,eyebrow="WORKSPACE") {
   WMMDrive.clear();
   WMMDiscovery.clear();
   WMMOrganicResearch.clear();
+  window.WMMOrganicPolicy?.clear();
   WMMPackaging.clear();
   WMMFunnels.clear();
   $("#modal-title").textContent=title;$("#modal-eyebrow").textContent=eyebrow;$("#modal-body").innerHTML=html;
@@ -804,6 +806,7 @@ async function formSubmit(event) {
   if(['packaging-variant-form','packaging-shots-form','packaging-preview-form','packaging-taste-form'].includes(formId)){event.preventDefault();return WMMPackaging.submit(form,growthReviewServices());}
   if(['discovery-query-form','discovery-source-form'].includes(formId)){event.preventDefault();return WMMDiscovery.submit(form,growthReviewServices());}
   if(['oresearch-task-form','oresearch-adopt-form'].includes(formId)){event.preventDefault();return WMMOrganicResearch.submit(form,growthReviewServices());}
+  if(formId==='opolicy-form'){event.preventDefault();return WMMOrganicPolicy.submit(form,growthReviewServices());}
   if(['media-upload-form','media-review-form'].includes(formId)){event.preventDefault();return WMMMedia.submit(form,growthReviewServices());}
   if((formId||"").startsWith("control-")) {event.preventDefault();return WMMAgentControl.submit(form,growthReviewServices());}
   if(formId==="subscription-plan-form") {event.preventDefault();return WMMSubscriptionAuthoring.submit(form,growthReviewServices());}
@@ -914,6 +917,7 @@ async function handleAction(node) {
   if(node.dataset.action.startsWith('packaging-'))return WMMPackaging.action(node,growthReviewServices());
   if(node.dataset.action.startsWith('discovery-'))return WMMDiscovery.action(node,growthReviewServices());
   if(node.dataset.action.startsWith('oresearch-'))return WMMOrganicResearch.action(node,growthReviewServices());
+  if(node.dataset.action.startsWith('opolicy-'))return WMMOrganicPolicy.action(node,growthReviewServices());
   if(node.dataset.action.startsWith('media-'))return WMMMedia.action(node,growthReviewServices());
   if(node.dataset.action.startsWith('standing-'))return WMMCompleteAutomation.action(node,growthReviewServices());
   if(node.dataset.action==="retry-workspace")return refresh();
@@ -1041,5 +1045,8 @@ $("#event-file").addEventListener("change",async event=>{
 });
 initialize();
 $("#modal").addEventListener("close",()=>WMMOrganicResearch.clear());
+$("#modal").addEventListener("close",()=>{if(!$("#modal").open)window.WMMOrganicPolicy?.clear();});
+document.addEventListener('invalid',event=>window.WMMOrganicPolicy?.validation(event.target,growthReviewServices(),true),true);
+document.addEventListener('input',event=>window.WMMOrganicPolicy?.validation(event.target,growthReviewServices()));
 document.addEventListener('invalid',event=>WMMOrganicResearch.validation(event.target,growthReviewServices(),true),true);
 document.addEventListener('input',event=>WMMOrganicResearch.validation(event.target,growthReviewServices()));
