@@ -36,6 +36,7 @@ matrix below must be updated from actual implementation/test/live receipts.
 
 | Requirement | Current acceptance state | Required proof |
 | --- | --- | --- |
+| Complete commercial operational GUI | OWNER_REQUIRED; EXISTING_UI_PARTIAL; FULL_PARITY_UNVERIFIED | Actual app coverage matrix, role-aware end-to-end user/agent workflows, first-use acceptance, desktop/mobile/keyboard and recovery/export receipts; sample UI is excluded |
 | Shared hosted team dashboard and isolation | NOT_IMPLEMENTED | Two tenants, four roles, cross-tenant rejection, revocation and audit receipts |
 | Zero local setup SaaS | NOT_IMPLEMENTED | First-time operator completes a useful task, timed; reconnect/restart/recovery and mobile/keyboard checks |
 | Cloud credential residency | DESIGN_REQUIRED | Opt-in onboarding/migration, protected storage, tenant-negative tests, no secrets in logs/artifacts |
@@ -47,3 +48,16 @@ matrix below must be updated from actual implementation/test/live receipts.
 
 No new hosted engine is approved by a plan label. Reuse domain services, specify
 the execution boundary and then prove it with integration and live acceptance.
+
+## Commercial GUI requirement
+
+Owner added a complete operational GUI as a goal requirement on November 4, 2026.
+Use specs/commercial-gui.md for coverage and acceptance. Reuse the existing local
+Mission Control front end and domain services. Inspect and close workflow gaps
+before choosing a framework migration. Public Pages and its synthetic sample
+are discovery aids; they cannot close actual application GUI acceptance.
+
+The initial source-backed inventory is docs/gui-coverage.md. It identifies the
+missing organic research → intake → policy → admitted creative → intent →
+schedule → monitor GUI and the existing controls/services to extend. Inventory
+the remaining screen contract before claiming whole-product parity.
