@@ -183,6 +183,23 @@ class OrganicPolicyTests(unittest.TestCase):
         with self.assertRaisesRegex(PermissionError, 'generation ceiling'):
             self.call('reserve', self.reservation_body(policy))
 
+    def test_metadata_only_heartbeat_preserves_rights_checks_and_default_reads_bytes(self):
+        policy = self.create()
+        from mission_control import managed_media_store
+        original = managed_media_store._read_original
+        with connection(self.store.path) as db:
+            row = db.execute('SELECT * FROM organic_video_policies WHERE id=?', (policy['id'],)).fetchone()
+            with patch.object(managed_media_store, '_read_original', wraps=original) as reader:
+                self.policies._current(db, row, verify_bytes=False)
+                reader.assert_not_called()
+                self.policies._current(db, row)
+                self.assertGreater(reader.call_count, 0)
+        self.media.review(APP, self.source['id'], dict(self.review, expected_version=1, status='REVOKED'), OWNER)
+        with connection(self.store.path) as db:
+            row = db.execute('SELECT * FROM organic_video_policies WHERE id=?', (policy['id'],)).fetchone()
+            with self.assertRaises(Invalid):
+                self.policies._current(db, row, verify_bytes=False)
+
     def test_concurrent_generation_reservations_are_atomic(self):
         policy = self.create(dict(self.policy, mode='STANDING_GENERATED', approved_output_hashes=[], max_generations=1))
         def reserve(body):

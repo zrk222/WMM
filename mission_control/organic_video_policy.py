@@ -180,7 +180,7 @@ def _page(db, app_id, proposal):
     return dict(version=row['version'], config_version=row['config_version'], data_hash=digest(json.loads(row['data'])))
 
 
-def _proofs(db, store, app_id, proposal):
+def _proofs(db, store, app_id, proposal, *, verify_bytes=True):
     from .creative_briefs import bound_record, latest_proof
     from .managed_media_store import derivative_snapshot
     app = db.execute('SELECT * FROM apps WHERE id=?', (app_id,)).fetchone()
@@ -189,7 +189,7 @@ def _proofs(db, store, app_id, proposal):
     manifest = json.loads(app['data'])
     sources = []
     for selected in proposal['sources']:
-        view, _ = derivative_snapshot(db, store, app_id, selected['id'], selected['sha256'])
+        view, _ = derivative_snapshot(db, store, app_id, selected['id'], selected['sha256'], verify_bytes=verify_bytes)
         if view['review_version'] != selected['review_version']:
             raise Invalid('Source rights review changed')
         sources.append(dict(selected, rights_hash=digest(view['latest_review']), record_hash=view['hash']))
@@ -268,7 +268,7 @@ class Policies:
                        (app_id, identity, body['request_id'], digest(body), canonical(data), digest(data), now()))
             return self._current(db, db.execute('SELECT * FROM organic_video_policies WHERE id=?', (identity,)).fetchone())
 
-    def _current(self, db, row):
+    def _current(self, db, row, *, verify_bytes=True):
         saved = _saved(row)
         data = saved['data']
         proposal = data['policy']
@@ -281,7 +281,7 @@ class Policies:
             raise PermissionError('Organic policy app changed')
         if _page(db, data['app_id'], proposal) != data['page']:
             raise PermissionError('Organic policy Page connection changed')
-        if _proofs(db, self.store, data['app_id'], proposal) != data['proofs']:
+        if _proofs(db, self.store, data['app_id'], proposal, verify_bytes=verify_bytes) != data['proofs']:
             raise Invalid('Organic policy source rights or claim evidence changed')
         return saved
 
