@@ -53,7 +53,8 @@ class VerifiedReviewTests(unittest.TestCase):
             user=github_read("/user",OWNER_TOKEN);self.assertEqual(user["principal"],OWNER["principal"])
             request=opener.return_value.open.call_args.args[0]
             self.assertEqual(request.full_url,"https://api.github.com/user");self.assertEqual(request.get_method(),"GET")
-            self.assertEqual(opener.return_value.open.call_args.kwargs["timeout"],15)
+            timeout=opener.return_value.open.call_args.kwargs["timeout"]
+            self.assertEqual(timeout,15)
             self.assertEqual(request.headers["Authorization"],"Bearer "+OWNER_TOKEN)
             self.assertEqual(set(user),{"principal","login","provider","verified_at"})
             for path in ("https://evil.test/user","/user?token=x","/users/a/b","/repos/owner/private","/users/../user"):

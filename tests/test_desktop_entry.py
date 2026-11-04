@@ -399,6 +399,16 @@ class DesktopEntryTests(unittest.TestCase):
         self.assertIn('secretstorage', argv)
         self.assertIn('jeepney', argv)
 
+    def test_only_windows_bundle_collects_native_identity_trust(self):
+        import runpy
+        for platform in ('win32', 'linux', 'darwin'):
+            with self.subTest(platform=platform), patch('sys.platform', platform):
+                argv = runpy.run_path(str(Path(__file__).resolve().parents[1]/'tools/build_desktop.py'))['command']()
+            self.assertEqual('truststore' in argv, platform == 'win32')
+            if platform == 'win32':
+                index = argv.index('truststore')
+                self.assertEqual(argv[index - 1], '--collect-all')
+
 
 
 if __name__ == "__main__":

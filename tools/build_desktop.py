@@ -22,6 +22,8 @@ def command():
             '--collect-submodules', 'mcp.client', '--exclude-module', 'mcp.cli']
     if sys.platform.startswith('linux'):
         argv += ['--collect-all', 'secretstorage', '--collect-submodules', 'jeepney']
+    if sys.platform == 'win32':
+        argv += ['--collect-all', 'truststore']
     # A console-enabled executable is needed for stdio MCP/CLI transport.
     # Windows users launch the terminal-free .vbs shortcut supplied alongside it.
     for path in DATA:

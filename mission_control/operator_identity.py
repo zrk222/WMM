@@ -2,12 +2,37 @@
 import json
 import re
 import secrets
+import ssl
+import sys
 import threading
 import time
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, build_opener
+from urllib.request import HTTPSHandler, Request, build_opener
 from .common import Invalid, now
 from .providers import NoRedirect
+
+
+def _identity_trust_context():
+    """Use native Windows certificate verification without global SSL changes."""
+    if sys.platform == "win32":
+        try:
+            import truststore
+        except ImportError as exc:
+            raise Invalid("Windows identity verification requires the bundled native trust provider") from exc
+        context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    else:
+        context = ssl.create_default_context()
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    context.verify_mode = ssl.CERT_REQUIRED
+    context.check_hostname = True
+    return context
+
+
+def _github_opener(context=None):
+    """Build a fixed GitHub reader for one verified trust profile."""
+    if context is None:
+        context = _identity_trust_context()
+    return build_opener(NoRedirect(), HTTPSHandler(context=context))
 
 
 def github_read(path,token):
@@ -15,11 +40,16 @@ def github_read(path,token):
     if not re.fullmatch(r"/user|/users/[A-Za-z0-9-]{1,39}",path):raise Invalid("Unapproved identity endpoint")
     headers={"Accept":"application/vnd.github+json","Authorization":"Bearer "+token,
              "X-GitHub-Api-Version":"2026-03-10","User-Agent":"App-Growth-Mission-Control"}
+    # Native verification failures never retry through a different trust engine.
+    # urllib's 15-second timeout applies per blocking I/O, not to the whole response.
+    opener=_github_opener()
+    request=Request("https://api.github.com"+path,headers=headers,method="GET")
     try:
-        with build_opener(NoRedirect()).open(Request("https://api.github.com"+path,headers=headers,method="GET"),timeout=15) as response:
+        with opener.open(request,timeout=15) as response:
             raw=response.read(65537)
     except HTTPError as exc:raise Invalid(f"GitHub identity verification returned HTTP {exc.code}; sign in again or check access") from exc
-    except (URLError,TimeoutError) as exc:raise Invalid("GitHub identity verification is unavailable; saved work is preserved") from exc
+    except (URLError,ssl.SSLError,TimeoutError) as exc:
+        raise Invalid("GitHub identity verification is unavailable; saved work is preserved") from exc
     if len(raw)>65536:raise Invalid("GitHub identity response exceeds the supported size")
     try:return identity(json.loads(raw))
     except (ValueError,TypeError,AttributeError) as exc:raise Invalid("GitHub identity response is invalid") from exc
