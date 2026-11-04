@@ -6,7 +6,7 @@ from .operation_catalog import catalog
 from .personal_agent_profiles import operating_guide
 
 
-def discovery(app):
+def discovery(app, profile=None):
     """Project only public app scope and policy; discovery never grants execution."""
     policy = operating_manifest(app)
     base = "/api/apps/" + app["id"]
@@ -41,4 +41,9 @@ def discovery(app):
             "remaining": ["Complete domain operation catalog and request/result schemas", "Provider-specific authorized effect adapters", "Full workflow conformance through two independent clients"]},
         "execution_authority": False, "external_writes": False, "spend_minor": 0}
     value['personal_agent_guide']=operating_guide(app,policy,value['local_catalog'])
+    value['specialist_profiles']=policy['specialist_profiles']
+    if profile is not None:
+        from .meta_media_buyer import selector, contract
+        selector(profile)
+        value['specialist']=contract(app,value['local_catalog']['operations'])
     return dict(value, contract_sha256=digest(value))

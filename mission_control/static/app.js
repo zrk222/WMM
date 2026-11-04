@@ -71,6 +71,7 @@ function render() {
   WMMMedia.invalidate(state);
   WMMDrive.invalidate(state);
   WMMDiscovery.invalidate(state);
+  WMMOrganicResearch.invalidate(state);
   WMMPackaging.invalidate(state);
   WMMFunnels.invalidate(state);
   WMMAppleAnalytics.invalidate(state);
@@ -94,7 +95,7 @@ function render() {
   if(["agents","activity"].includes(state.view))$("#main .page-heading").insertAdjacentHTML("afterend",WMMCompleteAutomation.panel(state));
   if(state.view==='research')$("#main .page-heading").insertAdjacentHTML('afterend',WMMVideoEditor.panel());
   if(state.view==='research')$("#main .page-heading").insertAdjacentHTML('afterend',WMMStudio.panel());
-  if(state.view==='research')$("#main .page-heading").insertAdjacentHTML('afterend',WMMDiscovery.panel()+WMMPackaging.panel(state)+WMMMedia.panel()+WMMDrive.panel());
+  if(state.view==='research')$("#main .page-heading").insertAdjacentHTML('afterend',WMMOrganicResearch.panel()+WMMDiscovery.panel()+WMMPackaging.panel(state)+WMMMedia.panel()+WMMDrive.panel());
 
   automationDecorateWorkflow();
   WMMPageReports.decorate(state,document);
@@ -538,6 +539,7 @@ function modal(title,html,eyebrow="WORKSPACE") {
   WMMMedia.clear();
   WMMDrive.clear();
   WMMDiscovery.clear();
+  WMMOrganicResearch.clear();
   WMMPackaging.clear();
   WMMFunnels.clear();
   $("#modal-title").textContent=title;$("#modal-eyebrow").textContent=eyebrow;$("#modal-body").innerHTML=html;
@@ -801,6 +803,7 @@ async function formSubmit(event) {
   if(['drive-setup-form','drive-import-form','drive-confirm-form','drive-disconnect-form'].includes(formId)){event.preventDefault();return WMMDrive.submit(form,growthReviewServices());}
   if(['packaging-variant-form','packaging-shots-form','packaging-preview-form','packaging-taste-form'].includes(formId)){event.preventDefault();return WMMPackaging.submit(form,growthReviewServices());}
   if(['discovery-query-form','discovery-source-form'].includes(formId)){event.preventDefault();return WMMDiscovery.submit(form,growthReviewServices());}
+  if(['oresearch-task-form','oresearch-adopt-form'].includes(formId)){event.preventDefault();return WMMOrganicResearch.submit(form,growthReviewServices());}
   if(['media-upload-form','media-review-form'].includes(formId)){event.preventDefault();return WMMMedia.submit(form,growthReviewServices());}
   if((formId||"").startsWith("control-")) {event.preventDefault();return WMMAgentControl.submit(form,growthReviewServices());}
   if(formId==="subscription-plan-form") {event.preventDefault();return WMMSubscriptionAuthoring.submit(form,growthReviewServices());}
@@ -910,6 +913,7 @@ async function handleAction(node) {
   if(node.dataset.action.startsWith('drive-'))return WMMDrive.action(node,growthReviewServices());
   if(node.dataset.action.startsWith('packaging-'))return WMMPackaging.action(node,growthReviewServices());
   if(node.dataset.action.startsWith('discovery-'))return WMMDiscovery.action(node,growthReviewServices());
+  if(node.dataset.action.startsWith('oresearch-'))return WMMOrganicResearch.action(node,growthReviewServices());
   if(node.dataset.action.startsWith('media-'))return WMMMedia.action(node,growthReviewServices());
   if(node.dataset.action.startsWith('standing-'))return WMMCompleteAutomation.action(node,growthReviewServices());
   if(node.dataset.action==="retry-workspace")return refresh();
@@ -1036,3 +1040,6 @@ $("#event-file").addEventListener("change",async event=>{
   }catch(error){toast(error.message);}finally{input.value="";}
 });
 initialize();
+$("#modal").addEventListener("close",()=>WMMOrganicResearch.clear());
+document.addEventListener('invalid',event=>WMMOrganicResearch.validation(event.target,growthReviewServices(),true),true);
+document.addEventListener('input',event=>WMMOrganicResearch.validation(event.target,growthReviewServices()));

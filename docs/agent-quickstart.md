@@ -1,5 +1,9 @@
 # Connect a local CLI or MCP host
 
+For Claude Code, use the [step-by-step registration and first-call guide](claude-code.md).
+It covers the host configuration, temporary grant input, errors and the separate
+real-host/clean-machine acceptance record.
+
 ## Installed desktop app
 
 Keep WMM running, select your app and sign in as its owner under **Activity &

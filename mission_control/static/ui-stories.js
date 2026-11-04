@@ -15,6 +15,8 @@
     research:['Turn a useful source into something to test.','Start with a clear question about this app and its audience.','WMM uses the research sources, public observations, app evidence and creative references you supply.','You get traceable research notes, ranked references, briefs and supported local video outputs.','Inspect the source, choose the idea worth testing and prepare a brief for your audience.']
   });
   const FORMS={};
+  FORMS['oresearch-task-form']=['Give your agent one focused marketing question.','The saved task fixes its permitted sources, expiry and research limits. It delegates no WMM credential or publication authority.','Review the exact assignment, then let the selected agent claim it through its scoped access.'];
+  FORMS['oresearch-adopt-form']=['Turn an inspected source into an original app experiment.','Your observations, interpretation and authentic app proof bind to the exact reported candidate. Reuse rights remain separate.','Review and approve the research card, then prepare its original creative through the existing brief controls.'];
   function define(ids,mission,result,next){for(const id of ids.split(' '))FORMS[id]=Object.freeze([mission,result,next]);}
   define('campaign-scope-form','Turn your approved app message into a bounded campaign.','WMM records exact Page, copy, rights, audience, time and media limits before saving provider delivery receipts.','Review the scope and permissions, approve it, then run the workflow. Compare measured app outcomes afterward.');
   define('packaging-variant-form','Turn one app outcome into a clear title and opening.','WMM saves a creative revision with the source ideas and app proof you select.','Fill the message, choose an uploaded thumbnail and save. Compare that saved revision before preparing shots.');
@@ -110,6 +112,16 @@
     return `<section class="wmm-page-story" aria-label="How to use this page"><h3>${esc(row[0])}</h3><p>${esc(row[1])}</p><p><strong>What goes in:</strong> ${esc(row[2])}</p><p><strong>What you get:</strong> ${esc(row[3])}</p><p><strong>Your next step:</strong> ${esc(row[4])}</p></section>`;
   }
   function dialog(title,markup){
+    const research={
+      'Your agent research':'Choose a marketing question, assign a bounded search and inspect the returned evidence here.',
+      'Connect an agent for research':'Give your connected agent research access for this app. Source browsing is configured in that agent.',
+      'Give your agent a focused search':'Choose the agent, sources and limits. You review the exact assignment before saving it.',
+      'Review the search assignment':'Assigning saves a metadata-research task for the selected agent. Nothing downloads or publishes.',
+      'Review agent research':'Check the source counts, baseline, relevance and failures. Approve an original app experiment after inspection.',
+      'Turn this source into an app experiment':'Keep the observed hook separate from your interpretation. Add authentic app proof and a proposed experiment.',
+      'Review this research approval':'Approval saves a research card and proposed experiment. Media reuse, production and publication need their own authority.'
+    }[title];
+    if(research)return `<header class="notice" aria-label="Task guide"><p>${esc(research)}</p></header>`;
     if(title==='Choose how your agent works')return '<aside class="notice" aria-label="Task guide"><p>Your personal agent uses scoped access. WMM-managed work needs a tested connection. Choose the path you want to set up.</p></aside>';
     if(title==='WMM-managed automation setup')return '<aside class="notice" aria-label="Task guide"><p>WMM checks the tested connection, workflows and accounts for work it will run. This check starts no work.</p></aside>';
     if(title==='WMM-managed readiness checklist')return '<aside class="notice" aria-label="Task guide"><p>These are setup observations for WMM-managed work. Fix listed needs before reviewing its limits and approvals.</p></aside>';

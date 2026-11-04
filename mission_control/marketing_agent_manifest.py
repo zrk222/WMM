@@ -1,5 +1,6 @@
 """Versioned operating contract; supported execution is explicitly narrower than goal scope."""
 from .common import Invalid, digest
+from .meta_media_buyer import index as specialist_index
 
 APPLE_READ_OPERATIONS = ('identity_inventory', 'reviews', 'subscription_catalog',
                          'release_inventory', 'analytics_reports', 'analytics_metrics',
@@ -20,6 +21,7 @@ def operating_manifest(app):
         'promotion_release':app['data'].get('promotion_release') or {},
         'objective':app['data'].get('job') or None,
         'owner_operating_protocol':owner_operating_protocol(),
+        'specialist_profiles':specialist_index(),
         'human_role':'APPROVE_OR_EDIT',
         'supported_execution':{'provider_reads':list(READ_OPERATIONS), 'max_reads_per_collection':12,
                                'provider_writes':['campaign.publish','campaign.ad-launch','campaign.pause'], 'spend_minor':0,

@@ -84,7 +84,7 @@ OPERATIONS={
     'editor.history':descriptor('POST','/video-projects/{resource_id}/history','WRITE_LOCAL_PLAN',('revision','manifest_version','operation','request_key'),('target_revision',),True),
     'editor.diff':descriptor('POST','/video-projects/{resource_id}/diff','READ_PRIVATE_LOCAL_DATA',('from_revision','to_revision'),(),True),
     'job.cancel':descriptor('POST','/jobs/{resource_id}/cancel','CANCEL_LOCAL_JOB',(),(),True),
-    'operations.read':descriptor('GET','/agent-operations','READ_LOCAL_POLICY'),
+    'operations.read':descriptor('GET','/agent-operations','READ_LOCAL_POLICY',(),('profile',)),
     'growth.read':descriptor('GET','/subscription-growth','READ_PRIVATE_LOCAL_DATA'),
     'growth.history':descriptor('GET','/subscription-growth/history','READ_PRIVATE_LOCAL_DATA'),
     'growth.save':descriptor('POST','/subscription-growth/entries','WRITE_LOCAL_EVIDENCE',('id','manifest_version','kind','data')),
@@ -152,6 +152,9 @@ def exact_keys(value,required,optional=()):
 
 def local_constraints(operation,body):
     """Limit existing general record/action routes to the intended local evidence domain."""
+    if operation=='operations.read' and 'profile' in body:
+        from .meta_media_buyer import selector
+        selector(body['profile'])
     if operation in ('funnel.list','funnel.observations','funnel.review') and 'offset' in body:
         from .pmf_contract import count
         count(body['offset'],0,10000)
@@ -195,4 +198,6 @@ def request_data(envelope):
     local_constraints(name,envelope['input'])
     if rule['method']=='GET' and 'offset' in envelope['input']:
         suffix+='?offset='+str(envelope['input']['offset'])
+    if name=='operations.read' and 'profile' in envelope['input']:
+        suffix+='?profile='+envelope['input']['profile']
     return dict(method=rule['method'],path='/api/apps/'+app_id+suffix,body=envelope['input'] if rule['method']=='POST' else None)
