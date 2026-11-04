@@ -8,11 +8,12 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def first_packet_smoke(binary, folder, env=None, label='runtime'):
+def first_packet_smoke(binary, folder, env=None, label='runtime', profile_dir=None):
     """Exercise the frozen UI using the separate test-only browser harness."""
     import runpy
     harness = runpy.run_path(str(ROOT / 'tools/test_packaged_first_packet.py'))
-    evidence = harness['verify_frozen_first_packet'](binary, folder, env, label)
+    evidence = harness['verify_frozen_first_packet'](binary, folder, env, label,
+                                                   profile_dir=profile_dir)
     print(json.dumps(dict(first_packet=evidence, phase=label)))
     return evidence
 

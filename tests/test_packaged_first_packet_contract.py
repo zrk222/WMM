@@ -77,7 +77,7 @@ class PackagedFirstPacketTests(unittest.TestCase):
             binary.write_bytes(b'synthetic executable identity')
             first, second = Mock(), Mock()
             first.poll.return_value = second.poll.return_value = None
-            workspace = dict(app_ids=['sample-one'], empty_effect_tables={'jobs': 0})
+            workspace = dict(apps=[dict(id='sample-one',version=1,data_sha256='a')], records=[], empty_effect_tables={'jobs': 0})
             with patch.object(harness, 'ROOT', Path(folder)), \
                  patch.object(harness, 'preflight') as preflight, \
                  patch.object(harness, '_start', side_effect=[first, second]) as start, \
@@ -106,7 +106,7 @@ class PackagedFirstPacketTests(unittest.TestCase):
                  patch.object(harness, '_start', side_effect=[first, second]), \
                  patch.object(harness, '_stop') as stop, \
                  patch.object(harness, 'verify_packet_browser', return_value=[]), \
-                 patch.object(harness, '_workspace_state', side_effect=[{'app_ids':['one']}, {'app_ids':['changed']}]):
+                 patch.object(harness, '_workspace_state', side_effect=[{'apps':['one'],'records':[]}, {'apps':['changed'],'records':[]}]):
                 with self.assertRaises(AssertionError):
                     harness.verify_frozen_first_packet(binary, folder, {}, 'unit')
             self.assertEqual([c.args[0] for c in stop.call_args_list], [first, second])
@@ -117,7 +117,7 @@ class PackagedFirstPacketTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             database = Path(folder) / 'mission-control.sqlite3'
             with harness.closing(sqlite3.connect(database)) as db:
-                db.executescript("CREATE TABLE apps(id TEXT); INSERT INTO apps VALUES('sample-one'); CREATE TABLE jobs(id TEXT);")
+                db.executescript("CREATE TABLE apps(id TEXT,version INTEGER,data TEXT); INSERT INTO apps VALUES('sample-one',1,'{}'); CREATE TABLE jobs(id TEXT);")
                 db.commit()
             value = harness._workspace_state(folder)
             self.assertEqual(len(value['empty_effect_tables']), 4)
@@ -132,11 +132,71 @@ class PackagedFirstPacketTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             database = Path(folder) / 'mission-control.sqlite3'
             with harness.closing(sqlite3.connect(database)) as db:
-                db.executescript("CREATE TABLE apps(id TEXT); INSERT INTO apps VALUES('sample-one'); CREATE TABLE jobs(id TEXT); INSERT INTO jobs VALUES('unexpected');")
+                db.executescript("CREATE TABLE apps(id TEXT,version INTEGER,data TEXT); INSERT INTO apps VALUES('sample-one',1,'{}'); CREATE TABLE jobs(id TEXT); INSERT INTO jobs VALUES('unexpected');")
                 db.commit()
             with self.assertRaises(AssertionError):
                 harness._workspace_state(folder)
             database.unlink()
+
+    def test_same_app_id_does_not_hide_reset_manifest_or_source_records(self):
+        before = dict(apps=[dict(id='sample-one', version=2, data_sha256='original')],
+                      records=[dict(app_id='sample-one', id='source', version=3, hash='original')])
+        for field, changed in [('version', 1), ('data_sha256', 'reset')]:
+            after = copy.deepcopy(before)
+            after['apps'][0][field] = changed
+            with self.subTest(field=field), self.assertRaises(AssertionError):
+                harness._same_bindings(after, before)
+        after = copy.deepcopy(before)
+        after['records'][0]['hash'] = 'changed'
+        with self.assertRaises(AssertionError):
+            harness._same_bindings(after, before)
+
+    def test_profile_upgrade_checkpoint_rejects_replacement_and_unmarked_database(self):
+        import tempfile
+        import json
+        with tempfile.TemporaryDirectory() as folder:
+            profile = Path(folder) / 'profile'
+            profile.mkdir()
+            actual, checkpoint, prior = harness._profile(profile, folder)
+            self.assertIsNone(prior)
+            (profile / 'mission-control.sqlite3').touch()
+            with self.assertRaises(AssertionError):
+                harness._profile(profile, folder)
+            state = dict(apps=[dict(id='sample-one', version=2, data_sha256='original')], records=[])
+            checkpoint.write_text(json.dumps(dict(schema='wmm.first-packet-profile.v1', workspace=state)))
+            with patch.object(harness, '_workspace_state', return_value=state):
+                self.assertIsNotNone(harness._profile(profile, folder)[2])
+            changed = copy.deepcopy(state)
+            changed['apps'][0]['data_sha256'] = 'reset'
+            with patch.object(harness, '_workspace_state', return_value=changed), self.assertRaises(AssertionError):
+                harness._profile(profile, folder)
+            with self.assertRaises(AssertionError):
+                harness._profile(Path(folder).parent, folder)
+
+    def test_upgrade_reuses_profile_and_requires_prior_browser_goal(self):
+        import tempfile
+        import json
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as folder:
+            binary = Path(folder) / 'binary'
+            binary.write_bytes(b'fixture')
+            profile = Path(folder) / 'profile'
+            profile.mkdir()
+            state = dict(apps=[dict(id='sample-one',version=1,data_sha256='original')], records=[])
+            children = [Mock(), Mock(), Mock(), Mock()]
+            for child in children:
+                child.poll.return_value = None
+            with patch.object(harness, 'ROOT', Path(folder)), patch.object(harness, 'preflight'), \
+                 patch.object(harness, '_start', side_effect=children), patch.object(harness, '_stop'), \
+                 patch.object(harness, '_workspace_state', return_value=state), \
+                 patch.object(harness, 'verify_packet_browser', return_value=[]) as browser:
+                first = harness.verify_frozen_first_packet(binary, folder, {}, 'fresh', profile_dir=profile)
+                upgraded = harness.verify_frozen_first_packet(binary, folder, {}, 'upgrade', profile_dir=profile)
+            self.assertFalse(first['profile_reused'])
+            self.assertTrue(upgraded['profile_reused'])
+            self.assertIsNone(browser.call_args_list[0].args[3])
+            self.assertEqual(browser.call_args_list[2].args[3], 'measurement')
+            self.assertEqual(browser.call_args_list[0].args[2], browser.call_args_list[2].args[2])
 
 
 if __name__ == '__main__':

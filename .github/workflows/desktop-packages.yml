@@ -8,7 +8,7 @@ on:
       - 'tools/smoke_desktop_bundle.py'
       - 'tools/test_windows_installer.py'
       - 'tools/test_packaged_first_packet.py'
-      - 'tests/test_packaged_first_packet.py'
+      - 'tests/test_packaged_first_packet_contract.py'
       - 'packaging/windows/**'
       - 'packaging/linux/**'
       - 'tools/build_linux_package.py'
@@ -31,7 +31,7 @@ jobs:
     timeout-minutes: 30
     env:
       WMM_PACKAGED_FIRST_PACKET_TEST: '1'
-      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/wmm-package-browser
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.factory/package-browser
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -48,7 +48,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends dbus gnome-keyring
       - name: Verify desktop entry
-        run: python -m unittest tests.test_desktop_entry tests.test_packaged_first_packet -v
+        run: python -m unittest tests.test_desktop_entry tests.test_packaged_first_packet_contract -v
       - name: Install declared first-packet browser profile
         run: python -m pip install --only-binary :all: -r docs/requirements-browser.txt
       - name: Provision Windows first-packet browser

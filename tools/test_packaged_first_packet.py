@@ -1,6 +1,6 @@
 """Opt-in synthetic frozen-runtime acceptance; no application imports."""
 import hashlib
-from contextlib import closing
+from contextlib import closing, nullcontext
 import json
 import os
 from pathlib import Path
@@ -94,7 +94,7 @@ def verify_packet_browser(origin, output_dir, storage_dir=None, expected_initial
                     if storage:
                         storage.parent.mkdir(parents=True, exist_ok=True)
                         context.storage_state(path=str(storage))
-                    results.append(dict(width=width, goals=[g[0] for g in GOALS], reload=True,
+                    results.append(dict(width=width, binding=expected, goals=[g[0] for g in GOALS], reload=True,
                                         keyboard=True, escape=True, writes=0, external_requests=0))
                 finally:
                     context.close()
@@ -111,10 +111,19 @@ def _workspace_state(private):
         counts = {t: dict(status='PRESENT', count=db.execute('SELECT count(*) FROM '+t).fetchone()[0])
                   if t in tables else dict(status='ABSENT', count=None)
                   for t in ('jobs', 'automation_policies', 'campaign_intents', 'campaign_paid_intents')}
-        apps = [r[0] for r in db.execute('SELECT id FROM apps ORDER BY id')]
+        apps = [dict(id=r[0], version=r[1], data_sha256=hashlib.sha256(r[2].encode('utf-8')).hexdigest())
+                for r in db.execute('SELECT id,version,data FROM apps ORDER BY id')]
+        records = [dict(app_id=r[0], id=r[1], version=r[2], hash=r[3],
+                        data_sha256=hashlib.sha256(r[4].encode('utf-8')).hexdigest())
+                   for r in db.execute('SELECT app_id,id,version,hash,data FROM records ORDER BY app_id,id,version')] if 'records' in tables else []
     assert all(v['status'] == 'ABSENT' or v['count'] == 0 for v in counts.values()), counts
-    assert 'sample-one' in apps
-    return dict(app_ids=apps, empty_effect_tables=counts)
+    assert any(app['id'] == 'sample-one' for app in apps)
+    return dict(apps=apps, records=records, empty_effect_tables=counts)
+
+
+def _same_bindings(current, previous):
+    assert current['apps'] == previous['apps'], 'Durable app manifests changed across restart'
+    assert current['records'] == previous['records'], 'Durable source records changed across restart'
 
 
 def preflight(env):
@@ -171,37 +180,65 @@ def _stop(child):
     child.stdout.close()
 
 
-def verify_frozen_first_packet(binary, folder, env=None, label='runtime'):
+def _profile(profile_dir, folder):
+    profile = Path(profile_dir)
+    assert profile.is_absolute() and profile.is_dir(), 'Existing absolute isolated profile required'
+    base = Path(folder).resolve(strict=True)
+    profile = profile.resolve(strict=True)
+    assert profile == base or base in profile.parents, 'Profile must remain inside isolated caller folder'
+    checkpoint = profile / 'first-packet-checkpoint.json'
+    assert not checkpoint.is_symlink(), 'Acceptance checkpoint must not be a symlink'
+    prior = None
+    if checkpoint.exists():
+        assert not checkpoint.is_symlink() and checkpoint.stat().st_size <= 1048576
+        prior = json.loads(checkpoint.read_text(encoding='utf-8'))
+        assert prior['schema'] == 'wmm.first-packet-profile.v1'
+        _same_bindings(_workspace_state(profile), prior['workspace'])
+    else:
+        assert not list(profile.rglob('mission-control.sqlite3')), 'Existing workspace requires its acceptance checkpoint'
+    return profile, checkpoint, prior
+
+
+def verify_frozen_first_packet(binary, folder, env=None, label='runtime', *, profile_dir=None):
     env = dict(os.environ if env is None else env)
     preflight(env)
     assert re.fullmatch(r'[A-Za-z0-9_-]{1,80}', label), 'Unsafe evidence label'
     binary = Path(binary).resolve(strict=True)
     out = ROOT / '.factory' / 'packaged-first-packet' / label
     out.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix='wmm-first-packet-') as private:
+    profile, checkpoint, prior = _profile(profile_dir, folder) if profile_dir is not None else (None, None, None)
+    with (nullcontext(str(profile)) if profile is not None else tempfile.TemporaryDirectory(prefix='wmm-first-packet-')) as private:
         env.update(LOCALAPPDATA=private, XDG_DATA_HOME=private)
         child = _start(binary, folder, env)
         try:
-            views = verify_packet_browser(ORIGIN, out / 'initial', Path(private) / 'browser-storage')
+            views = verify_packet_browser(ORIGIN, out / 'initial', Path(private) / 'browser-storage',
+                                          'measurement' if prior else None)
             assert child.poll() is None
             before = _workspace_state(private)
+            if prior:
+                _same_bindings(before, prior['workspace'])
         finally:
             _stop(child)
         preflight(env)
         child = _start(binary, folder, env)
         try:
-            assert _workspace_state(private)['app_ids'] == before['app_ids']
+            _same_bindings(_workspace_state(private), before)
             resumed = verify_packet_browser(ORIGIN, out / 'restart', Path(private) / 'browser-storage', 'measurement')
             assert child.poll() is None
             after = _workspace_state(private)
-            assert after['app_ids'] == before['app_ids']
+            _same_bindings(after, before)
             evidence = dict(classification='SYNTHETIC_NOT_HUMAN_OR_PROVIDER',
                             github_sha=env.get('GITHUB_SHA'), executable_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),
                             browser=views, restart_browser=resumed, workspace=before, restart_workspace=after, provider_data='NOT_RUN',
                             public_outcomes='NOT_RUN', nontechnical_person='NOT_RUN',
                             offline_restart='PASS_SAME_PRIVATE_WORKSPACE_AND_BROWSER_STORAGE',
+                            profile_reused=prior is not None,
                             network='BROWSER_EXTERNAL_BLOCKED_NOT_OS_OFFLINE')
         finally:
             _stop(child)
+        if checkpoint:
+            payload = json.dumps(dict(schema='wmm.first-packet-profile.v1', workspace=after))
+            assert len(payload.encode('utf-8')) <= 1048576
+            checkpoint.write_text(payload, encoding='utf-8')
     (out / 'evidence.json').write_text(json.dumps(evidence, indent=2), encoding='utf-8')
     return evidence
