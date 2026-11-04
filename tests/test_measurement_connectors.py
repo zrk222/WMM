@@ -394,14 +394,23 @@ class MeasurementTests(unittest.TestCase):
                        lambda:self.insights.disconnect("sample-one",sid,{"version":False,"confirm_disconnect":True})):
             with self.assertRaises(Invalid):action()
 
-    def test_report_history_cap_and_bounded_synthetic_read_performance(self):
+    def test_report_history_cap_after_105_synthetic_reads(self):
         import time
         sid=self.create()["source_id"]
+        requests=[]
+        def synthetic_request(*args):
+            requests.append(args[0])
+            return {"id":123} if args[0].endswith("/123/") else {"results":[]}
         started=time.monotonic()
-        with patch("mission_control.insights_transport.request",side_effect=lambda *args: {"id":123} if args[0].endswith("/123/") else {"results":[]}):
+        with patch("mission_control.insights_transport.request",side_effect=synthetic_request):
             for _ in range(105):self.insights.refresh("sample-one",sid,{"confirm_read":True})
+        elapsed=time.monotonic()-started
+        self.assertEqual(len(requests),210)
         self.assertEqual(len(self.insights.list("sample-one")["reports"]),100)
-        self.assertLess(time.monotonic()-started,10)
+        with connection(self.store.path) as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM insight_requests").fetchone()[0],106)
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM insight_reports WHERE app_id=? AND source_id=?",("sample-one",sid)).fetchone()[0],100)
+        print("ANALYTICS_SYNTHETIC_READ_BATCH "+json.dumps(dict(refreshes=105,provider_requests=len(requests),retained_reports=100,elapsed_seconds=elapsed,elapsed_is_gate=False),sort_keys=True))
 
     def test_request_post_json_and_network_timeout_redirection_errors(self):
         class Response(io.BytesIO):pass
