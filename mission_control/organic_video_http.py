@@ -9,6 +9,7 @@ from .organic_video_collector import prepare
 
 POLICY_ACTIONS = {'policy-create': 'create', 'policy-read': 'read', 'policy-revoke': 'revoke',
                   'policy-reserve': 'reserve', 'policy-admit': 'admit'}
+WORKFLOW_ACTIONS = {'workflow-prepare': 'prepare', 'render-status': 'render_status', 'render-queue': 'queue_render'}
 INTENT_ACTIONS = {'intent-create', 'intent-read', 'intent-execute', 'intent-reconcile'}
 SCHEDULE_ACTIONS = {'schedule-prepare', 'schedule-activate', 'schedule-status', 'schedule-revoke'}
 
@@ -16,7 +17,7 @@ SCHEDULE_ACTIONS = {'schedule-prepare', 'schedule-activate', 'schedule-status', 
 def post(handler, parts):
     """Preparing research is owner-only; recipient agents use the scoped gateway."""
     if (len(parts) != 5 or parts[:2] != ['api', 'apps']
-            or parts[3] != 'organic-video' or parts[4] not in {'prepare', 'task-list', 'task-read', 'intake', 'policy-context', 'policy-history', *POLICY_ACTIONS, *INTENT_ACTIONS, *SCHEDULE_ACTIONS}):
+            or parts[3] != 'organic-video' or parts[4] not in {'prepare', 'task-list', 'task-read', 'intake', 'policy-context', 'policy-history', *POLICY_ACTIONS, *WORKFLOW_ACTIONS, *INTENT_ACTIONS, *SCHEDULE_ACTIONS}):
         raise Invalid('Use the exact video research preparation address')
     identifier(parts[2])
     if handler.command != 'POST' or handler.path != '/' + '/'.join(parts):
@@ -40,6 +41,9 @@ def post(handler, parts):
         with protected(store, envelope) as actor:
             if action == 'prepare':
                 result = prepare(store, parts[2], actor, body)
+            elif action in WORKFLOW_ACTIONS:
+                from . import organic_video_workflow
+                result = getattr(organic_video_workflow, WORKFLOW_ACTIONS[action])(store, parts[2], actor, body)
             elif action in {'policy-context', 'policy-history'}:
                 from .organic_video_policy_ui import context, history
                 result = (context if action == 'policy-context' else history)(store, parts[2], actor, body)

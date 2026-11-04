@@ -7,6 +7,7 @@ import unittest
 from copy import deepcopy
 from datetime import datetime,timedelta,timezone
 import hashlib
+import threading
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -21,6 +22,8 @@ from mission_control.organic_video_capture import import_owner_demo,intake_envel
 from mission_control.organic_video_policy import Policies
 from mission_control.organic_video_workflow import prepare
 from mission_control.hypit_jobs import HypitRenders
+from mission_control.operator_client import ClientError, OperatorClient
+from mission_control.server import Server
 from mission_control.worker import run_once
 from mission_control import campaign_video_execution as video
 from mission_control.campaign_contract import REEL_SCHEMA
@@ -30,6 +33,7 @@ from tests import test_organic_video_policy as policy_fixture
 from tests.test_campaign_video_execution import Transport
 from tests.production_fixtures import ready_capabilities
 from tests.test_managed_media_store import synthetic_inspection
+from tests import test_verified_review as identities
 
 
 class WorkflowBoundaryTests(unittest.TestCase):
@@ -172,6 +176,73 @@ class VerticalWorkflowTests(unittest.TestCase):
         with connection(self.store.path) as db:
             self.assertEqual(db.execute('SELECT count(*) FROM jobs').fetchone()[0],0)
             self.assertEqual(db.execute('SELECT count(*) FROM organic_video_generation_reservations').fetchone()[0],1)
+
+    def test_owner_http_prepares_reserves_queues_and_recovers_the_exact_job(self):
+        with Server(('127.0.0.1', 0), self.store) as server:
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                origin = 'http://127.0.0.1:' + str(server.server_port)
+                client, anonymous = OperatorClient(origin), OperatorClient(origin)
+                client.bootstrap()
+                anonymous.bootstrap()
+                def identity(path, token):
+                    return dict(identities.synthetic_identity(path, token), **self.owner)
+                with patch('mission_control.operator_identity.github_read', side_effect=identity):
+                    client.request('POST', '/api/identity/login', dict(token=identities.OWNER_TOKEN))
+                    self.owner_http_workflow(client, anonymous)
+            finally:
+                server.shutdown()
+                thread.join()
+
+    def owner_http_workflow(self, client, anonymous):
+        base = '/api/apps/' + self.app + '/organic-video/'
+        def post(action, body):
+            return client.request('POST', base + action, body)
+        with self.assertRaises(ClientError):
+            anonymous.request('POST', base + 'workflow-prepare', self.body)
+        with self.assertRaises(ClientError):
+            post('workflow-prepare', dict(self.body, intake_hash='0'*64))
+        plan = post('workflow-prepare', self.body)
+        self.assertEqual(plan, self.plan())
+        reserve = plan['data']['next_operation']['input']
+        lookup = {key: reserve[key] for key in ('policy_id', 'policy_hash', 'request_id')}
+        lookup['request_hash'] = digest(reserve)
+        self.assertIsNone(post('render-status', lookup)['reservation'])
+        # Discard the successful reserve response and recover from its exact key.
+        post('policy-reserve', reserve)
+        held = post('render-status', lookup)
+        reservation = held['reservation']
+        self.assertEqual(reservation['data']['inputs_hash'], plan['data']['inputs_hash'])
+        self.assertIsNone(held['job'])
+        self.assertEqual(post('policy-reserve', reserve), reservation)
+        with self.assertRaises(ClientError):
+            post('render-status', dict(lookup, request_hash='0'*64))
+        queue = dict(reservation_id=reservation['id'], reservation_hash=reservation['hash'])
+        with patch('mission_control.hypit_jobs.identity', return_value=dict(launcher='fixture', launcher_sha256='0'*64)):
+            with self.assertRaises(ClientError):
+                post('render-queue', dict(queue, reservation_hash='0'*64))
+            with self.assertRaises(ClientError):
+                post('render-queue', dict(queue, render_input=self.body['render_input']))
+            post('render-queue', queue)
+            observed = post('render-status', lookup)
+            self.assertEqual(observed['job']['status'], 'QUEUED')
+            self.assertEqual(observed['job']['id'], post('render-queue', queue)['id'])
+            self.assertEqual(observed['publication'], 'NOT_RUN')
+        _, artifact = self.render(reservation)
+        completed = post('render-status', lookup)
+        self.assertEqual(completed['job']['id'], observed['job']['id'])
+        self.assertEqual(completed['job']['status'], 'SUCCEEDED')
+        self.assertEqual(completed['job']['render_id'], artifact['id'])
+        with patch('mission_control.hypit_jobs.identity', return_value=dict(launcher='fixture', launcher_sha256='0'*64)):
+            post('policy-revoke', {key: lookup[key] for key in ('policy_id', 'policy_hash')})
+            with self.assertRaises(ClientError):
+                post('render-queue', queue)
+            self.assertEqual(post('render-status', lookup), completed)
+        with connection(self.store.path) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM organic_video_generation_reservations').fetchone()[0], 1)
+            self.assertEqual(db.execute("SELECT count(*) FROM jobs WHERE action='hypit_render'").fetchone()[0], 1)
+            self.assertFalse(db.execute("SELECT 1 FROM sqlite_master WHERE name='campaign_video_intents'").fetchone())
 
 
 if __name__=='__main__':unittest.main()
