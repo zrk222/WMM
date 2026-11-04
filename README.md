@@ -1,23 +1,29 @@
 # Wize Marketing Machine
 
-**Your app marketing, operated by your personal AI agent.**
+**You set the direction. Your agents do the marketing.**
 
-You have an app to grow. The research is in one place, the video clips in another, and yesterday’s decisions are buried in a chat. Wize Marketing Machine (WMM) brings that work together so your agent can pick up the next task—and show you what it finished.
+You built the app. Now you need people to find it, try it and come back. The research, creative, campaign work and results should lead to one clear next move.
 
-WMM collects app facts, research, media and analytics. It turns them into marketing briefs, edited creative, store checks, experiments and reports. With the right connected account and your approved scope, it also publishes Facebook Page posts and runs bounded Meta campaigns.
+Wize Marketing Machine (WMM) was created for founders and teams who want agents to carry that marketing work forward. It gives people and agents one structured workspace: collect app facts and research, make creative, prepare and run supported campaigns, follow the work and review the evidence.
 
-**You choose the goal and permissions. Your agent does the supported work. You get the files, receipts, results and next decision.** The same controls are available for you to inspect and use yourself.
+**You choose the goal and approve the scope. Your agent handles the work inside it. You receive the deliverables, analytics, receipts and next decision.** Approve a single action or a bounded automation agreement; review exceptions and stop future work when needed. You can inspect and edit the work yourself.
 
-[See the visual tour](docs/index.html) · [Connect your agent](docs/agent-quickstart.md) · [Detailed setup and operator guide](docs/workspace-guide.md)
+[**Try the sample workspace**](https://zrk222.github.io/WMM/demo.html) · [See the visual tour](https://zrk222.github.io/WMM/) · [Install WMM](docs/desktop-first-run.md)
 
-## From “market my app” to work you can inspect
+![Interactive sample workspace: choose a goal, review consent, follow agent work and inspect the report](docs/images/sample-workflow.png)
 
-1. **Tell WMM what your app does.** Add its audience, the problem it solves and the action you want users to take.
-2. **Bring the material.** Add research, upload clips or select Drive media, and connect your own supported analytics accounts.
-3. **Give your agent a clear job.** Research a hook, prepare a video, check a listing, run an approved campaign or assess an experiment.
-4. **See what happened.** Follow progress, review the creative, inspect delivery receipts and export the evidence. Decide what to keep, change or stop.
+*A working interactive example with synthetic data. It connects no accounts, publishes nothing and spends nothing. Try it in your browser, or open `docs/demo.html` after downloading the repository.*
 
-The aim is shorter creative cycles, less repeated research and better decisions about installs, activation, paid conversion and retention. Measure those changes on your app; WMM does not guarantee growth or turn public video views into sales evidence.
+## From “market my app” to a campaign you can follow
+
+1. **Set the direction.** Describe your app, audience and outcome. Bring research, clips and your own supported accounts.
+2. **Agree on the work.** Review the agent, accounts, content, destinations, schedule, expiry, quotas and spending limits before activation.
+3. **Let your agent carry it forward.** Research an angle, prepare creative and execute the supported approved work. Follow progress and answer exceptions that need your decision.
+4. **Open the report.** See the files, execution status, dated measurements and receipts. Choose what to continue, revise or stop.
+
+The intended payoff is less coordination, faster creative cycles and better decisions about installs, activation, paid conversion and retention. Analytics retain source dates, definitions and missing data; receipts show what was actually done. Measure the benefit on your app—growth and time savings are not yet established by the dogfooding trial.
+
+**Available today:** local workspaces, personal-agent CLI/MCP, creative and evidence tools, supported analytics paths, Facebook Page posts and bounded Meta engagement campaigns. Shared cloud team dashboards, broader campaign publishing and complete KPI coverage remain in development. [Current tools and limits](#what-is-included-today).
 
 [Follow the WizeMe dogfooding journey](docs/WIZEME-DOGFOODING.md): dated operations, verified receipts and the next measurement step.
 
@@ -38,7 +44,7 @@ The aim is shorter creative cycles, less repeated research and better decisions 
 
 ## Built for personal agents—including Grok Bot
 
-The current CLI/MCP catalog exposes **79 operations**. Named profiles for **Grok Bot, Instinct, Hark Pro, Meta Muse, Codex/Dots and Claude Duet**, plus generic agents and teams, share one current operating protocol. It tells an agent to check the app and permissions, reuse current evidence, run within limits, verify the saved result and report back to its owner.
+The CLI/MCP catalog gives agents an explicit operating surface. Named profiles for **Grok Bot, Instinct, Hark Pro, Meta Muse, Codex/Dots and Claude Duet**, plus generic agents and agent teams, share one current protocol: check the app and permissions, reuse current evidence, run within limits, verify the saved result and report back to the owner.
 
 **For Grok Bot:** verify a separately approved local command connection to the computer running WMM, then read the current operation guide. Keep the repeatable method in a private skill. Use scoped grants, retain request IDs and serialize changes to the same resource. Return the artifact, actual status, KPI evidence, resource use and next action in your conversation.
 
