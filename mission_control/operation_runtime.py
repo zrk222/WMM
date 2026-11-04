@@ -93,10 +93,13 @@ def execute(service,envelope,*,caller='SCOPED_AGENT'):
         from .operation_authority import protected
         from .organic_video_collector import claim, submit
         if caller != 'SCOPED_AGENT':
-            raise PermissionError('Video collection requires its scoped recipient agent')
-        action = {'organic-video.claim': claim, 'organic-video.submit': submit}[envelope['operation']]
+            raise PermissionError('Video gateway operations require a scoped agent')
         with protected(service.store, envelope) as actor:
-            return action(service.store, envelope['app_id'], actor, envelope['input'])
+            if envelope['operation'] in ('organic-video.claim','organic-video.submit'):
+                action = {'organic-video.claim': claim, 'organic-video.submit': submit}[envelope['operation']]
+                return action(service.store, envelope['app_id'], actor, envelope['input'])
+            from .organic_video_access import dispatch
+            return dispatch(service.store,envelope['app_id'],envelope['operation'].split('.')[1],envelope['input'])
     if envelope['operation'].startswith('discovery.'):
         from .discovery_access import dispatch
         return dispatch(service.store,envelope['app_id'],envelope['operation'].split('.')[1],envelope['input'])

@@ -53,7 +53,11 @@ class OperationCatalogTests(unittest.TestCase):
         operations = catalog()['operations']
         self.assertNotIn('organic-video.prepare', operations)
         self.assertEqual({name for name in operations if name.startswith('organic-video.')},
-                         {'organic-video.claim', 'organic-video.submit'})
+                         {'organic-video.claim', 'organic-video.submit',
+                          'organic-video.policy-read','organic-video.policy-reserve','organic-video.policy-admit',
+                          'organic-video.workflow-prepare','organic-video.intent-create','organic-video.intent-read','organic-video.intent-execute'})
+        for suffix in ('policy-create','policy-revoke','intent-reconcile','intake','prepare'):
+            self.assertNotIn('organic-video.'+suffix,operations)
         for action, fields in (('claim', ['task_id', 'task_hash']), ('submit', ['task_id', 'result'])):
             rule = operations['organic-video.' + action]
             self.assertEqual(rule['required'], fields)
