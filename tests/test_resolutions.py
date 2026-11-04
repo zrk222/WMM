@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 import json
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from mission_control.common import Invalid
 from mission_control.store import Store
 from mission_control.service import Service
@@ -74,7 +74,11 @@ class ResolutionPlanTests(unittest.TestCase):
 
 
 class ResolutionExecutionTests(unittest.TestCase):
-    setUp=ResolutionPlanTests.setUp
+    def setUp(self):
+        ResolutionPlanTests.setUp(self)
+        clock=patch('mission_control.campaign_inputs.datetime',wraps=datetime)
+        self.collection_clock=clock.start();self.addCleanup(clock.stop)
+        self.collection_clock.now.return_value=datetime(2026,11,3,12,30,tzinfo=timezone.utc)
 
     def request(self,tool='inspect_site'):
         resolver=Resolutions(self.store);app,plan=resolver.proposal('sample-one')
@@ -101,6 +105,18 @@ class ResolutionExecutionTests(unittest.TestCase):
         with self.assertRaises(Invalid):resolver.start('sample-two',body)
         with self.assertRaises(Invalid):resolver.start('sample-one',self.request('collect_sources'))
         self.assertEqual(jobs(self.store,'sample-one'),[])
+
+    def test_collection_hour_rollover_requires_a_current_resolution_proposal(self):
+        resolver=Resolutions(self.store);body=self.request()
+        self.collection_clock.now.return_value=datetime(2026,11,3,13,0,tzinfo=timezone.utc)
+        with self.assertRaisesRegex(Invalid,'Evidence needs or sources changed'):
+            resolver.start('sample-one',body)
+        self.assertEqual(jobs(self.store,'sample-one'),[])
+        current=self.request()
+        self.assertNotEqual(body['source_hash'],current['source_hash'])
+        saved=resolver.start('sample-one',current)
+        self.assertEqual(saved['status'],'QUEUED')
+        self.assertEqual(len(jobs(self.store,'sample-one')),1)
 
     def test_only_same_origin_url_edit_is_permitted(self):
         resolver=Resolutions(self.store);body=self.request()
