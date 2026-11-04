@@ -26,14 +26,19 @@ class DistributionTextEncodingTests(unittest.TestCase):
                     distribution.check()
 
     def test_synthetic_screenshots_require_current_manifest_and_known_path(self):
+        for name in ('overview.png', 'sample-workflow.png'):
+            with self.subTest(name=name):
+                self.check_synthetic_screenshot(name)
+
+    def check_synthetic_screenshot(self, name):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
-            image=root/'docs/images/overview.png'
+            image=root/'docs/images'/name
             image.parent.mkdir(parents=True)
             data=b'\x89PNG\r\n\x1a\nsynthetic-test'
             image.write_bytes(data)
             manifest=image.parent/'provenance.json'
-            manifest.write_text(json.dumps({'synthetic':True,'images':{'overview.png':hashlib.sha256(data).hexdigest()}}))
+            manifest.write_text(json.dumps({'synthetic':True,'images':{name:hashlib.sha256(data).hexdigest()}}))
             with patch.object(distribution,'ROOT',root),patch.object(distribution,'files',return_value=[image]):
                 distribution.check()
                 image.write_bytes(data+b'tampered')

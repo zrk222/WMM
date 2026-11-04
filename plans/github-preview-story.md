@@ -15,6 +15,8 @@ synthetic-data label. New screenshot is captured from the actual sample browser.
 - [ ] T2 | slice=docs | files=docs/demo.html | verify=`python tools/test_preview_browser.py` | Implement goal/consent/progress/report, invalidated consent, export, keyboard and mobile behavior without external requests.
 - [ ] T5 | slice=tools | files=tools/test_preview_browser.py | verify=`python tools/test_preview_browser.py` | Exercise actual desktop/mobile sample authority, exported receipts and no external calls.
 - [ ] T3 | slice=docs | files=docs/images/sample-workflow.png | verify=`python tools/test_preview_browser.py` | Capture the actual sample UI for the GitHub README and visual tour; do not present it as live campaign evidence.
+- [ ] T6 | slice=tools | files=tools/check_distribution.py,tests/test_check_distribution.py | verify=`python -m unittest tests.test_check_distribution -v` | Register only the exact sample screenshot path in existing hash-bound synthetic image handling; preserve tamper, missing provenance and arbitrary image rejection.
+- [ ] T7 | slice=docs | files=docs/images/provenance.json | verify=`python tools/check_distribution.py` | Retain the actual sample capture hash and date alongside the existing screenshot provenance.
 
 ## Acceptance
 Prestige audit, critique with strict challenge, render-audit and challenge on both
