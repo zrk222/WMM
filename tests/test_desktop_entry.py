@@ -15,6 +15,76 @@ from mission_control.workspace_lock import WorkspaceBusy
 
 
 class DesktopEntryTests(unittest.TestCase):
+    def test_exclusive_ephemeral_listener_rejects_wmm_and_raw_reuse(self):
+        from mission_control.server import Server
+        from mission_control.store import Store
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            runtime = DesktopRuntime(root / 'owner', 0, fixed_port=True)
+            try:
+                port = runtime.server.server_port
+                self.assertNotEqual(port, 8765)
+                store = runtime.server.service.store
+                app = store.app('sample-one')
+                store.save_app('sample-one', {**app['data'], 'name': 'Synthetic owner fixture'}, app['version'])
+                origin = runtime.start(workers=False)
+                other_store = Store(root / 'other.sqlite3')
+                duplicate = None
+                try:
+                    with self.assertRaises(OSError):
+                        duplicate = Server(('127.0.0.1', port), other_store)
+                finally:
+                    if duplicate is not None:
+                        duplicate.server_close()
+                with socket.socket() as competitor:
+                    competitor.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    with self.assertRaises(OSError):
+                        competitor.bind(('127.0.0.1', port))
+                with urlopen(origin + '/api/bootstrap', timeout=5) as response:
+                    apps = json.load(response)['apps']
+                self.assertEqual(next(a for a in apps if a['id'] == 'sample-one')['data']['name'],
+                                 'Synthetic owner fixture')
+            finally:
+                runtime.close()
+            # A separate listener with no accepted connections avoids depending on
+            # platform TCP TIME_WAIT behavior when verifying socket release.
+            unconnected = DesktopRuntime(root / 'unconnected', 0, fixed_port=True)
+            unused_port = unconnected.server.server_port
+            self.assertNotEqual(unused_port, 8765)
+            unconnected.close()
+            reopened = DesktopRuntime(root / 'unconnected', unused_port, fixed_port=True)
+            reopened.close()
+
+    def test_ephemeral_wmm_listener_drives_fixed_refusal_and_fallback(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            owner = DesktopRuntime(root / 'owner', 0, fixed_port=True)
+            fallback = None
+            try:
+                port = owner.server.server_port
+                self.assertNotEqual(port, 8765)
+                owner.start(workers=False)
+                unexpected = None
+                try:
+                    with self.assertRaises(OSError):
+                        unexpected = DesktopRuntime(root / 'fixed', port, fixed_port=True)
+                finally:
+                    if unexpected is not None:
+                        unexpected.close()
+                # Reopen the failed workspace to prove its lock was released.
+                fixed = DesktopRuntime(root / 'fixed', 0, fixed_port=True)
+                fixed.close()
+                fallback = DesktopRuntime(root / 'fallback', port)
+                self.assertNotEqual(fallback.server.server_port, port)
+                fallback.start(workers=False)
+                with urlopen(owner.origin + '/api/bootstrap', timeout=5) as response:
+                    self.assertTrue(json.load(response)['apps'])
+            finally:
+                if fallback is not None:
+                    fallback.close()
+                owner.close()
+
     def test_private_data_paths_and_relative_xdg_rejection(self):
         home = Path(tempfile.gettempdir()) / "synthetic-user"
         self.assertEqual(

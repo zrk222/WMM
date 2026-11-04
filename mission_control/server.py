@@ -4,9 +4,11 @@ from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import mimetypes
+import os
 from pathlib import Path
 import re
 import secrets
+import socket
 import sys
 from urllib.parse import urlparse, unquote, parse_qs
 from .common import Invalid, canonical, digest
@@ -48,6 +50,12 @@ def owner_domain_post(parts):
 
 class Server(ThreadingHTTPServer):
     daemon_threads=True
+    allow_reuse_address=os.name!='nt'
+
+    def server_bind(self):
+        if os.name=='nt':
+            self.socket.setsockopt(socket.SOL_SOCKET,socket.SO_EXCLUSIVEADDRUSE,1)
+        super().server_bind()
 
     def __init__(self,address,store,operator="local-operator"):
         if address[0]!="127.0.0.1":
