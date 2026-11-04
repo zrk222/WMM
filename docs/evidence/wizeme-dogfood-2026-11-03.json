@@ -1,6 +1,6 @@
 {
   "schema": "wmm.dogfood.public-receipt-index.v1",
-  "snapshot_date_utc": "2026-11-03",
+  "snapshot_date_utc": "2026-11-04",
   "product": "Wize Marketing Machine",
   "dogfood_app": "WizeMe.APP",
   "originals_access": "OWNER_PRIVATE_NOT_PUBLICLY_DISTRIBUTED",
@@ -69,6 +69,30 @@
       "sdk_readiness": null,
       "device_registration": null,
       "notification_delivery": "NOT_RUN"
+    },
+    {
+      "id": "E04",
+      "kind": "LIVE_META_PAGE_CONNECTION_AND_READ",
+      "observed_at": "2026-11-04T00:30:02.258812+00:00",
+      "source_sha256": "b5c9b27d8b7d1887051945df3848a4424dbf21385d582517be34b0fd050cf986",
+      "official_consent_completed": true,
+      "exact_destination_confirmed": true,
+      "status": "CONNECTED_READ_TESTED"
+    },
+    {
+      "id": "E05",
+      "kind": "LIVE_APPROVED_SCHEDULE_RESTART_AND_ALLOWANCE_STOP",
+      "observed_at": "2026-11-04T00:52:10.044772+00:00",
+      "source_sha256": "fec3e6bc279a85d978915f4cdb0ce3bf707fc4015fb3ea28bca379a3515a2b04",
+      "owner_approved_posts": 1,
+      "owner_session_signed_out": true,
+      "runtime_restarted_before_due": true,
+      "due_job_recovered": true,
+      "job_status": "BLOCKED",
+      "allowance_used": 60,
+      "allowance_limit": 60,
+      "publish_intents": 0,
+      "publication": "NOT_DISPATCHED"
     }
   ],
   "unproven": [

@@ -1,6 +1,6 @@
 # WizeMe dogfooding: operations with receipts
 
-**Snapshot: November 3, 2026 (UTC).** We are using Wize Marketing Machine on
+**Snapshot: November 4, 2026 (UTC).** We are using Wize Marketing Machine on
 WizeMe.APP to prove the working marketing loop: connect a real app, collect
 evidence, make one approved change, then measure what happened.
 
@@ -11,6 +11,8 @@ evidence, make one approved change, then measure what happened.
 | Nov 3, 04:00 | Ran the first due read after restoring the owner-enabled 24-hour schedule against the current app version. | The worker completed and recorded `WAITING_FOR_REPORTS`. The schedule remains enabled; a later 24-hour refresh is still due. | E01 |
 | Nov 3, 03:53 | Checked the deployed Cloudflare OAuth callback relay. | Five synthetic requests passed against the live deployment. This verifies the relay, not a completed Facebook account connection. | E02 |
 | Nov 3, 04:26 | Used official OneSignal OAuth and its `list_apps` tool to discover WizeMe. | The intended app was found. Push configuration, SDK registration and device delivery remain unverified. | E03 |
+| Nov 4, 00:30 | Completed official Meta consent, confirmed the WizeMe.APP Page and tested saved access through WMM. | The private connection returned `CONNECTED_READ_TESTED`. The initial-token lifetime parser repair enabled this connection. | E04 |
+| Nov 4, 00:50–00:52 | Activated an owner-approved one-post schedule, signed the owner session out and restarted WMM before the due time. | The recovered worker queued the due job. Its finite allowance stopped execution before any publish intent was created. The trial produced no post. | E05 |
 
 The [redacted receipt index](evidence/wizeme-dogfood-2026-11-03.json) records source
 hashes and observation times. Original receipts stay in the owner's private
@@ -22,6 +24,12 @@ included.
 read, preserve missing-data states and record scoped agent access. Changing the
 app configuration invalidated the old schedule; a fresh read and owner-confirmed
 schedule restored it against the new version.
+
+The live Meta trial exposed two integration defects. Facebook's initial token
+response omitted its lifetime, and a later Page read returned different token
+bytes for the same verified Page. The repairs retain provider expiry, identity
+and permission checks. Verification and repair attempts consumed the first
+trial's allowance. A replacement trial requires a fresh explicit approval.
 
 **Next proof:** collect numerical baseline data; approve and ship one specific
 creative or store change; retain its delivery/readback receipt; then report a
