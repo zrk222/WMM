@@ -69,6 +69,7 @@
   define('capability-form','Describe what this product can actually deliver.','You get a saved capability record for checking whether proposed work fits the product.','Record the real supported behavior and limits before saving.');
   define('customer-workflow-form','Connect a proposed product change to a customer’s actual task.','You get a traceable workflow proposal linked to the supplied customer evidence.','Check the source and expected task change before saving the proposal.');
   define('growth-review-form','Choose the next experiment from the evidence already saved.','You get a review that links the current growth question, findings and next decision.','Inspect the source records and select the next bounded action.');
+  define('opolicy-form','Choose what your agent may use for app videos.','The approval records the Page, source rights, claims, captions and limits.','Review the exact proposal before saving the approval.');
   define('research-form','Keep a research question connected to its sources.','You get saved research work with visible observations and gaps.','Choose the question and source scope, then review the requested action.');
   define('public-store-form','Check what a customer actually sees on the public store page.','You get a saved public-page observation tied to the selected app and listing.','Check the store address and requested locale before reading the page.');
   define('ranking-form','Compare references against a specific purpose.','You get a saved ranking based on the selected evidence and rules.','Set the audience and ranking criteria, then inspect why each reference was placed.');
@@ -120,7 +121,10 @@
       'Review agent research':'Check the source counts, baseline, relevance and failures. Approve an original app experiment after inspection.',
       'Turn this source into an app experiment':'Keep the observed hook separate from your interpretation. Add authentic app proof and a proposed experiment.',
       'Review this research approval':'Approval saves a research card and proposed experiment. Media reuse, production and publication need their own authority.',
-      'Find the words your app should test':'Review your agent’s sources, then save a packet of keyword coverage, competitor overlaps and next experiments.'
+      'Find the words your app should test':'Review your agent’s sources, then save a packet of keyword coverage, competitor overlaps and next experiments.',
+      'Choose the rules for your app videos':'Pick the Page, clips, claims and captions. Then review the exact rules your agent will follow.',
+      'Review this video production approval':'Check the destination, captions, evidence and limits before granting this approval.',
+      'Your video production approvals':'Open a saved approval to see its current status, held capacity and delivery evidence.'
     }[title];
     if(research)return `<header class="notice" aria-label="Task guide"><p>${esc(research)}</p></header>`;
     if(title==='Choose how your agent works')return '<aside class="notice" aria-label="Task guide"><p>Your personal agent uses scoped access. WMM-managed work needs a tested connection. Choose the path you want to set up.</p></aside>';

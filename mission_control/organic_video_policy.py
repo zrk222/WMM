@@ -244,7 +244,20 @@ class Policies:
         self.store = store
 
     def create(self, app_id, body):
-        exact(body, ('request_id', 'policy'))
+        review_fields = ('manifest_version', 'app_hash', 'owner_version', 'page_binding', 'session_binding')
+        scoped = isinstance(body, dict) and any(field in body for field in review_fields)
+        exact(body, ('request_id', 'policy') + (review_fields if scoped else ()))
+        if scoped:
+            if type(body['manifest_version']) is not int or body['manifest_version'] < 1:
+                raise Invalid('Use the exact reviewed app version')
+            hashes([body['app_hash']], True)
+            hashes([body['session_binding']], True)
+            if type(body['owner_version']) is not int:
+                raise Invalid('Use the exact reviewed owner role version')
+            exact(body['page_binding'], ('version', 'config_version', 'data_hash'))
+            if any(type(body['page_binding'][key]) is not int for key in ('version', 'config_version')):
+                raise Invalid('Use the exact reviewed Page version')
+            hashes([body['page_binding']['data_hash']], True)
         reference(body['request_id'])
         proposal = validate_policy(body['policy'])
         if iso_time(proposal['expires_at']) <= datetime.now(timezone.utc):
@@ -254,9 +267,21 @@ class Policies:
             context = _authority(db, self.store, app_id, 'organic-video.policy-create', body, True)
             _schema(db)
             version, app_hash = app_scope(db, app_id)
+            if scoped and (version != body['manifest_version'] or app_hash != body['app_hash']):
+                raise Invalid('Reviewed policy app context changed; reload before approving')
+            page = _page(db, app_id, proposal)
+            if scoped and (context['role_version'] != body['owner_version'] or page != body['page_binding']):
+                raise Invalid('Reviewed owner role or Page connection changed; reload before approving')
+            if scoped and digest(context['generation']) != body['session_binding']:
+                raise Invalid('Reviewed owner session changed; reload before approving')
+            if scoped and proposal['mode'] == 'EXACT':
+                from .organic_video_policy_ui import _recorded_outputs
+                outputs = {row['sha256'] for row in _recorded_outputs(db, app_id)}
+                if not set(proposal['approved_output_hashes']) <= outputs:
+                    raise Invalid('Reviewed output is outside the completed local render selection; reload before approving')
             data = dict(policy=proposal, owner=context['principal'], owner_version=context['role_version'],
                         app_id=app_id, app_version=version, app_hash=app_hash,
-                        page=_page(db, app_id, proposal), proofs=_proofs(db, self.store, app_id, proposal))
+                        page=page, proofs=_proofs(db, self.store, app_id, proposal))
             prior = db.execute('SELECT * FROM organic_video_policies WHERE app_id=? AND request_id=?',
                                (app_id, body['request_id'])).fetchone()
             if prior:

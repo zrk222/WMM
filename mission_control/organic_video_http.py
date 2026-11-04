@@ -16,7 +16,7 @@ SCHEDULE_ACTIONS = {'schedule-prepare', 'schedule-activate', 'schedule-status', 
 def post(handler, parts):
     """Preparing research is owner-only; recipient agents use the scoped gateway."""
     if (len(parts) != 5 or parts[:2] != ['api', 'apps']
-            or parts[3] != 'organic-video' or parts[4] not in {'prepare', 'task-list', 'task-read', 'intake', *POLICY_ACTIONS, *INTENT_ACTIONS, *SCHEDULE_ACTIONS}):
+            or parts[3] != 'organic-video' or parts[4] not in {'prepare', 'task-list', 'task-read', 'intake', 'policy-context', 'policy-history', *POLICY_ACTIONS, *INTENT_ACTIONS, *SCHEDULE_ACTIONS}):
         raise Invalid('Use the exact video research preparation address')
     identifier(parts[2])
     if handler.command != 'POST' or handler.path != '/' + '/'.join(parts):
@@ -40,6 +40,9 @@ def post(handler, parts):
         with protected(store, envelope) as actor:
             if action == 'prepare':
                 result = prepare(store, parts[2], actor, body)
+            elif action in {'policy-context', 'policy-history'}:
+                from .organic_video_policy_ui import context, history
+                result = (context if action == 'policy-context' else history)(store, parts[2], actor, body)
             elif action in SCHEDULE_ACTIONS:
                 result = schedule(store, parts[2], action, body)
             elif action == 'intake':
