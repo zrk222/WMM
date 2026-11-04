@@ -90,7 +90,7 @@ def check_paid_review(db, app_id, scope, body, due):
         raise PermissionError('Schedule only a verified saved Page post')
 
 
-def validate_items(rows, summary):
+def validate_items(rows, summary, *, require_future=True):
     if len(rows) != len(summary['items']):
         raise Invalid('Scheduled items changed or are no longer in the future')
     for item in rows:
@@ -98,7 +98,7 @@ def validate_items(rows, summary):
         if (digest(body) != item['body_hash'] or body not in summary['items']
                 or item['id'] != body['item_id']
                 or item['due'] != iso_time(body['due_at']).timestamp()
-                or item['due'] <= time.time()):
+                or (require_future and item['due'] <= time.time())):
             raise Invalid('Scheduled items changed or are no longer in the future')
 
 
@@ -166,6 +166,9 @@ class CampaignSchedules:
             summary = json.loads(row['summary'])
             if digest(summary) != row['summary_hash']:
                 raise Invalid('Scheduled batch summary needs repair')
+            if summary.get('kind') == 'ADMITTED_ORGANIC_VIDEO_V1':
+                from .organic_video_schedule import VideoSchedules
+                return VideoSchedules(self.store).status(app_id, batch_id)
             items = []
             for item in db.execute('SELECT * FROM campaign_schedule_items WHERE batch_id=? ORDER BY due,id', (batch_id,)):
                 items.append(item_status(db, app_id, row['scope_id'], item))
@@ -276,7 +279,10 @@ def execute(store, job):
     from .campaign_access import policy_checker
     from .campaign_schedule_authority import bound
     with bound(store, job):
-        service = CampaignExecutionService(store, policy_checker(store))
         data = job['data']
+        if data.get('operation') == 'organic-video.intent-execute':
+            from .campaign_video_execution import execute as execute_video
+            return execute_video(store, job['app_id'], 'schedule:' + job['id'], data['request']['intent_id'], None)
+        service = CampaignExecutionService(store, policy_checker(store))
         run = service.run_ad if data.get('operation') == 'campaign.ad-launch' else service.run_post
         return run(job['app_id'], 'schedule:' + job['id'], data['scope_id'], data['request'])

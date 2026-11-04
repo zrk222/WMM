@@ -32,6 +32,9 @@ def _schema(db):
 
 def _authority(db, store, app_id, actor, operation, body):
     context = PROTECTED.get()
+    if context is None:
+        from .campaign_schedule_authority import video_context
+        return video_context(db, store, app_id, actor, operation, body)
     if (not context or context.get('store') != store_identity(store)
             or context['envelope'] != canonical(dict(app_id=app_id, operation=operation, input=body))
             or check(db, context) != actor):

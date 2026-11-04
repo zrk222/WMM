@@ -79,3 +79,43 @@ def check_scope(row, summary, app_id, scope):
             or summary['scope_hash'] != scope['approval_hash']
             or summary['owner'] != scope['owner_principal']):
         raise PermissionError('Scheduled campaign scope changed')
+
+
+def video_context(db, store, app_id, actor, operation, body):
+    """Only the exact currently leased schedule may execute its retained intent."""
+    active = CURRENT.get()
+    if active is None or operation != 'organic-video.intent-execute':
+        raise PermissionError('Current scheduled Reel execution authority is required')
+    if actor != 'schedule:' + active[1] or active[0] != str(store.path.resolve()):
+        raise PermissionError('Scheduled Reel actor or datastore changed')
+    row = db.execute('''SELECT b.id AS batch_id,b.summary,b.summary_hash,b.status AS batch_status,
+        i.body,i.body_hash,i.due,i.status AS item_status,i.job_id,j.status AS job_status,
+        j.attempts,j.lease,j.data,j.app_id,j.action
+        FROM campaign_schedule_items i JOIN campaign_schedule_batches b ON b.id=i.batch_id
+        JOIN jobs j ON j.id=i.job_id WHERE i.job_id=?''', (active[1],)).fetchone()
+    if row is None or row['action'] != 'campaign_post':
+        raise PermissionError('Scheduled Reel job is unavailable')
+    check_lease(row, app_id, active)
+    context = video_content(db, row, active, app_id, operation, body)
+    db.execute("UPDATE jobs SET lease=? WHERE id=? AND status='RUNNING' AND attempts=?",
+               (time.time() + 60, active[1], active[2]))
+    return context
+
+
+def video_content(db, row, active, app_id, operation, body):
+    from .organic_video_schedule import KIND
+    from .campaign_video_execution import _row
+    summary, item, data = [json.loads(row[key]) for key in ('summary', 'body', 'data')]
+    expected = dict(batch_id=summary['batch_id'], item_id=item['item_id'], scope_id=summary['scope_id'],
+                    operation=operation, request=item['request'])
+    if (summary.get('kind') != KIND or summary['app_id'] != app_id or summary['batch_id'] != row['batch_id']
+            or digest(summary) != row['summary_hash'] or digest(item) != row['body_hash'] or item not in summary['items']
+            or data != expected or digest(data) != active[3] or item['operation'] != operation
+            or body != dict(intent_id=item['request']['intent_id']) or row['due'] != iso_time(item['due_at']).timestamp()):
+        raise PermissionError('Scheduled Reel inputs changed')
+    intent = _row(db, app_id, body['intent_id'])
+    request = json.loads(intent['data'])['request']
+    if (intent['hash'] != item['request']['intent_hash']
+            or (request['policy_id'], request['policy_hash']) != (summary['scope_id'], summary['scope_hash'])):
+        raise PermissionError('Scheduled Reel intent or policy changed')
+    return dict(principal=summary['owner'], scheduled_job=row['job_id'])
