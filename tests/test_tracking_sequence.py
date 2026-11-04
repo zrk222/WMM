@@ -1,5 +1,6 @@
 """Exact-approved tracking dispatch, durable parent truth and cancellation boundaries."""
 import json,unittest,uuid
+from datetime import datetime,timedelta,timezone
 from unittest.mock import patch
 from mission_control.common import Invalid
 from mission_control.db import connection
@@ -16,7 +17,17 @@ from mission_control.tracking_contract import shape
 
 
 class TrackingSequenceTests(unittest.TestCase):
-    setUp=fixtures.ExperimentTrackingTests.setUp
+    def setUp(self):
+        fixtures.ExperimentTrackingTests.setUp(self)
+        # The collection proposal contains an hourly source hash. Keep the
+        # synthetic preview/approval/dispatch in one hour; production must still
+        # reject a proposal whose actual collection hour changes.
+        self.collection_now=datetime.now(timezone.utc)
+        fixed=self.collection_now
+        class CollectionDatetime(datetime):
+            @classmethod
+            def now(cls,tz=None):return fixed if tz is not None else fixed.replace(tzinfo=None)
+        self.enterContext(patch('mission_control.campaign_inputs.datetime',CollectionDatetime))
     secret=fixtures.ExperimentTrackingTests.secret
     job=fixtures.ExperimentTrackingTests.job
 
@@ -50,6 +61,22 @@ class TrackingSequenceTests(unittest.TestCase):
         with connection(self.store.path) as db:db.execute("UPDATE insight_sources SET version=2 WHERE app_id='sample-one'")
         with self.assertRaises(Invalid):validate(self.store,'sample-one',p)
         with self.assertRaises(Invalid):validate(self.store,'sample-two',p)
+
+    def test_hour_rotation_still_invalidates_an_exact_preview(self):
+        before=self.collection_now.replace(minute=59,second=59,microsecond=0)
+        current=[before]
+        class BoundaryDatetime(datetime):
+            @classmethod
+            def now(cls,tz=None):return current[0] if tz is not None else current[0].replace(tzinfo=None)
+        with patch('mission_control.campaign_inputs.datetime',BoundaryDatetime):
+            service=Sequences(self.store);_,proposal=service.proposal('sample-one')
+            steps=[s['id'] for s in proposal['steps'] if s['tool']=='inspect_tracking']
+            body=dict(proposal_hash=proposal['proposal_hash'],selected_steps=steps,request_key=str(uuid.uuid4()))
+            current[0]=before+timedelta(seconds=2)
+            _,fresh=service.proposal('sample-one')
+            self.assertNotEqual(proposal['proposal_hash'],fresh['proposal_hash'])
+            with self.assertRaisesRegex(Invalid,'App or sources changed'):
+                service.approve('sample-one',body)
 
     def test_options_are_bounded_and_never_offer_foreign_cancelled_or_denied_sources(self):
         insights=dict(sources=[self.source]*3)
