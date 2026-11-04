@@ -6,6 +6,10 @@ function state(){return {app:'one',workspace:{app:{id:'one',version:1,data:{name
 function form(){const error={textContent:''},button={disabled:false},preview={innerHTML:''};return {dataset:{app:'one',version:'1',id:'fixed-request',mode:'research'},isConnected:true,querySelector:s=>s.includes('submit')?button:s.includes('preview')?preview:error,button,error,preview};}
 const data={release:'r1',snapshot:{platform:'iOS',locale:'en-US',territory:'US',observed_at:'2026-11-04',sources:[],phrases:[],competitors:[]}};
 test('file form is labeled, bounded and discloses source assertion boundary',()=>{const html=growth.researchFields(state());for(const value of ['for="market-research-file"','required','1 MiB','not provider verified','wmm_catalog','MARKET_RESEARCH','Test &lt;app&gt;'])assert.ok(html.includes(value));});
+test('imported stale app scope is reported independently from assertion provenance',()=>{
+ const row={id:'note',hash:'h',kind:'EDITORIAL_NOTE',created:'now',data:{decision:'DEFER',rationale:'Scope changed',target_id:'source',target_hash:'hash'},readout:{availability:'IMPORTED_ASSERTION',scope_status:'STALE_APP_SCOPE',import_provenance:'IMPORTED_ASSERTION',analysis:{status:'EDITORIAL_NOTE_ONLY'}}};
+ const text=growth.entryNotes(row).join('\n');assert.ok(text.includes('stale app scope'));assert.ok(text.includes('imported assertion'));
+});
 test('raw JSON and immutable request ID preserve server duplicate validation',()=>{const f=form(),raw='{"release":"r1","release":"r1","snapshot":{}}';const packet=growth.researchBody(f,raw,state());assert.ok(packet.body.includes(raw));assert.equal(JSON.parse(packet.body).id,'fixed-request');assert.throws(()=>growth.researchBody(f,'[]',state()));assert.throws(()=>growth.researchBody(f,'{',state()));assert.throws(()=>growth.researchBody(f,JSON.stringify({padding:'x'.repeat(1048576)}),state()));assert.throws(()=>growth.researchBody(f,JSON.stringify(data),{...state(),app:'two'}));});
 test('review precedes save and uncertain response retains identical request for explicit retry',async()=>{
  const f=form(),s=state(),raw=JSON.stringify(data),requests=[];let fail=true,closed=0;
