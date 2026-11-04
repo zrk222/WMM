@@ -74,7 +74,7 @@ def preflight(env):
     return package
 
 
-def verify_binary(binary, env):
+def verify_binary(binary, env, label):
     for args in (['--check'], ['--self-test'], ['--vault-self-test'], ['--agent-cli', 'catalog']):
         result = json.loads(run([binary, *args], env).stdout)
         if args == ['--check'] and Path(result['data_directory']) != Path(env['XDG_DATA_HOME']) / 'Wize Marketing Machine':
@@ -86,6 +86,7 @@ def verify_binary(binary, env):
     spec.loader.exec_module(module)
     import anyio
     anyio.run(module.mcp_smoke, binary, env['XDG_DATA_HOME'])
+    module.first_packet_smoke(binary, env['XDG_DATA_HOME'], env, label=label)
 
 
 def main():
@@ -105,7 +106,7 @@ def main():
             binary = Path('/usr/lib/wize-marketing-machine/WMM')
             if not binary.is_file() or not Path('/usr/bin/wize-marketing-machine').is_file():
                 raise AssertionError('Installed runtime is incomplete')
-            verify_binary(binary, env)
+            verify_binary(binary, env, 'ubuntu-fresh')
             unit = Path('/usr/share/wize-marketing-machine/wmm-worker.service')
             if unit.read_bytes() != (ROOT / 'packaging/linux/wmm-worker.service').read_bytes():
                 raise AssertionError('Installed opt-in service does not match its reviewed template')
@@ -114,6 +115,7 @@ def main():
             run(['dpkg', '-i', package], env)
             if marker.read_text(encoding='utf-8') != 'synthetic private workspace':
                 raise AssertionError('Upgrade changed the workspace fixture')
+            verify_binary(binary, env, 'ubuntu-upgrade')
         finally:
             if attempted:
                 run(['dpkg', '-r', PACKAGE], env)

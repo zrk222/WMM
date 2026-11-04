@@ -7,6 +7,8 @@ on:
       - 'tools/build_desktop.py'
       - 'tools/smoke_desktop_bundle.py'
       - 'tools/test_windows_installer.py'
+      - 'tools/test_packaged_first_packet.py'
+      - 'tests/test_packaged_first_packet.py'
       - 'packaging/windows/**'
       - 'packaging/linux/**'
       - 'tools/build_linux_package.py'
@@ -27,6 +29,9 @@ jobs:
         os: [windows-latest, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    env:
+      WMM_PACKAGED_FIRST_PACKET_TEST: '1'
+      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/wmm-package-browser
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -43,7 +48,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends dbus gnome-keyring
       - name: Verify desktop entry
-        run: python -m unittest tests.test_desktop_entry -v
+        run: python -m unittest tests.test_desktop_entry tests.test_packaged_first_packet -v
+      - name: Install declared first-packet browser profile
+        run: python -m pip install --only-binary :all: -r docs/requirements-browser.txt
+      - name: Provision Windows first-packet browser
+        if: runner.os == 'Windows'
+        run: python -m playwright install chromium
+      - name: Provision Ubuntu first-packet browser
+        if: runner.os == 'Linux'
+        run: python -m playwright install --with-deps chromium
       - name: Build folder runtime
         run: python tools/build_desktop.py
       - name: Smoke Windows executable and native protected storage
@@ -64,7 +77,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get install --yes --no-install-recommends libtk8.6 libgl1 xdg-utils ffmpeg fonts-dejavu-core
-          sudo env CI=true GITHUB_ACTIONS=true WMM_HOST_SERVICE_CI=1 WMM_LINUX_PACKAGE_TEST=1 WMM_ISOLATED_NATIVE_KEYRING=1 WMM_TEST_PYTHON="$(command -v python)" WMM_TEST_ROOT="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" dbus-run-session -- bash -euo pipefail -c '
+          sudo env CI=true GITHUB_ACTIONS=true WMM_HOST_SERVICE_CI=1 WMM_LINUX_PACKAGE_TEST=1 WMM_ISOLATED_NATIVE_KEYRING=1 WMM_PACKAGED_FIRST_PACKET_TEST=1 PLAYWRIGHT_BROWSERS_PATH="$PLAYWRIGHT_BROWSERS_PATH" WMM_TEST_PYTHON="$(command -v python)" WMM_TEST_ROOT="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" dbus-run-session -- bash -euo pipefail -c '
             export XDG_DATA_HOME="$(mktemp -d "$RUNNER_TEMP/wmm-deb-keyring.XXXXXX")"
             printf "%s\n" "disposable-synthetic-deb-keyring" | gnome-keyring-daemon --unlock --components=secrets
             "$WMM_TEST_PYTHON" "$WMM_TEST_ROOT/tools/test_linux_package.py"
@@ -103,5 +116,13 @@ jobs:
         with:
           name: WMM-desktop-${{ matrix.os }}-${{ github.sha }}
           path: dist/desktop/WMM/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Retain packaged first-packet evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: WMM-first-packet-${{ matrix.os }}-${{ github.sha }}
+          path: .factory/packaged-first-packet/
           if-no-files-found: error
           retention-days: 7

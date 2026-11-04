@@ -8,6 +8,15 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def first_packet_smoke(binary, folder, env=None, label='runtime'):
+    """Exercise the frozen UI using the separate test-only browser harness."""
+    import runpy
+    harness = runpy.run_path(str(ROOT / 'tools/test_packaged_first_packet.py'))
+    evidence = harness['verify_frozen_first_packet'](binary, folder, env, label)
+    print(json.dumps(dict(first_packet=evidence, phase=label)))
+    return evidence
+
+
 async def mcp_smoke(binary, folder):
     """Exercise the frozen stdio SDK lifecycle without a workspace or provider."""
     import anyio
@@ -48,6 +57,7 @@ def main():
             print(json.dumps(dict(command=arguments, exit_code=result.returncode)))
         import anyio
         anyio.run(mcp_smoke, binary, folder)
+        first_packet_smoke(binary, folder, label='bundle')
 
 
 if __name__ == '__main__':

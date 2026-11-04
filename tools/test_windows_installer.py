@@ -26,7 +26,7 @@ def compiler(environ):
     return path
 
 
-def verify_binary(binary, folder, env):
+def verify_binary(binary, folder, env, label):
     for args in (['--check'], ['--self-test'], ['--vault-self-test'], ['--agent-cli','catalog']):
         value = json.loads(run([binary, *args], folder, env, 90).stdout)
         if args == ['--check'] and Path(value['data_directory']).resolve() != (Path(env['LOCALAPPDATA']) / 'Wize Marketing Machine').resolve():
@@ -38,6 +38,7 @@ def verify_binary(binary, folder, env):
     spec.loader.exec_module(module)
     import anyio
     anyio.run(module.mcp_smoke, binary, str(folder))
+    module.first_packet_smoke(binary, folder, env, label=label)
 
 
 def wait_removed(install, timeout=30):
@@ -79,8 +80,9 @@ def main():
         binary = install / 'WMM.exe'
         if not binary.is_file() or not (install / 'Open WMM.vbs').is_file():
             raise AssertionError('Installed bundle is incomplete')
-        verify_binary(binary, temp, env)
+        verify_binary(binary, temp, env, 'windows-fresh')
         run([setup, *args], temp, env)
+        verify_binary(binary, temp, env, 'windows-upgrade')
         if marker.read_text(encoding='utf-8') != 'synthetic private workspace':
             raise AssertionError('Upgrade changed the workspace fixture')
         run([install / 'unins000.exe','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART'], temp, env)
