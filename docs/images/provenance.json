@@ -5,6 +5,16 @@
   "images": {
     "overview.png": "bd5a1993ef5685b8bd8375ccece7e74a67b1010231da4651c2b0052d5aedf0fb",
     "pipeline.png": "384e65c306ca65fabe0f7ae6fca478124067b38342f91bc49596d47237d3717e",
-    "results.png": "e46e440b18c33d91fe1ce4cd2795ab50434cf896fd4217f7de956253bed72d58"
+    "results.png": "e46e440b18c33d91fe1ce4cd2795ab50434cf896fd4217f7de956253bed72d58",
+    "sample-workflow.png": "3ad2e5f059f2357405dc979e976b4d3f73e89aa15b24f1d7249ab5146311ae66"
+  },
+  "additional_captures": {
+    "sample-workflow.png": {
+      "source": "Actual Chromium render of docs/demo.html; fictional Trail Timer sample only; no connected account, model call, publication or spending",
+      "captured_at": "2026-11-04T13:07:09.324510+00:00",
+      "viewport_width": 1440,
+      "synthetic": true,
+      "verification_command": "python tools/test_preview_browser.py"
+    }
   }
 }
