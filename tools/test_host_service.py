@@ -15,6 +15,16 @@ BINARY = Path('/usr/lib/wize-marketing-machine/WMM')
 UNIT = Path('/usr/share/wize-marketing-machine/wmm-worker.service')
 
 
+def port_available():
+    """Ignore closed TCP connections while refusing an active Linux listener."""
+    with socket.socket() as probe:
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            probe.bind(('127.0.0.1', 8765))
+        except OSError as exc:
+            raise RuntimeError('Fixed WMM loopback port is occupied') from exc
+
+
 def preflight(env):
     # All checks here are read-only: do not even create a temporary directory first.
     if (not sys.platform.startswith('linux') or env.get('CI') != 'true'
@@ -41,11 +51,7 @@ def preflight(env):
             or not UNIT.is_file() or not os.access(UNIT, os.R_OK)):
         raise RuntimeError('Disposable user, manager bus, temporary home or installed binary is invalid')
     # Do not interfere with any already-running listener on the fixed port.
-    with socket.socket() as probe:
-        try:
-            probe.bind(('127.0.0.1', 8765))
-        except OSError as exc:
-            raise RuntimeError('Fixed WMM loopback port is occupied') from exc
+    port_available()
     return runtime
 
 

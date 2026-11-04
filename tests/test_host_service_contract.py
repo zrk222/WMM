@@ -17,6 +17,21 @@ WRAPPER = runpy.run_path(str(ROOT / 'tools/ci_host_user.py'))
 
 
 class HostServiceContractTests(unittest.TestCase):
+    def test_port_probe_keeps_active_listener_exclusion_without_time_wait_false_alarm(self):
+        from unittest.mock import Mock
+        import socket
+        probe = Mock()
+        probe.__enter__ = Mock(return_value=probe)
+        probe.__exit__ = Mock(return_value=False)
+        with patch.object(socket, 'socket', return_value=probe):
+            HARNESS['port_available']()
+        probe.setsockopt.assert_called_once_with(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        probe.bind.assert_called_once_with(('127.0.0.1', 8765))
+        probe.bind.side_effect = OSError('active listener')
+        with patch.object(socket, 'socket', return_value=probe):
+            with self.assertRaisesRegex(RuntimeError, 'port is occupied'):
+                HARNESS['port_available']()
+
     def test_unit_is_explicit_same_user_and_bounded(self):
         unit = configparser.ConfigParser(interpolation=None, strict=True)
         unit.read(ROOT / 'packaging/linux/wmm-worker.service', encoding='utf-8')

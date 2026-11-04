@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # The browser profile provisions Chromium and the local render runtime and runs
 # both owner-bound OneSignal journeys alongside the existing creative batch suite.
 # All eight backend shards and the native/package job definitions are retained.
-BASELINES = {".github/workflows/checks.yml":"1a4db37787fdd39690ab21b035cba91c41648db62c960e6a210eb472b992955f",".github/workflows/platform-checks.yml":"8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",".github/workflows/desktop-packages.yml":"e706a3cecaff27d02493a91b6e22b9b6719d435d16b7e0c47a2dbf9c45362349"}
+BASELINES = {".github/workflows/checks.yml":"1a4db37787fdd39690ab21b035cba91c41648db62c960e6a210eb472b992955f",".github/workflows/platform-checks.yml":"8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",".github/workflows/desktop-packages.yml":"8816c9fd992f5ab1bf6176236deaec744c729add0ac3cf8237c19bbfcff995a0"}
 GROUP = "${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}"
 
 def job_digest(path):
