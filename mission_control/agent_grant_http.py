@@ -48,8 +48,17 @@ def call(handler):
     return handler.send(200,execute_admitted(service,envelope,admission))
 
 
-def owner(store,app_id,action,user,body):
+def owner(store,app_id,action,user,body,*,runtime_origin=None,runtime_executable=None):
     """Only the HTTP adapter's freshly authenticated owner can manage credentials."""
+    if action==['setup']:
+        if body != {} or runtime_origin is None:
+            raise Invalid('Use the exact owner agent setup request')
+        from .db import connection
+        from .review_access import member
+        with connection(store.path) as db:
+            member(db,app_id,user['principal'],'OWNER')
+        from .agent_setup import report
+        return report(runtime_origin,runtime_executable=runtime_executable)
     grants=Grants(store)
     from .agent_handoffs import Handoffs
     handoffs=Handoffs(store)

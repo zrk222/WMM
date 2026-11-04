@@ -38,6 +38,7 @@ def verify_binary(binary, folder, env, label):
     spec.loader.exec_module(module)
     import anyio
     anyio.run(module.mcp_smoke, binary, str(folder))
+    module.setup_smoke(binary, folder, env, label=label)
     module.first_packet_smoke(binary, folder, env, label=label,
                              profile_dir=env['LOCALAPPDATA'])
 

@@ -74,6 +74,14 @@ class DesktopEntryTests(unittest.TestCase):
                 dispatch(["--mcp", "--origin", "http://127.0.0.1:8765"])
         self.assertEqual(error.exception.code, 2)
         self.assertIs(sys.argv, before)
+        adapter.main.return_value = 0
+        with patch("importlib.import_module", return_value=adapter) as imported:
+            adapter.main.side_effect = lambda: self.assertEqual(
+                sys.argv[1:], ["--origin", "http://127.0.0.1:8765", "--json"]
+            )
+            self.assertTrue(dispatch(["--agent-setup", "--origin", "http://127.0.0.1:8765", "--json"]))
+            imported.assert_called_once_with(".agent_setup", "mission_control")
+        self.assertIs(sys.argv, before)
         self.assertFalse(dispatch(["--arbitrary-module"]))
 
     def test_controller_starts_and_stops_actual_existing_workers(self):

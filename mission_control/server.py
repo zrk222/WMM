@@ -7,6 +7,7 @@ import mimetypes
 from pathlib import Path
 import re
 import secrets
+import sys
 from urllib.parse import urlparse, unquote, parse_qs
 from .common import Invalid, canonical, digest
 import hashlib
@@ -727,9 +728,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def post_agent_grants(self,parts,data):
         """Bind delegation controls to a freshly verified app owner, never request names."""
+        if urlparse(self.path).query or self.path != '/'+'/'.join(parts):
+            raise Invalid('Use the exact agent grant action address')
         from .agent_grant_http import owner
         user=self.server.identities.fresh(self.session())
-        return self.send(200,owner(self.server.service.store,parts[2],parts[4:],user,data))
+        runtime_origin='http://127.0.0.1:'+str(self.server.server_port)
+        runtime_executable=sys.executable if getattr(sys,'frozen',False) else None
+        return self.send(200,owner(self.server.service.store,parts[2],parts[4:],user,data,
+                                   runtime_origin=runtime_origin,runtime_executable=runtime_executable))
 
     def post_agent_reviews(self,parts,data):
         """Keep human approval outside bearer tools with fresh verified session identity."""

@@ -19,16 +19,39 @@ def dependency(name):
     return dict(module=name, status='AVAILABLE', version=version)
 
 
-def report(origin):
-    """Emit selected-interpreter setup facts and a cwd-independent grant launch."""
+def report(origin, *, runtime_executable=None):
+    """Emit setup facts for source Python or a frozen desktop executable."""
     origin_data(origin)
+    if runtime_executable is not None:
+        executable = str(Path(runtime_executable).resolve())
+        deps = [dependency(name) for name in ('mcp', 'anyio')]
+        ready = all(d['status'] == 'AVAILABLE' for d in deps)
+        baseline = deps[0]['version'] == '1.30.0'
+        return dict(
+            schema='wmm.agent-setup.v1', runtime_kind='PACKAGED_DESKTOP',
+            python=None, repository=None, origin=origin,
+            server_status='NOT_CHECKED_OFFLINE', python_supported=None,
+            cli=dict(status='AVAILABLE', catalog=[executable, '--agent-cli', 'catalog']),
+            mcp=dict(status='DEPENDENCIES_AVAILABLE' if ready else 'OPTIONAL_DEPENDENCIES_MISSING',
+                     tested_sdk_baseline='1.30.0', matches_tested_baseline=baseline,
+                     dependencies=deps),
+            mcp_config=dict(mcpServers={'wmm-local': dict(command=executable,
+                args=['--mcp', '--origin', origin, '--use-grant'], env={})}),
+            authority='OWNER_ISSUED_SCOPED_GRANT_REQUIRED_FOR_GENERATED_CONFIG',
+            next_steps=[
+                'Start WMM separately at the exact origin shown; offline discovery does not verify a running server.',
+                'For delegated access, sign in under Activity & reviews as this app OWNER, then Manage agent grants.',
+                'Supply WMM_AGENT_GRANT using the host protected process environment; no token belongs in configuration examples or prompts.',
+                'Review and register the displayed MCP configuration manually in an authorized host. This command changes no host settings.',
+                'Call wmm_catalog to discover current tools, then operations.read for selected-app policy. Missing grant never falls back to session authority.',
+            ])
     root = Path(__file__).resolve().parent.parent
     python = str(Path(sys.executable).resolve())
     deps = [dependency(name) for name in ('mcp', 'anyio')]
     ready = all(d['status'] == 'AVAILABLE' for d in deps)
     baseline = deps[0]['version'] == '1.30.0'
     return dict(
-        schema='wmm.agent-setup.v1', python=python, repository=str(root),
+        schema='wmm.agent-setup.v1', runtime_kind='SOURCE_PYTHON', python=python, repository=str(root),
         origin=origin, server_status='NOT_CHECKED_OFFLINE',
         python_supported=sys.version_info >= (3, 11),
         cli=dict(status='AVAILABLE', catalog=[python, '-m', 'mission_control.agent_cli', 'catalog']),
@@ -54,20 +77,24 @@ def main(argv=None):
     parser.add_argument('--json', action='store_true', help='Print machine-readable setup facts and configuration')
     args = parser.parse_args(argv)
     try:
-        value = report(args.origin)
+        value = report(args.origin, runtime_executable=sys.executable if getattr(sys, 'frozen', False) else None)
     except Invalid as error:
         print(json.dumps(dict(error=str(error))), file=sys.stderr)
         return 2
     if args.json:
         print(json.dumps(value, indent=2))
     else:
-        print('Python: ' + value['python'])
-        print('Repository: ' + value['repository'])
+        if value['runtime_kind'] == 'PACKAGED_DESKTOP':
+            print('Desktop executable: ' + value['cli']['catalog'][0])
+        else:
+            print('Python: ' + value['python'])
+            print('Repository: ' + value['repository'])
         print('WMM: ' + value['origin'] + ' (not contacted)')
-        print('CLI: python -m mission_control.agent_cli catalog')
+        print('CLI: ' + ' '.join(value['cli']['catalog']))
         print('MCP: ' + value['mcp']['status'])
         print('Tested SDK baseline matches: ' + str(value['mcp']['matches_tested_baseline']))
-        print('Optional installation command: ' + ' '.join('"'+a+'"' for a in value['mcp']['install']))
+        if 'install' in value['mcp']:
+            print('Optional installation command: ' + ' '.join('"'+a+'"' for a in value['mcp']['install']))
         print(json.dumps(value['mcp_config'], indent=2))
         for step in value['next_steps']:
             print(step)

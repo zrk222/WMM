@@ -132,8 +132,8 @@ def headless():
 
 
 def dispatch(arguments):
-    """Frozen executables expose only the two existing fixed agent adapters."""
-    modules = {'--agent-cli': 'agent_cli', '--mcp': 'agent_mcp'}
+    """Frozen executables expose only fixed CLI, MCP and offline setup adapters."""
+    modules = {'--agent-cli': 'agent_cli', '--mcp': 'agent_mcp', '--agent-setup': 'agent_setup'}
     if not arguments or arguments[0] not in modules:
         return False
     from importlib import import_module
@@ -212,7 +212,7 @@ def main(arguments=None):
         headless()
         return
     if arguments:
-        raise SystemExit('Use the desktop app, --headless, --check, --agent-cli or --mcp')
+        raise SystemExit('Use the desktop app, --headless, --check, --agent-cli, --mcp or --agent-setup')
     import tkinter as tk
     from tkinter import messagebox
     controller = tk.Tk()
