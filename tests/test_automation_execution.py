@@ -260,11 +260,15 @@ class StandingExecutionTests(fixtures.AuthorityFixture, unittest.TestCase):
             self.assertEqual(result['id'], 'standing-evidence')
             with self.assertRaises((ClientError, Invalid)):
                 agent.request('POST', base+'automation-off', dict(id=issued['policy_id'], version=1))
-            request = Request(origin+base+'automation-off', data=json.dumps(dict(id=issued['policy_id'], version=1)).encode(),
+            # Authentication rejects before reading a body. An empty body avoids
+            # racing the rejected response against urllib's separate body send.
+            request = Request(origin+base+'automation-off', data=b'',
                               headers={'Content-Type': 'application/json', 'Origin': origin, 'Authorization': 'Bearer '+issued['token']}, method='POST')
             with self.assertRaises(HTTPError) as rejected:
                 urlopen(request, timeout=15)
-            self.assertIn(rejected.exception.code, (400, 401, 403))
+            self.assertEqual(rejected.exception.code, 403)
+            state = owner.request('POST', base+'automation-status', {})
+            self.assertEqual(state['policies'][0]['status'], 'ACTIVE')
             owner.request('POST', base+'automation-off', dict(id=issued['policy_id'], version=1))
             with self.assertRaises(ClientError):
                 agent.call(self.envelope('growth.history'))
