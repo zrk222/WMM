@@ -94,7 +94,7 @@ def exercise(browser, origin, width):
             assert (OUT / 'sample-report.pdf').read_bytes().startswith(b'%PDF')
         context.set_offline(False)
         page.goto(origin + '/index.html')
-        expect(page.get_by_role('heading', name='You set the direction. Your agents do the marketing.')).to_be_visible()
+        expect(page.get_by_role('heading', name='Your AI employees need a boss you can audit.')).to_be_visible()
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Overview overflow'
         page.get_by_text('See the pipeline and analytics screens', exact=True).click()
         for image in page.locator('img').all():

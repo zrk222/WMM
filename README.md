@@ -1,6 +1,6 @@
 # Wize Marketing Machine
 
-**You set the direction. Your agents do the marketing.**
+**Your AI employees need a boss you can audit.**
 
 You built the app. Now you need people to find it, try it and come back. The research, creative, campaign work and results should lead to one clear next move.
 
