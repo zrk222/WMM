@@ -3,6 +3,13 @@ const fs=require('node:fs'),path=require('node:path');
 const root=path.join(__dirname,'..'),directory=path.join(root,'mission_control/static');
 const loaded={exports:{}};new Function('module',fs.readFileSync(path.join(directory,'ui-stories.js'),'utf8'))(loaded);
 const stories=loaded.exports;
+
+test('agent research dialogs explain the stage and exact effect without generic repeated prose',()=>{
+ for(const title of ['Your agent research','Give your agent a focused search','Review the search assignment','Review agent research','Turn this source into an app experiment','Review this research approval']){
+  const html=stories.dialog(title,'<form id="oresearch-adopt-form"></form>');assert.ok(html.startsWith('<header'));assert.ok(!html.includes('Inspect '+title));assert.ok(!html.includes('guaranteed'));
+ }
+ assert.ok(stories.dialog('Review this research approval','').includes('publication need their own authority'));
+});
 test('every actual navigation page has a distinct mission input output and next step',()=>{
  const index=fs.readFileSync(path.join(directory,'index.html'),'utf8');
  const views=[...index.matchAll(/data-view="([a-z]+)"/g)].map(m=>m[1]);

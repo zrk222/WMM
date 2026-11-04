@@ -16,7 +16,7 @@ SCHEDULE_ACTIONS = {'schedule-prepare', 'schedule-activate', 'schedule-status', 
 def post(handler, parts):
     """Preparing research is owner-only; recipient agents use the scoped gateway."""
     if (len(parts) != 5 or parts[:2] != ['api', 'apps']
-            or parts[3] != 'organic-video' or parts[4] not in {'prepare', 'task-read', 'intake', *POLICY_ACTIONS, *INTENT_ACTIONS, *SCHEDULE_ACTIONS}):
+            or parts[3] != 'organic-video' or parts[4] not in {'prepare', 'task-list', 'task-read', 'intake', *POLICY_ACTIONS, *INTENT_ACTIONS, *SCHEDULE_ACTIONS}):
         raise Invalid('Use the exact video research preparation address')
     identifier(parts[2])
     if handler.command != 'POST' or handler.path != '/' + '/'.join(parts):
@@ -45,18 +45,9 @@ def post(handler, parts):
             elif action == 'intake':
                 from .organic_video_intake import adopt
                 result = adopt(store, parts[2], actor, body)
-            elif action == 'task-read':
-                from .organic_video_discovery import exact
-                from .organic_video_collector import _row, _view
-                from .db import connection
-                import json
-                exact(body, ('task_id',))
-                with connection(store.path) as db:
-                    row = _row(db, parts[2], body['task_id'])
-                    if row['owner'] != actor:
-                        raise PermissionError('Video research belongs to another owner')
-                    result = dict(_view(row), submission=json.loads(row['submission']) if row['submission'] else None,
-                                  result_hash=row['result_hash'])
+            elif action in {'task-read', 'task-list'}:
+                from .organic_video_collector import owner_read, owner_history
+                result = (owner_read if action == 'task-read' else owner_history)(store, parts[2], actor, body)
             elif action in INTENT_ACTIONS:
                 from . import campaign_video_execution as video
                 from .campaign_contract import exact

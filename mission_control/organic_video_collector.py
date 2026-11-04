@@ -3,12 +3,15 @@ from datetime import datetime, timedelta, timezone
 import json
 
 from .agent_grants import app_scope, current
-from .common import Invalid, canonical, digest, iso_time, now, safe_data, uid
+from .common import Invalid, canonical, digest, iso_time, now, required, safe_data, uid
 from .db import connection
 from .operation_authority import PROTECTED, check, store_identity
 from .organic_video_discovery import discovery_task, exact, qualify_submission
 from .review_access import exact_role
 from .store import audit
+
+RESEARCH_PAGE_SIZE = 20
+RESEARCH_MAX_OFFSET = 100000
 
 
 def _schema(db):
@@ -75,6 +78,63 @@ def _view(row):
                 or value['result'] is None or digest(value['result']) != row['result_hash']):
             raise Invalid('Discovery submission or result integrity changed')
     return value
+
+
+def _intake_rows(db, app_id, task_ids):
+    if not db.execute("SELECT 1 FROM sqlite_master WHERE name='organic_video_intakes'").fetchone():
+        return []
+    return db.execute('''SELECT * FROM organic_video_intakes WHERE app_id=?
+        AND json_extract(data,'$.provenance.task_id') IN (SELECT value FROM json_each(?))
+        ORDER BY created,id''', (app_id, canonical(task_ids))).fetchall()
+
+
+def owner_history(store, app_id, actor, body):
+    """Bounded private GUI history; task ownership is distinct from app membership."""
+    exact(body, ('offset', 'request_id'))
+    if type(body['offset']) is not int or not 0 <= body['offset'] <= RESEARCH_MAX_OFFSET:
+        raise Invalid('Use a supported research history offset')
+    request_id = body['request_id']
+    if request_id is not None and (not isinstance(request_id, str) or not 1 <= len(request_id) <= 120):
+        raise Invalid('Use the exact bounded research request identity')
+    with connection(store.path) as db:
+        _authorized(db, store, app_id, actor, body, 'organic-video.task-list', False)
+        _schema(db)
+        rows = db.execute('''SELECT * FROM organic_discovery_tasks WHERE app_id=? AND owner=?
+            AND (? IS NULL OR request_id=?) ORDER BY created DESC,id DESC LIMIT ? OFFSET ?''',
+                          (app_id, actor, request_id, request_id, RESEARCH_PAGE_SIZE + 1, body['offset'])).fetchall()
+        items = []
+        for row in rows[:RESEARCH_PAGE_SIZE]:
+            saved = _view(row)
+            items.append(dict(id=row['id'], task_hash=row['task_hash'], request_id=row['request_id'],
+                              request_hash=row['request_hash'], status=row['status'], created=row['created'],
+                              updated=row['updated'], query=saved['task']['query'], intakes=[]))
+        from .organic_video_intake import _view as intake_view
+        grouped = {item['id']: item for item in items}
+        for row in _intake_rows(db, app_id, list(grouped)):
+            saved = intake_view(row)
+            grouped[saved['data']['provenance']['task_id']]['intakes'].append(dict(
+                id=saved['id'], hash=saved['hash'], source_id=saved['data']['source']['id'],
+                collection_id=saved['data']['collection']['id']))
+        return dict(items=items, offset=body['offset'],
+                    next_offset=body['offset'] + RESEARCH_PAGE_SIZE if len(rows) > RESEARCH_PAGE_SIZE else None)
+
+
+def owner_read(store, app_id, actor, body):
+    """Inspect saved task and exact adoption readback without repeating a write."""
+    exact(body, ('task_id',))
+    required(body['task_id'], 'Research task identity', 120)
+    with connection(store.path) as db:
+        _authorized(db, store, app_id, actor, body, 'organic-video.task-read', False)
+        _schema(db)
+        row = _row(db, app_id, body['task_id'])
+        if row['owner'] != actor:
+            raise PermissionError('Video research belongs to another owner')
+        result = dict(_view(row), submission=json.loads(row['submission']) if row['submission'] else None,
+                      result_hash=row['result_hash'], request_id=row['request_id'], request_hash=row['request_hash'], intakes=[])
+        from .organic_video_intake import _view as intake_view
+        result['intakes'] = [dict(intake_view(item), request_id=item['request_id'], request_hash=item['request_hash'])
+                            for item in _intake_rows(db, app_id, [row['id']])]
+        return result
 
 
 def prepare(store, app_id, actor, body) -> object:
