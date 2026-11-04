@@ -5,26 +5,35 @@ through the actual WMM application. The public preview and its synthetic sample
 are excluded from this acceptance. This matrix records current evidence and
 remaining work; a working backend route alone does not close a GUI row.
 
-## Organic video journey — initial source inventory
+## Organic video journey — current coverage
 
-Reviewed November 4, 2026. This is a source inventory, not a fresh execution
-receipt for every screen. The linked tests were inspected by the UI reviewer;
-root execution evidence is retained separately for completed backend packets.
+Reviewed November 4, 2026. Research task and intake controls have actual isolated
+owner HTTP and Chromium acceptance at desktop and mobile widths. Remaining rows
+are source inventory, not fresh execution evidence for every screen.
 
 | User job / role | Actual GUI today | Missing operational control | Domain path to reuse | Acceptance state |
 | --- | --- | --- | --- | --- |
-| Find references / owner and scoped collector | Research → Open discovery research reviews saved app references and collections. | Prepare a genre/app research task, select the recipient agent, follow collection and inspect submitted qualification evidence. | [Discovery UI](../mission_control/static/discovery-ui.js), [organic owner routes](../mission_control/organic_video_http.py), collector claim/submit through scoped CLI/MCP | ADJACENT_GUI; ORGANIC_TASK_GUI_MISSING |
-| Adopt a result / current owner | Manual saved-source review exists. | Review exact collector results and approve one candidate's adoption with source/baseline/rights provenance. | [Intake](../mission_control/organic_video_intake.py), task-read and intake owner routes | BACKEND_TESTED; GUI_MISSING |
+| Find references / owner and scoped collector | Research → Your agent research prepares a bounded task for a selected existing grant, reviews exact scope and lists saved task/results. | Source access must be configured in the collecting agent; a task alone is not a completed external search. | [Research GUI](../mission_control/static/organic-research.js), [owner routes](../mission_control/organic_video_http.py), scoped collector CLI/MCP | GUI_IMPLEMENTED; SIX_SYNTHETIC_BROWSER_SCENARIOS_PASS; LIVE_COLLECTION_NOT_CLAIMED |
+| Adopt a result / current owner | Exact source/baseline/rights review, structured evidence card, full confirmation, history, JSON and PDF reports. | Media reuse, production and publication require separate authority. | [Intake](../mission_control/organic_video_intake.py), request-hash readback and retained uncertain-write recovery | GUI_IMPLEMENTED; DESKTOP_AND_MOBILE_ACCEPTANCE_PASS |
 | Agree on production / owner | Existing campaign approval controls cover a separate scope. | Create/read/revoke the organic video policy, show exact sources, claims, templates, destinations, expiry, quotas and remaining capacity. | [Video policy](../mission_control/organic_video_policy.py), owner-only create/revoke; separate agent read/reserve/admit | BACKEND_TESTED; GUI_MISSING |
 | Shape the creative / operator and scoped agent | Video projects support editing, history, preview and saved-revision rendering. | Connect the selected research/brief/owned-media workflow to the approved production policy and admitted artifact. | [Video editor](../mission_control/static/video-editor.js), [workflow preparation](../mission_control/organic_video_workflow.py), Hypit and policy admission | EDITOR_GUI_EXISTS; HANDOFF_MISSING |
 | Publish the exact output / owner or authorized agent | No organic video intent screen. | Select an admitted render, inspect exact caption/destination/rights, execute within scope and inspect the retained provider stage/ID. | [Intent executor](../mission_control/campaign_video_execution.py), intent-create/read/execute | BACKEND_TESTED; GUI_MISSING |
 | Recover an uncertain result / approving owner | Other campaign recovery screens exist. | Inspect the retained original intent and perform permitted read-only recovery without a duplicate send. | intent-read/reconcile through [owner routes](../mission_control/organic_video_http.py) | BACKEND_TESTED; GUI_MISSING |
 | Schedule and stop / current owner | Existing post/ad schedule controls use the separate campaign scope. | Prepare, review, activate, inspect and turn OFF an exact Reel schedule with visible phase-check limits. | [Shared scheduler](../mission_control/campaign_schedule.py), [video adapter](../mission_control/organic_video_schedule.py), schedule-* owner routes | SCHEDULE_BACKEND_MERGED_PR84; GUI_MISSING |
-| Follow phases and receipts / owner | Existing campaign progress is not bound to organic phase observations. | Show effective state, last observed phase, next check, limits, exceptions and the complete retained worker chain; export the report. | video schedule-status; [phase observations](../mission_control/organic_video_monitor.py) | T14_BACKEND_IN_PROGRESS; GUI_MISSING |
+| Follow phases and receipts / owner | Existing campaign progress is not bound to organic phase observations. | Show effective state, last observed phase, next check, limits, exceptions and the complete retained worker chain; export the report. | video schedule-status; [phase observations](../mission_control/organic_video_monitor.py) | BACKEND_MERGED_PR85; GUI_MISSING |
 
-No production static JavaScript binding to `/organic-video/` or
-`organic-video.*` was found in this bounded inventory. Adjacent discovery,
-editing and campaign tests do not establish this missing end-to-end GUI.
+The Research GUI now binds the owner task and intake routes. Existing editing
+and campaign screens still do not establish the remaining end-to-end organic
+production, intent, schedule and phase-monitor controls above.
+
+## Keyword and competitor evidence
+
+Results → Subscription growth review → Import keyword research accepts a local
+agent-prepared JSON packet. Its review, immutable save, source/phrase readout,
+JSON download and actual PDF generation pass product-browser acceptance at
+1440px and 390px. Existing scoped CLI/MCP growth.save/read use the same store.
+See [market research](market-research.md). These are supplied source snapshots;
+live search-volume/rank collection and measured marketing outcomes are separate.
 
 ## Existing foundations to preserve
 
