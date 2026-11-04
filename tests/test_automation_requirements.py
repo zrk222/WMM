@@ -91,10 +91,14 @@ class AutomationReadinessTests(unittest.TestCase):
         expected={
             'creative.source.save','creative.analysis.save','creative.profile.save','creative.requirement.save',
             'creative.brief.save','creative.batch.plan','creative.batch.create','creative.batch.list','creative.batch.cancel',
-            'handoff.create','handoff.resume','experiment.schedule','experiment.schedule-run'}
+            'handoff.create','handoff.resume','experiment.schedule','experiment.schedule-run',
+            'organic-video.claim','organic-video.submit'}
         self.assertEqual(set(UNBUNDLED_OPERATIONS),expected)
         bundled={name for row in WORKFLOWS.values() for name in row['operations']}
         self.assertFalse(expected & bundled)
+        for name in ('organic-video.claim','organic-video.submit'):
+            self.assertEqual(UNBUNDLED_OPERATIONS[name], 'viral_discovery')
+        self.assertEqual(WORKFLOWS['viral_discovery']['operations'], [])
         owner_only={'experiment.schedule','experiment.schedule-run'}
         self.assertEqual({name for name,group in UNBUNDLED_OPERATIONS.items() if group=='OWNER_ONLY'},owner_only)
         self.assertTrue((expected-owner_only).issubset(catalog()['operations']))

@@ -409,6 +409,80 @@ class DesktopEntryTests(unittest.TestCase):
                 index = argv.index('truststore')
                 self.assertEqual(argv[index - 1], '--collect-all')
 
+    def test_self_test_constructs_verified_identity_context_without_provider_access(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from mission_control.desktop import self_test
+        output = StringIO()
+        with patch('mission_control.operator_identity.github_read', side_effect=AssertionError('provider request')) as provider, \
+                patch('mission_control.desktop.data_directory', side_effect=AssertionError('user data')) as user_data, \
+                redirect_stdout(output):
+            self_test()
+        value = json.loads(output.getvalue())
+        self.assertEqual(value['status'], 'PASS')
+        self.assertEqual(value['provider_execution'], 'NOT_RUN')
+        self.assertEqual(value['data'], 'DISPOSABLE_SYNTHETIC')
+        self.assertEqual(value['identity_tls'], dict(
+            profile='WINDOWS_NATIVE_TRUSTSTORE' if sys.platform == 'win32' else 'STDLIB_DEFAULT',
+            context_constructed=True, certificate_required=True, check_hostname=True,
+            minimum_tls_version='TLSv1_2'))
+        provider.assert_not_called()
+        user_data.assert_not_called()
+
+    def test_self_test_native_context_failure_stops_before_runtime_and_pass_output(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from mission_control.desktop import self_test
+        output = StringIO()
+        with patch('mission_control.operator_identity._identity_trust_context', side_effect=RuntimeError('native provider missing')), \
+                patch('mission_control.desktop.DesktopRuntime') as runtime, redirect_stdout(output):
+            with self.assertRaisesRegex(RuntimeError, 'native provider missing'):
+                self_test()
+        runtime.assert_not_called()
+        self.assertEqual(output.getvalue(), '')
+
+    def test_self_test_rejects_unsafe_identity_context_before_runtime(self):
+        import ssl
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from mission_control.desktop import self_test
+        for mode in ('certificate', 'hostname', 'minimum_tls'):
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            if mode == 'minimum_tls':
+                context.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
+            else:
+                context.check_hostname = False
+                if mode == 'certificate':
+                    context.verify_mode = ssl.CERT_NONE
+            output = StringIO()
+            with self.subTest(mode=mode), \
+                    patch('mission_control.operator_identity._identity_trust_context', return_value=context), \
+                    patch('mission_control.desktop.DesktopRuntime') as runtime, redirect_stdout(output):
+                with self.assertRaises(AssertionError):
+                    self_test()
+            runtime.assert_not_called()
+            self.assertEqual(output.getvalue(), '')
+
+    def test_packaged_smoke_rejects_missing_or_unsafe_identity_tls_flags(self):
+        import runpy
+        from contextlib import redirect_stdout
+        from io import StringIO
+        main = runpy.run_path(str(Path(__file__).resolve().parents[1]/'tools/smoke_desktop_bundle.py'))['main']
+        tls = dict(profile='WINDOWS_NATIVE_TRUSTSTORE' if sys.platform == 'win32' else 'STDLIB_DEFAULT',
+            context_constructed=True, certificate_required=True, check_hostname=True, minimum_tls_version='TLSv1_2')
+        invalid = [dict(status='PASS')]
+        for key, value in (('profile', 'WRONG_PROVIDER'), ('context_constructed', False),
+                           ('certificate_required', False), ('check_hostname', False),
+                           ('minimum_tls_version', 'TLSv1')):
+            invalid.append(dict(status='PASS', identity_tls=dict(tls, **{key: value})))
+        for value in invalid:
+            with self.subTest(value=value), patch('subprocess.run', side_effect=[
+                    Mock(stdout='{}', returncode=0), Mock(stdout=json.dumps(value), returncode=0)
+                    ]) as execute, redirect_stdout(StringIO()):
+                with self.assertRaises((AssertionError, KeyError)):
+                    main()
+            self.assertEqual(execute.call_count, 2)
+
 
 
 if __name__ == "__main__":
