@@ -12,6 +12,35 @@ def scene():
 
 
 class AuthoringTests(unittest.TestCase):
+    def test_versioned_managed_footage_uses_fixed_media_source_and_mute(self):
+        value = dict(scene(), schema='growth.hypit-footage-scene.v1')
+        value['scenes'][0]['media'] = {'id': '11111111-1111-1111-1111-111111111111',
+                                      'sha256': 'a' * 64, 'in_frame': 24, 'audio': 'MUTE'}
+        result = project(value)
+        self.assertEqual(scene_contract(value), value)
+        film = result['files']['film.svml']
+        self.assertIn('<media:Video id="original0" src="./assets/scene0.mp4"/>', film)
+        self.assertIn('source={original0} video="primary-moving" audio="none"', film)
+        self.assertIn('media={normalized0.media} during={clock.scene0}', film)
+        self.assertLess(film.index('<film:Track source={footage0.visual}/>'),
+                        film.index('<film:Track source={title.visual}/>'))
+        self.assertNotIn(value['scenes'][0]['media']['id'], film)
+        self.assertNotIn(value['scenes'][0]['media']['sha256'], film)
+
+    def test_footage_rejects_untrusted_path_audio_and_frame_ranges(self):
+        value = dict(scene(), schema='growth.hypit-footage-scene.v1')
+        valid = {'id': '11111111-1111-1111-1111-111111111111',
+                 'sha256': 'a' * 64, 'in_frame': 24, 'audio': 'MUTE'}
+        for change in ({'path': '/private/video.mp4'}, {'audio': 'RETAIN'},
+                       {'in_frame': True}, {'in_frame': 1439}, {'sha256': 'bad'},
+                       {'id': '../outside'}):
+            altered = copy.deepcopy(value)
+            altered['scenes'][0]['media'] = {**valid, **change}
+            with self.subTest(change=change), self.assertRaises(Invalid):
+                project(altered)
+        with self.assertRaises(Invalid):
+            project(value)
+
     def test_fixed_project_profile_and_deterministic_source_receipts(self):
         value = scene()
         saved = copy.deepcopy(value)

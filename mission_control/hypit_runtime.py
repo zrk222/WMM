@@ -7,8 +7,8 @@ import shutil
 import time
 from .agent_process import capture
 from .common import Invalid
-from .hypit_authoring import project
-from .hypit_media import validate_video
+from .hypit_authoring import FPS, project, scene_contract
+from .hypit_media import MAX_BYTES, validate_video
 from .media_native import capability
 
 COMMAND_TIMEOUT = 180
@@ -47,11 +47,12 @@ def invoke(runtime, folder, arguments, alive=lambda: None):
     return value
 
 
-def stage(folder, scene):
+def stage(folder, scene, sources=None, alive=lambda: None):
     """Exclusive fixed files in an empty caller-owned job directory; font is host-selected."""
     folder = Path(folder)
     if folder.is_symlink() or not folder.is_dir() or any(folder.iterdir()):
         raise Invalid('Hypit needs an exclusive empty job directory; inspect existing work before retrying')
+    scene = scene_contract(scene)
     authored = project(scene)
     font = capability().get('font')
     if not font:
@@ -61,7 +62,51 @@ def stage(folder, scene):
             destination.write(text.encode())
     with (folder / 'font.ttf').open('xb') as destination:
         destination.write(Path(font).read_bytes())
-    return dict(authored['receipt'], font_sha256=hashlib.sha256((folder / 'font.ttf').read_bytes()).hexdigest())
+    receipt = dict(authored['receipt'], font_sha256=hashlib.sha256((folder / 'font.ttf').read_bytes()).hexdigest())
+    selected = {i: item for i, item in enumerate(scene['scenes']) if 'media' in item}
+    if not selected:
+        if sources:
+            raise Invalid('Unexpected footage was supplied to a text-only scene')
+        return receipt
+    if not isinstance(sources, dict) or set(sources) != set(selected):
+        raise Invalid('Every footage scene requires its exact managed snapshot')
+    assets = folder / 'assets'
+    assets.mkdir(mode=0o700)
+    receipt['media_hashes'] = {}
+    for index, item in selected.items():
+        raw = sources[index]
+        if type(raw) is not bytes or not 0 < len(raw) <= MAX_BYTES or hashlib.sha256(raw).hexdigest() != item['media']['sha256']:
+            raise Invalid('Managed footage snapshot differs from its approved hash')
+        source = assets / f'source{index}.mp4'
+        with source.open('xb') as destination:
+            destination.write(raw)
+        clip = assets / f'scene{index}.mp4'
+        cut_footage(source, clip, item, alive)
+        receipt['media_hashes'][f'assets/source{index}.mp4'] = item['media']['sha256']
+        receipt['media_hashes'][f'assets/scene{index}.mp4'] = hashlib.sha256(clip.read_bytes()).hexdigest()
+    return receipt
+
+
+def cut_footage(source, target, item, alive):
+    """Normalize to 24 fps, then trim exact normalized frame offsets without audio."""
+    tools = capability().get('tools', {})
+    ffmpeg = tools.get('ffmpeg')
+    if not ffmpeg:
+        raise Invalid('FFmpeg is required for managed footage')
+    first = item['media']['in_frame']; frames = item['seconds'] * FPS
+    command = [ffmpeg, '-hide_banner', '-loglevel', 'error', '-nostdin', '-n',
+               '-protocol_whitelist', 'file,pipe', '-i', str(source.resolve()), '-vf',
+               f'fps={FPS},trim=start_frame={first}:end_frame={first + frames},setpts=PTS-STARTPTS',
+               '-an', '-frames:v', str(frames), '-c:v', 'libx264', '-pix_fmt', 'yuv420p', str(target.resolve())]
+    result = capture(command, folder=target.parent, alive=alive, timeout=COMMAND_TIMEOUT)
+    if (result['code'] or not target.is_file() or target.is_symlink()
+            or not 0 < target.stat().st_size <= MAX_BYTES):
+        raise Invalid('Managed footage could not be normalized and trimmed')
+    from .managed_media_validation import inspect
+    decoded = inspect(target.read_bytes(), '.mp4', alive=alive)
+    if (decoded['decoded']['video_frames'] != frames or decoded['metadata']['audio']
+            or decoded['metadata']['frame_rate'] != FPS):
+        raise Invalid('Trimmed footage does not match the selected frame range')
 
 
 def local_graph(value):
@@ -160,10 +205,10 @@ def cleanup(runtime, folder, key, unfinished):
     return dict(worker='STOPPED', cancellation='REQUESTED' if key and unfinished else 'NOT_NEEDED')
 
 
-def render(folder, scene, alive=lambda: None, submitted=lambda key: None):
+def render(folder, scene, alive=lambda: None, submitted=lambda key: None, sources=None):
     """Submit once, retain source/build history and return only actually decoded output."""
     runtime = identity()
-    receipt = stage(folder, scene)
+    receipt = stage(folder, scene, sources=sources, alive=alive)
     folder = Path(folder).resolve()
     key = None
     complete = False
@@ -188,6 +233,14 @@ def render(folder, scene, alive=lambda: None, submitted=lambda key: None):
 
 def source_current(folder, receipt):
     """Refuse an artifact if retained editable source/font changed during execution."""
+    folder = Path(folder).resolve()
     hashes = dict(receipt['source_hashes'], **{'font.ttf': receipt['font_sha256']})
-    if any(hashlib.sha256((folder / name).read_bytes()).hexdigest() != expected for name, expected in hashes.items()):
-        raise Invalid('Hypit project source changed during rendering; inspect this build before retrying')
+    hashes.update(receipt.get('media_hashes', {}))
+    try:
+        for name, expected in hashes.items():
+            path = folder / name
+            if (path.is_symlink() or not path.is_file() or not path.resolve().is_relative_to(folder)
+                    or hashlib.sha256(path.read_bytes()).hexdigest() != expected):
+                raise Invalid('Hypit project source changed during rendering; inspect this build before retrying')
+    except OSError:
+        raise Invalid('Hypit project source changed during rendering; inspect this build before retrying') from None

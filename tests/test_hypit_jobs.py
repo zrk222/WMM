@@ -33,6 +33,68 @@ class HypitJobTests(unittest.TestCase):
     def queue(self, key='hypit-lifecycle', **changes):
         return self.renders.queue(APP, dict(data=dict(self.request, **changes), request_key=key))
 
+    def managed(self):
+        from mission_control.managed_media_store import Media
+        from mission_control.review_access import Access
+        raw = b'synthetic approved footage'
+        def inspect(data, suffix, alive):
+            return {'sha256': hashlib.sha256(data).hexdigest(), 'bytes': len(data),
+                    'metadata': {'codec': 'h264', 'width': 720, 'height': 1280,
+                                 'duration_seconds': 30.0, 'frame_rate': 24.0, 'audio': False},
+                    'decoded': {'video_frames': 720, 'audio_frames': 0}}
+        owner = {'principal': 'github:321', 'login': 'owner'}
+        Access(self.store).bootstrap(APP, owner, {'confirm_owner': True})
+        media = Media(self.store, inspector=inspect)
+        version = self.store.app(APP)['version']
+        item = media.upload(APP, 'demo.mp4', raw, {'manifest_version': version, 'request_key': 'source'})
+        review = dict(expected_version=0, manifest_version=version, source_sha256=item['source_sha256'],
+                      status='ALLOWED', basis='OWNED', evidence='Owner recorded this synthetic footage.')
+        item = media.review(APP, item['id'], review, owner)
+        return media, item, review, owner, raw
+
+    def test_managed_footage_is_bound_and_rechecked_at_commit(self):
+        media, item, review, owner, raw = self.managed()
+        choice = dict(scene_index=0, id=item['id'], sha256=item['source_sha256'], in_frame=24, audio='MUTE')
+        plan = self.renders.plan(APP, {'data': dict(self.request, footage=[choice])})
+        self.assertEqual(plan['authoring_mode'], 'APPROVED_MANAGED_FOOTAGE')
+        self.assertEqual(jobs(self.store, APP), [])
+        queued = self.queue('footage', footage=[choice])
+        self.assertEqual(queued['data']['scene']['scenes'][0]['media']['in_frame'], 24)
+        self.assertEqual(queued['data']['media_bindings'][0]['sha256'], item['source_sha256'])
+        def runtime(folder, scene, alive, submitted, sources):
+            self.assertEqual(sources[0], raw)
+            result = self.adapter(folder, scene, alive, submitted)
+            media.review(APP, item['id'], dict(review, expected_version=1, status='REVOKED'), owner)
+            return result
+        with patch('mission_control.hypit_jobs.render', side_effect=runtime):
+            self.assertTrue(run_once(self.store))
+        self.assertEqual(jobs(self.store, APP)[0]['status'], 'BLOCKED')
+        self.assertEqual(self.renders.list(APP)['items'], [])
+
+    def test_footage_rejects_unapproved_stale_and_wrong_app_sources(self):
+        media, item, review, owner, _ = self.managed()
+        choice = dict(scene_index=0, id=item['id'], sha256=item['source_sha256'], in_frame=24, audio='MUTE')
+        for change in ({'sha256': 'f' * 64}, {'in_frame': 720}, {'audio': 'RETAIN'}, {'scene_index': True}):
+            with self.subTest(change=change), self.assertRaises(Invalid):
+                self.queue('invalid-' + str(change), footage=[dict(choice, **change)])
+        media.review(APP, item['id'], dict(review, expected_version=1, status='REVOKED'), owner)
+        with self.assertRaises(Invalid): self.queue('revoked', footage=[choice])
+
+    def test_committed_footage_artifact_cannot_be_reused_after_rights_revocation(self):
+        media, item, review, owner, raw = self.managed()
+        choice = dict(scene_index=0, id=item['id'], sha256=item['source_sha256'], in_frame=0, audio='MUTE')
+        self.queue('saved-footage', footage=[choice])
+        def runtime(folder, scene, alive, submitted, sources):
+            self.assertEqual(sources[0], raw)
+            return self.adapter(folder, scene, alive, submitted)
+        with patch('mission_control.hypit_jobs.render', side_effect=runtime):
+            run_once(self.store)
+        row = self.renders.list(APP)['items'][0]
+        self.assertEqual(row['status'], 'CURRENT')
+        media.review(APP, item['id'], dict(review, expected_version=1, status='REVOKED'), owner)
+        with self.assertRaises(Invalid): artifact_file(self.store, APP, row['id'])
+        self.assertEqual(self.renders.list(APP)['items'][0]['status'], 'STALE_OR_UNAVAILABLE')
+
     def adapter(self, folder, scene, alive, submitted):
         alive()
         submitted(KEY)

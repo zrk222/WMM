@@ -5,7 +5,7 @@ import re
 from .common import Invalid, canonical, digest, now, uid
 from .db import connection
 from .creative_rendering import render_request, current_request, owned, heartbeat
-from .hypit_authoring import scene_contract
+from .hypit_authoring import FPS, FOOTAGE_SCHEMA, scene_contract
 from .hypit_media import MAX_BYTES
 from .hypit_runtime import identity, render, build_identity
 
@@ -32,13 +32,55 @@ def brief_scene(request):
     return scene_contract(value)
 
 
+def resolve_inputs(db, store, app_id, body, capture=False):
+    """Bind selected managed sources to exact approved captions and current rights."""
+    if not isinstance(body, dict) or set(body) not in ({'brief_id', 'brief_hash', 'shape'},
+                                                       {'brief_id', 'brief_hash', 'shape', 'footage'}):
+        raise Invalid('Use guided brief fields and optional managed footage')
+    request = render_request(db, store, app_id, {k: body[k] for k in ('brief_id', 'brief_hash', 'shape')})
+    scene = brief_scene(request)
+    if 'footage' not in body:
+        return dict(request=request, scene=scene), {}
+    footage = body['footage']
+    if not isinstance(footage, list) or not 1 <= len(footage) <= len(scene['scenes']):
+        raise Invalid('Choose at least one distinct footage scene')
+    from .managed_media_store import derivative_snapshot
+    bindings = []; sources = {}; seen = set()
+    for item in footage:
+        if not isinstance(item, dict) or set(item) != {'scene_index', 'id', 'sha256', 'in_frame', 'audio'}:
+            raise Invalid('Use exact managed footage fields')
+        index = item['scene_index']
+        if type(index) is not int or not 0 <= index < len(scene['scenes']) or index in seen:
+            raise Invalid('Choose distinct valid footage scenes')
+        seen.add(index)
+        media = {key: item[key] for key in ('id', 'sha256', 'in_frame', 'audio')}
+        scene['scenes'][index]['media'] = media
+        scene_contract(dict(scene, schema=FOOTAGE_SCHEMA))
+        source, raw = derivative_snapshot(db, store, app_id, media['id'], media['sha256'], capture=capture)
+        if media['in_frame'] + scene['scenes'][index]['seconds'] * FPS > int(source['metadata']['duration_seconds'] * FPS):
+            raise Invalid('Scene exceeds the approved source duration')
+        bindings.append(dict(scene_index=index, id=media['id'], sha256=media['sha256'],
+                             review_version=source['review_version'], manifest_version=source['manifest_version']))
+        if capture:
+            sources[index] = raw
+    scene['schema'] = FOOTAGE_SCHEMA
+    return dict(request=request, scene=scene_contract(scene), media_bindings=sorted(bindings, key=lambda x: x['scene_index'])), sources
+
+
 def current_inputs(db, store, app_id, data):
     """Worker data is checked against current proof, exact scripts and scene schema."""
-    if not isinstance(data, dict) or set(data) != {'request', 'scene'}:
+    if not isinstance(data, dict) or set(data) not in ({'request', 'scene'}, {'request', 'scene', 'media_bindings'}):
         raise Invalid('Hypit job has unsupported frozen inputs')
     current_request(db, store, app_id, data['request'])
-    if brief_scene(data['request']) != data['scene']:
-        raise Invalid('Hypit scene differs from the approved brief')
+    if 'media_bindings' not in data:
+        if brief_scene(data['request']) != data['scene']:
+            raise Invalid('Hypit scene differs from the approved brief')
+        return
+    body = {key: data['request'][key] for key in ('brief_id', 'brief_hash', 'shape')}
+    body['footage'] = [dict(scene_index=i, **item['media']) for i, item in enumerate(data['scene']['scenes']) if 'media' in item]
+    current, _ = resolve_inputs(db, store, app_id, body)
+    if current != data:
+        raise Invalid('Hypit footage or approved source review changed')
 
 
 def saved(row):
@@ -75,6 +117,9 @@ def artifact_file(store, app_id, render_id):
         raise Invalid('Hypit video is missing or unavailable')
     if hashlib.sha256(path.read_bytes()).hexdigest() != data['artifact']['sha256']:
         raise Invalid('Hypit video changed; inspect retained source before rendering again')
+    if 'media_bindings' in data.get('inputs', {}):
+        with connection(store.path) as db:
+            current_inputs(db, store, app_id, data['inputs'])
     return path, data
 
 
@@ -100,8 +145,7 @@ class HypitRenders:
             raise Invalid('Hypit render needs guided brief fields and a retry identity')
         identity()
         with connection(self.store.path) as db:
-            request = render_request(db, self.store, app_id, body['data'])
-        data = dict(request=request, scene=brief_scene(request))
+            data, _ = resolve_inputs(db, self.store, app_id, body['data'])
         return enqueue(self.store, app_id, 'hypit_render', data, body['request_key'])
 
     def list(self, app_id):
@@ -118,7 +162,10 @@ class HypitRenders:
                 row['status'] = 'CURRENT'
             except (Invalid, OSError, KeyError):
                 row['status'] = 'STALE_OR_UNAVAILABLE'
-        return dict(items=rows, attempts=attempts, capability=capability(), authoring_mode='APPROVED_BRIEF_CAPTIONS', publication='NOT_RUN')
+        has_footage = any('media_bindings' in row['data'].get('inputs', {}) for row in rows)
+        return dict(items=rows, attempts=attempts, capability=capability(),
+                    authoring_mode='APPROVED_BRIEF_AND_MANAGED_FOOTAGE' if has_footage else 'APPROVED_BRIEF_CAPTIONS',
+                    publication='NOT_RUN')
 
     def begin(self, job):
         """Reserve one retained project before a process can submit any work."""
@@ -133,7 +180,7 @@ class HypitRenders:
                 raise Invalid('Hypit attempt already exists; inspect its retained build without resubmitting')
             db.execute('INSERT INTO hypit_attempts VALUES(?,?,?,?,?,?,?,?)',
                        (job['app_id'], job['id'], job['attempts'], canonical(data), digest(data), 'STARTED', now(), now()))
-        folder.mkdir(parents=True, exist_ok=False)
+        folder.mkdir(parents=True, exist_ok=False, mode=0o700)
         return folder
 
     def submitted(self, job, key):
@@ -162,8 +209,22 @@ class HypitRenders:
             return dict(render_id=row['id'], artifact_hash=row['data']['artifact']['sha256'], publication='NOT_RUN')
         folder = self.begin(job)
         try:
-            result = render(folder, job['data']['scene'], alive=lambda: heartbeat(self.store, job, stop), submitted=lambda key: self.submitted(job, key))
-            heartbeat(self.store, job, stop)
+            def alive():
+                heartbeat(self.store, job, stop)
+                if 'media_bindings' in job['data']:
+                    with connection(self.store.path) as db:
+                        current_inputs(db, self.store, job['app_id'], job['data'])
+            if 'media_bindings' in job['data']:
+                body = {key: job['data']['request'][key] for key in ('brief_id', 'brief_hash', 'shape')}
+                body['footage'] = [dict(scene_index=i, **item['media']) for i, item in enumerate(job['data']['scene']['scenes']) if 'media' in item]
+                with connection(self.store.path) as db:
+                    captured, sources = resolve_inputs(db, self.store, job['app_id'], body, capture=True)
+                if captured != job['data']:
+                    raise Invalid('Managed footage changed before snapshot')
+                result = render(folder, job['data']['scene'], alive=alive, submitted=lambda key: self.submitted(job, key), sources=sources)
+            else:
+                result = render(folder, job['data']['scene'], alive=alive, submitted=lambda key: self.submitted(job, key))
+            alive()
             return self.commit(job, folder, result)
         except Exception:
             with connection(self.store.path) as db:
@@ -183,7 +244,8 @@ class HypitRenders:
         target = private_path(self.store, job['app_id'], 'artifacts', render_id + '.mp4')
         target.parent.mkdir(parents=True, exist_ok=True)
         data = dict(inputs=job['data'], artifact=result['artifact'], receipt=result, renderer='HYPIT_LOCAL',
-                    authoring_mode='APPROVED_BRIEF_CAPTIONS', visual_review='REQUIRED', publication='NOT_RUN')
+                    authoring_mode='APPROVED_MANAGED_FOOTAGE' if 'media_bindings' in job['data'] else 'APPROVED_BRIEF_CAPTIONS',
+                    visual_review='REQUIRED', publication='NOT_RUN')
         created = False
         try:
             with connection(self.store.path) as db:

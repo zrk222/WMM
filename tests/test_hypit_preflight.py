@@ -62,6 +62,13 @@ class HypitPreflightTests(unittest.TestCase):
         self.assertEqual(plan['reuse_candidates']['items'],[])
         self.assertEqual(len(plan['input_hash']),64);self.assertEqual(len(plan['source_hash']),64)
 
+    def test_plan_rejects_unverified_managed_source_without_queue(self):
+        data = dict(self.request, footage=[dict(scene_index=0,
+                    id='11111111-1111-1111-1111-111111111111', sha256='a'*64, in_frame=0, audio='MUTE')])
+        with self.assertRaises(Invalid):
+            self.renders.plan(APP, {'data': data})
+        self.assertEqual(jobs(self.store, APP), [])
+
     def test_explicit_reuse_rechecks_artifact_without_enqueue_or_build(self):
         identity=self.retain();before=jobs(self.store,APP)
         with patch('mission_control.worker.enqueue',side_effect=AssertionError('enqueue')), \
