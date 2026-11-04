@@ -275,16 +275,27 @@ function productionPanel() {
 
 function briefForm(id=null,learningId=null,preset={}) {
   const old=state.workspace.briefs?.find(b=>b.id===id),d=old?.current.data.definition||preset,records=state.workspace.records;
-  const analyses=(state.workspace.analyses||[]).filter(a=>a.source_status==="CURRENT");
+  const analyses=(state.workspace.analyses||[]).filter(a=>a.source_status==="CURRENT"&&
+    (!d.discovery||(a.id===d.analysis_id&&a.current.hash===d.analysis_hash)));
+  if(d.discovery&&(d.discovery.manifest_version!==state.workspace.app.version||!analyses.length))
+    throw new Error("The app or source inspection changed. Open a current research card to prepare a new brief.");
   const missing=["claim","asset","readiness","store","route"].filter(kind=>!records.some(r=>r.kind===kind));
   if(!analyses.length||missing.length)return productionPrerequisites(missing,!analyses.length);
   if(!analyses.some(a=>capabilityEvaluation(a.current.data.reference_id).status==="READY"))return capabilitySetup();
-  const selectors=[choiceField("analysis_id",analyses.map(a=>({id:a.id,title:a.current.data.format_family})),d.analysis_id),choiceField("channel",["SHORT_VIDEO","LINKEDIN","X"].map(id=>({id,title:label(id)})),d.channel)];
+  const channels=d.discovery?["SHORT_VIDEO"]:["SHORT_VIDEO","LINKEDIN","X"];
+  const selectors=[choiceField("analysis_id",analyses.map(a=>({id:a.id,title:a.current.data.format_family})),d.analysis_id),choiceField("channel",channels.map(id=>({id,title:label(id)})),d.channel)];
   for(const kind of ["claim","asset","readiness","store","route"]){const key=["claim","asset"].includes(kind)?kind+"_ids":kind+"_id";selectors.push(choiceField(key,records.filter(r=>r.kind===kind).map(r=>({id:r.id,title:r.title+" · "+r.data.release})),d[key],key.endsWith("_ids")));}
   const method=learningId?learningProgram(learningId):null;
-  const guidance=method?notice("This new brief will explicitly include: "+method.data.definition.pattern+". Existing briefs remain unchanged."): "";
+  const guidance=d.discovery?notice("This brief carries the research card’s inspected hook and selected app proof. Keep those screens selected and write your own version of the idea. Saving prepares a brief for review. Rendering and publication are separate steps."):
+    method?notice("This new brief will explicitly include: "+method.data.definition.pattern+". Existing briefs remain unchanged."): "";
   const fields=[field("objective",d.objective,"textarea","Specific scenario to demonstrate; a hypothesis, not a benefit claim"),field("owner",d.owner),field("currency",d.currency||state.workspace.app.data.currency),field("budget_minor",d.budget_minor??0,"number","Declared production cost in minor units; this authorizes no spending"),choiceField("duration_seconds",[15,30,45,60].map(n=>({id:String(n),title:n+" seconds"})),String(d.duration_seconds||30))];
   modal(old?"Revise original brief":"Prepare original brief",`<form id="brief-form" data-app="${esc(state.app)}" data-id="${esc(id||"")}" data-version="${old?.current.version||""}" data-learning="${esc(learningId||"")}" data-learning-version="${method?.version||""}" data-learning-hash="${esc(method?.hash||"")}"><div class="modal-content">${guidance}${brandBriefGuidance()}${notice("Use current release/locale evidence checked within 14 days. A newer failed readiness result blocks preparation. Imported source copy is not reused. Missing proof can be added in Evidence.")}<div class="form-grid">${selectors.join("")}${fields.join("")}</div><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><button type="submit" class="button">Prepare evidence-bound brief</button></div></form>`);
+  if(d.discovery){
+    const form=$("#brief-form");
+    form.dataset.researchBinding=JSON.stringify({discovery:d.discovery,analysis_hash:d.analysis_hash});
+    form.tabIndex=-1;
+    form.focus();
+  }
 }
 
 function productionPrerequisites(missing,needsAnalysis) {
@@ -295,7 +306,16 @@ async function saveBrief(form) {
   const fields=new FormData(form),data=Object.fromEntries(fields);
   for(const key of ["claim_ids","asset_ids"])data[key]=fields.getAll(key);
   data.budget_minor=Number(data.budget_minor);data.duration_seconds=Number(data.duration_seconds);
-  data.analysis_hash=state.workspace.analyses.find(a=>a.id===data.analysis_id).current.hash;
+  if(!currentWorkspace()||state.app!==form.dataset.app)throw new Error("Reopen the brief for the current app before saving.");
+  const analysis=state.workspace.analyses.find(a=>a.id===data.analysis_id)?.current;
+  if(!analysis)throw new Error("Select a current source inspection before saving.");
+  data.analysis_hash=analysis.hash;
+  if(form.dataset.researchBinding){
+    const saved=JSON.parse(form.dataset.researchBinding);
+    if(saved.analysis_hash!==analysis.hash||saved.discovery.manifest_version!==state.workspace.app.version)
+      throw new Error("The app or source inspection changed. Reopen a current research card.");
+    data.discovery=saved.discovery;
+  }
   const body={data};if(form.dataset.id){body.id=form.dataset.id;body.version=Number(form.dataset.version);}
   if(form.dataset.learning) {
     const method=learningProgram(form.dataset.learning);
@@ -330,7 +350,7 @@ function resultsView() {
 
 function growthReviewServices() {
   return {state,modal,api,refresh,toast,openExperiment,openJob,connectionSetup,openAccess:()=>{state.view="activity";render();},uuid:()=>crypto.randomUUID(),FormData,document,
-    close:()=>$("#modal").close(),pageReports:WMMPageReports,browser:window,ui:WMMGrowthReview};
+    close:()=>$("#modal").close(),openResearchBrief:preset=>briefForm(null,null,preset),pageReports:WMMPageReports,browser:window,ui:WMMGrowthReview};
 }
 
 function measurementIntegrityPanel() {
