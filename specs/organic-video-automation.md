@@ -38,6 +38,7 @@ An owner can run a bounded WizeMe promotion workflow that discovers relevant soc
 - The system shall preserve existing text and link post contracts and receipts through `text_compatibility`.
 - The system shall display preparation, cost, provider processing and publication evidence without claiming remote bytes match the local hash or inventing reach, installs or revenue through `honest_report`.
 - When a published Reel has a provider readback, the system shall display observed monitoring and report values with source and observation time through `outcome_monitoring`.
+- When an owner activates a schedule with explicit phase-observation limits, the system shall continue only acknowledged processing stages through the existing worker within current policy, call and observation limits through `bounded_observation`.
 
 ### Acceptance criteria (Gherkin)
 ```gherkin
@@ -149,6 +150,10 @@ Scenario: outcome_monitoring
   Given a supported provider observation with its timestamp
   When `outcome_monitoring` reads the saved report
   Then it shows the observed value and source without inventing business outcomes
+Scenario: bounded_observation
+  Given a current approved schedule with thirty-second intervals and a twelve-follow-up-job ceiling within the reserved call allowance
+  When `bounded_observation` sees a successful worker return an acknowledged processing stage
+  Then a separately retained next observation queues one existing worker job, preserving history and the original approved due time, while unknown or interrupted mutations require owner recovery
 ```
 
 ## SHOULD - Technical and structural
@@ -195,6 +200,8 @@ MAX_PROVIDER_CALLS = 500
 MAX_MEDIA_BYTES = 67108864
 ORGANIC_AD_SPEND_MINOR = 0
 GRAPH_API_VERSION = 26
+VIDEO_PHASE_OBSERVATION_SECONDS = 30
+VIDEO_PHASE_FOLLOWUP_JOB_LIMIT = 12
 
 ## Non-goals
 - No arbitrary web scraping, personal account capture, paid authorization bypass, invented claims, or guaranteed performance outcomes. Facebook Page Reels are the first live connector; other requested social platforms remain future work and are not represented as supported.

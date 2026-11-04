@@ -23,6 +23,7 @@ growth guarantee or an unattended bypass of provider consent requirements.
 - Personal agent or agent team: uses the same enforced per-operation authority.
 
 ### Requirements (EARS)
+- The system shall return a complete role-aware operational GUI for founders and teams through `operational_gui`, covering the supported workflow lifecycle without requiring terminal commands, YAML editing or raw API requests; the public sample shall not satisfy product acceptance.
 - The system shall return tenant-scoped shared cloud dashboards and reject actions outside assigned team roles or client boundaries through `team_isolation`.
 - When an operator changes a role, the system shall invalidate affected live grants, queued work and approvals through `role_revocation` without erasing receipts.
 - The system shall provide a hosted browser journey from sign-in to a useful packet without a terminal, local Python, installer, GitHub developer identity or grant JSON editing through `zero_install`.
@@ -38,6 +39,10 @@ growth guarantee or an unattended bypass of provider consent requirements.
 
 ### Acceptance criteria (Gherkin)
 ```gherkin
+Scenario: operational_gui
+  Given a founder or team operator using the actual WMM application
+  When they onboard, connect accounts, prepare creative, review authority, run supported work, resolve exceptions and inspect results
+  Then the GUI provides each role-appropriate action, current state, next step and receipt through the complete coverage contract in specs/commercial-gui.md without substituting sample data
 Scenario: team_isolation
   Given two tenants and viewer, operator, reviewer and owner memberships
   When each identity reads dashboards or attempts effects in either tenant

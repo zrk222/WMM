@@ -160,6 +160,20 @@ class ReelExecutionTests(unittest.TestCase):
         self.assertEqual(state['stage'], 'PROVIDER_PHASE_COMPLETE')
         self.assertEqual(self.transport.calls.count('publish'), 1)
 
+    def test_acknowledged_finish_remains_observable_without_publishing_again(self):
+        intent = self.intent()
+        def processing_after_finish(action):
+            if action == 'publish':
+                self.transport.processing = True
+        self.transport.hook = processing_after_finish
+        result = self.call('execute', dict(intent_id=intent['id']))
+        self.assertEqual(result['stage'], 'FINISH_ACKNOWLEDGED')
+        self.assertFalse(result['recovery_required'])
+        self.assertEqual(self.call('execute', dict(intent_id=intent['id']))['stage'], 'FINISH_ACKNOWLEDGED')
+        self.transport.processing = False
+        self.assertEqual(self.call('execute', dict(intent_id=intent['id']))['stage'], 'PROVIDER_PHASE_COMPLETE')
+        self.assertEqual(self.transport.calls.count('publish'), 1)
+
     def test_revoke_between_create_and_upload_stops_next_mutation_but_owner_can_read(self):
         intent = self.intent()
         def revoke(action):
