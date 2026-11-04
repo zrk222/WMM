@@ -310,9 +310,43 @@ class CampaignOwnerReportsTests(unittest.TestCase):
             report["monitor"]["last_observation"]["observations"][0]["status"],
             "UNKNOWN",
         )
-        self.assertIn("reconcile", report["next_action"])
+        self.assertEqual(
+            report["next_action"],
+            "Inspect and reconcile the exact uncertain campaign receipts; do not replay mutations.",
+        )
         self.assertNotIn("SECRET_RESULT", canonical(report))
         self.assertEqual(report["campaign"]["retained_commitment_minor"], 80)
+
+    def test_blocked_monitor_with_verified_receipts_prioritizes_recovery_over_kpis(self):
+        from mission_control.campaign_monitor import tick
+
+        self.cohort()
+        tick(self.store)
+        job = claim(self.store)
+        with connection(self.store.path) as db:
+            db.execute(
+                "UPDATE jobs SET status='BLOCKED',result=? WHERE id=?",
+                (canonical(dict(status="BLOCKED", observations=[])), job["id"]),
+            )
+            before_jobs = db.execute("SELECT count(*) FROM jobs").fetchone()[0]
+        before_effects = canonical(self.fixture.wire.objects)
+        with patch.object(self.fixture.wire, "publish", side_effect=AssertionError("No publication")), patch.object(
+            self.fixture.wire, "read_paid", side_effect=AssertionError("No provider read")
+        ), patch.object(self.fixture.wire, "set_paid_status", side_effect=AssertionError("No mutation")):
+            report = self.capture()["report"]
+        self.assertTrue(report["campaign"]["receipts"])
+        self.assertEqual([r["status"] for r in report["campaign"]["receipts"]], ["ACTIVE_campaign"])
+        self.assertEqual(report["monitor"]["last_observation"]["status"], "BLOCKED")
+        self.assertGreater(report["kpi_coverage"]["available_rows"], 0)
+        self.assertEqual(
+            report["next_action"],
+            "Inspect the blocked monitor and reconcile its saved campaign receipts; do not replay mutations.",
+        )
+        self.assertEqual(report["campaign"]["retained_commitment_minor"], 80)
+        self.assertFalse(report["authority_issued"])
+        self.assertEqual(canonical(self.fixture.wire.objects), before_effects)
+        with connection(self.store.path) as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM jobs").fetchone()[0], before_jobs)
 
     def test_same_definition_window_previous_snapshot_descriptive_comparison(self):
         self.cohort()
