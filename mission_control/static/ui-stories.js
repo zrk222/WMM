@@ -119,7 +119,8 @@
       'Review the search assignment':'Assigning saves a metadata-research task for the selected agent. Nothing downloads or publishes.',
       'Review agent research':'Check the source counts, baseline, relevance and failures. Approve an original app experiment after inspection.',
       'Turn this source into an app experiment':'Keep the observed hook separate from your interpretation. Add authentic app proof and a proposed experiment.',
-      'Review this research approval':'Approval saves a research card and proposed experiment. Media reuse, production and publication need their own authority.'
+      'Review this research approval':'Approval saves a research card and proposed experiment. Media reuse, production and publication need their own authority.',
+      'Find the words your app should test':'Review your agent’s sources, then save a packet of keyword coverage, competitor overlaps and next experiments.'
     }[title];
     if(research)return `<header class="notice" aria-label="Task guide"><p>${esc(research)}</p></header>`;
     if(title==='Choose how your agent works')return '<aside class="notice" aria-label="Task guide"><p>Your personal agent uses scoped access. WMM-managed work needs a tested connection. Choose the path you want to set up.</p></aside>';

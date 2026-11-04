@@ -133,7 +133,9 @@ def catalog():
     from .funnel_contract import agent_contract
     from .discovery_contract import agent_contract as discovery_contract
     from .packaging_contract import agent_contract as packaging_contract
+    from .market_research import agent_contract as market_contract
     value['domain_contracts']={'app_sales_funnel':agent_contract(),'discovery_research':discovery_contract(),'content_packaging':packaging_contract()}
+    value['domain_contracts']['market_research']=market_contract()
     return dict(value,catalog_sha256=digest(value))
 
 

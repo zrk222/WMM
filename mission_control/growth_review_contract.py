@@ -3,10 +3,11 @@ from .common import Invalid, digest, identifier, iso_time, required, safe_data
 from .pmf_contract import exact, hashed
 from .aso_validation import validate_listing
 from .benchmark_context import benchmark_record, compare_benchmark, METRICS
+from .market_research import validate_snapshot, analyze_snapshot
 
 MAX_ENTRIES = 1000
 MAX_TEXT = 2000
-KINDS = ("ASO_LISTING", "BENCHMARK_REFERENCE", "BENCHMARK_COMPARISON", "EDITORIAL_NOTE")
+KINDS = ("ASO_LISTING", "BENCHMARK_REFERENCE", "BENCHMARK_COMPARISON", "MARKET_RESEARCH", "EDITORIAL_NOTE")
 
 
 def context_of(app):
@@ -30,6 +31,12 @@ def entry_data(kind, value, context, observed_at):
         return note_data(value)
     if kind == "BENCHMARK_COMPARISON":
         return comparison_data(value)
+    if kind == "MARKET_RESEARCH":
+        exact(value, {"release", "snapshot"})
+        if not context["release"] or value["release"] != context["release"]:
+            raise Invalid("Research release must match the configured app release")
+        snapshot = validate_snapshot(value["snapshot"], context, observed_at)
+        return dict(release=value["release"], snapshot=value["snapshot"])
     exact(value, {"release", "listing" if kind == "ASO_LISTING" else "reference"})
     if not context["release"] or value["release"] != context["release"]:
         raise Invalid("Review release must match the configured app release")
@@ -94,6 +101,9 @@ def entry_readout(row, app_context, observed_at):
         analysis = dict(status="REFERENCE_EXPIRED" if iso_time(reference["expires_at"]) <= iso_time(observed_at) else "REFERENCE_AVAILABLE", reference=reference)
     elif kind == "BENCHMARK_COMPARISON":
         analysis = comparison_readout(data, observed_at)
+    elif kind == "MARKET_RESEARCH":
+        snapshot = validate_snapshot(data["snapshot"], {"locale": row["context"].get("locale")}, observed_at)
+        analysis = analyze_snapshot(snapshot, observed_at)
     else:
         analysis = dict(status="EDITORIAL_NOTE_ONLY", decision=data["decision"], target_id=data["target_id"])
     availability = "CURRENT_LOCAL_EVIDENCE"
@@ -104,4 +114,6 @@ def entry_readout(row, app_context, observed_at):
     if kind == "BENCHMARK_COMPARISON" and availability != "CURRENT_LOCAL_EVIDENCE":
         analysis = dict(status=availability, difference=None, reasons=["Rebind the saved reference and account source to the current app before relying on this comparison"])
     return dict(analysis=analysis, availability=availability, provider_verified=False, outcomes_verified=False,
+                scope_status="CURRENT_APP_SCOPE" if row["context"] == app_context else "STALE_APP_SCOPE",
+                import_provenance="IMPORTED_ASSERTION" if row["imported"] else "LOCALLY_RECORDED",
                 execution_authority=False, external_writes=False, spend_minor=0)
