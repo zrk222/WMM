@@ -139,14 +139,26 @@ class HypitRenders:
 
     def queue(self, app_id, body):
         """Freeze the current brief before creating an idempotent local render job."""
-        from .worker import enqueue
+        from .worker import enqueue_db
+        from .organic_video_policy import reserved_job_guard
         self.store.app(app_id)
         if not isinstance(body, dict) or set(body) != {'data', 'request_key'}:
             raise Invalid('Hypit render needs guided brief fields and a retry identity')
         identity()
         with connection(self.store.path) as db:
+            db.execute('BEGIN IMMEDIATE')
             data, _ = resolve_inputs(db, self.store, app_id, body['data'])
-        return enqueue(self.store, app_id, 'hypit_render', data, body['request_key'])
+            reservation = reserved_job_guard(db, self.store, app_id, body['request_key'], data)
+            if reservation and reservation[1]:
+                previous=db.execute('SELECT * FROM jobs WHERE app_id=? AND id=?',(app_id,reservation[1])).fetchone()
+                if previous is None or previous['request_key']!=body['request_key']:raise Invalid('Reserved generation job is unavailable; inspect before retrying')
+            result=enqueue_db(db, self.store, app_id, 'hypit_render', data, body['request_key'])
+            if reservation:
+                if reservation[1] and reservation[1]!=result['id']:raise Invalid('Reserved generation cannot launch a replacement job')
+                if not reservation[1]:
+                    db.execute('INSERT INTO organic_video_reserved_jobs VALUES(?,?,?)',(reservation[0]['id'],app_id,result['id']))
+                reserved_job_guard(db,self.store,app_id,body['request_key'],data,result['id'])
+            return result
 
     def list(self, app_id):
         """Show immutable outputs, source freshness and retained unfinished history."""
@@ -174,6 +186,8 @@ class HypitRenders:
         with connection(self.store.path) as db:
             db.execute('BEGIN IMMEDIATE')
             owned(db, job)
+            from .organic_video_policy import reserved_job_guard
+            reserved_job_guard(db,self.store,job['app_id'],job['request_key'],job['data'],job['id'])
             current_inputs(db, self.store, job['app_id'], job['data'])
             previous = db.execute('SELECT * FROM hypit_attempts WHERE app_id=? AND job_id=?', (job['app_id'], job['id'])).fetchone()
             if previous:
@@ -201,6 +215,8 @@ class HypitRenders:
         """Replay committed output or run the single durably reserved attempt."""
         with connection(self.store.path) as db:
             owned(db, job)
+            from .organic_video_policy import reserved_job_guard
+            reserved_job_guard(db,self.store,job['app_id'],job['request_key'],job['data'],job['id'])
             current_inputs(db, self.store, job['app_id'], job['data'])
             previous = db.execute('SELECT * FROM hypit_renders WHERE app_id=? AND job_id=?', (job['app_id'], job['id'])).fetchone()
         if previous:
@@ -211,8 +227,10 @@ class HypitRenders:
         try:
             def alive():
                 heartbeat(self.store, job, stop)
-                if 'media_bindings' in job['data']:
+                if 'media_bindings' in job['data'] or job['request_key'].startswith('organic-video-reservation:'):
                     with connection(self.store.path) as db:
+                        from .organic_video_policy import reserved_job_guard
+                        reserved_job_guard(db,self.store,job['app_id'],job['request_key'],job['data'],job['id'])
                         current_inputs(db, self.store, job['app_id'], job['data'])
             if 'media_bindings' in job['data']:
                 body = {key: job['data']['request'][key] for key in ('brief_id', 'brief_hash', 'shape')}
@@ -251,6 +269,8 @@ class HypitRenders:
             with connection(self.store.path) as db:
                 db.execute('BEGIN IMMEDIATE')
                 owned(db, job)
+                from .organic_video_policy import reserved_job_guard
+                reserved_job_guard(db,self.store,job['app_id'],job['request_key'],job['data'],job['id'])
                 current_inputs(db, self.store, job['app_id'], job['data'])
                 row = db.execute('SELECT * FROM hypit_attempts WHERE app_id=? AND job_id=?', (job['app_id'], job['id'])).fetchone()
                 attempt = saved(row)
