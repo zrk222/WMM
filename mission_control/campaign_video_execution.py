@@ -216,7 +216,7 @@ def _read(store, app_id, actor, identity, transport, context, operation, recover
     elif observed['video_status'] == 'ready' and all(observed[key] == 'complete' for key in ('uploading_phase', 'processing_phase', 'publishing_phase')):
         stage = 'PROVIDER_PHASE_COMPLETE'
     elif view['finish_attempted']:
-        stage = 'PUBLISH_UNRESOLVED'
+        stage = 'FINISH_ACKNOWLEDGED' if view['stage'] == 'FINISH_ACKNOWLEDGED' else 'PUBLISH_UNRESOLVED'
     elif observed['uploading_phase'] != 'complete':
         stage = 'UPLOAD_UNRESOLVED'
     elif observed['uploading_phase'] == 'complete' and observed['processing_phase'] == 'complete' and observed['video_status'] == 'ready':

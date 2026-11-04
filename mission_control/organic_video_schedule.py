@@ -66,7 +66,8 @@ class VideoSchedules:
                 raise PermissionError('Use the exact policy approved by this owner')
             items = prepare_items(db, self.store, app_id, body['items'], policy, context)
             identity, stamp = uid(), now()
-            summary = dict(batch_id=identity, app_id=app_id, owner=context['principal'], kind=KIND,
+            from .organic_video_monitor import CONFIG
+            summary = dict(batch_id=identity, app_id=app_id, owner=context['principal'], kind=KIND, monitoring=dict(CONFIG),
                            scope_id=policy['id'], scope_hash=policy['hash'], items=items)
             db.execute('INSERT INTO campaign_schedule_batches VALUES(?,?,?,?,?,?,?,?,?,?)',
                        (identity, app_id, context['principal'], policy['id'], canonical(summary), digest(summary), 'DRAFT', 1, stamp, stamp))
@@ -113,8 +114,10 @@ class VideoSchedules:
                 body = json.loads(item['body'])
                 intent = video._view(video._row(db, app_id, body['request']['intent_id']))
                 job = db.execute('SELECT status FROM jobs WHERE id=?', (item['job_id'],)).fetchone()
+                from .organic_video_monitor import status as observation_status
                 items.append(dict(item_id=item['id'], due_at=body['due_at'], status=item['status'], operation=OPERATION,
-                                  job_id=item['job_id'], job_status=job['status'] if job else None, intent=intent))
+                                  job_id=item['job_id'], job_status=job['status'] if job else None, intent=intent,
+                                  phase_checks=observation_status(db, app_id, item['id'])))
             return dict(id=row['id'], status=row['status'], version=row['version'], scope_id=row['scope_id'],
                         summary=summary, summary_hash=row['summary_hash'], items=items)
 

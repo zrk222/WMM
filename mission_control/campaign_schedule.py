@@ -248,10 +248,12 @@ def tick(store):
     count = 0
     with connection(store.path) as db:
         db.execute('BEGIN IMMEDIATE')
+        from .organic_video_monitor import advance as advance_video
+        count += advance_video(db, store)
         rows = db.execute("""SELECT i.*,b.app_id,b.scope_id,b.summary,b.summary_hash
             FROM campaign_schedule_items i JOIN campaign_schedule_batches b ON b.id=i.batch_id
             WHERE i.status='READY' AND b.status='ACTIVE' AND i.due<=?
-            ORDER BY i.due,i.id LIMIT ?""", (time.time(), MAX_ITEMS)).fetchall()
+            ORDER BY i.due,i.id LIMIT ?""", (time.time(), MAX_ITEMS-count)).fetchall()
         for row in rows:
             body = json.loads(row['body'])
             summary = json.loads(row['summary'])
