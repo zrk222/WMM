@@ -14,7 +14,20 @@ from tests import test_resolutions as fixtures
 
 
 class SourceProgressTests(unittest.TestCase):
-    setUp = fixtures.ResolutionPlanTests.setUp
+    def setUp(self):
+        fixtures.ResolutionPlanTests.setUp(self)
+        # Dispatch and later retry previews must share one collection hour.
+        # Boundary tests override this clock explicitly to exercise rotation.
+        fixed = datetime.now(timezone.utc)
+
+        class CollectionDatetime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return fixed if tz is not None else fixed.replace(tzinfo=None)
+
+        self.enterContext(patch('tests.test_source_progress.datetime', CollectionDatetime))
+        self.enterContext(patch('mission_control.campaign_inputs.datetime', CollectionDatetime))
+
     request = fixtures.ResolutionExecutionTests.request
 
     def dispatch(self):
