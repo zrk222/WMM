@@ -62,7 +62,8 @@ def exchange_code(config,secret,code,verifier,alive=lambda:None):
         extended=request(provider,'long',{'client_secret':secret,'access_token':short.credentials['access_token']},alive=alive,deadline=deadline)
         return parse(provider,extended,time.time(),prior=short.facts,requested_scopes=scopes)
     if provider=='facebook':
-        short=parse(provider,raw,time.time(),requested_scopes=scopes)
+        # Either exchange may omit lifetime; callback verification requires inspected expiry.
+        short=parse(provider,raw,time.time(),requested_scopes=scopes,facebook_long_missing_expiry=True)
         raw=request(provider,'long',dict(client_id=config['client_id'],client_secret=secret,
                     fb_exchange_token=short.credentials['access_token']),alive=alive,deadline=deadline)
         return parse(provider,raw,time.time(),requested_scopes=scopes,facebook_long_missing_expiry=True)

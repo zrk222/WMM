@@ -89,10 +89,17 @@ class SocialProviderTests(unittest.TestCase):
         with patch('mission_control.social_auth.request',side_effect=[token('facebook'),missing]):
             grant=exchange_code(config('facebook'),'synthetic-secret','synthetic-code','V'*64)
         self.assertIsNone(grant.facts['expires_at'])
+        with patch('mission_control.social_auth.request',side_effect=[missing,missing]) as request:
+            grant=exchange_code(config('facebook'),'synthetic-secret','synthetic-code','V'*64)
+        self.assertEqual([call.args[1] for call in request.call_args_list],['code','long'])
+        self.assertIsNone(grant.facts['expires_at'])
         for value in (None,0,-1,True,'3600'):
             with self.subTest(value=value):
                 with patch('mission_control.social_auth.request',side_effect=[token('facebook'),{**missing,'expires_in':value}]):
                     with self.assertRaises(Invalid):exchange_code(config('facebook'),'synthetic-secret','synthetic-code','V'*64)
+                with patch('mission_control.social_auth.request',return_value={**missing,'expires_in':value}) as request:
+                    with self.assertRaises(Invalid):exchange_code(config('facebook'),'synthetic-secret','synthetic-code','V'*64)
+                self.assertEqual(request.call_count,1)
         for provider in ('facebook','instagram','linkedin','tiktok'):
             with self.subTest(provider=provider),self.assertRaises(Invalid):
                 parse(provider,missing,time.time())

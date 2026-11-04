@@ -76,7 +76,7 @@ class SocialFlowTests(unittest.TestCase):
                 if ttl is not None:long['expires_in']=ttl
                 before=time.time()
                 stage=Secrets.stage
-                with patch('mission_control.social_auth.request',side_effect=[token('facebook'),long]),\
+                with patch('mission_control.social_auth.request',side_effect=[dict(access_token='synthetic-short',token_type='bearer'),long]),\
                      patch('mission_control.social_profiles.request',side_effect=meta),\
                      patch.object(Secrets,'stage',autospec=True,side_effect=stage) as staging:
                     result=callback(self.store,request)
