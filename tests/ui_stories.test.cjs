@@ -59,3 +59,15 @@ test('goal packet guidance explains its useful next step without repeating gener
   assert.ok(!html.includes('Inspect '+goal));
  }
 });
+
+test('readiness guidance distinguishes personal-agent access from managed-work requirements',()=>{
+ const choice=stories.dialog('Choose how your agent works','');
+ assert.match(choice,/personal agent uses scoped access/);
+ assert.match(choice,/WMM-managed work needs a tested connection/);
+ const form=stories.dialog('WMM-managed automation setup','<form id="goal-readiness-form"></form>');
+ assert.match(form,/This check starts no work/);
+ assert.equal((form.match(/<p>/g)||[]).length,1);
+ assert.match(stories.FORMS['goal-readiness-form'][2],/Personal agents can use ordinary scoped grants/);
+ const result=stories.dialog('WMM-managed readiness checklist','');
+ assert.match(result,/setup observations for WMM-managed work/);
+});
