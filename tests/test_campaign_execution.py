@@ -131,8 +131,13 @@ class CampaignTests(unittest.TestCase):
         facts=SimpleNamespace(subject_id='subject',permissions=['pages_manage_posts','pages_show_list','pages_read_engagement'],
             destinations=[{'id':'123','tasks':['CREATE_CONTENT']}])
         credentials=({'provider':'facebook'},'synthetic-secret',{'access_token':'user-token','page_token':'page-token'})
-        with patch.object(self.service,'_credentials',return_value=credentials), patch('mission_control.campaign_execution.facebook',return_value=facts), patch('mission_control.campaign_execution.selected_page',return_value=({'tasks':['CREATE_CONTENT']},'page-token')):
-            self.service._preflight('sample','owner',self.scope['scope_id'],'RUN_POST')
+        with patch.object(self.service,'_credentials',return_value=credentials), patch('mission_control.campaign_execution.facebook',return_value=facts), patch('mission_control.campaign_execution.selected_page',return_value=({'tasks':['CREATE_CONTENT']},'rotated-page-token')) as selected:
+            result=self.service._preflight('sample','owner',self.scope['scope_id'],'RUN_POST')
+            self.assertEqual(result[2],'rotated-page-token')
+            self.assertEqual(selected.call_args.args[2],'123')
+            selected.return_value=({'tasks':[]},'rotated-page-token')
+            with self.assertRaises(PermissionError):self.service._preflight('sample','owner',self.scope['scope_id'],'RUN_POST')
+            selected.return_value=({'tasks':['CREATE_CONTENT']},'rotated-page-token')
             facts.permissions.remove('pages_manage_posts')
             with self.assertRaises(PermissionError):self.service._preflight('sample','owner',self.scope['scope_id'],'RUN_POST')
             facts.permissions.append('pages_manage_posts');facts.subject_id='different'

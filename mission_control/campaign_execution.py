@@ -189,8 +189,8 @@ class CampaignExecutionService:
         if len(pages)!=1 or 'CREATE_CONTENT' not in pages[0]['tasks']:
             raise PermissionError('Facebook Page does not grant CREATE_CONTENT')
         page,token=selected_page(secret,grant['access_token'],scope['page_id'],alive)
-        if token!=grant.get('page_token'):
-            raise PermissionError('Saved Page grant changed; reconnect before execution')
+        # selected_page verifies the current token against this exact approved Page.
+        # Meta may rotate token bytes while preserving the same account and authority.
         if 'CREATE_CONTENT' not in page['tasks']:raise PermissionError('Page creation task is absent')
         return scope,secret,token
 
