@@ -216,7 +216,13 @@ def render(folder, scene, alive=lambda: None, submitted=lambda key: None, source
         check = invoke(runtime, folder, ['check', 'build.svrun'], alive)
         if check.get('ok') is not True:
             raise Invalid('Hypit source did not pass its installed compiler')
-        local_graph(invoke(runtime, folder, ['plan', 'build.svrun', '--runtime', 'runtime.json'], alive))
+        plan = invoke(runtime, folder, ['plan', 'build.svrun', '--runtime', 'runtime.json'], alive)
+        local_graph(plan)
+        counters = ('requestIssueCount', 'producerFailureCount', 'providerRequestCount', 'unresolvedRequestCount',
+                    'unsupportedRequestCount', 'requestCount', 'localRequestCount')
+        local_plan = dict(ok=plan['ok'], preflight=dict(ok=plan['preflight']['ok']),
+                          needs=[dict(endpoint=name) for name in sorted(selected_endpoints(plan['needs']))],
+                          **{name: plan[name] for name in counters})
         key, admission = submit(runtime, folder, alive)
         submitted(key)
         observe(runtime, folder, key, alive)
@@ -227,7 +233,7 @@ def render(folder, scene, alive=lambda: None, submitted=lambda key: None, source
         source_current(folder, receipt)
     finally:
         shutdown = cleanup(runtime, folder, key, not complete)
-    return dict(build_id=key, submission_receipt=admission, source=receipt, artifact=artifact, runtime=runtime, cleanup=shutdown,
+    return dict(build_id=key, submission_receipt=admission, source=receipt, artifact=artifact, runtime=runtime, cleanup=shutdown, local_plan=local_plan,
                 authoring_mode='VALIDATED_DECLARATIVE_SCENE', publication='NOT_RUN', visual_review='REQUIRED')
 
 

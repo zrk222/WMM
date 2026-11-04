@@ -1,7 +1,7 @@
 """Original evidence-bound briefs; preparation never implies rendering or publication."""
 import sqlite3
 import json
-from .common import Invalid,amount,digest,iso_time,now,required,safe_data
+from .common import Invalid,amount,canonical,digest,iso_time,now,required,safe_data
 from .db import connection
 from .creative_analysis import latest,append,saved_items
 from .creative_library import latest_capture,source_url,verify_owned_source
@@ -10,13 +10,18 @@ from .production_feasibility import bound as production_bound
 
 CHANNELS=("SHORT_VIDEO","LINKEDIN","X")
 FIELDS={"analysis_id","analysis_hash","channel","objective","owner","claim_ids","asset_ids","readiness_id","store_id","route_id","currency","budget_minor","duration_seconds"}
+DISCOVERY_FIELDS={"schema","mode","manifest_version","collection_id","collection_hash","reference_id","review_hash"}
 
 
 def definition(data):
     """Require explicit objective, budget, channel and app evidence identities."""
     safe_data(data)
-    if set(data)!=FIELDS:raise Invalid("Complete the brief preparation fields")
+    if set(data) not in (FIELDS,FIELDS|{"discovery"}):raise Invalid("Complete the brief preparation fields")
     result=dict(data)
+    if "discovery" in data:
+        value=data["discovery"]
+        if not isinstance(value,dict) or set(value)!=DISCOVERY_FIELDS or value.get("schema")!="wmm.brief-discovery.v1":raise Invalid("Use the exact versioned discovery binding")
+        if value["mode"] not in ("ORIGINAL_RECREATION","LICENSED_EDIT") or data["channel"]!="SHORT_VIDEO":raise Invalid("Choose a supported short-video discovery mode")
     for key in ("objective","owner"):result[key]=required(data[key],key,2000)
     for key in ("analysis_id","analysis_hash","readiness_id","store_id","route_id"):result[key]=required(data[key],key,120)
     if data["channel"] not in CHANNELS:raise Invalid("Choose short video, LinkedIn or X")
@@ -32,21 +37,26 @@ def evidence_ids(ids,key):
     if not isinstance(ids,list) or not 1<=len(ids)<=5 or any(not isinstance(v,str) for v in ids) or len(set(ids))!=len(ids):raise Invalid("Choose 1 through 5 distinct "+key.replace("_"," "))
 
 
+def record_scope(data,kind,app):
+    """Require selected evidence to match the frozen app release and locale."""
+    if data.get("release")!=app["release"]:raise Invalid(kind+" does not match the current app release")
+    if kind in ("readiness","claim","asset","store") and data.get("locale")!=app["locale"]:raise Invalid(kind+" does not match the current app locale")
+
+
 def bound_record(db,app_id,item_id,kind,app):
     """Freeze only selected app/release/locale evidence with its canonical hash."""
     if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
     row=db.execute("SELECT * FROM records WHERE app_id=? AND id=? AND kind=?",(app_id,item_id,kind)).fetchone()
     if not row:raise Invalid("Choose "+kind+" evidence from this app")
     result=dict(row);result["data"]=json.loads(result["data"]);data=result["data"]
-    if data.get("release")!=app["release"]:raise Invalid(kind+" does not match the current app release")
-    if kind in ("readiness","claim","asset","store") and data.get("locale")!=app["locale"]:raise Invalid(kind+" does not match the current app locale")
+    record_scope(data,kind,app)
     if kind!="asset":checked(data,kind)
     return result
 
 
-def checked(data,kind):
+def checked(data,kind,stamp=None):
     """Reject old, future or failed supplied product proofs, including route fallbacks."""
-    age=(iso_time(now())-iso_time(data.get("checked_at"))).total_seconds()
+    age=(iso_time(stamp or now())-iso_time(data.get("checked_at"))).total_seconds()
     if not 0<=age<=14*86400:raise Invalid(kind+" needs a passing check within 14 days")
     if kind=="store":
         if data.get("availability")!="AVAILABLE":raise Invalid("Store destination must be available")
@@ -98,7 +108,44 @@ def bind(db,store,app_id,data):
     verify_owned_source(db,store,app_id,capture["data"])
     records=bind_proofs(db,store,app_id,app,data);critical_findings(db,app_id)
     frozen={"definition":requested,"app":app,"app_hash":digest(app),"analysis":analysis,"source":capture,"records":records,"production":production_bound(db,app_id,app,capture,data["channel"])}
+    if "discovery" in requested:frozen["discovery"]=bind_discovery(db,store,app_id,requested,analysis,capture)
     return dict(frozen,content=compose(frozen),state="PREPARED",render="NOT_RUN",publication="NOT_RUN")
+
+
+def bind_discovery(db,store,app_id,requested,analysis,capture):
+    """Bind a current qualified research card without granting foreign-byte use."""
+    from .funnel_store import app_context
+    from .discovery_store import latest as research, selected_review, scoped, reviews, authentic_proofs
+    from .discovery_query import evaluate, boundaries
+    value=requested["discovery"];stamp=now()
+    app=app_context(db,app_id,value["manifest_version"])
+    saved=research(db,app_id,value["collection_id"],"COLLECTION")
+    if len(canonical(saved).encode('utf-8'))>1048576:raise Invalid("Research collection exceeds the 1 MiB brief evidence limit")
+    source,review=selected_review(db,app_id,app,saved,value,stamp)
+    if analysis["data"]["reference_id"]!=value["reference_id"] or (capture["reference_id"],capture["version"],capture["hash"])!=(source["reference_id"],source["version"],source["hash"]):raise Invalid("Discovery and analysis must use the same current source")
+    newest=reviews(db,app_id).get(value["reference_id"])
+    if not newest or (newest["id"],newest["version"],newest["hash"])!=(review["id"],review["version"],review["hash"]):raise Invalid("Research review changed after collection")
+    selected=[row for row in saved["data"]["results"] if row["reference_id"]==value["reference_id"]]
+    if len(selected)!=1 or selected[0]["included"] is not True or selected[0]["qualified"] is not True:raise Invalid("Select an included qualified research card")
+    if (selected[0]["source_version"],selected[0]["source_hash"])!=(source["version"],source["hash"]):raise Invalid("Research source changed after collection")
+    if selected[0]["review"]["version"]!=review["version"]:raise Invalid("Review changed after collection")
+    if saved["data"]["state"]!="OBSERVED":raise Invalid("Research collection is incomplete")
+    for observed in (saved["data"]["observed_at"],source["data"]["metric_at"]):
+        if not 0<=(iso_time(stamp)-iso_time(observed)).total_seconds()<=86400:raise Invalid("Research evidence must be fresh within 24 hours")
+    current=scoped(app,source,review,stamp)
+    if current is None:raise Invalid("Research app or source context changed")
+    decision=evaluate(source,current,saved["data"]["query"],stamp)
+    if decision["included"] is not True or decision["qualified"] is not True:raise Invalid("Research candidate is no longer fresh and qualified")
+    if current["card"]["rights_status"]=="REVOKED" or (value["mode"]=="LICENSED_EDIT" and decision["rights_missing"]):raise Invalid("Current explicit source rights are required for this mode")
+    ids=current["card"]["authentic_evidence_ids"]
+    if not set(ids).issubset(set(requested["asset_ids"])):raise Invalid("Select the card's authentic app assets in the brief")
+    proof=authentic_proofs(db,store,app_id,ids,app)
+    return dict(schema="wmm.brief-research-proof.v1",mode=value["mode"],manifest_version=app["version"],app_hash=app["hash"],
+                collection_id=saved["id"],collection_version=saved["version"],collection_hash=saved["hash"],
+                collection_provenance=saved["data"].get("collection_provenance","NOT_INDEPENDENTLY_VERIFIED"),
+                reference_id=source["reference_id"],source_version=source["version"],source_hash=source["hash"],
+                review_id=review["id"],review_version=review["version"],review_hash=review["hash"],card=current["card"],
+                collection=saved,review=review,authentic_proofs=proof,policy=selected[0]["policy"],boundaries=boundaries(),foreign_bytes="NOT_AUTHORIZED")
 
 
 def bind_proofs(db,store,app_id,app,data):
@@ -164,7 +211,11 @@ def stale_findings(db,store,app_id,data):
 
 def proof_identity(data):
     """Ignore restore bookkeeping; compare semantic sources and evidence hashes."""
-    return (data["app_hash"],data["analysis"]["hash"],data["source"]["hash"],[(r["id"],r["hash"]) for r in data["records"]],digest(data["content"]),digest(data.get("production")))
+    analysis=data["analysis"];source=data["source"]
+    return (data["app_hash"],(analysis["id"],analysis["version"],analysis["hash"]),
+            (source["reference_id"],source["version"],source["hash"]),
+            [(r["id"],r["version"],r["hash"]) for r in data["records"]],
+            digest(data["content"]),digest(data.get("production")),digest(data.get("discovery")))
 
 
 class Briefs:

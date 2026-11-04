@@ -52,6 +52,7 @@ class RuntimeTests(unittest.TestCase):
                 raise
             self.assertEqual(receipt['publication'], 'NOT_RUN')
             self.assertGreater(receipt['artifact']['bytes'], 0)
+            local_graph(receipt['local_plan'])
             output = subprocess.run([ffmpeg, '-hide_banner', '-loglevel', 'error', '-i', str(folder / 'video.mp4'),
                 '-vf', 'crop=2:2:200:500,format=rgb24', '-frames:v', '1', '-f', 'rawvideo', 'pipe:1'],
                 check=True, capture_output=True, timeout=20).stdout
@@ -163,13 +164,19 @@ class RuntimeTests(unittest.TestCase):
     def test_single_submit_actual_identity_export_validation_and_shutdown_order(self):
         commands = []
         submitted = []
-        with tempfile.TemporaryDirectory() as temporary, patch('mission_control.hypit_runtime.identity', return_value=dict(launcher='hypit', launcher_sha256='fixture')), patch('mission_control.hypit_runtime.invoke', side_effect=self.fake_commands(commands)), patch('mission_control.hypit_runtime.validate_video', return_value=dict(sha256='fixture')):
+        private_plan = dict(plan(), private_path='PRIVATE_PATH', preflight=dict(ok=True, diagnostic='PRIVATE_DIAGNOSTIC'),
+                            needs=[dict(endpoint='media.local', request='PRIVATE_PAYLOAD'), dict(endpoint='html.local', path='PRIVATE_PATH')])
+        with tempfile.TemporaryDirectory() as temporary, patch('mission_control.hypit_runtime.identity', return_value=dict(launcher='hypit', launcher_sha256='fixture')), patch('mission_control.hypit_runtime.invoke', side_effect=self.fake_commands(commands, private_plan)), patch('mission_control.hypit_runtime.validate_video', return_value=dict(sha256='fixture')):
             result = render(Path(temporary), scene(), submitted=submitted.append)
         self.assertEqual(submitted, [KEY])
         self.assertEqual([args[0] for args in commands], ['check', 'plan', 'build', 'status', 'get', 'runtime'])
         self.assertEqual(result['build_id'], KEY)
         self.assertEqual(result['cleanup']['worker'], 'STOPPED')
         self.assertEqual(result['publication'], 'NOT_RUN')
+        self.assertEqual(result['local_plan'], plan())
+        self.assertEqual(result['local_plan']['providerRequestCount'], 0)
+        self.assertEqual(result['local_plan']['localRequestCount'], result['local_plan']['requestCount'])
+        local_graph(result['local_plan'])
 
     def test_unknown_endpoint_prevents_build_and_submitted_failure_cancels_then_stops(self):
         for invalid_plan, cancelled in ((dict(plan(), needs=[dict(endpoint='remote')]), False), (None, True)):

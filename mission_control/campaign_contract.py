@@ -11,6 +11,12 @@ SCOPE_FIELDS = ('connection_id','page_id','ad_account_id','currency','expires_at
                 'max_calls','max_campaigns','max_campaign_minor','max_total_minor',
                 'approved_content_hashes','approved_rights_hashes','approved_targeting_hashes',
                 'billing_acknowledged','ordinary_ad_attestation')
+REEL_SCHEMA = 'wmm.facebook-page-reel.v1'
+REEL_FIELDS = (
+    'schema', 'request_id', 'app_id', 'page_id', 'policy_id', 'policy_hash',
+    'admission_id', 'admission_hash', 'rights_hashes', 'artifact_id',
+    'artifact_sha256', 'caption',
+)
 
 
 def exact(value, fields):
@@ -92,6 +98,28 @@ def post_data(body):
     hashes([body['rights_hash']],True)
     return dict(request_id=body['request_id'],message=message,link=link,
                 content_hash=content_hash,rights_hash=body['rights_hash'])
+
+
+def reel_data(body):
+    """Validate an exact local Reel request before checking its durable authority."""
+    from .operation_catalog import path_segment
+
+    exact(body, REEL_FIELDS)
+    if body['schema'] != REEL_SCHEMA:
+        raise Invalid('Use the supported Facebook Page Reel request version')
+    path_segment(body['app_id'])
+    numeric(body['page_id'])
+    for key in ('request_id', 'policy_id', 'admission_id', 'artifact_id'):
+        reference(body[key])
+    for key in ('policy_hash', 'admission_hash', 'artifact_sha256'):
+        hashes([body[key]], True)
+    rights = hashes(body['rights_hashes'], True)
+    caption = body['caption']
+    required(caption, 'Reel caption', 5000)
+    if re.search(r'[\x00-\x09\x0b-\x1f\x7f\ud800-\udfff]', caption):
+        raise Invalid('Use printable Unicode and line breaks in the Reel caption')
+    safe_data(body)
+    return dict(body, rights_hashes=rights)
 
 
 def target_countries(body):
