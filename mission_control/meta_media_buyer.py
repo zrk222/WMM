@@ -26,7 +26,7 @@ def contract(app, operations):
             evidence=['current_app_hash','account_and_page_identity','currency','connection_health',
                       'measurement_sources_and_freshness','attribution_windows','owner_objective'],
             action='Inspect actual source coverage first. Ask only for critical missing owner choices; continue independent reads.'),
-        dict(id='research', operations=['discovery.history','discovery.read','discovery.collect','discovery.handoff'],
+        dict(id='research', operations=['growth.read','growth.save','discovery.history','discovery.read','discovery.collect','discovery.handoff'],
             evidence=['audience_pain_and_intent','competitor_source_urls_and_dates','locale_and_market',
                       'observed_hook_and_treatment','analyst_interpretation','rights_and_authentic_app_proof'],
             action='Build an evidence-backed hypothesis and differentiated app benefit; public engagement does not establish conversion.'),
