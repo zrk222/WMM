@@ -88,6 +88,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def send(self,code,body,content_type="application/json; charset=utf-8",filename=None,headers=None):
         """Return a bounded response with cache, content, framing and cookie protection."""
+        if code>=400 and self.command=='POST':
+            from .http_body import discard_rejected_body
+            discard_rejected_body(self)
         raw=body if isinstance(body,bytes) else canonical(body).encode()
         self.send_response(code)
         self.send_header("Content-Type",content_type)

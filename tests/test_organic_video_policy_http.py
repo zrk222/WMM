@@ -12,6 +12,11 @@ from mission_control.db import connection
 from mission_control.common import uid
 from tests import test_organic_video_policy as fixtures
 from tests import test_verified_review as identities
+from tests import test_organic_video_intake as intake_fixtures
+from tests.test_campaign_video_execution import Transport
+from mission_control import campaign_video_execution as video
+from mission_control.campaign_contract import REEL_SCHEMA
+from types import SimpleNamespace
 
 
 class PolicyHTTPTests(unittest.TestCase):
@@ -86,6 +91,80 @@ class PolicyHTTPTests(unittest.TestCase):
             error.exception.close()
         with connection(self.store.path) as db:
             self.assertIsNone(db.execute("SELECT name FROM sqlite_master WHERE name='organic_video_policies'").fetchone())
+
+    def test_owner_exact_admission_to_intent_execute_and_retained_read(self):
+        policy=self.request('policy-create',dict(request_id=uid(),policy=dict(self.f.policy,max_calls=40)))
+        admission_body=self.f.admission(policy,reserve_calls=40)
+        admitted=self.request('policy-admit',admission_body)
+        output=admitted['data']['output']
+        request=dict(schema=REEL_SCHEMA,request_id=uid(),app_id=fixtures.APP,page_id='123',
+            policy_id=policy['id'],policy_hash=policy['hash'],admission_id=admitted['id'],admission_hash=admitted['hash'],
+            artifact_id=output['artifact_id'],artifact_sha256=output['artifact_sha256'],caption=output['caption'],
+            rights_hashes=sorted({x['rights_hash'] for x in admitted['data']['proofs']['sources']}))
+        intent=self.request('intent-create',request)
+        self.assertEqual(self.request('intent-read',dict(intent_id=intent['id']))['stage'],'NEW')
+        transport=Transport()
+        def facebook(config,secret,token,alive):
+            alive();return SimpleNamespace(subject_id='fixture-subject',permissions=['pages_manage_posts','pages_show_list','pages_read_engagement'])
+        def page(secret,token,identity,alive):alive();return dict(id='123',tasks=['CREATE_CONTENT']),'synthetic-page'
+        with patch.object(video,'_credentials',return_value=({},'synthetic-secret',dict(access_token='synthetic-user'))),patch.object(video,'facebook',side_effect=facebook),patch.object(video,'selected_page',side_effect=page),patch.object(video,'provider',transport):
+            # The fake provider carries the real private context type; no network.
+            from mission_control.campaign_video_transport import Context
+            transport.Context=Context
+            result=self.request('intent-execute',dict(intent_id=intent['id']))
+            repeated=self.request('intent-execute',dict(intent_id=intent['id']))
+        self.assertEqual(result,repeated)
+        self.assertEqual(result['stage'],'PROVIDER_PHASE_COMPLETE')
+        self.assertEqual(transport.calls.count('publish'),1)
+        self.assertEqual(self.request('intent-read',dict(intent_id=intent['id']))['remote_id'],'456')
+        self.request('policy-revoke',dict(policy_id=policy['id'],policy_hash=policy['hash']))
+        self.assertEqual(self.request('intent-read',dict(intent_id=intent['id']))['remote_id'],'456')
+        with self.assertRaises(ClientError):self.request('intent-execute',dict(intent_id=intent['id']))
+
+    def test_intent_actions_reject_unapproved_artifact_and_extra_fields(self):
+        for action,body in (('intent-create',dict(approved=True)),('intent-execute',dict(intent_id=uid(),force=True)),
+                            ('intent-reconcile',dict(intent_id=uid(),actor='forged'))):
+            with self.subTest(action=action),self.assertRaises(ClientError):self.request(action,body)
+
+
+class IntakeHTTPTests(unittest.TestCase):
+    close = PolicyHTTPTests.close
+    request = PolicyHTTPTests.request
+
+    def setUp(self):
+        self.f=intake_fixtures.IntakeTests();self.f.setUp();self.addCleanup(self.f.doCleanups)
+        self.store=self.f.store
+        def synthetic_owner(path,token):
+            user=identities.synthetic_identity(path,token)
+            return dict(user,principal=self.f.fixture.owner['principal'],login=self.f.fixture.owner['login'])
+        self.mock=patch('mission_control.operator_identity.github_read',side_effect=synthetic_owner)
+        self.mock.start();self.addCleanup(self.mock.stop)
+        self.server=Server(('127.0.0.1',0),self.store)
+        self.thread=threading.Thread(target=self.server.serve_forever,daemon=True);self.thread.start();self.addCleanup(self.close)
+        self.origin='http://127.0.0.1:'+str(self.server.server_port)
+        self.owner=OperatorClient(self.origin);self.owner.bootstrap()
+        self.owner.request('POST','/api/identity/login',dict(token=identities.OWNER_TOKEN))
+        self.base='/api/apps/'+self.f.app+'/organic-video/'
+
+    def test_owner_reads_report_and_adopts_exact_candidate_without_provider_effect(self):
+        task=self.request('task-read',dict(task_id=self.f.body['task_id']))
+        self.assertEqual(task['result_hash'],self.f.body['result_hash'])
+        self.assertEqual(task['submission_hash'],self.f.body['submission_hash'])
+        self.assertEqual(task['submission']['candidates'][0]['candidate']['post_id'],self.f.body['candidate_id'])
+        adopted=self.request('intake',self.f.body)
+        self.assertEqual(self.request('intake',self.f.body),adopted)
+        self.assertEqual(adopted['data']['publication'],'NOT_RUN')
+        self.assertEqual(adopted['data']['foreign_bytes'],'NOT_AUTHORIZED')
+        self.assertNotIn(self.f.fixture.grant['token'],json.dumps(task))
+
+    def test_missing_identity_and_wrong_app_cannot_read_or_adopt(self):
+        anonymous=OperatorClient(self.origin);anonymous.bootstrap()
+        with self.assertRaises(ClientError):
+            anonymous.request('POST',self.base+'task-read',dict(task_id=self.f.body['task_id']))
+        with self.assertRaises(ClientError):
+            self.owner.request('POST',self.base.replace('sample-one','sample-two')+'task-read',dict(task_id=self.f.body['task_id']))
+        with self.assertRaises(ClientError):
+            self.request('intake',dict(self.f.body,actor='forged'))
 
 
 if __name__ == '__main__':
