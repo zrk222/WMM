@@ -203,6 +203,8 @@ def _operation_rows(db, app, principal, tables):
         )
     }
     cards = []
+    if "agent_handoffs" in tables:
+        cards.extend(_handoff_cards(db, app, principal))
     unresolved = set()
     for table, paid in (("campaign_paid_intents", True), ("campaign_intents", False)):
         if table not in tables:
@@ -251,6 +253,46 @@ def _operation_rows(db, app, principal, tables):
             )
         )
     return list({card["id"]: card for card in cards}.values())
+
+
+def _handoff_cards(db, app, principal):
+    """Reuse current handoff admission state without resuming or issuing authority."""
+    from .agent_handoffs import _read, _job, _view, _utc
+
+    cards = []
+    observed = _utc()
+    for row in db.execute(
+        "SELECT * FROM agent_handoffs WHERE app_id=? ORDER BY created DESC,id LIMIT 100",
+        (app["id"],),
+    ):
+        payload = _read(row)
+        source = payload["source"]
+        owner = source.get("principal") if source["kind"] == "OWNER" else None
+        if source["kind"] == "AGENT":
+            grant = db.execute("SELECT owner FROM agent_grants WHERE app_id=? AND id=?",
+                               (app["id"], source["grant_id"])).fetchone()
+            owner = grant["owner"] if grant else None
+        if owner != principal:
+            continue
+        job = _job(db, app["id"], payload["job_id"])
+        view = _view(db, row, job, observed)
+        state = view["effective_status"]
+        failed = job["status"] in ("FAILED", "BLOCKED", "UNKNOWN", "INTERRUPTED")
+        invalid = state in ("EXPIRED", "CONTEXT_CHANGED", "SOURCE_INVALID", "RECIPIENT_INVALID")
+        if not failed and (not invalid or job["status"] in ("SUCCEEDED", "CANCELLED")):
+            continue
+        repair = ("Open Your agents, then Handoffs; inspect the original job and reconcile its saved receipts; do not replay uncertain effects. "
+                  "Revoked handoff authority remains revoked." if state == "REVOKED" else
+                  "Open Your agents, then Handoffs; " + view["next_action"])
+        evidence = dict(handoff_id=row["id"], version=row["version"], effective_status=state,
+                        payload_hash=row["payload_hash"], expires=row["expires"],
+                        job_id=job["id"], job_status=job["status"], updated=job["updated"],
+                        authority_issued=False)
+        cards.append(_card(app, principal, "handoff", row["id"],
+                           "JOB_" + job["status"] if failed else state,
+                           "Agent handoff needs recovery", "Saved task continuity needs current owner review.",
+                           repair, "workspace", {"job_id":job["id"]}, evidence, 2))
+    return cards
 
 
 def _schedule_cards(db, app, principal, scopes, unresolved_scopes):

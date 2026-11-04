@@ -189,6 +189,29 @@ class TransportTests(unittest.TestCase):
             response['message']='hello';response['from']={'id':'999'}
             with self.assertRaises(Unconfirmed):transport.read_post('123','123_777',expected,'token','secret',lambda:None)
 
+    def test_current_attachment_readback_verifies_exact_destination_without_following_redirects(self):
+        transport=MetaTransport();expected=digest({'message':'hello','link':'https://app.example/'})
+        wrapper='https://l.facebook.com/l.php?u=https%3A%2F%2Fapp.example%2F&h=synthetic'
+        response={'id':'123_777','message':'hello','from':{'id':'123'},
+                  'attachments':{'data':[{'url':wrapper,'target':{'url':wrapper}}]}}
+        with patch.object(transport,'request',return_value=response) as request:
+            self.assertEqual(transport.read_post('123','123_777',expected,'token','secret',lambda:None)['id'],'123_777')
+            self.assertEqual(request.call_args.args[2]['fields'],'id,message,permalink_url,from,attachments{url,target}')
+            for bad in ('https://other.example/',wrapper+'&u=https%3A%2F%2Fother.example%2F',wrapper.replace('https:','http:'),wrapper+'&malformed','https://[invalid'):
+                response['attachments']['data'][0]['target']['url']=bad
+                with self.assertRaises(Unconfirmed):transport.read_post('123','123_777',expected,'token','secret',lambda:None)
+            response['attachments']['data'][0]['target']['url']=wrapper
+            response['attachments']['data'][0]['url']='https://other.example/'
+            with self.assertRaises(Unconfirmed):transport.read_post('123','123_777',expected,'token','secret',lambda:None)
+            response['attachments']['data'][0]['url']=wrapper
+            response['permalink_url']='https://[invalid'
+            with self.assertRaises(Unconfirmed):transport.read_post('123','123_777',expected,'token','secret',lambda:None)
+            response.pop('permalink_url')
+            response['attachments']['data'][0]['subattachments']={'data':[{'target':{'url':wrapper}}]}
+            with self.assertRaises(Unconfirmed):transport.read_post('123','123_777',expected,'token','secret',lambda:None)
+            response['attachments']['data']=[{'target':{'url':wrapper}},{'target':{'url':wrapper}}]
+            with self.assertRaises(Unconfirmed):transport.read_post('123','123_777',expected,'token','secret',lambda:None)
+
     def test_paid_transport_fixed_edges_and_paused_creation(self):
         calls=[]
         class Response:status=200

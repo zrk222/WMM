@@ -1,6 +1,6 @@
 """Owner-private bounded weekly operational exceptions over real saved SQLite state."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import time
 import unittest
 from unittest.mock import patch
@@ -26,6 +26,115 @@ class WeeklyOperationTests(unittest.TestCase):
         return operation_exceptions(
             self.store, self.store.app("sample"), self.owner if user is None else user
         )
+
+    def handoff(self):
+        from mission_control.agent_handoffs import Handoffs
+        from mission_control.worker import enqueue
+
+        job = enqueue(self.store, "sample", "pipeline", dict(stage=1), "private-handoff-key")
+        handoff = Handoffs(self.store).create("sample", self.owner, dict(
+            job_id=job["id"], recipient="replacement", operations=["jobs.read"],
+            expires=(datetime.now(timezone.utc)+timedelta(minutes=20)).isoformat()))
+        return handoff, job
+
+    def test_handoff_expiry_stale_resolution_and_revocation_are_read_only(self):
+        handoff, job = self.handoff()
+        self.assertEqual(self.cards(), [])
+        with connection(self.store.path) as db:
+            future = db.execute("SELECT expires FROM agent_handoffs WHERE id=?", (handoff["id"],)).fetchone()[0]
+            db.execute("UPDATE agent_handoffs SET expires=? WHERE id=?",
+                       ((datetime.now(timezone.utc)-timedelta(seconds=1)).isoformat(), handoff["id"]))
+            jobs = canonical([dict(r) for r in db.execute("SELECT * FROM jobs")])
+        effects = canonical(self.fixture.fixture.wire.objects)
+        first, second = self.cards(), self.cards()
+        self.assertEqual(len(first), 1)
+        self.assertEqual(first[0]["state"], "EXPIRED")
+        self.assertEqual(first[0]["id"], second[0]["id"])
+        self.assertEqual(first[0]["source_receipt"]["source_hash"], second[0]["source_receipt"]["source_hash"])
+        self.assertIn("Handoffs", first[0]["next_action"])
+        self.assertNotIn("private-handoff-key", canonical(first))
+        with connection(self.store.path) as db:
+            self.assertEqual(canonical([dict(r) for r in db.execute("SELECT * FROM jobs")]), jobs)
+            db.execute("UPDATE agent_handoffs SET expires=? WHERE id=?", (future, handoff["id"]))
+        self.assertEqual(self.cards(), [])
+        app = self.store.app("sample")
+        self.store.save_app("sample", dict(app["data"], name="Changed"), app["version"])
+        self.assertEqual(self.cards()[0]["state"], "CONTEXT_CHANGED")
+        with connection(self.store.path) as db:
+            db.execute("UPDATE agent_handoffs SET status='REVOKED' WHERE id=?", (handoff["id"],))
+        self.assertEqual(self.cards(), [])
+        self.assertEqual(canonical(self.fixture.fixture.wire.objects), effects)
+
+    def test_handoff_failed_job_surfaces_even_when_revoked_and_resolves_on_success(self):
+        handoff, job = self.handoff()
+        with connection(self.store.path) as db:
+            db.execute("UPDATE jobs SET status='FAILED',result=? WHERE id=?", (canonical(dict(secret="PRIVATE_ERROR")), job["id"]))
+        card = self.cards()[0]
+        self.assertEqual(card["state"], "JOB_FAILED")
+        self.assertEqual(card["evidence"]["job_id"], job["id"])
+        self.assertFalse(card["evidence"]["authority_issued"])
+        self.assertNotIn("PRIVATE_ERROR", canonical(card))
+        with connection(self.store.path) as db:
+            db.execute("UPDATE agent_handoffs SET status='REVOKED' WHERE id=?", (handoff["id"],))
+        revoked = self.cards()[0]
+        self.assertEqual(revoked["id"], card["id"])
+        self.assertIn("remains revoked", revoked["next_action"])
+        with connection(self.store.path) as db:
+            db.execute("UPDATE jobs SET status='SUCCEEDED' WHERE id=?", (job["id"],))
+        self.assertEqual(self.cards(), [])
+
+    def test_handoff_exceptions_do_not_leak_to_another_app_owner(self):
+        handoff, job = self.handoff()
+        with connection(self.store.path) as db:
+            db.execute("UPDATE jobs SET status='BLOCKED' WHERE id=?", (job["id"],))
+            db.execute("INSERT INTO operator_roles VALUES(?,?,?,?,?,?,?,?)",
+                       ("sample", "other", "other", "OWNER", "ACTIVE", 1, now(), "owner"))
+        self.assertEqual(self.cards(dict(principal="other")), [])
+        self.assertEqual(len(self.cards()), 1)
+
+    def test_claimed_handoff_with_current_recipient_stays_quiet(self):
+        from mission_control.operator_client import OperatorClient
+
+        handoff, job = self.handoff()
+        issued = self.fixture.fixture.client.request("POST", "/api/apps/sample/agent-grants/issue", dict(
+            agent_id="replacement", manifest_version=self.store.app("sample")["version"],
+            operations=["handoff.resume", "jobs.read"], max_calls=5,
+            expires=(datetime.now(timezone.utc)+timedelta(minutes=30)).isoformat()))
+        client = OperatorClient(self.fixture.fixture.client.origin, grant_token=issued["token"])
+        resumed = client.call(dict(app_id="sample", operation="handoff.resume", resource_id=handoff["id"],
+                                   input=dict(version=handoff["version"], payload_hash=handoff["payload_hash"])))
+        self.assertEqual(resumed["effective_status"], "CLAIMED")
+        self.assertEqual(resumed["job_id"], job["id"])
+        self.assertEqual(self.cards(), [])
+
+    def test_handoff_projection_is_bounded_deterministic_and_corruption_is_visible(self):
+        handoff, _ = self.handoff()
+        with connection(self.store.path) as db:
+            original = dict(db.execute("SELECT * FROM agent_handoffs WHERE id=?", (handoff["id"],)).fetchone())
+            expired = (datetime.now(timezone.utc)-timedelta(seconds=1)).isoformat()
+            db.execute("UPDATE agent_handoffs SET expires=?", (expired,))
+            for ordinal in range(105):
+                clone = dict(original, id="bounded-handoff-%03d" % ordinal, expires=expired)
+                columns = tuple(clone)
+                db.execute("INSERT INTO agent_handoffs ("+",".join(columns)+") VALUES ("+
+                           ",".join("?" for _ in columns)+")", tuple(clone.values()))
+        first, second = self.cards(), self.cards()
+        self.assertEqual(len(first), 100)
+        self.assertTrue(all(card["category"] == "handoff" and card["state"] == "EXPIRED" for card in first))
+        self.assertEqual([card["id"] for card in first], [card["id"] for card in second])
+        self.assertEqual([card["source_receipt"]["source_hash"] for card in first],
+                         [card["source_receipt"]["source_hash"] for card in second])
+        with connection(self.store.path) as db:
+            # Corrupt a row inside the selected bound while another domain needs action.
+            selected = db.execute("SELECT id FROM agent_handoffs ORDER BY created DESC,id LIMIT 1").fetchone()[0]
+            db.execute("UPDATE agent_handoffs SET payload=? WHERE id=?", ("PRIVATE_CORRUPTED_PAYLOAD", selected))
+            db.execute("UPDATE campaign_paid_intents SET status='UNKNOWN'")
+        unavailable = self.cards()
+        self.assertEqual(len(unavailable), 1)
+        self.assertEqual(unavailable[0]["state"], "UNAVAILABLE")
+        self.assertEqual(unavailable[0]["category"], "operation_source")
+        self.assertIn("inspect", unavailable[0]["next_action"])
+        self.assertNotIn("PRIVATE_CORRUPTED_PAYLOAD", canonical(unavailable))
 
     def test_owner_only_no_anonymous_or_maker_private_refs(self):
         with connection(self.store.path) as db:

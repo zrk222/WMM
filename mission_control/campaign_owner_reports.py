@@ -445,6 +445,8 @@ def next_action(campaign, observation, coverage, experiment):
         return (
             "Inspect the selected monitor; no saved monitor observation is available."
         )
+    if observation.get("status") == "BLOCKED":
+        return "Inspect the blocked monitor and reconcile its saved campaign receipts; do not replay mutations."
     if not coverage["available_rows"]:
         return "Connect or import app-scoped KPI evidence with denominators and source windows."
     if experiment and experiment["maturity"] == "AWAITING_ANALYSIS":
