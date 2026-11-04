@@ -22,11 +22,35 @@ def run(browser,width,out):
   expect(page.get_by_role("button",name="Review combined automation agreement")).to_be_hidden()
   page.get_by_role("button",name="Open your first packet",exact=True).press("Enter")
   packet=page.get_by_role("dialog")
-  expect(packet).to_contain_text("Your prepared workflow")
-  expect(packet.get_by_role("button",name="Download all packets")).to_be_visible()
-  expect(packet.locator("#packet-automation")).to_have_count(0)
+  expect(packet).to_contain_text("Choose")
+  expect(packet.locator('[data-action="automatic-goal-download"]')).to_have_count(0)
   page.keyboard.press("Escape")
   expect(packet).to_be_hidden()
+  for goal,title,stages in (("research","Find a useful marketing angle",[5,6]),
+                             ("creative","Produce or revise a video",[6]),
+                             ("campaign","Run an approved campaign",[7]),
+                             ("measurement","Understand app results",[3,4,10,11])):
+   page.get_by_role("button",name=title,exact=True).click()
+   page.get_by_role("button",name="Open your first packet",exact=True).press("Enter")
+   expect(packet).to_contain_text(title+" — evidence packet")
+   expect(packet).not_to_contain_text("of 12 steps")
+   assert packet.locator('[data-goal-packet-stage]').evaluate_all('(rows) => rows.map(row => Number(row.dataset.goalPacketStage))')==stages
+   expect(packet.get_by_text("Stage tasks and evidence",exact=True).first).to_be_visible()
+   expect(packet.locator('details pre').first).to_be_hidden()
+   with page.expect_download() as download_info:
+    packet.locator('[data-action="automatic-goal-download"]').click()
+   saved=download_info.value.path()
+   value=json.loads(Path(saved).read_text(encoding="utf-8"))
+   assert value["goal"]==goal,value
+   assert value["app_id"]=="sample-one",value
+   assert [row["stage"] for row in value["outputs"]]==stages,value
+   page.screenshot(path=str(out/f"goal-packet-{goal}-{width}.png"),full_page=True)
+   (out/f"goal-packet-{goal}-{width}.html").write_text(page.content(),encoding="utf-8")
+   if goal=="measurement":
+    packet.get_by_role("button",name="See all twelve stages",exact=True).click()
+    expect(packet).to_contain_text("Your prepared workflow")
+    expect(packet.locator('[data-packet-stage]')).to_have_count(12)
+   page.keyboard.press("Escape")
   assert not writes,writes
   nav=page.locator("#navigation");expect(nav.get_by_role("button",name="Watch the work",exact=True)).to_be_visible()
   nav.locator("summary").focus();nav.locator("summary").press("Enter")
@@ -56,7 +80,7 @@ def run(browser,width,out):
   assert not jobs(fixture.store,"sample-one");assert not writes,writes
   assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
   assert not errors,errors
-  return dict(width=width,keyboard_navigation=True,app_isolation=True,reload_retains_choice=True,pdf_preview=True,no_mutations=True,javascript_errors=errors)
+  return dict(width=width,keyboard_navigation=True,goal_packets=["research","creative","campaign","measurement"],scoped_downloads=True,advanced_twelve_stages=True,app_isolation=True,reload_retains_choice=True,pdf_preview=True,no_mutations=True,javascript_errors=errors)
  finally:
   context.close();server.shutdown();server.server_close();thread.join();fixture.doCleanups()
 
