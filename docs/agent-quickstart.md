@@ -1,5 +1,23 @@
 # Connect a local CLI or MCP host
 
+## Installed desktop app
+
+Keep WMM running, select your app and sign in as its owner under **Activity &
+reviews**. Choose **Review agent setup**, then **Download reviewed setup JSON**.
+The report uses this installation's executable and exact loopback port. Its CLI
+launch starts with `--agent-cli`; its MCP launch starts with `--mcp`. No separate
+Python, repository checkout or SDK installation is needed for the desktop bundle.
+The executable also exposes the offline `--agent-setup --origin <exact-origin>
+--json` mode for hosts that can run local commands.
+
+Review the report's `mcp_config` before registering it with your chosen host.
+Issue the app grant separately, as described below. Setup review does not create
+a grant or register a host, and the downloaded configuration contains no token.
+The executable path belongs to the computer running WMM; a cloud agent still
+needs an authorized execution connection to that computer.
+
+## Running WMM from source
+
 Start WMM separately and keep it running. Open a terminal at the repository
 root with the Python environment you intend to use. Replace port 8765 below
 with the exact browser origin; only `http://127.0.0.1:PORT` is accepted.
@@ -42,7 +60,8 @@ to inspect selected-app policy and the current catalog for exact envelopes.
 
 ## Optional MCP
 
-The CLI needs no MCP SDK. If setup reports missing optional dependencies,
+The desktop bundle includes MCP. The following installation commands apply only
+to source Python environments. The CLI needs no MCP SDK. If setup reports missing optional dependencies,
 review and run its installation command in the selected environment:
 
 ```powershell
@@ -55,13 +74,14 @@ Setup reports the installed version separately. A version mismatch is not proof
 of protocol compatibility; use the pinned environment or run conformance checks.
 
 Copy only the displayed `mcp_config` object into the configuration format your
-authorized host supports, after review. Its absolute Python executable and
-`PYTHONPATH` avoid depending on the host working directory. Preserve existing
+authorized host supports, after review. A source setup uses an absolute Python
+executable and `PYTHONPATH`; installed desktop setup uses its absolute executable
+without `PYTHONPATH`. Both avoid depending on the host working directory. Preserve existing
 host environment variables. Provide `WMM_AGENT_GRANT` through protected host
 configuration; the generated JSON contains no token. Hosts differ in config
 location and environment support, so no personal host registration is automatic.
 
-The host launches `mission_control.agent_mcp` as a stdio process. It is not a
+The host launches the generated MCP command as a stdio process. It is not a
 web address or a second HTTP service. Closing stdin ends that adapter process;
 WMM continues separately. Call `wmm_catalog` first, then `wmm_operations_read`
 with `{"app_id":"your-app-id","input":{}}`. Discover current tools rather than

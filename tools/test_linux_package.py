@@ -86,6 +86,7 @@ def verify_binary(binary, env, label):
     spec.loader.exec_module(module)
     import anyio
     anyio.run(module.mcp_smoke, binary, env['XDG_DATA_HOME'])
+    module.setup_smoke(binary, env['XDG_DATA_HOME'], env, label=label)
     module.first_packet_smoke(binary, env['XDG_DATA_HOME'], env, label=label,
                              profile_dir=env['XDG_DATA_HOME'])
 
