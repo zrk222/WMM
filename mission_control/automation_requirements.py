@@ -63,6 +63,13 @@ WORKFLOWS = {
 UNBUNDLED_OPERATIONS = {
     'organic-video.claim': 'viral_discovery',
     'organic-video.submit': 'viral_discovery',
+    'organic-video.policy-read': 'social_publish',
+    'organic-video.policy-reserve': 'social_publish',
+    'organic-video.policy-admit': 'social_publish',
+    'organic-video.workflow-prepare': 'social_publish',
+    'organic-video.intent-create': 'social_publish',
+    'organic-video.intent-read': 'social_publish',
+    'organic-video.intent-execute': 'social_publish',
     'creative.source.save': 'video_authoring_editing',
     'creative.analysis.save': 'video_authoring_editing',
     'creative.profile.save': 'video_authoring_editing',

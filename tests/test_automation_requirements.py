@@ -92,7 +92,9 @@ class AutomationReadinessTests(unittest.TestCase):
             'creative.source.save','creative.analysis.save','creative.profile.save','creative.requirement.save',
             'creative.brief.save','creative.batch.plan','creative.batch.create','creative.batch.list','creative.batch.cancel',
             'handoff.create','handoff.resume','experiment.schedule','experiment.schedule-run',
-            'organic-video.claim','organic-video.submit'}
+            'organic-video.claim','organic-video.submit',
+            'organic-video.policy-read','organic-video.policy-reserve','organic-video.policy-admit',
+            'organic-video.workflow-prepare','organic-video.intent-create','organic-video.intent-read','organic-video.intent-execute'}
         self.assertEqual(set(UNBUNDLED_OPERATIONS),expected)
         bundled={name for row in WORKFLOWS.values() for name in row['operations']}
         self.assertFalse(expected & bundled)
