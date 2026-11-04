@@ -49,3 +49,13 @@ test('Drive dialog guidance covers access and import independently of hidden for
  assert.ok(first.includes('original picture and sound'));
  assert.ok(first.includes('approve reuse before editing'));
 });
+
+test('goal packet guidance explains its useful next step without repeating generic instructions',()=>{
+ for(const goal of ['Find a useful marketing angle','Produce or revise a video','Run an approved campaign','Understand app results']){
+  const html=stories.dialog(goal+' — evidence packet','<p>PRIVATE_SENTINEL</p>');
+  assert.ok(html.includes('saved evidence for your goal'));
+  assert.ok(html.includes('download this snapshot'));
+  assert.ok(!html.includes('PRIVATE_SENTINEL'));
+  assert.ok(!html.includes('Inspect '+goal));
+ }
+});

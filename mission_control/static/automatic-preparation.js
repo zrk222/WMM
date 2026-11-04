@@ -38,13 +38,31 @@ function campaignManifestDialog() {
   modal("Agent operating rules",`<div class="modal-content"><h3>${esc(state.workspace.app.data.name)}</h3><p>${esc(p.objective||"No app objective is recorded yet.")}</p><p>You approve or edit. This installed execution profile supports app-owned provider reads only; publication, spending and live A/B execution are not enabled.</p><h3>Evidence standards</h3><ul>${p.source_rules.map(s=>`<li>${esc(s)}</li>`).join("")}</ul><h3>Resolution workflow</h3><ul>${p.resolution_contract.map(s=>`<li>${esc(s)}</li>`).join("")}</ul><h3>A/B operating contract</h3><ul>${p.ab_contract.map(s=>`<li>${esc(s)}</li>`).join("")}</ul><details><summary>Exact versioned manifest</summary><pre>${json(p)}</pre></details></div><div class="modal-actions">${button("Edit app objective","edit-app")}${button("Close","close")}</div>`,"ENFORCED SOURCE-COLLECTION PROFILE");
 }
 
+const WMMGoalPacket=(()=>{
+  const stages={research:[5,6],creative:[6],campaign:[7],measurement:[3,4,10,11]};
+  function output(w,stage){const o=(w.preparation?.outputs||[]).find(o=>Number(o.stage)===stage);return o&&o.packet&&typeof o.packet.title==="string"&&typeof o.status==="string"&&(w.workflow?.steps||[]).some(s=>Number(s.id)===stage)?o:null;}
+  function selected(){return state.goalChoice?.app===state.app?state.goalChoice.id:WMMGoalJourney.read(WMMGoalJourney.browserStorage(),state.app);}
+  function model(){
+    const id=selected(),goal=WMMGoalJourney.choices[id],w=state.workspace;
+    return {schema:"wmm.goal-evidence-packet.v1",app_id:w.app.id,manifest_version:w.app.version,goal:goal?id:"",title:goal?.title||"Choose your goal",purpose:goal?.description||"Choose a goal on the home page before opening a packet.",source_hash:w.preparation?.source_hash||"",classification:"LOCAL_DRAFT_NO_AUTHORITY",outputs:(stages[id]||[]).map(stage=>({stage,output:output(w,stage)}))};
+  }
+  function attributes(m){return `data-app="${esc(m.app_id)}" data-version="${esc(m.manifest_version)}" data-goal="${esc(m.goal)}" data-source-hash="${esc(m.source_hash)}"`;}
+  function check(node){const m=model(),d=node.dataset;if(state.app!==m.app_id||d.app!==m.app_id||Number(d.version)!==m.manifest_version||d.goal!==m.goal||d.sourceHash!==m.source_hash)throw new Error("App, goal or evidence changed. Reopen your first packet.");return m;}
+  function view(m){return `<p>${esc(m.purpose)}</p>${notice("Local evidence drafts only. Missing measurements remain unknown. This packet grants no approval and proves no delivery or business outcome.")}${m.goal?m.outputs.map(({stage,output:o})=>`<section class="panel" data-goal-packet-stage="${esc(stage)}"><h3>${esc(o?.packet?.title||`Step ${stage}`)}</h3><p>${esc(o?.status||"UNKNOWN — no current output")}</p>${(o?.missing||[]).length?`<ul>${o.missing.map(v=>`<li>${esc(packetNeed(v))}</li>`).join("")}</ul>`:"<p>Review the underlying evidence; local preparation does not establish measured results.</p>"}<details><summary>Stage tasks and evidence</summary><ol>${(o?.packet?.operations?.tasks||[]).map(v=>`<li>${esc(v)}</li>`).join("")}</ol><pre>${json(o?.packet||null)}</pre></details></section>`).join(""):"<p>Choose a goal on the home page, then open your first packet.</p>"}<details><summary>Packet source</summary><p>${esc(m.app_id)} · version ${esc(m.manifest_version)} · ${esc(m.source_hash)}</p></details>`;}
+  function open(node){const m=check(node),a=attributes(m);modal(m.title+" — evidence packet",`<div class="modal-content">${view(m)}</div><div class="modal-actions">${m.goal?button(WMMGoalJourney.choices[m.goal].next,"automatic-goal-next",a)+(m.source_hash&&m.outputs.some(x=>x.output)?button("Download goal packet","automatic-goal-download",a):""):""}${button("See all twelve stages","automatic-open")}${button("Close","close")}</div>`,"SELECTED GOAL / LOCAL DRAFT");}
+  function action(node){const m=check(node);if(node.dataset.action==="automatic-goal-open")return open(node);if(!m.goal)throw new Error("Choose a goal first.");if(node.dataset.action==="automatic-goal-download"&&(!m.source_hash||!m.outputs.some(x=>x.output)))throw new Error("Current source evidence is unavailable; inspect the missing outputs first.");if(node.dataset.action==="automatic-goal-download")return download(`${m.app_id}-${m.goal}-packet.json`,m);if(node.dataset.action==="automatic-goal-next")return goalAction({dataset:{action:"goal-next",app:m.app_id,version:String(m.manifest_version),goal:m.goal}});throw new Error("Unknown goal packet action.");}
+  return {model,attributes,check,view,open,action};
+})();
+
 function openAutomaticPreparation({firstPacket=false}={}) {
+  if(firstPacket)throw new Error("Reopen your first packet from the current goal.");
   const p=state.workspace.preparation;
   modal("Your prepared workflow",`<div class="modal-content">${notice("These are working drafts, not completed campaigns. Use each step's button to open its current workflow. Nothing is published and no money is spent here.")}<h3>${p.ready_count} of 12 steps have the required local inputs</h3>${p.outputs.map(o=>stagePacketCard(o)).join("")}<details><summary>Technical source reference</summary><p class="app-mono">${esc(p.source_hash)}</p></details></div><div class="modal-actions">${button("Download all packets","automatic-download")}${button("Close","close")}</div>`,"CURRENT WORKFLOW");
   if(p.recommendations&&!firstPacket)$("#modal .modal-content").insertAdjacentHTML("afterbegin",automationPanel("packet-automation"));
 }
 
 async function automaticPreparationAction(node) {
+  if(node.dataset.action.startsWith("automatic-goal-"))return WMMGoalPacket.action(node);
   if(node.dataset.action.startsWith("automatic-tracking-"))return trackingAction(node);
   if(node.dataset.action.startsWith("automatic-sequence-"))return sequenceAction(node);
   if(node.dataset.action==="automatic-resolution-stage") {
@@ -77,7 +95,7 @@ async function automaticPreparationAction(node) {
     } finally {if(node.isConnected)node.disabled=false;}
     return;
   }
-  if(node.dataset.action==="automatic-open")return openAutomaticPreparation({firstPacket:node.dataset.firstPacket==="true"});
+  if(node.dataset.action==="automatic-open")return node.dataset.firstPacket==="true"?WMMGoalPacket.open(node):openAutomaticPreparation();
   if(node.dataset.action==="automatic-download")return download(`${state.app}-current-work.json`,state.workspace.preparation);
   if(node.dataset.action==="automatic-packet") {
     const output=state.workspace.preparation.outputs.find(o=>o.stage===Number(node.dataset.stage));

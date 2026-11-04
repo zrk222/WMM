@@ -348,6 +348,25 @@ class CampaignOwnerReportsTests(unittest.TestCase):
         with connection(self.store.path) as db:
             self.assertEqual(db.execute("SELECT count(*) FROM jobs").fetchone()[0], before_jobs)
 
+    def test_blocked_report_plan_explains_failed_job_in_status_and_history(self):
+        plan = self.plan()
+        core.tick(self.store)
+        job = claim(self.store)
+        with connection(self.store.path) as db:
+            db.execute("UPDATE jobs SET status='FAILED',result=? WHERE id=?", (canonical(dict(diagnostic="PRIVATE_PROVIDER_DIAGNOSTIC")), job["id"]))
+            db.execute("UPDATE campaign_report_plans SET status='BLOCKED' WHERE id=?", (plan["id"],))
+        with self.owner():
+            status = self.reports.status("sample", plan["id"])
+            history = self.reports.history("sample")
+        self.assertIn("previous report snapshot", status["next_action"])
+        self.assertEqual(history["plans"][0]["next_action"], status["next_action"])
+        self.assertNotIn("PRIVATE_PROVIDER_DIAGNOSTIC", canonical(status))
+        with connection(self.store.path) as db:
+            before = db.execute("SELECT count(*) FROM jobs").fetchone()[0]
+        self.assertEqual(core.tick(self.store), 0)
+        with connection(self.store.path) as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM jobs").fetchone()[0], before)
+
     def test_same_definition_window_previous_snapshot_descriptive_comparison(self):
         self.cohort()
         first = self.capture()
@@ -456,6 +475,44 @@ class CampaignOwnerReportsTests(unittest.TestCase):
                 ).fetchone()[0],
                 "BLOCKED",
             )
+        with self.owner():
+            status = self.reports.status("sample", plan["id"])
+            history = self.reports.history("sample")
+        self.assertIn("report limit", status["next_action"])
+        self.assertEqual(history["plans"][0]["next_action"], status["next_action"])
+
+    def test_blocked_plan_expiry_and_changed_binding_recommend_review(self):
+        plan = self.plan()
+        with connection(self.store.path) as db:
+            db.execute("UPDATE campaign_report_plans SET status='BLOCKED' WHERE id=?", (plan["id"],))
+            db.execute("UPDATE campaign_scopes SET summary_hash='changed' WHERE app_id='sample'")
+        with self.owner():
+            changed = self.reports.status("sample", plan["id"])
+        self.assertTrue(any(phrase in changed["next_action"] for phrase in ("binding changed", "could not be confirmed")))
+
+    def test_blocked_expired_plan_recommends_review(self):
+        plan = self.plan()
+        with connection(self.store.path) as db:
+            db.execute("UPDATE campaign_report_plans SET status='BLOCKED' WHERE id=?", (plan["id"],))
+            row = db.execute("SELECT summary FROM campaign_report_plans WHERE id=?", (plan["id"],)).fetchone()
+            summary = core.object_data(row["summary"])
+            summary["proposal"]["expires_at"] = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
+            db.execute("UPDATE campaign_report_plans SET summary=?,summary_hash=? WHERE id=?", (canonical(summary), digest(summary), plan["id"]))
+        with self.owner():
+            expired = self.reports.status("sample", plan["id"])
+        self.assertIn("expired", expired["next_action"])
+
+    def test_blocked_tampered_plan_does_not_trust_expiry_or_leak_summary(self):
+        plan = self.plan()
+        with connection(self.store.path) as db:
+            db.execute(
+                "UPDATE campaign_report_plans SET status='BLOCKED',summary=?,summary_hash='tampered' WHERE id=?",
+                (canonical(dict(proposal=dict(expires_at="2000-01-01T00:00:00+00:00", private="SECRET"))), plan["id"]),
+            )
+        with self.owner():
+            status = self.reports.status("sample", plan["id"])
+        self.assertIn("could not be verified", status["next_action"])
+        self.assertNotIn("SECRET", canonical(status))
 
     def test_job_authority_host_lease_inputs_owner_and_app_source_checks(self):
         plan = self.plan()

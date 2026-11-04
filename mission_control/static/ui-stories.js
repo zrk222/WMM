@@ -111,6 +111,7 @@
   }
   function dialog(title,markup){
     if(title==='OneSignal setup')return '<aside class="notice" aria-label="Task guide"><p>Keys stay protected on this device. Review provider changes before applying them.</p></aside>';
+    if(['Find a useful marketing angle','Produce or revise a video','Run an approved campaign','Understand app results'].some(goal=>title===goal+' — evidence packet'))return '<aside class="notice" aria-label="Task guide"><p>Here is the saved evidence for your goal. Review what is missing, continue the next task, or download this snapshot.</p></aside>';
     const found=[...markup.matchAll(/<form\b[^>]*\sid=["']([^"']+)["']/g)].map(match=>match[1]);
     const rows=found.map(id=>FORMS[id]);
     if(rows.some(row=>!row))return `<aside class="notice" aria-label="Task guide"><p>Review ${esc(title)}. Check the exact inputs, result and action described below before continuing.</p></aside>`;

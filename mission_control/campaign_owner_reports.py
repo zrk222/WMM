@@ -661,6 +661,66 @@ def _current_plan_view(db, store, row):
             value["next_action"] = (
                 "Review changed app, owner, source hashes or expiry before approving a new report plan."
             )
+    elif row["status"] == "BLOCKED":
+        summary = object_data(row["summary"])
+        if digest(summary) != row["summary_hash"]:
+            value["summary"] = None
+            value["next_action"] = (
+                "The saved report plan could not be verified. Review current access and sources, then prepare a new plan."
+            )
+            return value
+        proposal = summary.get("proposal")
+        if not isinstance(proposal, dict):
+            value["summary"] = None
+            value["next_action"] = (
+                "The saved report plan could not be verified. Review current access and sources, then prepare a new plan."
+            )
+            return value
+        expiry = proposal.get("expires_at")
+        if expiry:
+            try:
+                if iso_time(expiry).timestamp() <= time.time():
+                    value["next_action"] = (
+                        "This report plan expired. Review current sources and limits, then prepare a new plan if needed."
+                    )
+                    return value
+            except (Invalid, ValueError, TypeError):
+                pass
+        try:
+            current = binding(
+                db, store, row["app_id"], row["owner"], proposal["selection"]
+            )
+            if current != summary["source"]:
+                value["next_action"] = (
+                    "The report plan source or owner binding changed. Review current sources and prepare a new plan."
+                )
+                return value
+        except (Invalid, PermissionError, ValueError, KeyError, TypeError):
+            value["next_action"] = (
+                "The report plan source or owner binding could not be confirmed. Review current access and sources, then prepare a new plan."
+            )
+            return value
+
+        job = (
+            db.execute(
+                "SELECT status FROM jobs WHERE id=? AND app_id=?",
+                (row["last_job"], row["app_id"]),
+            ).fetchone()
+            if row["last_job"]
+            else None
+        )
+        if row["last_job"] and (job is None or job["status"] != "SUCCEEDED"):
+            value["next_action"] = (
+                "The previous report snapshot is missing or did not complete. Inspect its status and saved reports, then prepare a new plan if needed."
+            )
+        elif row["runs"] >= proposal.get("max_reports", 0):
+            value["next_action"] = (
+                "This finite report plan reached its report limit. Review saved reports and prepare a new plan if another review is needed."
+            )
+        else:
+            value["next_action"] = (
+                "The report plan is blocked. Review its current status and sources, then prepare a new plan if needed."
+            )
     return value
 
 
