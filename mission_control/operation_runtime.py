@@ -134,7 +134,7 @@ def execute(service,envelope,*,caller='SCOPED_AGENT'):
         'editor.history':lambda:Projects(store,caller).history(app,resource,body),
         'editor.diff':lambda:Projects(store,caller).diff(app,resource,body),
         'job.cancel':lambda:service.cancel(app,resource),
-        'operations.read':lambda:discovery(store.app(app)),
+        'operations.read':lambda:discovery(store.app(app),body.get('profile')),
         'growth.read':lambda:service.subscription_review(app),
         'growth.history':lambda:GrowthReviews(store).list(app),
         'growth.save':lambda:GrowthReviews(store).save(app,body),

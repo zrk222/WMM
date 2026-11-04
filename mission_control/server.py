@@ -288,9 +288,11 @@ class Handler(BaseHTTPRequestHandler):
             from .customer_workflow_store import CustomerWorkflows
             return self.send(200,CustomerWorkflows(store).list(app_id))
         if parts[3:]==['agent-operations']:
-            if urlparse(self.path).query:raise Invalid('Use the exact app operation discovery address')
+            query=urlparse(self.path).query
+            if query not in ('','profile=meta_media_buyer'):
+                raise Invalid('Use the exact app operation discovery address and supported profile')
             from .agent_operations import discovery
-            return self.send(200,discovery(store.app(app_id)))
+            return self.send(200,discovery(store.app(app_id),'meta_media_buyer' if query else None))
         if parts[3:]==['jobs']:
             if urlparse(self.path).query:raise Invalid('Use the exact app job history address')
             from .worker import jobs
