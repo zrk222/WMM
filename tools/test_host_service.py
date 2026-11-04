@@ -1,5 +1,6 @@
 """Opt-in disposable Ubuntu CI user-manager lifecycle test; never provision a host."""
 import json
+from http.cookiejar import CookieJar
 import os
 from pathlib import Path
 import re
@@ -8,11 +9,12 @@ import subprocess
 import sys
 import tempfile
 import time
-from urllib.request import ProxyHandler, build_opener
+from urllib.request import HTTPRedirectHandler, HTTPCookieProcessor, ProxyHandler, Request, build_opener
 from uuid import uuid4
 
 BINARY = Path('/usr/lib/wize-marketing-machine/WMM')
 UNIT = Path('/usr/share/wize-marketing-machine/wmm-worker.service')
+ORIGIN = 'http://127.0.0.1:8765'
 
 
 def port_available():
@@ -64,17 +66,88 @@ def systemctl(env, *args, check=True):
     return command(env, 'systemctl', '--user', *args, check=check)
 
 
-def wait_bootstrap(env, name):
-    client = build_opener(ProxyHandler({}))
-    deadline = time.monotonic() + 45
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def session(origin=ORIGIN, timeout=45):
+    """Create a fresh, proxy-free session restricted to the exact loopback origin."""
+    if not re.fullmatch(r'http://127\.0\.0\.1:[1-9][0-9]{0,4}', origin):
+        raise ValueError('Expected exact loopback origin with explicit port')
+    client = build_opener(ProxyHandler({}), HTTPCookieProcessor(CookieJar()), NoRedirect())
+    deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         try:
-            with client.open('http://127.0.0.1:8765/api/bootstrap', timeout=2) as response:
-                if json.load(response).get('apps'):
-                    return
+            with client.open(origin + '/api/bootstrap', timeout=2) as response:
+                bootstrap = json.load(response)
+                if bootstrap.get('apps') and bootstrap.get('csrf'):
+                    return client, bootstrap['csrf']
         except (OSError, ValueError):
-            time.sleep(.25)
-    raise RuntimeError(f'{name} did not serve bootstrap before timeout')
+            pass
+        time.sleep(min(.25, max(0, deadline - time.monotonic())))
+    raise RuntimeError('Service did not serve bootstrap before timeout')
+
+
+def request_json(client, origin, path, body=None, csrf=None):
+    headers = {'Origin': origin}
+    data = None
+    if body is not None:
+        data = json.dumps(body).encode('utf-8')
+        headers.update({'Content-Type': 'application/json', 'X-CSRF-Token': csrf})
+    with client.open(Request(origin + path, data=data, headers=headers), timeout=2) as response:
+        return json.load(response)
+
+
+def submit(client, origin, csrf, key):
+    row = request_json(client, origin, '/api/apps/sample-one/jobs',
+                       {'action': 'pipeline', 'data': {'stage': 5}, 'request_key': key}, csrf)
+    if (not isinstance(row, dict) or not isinstance(row.get('id'), str) or not row['id']
+            or row.get('app_id') != 'sample-one' or row.get('action') != 'pipeline'
+            or row.get('data') != {'stage': 5} or row.get('request_key') != key):
+        raise AssertionError('Queued job identity does not match the synthetic request')
+    return row
+
+
+def completed_job(client, origin, job_id, key, timeout=45):
+    """Find exactly one request-key row and require a real successful result."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        rows = request_json(client, origin, '/api/apps/sample-one/jobs')
+        if not isinstance(rows, list):
+            raise AssertionError('Job history is not a list')
+        matches = [row for row in rows if isinstance(row, dict) and row.get('request_key') == key]
+        if len(matches) != 1 or matches[0].get('id') != job_id:
+            raise AssertionError('Job history does not contain exactly the requested identity')
+        row = matches[0]
+        if row.get('status') == 'SUCCEEDED':
+            result = row.get('result')
+            if (row.get('app_id') != 'sample-one' or row.get('action') != 'pipeline'
+                    or row.get('data') != {'stage': 5} or type(row.get('attempts')) is not int
+                    or row['attempts'] != 1
+                    or not isinstance(result, dict) or result.get('external_execution') != 'NOT_RUN'
+                    or type(result.get('spend_minor')) is not int or result['spend_minor'] != 0
+                    or not isinstance(result.get('outputs'), list) or len(result['outputs']) != 1
+                    or not isinstance(result['outputs'][0], dict)
+                    or type(result['outputs'][0].get('stage')) is not int
+                    or result['outputs'][0]['stage'] != 5
+                    or result['outputs'][0].get('status') not in ('PREPARED', 'BLOCKED')
+                    or not isinstance(result['outputs'][0].get('packet'), dict)
+                    or result['outputs'][0]['packet'].get('schema') != 'growth.stage-packet.v1'
+                    or result['outputs'][0]['packet'].get('app_id') != 'sample-one'
+                    or result['outputs'][0]['packet'].get('stage') != 5
+                    or result['outputs'][0]['packet'].get('external_execution') != 'NOT_RUN'):
+                raise AssertionError('Completed job does not prove the requested local preparation')
+            return row
+        if row.get('status') not in ('QUEUED', 'RUNNING'):
+            raise AssertionError(f"Job ended without success: {row.get('status')}")
+        time.sleep(min(.25, max(0, deadline - time.monotonic())))
+    raise RuntimeError('Job did not complete before timeout')
+
+
+def verify_replay(initial, replay, durable):
+    if replay != initial or durable != initial:
+        raise AssertionError('Replay changed the durable job or result')
 
 
 def assert_stopped(env, name):
@@ -110,7 +183,7 @@ def main():
             if not link.is_symlink() or link.resolve() != unit.resolve():
                 raise RuntimeError('Unexpected runtime unit link')
             systemctl(env, 'start', name)
-            wait_bootstrap(env, name)
+            client, csrf = session()
             workspace = directory / 'data/Wize Marketing Machine'
             database = workspace / 'mission-control.sqlite3'
             if not database.is_file() or database.stat().st_mode & 0o077:
@@ -119,10 +192,16 @@ def main():
             if (other.returncode == 0 or 'Workspace is already running' not in other.stderr
                     or systemctl(env, 'is-active', name).stdout.strip() != 'active'):
                 raise AssertionError('A competing runtime was not excluded')
+            key = 'host-service-' + uuid4().hex
+            queued = submit(client, ORIGIN, csrf, key)
+            initial = completed_job(client, ORIGIN, queued['id'], key)
             systemctl(env, 'stop', name)
             assert_stopped(env, name)
             systemctl(env, 'start', name)
-            wait_bootstrap(env, name)
+            client, csrf = session()
+            replay = submit(client, ORIGIN, csrf, key)
+            durable = completed_job(client, ORIGIN, queued['id'], key)
+            verify_replay(initial, replay, durable)
             systemctl(env, 'stop', name)
             assert_stopped(env, name)
         finally:
@@ -139,7 +218,11 @@ def main():
                 if link.exists() or link.is_symlink():
                     raise AssertionError('Test unit link remains')
     print(json.dumps({'status': 'PASS', 'bootstrap': 'VERIFIED', 'workspace_exclusion': 'VERIFIED',
-                      'stop_restart': 'VERIFIED', 'unit_cleanup': 'VERIFIED',
+                      'stop_restart': 'VERIFIED', 'worker_result': 'VERIFIED',
+                      'durable_replay': 'VERIFIED', 'job_id': initial['id'],
+                      'attempts': initial['attempts'], 'stage': 5,
+                      'preparation_status': initial['result']['outputs'][0]['status'],
+                      'unit_cleanup': 'VERIFIED',
                       'data': 'DISPOSABLE_SYNTHETIC', 'provider': 'NOT_RUN'}))
 
 

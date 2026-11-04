@@ -1,11 +1,13 @@
 """Portable source checks; these do not prove a Linux service lifecycle."""
 import configparser
+import copy
 import os
 from pathlib import Path
 import runpy
 import subprocess
 import sys
 import tempfile
+import threading
 import types
 import unittest
 from unittest.mock import patch
@@ -17,6 +19,106 @@ WRAPPER = runpy.run_path(str(ROOT / 'tools/ci_host_user.py'))
 
 
 class HostServiceContractTests(unittest.TestCase):
+    def test_real_http_worker_and_fresh_session_replay_with_temporary_store(self):
+        from mission_control.server import Server
+        from mission_control.store import Store
+
+        with tempfile.TemporaryDirectory() as directory:
+            store = Store(Path(directory) / 'fixture.sqlite3')
+
+            def start():
+                server = Server(('127.0.0.1', 0), store)
+                self.assertNotIn(server.server_port, (0, 8765))
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                server.runner.thread.start()
+                return server, thread, f'http://127.0.0.1:{server.server_port}'
+
+            def stop(server, thread):
+                server.runner.stop()
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=5)
+                self.assertFalse(thread.is_alive())
+                self.assertFalse(server.runner.thread.is_alive())
+
+            server, thread, origin = start()
+            try:
+                client, csrf = HARNESS['session'](origin, timeout=5)
+                queued = HARNESS['submit'](client, origin, csrf, 'host-test-key')
+                initial = HARNESS['completed_job'](client, origin, queued['id'], 'host-test-key', timeout=15)
+                self.assertEqual(initial['status'], 'SUCCEEDED')
+                self.assertEqual(initial['attempts'], 1)
+                self.assertEqual(initial['result']['outputs'][0]['stage'], 5)
+            finally:
+                stop(server, thread)
+            server, thread, origin = start()
+            try:
+                client, csrf = HARNESS['session'](origin, timeout=5)
+                replay = HARNESS['submit'](client, origin, csrf, 'host-test-key')
+                durable = HARNESS['completed_job'](client, origin, queued['id'], 'host-test-key', timeout=5)
+                HARNESS['verify_replay'](initial, replay, durable)
+                self.assertEqual(replay, initial)
+            finally:
+                stop(server, thread)
+
+    def test_missing_or_changed_worker_evidence_fails_closed(self):
+        good = {'id': 'job-one', 'app_id': 'sample-one', 'action': 'pipeline',
+                'data': {'stage': 5}, 'request_key': 'key', 'status': 'SUCCEEDED',
+                'attempts': 1, 'result': {'external_execution': 'NOT_RUN', 'spend_minor': 0,
+                                          'outputs': [{'stage': 5, 'status': 'BLOCKED',
+                                                       'packet': {'schema': 'growth.stage-packet.v1',
+                                                                  'app_id': 'sample-one', 'stage': 5,
+                                                                  'external_execution': 'NOT_RUN'}}]}}
+        changes = [lambda r: r.update(id='other'), lambda r: r.update(app_id='other'),
+                   lambda r: r.update(action='sync'), lambda r: r.update(data={'stage': 4}),
+                   lambda r: r.update(attempts=2), lambda r: r.update(attempts=True),
+                   lambda r: r.update(result=None), lambda r: r['result'].update(spend_minor=1),
+                   lambda r: r['result'].update(external_execution='UNKNOWN'),
+                   lambda r: r['result'].update(outputs=[]),
+                   lambda r: r['result']['outputs'][0].update(stage=4),
+                   lambda r: r['result']['outputs'][0].pop('packet'),
+                   lambda r: r['result']['outputs'][0]['packet'].update(schema='invalid'),
+                   lambda r: r['result']['outputs'][0]['packet'].update(app_id='other'),
+                   lambda r: r['result']['outputs'][0]['packet'].update(stage=4),
+                   lambda r: r['result']['outputs'][0]['packet'].update(external_execution='UNKNOWN'),
+                   lambda r: r.update(status='FAILED')]
+        function = HARNESS['completed_job']
+        with patch.dict(function.__globals__, {'request_json': lambda *args: [good]}):
+            self.assertEqual(function(None, 'unused', 'job-one', 'key', timeout=1), good)
+        for change in changes:
+            row = copy.deepcopy(good)
+            change(row)
+            with self.subTest(row=row), patch.dict(function.__globals__, {'request_json': lambda *args: [row]}):
+                with self.assertRaises(AssertionError):
+                    function(None, 'unused', 'job-one', 'key', timeout=1)
+        for rows in ([], [good, copy.deepcopy(good)]):
+            with self.subTest(rows=rows), patch.dict(function.__globals__, {'request_json': lambda *args: rows}):
+                with self.assertRaises(AssertionError):
+                    function(None, 'unused', 'job-one', 'key', timeout=1)
+        pending = {**good, 'status': 'QUEUED', 'result': None}
+        with patch.dict(function.__globals__, {'request_json': lambda *args: [pending]}):
+            with self.assertRaisesRegex(RuntimeError, 'timeout'):
+                function(None, 'unused', 'job-one', 'key', timeout=.02)
+        changed = copy.deepcopy(good)
+        changed['result']['outputs'][0]['packet']['changed'] = True
+        with self.assertRaises(AssertionError):
+            HARNESS['verify_replay'](good, changed, good)
+        with self.assertRaises(AssertionError):
+            HARNESS['verify_replay'](good, good, changed)
+
+    def test_session_rejects_non_loopback_and_times_out(self):
+        for origin in ('http://localhost:8765', 'https://127.0.0.1:8765',
+                       'http://127.0.0.1:8765/other', 'http://example.com:8765'):
+            with self.subTest(origin=origin), self.assertRaises(ValueError):
+                HARNESS['session'](origin, timeout=.01)
+        import socket
+        with socket.socket() as bound:
+            bound.bind(('127.0.0.1', 0))
+            origin = f'http://127.0.0.1:{bound.getsockname()[1]}'
+            with self.assertRaisesRegex(RuntimeError, 'timeout'):
+                HARNESS['session'](origin, timeout=.02)
+
     def test_port_probe_keeps_active_listener_exclusion_without_time_wait_false_alarm(self):
         from unittest.mock import Mock
         import socket
