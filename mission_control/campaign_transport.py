@@ -3,7 +3,7 @@ import http.client
 import json
 import re
 import time
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import urlencode, urlsplit, parse_qs
 from .aeo_transport import address, PinnedHTTPS, response_headers, response_body
 from .aeo_tls import trust_context
 from .common import Invalid, digest
@@ -28,6 +28,30 @@ def post_id(value, page_id):
 
 def check_post_content(value,content_hash):
     message=value.get('message');link=value.get('link')
+    if 'attachments' in value:
+        attachments=value['attachments']
+        if not isinstance(attachments,dict) or not isinstance(attachments.get('data'),list):
+            raise Unconfirmed('Post attachment readback was not confirmed')
+        rows=attachments['data']
+        if len(rows)>1 or (rows and not isinstance(rows[0],dict)):
+            raise Unconfirmed('Post attachment readback was ambiguous')
+        observed=None
+        if rows:
+            target=rows[0].get('target')
+            if not isinstance(target,dict) or not isinstance(target.get('url'),str):
+                raise Unconfirmed('Post link destination was not confirmed')
+            observed=target['url']
+            parts=urlsplit(observed)
+            if parts.hostname=='l.facebook.com':
+                if parts.scheme!='https' or parts.netloc!='l.facebook.com' or parts.path!='/l.php' or parts.fragment:
+                    raise Unconfirmed('Post link redirect was not confirmed')
+                try:destinations=parse_qs(parts.query,max_num_fields=10,strict_parsing=True).get('u',[])
+                except ValueError:raise Unconfirmed('Post link destination was not confirmed') from None
+                if len(destinations)!=1:raise Unconfirmed('Post link destination was ambiguous')
+                observed=destinations[0]
+        if link is not None and link!=observed:
+            raise Unconfirmed('Post link readback was ambiguous')
+        link=observed
     if not isinstance(message,str) or (link is not None and not isinstance(link,str)):
         raise Unconfirmed('Post content readback was not confirmed')
     if digest({'message':message,'link':link})!=content_hash:
@@ -98,7 +122,7 @@ class MetaTransport:
 
     def read_post(self,page_id,identity,content_hash,page_token,secret,alive):
         post_id(identity,page_id)
-        fields={'fields':'id,message,link,permalink_url,from',
+        fields={'fields':'id,message,permalink_url,from,attachments{url,target}',
                 'appsecret_proof':app_secret_proof(page_token,secret)}
         value=self.request('GET','/'+META_VERSION+'/'+identity,fields,page_token,alive)
         if value.get('id')!=identity:raise Unconfirmed('Exact post readback was not confirmed')

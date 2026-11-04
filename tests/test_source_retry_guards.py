@@ -1,6 +1,8 @@
 """Direct source and authority boundary checks used by approved retry execution."""
 from copy import deepcopy
+from datetime import datetime,timezone
 import unittest,uuid
+from unittest.mock import patch
 from mission_control.common import Invalid,digest
 from mission_control.db import connection
 from mission_control.worker import jobs
@@ -39,14 +41,21 @@ class SourceRetryGuardTests(unittest.TestCase):
         self.assertTrue(all(t['data']['agent_policy_sha256']==digest(policy) for t in tasks))
 
     def test_enqueue_task_replay_and_rotated_connection_are_transactional(self):
-        self.failed();task=CampaignInputs(self.store).preview('sample-one')['tasks'][0]
-        before=len(jobs(self.store,'sample-one'))
-        with connection(self.store.path) as db:enqueue_task(db,'sample-one',task)
-        self.assertEqual(len(jobs(self.store,'sample-one')),before)
-        changed=deepcopy(task);changed['request_key']='synthetic-changed-request';changed['data']['connection_version']+=1
-        with connection(self.store.path) as db:
-            with self.assertRaises(Invalid):enqueue_task(db,'sample-one',changed)
-        self.assertEqual(len(jobs(self.store,'sample-one')),before)
+        class FixedDatetime(datetime):
+            @classmethod
+            def now(cls,tz=None):
+                value=cls(2026,11,3,12,30,tzinfo=timezone.utc)
+                return value if tz is not None else value.replace(tzinfo=None)
+        # Fixture dispatch and preview must use the same hourly collection identity.
+        with patch('tests.test_source_progress.datetime',FixedDatetime),patch('mission_control.campaign_inputs.datetime',FixedDatetime):
+            self.failed();task=CampaignInputs(self.store).preview('sample-one')['tasks'][0]
+            before=len(jobs(self.store,'sample-one'))
+            with connection(self.store.path) as db:enqueue_task(db,'sample-one',task)
+            self.assertEqual(len(jobs(self.store,'sample-one')),before)
+            changed=deepcopy(task);changed['request_key']='synthetic-changed-request';changed['data']['connection_version']+=1
+            with connection(self.store.path) as db:
+                with self.assertRaises(Invalid):enqueue_task(db,'sample-one',changed)
+            self.assertEqual(len(jobs(self.store,'sample-one')),before)
 
     def test_authorize_source_operation_and_release_fail_closed(self):
         app,source=self.setup_source();policy=operating_manifest(app)
