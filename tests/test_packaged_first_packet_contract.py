@@ -34,6 +34,8 @@ class PackagedFirstPacketTests(unittest.TestCase):
 
     def test_occupied_port_refuses_without_spawning_or_stopping_listener(self):
         with socket.socket() as listener:
+            if harness.os.name != 'nt':
+                listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
                 listener.bind(('127.0.0.1', 8765))
             except OSError:
@@ -46,6 +48,38 @@ class PackagedFirstPacketTests(unittest.TestCase):
                     harness.verify_frozen_first_packet('absent', '.',
                         dict(CI='true', WMM_PACKAGED_FIRST_PACKET_TEST='1'))
                 spawn.assert_not_called()
+
+    def test_unix_preflight_reuses_closed_connections_without_reusing_listeners(self):
+        from unittest.mock import Mock
+        probe = Mock()
+        probe.__enter__ = Mock(return_value=probe)
+        probe.__exit__ = Mock(return_value=False)
+        with patch.object(harness.os, 'name', 'posix'), \
+             patch.object(harness.socket, 'socket', return_value=probe):
+            harness.preflight(dict(CI='true', WMM_PACKAGED_FIRST_PACKET_TEST='1'))
+        probe.setsockopt.assert_called_once_with(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        probe.bind.assert_called_once_with(('127.0.0.1', 8765))
+
+    def test_cleanup_joins_real_reader_before_closing_pipe(self):
+        import subprocess
+        import sys
+        import threading
+        child = subprocess.Popen([sys.executable, '-u', '-c',
+            "import time; print('READY', flush=True); time.sleep(30)"],
+            stdout=subprocess.PIPE, text=True,
+            creationflags=subprocess.CREATE_NO_WINDOW if harness.os.name == 'nt' else 0)
+        try:
+            self.assertEqual(child.stdout.readline().strip(), 'READY')
+            reader = threading.Thread(target=child.stdout.read, daemon=True)
+            child._wmm_stdout_reader = reader
+            reader.start()
+            harness._stop(child)
+            self.assertFalse(reader.is_alive())
+            self.assertTrue(child.stdout.closed)
+        finally:
+            if child.poll() is None:
+                child.kill()
+                child.wait(timeout=10)
 
     def test_startup_timeout_cleans_up_only_owned_child(self):
         from unittest.mock import Mock

@@ -132,6 +132,10 @@ def preflight(env):
     with socket.socket() as probe:
         if os.name == 'nt':
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        else:
+            # Ignore closed TCP connections in TIME_WAIT, never an active
+            # listener. SO_REUSEPORT is deliberately not enabled.
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         probe.bind(('127.0.0.1', 8765))  # Never attach to or stop an existing listener.
 
 
@@ -149,7 +153,9 @@ def _start(binary, folder, env):
                 lines.put_nowait(line)
             except queue.Full:
                 break
-    threading.Thread(target=read, daemon=True).start()
+    reader = threading.Thread(target=read, daemon=True)
+    child._wmm_stdout_reader = reader
+    reader.start()
     try:
         deadline = time.monotonic() + 45
         while time.monotonic() < deadline:
@@ -177,6 +183,10 @@ def _stop(child):
             child.kill()
             child.wait(timeout=10)
     assert child.poll() is not None, 'Owned child survived cleanup'
+    reader = getattr(child, '_wmm_stdout_reader', None)
+    if isinstance(reader, threading.Thread):
+        reader.join(timeout=5)
+        assert not reader.is_alive(), 'Owned stdout reader survived cleanup'
     child.stdout.close()
 
 
