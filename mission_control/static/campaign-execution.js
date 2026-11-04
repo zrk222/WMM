@@ -61,6 +61,9 @@ async function campaignStatus(scopeID,plan=null,source=null) {
   const app=state.app,version=state.workspace.app.version,principal=state.workspace.identity?.principal,result=await api(`/api/apps/${app}/campaigns/status`,{scope_id:scopeID});
   if(app!==state.app||version!==state.workspace.app.version||principal!==state.workspace.identity?.principal||(source&&!source.isConnected))return;
   const scope=result.scope;
+  if(plan&&(scope.status!=='ACTIVE'||result.intents.length||
+     plan.scope?.scope_id!==scope.scope_id||!scope.approval_hash||
+     plan.scope.approval_hash!==scope.approval_hash))plan=null;
   modal('Campaign progress',`<div id="campaign-progress" class="modal-content" data-app="${esc(app)}" data-version="${state.workspace.app.version}" data-id="${esc(scopeID)}"><p>Scope: <strong>${esc(scope.status)}</strong> · Page ${esc(scope.page_id)} · expires ${esc(scope.expires_at)}.</p><p>Media ceiling: ${scope.max_total_minor} minor units ${esc(scope.currency)}. Calls used: ${esc(scope.call_allowance_units_used??scope.calls_used??'Unknown')}/${scope.max_calls}.</p><p id="campaign-activity" role="status">Saved provider states shown below. A post ID or ad status does not establish app sales.</p>${result.intents.map(row=>`<section class="panel"><h3>${esc(row.status)}</h3><p>Receipt: ${esc(row.id)}</p><p>Provider ID: ${esc(row.remote_id||(row.ids?Object.values(row.ids).join(', '):'Not confirmed'))}</p><pre>${esc(JSON.stringify(row.result,null,2))}</pre>${button('Read provider status','campaign-reconcile',`data-intent="${esc(row.id)}"`)}${button('Pause owned paid campaign','campaign-pause',`data-intent="${esc(row.id)}"`)}</section>`).join('')||'<p>No effects have been dispatched for this scope.</p>'}<p id="campaign-error" role="alert"></p><div class="button-row">${plan&&scope.status==='ACTIVE'?button('Run approved workflow','campaign-run','','primary'):''}${plan?.posts&&!scope.ad_account_id&&scope.status==='ACTIVE'?button('Schedule approved posts','campaign-schedule-open'):''}${button('Campaign report / Save PDF','campaign-report')}${button('Refresh saved receipts','campaign-status',`data-id="${esc(scopeID)}"`)}${button('Turn off this scope','campaign-revoke')}</div></div>`);
   const progress=$('#campaign-progress');
   progress.dataset.principal=principal||'';
@@ -74,7 +77,14 @@ async function campaignAction(node) {
   const action=node.dataset.action;
   if(action==='campaign-open')return campaignOpen(node);
   if(action.startsWith('campaign-schedule-'))return campaignScheduleAction(node);
-  if(action==='campaign-status')return campaignStatus(node.dataset.id,null,node);
+  if(action==='campaign-status'){
+    const progress=node.closest('#campaign-progress');
+    if(!progress)return campaignStatus(node.dataset.id,null,node);
+    campaignBound(progress);
+    if(progress.dataset.busy==='true')return;
+    const plan=progress.campaign;
+    return campaignStatus(node.dataset.id,plan?.posts&&plan.scope?.scope_id===node.dataset.id?plan:null,node);
+  }
   if(action==='campaign-report')return campaignReport($('#campaign-progress'));
   const panel=$('#campaign-review')||$('#campaign-progress');if(!panel)return;
   if(panel.dataset.busy==='true')return;
