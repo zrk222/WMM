@@ -125,6 +125,25 @@ class MarketResearchTests(unittest.TestCase):
         stale = validate_snapshot(body, {"locale": "en-US"}, STAMP)
         self.assertEqual(analyze_snapshot(stale, STAMP)["state"], "STALE")
 
+    def test_imported_stale_scope_and_assertion_provenance_are_both_visible(self):
+        row=self.work.save("sample-one",fixture())
+        row=dict(row,imported=1)
+        changed=dict(row['context'],manifest_version=2,app_hash='0'*64)
+        value=entry_readout(row,changed,STAMP)
+        self.assertEqual(value['scope_status'],'STALE_APP_SCOPE')
+        self.assertEqual(value['import_provenance'],'IMPORTED_ASSERTION')
+        self.assertFalse(value['provider_verified'])
+
+    def test_mixed_source_coverage_is_partial_and_empty_source_packet_is_invalid(self):
+        value=fixture()['data']['snapshot']
+        value['sources'].append(dict(value['sources'][0],id='no-result-source',coverage='NO_RESULTS'))
+        normalized=validate_snapshot(value,{'locale':'en-US'},STAMP)
+        self.assertEqual(analyze_snapshot(normalized,STAMP)['state'],'PARTIAL')
+        value['sources'][0]['coverage']='PARTIAL'
+        self.assertEqual(analyze_snapshot(validate_snapshot(value,{'locale':'en-US'},STAMP),STAMP)['state'],'PARTIAL')
+        value['sources']=[]
+        with self.assertRaises(Invalid):validate_snapshot(value,{'locale':'en-US'},STAMP)
+
     def test_no_network_and_contract_fixture_shape(self):
         self.assertEqual(agent_contract()["kind"], "MARKET_RESEARCH")
         with patch("socket.socket", side_effect=AssertionError("network forbidden")):

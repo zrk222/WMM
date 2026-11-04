@@ -195,6 +195,7 @@
   function entryNotes(row) {
     const analysis=row.readout.analysis;
     const notes=[`${human(row.kind)}: ${row.id}. Saved ${row.created}. ${human(row.readout.availability)}. Status: ${human(analysis.status)}. Source hash ${row.hash}.`];
+    if(row.readout.scope_status) notes.push(`App context: ${human(row.readout.scope_status)}. Provenance: ${human(row.readout.import_provenance)}. Changed scope needs a new current-app review.`);
     if (row.kind==="ASO_LISTING") {
       notes.push(`Applied rule profile ${analysis.rule_version}; saved source profile ${analysis.source_rule_version}; rules reviewed ${analysis.rules_reviewed_at}.`);
       notes.push(...Object.entries(row.data.listing.fields).map(([name,value])=>`${human(name)}: ${value}`));

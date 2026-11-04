@@ -12,11 +12,11 @@ Save bounded, immutable, app-scoped market research snapshots for a founder revi
 - The system shall accept a snapshot for exactly one configured app release and locale, with explicit platform (`iOS` or `Android`) and territory.
 - The system shall accept at most 20 dated source snapshots, 50 keyword phrase records, and 10 competitor listing records per entry; source excerpts are at most 1000 characters, phrase text at most 120 characters, and competitor listing excerpts at most 1000 characters.
 - The system shall reject any source that lacks a unique ID, safe HTTPS URL, SHA-256 of the captured evidence, retrieval timestamp less than or equal to observation time, and explicit coverage state `COMPLETE`, `PARTIAL`, or `NO_RESULTS`.
-- The system shall store at most 50 phrase records per entry, each `observed` and `inferred` objects as separate fields, and mark every inferred value `INFERRED`.
+- The system shall store at most 50 phrase records per entry, each `observed` and `inferred` objects as separate fields, and mark inferred analysis `ANALYST_INFERRED`.
 - The system shall reject duplicate IDs or normalized phrases, malformed or future timestamps, nonfinite or negative supplied metrics, unbound sources, mixed app release or locale, extra fields, secrets, and unsafe URLs.
 - The system shall return the named `search_volume`, `rank`, and `difficulty` metrics as null when no source ID is supplied; when supplied, each metric shall include `provenance=OPERATOR_ASSERTION` and `provider_verified=false`, and paid ad counts shall not populate these metrics.
-- The system shall return deterministic normalized phrase coverage, keyword and competitor phrase overlap, and test candidates under declared rules, with explicit no-result, partial, stale, and unavailable states and next actions.
-- The system shall bind saved evidence to app context and immutable content hashes, returning stale scope when the app manifest changes and rejecting changed replay under the same identity.
+- The system shall return deterministic normalized phrase coverage, keyword and competitor phrase overlap, and test candidates under declared rules, with explicit no-result, partial and stale states and next actions; invalid source-less snapshots shall be rejected.
+- The system shall bind saved evidence to app context and immutable content hashes, returning an independent stale-scope status when the app manifest changes even for imported assertions, and rejecting changed replay under the same identity.
 - The system shall make no network calls or external writes and shall not infer growth, paid performance, organic rank, or causal outcomes.
 
 ### Acceptance criteria (Gherkin)
@@ -66,7 +66,9 @@ MAX_BYTES = 65536
 ## Decision logic (factory candidates)
 | # | if | then |
 |---|----|------|
-| 1 | Source coverage is `NO_RESULTS` | Return `NO_RESULTS` and next action `Capture a broader query` |
-| 2 | Coverage is `PARTIAL` or source is stale | Keep candidates advisory and require a current complete capture |
-| 3 | `phrase_overlap=true` from supplied own and competitor listing excerpts | Mark overlap from supplied text and propose a differentiating copy test |
-| 4 | `inferred.intent` or `inferred.relevance` exists and metric source IDs are absent | Keep test candidate with metric fields null |
+| 1 | No phrases exist or all sources have coverage `NO_RESULTS` | Return `NO_RESULTS` and next action `Capture a broader query` |
+| 2 | Source coverage has aged beyond 90 days and phrases exist | Return `STALE` and require a current capture |
+| 3 | Phrases exist and current sources include `PARTIAL`, or mix `NO_RESULTS` with another coverage state | Return `PARTIAL` and require a complete source capture |
+| 4 | Source coverage is `COMPLETE` and phrases exist | Return `OBSERVED` for supplied evidence, without provider verification |
+| 5 | `phrase_overlap=true` from supplied own and competitor listing excerpts | Mark overlap from supplied text and propose a differentiating copy test |
+| 6 | `inferred.intent` or `inferred.relevance` exists and metric source IDs are absent | Keep test candidate with metric fields null |

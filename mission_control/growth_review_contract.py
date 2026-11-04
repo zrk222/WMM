@@ -114,4 +114,6 @@ def entry_readout(row, app_context, observed_at):
     if kind == "BENCHMARK_COMPARISON" and availability != "CURRENT_LOCAL_EVIDENCE":
         analysis = dict(status=availability, difference=None, reasons=["Rebind the saved reference and account source to the current app before relying on this comparison"])
     return dict(analysis=analysis, availability=availability, provider_verified=False, outcomes_verified=False,
+                scope_status="CURRENT_APP_SCOPE" if row["context"] == app_context else "STALE_APP_SCOPE",
+                import_provenance="IMPORTED_ASSERTION" if row["imported"] else "LOCALLY_RECORDED",
                 execution_authority=False, external_writes=False, spend_minor=0)

@@ -183,14 +183,12 @@ def analyze_snapshot(snapshot, as_of):
     sources = snapshot["sources"]
     stale = any(iso_time(as_of) - iso_time(src["retrieved_at"]) > timedelta(days=90) for src in sources)
     coverage_states = {s["coverage"] for s in sources}
-    if not snapshot["phrases"] or "NO_RESULTS" in coverage_states and not any(s["coverage"] == "COMPLETE" for s in sources):
+    if not snapshot["phrases"] or coverage_states == {"NO_RESULTS"}:
         state, action = "NO_RESULTS", "Capture a broader query"
     elif stale:
         state, action = "STALE", "Capture current source evidence for this app locale"
-    elif "PARTIAL" in coverage_states:
+    elif "PARTIAL" in coverage_states or "NO_RESULTS" in coverage_states:
         state, action = "PARTIAL", "Complete the source capture before comparing candidates"
-    elif not sources or not snapshot["phrases"]:
-        state, action = "UNAVAILABLE", "Add a dated source and phrase observations"
     else:
         state, action = "OBSERVED", "Review the sourced candidates with a localized reviewer"
 
