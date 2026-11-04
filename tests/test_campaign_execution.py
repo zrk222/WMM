@@ -197,9 +197,18 @@ class TransportTests(unittest.TestCase):
         with patch.object(transport,'request',return_value=response) as request:
             self.assertEqual(transport.read_post('123','123_777',expected,'token','secret',lambda:None)['id'],'123_777')
             self.assertEqual(request.call_args.args[2]['fields'],'id,message,permalink_url,from,attachments{url,target}')
-            for bad in ('https://other.example/',wrapper+'&u=https%3A%2F%2Fother.example%2F',wrapper.replace('https:','http:'),wrapper+'&malformed'):
+            for bad in ('https://other.example/',wrapper+'&u=https%3A%2F%2Fother.example%2F',wrapper.replace('https:','http:'),wrapper+'&malformed','https://[invalid'):
                 response['attachments']['data'][0]['target']['url']=bad
                 with self.assertRaises(Unconfirmed):transport.read_post('123','123_777',expected,'token','secret',lambda:None)
+            response['attachments']['data'][0]['target']['url']=wrapper
+            response['attachments']['data'][0]['url']='https://other.example/'
+            with self.assertRaises(Unconfirmed):transport.read_post('123','123_777',expected,'token','secret',lambda:None)
+            response['attachments']['data'][0]['url']=wrapper
+            response['permalink_url']='https://[invalid'
+            with self.assertRaises(Unconfirmed):transport.read_post('123','123_777',expected,'token','secret',lambda:None)
+            response.pop('permalink_url')
+            response['attachments']['data'][0]['subattachments']={'data':[{'target':{'url':wrapper}}]}
+            with self.assertRaises(Unconfirmed):transport.read_post('123','123_777',expected,'token','secret',lambda:None)
             response['attachments']['data']=[{'target':{'url':wrapper}},{'target':{'url':wrapper}}]
             with self.assertRaises(Unconfirmed):transport.read_post('123','123_777',expected,'token','secret',lambda:None)
 

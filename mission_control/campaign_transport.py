@@ -26,31 +26,42 @@ def post_id(value, page_id):
     return value
 
 
+def attachment_destination(value):
+    """Decode only the official link wrapper without making another request."""
+    if not isinstance(value,str) or not 1<=len(value)<=8192:
+        raise Unconfirmed('Post link destination was not confirmed')
+    try:parts=urlsplit(value)
+    except ValueError:raise Unconfirmed('Post link destination was not confirmed') from None
+    if parts.hostname!='l.facebook.com':return value
+    if parts.scheme!='https' or parts.netloc!='l.facebook.com' or parts.path!='/l.php' or parts.fragment:
+        raise Unconfirmed('Post link redirect was not confirmed')
+    try:destinations=parse_qs(parts.query,max_num_fields=10,strict_parsing=True).get('u',[])
+    except ValueError:raise Unconfirmed('Post link destination was not confirmed') from None
+    if len(destinations)!=1:raise Unconfirmed('Post link destination was ambiguous')
+    return destinations[0]
+
+
+def post_attachment_link(attachments):
+    """Require one unambiguous link attachment or an explicitly empty list."""
+    if not isinstance(attachments,dict) or not isinstance(attachments.get('data'),list):
+        raise Unconfirmed('Post attachment readback was not confirmed')
+    rows=attachments['data']
+    if not rows:return None
+    if len(rows)!=1 or not isinstance(rows[0],dict) or 'subattachments' in rows[0]:
+        raise Unconfirmed('Post attachment readback was ambiguous')
+    row=rows[0];target=row.get('target')
+    if not isinstance(target,dict):raise Unconfirmed('Post link destination was not confirmed')
+    observed=attachment_destination(target.get('url'))
+    if 'url' in row and attachment_destination(row['url'])!=observed:
+        raise Unconfirmed('Post link readback was ambiguous')
+    return observed
+
+
 def check_post_content(value,content_hash):
     message=value.get('message');link=value.get('link')
     if 'attachments' in value:
-        attachments=value['attachments']
-        if not isinstance(attachments,dict) or not isinstance(attachments.get('data'),list):
-            raise Unconfirmed('Post attachment readback was not confirmed')
-        rows=attachments['data']
-        if len(rows)>1 or (rows and not isinstance(rows[0],dict)):
-            raise Unconfirmed('Post attachment readback was ambiguous')
-        observed=None
-        if rows:
-            target=rows[0].get('target')
-            if not isinstance(target,dict) or not isinstance(target.get('url'),str):
-                raise Unconfirmed('Post link destination was not confirmed')
-            observed=target['url']
-            parts=urlsplit(observed)
-            if parts.hostname=='l.facebook.com':
-                if parts.scheme!='https' or parts.netloc!='l.facebook.com' or parts.path!='/l.php' or parts.fragment:
-                    raise Unconfirmed('Post link redirect was not confirmed')
-                try:destinations=parse_qs(parts.query,max_num_fields=10,strict_parsing=True).get('u',[])
-                except ValueError:raise Unconfirmed('Post link destination was not confirmed') from None
-                if len(destinations)!=1:raise Unconfirmed('Post link destination was ambiguous')
-                observed=destinations[0]
-        if link is not None and link!=observed:
-            raise Unconfirmed('Post link readback was ambiguous')
+        observed=post_attachment_link(value['attachments'])
+        if link is not None and link!=observed:raise Unconfirmed('Post link readback was ambiguous')
         link=observed
     if not isinstance(message,str) or (link is not None and not isinstance(link,str)):
         raise Unconfirmed('Post content readback was not confirmed')
@@ -60,7 +71,8 @@ def check_post_content(value,content_hash):
 
 def checked_permalink(permalink):
     if permalink is None:return None
-    parts=urlsplit(permalink) if isinstance(permalink,str) and len(permalink)<=2048 else None
+    try:parts=urlsplit(permalink) if isinstance(permalink,str) and len(permalink)<=2048 else None
+    except ValueError:raise Unconfirmed('Post permalink readback was invalid') from None
     if not parts or parts.scheme!='https' or parts.hostname not in ('www.facebook.com','facebook.com') or parts.username or parts.password:
         raise Unconfirmed('Post permalink readback was invalid')
     return permalink
