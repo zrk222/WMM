@@ -224,6 +224,7 @@ def _agent_review_cards(db, app, principal, role, tables):
         return [_review_source_card(app, principal, role, "review-source")]
     observed = datetime.now(timezone.utc)
     cards = []
+    maker_source_unavailable = False
     for item in rows:
         identity = item["id"]
         row = _saved(item["checkpoint"])
@@ -232,6 +233,8 @@ def _agent_review_cards(db, app, principal, role, tables):
         # ReviewedDispatch creates the checkpoint as the grant owner; do not
         # trust a damaged packet to identify the maker for a private read.
         if role == "MAKER" and item["owner"] != principal:
+            if not isinstance(item["owner"], str) or not item["owner"]:
+                maker_source_unavailable = True
             continue
         try:
             path_segment(identity)
@@ -318,12 +321,14 @@ def _agent_review_cards(db, app, principal, role, tables):
             except Invalid:
                 safe_identity = "review-source"
             cards.append(_review_source_card(app, principal, role, safe_identity))
-    return cards
+    if maker_source_unavailable:
+        cards.append(_review_source_card(app, principal, role, "review-source"))
+    return list({card["id"]: card for card in cards}.values())
 
 
 def _review_source_card(app, principal, role, identity):
     card = _card(app, principal, "agent_review", identity, "SOURCE_UNAVAILABLE",
-                 "Agent review source unavailable", "Saved review metadata could not be verified.",
+                 "Review source unavailable", "Saved review metadata could not be verified.",
                  "Open Agent Control and inspect the saved request before taking action.",
                  "agent_review", {}, {"status": "SOURCE_UNAVAILABLE", "request_id": identity}, 1)
     card.update(owner_only=False, private_principal=principal, owner={"OWNER": "App owner", "CHECKER": "App checker", "MAKER": "App maker"}[role])

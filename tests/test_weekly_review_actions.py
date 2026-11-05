@@ -139,6 +139,31 @@ class WeeklyReviewActionsTests(unittest.TestCase):
             db.execute('UPDATE agent_checkpoints SET data=?', ('é' * 33000,))
         self.assertEqual(self.cards()[0]['state'], 'SOURCE_UNAVAILABLE')
 
+    def test_missing_grants_show_one_unattributed_source_health_card(self):
+        with connection(self.store.path) as db:
+            # Deliberately damage the fixture as a legacy/corrupt source. Normal writes retain FK enforcement.
+            db.execute('PRAGMA foreign_keys=OFF')
+            request = db.execute('SELECT * FROM agent_review_requests').fetchone()
+            db.execute('INSERT INTO agent_review_requests VALUES(?,?,?,?,?,?)',
+                       (request['app_id'], 'other-damaged-request', request['grant_id'],
+                        'SECRET_ENVELOPE', request['input_hash'], 'SECRET_RESULT'))
+            db.execute('DELETE FROM agent_grants')
+            db.execute("UPDATE operator_roles SET role='MAKER',version=version+1 WHERE principal=?", (ids.OWNER['principal'],))
+        for user in (ids.OWNER, ids.STRANGER):
+            cards = self.cards(user)
+            self.assertEqual(len(cards), 1)
+            card = cards[0]
+            self.assertEqual(card['action']['resource_id'], 'review-source')
+            self.assertEqual(card['title'], 'Review source unavailable')
+            self.assertEqual(card['evidence'], dict(status='SOURCE_UNAVAILABLE', request_id='review-source'))
+            self.assertEqual(card['private_principal'], user['principal'])
+            for private in ('review-one', 'other-damaged-request', request['grant_id'], request['input_hash'], 'SECRET_'):
+                self.assertNotIn(private, canonical(card))
+        self.assertEqual(self.cards(None), [])
+        with connection(self.store.path) as db:
+            db.execute("UPDATE operator_roles SET status='REVOKED' WHERE principal=?", (ids.STRANGER['principal'],))
+        self.assertEqual(self.cards(ids.STRANGER), [])
+
     def test_sql_limit_and_secret_columns_not_selected(self):
         with connection(self.store.path) as db:
             request = db.execute('SELECT * FROM agent_review_requests').fetchone()
