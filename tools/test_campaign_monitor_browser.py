@@ -27,7 +27,6 @@ def run(browser, width):
         page.get_by_label("GitHub identity token", exact=True).fill("synthetic_owner_identity_token")
         page.get_by_role("button", name="Verify my identity", exact=True).click()
         expect(page.get_by_role("button", name="Sign out of review session")).to_be_visible()
-        page.locator("#navigation > [data-view=overview]").click()
         page.get_by_role("button", name="Monitor approved campaigns", exact=True).click()
         page.locator("[data-action=campaign-monitor-select][data-id=\"" + f.scope["scope_id"] + "\"]").click()
         form = page.locator("#campaign-monitor-form")
