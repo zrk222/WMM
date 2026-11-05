@@ -1,8 +1,9 @@
 """Actual paid-agreement UI/PDF checks using synthetic historical SQLite state.
 
 The existing AutomationAgreementTests method seeds a saved 80 CAD paid intent
-under a 100 CAD scope, then marks its dispatch pending. This demonstrates owner
-review and reconciliation guidance, never provider delivery or business lift.
+under a 90 CAD per-campaign cap and a 100 CAD aggregate cap, then marks its
+dispatch pending. This demonstrates owner review and reconciliation guidance,
+never provider delivery or business lift.
 """
 
 from pathlib import Path
@@ -18,6 +19,7 @@ sys.path.insert(0, str(ROOT))
 
 from playwright.sync_api import expect, sync_playwright  # noqa: E402
 from mission_control.db import connection  # noqa: E402
+from mission_control.common import digest  # noqa: E402
 from mission_control.server import Server  # noqa: E402
 from tests.test_automation_agreement import AutomationAgreementTests, BATCH, SCOPE  # noqa: E402
 from tests.test_verified_review import OWNER, OWNER_TOKEN, synthetic_identity  # noqa: E402
@@ -80,7 +82,15 @@ def run(browser, width):
             "No execution authority is issued",
             "NEEDS_RECONCILIATION",
             "Exact media budget 80 minor CAD",
-            "Maximum media commitment 100 minor CAD; held 80",
+            "Per-campaign media cap 90 minor CAD",
+            "maximum total media commitment 100 minor CAD; held 80",
+            "Exact approved content, rights and targeting hashes",
+            "Approved content fingerprints:",
+            "Approved rights fingerprints:",
+            "Approved targeting fingerprints:",
+            fixture.post["content_hash"],
+            "b" * 64,
+            digest(dict(countries=["CA"])),
             "Retained commitment 80 minor CAD",
             "Audience countries CA",
             "campaign: 101",
@@ -98,6 +108,14 @@ def run(browser, width):
             "Campaign scope " + SCOPE,
         ):
             expect(summary).to_contain_text(text)
+        fingerprints = summary.locator("details").filter(
+            has_text="Exact approved content, rights and targeting hashes"
+        )
+        assert fingerprints.count() == 1
+        expect(fingerprints).not_to_have_attribute("open", "")
+        fingerprints.locator("summary").focus()
+        page.keyboard.press("Enter")
+        assert fingerprints.evaluate("node => node.open")
         expect(summary).to_contain_text("PENDING_ACTIVATE_campaign")
         expect(summary).to_contain_text("Promotion of verified Page post 123_777")
         assert not errors, errors
@@ -117,10 +135,17 @@ def run(browser, width):
             ).click()
         report = report_info.value
         expect(report.locator("body")).to_contain_text("Combined automation agreement")
-        expect(report.locator("body")).to_contain_text("100 CAD")
+        expect(report.locator("body")).to_contain_text(
+            "Maximum total media commitment 100 minor CAD"
+        )
         report_text = report.locator("body").inner_text()
         for expected in ("WMM background worker", "Owner " + OWNER["principal"],
-                         "Batch " + BATCH, "Campaign scope " + SCOPE):
+                         "Batch " + BATCH, "Campaign scope " + SCOPE,
+                         "Per-campaign media cap 90 minor CAD",
+                         "Maximum total media commitment 100 minor CAD",
+                         "Approved content fingerprints:", fixture.post["content_hash"],
+                         "Approved rights fingerprints:", "b" * 64,
+                         "Approved targeting fingerprints:", digest(dict(countries=["CA"]))):
             assert expected in report_text, expected
         for private in (
             fixture.post["message"],
@@ -159,10 +184,12 @@ def run(browser, width):
             scheduled_executor_identified=True,
             owner_and_exact_scope_identified=True,
             paid_budget_minor=80,
-            scope_ceiling_minor=100,
+            per_campaign_cap_minor=90,
+            aggregate_media_cap_minor=100,
             currency="CAD",
             pending_reconciliation_visible=True,
             exact_receipt_ids=True,
+            fingerprint_details_keyboard_toggle=True,
             local_repair_visible=True,
             stop_rules_visible=True,
             pdf_privacy=True,

@@ -7,9 +7,11 @@ Unified owner-facing inspection of existing separately enforced workflow/campaig
 
 ### Requirements (EARS)
 - The system shall display existing owner workflow policies, campaign scopes and scheduled batches for exact selection through `agreement_select`.
-- When the owner submits a selection, the system shall display the hash-bound combined agreement without issuing authority through `agreement_read`.
+- When the owner submits a selection, the system shall display the `hash-bound combined agreement` without issuing authority through `agreement_read`.
 - If app, version, principal or dialog changes, the system shall reject late agreement readback through `agreement_stale`.
-- The system shall emit a sanitized report of identifiers, status and approved resource allowances without private copy or credentials through `agreement_report`.
+- The system shall emit a `sanitized owner report` containing identifiers, status and approved resource allowances without private copy or credentials through `agreement_report`.
+- The system shall display the `Per-campaign media cap` and `Maximum total media commitment` as distinct labeled fields with currency through `agreement_read` and `agreement_report`.
+- The system shall display the `Exact approved content, rights and targeting hashes` in the agreement and owner report without exposing private content or rights prose through `agreement_read` and `agreement_report`.
 
 ### Acceptance criteria (Gherkin)
 ```gherkin
@@ -20,7 +22,7 @@ Scenario: agreement_select
 Scenario: agreement_read
  Given an exact current selection
  When `agreement_read` checks the current selection
- Then no policy or campaign is activated
+ Then the `hash-bound combined agreement` is displayed without activating any policy or campaign
 Scenario: agreement_stale
  Given a changed workspace during read
  When `agreement_stale` checks the current selection
@@ -28,7 +30,16 @@ Scenario: agreement_stale
 Scenario: agreement_report
  Given a displayed agreement
  When `agreement_report` checks the current selection
- Then the report contains no post copy or secrets
+ Then the `sanitized owner report` contains no post copy or secrets
+Scenario: agreement_campaign_limits
+ Given a campaign scope with per-campaign and total media ceilings
+ When `agreement_read` checks the current selection
+ Then the `Per-campaign media cap` and `Maximum total media commitment` each display their own approved amount and currency
+Scenario: agreement_approved_fingerprints
+ Given a campaign scope with approved content, rights and targeting hashes
+ When `agreement_read` checks the current selection
+ Then the `Exact approved content, rights and targeting hashes` are visible in the agreement and owner report
+ And raw content, rights prose and credentials remain excluded
 ```
 
 ## Authorized parameters

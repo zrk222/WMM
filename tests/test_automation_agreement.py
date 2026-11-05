@@ -389,7 +389,7 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
             self.scope,
             ad_account_id="456",
             max_campaigns=1,
-            max_campaign_minor=100,
+            max_campaign_minor=90,
             max_total_minor=100,
             approved_targeting_hashes=[digest(target)],
             billing_acknowledged=True,
