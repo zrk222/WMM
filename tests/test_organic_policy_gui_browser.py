@@ -64,7 +64,7 @@ class OrganicPolicyBrowserTests(unittest.TestCase):
         form.locator('[name="sources"]').first.check()
         form.locator('[name="claims"]').first.check()
         form.locator('[name^="template-"]').first.check()
-        form.locator('textarea').fill('See the synthetic app in action')
+        form.locator('textarea[name^="caption-"]').fill('See the synthetic app in action')
         form.locator('#opolicy-max_posts').fill('21')
         form.locator('button[type="submit"]').click()
         expect(form.locator('#opolicy-max_posts')).to_have_attribute('aria-invalid', 'true')
