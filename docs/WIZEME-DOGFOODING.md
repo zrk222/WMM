@@ -19,6 +19,7 @@ evidence, make one approved change, then measure what happened.
 | Nov 4, 06:45 | Refreshed the running WMM process to the merged version, then used the owner API to inspect its installed-agent setup and saved report. | Agent setup returned the current source-runtime launch details without changing grants. The report hash passed, and the same single verified post intent remained after restart. This was saved local evidence, with no fresh Meta or Apple read. | E09 |
 | Nov 4, 09:45 | Restored Windows owner sign-in using the OS certificate verifier, then ran an authorized read of the Apple analytics inventory. | The worker read five report families. Apple returned zero report instances and `WAITING_FOR_REPORTS`. The existing schedule stayed in place. | E10 |
 | Nov 5, 01:15 | Inspected the private workspace's saved schedule and its two successive due Apple downloads reads. | Jobs queued on Nov 3 and Nov 4 at 13:28 UTC, 24 hours and 0.434 seconds apart. Both completed with `WAITING_FOR_REPORTS`. The latest job matches the enabled 24-hour schedule. Numerical observations remain unavailable. This inspection made no provider request. | E11 |
+| Nov 5, 02:25 | Read aggregate activity from WizeMe's production database using the existing connection in its local source checkout. | An explicit read-only transaction returned external-classified user, registration, conversation and retention-event counts for a 30-day window. The primary connection succeeded after the configured failover failed. Counts stay private. Latest observed activity predates the Facebook trial, leaving campaign impact inconclusive. | E12 |
 
 The delivered change can be inspected on the public Page. [Published WizeMe.APP post](https://www.facebook.com/122102679789533699/posts/122102676339533699)
 
@@ -44,8 +45,14 @@ trial's allowance. The owner separately approved the replacement that delivered
 one post. A third repair replaced a deprecated post attachment field so exact
 content verification could complete.
 
-**Next proof:** collect numerical baseline data and report a
-dated follow-up with sample sizes and a **continue, stop or revise** decision.
+The private E12 packet now supplies an aggregate activity baseline with a dated
+window and source definitions. Platform split, attributed installs, revenue and
+D1/D7/D30 return rates are still unavailable. The read used WizeMe's existing
+database connector. Import into the original WMM workspace remains pending
+because its recorded data location is currently unavailable.
+
+**Next proof:** use the private baseline in one preregistered experiment and
+collect a follow-up with sample sizes and a **continue, stop or revise** decision.
 Record elapsed work time against a comparable manual task before claiming time
 savings.
 
