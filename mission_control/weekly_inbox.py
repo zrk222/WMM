@@ -164,19 +164,22 @@ def operation_exceptions(store, app, user):
     with connection(store.path) as db:
         db.execute("BEGIN")
         try:
-            member(db, app["id"], principal, "OWNER")
+            role = member(db, app["id"], principal)["role"]
         except PermissionError:
+            return []
+        if role not in ("OWNER", "CHECKER", "MAKER"):
             return []
         tables = {
             row["name"]
             for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")
         }
-        if "campaign_scopes" not in tables:
-            return []
+        cards = _agent_review_cards(db, app, principal, role, tables)
+        if role != "OWNER" or "campaign_scopes" not in tables:
+            return cards
         try:
-            return _operation_rows(db, app, principal, tables)
+            return cards + _operation_rows(db, app, principal, tables)
         except Exception:
-            return [
+            return cards + [
                 _card(
                     app,
                     principal,
@@ -192,6 +195,145 @@ def operation_exceptions(store, app, user):
                     2,
                 )
             ]
+
+
+def _agent_review_cards(db, app, principal, role, tables):
+    """Read bounded metadata only; inspection and decisions remain in Agent Control."""
+    from datetime import datetime, timezone
+    from .agent_checkpoints import OPERATIONS, current as checkpoint_current, hashed
+    from .agent_grants import current as grant_current
+    from .common import iso_time
+    from .operation_catalog import path_segment
+
+    if not {"agent_review_requests", "agent_checkpoints", "agent_grants"} <= tables:
+        # A partially present review source is damaged; older databases may have none.
+        if {"agent_review_requests", "agent_checkpoints"} & tables:
+            return [_review_source_card(app, principal, role, "review-source")]
+        return []
+    try:
+        rows = db.execute(
+            "SELECT r.id,r.grant_id,r.input_hash,CASE WHEN length(CAST(c.data AS BLOB))<=65536 "
+            "THEN c.data ELSE NULL END AS checkpoint,c.revision AS checkpoint_revision, "
+            "g.id AS g_id,g.app_id,g.agent_id,g.owner,g.owner_version,g.app_version,g.app_hash,"
+            "g.operations,g.expires,g.max_calls,g.used,g.status,g.version,g.created,g.updated "
+            "FROM agent_review_requests r LEFT JOIN agent_checkpoints c ON c.app_id=r.app_id AND c.id=r.id "
+            "LEFT JOIN agent_grants g ON g.id=r.grant_id WHERE r.app_id=? ORDER BY r.id LIMIT 100",
+            (app["id"],),
+        ).fetchall()
+    except Exception:
+        return [_review_source_card(app, principal, role, "review-source")]
+    observed = datetime.now(timezone.utc)
+    cards = []
+    maker_source_unavailable = False
+    for item in rows:
+        identity = item["id"]
+        row = _saved(item["checkpoint"])
+        packet = row.get("packet") if isinstance(row.get("packet"), dict) else {}
+        # Never disclose another maker's request, including corrupt sources.
+        # ReviewedDispatch creates the checkpoint as the grant owner; do not
+        # trust a damaged packet to identify the maker for a private read.
+        if role == "MAKER" and item["owner"] != principal:
+            if not isinstance(item["owner"], str) or not item["owner"]:
+                maker_source_unavailable = True
+            continue
+        try:
+            path_segment(identity)
+            path_segment(item["grant_id"])
+            hashed(item["input_hash"])
+            hashed(row["hash"])
+            hashed(packet["app_hash"])
+            hashed(item["app_hash"])
+            if type(item["version"]) is not int or item["status"] not in ("ACTIVE", "REVOKED"):
+                raise Invalid("Invalid grant metadata")
+            if (set(packet) != {"id", "agent_id", "operation", "input_hash", "manifest_version", "expires", "app_id", "app_hash", "maker", "maker_role_version"}
+                    or packet["operation"] not in OPERATIONS or type(packet["manifest_version"]) is not int
+                    or type(packet["maker_role_version"]) is not int
+                    or not isinstance(packet["maker"], str) or not 1 <= len(packet["maker"]) <= 200):
+                raise Invalid("Invalid packet")
+            if (packet["id"] != identity or packet["app_id"] != app["id"]
+                    or packet["input_hash"] != item["input_hash"]
+                    or digest(packet) != row["hash"] or item["g_id"] != item["grant_id"]
+                    or packet["agent_id"] != item["agent_id"] or packet["maker"] != item["owner"] or item["app_id"] != app["id"]
+                    or type(row["revision"]) is not int or row["revision"] != item["checkpoint_revision"]):
+                raise Invalid("Invalid source binding")
+            history = row["history"]
+            if not isinstance(history, list) or len(history) != row["revision"] or not history:
+                raise Invalid("Invalid history")
+            previous = None
+            for event in history:
+                data = {key: value for key, value in event.items() if key != "hash"}
+                if data.get("previous_hash") != previous or digest(data) != event.get("hash"):
+                    raise Invalid("Invalid transition")
+                previous = event["hash"]
+            state = row["state"]
+            if history[-1].get("state") != state or state not in (
+                "WAITING_REVIEW", "APPROVED", "RUNNING", "UNKNOWN", "CANCEL_REQUESTED", "SUCCEEDED", "FAILED", "CANCELLED"
+            ):
+                raise Invalid("Invalid state")
+            # Validate timestamps even for terminal records, without returning their contents.
+            expiry = iso_time(packet["expires"])
+            grant_expiry = iso_time(item["expires"])
+            grant = dict(item)
+            grant["id"] = item["g_id"]
+            if state in ("SUCCEEDED", "FAILED", "CANCELLED"):
+                continue
+            issue = None
+            if expiry <= observed or grant_expiry <= observed:
+                issue = "EXPIRED"
+            else:
+                try:
+                    checkpoint_current(db, row, observed)
+                except (Invalid, PermissionError):
+                    issue = "CHECKPOINT_CONTEXT_CHANGED"
+                try:
+                    # Only metadata already bound to the packet is supplied; no actual input is invented.
+                    grant_current(db, grant, {"app_id": packet["app_id"], "operation": packet["operation"]}, observed, check_quota=False)
+                except (Invalid, PermissionError):
+                    issue = issue or "GRANT_CONTEXT_CHANGED"
+            if state in ("APPROVED", "RUNNING") and issue is None:
+                continue
+            if state in ("UNKNOWN", "CANCEL_REQUESTED"):
+                reason = "The saved effect needs reconciliation; its outcome is not confirmed."
+                action = "Open this exact request in Agent Control and reconcile its saved receipts with an independent checker; do not retry uncertain work."
+                title = "Reconcile agent request"
+            elif issue:
+                reason = {"EXPIRED": "The checkpoint or grant expired.", "CHECKPOINT_CONTEXT_CHANGED": "The app or a recorded review role changed.", "GRANT_CONTEXT_CHANGED": "The grant or its owner authority changed."}[issue]
+                action = "Open this exact request in Agent Control and inspect current authority and saved receipts before preparing replacement work."
+                if state == "RUNNING":
+                    action += " Expiry or changed authority does not establish that an in-flight effect stopped."
+                title = "Recover stale agent request"
+            else:
+                reason = "This proposal awaits an independent checker."
+                action = "Open this exact request in Agent Control; a current checker distinct from the maker must inspect it."
+                title = "Review agent proposal"
+            evidence = dict(request_id=identity, grant_id=item["grant_id"], input_hash=item["input_hash"],
+                            checkpoint_hash=row["hash"], revision=row["revision"], state=state, authority_issue=issue,
+                            grant_version=item["version"], app_version=app["version"])
+            card = _card(app, principal, "agent_review", identity, issue or state, title, reason, action,
+                         "agent_review", {}, evidence, 1)
+            card.update(owner_only=False, private_principal=principal, owner={"OWNER": "App owner", "CHECKER": "App checker", "MAKER": "App maker"}[role])
+            card.pop("owner_principal", None)
+            cards.append(card)
+        except (Invalid, PermissionError, KeyError, TypeError, ValueError, AttributeError):
+            # Do not reflect malformed IDs, metadata or exception messages into the response.
+            try:
+                safe_identity = path_segment(identity)
+            except Invalid:
+                safe_identity = "review-source"
+            cards.append(_review_source_card(app, principal, role, safe_identity))
+    if maker_source_unavailable:
+        cards.append(_review_source_card(app, principal, role, "review-source"))
+    return list({card["id"]: card for card in cards}.values())
+
+
+def _review_source_card(app, principal, role, identity):
+    card = _card(app, principal, "agent_review", identity, "SOURCE_UNAVAILABLE",
+                 "Review source unavailable", "Saved review metadata could not be verified.",
+                 "Open Agent Control and inspect the saved request before taking action.",
+                 "agent_review", {}, {"status": "SOURCE_UNAVAILABLE", "request_id": identity}, 1)
+    card.update(owner_only=False, private_principal=principal, owner={"OWNER": "App owner", "CHECKER": "App checker", "MAKER": "App maker"}[role])
+    card.pop("owner_principal", None)
+    return card
 
 
 def _operation_rows(db, app, principal, tables):

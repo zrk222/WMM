@@ -112,7 +112,7 @@ function summary() {
   return `<div class="summary-grid"><div class="summary-card"><p class="metric-label">Stages with required evidence</p><div class="metric-value">${ready}<small> / 12</small></div><p class="metric-note">Local readiness, not publication</p></div><div class="summary-card"><p class="metric-label">Evidence & assets</p><div class="metric-value">${w.records.length}</div><p class="metric-note">Versioned and scoped to this app</p></div><div class="summary-card"><p class="metric-label">Authorized ad spending</p><div class="metric-value">0<small> authorized</small></div><p class="metric-note">Provider changes require exact approval</p></div></div>`;
 }
 
-function visibleWeeklyExceptions(value,principal){return value.exceptions.filter(card=>!card.owner_only||(value.owner_operations_principal===principal&&card.owner_principal===principal));}
+function visibleWeeklyExceptions(value,principal){return WMMPageReports.visibleWeeklyExceptions(value,principal)||[];}
 
 function weeklyView() {
   const value=state.weeklyReview;
@@ -121,7 +121,7 @@ function weeklyView() {
   if(state.weeklyError)return intro+notice(state.weeklyError+" Refresh to retry; saved work is preserved.","error");
   if(!value)return intro+empty("Start your portfolio review","Gather saved evidence across up to five apps per page.",button("Review apps","weekly-refresh"));
   const visible=visibleWeeklyExceptions(value,state.workspace.identity?.principal);
-  const cards=visible.map(c=>`<article class="panel"><p class="eyebrow">${esc(c.app_name)} / ${esc(c.category)}</p><h2>${esc(c.title)}</h2>${status(c.state)}<p>${esc(c.reason)}</p><p><strong>Recommended next step:</strong> ${esc(c.next_action)}</p><p class="description">Owner: ${esc(c.owner)} · Cost unknown · Change from prior review not assessed.</p>${button("Open recovery","weekly-recover",`data-app="${esc(c.app_id)}" data-tool="${esc(c.resolution_route)}" data-resource="${esc(c.action?.resource_id||'')}" data-scope="${esc(c.action?.scope_id||'')}"`)}<details><summary>Source and limits</summary><p>App ${esc(c.source_receipt.app_id)} · setup version ${esc(c.source_receipt.manifest_version)} · reviewed ${esc(c.source_receipt.observed_at)}</p><p class="app-mono">${esc(c.source_receipt.source_hash||"Source unavailable")}</p><p>Local input checks do not prove retained value, permission to spend or measured growth.</p></details></article>`).join('');
+  const cards=visible.map(c=>`<article class="panel"><p class="eyebrow">${esc(c.app_name)} / ${esc(c.category)}</p><h2>${esc(c.title)}</h2>${status(c.state)}<p>${esc(c.reason)}</p><p><strong>Recommended next step:</strong> ${esc(c.next_action)}</p><p class="description">Handled by: ${esc(c.owner)} · Cost unknown · Change from prior review not assessed.</p>${button(c.resolution_route==='agent_review'?(c.state==='SOURCE_UNAVAILABLE'?"Open review queue":"Open exact request"):"Open recovery","weekly-recover",`data-app="${esc(c.app_id)}" data-tool="${esc(c.resolution_route)}" data-resource="${esc(c.action?.resource_id||'')}" data-scope="${esc(c.action?.scope_id||'')}"`)}<details><summary>Source and limits</summary><p>App ${esc(c.source_receipt.app_id)} · setup version ${esc(c.source_receipt.manifest_version)} · reviewed ${esc(c.source_receipt.observed_at)}</p><p class="app-mono">${esc(c.source_receipt.source_hash||"Source unavailable")}</p><p>Local input checks do not prove retained value, permission to spend or measured growth.</p></details></article>`).join('');
   const coverage=value.coverage;
   return intro+`<p role="status">Apps ${coverage.offset+1}–${coverage.offset+coverage.evaluated} of ${coverage.total_apps} reviewed · ${visible.length} exceptions on this page.</p>`+(cards||notice("No exceptions on this page. Local-ready inputs still require independent outcome and permission checks."))+`<details class="panel"><summary>Routine local-ready checks</summary>${value.apps.map(a=>`<p><strong>${esc(a.app_name)}</strong>: ${esc(a.local_ready.join(', ')||'No local-ready prerequisite checks')}</p>`).join('')}</details><div class="toolbar">${coverage.offset?button("First apps","weekly-page",'data-offset="0"'):''}${coverage.next_offset!==null?button("Next apps","weekly-page",`data-offset="${coverage.next_offset}"`):''}</div>`;
 }
@@ -129,12 +129,15 @@ function weeklyView() {
 async function weeklyAction(node) {
   const generation=state.weeklyGeneration=(state.weeklyGeneration||0)+1;
   if(node.dataset.action==='weekly-recover') {
-    const app=node.dataset.app,tool=node.dataset.tool;
-    const allowed=new Set(['workspace','readiness','measurement','results','retention','findings','monitor','campaign','owner_reports']);
+    const app=node.dataset.app,tool=node.dataset.tool,principal=state.workspace.identity?.principal;
+    const allowed=new Set(['workspace','readiness','measurement','results','retention','findings','monitor','campaign','owner_reports','agent_review']);
     if(!allowed.has(tool)||!state.boot.apps.some(a=>a.id===app))throw new Error('Refresh this review before opening recovery.');
+    const reviewCard=tool==='agent_review'?visibleWeeklyExceptions(state.weeklyReview,principal).find(c=>c.app_id===app&&c.resolution_route===tool&&c.action?.resource_id===node.dataset.resource):null;
+    if(tool==='agent_review'&&!reviewCard)throw new Error('Refresh this signed-in review before opening the request.');
     state.app=app;$('#app-select').value=app;
     await refresh();
     if(state.weeklyGeneration!==generation||state.view!=='weekly'||state.app!==app||!currentWorkspace())return;
+    if(tool==='agent_review'){if(state.workspace.identity?.principal!==principal)return;return WMMAgentControl.action({dataset:reviewCard.state==='SOURCE_UNAVAILABLE'?{action:'control-queue'}:{action:'control-inspect',id:node.dataset.resource}},growthReviewServices());}
     if(tool==='monitor'){await WMMCampaignMonitor.open();return node.dataset.resource?WMMCampaignMonitor.inspect(node.dataset.resource):undefined;}
     if(tool==='campaign')return node.dataset.scope?campaignStatus(node.dataset.scope):campaignOpen();
     if(tool==='owner_reports'){await WMMOwnerReports.open();return node.dataset.resource?WMMOwnerReports.inspect('plan',node.dataset.resource):undefined;}

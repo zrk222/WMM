@@ -135,3 +135,35 @@ test("long cohort reports disclose truncation and text bounds", () => {
   assert.equal(report.cohorts[0].id.length,1000);
   assert.ok(report.notes.some(note=>note.includes("first 100")));
 });
+
+
+test("weekly private review cards and unavailable counts share the current-principal fence", () => {
+  const privateCard = {id:"request-secret",state:"UNAVAILABLE",private_principal:"checker",owner_only:false,envelope:"PRIVATE_SENTINEL"};
+  const ownerCard = {id:"owner-secret",state:"UNAVAILABLE",owner_only:true,owner_principal:"owner"};
+  const publicCard = {id:"public",state:"UNAVAILABLE"};
+  const review = {owner_operations_principal:"checker",coverage:{evaluated:3},exceptions:[publicCard,privateCard,ownerCard],
+    apps:[{exceptions:[publicCard]},{exceptions:[JSON.parse(JSON.stringify(privateCard))]},{exceptions:[ownerCard]}]};
+  const state = {...fixture(),view:"weekly",weeklyReview:review};
+  state.workspace.identity = {principal:"checker"};
+  assert.deepEqual(reports.model(state).metrics.map(m=>m.value),[3,2,2]);
+  for (const principal of ["owner","other",null,undefined,""]) {
+    state.workspace.identity = {principal};
+    const model = reports.model(state);
+    assert.deepEqual(model.metrics.map(m=>m.value),[3,1,1]);
+    for (const output of [JSON.stringify(model),reports.reportHTML(model,"http://127.0.0.1:8080")])
+      for (const secret of ["request-secret","owner-secret","PRIVATE_SENTINEL"]) assert.ok(!output.includes(secret));
+  }
+  state.workspace.identity = {principal:"checker"};
+  state.weeklyReview = {...review,owner_operations_principal:"other"};
+  assert.deepEqual(reports.model(state).metrics.map(m=>m.value),[3,1,1]);
+});
+
+test("private principal metadata fails closed rather than falling through owner-only false", () => {
+  const review = {owner_operations_principal:"checker",exceptions:[{id:"public"},
+    {id:"mine",private_principal:"checker",owner_only:false},
+    {id:"other",private_principal:"other",owner_only:false},
+    {id:"malformed",private_principal:null,owner_only:false}]};
+  assert.deepEqual(reports.visibleWeeklyExceptions(review,"checker").map(c=>c.id),["public","mine"]);
+  assert.deepEqual(reports.visibleWeeklyExceptions(review,null).map(c=>c.id),["public"]);
+  assert.equal(reports.visibleWeeklyExceptions(null,"checker"),null);
+});

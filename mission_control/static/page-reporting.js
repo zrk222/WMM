@@ -60,9 +60,20 @@
     return [metric("Matching evidence records", count(selected), "workspace.records; evidence search"), metric("Matching asset records", count(selected, r => r.kind === "asset"), "workspace.records; evidence search"), metric("All saved evidence records", count(records), "workspace.records; all records")];
   }
 
+  function visibleWeeklyExceptions(review, principal) {
+    const cards = rows(review?.exceptions);
+    if (!cards) return null;
+    const current = typeof principal === 'string' && principal.length > 0 && review.owner_operations_principal === principal;
+    return cards.filter(card => Object.hasOwn(card, 'private_principal')
+      ? current && card.private_principal === principal
+      : !card.owner_only || (current && card.owner_principal === principal));
+  }
+
   function weeklyMetrics(state) {
     const review = state.weeklyError || state.weeklyLoading ? null : state.weeklyReview;
-    return [metric("Apps evaluated on displayed page", Number.isSafeInteger(review?.coverage?.evaluated) ? review.coverage.evaluated : null, "weekly_review.coverage"), metric("Exceptions on displayed page", count(review?.exceptions), "weekly_review.exceptions"), metric("Unavailable app sources", count(review?.apps, a => a.exceptions?.some(e => e.state === "UNAVAILABLE")), "weekly_review.apps")];
+    const principal = state.workspace.identity?.principal;
+    const visible = visibleWeeklyExceptions(review, principal);
+    return [metric("Apps evaluated on displayed page", Number.isSafeInteger(review?.coverage?.evaluated) ? review.coverage.evaluated : null, "weekly_review.coverage"), metric("Exceptions on displayed page", count(visible), "weekly_review.exceptions"), metric("Unavailable app sources", count(review?.apps, a => visibleWeeklyExceptions({...review, exceptions:a.exceptions}, principal)?.some(e => e.state === "UNAVAILABLE")), "weekly_review.apps")];
   }
 
   function cohortRows(workspace) {
@@ -146,5 +157,5 @@
     else main.insertAdjacentHTML("afterbegin", markup);
     if(typeof WMMStories!=="undefined")main.querySelector('.page-reporting .section-heading').insertAdjacentHTML('afterend',WMMStories.page(state.view));
   }
-  return {PAGES, overviewStory, model, pageMetrics, evidenceMetrics, weeklyMetrics, cohortRows, metricTable, panel, reportHTML, openReport, decorate};
+  return {PAGES, overviewStory, model, pageMetrics, evidenceMetrics, weeklyMetrics, visibleWeeklyExceptions, cohortRows, metricTable, panel, reportHTML, openReport, decorate};
 });
