@@ -13,7 +13,7 @@ from .campaign_contract import (
     numeric,
 )
 from .campaign_schedule import item_status, check_paid_review
-from .campaign_execution import row_scope
+from .campaign_execution import scope_view
 from .common import Invalid, digest, iso_time
 from .complete_automation import policy_view
 from .db import connection
@@ -115,7 +115,7 @@ def campaign_blockers(scope, row, app, owner, account, observed):
     """Saved approval is separate from current credentials and provider readback."""
     checks = [
         (scope["status"] != "ACTIVE", "CAMPAIGN_SCOPE_" + scope["status"]),
-        (iso_time(scope["expires_at"]) <= observed, "CAMPAIGN_SCOPE_EXPIRED"),
+        (iso_time(scope["permission_expires_at"]) <= observed, "CAMPAIGN_SCOPE_EXPIRED"),
         (
             (scope["app_version"], scope["app_hash"])
             != (app["version"], digest(app["data"])),
@@ -182,10 +182,13 @@ def campaign_scope(db, app, owner, identity, observed):
             "billing_notice",
             "rights_notice",
         ),
+        ("extended_expiry_consent",),
     )
+    if "extended_expiry_consent" in raw and type(raw["extended_expiry_consent"]) is not bool:
+        raise Invalid("Campaign expiry consent needs repair")
     if raw["app_id"] != app["id"] or raw["owner_principal"] != owner["principal"]:
         raise Invalid("Campaign summary ownership changed")
-    scope = row_scope(row)
+    scope = scope_view(db, row)
     account = social_account(db, app["id"], raw["connection_id"], observed)
     blockers = campaign_blockers(scope, row, app, owner, account, observed)
     receipts = campaign_receipts(db, app["id"], identity)
@@ -193,6 +196,8 @@ def campaign_scope(db, app, owner, identity, observed):
         id=identity,
         status=row["status"],
         approval_hash=row["summary_hash"],
+        permission_expires_at=scope["permission_expires_at"],
+        consent_revision=scope["consent_revision"],
         approval={
             key: raw[key]
             for key in (
@@ -202,7 +207,12 @@ def campaign_scope(db, app, owner, identity, observed):
                 "owner_version",
                 "connection_version",
             )
-        },
+        }
+        | (
+            {"extended_expiry_consent": raw["extended_expiry_consent"]}
+            if "extended_expiry_consent" in raw
+            else {}
+        ),
         account=account,
         blockers=blockers,
         receipts=receipts,
@@ -223,7 +233,9 @@ def batch_row(db, app_id, principal, identity):
     row = owned(db, "campaign_schedule_batches", app_id, identity, principal)
     summary = saved_object(row["summary"])
     exact_keys(
-        summary, ("batch_id", "app_id", "owner", "scope_id", "scope_hash", "items")
+        summary,
+        ("batch_id", "app_id", "owner", "scope_id", "scope_hash", "items"),
+        ("permission_expires_at",),
     )
     if digest(summary) != row["summary_hash"]:
         raise Invalid("Scheduled batch summary integrity changed")
@@ -237,7 +249,7 @@ def batch_row(db, app_id, principal, identity):
     return row, summary
 
 
-def batch_item(db, app_id, row, expected, scope):
+def batch_item(db, app_id, row, expected, scope, permission_expires_at):
     """Validate exact post bytes and due binding while permitting historical due times."""
     body = saved_object(row["body"])
     fields = (
@@ -254,14 +266,14 @@ def batch_item(db, app_id, row, expected, scope):
         raise Invalid("Scheduled post integrity changed")
     if row["due"] != iso_time(body["due_at"]).timestamp():
         raise Invalid("Scheduled post due time changed")
-    post = scheduled_request(db, app_id, body, scope)
+    post = scheduled_request(db, app_id, body, scope, permission_expires_at)
     approval = scope["approval"]
     if (
         post["content_hash"] not in approval["approved_content_hashes"]
         or post["rights_hash"] not in approval["approved_rights_hashes"]
     ):
         raise Invalid("Scheduled post is outside campaign approval")
-    if iso_time(body["due_at"]) >= iso_time(approval["expires_at"]):
+    if iso_time(body["due_at"]) >= iso_time(permission_expires_at):
         raise Invalid("Scheduled post exceeds campaign expiry")
     job = (
         db.execute(
@@ -273,7 +285,7 @@ def batch_item(db, app_id, row, expected, scope):
     return item_view(db, app_id, row, body, job, scope["id"])
 
 
-def scheduled_request(db, app_id, body, scope):
+def scheduled_request(db, app_id, body, scope, permission_expires_at):
     """Validate saved historical requests without requiring a future ad end time."""
     operation = body.get("operation", "campaign.publish")
     if operation == "campaign.publish":
@@ -302,7 +314,13 @@ def scheduled_request(db, app_id, body, scope):
     )
     target_countries(request)
     whole(request["lifetime_budget_minor"], 1, 100000000)
-    check_paid_review(db, app_id, scope["approval"], request, iso_time(body["due_at"]))
+    check_paid_review(
+        db,
+        app_id,
+        dict(scope["approval"], permission_expires_at=permission_expires_at),
+        request,
+        iso_time(body["due_at"]),
+    )
     return request
 
 
@@ -330,12 +348,23 @@ def item_view(db, app_id, row, body, job, scope_id):
     return dict(body, input_hash=row["body_hash"], **status)
 
 
-def batch_scope(db, app_id, row, summary, scope):
+def captured_permission_expiry(summary, scope):
+    """Resolve the batch's admission-time deadline within current campaign authority."""
+    permission_expires_at = summary.get(
+        "permission_expires_at", scope["approval"]["expires_at"]
+    )
+    if iso_time(permission_expires_at) > iso_time(scope["permission_expires_at"]):
+        raise Invalid("Scheduled permission exceeds campaign authority")
+    return permission_expires_at
+
+
+def batch_scope(db, app_id, row, summary, scope, observed):
     """Review every saved item; a changed dependency blocks the combined review."""
     if row is None:
         return None
     if summary["scope_hash"] != scope["approval_hash"]:
         raise Invalid("Scheduled campaign approval changed")
+    permission_expires_at = captured_permission_expiry(summary, scope)
     rows = db.execute(
         "SELECT * FROM campaign_schedule_items WHERE batch_id=? ORDER BY due,id",
         (row["id"],),
@@ -348,9 +377,12 @@ def batch_scope(db, app_id, row, summary, scope):
     ):
         raise Invalid("Scheduled item set changed")
     items = [
-        batch_item(db, app_id, item, expected.get(item["id"]), scope) for item in rows
+        batch_item(db, app_id, item, expected.get(item["id"]), scope, permission_expires_at)
+        for item in rows
     ]
     blockers = list(scope["blockers"])
+    if iso_time(permission_expires_at) <= observed:
+        blockers.append("SCHEDULE_PERMISSION_EXPIRED")
     if row["status"] != "ACTIVE":
         blockers.append("SCHEDULE_BATCH_" + row["status"])
     if any(
@@ -365,6 +397,7 @@ def batch_scope(db, app_id, row, summary, scope):
         summary_hash=row["summary_hash"],
         scope_id=row["scope_id"],
         scope_hash=summary["scope_hash"],
+        permission_expires_at=permission_expires_at,
         items=items,
         blockers=blockers,
         effective_status="BLOCKED" if blockers else "ACTIVE",
@@ -432,7 +465,7 @@ def build_summary(db, app, owner, chosen, observed):
         db, app["id"], owner["principal"], chosen["workflow_policy_id"], observed
     )
     campaign = campaign_scope(db, app, owner, campaign_id, observed)
-    batch = batch_scope(db, app["id"], row, saved, campaign)
+    batch = batch_scope(db, app["id"], row, saved, campaign, observed)
     uncertain = uncertainty(local, campaign, batch)
     blocked = uncertain or any(
         value and value["effective_status"] != "ACTIVE"

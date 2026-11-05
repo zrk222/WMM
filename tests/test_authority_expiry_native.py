@@ -1,6 +1,8 @@
 """Native owner expiry actions exercise real host identity and SQLite boundaries."""
 from datetime import datetime, timedelta, timezone
 import json
+from pathlib import Path
+import re
 import unittest
 from uuid import uuid4
 from unittest.mock import patch
@@ -8,6 +10,43 @@ from unittest.mock import patch
 from mission_control.common import Invalid
 from mission_control.db import connection
 from tests import test_ios_agent_access as grants, test_ios_automation as standing
+
+
+class NativeBridgeExpiryRouteContractTests(unittest.TestCase):
+    def test_swift_and_objc_bridges_admit_exact_expiry_actions_in_both_domains(self):
+        swift = Path("ios/WMM/Bridge/DomainBridge.swift").read_text(encoding="utf-8")
+        objc = Path("ios/WMM/Bridge/EngineBootstrap.m").read_text(encoding="utf-8")
+        expiry = ("extension-preview", "extension-confirm", "extension-history")
+        swift_lists = {
+            "automation": ("preview", "activate", "status", "off", *expiry),
+            "agentAccess": (
+                "list", "issue", "revoke", "handoff-list", "handoff-create",
+                "handoff-revoke", *expiry,
+            ),
+        }
+        objc_lists = {
+            "automation": ("preview", "activate", "status", "off", *expiry),
+            "agentAccess": (
+                "list", "issue", "revoke", "handoff-list", "handoff-create",
+                "handoff-revoke", *expiry,
+            ),
+        }
+        for action, expected in swift_lists.items():
+            with self.subTest(language="swift", action=action):
+                match = re.search(
+                    rf"func {action}\b[\s\S]*?guard \[(.*?)\]\.contains\(action\)",
+                    swift,
+                )
+                self.assertIsNotNone(match)
+                self.assertEqual(tuple(re.findall(r'"([^"]+)"', match.group(1))), expected)
+        for action, expected in objc_lists.items():
+            with self.subTest(language="objc", action=action):
+                match = re.search(
+                    rf"\+ \(NSData \*\){action}:[\s\S]*?BOOL known = \[@\[(.*?)\] containsObject:action\]",
+                    objc,
+                )
+                self.assertIsNotNone(match)
+                self.assertEqual(tuple(re.findall(r'@"([^"]+)"', match.group(1))), expected)
 
 
 def future(hours):

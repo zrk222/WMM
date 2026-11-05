@@ -13,6 +13,7 @@ from .experiments import lookup as lookup_experiment
 from .social_contract import reference
 from .operation_authority import store_identity, bound_owner, protected
 from .campaign_monitor import actor, whole, last_observation
+from .campaign_execution import scope_view
 from .ios_reports import snapshot
 
 SELECTION = ("scope_id", "monitor_id", "experiment_id", "measurement_window")
@@ -218,6 +219,7 @@ def campaign_view(db, app_id, owner, scope_id):
     """Preserve receipt identities, uncertainty and committed money without raw payloads."""
     scope = owned_resource(db, "campaign_scopes", app_id, owner, scope_id)
     summary = object_data(scope["summary"])
+    permission = scope_view(db, scope)
     posts = [
         dict(row, kind="POST")
         for row in db.execute(
@@ -245,6 +247,8 @@ def campaign_view(db, app_id, owner, scope_id):
         approval_hash=scope["summary_hash"],
         status=scope["status"],
         expires_at=summary["expires_at"],
+        permission_expires_at=permission["permission_expires_at"],
+        consent_revision=permission["consent_revision"],
         currency=summary["currency"],
         media_ceiling_minor=summary["max_total_minor"],
         retained_commitment_minor=sum(a["commitment"] for a in ads),
@@ -459,8 +463,9 @@ def next_action(campaign, observation, coverage, experiment):
 
 
 def _historical(campaign):
+    permission_expiry = campaign.get("permission_expires_at", campaign["expires_at"])
     return campaign["status"] != "ACTIVE" or iso_time(
-        campaign["expires_at"]
+        permission_expiry
     ) <= iso_time(now())
 
 

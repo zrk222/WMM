@@ -25,8 +25,17 @@ class MetaBuyerClientTests(unittest.IsolatedAsyncioTestCase):
         path='/api/apps/'+APP+'/agent-operations'
         before=self.store.export(APP)
         expected=self.owner.request('GET',path+'?profile=meta_media_buyer')
-        self.assertEqual(agent.call(self.envelope('operations.read',INPUT)),expected)
-        self.assertEqual(self.cli(self.envelope('operations.read',INPUT)),expected)
+        def inspected(value, used):
+            metadata=value.pop('agent_authority')
+            self.assertEqual(value,expected)
+            self.assertEqual(metadata['grant_id'],self.issued['grant']['id'])
+            self.assertEqual(metadata['used'],used)
+            self.assertEqual(metadata['max_calls'],100)
+            self.assertEqual(metadata['remaining_calls'],100-used)
+            self.assertEqual(metadata['consent_revision'],0)
+            self.assertEqual(metadata['effective_expires'],self.issued['grant']['expires'])
+        inspected(agent.call(self.envelope('operations.read',INPUT)),1)
+        inspected(self.cli(self.envelope('operations.read',INPUT)),2)
         self.assertEqual(self.owner.call(self.envelope('operations.read',INPUT)),expected)
         async with self.session() as client:
             tools=(await client.list_tools()).tools
@@ -34,7 +43,7 @@ class MetaBuyerClientTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(len(tools),len(OPERATIONS)+4)  # Existing three review tools are enabled for grants.
             result=await client.call_tool('wmm_operations_read',dict(app_id=APP,input=INPUT))
             self.assertFalse(result.isError,result.content)
-            self.assertEqual(result.structuredContent['data'],expected)
+            inspected(result.structuredContent['data'],3)
             bad=await client.call_tool('wmm_operations_read',dict(app_id=APP,input=dict(profile='wrong')))
             self.assertTrue(bad.isError)
             foreign=await client.call_tool('wmm_operations_read',dict(app_id='sample-two',input=INPUT))

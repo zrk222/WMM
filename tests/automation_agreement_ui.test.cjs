@@ -6,7 +6,10 @@ test('agreement report projects states and excludes private post and credential 
 
 test('paid review displays exact budgets, uncertainty, receipt identities and repair state',()=>{
  const a=fixture(),data={status:'warning',summary_hash:'hash',summary:{app:{id:'one',version:1},owner:{principal:'owner'},local_work:{effective_status:'BLOCKED',repair:'Reconnect before reapproval',summary:{},usage:{}},campaign:{effective_status:'ACTIVE',approval:{page_id:'123',ad_account_id:'456',expires_at:'later',max_posts:1,max_campaigns:1,max_calls:50,max_total_minor:100,currency:'CAD'},commitment_held_minor:80,account:{},blockers:[]},schedule:{id:'batch',effective_status:'BLOCKED',blockers:['SCHEDULE_ITEM_NEEDS_REVIEW'],items:[{operation:'campaign.ad-launch',due_at:'due',effective_status:'NEEDS_RECONCILIATION',request:{post_id:'123_777',lifetime_budget_minor:80,end_time:'end',targeting:{countries:['CA','US']}},job_status:'SUCCEEDED',intent:{status:'PENDING_ACTIVATE_campaign',commitment:80,currency:'CAD',ids:{ad:'104',campaign:'101'}}}]},stop_rules:[],revocation:'OFF'}};
- const html=a.markup(data);for(const text of ['80 minor CAD','ends end','CA, US','NEEDS_RECONCILIATION','ad: 104','campaign: 101','SCHEDULE_ITEM_NEEDS_REVIEW','Reconnect before reapproval'])assert.ok(html.includes(text),text);
+ data.summary.campaign.permission_expires_at='extended-parent-date';
+ data.summary.schedule.permission_expires_at='earlier-child-date';
+ const html=a.markup(data);for(const text of ['80 minor CAD','ends end','CA, US','NEEDS_RECONCILIATION','ad: 104','campaign: 101','SCHEDULE_ITEM_NEEDS_REVIEW','Reconnect before reapproval','Permission expires extended-parent-date','original approval later','captured deadline earlier-child-date'])assert.ok(html.includes(text),text);
+ assert.equal(data.summary.campaign.approval.expires_at,'later');
 });
 function interactive(){
  const nodes=new Map(),requests=[],c={esc:String,button:()=>'',state:{app:'one',workspace:{app:{version:1},identity:{principal:'owner'}}},FormData:class{constructor(form){return Object.entries(form.values||{});}}};
@@ -37,7 +40,7 @@ test('scheduled campaign names its worker, owner and saved scopes independently 
   schedule:{id:'<batch>',effective_status:'ACTIVE',items:[],blockers:[]},stop_rules:[],revocation:'OFF'}};
  for(const state of ['ACTIVE','OFF','BLOCKED']) {
   data.summary.schedule.effective_status=state;
-  const html=a.markup(data),notes=a.reportModel(data,{notes:[]}).notes.join(' ');
+ const html=a.markup(data),notes=a.reportModel(data,{notes:[]}).notes.join(' ');
   assert.match(html,/Scheduled executor when the batch is active/);
   assert.match(html,/WMM background worker/);
   assert.match(html,/Owner &lt;owner&gt;/);
