@@ -181,12 +181,37 @@
       "last_successful_metric_collection": null,
       "external_writes": false,
       "readback_provider_requests": 0
+    },
+    {
+      "id": "E12",
+      "kind": "LIVE_PRODUCTION_DATABASE_AGGREGATE_BASELINE",
+      "observed_at": "2026-11-05T02:25:27.154Z",
+      "source_sha256": "2746c66415b8af89ff9a6f334848e7f1c0976fa67701cdad55da37f0470bf465",
+      "query_sha256": "b7b4724274073317ca6a5e2d6397965006e4328ef70eddeaf8f0213a084ad7f1",
+      "transaction_read_only_verified": true,
+      "aggregate_only": true,
+      "primary_connection_succeeded": true,
+      "configured_failover_read_failed": true,
+      "classification": "Canonical external-user and external-conversation views; retention events joined to external users",
+      "window_days": 30,
+      "observed_metrics": [
+        "external_classified_users_all_time",
+        "external_registrations_in_window",
+        "external_conversations_in_window",
+        "external_retention_events_in_window",
+        "external_retention_event_users_in_window"
+      ],
+      "metric_values_access": "OWNER_PRIVATE",
+      "latest_observed_activity_predates_campaign": true,
+      "original_wmm_workspace_import": "PENDING_WORKSPACE_RECOVERY",
+      "campaign_effect": null,
+      "external_writes": false
     }
   ],
   "unproven": [
     "notification_delivery",
     "ad_spending",
-    "numerical_baseline",
+    "attributed_install_or_revenue_baseline",
     "measured_growth",
     "time_savings"
   ]
