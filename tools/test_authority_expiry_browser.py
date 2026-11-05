@@ -70,6 +70,7 @@ def exercise(browser, width, output):
         page.locator('#grant-agent').fill('long-owner-approved')
         page.locator('#control-grant-form [name="expires_at"]').fill(date_value(page, 4))
         page.locator('#control-grant-form [name="extended_expiry_consent"]').check()
+        page.locator('#control-grant-form [data-task-advanced] summary').click()
         page.locator('#control-grant-form [name="operations"][value="operations.read"]').check()
         page.get_by_role('button', name='Issue scoped grant', exact=True).focus()
         page.keyboard.press('Enter')

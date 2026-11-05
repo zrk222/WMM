@@ -42,6 +42,7 @@ def run(browser,width,out):
   form=page.locator('#control-grant-form')
   form.get_by_label('Agent identifier',exact=True).fill('external-browser-agent')
   form.get_by_label('Maximum admitted attempts',exact=True).fill('2')
+  form.locator('[data-task-advanced] summary').click()
   form.locator('[name=operations][value="growth.history"]').check()
   form.get_by_role('button',name='Issue scoped grant',exact=True).click()
   token=page.locator('[data-grant-secret]').input_value()

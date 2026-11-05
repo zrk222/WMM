@@ -6,7 +6,7 @@ You built the app. Now you need people to find it, try it and come back. The res
 
 Wize Marketing Machine (WMM) was created for founders and teams who want agents to carry that marketing work forward. It gives people and agents one structured workspace: collect app facts and research, make creative, prepare and run supported campaigns, follow the work and review the evidence.
 
-**You choose the goal and approve the scope. Your agent handles the work inside it. You receive the deliverables, analytics, receipts and next decision.** Approve a single action or a bounded automation agreement; review exceptions and stop future work when needed. You can inspect and edit the work yourself.
+**You choose the goal and approve the scope. Your agent handles the work inside it. You receive the deliverables, analytics, receipts and next decision.** Choose a task preset to prepare an editable owner grant; review it before issuing. Each grant has its own finite expiry and revocation. Existing provider effects keep their own status and recovery paths.
 
 [**Try the sample workspace**](https://zrk222.github.io/WMM/demo.html) · [See the visual tour](https://zrk222.github.io/WMM/) · [Install WMM](docs/desktop-first-run.md)
 
@@ -14,12 +14,18 @@ Wize Marketing Machine (WMM) was created for founders and teams who want agents 
 
 *A working interactive example with synthetic data. It connects no accounts, publishes nothing and spends nothing. Try it in your browser, or open `docs/demo.html` after downloading the repository.*
 
-## From “market my app” to a campaign you can follow
+![Owner task setup example with synthetic interface data and no account results](docs/images/agent-task-setup.png)
+
+*Task presets prepare an editable owner grant for review.*
+
+## The intended path from “market my app” to a decision
 
 1. **Set the direction.** Describe your app, audience and outcome. Bring research, clips and your own supported accounts.
-2. **Agree on the work.** Review the agent, accounts, content, destinations, schedule, expiry, quotas and spending limits before activation.
-3. **Let your agent carry it forward.** Research an angle, prepare creative and execute the supported approved work. Follow progress and answer exceptions that need your decision.
+2. **Shape an owner grant.** Start with Research only, Organic marketing or Bounded Meta media buyer, or choose Custom. WMM prepares an editable operation list for your review before you issue the grant. Approve exact content and destinations before reuse or publishing. Paid Meta activity needs separate campaign approval for its account, content, targeting, expiry and budget.
+3. **Follow the work.** Once a grant is active, your agent can research, prepare creative and carry out supported work within its limits. Follow progress and handle exceptions that need your decision.
 4. **Open the report.** See the files, execution status, dated measurements and receipts. Choose what to continue, revise or stop.
+
+Task presets prepare an editable grant; the owner reviews and issues it. Each grant has a finite owner-set expiry, including durations longer than 24 hours, and does not renew automatically. The default allowance is 20 total calls until expiry, with no weekly refill. Optional advanced settings open the full operation catalog.
 
 The intended payoff is less coordination, faster creative cycles and better decisions about installs, activation, paid conversion and retention. Analytics retain source dates, definitions and missing data; receipts show what was actually done. Measure the benefit on your app—growth and time savings are not yet established by the dogfooding trial.
 
@@ -38,7 +44,7 @@ The intended payoff is less coordination, faster creative cycles and better deci
 | **Improve the app’s sales journey** | ASO, ASA and AEO worksheets, store/listing checks, funnel plans, paywall/offer experiments, cohorts, event/billing imports and experiment assessments. App Store promotional text has its own maker/checker approval path. |
 | **Collect and understand results** | Supported App Store Connect, Apple Ads, Google Play, PostHog, Clarity and RevenueCat paths, plus imports. Coverage varies by source and platform. Reports retain dates, definitions, denominators and missing data; PDF and data exports support review and handoff. |
 | **Execute supported campaigns** | Facebook Page text/link publishing and fixed Meta engagement campaigns: exact owner scope, content/rights/targeting review, expiry, quotas, media-budget ceilings, saved provider IDs, reconciliation and protective pause. Other networks do not gain publishing support merely by connecting OAuth. |
-| **Delegate and monitor** | CLI/MCP operations, app-scoped grants, manual or bounded autonomous work, approval checkpoints, progress, durable jobs, cancellation and recovery. Provider-reported token/cache usage stays separate from estimated cost. |
+| **Delegate and monitor** | CLI/MCP operations, app-scoped grants, manual or bounded autonomous work, approval checkpoints, progress, durable jobs, cancellation and recovery. Missing source analytics stay marked as missing; they are not evidence of growth. Provider-reported token/cache usage stays separate from estimated cost. |
 
 [Campaign controls and limits](docs/campaign-automation.md) · [Hypit production guide](docs/hypit-production-preflight.md) · [Agent workflow upgrades](docs/personal-agent-upgrades.md)
 

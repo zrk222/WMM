@@ -4,6 +4,10 @@ An app owner can delegate selected fixed local operations to an agent. A grant f
 
 Grant management uses the existing local browser session, CSRF protection and freshly reverified GitHub owner identity. A caller-supplied owner name or grant bearer credential cannot manage grants. No automatic first-owner setup or GitHub sign-in is performed by an agent adapter.
 
+In the owner grant form, start with a task: **Research only**, **Organic marketing**, or **Bounded Meta media buyer**. WMM prepares the supported operations and describes their effects. Choose **Custom** or open advanced controls to change the proposed operations and review checkpoints. A missing operation or changed effect makes its preset unavailable rather than quietly reducing its scope.
+
+Selecting a task starts no work and creates no access. Review the agent, deadline and total call allowance, then explicitly issue the grant. The default allowance is 20 calls total until expiry; it does not refill weekly or reset when time is extended. Provider access, source reuse, exact creative approval, destination and paid-media limits still follow their existing owner approval paths. A preset is a setup shortcut, not proof that a complete campaign has run or that an unsupported network is connected.
+
 Owner HTTP operations, using the selected app ID:
 
 | POST address | Exact JSON body | Result |

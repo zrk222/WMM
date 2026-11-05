@@ -39,6 +39,7 @@ jobs:
           python tools/test_weekly_review_actions_browser.py
           python tools/test_client_dashboard_browser.py
           python tools/test_authority_expiry_browser.py
+          python tools/test_agent_task_presets_browser.py
   windows:
     runs-on: windows-latest
     timeout-minutes: 45
