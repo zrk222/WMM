@@ -33,6 +33,15 @@ def framehash(rows=1):
 
 
 class ManagedMediaValidationTests(unittest.TestCase):
+    def test_metadata_duration_override_is_validated_and_cannot_expand_original_bound(self):
+        for limit in (True, False, 0, -1, 181, '60', None, float('nan'), float('inf')):
+            with self.subTest(limit=limit), self.assertRaises(Invalid):
+                media.media_metadata(probed(), max_duration=limit)
+        value=probed();value['format']['duration']='122.581'
+        self.assertEqual(media.media_metadata(value)['duration_seconds'],122.581)
+        with self.assertRaisesRegex(Invalid,'60-second output limit'):
+            media.media_metadata(value,max_duration=60)
+
     def test_suffix_and_byte_bounds_reject_before_native_execution(self):
         with patch.object(media, "capture") as native:
             for suffix in (".mkv", ".avi", "C:\\private\\input.mp4", "", None):

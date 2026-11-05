@@ -97,7 +97,7 @@ def _codec(value):
     return value
 
 
-def _finite_seconds(value, field_name):
+def _finite_seconds(value, field_name, max_duration=MAX_DURATION_SECONDS):
     if isinstance(value, bool) or not isinstance(value, (str, int, float)):
         raise Invalid(f"Video {field_name} is malformed")
     if isinstance(value, str) and not _DECIMAL.fullmatch(value):
@@ -106,8 +106,10 @@ def _finite_seconds(value, field_name):
         seconds = float(value)
     except (ValueError, OverflowError):
         raise Invalid(f"Video {field_name} is malformed") from None
-    if math.isfinite(seconds) and seconds > MAX_DURATION_SECONDS:
-        raise Invalid(f"Video {field_name} exceeds the {MAX_DURATION_SECONDS:g}-second original-source limit; choose a shorter source")
+    if math.isfinite(seconds) and seconds > max_duration:
+        if max_duration == MAX_DURATION_SECONDS:
+            raise Invalid(f"Video {field_name} exceeds the {max_duration:g}-second original-source limit; choose a shorter source")
+        raise Invalid(f"Video {field_name} exceeds the {max_duration:g}-second output limit")
     if not math.isfinite(seconds) or seconds <= 0:
         raise Invalid(f"Video {field_name} is outside the supported range")
     return seconds
@@ -160,7 +162,7 @@ def _dimensions(video):
     return width, height
 
 
-def _audio_stream(stream):
+def _audio_stream(stream, max_duration):
     codec = _codec(stream.get("codec_name"))
     channels = _positive_integer(stream.get("channels"), "audio channel count", 1, 2)
     raw_rate = stream.get("sample_rate")
@@ -168,17 +170,17 @@ def _audio_stream(stream):
         raise Invalid("Video audio sample rate is malformed")
     sample_rate = _positive_integer(int(raw_rate), "audio sample rate", MIN_SAMPLE_RATE, MAX_SAMPLE_RATE)
     if "duration" in stream and stream["duration"] not in (None, "N/A"):
-        _finite_seconds(stream["duration"], "audio duration")
+        _finite_seconds(stream["duration"], "audio duration", max_duration)
     return {"codec": codec, "channels": channels, "sample_rate": sample_rate}
 
 
-def _normalized_metadata(video, audio_stream, container):
+def _normalized_metadata(video, audio_stream, container, max_duration):
     width, height = _dimensions(video)
     frame_rate = _frame_rate(video.get("avg_frame_rate"))
-    duration = _finite_seconds(container.get("duration") if isinstance(container, dict) else None, "duration")
+    duration = _finite_seconds(container.get("duration") if isinstance(container, dict) else None, "duration", max_duration)
     if "duration" in video and video["duration"] not in (None, "N/A"):
-        _finite_seconds(video["duration"], "video stream duration")
-    audio = _audio_stream(audio_stream) if audio_stream else None
+        _finite_seconds(video["duration"], "video stream duration", max_duration)
+    audio = _audio_stream(audio_stream, max_duration) if audio_stream else None
     return {
         "codec": _codec(video.get("codec_name")),
         "width": width,
@@ -190,14 +192,17 @@ def _normalized_metadata(video, audio_stream, container):
     }
 
 
-def media_metadata(value: str | bytes | dict) -> dict:
+def media_metadata(value: str | bytes | dict, *, max_duration=MAX_DURATION_SECONDS) -> dict:
     """Parse ffprobe JSON or a decoded JSON document using finite closed bounds."""
     try:
+        if (type(max_duration) not in (int, float) or not math.isfinite(max_duration)
+                or not 0 < max_duration <= MAX_DURATION_SECONDS):
+            raise Invalid('Use a finite positive duration limit no larger than the original-source bound')
         value = _load_metadata(value)
         if not isinstance(value, dict):
             raise Invalid("Video decoder returned malformed metadata")
         video, audio = _stream_inventory(value.get("streams"))
-        return _normalized_metadata(video, audio, value.get("format"))
+        return _normalized_metadata(video, audio, value.get("format"), max_duration)
     except Invalid:
         raise
     except (ValueError, TypeError, OverflowError, RecursionError):

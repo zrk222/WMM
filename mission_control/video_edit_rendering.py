@@ -6,8 +6,8 @@ import time
 from .common import Invalid
 from .media_native import capability, invoke
 from .agent_process import capture
-from .managed_media_validation import media_metadata
-from .video_edit_contract import definition, timing, output_frames, PROFILES, FPS, clip, source_key
+from .managed_media_validation import media_metadata, MAX_DURATION_SECONDS
+from .video_edit_contract import definition, timing, output_frames, PROFILES, FPS, MAX_FRAMES, clip, source_key
 
 MAX_BYTES = 67108864
 RENDER_SECONDS = 180
@@ -42,7 +42,7 @@ def clip_filters(item, output):
     return ','.join(filters)
 
 
-def edit_metadata(path, tools=None):
+def edit_metadata(path, tools=None, *, max_duration=MAX_DURATION_SECONDS):
     """Read bounded native stream metadata, retaining the strict imported-stream inventory."""
     tools = tools or capability()['tools']
     argv = [tools['ffprobe'], '-v', 'error', '-protocol_whitelist', 'file,pipe',
@@ -50,7 +50,7 @@ def edit_metadata(path, tools=None):
     result = capture(argv, alive=lambda: None, timeout=15, folder=Path(path).parent)
     if result['code'] != 0:
         raise Invalid('Edited media could not be inspected')
-    parsed = json.loads(result['stdout']);metadata = media_metadata(parsed)
+    parsed = json.loads(result['stdout']);metadata = media_metadata(parsed, max_duration=max_duration)
     video = next(row for row in parsed['streams'] if row['codec_type'] == 'video')
     return dict(metadata, pixel_format=video.get('pix_fmt'), frame_rate=video['avg_frame_rate'])
 
@@ -59,7 +59,7 @@ def validate(path, value, tools=None):
     """Accept the selected H264/audio profile with exact requested shape and timing."""
     value = definition(value);size = path.stat().st_size
     if not 0 < size <= MAX_BYTES:raise Invalid('Edited video exceeds the supported artifact size')
-    metadata = edit_metadata(path, tools)
+    metadata = edit_metadata(path, tools, max_duration=MAX_FRAMES / FPS)
     if (metadata['width'], metadata['height']) != PROFILES[value['output']]:
         raise Invalid('Edited video dimensions do not match the project')
     expected_audio = any(c.get('audio', 'MUTE') == 'RETAIN' for c in value['clips'])

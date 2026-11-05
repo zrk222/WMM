@@ -6,6 +6,7 @@ import json
 import math
 import subprocess
 import unittest
+from unittest.mock import patch
 from mission_control.common import Invalid
 from mission_control.media_native import capability
 from mission_control import video_edit_rendering as renderer
@@ -105,13 +106,36 @@ class MediaDurationTests(unittest.TestCase):
         with self.assertRaises(Invalid):method(capability(),'RETAIN')
 
     def test_imported_duration_and_timeline_limits_stay_strict(self):
-        for duration in ('60.000001','60.021333','61'):
+        for duration in ('180.000001','180.021333','181'):
             value=probed();value['format']['duration']=duration
             with self.subTest(duration=duration),self.assertRaises(Invalid):media_metadata(value)
-        value=probed();value['format']['duration']='60';value['streams'][1]['duration']='60.021333'
+        value=probed();value['format']['duration']='180';value['streams'][1]['duration']='180.021333'
         with self.assertRaises(Invalid):media_metadata(value)
         data=self.definition();item=deepcopy(data['clips'][0]);item.update(in_frame=0,out_frame=48,speed_percent=25)
         data['clips']=[dict(deepcopy(item),id='too-long-'+str(i))for i in range(8)]
         with self.assertRaises(Invalid):definition(data)
         self.assertEqual(renderer.RENDER_SECONDS,180)
         self.assertEqual(PROBE_TIMEOUT_SECONDS,15)
+
+    def test_final_container_video_and_audio_tails_strictly_reject_above60(self):
+        path=self.root/'synthetic-output.mp4';path.write_bytes(b'fixture')
+        data=self.definition();data['clips']=data['clips'][:1]
+        data['clips'][0].update(in_frame=0,out_frame=1440,audio='RETAIN')
+        data=definition(data)
+        for field in ('container','video','audio'):
+            for duration in ('60','60.000001','60.021333','61'):
+                value=probed()
+                for stream in value['streams']:stream['duration']='60'
+                value['format']['duration']='60'
+                value['streams'][0].update(width=renderer.PROFILES[data['output']][0],
+                    height=renderer.PROFILES[data['output']][1],pix_fmt='yuv420p')
+                target=value['format'] if field=='container' else value['streams'][0 if field=='video' else 1]
+                target['duration']=duration
+                with self.subTest(field=field,duration=duration),patch.object(renderer,'capture',
+                    return_value=dict(code=0,stdout=json.dumps(value),stderr='')):
+                    # Source inspection intentionally keeps the 180s original limit.
+                    renderer.edit_metadata(path,dict(ffprobe='fixture'))
+                    if duration=='60':renderer.validate(path,data,dict(ffprobe='fixture'))
+                    else:
+                        with self.assertRaisesRegex(Invalid,'60-second output limit'):
+                            renderer.validate(path,data,dict(ffprobe='fixture'))
