@@ -18,7 +18,7 @@ Your data stays outside the installed program. Windows uses your local applicati
 
 ## Make one packet
 
-1. **Add your app.** Enter its name, who it helps, what it helps them do, the first useful action, the app version or build and the locale you tested. Choose **Save and choose a goal**. WMM generates a workspace ID, and **Optional settings** lets you enter your own or add details later.
+1. **Add your app.** Enter its name, who it helps, what it helps them do, the first useful action, the app version or build and the locale you tested. Choose **Save and choose a goal**. WMM generates a workspace ID. To choose your own ID, open **Optional settings** before saving. The saved ID is permanent. Other optional details stay editable in **App setup**.
 2. **Choose “Find a useful marketing angle.”** Select **Open your first packet**. The packet shows the research and creative steps for this app, including missing inputs you can add next.
 3. **Keep a copy.** Choose **Download goal packet** to save the local draft for yourself, your agent or your teammate. You can do this before connecting an account, publishing or spending.
 4. **Add a reference to study.** Choose **Add a research reference** from the packet, then add the source you want to study. Viral-only qualification requires 100,000 views and 10× a documented creator baseline. Open a new packet after adding evidence to see the updated next steps.

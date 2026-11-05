@@ -19,8 +19,8 @@ sys.path.insert(0, str(ROOT))
 from playwright.sync_api import expect, sync_playwright  # noqa: E402
 from mission_control.db import connection  # noqa: E402
 from mission_control.server import Server  # noqa: E402
-from tests.test_automation_agreement import AutomationAgreementTests, BATCH  # noqa: E402
-from tests.test_verified_review import OWNER_TOKEN, synthetic_identity  # noqa: E402
+from tests.test_automation_agreement import AutomationAgreementTests, BATCH, SCOPE  # noqa: E402
+from tests.test_verified_review import OWNER, OWNER_TOKEN, synthetic_identity  # noqa: E402
 
 OUT = ROOT / ".factory" / "goal-first-automation"
 
@@ -65,6 +65,7 @@ def run(browser, width):
         page.on(
             "request", lambda request: requests.append((request.method, request.url))
         )
+        page.locator("#goal-advanced > summary").click()
         page.get_by_role(
             "button", name="Review combined automation agreement", exact=True
         ).click()
@@ -90,6 +91,11 @@ def run(browser, width):
             "Review current owner, app, credential and expiry facts before reapproval.",
             "Stop rules:",
             "Uncertain dispatch: reconcile before retry",
+            "Scheduled executor when the batch is active",
+            "WMM background worker",
+            "Owner " + OWNER["principal"],
+            "Batch " + BATCH,
+            "Campaign scope " + SCOPE,
         ):
             expect(summary).to_contain_text(text)
         expect(summary).to_contain_text("PENDING_ACTIVATE_campaign")
@@ -113,6 +119,9 @@ def run(browser, width):
         expect(report.locator("body")).to_contain_text("Combined automation agreement")
         expect(report.locator("body")).to_contain_text("100 CAD")
         report_text = report.locator("body").inner_text()
+        for expected in ("WMM background worker", "Owner " + OWNER["principal"],
+                         "Batch " + BATCH, "Campaign scope " + SCOPE):
+            assert expected in report_text, expected
         for private in (
             fixture.post["message"],
             OWNER_TOKEN,
@@ -147,6 +156,8 @@ def run(browser, width):
             width=width,
             status="PASS",
             protected_owner_http=True,
+            scheduled_executor_identified=True,
+            owner_and_exact_scope_identified=True,
             paid_budget_minor=80,
             scope_ceiling_minor=100,
             currency="CAD",
