@@ -55,6 +55,8 @@ class WorkflowBoundaryTests(unittest.TestCase):
 
 
 class VerticalWorkflowTests(unittest.TestCase):
+    RAW = b'synthetic-workflow-output'
+
     def setUp(self):
         self.f=intake_fixture.IntakeTests();self.f.setUp();self.addCleanup(self.f.doCleanups)
         self.store=self.f.store;self.app=self.f.app;self.owner=self.f.fixture.owner
@@ -87,7 +89,7 @@ class VerticalWorkflowTests(unittest.TestCase):
             db.execute('INSERT INTO social_connections VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                 (self.app,self.connection,'facebook',1,1,'fixture-subject',canonical(dict(destination=dict(id='123'))),'fixture',
                  'CONNECTED_READ_TESTED',None,None,0,None,0,stamp,stamp))
-        self.raw=b'synthetic-workflow-output'
+        self.raw=self.RAW
         policy=dict(connection_id=self.connection,page_id='123',expires_at=(datetime.now(timezone.utc)+timedelta(hours=1)).isoformat(),
             sources=[dict(id=self.source['id'],sha256=self.source['source_sha256'],review_version=1)],
             claims=[dict(id=x['id'],sha256=x['hash']) for x in self.brief['data']['records'] if x['kind']=='claim'],
@@ -240,14 +242,26 @@ class VerticalWorkflowTests(unittest.TestCase):
         self.assertEqual(completed['job']['id'], observed['job']['id'])
         self.assertEqual(completed['job']['status'], 'SUCCEEDED')
         self.assertEqual(completed['job']['render_id'], artifact['id'])
+        self.assertEqual(completed['available'], dict(posts=1, calls=40))
+        approve = dict(policy_id=self.policy['id'], policy_hash=self.policy['hash'], output=dict(
+            request_id=lookup['request_id'], artifact_id=artifact['id'], artifact_sha256=completed['job']['artifact_sha256'],
+            template_id=self.template, caption='Exact synthetic app demo', transformation='DECLARATIVE_COMPOSITION',
+            reserve_calls=40, reservation_id=reservation['id'], reservation_hash=reservation['hash']))
+        approval = post('policy-admit', approve)
+        self.assertEqual(post('policy-admit', approve), approval)
+        admitted = post('render-status', lookup)
+        self.assertEqual(admitted['available'], dict(posts=0, calls=0))
+        self.assertEqual(admitted['admission'], dict(id=approval['id'], hash=approval['hash'],
+            request_id=lookup['request_id'], request_hash=digest(approve), reserved_calls=40))
         with patch('mission_control.hypit_jobs.identity', return_value=dict(launcher='fixture', launcher_sha256='0'*64)):
             post('policy-revoke', {key: lookup[key] for key in ('policy_id', 'policy_hash')})
             with self.assertRaises(ClientError):
                 post('render-queue', queue)
-            self.assertEqual(post('render-status', lookup), completed)
+            self.assertEqual(post('render-status', lookup), admitted)
         with connection(self.store.path) as db:
             self.assertEqual(db.execute('SELECT count(*) FROM organic_video_generation_reservations').fetchone()[0], 1)
             self.assertEqual(db.execute("SELECT count(*) FROM jobs WHERE action='hypit_render'").fetchone()[0], 1)
+            self.assertEqual(db.execute('SELECT count(*) FROM organic_video_admissions').fetchone()[0], 1)
             self.assertFalse(db.execute("SELECT 1 FROM sqlite_master WHERE name='campaign_video_intents'").fetchone())
 
 

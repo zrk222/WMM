@@ -30,7 +30,7 @@
   function validation(node,d,invalid=false){const t=active;if(!t||!current(t)||!node.closest('form[id^="oresearch-"]'))return;if(invalid){node.setAttribute('aria-invalid','true');t.node.querySelector('#oresearch-error').textContent=(node.labels?.[0]?.textContent.trim()||'Research field')+': '+node.validationMessage;}else if(node.validity?.valid){node.removeAttribute('aria-invalid');if(!t.node.querySelector('[aria-invalid="true"]'))t.node.querySelector('#oresearch-error').textContent='';}}
   async function hash(value,browser=globalThis){return Array.from(new Uint8Array(await browser.crypto.subtle.digest('SHA-256',new TextEncoder().encode(m.stable(value)))),b=>b.toString(16).padStart(2,'0')).join('');}
   async function request(t,action,body){
-    const allowed=['task-list','task-read','prepare','intake','policy-context','policy-history','workflow-prepare','policy-reserve','render-status','render-queue'];
+    const allowed=['task-list','task-read','prepare','intake','policy-context','policy-history','policy-read','policy-admit','workflow-prepare','policy-reserve','render-status','render-queue'];
     if(!allowed.includes(action))throw new Error('Unsupported research action.');
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),RESEARCH_REQUEST_TIMEOUT_MS);let response,value;
     try{response=await (t.d.fetch||t.d.browser.fetch.bind(t.d.browser))('/api/apps/'+encodeURIComponent(t.scope.app)+'/organic-video/'+action,{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-CSRF-Token':t.d.state.boot.csrf},body:JSON.stringify(body),signal:controller.signal});value=await response.json();}
@@ -199,11 +199,17 @@
       const mayWrite=record.version===t.scope.version;
       const summary=job?`<p>Local render ${m.esc(label(job.status))}. Job ${m.esc(job.id)}.</p>`:reservation?
         '<p>One slot is reserved. A render job has not been recorded.</p>':'<p>No reservation was observed for this exact request.</p>';
-      const next=job?(job.render_id?button('Preview local MP4','render-preview',job.render_id,true):''):
+      const next=job?(job.render_id?button('Preview local MP4','render-preview',job.render_id):''):
         mayWrite?(reservation?button('Start the reserved Hypit render','render-queue','',true):button('Retry the exact reservation','render-reserve','',true)):'';
+      const admission=result.admission;
+      const matched=admission?.request_hash===record.admission?.request_hash&&admission?.request_id===record.lookup.request_id;
+      const receipt=admission?`<p>${record.admission&&!matched?'A different artifact approval is already saved.':'Artifact approval saved.'} ${admission.reserved_calls} provider calls held. Facebook delivery is a separate step.</p><details><summary>View approval receipt</summary><p>Receipt ${m.esc(admission.id)}</p><p class="app-mono">${m.esc(admission.hash)}</p></details>`:'';
+      const approval=!admission&&mayWrite&&job?.status==='SUCCEEDED'&&job.artifact_sha256?
+        button(record.admission?'Review the same artifact approval':'Review video for artifact approval','render-admission','',true):'';
       const another=(!reservation||['SUCCEEDED','FAILED','CANCELLED'].includes(job?.status))?
         button('Choose another render','render-new',record.intake.id):'';
-      show(t.d,'Local render status','render-status',`${summary}<p>Check the saved output before any publication decision.</p><div class="button-row">${next}${button('Refresh render status','render-inspect')}${another}${button('Back to research card','render-back')}</div>`,{saved,record,reservation},t.scope);
+      show(t.d,'Local render status','render-status',`${summary}${receipt}<div class="button-row">${approval}${next}${button('Refresh render status','render-inspect')}${another}${button('Back to research card','render-back')}</div>`,
+        {saved,record,reservation,job,admission,available:result.available},t.scope);
     }finally{busy(t,false);}
   }
   async function writeRender(t,mode){
@@ -217,6 +223,50 @@
       if(current(t))await inspectRender(t,record,saved);
     }catch(error){
       if(current(t))show(t.d,'Inspect this render request','render-recovery',`<p role="alert">${m.esc(error.message)}</p><p>Read the saved reservation and job before attempting this action again.</p>${button('Inspect saved render status','render-inspect','',true)}${button('Back to research card','render-back')}`,{saved,record},t.scope);
+    }finally{busy(t,false);}
+  }
+  async function reviewArtifact(t){
+    const {saved,record,reservation,job,admission,available}=t.data;
+    if(admission||job?.status!=='SUCCEEDED'||record.version!==t.scope.version)throw new Error('Select an unapproved completed video from the current app.');
+    busy(t,true,'Checking the approval and remaining allowance');
+    try{
+      const policy=await request(t,'policy-read',{policy_id:record.lookup.policy_id,policy_hash:record.lookup.policy_hash});
+      if(!current(t))return;
+      const rules=policy.data.policy,template=rules.templates.find(row=>row.id===reservation.data.template_id);
+      if(!template||policy.hash!==record.lookup.policy_hash||policy.id!==record.lookup.policy_id)throw new Error('The saved caption or approval changed.');
+      if(rules.mode==='EXACT'&&!rules.approved_output_hashes.includes(job.artifact_sha256))
+        throw new Error('This approval does not cover the completed video bytes. Use a standing-generation approval to create a new eligible render.');
+      if(!available||available.posts<1||available.calls<1)throw new Error('This production approval has no remaining post or provider-call allowance.');
+      const body={policy_id:policy.id,policy_hash:policy.hash,output:{request_id:record.lookup.request_id,
+        artifact_id:job.render_id,artifact_sha256:job.artifact_sha256,template_id:template.id,caption:template.caption,
+        transformation:'DECLARATIVE_COMPOSITION',reservation_id:reservation.id,reservation_hash:reservation.hash}};
+      const url='/api/apps/'+encodeURIComponent(t.scope.app)+'/hypit-renders/'+encodeURIComponent(job.render_id);
+      const fixed=record.admission;
+      const html=`<form id="oresearch-artifact-form"><video class="render-preview" controls playsinline preload="metadata" src="${url}/preview" aria-label="Exact local Hypit video"></video><p id="oresearch-video-error" role="status"></p><p><a href="${url}/download" download>Download this MP4</a></p><h3>Facebook Page ${m.esc(rules.page_id)}</h3><p>${m.esc(template.caption)}</p><details><summary>Video SHA-256</summary><code>${m.esc(job.artifact_sha256)}</code></details><p>Saving approval holds one post slot and the provider calls you choose. It starts no delivery or paid campaign.</p>
+        ${field('calls','Provider calls to hold (up to '+available.calls+')',fixed?.calls??'','number',`min="1" max="${available.calls}" step="1" required ${fixed?'readonly':''}`)}
+        ${check('previewed','I reviewed this exact video and caption.')}<button type="submit" class="button">Save artifact approval</button></form>${button('Back to render status','render-inspect')}`;
+      const next=show(t.d,'Review your finished video','artifact-review',html,{saved,record,body,available},t.scope);
+      next.node.querySelector('video').addEventListener('error',()=>{
+        if(current(next))next.node.querySelector('#oresearch-video-error').textContent='If this preview cannot play, open the downloaded MP4 before approving.';
+      });
+    }finally{busy(t,false);}
+  }
+  async function approveArtifact(t,form){
+    const {record,saved,body,available}=t.data,fd=new t.d.FormData(form);
+    if(fd.get('previewed')!=='on')throw new Error('Confirm you reviewed this exact video and caption.');
+    const calls=m.integer(fd.get('calls'),'Provider calls to hold',1,available.calls);
+    const approved={...body,output:{...body.output,reserve_calls:calls}};
+    busy(t,true,'Saving the approval for this exact output');
+    try{
+      const requestHash=await hash(approved,t.d.browser);
+      if(!current(t))return;
+      if(record.admission&&record.admission.request_hash!==requestHash)throw new Error('This is a different approval request. Inspect the saved outcome.');
+      record.admission={request_hash:requestHash,calls};
+      storeRender(t,record);
+      await request(t,'policy-admit',approved);
+      if(current(t))await inspectRender(t,record,saved);
+    }catch(error){
+      if(current(t))show(t.d,'Inspect this render request','render-recovery',`<p role="alert">${m.esc(error.message)}</p><p>Inspect the saved artifact approval before retrying.</p>${button('Inspect saved render status','render-inspect','',true)}`,{saved,record},t.scope);
     }finally{busy(t,false);}
   }
   async function read(t,id){busy(t,true,'Reading retained task and evidence');try{const saved=await request(t,'task-read',{task_id:id});if(current(t))details(t,saved);}catch(e){fail(t,e);}finally{busy(t,false);}}
@@ -273,6 +323,7 @@
     }catch(e){fail(t,e);}finally{busy(t,false);}}
   async function submit(form,d){const t=active;if(!t||!current(t)||t.busy)return;try{
     if(t.kind==='render-form')return await reviewRender(t,form);
+    if(t.kind==='artifact-review')return await approveArtifact(t,form);
     if(retained(t).length)throw new Error('Inspect the uncertain save before another request.');
     if(t.kind==='assignment')return reviewWrite(t,'prepare',taskBody(new d.FormData(form),t.data.grants,d.state,d.uuid));
     if(t.kind==='adoption'){const fields=new d.FormData(form);busy(t,true,'Binding your review to the saved candidate');const body=await adoptionBody(fields,t);if(current(t))return reviewWrite(t,'intake',body);}
@@ -290,6 +341,7 @@
     if(mode==='render-start'&&t.kind==='detail')return await renderStart(t,node.dataset.id);
     if(mode==='render-page'&&t.kind==='render-choices')return await renderStart(t,t.data.intake.id,m.integer(node.dataset.id,'Approval history offset',0,2000));
     if(mode==='render-policy'&&t.kind==='render-choices')return await renderForm(t,Number(node.dataset.id));
+    if(mode==='render-admission'&&t.kind==='render-status')return await reviewArtifact(t);
     if(mode==='render-back'&&t.kind.startsWith('render-'))return details(t,t.data.saved);
     if(mode==='render-inspect'&&t.data?.record)return await inspectRender(t,t.data.record,t.data.saved);
     if(mode==='render-new'&&t.kind==='render-status'){

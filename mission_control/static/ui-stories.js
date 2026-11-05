@@ -91,6 +91,7 @@
   define('creative-batch-form','Prepare a finite set of local videos from reviewed briefs.','WMM shows the selected variants, expiry and frame allowance before any batch is queued.','Choose the current briefs and shapes, review the exact plan, then queue only if it matches your intent. Publishing remains separate.');
   define('onesignal-key-form onesignal-read-form onesignal-create-form onesignal-channel-form onesignal-recovery-form','Connect your OneSignal app.','WMM keeps keys protected and reads the exact selected app.','Review provider changes or recovery readback before confirming.');
   define('oresearch-render-form','Place footage from your approval.','Choose a shape and match approved clips to scenes. The local render uses muted clips and the original brief text.','Review the exact inputs and tool checks before reserving one local slot.');
+  define('oresearch-artifact-form','Check the finished video and its caption.','The saved approval holds capacity for this exact file and Facebook Page.','Review the video, then choose how many provider calls to hold for later delivery and verification.');
   Object.freeze(FORMS);
   const DIALOGS=Object.freeze({
     'Connect Cloudflare Workers AI':['Connect Cloudflare once.','Choose free or paid inference and set your limits.','Save your protected connection, then test it.'],
@@ -127,6 +128,7 @@
       'Review this exact local render':'Check the frame size and footage before you use a slot from your approval.',
       'Local render status':'Follow the same job from reservation to a local MP4.',
       'Inspect this render request':'Check whether WMM saved the action before retrying.',
+      'Review your finished video':'Play or download the finished video. Check its caption and Page before holding any delivery capacity.',
       'Find the words your app should test':'Review your agent’s sources, then save a packet of keyword coverage, competitor overlaps and next experiments.',
       'Choose the rules for your app videos':'Pick the Page, clips, claims and captions. Then review the exact rules your agent will follow.',
       'Review this video production approval':'Check the destination, captions, evidence and limits before granting this approval.',

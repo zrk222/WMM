@@ -3,6 +3,7 @@ import json
 import hashlib
 import os
 import platform
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 import unittest
@@ -12,6 +13,7 @@ from unittest.mock import patch
 from mission_control.db import connection
 from mission_control.creative_briefs import Briefs
 from mission_control.creative_library import Library
+from mission_control.media_native import capability
 from tests import test_organic_research_http as fixture
 from tests import test_organic_video_workflow as workflow_fixture
 from tests.production_fixtures import ready_capabilities
@@ -199,6 +201,12 @@ class OrganicResearchBrowserTests(unittest.TestCase):
 
     def approved_render(self, width, lose_responses):
         workflow = workflow_fixture.VerticalWorkflowTests()
+        ffmpeg = capability()['tools']['ffmpeg']
+        workflow.RAW = subprocess.run([
+            ffmpeg, '-v', 'error', '-f', 'lavfi', '-i', 'color=c=blue:s=160x90:r=24:d=1',
+            '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p',
+            '-movflags', '+frag_keyframe+empty_moov', '-f', 'mp4', 'pipe:1',
+        ], check=True, capture_output=True, timeout=20).stdout
         workflow.setUp()
         self.addCleanup(workflow.doCleanups)
         readiness = dict(remediation=[] if lose_responses else ['Install the optional Hypit CLI.'])
@@ -263,21 +271,51 @@ class OrganicResearchBrowserTests(unittest.TestCase):
             self.assertEqual(set(retained), {'intake', 'version', 'lookup', 'reserve', 'inputs_hash'})
             self.assertNotIn('Exact synthetic app demo', stored[0])
             self.assertNotIn(client.csrf, stored[0])
-            if not lose_responses:
-                lookup = retained['lookup']
-                base = f'/api/apps/{workflow.app}/organic-video/'
-                status = client.request('POST', base + 'render-status', lookup)
-                _, artifact = workflow.render(status['reservation'])
-                modal.get_by_role('button', name='Refresh render status').click()
-                expect(modal).to_contain_text('Local render succeeded.')
-                expect(modal.get_by_role('button', name='Preview local MP4')).to_have_attribute('data-id', artifact['id'])
+            self.approve_finished_render(workflow, client, context, page, modal, width, retained, lose_once)
             with connection(workflow.store.path) as db:
                 self.assertEqual(db.execute('SELECT count(*) FROM organic_video_generation_reservations').fetchone()[0], 1)
                 self.assertEqual(db.execute("SELECT count(*) FROM jobs WHERE action='hypit_render'").fetchone()[0], 1)
                 self.assertFalse(db.execute("SELECT 1 FROM sqlite_master WHERE name='campaign_video_intents'").fetchone())
-            self.assertEqual(lost, [200, 200] if lose_responses else [])
+                self.assertEqual(db.execute('SELECT count(*) FROM organic_video_admissions').fetchone()[0], 1)
+            self.assertEqual(lost, [200, 200, 200] if lose_responses else [200])
             self.assertEqual(errors, [])
             self.assertEqual(external, [])
+
+    def approve_finished_render(self, workflow, client, context, page, modal, width, retained, lose_once):
+        lookup = retained['lookup']
+        base = f'/api/apps/{workflow.app}/organic-video/'
+        status = client.request('POST', base + 'render-status', lookup)
+        _, artifact = workflow.render(status['reservation'])
+        modal.get_by_role('button', name='Refresh render status').click()
+        expect(modal).to_contain_text('Local render succeeded.')
+        expect(modal.get_by_role('button', name='Preview local MP4')).to_have_attribute('data-id', artifact['id'])
+        modal.get_by_role('button', name='Review video for artifact approval').click()
+        expect(modal.get_by_role('heading', name='Review your finished video')).to_be_visible()
+        expect(modal.locator('video')).to_have_attribute('src', f'/api/apps/{workflow.app}/hypit-renders/{artifact["id"]}/preview')
+        page.wait_for_function("() => document.querySelector('#modal video')?.videoWidth === 160")
+        modal.locator('video').evaluate("video => { video.muted = true; return video.play(); }")
+        page.wait_for_function("() => document.querySelector('#modal video')?.currentTime > 0")
+        modal.locator('video').evaluate("video => video.pause()")
+        expect(modal).to_contain_text('Exact synthetic app demo')
+        with connection(workflow.store.path) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM organic_video_admissions').fetchone()[0], 0)
+        calls = modal.get_by_label('Provider calls to hold')
+        calls.fill('40')
+        approve = modal.get_by_role('button', name='Save artifact approval')
+        approve.click()
+        expect(modal.get_by_role('alert')).to_contain_text('Confirm you reviewed')
+        modal.get_by_label('I reviewed this exact video and caption.').check()
+        self.snapshot(page, width, 'artifact-approval')
+        context.route('**/organic-video/policy-admit', lose_once, times=1)
+        approve.click()
+        modal.get_by_role('button', name='Inspect saved render status').click()
+        expect(modal).to_contain_text('Artifact approval saved.')
+        expect(modal).to_contain_text('40 provider calls held')
+        after = client.request('POST', base + 'render-status', lookup)
+        self.assertEqual(after['admission']['request_id'], lookup['request_id'])
+        modal.get_by_text('View approval receipt', exact=True).click()
+        self.assertIn(after['admission']['id'], modal.inner_text())
+        self.assertIn(after['admission']['hash'], modal.inner_text())
 
     def test_desktop_review_reserve_and_queue_one_approved_render(self):
         self.approved_render(1440, False)

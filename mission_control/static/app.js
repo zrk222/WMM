@@ -826,7 +826,7 @@ async function formSubmit(event) {
   if(['drive-setup-form','drive-import-form','drive-confirm-form','drive-disconnect-form'].includes(formId)){event.preventDefault();return WMMDrive.submit(form,growthReviewServices());}
   if(['packaging-variant-form','packaging-shots-form','packaging-preview-form','packaging-taste-form'].includes(formId)){event.preventDefault();return WMMPackaging.submit(form,growthReviewServices());}
   if(['discovery-query-form','discovery-source-form'].includes(formId)){event.preventDefault();return WMMDiscovery.submit(form,growthReviewServices());}
-  if(['oresearch-task-form','oresearch-adopt-form','oresearch-render-form'].includes(formId)){event.preventDefault();return WMMOrganicResearch.submit(form,growthReviewServices());}
+  if(['oresearch-task-form','oresearch-adopt-form','oresearch-render-form','oresearch-artifact-form'].includes(formId)){event.preventDefault();return WMMOrganicResearch.submit(form,growthReviewServices());}
   if(formId==='opolicy-form'){event.preventDefault();return WMMOrganicPolicy.submit(form,growthReviewServices());}
   if(['media-upload-form','media-review-form'].includes(formId)){event.preventDefault();return WMMMedia.submit(form,growthReviewServices());}
   if((formId||"").startsWith("control-")) {event.preventDefault();return WMMAgentControl.submit(form,growthReviewServices());}
