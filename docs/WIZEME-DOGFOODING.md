@@ -1,6 +1,6 @@
 # WizeMe dogfooding: operations with receipts
 
-**Snapshot: November 4, 2026 (UTC).** We are using Wize Marketing Machine on
+**Snapshot: November 5, 2026 (UTC).** We are using Wize Marketing Machine on
 WizeMe.APP to prove the working marketing loop: connect a real app, collect
 evidence, make one approved change, then measure what happened.
 
@@ -18,6 +18,7 @@ evidence, make one approved change, then measure what happened.
 | Nov 4, 01:31 | Ran one bounded background monitor read and generated the private owner report. | The monitor independently returned `VERIFIED`; the report retained its source receipts and missing business measurements. | E08 |
 | Nov 4, 06:45 | Refreshed the running WMM process to the merged version, then used the owner API to inspect its installed-agent setup and saved report. | Agent setup returned the current source-runtime launch details without changing grants. The report hash passed, and the same single verified post intent remained after restart. This was saved local evidence, with no fresh Meta or Apple read. | E09 |
 | Nov 4, 09:45 | Restored Windows owner sign-in using the OS certificate verifier, then ran an authorized read of the Apple analytics inventory. | The worker read five report families. Apple returned zero report instances and `WAITING_FOR_REPORTS`. The existing schedule stayed in place. | E10 |
+| Nov 5, 01:15 | Inspected the private workspace's saved schedule and its two successive due Apple downloads reads. | Jobs queued on Nov 3 and Nov 4 at 13:28 UTC, 24 hours and 0.434 seconds apart. Both completed with `WAITING_FOR_REPORTS`. The latest job matches the enabled 24-hour schedule. Numerical observations remain unavailable. This inspection made no provider request. | E11 |
 
 The delivered change can be inspected on the public Page. [Published WizeMe.APP post](https://www.facebook.com/122102679789533699/posts/122102676339533699)
 
@@ -30,7 +31,10 @@ included.
 **What we learned:** WMM can read the real Apple account, dispatch a scheduled
 read, preserve missing-data states and record scoped agent access. Changing the
 app configuration invalidated the old schedule; a fresh read and owner-confirmed
-schedule restored it against the new version.
+schedule restored it against the new version. E11 now verifies a later scheduled
+cycle from the persisted jobs. The next read was due Nov 5 at 13:28 UTC when
+inspected. Successful worker execution has continued to preserve the provider's
+missing-data state.
 
 The live Meta trial exposed two integration defects. Facebook's initial token
 response omitted its lifetime, and a later Page read returned different token
