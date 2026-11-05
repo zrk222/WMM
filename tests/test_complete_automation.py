@@ -208,6 +208,27 @@ class StandingAuthorityTests(AuthorityFixture, unittest.TestCase):
         with self.assertRaises(Invalid):
             self.automation.off('sample-one', OWNER, request)
 
+    def test_exact_off_receipt_replay_is_denied_after_original_owner_membership_is_revoked(self):
+        issued = self.activate()
+        job_id = self._queued_owned_job(issued)
+        request = dict(id=issued['policy_id'], version=issued['version'])
+        expected = self.automation.off('sample-one', OWNER, request)
+        with connection(self.store.path) as db:
+            db.execute(
+                "UPDATE operator_roles SET status='REVOKED',version=version+1 "
+                "WHERE app_id='sample-one' AND principal=?",
+                (OWNER['principal'],),
+            )
+        with patch('mission_control.complete_automation.cancel_work', side_effect=AssertionError('revoked owner replay must not cancel again')) as cancel:
+            with self.assertRaises(PermissionError):
+                self.automation.off('sample-one', OWNER, request)
+        cancel.assert_not_called()
+        with connection(self.store.path) as db:
+            self.assertEqual(db.execute('SELECT status FROM jobs WHERE id=?', (job_id,)).fetchone()[0], 'CANCELLED')
+            self.assertEqual(db.execute('SELECT status FROM automation_policies WHERE id=?', (issued['policy_id'],)).fetchone()[0], 'OFF')
+            self.assertEqual(db.execute('SELECT count(*) FROM automation_stop_receipts WHERE policy_id=?', (issued['policy_id'],)).fetchone()[0], 1)
+        self.assertEqual(expected['status'], 'OFF')
+
     def test_legacy_off_without_receipt_does_not_invent_result_or_repeat_cancellation(self):
         issued = self.activate()
         with connection(self.store.path) as db:

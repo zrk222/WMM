@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # The browser profile provisions Chromium and the local render runtime and runs
 # both owner-bound OneSignal journeys, creative batches and organic research.
 # All eight backend shards and the native/package job definitions are retained.
-BASELINES = {".github/workflows/checks.yml":"152fd6b5fe330137ddf61840b908de97332241d8c777f295012a5406f66e9b61",".github/workflows/platform-checks.yml":"8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",".github/workflows/desktop-packages.yml":"b7d5bab32c25d0e30c41a8d0fb73ededa89156dba23e641d928ef1f54a4771af"}
+BASELINES = {".github/workflows/checks.yml":"7d7ff93b48813355f900e295198d2c3734fb869d1929658a55db82c1676fdab0",".github/workflows/platform-checks.yml":"8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",".github/workflows/desktop-packages.yml":"b7d5bab32c25d0e30c41a8d0fb73ededa89156dba23e641d928ef1f54a4771af"}
 GROUP = "${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}"
 
 def job_digest(path):
@@ -20,6 +20,7 @@ class CurrentCandidateCITests(unittest.TestCase):
     def test_browser_profile_keeps_batch_and_both_onesignal_journeys(self):
         text = (ROOT / ".github/workflows/checks.yml").read_text(encoding="utf-8")
         browser = text.split("  browser:\n", 1)[1].split("  windows:\n", 1)[0]
+        self.assertIn("timeout-minutes: 45", browser)
         self.assertIn("WMM_BROWSER_TEST_PROFILE: '1'", browser)
         self.assertIn("python -m unittest tests.test_creative_batches_browser tests.test_onesignal_ui_browser tests.test_onesignal_browser_integration tests.test_organic_research_browser tests.test_market_research_browser tests.test_organic_policy_gui_browser -v", browser)
         self.assertIn("python tools/test_owner_onboarding_browser.py", browser)

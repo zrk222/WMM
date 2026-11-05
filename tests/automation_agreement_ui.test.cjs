@@ -11,6 +11,27 @@ test('paid review displays exact budgets, uncertainty, receipt identities and re
  const html=a.markup(data);for(const text of ['80 minor CAD','ends end','CA, US','NEEDS_RECONCILIATION','ad: 104','campaign: 101','SCHEDULE_ITEM_NEEDS_REVIEW','Reconnect before reapproval','Permission expires extended-parent-date','original approval later','captured deadline earlier-child-date'])assert.ok(html.includes(text),text);
  assert.equal(data.summary.campaign.approval.expires_at,'later');
 });
+
+test('agreement and owner report show per-campaign cap and exact approved fingerprints without private payloads',()=>{
+ const a=fixture(),content='a'.repeat(64),rights='b'.repeat(64),targeting='c'.repeat(64);
+ const data={status:'success',summary_hash:'hash',observed_at:'now',summary:{
+  app:{id:'one',version:1},owner:{principal:'owner'},local_work:null,
+  campaign:{id:'scope',effective_status:'ACTIVE',commitment_held_minor:0,approval:{
+   page_id:'123',max_campaign_minor:50,max_total_minor:100,currency:'CAD',
+   approved_content_hashes:[content],approved_rights_hashes:[rights],approved_targeting_hashes:[targeting]
+  },account:{},blockers:[],billing_notice:'Billing notice',rights_notice:'PRIVATE_RIGHTS_PROSE'},
+  schedule:null,stop_rules:[],revocation:'OFF'
+ }};
+ const html=a.markup(data),report=a.reportModel(data,{notes:[]}),notes=report.notes.join(' ');
+ assert.match(html,/Per-campaign media cap 50 minor CAD/);
+ assert.match(html,/maximum total media commitment 100 minor CAD/);
+ assert.match(html,/Exact approved content, rights and targeting hashes/);
+ for(const hash of [content,rights,targeting]) { assert.ok(html.includes(hash)); assert.ok(notes.includes(hash)); }
+ assert.match(notes,/Per-campaign media cap 50 minor CAD/);
+ assert.match(notes,/Maximum total media commitment 100 minor CAD/);
+ assert.equal(JSON.stringify(report).includes('PRIVATE_RIGHTS_PROSE'),false);
+ assert.equal(JSON.stringify(report).includes('PRIVATE_COPY'),false);
+});
 function interactive(){
  const nodes=new Map(),requests=[],c={esc:String,button:()=>'',state:{app:'one',workspace:{app:{version:1},identity:{principal:'owner'}}},FormData:class{constructor(form){return Object.entries(form.values||{});}}};
  nodes.set('#modal',{open:true});c.$=selector=>nodes.get(selector);
