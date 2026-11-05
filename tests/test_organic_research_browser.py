@@ -277,7 +277,8 @@ class OrganicResearchBrowserTests(unittest.TestCase):
                 self.assertEqual(db.execute("SELECT count(*) FROM jobs WHERE action='hypit_render'").fetchone()[0], 1)
                 self.assertFalse(db.execute("SELECT 1 FROM sqlite_master WHERE name='campaign_video_intents'").fetchone())
                 self.assertEqual(db.execute('SELECT count(*) FROM organic_video_admissions').fetchone()[0], 1)
-            self.assertEqual(lost, [200, 200, 200] if lose_responses else [200])
+            self.schedule_approved_render(workflow, context, page, modal, width, lose_once if lose_responses else None)
+            self.assertEqual(lost, [200, 200, 200, 200, 200] if lose_responses else [200])
             self.assertEqual(errors, [])
             self.assertEqual(external, [])
 
@@ -316,6 +317,59 @@ class OrganicResearchBrowserTests(unittest.TestCase):
         modal.get_by_text('View approval receipt', exact=True).click()
         self.assertIn(after['admission']['id'], modal.inner_text())
         self.assertIn(after['admission']['hash'], modal.inner_text())
+
+    def schedule_approved_render(self, workflow, context, page, modal, width, lose_once):
+        modal.get_by_role('button', name='Schedule this Facebook Reel').click()
+        expect(modal.get_by_role('heading', name='Plan one Facebook Reel')).to_be_visible()
+        expect(modal).to_contain_text('Exact synthetic app demo')
+        # Match the browser's local timezone on both Windows and GitHub runners.
+        due = page.evaluate("""() => {
+          const value = new Date(Date.now() + 20 * 60000);
+          return new Date(value.getTime() - value.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        }""")
+        modal.get_by_label('Post once at this local time').fill(due)
+        if lose_once:
+            context.route('**/organic-video/schedule-prepare', lose_once, times=1)
+        modal.get_by_role('button', name='Save draft schedule').click()
+        if lose_once:
+            modal.get_by_role('button', name='Inspect saved Facebook delivery').click()
+        page.wait_for_function("""() => document.querySelector('#modal-title')?.textContent === 'Facebook Reel schedule'
+            || document.querySelector('#oresearch-error')?.textContent""")
+        self.assertEqual(modal.locator('#modal-title').inner_text(), 'Facebook Reel schedule', modal.inner_text()[-1600:])
+        expect(modal.get_by_role('heading', name='draft · Facebook Page 123')).to_be_visible()
+        self.snapshot(page, width, 'reel-schedule')
+        with connection(workflow.store.path) as db:
+            [draft] = db.execute('SELECT id, status FROM campaign_schedule_batches').fetchall()
+            self.assertEqual(draft['status'], 'DRAFT')
+            self.assertEqual(db.execute('SELECT count(*) FROM campaign_video_intents').fetchone()[0], 1)
+            self.assertEqual(db.execute("SELECT count(*) FROM jobs WHERE action='campaign_post'").fetchone()[0], 0)
+        if lose_once:
+            context.route('**/organic-video/schedule-activate', lose_once, times=1)
+        activate = modal.get_by_role('button', name='Activate this exact schedule')
+        activate.focus()
+        expect(activate).to_be_focused()
+        page.keyboard.press('Enter')
+        if lose_once:
+            modal.get_by_role('button', name='Inspect saved Facebook delivery').click()
+        expect(modal.get_by_role('heading', name='active · Facebook Page 123')).to_be_visible()
+        with page.expect_download() as download:
+            modal.get_by_role('button', name='Download schedule receipt').click()
+        report = json.loads(Path(download.value.path()).read_text(encoding='utf-8'))
+        self.assertEqual(report['schedule']['id'], draft['id'])
+        self.assertEqual(report['schedule']['status'], 'ACTIVE')
+        if not lose_once:
+            with page.expect_popup() as report_window:
+                modal.get_by_role('button', name='Report / Save PDF').click()
+            popup = report_window.value
+            popup.wait_for_selector('#print-page-report')
+            self.assertTrue(popup.pdf().startswith(b'%PDF'))
+            popup.close()
+        modal.get_by_role('button', name='Turn this schedule off').click()
+        expect(modal.get_by_role('heading', name='off · Facebook Page 123')).to_be_visible()
+        with connection(workflow.store.path) as db:
+            [off] = db.execute('SELECT id, status FROM campaign_schedule_batches').fetchall()
+            self.assertEqual((off['id'], off['status']), (draft['id'], 'OFF'))
+            self.assertEqual(db.execute("SELECT count(*) FROM jobs WHERE action='campaign_post'").fetchone()[0], 0)
 
     def test_desktop_review_reserve_and_queue_one_approved_render(self):
         self.approved_render(1440, False)

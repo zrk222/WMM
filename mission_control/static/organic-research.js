@@ -30,7 +30,7 @@
   function validation(node,d,invalid=false){const t=active;if(!t||!current(t)||!node.closest('form[id^="oresearch-"]'))return;if(invalid){node.setAttribute('aria-invalid','true');t.node.querySelector('#oresearch-error').textContent=(node.labels?.[0]?.textContent.trim()||'Research field')+': '+node.validationMessage;}else if(node.validity?.valid){node.removeAttribute('aria-invalid');if(!t.node.querySelector('[aria-invalid="true"]'))t.node.querySelector('#oresearch-error').textContent='';}}
   async function hash(value,browser=globalThis){return Array.from(new Uint8Array(await browser.crypto.subtle.digest('SHA-256',new TextEncoder().encode(m.stable(value)))),b=>b.toString(16).padStart(2,'0')).join('');}
   async function request(t,action,body){
-    const allowed=['task-list','task-read','prepare','intake','policy-context','policy-history','policy-read','policy-admit','workflow-prepare','policy-reserve','render-status','render-queue'];
+    const allowed=['task-list','task-read','prepare','intake','policy-context','policy-history','policy-read','policy-admit','workflow-prepare','policy-reserve','render-status','render-queue','intent-create','intent-reconcile','schedule-prepare','schedule-status','schedule-activate','schedule-revoke'];
     if(!allowed.includes(action))throw new Error('Unsupported research action.');
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),RESEARCH_REQUEST_TIMEOUT_MS);let response,value;
     try{response=await (t.d.fetch||t.d.browser.fetch.bind(t.d.browser))('/api/apps/'+encodeURIComponent(t.scope.app)+'/organic-video/'+action,{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-CSRF-Token':t.d.state.boot.csrf},body:JSON.stringify(body),signal:controller.signal});value=await response.json();}
@@ -206,9 +206,10 @@
       const receipt=admission?`<p>${record.admission&&!matched?'A different artifact approval is already saved.':'Artifact approval saved.'} ${admission.reserved_calls} provider calls held. Facebook delivery is a separate step.</p><details><summary>View approval receipt</summary><p>Receipt ${m.esc(admission.id)}</p><p class="app-mono">${m.esc(admission.hash)}</p></details>`:'';
       const approval=!admission&&mayWrite&&job?.status==='SUCCEEDED'&&job.artifact_sha256?
         button(record.admission?'Review the same artifact approval':'Review video for artifact approval','render-admission','',true):'';
+      const delivery=result.delivery?button(result.delivery.intent?'Open Facebook delivery':'Schedule this Facebook Reel','delivery-open','',true):'';
       const another=(!reservation||['SUCCEEDED','FAILED','CANCELLED'].includes(job?.status))?
         button('Choose another render','render-new',record.intake.id):'';
-      show(t.d,'Local render status','render-status',`${summary}${receipt}<div class="button-row">${approval}${next}${button('Refresh render status','render-inspect')}${another}${button('Back to research card','render-back')}</div>`,
+      show(t.d,'Local render status','render-status',`${summary}${receipt}<div class="button-row">${delivery}${approval}${next}${button('Refresh render status','render-inspect')}${another}${button('Back to research card','render-back')}</div>`,
         {saved,record,reservation,job,admission,available:result.available},t.scope);
     }finally{busy(t,false);}
   }
@@ -269,6 +270,88 @@
       if(current(t))show(t.d,'Inspect this render request','render-recovery',`<p role="alert">${m.esc(error.message)}</p><p>Inspect the saved artifact approval before retrying.</p>${button('Inspect saved render status','render-inspect','',true)}`,{saved,record},t.scope);
     }finally{busy(t,false);}
   }
+  const displayTime=value=>new Date(value).toLocaleString();
+  function deliveryStage(intent){
+    if(!intent)return '<p>Delivery has not been prepared.</p>';
+    return `<dl><dt>Provider stage</dt><dd>${m.esc(label(intent.stage))}</dd><dt>Remote video ID</dt><dd>${m.esc(intent.remote_id||'None recorded')}</dd><dt>Call allowance used</dt><dd>${intent.calls_used}</dd><dt>Last recorded update</dt><dd>${m.esc(displayTime(intent.updated))}</dd></dl>`;
+  }
+  async function openDelivery(t){
+    const {saved,record}=t.data;
+    busy(t,true,'Reading the exact approval and delivery history');
+    try{
+      const source=await request(t,'render-status',record.lookup);
+      if(!current(t))return;
+      const delivery=source.delivery,approval=source.admission;
+      if(!delivery||!approval)throw new Error('Approve the finished artifact before planning delivery.');
+      const data={saved,record,delivery,approval};
+      if(delivery.schedule_id)return await showSchedule(t,data,delivery.schedule_id);
+      const identity=delivery.intent;
+      const canDraft=(!identity||identity.stage==='NEW')&&Date.parse(delivery.expires_at)>Date.now()&&record.version===t.scope.version;
+      const form=canDraft?`<form id="oresearch-schedule-form">${field('due','Post once at this local time','','datetime-local','required')}<p>Approval expires ${m.esc(displayTime(delivery.expires_at))}. Saving this draft starts no delivery.</p><button class="button" type="submit">Save draft schedule</button></form>`:'';
+      const repair=identity?.recovery_required&&identity.remote_id?button('Check the existing video on Facebook','delivery-reconcile'):'';
+      show(t.d,'Plan one Facebook Reel','delivery-plan',`<h3>Facebook Page ${m.esc(delivery.draft.page_id)}</h3><p>${m.esc(delivery.draft.caption)}</p>${deliveryStage(identity)}${form||'<p>Inspect the recorded stage or use a current approved artifact for a new delivery.</p>'}${repair}${button('Back to render status','render-inspect')}`,data,t.scope);
+    }finally{busy(t,false);}
+  }
+  async function showSchedule(t,data,id){
+    const value=await request(t,'schedule-status',{batch_id:id});
+    const summary=value.summary;
+    if(value.id!==id||summary.app_id!==t.scope.app||summary.scope_hash!==data.record.lookup.policy_hash||
+      summary.kind!=='ADMITTED_ORGANIC_VIDEO_V1'||value.summary_hash!==await hash(summary,t.d.browser)||
+      !value.items.some(item=>item.intent.request.admission_id===data.approval.id))throw new Error('The saved schedule differs from this approved video.');
+    if(!current(t))return;
+    const controls=value.status==='DRAFT'?button('Activate this exact schedule','delivery-activate','',true):'';
+    const stop=['DRAFT','ACTIVE'].includes(value.status)?button('Turn this schedule off','delivery-off'):'';
+    const phases=value.items.map(item=>{
+      const phase=item.phase_checks,observation=phase.observation;
+      const next=phase.effective_state==='WAITING'&&observation?.next_due?displayTime(observation.next_due*1000):'None scheduled';
+      const jobs=phase.jobs.map(job=>`<li>${m.esc(label(job.status))} · ${m.esc(job.id)}</li>`).join('');
+      const recover=item.intent.recovery_required&&item.intent.remote_id?
+        button('Check the existing video on Facebook','delivery-reconcile',item.intent.id):'';
+      return `<section class="next-step"><div><h3>Due ${m.esc(displayTime(item.due_at))}</h3><p>${m.esc(item.intent.request.caption)}</p><p>Provider ${m.esc(label(item.intent.stage))} · phase checks ${m.esc(label(phase.effective_state))} · next check ${m.esc(next)}.</p><details><summary>Exact video and worker receipts</summary><p>UTC ${m.esc(item.due_at)} · ${m.esc(label(item.status))}</p><p>Video SHA-256 <code>${m.esc(item.intent.request.artifact_sha256)}</code></p>${deliveryStage(item.intent)}${observation?`<p>${m.esc(observation.reason)}</p>`:''}<ul>${jobs||'<li>No job recorded.</li>'}</ul></details>${recover}</div></section>`;
+    }).join('');
+    const monitoring=summary.monitoring;
+    const followup=monitoring?`Up to ${monitoring.max_followup_jobs} phase checks per video, every ${monitoring.interval_seconds} seconds, within its approved allowance.`:'Follow-up checks were not included in this schedule.';
+    show(t.d,'Facebook Reel schedule','delivery-status',`<h3>${m.esc(label(value.status))} · Facebook Page ${m.esc(data.delivery.draft.page_id)}</h3><p>Selected video: ${data.approval.reserved_calls} reserved call units. ${followup}</p>${phases}<details><summary>Exact schedule</summary><p>Approval expires ${m.esc(displayTime(data.delivery.expires_at))}</p><p>Schedule SHA-256 <code>${m.esc(value.summary_hash)}</code></p></details><p>Provider phases describe processing. Public visibility and app outcomes need their own evidence. Turning off cancels queued work and stops future dispatch. A request already in flight can finish. Published posts stay on Facebook.</p><div class="button-row">${controls}${stop}${button('Refresh schedule status','delivery-open')}${button('Download schedule receipt','delivery-json')}${button('Report / Save PDF','delivery-pdf')}${button('Back to render status','render-inspect')}</div>`,
+      {...data,schedule:value},t.scope);
+  }
+  async function changeDelivery(t,mode,{due,intentId}={}){
+    const {delivery,record,schedule}=t.data;
+    busy(t,true,'Applying the reviewed delivery step');
+    try{
+      if(mode==='draft'){
+        const intent=delivery.intent||await request(t,'intent-create',delivery.draft);
+        if(!current(t))return;
+        if(intent.stage!=='NEW'||!m.equal(intent.request,{...delivery.draft,request_id:intent.request.request_id}))
+          throw new Error('The retained delivery differs from the exact approved Reel.');
+        await request(t,'schedule-prepare',{policy_id:record.lookup.policy_id,policy_hash:record.lookup.policy_hash,items:[{intent_id:intent.id,due_at:due}]});
+      }else if(mode==='activate'){
+        await request(t,'schedule-activate',{batch_id:schedule.id,summary_hash:schedule.summary_hash});
+      }else if(mode==='off'){
+        await request(t,'schedule-revoke',{batch_id:schedule.id,version:schedule.version});
+      }else{
+        const intent=schedule?schedule.items.find(row=>row.intent.id===intentId)?.intent:delivery.intent;
+        if(!intent?.remote_id||!intent.recovery_required)throw new Error('No known Facebook video is ready for recovery.');
+        await request(t,'intent-reconcile',{intent_id:intent.id});
+      }
+      if(current(t))await openDelivery(t);
+    }catch(error){
+      if(current(t))show(t.d,'Inspect Facebook delivery','delivery-recovery',`<p role="alert">${m.esc(error.message)}</p><p>Read the saved intent and schedule before choosing another action.</p>${button('Inspect saved Facebook delivery','delivery-open','',true)}${button('Back to render status','render-inspect')}`,t.data,t.scope);
+    }finally{busy(t,false);}
+  }
+  function deliveryReport(t){
+    const value=t.data.schedule;
+    return {schema:'wmm.reel-schedule-report.v1',title:'Facebook Reel schedule',app_id:t.scope.app,app_name:t.d.state.workspace.app.data.name,
+      scope:'SELECTED_APP',manifest_version:t.scope.version,generated_at:new Date().toISOString(),loaded_at:new Date().toISOString(),
+      purpose:'Review the scheduled Reel and saved provider observations.',next_step:'Inspect the latest worker receipt and verify public visibility separately.',
+      filters:{schedule_id:value.id,state:value.status,summary_hash:value.summary_hash},
+      metrics:[{label:'Selected video reserved call units',value:t.data.approval.reserved_calls,unit:'count',source:'Exact artifact approval'}],
+      cohorts:value.items.map(row=>({id:row.intent.id,status:row.intent.stage,horizon:row.due_at,currency:'NOT_APPLICABLE',
+        provider_calls_used:row.intent.calls_used,remote_video_id:row.intent.remote_id,public_visibility:row.intent.public_visibility,
+        phase_check_state:row.phase_checks.effective_state,phase_note:row.phase_checks.observation?.reason??null,
+        next_check:row.phase_checks.effective_state==='WAITING'&&row.phase_checks.observation?.next_due?new Date(row.phase_checks.observation.next_due*1000).toISOString():null,
+        worker_receipts:row.phase_checks.jobs.map(job=>job.id+' · '+job.status).join(', ')||'None recorded'})),
+      notes:['Scheduled delivery and provider processing do not establish public visibility or app outcomes.'],schedule:value};
+  }
   async function read(t,id){busy(t,true,'Reading retained task and evidence');try{const saved=await request(t,'task-read',{task_id:id});if(current(t))details(t,saved);}catch(e){fail(t,e);}finally{busy(t,false);}}
   async function adoption(t,id){
     if(retained(t).length)throw new Error('Inspect the uncertain save before adopting another source.');
@@ -324,6 +407,12 @@
   async function submit(form,d){const t=active;if(!t||!current(t)||t.busy)return;try{
     if(t.kind==='render-form')return await reviewRender(t,form);
     if(t.kind==='artifact-review')return await approveArtifact(t,form);
+    if(t.kind==='delivery-plan'){
+      const due=new Date(new d.FormData(form).get('due'));
+      if(!Number.isFinite(due.getTime())||due.getTime()<=Date.now()||due.getTime()>=Date.parse(t.data.delivery.expires_at))
+        throw new Error('Choose a future time before the approval expires.');
+      return await changeDelivery(t,'draft',{due:due.toISOString()});
+    }
     if(retained(t).length)throw new Error('Inspect the uncertain save before another request.');
     if(t.kind==='assignment')return reviewWrite(t,'prepare',taskBody(new d.FormData(form),t.data.grants,d.state,d.uuid));
     if(t.kind==='adoption'){const fields=new d.FormData(form);busy(t,true,'Binding your review to the saved candidate');const body=await adoptionBody(fields,t);if(current(t))return reviewWrite(t,'intake',body);}
@@ -342,6 +431,12 @@
     if(mode==='render-page'&&t.kind==='render-choices')return await renderStart(t,t.data.intake.id,m.integer(node.dataset.id,'Approval history offset',0,2000));
     if(mode==='render-policy'&&t.kind==='render-choices')return await renderForm(t,Number(node.dataset.id));
     if(mode==='render-admission'&&t.kind==='render-status')return await reviewArtifact(t);
+    if(mode==='delivery-open'&&t.data?.record)return await openDelivery(t);
+    if(mode==='delivery-activate'&&t.kind==='delivery-status'&&t.data.schedule.status==='DRAFT')return await changeDelivery(t,'activate');
+    if(mode==='delivery-off'&&t.kind==='delivery-status')return await changeDelivery(t,'off');
+    if(mode==='delivery-reconcile'&&['delivery-plan','delivery-status'].includes(t.kind))return await changeDelivery(t,'reconcile',{intentId:node.dataset.id});
+    if(mode==='delivery-pdf'&&t.kind==='delivery-status')return d.pageReports.openReport(deliveryReport(t),d.browser);
+    if(mode==='delivery-json'&&t.kind==='delivery-status')return d.download(t.scope.app+'-reel-schedule.json',deliveryReport(t));
     if(mode==='render-back'&&t.kind.startsWith('render-'))return details(t,t.data.saved);
     if(mode==='render-inspect'&&t.data?.record)return await inspectRender(t,t.data.record,t.data.saved);
     if(mode==='render-new'&&t.kind==='render-status'){
