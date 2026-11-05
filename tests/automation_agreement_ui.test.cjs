@@ -28,3 +28,27 @@ test('preview is single flight and ignores late readback after context changes',
 test('summary prioritizes uncertainty and preserves a concrete existing repair route',()=>{const a=fixture();const uncertain=a.guidance({dispatch_uncertain:true,campaign:{effective_status:'ACTIVE'}});assert.equal(uncertain.tool,'campaign');assert.match(uncertain.label,/reconciliation/);assert.match(uncertain.next,/before any retry/);assert.equal(a.guidance({local_work:{effective_status:'OFF',repair:'Renew exact scope'}}).next,'Renew exact scope');assert.equal(a.guidance({schedule:{effective_status:'OFF'}}).tool,'campaign');assert.equal(a.guidance({campaign:{effective_status:'ACTIVE'}}).tool,null);});
 
 test('campaign report selects no executor even alongside a local policy agent',()=>{for(const local_work of [null,{id:'local',effective_status:'ACTIVE',summary:{inventory:{selection:{agent_id:'local-only-agent'}}}}]){const a=fixture();const data={summary_hash:'hash',observed_at:'now',summary:{app:{id:'one',version:1},owner:{principal:'owner'},local_work,campaign:{id:'scope',effective_status:'ACTIVE',commitment_held_minor:0,approval:{max_total_minor:1,currency:'CAD'}},schedule:null}};const report=a.reportModel(data,{notes:[]});assert.match(report.notes.join(' '),/No agent selected by campaign scope/);assert.match(report.notes.join(' '),/separate owner, worker or scoped grant authority/);if(local_work)assert.match(report.notes.join(' '),/local-work agent local-only-agent/);assert.equal(report.notes.some(note=>note.includes('Campaign agent local-only-agent')),false);}});
+
+test('scheduled campaign names its worker, owner and saved scopes independently of the local agent',()=>{
+ const a=fixture(),data={status:'success',summary_hash:'hash',observed_at:'now',summary:{
+  app:{id:'one',version:1},owner:{principal:'<owner>'},
+  local_work:{id:'local',effective_status:'ACTIVE',summary:{inventory:{selection:{agent_id:'local-only-agent'}}},usage:{}},
+  campaign:{id:'<campaign>',effective_status:'ACTIVE',commitment_held_minor:0,approval:{page_id:'123',max_total_minor:0,currency:'CAD'},account:{},blockers:[]},
+  schedule:{id:'<batch>',effective_status:'ACTIVE',items:[],blockers:[]},stop_rules:[],revocation:'OFF'}};
+ for(const state of ['ACTIVE','OFF','BLOCKED']) {
+  data.summary.schedule.effective_status=state;
+  const html=a.markup(data),notes=a.reportModel(data,{notes:[]}).notes.join(' ');
+  assert.match(html,/Scheduled executor when the batch is active/);
+  assert.match(html,/WMM background worker/);
+  assert.match(html,/Owner &lt;owner&gt;/);
+  assert.match(html,/Batch &lt;batch&gt;/);
+  assert.match(html,/Campaign scope &lt;campaign&gt;/);
+  assert.equal(html.includes('<owner>'),false);
+  assert.match(notes,/WMM background worker/);
+  assert.match(notes,/Owner <owner>/);
+  assert.match(notes,/Batch <batch>/);
+  assert.match(notes,/Campaign scope <campaign>/);
+  assert.match(notes,/local-work agent local-only-agent/);
+  assert.equal(notes.includes('Campaign agent local-only-agent'),false);
+ }
+});
