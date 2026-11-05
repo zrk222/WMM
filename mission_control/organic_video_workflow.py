@@ -1,10 +1,12 @@
-"""Prepare a bound next operation; callers retain separate exact admissions."""
+"""Prepare, queue and inspect a policy-bound local render under separate admissions."""
+import json
+
 from .common import Invalid, digest
 from .db import connection
-from .campaign_contract import exact
+from .campaign_contract import exact, hashes
 from .organic_video_intake import _view as intake_view, _current_outputs
-from .organic_video_policy import Policies, _authority, _approved_inputs
-from .hypit_jobs import resolve_inputs
+from .organic_video_policy import Policies, _authority, _approved_inputs, _saved
+from .hypit_jobs import HypitRenders, resolve_inputs
 from .social_contract import reference
 
 def prepare(store, app_id, actor, body) -> object:
@@ -60,3 +62,68 @@ def prepare(store, app_id, actor, body) -> object:
                   source_verification='EXTERNAL_AGENT_REPORTED_NOT_INDEPENDENTLY_VERIFIED',
                   authority='RECHECK_EACH_EXACT_OPERATION',paid_calls=0)
         return dict(data=data,hash=digest(data))
+
+
+def _owner_policy(db, app_id, policy_id, actor):
+    policy = _saved(db.execute('SELECT * FROM organic_video_policies WHERE app_id=? AND id=?',
+                               (app_id, policy_id)).fetchone())
+    if policy['data']['owner'] != actor:
+        raise PermissionError('Render reservation belongs to another approving owner')
+    return policy
+
+
+def render_status(store, app_id, actor, body):
+    """Read an exact reservation and its bound job, even after approval expiry."""
+    exact(body, ('policy_id', 'policy_hash', 'request_id', 'request_hash'))
+    reference(body['policy_id'])
+    reference(body['request_id'])
+    hashes([body['policy_hash']], True)
+    hashes([body['request_hash']], True)
+    with connection(store.path) as db:
+        db.execute('BEGIN')
+        _authority(db, store, app_id, 'organic-video.render-status', body, True)
+        exists = db.execute("SELECT 1 FROM sqlite_master WHERE name='organic_video_policies'").fetchone()
+        if not exists or _owner_policy(db, app_id, body['policy_id'], actor)['hash'] != body['policy_hash']:
+            raise Invalid('Select the exact saved production approval')
+        row = db.execute('''SELECT * FROM organic_video_generation_reservations
+            WHERE app_id=? AND policy_id=? AND request_id=?''',
+                         (app_id, body['policy_id'], body['request_id'])).fetchone()
+        if row is None:
+            return dict(reservation=None, job=None, publication='NOT_RUN')
+        if row['request_hash'] != body['request_hash']:
+            raise Invalid('Saved render request differs from this exact review')
+        reservation = _saved(row)
+        binding = db.execute('SELECT job_id FROM organic_video_reserved_jobs WHERE app_id=? AND reservation_id=?',
+                             (app_id, reservation['id'])).fetchone()
+        job = None
+        if binding is not None:
+            saved = db.execute('''SELECT id, action, request_key, data, status, updated, result FROM jobs
+                WHERE app_id=? AND id=?''', (app_id, binding['job_id'])).fetchone()
+            if (saved is None or saved['action'] != 'hypit_render'
+                    or saved['request_key'] != reservation['data']['job_request_key']
+                    or digest(json.loads(saved['data'])) != reservation['data']['inputs_hash']):
+                raise Invalid('Reserved render job binding changed')
+            result = json.loads(saved['result']) if saved['result'] else {}
+            job = dict(id=saved['id'], status=saved['status'], updated=saved['updated'],
+                       render_id=result.get('render_id'))
+        return dict(reservation=reservation, job=job, publication='NOT_RUN')
+
+
+def queue_render(store, app_id, actor, body):
+    """Queue only the input retained by a current, exact owner reservation."""
+    exact(body, ('reservation_id', 'reservation_hash'))
+    reference(body['reservation_id'])
+    hashes([body['reservation_hash']], True)
+    with connection(store.path) as db:
+        _authority(db, store, app_id, 'organic-video.render-queue', body, True)
+        if not db.execute("SELECT 1 FROM sqlite_master WHERE name='organic_video_generation_reservations'").fetchone():
+            raise Invalid('Reserve this exact render before queueing it')
+        row = db.execute('SELECT * FROM organic_video_generation_reservations WHERE app_id=? AND id=?',
+                         (app_id, body['reservation_id'])).fetchone()
+        reservation = _saved(row)
+        if reservation['hash'] != body['reservation_hash']:
+            raise Invalid('Render reservation changed')
+        _owner_policy(db, app_id, row['policy_id'], actor)
+    data = reservation['data']
+    job = HypitRenders(store).queue(app_id, dict(data=data['render_input'], request_key=data['job_request_key']))
+    return dict(id=job['id'], status=job['status'], updated=job['updated'], publication='NOT_RUN')

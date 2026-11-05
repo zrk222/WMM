@@ -153,7 +153,7 @@ def _authority(db, store, app_id, operation, body, owner_only=False):
     if json.loads(context['envelope']) != dict(app_id=app_id, operation=operation, input=body):
         raise PermissionError('Organic policy operation differs from its protected admission')
     if owner_only and 'grant_id' in context:
-        raise PermissionError('Only the app owner can create or revoke an organic policy')
+        raise PermissionError('This organic video action requires the app owner')
     check(db, context)
     return context
 
@@ -348,10 +348,12 @@ class Policies:
         from .hypit_authoring import project
         with connection(self.store.path) as db:
             db.execute('BEGIN IMMEDIATE')
-            _authority(db, self.store, app_id, 'organic-video.policy-reserve', body)
+            context = _authority(db, self.store, app_id, 'organic-video.policy-reserve', body)
             _schema(db)
             row = db.execute('SELECT * FROM organic_video_policies WHERE app_id=? AND id=?', (app_id, body['policy_id'])).fetchone()
             saved = self._current(db, row)
+            if 'grant_id' not in context and saved['data']['owner'] != context['principal']:
+                raise PermissionError('Only the approving owner can reserve under this policy')
             if saved['hash'] != body['policy_hash']:
                 raise Invalid('Policy hash differs from the owner approval')
             inputs, _ = resolve_inputs(db, self.store, app_id, body['render_input'])
