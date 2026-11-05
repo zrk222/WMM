@@ -11,6 +11,7 @@ from .social_profiles import facebook, selected_page
 from .campaign_contract import scope_data, post_data, ad_data
 from .campaign_transport import MetaTransport, Unconfirmed
 from .campaign_locks import paid_lock, CampaignLockBusy
+from .campaign_destination import check_destination
 
 PAID_EXECUTION_READY = True  # Protected gateway, recovery tests and focused ECC review passed; live acceptance is separate.
 SAFETY_CALL_LIMIT = 160
@@ -241,7 +242,7 @@ class CampaignExecutionService:
                 pauses.append({'intent_id':row['id'],'status':'PAUSE_UNCONFIRMED'})
         return dict(scope,pause_results=pauses)
 
-    def _reserve_post(self,app_id,actor,scope_id,post):
+    def _reserve_post(self,app_id,actor,scope_id,post,destination_check=None):
         with connection(self.store.path) as db:
             db.execute('BEGIN IMMEDIATE');scope=row_scope(self._row(db,app_id,scope_id))
             self._check(db,app_id,actor,scope,'RUN_POST')
@@ -258,7 +259,7 @@ class CampaignExecutionService:
             if count>=scope['max_posts']:raise PermissionError('Approved post count is exhausted')
             identity=uid();stamp=now()
             db.execute('INSERT INTO campaign_intents VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
-                (app_id,identity,scope_id,post['request_id'],digest(post),post['content_hash'],post['rights_hash'],scope['page_id'],'DISPATCHING',None,None,stamp,stamp))
+                (app_id,identity,scope_id,post['request_id'],digest(post),post['content_hash'],post['rights_hash'],scope['page_id'],'DISPATCHING',None,canonical({'destination_check':destination_check}) if destination_check else None,stamp,stamp))
             return row_intent(db.execute('SELECT * FROM campaign_intents WHERE app_id=? AND id=?',(app_id,identity)).fetchone()),True
 
     def _save_intent(self,app_id,identity,status,remote_id=None,result=None):
@@ -279,6 +280,9 @@ class CampaignExecutionService:
             if row is None or row['status'] not in allowed:raise Invalid('Campaign receipt state changed')
             if row['remote_id'] and remote_id and row['remote_id']!=remote_id:
                 raise Invalid('Campaign receipt identity changed')
+            previous=json.loads(row['result']) if row['result'] else {}
+            if 'destination_check' in previous:
+                result=dict(result or {},destination_check=previous['destination_check'])
             db.execute('UPDATE campaign_intents SET status=?,remote_id=COALESCE(?,remote_id),result=?,updated=? WHERE app_id=? AND id=?',
                 (status,remote_id,canonical(result) if result else None,now(),app_id,identity))
             saved=row_intent(db.execute('SELECT * FROM campaign_intents WHERE app_id=? AND id=?',(app_id,identity)).fetchone())
@@ -289,7 +293,20 @@ class CampaignExecutionService:
 
     def run_post(self,app_id,actor,scope_id,body):
         post=post_data(body);scope,secret,token=self._preflight(app_id,actor,scope_id,'RUN_POST')
-        intent,fresh=self._reserve_post(app_id,actor,scope_id,post)
+        with connection(self.store.path) as db:
+            self._check(db,app_id,actor,scope,'RUN_POST')
+            if post['content_hash'] not in scope['approved_content_hashes'] or post['rights_hash'] not in scope['approved_rights_hashes']:
+                raise PermissionError('Post content or rights attestation is outside the approved scope')
+            previous=db.execute('''SELECT 1 FROM campaign_intents WHERE app_id=? AND
+                (request_id=? OR (page_id=? AND content_hash=? AND rights_hash=?))''',
+                (app_id,post['request_id'],scope['page_id'],post['content_hash'],post['rights_hash'])).fetchone()
+        if previous:
+            # A retained or uncertain intent must never trigger a new URL check
+            # or a second dispatch; reserve rechecks exact identity and authority.
+            intent,_=self._reserve_post(app_id,actor,scope_id,post)
+            return intent
+        destination=check_destination(post['link'])
+        intent,fresh=self._reserve_post(app_id,actor,scope_id,post,destination)
         if not fresh:return intent
         try:
             remote=self.transport.publish(scope['page_id'],post['message'],post['link'],token,secret,
@@ -513,7 +530,7 @@ class CampaignExecutionService:
         return value
 
     def _verify_paid(self,app_id,actor,scope,intent,token,secret,action='RUN_AD',active=True):
-        ids=intent['ids'];body=intent['data'];found={}
+        ids=intent['ids'];found={}
         for kind in ('campaign','adset','creative','ad'):
             found[kind]=self._paid_read(app_id,actor,scope,kind,ids[kind],token,secret,action,active)
             if str(found[kind].get('account_id'))!=scope['ad_account_id']:raise Unconfirmed('Advertising object account mismatch')
