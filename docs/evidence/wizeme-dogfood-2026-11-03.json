@@ -1,6 +1,6 @@
 {
   "schema": "wmm.dogfood.public-receipt-index.v1",
-  "snapshot_date_utc": "2026-11-04",
+  "snapshot_date_utc": "2026-11-05",
   "product": "Wize Marketing Machine",
   "dogfood_app": "WizeMe.APP",
   "originals_access": "OWNER_PRIVATE_NOT_PUBLICLY_DISTRIBUTED",
@@ -158,6 +158,29 @@
       "available_instances": 0,
       "metric_observations": null,
       "existing_schedule_preserved": true
+    },
+    {
+      "id": "E11",
+      "kind": "SAVED_APPLE_SCHEDULE_AND_SUCCESSIVE_DUE_JOB_READBACK",
+      "observed_at": "2026-11-05T01:15:12.6589423+00:00",
+      "source_sha256": "93fdff58a3545555d10094f3ce6ce866697f395fa4892391e4d2a7167c01a429",
+      "schedule_enabled": true,
+      "interval_hours": 24,
+      "job_queue_times_utc": [
+        "2026-11-03T13:28:15.5705570Z",
+        "2026-11-04T13:28:16.0049310Z"
+      ],
+      "elapsed_seconds": 86400.434,
+      "same_schedule_identity": true,
+      "latest_job_matches_schedule": true,
+      "later_24_hour_refresh_verified": true,
+      "job_statuses": ["SUCCEEDED", "SUCCEEDED"],
+      "data_statuses": ["WAITING_FOR_REPORTS", "WAITING_FOR_REPORTS"],
+      "next_due_utc_at_inspection": "2026-11-05T13:28:16.0000000Z",
+      "metric_observations": null,
+      "last_successful_metric_collection": null,
+      "external_writes": false,
+      "readback_provider_requests": 0
     }
   ],
   "unproven": [
