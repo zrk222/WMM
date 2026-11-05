@@ -30,7 +30,8 @@
   function validation(node,d,invalid=false){const t=active;if(!t||!current(t)||!node.closest('form[id^="oresearch-"]'))return;if(invalid){node.setAttribute('aria-invalid','true');t.node.querySelector('#oresearch-error').textContent=(node.labels?.[0]?.textContent.trim()||'Research field')+': '+node.validationMessage;}else if(node.validity?.valid){node.removeAttribute('aria-invalid');if(!t.node.querySelector('[aria-invalid="true"]'))t.node.querySelector('#oresearch-error').textContent='';}}
   async function hash(value,browser=globalThis){return Array.from(new Uint8Array(await browser.crypto.subtle.digest('SHA-256',new TextEncoder().encode(m.stable(value)))),b=>b.toString(16).padStart(2,'0')).join('');}
   async function request(t,action,body){
-    const allowed=['task-list','task-read','prepare','intake'];if(!allowed.includes(action))throw new Error('Unsupported research action.');
+    const allowed=['task-list','task-read','prepare','intake','policy-context','policy-history','workflow-prepare','policy-reserve','render-status','render-queue'];
+    if(!allowed.includes(action))throw new Error('Unsupported research action.');
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),RESEARCH_REQUEST_TIMEOUT_MS);let response,value;
     try{response=await (t.d.fetch||t.d.browser.fetch.bind(t.d.browser))('/api/apps/'+encodeURIComponent(t.scope.app)+'/organic-video/'+action,{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-CSRF-Token':t.d.state.boot.csrf},body:JSON.stringify(body),signal:controller.signal});value=await response.json();}
     catch(cause){const e=new Error('The local research response was not received. Inspect the saved request before sending it again.');e.uncertain=true;throw e;}finally{clearTimeout(timer);}
@@ -74,7 +75,7 @@
     const cards=(saved.result?.items||[]).map((row,index)=>{const entry=saved.submission.candidates[index],obs=entry.candidate,url=safeURL(obs.url),q=row.qualification;
       return `<article class="panel"><h3>${m.esc(obs.creator_id)} · ${m.esc(label(obs.platform))}</h3><p>${url?`<a href="${m.esc(url)}" target="_blank" rel="noopener noreferrer">Inspect original source</a>`:'Source link unavailable'}</p><p>Observed views: ${m.esc(obs.views??'Unavailable')} · observed ${m.esc(obs.observed_at)}</p><p>Qualification: ${m.esc(label(q.qualification))} · comparable baseline posts: ${m.esc(q.baseline_count??'Not required for UGC')}</p><p>App relevance: ${m.esc(label(entry.relevance))} · collector's rights claim: ${m.esc(label(entry.rights))}. Reuse permission remains unestablished.</p><p>${m.esc((q.reasons||[]).map(label).join('; '))}</p>${adoptable(saved,row,entry,state)?button('Review this research idea','adopt',row.candidate_id):'<p>Keep as a candidate until the reported evidence, app relevance and current review requirements are satisfied. Bring owned UGC through the media library.</p>'}</article>`;
     }).join('');
-    return `<p><strong>${m.esc(label(saved.status))}</strong> · ${m.esc(saved.task.query.genre)} · ${m.esc(saved.task.query.app_type)}</p><p>Search: ${m.esc(saved.task.query.search_terms)}</p><p>${m.esc(policy.platforms.join(', '))} · access ${m.esc(label(policy.access))} · expires ${m.esc(policy.expires)}</p><p>Limits: ${policy.max_candidates} candidates, ${policy.max_reads} source reads, ${policy.max_seconds} collection seconds. Collector access is externally configured and not independently verified by this receipt.</p><dl>${Object.entries(c).map(([k,v])=>`<dt>${m.esc(label(k))}</dt><dd>${v}</dd>`).join('')}</dl>${saved.status==='READY'?'<p>Your agent can now claim this exact task through its existing scoped CLI/MCP grant. No collection has run yet.</p>':''}${saved.status==='CLAIMED'?`<p>The agent has claimed this task until ${m.esc(saved.claim_until)}. Refresh for its submitted evidence.</p>`:''}${cards}<h3>Source failures</h3>${(saved.result?.source_failures||[]).map(f=>`<p>${m.esc(f.source)} · ${m.esc(label(f.code))}</p>`).join('')||'<p>No source failures recorded. A ready task with no submission has no collection coverage.</p>'}<h3>Saved research approvals</h3>${saved.intakes.map(r=>`<p>Research card saved: ${m.esc(r.id)}. Source ${m.esc(r.data.source.id)} · collection ${m.esc(r.data.collection.id)}. </p>${saved.task.app.version===state.workspace.app.version?button('Prepare original brief','brief',r.id):'<p>This card belongs to an earlier app version. Start a fresh search to use current app proof.</p>'}`).join('')||'<p>No research candidate adopted yet.</p>'}<p>Research approval creates a source card and proposed experiment. It grants no foreign-media reuse, production execution, publication or measured app sales.</p><div class="button-row">${button('Refresh saved task','read',saved.id)}${button('Report / Save PDF','pdf')}${button('Download report JSON','json')}${button('Back to tasks','open')}</div>`;
+    return `<p><strong>${m.esc(label(saved.status))}</strong> · ${m.esc(saved.task.query.genre)} · ${m.esc(saved.task.query.app_type)}</p><p>Search: ${m.esc(saved.task.query.search_terms)}</p><p>${m.esc(policy.platforms.join(', '))} · access ${m.esc(label(policy.access))} · expires ${m.esc(policy.expires)}</p><p>Limits: ${policy.max_candidates} candidates, ${policy.max_reads} source reads, ${policy.max_seconds} collection seconds. Collector access is externally configured and not independently verified by this receipt.</p><dl>${Object.entries(c).map(([k,v])=>`<dt>${m.esc(label(k))}</dt><dd>${v}</dd>`).join('')}</dl>${saved.status==='READY'?'<p>Your agent can now claim this exact task through its existing scoped CLI/MCP grant. No collection has run yet.</p>':''}${saved.status==='CLAIMED'?`<p>The agent has claimed this task until ${m.esc(saved.claim_until)}. Refresh for its submitted evidence.</p>`:''}${cards}<h3>Source failures</h3>${(saved.result?.source_failures||[]).map(f=>`<p>${m.esc(f.source)} · ${m.esc(label(f.code))}</p>`).join('')||'<p>No source failures recorded. A ready task with no submission has no collection coverage.</p>'}<h3>Saved research approvals</h3>${saved.intakes.map(r=>`<p>Research card saved: ${m.esc(r.id)}. Source ${m.esc(r.data.source.id)} · collection ${m.esc(r.data.collection.id)}. </p>${saved.task.app.version===state.workspace.app.version?button('Prepare original brief','brief',r.id):'<p>This card belongs to an earlier app version. Start a fresh search to use current app proof.</p>'}${button('Plan or inspect a local render','render-start',r.id)}`).join('')||'<p>No research candidate adopted yet.</p>'}<p>Research approval creates a source card and proposed experiment. It grants no foreign-media reuse, production execution, publication or measured app sales.</p><div class="button-row">${button('Refresh saved task','read',saved.id)}${button('Report / Save PDF','pdf')}${button('Download report JSON','json')}${button('Back to tasks','open')}</div>`;
   }
   function details(t,saved){const next=show(t.d,'Review agent research','detail',taskHTML(saved,t.d.state),saved,t.scope);recovery(next);return next;}
   async function prepareBrief(t,id){
@@ -94,6 +95,128 @@
         asset_ids:checked.data.review.card.authentic_evidence_ids,objective:checked.data.review.card.next_experiment,
         discovery:{schema:'wmm.brief-discovery.v1',mode:'ORIGINAL_RECREATION',manifest_version:t.scope.version,
           collection_id:collection.id,collection_hash:collection.hash,reference_id:source.id,review_hash:review.hash}});
+    }finally{busy(t,false);}
+  }
+  const renderKey=(t,id)=>'wmm-local-render:'+JSON.stringify([t.scope.app,t.scope.principal,id]);
+  function renderRecord(t,intake){
+    try{return JSON.parse(t.d.browser.sessionStorage.getItem(renderKey(t,intake.id)));}catch{return null;}
+  }
+  function storeRender(t,record){
+    // Keep exact retry identities and clip positions in this tab. Never persist session credentials.
+    t.d.browser.sessionStorage.setItem(renderKey(t,record.intake.id),JSON.stringify(record));
+  }
+  async function renderStart(t,id,offset=0){
+    const saved=t.kind==='detail'?t.data:t.data.saved;
+    const intake=saved.intakes.find(item=>item.id===id);
+    if(!intake)throw new Error('Select a saved research card.');
+    const record=renderRecord(t,intake);
+    if(record&&t.kind==='detail')return inspectRender(t,record,saved);
+    if(saved.task.app.version!==t.scope.version)throw new Error('Use a research card from the current app version.');
+    busy(t,true,'Finding compatible briefs and production approvals');
+    try{
+      const page=await request(t,'policy-history',{offset,request_id:null});
+      if(!current(t))return;
+      const briefs=(t.d.state.workspace.briefs||[]).filter(b=>b.evidence_status==='CURRENT'&&
+        b.current.data.discovery?.collection_provenance?.intake_id===intake.id);
+      const policies=page.items.filter(p=>!p.revoked&&!p.expired&&p.app_current&&p.owner_current&&p.remaining.generations>0);
+      const choices=[];
+      for(const brief of briefs){
+        const claims=brief.current.data.records.filter(r=>r.kind==='claim');
+        for(const policy of policies){
+          const rules=policy.snapshot.policy;
+          if(!claims.every(c=>rules.claims.some(r=>r.id===c.id&&r.sha256===c.hash)))continue;
+          for(const template of rules.templates){
+            if(template.claim_ids.length!==claims.length||!claims.every(c=>template.claim_ids.includes(c.id)))continue;
+            choices.push({brief,policy,template});
+          }
+        }
+      }
+      const rows=choices.map(({brief,policy,template},index)=>`<section class="next-step"><h3>${m.esc(brief.current.data.definition.objective)}</h3><p>Page ${m.esc(policy.snapshot.policy.page_id)} · ${policy.remaining.generations} local slots remaining</p><p>${m.esc(template.caption)}</p>${button('Use this brief and caption','render-policy',String(index))}</section>`).join('');
+      const next=page.next_offset!==null?button('More saved approvals','render-page',String(page.next_offset)):'';
+      show(t.d,'Choose an approved local render','render-choices',`<p>Choose a brief and an exact caption from your saved production approvals. Then place the approved clips in the scenes you want to use.</p>${rows||'<p>No compatible brief and approval on this page. Save a current brief and choose its exact claims in Video production approvals.</p>'}${next}${button('Back to research card','render-back')}`,{saved,intake,choices},t.scope);
+    }finally{busy(t,false);}
+  }
+  async function renderForm(t,index){
+    const choice=t.data.choices[index];if(!choice)throw new Error('Choose a current brief and caption.');
+    busy(t,true,'Checking rights-reviewed clips');
+    try{
+      const context=await request(t,'policy-context',{});
+      if(!current(t))return;
+      const {brief,policy,template}=choice;
+      const approved=policy.snapshot.policy.sources;
+      const clips=context.eligible.sources.filter(c=>approved.some(s=>s.id===c.id&&s.sha256===c.sha256&&s.review_version===c.review_version));
+      if(!clips.length)throw new Error('Review the source clip rights and approve the current clip versions before rendering.');
+      const beats=brief.current.data.content.beats;
+      const options=[['','Text only'],...clips.map(c=>[c.id,c.title||c.id])];
+      const sceneFields=beats.map((beat,i)=>`<fieldset><legend>Scene ${i+1}</legend><p>${m.esc(beat.script)}</p>${select('clip-'+i,'Approved clip for scene '+(i+1),options)}${field('frame-'+i,'Clip start frame at 24 fps','0','number','min="0" max="1439" step="1" required')}</fieldset>`).join('');
+      show(t.d,'Place your approved clips','render-form',`<p>Use at least one clip. Other scenes keep the brief’s original text. All clip audio is muted.</p><form id="oresearch-render-form">${select('shape','Output shape',[['PORTRAIT','Portrait'],['LANDSCAPE','Landscape']])}${sceneFields}<button type="submit" class="button">Review this local render</button></form>${button('Back to research card','render-back')}`,
+        {saved:t.data.saved,intake:t.data.intake,choice,clips},t.scope);
+    }finally{busy(t,false);}
+  }
+  async function reviewRender(t,form){
+    const {saved,intake,choice,clips}=t.data,{brief,policy,template}=choice;
+    const fd=new t.d.FormData(form),footage=[];
+    for(const [i] of brief.current.data.content.beats.entries()){
+      const id=fd.get('clip-'+i);if(!id)continue;
+      const clip=clips.find(c=>c.id===id);
+      if(!clip)throw new Error('Select a currently approved clip.');
+      footage.push({scene_index:i,id,sha256:clip.sha256,in_frame:m.integer(fd.get('frame-'+i),'Clip start frame',0,1439),audio:'MUTE'});
+    }
+    if(!footage.length)throw new Error('Add at least one approved clip to a scene.');
+    const input={brief_id:brief.id,brief_hash:brief.current.hash,shape:fd.get('shape'),footage};
+    const body={request_id:t.d.uuid(),intake_id:intake.id,intake_hash:intake.hash,policy_id:policy.id,policy_hash:policy.hash,template_id:template.id,render_input:input};
+    busy(t,true,'Validating the exact brief, clips and approval');
+    try{
+      const plan=await request(t,'workflow-prepare',body);
+      const op=plan.data?.next_operation;
+      const reserve={policy_id:policy.id,policy_hash:policy.hash,request_id:body.request_id,template_id:template.id,render_input:input};
+      if(plan.hash!==await hash(plan.data,t.d.browser)||plan.data.state!=='READY_FOR_SEPARATE_RESERVATION'||
+        plan.data.intake_hash!==intake.hash||op?.app_id!==t.scope.app||op.operation!=='organic-video.policy-reserve'||!m.equal(op.input,reserve))throw new Error('The render review receipt differs from your exact choices.');
+      if(!current(t))return;
+      const preflight=await t.d.api('/api/apps/'+encodeURIComponent(t.scope.app)+'/production/hypit-plan',{data:input},
+        {signal:AbortSignal.timeout(RESEARCH_REQUEST_TIMEOUT_MS)});
+      if(preflight.input_hash!==plan.data.inputs_hash)throw new Error('The local production plan changed. Review the current inputs again.');
+      if(preflight.readiness.remediation.length)throw new Error(preflight.readiness.remediation.join(' '));
+      const lookup={policy_id:policy.id,policy_hash:policy.hash,request_id:body.request_id,request_hash:await hash(reserve,t.d.browser)};
+      if(!current(t))return;
+      const rows=footage.map(f=>`<li>Scene ${f.scene_index+1} · ${m.esc(clips.find(c=>c.id===f.id).title||f.id)} · starts at frame ${f.in_frame} · muted</li>`).join('');
+      const record={intake:{id:intake.id,hash:intake.hash},version:t.scope.version,lookup,reserve,inputs_hash:plan.data.inputs_hash};
+      const scene=preflight.scene;
+      show(t.d,'Review this exact local render','render-confirm',`<h3>${m.esc(brief.current.data.definition.objective)}</h3><p>${m.esc(template.caption)}</p><p>${scene.width} × ${scene.height} · ${scene.duration_seconds} seconds · one local render slot · zero model-service spending</p><ul>${rows}</ul><p>Hypit checks its compiler and browser when you start the render. Publication requires its own approval.</p><div class="button-row">${button('Reserve this local render','render-reserve','',true)}${button('Back to research card','render-back')}</div>`,{saved,record},t.scope);
+    }finally{busy(t,false);}
+  }
+  async function inspectRender(t,record,saved){
+    busy(t,true,'Inspecting the saved reservation and render job');
+    try{
+      const result=await request(t,'render-status',record.lookup);
+      if(!current(t))return;
+      const reservation=result.reservation,job=result.job;
+      if(reservation&&(reservation.hash!==await hash(reservation.data,t.d.browser)||
+        reservation.data.inputs_hash!==record.inputs_hash||reservation.data.policy_hash!==record.lookup.policy_hash||
+        reservation.data.policy_id!==record.lookup.policy_id||reservation.data.template_id!==record.reserve.template_id||
+        !m.equal(reservation.data.render_input,record.reserve.render_input)))throw new Error('Saved reservation differs from this reviewed render.');
+      if(!current(t))return;
+      const mayWrite=record.version===t.scope.version;
+      const summary=job?`<p>Local render ${m.esc(label(job.status))}. Job ${m.esc(job.id)}.</p>`:reservation?
+        '<p>One slot is reserved. A render job has not been recorded.</p>':'<p>No reservation was observed for this exact request.</p>';
+      const next=job?(job.render_id?button('Preview local MP4','render-preview',job.render_id,true):''):
+        mayWrite?(reservation?button('Start the reserved Hypit render','render-queue','',true):button('Retry the exact reservation','render-reserve','',true)):'';
+      const another=(!reservation||['SUCCEEDED','FAILED','CANCELLED'].includes(job?.status))?
+        button('Choose another render','render-new',record.intake.id):'';
+      show(t.d,'Local render status','render-status',`${summary}<p>Check the saved output before any publication decision.</p><div class="button-row">${next}${button('Refresh render status','render-inspect')}${another}${button('Back to research card','render-back')}</div>`,{saved,record,reservation},t.scope);
+    }finally{busy(t,false);}
+  }
+  async function writeRender(t,mode){
+    const {record,saved,reservation}=t.data;
+    if(!record||record.version!==t.scope.version)throw new Error('The app changed. Inspect the saved status before preparing a new render.');
+    storeRender(t,record);
+    busy(t,true,mode==='render-reserve'?'Reserving this exact input':'Starting the saved local render');
+    try{
+      if(mode==='render-reserve')await request(t,'policy-reserve',record.reserve);
+      else await request(t,'render-queue',{reservation_id:reservation.id,reservation_hash:reservation.hash});
+      if(current(t))await inspectRender(t,record,saved);
+    }catch(error){
+      if(current(t))show(t.d,'Inspect this render request','render-recovery',`<p role="alert">${m.esc(error.message)}</p><p>Read the saved reservation and job before attempting this action again.</p>${button('Inspect saved render status','render-inspect','',true)}${button('Back to research card','render-back')}`,{saved,record},t.scope);
     }finally{busy(t,false);}
   }
   async function read(t,id){busy(t,true,'Reading retained task and evidence');try{const saved=await request(t,'task-read',{task_id:id});if(current(t))details(t,saved);}catch(e){fail(t,e);}finally{busy(t,false);}}
@@ -149,6 +272,7 @@
     throw new Error('No matching saved request was observed. Keep this uncertainty, or explicitly retry the identical request.');
     }catch(e){fail(t,e);}finally{busy(t,false);}}
   async function submit(form,d){const t=active;if(!t||!current(t)||t.busy)return;try{
+    if(t.kind==='render-form')return await reviewRender(t,form);
     if(retained(t).length)throw new Error('Inspect the uncertain save before another request.');
     if(t.kind==='assignment')return reviewWrite(t,'prepare',taskBody(new d.FormData(form),t.data.grants,d.state,d.uuid));
     if(t.kind==='adoption'){const fields=new d.FormData(form);busy(t,true,'Binding your review to the saved candidate');const body=await adoptionBody(fields,t);if(current(t))return reviewWrite(t,'intake',body);}
@@ -163,6 +287,19 @@
   async function action(node,d){const mode=node.dataset.action.slice('oresearch-'.length);if(mode==='open'){if(!owner(d.state)){d.toast('Sign in as this app owner to assign or approve research.');return;}return open(d);}const t=active;if(!t||!current(t)||t.busy)return;try{
     if(mode==='new')return assignment(t);if(mode==='page')return open(d,m.integer(node.dataset.id,'History offset',0,100000));if(mode==='read')return read(t,node.dataset.id);if(mode==='adopt')return await adoption(t,node.dataset.id);
     if(mode==='brief'&&t.kind==='detail')return await prepareBrief(t,node.dataset.id);
+    if(mode==='render-start'&&t.kind==='detail')return await renderStart(t,node.dataset.id);
+    if(mode==='render-page'&&t.kind==='render-choices')return await renderStart(t,t.data.intake.id,m.integer(node.dataset.id,'Approval history offset',0,2000));
+    if(mode==='render-policy'&&t.kind==='render-choices')return await renderForm(t,Number(node.dataset.id));
+    if(mode==='render-back'&&t.kind.startsWith('render-'))return details(t,t.data.saved);
+    if(mode==='render-inspect'&&t.data?.record)return await inspectRender(t,t.data.record,t.data.saved);
+    if(mode==='render-new'&&t.kind==='render-status'){
+      t.d.browser.sessionStorage.removeItem(renderKey(t,node.dataset.id));return await renderStart(t,node.dataset.id);
+    }
+    if((mode==='render-reserve'&&['render-confirm','render-status'].includes(t.kind))||
+      (mode==='render-queue'&&t.kind==='render-status'&&t.data.reservation))return await writeRender(t,mode);
+    if(mode==='render-preview'&&t.kind==='render-status'){
+      busy(t,true,'Opening the saved local MP4');try{await t.d.refresh();if(current(t))t.d.openResearchRender(node.dataset.id);}finally{busy(t,false);}return;
+    }
     if(mode==='confirm'){if(t.kind!=='confirm'||retained(t).length)throw new Error('Review the current exact request before confirming.');if(pending.size>=RESEARCH_PENDING_LIMIT)throw new Error('Inspect existing uncertain saves before another request.');const r={scope:m.copy(t.scope),action:t.data.action,body:m.copy(t.data.body)};pending.set(r.body.request_id,r);return write(t,r);}
     if(mode==='inspect'||mode==='retry'){const r=pending.get(node.dataset.id);if(!r||!m.equal(r.scope,t.scope))throw new Error('No uncertain request belongs to this context.');return mode==='inspect'?inspect(t,r):write(t,r);}
     if(mode==='json'&&t.kind==='detail')return download(t);if(mode==='pdf'&&t.kind==='detail')return d.pageReports.openReport(report(t.data,d.state),d.browser);

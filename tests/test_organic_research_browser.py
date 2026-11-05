@@ -6,11 +6,14 @@ import platform
 from datetime import datetime, timezone
 from pathlib import Path
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from mission_control.db import connection
 from mission_control.creative_briefs import Briefs
 from mission_control.creative_library import Library
 from tests import test_organic_research_http as fixture
+from tests import test_organic_video_workflow as workflow_fixture
 from tests.production_fixtures import ready_capabilities
 
 BROWSER_PROFILE = os.environ.get('WMM_BROWSER_TEST_PROFILE') == '1'
@@ -193,6 +196,94 @@ class OrganicResearchBrowserTests(unittest.TestCase):
 
     def test_mobile_research_to_original_brief_and_revision(self):
         self.research_brief(390)
+
+    def approved_render(self, width, lose_responses):
+        workflow = workflow_fixture.VerticalWorkflowTests()
+        workflow.setUp()
+        self.addCleanup(workflow.doCleanups)
+        readiness = dict(remediation=[] if lose_responses else ['Install the optional Hypit CLI.'])
+        with (workflow.owner_http() as (client, _),
+              patch('mission_control.hypit_jobs.identity', return_value=dict(launcher='fixture', launcher_sha256='0'*64)),
+              patch('mission_control.hypit_preflight.readiness', return_value=readiness)):
+            self.f = SimpleNamespace(origin=client.origin, client=client)
+            context, page, errors, external = self.page(width)
+            modal = page.locator('#modal')
+            modal.locator('[data-action="oresearch-read"]').click()
+            modal.get_by_role('button', name='Plan or inspect a local render').click()
+            modal.get_by_role('button', name='Use this brief and caption').click()
+            expect(modal.get_by_role('heading', name='Place your approved clips')).to_be_visible()
+            modal.get_by_role('button', name='Review this local render').click()
+            expect(modal.get_by_role('alert')).to_contain_text('Add at least one approved clip')
+            modal.get_by_label('Approved clip for scene 1').select_option(workflow.source['id'])
+            if not lose_responses:
+                modal.get_by_role('button', name='Review this local render').click()
+                expect(modal.get_by_role('alert')).to_contain_text('Install the optional Hypit CLI.')
+                expect(modal.get_by_role('button', name='Reserve this local render')).to_have_count(0)
+                readiness['remediation'].clear()
+            modal.get_by_role('button', name='Review this local render').click()
+            expect(modal.get_by_role('heading', name='Review this exact local render')).to_be_visible()
+            self.snapshot(page, width, 'exact-render')
+            with connection(workflow.store.path) as db:
+                self.assertEqual(db.execute('SELECT count(*) FROM organic_video_generation_reservations').fetchone()[0], 0)
+                self.assertEqual(db.execute('SELECT count(*) FROM jobs').fetchone()[0], 0)
+
+            lost = []
+            def lose_once(route):
+                response = route.fetch()
+                lost.append(response.status)
+                route.abort()
+            if lose_responses:
+                context.route('**/organic-video/policy-reserve', lose_once, times=1)
+                context.route('**/organic-video/render-queue', lose_once, times=1)
+            reserve = modal.get_by_role('button', name='Reserve this local render')
+            reserve.focus()
+            expect(reserve).to_be_focused()
+            page.keyboard.press('Enter')
+            if lose_responses:
+                expect(modal.get_by_role('button', name='Start the reserved Hypit render')).to_have_count(0)
+                modal.get_by_role('button', name='Inspect saved render status').click()
+            expect(modal).to_contain_text('One slot is reserved')
+            with connection(workflow.store.path) as db:
+                self.assertEqual(db.execute('SELECT count(*) FROM jobs').fetchone()[0], 0)
+            modal.get_by_role('button', name='Start the reserved Hypit render').click()
+            if lose_responses:
+                expect(modal.get_by_role('heading', name='Inspect this render request')).to_be_visible()
+                page.reload()
+                nav = page.locator('[data-view="research"]')
+                if not nav.is_visible():
+                    page.locator('details').filter(has=nav).locator('summary').first.click()
+                nav.click()
+                page.locator('[data-action="oresearch-open"]').click()
+                modal.locator('[data-action="oresearch-read"]').click()
+                modal.get_by_role('button', name='Plan or inspect a local render').click()
+            expect(modal).to_contain_text('Local render queued.')
+            self.snapshot(page, width, 'saved-render')
+            stored = page.evaluate("() => Object.keys(sessionStorage).filter(k => k.startsWith('wmm-local-render:')).map(k => sessionStorage.getItem(k))")
+            [retained] = [json.loads(item) for item in stored]
+            self.assertEqual(set(retained), {'intake', 'version', 'lookup', 'reserve', 'inputs_hash'})
+            self.assertNotIn('Exact synthetic app demo', stored[0])
+            self.assertNotIn(client.csrf, stored[0])
+            if not lose_responses:
+                lookup = retained['lookup']
+                base = f'/api/apps/{workflow.app}/organic-video/'
+                status = client.request('POST', base + 'render-status', lookup)
+                _, artifact = workflow.render(status['reservation'])
+                modal.get_by_role('button', name='Refresh render status').click()
+                expect(modal).to_contain_text('Local render succeeded.')
+                expect(modal.get_by_role('button', name='Preview local MP4')).to_have_attribute('data-id', artifact['id'])
+            with connection(workflow.store.path) as db:
+                self.assertEqual(db.execute('SELECT count(*) FROM organic_video_generation_reservations').fetchone()[0], 1)
+                self.assertEqual(db.execute("SELECT count(*) FROM jobs WHERE action='hypit_render'").fetchone()[0], 1)
+                self.assertFalse(db.execute("SELECT 1 FROM sqlite_master WHERE name='campaign_video_intents'").fetchone())
+            self.assertEqual(lost, [200, 200] if lose_responses else [])
+            self.assertEqual(errors, [])
+            self.assertEqual(external, [])
+
+    def test_desktop_review_reserve_and_queue_one_approved_render(self):
+        self.approved_render(1440, False)
+
+    def test_mobile_lost_render_responses_recover_after_reload(self):
+        self.approved_render(390, True)
 
     def assignment_with_lost_response(self, mode):
         context, page, errors, external = self.page(390)

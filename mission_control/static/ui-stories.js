@@ -90,6 +90,7 @@
   define('agent-handoff-form','Keep an existing task available to another authorized agent.','WMM saves bounded task context for the original job; a handoff starts no work and grants no execution authority.','Choose the job, recipient, permitted operation and expiry. The recipient needs its own current grant.');
   define('creative-batch-form','Prepare a finite set of local videos from reviewed briefs.','WMM shows the selected variants, expiry and frame allowance before any batch is queued.','Choose the current briefs and shapes, review the exact plan, then queue only if it matches your intent. Publishing remains separate.');
   define('onesignal-key-form onesignal-read-form onesignal-create-form onesignal-channel-form onesignal-recovery-form','Connect your OneSignal app.','WMM keeps keys protected and reads the exact selected app.','Review provider changes or recovery readback before confirming.');
+  define('oresearch-render-form','Place footage from your approval.','Choose a shape and match approved clips to scenes. The local render uses muted clips and the original brief text.','Review the exact inputs and tool checks before reserving one local slot.');
   Object.freeze(FORMS);
   const DIALOGS=Object.freeze({
     'Connect Cloudflare Workers AI':['Connect Cloudflare once.','Choose free or paid inference and set your limits.','Save your protected connection, then test it.'],
@@ -121,6 +122,11 @@
       'Review agent research':'Check the source counts, baseline, relevance and failures. Approve an original app experiment after inspection.',
       'Turn this source into an app experiment':'Keep the observed hook separate from your interpretation. Add authentic app proof and a proposed experiment.',
       'Review this research approval':'Approval saves a research card and proposed experiment. Media reuse, production and publication need their own authority.',
+      'Choose an approved local render':'Start from a saved brief and the caption you’ve already approved for it.',
+      'Place your approved clips':'Decide what viewers will see while each line of your brief plays.',
+      'Review this exact local render':'Check the frame size and footage before you use a slot from your approval.',
+      'Local render status':'Follow the same job from reservation to a local MP4.',
+      'Inspect this render request':'Check whether WMM saved the action before retrying.',
       'Find the words your app should test':'Review your agent’s sources, then save a packet of keyword coverage, competitor overlaps and next experiments.',
       'Choose the rules for your app videos':'Pick the Page, clips, claims and captions. Then review the exact rules your agent will follow.',
       'Review this video production approval':'Check the destination, captions, evidence and limits before granting this approval.',

@@ -4,6 +4,7 @@ The synthetic external-agent assertion is not independently verified collection.
 This test intentionally does not claim an end-to-end workflow exists.
 """
 import unittest
+from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime,timedelta,timezone
 import hashlib
@@ -177,7 +178,8 @@ class VerticalWorkflowTests(unittest.TestCase):
             self.assertEqual(db.execute('SELECT count(*) FROM jobs').fetchone()[0],0)
             self.assertEqual(db.execute('SELECT count(*) FROM organic_video_generation_reservations').fetchone()[0],1)
 
-    def test_owner_http_prepares_reserves_queues_and_recovers_the_exact_job(self):
+    @contextmanager
+    def owner_http(self):
         with Server(('127.0.0.1', 0), self.store) as server:
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
@@ -190,10 +192,14 @@ class VerticalWorkflowTests(unittest.TestCase):
                     return dict(identities.synthetic_identity(path, token), **self.owner)
                 with patch('mission_control.operator_identity.github_read', side_effect=identity):
                     client.request('POST', '/api/identity/login', dict(token=identities.OWNER_TOKEN))
-                    self.owner_http_workflow(client, anonymous)
+                    yield client, anonymous
             finally:
                 server.shutdown()
                 thread.join()
+
+    def test_owner_http_prepares_reserves_queues_and_recovers_the_exact_job(self):
+        with self.owner_http() as (client, anonymous):
+            self.owner_http_workflow(client, anonymous)
 
     def owner_http_workflow(self, client, anonymous):
         base = '/api/apps/' + self.app + '/organic-video/'
