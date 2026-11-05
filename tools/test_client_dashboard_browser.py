@@ -126,7 +126,21 @@ def run():
                 delay_dashboard()
                 page.locator('#client-select').select_option(label='beta')
                 page.wait_for_function('() => typeof window.__releaseTest === "function"')
+                page.evaluate("""() => {
+                  const original = window.fetch;
+                  window.fetch = (...args) => {
+                    if (String(args[0]) === '/auth/logout') return new Promise((resolve, reject) => {
+                      window.__releaseLogout = () => original(...args).then(resolve, reject);
+                    });
+                    return original(...args);
+                  };
+                }""")
                 page.locator('#logout-form button').click()
+                page.wait_for_function('() => typeof window.__releaseLogout === "function"')
+                page.evaluate("async () => { dispatchEvent(new Event('focus')); await new Promise(resolve => setTimeout(resolve, 200)); }")
+                assert page.locator('#workspace').is_hidden(), 'Focus must not restore data or interrupt pending sign-out'
+                assert page.locator('#status-title').inner_text() == 'Signing you out'
+                page.evaluate('() => window.__releaseLogout()')
                 page.locator('#sign-in-form').wait_for(state='visible')
                 page.evaluate('() => { window.__releaseTest(); delete window.__releaseTest; }')
                 assert 'Alpha app' not in page.content() and 'Beta app' not in page.content()
@@ -146,8 +160,19 @@ def run():
                 page.locator('#sign-in-form').wait_for(state='visible')
                 sign_in()
                 page.locator('#count-grid .count').first.wait_for()
+                attempts = []
+                def logout_failure(route):
+                    attempts.append(1)
+                    if len(attempts) == 1:
+                        return route.fulfill(status=503, content_type='application/json', body='{"error":"fixture failure"}')
+                    route.continue_()
+                page.route('**/auth/logout', logout_failure)
                 page.locator('#logout-form button').click()
+                page.locator('#retry-button').wait_for(state='visible')
+                assert page.locator('#workspace').is_hidden()
+                page.locator('#retry-button').click()
                 page.locator('#sign-in-form').wait_for(state='visible')
+                assert len(attempts) == 2
                 assert 'Alpha app' not in page.content() and 'Beta app' not in page.content()
                 page.evaluate("() => dispatchEvent(new PageTransitionEvent('pageshow', {persisted:true}))")
                 page.locator('#sign-in-form').wait_for(state='visible')

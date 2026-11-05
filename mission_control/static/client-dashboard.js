@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const $ = (selector) => document.querySelector(selector);
-  const state = { generation: 0, controllers: new Set(), clients: [], csrf: '', receipt: '', current: null, polling: null, busy: false };
+  const state = { generation: 0, controllers: new Set(), clients: [], csrf: '', receipt: '', current: null, polling: null, busy: false, logoutWanted: false, signingOut: false, logoutCsrf: '' };
   const countNames = ['queued', 'running', 'blocked', 'failed', 'succeeded', 'cancelled', 'unknown', 'interrupted', 'other'];
 
   function abortAll() {
@@ -44,6 +44,7 @@
     $('#status-message').textContent = message;
     $('#sign-in-form').hidden = mode !== 'login';
     $('#retry-button').hidden = mode !== 'retry';
+    $('#retry-button').textContent = state.logoutWanted ? 'Retry sign-out' : 'Try again';
     $('#status-card').hidden = mode === 'hide';
   }
   function request(url, options = {}, generation = state.generation) {
@@ -135,7 +136,7 @@
     $('#status-card').hidden = true;
   }
   async function loadSummary(forceGeneration) {
-    if (state.busy || document.hidden) return;
+    if (state.logoutWanted || state.signingOut || state.busy || document.hidden) return;
     const chosen = selected();
     if (!chosen || !state.csrf) return;
     const generation = forceGeneration ?? state.generation;
@@ -157,6 +158,7 @@
     }
   }
   async function refresh() {
+    if (state.logoutWanted || state.signingOut) return;
     invalidate();
     const generation = state.generation;
     status('Checking your access', 'This page shows assigned workspace summaries only.');
@@ -219,7 +221,10 @@
     $('#workspace').hidden = false;
     loadSummary(generation);
   });
-  $('#retry-button').addEventListener('click', refresh);
+  $('#retry-button').addEventListener('click', () => {
+    if (state.logoutWanted) attemptLogout();
+    else refresh();
+  });
   $('#print-button').addEventListener('click', () => window.print());
   $('#export-button').addEventListener('click', () => {
     const choice = selected();
@@ -232,15 +237,20 @@
     link.click();
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   });
-  $('#logout-form').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const csrf = $('#logout-csrf').value;
-    invalidate();
-    const generation = state.generation;
+  async function attemptLogout() {
+    if (state.signingOut) return;
+    if (!state.logoutWanted) {
+      state.logoutCsrf = $('#logout-csrf').value;
+      state.logoutWanted = true;
+      invalidate();
+    }
+    const csrf = state.logoutCsrf;
     if (!csrf) {
-      status('Sign-out needs a fresh check', 'Your workspace information was cleared. Try again to refresh your sign-in state.', 'retry');
+      status('Sign-out could not start', 'Your workspace information remains cleared. Reload this page and try signing out again.', 'retry');
       return;
     }
+    state.signingOut = true;
+    const generation = state.generation;
     const controller = new AbortController();
     state.controllers.add(controller);
     status('Signing you out', 'Your workspace information has been cleared.');
@@ -254,17 +264,26 @@
         redirect: 'follow',
         signal: controller.signal
       });
-      if (generation !== state.generation) return;
+      if (generation !== state.generation || !state.logoutWanted) return;
       if (!response.ok || new URL(response.url).origin !== window.location.origin) throw new Error('logout-unavailable');
+      state.logoutWanted = false;
+      state.signingOut = false;
+      state.logoutCsrf = '';
       await refresh();
     } catch (error) {
-      if (error.name !== 'AbortError' && generation === state.generation) {
-        invalidate();
-        status('Sign-out could not be confirmed', 'Your workspace information remains cleared. Try again to refresh your sign-in state.', 'retry');
+      if (generation === state.generation && state.logoutWanted) {
+        state.signingOut = false;
+        clearPrivate();
+        $('#logout-csrf').value = '';
+        status('Sign-out could not be confirmed', 'Your workspace information remains cleared. Retry sign-out to revoke this session.', 'retry');
       }
     } finally {
       state.controllers.delete(controller);
     }
+  }
+  $('#logout-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    attemptLogout();
   });
   $('#sign-in-form').addEventListener('submit', () => { invalidate(); status('Opening sign-in', 'Your assigned workspace data has been cleared.'); });
   let refreshTimer = null;
