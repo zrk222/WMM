@@ -18,7 +18,7 @@ class PlayCollectionTests(PlayFixture):
                                      ('app_store','identity_inventory'), ('app_store','reviews'), ('app_store','subscription_catalog')})
         self.assertEqual(self.store.app('sample-one')['data']['store_app_id'], '123')
         self.assertEqual(len(plan['tasks']), 5); self.assertFalse(plan['external_writes'])
-        self.assertEqual(plan['operating_manifest']['policy_version'], 14)
+        self.assertEqual(plan['operating_manifest']['policy_version'], 15)
         self.assertIn('discover_setup', plan['operating_manifest']['supported_resolution_tools'])
         self.assertEqual(plan['operating_manifest']['supported_execution']['provider_writes'], ['campaign.publish','campaign.ad-launch','campaign.pause'])
         self.assertEqual(plan['operating_manifest']['supported_execution']['external_authority'],'SEPARATE_CURRENT_OWNER_CAMPAIGN_SCOPE_AND_SCOPED_GRANT')

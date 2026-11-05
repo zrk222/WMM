@@ -89,16 +89,22 @@ def composition(value):
     layers = []
     media_declarations = []
     media_layers = []
+    has_footage = any('media' in item for item in value['scenes'])
+    footage_frames = (
+        '<space:Frame id="picture" within={canvas.bounds} left="8%" top="23%" right="92%" bottom="75%"/>\n'
+        '<space:Frame id="caption" within={canvas.bounds} left="8%" top="79%" right="92%" bottom="94%"/>\n'
+    ) if has_footage else ''
     start = 0
     for index, item in enumerate(value['scenes']):
         name = 'scene' + str(index)
         windows.append(f'<time:Window id="{name}" from="{start}s" for="{item["seconds"]}s"/>')
-        tracks.append(f'<typo:Flow id="{name}" timeline={{clock.timeline}} within={{body}} style={{body-style}} z="20" align="center" block-align="center" during={{clock.{name}}}>{escape(item["text"])}</typo:Flow>')
+        text_frame = 'caption' if 'media' in item else 'body'
+        tracks.append(f'<typo:Flow id="{name}" timeline={{clock.timeline}} within={{{text_frame}}} style={{body-style}} z="20" align="center" block-align="center" during={{clock.{name}}}>{escape(item["text"])}</typo:Flow>')
         layers.append(f'<film:Track source={{{name}.visual}}/>')
         if 'media' in item:
             media_declarations.append(f'<media:Video id="original{index}" src="./assets/scene{index}.mp4"/>\n'
                 f'<mediaop:Normalize id="normalized{index}" source={{original{index}}} video="primary-moving" audio="none" span-authority="video" clock={{fps}}/>\n'
-                f'<visual:Track id="footage{index}" timeline={{clock.timeline}}><visual:Clip id="clip{index}" media={{normalized{index}.media}} during={{clock.{name}}} frame={{body}} z="0" fit="contain"/></visual:Track>')
+                f'<visual:Track id="footage{index}" timeline={{clock.timeline}}><visual:Clip id="clip{index}" media={{normalized{index}.media}} during={{clock.{name}}} frame={{picture}} z="0" fit="contain"/></visual:Track>')
             media_layers.append(f'<film:Track source={{footage{index}.visual}}/>')
         start += item['seconds']
     imports = ('<import as="mediaop" from="@hypit/media-operations@1"/>\n'
@@ -118,7 +124,7 @@ def composition(value):
 <space:Canvas id="canvas" width="{width}" height="{height}"/>
 <space:Frame id="heading" within={{canvas.bounds}} left="8%" top="6%" right="92%" bottom="22%"/>
 <space:Frame id="body" within={{canvas.bounds}} left="8%" top="27%" right="92%" bottom="88%"/>
-<media:Font id="font" src="./font.ttf" weight="400" style="normal"/>
+{footage_frames}<media:Font id="font" src="./font.ttf" weight="400" style="normal"/>
 <typo:Style id="title-style" recipe={{style.text.title}} font={{font}}/>
 <typo:Style id="body-style" recipe={{style.text.body}} font={{font}}/>
 {media_source}<typo:Flow id="title" timeline={{clock.timeline}} within={{heading}} style={{title-style}} z="10" align="center" block-align="center" during={{clock.window}}>{escape(value['title'])}</typo:Flow>

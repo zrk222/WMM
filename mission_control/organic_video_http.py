@@ -17,7 +17,7 @@ SCHEDULE_ACTIONS = {'schedule-prepare', 'schedule-activate', 'schedule-status', 
 def post(handler, parts):
     """Preparing research is owner-only; recipient agents use the scoped gateway."""
     if (len(parts) != 5 or parts[:2] != ['api', 'apps']
-            or parts[3] != 'organic-video' or parts[4] not in {'prepare', 'task-list', 'task-read', 'intake', 'policy-context', 'policy-history', *POLICY_ACTIONS, *WORKFLOW_ACTIONS, *INTENT_ACTIONS, *SCHEDULE_ACTIONS}):
+            or parts[3] != 'organic-video' or parts[4] not in {'prepare', 'task-list', 'task-read', 'intake', 'policy-context', 'policy-history', *POLICY_ACTIONS, *WORKFLOW_ACTIONS, *INTENT_ACTIONS, *SCHEDULE_ACTIONS, 'import-demo'}):
         raise Invalid('Use the exact video research preparation address')
     identifier(parts[2])
     if handler.command != 'POST' or handler.path != '/' + '/'.join(parts):
@@ -33,6 +33,22 @@ def post(handler, parts):
     user = handler.server.identities.fresh(session)
     if not secrets.compare_digest(singleton(handler, 'X-CSRF-Token'), session):
         raise PermissionError('Reload the current video research session')
+    if parts[4] == 'import-demo':
+        # One closed JSON selection header and original MP4 bytes, never a path,
+        # actor, credential scope or caller-supplied byte digest.
+        from .managed_media_http import body as media_body, MAX_BYTES
+        from .operator_client import strict_json
+        from .organic_video_capture import intake_envelope, import_owner_demo
+        selection_header = singleton(handler, 'X-WMM-Demo-Selection')
+        if len(selection_header) > 4096:
+            raise Invalid('Demo selection exceeds its bounded header limit')
+        selection = strict_json(selection_header.encode('utf-8'))
+        raw = media_body(handler, 'application/octet-stream', MAX_BYTES)
+        envelope = intake_envelope(parts[2], selection, raw)
+        store = handler.server.service.store
+        with bound_owner(store, envelope, handler.server.identities, session, user):
+            result = import_owner_demo(store, parts[2], selection, raw)
+        return handler.send(201, result)
     body = json_body(handler, 'Video research')
     store = handler.server.service.store
     action = parts[4]

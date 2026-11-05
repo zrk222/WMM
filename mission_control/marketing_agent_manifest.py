@@ -1,5 +1,6 @@
 """Versioned operating contract; supported execution is explicitly narrower than goal scope."""
 from .common import Invalid, digest
+from .creative_taste import editing_recipe
 from .meta_media_buyer import index as specialist_index
 
 APPLE_READ_OPERATIONS = ('identity_inventory', 'reviews', 'subscription_catalog',
@@ -13,7 +14,7 @@ PROVIDER_READS = {'app_store':APPLE_READ_OPERATIONS,'apple_ads':('identity_inven
 def operating_manifest(app):
     """Bind expert operating rules and implemented capabilities to exact app intent."""
     return {
-        'schema':'growth.marketing-agent-manifest.v1', 'policy_version':14,
+        'schema':'growth.marketing-agent-manifest.v1', 'policy_version':15,
         'app_id':app['id'], 'manifest_version':app['version'],
         'release':app['data'].get('release'), 'locale':app['data'].get('locale'),
         'store_app_id':app['data'].get('store_app_id'),
@@ -97,6 +98,12 @@ def owner_operating_protocol():
                           'missing_baseline':'CANDIDATE_NOT_QUALIFIED','ugc_intake_exempt':True},
             'reuse':'Discovery qualification never grants reuse rights. Require current rights and exact source hashes before production.',
             'direction':'Use current app-bound creative taste, audience, hook, beat, treatment and owner edits; preview and inspect the actual render.',
+            'draft_editing_recipe':editing_recipe(),
+            'viral_repurpose_order':['discover_social_source','verify_100000_views_and_10x_documented_creator_baseline',
+                'analyse_source_hook_beats_and_treatment','record_owner_reuse_decision',
+                'repurpose_for_approved_app_and_purpose','review_exact_render','publish_with_current_authority','monitor_and_report'],
+            'workflow_fidelity':'A selected viral-repurposing campaign cannot fall back to an original app-demo or UGC workflow. Retain unqualified candidates and collect missing evidence; ask the owner before changing workflow.',
+            'reuse_authority':'The owner authorizes source reuse; WMM records the exact source, decision and evidence. An agent taste review, high view count or discovery qualification does not grant rights.',
             'claims':'Use authentic app capabilities and substantiated proof. Do not promise virality, installs, revenue or unmeasured savings.'},
         'campaign_automation':{
             'scope_owner':'Only a fresh authenticated owner can prepare and activate exact content/account/targeting/budget scope.',

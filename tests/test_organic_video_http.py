@@ -1,5 +1,8 @@
 """Actual loopback owner admission with temporary data and synthetic identities."""
 import json
+import hashlib
+import http.client
+import socket
 import unittest
 from urllib.error import HTTPError
 from urllib.request import Request
@@ -12,9 +15,90 @@ from tests import test_agent_mcp as sdk
 from tests import test_agent_review_clients as reviewed_clients
 from tests import test_video_edit_clients as edit_clients
 from tests.test_organic_video_discovery import bundle
+from tests.test_organic_video_capture import OrganicVideoCaptureTests
 
 
 BASE = '/api/apps/sample-one/organic-video/'
+
+
+class OrganicDemoHTTPTests(unittest.TestCase):
+    """Real owner transport; synthetic decoded MP4 and disposable workspace only."""
+    setUp = grants.GrantTests.setUp
+    tearDown = grants.GrantTests.tearDown
+    body = grants.GrantTests.body
+    issue = grants.GrantTests.issue
+
+    @classmethod
+    def setUpClass(cls):
+        OrganicVideoCaptureTests.setUpClass.__func__(cls)
+
+    def upload(self, selection=None, raw=None, path=BASE + 'import-demo', **headers):
+        value = dict(request_id='http-demo', manifest_version=1, release='build-1', filename='demo.mp4',
+                     source='OWNER_SELECTED_DEMO_MP4', app_owned=True,
+                     contains_private_data=False, uses_personal_account=False)
+        if selection is not None:
+            value = selection
+        fields = {'Origin': self.origin, 'Content-Type': 'application/octet-stream',
+                  'X-CSRF-Token': self.owner.csrf,
+                  'Cookie': '; '.join(c.name + '=' + c.value for c in self.owner.cookies),
+                  'X-WMM-Demo-Selection': json.dumps(value)}
+        fields.update(headers)
+        request = Request(self.origin + path, data=self.raw if raw is None else raw,
+                          method='POST', headers=fields)
+        with self.owner.opener.open(request, timeout=10) as response:
+            self.assertEqual(response.status, 201)
+            return json.load(response)
+
+    def test_exact_bytes_replay_and_separate_review(self):
+        result = self.upload()
+        self.assertEqual(result, self.upload())
+        self.assertEqual(result['source_sha256'], hashlib.sha256(self.raw).hexdigest())
+        self.assertEqual(result['byte_count'], len(self.raw))
+        item = self.owner.request('GET', '/api/apps/sample-one/media/' + result['media_id'])
+        self.assertEqual(item['rights_status'], 'UNKNOWN')
+        self.assertEqual(item['review_history'], [])
+        self.assertEqual(item['provenance']['kind'], 'OWNER_SELECTED_DEMO_MP4')
+        with self.owner.opener.open(self.origin + '/api/apps/sample-one/media/' + result['media_id'] + '/download') as response:
+            self.assertEqual(response.read(), self.raw)
+        with self.assertRaises(HTTPError):
+            self.upload(raw=self.raw + b'changed')
+        with connection(self.store.path) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM managed_media').fetchone()[0], 1)
+            self.assertEqual(db.execute('SELECT count(*) FROM jobs').fetchone()[0], 0)
+
+    def test_closed_selection_and_current_authority(self):
+        value = dict(request_id='invalid-demo', manifest_version=1, release='build-1', filename='demo.mp4',
+                     source='OWNER_SELECTED_DEMO_MP4', app_owned=True,
+                     contains_private_data=False, uses_personal_account=False)
+        for change in ({'actor': 'owner'}, {'manifest_version': 2}, {'release': 'stale'},
+                       {'contains_private_data': True}, {'filename': '../demo.mp4'}):
+            with self.assertRaises(HTTPError):
+                self.upload(dict(value, **change))
+        for headers in ({'X-CSRF-Token': 'wrong'}, {'Origin': 'http://foreign.invalid'},
+                        {'Cookie': ''}, {'Authorization': 'Bearer forbidden'},
+                        {'Content-Type': 'application/json'}, {'Content-Length': '67108865'},
+                        {'X-WMM-Demo-Selection': '{"request_id":"a","request_id":"b"}'}):
+            with self.assertRaises(HTTPError):
+                self.upload(**headers)
+        with self.assertRaises(HTTPError):
+            self.upload(path=BASE.replace('sample-one', 'sample-two') + 'import-demo')
+        with connection(self.store.path) as db:
+            if db.execute("SELECT 1 FROM sqlite_master WHERE name='managed_media'").fetchone():
+                self.assertEqual(db.execute('SELECT count(*) FROM managed_media').fetchone()[0], 0)
+            self.assertEqual(db.execute('SELECT count(*) FROM jobs').fetchone()[0], 0)
+
+    def test_truncated_body_cannot_commit(self):
+        conn = http.client.HTTPConnection('127.0.0.1', self.server.server_port, timeout=10)
+        self.addCleanup(conn.close)
+        conn.request('POST', BASE + 'import-demo', body=b'x', headers={
+            'Origin': self.origin, 'Content-Type': 'application/octet-stream', 'Content-Length': '100',
+            'X-CSRF-Token': self.owner.csrf,
+            'Cookie': '; '.join(c.name + '=' + c.value for c in self.owner.cookies),
+            'X-WMM-Demo-Selection': '{}'})
+        conn.sock.shutdown(socket.SHUT_WR)
+        response = conn.getresponse()
+        self.assertEqual(response.status, 400)
+        self.assertIn('truncated', response.read().decode())
 
 
 class OrganicVideoHTTPTests(unittest.TestCase):

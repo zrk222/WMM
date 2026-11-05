@@ -2,6 +2,7 @@
 import copy
 import hashlib
 import json
+import re
 import unittest
 from mission_control.common import Invalid
 from mission_control.hypit_authoring import project, scene_contract, xml_character
@@ -12,6 +13,34 @@ def scene():
 
 
 class AuthoringTests(unittest.TestCase):
+    def test_captured_screen_and_caption_have_separate_reading_regions(self):
+        value = dict(scene(), schema='growth.hypit-footage-scene.v1')
+        value['scenes'][0]['media'] = {'id': '11111111-1111-1111-1111-111111111111',
+                                      'sha256': 'a' * 64, 'in_frame': 24, 'audio': 'MUTE'}
+        for shape in ('PORTRAIT', 'LANDSCAPE'):
+            with self.subTest(shape=shape):
+                value['shape'] = shape
+                original = copy.deepcopy(value)
+                film = project(value)['files']['film.svml']
+                regions = {}
+                for name, left, top, right, bottom in re.findall(
+                        r'<space:Frame id="(picture|caption)" within=\{canvas.bounds\} '
+                        r'left="(\d+)%" top="(\d+)%" right="(\d+)%" bottom="(\d+)%"/>', film):
+                    regions[name] = tuple(map(int, (left, top, right, bottom)))
+                self.assertEqual(set(regions), {'picture', 'caption'})
+                self.assertLess(regions['picture'][3], regions['caption'][1])
+                for left, top, right, bottom in regions.values():
+                    self.assertTrue(0 <= left < right <= 100 and 0 <= top < bottom <= 100)
+                self.assertRegex(film, r'<visual:Clip id="clip0"[^>]+frame=\{picture\}[^>]+fit="contain"')
+                self.assertRegex(film, r'<typo:Flow id="scene0"[^>]+within=\{caption\}')
+                self.assertRegex(film, r'<typo:Flow id="scene1"[^>]+within=\{body\}')
+                self.assertIn('from="0s" for="2s"', film)
+                self.assertIn('from="2s" for="3s"', film)
+                self.assertEqual(value, original)
+        plain = project(scene())['files']['film.svml']
+        self.assertNotIn('id="picture"', plain)
+        self.assertNotIn('id="caption"', plain)
+
     def test_versioned_managed_footage_uses_fixed_media_source_and_mute(self):
         value = dict(scene(), schema='growth.hypit-footage-scene.v1')
         value['scenes'][0]['media'] = {'id': '11111111-1111-1111-1111-111111111111',
