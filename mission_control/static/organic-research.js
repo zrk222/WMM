@@ -148,7 +148,7 @@
       if(!clips.length)throw new Error('Review the source clip rights and approve the current clip versions before rendering.');
       const beats=brief.current.data.content.beats;
       const options=[['','Text only'],...clips.map(c=>[c.id,c.title||c.id])];
-      const sceneFields=beats.map((beat,i)=>`<fieldset><legend>Scene ${i+1}</legend><p>${m.esc(beat.script)}</p>${select('clip-'+i,'Approved clip for scene '+(i+1),options)}${field('frame-'+i,'Clip start frame at 24 fps','0','number','min="0" max="1439" step="1" required')}</fieldset>`).join('');
+      const sceneFields=beats.map((beat,i)=>`<fieldset><legend>Scene ${i+1}</legend><p>${m.esc(beat.script)}</p>${select('clip-'+i,'Approved clip for scene '+(i+1),options)}${field('frame-'+i,'Clip start frame at 24 fps','0','number','min="0" max="4319" step="1" required')}</fieldset>`).join('');
       show(t.d,'Place your approved clips','render-form',`<p>Use at least one clip. Other scenes keep the brief’s original text. All clip audio is muted.</p><form id="oresearch-render-form">${select('shape','Output shape',[['PORTRAIT','Portrait'],['LANDSCAPE','Landscape']])}${sceneFields}<button type="submit" class="button">Review this local render</button></form>${button('Back to research card','render-back')}`,
         {saved:t.data.saved,intake:t.data.intake,choice,clips},t.scope);
     }finally{busy(t,false);}
@@ -160,7 +160,7 @@
       const id=fd.get('clip-'+i);if(!id)continue;
       const clip=clips.find(c=>c.id===id);
       if(!clip)throw new Error('Select a currently approved clip.');
-      footage.push({scene_index:i,id,sha256:clip.sha256,in_frame:m.integer(fd.get('frame-'+i),'Clip start frame',0,1439),audio:'MUTE'});
+      footage.push({scene_index:i,id,sha256:clip.sha256,in_frame:m.integer(fd.get('frame-'+i),'Clip start frame',0,4319),audio:'MUTE'});
     }
     if(!footage.length)throw new Error('Add at least one approved clip to a scene.');
     const input={brief_id:brief.id,brief_hash:brief.current.hash,shape:fd.get('shape'),footage};

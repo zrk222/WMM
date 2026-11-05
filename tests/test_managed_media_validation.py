@@ -60,10 +60,10 @@ class ManagedMediaValidationTests(unittest.TestCase):
         payload = probed()
         payload["streams"][0].update(width=4096, height=2048, avg_frame_rate="120/1")
         payload["streams"][1].update(sample_rate="192000", channels=2)
-        payload["format"]["duration"] = "60"
+        payload["format"]["duration"] = "180"
         result = media.media_metadata(payload)
         self.assertEqual(result, {
-            "codec": "h264", "width": 4096, "height": 2048, "duration_seconds": 60.0,
+            "codec": "h264", "width": 4096, "height": 2048, "duration_seconds": 180.0,
             "frame_rate": 120.0, "audio": True,
             "audio_metadata": {"codec": "aac", "channels": 2, "sample_rate": 192000},
         })
@@ -79,7 +79,8 @@ class ManagedMediaValidationTests(unittest.TestCase):
         for key, bad in (("width", True), ("width", 1), ("width", 4097), ("height", 4097),
                          ("avg_frame_rate", "0/1"), ("avg_frame_rate", "121/1"),
                          ("avg_frame_rate", "24/0"), ("avg_frame_rate", "NaN"),
-                         ("duration", "0"), ("duration", "60.001"), ("duration", "inf"), ("duration", " 1")):
+                         ("duration", "0"), ("duration", "180.001"), ("duration", "inf"), ("duration", " 1"),
+                         ("duration", -1), ("duration", float('nan')), ("duration", float('inf')), ("duration", True)):
             payload = probed(audio=False)
             target = payload["format"] if key == "duration" else payload["streams"][0]
             target[key] = bad
@@ -94,8 +95,11 @@ class ManagedMediaValidationTests(unittest.TestCase):
             payload["streams"][1][key] = bad
             cases.append((key, bad, payload))
         payload = probed(audio=False)
-        payload["streams"][0]["duration"] = "60.001"
-        cases.append(("video-stream-duration", "60.001", payload))
+        payload["streams"][0]["duration"] = "180.001"
+        cases.append(("video-stream-duration", "180.001", payload))
+        payload = probed()
+        payload["streams"][1]["duration"] = "180.001"
+        cases.append(("audio-stream-duration", "180.001", payload))
         for label, bad, payload in cases:
             with self.subTest(label=label, bad=bad), self.assertRaises(Invalid):
                 media.media_metadata(payload)
@@ -221,7 +225,7 @@ class ManagedMediaValidationTests(unittest.TestCase):
         self.assertNotIn("wmm-imported-video", str(caught.exception))
         self.assertNotIn("not a media", str(caught.exception))
 
-    def test_max_duration_and_audio_rate_decode_within_capture_bound(self):
+    def test_max_audio_rate_at_60_seconds_decodes_within_capture_bound(self):
         ffmpeg = shutil.which("ffmpeg")
         ffprobe = shutil.which("ffprobe")
         self.assertTrue(ffmpeg and ffprobe, "local FFmpeg and FFprobe are required for this proof")
@@ -240,6 +244,66 @@ class ManagedMediaValidationTests(unittest.TestCase):
             self.assertEqual(result["metadata"]["audio_metadata"]["sample_rate"], 192000)
             self.assertGreater(result["decoded"]["video_frames"], 0)
             self.assertGreater(result["decoded"]["audio_frames"], 0)
+
+    def test_overlength_messages_and_original_limit_do_not_extend_editor_output(self):
+        from mission_control.video_edit_contract import MAX_FRAMES, FPS
+        self.assertEqual(MAX_FRAMES / FPS, 60)
+        for target in ('container', 'video', 'audio'):
+            payload = probed()
+            selected = payload['format'] if target == 'container' else payload['streams'][0 if target == 'video' else 1]
+            selected['duration'] = '180.001'
+            with self.subTest(target=target), self.assertRaisesRegex(Invalid, '180-second.*choose a shorter source'):
+                media.media_metadata(payload)
+        payload = probed()
+        payload['format']['duration'] = '180'
+        for stream in payload['streams']:
+            stream['duration'] = '180'
+        self.assertEqual(media.media_metadata(payload)['duration_seconds'], 180)
+
+    def test_actual_122_second_source_and_high_frame_rate_capture_bound(self):
+        ffmpeg, ffprobe = shutil.which('ffmpeg'), shutil.which('ffprobe')
+        self.assertTrue(ffmpeg and ffprobe)
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'moderate.mp4'
+            subprocess.run([ffmpeg, '-hide_banner', '-loglevel', 'error', '-nostdin',
+                '-f', 'lavfi', '-i', 'color=c=blue:s=160x90:r=30',
+                '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000',
+                '-t', '122.581', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p',
+                '-c:a', 'aac', '-y', str(path)], capture_output=True, timeout=60, check=True)
+            result = media.inspect(path.read_bytes(), '.mp4', tools=dict(ffmpeg=ffmpeg, ffprobe=ffprobe))
+            self.assertGreater(result['metadata']['duration_seconds'], 122)
+            self.assertLess(result['metadata']['duration_seconds'], 123)
+            self.assertGreater(result['decoded']['video_frames'], 3600)
+            self.assertGreater(result['decoded']['audio_frames'], 0)
+            path = Path(temporary) / 'high-rate.mp4'
+            subprocess.run([ffmpeg, '-hide_banner', '-loglevel', 'error', '-nostdin',
+                '-f', 'lavfi', '-i', 'color=c=black:s=16x16:r=120', '-t', '180',
+                '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-y', str(path)],
+                capture_output=True, timeout=60, check=True)
+            raw = path.read_bytes()
+            self.assertLess(len(raw), media.MAX_BYTES)
+            # Metadata bounds are independent of the unchanged 1 MiB native output
+            # cap: 21,600 framehash records cannot be retained within that budget.
+            with self.assertRaisesRegex(Invalid, 'decode failed'):
+                media.inspect(raw, '.mp4', tools=dict(ffmpeg=ffmpeg, ffprobe=ffprobe))
+
+    def test_actual_180_second_source_with_audio_decodes_within_capture_bound(self):
+        ffmpeg, ffprobe = shutil.which('ffmpeg'), shutil.which('ffprobe')
+        self.assertTrue(ffmpeg and ffprobe)
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'maximum.mov'
+            subprocess.run([ffmpeg, '-hide_banner', '-loglevel', 'error', '-nostdin',
+                '-f', 'lavfi', '-i', 'color=c=black:s=16x16:r=1',
+                '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000',
+                '-t', '180', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p',
+                '-c:a', 'pcm_s16le', '-ac', '1', '-y', str(path)],
+                capture_output=True, timeout=60, check=True)
+            raw = path.read_bytes()
+            self.assertLess(len(raw), media.MAX_BYTES)
+            result = media.inspect(raw, '.mov', tools=dict(ffmpeg=ffmpeg, ffprobe=ffprobe))
+            self.assertEqual(result['metadata']['duration_seconds'], 180.0)
+            self.assertEqual(result['decoded']['video_frames'], 180)
+            self.assertGreater(result['decoded']['audio_frames'], 0)
 
 
 if __name__ == "__main__":

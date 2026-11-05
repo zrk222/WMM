@@ -72,8 +72,8 @@ def footage_item(item):
     if (not isinstance(media, dict) or set(media) != {'id', 'sha256', 'in_frame', 'audio'}
             or not isinstance(media['id'], str) or not re.fullmatch(r'[a-f0-9-]{36}', media['id'])
             or not isinstance(media['sha256'], str) or not re.fullmatch(r'[a-f0-9]{64}', media['sha256'])
-            or type(media['in_frame']) is not int or not 0 <= media['in_frame'] <= 1439
-            or media['in_frame'] + result['seconds'] * FPS > 1440
+            or type(media['in_frame']) is not int or not 0 <= media['in_frame'] < 180 * FPS
+            or media['in_frame'] + result['seconds'] * FPS > 180 * FPS
             or media['audio'] != 'MUTE'):
         raise Invalid('Choose managed footage, a valid source frame and MUTE audio')
     result['media'] = dict(media)

@@ -15,7 +15,7 @@ from .agent_process import CAP, capture
 from .common import Invalid
 
 MAX_BYTES = 67108864
-MAX_DURATION_SECONDS = 60.0
+MAX_DURATION_SECONDS = 180.0
 MAX_WIDTH = 4096
 MAX_HEIGHT = 4096
 MAX_PIXELS = 8388608
@@ -106,7 +106,9 @@ def _finite_seconds(value, field_name):
         seconds = float(value)
     except (ValueError, OverflowError):
         raise Invalid(f"Video {field_name} is malformed") from None
-    if not math.isfinite(seconds) or seconds <= 0 or seconds > MAX_DURATION_SECONDS:
+    if math.isfinite(seconds) and seconds > MAX_DURATION_SECONDS:
+        raise Invalid(f"Video {field_name} exceeds the {MAX_DURATION_SECONDS:g}-second original-source limit; choose a shorter source")
+    if not math.isfinite(seconds) or seconds <= 0:
         raise Invalid(f"Video {field_name} is outside the supported range")
     return seconds
 

@@ -61,7 +61,7 @@ class AuthoringTests(unittest.TestCase):
         valid = {'id': '11111111-1111-1111-1111-111111111111',
                  'sha256': 'a' * 64, 'in_frame': 24, 'audio': 'MUTE'}
         for change in ({'path': '/private/video.mp4'}, {'audio': 'RETAIN'},
-                       {'in_frame': True}, {'in_frame': 1439}, {'sha256': 'bad'},
+                       {'in_frame': True}, {'in_frame': 4319}, {'sha256': 'bad'},
                        {'id': '../outside'}):
             altered = copy.deepcopy(value)
             altered['scenes'][0]['media'] = {**valid, **change}

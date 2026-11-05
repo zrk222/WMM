@@ -7,7 +7,10 @@ from .common import Invalid, required
 MAX_CLIPS = 24
 MAX_FRAMES = 1440
 FPS = 24
-PROFILES = {'PORTRAIT': (720, 1280), 'LANDSCAPE': (1280, 720), 'SQUARE': (720, 720)}
+MAX_SOURCE_FRAMES = 180 * FPS
+PROFILES = {'PORTRAIT': (720, 1280), 'LANDSCAPE': (1280, 720), 'SQUARE': (720, 720),
+            'PORTRAIT_HD': (1080, 1920), 'LANDSCAPE_HD': (1920, 1080),
+            'SQUARE_HD': (1080, 1080), 'FEED_PORTRAIT': (1080, 1350)}
 ROLES = ('HOOK', 'PROBLEM', 'DEMO', 'PROOF', 'OBJECTION', 'CTA', 'OTHER')
 
 
@@ -82,8 +85,8 @@ def clip(value):
         raise Invalid('Choose retained or muted source audio')
     identifier(value['id']);source(value['source'])
     if value['role'] not in ROLES:raise Invalid('Choose a supported scene role')
-    integer(value['in_frame'], 0, MAX_FRAMES, 'Source in frame')
-    integer(value['out_frame'], 1, MAX_FRAMES, 'Source out frame')
+    integer(value['in_frame'], 0, MAX_SOURCE_FRAMES, 'Source in frame')
+    integer(value['out_frame'], 1, MAX_SOURCE_FRAMES, 'Source out frame')
     if value['out_frame'] <= value['in_frame']:raise Invalid('Clip end must follow its start')
     integer(value['speed_percent'], 25, 400, 'Playback speed percentage')
     if value['speed_percent'] % 25:raise Invalid('Playback speed uses increments of 25 percent')
@@ -105,7 +108,7 @@ def definition(value):
     exact(value, ('title', 'purpose', 'locale', 'output', 'clips'))
     for key in ('title', 'purpose', 'locale'):required(value[key], key, 2000 if key == 'purpose' else 200)
     if not isinstance(value['output'], str) or value['output'] not in PROFILES:
-        raise Invalid('Choose portrait, landscape or square output')
+        raise Invalid('Choose a supported portrait, landscape, square or 4:5 feed output')
     rows = value['clips']
     if not isinstance(rows, list) or not 1 <= len(rows) <= MAX_CLIPS:
         raise Invalid('Keep the project between 1 and 24 clips')
