@@ -4,11 +4,12 @@ import re
 from urllib.parse import urlsplit
 
 from .common import Invalid, digest, iso_time, required
-from .viral_policy import PLATFORMS, observation, qualify
+from .viral_policy import PLATFORMS, observation, qualify, youtube_short_url
 
 HOSTS = {'tiktok': {'tiktok.com', 'www.tiktok.com'},
          'facebook': {'facebook.com', 'www.facebook.com'},
-         'instagram': {'instagram.com', 'www.instagram.com'}}
+         'instagram': {'instagram.com', 'www.instagram.com'},
+         'youtube': {'youtube.com', 'www.youtube.com'}}
 HEX = re.compile(r'[0-9a-f]{64}\Z')
 
 
@@ -37,6 +38,8 @@ def _url(value, hosts):
         valid = False
     if not valid:
         raise Invalid('Observation must use an allowed HTTPS platform host')
+    if parsed.hostname in HOSTS['youtube']:
+        youtube_short_url(value)
     return value
 
 

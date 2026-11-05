@@ -30,7 +30,7 @@ test('task assignment has exact metadata-only hosts and cannot outlast its grant
  assert.equal(body.policy.max_reads,100);assert.ok(!JSON.stringify(body).includes('token'));
 });
 test('assignment rejects malformed, duplicate, unsupported or over-budget selections',()=>{
- for(const change of [{platform:[]},{platform:['tiktok','tiktok']},{platform:['youtube']},{max_reads:'501'},{max_candidates:'0'},{max_seconds:'1.5'},{minutes:'1441'},{access:'BYPASS'},{genre:''}])assert.throws(()=>ui.taskBody(fd({...values,...change}),[grant()],s(),()=> 'one'));
+ for(const change of [{platform:[]},{platform:['tiktok','tiktok']},{platform:['unsupported']},{max_reads:'501'},{max_candidates:'0'},{max_seconds:'1.5'},{minutes:'1441'},{access:'BYPASS'},{genre:''}])assert.throws(()=>ui.taskBody(fd({...values,...change}),[grant()],s(),()=> 'one'));
 });
 test('scope changes include identity, app, role and browser session',()=>{
  const base=ui.scope(s());for(const change of ['app','role','principal','session']){const state=s();if(change==='app')state.app='other';if(change==='role')state.workspace.access.members[0].status='REVOKED';if(change==='principal')state.workspace.identity.principal='other';if(change==='session')state.boot.csrf='new';assert.equal(m.equal(base,ui.scope(state)),false);}
@@ -78,3 +78,5 @@ test('production entry points load the module and route actual actions, forms, i
  for(const text of ['WMMOrganicResearch.panel()','WMMOrganicResearch.invalidate(state)','WMMOrganicResearch.clear()','WMMOrganicResearch.action(node,growthReviewServices())','WMMOrganicResearch.submit(form,growthReviewServices())'])assert.ok(app.includes(text),text);
  assert.ok(index.includes('src="/organic-research.js"'));assert.ok(ui.panel().includes('100,000 views AND 10×'));
 });
+
+test('YouTube Shorts metadata task scope is explicit and links reject other YouTube surfaces',()=>{const b=ui.taskBody(fd({...values,platform:['youtube']}),[grant()],s(),()=>'short-task');assert.deepEqual(b.policy.hosts,['www.youtube.com','youtube.com']);assert.equal(ui.safeURL('https://www.youtube.com/shorts/QAshort0000'),'https://www.youtube.com/shorts/QAshort0000');for(const u of ['https://www.youtube.com/watch?v=QAshort0000','https://youtu.be/QAshort0000','https://www.youtube.com/shorts/QAshort0000?x=1'])assert.equal(ui.safeURL(u),null);});

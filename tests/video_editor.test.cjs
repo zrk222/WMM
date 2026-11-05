@@ -90,3 +90,12 @@ test('clarity proposal remains draft-only until explicit save and render actions
  await ui.action({dataset:{action:'veditor-render'}},f.deps);assert.equal(calls,0);assert.match(error.textContent,/Save your current field edits first/);
  ui.clear();
 });
+
+test('HD and feed sizes remain explicit saved output choices',async()=>{
+ const f=fixture();await ui.open(f.deps);await ui.action({dataset:{action:'veditor-project',id:'project-one'}},f.deps);
+ for(const profile of ['PORTRAIT_HD','LANDSCAPE_HD','SQUARE_HD','FEED_PORTRAIT']){
+  assert.ok(f.html().includes('value="'+profile+'"'));
+  assert.equal(ui.edited(f.p,{...fields(f.p),output:profile}).output,profile);
+ }
+ assert.ok(f.html().includes('3 minutes'));assert.ok(f.html().includes('60 seconds'));ui.clear();
+});
