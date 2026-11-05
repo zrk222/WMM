@@ -18,10 +18,10 @@ Your data stays outside the installed program. Windows uses your local applicati
 
 ## Make one packet
 
-1. **Add your app.** Use **Add an app**, then describe who it helps, the problem it solves and the action a new user should complete. Keep the first goal narrow: for example, get someone to finish their first useful session.
-2. **Choose “Find a useful marketing angle.”** Add a real reference you want to study, with its source. A saved reference is research; viral-only qualification still requires 100,000 views and 10× a documented creator baseline.
-3. **Inspect the saved work.** Choose **Open your first packet** on **Set your goal**. Read the prepared work, its source records and the missing inputs. This is your first evidence packet; it does not require publication or ad spend.
-4. **Take the next useful action.** Revise the brief or creative, add the missing source, or connect your own analytics in **Review results**. Keep the packet and export its report for your agent or teammate.
+1. **Add your app.** Enter its name, who it helps, what it helps them do, the first useful action, the app version or build and the locale you tested. Choose **Save and choose a goal**. WMM generates a workspace ID, and **Optional settings** lets you enter your own or add details later.
+2. **Choose “Find a useful marketing angle.”** Select **Open your first packet**. The packet shows the research and creative steps for this app, including missing inputs you can add next.
+3. **Keep a copy.** Choose **Download goal packet** to save the local draft for yourself, your agent or your teammate. You can do this before connecting an account, publishing or spending.
+4. **Add a reference to study.** Choose **Add a research reference** from the packet, then add the source you want to study. Viral-only qualification requires 100,000 views and 10× a documented creator baseline. Open a new packet after adding evidence to see the updated next steps.
 
 Core preparation needs no model key or paid account. Connected reads, video tools and campaign execution show their own prerequisites. The goal-specific **Check connections for this goal** control identifies the selected agent and account setup. Owner sign-in is required before inspecting private account readiness or granting authority.
 
