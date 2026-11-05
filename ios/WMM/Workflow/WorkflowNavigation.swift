@@ -1,5 +1,25 @@
 import SwiftUI
 
+private struct WorkspaceBrandHeader: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            Text("↗")
+                .font(.system(size: 25, weight: .semibold))
+                .foregroundStyle(Color(red: 0.08, green: 0.17, blue: 0.21))
+                .frame(width: 36, height: 36)
+                .background(Color(red: 0.80, green: 0.90, blue: 0.52), in: RoundedRectangle(cornerRadius: 10))
+                .accessibilityHidden(true)
+            Text("Wize Marketing Machine")
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .background(.background)
+    }
+}
+
 @MainActor
 struct WorkflowNavigation: View {
     @StateObject private var model = NativeWorkspaceModel()
@@ -89,7 +109,8 @@ struct WorkflowNavigation: View {
                     }
                 }
             }
-            .navigationTitle(model.snapshot?.app.data.name ?? "Wize Marketing Machine")
+            .safeAreaInset(edge: .top, spacing: 0) { WorkspaceBrandHeader() }
+            .navigationTitle(model.snapshot?.app.data.name ?? "Workspace")
             .toolbar {
                 if model.unlocked {
                     ToolbarItem(placement: .topBarLeading) {
