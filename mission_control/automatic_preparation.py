@@ -1,5 +1,39 @@
 """Current app-scoped local drafts; no queue, database write or provider request."""
-from .common import Invalid, digest
+from .common import Invalid, digest, now
+import re
+
+GOAL_STAGES = {'research': (5, 6), 'creative': (6,), 'campaign': (7,), 'measurement': (3, 4, 10, 11)}
+
+
+def goal_request(data):
+    """Close explicit local snapshot requests; clients cannot supply saved outputs."""
+    if set(data) != {'stage', 'goal_packet'} or type(data['stage']) is not int or data['stage'] != 0:
+        raise Invalid('Save a goal packet using pipeline stage 0')
+    value = data['goal_packet']
+    if not isinstance(value, dict) or set(value) != {'goal', 'manifest_version', 'source_hash'}:
+        raise Invalid('Choose the current goal, app version and evidence hash')
+    if not isinstance(value['goal'], str) or value['goal'] not in GOAL_STAGES:
+        raise Invalid('Choose one of the four supported goals')
+    if type(value['manifest_version']) is not int or value['manifest_version'] < 1:
+        raise Invalid('Use the current app version')
+    if not isinstance(value['source_hash'], str) or not re.fullmatch('[0-9a-f]{64}', value['source_hash']):
+        raise Invalid('Use the current evidence source hash')
+    return dict(value)
+
+
+def saved_goal(result, data, app, records, reports, catalog, release):
+    """Freeze server-prepared goal outputs; a saved draft grants no effect authority."""
+    value = goal_request(data)
+    source = source_binding(app, records, reports, result['outputs'], catalog, release)
+    if app['version'] != value['manifest_version'] or source != value['source_hash']:
+        raise Invalid('App or evidence changed before saving; open the current goal packet')
+    selected = [dict(stage=o['stage'], output=o) for o in result['outputs'] if o['stage'] in GOAL_STAGES[value['goal']]]
+    if tuple(o['stage'] for o in selected) != GOAL_STAGES[value['goal']]:
+        raise Invalid('Current goal outputs are incomplete')
+    packet = dict(schema='wmm.goal-evidence-packet.v1', app_id=app['id'], app_name=app['data'].get('name', app['id']),
+                  manifest_version=app['version'], goal=value['goal'], source_hash=source, created_at=now(),
+                  classification='LOCAL_DRAFT_NO_AUTHORITY', outputs=selected)
+    return dict(result, goal_packet=packet, goal_packet_hash=digest(packet))
 from .pipeline import execute
 
 
