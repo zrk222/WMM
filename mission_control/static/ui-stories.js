@@ -92,6 +92,7 @@
   define('onesignal-key-form onesignal-read-form onesignal-create-form onesignal-channel-form onesignal-recovery-form','Connect your OneSignal app.','WMM keeps keys protected and reads the exact selected app.','Review provider changes or recovery readback before confirming.');
   define('oresearch-render-form','Place footage from your approval.','Choose a shape and match approved clips to scenes. The local render uses muted clips and the original brief text.','Review the exact inputs and tool checks before reserving one local slot.');
   define('oresearch-artifact-form','Check the finished video and its caption.','The saved approval holds capacity for this exact file and Facebook Page.','Review the video, then choose how many provider calls to hold for later delivery and verification.');
+  define('oresearch-schedule-form','Pick when your approved Reel should go out.','Choose a time before the approval expires. WMM saves a draft with the exact video, caption and Page.','Review the saved time and activate the schedule when ready.');
   Object.freeze(FORMS);
   const DIALOGS=Object.freeze({
     'Connect Cloudflare Workers AI':['Connect Cloudflare once.','Choose free or paid inference and set your limits.','Save your protected connection, then test it.'],
@@ -129,6 +130,9 @@
       'Local render status':'Follow the same job from reservation to a local MP4.',
       'Inspect this render request':'Check whether WMM saved the action before retrying.',
       'Review your finished video':'Play or download the finished video. Check its caption and Page before holding any delivery capacity.',
+      'Plan one Facebook Reel':'Choose when this approved video should go out. Activation comes after draft review.',
+      'Facebook Reel schedule':'Review the due time, saved provider phase and worker receipts. Turn the schedule off here if plans change.',
+      'Inspect Facebook delivery':'Find the saved schedule before repeating a delivery action.',
       'Find the words your app should test':'Review your agent’s sources, then save a packet of keyword coverage, competitor overlaps and next experiments.',
       'Choose the rules for your app videos':'Pick the Page, clips, claims and captions. Then review the exact rules your agent will follow.',
       'Review this video production approval':'Check the destination, captions, evidence and limits before granting this approval.',

@@ -3,7 +3,7 @@ import json
 
 from .common import Invalid, digest
 from .db import connection
-from .campaign_contract import exact, hashes
+from .campaign_contract import REEL_SCHEMA, exact, hashes
 from .organic_video_intake import _view as intake_view, _current_outputs
 from .organic_video_policy import Policies, _authority, _approved_inputs, _saved
 from .hypit_jobs import HypitRenders, resolve_inputs
@@ -72,6 +72,37 @@ def _owner_policy(db, app_id, policy_id, actor):
     return policy
 
 
+def _delivery(db, app_id, policy, admission, request_id):
+    """Bind delivery review and recovery to the single admitted artifact."""
+    from . import campaign_video_execution as video
+    data, rules = admission['data'], policy['data']['policy']
+    output = data['output']
+    draft = dict(schema=REEL_SCHEMA, request_id=request_id, app_id=app_id, page_id=rules['page_id'],
+                 policy_id=policy['id'], policy_hash=policy['hash'], admission_id=admission['id'],
+                 admission_hash=admission['hash'], artifact_id=output['artifact_id'],
+                 artifact_sha256=output['artifact_sha256'], caption=output['caption'],
+                 rights_hashes=sorted({source['rights_hash'] for source in data['proofs']['sources']}))
+    result = dict(draft=draft, intent=None, schedule_id=None, expires_at=rules['expires_at'])
+    if not db.execute("SELECT 1 FROM sqlite_master WHERE name='campaign_video_intents'").fetchone():
+        return result
+    row = db.execute('SELECT id FROM campaign_video_intents WHERE app_id=? AND admission_id=?',
+                     (app_id, admission['id'])).fetchone()
+    if row is None:
+        return result
+    intent = video._view(video._row(db, app_id, row['id']))
+    if intent['request'] != dict(draft, request_id=intent['request']['request_id']):
+        raise Invalid('Saved delivery differs from this artifact approval')
+    result['intent'] = intent
+    if db.execute("SELECT 1 FROM sqlite_master WHERE name='campaign_video_schedule_bindings'").fetchone():
+        binding = db.execute('''SELECT b.id FROM campaign_video_schedule_bindings AS v
+            JOIN campaign_schedule_batches AS b ON b.id=v.batch_id
+            WHERE v.intent_id=? AND b.app_id=? AND b.owner=?''',
+                             (intent['id'], app_id, policy['data']['owner'])).fetchone()
+        if binding:
+            result['schedule_id'] = binding['id']
+    return result
+
+
 def render_status(store, app_id, actor, body):
     """Read an exact reservation and its bound job, even after approval expiry."""
     exact(body, ('policy_id', 'policy_hash', 'request_id', 'request_hash'))
@@ -125,6 +156,7 @@ def render_status(store, app_id, actor, body):
                     raise Invalid('Saved artifact approval differs from its reserved render')
                 view['admission'] = dict(id=admission['id'], hash=admission['hash'], request_id=row['request_id'],
                                          request_hash=row['request_hash'], reserved_calls=data['provider_calls_reserved'])
+                view['delivery'] = _delivery(db, app_id, policy, admission, row['request_id'])
             used = db.execute('SELECT count(*),coalesce(sum(calls),0) FROM organic_video_admissions WHERE policy_id=?',
                               (policy['id'],)).fetchone()
             rules = policy['data']['policy']
