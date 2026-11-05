@@ -178,10 +178,13 @@ def context(store, app_id, actor, body):
             missing.append(dict(code='NO_TESTED_PAGE', next_action='Connect and test the Facebook Page used for organic video.'))
         sources = _eligible_sources(db, store, app_id, missing)
         claims = _eligible_claims(db, app_id, manifest, missing)
+        from .organic_video_taste_review import choices
+        from .creative_taste import guidance
         return dict(app=dict(id=app_id, version=version, hash=app_hash),
                     review=dict(owner_version=role['version'], session_binding=digest(PROTECTED.get()['generation'])), pages=pages,
                     eligible=dict(sources=sources, claims=claims), approved_outputs=_recorded_outputs(db, app_id),
-                    missing=missing)
+                    missing=missing, taste_reviewers=choices(db, app_id, actor),
+                    taste_guidance_sha256=guidance()['policy_sha256'])
 
 
 def _policy_status(db, row, saved, actor, app_id, app_version, app_hash):
