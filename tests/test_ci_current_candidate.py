@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # The browser profile provisions Chromium and the local render runtime and runs
 # both owner-bound OneSignal journeys, creative batches and organic research.
 # All eight backend shards and the native/package job definitions are retained.
-BASELINES = {".github/workflows/checks.yml":"01ab87c9fec29a580316d1fc1c44db8441eb2bc29fb0046873e44ed59c925362",".github/workflows/platform-checks.yml":"8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",".github/workflows/desktop-packages.yml":"b7d5bab32c25d0e30c41a8d0fb73ededa89156dba23e641d928ef1f54a4771af"}
+BASELINES = {".github/workflows/checks.yml":"14194a023ede1fec32a481ea81fabfa72e3f5b2b8ed0d56e404faddbebc05d8d",".github/workflows/platform-checks.yml":"8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",".github/workflows/desktop-packages.yml":"b7d5bab32c25d0e30c41a8d0fb73ededa89156dba23e641d928ef1f54a4771af"}
 GROUP = "${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}"
 
 def job_digest(path):
@@ -25,6 +25,7 @@ class CurrentCandidateCITests(unittest.TestCase):
         self.assertIn("python tools/test_owner_onboarding_browser.py", browser)
         self.assertIn("python tools/test_campaign_monitor_browser.py", browser)
         self.assertIn("python tools/test_organic_taste_browser.py", browser)
+        self.assertIn("python tools/test_goal_packet_history_browser.py", browser)
 
     def test_full_job_definitions_and_test_matrices_are_preserved(self):
         for path, expected in BASELINES.items():

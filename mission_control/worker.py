@@ -109,8 +109,13 @@ def process(store,job,stop=None):
         from .release_readiness import readiness as release_readiness
         release=release_readiness(app,records,jobs(store,app['id']),Connections(store).statuses(app['id']))
         from .workflow_telemetry import emit
-        return execute(app,records,job["data"].get("stage",0),Ledger(store.path).reports(app["id"]),catalog,release,
+        reports=Ledger(store.path).reports(app['id'])
+        result=execute(app,records,job["data"].get("stage",0),reports,catalog,release,
                        progress=lambda code,stage:emit(store,job,code,stage))
+        if 'goal_packet' in job['data']:
+            from .automatic_preparation import saved_goal
+            result=saved_goal(result,job['data'],app,records,reports,catalog,release)
+        return result
     binding=current_connection(store,app["id"],job["data"])["data"]
     if 'analytics_schedule_id' in job['data']:
         from .apple_metrics_schedule import check_scheduled

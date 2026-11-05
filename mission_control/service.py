@@ -202,6 +202,9 @@ class Service:
             stage=body.get("data",{}).get("stage",0)
             if type(stage) is not int or not 0<=stage<=12:
                 raise Invalid("Choose a stage from 1 to 12, or 0 for all stages")
+            if 'goal_packet' in body.get('data',{}):
+                from .automatic_preparation import goal_request
+                goal_request(body['data'])
         if body.get("action")=="sync":
             body={**body,'data':self.sync_data(app_id,body['data'])}
         args=(self.store,app_id,body.get("action"),body.get("data",{}),body.get("request_key"))
