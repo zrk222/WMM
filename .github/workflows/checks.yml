@@ -33,6 +33,7 @@ jobs:
         run: |
           python tools/test_owner_onboarding_browser.py
           python tools/test_campaign_monitor_browser.py
+          python tools/test_organic_taste_browser.py
   windows:
     runs-on: windows-latest
     timeout-minutes: 45
