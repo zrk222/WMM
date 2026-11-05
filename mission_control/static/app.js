@@ -578,8 +578,8 @@ function openStage(id) {
   modal(s.title,`<div class="modal-content"><p class="description">${esc(s.description)}</p><div class="details-list">${checklist}</div><h3>What to do</h3><ol>${s.operations.tasks.map(task=>`<li>${esc(task)}</li>`).join("")}</ol><p><strong>Deliverable:</strong> ${esc(s.operations.deliverable)}</p><p><strong>How to verify:</strong> ${esc(s.operations.verify)}</p><h3>Evidence for this stage</h3><div class="toolbar">${s.inputs.filter(k=>k!=="manifest").map(k=>button(`＋ ${state.boot.labels[k]}`,"add-evidence",`data-kind="${esc(k)}"`)).join("")}${s.id===1?button("Edit app setup","edit-app"):""}</div><details><summary>Dependencies and evidence boundary</summary><p class="description">${s.dependencies.length?`Stages ${s.dependencies.join(", ")} must meet their input checks.`:"This is the starting stage."} Operator-reported readiness is separate from provider approval and public availability.</p></details></div><div class="modal-actions">${button("Prepare this stage","run-stage",`data-id="${s.id}"`,"")}</div>`,`STAGE ${String(s.id).padStart(2,"0")} / ${s.group.toUpperCase()}`);
 }
 
-function field(name,value="",type="text",hint="",mandatory=true) {
-  const id=`field-${name}`, title=label(name);
+function field(name,value="",type="text",hint="",mandatory=true,title=label(name)) {
+  const id=`field-${name}`;
   let input=`<input id="${id}" name="${esc(name)}" value="${esc(value)}" ${type==="number"?'type="number" min="0" step="1"':type==="date"?'type="date"':'type="text"'} required>`;
   if(type==="boolean") input=`<select id="${id}" name="${esc(name)}" required><option value="">Choose…</option><option value="true" ${value===true?"selected":""}>Yes</option><option value="false" ${value===false?"selected":""}>No</option></select>`;
   if(type==="textarea"||type==="json") input=`<textarea id="${id}" name="${esc(name)}" class="${type==="json"?"json-field":""}" required>${esc(type==="json"&&typeof value==="object"?JSON.stringify(value,null,2):value)}</textarea>`;
@@ -590,14 +590,26 @@ function field(name,value="",type="text",hint="",mandatory=true) {
 function appForm(isNew=false) {
   if(!isNew&&!currentWorkspace())return toast("Wait for this app to load, then reopen setup.");
   const app=isNew?{id:"",data:{},version:null}:state.workspace.app;
-  const fields=[field("id",app.id,"text","Lowercase, unique workspace ID; cannot be renamed"),field("name",app.data.name),field("job",app.data.job,"textarea"),field("audience",app.data.audience),field("activation",app.data.activation),field("release",app.data.release,"text","Exact version/build being promoted"),field("locale",app.data.locale,"text","For example en-US; only use a tested locale"),field("currency",app.data.currency,"text","Optional until economics are supplied",false),field("website",app.data.website,"text","Optional public app website",false)];
+  const workspaceId=field("id",app.id,"text",isNew?"Leave blank to generate one from the app name. Saved IDs cannot change.":"Saved workspace IDs cannot change.",!isNew,"Workspace ID");
+  const essentials=[
+    field("name",app.data.name,"text","",true,"App name"),
+    field("audience",app.data.audience,"text","Who needs this app most?",true,"Who it helps"),
+    field("job",app.data.job,"textarea","Describe the problem the app solves.",true,"What it helps them do"),
+    field("activation",app.data.activation,"text","For example, finish a first coaching session.",true,"First useful action"),
+    field("release",app.data.release,"text","Enter the version or build you plan to promote.",true,"App version or build"),
+    field("locale",app.data.locale,"text","Use a locale you tested, for example en-US.",true,"App locale")
+  ];
+  const fields=[field("currency",app.data.currency,"text","Optional until economics are supplied",false),field("website",app.data.website,"text","Optional public app website",false)];
   fields.push(...["brand_voice","brand_visual","brand_source","brand_boundaries"].map(key=>field(key,app.data[key]||"","textarea","Optional operator-supplied brand guidance; use a source and avoid unsupported promises",false)));
   fields.push(automationPreferenceFields(app.data));
   fields.push(field("store_app_id",app.data.store_app_id||"","text","Optional numeric App Store app ID; required for subscription catalog reads",false));
   fields.push(field("android_package",app.data.android_package||"","text","Optional Android application ID. Google Play setup can discover it from your project metadata.",false));
   fields.push(field("android_track",app.data.android_track||"","text","Set with the Android package, for example production or internal. Changes invalidate prior read scope.",false));
   fields.push(field("social_callback_base_url",app.data.social_callback_base_url||"","text","Optional verified HTTPS relay origin. Prefills official social callbacks; Mission Control stays private.",false));
-  modal(isNew?"Add your app":"App setup",`<form id="app-form" data-new="${isNew}"><div class="modal-content">${notice("This creates an isolated growth workspace. It does not change your app, pricing or production accounts.")}<div class="form-grid">${fields.join("")}</div><div class="field-error" id="form-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Save app setup</button></div></form>`);
+  const setup=isNew
+    ?`<div class="form-grid">${essentials.join("")}</div><details><summary>Optional settings</summary><p>Add these now or return to App setup later.</p><div class="form-grid">${workspaceId}${fields.join("")}</div></details>`
+    :`<div class="form-grid">${workspaceId}${essentials.join("")}${fields.join("")}</div>`;
+  modal(isNew?"Add your app":"App setup",`<form id="app-form" data-new="${isNew}"><div class="modal-content">${setup}<div class="field-error" id="form-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">${isNew?"Save and choose a goal":"Save app setup"}</button></div></form>`);
   if(!isNew) $("#field-id").readOnly=true;
   if(!isNew) $("#app-form .modal-content").insertAdjacentHTML("afterbegin",`<section class="panel"><h3>Let the agent collect app details</h3><p>Read the saved public website, compare its suggestions and approve only the fields you want to change.</p>${button("Discover app details","setup-open")}</section>`);
 }
@@ -898,7 +910,17 @@ async function formSubmit(event) {
 }
 
 async function saveApp(data,isNew,form) {
-  const id=data.id;delete data.id;
+  let id=data.id.trim();
+  if(isNew&&!id) {
+    const base=data.name.normalize("NFKD").replace(/\p{M}/gu,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"app";
+    const taken=new Set((state.boot?.apps??[]).map(app=>app.id));
+    id=base.slice(0,60).replace(/-$/,"");
+    for(let next=2;taken.has(id);next++) {
+      const suffix=`-${next}`;
+      id=base.slice(0,60-suffix.length).replace(/-$/,"")+suffix;
+    }
+  }
+  delete data.id;
   const previous=isNew?{}:state.workspace.app.data;
   await api("/api/apps",{id,data:{...previous,...data},version:isNew?null:Number(form.dataset.manifestVersion)});
   state.app=id;

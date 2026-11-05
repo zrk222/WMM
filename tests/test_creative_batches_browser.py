@@ -100,6 +100,7 @@ class FirstAppBrowserTests(unittest.TestCase):
                     with self.subTest(width=width), tempfile.TemporaryDirectory() as directory:
                         store = Store(Path(directory) / 'blank.sqlite', seed=False)
                         server = Server(('127.0.0.1', 0), store)
+                        server.daemon_threads = False
                         thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
                         origin = 'http://127.0.0.1:' + str(server.server_port)
                         context = browser.new_context(viewport=dict(width=width, height=900), accept_downloads=True)
@@ -116,26 +117,55 @@ class FirstAppBrowserTests(unittest.TestCase):
                             if width == 390: page.locator('[data-action="add-app"]').click()
                             else: page.locator('#add-app').click()
                             form = page.locator('#app-form'); expect(form).to_be_visible()
-                            values = dict(id='first-app', name='Synthetic first app', job='Help users rehearse decisions',
+                            values = dict(name='Synthetic first app', job='Help users rehearse decisions',
                                 audience='Synthetic test users', activation='Save a practice decision', release='test-build',
-                                locale='en-US', currency='USD', website='https://example.com')
+                                locale='en-US')
+                            expect(form.get_by_text('Optional settings', exact=True)).to_be_visible()
+                            expect(form.locator('[name="id"]')).to_be_hidden()
+                            expect(form.locator('[name="website"]')).to_be_hidden()
+                            save = form.get_by_role('button', name='Save and choose a goal', exact=True)
+                            capture = os.environ.get('WMM_FIRST_APP_CAPTURE')
+                            if capture:
+                                target = Path(capture)
+                                target.mkdir(parents=True, exist_ok=True)
+                                page.locator('#modal').screenshot(path=str(target / f'app-setup-{width}.png'))
+                                if width == 1440:
+                                    html = page.evaluate(r"""() => {
+                                        const body = document.body.cloneNode(true);
+                                        body.querySelectorAll('script').forEach(script => script.remove());
+                                        const css = Array.from(document.styleSheets,
+                                          sheet => Array.from(sheet.cssRules, rule => rule.cssText).join('\n')).join('\n');
+                                        return '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
+                                          '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+                                          '<title>Add your app</title><style>' + css + '</style></head>' +
+                                          body.outerHTML + '</html>';
+                                    }""")
+                                    (target / 'app-setup.html').write_text(html, encoding='utf-8')
+                            save.press('Enter')
+                            expect(form.locator('[name="name"]')).to_be_focused()
+                            self.assertEqual(store.apps(), [])
                             for key, value in values.items(): form.locator('[name="' + key + '"]').fill(value)
                             self.assertEqual(form.evaluate("f => [...f.elements].filter(e => !e.checkValidity()).map(e => e.name)"), [])
                             with page.expect_response(lambda r: r.url.endswith('/api/apps') and r.request.method == 'POST') as saved:
-                                form.get_by_role('button', name='Save app setup').click()
-                                page.wait_for_timeout(200)
-                                self.assertEqual(errors, [])
-                                self.assertEqual(form.locator('#form-error').inner_text(), '')
+                                save.press('Enter')
                             self.assertEqual(saved.value.status, 201, saved.value.text())
                             expect(page.get_by_role('heading', name='Set your goal', exact=True)).to_be_visible()
-                            if capture := os.environ.get('WMM_FIRST_APP_CAPTURE'):
-                                target = Path(capture)
-                                target.mkdir(parents=True, exist_ok=True)
+                            if capture:
                                 page.screenshot(path=str(target / f'goal-home-{width}.png'), full_page=True)
                                 (target / f'goal-home-{width}.html').write_text(page.content(), encoding='utf-8')
                             page.get_by_role('button', name='Find a useful marketing angle', exact=True).click()
                             expect(page.get_by_role('region', name='Your selected goal')).to_contain_text('Find a useful marketing angle')
-                            self.assertEqual(page.evaluate("localStorage.getItem('wmm-goal-choice:first-app')"), 'research')
+                            self.assertEqual(page.evaluate("localStorage.getItem('wmm-goal-choice:synthetic-first-app')"), 'research')
+                            page.get_by_role('button', name='Open your first packet', exact=True).press('Enter')
+                            expect(page.locator('#modal')).to_contain_text('Find a useful marketing angle — evidence packet')
+                            with page.expect_download() as received:
+                                page.get_by_role('button', name='Download goal packet', exact=True).press('Enter')
+                            payload = json.loads(Path(received.value.path()).read_text(encoding='utf-8'))
+                            self.assertEqual(payload['app_id'], 'synthetic-first-app')
+                            self.assertEqual(payload['classification'], 'LOCAL_DRAFT_NO_AUTHORITY')
+                            self.assertEqual([row['stage'] for row in payload['outputs']], [5, 6])
+                            page.reload()
+                            expect(page.get_by_role('region', name='Your selected goal')).to_contain_text('Find a useful marketing angle')
                             if page.locator('#navigation details').get_attribute('open') is None:
                                 page.locator('#navigation summary').click()
                             page.locator('#navigation [data-view="workflow"]').click()
@@ -152,12 +182,23 @@ class FirstAppBrowserTests(unittest.TestCase):
                             with page.expect_download() as received:
                                 page.get_by_role('button', name='Download all packets', exact=True).click()
                             download = received.value
-                            self.assertEqual(download.suggested_filename, 'first-app-current-work.json')
+                            self.assertEqual(download.suggested_filename, 'synthetic-first-app-current-work.json')
                             payload = json.loads(Path(download.path()).read_text(encoding='utf-8'))
-                            self.assertEqual(payload['app_id'], 'first-app')
+                            self.assertEqual(payload['app_id'], 'synthetic-first-app')
                             self.assertEqual(payload['classification'], 'CURRENT_LOCAL_DRAFTS')
                             self.assertEqual(len(payload['outputs']), 12)
                             self.assertEqual(payload['source_hash'], page.evaluate('state.workspace.preparation.source_hash'))
+                            page.keyboard.press('Escape')
+                            if width == 390: page.locator('[data-action="add-app"]').click()
+                            else: page.locator('#add-app').click()
+                            for key, value in values.items(): form.locator('[name="' + key + '"]').fill(value)
+                            form.locator('[name="job"]').fill('Different app with the same name')
+                            save.press('Enter')
+                            expect(page.locator('#app-select')).to_have_value('synthetic-first-app-2')
+                            expect(page.get_by_role('heading', name='Set your goal', exact=True)).to_be_visible()
+                            expect(form).to_be_hidden()
+                            self.assertEqual(store.app('synthetic-first-app')['data']['job'], values['job'])
+                            self.assertEqual(store.app('synthetic-first-app-2')['data']['job'], 'Different app with the same name')
                             with connection(store.path) as db:
                                 for table in ('jobs', 'operator_roles', 'agent_grants'):
                                     self.assertEqual(db.execute('SELECT count(*) FROM ' + table).fetchone()[0], 0, table)
