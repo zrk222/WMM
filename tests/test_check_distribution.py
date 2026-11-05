@@ -26,7 +26,7 @@ class DistributionTextEncodingTests(unittest.TestCase):
                     distribution.check()
 
     def test_synthetic_screenshots_require_current_manifest_and_known_path(self):
-        for name in ('overview.png', 'sample-workflow.png'):
+        for name in ('overview.png', 'sample-workflow.png', 'agent-task-setup.png'):
             with self.subTest(name=name):
                 self.check_synthetic_screenshot(name)
 

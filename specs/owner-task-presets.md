@@ -17,6 +17,7 @@ Reduce manual catalog selection in the existing owner grant form. The owner choo
 - If the app, owner, catalog or selected form changes, the system shall reject stale submission through `context_binding` using existing server and UI checks.
 - When desktop and mobile owners use setup, the system shall return accessible labels, keyboard-operable choices and visible unavailable/custom states through `accessible_setup` at 1440 px and 390 px without horizontal overflow.
 - When public UI and GitHub previews describe the update, the system shall return current task/expiry/allowance explanations and a real synthetic UI screenshot through `current_preview`, with 0 claims that presets alone complete a campaign or prove outcomes.
+- When distribution includes the task screenshot, the system shall return a validated known-path synthetic image through `screenshot_provenance`, with 0 accepted missing manifests, changed image bytes or arbitrary private image paths.
 
 ### Acceptance criteria (Gherkin)
 ```gherkin
@@ -64,6 +65,10 @@ Scenario: current_preview
  Given the verified synthetic task setup screen
  When `current_preview` describes the current update
  Then preview text and screenshot agree with the implemented feature boundary
+Scenario: screenshot_provenance
+ Given the exact synthetic task screenshot path
+ When `screenshot_provenance` checks the staged distribution
+ Then current manifest hashes pass and missing or changed provenance and private image paths fail
 ```
 
 ## Architecture and limits

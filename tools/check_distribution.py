@@ -28,7 +28,7 @@ def check():
     for path in files():
         rel=path.relative_to(ROOT)
         if path.is_symlink() or not path.resolve().is_relative_to(ROOT.resolve()):issues.append(str(rel)+': escaping path');continue
-        if rel.as_posix() in {'docs/images/overview.png','docs/images/pipeline.png','docs/images/results.png','docs/images/sample-workflow.png'}:
+        if rel.as_posix() in {'docs/images/overview.png','docs/images/pipeline.png','docs/images/results.png','docs/images/sample-workflow.png','docs/images/agent-task-setup.png'}:
             try:
                 manifest=json.loads((ROOT/'docs/images/provenance.json').read_text(encoding='utf-8'))
                 data=path.read_bytes()

@@ -52,6 +52,7 @@ def races(page):
     """Hold actual HTTP requests to exercise duplicate and late-response handling."""
     page.locator('#close-modal').click();click(page,'grants');click(page,'new')
     page.get_by_label('Agent identifier',exact=True).fill('late-response-agent')
+    page.locator('#control-grant-form [data-task-advanced] summary').click()
     page.locator('input[name=operations][value="growth.read"]').check()
     # A changed loaded version is rejected locally before issuing credentials.
     page.evaluate('state.workspace.app.version++')
@@ -94,6 +95,7 @@ def viewport(browser,width,out):
         click(page,'new')
         page.get_by_label('Agent identifier',exact=True).fill('browser-agent')
         page.get_by_label('Maximum admitted attempts',exact=True).fill('300')
+        page.locator('#control-grant-form [data-task-advanced] summary').click()
         page.locator('input[name=operations][value="growth.read"]').check()
         page.locator('input[name=operations][value="growth.save"]').check()
         capture(page,out,f'grant-form-{width}')
@@ -160,6 +162,7 @@ def viewport(browser,width,out):
         expect(checker.locator('#main')).not_to_contain_text('a-browser-request')
         click(page,'grants');click(page,'new')
         page.get_by_label('Agent identifier',exact=True).fill('preserved-input')
+        page.locator('#control-grant-form [data-task-advanced] summary').click()
         page.locator('input[name=operations][value="growth.read"]').check()
         page.route('**/agent-grants/issue',lambda route:route.fulfill(status=400,content_type='application/json',body=json.dumps(dict(error='Synthetic save failure'))))
         page.get_by_role('button',name='Issue scoped grant',exact=True).click()
