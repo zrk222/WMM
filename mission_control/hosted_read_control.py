@@ -62,6 +62,16 @@ def _token_hash(token):
     return hashlib.sha256(token.encode("ascii")).digest()
 
 
+def _identity_time(bounds, now):
+    """Only signature-verified temporal values may reach this trusted helper."""
+    expires, issued, not_before = bounds
+    values = (expires, issued) if not_before is None else bounds
+    if any(type(value) not in (int, float) or not math.isfinite(value) for value in values):
+        raise Unauthenticated('Identity assertion is invalid')
+    if expires <= now or issued > now + 5 or (not_before is not None and not_before > now):
+        raise Unauthenticated('Identity assertion is expired or not yet valid')
+
+
 class Control:
     """Separate control database. Provisioning methods are trusted Python only."""
 
@@ -184,13 +194,15 @@ class Control:
                 DO UPDATE SET role=excluded.role, status=excluded.status, epoch=members.epoch+1""",
                 (issuer, subject, tenant_id, client_id, role, status))
 
-    def issue_session(self, issuer, subject, max_age=28800):
+    def issue_session(self, issuer, subject, max_age=28800, *, verified_times=None):
         if isinstance(max_age, bool) or not isinstance(max_age, (int, float)) or not math.isfinite(max_age) or not 0 < max_age <= 28800:
             raise ValueError("invalid session duration")
         token = "wmmr_" + secrets.token_urlsafe(32)
         token_hash = _token_hash(token)
         with self._write() as db:
             now = self._now()
+            if verified_times is not None:
+                _identity_time(verified_times, now)
             assignments = db.execute("""SELECT m.tenant_id, m.client_id, c.epoch AS client_epoch,
                     m.epoch AS member_epoch, m.role FROM members m JOIN clients c
                     ON c.tenant_id=m.tenant_id AND c.client_id=m.client_id
@@ -205,6 +217,38 @@ class Control:
                            [(token_hash, a['tenant_id'], a['client_id'], a['client_epoch'],
                              a['member_epoch'], a['role']) for a in assignments])
         return token
+
+    def issue_verified_session(self, identity):
+        """Recheck verified assertion time after acquiring the issuance lock."""
+        return self.issue_session(_principal(identity.issuer), _principal(identity.subject),
+                                  verified_times=(identity.expires, identity.issued_at, identity.not_before))
+
+    def _choices(self, db, token_hash, now):
+        rows = db.execute("""SELECT tenant_id,client_id FROM session_assignments
+                             WHERE token_hash=? ORDER BY tenant_id,client_id LIMIT 21""",
+                          (token_hash,)).fetchall()
+        if not rows:
+            raise Unauthenticated('Sign in to an assigned workspace')
+        choices = [self._admission(db, token_hash, row['tenant_id'], row['client_id'], now)
+                   for row in rows]
+        return choices[:20], len(choices) > 20
+
+    def choices(self, token):
+        """List only current session snapshots, with an explicit finite cap."""
+        token_hash = _token_hash(token)
+        with self._connection() as db:
+            db.execute('BEGIN')
+            return self._choices(db, token_hash, self._now())
+
+    def finish_choices(self, token, admissions, more_available):
+        """Revalidate the entire list after app-name collection, atomically."""
+        token_hash = _token_hash(token)
+        with self._write() as db:
+            now = self._now()
+            if self._choices(db, token_hash, now) != (admissions, more_available):
+                raise Unassigned('Workspace assignments changed')
+            db.execute('UPDATE sessions SET idle_expiry=MIN(absolute_expiry, ?) WHERE token_hash=?',
+                       (now + 900, token_hash))
 
     def revoke_session(self, token):
         token_hash = _token_hash(token)
