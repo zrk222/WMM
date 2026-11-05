@@ -21,6 +21,9 @@ test('clip controls escape source identifiers and expose commands and current pr
  const c=data().clips[0];c.id='<img src=x onerror=alert(1)>';
  const html=ui.clipMarkup(c,0,1);assert.ok(!html.includes('<img'));for(const name of ['Move earlier','Move later','Duplicate clip','Delete clip','Split clip','Framing, crop and color','Source start frame'])assert.ok(html.includes(name));assert.ok(html.includes('disabled'));
  const panel=ui.panel();assert.ok(panel.includes('Uploaded clips can retain or mute'));assert.ok(panel.includes('whole source frame'));assert.ok(!panel.includes('fully complete'));
+ const recipe=ui.recipeMarkup(data());assert.ok(recipe.includes('<summary>Review app-demo clarity proposal</summary>'));
+ assert.ok(recipe.includes('data-action="veditor-recipe-apply"'));assert.ok(recipe.includes('type="button"'));
+ assert.ok(recipe.includes('not a video quality check'));
 });
 test('reports project observed metrics without unrelated secrets or raw operation payloads',()=>{
  const p=project();p.data.secret_profile={api_key:'PRIVATE_KEY_SENTINEL'};
@@ -60,4 +63,30 @@ test('managed source selection retains kind, digest and explicit sound controls'
  assert.equal(ui.edited(p,v).clips[0].audio,'MUTE');
  assert.match(ui.clipMarkup(d.clips[0],0,1),/Retain source sound/);
  assert.match(ui.clipMarkup(d.clips[0],0,1),/normalized to 24/);
+});
+
+test('app-demo clarity changes only supported draft controls and preserves exact source and rights data',()=>{
+ const p=project(),c=p.data.definition.clips[0];c.speed_percent=150;c.transform.fit='COVER';c.transform.crop={x:500,y:700,width:8200,height:7900};
+ c.audio='RETAIN';c.rights={status:'OWNER_REVIEWED',receipt_id:'rights-one'};c.metadata={hypit_capture_id:'capture-one',custom:'keep'};p.data.definition.metadata={campaign:'approved'};
+ const before=JSON.parse(JSON.stringify(p.data.definition)),draft=ui.applyClarityRecipe(p);
+ assert.equal(draft.clips[0].transform.fit,'CONTAIN');assert.equal(draft.clips[0].speed_percent,100);
+ for(const key of ['source','in_frame','out_frame','audio','rights','metadata'])assert.deepEqual(draft.clips[0][key],before.clips[0][key]);
+ for(const key of ['crop','rotation','flip_x','flip_y','background'])assert.deepEqual(draft.clips[0].transform[key],before.clips[0].transform[key]);
+ assert.deepEqual(draft.clips[0].effects,before.clips[0].effects);assert.deepEqual(draft.metadata,before.metadata);
+ assert.equal(c.speed_percent,150);assert.equal(c.transform.fit,'COVER');
+ assert.throws(()=>ui.applyClarityRecipe(p,'unknown'),/supported clarity recipe/);
+ const invalid=project();invalid.data.definition.clips[0].speed_percent=NaN;assert.throws(()=>ui.applyClarityRecipe(invalid),/outside the supported clarity profile/);
+});
+
+test('clarity proposal remains draft-only until explicit save and render actions',async()=>{
+ const f=fixture();f.p.data.definition.clips[0].transform.fit='COVER';f.p.data.definition.clips[0].speed_percent=150;await ui.open(f.deps);await ui.action({dataset:{action:'veditor-project',id:f.p.id}},f.deps);
+ const v=fields(f.p),fit={value:v['c0.fit']},speed={value:v['c0.speed_percent']},form={values:v,elements:{namedItem:name=>name==='c0.fit'?fit:name==='c0.speed_percent'?speed:null}};
+ const error=f.error,originalQuery=f.node.querySelector;f.node.querySelector=selector=>selector==='#video-project-edit-form'?form:selector==='#editor-error'?error:originalQuery(selector);
+ let calls=0;f.deps.api=async()=>{calls++;return {};};
+ await ui.action({dataset:{action:'veditor-recipe-apply'}},f.deps);
+ assert.equal(calls,0);assert.equal(fit.value,'CONTAIN');assert.equal(speed.value,'100');assert.match(error.textContent,/draft fields only/);
+ v['c0.fit']=fit.value;v['c0.speed_percent']=speed.value;
+ assert.equal(v['c0.in_frame'],'0');assert.equal(v['c0.out_frame'],'120');
+ await ui.action({dataset:{action:'veditor-render'}},f.deps);assert.equal(calls,0);assert.match(error.textContent,/Save your current field edits first/);
+ ui.clear();
 });

@@ -2,6 +2,7 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.WMMVideoEditor=api;})(typeof globalThis==='object'?globalThis:this,function(){
  'use strict';
  const FPS=24,MAX_CLIPS=24;
+ const CLARITY_RECIPE=Object.freeze({id:'app_demo_clarity_v1',fit:'CONTAIN',maximum_speed_percent:100});
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const clone=v=>JSON.parse(JSON.stringify(v));
  const button=(title,action,extra='')=>`<button type="button" class="button outline" data-action="veditor-${action}" ${extra}>${esc(title)}</button>`;
@@ -50,6 +51,21 @@
   const value=clone(project.data.definition);value.title=values.title;value.purpose=values.purpose;value.output=values.output;
   value.clips.forEach((c,i)=>readClip(c,values,'c'+i+'.'));return value;
  }
+ function applyClarityRecipe(project,recipeId=CLARITY_RECIPE.id){
+  if(recipeId!==CLARITY_RECIPE.id)throw new Error('Choose a supported clarity recipe.');
+  const value=clone(project.data.definition);
+  if(!Array.isArray(value.clips)||!value.clips.length)throw new Error('The clarity recipe needs at least one clip.');
+  for(const c of value.clips){
+   if(!c||!c.transform||!Number.isFinite(c.speed_percent)||c.speed_percent<25||c.speed_percent>400)throw new Error('This project has a clip outside the supported clarity profile.');
+   c.transform.fit=CLARITY_RECIPE.fit;
+   c.speed_percent=Math.min(c.speed_percent,CLARITY_RECIPE.maximum_speed_percent);
+  }
+  return value;
+ }
+ function recipeMarkup(d){
+  const rows=d.clips.map((c,i)=>`<li>Clip ${i+1}: frame fit CONTAIN; speed ${Math.min(c.speed_percent,CLARITY_RECIPE.maximum_speed_percent)}% (current ${c.speed_percent}%). All other clip and project fields stay as saved.</li>`).join('');
+  return `<details class="video-taste-recipe"><summary>Review app-demo clarity proposal</summary><p>For app-screen demonstrations: keep the whole picture visible and avoid speeding footage above normal. This is a suggestion, not a video quality check.</p><ul>${rows}</ul><p>Source IDs, in/out frames, rights, sound, metadata, crop, rotation, flips, background, effects, captions and brand settings are preserved.</p>${button('Apply proposal to draft fields','recipe-apply')}<p>Applying changes fields in this form only. Review them, then choose Save edits explicitly. Rendering remains a separate action.</p></details>`;
+ }
  function readClip(c,v,p){
   c.role=v[p+'role'];if('audio' in c||v[p+'audio']==='RETAIN')c.audio=v[p+'audio']||'MUTE';for(const key of ['in_frame','out_frame','speed_percent'])c[key]=number(v,p+key);
   c.transform.rotation=number(v,p+'rotation');c.transform.flip_x=v[p+'flip_x']==='true';c.transform.flip_y=v[p+'flip_y']==='true';c.transform.fit=v[p+'fit'];c.transform.background=v[p+'background'];
@@ -68,10 +84,20 @@
   const p=data.project,d=p.data.definition;
   const clips=d.clips.map((c,i)=>clipMarkup(c,i,d.clips.length)).join('');
   const history=(p.history||[]).map(r=>[String(r.revision),'Revision '+r.revision+' · '+r.action]);
-  const html=`<p>Current revision ${p.revision} · ${p.timing.total_frames/FPS} seconds · ${esc(p.source_status)} · ${esc(d.locale)}</p><form id="video-project-edit-form"><div class="form-grid">${field('title','Project title',d.title,'text','required maxlength="200"')}${field('purpose','Audience and intended action',d.purpose,'text','required maxlength="2000"')}${choice('output','Output shape',d.output,[['PORTRAIT','Portrait 720 × 1280'],['LANDSCAPE','Landscape 1280 × 720'],['SQUARE','Square 720 × 720']])}</div>${clips}<p>Save current field edits before using clip commands, history or rendering. These actions use the exact saved revision.</p><button class="button primary" type="submit">Save edits</button><div class="button-row">${button('Undo','undo',p.can_undo?'':'disabled')}${button('Redo','redo',p.can_redo?'':'disabled')}${button('Render saved revision','render')}${button('Rendered videos','outputs')}</div><details><summary>Add a source clip or restore an earlier revision</summary>${choice('insert_source','Source for new clip',data.sources[0]?sourceKey(data.sources[0]):'',sourceOptions(data))}${button('Add source clip','insert',d.clips.length>=MAX_CLIPS?'disabled':'')}${choice('restore_revision','Earlier revision',history[0]?.[0]||'',history)}${button('Restore selected revision','restore')}</details></form><div class="button-row">${button('PDF edit report','report')}${button('Download edit settings','download')}${button('Reload saved project','project',`data-id="${esc(p.id)}"`)}</div>`;
+  const html=`<p>Current revision ${p.revision} · ${p.timing.total_frames/FPS} seconds · ${esc(p.source_status)} · ${esc(d.locale)}</p><form id="video-project-edit-form"><div class="form-grid">${field('title','Project title',d.title,'text','required maxlength="200"')}${field('purpose','Audience and intended action',d.purpose,'text','required maxlength="2000"')}${choice('output','Output shape',d.output,[['PORTRAIT','Portrait 720 × 1280'],['LANDSCAPE','Landscape 1280 × 720'],['SQUARE','Square 720 × 720']])}</div>${recipeMarkup(d)}${clips}<p>Save current field edits before using clip commands, history or rendering. These actions use the exact saved revision.</p><button class="button primary" type="submit">Save edits</button><div class="button-row">${button('Undo','undo',p.can_undo?'':'disabled')}${button('Redo','redo',p.can_redo?'':'disabled')}${button('Render saved revision','render')}${button('Rendered videos','outputs')}</div><details><summary>Add a source clip or restore an earlier revision</summary>${choice('insert_source','Source for new clip',data.sources[0]?sourceKey(data.sources[0]):'',sourceOptions(data))}${button('Add source clip','insert',d.clips.length>=MAX_CLIPS?'disabled':'')}${choice('restore_revision','Earlier revision',history[0]?.[0]||'',history)}${button('Restore selected revision','restore')}</details></form><div class="button-row">${button('PDF edit report','report')}${button('Download edit settings','download')}${button('Reload saved project','project',`data-id="${esc(p.id)}"`)}</div>`;
   return show(deps,'Edit your video','edit',data,html,captured);
  }
  function values(form,deps){return Object.fromEntries(new deps.FormData(form));}
+ function applyRecipeToForm(ticket,deps){
+  clean(ticket,deps);
+  const proposal=applyClarityRecipe(ticket.data.project),form=ticket.node.querySelector('#video-project-edit-form');
+  proposal.clips.forEach((c,i)=>{
+   const fit=form.elements.namedItem(`c${i}.fit`),speed=form.elements.namedItem(`c${i}.speed_percent`);
+   if(!fit||!speed)throw new Error('The draft controls do not match this recipe. Reload the project.');
+   fit.value=c.transform.fit;speed.value=String(c.speed_percent);
+  });
+  ticket.node.querySelector('#editor-error').textContent='Proposal applied to draft fields only. Review the changed fit and speed values, then choose Save edits to create a revision. No render was queued.';
+ }
  function draft(ticket,deps){return edited(ticket.data.project,values(ticket.node.querySelector('#video-project-edit-form'),deps));}
  function clean(ticket,deps){
   if(JSON.stringify(draft(ticket,deps))!==JSON.stringify(ticket.data.project.data.definition))throw new Error('Save your current field edits first. Your inputs are preserved.');
@@ -126,6 +152,9 @@
   const name=node.dataset.action.slice(8);if(name==='open')return open(deps);
   const ticket=active;if(!ticket||ticket.pending||!valid(ticket,deps))return;
   if(name==='create')return createForm(deps,ticket);
+  if(name==='recipe-apply'){
+   try{applyRecipeToForm(ticket,deps);}catch(e){ticket.node.querySelector('#editor-error').textContent=e.message+' Current fields are preserved.';}return;
+  }
   if(name==='download')return download(ticket,deps);
   if(name==='report')return deps.pageReports.openReport(report(ticket.data,deps.state,deps.pageReports),deps.browser);
   ticket.pending=true;
@@ -145,5 +174,5 @@
   }catch(e){if(valid(ticket,deps))ticket.node.querySelector('#editor-error').textContent=e.message+' If saved state changed, reload the project. Current fields are preserved.';}
   finally{ticket.pending=false;}
  }
- return {panel,open,action,submit,clear,invalidate,newClip,newData,edited,report,clipMarkup};
+ return {panel,open,action,submit,clear,invalidate,newClip,newData,edited,applyClarityRecipe,recipeMarkup,report,clipMarkup};
 });
