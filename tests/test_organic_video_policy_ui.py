@@ -56,7 +56,10 @@ class OrganicPolicyOwnerReadTests(unittest.TestCase):
         self.assertEqual((page['total'], page['offset'], page['limit'], page['next_offset']), (1, 0, 100, None))
         item = page['items'][0]
         self.assertEqual(set(item), {'id', 'hash', 'request_id', 'request_hash', 'created', 'snapshot',
-                                     'currentness', 'revoked', 'expired', 'app_current', 'owner_current', 'usage', 'remaining'})
+                                     'currentness', 'revoked', 'expired', 'app_current', 'owner_current', 'usage', 'remaining',
+                                     'permission_expires_at', 'consent_revision'})
+        self.assertEqual(item['permission_expires_at'], saved['data']['policy']['expires_at'])
+        self.assertEqual(item['consent_revision'], 0)
         self.assertEqual((item['id'], item['hash'], item['request_id'], item['request_hash']),
                          (saved['id'], saved['hash'], self.creation['request_id'], digest(self.creation)))
         self.assertEqual(item['snapshot'], saved['data'])

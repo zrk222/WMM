@@ -197,11 +197,36 @@ def operation_exceptions(store, app, user):
             ]
 
 
+def _authoritative_review_grant(db, app_id, item, cache):
+    """Load complete expiry-binding metadata without widening the card projection."""
+    grant_id = item["grant_id"]
+    grant = cache.get(grant_id)
+    if grant is None:
+        source = db.execute(
+            "SELECT * FROM agent_grants WHERE app_id=? AND id=?",
+            (app_id, grant_id),
+        ).fetchone()
+        if source is None:
+            raise Invalid("Grant source unavailable")
+        grant = dict(source)
+        cache[grant_id] = grant
+    if (grant["id"] != item["g_id"] or grant["id"] != grant_id
+            or grant["app_id"] != app_id
+            or any(grant[key] != item[key] for key in (
+                "agent_id", "owner", "owner_version", "app_version", "app_hash",
+                "operations", "expires", "max_calls", "used", "status", "version",
+                "created", "updated",
+            ))):
+        raise Invalid("Grant projection changed")
+    return grant
+
+
 def _agent_review_cards(db, app, principal, role, tables):
     """Read bounded metadata only; inspection and decisions remain in Agent Control."""
     from datetime import datetime, timezone
     from .agent_checkpoints import OPERATIONS, current as checkpoint_current, hashed
     from .agent_grants import current as grant_current
+    from .authority_expiry import effective_expiry
     from .common import iso_time
     from .operation_catalog import path_segment
 
@@ -225,6 +250,7 @@ def _agent_review_cards(db, app, principal, role, tables):
     observed = datetime.now(timezone.utc)
     cards = []
     maker_source_unavailable = False
+    authoritative_grants = {}
     for item in rows:
         identity = item["id"]
         row = _saved(item["checkpoint"])
@@ -237,6 +263,8 @@ def _agent_review_cards(db, app, principal, role, tables):
                 maker_source_unavailable = True
             continue
         try:
+            # Expiry consent binds complete grant metadata; keep it off the card join.
+            grant = _authoritative_review_grant(db, app["id"], item, authoritative_grants)
             path_segment(identity)
             path_segment(item["grant_id"])
             hashed(item["input_hash"])
@@ -272,13 +300,14 @@ def _agent_review_cards(db, app, principal, role, tables):
                 raise Invalid("Invalid state")
             # Validate timestamps even for terminal records, without returning their contents.
             expiry = iso_time(packet["expires"])
-            grant_expiry = iso_time(item["expires"])
-            grant = dict(item)
-            grant["id"] = item["g_id"]
+            iso_time(item["expires"])
             if state in ("SUCCEEDED", "FAILED", "CANCELLED"):
                 continue
+            effective_grant_expiry = iso_time(
+                effective_expiry(db, "AGENT_GRANT", grant, grant["expires"])["expires"]
+            )
             issue = None
-            if expiry <= observed or grant_expiry <= observed:
+            if expiry <= observed or effective_grant_expiry <= observed:
                 issue = "EXPIRED"
             else:
                 try:

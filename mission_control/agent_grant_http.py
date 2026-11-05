@@ -45,7 +45,10 @@ def call(handler):
     service=handler.server.service
     admission=Grants(service.store).admit(token,envelope)
     from .automation_execution import execute_admitted
-    return handler.send(200,execute_admitted(service,envelope,admission))
+    result=execute_admitted(service,envelope,admission)
+    if envelope['operation']=='operations.read':
+        result=dict(result,agent_authority=Grants(service.store).authority_status(admission['grant_id'],envelope['app_id']))
+    return handler.send(200,result)
 
 
 def owner(store,app_id,action,user,body,*,runtime_origin=None,runtime_executable=None):

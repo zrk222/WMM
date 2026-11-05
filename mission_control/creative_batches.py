@@ -30,8 +30,8 @@ def _selection(data):
         raise Invalid("Choose desktop or iOS local rendering")
     observed = datetime.now(timezone.utc)
     expiry = iso_time(data["expires"])
-    if not observed < expiry <= observed + timedelta(hours=MAX_BATCH_HOURS):
-        raise Invalid("Choose an expiry within the next 24 hours")
+    if not observed < expiry:
+        raise Invalid("Choose a future expiry")
     variants = data["variants"]
     limit = data["max_total_frames"]
     if not isinstance(variants, list) or not 1 <= len(variants) <= MAX_VARIANTS:

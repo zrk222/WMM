@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 import json
 import time
-from .common import digest, now
+from .common import digest, iso_time, now
 from .db import connection
 from .operation_authority import store_identity
 from .campaign_execution import CampaignExecutionService
@@ -101,6 +101,8 @@ def _monitor(db, active, job, data, scope):
         "SELECT * FROM campaign_monitors WHERE id=?", (data["monitor_id"],)
     ).fetchone()
     summary = checked(db, row)
+    if iso_time(summary['proposal']['expires_at']).timestamp() <= time.time():
+        raise PermissionError('Monitor approval expired before provider admission')
     actual = (row["version"], row["summary_hash"], row["last_job"], row["runs"])
     if actual != (
         data["monitor_version"],

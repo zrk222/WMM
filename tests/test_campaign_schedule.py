@@ -259,7 +259,8 @@ class ScheduleTests(unittest.TestCase):
         body = dict(item_id='item', due_at=stamp.isoformat(), request={'content_hash':'a'*64})
         summary = dict(batch_id='batch', app_id='sample-one', scope_id='scope',
                        scope_hash='approved', owner='owner', items=[body])
-        scope = dict(scope_id='scope', approval_hash='approved', owner_principal='owner')
+        scope = dict(scope_id='scope', approval_hash='approved', owner_principal='owner',
+                     expires_at=(datetime.now(timezone.utc)+timedelta(hours=1)).isoformat())
         row = dict(app_id='sample-one', action='campaign_post', batch_id='batch',
                    batch_status='ACTIVE', item_status='QUEUED', job_status='RUNNING',
                    attempts=1, lease=time.time()+60, due=stamp.timestamp(),

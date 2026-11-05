@@ -1,7 +1,7 @@
 """Trusted-service bridge from scoped delegation to exact independently reviewed writes."""
 from datetime import datetime,timezone
 import json
-from .common import Invalid,canonical,digest
+from .common import Invalid,canonical,digest,iso_time
 from .db import connection
 from .agent_grants import authenticated,consume,token_digest
 from .agent_review_policy import operations
@@ -87,8 +87,11 @@ class ReviewedDispatch:
             if envelope['operation'] not in operations(db,grant['id']):
                 raise Invalid('This grant operation does not require a reviewed request')
             input_hash=digest(dict(grant_id=grant['id'],envelope=envelope))
+            from datetime import timedelta
+            from .authority_expiry import effective_expiry
+            expiry=iso_time(effective_expiry(db,'AGENT_GRANT',grant,grant['expires'])['expires'])
             packet=dict(id=identity,agent_id=grant['agent_id'],operation=envelope['operation'],input_hash=input_hash,
-                manifest_version=grant['app_version'],expires=grant['expires'])
+                manifest_version=grant['app_version'],expires=min(expiry,self.clock()+timedelta(hours=24)).isoformat())
             prepare_in_db(db,app_id,grant['owner'],packet,self.clock())
             old=db.execute('SELECT input_hash FROM agent_review_requests WHERE app_id=? AND id=?',(app_id,identity)).fetchone()
             if old and old['input_hash']!=input_hash:raise Invalid('Reviewed request identity is immutable')

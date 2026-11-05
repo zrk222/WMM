@@ -58,14 +58,17 @@ final class NativeAgentAccessModel: ObservableObject, Identifiable {
     }
 
     func issue(agentID: String, selected: Set<String>, reviewed: Set<String>, hours: Int,
-               maxCalls: Int, confirmed: Bool) async {
-        guard !busy, confirmed, !selected.isEmpty, (1...24).contains(hours), (1...10000).contains(maxCalls) else { return }
+               maxCalls: Int, confirmed: Bool, expiry: Date? = nil, extendedConsent: Bool = false) async {
+        let target = expiry ?? Date().addingTimeInterval(Double(hours) * 3600)
+        let extended = target.timeIntervalSinceNow > 24 * 3600
+        guard !busy, confirmed, !selected.isEmpty, target > Date(), (!extended || extendedConsent), (1...10000).contains(maxCalls) else { return }
         busy = true; message = nil; defer { busy = false }
         do {
-            let expires = ISO8601DateFormatter().string(from: Date().addingTimeInterval(Double(hours) * 3600))
-            let body: [String: Any] = ["confirm_scope": true, "grant": ["agent_id": agentID,
-                "manifest_version": manifestVersion, "operations": selected.sorted(),
-                "review_operations": reviewed.intersection(selected).sorted(), "expires": expires, "max_calls": maxCalls]]
+            let expires = ISO8601DateFormatter().string(from: target)
+            var grant: [String: Any] = ["agent_id": agentID, "manifest_version": manifestVersion, "operations": selected.sorted(),
+                "review_operations": reviewed.intersection(selected).sorted(), "expires": expires, "max_calls": maxCalls]
+            if extended { grant["extended_expiry_consent"] = true }
+            let body: [String: Any] = ["confirm_scope": true, "grant": grant]
             let issued = try await execute("issue", JSONSerialization.data(withJSONObject: body))
             _ = try await runtime.retainIssuedGrant(issued)
             try await load()
@@ -74,6 +77,8 @@ final class NativeAgentAccessModel: ObservableObject, Identifiable {
             message = "Issuance or Keychain storage was not confirmed. Refresh the grant list. If a grant exists without a retained token, revoke it before issuing another."
         }
     }
+
+    func expiryAction(_ action: String, _ body: Data) async throws -> Data { try await execute(action, body) }
 
     func revoke(_ grant: NativeAgentGrant) async {
         guard !busy else { return }; busy = true; message = nil; defer { busy = false }
@@ -152,7 +157,8 @@ struct NativeAgentAccessView: View {
     @State private var agentID = "personal-agent"
     @State private var selected: Set<String> = ["workspace.read"]
     @State private var reviewed: Set<String> = []
-    @State private var hours = 1
+    @State private var expiry = Date().addingTimeInterval(24 * 3600)
+    @State private var extendedConsent = false
     @State private var maxCalls = 100
     @State private var confirmed = false
     @State private var revoking: NativeAgentGrant?
@@ -187,19 +193,20 @@ struct NativeAgentAccessView: View {
                         }
                     }
                     }
-                    Stepper("Expires in \(hours) hours", value: $hours, in: 1...24)
+                    DatePicker("Permission expires", selection: $expiry, in: Date()...)
+                    if expiry.timeIntervalSinceNow > 24 * 3600 { Toggle("I consent to permission lasting beyond 24 hours", isOn: $extendedConsent) }
                     Stepper("Maximum \(maxCalls) calls", value: $maxCalls, in: 1...10000)
                 }.disabled(model.busy)
                 Section("Review your exact delegation") {
                     Text("App: \(model.appID) · revision \(model.manifestVersion)")
                     Text("Operations: \(selected.sorted().joined(separator: ", "))")
                     Text("Human review: \(reviewed.intersection(selected).sorted().joined(separator: ", "))")
-                    Text("Lifetime: \(hours) hours · ceiling: \(maxCalls) calls")
+                    Text("Permission expires: \(expiry.formatted()), ceiling: \(maxCalls) calls")
                     Toggle("I approve this exact scope for my agent", isOn: $confirmed)
                     Button("Create scoped agent access") { Task {
-                        await model.issue(agentID: agentID, selected: selected, reviewed: reviewed, hours: hours, maxCalls: maxCalls, confirmed: confirmed)
+                        await model.issue(agentID: agentID, selected: selected, reviewed: reviewed, hours: 24, maxCalls: maxCalls, confirmed: confirmed, expiry: expiry, extendedConsent: extendedConsent)
                         confirmed = false
-                    }}.disabled(model.busy || !confirmed || selected.isEmpty || agentID.isEmpty)
+                    }}.disabled(model.busy || !confirmed || selected.isEmpty || agentID.isEmpty || (expiry.timeIntervalSinceNow > 24 * 3600 && !extendedConsent))
                 }
                 Section("Saved grants") {
                     if model.grants.isEmpty { Text("No scoped grants saved for this app.") }
@@ -210,6 +217,7 @@ struct NativeAgentAccessView: View {
                             Text(grant.operations.joined(separator: ", ")).font(.caption)
                             Button("Verify local tool access") { Task { await model.verify(grant) } }
                                 .disabled(model.busy || grant.status != "ACTIVE" || !grant.operations.contains("workspace.read"))
+                            if grant.status == "ACTIVE" { NativeExpiryReview(kind: "AGENT_GRANT", authorityID: grant.id, execute: model.expiryAction, refresh: model.refresh) }
                             Button("Revoke grant", role: .destructive) { revoking = grant }.disabled(model.busy || grant.status != "ACTIVE")
                         }
                     }
@@ -261,11 +269,87 @@ struct NativeAgentAccessView: View {
                 if let grant = revoking { Button("Revoke \(grant.agent_id)", role: .destructive) { Task { await model.revoke(grant) }; revoking = nil } }
             } message: { Text("New calls will be denied. Revocation does not erase existing results or prove that in-flight work stopped.") }
             .onChange(of: agentID) { _, _ in confirmed = false }
-            .onChange(of: hours) { _, _ in confirmed = false }
+            .onChange(of: expiry) { _, _ in confirmed = false; extendedConsent = false }
+            .onChange(of: extendedConsent) { _, _ in confirmed = false }
             .onChange(of: maxCalls) { _, _ in confirmed = false }
             .task { await model.refresh() }
             .onDisappear { Task { await model.close() } }
             .interactiveDismissDisabled(model.busy)
         }.privacySensitive()
+    }
+}
+
+/// A changed date cannot submit the previously reviewed payload.
+@MainActor
+func confirmNativeExpiry(reviewedDate: Date?, selectedDate: Date, consent: Bool,
+                         submit: @MainActor () async throws -> Void) async throws {
+    guard consent, let reviewedDate, reviewedDate == selectedDate else { throw DomainBridge.Failure.invalidRequest }
+    try await submit()
+}
+
+/// Owner-only expiry review retains the exact server preview and request key.
+@MainActor
+struct NativeExpiryReview: View {
+    let kind: String
+    let authorityID: String
+    let execute: @MainActor (String, Data) async throws -> Data
+    let refresh: @MainActor () async -> Void
+    @State private var expiry = Date().addingTimeInterval(48 * 3600)
+    @State private var preview: [String: Any]?
+    @State private var reviewedDate: Date?
+    @State private var previewHash = ""
+    @State private var requestID = UUID().uuidString.lowercased()
+    @State private var display = ""
+    @State private var consent = false
+    @State private var busy = false
+    @State private var result = ""
+
+    private func send(_ action: String, _ body: [String: Any]) async throws -> [String: Any] {
+        let data = try await execute(action, JSONSerialization.data(withJSONObject: body))
+        guard let value = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw DomainBridge.Failure.invalidRequest }
+        return value
+    }
+    private func describe(_ value: [String: Any]) throws -> String {
+        String(data: try JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys]), encoding: .utf8) ?? ""
+    }
+    var body: some View {
+        DisclosureGroup("Extend permission or inspect receipts") {
+            DatePicker("New permission expiry", selection: $expiry, in: Date()...)
+            Text("Permission expiry and execution readiness are separate. Verification, credentials and existing work may expire earlier; usage and limits remain unchanged.").font(.caption)
+            Button("Review extension") { Task {
+                busy = true; defer { busy = false }
+                do {
+                    let selectedDate = expiry
+                    let value = try await send("extension-preview", ["kind": kind, "id": authorityID, "expires": ISO8601DateFormatter().string(from: selectedDate)])
+                    guard expiry == selectedDate else { throw DomainBridge.Failure.invalidRequest }
+                    guard let reviewed = value["preview"] as? [String: Any], let hash = value["preview_hash"] as? String else { throw DomainBridge.Failure.invalidRequest }
+                    preview = reviewed; reviewedDate = selectedDate; previewHash = hash; requestID = UUID().uuidString.lowercased(); consent = false
+                    display = try describe(reviewed); result = "Review the exact authority, usage and dependent deadlines below."
+                } catch { preview = nil; result = "Extension review failed. Refresh the active authority and check its expiry." }
+            }}
+            if preview != nil {
+                Text(display).font(.caption).textSelection(.enabled)
+                Toggle("I approve this exact expiry extension", isOn: $consent)
+                Button("Confirm extension") { Task {
+                    guard let reviewed = preview else { return }; busy = true; defer { busy = false }
+                    do {
+                        var value: [String: Any] = [:]
+                        try await confirmNativeExpiry(reviewedDate: reviewedDate, selectedDate: expiry, consent: consent) {
+                            value = try await send("extension-confirm", ["preview": reviewed, "preview_hash": previewHash, "request_id": requestID, "extended_expiry_consent": true])
+                        }
+                        display = try describe(value); preview = nil; reviewedDate = nil; consent = false
+                        result = "Extension recorded. Existing credentials, usage and independent deadlines are unchanged."
+                        await refresh()
+                    } catch { result = "Extension was not confirmed. Retry this exact request or refresh and review again." }
+                }}.disabled(!consent)
+            }
+            Button("Show expiry receipts") { Task {
+                busy = true; defer { busy = false }
+                do { display = try describe(try await send("extension-history", ["kind": kind, "id": authorityID])); result = "Expiry receipts" }
+                catch { result = "Receipts could not be read. Unlock and refresh." }
+            }}
+            if !result.isEmpty { Text(result).font(.caption) }
+            if preview == nil && !display.isEmpty { Text(display).font(.caption).textSelection(.enabled) }
+        }.disabled(busy).onChange(of: expiry) { _, _ in preview = nil; reviewedDate = nil; consent = false; display = "" }
     }
 }

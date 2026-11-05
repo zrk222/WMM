@@ -314,7 +314,7 @@ static NSData *WMMResultBytes(PyObject *value, NSError **error) {
         if (![self inventoryWithError:error]) return nil;
         PyGILState_STATE gil = PyGILState_Ensure();
         PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
-        BOOL known = [@[@"list", @"issue", @"revoke", @"handoff-list", @"handoff-create", @"handoff-revoke"] containsObject:action];
+        BOOL known = [@[@"list", @"issue", @"revoke", @"handoff-list", @"handoff-create", @"handoff-revoke", @"extension-preview", @"extension-confirm", @"extension-history"] containsObject:action];
         PyObject *body = known && request.length > 0 && request.length <= 1048576
             ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
         PyObject *value = runtime && body ? PyObject_CallMethod(runtime, "native_agent_access", "sssO",
@@ -481,7 +481,7 @@ static NSData *WMMResultBytes(PyObject *value, NSError **error) {
         if (![self inventoryWithError:error]) return nil;
         PyGILState_STATE gil = PyGILState_Ensure();
         PyObject *runtime = WMMRuntimes ? PyDict_GetItemString(WMMRuntimes, handle.UTF8String) : NULL;
-        BOOL known = [@[@"preview", @"activate", @"status", @"off"] containsObject:action];
+        BOOL known = [@[@"preview", @"activate", @"status", @"off", @"extension-preview", @"extension-confirm", @"extension-history"] containsObject:action];
         PyObject *body = known && request.length > 0 && request.length <= 1048576
             ? PyBytes_FromStringAndSize(request.bytes, (Py_ssize_t)request.length) : NULL;
         PyObject *value = runtime && body ? PyObject_CallMethod(runtime, "native_automation", "sssO",

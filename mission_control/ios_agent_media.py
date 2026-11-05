@@ -39,7 +39,7 @@ def record_authority(db, app_id, kind, job_id):
 
 def check_standing(db,app_id,kind,job_id):
     """Called both during native validation and immediately before its commit."""
-    from .automation_execution import execution_row
+    from .automation_execution import execution_row,check_execution_deadline
     from .complete_automation import ACCESS_VERIFIER,ACCESS_STORE,checked_policy,utc
     origin=db.execute('SELECT * FROM ios_agent_media_authority WHERE app_id=? AND kind=? AND job_id=?',(app_id,kind,job_id)).fetchone()
     scope=db.execute('SELECT * FROM ios_agent_media_standing WHERE app_id=? AND kind=? AND job_id=?',(app_id,kind,job_id)).fetchone()
@@ -55,6 +55,7 @@ def check_standing(db,app_id,kind,job_id):
             or execution_hash(execution)!=scope['execution_hash'] or execution['grant_id']!=origin['grant_id']
             or execution['input_hash']!=digest(json.loads(origin['envelope']))):
         raise PermissionError('Standing native execution changed or requires reconciliation')
+    check_execution_deadline(db,execution,utc())
     current,_=checked_policy(db,execution['policy_id'],utc())
     if current['app_id']!=app_id or current['version']!=execution['policy_version']:
         raise PermissionError('Standing native approval scope changed')

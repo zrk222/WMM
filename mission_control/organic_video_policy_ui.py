@@ -193,7 +193,10 @@ def _policy_status(db, row, saved, actor, app_id, app_version, app_hash):
     if not isinstance(proposal, dict):
         raise Invalid('Organic policy snapshot integrity changed')
     revoked = bool(db.execute('SELECT 1 FROM organic_video_policy_revocations WHERE policy_id=?', (row['id'],)).fetchone()) if _has_table(db, 'organic_video_policy_revocations') else False
-    expired = iso_time(proposal['expires_at']) <= datetime.now(timezone.utc)
+    from .authority_expiry import effective_expiry, initial_base
+    base=initial_base(proposal['expires_at'],row['created'],proposal.get('extended_expiry_consent'))
+    consent=effective_expiry(db,'ORGANIC_POLICY',row,base)
+    expired = iso_time(consent['expires']) <= datetime.now(timezone.utc)
     app_current = (data.get('app_id') == app_id and (data.get('app_version'), data.get('app_hash')) == (app_version, app_hash))
     owner_current = data.get('owner') == actor
     if owner_current:
@@ -202,6 +205,7 @@ def _policy_status(db, row, saved, actor, app_id, app_version, app_hash):
         owner_current = bool(role and role['role'] == 'OWNER' and role['status'] == 'ACTIVE'
                              and role['version'] == data.get('owner_version'))
     return dict(currentness='CURRENTNESS_NOT_REVALIDATED', revoked=revoked, expired=expired,
+                permission_expires_at=consent['expires'],consent_revision=consent['revision'],
                 app_current=app_current, owner_current=owner_current)
 
 

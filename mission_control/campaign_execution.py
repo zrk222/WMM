@@ -49,6 +49,62 @@ def row_scope(row):
                 allowance_note='Provider boundary checks are conservatively charged; some read requests use two units.')
 
 
+def scope_expiry(db,row,scope):
+    from .authority_expiry import effective_expiry, initial_base
+    base=initial_base(scope['expires_at'],row['created'],scope.get('extended_expiry_consent'))
+    return effective_expiry(db,'CAMPAIGN',row,base)
+
+
+def scope_view(db,row):
+    """Expose the effective clock separately from the original reviewed scope."""
+    scope=row_scope(row)
+    proof=scope_expiry(db,row,scope)
+    return dict(scope,permission_expires_at=proof['expires'],consent_revision=proof['revision'])
+
+
+def check_campaign_saved_connection(saved,scope):
+    if not saved or saved['version']!=scope['connection_version'] or saved['status']!='CONNECTED_READ_TESTED' or saved['provider']!='facebook' or saved['lease']:
+        raise PermissionError('Facebook connection changed or became unavailable')
+    if saved['expires'] is not None and saved['expires']<=datetime.now(timezone.utc).timestamp():
+        raise PermissionError('Facebook connection expired')
+    if json.loads(saved['data'])['destination']['id']!=scope['page_id']:
+        raise PermissionError('Facebook Page changed')
+
+
+def check_campaign_connection(db,app_id,scope):
+    saved=db.execute('SELECT version,status,provider,config_version,expires,lease,data FROM social_connections WHERE app_id=? AND id=?',(app_id,scope['connection_id'])).fetchone()
+    check_campaign_saved_connection(saved,scope)
+    config=db.execute("SELECT version,status FROM social_configs WHERE app_id=? AND provider='facebook'",(app_id,)).fetchone()
+    if not config or config['version']!=saved['config_version'] or config['status']=='DISCONNECTED':
+        raise PermissionError('Facebook developer configuration changed')
+
+
+def check_campaign_app(db,app_id,actor,scope,action):
+    owner=member(db,app_id,scope['owner_principal'],'OWNER')
+    app=db.execute('SELECT * FROM apps WHERE id=?',(app_id,)).fetchone()
+    protective_owner=actor==scope['owner_principal'] and action in ('PAUSE','REVOKE','RECONCILE')
+    if app is None:raise PermissionError('App workspace is unavailable')
+    if not protective_owner:
+        if owner['version']!=scope['owner_version']:raise PermissionError('Owner membership changed')
+        if app['version']!=scope['app_version'] or digest(json.loads(app['data']))!=scope['app_hash']:
+            raise PermissionError('App manifest changed; prepare a new scope')
+
+
+def check_ad_scope(scope,body):
+    for name in ('content','rights','targeting'):
+        if body[name+'_hash'] not in scope['approved_'+name+'_hashes']:
+            raise PermissionError('Campaign content, rights or targeting is outside scope')
+
+
+def check_ad_limits(db,row,scope,body):
+    if not scope['ad_account_id']:raise PermissionError('Scope has no advertising account')
+    check_ad_scope(scope,body)
+    if iso_time(body['end_time'])>iso_time(scope_expiry(db,row,scope)['expires']):raise Invalid('Campaign must end within the approved scope')
+    budget=body['lifetime_budget_minor']
+    if budget>scope['max_campaign_minor']:raise PermissionError('Campaign budget exceeds the approved per-campaign amount')
+    return budget
+
+
 def row_intent(row):
     if row is None:raise Invalid('Campaign intent was not found')
     return {key:row[key] for key in ('id','scope_id','request_id','request_hash','content_hash',
@@ -77,7 +133,7 @@ class CampaignExecutionService:
 
     def get_scope(self,app_id,scope_id):
         with connection(self.store.path) as db:
-            scope=row_scope(self._row(db,app_id,scope_id))
+            scope=scope_view(db,self._row(db,app_id,scope_id))
             rows=db.execute('SELECT category,used FROM campaign_safety_calls WHERE app_id=? AND scope_id=?',(app_id,scope_id)).fetchall()
         used={row['category']:row['used'] for row in rows}
         scope['safety_allowance']={category:dict(used=used.get(category,0),limit=SAFETY_CALL_LIMIT)
@@ -90,7 +146,7 @@ class CampaignExecutionService:
         with connection(self.store.path) as db:
             rows=db.execute('SELECT * FROM campaign_scopes WHERE app_id=? AND owner=? ORDER BY created DESC LIMIT ?',
                             (app_id,owner,limit)).fetchall()
-            return [row_scope(row) for row in rows]
+            return [scope_view(db,row) for row in rows]
 
     def list_intents(self,app_id,scope_id):
         self.get_scope(app_id,scope_id)
@@ -103,26 +159,11 @@ class CampaignExecutionService:
         row=self._row(db,app_id,scope['scope_id'])
         if row is None or digest(json.loads(row['summary'])) != row['summary_hash']:
             raise PermissionError('Campaign authority is unavailable or changed')
-        if active and (row['status']!='ACTIVE' or iso_time(scope['expires_at'])<=datetime.now(timezone.utc)):
+        expiry=scope_expiry(db,row,scope)['expires']
+        if active and (row['status']!='ACTIVE' or iso_time(expiry)<=datetime.now(timezone.utc)):
             raise PermissionError('Campaign approval is OFF or expired')
-        owner=member(db,app_id,scope['owner_principal'],'OWNER')
-        app=db.execute('SELECT * FROM apps WHERE id=?',(app_id,)).fetchone()
-        protective_owner=actor==scope['owner_principal'] and action in ('PAUSE','REVOKE','RECONCILE')
-        if app is None:raise PermissionError('App workspace is unavailable')
-        if not protective_owner:
-            if owner['version']!=scope['owner_version']:raise PermissionError('Owner membership changed')
-            if app['version']!=scope['app_version'] or digest(json.loads(app['data']))!=scope['app_hash']:
-                raise PermissionError('App manifest changed; prepare a new scope')
-        saved=db.execute('SELECT version,status,provider,config_version,expires,lease,data FROM social_connections WHERE app_id=? AND id=?',(app_id,scope['connection_id'])).fetchone()
-        if not saved or saved['version']!=scope['connection_version'] or saved['status']!='CONNECTED_READ_TESTED' or saved['provider']!='facebook' or saved['lease']:
-            raise PermissionError('Facebook connection changed or became unavailable')
-        if saved['expires'] is not None and saved['expires']<=datetime.now(timezone.utc).timestamp():
-            raise PermissionError('Facebook connection expired')
-        if json.loads(saved['data'])['destination']['id']!=scope['page_id']:
-            raise PermissionError('Facebook Page changed')
-        config=db.execute("SELECT version,status FROM social_configs WHERE app_id=? AND provider='facebook'",(app_id,)).fetchone()
-        if not config or config['version']!=saved['config_version'] or config['status']=='DISCONNECTED':
-            raise PermissionError('Facebook developer configuration changed')
+        check_campaign_app(db,app_id,actor,scope,action)
+        check_campaign_connection(db,app_id,scope)
         self.policy_checker(app_id,actor,scope,action)
 
     def prepare_scope(self,app_id,owner,body):
@@ -221,6 +262,11 @@ class CampaignExecutionService:
                 raise Invalid('Campaign review changed during verification')
             if iso_time(fresh['expires_at'])<=datetime.now(timezone.utc):raise Invalid('Campaign review expired')
             db.execute("UPDATE campaign_scopes SET status='ACTIVE',updated=? WHERE app_id=? AND id=?",(now(),app_id,scope_id))
+            from .authority_expiry import initial_base, record_initial
+            saved=self._row(db,app_id,scope_id)
+            base=initial_base(fresh['expires_at'],saved['created'],fresh.get('extended_expiry_consent'))
+            record_initial(db,'CAMPAIGN',saved,base,fresh['expires_at'],owner,saved['owner_version'],
+                           json.loads(saved['summary']),datetime.now(timezone.utc))
         return self.get_scope(app_id,scope_id)
 
     def revoke_scope(self,app_id,owner,scope_id):
@@ -416,14 +462,9 @@ class CampaignExecutionService:
 
     def _reserve_ad(self,app_id,actor,scope_id,body):
         with connection(self.store.path) as db:
-            db.execute('BEGIN IMMEDIATE');scope=row_scope(self._row(db,app_id,scope_id))
+            db.execute('BEGIN IMMEDIATE');row=self._row(db,app_id,scope_id);scope=row_scope(row)
             self._check(db,app_id,actor,scope,'RUN_AD')
-            if not scope['ad_account_id']:raise PermissionError('Scope has no advertising account')
-            if body['content_hash'] not in scope['approved_content_hashes'] or body['rights_hash'] not in scope['approved_rights_hashes'] or body['targeting_hash'] not in scope['approved_targeting_hashes']:
-                raise PermissionError('Campaign content, rights or targeting is outside scope')
-            if iso_time(body['end_time'])>iso_time(scope['expires_at']):raise Invalid('Campaign must end within the approved scope')
-            budget=body['lifetime_budget_minor']
-            if budget>scope['max_campaign_minor']:raise PermissionError('Campaign budget exceeds the approved per-campaign amount')
+            budget=check_ad_limits(db,row,scope,body)
             post=db.execute("SELECT * FROM campaign_intents WHERE app_id=? AND page_id=? AND remote_id=? AND status='VERIFIED' AND content_hash=? AND rights_hash=?",
                  (app_id,scope['page_id'],body['post_id'],body['content_hash'],body['rights_hash'])).fetchone()
             if post is None:raise PermissionError('Promote only a verified saved Page post with approved content and rights')

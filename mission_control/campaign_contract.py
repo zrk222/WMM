@@ -68,14 +68,15 @@ def scope_limits(body):
 
 
 def scope_data(body):
-    exact(body,SCOPE_FIELDS); safe_data(body)
+    exact(body,SCOPE_FIELDS + (('extended_expiry_consent',) if isinstance(body,dict) and 'extended_expiry_consent' in body else ())); safe_data(body)
     reference(body['connection_id']);numeric(body['page_id'])
     if body['ad_account_id'] is not None:numeric(body['ad_account_id'])
     if not isinstance(body['currency'],str) or not re.fullmatch(r'[A-Z]{3}',body['currency']):
         raise Invalid('Use an explicit three-letter currency')
-    expiry=iso_time(body['expires_at']); current=datetime.now(timezone.utc)
-    if not current < expiry <= current+timedelta(hours=24):
-        raise Invalid('Choose an expiry within the next 24 hours')
+    if 'extended_expiry_consent' in body and type(body['extended_expiry_consent']) is not bool:
+        raise Invalid('Expiry consent must be an explicit boolean')
+    from .authority_expiry import deadline
+    expiry=deadline(body['expires_at'],datetime.now(timezone.utc),body.get('extended_expiry_consent'))
     paid=scope_limits(body)
     result=dict(body);result['expires_at']=expiry.isoformat()
     result['approved_content_hashes']=hashes(body['approved_content_hashes'],True)

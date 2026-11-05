@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from mission_control.agent_checkpoints import Checkpoints
 from mission_control.agent_review_dispatch import ReviewedDispatch
+from mission_control.authority_expiry import AuthorityExpiry, effective_expiry
 from mission_control.common import canonical, digest
 from mission_control.db import connection
 from mission_control.review_access import Access
@@ -118,6 +119,37 @@ class WeeklyReviewActionsTests(unittest.TestCase):
         card = self.cards()[0]
         self.assertIn('reconciliation', card['reason'])
         self.assertEqual(card['evidence']['state'], 'CANCEL_REQUESTED')
+
+    def test_owner_extension_uses_effective_grant_expiry_without_changing_child_deadline(self):
+        with connection(self.store.path) as db:
+            grant_before = dict(db.execute('SELECT * FROM agent_grants').fetchone())
+            checkpoint_before = json.loads(db.execute('SELECT data FROM agent_checkpoints').fetchone()['data'])
+            self.assertEqual(db.execute('SELECT count(*) FROM authority_expiry_consents').fetchone()[0], 0)
+        original_expiry = datetime.fromisoformat(grant_before['expires'])
+        child_expiry = datetime.fromisoformat(checkpoint_before['packet']['expires'])
+        self.assertGreater(child_expiry, datetime.now(timezone.utc))
+
+        service = AuthorityExpiry(self.store)
+        preview = service.preview('sample-one', ids.OWNER, dict(
+            kind='AGENT_GRANT', id=grant_before['id'],
+            expires=(original_expiry + timedelta(days=3)).isoformat(),
+        ))
+        service.confirm('sample-one', ids.OWNER, dict(
+            **preview, request_id='weekly-inbox-extension', extended_expiry_consent=True,
+        ))
+
+        with connection(self.store.path) as db:
+            grant_after = db.execute('SELECT * FROM agent_grants WHERE id=?', (grant_before['id'],)).fetchone()
+            checkpoint_after = json.loads(db.execute('SELECT data FROM agent_checkpoints').fetchone()['data'])
+            effective = effective_expiry(db, 'AGENT_GRANT', grant_after, grant_after['expires'])
+        effective_expiry_time = datetime.fromisoformat(effective['expires'])
+        self.assertGreater(effective_expiry_time, original_expiry)
+        self.assertEqual(grant_after['expires'], grant_before['expires'])
+        self.assertEqual(checkpoint_after['packet']['expires'], checkpoint_before['packet']['expires'])
+        self.assertGreater(datetime.fromisoformat(checkpoint_after['packet']['expires']), datetime.now(timezone.utc))
+        self.assertGreater(effective_expiry_time, child_expiry)
+        self.assertEqual(self.cards()[0]['state'], 'WAITING_REVIEW')
+        self.assertNotIn('token_hash', canonical(self.cards()))
 
     def test_app_grant_drift_and_redacted_malformed_metadata(self):
         with connection(self.store.path) as db:

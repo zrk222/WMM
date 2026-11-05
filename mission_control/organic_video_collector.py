@@ -156,7 +156,9 @@ def prepare(store, app_id, actor, body) -> object:
             raise PermissionError('Choose an existing owner-issued recipient grant')
         for name in ('organic-video.claim', 'organic-video.submit'):
             current(db, grant, {'app_id': app_id, 'operation': name}, observed, check_quota=False)
-        if iso_time(task['policy']['expires']) > iso_time(grant['expires']):
+        from .authority_expiry import effective_expiry
+        grant_expires=effective_expiry(db,'AGENT_GRANT',grant,grant['expires'])['expires']
+        if iso_time(task['policy']['expires']) > iso_time(grant_expires):
             raise PermissionError('Discovery task cannot outlast its recipient grant')
         _schema(db)
         prior = db.execute('SELECT * FROM organic_discovery_tasks WHERE app_id=? AND request_id=?',
@@ -196,8 +198,10 @@ def claim(store, app_id, actor, body) -> object:
             return _view(row)
         if row['status'] != 'READY':
             raise Invalid('Discovery task is no longer available to claim')
+        from .authority_expiry import effective_expiry
+        grant_expires=effective_expiry(db,'AGENT_GRANT',grant,grant['expires'])['expires']
         until = min(observed + timedelta(seconds=task['policy']['max_seconds']),
-                    iso_time(task['policy']['expires']), iso_time(grant['expires']))
+                    iso_time(task['policy']['expires']), iso_time(grant_expires))
         db.execute("UPDATE organic_discovery_tasks SET status='CLAIMED',claim_id=?,claimed_at=?,claim_until=?,updated=? WHERE id=? AND status='READY'",
                    (uid(), observed.isoformat(), until.isoformat(), now(), row['id']))
         audit(db, app_id, 'organic_discovery.claimed', {'task_id': row['id'], 'grant_id': grant['id']})

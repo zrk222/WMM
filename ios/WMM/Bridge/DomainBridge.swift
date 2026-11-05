@@ -159,7 +159,7 @@ actor DomainBridge {
 
     func automation(session: LocalIdentity.Session, appID: String, action: String, request: Data) throws -> Data {
         guard let handle else { throw Failure.closed }
-        guard ["preview", "activate", "status", "off"].contains(action), !request.isEmpty,
+        guard ["preview", "activate", "status", "off", "extension-preview", "extension-confirm", "extension-history"].contains(action), !request.isEmpty,
               request.count <= 1_048_576 else { throw Failure.invalidRequest }
         return try EngineBootstrap.automation(handle: handle, session: session.nonce.uuidString,
             appID: appID, action: action, request: request)
@@ -476,7 +476,7 @@ actor DomainBridge {
 
     func agentAccess(session: LocalIdentity.Session, appID: String, action: String, request: Data) throws -> Data {
         guard let handle else { throw Failure.closed }
-        guard ["list", "issue", "revoke", "handoff-list", "handoff-create", "handoff-revoke"].contains(action), !request.isEmpty, request.count <= 1_048_576 else {
+        guard ["list", "issue", "revoke", "handoff-list", "handoff-create", "handoff-revoke", "extension-preview", "extension-confirm", "extension-history"].contains(action), !request.isEmpty, request.count <= 1_048_576 else {
             throw Failure.invalidRequest
         }
         return try EngineBootstrap.agentAccess(handle: handle, session: session.nonce.uuidString,

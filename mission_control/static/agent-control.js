@@ -80,9 +80,10 @@
     return active;
   }
   function reportButton(){return button("Report / Save PDF","report");}
+  function expiryUI(){return globalThis.WMMAuthorityExpiry||(typeof require==='function'?require('./authority-expiry.js'):null);}
   function grantMarkup(data){
     const rows=data.grants;
-    return `<p>These grants delegate selected operations in this app. Revocation blocks future admissions; it does not stop work already running.</p><p>${rows.length} saved grants · ${rows.filter(r=>r.status==="ACTIVE").length} marked active. Expiry, app version and remaining calls are rechecked at admission.</p><div class="button-row">${button("Issue an agent grant","new")}${reportButton()}</div>${rows.map(r=>`<section class="panel"><h3>${esc(r.agent_id)}</h3><p>${esc(r.status)} · ${esc(r.used)} / ${esc(r.max_calls)} attempts used · expires ${esc(r.expires)}</p><p>Allowed: ${esc(r.operations.join(", "))}</p><p>Independent review: ${esc(r.review_operations.join(", ")||"None")}</p>${r.status==="ACTIVE"?button("Review revocation","revoke-open",`data-id="${esc(r.id)}"`):""}</section>`).join("")||"<p>No grants issued. Issue one to connect a generic agent through the CLI or MCP.</p>"}`;
+    return `<p>These grants delegate selected operations in this app. Revocation blocks future admissions; it does not stop work already running.</p><p>${rows.length} saved grants · ${rows.filter(r=>r.status==="ACTIVE").length} marked active. Expiry, app version and remaining calls are rechecked at admission.</p><div class="button-row">${button("Issue an agent grant","new")}${reportButton()}</div>${rows.map(r=>{const expiry=r.permission_expires_at||r.expires;return `<section class="panel"><h3>${esc(r.agent_id)}</h3><p>${esc(r.status)} · ${esc(r.used)} / ${esc(r.max_calls)} attempts used · expires ${esc(expiry)}</p><p>Allowed: ${esc(r.operations.join(", "))}</p><p>Independent review: ${esc(r.review_operations.join(", "))||"None"}</p>${r.status==="ACTIVE"?`${button("Extend expiry","extend",`data-id="${esc(r.id)}" data-expires="${esc(expiry)}"`)}${button("Review revocation","revoke-open",`data-id="${esc(r.id)}"`)}`:""}</section>`;}).join("")||"<p>No grants issued. Issue one to connect a generic agent through the CLI or MCP.</p>"}`;
   }
   async function load(deps,kind,body={}){
     const ticket=show(deps,kind==="grants"?"Agent grants":"Agent review queue",kind,null,'<p role="status">Loading saved controls…</p>');
@@ -113,20 +114,21 @@
     }catch(e){if(valid(ticket,deps))ticket.node.innerHTML=`<p>${esc(e.message)} Saved work is preserved.</p>${button("Retry inspection","inspect",`data-id="${esc(id)}"`)}${errorBox}`;}
   }
   function grantForm(operations){
-    return `<form id="control-grant-form"><p>Select only the operations this agent needs. Every selected write requires independent review by default; uncheck its review option only to delegate that local write directly.</p><label class="field" for="grant-agent">Agent identifier<input id="grant-agent" name="agent_id" pattern="[a-z0-9][a-z0-9-]*" maxlength="200" required></label><label class="field" for="grant-hours">Valid for hours (up to 24)<input id="grant-hours" name="hours" type="number" min="0.01" max="24" step="0.01" value="1" required></label><label class="field" for="grant-calls">Maximum admitted attempts<input id="grant-calls" name="max_calls" type="number" min="1" max="10000" value="20" required></label><fieldset><legend>Allowed operations and required checkpoints</legend>${Object.entries(operations).map(([name,rule])=>`<div><label class="check-label"><input type="checkbox" name="operations" value="${esc(name)}"> ${esc(name)} · ${esc(rule.effect)}</label>${rule.method==="POST"?`<label class="check-label"><input type="checkbox" name="reviews" value="${esc(name)}" checked> Require independent review for ${esc(name)}</label>`:""}</div>`).join("")}</fieldset><p id="control-form-error" role="alert"></p><button class="button" type="submit">Issue scoped grant</button></form>`;
+    const expiry=expiryUI();return `<form id="control-grant-form"><p>Select only the operations this agent needs. Every selected write requires independent review by default; uncheck its review option only to delegate that local write directly.</p><label class="field" for="grant-agent">Agent identifier<input id="grant-agent" name="agent_id" pattern="[a-z0-9][a-z0-9-]*" maxlength="200" required></label>${expiry.expiryInput('expires_at',Date.now()+60*60*1000,'Grant expires — device local time')}${expiry.consentMarkup()}<label class="field" for="grant-calls">Maximum admitted attempts<input id="grant-calls" name="max_calls" type="number" min="1" max="10000" value="20" required></label><fieldset><legend>Allowed operations and required checkpoints</legend>${Object.entries(operations).map(([name,rule])=>`<div><label class="check-label"><input type="checkbox" name="operations" value="${esc(name)}"> ${esc(name)} · ${esc(rule.effect)}</label>${rule.method==="POST"?`<label class="check-label"><input type="checkbox" name="reviews" value="${esc(name)}" checked> Require independent review for ${esc(name)}</label>`:""}</div>`).join("")}</fieldset><p id="control-form-error" role="alert"></p><button class="button" type="submit">Issue scoped grant</button></form>`;
   }
   async function newGrant(deps){
     const ticket=show(deps,"Issue an agent grant","new",null,'<p role="status">Loading available operations…</p>');
     try{
       const data=await deps.api(`/api/apps/${ticket.scope.app}/agent-operations`);
-      if(valid(ticket,deps))show(deps,"Issue an agent grant","new",data.local_catalog.operations,grantForm(data.local_catalog.operations),ticket.scope);
+      if(valid(ticket,deps)){const next=show(deps,"Issue an agent grant","new",data.local_catalog.operations,grantForm(data.local_catalog.operations),ticket.scope);expiryUI().bindConsent(next.node.querySelector('#control-grant-form'));}
     }catch(e){if(valid(ticket,deps))ticket.node.innerHTML=`<p>${esc(e.message)}</p>${button("Retry operation discovery","new")}${errorBox}`;}
   }
   function issueBody(values,operations,saved,now=Date.now()){
     const selected=values.operations||[],hours=Number(values.hours),calls=Number(values.max_calls);
     if(!selected.length||selected.some(name=>!Object.hasOwn(operations,name)))throw new Error("Select at least one available operation.");
-    if(!validLimits(hours,calls))throw new Error("Use up to 24 hours and 1–10000 admitted attempts.");
-    return {agent_id:values.agent_id,manifest_version:saved.version,operations:selected,review_operations:(values.reviews||[]).filter(name=>selected.includes(name)&&operations[name].method==="POST"),max_calls:calls,expires:new Date(now+hours*3600000).toISOString()};
+    let expires,extended=false;if(values.expires_at){const selectedExpiry=expiryUI().validateExpiry(values.expires_at,values.extended_expiry_consent==='on',now);expires=selectedExpiry.expires;extended=selectedExpiry.extended;}else{if(!validLimits(hours,calls))throw new Error("Use up to 24 hours and 1–10000 admitted attempts.");expires=new Date(now+hours*3600000).toISOString();}
+    if(!Number.isInteger(calls)||calls<1||calls>10000)throw new Error("Use 1–10000 admitted attempts.");
+    return {agent_id:values.agent_id,manifest_version:saved.version,operations:selected,review_operations:(values.reviews||[]).filter(name=>selected.includes(name)&&operations[name].method==="POST"),max_calls:calls,expires,...(extended?{extended_expiry_consent:true}:{})};
   }
   function validLimits(hours,calls){return Number.isFinite(hours)&&hours>0&&hours<=24&&Number.isInteger(calls)&&calls>=1&&calls<=10000;}
   function tokenMarkup(issued){
@@ -213,6 +215,10 @@
   async function action(node,deps){
     const command=node.dataset.action.slice(8);
     try{
+      if(command==='extend'){
+        const ticket=active,grant=ticket?.data?.grants?.find(row=>row.id===node.dataset.id&&row.status==='ACTIVE');if(!ticket||!grant)throw new Error('Reload the active grant before extending it.');
+        return expiryUI().open({kind:'AGENT_GRANT',id:grant.id,expires:grant.expires,app:ticket.scope.app,api:deps.api,modal:deps.modal,document:deps.document,FormData:deps.FormData,uuid:deps.uuid,owner:()=>role(deps.state)==='OWNER',current:()=>same(ticket.scope,deps.state),done:()=>load(deps,'grants')});
+      }
       const actions={setup:()=>setup(deps),'setup-download':()=>setupDownload(deps),grants:()=>load(deps,'grants'),queue:()=>load(deps,'queue',{offset:Number(node.dataset.offset||0)}),inspect:()=>inspect(deps,node.dataset.id),new:()=>newGrant(deps)};
       if(Object.hasOwn(actions,command))return await actions[command]();
       return await savedAction(command,node,deps);

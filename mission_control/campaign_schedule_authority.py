@@ -79,6 +79,14 @@ def check_scope(row, summary, app_id, scope):
             or summary['scope_hash'] != scope['approval_hash']
             or summary['owner'] != scope['owner_principal']):
         raise PermissionError('Scheduled campaign scope changed')
+    check_deadline(summary, scope.get('expires_at'))
+
+
+def check_deadline(summary, legacy_expiry):
+    """Parent renewal never changes a child's reviewed execution deadline."""
+    expiry = summary.get('permission_expires_at', legacy_expiry)
+    if iso_time(expiry).timestamp() <= time.time():
+        raise PermissionError('Scheduled campaign approval expired')
 
 
 def video_context(db, store, app_id, actor, operation, body):
@@ -118,4 +126,14 @@ def video_content(db, row, active, app_id, operation, body):
     if (intent['hash'] != item['request']['intent_hash']
             or (request['policy_id'], request['policy_hash']) != (summary['scope_id'], summary['scope_hash'])):
         raise PermissionError('Scheduled Reel intent or policy changed')
+    video_deadline(db, app_id, request, item)
     return dict(principal=summary['owner'], scheduled_job=row['job_id'])
+
+
+def video_deadline(db, app_id, request, item):
+    """Use the scheduled item's captured deadline or its legacy policy bound."""
+    policy = db.execute('SELECT data FROM organic_video_policies WHERE app_id=? AND id=?',
+                        (app_id, request['policy_id'])).fetchone()
+    if policy is None:
+        raise PermissionError('Scheduled Reel policy is unavailable')
+    check_deadline(item, json.loads(policy['data'])['policy']['expires_at'])

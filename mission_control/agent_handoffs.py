@@ -99,7 +99,9 @@ def _source(db,app_id,user):
     check(db,context)
     row=db.execute('SELECT * FROM agent_grants WHERE id=?',(context['grant_id'],)).fetchone()
     if not row or row['app_id']!=app_id:raise PermissionError('Source grant is unavailable')
-    return dict(kind='AGENT',grant_id=row['id'],grant_version=row['version'],expires=row['expires'])
+    from .authority_expiry import effective_expiry
+    expiry=effective_expiry(db,'AGENT_GRANT',row,row['expires'])['expires']
+    return dict(kind='AGENT',grant_id=row['id'],grant_version=row['version'],expires=expiry)
 
 
 def _check_source(db,app_id,source,observed):
@@ -222,7 +224,7 @@ class Handoffs:
             source=_source(db,app_id,user);job=_job(db,app_id,body['job_id'])
             if source['kind']=='AGENT':
                 grant=db.execute('SELECT * FROM agent_grants WHERE id=?',(source['grant_id'],)).fetchone()
-                if not set(names).issubset(json.loads(grant['operations'])) or expires>iso_time(grant['expires']):
+                if not set(names).issubset(json.loads(grant['operations'])) or expires>iso_time(source['expires']):
                     raise PermissionError('Handoff cannot exceed source grant scope or expiry')
             payload=dict(schema='growth.agent-handoff.v1',job_id=job['id'],job_action=job['action'],
                          context=_context(db,app_id,job),source=source,operations=names)
