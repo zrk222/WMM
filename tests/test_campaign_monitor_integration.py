@@ -21,7 +21,9 @@ from mission_control.db import connection
 from mission_control.operator_client import OperatorClient, ClientError
 from mission_control.server import Server, owner_domain_post
 from mission_control.social_contract import configuration
+from mission_control.store import Store
 from mission_control.worker import (
+    Runner,
     claim,
     failed_result,
     process_special,
@@ -232,8 +234,9 @@ class CampaignMonitorIntegrationTests(unittest.TestCase):
             runner.stop()
         self.assertEqual(runner.health["status"], "STOPPED")
 
-    def test_returned_blocked_maps_to_job_blocked_and_not_auto_replayed(self):
-        self.activate()
+    def test_fresh_runner_recovers_active_monitor_and_does_not_replay_lost_pause(self):
+        active = self.activate()
+        self.client.request("POST", "/api/identity/logout", {})
         self.wire.objects[self.intent["ids"]["adset"]]["lifetime_budget"] = 999
         status_calls = []
 
@@ -244,15 +247,20 @@ class CampaignMonitorIntegrationTests(unittest.TestCase):
             raise TimeoutError("Synthetic lost protective pause reply")
 
         with patch.object(self.wire, "set_paid_status", side_effect=lost):
-            self.assertTrue(self.server.runner.poll())
-            self.server.runner.poll()
-            self.server.runner.retry_failed()
-            self.server.runner.poll()
+            restored = Runner(Store(self.store.path))
+            self.assertTrue(restored.poll())
+            recovered = Runner(Store(self.store.path))
+            recovered.retry_failed()
+            recovered.poll()
         job = self.job()
         self.assertEqual(job["status"], "BLOCKED")
         self.assertEqual(json.loads(job["result"])["status"], "BLOCKED")
         self.assertEqual(status_calls, ["PAUSED"])
         with connection(self.store.path) as db:
+            saved = db.execute("SELECT id,summary_hash,pauses,status FROM campaign_monitors WHERE id=?",
+                               (active["id"],)).fetchone()
+            self.assertEqual((saved["id"], saved["summary_hash"], saved["pauses"], saved["status"]),
+                             (active["id"], active["summary_hash"], 1, "BLOCKED"))
             events = [
                 row["code"]
                 for row in db.execute(

@@ -29,6 +29,10 @@ jobs:
         env:
           WMM_BROWSER_TEST_PROFILE: '1'
         run: python -m unittest tests.test_creative_batches_browser tests.test_onesignal_ui_browser tests.test_onesignal_browser_integration tests.test_organic_research_browser tests.test_market_research_browser tests.test_organic_policy_gui_browser -v
+      - name: Verify owner onboarding and protective campaign pause in Chromium
+        run: |
+          python tools/test_owner_onboarding_browser.py
+          python tools/test_campaign_monitor_browser.py
   windows:
     runs-on: windows-latest
     timeout-minutes: 45
