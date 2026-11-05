@@ -105,12 +105,18 @@ class NativeStoreConnectionTests(unittest.TestCase):
             self.assertEqual(row['status'],'RUNNING');self.assertIsNone(row['result'])
 
     def test_tampered_connection_and_provider_errors_do_not_commit_success(self):
-        self.start();record=self.setup()['record'];job=self.queue(record)
+        self.start()
+        with patch('mission_control.connection_setup.uid',return_value='00000999-0000-4000-8000-000000000000'):
+            record=self.setup()['record']
+        job=self.queue(record)
         with connection(self.path) as db:
-            db.execute("UPDATE records SET data=replace(data,'123','999') WHERE id=?",(record['id'],))
+            original=db.execute('SELECT data FROM records WHERE id=?',(record['id'],)).fetchone()['data']
+            tampered=json.loads(original)
+            tampered['store_app_id']='999'
+            db.execute('UPDATE records SET data=? WHERE id=?',(json.dumps(tampered),record['id']))
         with self.assertRaises(Invalid):self.call('run_inventory',{'id':job['id']})
         with connection(self.path) as db:
-            db.execute("UPDATE records SET data=replace(data,'999','123') WHERE id=?",(record['id'],))
+            db.execute('UPDATE records SET data=? WHERE id=?',(original,record['id']))
         with patch('mission_control.provider_reports.report_request',side_effect=OSError('secret detail')):
             result=self.call('run_inventory',{'id':job['id']})
         self.assertEqual(result['status'],'BLOCKED');self.assertNotIn('secret detail',json.dumps(result))
