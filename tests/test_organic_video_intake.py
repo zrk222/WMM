@@ -16,6 +16,7 @@ from tests.test_creative_production import ready_production
 from tests.test_discovery_intelligence import reviewed, filters
 from tests.production_fixtures import ready_capabilities
 from mission_control.creative_library import Library
+from mission_control.discovery_store import Discovery
 
 
 class IntakeTests(unittest.TestCase):
@@ -65,16 +66,34 @@ class IntakeTests(unittest.TestCase):
         self.assertEqual(brief['data']['source']['data']['rights'],'REFERENCE_ONLY')
         self.assertEqual(brief['data']['publication'],'NOT_RUN')
 
-    def test_bad_binding_and_missing_proof_roll_back(self):
+    def test_bad_binding_and_invalid_supplied_proof_roll_back(self):
         for changes in (dict(candidate_hash='0'*64),dict(result_hash='0'*64),dict(submission_hash='0'*64),dict(candidate_id='wrong')):
             with self.subTest(changes=changes),self.assertRaises(Invalid):self.call(dict(self.body,**changes))
-        value=deepcopy(self.body);value['review']['card']['authentic_evidence_ids']=[]
+        value=deepcopy(self.body);value['review']['card']['authentic_evidence_ids']=['missing-app-proof']
         with self.assertRaises(Invalid):self.call(value)
         with self.assertRaises(PermissionError):self.call(actor='github:forged')
         with connection(self.store.path) as db:
             exists=db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='organic_video_intakes'").fetchone()
             self.assertFalse(exists)
             self.assertEqual(db.execute('SELECT count(*) FROM discovery_documents').fetchone()[0],0)
+
+    def test_research_without_app_proof_saves_but_cannot_enter_production(self):
+        value=deepcopy(self.body);value['review']['card']['authentic_evidence_ids']=[]
+        value['review']['card'].update(rights_status='ALLOWED_BY_ATTESTATION',rights_evidence='Synthetic owner permission')
+        result=self.call(value);self.assertEqual(result,self.call(value))
+        identity=result['data']
+        self.assertEqual(identity['foreign_bytes'],'NOT_AUTHORIZED')
+        self.assertEqual(identity['publication'],'NOT_RUN')
+        handoff=dict(manifest_version=self.store.app(self.app)['version'],collection_id=identity['collection']['id'],
+            collection_hash=identity['collection']['hash'],reference_id=identity['source']['id'],review_hash=identity['review']['hash'])
+        with self.assertRaisesRegex(Invalid,'Select authentic app proof'):
+            Discovery(self.store).handoff(self.app,handoff)
+        source=next(x for x in Library(self.store).list(self.app) if x['id']==identity['source']['id'])
+        ready_capabilities(self.store,self.app,[source])
+        brief=dict(self.brief,analysis_id=identity['analysis']['id'],analysis_hash=identity['analysis']['hash'],
+            discovery=dict(schema='wmm.brief-discovery.v1',mode='ORIGINAL_RECREATION',**handoff))
+        with self.assertRaisesRegex(Invalid,'Select authentic app proof'):
+            Briefs(self.store).save(self.app,{'data':brief})
 
     def test_replay_conflict_stale_app_and_concurrent_exact_replay(self):
         with ThreadPoolExecutor(max_workers=2) as pool:results=list(pool.map(lambda _:self.call(),range(2)))

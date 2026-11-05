@@ -86,7 +86,8 @@ def adopt(store,app_id,actor,body):
         source_id=write_reference(db,app_id,source)['id'];capture=latest_capture(db,app_id,source_id)
         review=body['review'];exact(review,('taxonomy','duration_ms','transcript','card','metrics'))
         review=review_data(dict(review,baseline=candidate['history']))
-        authentic_proofs(db,store,app_id,review['card']['authentic_evidence_ids'],app)
+        if review['card']['authentic_evidence_ids']:
+            authentic_proofs(db,store,app_id,review['card']['authentic_evidence_ids'],app)
         review_times(review,capture,stamp)
         review_envelope=dict(manifest_version=app['version'],app_hash=app['hash'],reference_id=source_id,
             source_hash=capture['hash'],source_version=capture['version'],review=review,boundaries=boundaries())
