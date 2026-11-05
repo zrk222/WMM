@@ -36,7 +36,7 @@ class OrganicPolicyOwnerReadTests(unittest.TestCase):
         self.create_policy()
         with patch.object(socket, 'create_connection', side_effect=AssertionError('network access')):
             value = self.call('policy-context', {})
-        self.assertEqual(set(value), {'app', 'review', 'pages', 'eligible', 'approved_outputs', 'missing'})
+        self.assertEqual(set(value), {'app', 'review', 'pages', 'eligible', 'approved_outputs', 'missing', 'taste_reviewers', 'taste_guidance_sha256'})
         self.assertEqual(value['app']['id'], APP)
         self.assertEqual(value['pages'][0]['connection_id'], policy_fixture.CONNECTION)
         self.assertEqual(value['pages'][0]['binding']['version'], 1)

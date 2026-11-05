@@ -24,7 +24,10 @@ def validate_policy(body) -> object:
         raise Invalid('Use an organic video policy object')
     value = dict(body)
     value.setdefault('mode', 'EXACT')
-    exact(value, FIELDS + ('mode',))
+    exact(value, FIELDS + ('mode',) + (('taste_auto_review',) if 'taste_auto_review' in value else ()))
+    if 'taste_auto_review' in value:
+        from .organic_video_taste_review import setting
+        value['taste_auto_review'] = setting(value['taste_auto_review'], value['mode'])
     safe_data(value)
     reference(value['connection_id'])
     numeric(value['page_id'])
@@ -84,7 +87,7 @@ def validate_policy(body) -> object:
 def admit_output(policy, output, evidence) -> object:
     """Check a supplied snapshot without persisting or granting current authority."""
     policy = validate_policy(policy)
-    exact(output, OUTPUT_FIELDS)
+    exact(output, OUTPUT_FIELDS + (('taste_review',) if 'taste_auto_review' in policy else ()))
     safe_data(output)
     for name in ('request_id', 'artifact_id', 'template_id', 'reservation_id'):
         reference(output[name])
@@ -265,6 +268,9 @@ class Policies:
         with connection(self.store.path) as db:
             db.execute('BEGIN IMMEDIATE')
             context = _authority(db, self.store, app_id, 'organic-video.policy-create', body, True)
+            if 'taste_auto_review' in proposal:
+                from .organic_video_taste_review import selected_grant
+                taste_grant = selected_grant(db, app_id, context['principal'], proposal['taste_auto_review'])
             _schema(db)
             version, app_hash = app_scope(db, app_id)
             if scoped and (version != body['manifest_version'] or app_hash != body['app_hash']):
@@ -282,6 +288,10 @@ class Policies:
             data = dict(policy=proposal, owner=context['principal'], owner_version=context['role_version'],
                         app_id=app_id, app_version=version, app_hash=app_hash,
                         page=page, proofs=_proofs(db, self.store, app_id, proposal))
+            if 'taste_auto_review' in proposal:
+                data['taste_reviewer'] = dict(id=taste_grant['id'], version=taste_grant['version'],
+                                             rules_sha256=digest(proposal['taste_auto_review']['rules']),
+                                             evidence='AGENT_ATTESTED_NOT_VISUAL_CERTIFICATION')
             prior = db.execute('SELECT * FROM organic_video_policies WHERE app_id=? AND request_id=?',
                                (app_id, body['request_id'])).fetchone()
             if prior:
@@ -297,6 +307,11 @@ class Policies:
         saved = _saved(row)
         data = saved['data']
         proposal = data['policy']
+        if 'taste_auto_review' in proposal:
+            from .organic_video_taste_review import selected_grant
+            reviewer = selected_grant(db, data['app_id'], data['owner'], proposal['taste_auto_review'])
+            if (reviewer['id'], reviewer['version']) != (data['taste_reviewer']['id'], data['taste_reviewer']['version']):
+                raise PermissionError('Selected taste reviewer grant version changed')
         if db.execute('SELECT 1 FROM organic_video_policy_revocations WHERE policy_id=?', (row['id'],)).fetchone():
             raise PermissionError('Organic policy is revoked')
         if iso_time(proposal['expires_at']) <= datetime.now(timezone.utc):
@@ -395,7 +410,7 @@ class Policies:
             if saved['hash'] != body['policy_hash']:
                 raise Invalid('Policy hash differs from the owner approval')
             output = body['output']
-            exact(output, OUTPUT_FIELDS)
+            exact(output, OUTPUT_FIELDS + (('taste_review',) if 'taste_auto_review' in saved['data']['policy'] else ()))
             reservation_row = db.execute('SELECT * FROM organic_video_generation_reservations WHERE app_id=? AND policy_id=? AND id=?',
                                          (app_id, row['id'], output['reservation_id'])).fetchone()
             reservation = _saved(reservation_row)
@@ -418,6 +433,10 @@ class Policies:
             if attempt_data['build_id'] != receipt['build_id'] or artifact['artifact']['sha256'] != output['artifact_sha256']:
                 raise Invalid('Retained output differs from the selected artifact or generation')
             current_inputs(db, self.store, app_id, artifact['inputs'])
+            if 'taste_auto_review' in saved['data']['policy']:
+                from .organic_video_taste_review import attest
+                attest(db, app_id, dict(saved, created=row['created']), context, output,
+                       artifact['artifact']['metadata']['duration_seconds'])
             policy = saved['data']['policy']
             _approved_inputs(policy, artifact['inputs'], output['template_id'])
             generation_job = db.execute('SELECT * FROM jobs WHERE app_id=? AND id=?', (app_id, attempt['job_id'])).fetchone()
