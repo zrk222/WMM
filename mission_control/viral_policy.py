@@ -1,5 +1,7 @@
 """Exact viral-only qualification over supplied observations; no discovery authority."""
 from fractions import Fraction
+import re
+from urllib.parse import urlsplit
 from .common import Invalid, digest, iso_time, required
 from .creative_library import source_url
 
@@ -10,7 +12,23 @@ MAX_BASELINE = 20
 MAX_OBSERVATIONS = 1000
 MAX_VIEWS = 1000000000000
 FIELDS = {'platform', 'post_id', 'creator_id', 'format', 'url', 'views', 'published_at', 'observed_at'}
-PLATFORMS = ('tiktok', 'facebook', 'instagram')
+PLATFORMS = ('tiktok', 'facebook', 'instagram', 'youtube')
+
+
+def youtube_short_url(value, post_id=None):
+    """Only exact public Shorts identities; no watch, redirect or channel URLs."""
+    try:
+        parsed = urlsplit(value)
+        match = re.fullmatch(r'/shorts/([A-Za-z0-9_-]{11})', parsed.path)
+        valid = (parsed.scheme == 'https' and parsed.hostname in ('youtube.com', 'www.youtube.com')
+                 and not parsed.username and not parsed.password and parsed.port in (None, 443)
+                 and not parsed.query and not parsed.fragment and match
+                 and (post_id is None or match.group(1) == post_id))
+    except (TypeError, ValueError):
+        valid = False
+    if not valid:
+        raise Invalid('Use an exact HTTPS youtube.com/shorts/video-id source matching its post identity')
+    return value
 
 
 def observation(value, as_of):
@@ -18,8 +36,12 @@ def observation(value, as_of):
     if not isinstance(value, dict) or set(value) != FIELDS:
         raise Invalid('Complete exactly the viral observation fields')
     if value['platform'] not in PLATFORMS:
-        raise Invalid('Choose TikTok, Facebook or Instagram')
+        raise Invalid('Choose TikTok, Facebook, Instagram or YouTube Shorts')
     result = {key: required(value[key], key, 120) for key in ('platform', 'post_id', 'creator_id', 'format')}
+    if value['platform'] == 'youtube':
+        youtube_short_url(value['url'], value['post_id'])
+        if value['format'] != 'short':
+            raise Invalid('YouTube discovery requires the short format and comparable Shorts baseline')
     views = value['views']
     if type(views) is not int or not 0 <= views <= MAX_VIEWS:
         raise Invalid('Views must be an observed nonnegative integer within the supported range')
