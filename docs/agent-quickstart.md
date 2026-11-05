@@ -92,6 +92,29 @@ with `{"app_id":"your-app-id","input":{}}`. Discover current tools rather than
 relying on an old fixed count. Results contain private workspace data shared
 with the selected host under its own data settings.
 
+## First task with Codex or Dots
+
+Open WMM on the computer that runs its local CLI or MCP adapter. If your
+assistant runs elsewhere, it needs an authorized connection that can run the
+adapter on that computer. Follow the setup above for the host you actually use.
+Give it the exact app ID and a grant limited to `operations.read` and
+`report.read` for the first task. Supply the grant through the protected process
+environment described above.
+
+Paste this task into the connected assistant and replace the app ID:
+
+> In WMM, inspect app `YOUR-APP-ID`. Discover the tools with `wmm_catalog`,
+> then call `wmm_operations_read` and `wmm_report_read` with
+> `{"app_id":"YOUR-APP-ID","input":{}}`. Use the equivalent CLI operations
+> if you are connected through the CLI. Summarize what WMM has observed,
+> include the available dates and receipt IDs, and suggest one next marketing
+> decision. If evidence is missing, name the source or observation needed.
+> Keep this task read-only.
+
+The first useful result is a short private readout tied to the selected app.
+For the owner’s next step, see the [first evidence packet](workspace-guide.md#your-first-evidence-packet)
+and the [owner report format](personal-agent-operations.md#first-task-and-owner-report).
+
 ## Errors and next steps
 
 `No module named mission_control` means the wrong working directory or module
