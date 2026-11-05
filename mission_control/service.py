@@ -96,6 +96,34 @@ class Service:
         from .hypit_studio_sessions import Manager
         self.studio=Manager(store)
 
+    def client_dashboard(self, app_id):
+        """Read a finite client summary without initializing a missing database."""
+        import sqlite3
+        from .common import identifier
+        identifier(app_id)
+        uri = self.store.path.absolute().as_uri() + '?mode=ro'
+        db = sqlite3.connect(uri, uri=True, timeout=5)
+        try:
+            db.row_factory = sqlite3.Row
+            db.execute('PRAGMA query_only=ON')
+            db.execute('BEGIN')
+            row = db.execute('SELECT id,version,data FROM apps WHERE id=?', (app_id,)).fetchone()
+            if row is None:
+                raise KeyError(app_id)
+            data = json.loads(row['data'])
+            name = data.get('name')
+            if not isinstance(name, str) or len(name) > 160:
+                raise Invalid('Dashboard name is unavailable')
+            counts = dict.fromkeys(('queued', 'running', 'blocked', 'failed', 'succeeded',
+                                    'cancelled', 'unknown', 'interrupted', 'other'), 0)
+            for status in db.execute('SELECT status,count(*) AS n FROM jobs WHERE app_id=? GROUP BY status', (app_id,)):
+                key = status['status'].lower() if isinstance(status['status'], str) else 'other'
+                counts[key if key in counts else 'other'] += status['n']
+            return dict(schema='private-client-dashboard.v1',
+                        app=dict(id=row['id'], name=name, version=row['version']), jobs=counts)
+        finally:
+            db.close()
+
     def workspace(self,app_id):
         """Assemble the selected app dashboard from its own records and runs."""
         from .production_feasibility import Capabilities
