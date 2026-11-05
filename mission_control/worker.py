@@ -59,10 +59,12 @@ def jobs(store,app_id):
 
 def claim(store):
     """Atomically lease one queued or expired job within the retry limit."""
+    from .campaign_monitor import interrupted_result
     with connection(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
-        db.execute("UPDATE jobs SET status='BLOCKED',result=?,updated=? WHERE action IN ('campaign_post','campaign_ad','campaign_monitor') AND status='RUNNING' AND lease<?",
-                   (canonical({"error":"Scheduled post was interrupted; inspect its saved intent before any retry","external_execution":"UNKNOWN"}),now(),time.time()))
+        db.execute("""UPDATE jobs SET status='BLOCKED',result=CASE WHEN action='campaign_monitor' THEN ? ELSE ? END,updated=?
+            WHERE action IN ('campaign_post','campaign_ad','campaign_monitor') AND status='RUNNING' AND lease<?""",
+                   (canonical(interrupted_result()),canonical({"error":"Scheduled post was interrupted; inspect its saved intent before any retry","external_execution":"UNKNOWN"}),now(),time.time()))
         db.execute("UPDATE creative_batches SET state='BLOCKED_HOLD',updated=? WHERE state='ACTIVE' AND EXISTS (SELECT 1 FROM creative_batch_variants v JOIN jobs j ON j.id=v.job_id WHERE v.app_id=creative_batches.app_id AND v.batch_id=creative_batches.id AND j.status='RUNNING' AND j.lease<?)",(now(),time.time()))
         db.execute("UPDATE creative_batch_variants SET native_state='STOP_PENDING' WHERE job_id IN (SELECT id FROM jobs WHERE status='RUNNING') AND EXISTS (SELECT 1 FROM creative_batches b WHERE b.app_id=creative_batch_variants.app_id AND b.id=creative_batch_variants.batch_id AND b.state='BLOCKED_HOLD')")
         db.execute("UPDATE creative_batch_variants SET native_state='CANCELLED' WHERE job_id IN (SELECT id FROM jobs WHERE status='QUEUED') AND EXISTS (SELECT 1 FROM creative_batches b WHERE b.app_id=creative_batch_variants.app_id AND b.id=creative_batch_variants.batch_id AND b.state='BLOCKED_HOLD')")

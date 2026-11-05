@@ -6,6 +6,9 @@ monitor actor forgery and unrelated campaign effects are denied.
 
 from datetime import datetime, timedelta, timezone
 import json
+import multiprocessing
+import os
+from pathlib import Path
 import threading
 import time
 import unittest
@@ -30,6 +33,35 @@ from mission_control.worker import (
     run_once,
 )
 from tests import test_campaign_execution as fixture
+
+
+MONITOR_CRASH_EXIT = 73
+
+
+def poll_monitor_process(path, provider_objects, mutations, interrupt_after_pause):
+    """Child process with a synthetic provider and no access to live credentials."""
+    wire = fixture.FakePaidTransport()
+    wire.objects = provider_objects
+
+    def pause(kind, identity, value, token, secret, alive):
+        alive()
+        wire.objects[identity]["status"] = value
+        with Path(mutations).open("a", encoding="utf-8") as recorded:
+            recorded.write(canonical(dict(kind=kind, identity=identity, status=value)) + "\n")
+        if interrupt_after_pause:
+            os._exit(MONITOR_CRASH_EXIT)
+        raise AssertionError("The replacement process tried a second provider mutation")
+
+    wire.set_paid_status = pause
+    with (
+        patch.object(CampaignExecutionService, "_credentials",
+                     return_value=({}, "fixture-secret", {"access_token": "fixture-token"})),
+        patch("mission_control.campaign_transport.MetaTransport.request",
+              side_effect=AssertionError("Live provider forbidden")),
+        patch("socket.getaddrinfo", side_effect=AssertionError("Network lookup forbidden")),
+        patch("mission_control.campaign_transport.MetaTransport", return_value=wire),
+    ):
+        Runner(Store(path)).poll()
 
 
 class CampaignMonitorIntegrationTests(unittest.TestCase):
@@ -285,11 +317,63 @@ class CampaignMonitorIntegrationTests(unittest.TestCase):
             db.execute("UPDATE jobs SET lease=0 WHERE id=?", (job["id"],))
         self.assertIsNone(claim(self.store))
         self.assertEqual(self.job()["status"], "BLOCKED")
+        self.assertEqual(json.loads(self.job()["result"]), monitor.interrupted_result())
         result, status, delay = failed_result(
             job, TimeoutError("Synthetic uncertain operation")
         )
         self.assertEqual((status, delay), ("BLOCKED", 0))
         self.assertNotIn("Synthetic uncertain operation", canonical(result))
+
+    def test_abrupt_monitor_process_exit_after_pause_holds_effect_on_restart(self):
+        active = self.activate()
+        self.client.request("POST", "/api/identity/logout", {})
+        self.wire.objects[self.intent["ids"]["adset"]]["lifetime_budget"] = 999
+        mutations = self.store.path.parent / "synthetic-monitor-mutations.jsonl"
+        spawn = multiprocessing.get_context("spawn")
+
+        def poll_in_fresh_process(interrupt, expected_exit):
+            process = spawn.Process(target=poll_monitor_process,
+                                    args=(self.store.path, self.wire.objects, mutations, interrupt))
+            process.start()
+            try:
+                process.join(timeout=30)
+                self.assertFalse(process.is_alive(), "Monitor acceptance process timed out")
+                self.assertEqual(process.exitcode, expected_exit)
+            finally:
+                if process.is_alive():
+                    process.terminate()
+                    process.join(timeout=5)
+                process.close()
+
+        poll_in_fresh_process(True, MONITOR_CRASH_EXIT)
+        interrupted = self.job()
+        self.assertEqual(interrupted["status"], "RUNNING")
+        self.assertIsNone(interrupted["result"])
+        # Advance only the isolated fixture deadlines to exercise expired recovery.
+        with connection(self.store.path) as db:
+            db.execute("UPDATE jobs SET lease=0 WHERE id=?", (interrupted["id"],))
+            db.execute("UPDATE campaign_monitors SET due=0 WHERE id=?", (active["id"],))
+
+        poll_in_fresh_process(False, 0)
+        resumed = self.job()
+        self.assertEqual((resumed["id"], resumed["status"], resumed["attempts"]),
+                         (interrupted["id"], "BLOCKED", 1))
+        self.assertEqual(json.loads(resumed["result"]), monitor.interrupted_result())
+        self.assertEqual([json.loads(line) for line in mutations.read_text(encoding="utf-8").splitlines()],
+                         [dict(kind="campaign", identity=self.intent["ids"]["campaign"], status="PAUSED")])
+        with connection(self.store.path) as db:
+            saved = db.execute("SELECT summary_hash,pauses,status FROM campaign_monitors WHERE id=?",
+                               (active["id"],)).fetchone()
+            self.assertEqual((saved["summary_hash"], saved["pauses"], saved["status"]),
+                             (active["summary_hash"], 1, "BLOCKED"))
+            self.assertEqual(db.execute("SELECT count(*) FROM jobs WHERE action='campaign_monitor'").fetchone()[0], 1)
+        intent = self.fixture.service.list_intents("sample", self.scope["scope_id"])[0]
+        self.assertEqual((intent["id"], intent["status"], intent["commitment"]),
+                         (self.intent["id"], "PENDING_PAUSED_campaign", 80))
+        self.client.request("POST", "/api/identity/login", dict(token="synthetic_owner_identity_token"))
+        receipt = self.client.request("POST", self.base + "status", dict(monitor_id=active["id"]))
+        self.assertEqual((receipt["last_observation"]["job_id"], receipt["last_observation"]["external_execution"]),
+                         (interrupted["id"], "MONITOR_INTERRUPTED_UNCONFIRMED"))
 
     def test_only_exact_monitor_action_changes_normal_return_status_mapping(self):
         self.activate()

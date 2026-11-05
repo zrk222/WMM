@@ -253,12 +253,15 @@ def last_observation(db, row, summary):
         for item in observations
         if (value := _observation(item, targets)) is not None
     ]
-    return dict(
+    receipt = dict(
         job_id=job["id"],
         status=job["status"],
         updated=job["updated"],
         observations=safe,
     )
+    if job["status"] == "BLOCKED" and raw.get("external_execution") == "MONITOR_INTERRUPTED_UNCONFIRMED":
+        receipt["external_execution"] = "MONITOR_INTERRUPTED_UNCONFIRMED"
+    return receipt
 
 
 def _observation_job(job, row):
@@ -519,14 +522,19 @@ def _previous_finished(db, row):
         if old["status"] == "RUNNING" and old["lease"] <= time.time():
             block(db, row["id"])
             db.execute(
-                "UPDATE jobs SET status='BLOCKED',updated=? WHERE id=?",
-                (now(), row["last_job"]),
+                "UPDATE jobs SET status='BLOCKED',result=?,updated=? WHERE id=?",
+                (canonical(interrupted_result()), now(), row["last_job"]),
             )
         return False
     if old is None or old["status"] != "SUCCEEDED":
         block(db, row["id"])
         return False
     return True
+
+
+def interrupted_result():
+    return dict(status="BLOCKED", external_execution="MONITOR_INTERRUPTED_UNCONFIRMED",
+                next_action="Inspect the retained campaign intent and verify its provider state before taking another action.")
 
 
 def block(db, identity):
