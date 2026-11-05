@@ -16,6 +16,7 @@ Reduce manual catalog selection in the existing owner grant form. The owner choo
 - When the owner switches profiles or edits advanced operations, the system shall return the effect summary through `scope_summary` before issuing, with 0 automatic issue requests.
 - If the app, owner, catalog or selected form changes, the system shall reject stale submission through `context_binding` using existing server and UI checks.
 - When desktop and mobile owners use setup, the system shall return accessible labels, keyboard-operable choices and visible unavailable/custom states through `accessible_setup` at 1440 px and 390 px without horizontal overflow.
+- When public UI and GitHub previews describe the update, the system shall return current task/expiry/allowance explanations and a real synthetic UI screenshot through `current_preview`, with 0 claims that presets alone complete a campaign or prove outcomes.
 
 ### Acceptance criteria (Gherkin)
 ```gherkin
@@ -59,6 +60,10 @@ Scenario: accessible_setup
  Given desktop and mobile viewports
  When `accessible_setup` is operated by keyboard
  Then task choice and advanced controls remain readable and usable
+Scenario: current_preview
+ Given the verified synthetic task setup screen
+ When `current_preview` describes the current update
+ Then preview text and screenshot agree with the implemented feature boundary
 ```
 
 ## Architecture and limits
