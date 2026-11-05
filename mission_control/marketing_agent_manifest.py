@@ -14,7 +14,7 @@ PROVIDER_READS = {'app_store':APPLE_READ_OPERATIONS,'apple_ads':('identity_inven
 def operating_manifest(app):
     """Bind expert operating rules and implemented capabilities to exact app intent."""
     return {
-        'schema':'growth.marketing-agent-manifest.v1', 'policy_version':15,
+        'schema':'growth.marketing-agent-manifest.v1', 'policy_version':16,
         'app_id':app['id'], 'manifest_version':app['version'],
         'release':app['data'].get('release'), 'locale':app['data'].get('locale'),
         'store_app_id':app['data'].get('store_app_id'),
@@ -105,6 +105,13 @@ def owner_operating_protocol():
             'workflow_fidelity':'A selected viral-repurposing campaign cannot fall back to an original app-demo or UGC workflow. Retain unqualified candidates and collect missing evidence; ask the owner before changing workflow.',
             'reuse_authority':'The owner authorizes source reuse; WMM records the exact source, decision and evidence. An agent taste review, high view count or discovery qualification does not grant rights.',
             'claims':'Use authentic app capabilities and substantiated proof. Do not promise virality, installs, revenue or unmeasured savings.'},
+        'permission_lifetime':{
+            'default_hours':24,
+            'extended_expiry':'Only the currently authenticated app owner can approve a selected finite expiry beyond the default, or extend active authority after exact review.',
+            'inspect':'Read operations.read agent_authority for current grant expiry, consent revision and remaining calls; inspect the exact workflow/campaign status separately.',
+            'proposal':'Ask the owner to review the exact new date, unchanged scope, usage and earlier dependent deadlines. An agent cannot consent to its own extension.',
+            'accounting':'Time extension does not reset calls, posts, generations, held/spent commitments or lifetime ceilings.',
+            'independent_clocks':'Provider tokens, login sessions, evidence freshness and independent child/checker packets retain their own deadlines. Longer permission does not certify readiness or replay uncertain work.'},
         'campaign_automation':{
             'scope_owner':'Only a fresh authenticated owner can prepare and activate exact content/account/targeting/budget scope.',
             'agent_operations':['campaign.history','campaign.status','campaign.publish','campaign.ad-launch','campaign.reconcile','campaign.pause'],

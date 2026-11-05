@@ -10,6 +10,7 @@ final class NativeAutomationModel: ObservableObject, Identifiable {
         struct Execution: Decodable, Identifiable { let id: String; let operation: String; let status: String }
         let id: String; let version: Int; let status: String; let effective_status: String; let grant_id: String
         let repair: String?; let usage: Usage?; let executions: [Execution]
+        let permission_expires_at: String?; let verification_due_at: String?
         let summary: Scope?
     }
     let id = UUID()
@@ -62,15 +63,20 @@ final class NativeAutomationModel: ObservableObject, Identifiable {
         do { try await load() }
         catch { message = "Standing approval could not be read. Unlock and refresh; existing scopes and receipts are retained." }
     }
-    func prepare(agent: String, purpose: String, selected: Set<String>, profile: String, hours: Int, calls: Int, inflight: Int) async {
+    func prepare(agent: String, purpose: String, selected: Set<String>, profile: String, hours: Int, calls: Int, inflight: Int, expiry: Date? = nil, extendedConsent: Bool = false) async {
+        let target = expiry ?? Date().addingTimeInterval(Double(hours) * 3600)
+        let extended = target.timeIntervalSinceNow > 24 * 3600
+        guard target > Date(), !extended || extendedConsent else { return }
         guard !busy else { return }; busy = true; defer { busy = false }
         discardPreview(); message = nil
         do {
             let selection: [String: Any] = ["agent_id": agent, "manifest_version": manifestVersion,
                 "workflows": selected.sorted(), "agent_connection_id": profile, "social_connection_ids": [String]()]
-            let limits: [String: Any] = ["expires": ISO8601DateFormatter().string(from: Date().addingTimeInterval(Double(hours) * 3600)),
+            let limits: [String: Any] = ["expires": ISO8601DateFormatter().string(from: target),
                 "max_calls": calls, "max_inflight": inflight, "currency": currency, "spend_limit_minor": 0]
-            let bytes = try await call("preview", ["selection": selection, "limits": limits, "purpose": purpose])
+            var proposal: [String: Any] = ["selection": selection, "limits": limits, "purpose": purpose]
+            if extended { proposal["extended_expiry_consent"] = true }
+            let bytes = try await call("preview", proposal)
             guard let value = try JSONSerialization.jsonObject(with: bytes) as? [String: Any] else { throw DomainBridge.Failure.invalidRequest }
             preview = value
             let scoped = value["summary"] as? [String: Any] ?? [:]
@@ -98,6 +104,7 @@ final class NativeAutomationModel: ObservableObject, Identifiable {
             message = "Activation or protected token storage was not confirmed. Inspect saved scopes below; switch any unusable active scope OFF before creating another."
         }
     }
+    func expiryAction(_ action: String, _ body: Data) async throws -> Data { try await execute(action, body) }
     func off(_ policy: Policy) async {
         guard !busy else { return }; busy = true; defer { busy = false }; discardPreview()
         do {
@@ -164,13 +171,14 @@ struct NativeAutomationView: View {
     @State private var purpose = ""
     @State private var profile = ""
     @State private var selected: Set<String> = []
-    @State private var hours = 1
+    @State private var expiry = Date().addingTimeInterval(24 * 3600)
+    @State private var extendedConsent = false
     @State private var calls = 100
     @State private var inflight = 1
     @State private var approved = false
     @State private var stopping: NativeAutomationModel.Policy?
 
-    private var inputs: [String] { [agent, purpose, profile, String(hours), String(calls), String(inflight)] + selected.sorted() }
+    private var inputs: [String] { [agent, purpose, profile, expiry.description, String(extendedConsent), String(calls), String(inflight)] + selected.sorted() }
     private var scopeControls: some View {
         Section("Choose your agent's job") {
             TextField("Agent name", text: $agent).textInputAutocapitalization(.never).autocorrectionDisabled()
@@ -190,14 +198,15 @@ struct NativeAutomationView: View {
     }
     private var limitsControls: some View {
         Section("Set the boundaries") {
-            Stepper("Expires in \(hours) hours", value: $hours, in: 1...24)
+            DatePicker("Permission expires", selection: $expiry, in: Date()...)
+            if expiry.timeIntervalSinceNow > 24 * 3600 { Toggle("I consent to permission lasting beyond 24 hours", isOn: $extendedConsent) }
             Stepper("Maximum \(calls) tool calls", value: $calls, in: 1...10000)
             Stepper("Maximum \(inflight) operations in flight", value: $inflight, in: 1...8)
             Text("Spending limit: 0 \(model.currency). Provider requests keep their separate approval and allowance checks.").font(.callout)
             Button("Review this exact scope") { approved = false; Task {
                 await model.prepare(agent: agent, purpose: purpose, selected: selected, profile: profile,
-                    hours: hours, calls: calls, inflight: inflight)
-            }}.disabled(selected.isEmpty || profile.isEmpty || purpose.isEmpty || agent.isEmpty)
+                    hours: 24, calls: calls, inflight: inflight, expiry: expiry, extendedConsent: extendedConsent)
+            }}.disabled(selected.isEmpty || profile.isEmpty || purpose.isEmpty || agent.isEmpty || (expiry.timeIntervalSinceNow > 24 * 3600 && !extendedConsent))
         }
     }
     @ViewBuilder private var approvalControls: some View {
@@ -205,7 +214,7 @@ struct NativeAutomationView: View {
             Section("Review before switching ON") {
                 Text("App: \(model.appID) · revision \(model.manifestVersion)")
                 Text("Purpose: \(purpose)")
-                Text("\(selected.count) workflows · \(hours) hours · \(calls) calls · \(inflight) in flight")
+                Text("\(selected.count) workflows, permission expires \(expiry.formatted()), \(calls) calls, \(inflight) in flight")
                 ForEach(model.blockers, id: \.self) { Text($0.replacingOccurrences(of: "_", with: " ").lowercased()) }
                 DisclosureGroup("Exact operations, credentials and stop rules") { Text(model.summary).font(.caption).textSelection(.enabled) }
                 Toggle("I approve the exact displayed scope", isOn: $approved).disabled(!model.ready)
@@ -221,13 +230,16 @@ struct NativeAutomationView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(policy.effective_status).font(.headline)
                     Text("Scope \(policy.id) · revision \(policy.version)").font(.caption).textSelection(.enabled)
-                    if let usage = policy.usage { Text("\(usage.used)/\(usage.max_calls) calls · expires \(usage.expires)").font(.callout) }
+                    if let usage = policy.usage { Text("\(usage.used)/\(usage.max_calls) calls").font(.callout) }
+                    if let permission = policy.permission_expires_at { Text("Permission expires: \(permission)").font(.caption).textSelection(.enabled) }
+                    if let due = policy.verification_due_at { Text("Verification due: \(due). Execution readiness: \(policy.effective_status)").font(.caption).textSelection(.enabled) }
                     if let repair = policy.repair { Text(repair).font(.callout) }
                     if policy.summary?.operations.contains("pipeline.prepare") == true {
                         Button("Prepare twelve stages with this agent scope") { Task { await model.preparePipeline(policy) } }
                             .disabled(policy.effective_status != "ACTIVE" || model.pendingJob != nil)
                     }
                     ForEach(policy.executions) { item in Text("\(item.operation) · \(item.status) · receipt \(item.id)").font(.caption).textSelection(.enabled) }
+                    if policy.status == "ACTIVE" { NativeExpiryReview(kind: "AUTOMATION", authorityID: policy.id, execute: model.expiryAction, refresh: model.refresh) }
                     Button("Switch this scope OFF", role: .destructive) { stopping = policy }.disabled(policy.status != "ACTIVE")
                 }
             }
@@ -271,6 +283,7 @@ struct NativeAutomationView: View {
                 if let policy = stopping { Button("Switch OFF", role: .destructive) { Task { await model.off(policy) }; stopping = nil } }
             } message: { Text("New tool admissions stop. Existing effects and receipts remain available for inspection.") }
             .onChange(of: inputs) { _, _ in approved = false; model.discardPreview() }
+            .onChange(of: expiry) { _, _ in extendedConsent = false }
             .task { await model.refresh() }
             .onDisappear { Task { await model.close() } }
             .interactiveDismissDisabled(model.busy)

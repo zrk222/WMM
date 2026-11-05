@@ -143,7 +143,7 @@ class NativeJobs:
         return row
 
     def run(self, app_id, user, identity, session):
-        from .automation_execution import job_execution
+        from .automation_execution import job_execution, execution_row, check_execution_deadline
         from .complete_automation import ACCESS_VERIFIER, checked_policy, utc
         from .worker import json_job, process
         from .workflow_telemetry import append
@@ -151,10 +151,12 @@ class NativeJobs:
         with connection(store.path) as db:
             db.execute('BEGIN IMMEDIATE')
             row = self.owned(db,app_id,user,identity)
-            scope = db.execute('SELECT e.policy_id FROM automation_job_scopes s JOIN automation_executions e ON e.id=s.execution_id WHERE s.job_id=?', (identity,)).fetchone()
+            scope = db.execute('SELECT s.execution_id FROM automation_job_scopes s WHERE s.job_id=?', (identity,)).fetchone()
             if scope:
                 if ACCESS_VERIFIER.get() is None:raise PermissionError('Native standing verifier is unavailable')
-                checked_policy(db, scope['policy_id'], utc())
+                execution = execution_row(db, scope['execution_id'])
+                check_execution_deadline(db, execution, utc())
+                checked_policy(db, execution['policy_id'], utc())
             if row['status'] in ('SUCCEEDED','FAILED','CANCELLED'):return json_job(row)
             if row['status'] == 'RUNNING' and row['lease'] > self.clock():
                 raise Invalid('Job still has a live lease; inspect progress before resuming')
@@ -193,6 +195,7 @@ class NativeJobs:
                 execution_id = db.execute('SELECT execution_id FROM automation_job_scopes WHERE job_id=?', (identity,)).fetchone()
                 if execution_id is None:raise PermissionError('Standing job scope is unavailable')
                 execution = execution_row(db, execution_id['execution_id'])
+                check_execution_deadline(db, execution, utc())
                 checked_policy(db, execution['policy_id'], utc())
                 check_job(db, dict(job_id=identity, attempt=job['attempts']), execution)
             db.execute('UPDATE jobs SET status=?,result=?,lease=0,updated=? WHERE id=?',

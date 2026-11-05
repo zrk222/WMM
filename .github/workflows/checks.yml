@@ -38,6 +38,7 @@ jobs:
           python tools/test_goal_packet_history_browser.py
           python tools/test_weekly_review_actions_browser.py
           python tools/test_client_dashboard_browser.py
+          python tools/test_authority_expiry_browser.py
   windows:
     runs-on: windows-latest
     timeout-minutes: 45

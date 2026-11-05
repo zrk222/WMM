@@ -105,6 +105,8 @@ def source(db, app_id, principal, scope_id):
     scope = json.loads(row["summary"])
     if digest(scope) != row["summary_hash"]:
         raise Invalid("Campaign approval integrity changed")
+    from .campaign_execution import scope_view
+    scope['permission_expires_at'] = scope_view(db, row)['permission_expires_at']
     app = db.execute("SELECT * FROM apps WHERE id=?", (app_id,)).fetchone()
     if (
         scope["owner_principal"],
@@ -115,7 +117,7 @@ def source(db, app_id, principal, scope_id):
         raise PermissionError("Campaign app or owner revision changed")
     if (
         row["status"] != "ACTIVE"
-        or iso_time(scope["expires_at"]).timestamp() <= time.time()
+        or iso_time(scope["permission_expires_at"]).timestamp() <= time.time()
     ):
         raise PermissionError("Campaign approval is OFF or expired")
     connection_row = db.execute(
@@ -374,7 +376,7 @@ class Monitors:
             db.execute("BEGIN IMMEDIATE")
             binding, scope = source(db, app_id, principal, chosen["scope_id"])
             expiry = iso_time(chosen["expires_at"]).timestamp()
-            if not time.time() < expiry <= iso_time(scope["expires_at"]).timestamp():
+            if not time.time() < expiry <= iso_time(scope["permission_expires_at"]).timestamp():
                 raise Invalid(
                     "Monitor expiry must be future and within campaign expiry"
                 )

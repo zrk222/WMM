@@ -86,6 +86,48 @@ def native_access(service, identities, session, vault_callback):
         yield
 
 
+EXPIRY_ACTIONS = ('extension-preview', 'extension-confirm', 'extension-history')
+
+
+def validate_status(action, body):
+    if action == 'status' and body:
+        raise Invalid('Standing status accepts no body fields')
+
+
+def expiry_kind(body, action):
+    if not isinstance(body, dict):
+        raise Invalid('Use an exact native expiry request')
+    value = body.get('preview') if action == 'extension-confirm' else body
+    if not isinstance(value, dict) or value.get('kind') != 'AUTOMATION':
+        raise Invalid('Choose the supported native authority kind')
+
+
+def manage_expiry(adapter, session, app_id, action, body):
+    from .ios_execution_context import native_device_context
+    with native_device_context(adapter.service, adapter.identities, session):
+        return manage_expiry_bound(adapter, session, app_id, action, body)
+
+
+def manage_expiry_bound(adapter, session, app_id, action, body):
+    from .authority_expiry import AuthorityExpiry
+    from .operation_authority import bound_owner, protected
+    expiry_kind(body, action)
+    user = adapter.identities.fresh(session)
+    envelope = dict(app_id=app_id, operation='native.expiry.' + action, input=body)
+    with bound_owner(adapter.service.store, envelope, adapter.identities, session, user):
+        with protected(adapter.service.store, envelope):
+            expiry = AuthorityExpiry(adapter.service.store)
+            if action == 'extension-preview':
+                result = expiry.preview(app_id, user, body)
+            elif action == 'extension-confirm':
+                result = expiry.confirm(app_id, user, body)
+            else:
+                if set(body) != {'kind', 'id'}:
+                    raise Invalid('Use an exact native expiry history request')
+                result = expiry.history(app_id, user, body['kind'], body['id'])
+    return encode_response(result)
+
+
 class NativeAutomation:
     def __init__(self, service, identities, vault_callback):
         self.service = service
@@ -97,10 +139,11 @@ class NativeAutomation:
         from .operation_authority import bound_owner, protected
         from .ios_execution_context import native_device_context
         body = decode_document(payload)
+        if action in EXPIRY_ACTIONS:
+            return manage_expiry(self, session, app_id, action, body)
         if not isinstance(body, dict) or action not in ('preview', 'activate', 'status', 'off'):
             raise Invalid('Choose a fixed native standing authority action')
-        if action == 'status' and body:
-            raise Invalid('Standing status accepts no body fields')
+        validate_status(action, body)
         if action == 'activate' and (set(body) != {'proposal', 'summary_hash', 'confirm_scope'} or body['confirm_scope'] is not True):
             raise Invalid('Confirm the exact standing scope')
         if action == 'off' and (set(body) != {'id', 'version', 'confirm_off'} or body['confirm_off'] is not True):

@@ -84,3 +84,18 @@ Separate `permission_expires_at` from verification due/readiness. Fresh verifica
 DEFAULT_HOURS = 24
 timeout = 5
 max_workers = 4
+
+The UI decomposes one day into 24 hours (the DAY constant in its millisecond expression). This is the unchanged consent threshold, not a new maximum lifetime. Existing campaign form call defaults and free-only model spending remain the values declared below.
+
+Synthetic fixtures deliberately use small cumulative allowances and finite test waits; these values are not new production limits:
+max_calls = 2
+max_calls = 3
+max_calls = 4
+max_calls = 10
+max_calls = 20
+max_calls = 40
+max_calls = 500
+max_model_minor = 0
+DAY = 24
+max_workers = 1
+timeout = 10

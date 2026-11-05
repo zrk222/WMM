@@ -71,6 +71,10 @@ CREATE TRIGGER IF NOT EXISTS native_owner_review_identity_no_replace BEFORE INSE
 CREATE TRIGGER IF NOT EXISTS native_owner_review_identity_no_update BEFORE UPDATE ON native_owner_review_identity BEGIN SELECT RAISE(ABORT,'Native owner identity binding is immutable'); END;
 CREATE TRIGGER IF NOT EXISTS native_owner_review_identity_no_delete BEFORE DELETE ON native_owner_review_identity BEGIN SELECT RAISE(ABORT,'Native owner identity binding is immutable'); END;
 CREATE TABLE IF NOT EXISTS agent_checkpoints(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,data TEXT NOT NULL,revision INTEGER NOT NULL,PRIMARY KEY(app_id,id));
+CREATE TABLE IF NOT EXISTS authority_expiry_consents(app_id TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('AGENT_GRANT','AUTOMATION','CAMPAIGN','ORGANIC_POLICY')), authority_id TEXT NOT NULL, revision INTEGER NOT NULL, base_hash TEXT NOT NULL, previous_hash TEXT NOT NULL, old_expiry TEXT NOT NULL, new_expiry TEXT NOT NULL, owner TEXT NOT NULL, owner_version INTEGER NOT NULL, preview_hash TEXT NOT NULL, request_id TEXT NOT NULL, confirmed TEXT NOT NULL, receipt_hash TEXT NOT NULL, PRIMARY KEY(app_id,kind,authority_id,revision), UNIQUE(app_id,kind,authority_id,request_id));
+CREATE TRIGGER IF NOT EXISTS authority_expiry_no_replace BEFORE INSERT ON authority_expiry_consents WHEN EXISTS(SELECT 1 FROM authority_expiry_consents WHERE rowid=NEW.rowid OR (app_id=NEW.app_id AND kind=NEW.kind AND authority_id=NEW.authority_id AND (revision=NEW.revision OR request_id=NEW.request_id))) BEGIN SELECT RAISE(ABORT,'expiry consent is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS authority_expiry_no_update BEFORE UPDATE ON authority_expiry_consents BEGIN SELECT RAISE(ABORT,'expiry consent is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS authority_expiry_no_delete BEFORE DELETE ON authority_expiry_consents BEGIN SELECT RAISE(ABORT,'expiry consent is immutable'); END;
 CREATE TABLE IF NOT EXISTS agent_grants(id TEXT PRIMARY KEY,app_id TEXT NOT NULL REFERENCES apps(id),agent_id TEXT NOT NULL,owner TEXT NOT NULL,owner_version INTEGER NOT NULL,app_version INTEGER NOT NULL,app_hash TEXT NOT NULL,operations TEXT NOT NULL,token_hash TEXT NOT NULL UNIQUE,expires TEXT NOT NULL,max_calls INTEGER NOT NULL,used INTEGER NOT NULL,status TEXT NOT NULL,version INTEGER NOT NULL,created TEXT NOT NULL,updated TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS agent_grant_review_policy(grant_id TEXT PRIMARY KEY REFERENCES agent_grants(id),operations TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS agent_review_requests(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,grant_id TEXT NOT NULL REFERENCES agent_grants(id),envelope TEXT NOT NULL,input_hash TEXT NOT NULL,result TEXT,PRIMARY KEY(app_id,id));
@@ -119,6 +123,10 @@ CREATE TABLE IF NOT EXISTS hypit_attempts(app_id TEXT NOT NULL REFERENCES apps(i
 CREATE TABLE IF NOT EXISTS hypit_renders(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,job_id TEXT NOT NULL REFERENCES jobs(id),data TEXT NOT NULL,hash TEXT NOT NULL,created TEXT NOT NULL,PRIMARY KEY(app_id,id),UNIQUE(app_id,job_id));
 CREATE TABLE IF NOT EXISTS automation_policies(id TEXT PRIMARY KEY,app_id TEXT NOT NULL REFERENCES apps(id),grant_id TEXT NOT NULL UNIQUE REFERENCES agent_grants(id),owner TEXT NOT NULL,version INTEGER NOT NULL,status TEXT NOT NULL CHECK(status IN ('ACTIVE','OFF')),proposal TEXT NOT NULL,summary TEXT NOT NULL,summary_hash TEXT NOT NULL,created TEXT NOT NULL,updated TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS automation_executions(id TEXT PRIMARY KEY,policy_id TEXT NOT NULL REFERENCES automation_policies(id),policy_version INTEGER NOT NULL,grant_id TEXT NOT NULL REFERENCES agent_grants(id),operation TEXT NOT NULL,input_hash TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('ADMITTED','DISPATCHED','SUCCEEDED','FAILED','UNKNOWN','CANCELLED','CANCEL_REQUESTED')),write_commits INTEGER NOT NULL DEFAULT 0,result_hash TEXT,created TEXT NOT NULL,updated TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS automation_execution_authority(execution_id TEXT PRIMARY KEY,permission_expires_at TEXT NOT NULL,policy_revision INTEGER NOT NULL,policy_hash TEXT NOT NULL,grant_revision INTEGER NOT NULL,grant_hash TEXT NOT NULL,record_hash TEXT NOT NULL);
+CREATE TRIGGER IF NOT EXISTS automation_execution_authority_no_replace BEFORE INSERT ON automation_execution_authority WHEN EXISTS(SELECT 1 FROM automation_execution_authority WHERE rowid=NEW.rowid OR execution_id=NEW.execution_id) BEGIN SELECT RAISE(ABORT,'standing execution authority is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS automation_execution_authority_no_update BEFORE UPDATE ON automation_execution_authority BEGIN SELECT RAISE(ABORT,'standing execution authority is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS automation_execution_authority_no_delete BEFORE DELETE ON automation_execution_authority BEGIN SELECT RAISE(ABORT,'standing execution authority is immutable'); END;
 CREATE TABLE IF NOT EXISTS automation_job_scopes(job_id TEXT PRIMARY KEY REFERENCES jobs(id),execution_id TEXT NOT NULL REFERENCES automation_executions(id),request_hash TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS workflow_events(id INTEGER PRIMARY KEY AUTOINCREMENT,app_id TEXT NOT NULL REFERENCES apps(id),job_id TEXT NOT NULL REFERENCES jobs(id),attempt INTEGER NOT NULL,code TEXT NOT NULL,stage INTEGER,observed_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS video_project_revisions(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,revision INTEGER NOT NULL,data TEXT NOT NULL,hash TEXT NOT NULL,parent_revision INTEGER NOT NULL,actor TEXT NOT NULL,action TEXT NOT NULL,request_key TEXT NOT NULL,request_hash TEXT NOT NULL,created TEXT NOT NULL,PRIMARY KEY(app_id,id,revision),UNIQUE(app_id,request_key));
@@ -195,6 +203,20 @@ def connection(path):
         with transaction(path, db):yield db
 
 
+def migrate_execution_authority(db):
+    """Preserve child receipts while removing the provisional parent deletion constraint."""
+    if not db.execute('PRAGMA foreign_key_list(automation_execution_authority)').fetchone():
+        return
+    for operation in ('no_replace','no_update','no_delete'):
+        db.execute('DROP TRIGGER IF EXISTS automation_execution_authority_'+operation)
+    db.execute('ALTER TABLE automation_execution_authority RENAME TO automation_execution_authority_old')
+    db.execute('CREATE TABLE automation_execution_authority(execution_id TEXT PRIMARY KEY,permission_expires_at TEXT NOT NULL,policy_revision INTEGER NOT NULL,policy_hash TEXT NOT NULL,grant_revision INTEGER NOT NULL,grant_hash TEXT NOT NULL,record_hash TEXT NOT NULL)')
+    db.execute('INSERT INTO automation_execution_authority SELECT * FROM automation_execution_authority_old')
+    db.execute('DROP TABLE automation_execution_authority_old')
+    db.execute("CREATE TRIGGER automation_execution_authority_no_update BEFORE UPDATE ON automation_execution_authority BEGIN SELECT RAISE(ABORT,'standing execution authority is immutable'); END")
+    db.execute("CREATE TRIGGER automation_execution_authority_no_delete BEFORE DELETE ON automation_execution_authority BEGIN SELECT RAISE(ABORT,'standing execution authority is immutable'); END")
+
+
 def initialize(path):
     """Initialize only the independent local database and its indexes."""
     Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -204,6 +226,13 @@ def initialize(path):
         from .onesignal_setup import SCHEMA as ONESIGNAL_SCHEMA
         db.executescript(ONESIGNAL_SCHEMA)
         db.execute("BEGIN IMMEDIATE")
+        migrate_execution_authority(db)
+        db.execute('DROP TRIGGER IF EXISTS authority_expiry_no_replace')
+        db.execute("CREATE TRIGGER authority_expiry_no_replace BEFORE INSERT ON authority_expiry_consents WHEN EXISTS(SELECT 1 FROM authority_expiry_consents WHERE rowid=NEW.rowid OR (app_id=NEW.app_id AND kind=NEW.kind AND authority_id=NEW.authority_id AND (revision=NEW.revision OR request_id=NEW.request_id))) BEGIN SELECT RAISE(ABORT,'expiry consent is immutable'); END")
+        db.execute('DROP TRIGGER IF EXISTS automation_execution_authority_no_replace')
+        db.execute("CREATE TRIGGER automation_execution_authority_no_replace BEFORE INSERT ON automation_execution_authority WHEN EXISTS(SELECT 1 FROM automation_execution_authority WHERE rowid=NEW.rowid OR execution_id=NEW.execution_id) BEGIN SELECT RAISE(ABORT,'standing execution authority is immutable'); END")
+        columns={row["name"] for row in db.execute("PRAGMA table_info(authority_expiry_consents)")}
+        if "stable_hash" not in columns:db.execute("ALTER TABLE authority_expiry_consents ADD COLUMN stable_hash TEXT NOT NULL DEFAULT ''")
         columns={row["name"] for row in db.execute("PRAGMA table_info(creative_batch_variants)")}
         if "native_state" not in columns:db.execute("ALTER TABLE creative_batch_variants ADD COLUMN native_state TEXT NOT NULL DEFAULT 'PREPARED'")
         if "native_packet_hash" not in columns:db.execute("ALTER TABLE creative_batch_variants ADD COLUMN native_packet_hash TEXT")

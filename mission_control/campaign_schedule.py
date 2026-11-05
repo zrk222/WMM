@@ -4,7 +4,7 @@ import time
 from datetime import datetime, timezone
 
 from .campaign_contract import ad_data, post_data
-from .campaign_execution import CampaignExecutionService, row_scope
+from .campaign_execution import CampaignExecutionService, scope_view
 from .common import Invalid, canonical, digest, iso_time, now, uid
 from .db import connection
 from .review_access import member
@@ -38,7 +38,7 @@ def owner_context(store, app_id):
 
 def checked_scope(db, service, app_id, actor, scope_id):
     row = service._row(db, app_id, scope_id)
-    scope = row_scope(row)
+    scope = scope_view(db, row)
     if scope['owner_principal'] != actor:
         raise PermissionError('Campaign scope belongs to another owner')
     service._check(db, app_id, actor, scope, 'RUN_POST')
@@ -63,7 +63,7 @@ def prepare_item(item, scope, db, app_id):
     if not isinstance(item, dict) or set(item) not in ({'due_at', 'request'}, {'due_at', 'request', 'operation'}):
         raise Invalid('Each scheduled item needs an exact due time and post')
     due = iso_time(item['due_at'])
-    if not datetime.now(timezone.utc) < due < iso_time(scope['expires_at']):
+    if not datetime.now(timezone.utc) < due < iso_time(scope.get('permission_expires_at', scope['expires_at'])):
         raise Invalid('Scheduled post must be due before scope expiry')
     operation = item.get('operation', 'campaign.publish')
     if operation not in ('campaign.publish', 'campaign.ad-launch'):
@@ -81,7 +81,7 @@ def check_paid_review(db, app_id, scope, body, due):
     if (not scope['ad_account_id'] or body['targeting_hash'] not in scope['approved_targeting_hashes']
             or body['lifetime_budget_minor'] > scope['max_campaign_minor']
             or body['lifetime_budget_minor'] > scope['max_total_minor']
-            or not due < iso_time(body['end_time']) <= iso_time(scope['expires_at'])):
+            or not due < iso_time(body['end_time']) <= iso_time(scope.get('permission_expires_at', scope['expires_at']))):
         raise PermissionError('Paid promotion exceeds the approved scope')
     post = db.execute("""SELECT 1 FROM campaign_intents WHERE app_id=? AND page_id=? AND remote_id=?
         AND status='VERIFIED' AND content_hash=? AND rights_hash=?""",
@@ -124,7 +124,8 @@ class CampaignSchedules:
             if any(item.get('operation') == 'campaign.ad-launch' for item in prepared):
                 service._check(db, app_id, actor, scope, 'RUN_AD')
             summary = dict(batch_id=identity, app_id=app_id, owner=actor,
-                           scope_id=scope['scope_id'], scope_hash=scope['approval_hash'], items=prepared)
+                           scope_id=scope['scope_id'], scope_hash=scope['approval_hash'], items=prepared,
+                           permission_expires_at=scope['permission_expires_at'])
             stamp = now()
             db.execute('INSERT INTO campaign_schedule_batches VALUES(?,?,?,?,?,?,?,?,?,?)',
                 (identity, app_id, actor, scope['scope_id'], canonical(summary), digest(summary), 'DRAFT', 1, stamp, stamp))
@@ -149,6 +150,8 @@ class CampaignSchedules:
             if (digest(summary) != row['summary_hash'] or summary_hash != row['summary_hash']
                     or scope['approval_hash'] != summary['scope_hash']):
                 raise Invalid('Scheduled batch or scope changed; review again')
+            from .campaign_schedule_authority import check_deadline
+            check_deadline(summary, scope['expires_at'])
             rows = db.execute('SELECT * FROM campaign_schedule_items WHERE batch_id=?', (batch_id,)).fetchall()
             validate_items(rows, summary)
             db.execute("UPDATE campaign_schedule_batches SET status='ACTIVE',version=version+1,updated=? WHERE id=?", (now(), batch_id))

@@ -26,9 +26,13 @@ Show these fields before the final owner confirmation and beside the active swit
 | Accounts | Source account and destination identity, provider, permitted scopes, last successful verification, expiry and renewal state |
 | Content | Purpose, audience, language, brand/claim constraints, rights evidence, permitted source/media types, output constraints and required stop rules |
 | Viral discovery | At least 100,000 observed views AND 10 times the creator's typical views; absent baseline evidence does not qualify |
-| Resources | Expiry within 24 hours, 1–10,000 calls, owned-command timeout at most 180 seconds, cadence/concurrency limits and exact spend currency/ceiling |
+| Resources | Default expiry within 24 hours; a longer finite date requires explicit owner consent. Retain 1–10,000 calls, owned-command timeout at most 180 seconds, cadence/concurrency limits and exact spend currency/ceiling |
 | Cost | Default ceiling zero; provider price, subscription quota and downstream local-server billing remain UNKNOWN until verified or explicitly bounded |
 | Exceptions | Missing credentials/evidence, changed account/scope, exhausted limits, uncertain result or an action outside scope stops affected execution |
+
+Owners can review a longer date when creating approval or choose **Extend** on active authority. The exact review shows the current and requested local/UTC dates, current usage and dependent work that has an earlier deadline. Standing automation and its linked grant extend atomically. Calls, generation/post allowances, held/spent commitments and original ceilings carry forward; extending time adds no budget or provider effect.
+
+Permission expiry and verification/readiness are separate dates. A longer permission window does not make a stale model verification, expired provider token or independent approval current. Existing child packets retain their original bounds. Agents can inspect their effective grant expiry and remaining allowance through `operations.read`, propose a date and explain the required owner action; they cannot approve their own extension.
 | Control | OFF prevents future admissions; dispatched work is listed with cancellation/reconciliation status and saved remote IDs |
 
 Use a final action such as “Approve this scope and enable automation”. The server

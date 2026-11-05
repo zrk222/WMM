@@ -560,7 +560,8 @@ final class MediaConformanceTests: XCTestCase {
                 "workflows": ["native_video_authoring"], "agent_connection_id": syntheticProfile.id,
                 "social_connection_ids": [String]()],
             "purpose": "Verify synthetic on-device standing render and owner output receipt",
-            "limits": ["expires": ISO8601DateFormatter().string(from: Date().addingTimeInterval(3600)),
+            "extended_expiry_consent": true,
+            "limits": ["expires": ISO8601DateFormatter().string(from: Date().addingTimeInterval(48 * 3600)),
                 "max_calls": 3, "max_inflight": 1, "currency": "USD", "spend_limit_minor": 0]]
         let scopeBytes = try await bridge.automation(session: session, appID: appID, action: "preview",
             request: JSONSerialization.data(withJSONObject: standingProposal))
@@ -570,6 +571,17 @@ final class MediaConformanceTests: XCTestCase {
         let approved = try await bridge.automation(session: session, appID: appID, action: "activate",
             request: JSONSerialization.data(withJSONObject: ["proposal": standingProposal, "summary_hash": scopeHash, "confirm_scope": true]))
         let standingGrant = try await scopedRuntime.retainIssuedGrant(approved)
+        let activeScope = try XCTUnwrap(JSONSerialization.jsonObject(with: approved) as? [String: Any])
+        let policyID = try XCTUnwrap(activeScope["policy_id"] as? String)
+        let extensionBytes = try await bridge.automation(session: session, appID: appID, action: "extension-preview", request:
+            JSONSerialization.data(withJSONObject: ["kind": "AUTOMATION", "id": policyID,
+                "expires": ISO8601DateFormatter().string(from: Date().addingTimeInterval(96 * 3600))]))
+        let extensionReview = try XCTUnwrap(JSONSerialization.jsonObject(with: extensionBytes) as? [String: Any])
+        let exactPreview = try XCTUnwrap(extensionReview["preview"] as? [String: Any])
+        let extensionHash = try XCTUnwrap(extensionReview["preview_hash"] as? String)
+        _ = try await bridge.automation(session: session, appID: appID, action: "extension-confirm", request:
+            JSONSerialization.data(withJSONObject: ["preview": exactPreview, "preview_hash": extensionHash,
+                "request_id": UUID().uuidString.lowercased(), "extended_expiry_consent": true]))
         let standingRequest = try JSONSerialization.data(withJSONObject: ["app_id": appID, "operation": "ios.timeline.queue",
             "input": ["project_id": "native-edit", "revision": 1, "project_hash": projectHash,
                 "request_key": UUID().uuidString.lowercased()]])
@@ -580,8 +592,6 @@ final class MediaConformanceTests: XCTestCase {
         let standingJob = try XCTUnwrap(standingRender["job_id"] as? String)
         let standingOutput = try await bridge.agentTimelineArtifact(session: session, appID: appID, jobID: standingJob)
         try await MediaInspector.verify(standingOutput, plan: packet.plan, expectsAudio: false)
-        let activeScope = try XCTUnwrap(JSONSerialization.jsonObject(with: approved) as? [String: Any])
-        let policyID = try XCTUnwrap(activeScope["policy_id"] as? String)
         _ = try await bridge.automation(session: session, appID: appID, action: "off", request:
             JSONSerialization.data(withJSONObject: ["id": policyID, "version": 1, "confirm_off": true]))
         let historicalOutput = try await bridge.agentTimelineArtifact(session: session, appID: appID, jobID: standingJob)

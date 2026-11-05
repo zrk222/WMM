@@ -5,7 +5,7 @@ from pathlib import Path
 import json
 import time
 
-from .common import Invalid, digest
+from .common import Invalid, digest, iso_time
 
 ACTIVE = ContextVar('wmm_standing_execution', default=None)
 
@@ -16,6 +16,40 @@ def execution_row(db, identity):
     if row is None:
         raise PermissionError('Standing execution is unavailable')
     return row
+
+
+def capture_deadline(db,identity,policy,grant):
+    """Freeze the parent permission clocks at admission in the same transaction."""
+    from .authority_expiry import effective_expiry, initial_base
+    proposal = json.loads(policy['proposal'])
+    base = initial_base(proposal['limits']['expires'],policy['created'],proposal.get('extended_expiry_consent'))
+    policy_proof = effective_expiry(db,'AUTOMATION',policy,base)
+    grant_proof = effective_expiry(db,'AGENT_GRANT',grant,grant['expires'])
+    expiry = min(iso_time(policy_proof['expires']),iso_time(grant_proof['expires'])).isoformat()
+    data = dict(execution_id=identity,permission_expires_at=expiry,policy_revision=policy_proof['revision'],
+                policy_hash=policy_proof['receipt_hash'],grant_revision=grant_proof['revision'],grant_hash=grant_proof['receipt_hash'])
+    data['record_hash'] = digest(data)
+    db.execute('INSERT INTO automation_execution_authority VALUES (?,?,?,?,?,?,?)',tuple(data.values()))
+
+
+def execution_deadline(db,execution):
+    """Legacy work keeps its original clipped clocks; new work keeps its captured clock."""
+    saved = db.execute('SELECT * FROM automation_execution_authority WHERE execution_id=?',(execution['id'],)).fetchone()
+    if saved:
+        data = {key:saved[key] for key in saved.keys() if key != 'record_hash'}
+        if digest(data) != saved['record_hash']:
+            raise PermissionError('Standing execution authority changed')
+        return iso_time(saved['permission_expires_at'])
+    policy = db.execute('SELECT summary FROM automation_policies WHERE id=?',(execution['policy_id'],)).fetchone()
+    grant = db.execute('SELECT expires FROM agent_grants WHERE id=?',(execution['grant_id'],)).fetchone()
+    if not policy or not grant:
+        raise PermissionError('Standing execution original authority is unavailable')
+    return min(iso_time(json.loads(policy['summary'])['stops_at']),iso_time(grant['expires']))
+
+
+def check_execution_deadline(db,execution,observed):
+    if execution_deadline(db,execution) <= observed:
+        raise PermissionError('Standing execution approval expired; prepare new work')
 
 
 def job_hash(job):
@@ -33,6 +67,7 @@ def guard_connection(path, db, committing=False):
     from .complete_automation import checked_policy, utc
     row = execution_row(db, context['id'])
     policy, _ = checked_policy(db, row['policy_id'], utc())
+    check_execution_deadline(db,row,utc())
     if policy['version'] != row['policy_version']:
         raise PermissionError('Standing approval revision changed before commit')
     if context.get('job_id'):
@@ -102,6 +137,7 @@ def start(store, admission, envelope):
         db.execute('BEGIN IMMEDIATE')
         row = execution_row(db, identity)
         checked_policy(db, row['policy_id'], utc())
+        check_execution_deadline(db,row,utc())
         if row['grant_id'] != admission['grant_id'] or row['input_hash'] != digest(envelope) or row['status'] != 'ADMITTED':
             raise PermissionError('Standing dispatch binding changed or was already claimed')
         db.execute("UPDATE automation_executions SET status='DISPATCHED',updated=? WHERE id=?", (utc().isoformat(), identity))
@@ -173,6 +209,7 @@ def job_execution(store, job):
         if row is not None:
             execution = execution_row(db, row['execution_id'])
             policy, summary = checked_policy(db, execution['policy_id'], utc())
+            check_execution_deadline(db,execution,utc())
             verify_access(store, policy['app_id'], summary['inventory']['selection']['agent_connection_id'])
     if row is None:
         yield

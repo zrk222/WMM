@@ -44,7 +44,7 @@ def utc():
 
 def proposal_data(body, observed):
     """Validate finite owner choices; purpose text cannot widen fixed operation scope."""
-    exact_keys(body, ('selection', 'limits', 'purpose'))
+    exact_keys(body, ('selection', 'limits', 'purpose'), ('extended_expiry_consent',))
     chosen = selection(body['selection'])
     limits = body['limits']
     exact_keys(limits, ('expires', 'max_calls', 'max_inflight', 'currency', 'spend_limit_minor'))
@@ -54,11 +54,15 @@ def proposal_data(body, observed):
         raise Invalid('Paid effects require implemented pricing and budget enforcement; this scope has zero spend')
     if not isinstance(limits['currency'], str) or not re.fullmatch(r'[A-Z]{3}', limits['currency']):
         raise Invalid('Use an explicit three-letter spend currency')
-    expiry = iso_time(limits['expires'])
-    if not observed < expiry <= observed + timedelta(hours=MAX_HOURS):
-        raise Invalid('Choose an expiry within the next 24 hours')
-    return dict(selection=chosen, purpose=required(body['purpose'], 'Automation purpose', 500),
-                limits=dict(limits, expires=expiry.isoformat()))
+    if 'extended_expiry_consent' in body and type(body['extended_expiry_consent']) is not bool:
+        raise Invalid('Expiry consent must be an explicit boolean')
+    from .authority_expiry import deadline
+    expiry = deadline(limits['expires'], observed, body.get('extended_expiry_consent'))
+    result = dict(selection=chosen, purpose=required(body['purpose'], 'Automation purpose', 500),
+                  limits=dict(limits, expires=expiry.isoformat()))
+    if 'extended_expiry_consent' in body:
+        result['extended_expiry_consent'] = body['extended_expiry_consent']
+    return result
 
 
 def integer_limit(value, maximum):
@@ -75,7 +79,7 @@ def scope_summary(db, app_id, user, proposal, observed):
     fresh = inventory['inference'].get('fresh_until')
     if fresh and iso_time(fresh) < iso_time(deadline):
         deadline = fresh
-    return dict(schema='wmm.standing-scope.v1', inventory=inventory,
+    result = dict(schema='wmm.standing-scope.v1', inventory=inventory,
                 purpose=proposal['purpose'], limits=proposal['limits'], stops_at=deadline,
                 operations=operations, effects=[dict(operation=name, effect=OPERATIONS[name]['effect']) for name in operations],
                 external_effects='NONE_IN_CURRENT_EXECUTABLE_SCOPE',
@@ -84,6 +88,46 @@ def scope_summary(db, app_id, user, proposal, observed):
                             'Expiry, stale verification or resource allowance exhausted',
                             'Unimplemented, outside-scope or uncertain effect'],
                 revocation='OFF blocks new admissions and cancels undispatched owned jobs; committed effects remain recorded.')
+    if proposal.get('extended_expiry_consent') is True:
+        result['verification_binding'] = stable_connection_binding(db,app_id,proposal['selection']['agent_connection_id'])
+        result['permission_expires_at'] = proposal['limits']['expires']
+        result['verification_due_at'] = fresh
+    return result
+
+
+def stable_connection_binding(db,app_id,identity):
+    """Bind configuration and credential references, excluding only test timestamps."""
+    row = db.execute('SELECT app_id,id,version,data,created FROM agent_connections WHERE app_id=? AND id=?',(app_id,identity)).fetchone()
+    return digest(dict(row)) if row else None
+
+
+def _normalize_readiness(saved, current):
+    current['inventory']['inference']['status'] = saved['inventory']['inference']['status']
+    current['inventory']['scope_status'] = saved['inventory']['scope_status']
+    for prior, present in zip(saved['inventory']['workflows'], current['inventory']['workflows']):
+        present['status'] = prior['status']
+        present['blockers'] = [item for item in present['blockers'] if item not in
+                               ('FRESH_INFERENCE_TEST_REQUIRED','FRESH_DESTINATION_ACCOUNT_REQUIRED')]
+    for prior, present in zip(saved['inventory']['accounts'], current['inventory']['accounts']):
+        present['status'] = prior['status']
+
+
+def same_scope_after_verification(saved, actual, ignore_readiness=False, allow_legacy_refresh=False):
+    """Permit only a new health timestamp for the same immutable connection facts."""
+    if 'verification_binding' not in saved and not ignore_readiness and not allow_legacy_refresh:
+        return digest(actual) == digest(saved)
+    import copy
+    current = copy.deepcopy(actual)
+    for key in ('stops_at','verification_due_at'):
+        if key in saved:current[key] = saved[key]
+    old = saved['inventory']['inference']
+    new = current['inventory']['inference']
+    keys = ('last_successful_test','fresh_until','binding_sha256') if ('verification_binding' in saved or allow_legacy_refresh) else ()
+    for key in keys:
+        new[key] = old[key]
+    if ignore_readiness:
+        _normalize_readiness(saved,current)
+    return digest(current) == digest(saved)
 
 
 def verify_access(store, app_id, identity):
@@ -115,6 +159,14 @@ def verify_access(store, app_id, identity):
             raise Invalid('Complete official tool sign-in before activation')
 
 
+def _check_scope_readiness(db,row,summary,proposal,observed):
+    actual = scope_summary(db,row['app_id'],dict(principal=row['owner']),proposal,observed)
+    from .authority_expiry import legacy_verification_bound
+    allow_refresh = legacy_verification_bound(db,row,proposal) if 'verification_binding' not in summary else False
+    if not same_scope_after_verification(summary,actual,allow_legacy_refresh=allow_refresh) or actual['inventory']['scope_status'] != 'READY_FOR_SCOPE_REVIEW':
+        raise PermissionError('Standing approval facts changed; review the current scope')
+
+
 def checked_policy(db, policy_id, observed):
     """Revalidate saved scope and grant within the current business transaction."""
     row = db.execute('SELECT * FROM automation_policies WHERE id=?', (policy_id,)).fetchone()
@@ -124,11 +176,11 @@ def checked_policy(db, policy_id, observed):
     if digest(summary) != row['summary_hash']:
         raise PermissionError('Standing approval summary integrity changed')
     proposal = stored_object(row['proposal'])
-    if iso_time(summary['stops_at']) <= observed:
+    from .authority_expiry import effective_expiry, initial_base
+    base = initial_base(proposal['limits']['expires'], row['created'], proposal.get('extended_expiry_consent'))
+    if iso_time(effective_expiry(db, 'AUTOMATION', row, base)['expires']) <= observed:
         raise PermissionError('Standing approval expired; review a fresh scope')
-    actual = scope_summary(db, row['app_id'], dict(principal=row['owner']), proposal, observed)
-    if digest(actual) != row['summary_hash'] or actual['inventory']['scope_status'] != 'READY_FOR_SCOPE_REVIEW':
-        raise PermissionError('Standing approval facts changed; review the current scope')
+    _check_scope_readiness(db,row,summary,proposal,observed)
     grant = db.execute('SELECT * FROM agent_grants WHERE id=?', (row['grant_id'],)).fetchone()
     if grant is None:
         raise PermissionError('Standing agent grant is unavailable')
@@ -192,6 +244,8 @@ def reserve(db, store, grant, envelope, observed):
     identity = uid()
     db.execute('INSERT INTO automation_executions(id,policy_id,policy_version,grant_id,operation,input_hash,status,created,updated) VALUES(?,?,?,?,?,?,?,?,?)',
                (identity, policy['id'], policy['version'], grant['id'], name, digest(envelope), 'ADMITTED', observed.isoformat(), observed.isoformat()))
+    from .automation_execution import capture_deadline
+    capture_deadline(db,identity,policy,grant)
     audit(db, policy['app_id'], 'automation.admitted', dict(policy_id=policy['id'], execution_id=identity, operation=name))
     return identity
 
@@ -219,6 +273,8 @@ class Automation:
         proposal = proposal_data(body['proposal'], observed)
         with connection(self.store.path) as db:
             db.execute('BEGIN IMMEDIATE')
+            observed = self.clock()
+            proposal = proposal_data(body['proposal'], observed)
             summary = scope_summary(db, app_id, user, proposal, observed)
             if body['summary_hash'] != digest(summary):
                 raise Invalid('Scope summary changed; review and confirm the current summary')
@@ -228,11 +284,19 @@ class Automation:
                 raise Invalid('Switch the existing standing approval OFF before replacing its scope')
             verify_access(self.store, app_id, proposal['selection']['agent_connection_id'])
             grant_body = dict(agent_id=proposal['selection']['agent_id'], manifest_version=proposal['selection']['manifest_version'],
-                              operations=summary['operations'], max_calls=proposal['limits']['max_calls'], expires=summary['stops_at'])
+                              operations=summary['operations'], max_calls=proposal['limits']['max_calls'],
+                              expires=proposal['limits']['expires'] if proposal.get('extended_expiry_consent') is True else summary['stops_at'])
+            if 'extended_expiry_consent' in proposal:
+                grant_body['extended_expiry_consent'] = proposal['extended_expiry_consent']
             issued = issue_in_db(db, app_id, user, grant_body, observed, 'wmmg_' + secrets.token_urlsafe(32))
             identity = uid()
             db.execute('INSERT INTO automation_policies VALUES(?,?,?,?,?,?,?,?,?,?,?)',
                        (identity, app_id, issued['grant']['id'], user['principal'], 1, 'ACTIVE', canonical(proposal), canonical(summary), digest(summary), observed.isoformat(), observed.isoformat()))
+            from .authority_expiry import initial_base, record_initial
+            saved = db.execute('SELECT * FROM automation_policies WHERE id=?', (identity,)).fetchone()
+            base = initial_base(proposal['limits']['expires'], saved['created'], proposal.get('extended_expiry_consent'))
+            record_initial(db, 'AUTOMATION', saved, base, proposal['limits']['expires'], user['principal'],
+                           issued['grant']['owner_version'], proposal, observed)
             audit(db, app_id, 'automation.owner_confirmed', dict(policy_id=identity, summary_hash=digest(summary), owner=user['principal']))
             # Native protected storage can lock after the initial read. Recheck
             # within the writer transaction before the protected commit guard.
@@ -282,14 +346,24 @@ def cancel_work(db, policy_id, stamp):
 
 def policy_view(db, row, observed):
     """Distinguish saved approval from current runnable scope using only public facts."""
+    from .authority_expiry import effective_expiry, initial_base
     effective = row['status']
     repair = None
     summary = None
+    permission_expires_at = None
+    verification_due_at = None
+    consent_revision = None
     try:
         candidate = stored_object(row['summary'])
         if digest(candidate) != row['summary_hash']:
             raise Invalid('Standing approval summary integrity changed')
         summary = candidate
+        proposal = stored_object(row['proposal'])
+        base = initial_base(proposal['limits']['expires'],row['created'],proposal.get('extended_expiry_consent'))
+        proof = effective_expiry(db,'AUTOMATION',row,base)
+        permission_expires_at,consent_revision = proof['expires'],proof['revision']
+        current_summary = scope_summary(db,row['app_id'],dict(principal=row['owner']),proposal,observed)
+        verification_due_at = current_summary['inventory']['inference'].get('fresh_until')
         if effective == 'ACTIVE':
             checked_policy(db, row['id'], observed)
     except (Invalid, PermissionError, KeyError):
@@ -297,6 +371,12 @@ def policy_view(db, row, observed):
     executions = [dict(item) for item in db.execute('SELECT id,operation,input_hash,status,write_commits,result_hash,created,updated FROM automation_executions WHERE policy_id=? ORDER BY created,id', (row['id'],))]
     for execution in executions:
         execution['jobs'] = [dict(job) for job in db.execute('SELECT j.id,j.action,j.status,j.created,j.updated FROM jobs j JOIN automation_job_scopes s ON s.job_id=j.id WHERE s.execution_id=?', (execution['id'],))]
-    grant = db.execute('SELECT used,max_calls,expires,status FROM agent_grants WHERE id=?', (row['grant_id'],)).fetchone()
+    grant = db.execute('SELECT * FROM agent_grants WHERE id=?', (row['grant_id'],)).fetchone()
+    usage = None
+    if grant:
+        usage = {key:grant[key] for key in ('used','max_calls','expires','status')}
+        try:usage['expires'] = effective_expiry(db,'AGENT_GRANT',grant,grant['expires'])['expires']
+        except PermissionError:usage['expires'] = None
     return dict(id=row['id'], version=row['version'], status=row['status'], effective_status=effective,
-                grant_id=row['grant_id'], usage=dict(grant) if grant else None, summary=summary, repair=repair, executions=executions)
+                grant_id=row['grant_id'], usage=usage, summary=summary, repair=repair, executions=executions,
+                permission_expires_at=permission_expires_at,verification_due_at=verification_due_at,consent_revision=consent_revision)

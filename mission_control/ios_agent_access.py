@@ -4,6 +4,42 @@ from .common import Invalid
 from .ios_bridge import decode_document, decode_request, encode_response
 
 
+EXPIRY_ACTIONS = ('extension-preview', 'extension-confirm', 'extension-history')
+
+
+def validate_listing(action, body):
+    if action in ('list', 'handoff-list') and body:
+        raise Invalid('Listing accepts no body fields')
+
+
+def expiry_kind(body, action):
+    if not isinstance(body, dict):
+        raise Invalid('Use an exact native expiry request')
+    value = body.get('preview') if action == 'extension-confirm' else body
+    if not isinstance(value, dict) or value.get('kind') != 'AGENT_GRANT':
+        raise Invalid('Choose the supported native authority kind')
+
+
+def manage_expiry(adapter, session, app_id, action, body):
+    from .authority_expiry import AuthorityExpiry
+    from .operation_authority import bound_owner, protected
+    expiry_kind(body, action)
+    user = adapter.identities.fresh(session)
+    envelope = dict(app_id=app_id, operation='native.expiry.' + action, input=body)
+    with bound_owner(adapter.service.store, envelope, adapter.identities, session, user):
+        with protected(adapter.service.store, envelope):
+            expiry = AuthorityExpiry(adapter.service.store)
+            if action == 'extension-preview':
+                result = expiry.preview(app_id, user, body)
+            elif action == 'extension-confirm':
+                result = expiry.confirm(app_id, user, body)
+            else:
+                if set(body) != {'kind', 'id'}:
+                    raise Invalid('Use an exact native expiry history request')
+                result = expiry.history(app_id, user, body['kind'], body['id'])
+    return encode_response(result)
+
+
 class NativeAgentAccess:
     def __init__(self, service, identities):
         self.service = service
@@ -15,16 +51,15 @@ class NativeAgentAccess:
         from .operation_catalog import catalog
         from .agent_handoffs import Handoffs
         body = decode_document(payload)
+        if action in EXPIRY_ACTIONS:
+            return manage_expiry(self, session, app_id, action, body)
         if not isinstance(body, dict) or action not in ('list', 'issue', 'revoke', 'handoff-list', 'handoff-create', 'handoff-revoke'):
             raise Invalid('Choose a fixed native owner grant action')
-        if action == 'list' and body:
-            raise Invalid('Grant listing accepts no body fields')
+        validate_listing(action, body)
         if action == 'issue' and (set(body) != {'confirm_scope', 'grant'} or body['confirm_scope'] is not True):
             raise Invalid('Explicit owner confirmation of the exact grant scope is required')
         if action == 'revoke' and (set(body) != {'id', 'version', 'confirm_revoke'} or body['confirm_revoke'] is not True):
             raise Invalid('Confirm the exact current grant revocation')
-        if action == 'handoff-list' and body:
-            raise Invalid('Handoff listing accepts no body fields')
         user = self.identities.fresh(session)
         envelope = dict(app_id=app_id, operation='native.agent-access.' + action, input=body)
         grants = Grants(self.service.store)

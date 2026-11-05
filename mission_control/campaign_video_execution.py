@@ -10,7 +10,7 @@ from .campaign_transport import Unconfirmed
 from .common import Invalid, canonical, digest, now, uid
 from .db import connection
 from .operation_authority import PROTECTED, check, store_identity
-from .organic_video_policy import Policies, _saved, _page
+from .organic_video_policy import Policies, _saved, _page, child_deadline
 from .review_access import member
 from .social_connections import Connections
 from .social_profiles import facebook, selected_page
@@ -92,6 +92,7 @@ def _bound(db, store, app_id, row, context, *, recovery=False, historical=False,
     if (admission['hash'] != request['admission_hash'] or admission['data']['policy_id'] != policy['id']
             or admission['data']['policy_hash'] != policy['hash']):
         raise Invalid('Reel admission changed')
+    check_admission_deadline(admission, policy, recovery=recovery, historical=historical)
     output = admission['data']['output']
     if (output['artifact_id'], output['artifact_sha256'], output['caption']) != (request['artifact_id'], request['artifact_sha256'], request['caption']):
         raise Invalid('Reel output differs from its admitted artifact or caption')
@@ -109,6 +110,12 @@ def _bound(db, store, app_id, row, context, *, recovery=False, historical=False,
         if not heartbeat:
             current_inputs(db, store, app_id, artifact['inputs'])
     return policy, admission
+
+
+def check_admission_deadline(admission, policy, *, recovery=False, historical=False):
+    """Expire further effects while preserving retained history and owner readback."""
+    if not recovery and not historical:
+        child_deadline(admission['data'], policy['data']['policy']['expires_at'])
 
 
 def create_intent(store, app_id, actor, body) -> object:

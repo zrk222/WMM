@@ -3,6 +3,62 @@ import CryptoKit
 @testable import WMM
 
 final class BridgeAgentTests: XCTestCase {
+    @MainActor
+    func testChangedExpiryCannotSubmitOldPreview() async throws {
+        let reviewed = Date()
+        var sends = 0
+        do {
+            try await confirmNativeExpiry(reviewedDate: reviewed, selectedDate: reviewed.addingTimeInterval(60), consent: true) { sends += 1 }
+            XCTFail("Changed date submitted old consent")
+        } catch {}
+        XCTAssertEqual(sends, 0)
+        try await confirmNativeExpiry(reviewedDate: reviewed, selectedDate: reviewed, consent: true) { sends += 1 }
+        XCTAssertEqual(sends, 1)
+    }
+
+    @MainActor
+    func testNativeOwnerLongGrantAndExtensionKeepCredentialAndUsage() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let databaseID = UUID()
+        let identity = LocalIdentity(vault: KeychainVault(databaseID: databaseID, appID: UUID()))
+        let session = try await identity.begin()
+        let bridge = try DomainBridge(store: LocalStore(applicationSupport: folder, databaseID: databaseID), identity: identity)
+        let appID = "expiry-" + UUID().uuidString.lowercased()
+        let setup = try JSONSerialization.data(withJSONObject: ["app_id": appID, "confirm_owner": true,
+            "manifest": ["name": "Synthetic expiry", "release": "build-1", "locale": "en-US", "currency": "USD"]] as [String: Any])
+        _ = try await bridge.createWorkspace(session: session, request: setup)
+        let runtime = ScopedAgentRuntime(bridge: bridge, session: session, vault: KeychainVault(databaseID: databaseID, appID: UUID()))
+        let model = NativeAgentAccessModel(appID: appID, manifestVersion: 1, runtime: runtime, execute: { action, request in
+            try await bridge.agentAccess(session: session, appID: appID, action: action, request: request)
+        })
+        let expiry = Date().addingTimeInterval(48 * 3600)
+        await model.issue(agentID: "native-expiry", selected: ["workspace.read"], reviewed: [], hours: 24, maxCalls: 3,
+                          confirmed: true, expiry: expiry, extendedConsent: false)
+        XCTAssertTrue(model.grants.isEmpty)
+        await model.issue(agentID: "native-expiry", selected: ["workspace.read"], reviewed: [], hours: 24, maxCalls: 3,
+                          confirmed: true, expiry: expiry, extendedConsent: true)
+        let grant = try XCTUnwrap(model.grants.first)
+        await model.verify(grant)
+        let used = try XCTUnwrap(model.grants.first?.used)
+        XCTAssertEqual(used, 1)
+        let input: [String: Any] = ["kind": "AGENT_GRANT", "id": grant.id,
+            "expires": ISO8601DateFormatter().string(from: Date().addingTimeInterval(96 * 3600))]
+        let bytes = try await model.expiryAction("extension-preview", JSONSerialization.data(withJSONObject: input))
+        let review = try XCTUnwrap(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+        let preview = try XCTUnwrap(review["preview"] as? [String: Any])
+        let hash = try XCTUnwrap(review["preview_hash"] as? String)
+        let confirmation: [String: Any] = ["preview": preview, "preview_hash": hash,
+            "request_id": UUID().uuidString.lowercased(), "extended_expiry_consent": true]
+        _ = try await model.expiryAction("extension-confirm", JSONSerialization.data(withJSONObject: confirmation))
+        await model.refresh()
+        XCTAssertEqual(model.grants.first?.id, grant.id)
+        XCTAssertEqual(model.grants.first?.used, used)
+        await model.verify(try XCTUnwrap(model.grants.first))
+        XCTAssertEqual(model.grants.first?.used, 2)
+        await model.close(); await bridge.close(); try await identity.forgetPrincipal()
+    }
+
     func testOneSignalKeychainNamespaceRejectsMalformedChunkTargets() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }

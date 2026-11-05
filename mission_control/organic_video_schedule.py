@@ -6,7 +6,7 @@ from .campaign_contract import exact
 from .campaign_schedule import MAX_ITEMS, SCHEMA, audit, owner_context, validate_items
 from .common import Invalid, canonical, digest, iso_time, now, uid
 from .db import connection
-from .organic_video_policy import Policies, _authority
+from .organic_video_policy import Policies, _authority, _saved, child_deadline
 from . import campaign_video_execution as video
 
 KIND = 'ADMITTED_ORGANIC_VIDEO_V1'
@@ -32,6 +32,22 @@ def current_intent(db, store, app_id, identity, policy, context):
     return row
 
 
+def due_authority(db, app_id, policy, row, due):
+    """Bound a new schedule by both the parent and this exact admission."""
+    request = json.loads(row['data'])['request']
+    admission = _saved(db.execute('SELECT * FROM organic_video_admissions WHERE app_id=? AND id=?',
+                                  (app_id,request['admission_id'])).fetchone())
+    if admission['hash'] != request['admission_hash']:
+        raise Invalid('Scheduled admission changed')
+    legacy = policy['data']['policy']['expires_at']
+    child = child_deadline(admission['data'],legacy)
+    parent = policy.get('permission_expires_at',legacy)
+    expiry = min(iso_time(child),iso_time(parent))
+    if not datetime.now(timezone.utc) < due < expiry:
+        raise Invalid('Schedule the Reel after now and before its admission and permission expire')
+    return expiry.isoformat()
+
+
 def prepare_items(db, store, app_id, items, policy, context):
     if not isinstance(items, list) or not 1 <= len(items) <= MAX_ITEMS:
         raise Invalid('Choose one through twenty admitted Reels')
@@ -39,13 +55,12 @@ def prepare_items(db, store, app_id, items, policy, context):
     for item in items:
         exact(item, ('due_at', 'intent_id'))
         due = iso_time(item['due_at'])
-        if not datetime.now(timezone.utc) < due < iso_time(policy['data']['policy']['expires_at']):
-            raise Invalid('Schedule the Reel after now and before its policy expires')
         row = current_intent(db, store, app_id, item['intent_id'], policy, context)
+        expiry = due_authority(db,app_id,policy,row,due)
         if row['id'] in seen or db.execute('SELECT 1 FROM campaign_video_schedule_bindings WHERE intent_id=?', (row['id'],)).fetchone():
             raise Invalid('This Reel already has a retained schedule; inspect it instead of duplicating it')
         seen.add(row['id'])
-        prepared.append(dict(item_id=uid(), due_at=due.isoformat(), operation=OPERATION,
+        prepared.append(dict(item_id=uid(), due_at=due.isoformat(), operation=OPERATION,permission_expires_at=expiry,
                              request=dict(intent_id=row['id'], intent_hash=row['hash'])))
     return prepared
 
@@ -96,6 +111,9 @@ class VideoSchedules:
             validate_items(items, summary)
             for item in summary['items']:
                 intent = current_intent(db, self.store, app_id, item['request']['intent_id'], policy, context)
+                expiry = due_authority(db,app_id,policy,intent,iso_time(item['due_at']))
+                if item.get('permission_expires_at',expiry) != expiry:
+                    raise Invalid('Scheduled admission deadline changed; review again')
                 if intent['hash'] != item['request']['intent_hash'] or iso_time(item['due_at']) <= datetime.now(timezone.utc):
                     raise Invalid('The scheduled intent or due time needs review')
             db.execute("UPDATE campaign_schedule_batches SET status='ACTIVE',version=version+1,updated=? WHERE id=?", (now(), row['id']))

@@ -20,6 +20,7 @@ function campaignBound(form) {
      (form.dataset.principal!==undefined&&form.dataset.principal!==(state.workspace.identity?.principal||'')))
     throw new Error('App changed. Reopen campaign automation and review its current scope.');
 }
+function campaignExpiryUI(){return globalThis.WMMAuthorityExpiry;}
 
 async function campaignOpen(source=null) {
   const app=state.app,version=state.workspace.app.version,principal=state.workspace.identity?.principal,history=await api(`/api/apps/${app}/campaigns/history`,{});
@@ -28,7 +29,9 @@ async function campaignOpen(source=null) {
   if(state.workspace.app.version!==version||app!==state.app||state.workspace.identity?.principal!==principal||(source&&!source.isConnected))return;
   const accounts=(state.workspace.social_access?.accounts||[]).filter(r=>r.provider==='facebook'&&r.status==='CONNECTED_READ_TESTED');
   modal('Campaign automation',`<form id="campaign-scope-form" class="modal-content" data-app="${esc(app)}" data-version="${state.workspace.app.version}"><p>Choose the work once, review its exact limits, then let your agent operate within them. Account permissions are checked separately before execution.</p><label class="field">Facebook Page connection<select name="connection_id" required><option value="">Choose a connected Page</option>${accounts.map(r=>`<option value="${esc(r.id)}">${esc(r.data.destination.name)} · ${esc(r.data.destination.id)}</option>`).join('')}</select></label>${accounts.length?'':notice('Connect a Facebook Page first. Select publishing or ad access during setup, complete official login, then return here.','warning')}<label class="field">Approved post copy<textarea name="posts" rows="6" maxlength="50000" required placeholder="Write one post. Separate additional posts with a line containing ---"></textarea></label><p>Up to 20 exact posts per review. The workflow uses your approved words; it does not invent product claims.</p><label class="field">App or landing-page link<input name="link" type="url" placeholder="https://your-app.example" maxlength="2048"></label><label class="field">Rights and claims evidence<textarea name="rights" maxlength="2000" required placeholder="Explain your authority to use this copy and media, and where its app claims are substantiated."></textarea></label><label class="field">Authority expires in hours<input name="hours" type="number" min="1" max="24" value="1" required></label><details><summary>Optional paid Meta campaign</summary><p>Leave the ad account empty for free organic publishing. Media limits exclude taxes, fees and currency conversion; provider reports may lag. A campaign's maximum approved media budget is reserved before activation.</p><label class="field">Numeric ad-account ID<input name="ad_account_id" inputmode="numeric" pattern="[0-9]+" maxlength="40"></label><label class="field">Currency<input name="currency" pattern="[A-Z]{3}" maxlength="3" value="${esc(state.workspace.app.data.currency||'USD')}" required></label><label class="field">Maximum media budget in minor units<input name="budget" type="number" min="0" max="100000000" value="0" step="1"></label><label class="field">Audience country codes<input name="countries" value="CA" maxlength="100" placeholder="CA, US"></label><label class="check-row"><input name="billing" type="checkbox"> I approve this media commitment and understand separate provider taxes, fees and billing delays.</label><label class="check-row"><input name="ordinary" type="checkbox"> I confirm this is outside Meta special ad categories (including housing, employment, financial products and political or social-issue advertising).</label></details><p id="campaign-error" role="alert"></p><div class="modal-actions"><button class="button primary" type="submit">Review exact automation scope</button>${button('Cancel','close')}</div></form><section class="modal-content"><h3>Saved scopes</h3>${history.scopes.length?history.scopes.map(s=>`<p>${esc(s.page_id)} · ${esc(s.status)} · expires ${esc(s.expires_at)} ${button('Inspect saved scope','campaign-status',`data-id="${esc(s.scope_id)}"`)}</p>`).join(''):'<p>No saved scopes for this owner and app yet.</p>'}<h3>Saved schedules</h3>${(schedules.batches||[]).map(b=>`<p>${esc(b.status)} · ${esc(b.items.length)} posts ${button('Inspect scheduled batch','campaign-schedule-status',`data-batch="${esc(b.id)}"`)}</p>`).join('')||'<p>No saved scheduled batch yet.</p>'}</section>`);
-  $('#campaign-scope-form').dataset.principal=principal||'';
+   $('#campaign-scope-form').dataset.principal=principal||'';
+   const scopeForm=$('#campaign-scope-form');scopeForm.querySelector('[type=submit]').insertAdjacentHTML('beforebegin','<label class="field">Or choose an exact expiry — device local time<input name="expires_at" type="datetime-local"></label><div data-expiry-consent hidden><label class="check-row"><input name="extended_expiry_consent" type="checkbox"> I explicitly consent to this approval lasting more than 24 hours.</label></div>');
+   campaignExpiryUI().bindConsent(scopeForm,'expires_at');
 }
 
 async function campaignSubmit(form) {
@@ -39,19 +42,20 @@ async function campaignSubmit(form) {
     if(!selected)throw new Error('Choose a connected Facebook Page.');
     const messages=values.posts.split(/\r?\n---\r?\n/).map(s=>s.trim()).filter(Boolean);
     if(!messages.length||messages.length>20||messages.some(s=>s.length>5000))throw new Error('Use 1–20 posts, with at most 5,000 characters each.');
-    const hours=Number(values.hours),paid=Boolean(values.ad_account_id),budget=Number(values.budget);
-    if(!Number.isInteger(hours)||hours<1||hours>24)throw new Error('Choose 1–24 hours.');
+     const hours=Number(values.hours),paid=Boolean(values.ad_account_id),budget=Number(values.budget),extended=values.expires_at?campaignExpiryUI().validateExpiry(values.expires_at,values.extended_expiry_consent==='on'):null;
+     if(!extended&&(!Number.isInteger(hours)||hours<1||hours>24))throw new Error('Choose 1–24 hours or an exact future expiry.');
     if(!Number.isSafeInteger(budget)||budget<0||(!paid&&budget!==0))throw new Error('Select an ad account for a paid budget, or use zero for organic publishing.');
     const link=values.link.trim()||null,rights=values.rights.trim();
     if(!rights)throw new Error('Explain your rights and claim evidence before approving use.');
     const rightsHash=await campaignHash({app_id:app,attestation:rights});
     const posts=await Promise.all(messages.map(async message=>({request_id:crypto.randomUUID(),message,link,content_hash:await campaignHash({message,link}),rights_hash:rightsHash})));
     const targeting={countries:[...new Set(values.countries.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean))].sort()};
-    const targetingHash=await campaignHash(targeting),expires=new Date(Date.now()+hours*3600000).toISOString();
-    const scope={connection_id:selected.id,page_id:selected.data.destination.id,ad_account_id:values.ad_account_id.trim()||null,currency:values.currency.trim(),expires_at:expires,max_posts:posts.length,max_calls:500,max_campaigns:paid?1:0,max_campaign_minor:paid?budget:0,max_total_minor:paid?budget:0,approved_content_hashes:[...new Set(posts.map(p=>p.content_hash))],approved_rights_hashes:[rightsHash],approved_targeting_hashes:paid?[targetingHash]:[],billing_acknowledged:values.billing==='on',ordinary_ad_attestation:values.ordinary==='on'};
+     const targetingHash=await campaignHash(targeting),expires=extended?.expires||new Date(Date.now()+hours*3600000).toISOString();
+     const scope={connection_id:selected.id,page_id:selected.data.destination.id,ad_account_id:values.ad_account_id.trim()||null,currency:values.currency.trim(),expires_at:expires,...(extended?.extended?{extended_expiry_consent:true}:{}),max_posts:posts.length,max_calls:500,max_campaigns:paid?1:0,max_campaign_minor:paid?budget:0,max_total_minor:paid?budget:0,approved_content_hashes:[...new Set(posts.map(p=>p.content_hash))],approved_rights_hashes:[rightsHash],approved_targeting_hashes:paid?[targetingHash]:[],billing_acknowledged:values.billing==='on',ordinary_ad_attestation:values.ordinary==='on'};
     campaignBound(form);const saved=await api(`/api/apps/${app}/campaigns/prepare`,{scope});campaignBound(form);
     modal('Approve your campaign scope',`<div id="campaign-review" class="modal-content" data-app="${esc(app)}" data-version="${state.workspace.app.version}"><p>Page ${esc(saved.page_id)} · ${posts.length} exact posts · expires ${esc(saved.expires_at)}.</p><p>Ad account: ${esc(saved.ad_account_id||'None — organic publishing only')}. Maximum media commitment: ${saved.max_total_minor} minor units ${esc(saved.currency)}. ${esc(saved.billing_notice)}</p><p>Rights evidence: ${esc(rights)}. ${esc(saved.rights_notice)}</p>${posts.map(p=>`<section class="panel"><p>${esc(p.message)}</p><p>${esc(p.link||'No link')}</p><small>Content hash: ${esc(p.content_hash)}</small></section>`).join('')}<details><summary>Exact authority and limits</summary><pre>${esc(JSON.stringify(saved,null,2))}</pre></details><p>Approval permits these supported effects without reviewing each post again. It does not guarantee reach, installs or revenue.</p><p id="campaign-error" role="alert"></p>${button('Approve scope and enable automation','campaign-activate','', 'primary')}${button('Cancel','close')}</div>`);
     $('#campaign-review').dataset.principal=state.workspace.identity?.principal||'';
+     if(scope.extended_expiry_consent===true||saved.extended_expiry_consent===true)$('#campaign-review').insertAdjacentHTML('afterbegin','<p>You explicitly consented to this selected expiry being more than 24 hours away.</p>');
     $('#campaign-review').campaign={scope:saved,posts,targeting,targetingHash,budget,expires,adRequestID:crypto.randomUUID()};
   } catch(error) {if(form.isConnected)form.querySelector('#campaign-error').textContent=error.message;}
   finally {submit.disabled=false;}
@@ -60,12 +64,13 @@ async function campaignSubmit(form) {
 async function campaignStatus(scopeID,plan=null,source=null) {
   const app=state.app,version=state.workspace.app.version,principal=state.workspace.identity?.principal,result=await api(`/api/apps/${app}/campaigns/status`,{scope_id:scopeID});
   if(app!==state.app||version!==state.workspace.app.version||principal!==state.workspace.identity?.principal||(source&&!source.isConnected))return;
-  const scope=result.scope;
+  const scope=result.scope;scope.expires_at=scope.permission_expires_at||scope.expires_at;
   if(plan&&(scope.status!=='ACTIVE'||result.intents.length||
      plan.scope?.scope_id!==scope.scope_id||!scope.approval_hash||
      plan.scope.approval_hash!==scope.approval_hash))plan=null;
   modal('Campaign progress',`<div id="campaign-progress" class="modal-content" data-app="${esc(app)}" data-version="${state.workspace.app.version}" data-id="${esc(scopeID)}"><p>Scope: <strong>${esc(scope.status)}</strong> · Page ${esc(scope.page_id)} · expires ${esc(scope.expires_at)}.</p><p>Media ceiling: ${scope.max_total_minor} minor units ${esc(scope.currency)}. Calls used: ${esc(scope.call_allowance_units_used??scope.calls_used??'Unknown')}/${scope.max_calls}.</p><p id="campaign-activity" role="status">Saved provider states shown below. A post ID or ad status does not establish app sales.</p>${result.intents.map(row=>`<section class="panel"><h3>${esc(row.status)}</h3><p>Receipt: ${esc(row.id)}</p><p>Provider ID: ${esc(row.remote_id||(row.ids?Object.values(row.ids).join(', '):'Not confirmed'))}</p><pre>${esc(JSON.stringify(row.result,null,2))}</pre>${button('Read provider status','campaign-reconcile',`data-intent="${esc(row.id)}"`)}${button('Pause owned paid campaign','campaign-pause',`data-intent="${esc(row.id)}"`)}</section>`).join('')||'<p>No effects have been dispatched for this scope.</p>'}<p id="campaign-error" role="alert"></p><div class="button-row">${plan&&scope.status==='ACTIVE'?button('Run approved workflow','campaign-run','','primary'):''}${plan?.posts&&!scope.ad_account_id&&scope.status==='ACTIVE'?button('Schedule approved posts','campaign-schedule-open'):''}${button('Campaign report / Save PDF','campaign-report')}${button('Refresh saved receipts','campaign-status',`data-id="${esc(scopeID)}"`)}${button('Turn off this scope','campaign-revoke')}</div></div>`);
   const progress=$('#campaign-progress');
+  if(scope.status==='ACTIVE'&&state.workspace.access?.members?.some(r=>r.principal===principal&&r.role==='OWNER'&&r.status==='ACTIVE'))progress.insertAdjacentHTML('beforeend',button('Extend expiry','campaign-extend',`data-id="${esc(scope.scope_id)}" data-expires="${esc(scope.expires_at)}"`));
   progress.dataset.principal=principal||'';
   progress.campaign={...(plan||{}),scope,snapshot:result,read_at:new Date().toISOString()};
   if(scope.status==='ACTIVE'&&scope.ad_account_id&&campaignVerifiedPosts(result).length){
@@ -76,6 +81,10 @@ async function campaignStatus(scopeID,plan=null,source=null) {
 async function campaignAction(node) {
   const action=node.dataset.action;
   if(action==='campaign-open')return campaignOpen(node);
+  if(action==='campaign-extend'){
+    const id=node.dataset.id,expires=node.dataset.expires,app=state.app,version=state.workspace.app.version,principal=state.workspace.identity?.principal;
+    return campaignExpiryUI().open({kind:'CAMPAIGN',id,expires,app,api,modal,document,FormData:window.FormData,uuid:()=>crypto.randomUUID(),owner:()=>state.workspace.access?.members?.some(r=>r.principal===state.workspace.identity?.principal&&r.role==='OWNER'&&r.status==='ACTIVE'),current:()=>state.app===app&&state.workspace.app.version===version&&state.workspace.identity?.principal===principal,done:()=>campaignStatus(id)});
+  }
   if(action.startsWith('campaign-schedule-'))return campaignScheduleAction(node);
   if(action==='campaign-status'){
     const progress=node.closest('#campaign-progress');
