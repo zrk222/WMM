@@ -313,10 +313,12 @@ class Policies:
     def read(self, app_id, body):
         exact(body, ('policy_id', 'policy_hash'))
         with connection(self.store.path) as db:
-            _authority(db, self.store, app_id, 'organic-video.policy-read', body)
+            context = _authority(db, self.store, app_id, 'organic-video.policy-read', body)
             _schema(db)
             row = db.execute('SELECT * FROM organic_video_policies WHERE app_id=? AND id=?', (app_id, body['policy_id'])).fetchone()
             saved = self._current(db, row)
+            if 'grant_id' not in context and saved['data']['owner'] != context['principal']:
+                raise PermissionError('Only the approving owner can read this policy')
             if saved['hash'] != body['policy_hash']:
                 raise Invalid('Policy hash differs from the owner approval')
             return saved
@@ -384,10 +386,12 @@ class Policies:
         from .hypit_runtime import local_graph, source_current
         with connection(self.store.path) as db:
             db.execute('BEGIN IMMEDIATE')
-            _authority(db, self.store, app_id, 'organic-video.policy-admit', body)
+            context = _authority(db, self.store, app_id, 'organic-video.policy-admit', body)
             _schema(db)
             row = db.execute('SELECT * FROM organic_video_policies WHERE app_id=? AND id=?', (app_id, body['policy_id'])).fetchone()
             saved = self._current(db, row)
+            if 'grant_id' not in context and saved['data']['owner'] != context['principal']:
+                raise PermissionError('Only the approving owner can admit this artifact')
             if saved['hash'] != body['policy_hash']:
                 raise Invalid('Policy hash differs from the owner approval')
             output = body['output']

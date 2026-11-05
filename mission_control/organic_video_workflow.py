@@ -83,7 +83,10 @@ def render_status(store, app_id, actor, body):
         db.execute('BEGIN')
         _authority(db, store, app_id, 'organic-video.render-status', body, True)
         exists = db.execute("SELECT 1 FROM sqlite_master WHERE name='organic_video_policies'").fetchone()
-        if not exists or _owner_policy(db, app_id, body['policy_id'], actor)['hash'] != body['policy_hash']:
+        if not exists:
+            raise Invalid('Select the exact saved production approval')
+        policy = _owner_policy(db, app_id, body['policy_id'], actor)
+        if policy['hash'] != body['policy_hash']:
             raise Invalid('Select the exact saved production approval')
         row = db.execute('''SELECT * FROM organic_video_generation_reservations
             WHERE app_id=? AND policy_id=? AND request_id=?''',
@@ -105,8 +108,28 @@ def render_status(store, app_id, actor, body):
                 raise Invalid('Reserved render job binding changed')
             result = json.loads(saved['result']) if saved['result'] else {}
             job = dict(id=saved['id'], status=saved['status'], updated=saved['updated'],
-                       render_id=result.get('render_id'))
-        return dict(reservation=reservation, job=job, publication='NOT_RUN')
+                       render_id=result.get('render_id'), artifact_sha256=result.get('artifact_hash'))
+        view = dict(reservation=reservation, job=job, publication='NOT_RUN')
+        if job and job['status'] == 'SUCCEEDED':
+            row = db.execute('''SELECT * FROM organic_video_admissions
+                WHERE app_id=? AND policy_id=? AND reservation_id=?''',
+                             (app_id, policy['id'], reservation['id'])).fetchone()
+            if row:
+                admission = _saved(row)
+                data = admission['data']
+                output = data['output']
+                if (data['policy_id'] != policy['id'] or data['policy_hash'] != policy['hash']
+                        or output['reservation_id'] != reservation['id'] or output['reservation_hash'] != reservation['hash']
+                        or output['artifact_id'] != job['render_id'] or output['artifact_sha256'] != job['artifact_sha256']
+                        or output['request_id'] != row['request_id'] or data['provider_calls_reserved'] != row['calls']):
+                    raise Invalid('Saved artifact approval differs from its reserved render')
+                view['admission'] = dict(id=admission['id'], hash=admission['hash'], request_id=row['request_id'],
+                                         request_hash=row['request_hash'], reserved_calls=data['provider_calls_reserved'])
+            used = db.execute('SELECT count(*),coalesce(sum(calls),0) FROM organic_video_admissions WHERE policy_id=?',
+                              (policy['id'],)).fetchone()
+            rules = policy['data']['policy']
+            view['available'] = dict(posts=rules['max_posts'] - used[0], calls=rules['max_calls'] - used[1])
+        return view
 
 
 def queue_render(store, app_id, actor, body):
