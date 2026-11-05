@@ -305,18 +305,25 @@ class Automation:
         return dict(policy_id=identity, version=1, status='ACTIVE', summary=summary, **issued)
 
     def off(self, app_id, user, body):
-        """Revoke future authority and undispatched work in the same writer transaction."""
+        """Revoke future authority and retain the result for exact owner replay."""
         exact_keys(body, ('id', 'version'))
         with connection(self.store.path) as db:
             db.execute('BEGIN IMMEDIATE')
-            member(db, app_id, user['principal'], 'OWNER')
+            role = member(db, app_id, user['principal'], 'OWNER')
             row = db.execute('SELECT * FROM automation_policies WHERE id=? AND app_id=?', (body['id'], app_id)).fetchone()
-            if row is None or type(body['version']) is not int or row['version'] != body['version']:
+            version = body['version']
+            if row is None or type(version) is not int:
+                raise Invalid('Standing approval revision changed; reload before switching OFF')
+            if row['status'] == 'OFF':
+                return replay_stop(db, row, role, version)
+            if row['version'] != version:
                 raise Invalid('Standing approval revision changed; reload before switching OFF')
             stamp = self.clock().isoformat()
             db.execute("UPDATE automation_policies SET status='OFF',version=version+1,updated=? WHERE id=?", (stamp, row['id']))
             db.execute("UPDATE agent_grants SET status='REVOKED',version=version+1,updated=? WHERE id=?", (stamp, row['grant_id']))
             cancelled = cancel_work(db, row['id'], stamp)
+            db.execute('INSERT INTO automation_stop_receipts VALUES(?,?,?,?,?,?,?)',
+                       (row['id'], app_id, user['principal'], role['version'], version, cancelled['owned_jobs_stopped'], stamp))
             audit(db, app_id, 'automation.owner_revoked', dict(policy_id=row['id'], owner=user['principal']))
         return dict(id=row['id'], version=row['version'] + 1, status='OFF', **cancelled)
 
@@ -328,6 +335,17 @@ class Automation:
             rows = db.execute('SELECT * FROM automation_policies WHERE app_id=? ORDER BY created,id', (app_id,)).fetchall()
             from .automation_requirements import workflow_catalog
             return dict(policies=[policy_view(db, row, self.clock()) for row in rows], catalog=workflow_catalog())
+
+
+def replay_stop(db, policy, role, prior_version):
+    """Return the original local result only to the same current owner revision."""
+    receipt = db.execute('''SELECT owned_jobs_stopped FROM automation_stop_receipts
+        WHERE policy_id=? AND app_id=? AND owner=? AND owner_version=? AND prior_version=?''',
+        (policy['id'], policy['app_id'], role['principal'], role['version'], prior_version)).fetchone()
+    if receipt is None or policy['version'] != prior_version + 1:
+        raise Invalid('This standing approval is already OFF; review its saved activity')
+    return dict(id=policy['id'], version=policy['version'], status='OFF',
+                owned_jobs_stopped=receipt['owned_jobs_stopped'], dispatched_effects='INSPECT_RECEIPTS_NOT_UNDONE')
 
 
 def cancel_work(db, policy_id, stamp):

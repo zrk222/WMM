@@ -55,6 +55,8 @@ def exercise(browser, origin, width):
         expect(page.locator('#consent')).to_be_disabled()
         expect(next_step).to_be_disabled()
         expect(page.locator('#report')).to_be_hidden()
+        page.get_by_label('Distribution channel', exact=True).select_option('youtube')
+        expect(page.locator('#scope-channel')).to_have_text('YouTube Shorts')
         # Editable content stays text, including HTML-shaped names.
         page.locator('#app-name').fill('<img src=x onerror=alert(1)>')
         page.locator('#prepare').click()
@@ -79,6 +81,7 @@ def exercise(browser, origin, width):
             page.locator('#export').click()
         value = json.loads(Path(downloaded.value.path()).read_text())
         assert value['classification'] == 'SYNTHETIC_EXAMPLE_NOT_OPERATIONAL_EVIDENCE'
+        assert value['plan']['channel'] == 'youtube'
         assert value['delivery'] == 'NOT_SENT_SAMPLE' and value['external_effects'] == 0
         assert value['metrics']['causal_lift'] is None and value['metrics']['revenue'] is None
         assert value['plan_sha256'] == sha256(encoded(value['plan'])).hexdigest()

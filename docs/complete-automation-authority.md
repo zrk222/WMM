@@ -126,6 +126,18 @@ be stranded by an exhausted agent quota.
    a reservation only with evidence that the corresponding effect was not charged
    or dispatched. Snapshot restore cannot recreate policies, grants or credentials.
 
+The local owner OFF route retains one immutable result per policy in the same
+SQLite transaction as policy OFF, linked grant revocation, undispatched owned-job
+cancellation and the existing audit event. Retrying the exact app, policy and
+prior revision as the same current owner returns that original result, including
+the original canceled-job count; it does not count or cancel again. A retry with
+changed owner role revision, app, policy revision or request fields is rejected.
+Older OFF policies without a matching result do not receive an invented receipt.
+This result confirms only local authority revocation and local cancellation.
+Provider pause requests, readback and reconciliation remain separate operations;
+an unknown or dispatched delivery stays unresolved until reconciled, and OFF does
+not claim that an external effect stopped or undo a charge.
+
 ## Required executable acceptance before enabling the switch
 
 Prove positive owner activation and inside-scope autonomous execution; missing,

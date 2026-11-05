@@ -1,6 +1,9 @@
 """Real isolated owner/policy transactions; protected access is a declared test adapter."""
 from datetime import datetime, timedelta, timezone
+from concurrent.futures import ThreadPoolExecutor
 import json
+import sqlite3
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -145,6 +148,108 @@ class StandingAuthorityTests(AuthorityFixture, unittest.TestCase):
         with self.assertRaises(PermissionError):
             self.grants.admit(issued['token'], self.envelope())
         self.assertEqual(self.automation.status('sample-one', OWNER)['policies'][0]['effective_status'], 'OFF')
+
+    def _queued_owned_job(self, issued):
+        """Create one synthetic admitted execution and its owned queued job."""
+        execution_id = 'stop-execution-' + issued['policy_id']
+        job_id = 'stop-job-' + issued['policy_id']
+        stamp = self.observed.isoformat()
+        with connection(self.store.path) as db:
+            db.execute('''INSERT INTO automation_executions
+                (id,policy_id,policy_version,grant_id,operation,input_hash,status,created,updated)
+                VALUES(?,?,?,?,?,?,?,?,?)''',
+                (execution_id, issued['policy_id'], 1, issued['grant']['id'], 'evidence.save',
+                 'a' * 64, 'ADMITTED', stamp, stamp))
+            db.execute('''INSERT INTO jobs(id,app_id,action,data,status,created,updated,request_key)
+                VALUES(?,?,?,?,?,?,?,?)''',
+                (job_id, 'sample-one', 'pipeline', '{}', 'QUEUED', stamp, stamp, job_id))
+            db.execute('INSERT INTO automation_job_scopes VALUES(?,?,?)',
+                       (job_id, execution_id, 'b' * 64))
+        return job_id
+
+    def test_concurrent_exact_off_replays_original_canceled_job_count(self):
+        issued = self.activate()
+        job_id = self._queued_owned_job(issued)
+        request = dict(id=issued['policy_id'], version=issued['version'])
+        barrier = threading.Barrier(2)
+        def stop_together(_):
+            barrier.wait(timeout=5)
+            return self.automation.off('sample-one', OWNER, request)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(stop_together, range(2)))
+        self.assertEqual(results[0], results[1])
+        self.assertEqual(results[0]['owned_jobs_stopped'], 1)
+        with connection(self.store.path) as db:
+            self.assertEqual(db.execute('SELECT status FROM jobs WHERE id=?', (job_id,)).fetchone()[0], 'CANCELLED')
+            self.assertEqual(db.execute('SELECT count(*) FROM automation_stop_receipts WHERE policy_id=?', (issued['policy_id'],)).fetchone()[0], 1)
+
+    def test_off_receipt_survives_store_reopen_and_grant_stays_denied(self):
+        issued = self.activate()
+        expected = self.off(issued)
+        reopened = Store(self.store.path, seed=False)
+        replayed = core.Automation(reopened, clock=lambda: self.observed).off(
+            'sample-one', OWNER, dict(id=issued['policy_id'], version=issued['version']))
+        self.assertEqual(replayed, expected)
+        with self.assertRaises(PermissionError):
+            Grants(reopened, clock=lambda: self.observed).admit(issued['token'], self.envelope())
+
+    def test_off_receipt_replay_rejects_changed_app_caller_prior_version_and_role_revision(self):
+        issued = self.activate()
+        self.off(issued)
+        request = dict(id=issued['policy_id'], version=issued['version'])
+        with self.assertRaises(Invalid):
+            self.automation.off('sample-two', OWNER, request)
+        with self.assertRaises(PermissionError):
+            self.automation.off('sample-one', STRANGER, request)
+        with self.assertRaises(Invalid):
+            self.automation.off('sample-one', OWNER, dict(id=issued['policy_id'], version=2))
+        with connection(self.store.path) as db:
+            db.execute("UPDATE operator_roles SET version=version+1 WHERE app_id='sample-one' AND principal=?", (OWNER['principal'],))
+        with self.assertRaises(Invalid):
+            self.automation.off('sample-one', OWNER, request)
+
+    def test_legacy_off_without_receipt_does_not_invent_result_or_repeat_cancellation(self):
+        issued = self.activate()
+        with connection(self.store.path) as db:
+            db.execute("UPDATE automation_policies SET status='OFF',version=version+1 WHERE id=?", (issued['policy_id'],))
+            db.execute("UPDATE agent_grants SET status='REVOKED',version=version+1 WHERE id=?", (issued['grant']['id'],))
+        with patch('mission_control.complete_automation.cancel_work', side_effect=AssertionError('must not cancel twice')) as cancel:
+            with self.assertRaises(Invalid):
+                self.off(issued)
+        cancel.assert_not_called()
+        with connection(self.store.path) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM automation_stop_receipts WHERE policy_id=?', (issued['policy_id'],)).fetchone()[0], 0)
+
+    def test_off_receipt_is_immutable(self):
+        issued = self.activate()
+        self.off(issued)
+        with connection(self.store.path) as db:
+            with self.assertRaises(sqlite3.IntegrityError):
+                db.execute('UPDATE automation_stop_receipts SET owned_jobs_stopped=99 WHERE policy_id=?', (issued['policy_id'],))
+            with self.assertRaises(sqlite3.IntegrityError):
+                db.execute('DELETE FROM automation_stop_receipts WHERE policy_id=?', (issued['policy_id'],))
+
+    def test_off_audit_failure_rolls_back_receipt_revocation_and_job_cancel(self):
+        issued = self.activate()
+        job_id = self._queued_owned_job(issued)
+        with patch('mission_control.complete_automation.audit', side_effect=RuntimeError('Synthetic OFF audit failure')):
+            with self.assertRaisesRegex(RuntimeError, 'Synthetic OFF audit failure'):
+                self.off(issued)
+        with connection(self.store.path) as db:
+            self.assertEqual(db.execute('SELECT status FROM automation_policies WHERE id=?', (issued['policy_id'],)).fetchone()[0], 'ACTIVE')
+            self.assertEqual(db.execute('SELECT status FROM agent_grants WHERE id=?', (issued['grant']['id'],)).fetchone()[0], 'ACTIVE')
+            self.assertEqual(db.execute('SELECT status FROM jobs WHERE id=?', (job_id,)).fetchone()[0], 'QUEUED')
+            self.assertEqual(db.execute('SELECT count(*) FROM automation_stop_receipts WHERE policy_id=?', (issued['policy_id'],)).fetchone()[0], 0)
+
+    def test_off_rejects_provider_instructions_before_any_provider_effect(self):
+        issued = self.activate()
+        with patch('mission_control.campaign_execution.CampaignExecutionService.revoke_scope') as provider_pause:
+            with self.assertRaises(Invalid):
+                self.automation.off('sample-one', OWNER,
+                                    dict(id=issued['policy_id'], version=issued['version'], provider_pause=True))
+        provider_pause.assert_not_called()
+        with connection(self.store.path) as db:
+            self.assertEqual(db.execute('SELECT status FROM automation_policies WHERE id=?', (issued['policy_id'],)).fetchone()[0], 'ACTIVE')
 
     def test_changed_credentials_and_summary_integrity_block_current_authority(self):
         issued = self.activate()

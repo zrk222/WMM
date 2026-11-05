@@ -100,7 +100,10 @@ function render() {
 
   automationDecorateWorkflow();
   WMMPageReports.decorate(state,document);
-  if(state.view==="overview"){const report=$("#main .page-reporting");if(report)$("#goal-advanced > summary").insertAdjacentElement("afterend",report);}
+  if(state.view==="overview"){
+    $("#goal-advanced")?.insertAdjacentHTML("beforebegin",WMMOrganicResearch.entry());
+    const report=$("#main .page-reporting");if(report)$("#goal-advanced > summary").insertAdjacentElement("afterend",report);
+  }
   if(["workflow","agents","activity","research"].includes(state.view)){
     $("#main .page-heading").insertAdjacentHTML("afterend",WMMTelemetry.panel());
     WMMTelemetry.mount(growthReviewServices());
@@ -1032,7 +1035,8 @@ document.addEventListener("click",async event=>{
   if(node.hasAttribute("data-report-page")) {
     try{WMMPageReports.openReport(WMMPageReports.model(state),window);}catch(error){toast(error.message);}return;
   }
-  if(node.dataset.view) {state.weeklyGeneration=(state.weeklyGeneration||0)+1;state.weeklyLoading=false;state.view=node.dataset.view;render();$("#main").focus();return;}
+  const view=node.dataset.view||(node.dataset.action==="research-channel-open"?"research":null);
+  if(view) {state.weeklyGeneration=(state.weeklyGeneration||0)+1;state.weeklyLoading=false;state.view=view;render();$("#main").focus();return;}
   if(node.dataset.action?.startsWith('weekly-')){try{await weeklyAction(node);}catch(error){toast(error.message);}return;}
   try {await handleAction(node);} catch(error) {if($("#form-error")) $("#form-error").textContent=error.message;else toast(error.message);}
 });

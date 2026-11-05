@@ -27,6 +27,14 @@ Wize Marketing Machine (WMM) was created for founders and teams who want agents 
 
 Task presets prepare an editable grant; the owner reviews and issues it. Each grant has a finite owner-set expiry, including durations longer than 24 hours, and does not renew automatically. The default allowance is 20 total calls until expiry, with no weekly refill. Optional advanced settings open the full operation catalog.
 
+## Research ideas across four channels
+
+Through a permitted connected agent, research metadata for **Facebook Page, Instagram Reels, TikTok and YouTube Shorts**. Viral qualification requires **100,000 views AND 10× a documented creator baseline**. Save source evidence, build a brief, prepare a Hypit preview and export approved artifacts.
+
+**Delivery today:** WMM has a governed publisher for approved Facebook Page posts. Instagram and TikTok connections provide account identity only. YouTube Shorts supports metadata and packaging, with no connected publisher. [Open the interactive sample](docs/demo.html).
+
+In WMM: **Set your goal → Explore video channels → Find viral ideas for my app.**
+
 The intended payoff is less coordination, faster creative cycles and better decisions about installs, activation, paid conversion and retention. Analytics retain source dates, definitions and missing data; receipts show what was actually done. Measure the benefit on your app—growth and time savings are not yet established by the dogfooding trial.
 
 **Available today:** local workspaces, personal-agent CLI/MCP, creative and evidence tools, supported analytics paths, Facebook Page posts and bounded Meta engagement campaigns. Shared cloud team dashboards, broader campaign publishing and complete KPI coverage remain in development. [Current tools and limits](#what-is-included-today).
