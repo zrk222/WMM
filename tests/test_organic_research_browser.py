@@ -8,7 +8,10 @@ from pathlib import Path
 import unittest
 
 from mission_control.db import connection
+from mission_control.creative_briefs import Briefs
+from mission_control.creative_library import Library
 from tests import test_organic_research_http as fixture
+from tests.production_fixtures import ready_capabilities
 
 BROWSER_PROFILE = os.environ.get('WMM_BROWSER_TEST_PROFILE') == '1'
 if BROWSER_PROFILE:
@@ -139,6 +142,57 @@ class OrganicResearchBrowserTests(unittest.TestCase):
 
     def test_mobile_source_review_approval_and_exports(self):
         self.approval_and_reports(390)
+
+    def research_brief(self, width):
+        intake = self.f.f.call()
+        source = next(row for row in Library(self.f.store).list(self.f.app)
+                      if row['id'] == intake['data']['source']['id'])
+        ready_capabilities(self.f.store, self.f.app, [source])
+        _, page, errors, external = self.page(width)
+        page.locator('[data-action="oresearch-read"]').first.click()
+        action = page.locator('#modal').get_by_role('button', name='Prepare original brief', exact=True)
+        action.focus()
+        expect(action).to_be_focused()
+        page.keyboard.press('Enter')
+        form = page.locator('#brief-form')
+        page.wait_for_function("() => document.querySelector('#brief-form') || document.querySelector('#oresearch-error')?.textContent")
+        self.assertTrue(form.is_visible(), page.locator('#modal').inner_text()[-1200:])
+        expect(form).to_be_focused()
+        proof = self.f.f.records
+        expect(form.locator('[name="analysis_id"]')).to_have_value(intake['data']['analysis']['id'])
+        expect(form.locator('[name="channel"]')).to_have_value('SHORT_VIDEO')
+        expect(form.locator('[name="asset_ids"]')).to_have_values([proof['asset']['id']])
+        expect(form.locator('[name="objective"]')).to_have_value(self.f.f.body['review']['card']['next_experiment'])
+        for kind in ('claim', 'readiness', 'store', 'route'):
+            name = 'claim_ids' if kind == 'claim' else kind + '_id'
+            form.locator(f'[name="{name}"]').select_option(proof[kind]['id'])
+        form.locator('[name="owner"]').fill('Synthetic editor')
+        self.snapshot(page, width, 'research-brief')
+        form.get_by_role('button', name='Prepare evidence-bound brief').click()
+        expect(form).to_be_hidden()
+        [first] = Briefs(self.f.store).list(self.f.app)
+        frozen = first['current']['data']
+        self.assertEqual(frozen['discovery']['collection_provenance'], intake['data']['provenance'])
+        self.assertEqual(frozen['discovery']['foreign_bytes'], 'NOT_AUTHORIZED')
+        self.assertEqual(frozen['publication'], 'NOT_RUN')
+        page.locator('[data-action="production-open"]').click()
+        page.get_by_role('button', name='Revise brief').click()
+        form.locator('[name="objective"]').fill('Compare a revised original opening')
+        form.get_by_role('button', name='Prepare evidence-bound brief').click()
+        expect(form).to_be_hidden()
+        [revised] = Briefs(self.f.store).list(self.f.app)
+        self.assertEqual(revised['current']['version'], 2)
+        self.assertEqual(revised['current']['data']['discovery'], frozen['discovery'])
+        with connection(self.f.store.path) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM jobs').fetchone()[0], 0)
+        self.assertEqual(errors, [])
+        self.assertEqual(external, [])
+
+    def test_desktop_research_to_original_brief_and_revision(self):
+        self.research_brief(1440)
+
+    def test_mobile_research_to_original_brief_and_revision(self):
+        self.research_brief(390)
 
     def assignment_with_lost_response(self, mode):
         context, page, errors, external = self.page(390)
