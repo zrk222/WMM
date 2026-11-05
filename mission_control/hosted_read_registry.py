@@ -1,8 +1,10 @@
 """Startup-owned client services; HTTP callers never choose database paths."""
 from dataclasses import dataclass
+from contextlib import closing
 import os
 from pathlib import Path
 import stat
+import sqlite3
 from types import MappingProxyType
 
 from .common import Invalid, identifier
@@ -80,3 +82,23 @@ class Registry:
                 or service_path != entry.path or service_identity != entry.identity
                 or self.entries.get((entry.tenant_id, entry.client_id)) is not entry):
             raise RegistryUnavailable('Client registry binding changed')
+
+    def apps(self, entry):
+        """Finite app metadata only; never initialize or return app profiles."""
+        self.check(entry)
+        with closing(sqlite3.connect(entry.path.as_uri() + '?mode=ro', uri=True, timeout=5)) as db:
+            db.execute('PRAGMA query_only=ON')
+            db.execute('BEGIN')
+            rows = db.execute("SELECT id,version,json_extract(data,'$.name') FROM apps ORDER BY id LIMIT 21").fetchall()
+            apps = [app_choice(row) for row in rows]
+        self.check(entry)
+        return apps[:20], len(apps) > 20
+
+
+def app_choice(row):
+    """Validate the complete selected metadata projection before returning it."""
+    app_id, version, name = row
+    exact_id(app_id)
+    if type(version) is not int or version < 1 or not isinstance(name, str) or not 0 < len(name) <= 160:
+        raise RegistryUnavailable('App choices unavailable')
+    return dict(id=app_id, name=name, version=version)

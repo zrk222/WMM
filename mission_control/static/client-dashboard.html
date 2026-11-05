@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Your client workspace | Wize Marketing Machine</title>
+  <link rel="stylesheet" href="/static/client-dashboard.css">
+  <script src="/static/client-dashboard.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Wize Marketing Machine home">
+      <span class="brand-mark" aria-hidden="true">W</span>
+      <span>Wize Marketing Machine</span>
+    </a>
+    <span class="access-label">Private client access</span>
+  </header>
+
+  <main class="shell">
+    <section class="intro" aria-labelledby="page-title">
+      <p class="eyebrow">Your workspace, at a glance</p>
+      <h1 id="page-title">Sign in to your assigned workspaces</h1>
+      <p class="intro-copy">See current job counts and read receipts for the workspaces assigned to you.</p>
+    </section>
+
+    <section id="status-card" class="status-card" aria-live="polite" aria-atomic="true">
+      <div class="status-symbol" aria-hidden="true">↗</div>
+      <div class="status-content">
+        <h2 id="status-title">Checking your access</h2>
+        <p id="status-message">This page shows assigned workspace summaries only.</p>
+        <form id="sign-in-form" action="/auth/start" method="post" hidden>
+          <input id="start-csrf" type="hidden" name="csrf" value="">
+          <button class="button button-primary" type="submit">Sign in to see your workspace</button>
+        </form>
+        <button id="retry-button" class="button button-secondary" type="button" hidden>Try again</button>
+      </div>
+    </section>
+
+    <section id="workspace" class="workspace" aria-labelledby="workspace-heading" hidden>
+      <div class="workspace-heading">
+        <div>
+          <p class="eyebrow">Read-only overview</p>
+          <h2 id="workspace-heading">Your assigned work</h2>
+        </div>
+        <div class="workspace-actions">
+          <button id="export-button" class="button button-secondary" type="button">Download summary</button>
+          <button id="print-button" class="button button-secondary" type="button">Print / save PDF</button>
+          <form id="logout-form" action="/auth/logout" method="post">
+            <input id="logout-csrf" type="hidden" name="csrf" value="">
+            <button class="button button-quiet" type="submit">Sign out</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="selectors">
+        <label for="client-select">Assigned workspace
+          <select id="client-select" name="client"></select>
+        </label>
+        <label for="app-select">App
+          <select id="app-select" name="app" disabled></select>
+        </label>
+      </div>
+      <p id="more-note" class="more-note" hidden>There are more assigned workspaces or apps available. Contact your Wize Marketing Machine administrator to review your access.</p>
+
+      <div id="summary" class="summary" aria-live="polite" aria-busy="false">
+        <div class="summary-title">
+          <div>
+            <p class="eyebrow">Current snapshot</p>
+            <h3 id="app-name">Choose an app</h3>
+          </div>
+          <span id="read-only-badge" class="badge">Read only</span>
+        </div>
+        <div class="count-grid" id="count-grid"></div>
+        <div class="receipt-row">
+          <div>
+            <p class="eyebrow">Read receipt</p>
+            <p id="receipt-value" class="receipt-value">A receipt appears after a successful read.</p>
+          </div>
+          <time id="updated-value" class="updated-value"></time>
+        </div>
+      </div>
+      <p class="scope-note">This view is for checking current counts and receipts. Use local Mission Control for existing full workflow actions.</p>
+    </section>
+
+    <footer class="page-footer"><span>Wize Marketing Machine</span><span>Assigned access · Read only</span></footer>
+  </main>
+</body>
+</html>
