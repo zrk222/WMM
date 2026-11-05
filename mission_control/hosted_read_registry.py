@@ -22,11 +22,9 @@ def physical_file(path, root):
     """Reject linked components before resolving an existing regular file."""
     original = Path(path).absolute()
     try:
-        relative = original.relative_to(root)
-        current = root
-        for part in ('', *relative.parts):
-            if part:
-                current = current / part
+        # Windows legacy 8.3 names can differ from the resolved private root.
+        # Inspect links on the original path, then compare canonical paths.
+        for current in (*reversed(original.parents), original):
             info = current.lstat()
             if stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & 0x400:
                 raise RegistryUnavailable('Client registry file is unavailable')
@@ -77,7 +75,8 @@ class Registry:
 
     def check(self, entry):
         path, identity = physical_file(entry.path, self.root)
+        service_path, service_identity = physical_file(entry.service.store.path, self.root)
         if (path != entry.path or identity != entry.identity
-                or Path(entry.service.store.path).absolute() != entry.path
+                or service_path != entry.path or service_identity != entry.identity
                 or self.entries.get((entry.tenant_id, entry.client_id)) is not entry):
             raise RegistryUnavailable('Client registry binding changed')

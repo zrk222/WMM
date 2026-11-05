@@ -276,6 +276,27 @@ class PrivateReadHTTPTests(unittest.TestCase):
         self.assertFalse(path.exists())
         saved.rename(path)
 
+    @unittest.skipUnless(os.name == 'nt', 'Windows native legacy path alias')
+    def test_native_windows_short_path_alias_preserves_canonical_isolation(self):
+        import ctypes
+        short_path = ctypes.windll.kernel32.GetShortPathNameW
+        short_path.argtypes = (ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint)
+        short_path.restype = ctypes.c_uint
+        def short(path):
+            buffer = ctypes.create_unicode_buffer(32768)
+            size = short_path(str(path), buffer, len(buffer))
+            self.assertTrue(0 < size < len(buffer))
+            return Path(buffer.value)
+        service = self.services[('tenant', 'client-a')]
+        original = service.store.path.resolve()
+        with patch.object(service.store, 'path', short(original)):
+            registry = Registry(self.root.resolve(), self.services, short(Path(self.control.path)))
+            entry = registry.resolve('tenant', 'client-a')
+            self.assertEqual(entry.path, original)
+            registry.check(entry)
+            with self.assertRaises(KeyError):
+                registry.resolve('another-tenant', 'client-a')
+
 
 if __name__ == '__main__':
     unittest.main()
