@@ -33,7 +33,9 @@ def serve(source, output):
         runtime.server.desktop_proof = proof
         runtime.start(workers=False)
         output.write(frame + b'\n')
-        output.flush()
+        descriptor = output.fileno()
+        output.close()
+        os.close(descriptor)  # Python's standard streams do not own their inherited descriptors.
         activate = source.readline(7)
         runtime.server.desktop_proof = None
         if activate == b'START\n':
