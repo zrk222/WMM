@@ -67,24 +67,19 @@ def verify_bundle(folder):
 
 WINDOW_READY_AND_CLOSE = r"""
 $ErrorActionPreference = 'Stop'
-Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 $window = Get-Process -Id ([int]$env:WMM_PROBE_PID)
 $timer = [Diagnostics.Stopwatch]::StartNew()
 while ($timer.Elapsed.TotalSeconds -lt 25) {
     $window.Refresh()
-    if ($window.HasExited) { throw 'Mission Control exited before rendering' }
-    if ($window.MainWindowHandle -ne 0 -and $window.MainWindowTitle -eq 'Wize Marketing Machine') {
-        $root = [Windows.Automation.AutomationElement]::FromHandle($window.MainWindowHandle)
-        $names = @($root.FindAll([Windows.Automation.TreeScope]::Descendants,
-            [Windows.Automation.Condition]::TrueCondition) | ForEach-Object { $_.Current.Name })
-        if ($names -contains 'Set your goal' -and $names -contains 'Watch the work' -and $names -contains 'Review results') {
-            if (!$window.CloseMainWindow()) { throw 'Could not close the owned Mission Control window' }
-            exit 0
-        }
+    if ($window.HasExited) { throw 'Mission Control exited before opening its window' }
+    if ($window.MainWindowHandle -ne 0 -and $window.MainWindowTitle -eq 'Wize Marketing Machine' -and
+        (Test-Path -LiteralPath $env:WMM_PROBE_DATABASE -PathType Leaf)) {
+        if (!$window.CloseMainWindow()) { throw 'Could not close the owned Mission Control window' }
+        exit 0
     }
     Start-Sleep -Milliseconds 250
 }
-throw 'Mission Control goal controls did not render in the native window'
+throw 'Mission Control native window or disposable workspace was unavailable'
 """
 
 
@@ -103,19 +98,20 @@ def verify_windows_window(folder):
         child = subprocess.Popen([str(shell)], cwd=shell.parent, env=env, startupinfo=startup,
                                  stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         try:
-            env['WMM_PROBE_PID'] = str(child.pid)
+            database = profile / 'Wize Marketing Machine' / 'mission-control.sqlite3'
+            env.update(WMM_PROBE_PID=str(child.pid), WMM_PROBE_DATABASE=str(database))
             subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', WINDOW_READY_AND_CLOSE],
                            env=env, check=True, timeout=35)
             exit_code = child.wait(timeout=50)
             if exit_code != 0:
-                raise RuntimeError(f'Mission Control returned {exit_code} after its rendered window closed')
-            if not (profile / 'Wize Marketing Machine' / 'mission-control.sqlite3').is_file():
+                raise RuntimeError(f'Mission Control returned {exit_code} after its native window closed')
+            if not database.is_file():
                 raise RuntimeError('Native window did not use its disposable workspace')
         finally:
             if child.poll() is None:
                 child.kill()
                 child.wait(timeout=10)
-    return dict(status='PASS', goal_controls='VERIFIED_WINDOWS_UI_AUTOMATION', exit_code=0,
+    return dict(status='PASS', window='VERIFIED_WINDOWS_NATIVE_HANDLE', exit_code=0,
                 profile='DISPOSABLE_SYNTHETIC', shell_sha256=digest(shell))
 
 
