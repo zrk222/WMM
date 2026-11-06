@@ -27,6 +27,18 @@ def compiler(environ):
 
 
 def verify_binary(binary, folder, env, label):
+    shell = binary.parent / 'WMM-Mission-Control.exe'
+    if not shell.is_file():
+        raise AssertionError('Installed native Mission Control window is missing')
+    verifier = ROOT / 'tools/test_native_desktop_bundle.py'
+    pair = json.loads(run([sys.executable, verifier, binary.parent], folder, env, 90).stdout)
+    window = json.loads(run([sys.executable, verifier, binary.parent, '--windows-window'], folder, env, 90).stdout)
+    if pair.get('status') != 'PASS' or window.get('status') != 'PASS' or window.get('exit_code') != 0:
+        raise AssertionError('Installed native window verification failed')
+    evidence = ROOT / '.factory/packaged-native-window' / label
+    evidence.mkdir(parents=True, exist_ok=True)
+    (evidence / 'evidence.json').write_text(json.dumps(dict(source_sha=env.get('GITHUB_SHA'),
+        pair=pair, window=window)), encoding='utf-8')
     for args in (['--check'], ['--self-test'], ['--vault-self-test'], ['--agent-cli','catalog']):
         value = json.loads(run([binary, *args], folder, env, 90).stdout)
         if args == ['--check'] and Path(value['data_directory']).resolve() != (Path(env['LOCALAPPDATA']) / 'Wize Marketing Machine').resolve():
