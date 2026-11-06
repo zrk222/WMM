@@ -13,9 +13,88 @@ function verifiedReviewPanel() {
 }
 
 /** Collect an ephemeral identity token and optionally retain the explicit first-owner task. */
-function identityLogin(next="") {
+function identityLogin(next="",manual=false) {
+  if(!manual&&state.workspace.device_signin_available){
+    modal("Sign in for verified review",`<form id="identity-form" data-device="true" data-app="${esc(state.app)}" data-app-version="${state.workspace.app.version}" data-next="${next==='owner-bootstrap'?'owner-bootstrap':''}"><div class="modal-content"><p>Use your GitHub account to verify your identity for this workspace.</p><div data-device-status aria-live="polite"></div><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions" data-device-actions>${button("Start GitHub sign-in","identity-device-begin")}${button("Use a personal access token","identity-device-manual")}</div></form>`,"VERIFIED REVIEW SESSION");
+    return;
+  }
   modal("Sign in for verified review",`<form id="identity-form" data-app="${esc(state.app)}" data-app-version="${state.workspace.app.version}" data-next="${next==='owner-bootstrap'?'owner-bootstrap':''}"><div class="modal-content">${notice("Use your own GitHub fine-grained token with no repository permissions. This verifies your numeric account ID through GitHub; it does not connect product data or repositories.")}<p><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Create a GitHub identity token</a> · <a href="https://docs.github.com/en/rest/users/users#get-the-authenticated-user" target="_blank" rel="noopener noreferrer">Review the identity permissions</a></p><label class="field" for="identity-token">GitHub identity token<input id="identity-token" name="token" type="password" autocomplete="off" minlength="20" maxlength="256" required></label><p class="description">The token is cleared from this form after submission and never saved to workspace files or browser storage. Sign-out or server restart clears the session.</p><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Verify my identity</button></div></form>`,"EPHEMERAL REVIEW SESSION");
 }
+
+function deviceBinding(form) {
+  return {app_id:form.dataset.app,app_version:Number(form.dataset.appVersion)};
+}
+
+function deviceActive(form) {
+  return form.isConnected&&$("#modal").open&&state.app===form.dataset.app&&
+    state.workspace.app.version===Number(form.dataset.appVersion);
+}
+
+async function deviceRequest(form,step,extra={}) {
+  const body={...deviceBinding(form),...extra};
+  if(step!=="begin")body.flow_id=form.dataset.flow;
+  return api(`/api/identity/device/${step}`,body);
+}
+
+function showDeviceState(form,result) {
+  const message=form.querySelector("[data-device-status]"),actions=form.querySelector("[data-device-actions]");
+  form.dataset.flow=result.flow_id;
+  if(result.status==="WAITING"){
+    message.innerHTML=`<p>Enter <strong class="app-mono">${esc(result.user_code)}</strong> at <span class="app-mono">github.com/login/device</span> in your browser. Return here once GitHub confirms.</p>${result.retry_after?'<p>You can check again in '+esc(result.retry_after)+' seconds.</p>':''}`;
+    actions.innerHTML=button("Open GitHub in browser","identity-device-open")+button("Check GitHub sign-in","identity-device-poll")+button("Cancel sign-in","identity-device-cancel");
+  }else if(result.status==="VERIFIED"){
+    form.dataset.principal=result.principal;
+    message.textContent=`GitHub verified ${result.login} (${result.principal}). Confirm this is the account you want to use.`;
+    actions.innerHTML=button("Confirm this account","identity-device-confirm")+button("Cancel sign-in","identity-device-cancel");
+  }
+}
+
+async function deviceClick(node,step) {
+  const form=node.closest("#identity-form[data-device]");
+  if(!form)return;
+  const alert=form.querySelector("#form-error");
+  if(!deviceActive(form)){alert.textContent="This app changed. Open sign-in again.";return;}
+  if(step==="manual")return identityLogin(form.dataset.next,true);
+  if(step==="cancel")return $("#modal").close();
+  if(form.dataset.busy)return;
+  form.dataset.busy="true";
+  node.disabled=true;
+  alert.textContent="";
+  try {
+    const result=await deviceRequest(form,step,step==="confirm"?{principal:form.dataset.principal}:{});
+    if(!deviceActive(form)){
+      if(step==="begin"&&result.flow_id){
+        form.dataset.flow=result.flow_id;
+        await deviceRequest(form,"cancel").catch(()=>{});
+      }
+      return;
+    }
+    if(step==="open"){
+      if(!result.browser_opened)alert.textContent="Open github.com/login/device in your browser and enter the code shown.";
+    }else if(step==="confirm"){
+      delete form.dataset.flow;
+      $("#modal").close();
+      await refresh();
+      if(ownerContinuation(form,form.dataset.app,true))accessBootstrap();
+    }else{
+      showDeviceState(form,result);
+    }
+  }catch(error){
+    if(deviceActive(form))alert.textContent=error.message;
+  }finally{
+    delete form.dataset.busy;
+    node.disabled=false;
+  }
+}
+
+document.addEventListener("close",event=>{
+  if(event.target.id!=="modal"||event.target.open)return;
+  const form=$("#identity-form[data-device][data-flow]");
+  if(form){
+    deviceRequest(form,"cancel").catch(()=>{});
+    delete form.dataset.flow;
+  }
+},true);
 
 /** Require an authenticated identity and explicit checkbox before establishing the first app owner. */
 function accessBootstrap() {
@@ -71,7 +150,7 @@ async function verifiedSubmitted(form,id,data,app) {
 async function verifiedSubmit(event) {
   const form=event.target,id=form.id;
   if(!['identity-form','access-bootstrap-form','access-member-form','verified-prepare-form'].includes(id))return;
-  event.preventDefault();const submit=form.querySelector('[type="submit"]');submit.disabled=true;
+  event.preventDefault();if(form.dataset.device)return;const submit=form.querySelector('[type="submit"]');submit.disabled=true;
   const data=Object.fromEntries(new FormData(form)),app=form.dataset.app||state.app;
   try {await verifiedSubmitted(form,id,data,app);}
   catch(error){const field=form.querySelector('#form-error');if(form.isConnected&&field)field.textContent=error.message;else toast(error.message);}
@@ -81,6 +160,7 @@ async function verifiedSubmit(event) {
 async function verifiedClick(event) {
   const node=event.target.closest("[data-action]");if(!node)return;
   const action=node.dataset.action,id=node.dataset.id;
+  if(action.startsWith("identity-device-"))return deviceClick(node,action.slice("identity-device-".length));
   const simple={"identity-login":identityLogin,"access-bootstrap":accessBootstrap,"access-member":()=>accessMember(id),"verified-review-prepare":verifiedPrepare,"verified-review-open":()=>verifiedOpen(id)};
   if(simple[action])return simple[action]();
   if(action==="verified-review-download")return download(`${state.app}-verified-review.json`,state.workspace.verified_reviews.find(r=>r.id===id));
