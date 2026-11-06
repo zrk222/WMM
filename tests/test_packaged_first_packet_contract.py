@@ -32,6 +32,23 @@ class PackagedFirstPacketTests(unittest.TestCase):
                     harness.verify_frozen_first_packet('absent', '.', env)
                 spawn.assert_not_called()
 
+    def test_browser_write_guard_allows_only_exact_synthetic_setup(self):
+        from types import SimpleNamespace
+        app_id, fields = harness.first_app_fixture(390)
+        body = dict(id=app_id, data=dict(fields, growth_mode='AUTO'), version=None)
+        exact = SimpleNamespace(method='POST', url=harness.ORIGIN+'/api/apps', post_data_json=body)
+        self.assertTrue(harness.exact_app_creation(exact, harness.ORIGIN, app_id, fields))
+        for changes in ({'id': 'sample-one'}, {'version': 1}, {'data': dict(fields, credential='')},
+                        {'data': dict(fields, website='https://example.invalid')},
+                        {'data': dict(fields, growth_mode='OFF')}, {'data': []}):
+            request = SimpleNamespace(method=exact.method, url=exact.url, post_data_json=dict(body, **changes))
+            with self.subTest(changes=changes):
+                self.assertFalse(harness.exact_app_creation(request, harness.ORIGIN, app_id, fields))
+        for url in (harness.ORIGIN+'/api/apps?mode=overwrite', harness.ORIGIN+'/api/jobs',
+                    'https://example.invalid/api/apps'):
+            request = SimpleNamespace(method='POST', url=url, post_data_json=body)
+            self.assertFalse(harness.exact_app_creation(request, harness.ORIGIN, app_id, fields))
+
     def test_occupied_port_refuses_without_spawning_or_stopping_listener(self):
         with socket.socket() as listener:
             if harness.os.name != 'nt':

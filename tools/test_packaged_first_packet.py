@@ -25,15 +25,42 @@ GOALS = (('research', 'Find a useful marketing angle', [5, 6]),
 def validate_packet(value, expected, goal, stages):
     assert value['schema'] == 'wmm.goal-evidence-packet.v1'
     assert value['classification'] == 'LOCAL_DRAFT_NO_AUTHORITY'
-    assert value['app_id'] == expected['app_id'] == 'sample-one'
+    assert value['app_id'] == expected['app_id']
     assert value['manifest_version'] == expected['version']
     assert value['source_hash'] == expected['source_hash'] and value['source_hash']
     assert value['goal'] == goal
     assert [row['stage'] for row in value['outputs']] == stages
 
 
+def first_app_fixture(width):
+    return (f'packaged-first-app-{width}',
+            dict(name=f'Packaged first app {width}', audience='Synthetic practice users',
+                 job='Help users rehearse decisions', activation='Save a practice decision',
+                 release='test-build', locale='en-US'))
+
+
+def exact_app_creation(request, origin, app_id, fields):
+    """Admit one known local form submission with no connection or authority data."""
+    if request.method != 'POST' or request.url != origin + '/api/apps':
+        return False
+    try:
+        body = request.post_data_json
+    except (ValueError, TypeError):
+        return False
+    if not isinstance(body, dict) or set(body) != {'id', 'data', 'version'}:
+        return False
+    data = body['data']
+    defaults = dict.fromkeys(('currency', 'website', 'brand_voice', 'brand_visual', 'brand_source',
+                              'brand_boundaries', 'growth_cadence', 'growth_channels', 'growth_channel',
+                              'store_app_id', 'android_package', 'android_track', 'social_callback_base_url'), '')
+    defaults.update(growth_mode='AUTO', growth_metric='activation_rate')
+    return (body['id'] == app_id and body['version'] is None
+            and isinstance(data, dict) and all(data.get(k) == v for k, v in fields.items())
+            and all(k in fields or (k in defaults and v == defaults[k]) for k, v in data.items()))
+
+
 def verify_packet_browser(origin, output_dir, storage_dir=None, expected_initial_goal=None):
-    """Exercise real browser inputs; return evidence, never admit writes."""
+    """Use the real form on a fresh profile; read only across restart and upgrade."""
     from playwright.sync_api import sync_playwright, expect
     parsed = urlsplit(origin)
     assert parsed.scheme == 'http' and parsed.hostname == '127.0.0.1' and parsed.port
@@ -45,25 +72,44 @@ def verify_packet_browser(origin, output_dir, storage_dir=None, expected_initial
         browser = pw.chromium.launch()
         try:
             for width in (1440, 390):
+                app_id, fields = first_app_fixture(width)
+                fresh = expected_initial_goal is None
                 storage = Path(storage_dir) / f'storage-{width}.json' if storage_dir else None
                 options = dict(viewport=dict(width=width, height=900))
                 if storage and storage.exists():
                     options['storage_state'] = str(storage)
                 context = browser.new_context(**options)
-                violations, errors = [], []
+                violations, errors, setup_writes = [], [], []
                 def guard(route):
                     request = route.request
-                    if not request.url.startswith(origin + '/') or request.method not in ('GET', 'HEAD'):
+                    if request.url.startswith(origin + '/') and request.method in ('GET', 'HEAD'):
+                        route.continue_()
+                    elif fresh and not setup_writes and exact_app_creation(request, origin, app_id, fields):
+                        setup_writes.append(request.method)
+                        route.continue_()
+                    else:
                         violations.append(dict(url=request.url, method=request.method))
                         route.abort()
-                    else:
-                        route.continue_()
                 context.route('**/*', guard)
                 page = context.new_page()
                 page.on('pageerror', lambda error: errors.append(str(error)))
                 try:
                     page.goto(origin)
-                    page.wait_for_function("() => state.workspace?.app?.id==='sample-one'")
+                    if fresh:
+                        page.wait_for_function("() => state.workspace?.app?.id==='sample-one'")
+                        add_app = page.locator('[data-action="add-app"]' if width == 390 else '#add-app')
+                        add_app.press('Enter')
+                        form = page.locator('#app-form')
+                        expect(form).to_be_visible()
+                        for name, value in fields.items():
+                            form.locator(f'[name="{name}"]').fill(value)
+                        with page.expect_response(lambda r: r.url == origin + '/api/apps'
+                                                  and r.request.method == 'POST') as saved:
+                            form.get_by_role('button', name='Save and choose a goal').press('Enter')
+                        assert saved.value.status == 201, 'Synthetic app was not created'
+                    page.wait_for_function("id => state.workspace?.app?.id===id", arg=app_id)
+                    expect(page.get_by_role('heading', name='Set your goal', exact=True)).to_be_visible()
+                    assert page.evaluate("() => state.workspace.app.data.name") == fields['name']
                     if expected_initial_goal:
                         expect(page.locator('[data-action="goal-select"][data-goal="'+expected_initial_goal+'"]')).to_have_attribute('aria-pressed', 'true')
                     expected = page.evaluate("() => ({app_id:state.workspace.app.id,version:state.workspace.app.version,source_hash:state.workspace.preparation.source_hash})")
@@ -86,16 +132,19 @@ def verify_packet_browser(origin, output_dir, storage_dir=None, expected_initial
                         page.keyboard.press('Escape')
                         expect(dialog).to_be_hidden()
                     page.reload()
-                    page.wait_for_function("() => state.workspace?.app?.id==='sample-one'")
+                    page.wait_for_function("id => state.workspace?.app?.id===id", arg=app_id)
                     expect(page.locator('[data-action="goal-select"][data-goal="measurement"]')).to_have_attribute('aria-pressed', 'true')
                     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
                     assert not violations, violations
                     assert not errors, errors
+                    assert len(setup_writes) == int(fresh)
                     if storage:
                         storage.parent.mkdir(parents=True, exist_ok=True)
                         context.storage_state(path=str(storage))
                     results.append(dict(width=width, binding=expected, goals=[g[0] for g in GOALS], reload=True,
-                                        keyboard=True, escape=True, writes=0, external_requests=0))
+                                        keyboard=True, escape=True, writes=len(setup_writes),
+                                        write_scope='SYNTHETIC_APP_SETUP_ONLY' if fresh else 'READ_ONLY',
+                                        external_requests=0))
                 finally:
                     context.close()
         finally:
@@ -237,6 +286,7 @@ def verify_frozen_first_packet(binary, folder, env=None, label='runtime', *, pro
             assert child.poll() is None
             after = _workspace_state(private)
             _same_bindings(after, before)
+            assert [row['binding'] for row in resumed] == [row['binding'] for row in views]
             evidence = dict(classification='SYNTHETIC_NOT_HUMAN_OR_PROVIDER',
                             github_sha=env.get('GITHUB_SHA'), executable_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),
                             browser=views, restart_browser=resumed, workspace=before, restart_workspace=after, provider_data='NOT_RUN',
