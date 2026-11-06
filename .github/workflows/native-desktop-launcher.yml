@@ -79,6 +79,7 @@ jobs:
           dpkg-deb --extract dist/linux/wize-marketing-machine_0.1.0_amd64.deb .factory/native-deb-check
           python tools/test_native_desktop_bundle.py .factory/native-deb-check/usr/lib/wize-marketing-machine > native-installer-payload-receipt.json
       - name: Build the Windows native preview installer
+        id: windows-installer
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
@@ -98,6 +99,8 @@ jobs:
           try {
             python tools/test_native_desktop_bundle.py $install > native-installer-payload-receipt.json
             if ($LASTEXITCODE -ne 0) { throw 'Installed native shell and engine failed verification' }
+            python tools/test_native_desktop_bundle.py $install --windows-window > native-windows-window-receipt.json
+            if ($LASTEXITCODE -ne 0) { throw 'Installed Mission Control failed window startup or close' }
           } finally {
             $uninstaller = Join-Path $install 'unins000.exe'
             $result = Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART') -Wait -PassThru -WindowStyle Hidden
@@ -129,5 +132,17 @@ jobs:
             native-package-receipt.json
             native-installer-payload-receipt.json
             native-installer-receipt.json
+            native-windows-window-receipt.json
           if-no-files-found: error
           retention-days: 7
+
+      - name: Retain failed Windows candidate for exact local diagnosis
+        if: ${{ failure() && runner.os == 'Windows' && steps.windows-installer.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: WMM-native-diagnostic-windows-${{ github.sha }}
+          path: |
+            dist/installer/WMM-Setup.exe
+            native-package-receipt.json
+          if-no-files-found: error
+          retention-days: 3

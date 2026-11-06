@@ -92,8 +92,9 @@ fn main() -> ExitCode {
     let Ok(app) = app else {
         return ExitCode::FAILURE;
     };
-    let started = app.try_state::<EngineSlot>().is_some();
-    let clean = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+    // Tauri invokes setup from the Ready event. Success requires an engine that
+    // actually started and then stopped cleanly when the window closed.
+    let clean = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let stopped = clean.clone();
     let code = app.run_return(move |handle, event| {
         if matches!(event, RunEvent::Exit) {
@@ -108,7 +109,7 @@ fn main() -> ExitCode {
             }
         }
     });
-    if started && code == 0 && clean.load(std::sync::atomic::Ordering::Relaxed) {
+    if code == 0 && clean.load(std::sync::atomic::Ordering::Relaxed) {
         ExitCode::SUCCESS
     } else {
         ExitCode::FAILURE
