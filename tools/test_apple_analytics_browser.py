@@ -12,8 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 # Standalone tool: resolve this checkout before importing its application/fixtures.
+from mission_control.apple_analytics import DISCOVERY  # noqa: E402
 from mission_control.apple_metrics_schedule import AppleMetricsSchedules  # noqa: E402
-from mission_control.common import now  # noqa: E402
+from mission_control.common import digest, now  # noqa: E402
 from mission_control.worker import run_once  # noqa: E402
 from tests.test_apple_metrics_http_route import AppleMetricsRouteTests  # noqa: E402
 
@@ -54,13 +55,34 @@ def journey(browser, width, height):
         result = dict(provider='app_store', operation='analytics_reports', app_id='sample-one',
                       store_app_id='123', status='WAITING_FOR_REPORTS', coverage='COMPLETE',
                       observed_at=now(), reports=[dict(id='report-1', name='App Downloads Standard',
-                                                     coverage='COMPLETE', instances=[])])
+                                                     coverage='COMPLETE', instances=[]),
+                        dict(id='discovery-1', name=DISCOVERY, coverage='COMPLETE', instances=[])])
         with patch('mission_control.worker.read_report', return_value=result) as provider:
             assert run_once(fixture.store)
             provider.assert_called_once()
         root.get_by_role('button', name='Refresh saved status', exact=True).click()
         expect(root).to_contain_text('0 report instances')
         expect(root).to_contain_text('Missing metrics remain unknown')
+        expect(root).to_contain_text('Unique counts can overlap')
+        control = root.get_by_role('button', name='Collect store impressions', exact=True)
+        control.focus()
+        page.keyboard.press('Enter')
+        expect(root.locator('#apple-analytics-status')).to_contain_text('Store impressions read queued')
+        def discovery_inventory(reader, store_app_id):
+            assert store_app_id == '123'
+            reader.hashes.append(digest(result))
+            return result
+
+        with patch('mission_control.provider_reports.credential', return_value='fixture'), \
+             patch('mission_control.provider_reports.read_analytics', side_effect=discovery_inventory), \
+             patch('mission_control.provider_reports.read_instance_segments') as download:
+            assert run_once(fixture.store)
+            download.assert_not_called()
+        impressions = [job for job in fixture.server.service.workspace('sample-one')['jobs']
+                       if job['data'].get('options', {}).get('report_family') == DISCOVERY]
+        assert len(impressions) == 1 and impressions[0]['status'] == 'SUCCEEDED'
+        assert impressions[0]['result']['status'] == 'WAITING_FOR_REPORTS'
+        assert impressions[0]['result']['metric_observations'] is None
         form = root.locator('#apple-analytics-form')
         expect(form.get_by_label('Report', exact=True)).to_have_value('report-1')
         form.get_by_label('Report', exact=True).focus()
@@ -111,6 +133,7 @@ def journey(browser, width, height):
         assert not errors, errors
         return dict(width=width, height=height, status='PASS', keyboard='VERIFIED',
                     inventory='SYNTHETIC_HTTP_VERIFIED', schedule_save_pause='VERIFIED',
+                    impressions='OWNER_QUEUE_AND_UNKNOWN_IF_NO_DAILY_REPORT',
                     pdf_report='PRINTABLE_REPORT_VERIFIED', app_isolation='VERIFIED',
                     overflow=False, page_errors=errors)
     except Exception:

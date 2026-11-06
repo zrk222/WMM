@@ -1,4 +1,4 @@
-"""Pure, bounded Apple downloads envelopes; validation grants no source authority.
+"""Pure, bounded Apple standard report envelopes; validation grants no source authority.
 
 Rows retain multiplicity. An explicit zero is an observation; an absent date or
 empty instance is never interpreted as zero. Hash linkage checks consistency of
@@ -14,11 +14,13 @@ import json
 import re
 
 from .common import Invalid
-from .apple_analytics_parser import MAX_ROWS, MAX_SEGMENTS, MAX_COMPRESSED, MAX_DECOMPRESSED, TYPES
+from .apple_analytics import DISCOVERY, METRIC_REPORTS
+from .apple_analytics_parser import EVENTS, MAX_ROWS, MAX_SEGMENTS, MAX_COMPRESSED, MAX_DECOMPRESSED, TYPES
 
 STANDARD_DIMENSIONS = frozenset(('app name', 'app version', 'device',
     'platform version', 'source type', 'page type', 'pre-order', 'territory'))
-MAX_DIMENSIONS = len(STANDARD_DIMENSIONS)
+DISCOVERY_DIMENSIONS = frozenset(('app name', 'page type', 'source type', 'engagement type',
+    'device', 'platform version', 'territory'))
 MAX_DIMENSION_TEXT = 200
 # Local persistence budgets, derived from the existing parser's decompressed
 # input budget; these are deliberately not represented as Apple provider limits.
@@ -95,7 +97,8 @@ def partition(value):
     if type(value['store_app_id']) is not str or not re.fullmatch(r'[0-9]{1,30}', value['store_app_id']):
         raise Invalid('Invalid Apple store app identity')
     _integer(value['connection_version'], 1, 2147483647)
-    if value['report_family'] != 'App Downloads Standard' or value['granularity'] != 'DAILY':
+    family = value['report_family']
+    if type(family) is not str or family not in METRIC_REPORTS or value['granularity'] != 'DAILY':
         raise Invalid('Unsupported Apple metrics report or granularity')
     _day(value['event_date'])
     return deepcopy(value)
@@ -120,18 +123,23 @@ def _sources(values):
 
 
 def _row(row, key, processing_date, sources):
-    _exact(row, ('date', 'type', 'source_type', 'count', 'dimensions',
-                 'segment_id', 'processing_date', 'source_sha256'))
+    discovery = key['report_family'] == DISCOVERY
+    fields = ('date', 'type', 'source_type', 'count', 'dimensions',
+              'segment_id', 'processing_date', 'source_sha256')
+    _exact(row, fields + ('unique_count',) if discovery else fields)
     if _day(row['date']) != key['event_date'] or _day(row['processing_date']) != processing_date:
         raise Invalid('Apple metrics row belongs to another date')
     source_type = _text(row['source_type'])
-    expected = TYPES.get(source_type.casefold(), 'unknown')
+    types = EVENTS if discovery else TYPES
+    expected = types.get(source_type.casefold(), 'unknown')
     if row['type'] != expected:
-        raise Invalid('Apple metrics download type contradicts source label')
+        raise Invalid('Apple metrics event type contradicts source label')
     _integer(row['count'], 0, 999999999999999)
+    if discovery:
+        _integer(row['unique_count'], 0, row['count'])
     dimensions = row['dimensions']
-    if (type(dimensions) is not dict or len(dimensions) > MAX_DIMENSIONS
-            or not set(dimensions).issubset(STANDARD_DIMENSIONS)):
+    allowed = DISCOVERY_DIMENSIONS if discovery else STANDARD_DIMENSIONS
+    if type(dimensions) is not dict or not set(dimensions).issubset(allowed):
         raise Invalid('Invalid Apple metrics dimensions')
     for name, value in dimensions.items():
         _text(name, 100)

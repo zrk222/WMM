@@ -1,4 +1,4 @@
-"""Offline validation of complete Apple App Downloads Standard instances."""
+"""Offline validation of complete Apple standard analytics report instances."""
 import csv
 from collections import Counter
 from datetime import date
@@ -8,6 +8,7 @@ import io
 import re
 import zlib
 
+from .apple_analytics import DISCOVERY, DOWNLOADS, METRIC_REPORTS
 from .common import Invalid, canonical
 
 MAX_SEGMENTS = 50
@@ -15,6 +16,8 @@ MAX_COMPRESSED = 16777216
 MAX_DECOMPRESSED = 67108864
 MAX_ROWS = 250000
 REQUIRED = frozenset(('date', 'app apple identifier', 'download type', 'counts'))
+DISCOVERY_REQUIRED = frozenset(('date', 'app apple identifier', 'event', 'counts', 'unique counts'))
+EVENTS = {'impression': 'impression', 'page view': 'page_view', 'tap': 'tap'}
 TYPES = {'first-time download': 'first_download', 'redownload': 'redownload',
          'manual update': 'update', 'auto-update': 'update', 'restore': 'restore'}
 
@@ -52,12 +55,14 @@ def _name(value):
     return ' '.join(value.replace('\ufeff', '').split()).casefold()
 
 
-def _rows(data, app_id, budget):
+def _rows(data, app_id, budget, report_family):
+    discovery = report_family == DISCOVERY
+    required = DISCOVERY_REQUIRED if discovery else REQUIRED
     try:
         reader = csv.reader(io.StringIO(data.decode('utf-8-sig'), newline=''), delimiter='\t', strict=True)
         headers = next(reader)
         names = [_name(value) for value in headers]
-        if len(set(names)) != len(names) or not REQUIRED.issubset(names):
+        if len(set(names)) != len(names) or not required.issubset(names):
             raise Invalid('Apple report columns are missing or duplicated')
         rows = []
         for values in reader:
@@ -70,12 +75,19 @@ def _rows(data, app_id, budget):
             count = row['counts']
             if not re.fullmatch(r'[0-9]{1,15}', count):
                 raise Invalid('Invalid Apple report count')
-            source_type = row['download type'].strip()
+            source_type = row['event' if discovery else 'download type'].strip()
             if not source_type:
-                raise Invalid('Missing Apple report download type')
-            rows.append(dict(date=day, type=TYPES.get(source_type.casefold(), 'unknown'),
-                             source_type=source_type, count=int(count),
-                             dimensions={key: value for key, value in row.items() if key not in REQUIRED}))
+                raise Invalid('Missing Apple report event type')
+            types = EVENTS if discovery else TYPES
+            observation = dict(date=day, type=types.get(source_type.casefold(), 'unknown'),
+                               source_type=source_type, count=int(count),
+                               dimensions={key: value for key, value in row.items() if key not in required})
+            if discovery:
+                unique = row['unique counts']
+                if not re.fullmatch(r'[0-9]{1,15}', unique) or int(unique) > int(count):
+                    raise Invalid('Invalid Apple report unique count')
+                observation['unique_count'] = int(unique)
+            rows.append(observation)
         return rows
     except (UnicodeError, csv.Error, StopIteration):
         raise Invalid('Malformed Apple report CSV') from None
@@ -91,10 +103,12 @@ def _segment_identity(segment, identities):
     return identity
 
 
-def parse_instance(app_id, processing_date, segments, complete):
+def parse_instance(app_id, processing_date, segments, complete, report_family=DOWNLOADS):
     """Verify every enumerated segment before returning any app-scoped rows."""
     if not isinstance(app_id, str) or not re.fullmatch(r'[0-9]{1,30}', app_id):
         raise Invalid('Invalid Apple report app identity')
+    if type(report_family) is not str or report_family not in METRIC_REPORTS:
+        raise Invalid('Unsupported Apple metrics report')
     _day(processing_date)
     if complete is not True or not isinstance(segments, list) or not 1 <= len(segments) <= MAX_SEGMENTS:
         raise Invalid('Apple report instance is incomplete')
@@ -105,7 +119,7 @@ def parse_instance(app_id, processing_date, segments, complete):
         sources.append(dict(id=identity, size=segment['size'], checksum=segment['checksum'].lower(),
                             sha256=hashlib.sha256(segment['data']).hexdigest()))
         size += len(data)
-        for row in _rows(data, app_id, MAX_ROWS - len(rows)):
+        for row in _rows(data, app_id, MAX_ROWS - len(rows), report_family):
             row.update(segment_id=identity, processing_date=processing_date,
                        source_sha256=sources[-1]['sha256'])
             rows.append(row)

@@ -26,7 +26,7 @@ def parse_partitions(identity, processing_date, segments, complete):
     # validate the processing date before passing it to the existing parser.
     partition(dict(identity, event_date=processing_date))
     parsed = parse_instance(identity['store_app_id'], processing_date,
-                            segments, complete)
+                            segments, complete, identity['report_family'])
     grouped = {}
     for row in parsed['rows']:
         grouped.setdefault(row['date'], []).append(row)

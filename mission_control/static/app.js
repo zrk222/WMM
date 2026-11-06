@@ -784,6 +784,7 @@ function reportForm(id,saved=null) {
 function providerResult(result) {
   if(result.operation==="release_inventory")return releaseResult(result);
   if(result.operation==="subscription_catalog")return subscriptionResult(result);
+  if(result.provider==="app_store"&&result.store_impressions)return WMMAppleAnalytics.impressionsResult(result);
   if(!Array.isArray(result.rows)) return `<pre>${json(result)}</pre>`;
   const review=result.operation==="reviews";
   const keyword=result.operation==="keyword_report",search=result.operation==="search_term_report";

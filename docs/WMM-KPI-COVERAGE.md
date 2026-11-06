@@ -27,7 +27,7 @@ Keep provider-specific denominators and availability thresholds with each result
 | PAYBACK | MISSING | first mature horizon cumulative net contribution recovers acquisition cost |
 | LTV_CAC | MISSING | same-cohort declared observed or modeled LTV / same-cohort CAC |
 | STORE_CVR | MISSING_STORE_ANALYTICS | provider-specific store conversion. Apple total downloads and pre-orders / unique device impressions, counting each pre-order once |
-| STORE_IMPRESSIONS | MISSING_STORE_ANALYTICS | provider count at declared unique or total grain |
+| STORE_IMPRESSIONS | PARTIAL_APPLE_STANDARD_ROWS | Daily Apple discovery impression rows with provider total and row-level unique counts. On-demand in Apple analytics. Live numerical readback and broader platform coverage remain due. |
 | KEYWORD_RANK | MISSING_ORGANIC_RANK | dated store-country-locale-device query position |
 | LISTING_EXPERIMENT | MISSING | provider-exposed variant views installs and declared uncertainty |
 | AD_FUNNEL | PARTIAL_APPLE_ADS | impressions taps installs spend with source-defined CTR CPT CPI CPM |

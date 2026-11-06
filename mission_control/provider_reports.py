@@ -9,7 +9,7 @@ from .providers import credential,report_request
 from .ads_reports import REPORT_PATHS, read_keywords
 from .subscription_catalog import read_catalog
 from .release_inventory import read_inventory, release_options
-from .apple_analytics import identity as analytics_identity, read_analytics
+from .apple_analytics import DISCOVERY, METRIC_REPORTS, identity as analytics_identity, read_analytics
 from .apple_segments import read_instance_segments
 from .apple_metrics import parse_partitions
 
@@ -41,6 +41,27 @@ class PreparedAppleMetrics:
             values.append(dict(event_date=item['partition']['event_date'], status=status,
                 observation_count=len(instance['rows']), source_count=len(instance['sources']),
                 source_hash=digest(sorted(instance['sources'],key=lambda source:source['id']))))
+        discovery = self.identity['report_family'] == DISCOVERY
+        impressions = {}
+        if discovery:
+            # Values are source rows, not an app-wide sum or a deduplicated audience.
+            sample, count = [], 0
+            for item, status in zip(self.partitions, statuses):
+                if status == 'STALE':
+                    continue
+                for row in item['instance']['rows']:
+                    if row['type'] != 'impression':
+                        continue
+                    count += 1
+                    if len(sample) < 20:
+                        sample.append(dict(date=row['date'], counts=row['count'],
+                            unique_counts=row['unique_count'], source_sha256=row['source_sha256'],
+                            dimensions={field: row['dimensions'][field]
+                                for field in ('territory', 'source type', 'device', 'page type')
+                                if field in row['dimensions']}))
+            impressions = dict(store_impressions=dict(sample=sample, impression_rows=count,
+                truncated=count > len(sample), grain='Apple report row', aggregate=None,
+                stale_partitions=statuses.count('STALE')))
         return dict(operation=self.operation,provider='app_store',
             app_id=self.identity['app_id'],store_app_id=self.identity['store_app_id'],
             report_id=self.identity['report_id'],report_family=self.identity['report_family'],
@@ -50,7 +71,9 @@ class PreparedAppleMetrics:
             observation_count=sum(item['observation_count'] for item in values),
             partitions=values,metadata_source_hash=self.metadata_source_hash,
             external_writes=False,event_data_finality='UNKNOWN',
-            interpretation='Download events are not installs, sales, revenue, or measured lift.')
+            interpretation=('Discovery observations are per source row. Unique counts cannot be summed across dimensions.'
+                            if discovery else 'Download events are not installs, sales, revenue, or measured lift.'),
+            **impressions)
 
 
 def report_options(provider,options):
@@ -64,9 +87,12 @@ def report_options(provider,options):
         return release_options(provider, options)
     if operation in ("reviews", "subscription_catalog", "analytics_reports") and provider=="app_store" and set(options)=={"operation"}:
         return options
-    if operation=='analytics_metrics_latest' and provider=='app_store' and set(options)=={'operation','report_id'}:
-        analytics_identity(options['report_id'])
-        return options
+    if operation=='analytics_metrics_latest' and provider=='app_store':
+        fields = set(options)
+        if fields == {'operation','report_id'} or (
+                fields == {'operation','report_id','report_family'} and options['report_family'] == DISCOVERY):
+            analytics_identity(options['report_id'])
+            return options
     if operation=='analytics_metrics' and provider=='app_store' and set(options)=={'operation','report_id','instance_id'}:
         analytics_identity(options['report_id']);analytics_identity(options['instance_id'])
         return options
@@ -160,7 +186,7 @@ def read_report(binding,app_id,options,connection_id=None,connection_version=Non
 
 
 def prepare_analytics_metrics(reader,binding,app_id,store_id,options,connection_id,connection_version):
-    """Read one explicit complete downloads instance and prepare local partitions."""
+    """Read one complete supported standard report instance and prepare local partitions."""
     connection_id=analytics_identity(connection_id)
     if type(connection_version) is not int or not 1<=connection_version<=2147483647:
         raise Invalid('Apple analytics read requires the current connection version')
@@ -168,8 +194,9 @@ def prepare_analytics_metrics(reader,binding,app_id,store_id,options,connection_
     report=next((item for item in inventory['reports'] if item['id']==options['report_id']),None)
     if (inventory['coverage']!='COMPLETE' or report is None
             or report['coverage']!='COMPLETE'
-            or report['name']!='App Downloads Standard'):
-        raise Invalid('Choose a complete App Downloads Standard report from this app')
+            or report['name'] not in METRIC_REPORTS
+            or report['name'] != options.get('report_family', report['name'])):
+        raise Invalid('Choose a complete supported Apple standard report from this app')
     if options['operation']=='analytics_metrics_latest':
         daily=[item for item in report['instances'] if item['granularity']=='DAILY']
         if not daily:
@@ -189,7 +216,7 @@ def prepare_analytics_metrics(reader,binding,app_id,store_id,options,connection_
     else:
         selected=next((item for item in report['instances'] if item['id']==options['instance_id']),None)
         if selected is None or selected['granularity']!='DAILY':
-            raise Invalid('Choose a complete daily downloads report instance')
+            raise Invalid('Choose a complete daily Apple report instance')
     selected_id=selected['id']
     segments=read_instance_segments(reader,store_id,options['report_id'],selected_id)
     key=dict(app_id=app_id,store_app_id=store_id,connection_id=connection_id,

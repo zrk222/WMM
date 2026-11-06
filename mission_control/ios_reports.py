@@ -162,15 +162,25 @@ def projection(app, records, ledger_reports, observed_at, insight_reports=(), ap
                         proof+'; period='+metric['period']+'; provider numeric aggregate')
             else:
                 add(label,metric['value'],proof+'; period='+metric['period']+'; unit='+metric['unit'])
+    from .apple_analytics import DISCOVERY
     for index,item in enumerate(apple_partitions,1):
         key=item['partition'];instance=item['instance']
         if key['app_id']!=app['id'] or key['store_app_id']!=app['data'].get('store_app_id'):
             raise Invalid('Apple metrics partition belongs to another selected app')
-        proof='Apple download events; source='+digest(item)+'; event_date='+key['event_date']
+        discovery = key['report_family'] == DISCOVERY
+        evidence_type = 'Apple discovery report row' if discovery else 'Apple download events'
+        proof=evidence_type+'; source='+digest(item)+'; event_date='+key['event_date']
         proof+='; processing_date='+instance['processing_date']+'; finality=UNKNOWN; not installs, sales, revenue or causal lift'
         for offset,metric in enumerate(instance['rows'],1):
-            add(f'Apple partition {index}, observation {offset}: download_events',metric['count'],
-                proof+'; type='+metric['type']+'; source_type='+metric['source_type']+'; dimensions='+digest(metric['dimensions']))
+            label = f'Apple partition {index}, observation {offset}: '
+            row_proof = proof+'; type='+metric['type']+'; source_type='+metric['source_type']+'; dimensions='+digest(metric['dimensions'])
+            if discovery:
+                if metric['type'] == 'impression':
+                    add(label+'store_impressions', metric['count'], row_proof)
+                    add(label+'store_impressions_unique_row', metric['unique_count'],
+                        row_proof+'; row-level unique count only')
+            else:
+                add(label+'download_events', metric['count'], row_proof)
     if any(len(row['metric'])>200 or len(row['evidence'])>4000 or len(row['observed'] or '')>4000 for row in rows):
         raise Invalid('Native report field exceeds the reviewed export bounds')
     return dict(appID=app['id'],appName=app['data']['name'],sourceHash=source_hash,observedAt=observed_at,rows=rows)

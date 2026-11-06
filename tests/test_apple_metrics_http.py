@@ -1,5 +1,7 @@
 """Synthetic owner-only analytics tests; no live credentials or provider calls."""
 from contextlib import closing, contextmanager
+import gzip
+import hashlib
 import json
 from pathlib import Path
 import sqlite3
@@ -9,6 +11,8 @@ import unittest
 from unittest.mock import patch
 
 from mission_control import apple_metrics_http as api
+from mission_control.apple_analytics import DISCOVERY
+from mission_control.apple_metrics_store import read_partition
 from mission_control.apple_metrics_schedule import AppleMetricsSchedules
 from mission_control.common import Invalid, canonical, now
 from mission_control.db import connection
@@ -59,7 +63,7 @@ class AppleMetricsHttpTests(unittest.TestCase):
                        (APP, 'owner', 'owner', 'OWNER', 'ACTIVE', 1, now(), 'fixture'))
         self.identities = Identities()
 
-    def saved_inventory(self, job_id='job-1', **changes):
+    def saved_inventory(self, job_id='job-1', discovery=False, **changes):
         data = dict(connection_id=self.record['id'], connection_version=self.record['version'],
                     connection_hash=self.record['hash'], manifest_version=self.app['version'],
                     options={'operation': 'analytics_reports'})
@@ -68,6 +72,8 @@ class AppleMetricsHttpTests(unittest.TestCase):
                       status='WAITING_FOR_REPORTS', coverage='COMPLETE', observed_at=now(),
                       reports=[dict(id=REPORT, name='App Downloads Standard', coverage='COMPLETE', instances=[])],
                       sensitive='synthetic-private-https://example.invalid')
+        if discovery:
+            result['reports'].append(dict(id='discovery-1', name=DISCOVERY, coverage='COMPLETE', instances=[]))
         with connection(self.store.path) as db:
             db.execute('INSERT INTO jobs(id,app_id,action,data,status,result,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?,?)',
                        (job_id, APP, 'sync', canonical(data), 'SUCCEEDED', canonical(result), now(), now(), job_id))
@@ -143,6 +149,60 @@ class AppleMetricsHttpTests(unittest.TestCase):
         value = self.dispatch('view', {})
         self.assertEqual(value['inventory']['job_id'], queued['job_id'])
         self.assertEqual(value['reports'][0]['instance_count'], 0)
+
+    def test_impressions_owner_read_preserves_row_grain_and_existing_schedule(self):
+        self.saved_inventory(discovery=True)
+        schedule = self.dispatch('schedule', self.schedule_body())
+        for report in (REPORT, 'foreign'):
+            with self.assertRaises(Invalid):
+                self.dispatch('impressions', dict(manifest_version=self.app['version'], report_id=report))
+        body = dict(manifest_version=self.app['version'], report_id='discovery-1')
+        queued = self.dispatch('impressions', body)
+        inventory = {'coverage': 'COMPLETE', 'reports': [dict(id='discovery-1', name=DISCOVERY,
+            coverage='COMPLETE', instances=[dict(id='instance-1', processing_date='2026-10-24', granularity='DAILY')])]}
+        compressed = gzip.compress(
+            b'Date\tApp Apple Identifier\tEvent\tCounts\tUnique Counts\tTerritory\n'
+            b'2026-10-23\t123\tImpression\t11\t7\tUS\n'
+            b'2026-10-23\t123\tImpression\t0\t0\tCA\n'
+            b'2026-10-23\t123\tPage view\t4\t3\tUS\n', mtime=0)
+        segments = [dict(id='segment-1', data=compressed, size=len(compressed),
+                         checksum=hashlib.md5(compressed, usedforsecurity=False).hexdigest())]
+        def process(reports, data):
+            with patch('mission_control.provider_reports.credential', return_value='fixture'), \
+                 patch('mission_control.provider_reports.read_analytics', return_value=reports), \
+                 patch('mission_control.provider_reports.read_instance_segments', return_value=data) as download:
+                self.assertTrue(run_once(self.store))
+            return download
+        process(inventory, segments).assert_called_once()
+        job = next(j for j in self.service.workspace(APP)['jobs'] if j['id'] == queued['job_id'])
+        self.assertEqual(job['status'], 'SUCCEEDED')
+        observed = job['result']['store_impressions']
+        self.assertEqual(observed['impression_rows'], 2)
+        self.assertIsNone(observed['aggregate'])
+        self.assertEqual([(r['counts'], r['unique_counts']) for r in observed['sample']], [(11, 7), (0, 0)])
+        key = dict(app_id=APP, store_app_id='123', connection_id=self.record['id'],
+                   connection_version=self.record['version'], report_id='discovery-1',
+                   report_family=DISCOVERY, granularity='DAILY', event_date='2026-10-23')
+        retained = read_partition(self.store.path, key)
+        self.assertEqual([r['type'] for r in retained['instance']['rows']], ['impression', 'impression', 'page_view'])
+        self.assertEqual(self.dispatch('view', {})['schedule']['version'], schedule['version'])
+        self.assertEqual(self.dispatch('view', {})['schedule']['report_id'], REPORT)
+
+        changed = self.dispatch('impressions', body)
+        drifted = dict(inventory['reports'][0], name='App Downloads Standard')
+        process(dict(inventory, reports=[drifted]), segments).assert_not_called()
+        failed = next(j for j in self.service.workspace(APP)['jobs'] if j['id'] == changed['job_id'])
+        self.assertEqual(failed['status'], 'BLOCKED')
+        self.assertEqual(read_partition(self.store.path, key), retained)
+        rejected = self.dispatch('impressions', body)
+        invalid = gzip.compress(
+            b'Date\tApp Apple Identifier\tEvent\tCounts\tUnique Counts\n'
+            b'2026-10-23\t123\tImpression\t2\t3\n', mtime=0)
+        process(inventory, [dict(id='segment-2', data=invalid, size=len(invalid),
+            checksum=hashlib.md5(invalid, usedforsecurity=False).hexdigest())])
+        failed = next(j for j in self.service.workspace(APP)['jobs'] if j['id'] == rejected['job_id'])
+        self.assertEqual(failed['status'], 'BLOCKED')
+        self.assertEqual(read_partition(self.store.path, key), retained)
 
     def test_queue_rechecks_manifest_in_actual_write_transaction(self):
         original = self.service.queue

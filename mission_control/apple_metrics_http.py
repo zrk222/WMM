@@ -3,7 +3,7 @@ from datetime import datetime
 import json
 import secrets
 
-from .apple_analytics import REPORTS, identity
+from .apple_analytics import DISCOVERY, DOWNLOADS, REPORTS, identity
 from .apple_metrics_schedule import AppleMetricsSchedules, public_row
 from .common import Invalid, digest, identifier, uid
 from .db import connection
@@ -11,7 +11,8 @@ from .discovery_http import json_body
 from .managed_media_http import singleton
 from .operation_authority import bound_owner, protected
 
-FIELDS = {'view': set(), 'inventory': {'manifest_version', 'connection_id', 'connection_version'}}
+FIELDS = {'view': set(), 'inventory': {'manifest_version', 'connection_id', 'connection_version'},
+          'impressions': {'manifest_version', 'report_id'}}
 INVENTORY_STATES = {'REPORT_SETUP_REQUIRED', 'REQUEST_INVENTORY_PARTIAL',
                     'METRIC_DOWNLOAD_REQUIRED', 'WAITING_FOR_REPORTS'}
 
@@ -85,7 +86,8 @@ def inventory(db, app_id, version, store_id, record):
     return None, []
 
 
-def check_source(db, app_id, manifest_version, connection_id=None, connection_version=None, report_id=None):
+def check_source(db, app_id, manifest_version, connection_id=None, connection_version=None,
+                 report_id=None, report_family=DOWNLOADS):
     """Revalidate all inputs inside the scheduler or queue write transaction."""
     version, store_id, record = source(db, app_id)
     if type(manifest_version) is not int or version != manifest_version:
@@ -97,8 +99,9 @@ def check_source(db, app_id, manifest_version, connection_id=None, connection_ve
     inventory_id = None
     if report_id is not None:
         current, reports = inventory(db, app_id, version, store_id, record)
-        if current is None or not any(r['id'] == report_id and r['name'] == 'App Downloads Standard' for r in reports):
-            raise Invalid('Select the current app downloads report from Apple inventory')
+        if (current is None or not any(r['id'] == report_id and r['name'] == report_family
+                and (report_family == DOWNLOADS or r['coverage'] == 'COMPLETE') for r in reports)):
+            raise Invalid('Select the current Apple report from this app inventory')
         inventory_id = current['job_id']
     return (version, store_id, record['id'] if record else None,
             record['version'] if record else None, record['hash'] if record else None, inventory_id)
@@ -139,6 +142,23 @@ def dispatch(service, app_id, action, body):
                     options={'operation': 'analytics_reports'})
         job = service.queue(app_id, dict(action='sync', data=data, request_key=uid()), commit_check=check)
         return dict(job_id=job['id'], status=job['status'])
+    if action == 'impressions':
+        report_id = identity(body['report_id'])
+        if report_id != body['report_id']:
+            raise Invalid('Select the exact Apple analytics report identity')
+        def impression_source(db):
+            return check_source(db, app_id, body['manifest_version'],
+                                report_id=report_id, report_family=DISCOVERY)
+        with connection(service.store.path) as db:
+            snapshot = impression_source(db)
+        def check(db):
+            if impression_source(db) != snapshot:
+                raise Invalid('Apple analytics source changed; reload before collecting impressions')
+        data = dict(manifest_version=snapshot[0], connection_id=snapshot[2],
+                    connection_version=snapshot[3], connection_hash=snapshot[4],
+                    options={'operation': 'analytics_metrics_latest', 'report_id': report_id, 'report_family': DISCOVERY})
+        job = service.queue(app_id, dict(action='sync', data=data, request_key=uid()), commit_check=check)
+        return dict(job_id=job['id'], status=job['status'])
     if action == 'schedule':
         if type(body.get('enabled')) is not bool:
             raise Invalid('Choose whether Apple analytics refresh is enabled')
@@ -164,7 +184,7 @@ def dispatch(service, app_id, action, body):
 
 def post(handler, parts):
     if (len(parts) != 5 or parts[:2] != ['api', 'apps'] or parts[3] != 'apple-analytics'
-            or parts[4] not in {'view', 'inventory', 'schedule'}):
+            or parts[4] not in {'view', 'inventory', 'impressions', 'schedule'}):
         raise Invalid('Use the exact Apple analytics address')
     identifier(parts[2])
     if handler.command != 'POST' or handler.path != '/' + '/'.join(parts):

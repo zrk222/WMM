@@ -5,8 +5,11 @@ from urllib.parse import urlsplit
 from .common import Invalid, required
 
 BASE = 'https://api.appstoreconnect.apple.com'
-REPORTS = frozenset(('App Downloads Standard', 'App Sessions Standard',
-    'App Store Purchases Standard', 'App Store Discovery and Engagement Standard',
+DOWNLOADS = 'App Downloads Standard'
+DISCOVERY = 'App Store Discovery and Engagement Standard'
+METRIC_REPORTS = frozenset((DOWNLOADS, DISCOVERY))
+REPORTS = frozenset((DOWNLOADS, 'App Sessions Standard',
+    'App Store Purchases Standard', DISCOVERY,
     'App Store Installation and Deletion Standard'))
 
 
