@@ -35,8 +35,8 @@ class WindowsInstallerContractTests(unittest.TestCase):
         from unittest.mock import Mock
         wait = SCRIPT['wait_removed']
         folder = Mock()
-        folder.exists.side_effect = [True, True, False]
-        folder.iterdir.side_effect = [[Mock()], [Mock()]]
+        # Inno Setup can remove the final directory between polling attempts.
+        folder.iterdir.side_effect = [[Mock()], [Mock()], FileNotFoundError]
         with patch.dict(wait.__globals__, {'time': Mock(monotonic=Mock(return_value=0), sleep=Mock())}):
             wait(folder)
         folder.unlink.assert_not_called()

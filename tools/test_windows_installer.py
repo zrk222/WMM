@@ -46,9 +46,15 @@ def verify_binary(binary, folder, env, label):
 def wait_removed(install, timeout=30):
     """Allow the uninstaller helper to finish self-deletion; never remove its files."""
     deadline = time.monotonic() + timeout
-    while install.exists() and any(install.iterdir()):
+    while True:
+        try:
+            entries = list(install.iterdir())
+        except FileNotFoundError:
+            return
+        if not entries:
+            return
         if time.monotonic() >= deadline:
-            remaining = ', '.join(sorted(p.name for p in install.iterdir())[:10])
+            remaining = ', '.join(sorted(p.name for p in entries)[:10])
             raise AssertionError('Uninstall left program entries: ' + remaining)
         time.sleep(0.1)
 
