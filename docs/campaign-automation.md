@@ -14,6 +14,8 @@ The implemented organic adapter publishes Page text/link posts and checks the ex
 
 The owner can authorize this bounded workflow; a model recommendation, OAuth permission or manifest cannot authorize spending. Unsupported providers, special ad categories, missing funding/permissions and mismatched accounts or currency stop launch. Your own developer app, platform review, accounts and credentials remain provider requirements.
 
+Standing generation can render and prepare a local Reel for review. Before delivery, approve the exact rendered file in a policy that lists its file hash, or review and activate a schedule for its exact saved intent, Page, caption and delivery time. An agent taste check can inform the review. The worker reads Facebook credentials only after validating the applicable approval.
+
 ## Money, recovery and OFF
 
 WMM atomically reserves each campaign's maximum media commitment. It includes retained commitments from other local workspaces using the same ad account/currency when checking a new scope. Paused, expired, revoked and uncertain work does not automatically free that commitment. The ledger covers this WMM database; it cannot govern campaigns created elsewhere or another independent WMM installation. Provider media budgets are distinct from taxes, fees, conversion and the final invoice. Spend reporting can lag.

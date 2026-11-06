@@ -10,7 +10,7 @@ from mission_control import campaign_video_execution as video
 from mission_control.campaign_schedule import CampaignSchedules, execute, tick
 from mission_control.campaign_schedule_authority import bound
 from mission_control.campaign_video_transport import Context
-from mission_control.common import Invalid
+from mission_control.common import Invalid, uid
 from mission_control.db import connection
 from mission_control.operation_authority import bound_owner, protected
 from mission_control.organic_video_schedule import VideoSchedules
@@ -66,6 +66,9 @@ class VideoScheduleTests(unittest.TestCase):
             yield
 
     def test_shared_tick_executes_once_and_owner_history_retains_exact_intent(self):
+        self.policy = self.request('policy-create', dict(request_id=uid(), policy=dict(
+            self.f.policy, mode='STANDING_GENERATED', approved_output_hashes=[], max_calls=40,
+        )))
         schedules, active, due, intent, _ = self.scheduled()
         wire = Transport()
         with patch('time.time', return_value=due + 1), self.provider(wire):

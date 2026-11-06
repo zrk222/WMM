@@ -229,15 +229,15 @@ class ReelChildTests(unittest.TestCase):
                       artifact_id=output['artifact_id'], artifact_sha256=output['artifact_sha256'])
         return f.intent(), deadline
 
-    def test_new_reel_admission_uses_longer_permission_and_does_not_publish_twice(self):
+    def test_extended_generation_permission_cannot_publish_unreviewed_reel(self):
         f = self.fixture
         intent, _ = self.long_intent()
         later = datetime.now(timezone.utc) + timedelta(hours=2)
         with patch('mission_control.organic_video_policy.datetime') as clock:
             clock.now.return_value = later
-            self.assertEqual(f.call('execute', dict(intent_id=intent['id']))['stage'], 'PROVIDER_PHASE_COMPLETE')
-            f.call('execute', dict(intent_id=intent['id']))
-        self.assertEqual(f.transport.calls.count('publish'), 1)
+            with self.assertRaisesRegex(PermissionError, 'approve this exact rendered Reel'):
+                f.call('execute', dict(intent_id=intent['id']))
+        self.assertEqual(f.transport.calls, [])
 
     def test_scheduled_reel_uses_its_captured_item_deadline_after_original_policy_expiry(self):
         f = self.fixture
