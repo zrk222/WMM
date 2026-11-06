@@ -1,6 +1,6 @@
 {
   "schema": "wmm.dogfood.public-receipt-index.v1",
-  "snapshot_date_utc": "2026-11-05",
+  "snapshot_date_utc": "2026-11-06",
   "product": "Wize Marketing Machine",
   "dogfood_app": "WizeMe.APP",
   "originals_access": "OWNER_PRIVATE_NOT_PUBLICLY_DISTRIBUTED",
@@ -205,6 +205,40 @@
       "latest_observed_activity_predates_campaign": true,
       "original_wmm_workspace_import": "PENDING_WORKSPACE_RECOVERY",
       "campaign_effect": null,
+      "external_writes": false
+    },
+    {
+      "id": "E13",
+      "kind": "LIVE_PRODUCTION_RETROSPECTIVE_FOLLOWUP",
+      "observed_at": "2026-11-06T04:12:41.158Z",
+      "source_sha256": "b9b02857bd9d9ef83cf34e76348c4375da62f53275fc5559ebdac1c62a7069d9",
+      "traffic_coverage_sha256": "69dc83b0b3fa1e5d80063e39f31fb6f17c15e539fa0839636373b4e4233eb29a",
+      "traffic_observed_at": "2026-11-06T04:13:48.937Z",
+      "query_sha256": "3ae08406e6b3016babe2182eebab31a21a5ed456d2c529ed3266d2fccd097b3d",
+      "traffic_query_sha256": "7942f3fa66c9b7a97fe2e9608f4d991eeb17a817834bdc7b79ab854395864670",
+      "delivery_receipt": "E06",
+      "report_receipt": "E08",
+      "before_start_utc": "2026-11-03T01:29:50.844Z",
+      "verification_cutoff_utc": "2026-11-04T01:29:50.844195+00:00",
+      "after_end_utc": "2026-11-05T01:29:50.844Z",
+      "transaction_read_only_verified": true,
+      "aggregate_only": true,
+      "native_preregistration": false,
+      "campaign_tag_present": false,
+      "recorded_measures": [
+        "registrations",
+        "conversations",
+        "retention_events"
+      ],
+      "recorded_change": "NONE_OBSERVED",
+      "site_traffic_present_in_both_windows": true,
+      "metric_values_access": "OWNER_PRIVATE",
+      "verified_post_to_monitor_observation_seconds": 117.37,
+      "comparison_design": "RETROSPECTIVE_BEFORE_AFTER_WITHOUT_HOLDOUT",
+      "campaign_effect": null,
+      "installs_attributed": null,
+      "time_savings": null,
+      "decision": "REVISE_TRACKING",
       "external_writes": false
     }
   ],
