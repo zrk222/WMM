@@ -86,6 +86,46 @@ class TelemetryTests(unittest.TestCase):
         self.assertNotIn("PRIVATE_", json.dumps(value))
         self.assertEqual(monitor(self.store, "sample-two")["runs"][0]["events"], [])
 
+    def test_waiting_outcome_is_allowlisted_private_and_stable(self):
+        job = enqueue(self.store, "sample-one", "pipeline", {"secret": "PRIVATE_INPUT"}, "waiting")
+        enqueue(self.store, "sample-two", "pipeline", {}, "foreign")
+        with connection(self.store.path) as db:
+            db.execute("UPDATE jobs SET action='sync',status='SUCCEEDED',result=? WHERE id=?",
+                       (json.dumps({"status": "WAITING_FOR_REPORTS", "error": "PRIVATE_ERROR", "token": "PRIVATE_TOKEN"}), job["id"]))
+        run = monitor(self.store, "sample-one")["runs"][0]
+        self.assertEqual(run["outcome_code"], "WAITING_FOR_REPORTS")
+        self.assertEqual(run["status"], "SUCCEEDED")
+        self.assertNotIn("result", run)
+        self.assertNotIn("PRIVATE_", json.dumps(run))
+        self.assertEqual(monitor(Store(self.store.path, seed=False), "sample-one")["runs"][0], run)
+        foreign = monitor(self.store, "sample-two")["runs"]
+        self.assertEqual(len(foreign), 1)
+        self.assertNotIn("outcome_code", foreign[0])
+        self.assertNotEqual(foreign[0]["id"], job["id"])
+
+    def test_outcome_ignores_untrusted_results_and_wrong_job_state(self):
+        job = enqueue(self.store, "sample-one", "pipeline", {}, "untrusted")
+        cases = [
+            ("sync", "SUCCEEDED", None),
+            ("sync", "SUCCEEDED", "{PRIVATE_MALFORMED"),
+            ("sync", "SUCCEEDED", '[' * 2000 + '0' + ']' * 2000),
+            ("sync", "SUCCEEDED", json.dumps([{"status": "WAITING_FOR_REPORTS"}])),
+            ("sync", "SUCCEEDED", json.dumps("WAITING_FOR_REPORTS")),
+            ("sync", "SUCCEEDED", json.dumps({"status": "PRIVATE_UNKNOWN", "error": "PRIVATE_ERROR"})),
+            ("pipeline", "SUCCEEDED", json.dumps({"status": "WAITING_FOR_REPORTS"})),
+            ("sync", "RUNNING", json.dumps({"status": "WAITING_FOR_REPORTS"})),
+            ("sync", "FAILED", json.dumps({"status": "WAITING_FOR_REPORTS"})),
+        ]
+        for action, status, result in cases:
+            with self.subTest(action=action, status=status, result=result):
+                with connection(self.store.path) as db:
+                    db.execute("UPDATE jobs SET action=?,status=?,result=? WHERE id=?", (action, status, result, job["id"]))
+                run = monitor(self.store, "sample-one")["runs"][0]
+                self.assertEqual(run["status"], status)
+                self.assertNotIn("outcome_code", run)
+                self.assertNotIn("result", run)
+                self.assertNotIn("PRIVATE_", json.dumps(run))
+
 
 class TelemetryHTTPTests(unittest.TestCase):
     setUp = http_fixture.GrantTests.setUp
@@ -95,6 +135,15 @@ class TelemetryHTTPTests(unittest.TestCase):
         base = self.origin + "/api/apps/sample-one/workflow-telemetry"
         with urlopen(base) as response:
             self.assertEqual(json.load(response)["runs"], [])
+        job = enqueue(self.store, "sample-one", "sync", {}, "http-waiting")
+        with connection(self.store.path) as db:
+            db.execute("UPDATE jobs SET status='SUCCEEDED',result=? WHERE id=?",
+                       (json.dumps({"status": "WAITING_FOR_REPORTS", "token": "PRIVATE_HTTP_TOKEN"}), job["id"]))
+        with urlopen(base) as response:
+            body = response.read().decode()
+            self.assertEqual(json.loads(body)["runs"][0]["outcome_code"], "WAITING_FOR_REPORTS")
+            self.assertNotIn("PRIVATE_HTTP_TOKEN", body)
+            self.assertNotIn('"result"', body)
         with self.assertRaises(HTTPError):
             urlopen(base + "?app=sample-two")
         with urlopen(self.origin + "/workflow-telemetry.js") as response:

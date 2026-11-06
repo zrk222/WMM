@@ -11,6 +11,9 @@ Preserve the complete automation owner toggle and credential onboarding work.
 - The system shall reject progress emitted for a cancelled or replaced worker attempt through `attempt_binding`.
 - The system shall return at most 100 recent selected-app job summaries and 200 events per job without exposing raw job input, result or credentials through `scoped_monitor`.
 - The system shall display current stage, step, activity, event time, completion counts and stale connection state with a 2 second polling interval through `live_monitor`.
+- When a succeeded sync job has a saved JSON object with status `WAITING_FOR_REPORTS`, the system shall expose only that fixed outcome code and display that the read completed without supplying app metrics, with source-result and Connections schedule inspection guidance through `waiting_outcome`.
+- If a result is malformed, nonobject, unknown, from a different action or from a job that has not succeeded, the system shall retain ordinary worker status guidance without exposing that result through `waiting_outcome`.
+- When that completed waiting read is opened, the saved-result dialog shall show a fixed missing-data summary and only a lowercase 64-hex source receipt hash when supplied, without rendering raw result fields. An explicitly requested observed-result download retains its existing private export behavior.
 
 ### Acceptance criteria (Gherkin)
 ```gherkin
@@ -30,6 +33,11 @@ Scenario: live_monitor
   Given an active workflow and a failed status request
   When `live_monitor` refreshes
   Then current stage activity is visible and failed refresh is labeled stale
+Scenario: waiting_outcome
+  Given a succeeded sync job with waiting report status and private result fields
+  When the selected-app monitor is read and displayed
+  Then the owner sees a completed read waiting for reports and its next inspection steps
+  And raw results stay private, other jobs keep their worker status, and schedule activation is not inferred
 ```
 
 ## SHOULD - Technical
