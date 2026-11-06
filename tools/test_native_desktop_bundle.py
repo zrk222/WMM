@@ -19,7 +19,8 @@ def digest(path):
 def run(shell, profile):
     environment_keys = ('PATH', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP', 'LANG', 'LC_ALL')
     env = {key: os.environ[key] for key in environment_keys if key in os.environ}
-    env.update(LOCALAPPDATA=str(profile), XDG_DATA_HOME=str(profile), HOME=str(profile))
+    env.update(LOCALAPPDATA=str(profile), USERPROFILE=str(profile),
+               XDG_DATA_HOME=str(profile), HOME=str(profile))
     return subprocess.run([str(shell), '--verify-bundled-engine'], cwd=shell.parent, env=env,
                           stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                           stderr=subprocess.DEVNULL, timeout=75).returncode

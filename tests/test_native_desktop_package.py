@@ -15,6 +15,17 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class NativeDesktopPackageTests(unittest.TestCase):
+    def test_native_probe_supplies_disposable_windows_home_without_inheriting_credentials(self):
+        run = runpy.run_path(str(ROOT / 'tools/test_native_desktop_bundle.py'))['run']
+        profile = Path('disposable-profile')
+        with patch.dict('os.environ', {'PATH': 'fixture', 'GITHUB_TOKEN': 'synthetic-secret'}, clear=True), \
+             patch('subprocess.run') as process:
+            run(Path('bundle/WMM-Mission-Control.exe'), profile)
+        env = process.call_args.kwargs['env']
+        for key in ('USERPROFILE', 'LOCALAPPDATA', 'HOME', 'XDG_DATA_HOME'):
+            self.assertEqual(env[key], str(profile))
+        self.assertNotIn('GITHUB_TOKEN', env)
+
     def test_build_pins_exact_frozen_executable_before_copying_window(self):
         build = runpy.run_path(str(ROOT / 'tools/build_desktop.py'))['build_native_window']
         with tempfile.TemporaryDirectory() as temporary:
