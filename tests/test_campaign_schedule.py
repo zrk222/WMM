@@ -10,6 +10,7 @@ from mission_control.campaign_schedule import CampaignSchedules, tick
 from mission_control.common import Invalid, canonical, digest
 from mission_control.db import connection
 from mission_control.operation_authority import bound_owner, protected
+from mission_control.store import Store
 from mission_control.worker import claim, run_once
 from tests.test_campaign_access import CampaignGatewayTests
 from tests.test_campaign_execution import FakePaidTransport
@@ -162,6 +163,35 @@ class ScheduleTests(unittest.TestCase):
             status = service.status('sample-one', active['id'])
         self.assertEqual(status['items'][0]['status'], 'BLOCKED')
         self.assertEqual(self.wire.posts, 0)
+
+    def test_corrupt_due_batch_is_isolated_and_other_batch_executes_once(self):
+        _, _, damaged, first_due = self.prepare_batch()
+        service, _, valid, second_due = self.prepare_batch()
+        private_payload = '{synthetic-private-input'
+        with connection(self.store.path) as db:
+            db.execute("UPDATE campaign_schedule_batches SET summary=? WHERE id=?",
+                       (private_payload, damaged['id']))
+        with patch('time.time', return_value=max(first_due, second_due) + 1):
+            self.assertEqual(tick(self.store), 1)
+            reopened = Store(self.store.path)
+            self.assertEqual(tick(reopened), 0)
+            self.assertTrue(run_once(reopened))
+            self.assertFalse(run_once(reopened))
+        with connection(self.store.path) as db:
+            blocked = db.execute("SELECT status,job_id FROM campaign_schedule_items WHERE batch_id=?",
+                                 (damaged['id'],)).fetchone()
+            self.assertEqual((blocked['status'], blocked['job_id']), ('BLOCKED', None))
+            summary = db.execute("SELECT summary FROM campaign_schedule_batches WHERE id=?",
+                                 (damaged['id'],)).fetchone()[0]
+            self.assertEqual(summary, private_payload)
+            audits = db.execute("SELECT detail FROM audit WHERE action='campaign_schedule.blocked'").fetchall()
+            self.assertEqual(len(audits), 1)
+            self.assertIn('SAVED_ITEM_INTEGRITY', audits[0]['detail'])
+            self.assertNotIn(private_payload, audits[0]['detail'])
+        with self.owner_bound():
+            status = service.status('sample-one', valid['id'])
+        self.assertEqual(self.wire.posts, 1)
+        self.assertEqual(status['items'][0]['intent']['status'], 'VERIFIED')
 
     def test_revoked_scope_blocks_new_effects(self):
         service, draft, active, due = self.prepare_batch()

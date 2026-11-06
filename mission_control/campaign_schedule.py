@@ -245,6 +245,28 @@ def effective_status(item_status, job, intent, operation):
     return item_status
 
 
+def due_payload(row):
+    """Validate retained queue inputs before a single item can reserve a job."""
+    body = json.loads(row['body'])
+    summary = json.loads(row['summary'])
+    if not isinstance(body, dict) or not isinstance(summary, dict):
+        raise Invalid('Retained schedule inputs changed')
+    operation = body.get('operation', 'campaign.publish')
+    if (operation not in ('campaign.publish', 'campaign.ad-launch', 'organic-video.intent-execute')
+            or not isinstance(body['request'], dict) or not isinstance(summary['items'], list)
+            or digest(body) != row['body_hash'] or digest(summary) != row['summary_hash']
+            or body not in summary['items'] or body['item_id'] != row['id']
+            or (summary['batch_id'], summary['app_id'], summary['scope_id'])
+            != (row['batch_id'], row['app_id'], row['scope_id'])
+            or row['due'] != iso_time(body['due_at']).timestamp()):
+        raise Invalid('Retained schedule inputs changed')
+    data = dict(batch_id=row['batch_id'], item_id=row['id'], scope_id=row['scope_id'], request=body['request'])
+    if 'operation' in body:
+        data['operation'] = operation
+    action = 'campaign_ad' if operation == 'campaign.ad-launch' else 'campaign_post'
+    return action, data
+
+
 def tick(store):
     """Atomically enqueue each due item once; no provider calls occur here."""
     initialize(store)
@@ -258,18 +280,14 @@ def tick(store):
             WHERE i.status='READY' AND b.status='ACTIVE' AND i.due<=?
             ORDER BY i.due,i.id LIMIT ?""", (time.time(), MAX_ITEMS-count)).fetchall()
         for row in rows:
-            body = json.loads(row['body'])
-            summary = json.loads(row['summary'])
-            if (digest(body) != row['body_hash'] or digest(summary) != row['summary_hash']
-                    or body not in summary['items'] or body['item_id'] != row['id']
-                    or row['due'] != iso_time(body['due_at']).timestamp()):
-                db.execute("UPDATE campaign_schedule_items SET status='BLOCKED',updated=? WHERE id=?", (now(), row['id']))
+            try:
+                action, data = due_payload(row)
+            except (ValueError, TypeError, KeyError, OverflowError, OSError):
+                db.execute("UPDATE campaign_schedule_items SET status='BLOCKED',updated=? WHERE id=?",
+                           (now(), row['id']))
+                audit(db, row['app_id'], 'blocked',
+                      dict(batch_id=row['batch_id'], item_id=row['id'], reason='SAVED_ITEM_INTEGRITY'))
                 continue
-            data = dict(batch_id=row['batch_id'], item_id=row['id'], scope_id=row['scope_id'], request=body['request'])
-            operation = body.get('operation', 'campaign.publish')
-            if 'operation' in body:
-                data['operation'] = operation
-            action = 'campaign_ad' if operation == 'campaign.ad-launch' else 'campaign_post'
             job_id = uid()
             db.execute('INSERT INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)',
                        (job_id, row['app_id'], action, canonical(data), 'QUEUED', now(), now(), 'campaign-schedule-' + row['id']))
