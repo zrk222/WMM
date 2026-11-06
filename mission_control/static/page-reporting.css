@@ -21,7 +21,20 @@
 .wmm-print-report dt{font-weight:600}
 .wmm-print-report footer{margin-top:32px;border-top:1px solid #8d9e95;padding-top:16px}
 @media(max-width:600px){.wmm-print-report{padding:20px}.wmm-print-report table{font-size:16px}.wmm-print-report th,.wmm-print-report td{padding:6px}.wmm-print-report dl>div{grid-template-columns:1fr;gap:4px}}
+.wmm-report-dialog {
+  box-sizing:border-box;
+  width:calc(100% - 24px);
+  max-width:960px;
+  max-height:calc(100% - 24px);
+  margin:auto;
+  overflow:auto;
+}
 @media print{
+  body.wmm-report-preview-open > :not(.wmm-report-dialog){display:none!important}
+  body.wmm-report-preview-open{overflow:visible}
+  .wmm-report-dialog[open]{position:static;box-sizing:border-box;width:100%;max-height:none;overflow:visible;margin:0;border:0}
+  .wmm-report-dialog::backdrop{display:none}
+
   @page{size:A4;margin:18mm}
   .wmm-print-report{max-width:none;padding:0;font-size:11pt;color:#172c24}
   .wmm-print-report .report-controls{display:none}
