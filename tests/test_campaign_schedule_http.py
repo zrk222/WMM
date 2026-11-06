@@ -8,6 +8,7 @@ from mission_control.operator_client import OperatorClient,ClientError
 from mission_control.campaign_execution import CampaignExecutionService
 from mission_control.worker import run_once
 from mission_control.common import canonical
+from mission_control.db import connection
 from tests import test_campaign_access as fixture
 
 class ScheduleHTTPTests(unittest.TestCase):
@@ -42,6 +43,28 @@ class ScheduleHTTPTests(unittest.TestCase):
   with self.assertRaises(ClientError):self.owner_call("schedule-status",{"batch_id":batch,"owner":"other"})
   anonymous=OperatorClient(self.origin);anonymous.bootstrap()
   with self.assertRaises(ClientError):anonymous.request("POST","/api/apps/sample-one/campaigns/schedule-status",{"batch_id":batch})
+  self.assertEqual(self.wire.posts,0)
+ def test_owner_history_keeps_healthy_batch_and_can_stop_unreadable_one(self):
+  damaged=self.prepare_batch();batch=damaged["summary"]["batch_id"]
+  valid=self.prepare_batch();valid_id=valid["summary"]["batch_id"]
+  active=self.owner_call("schedule-activate",{"batch_id":batch,"summary_hash":damaged["summary_hash"]})
+  with connection(self.store.path) as db:
+   db.execute("UPDATE campaign_schedule_batches SET summary=? WHERE id=?",("{private-fixture",batch))
+  history={row["id"]:row for row in self.owner_call("schedule-history",{})["batches"]}
+  self.assertEqual(history[valid_id]["summary_hash"],valid["summary_hash"])
+  self.assertEqual(history[batch]["status"],"NEEDS_REPAIR")
+  self.assertTrue(history[batch]["evidence_unavailable"])
+  self.assertIsNone(history[batch]["summary"])
+  self.assertIsNone(history[batch]["summary_hash"])
+  self.assertIn("Check campaign receipts",history[batch]["repair"])
+  self.assertNotIn("private-fixture",canonical(history))
+  self.assertEqual(self.owner_call("schedule-status",{"batch_id":batch}),history[batch])
+  stopped=self.owner_call("schedule-off",{"batch_id":batch,"version":active["version"]})
+  self.assertEqual(stopped["status"],"OFF")
+  self.assertTrue(stopped["evidence_unavailable"])
+  with connection(self.store.path) as db:
+   raw=db.execute("SELECT summary FROM campaign_schedule_batches WHERE id=?",(batch,)).fetchone()[0]
+   self.assertEqual(raw,"{private-fixture")
   self.assertEqual(self.wire.posts,0)
  def test_owner_schedule_routes_reject_stale_csrf_origin_and_foreign_app(self):
   saved=self.prepare_batch();batch=saved["summary"]["batch_id"]

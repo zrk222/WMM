@@ -166,15 +166,15 @@ class CampaignSchedules:
                              (batch_id, app_id, actor)).fetchone()
             if row is None:
                 raise Invalid('Scheduled batch is unavailable')
-            summary = json.loads(row['summary'])
-            if digest(summary) != row['summary_hash']:
-                raise Invalid('Scheduled batch summary needs repair')
-            if summary.get('kind') == 'ADMITTED_ORGANIC_VIDEO_V1':
-                from .organic_video_schedule import VideoSchedules
-                return VideoSchedules(self.store).status(app_id, batch_id)
-            items = []
-            for item in db.execute('SELECT * FROM campaign_schedule_items WHERE batch_id=? ORDER BY due,id', (batch_id,)):
-                items.append(item_status(db, app_id, row['scope_id'], item))
+            try:
+                summary = retained_object(row['summary'], row['summary_hash'])
+                if summary.get('kind') == 'ADMITTED_ORGANIC_VIDEO_V1':
+                    from .organic_video_schedule import VideoSchedules
+                    return VideoSchedules(self.store).status(app_id, batch_id)
+                items = [item_status(db, app_id, row['scope_id'], item) for item in db.execute(
+                    'SELECT * FROM campaign_schedule_items WHERE batch_id=? ORDER BY due,id', (batch_id,))]
+            except Invalid:
+                return repair_view(row)
             return dict(id=row['id'], status=row['status'], version=row['version'],
                         scope_id=row['scope_id'], summary=summary,
                         summary_hash=row['summary_hash'], items=items)
@@ -209,16 +209,37 @@ def audit(db, app_id, action, detail):
                (app_id, 'campaign_schedule.' + action, canonical(detail), now()))
 
 
+def retained_object(raw, expected_hash):
+    """Read a hash-bound schedule record without surfacing malformed contents."""
+    try:
+        value = json.loads(raw)
+        if isinstance(value, dict) and digest(value) == expected_hash:
+            return value
+    except (TypeError, ValueError):
+        pass
+    raise Invalid('Retained schedule evidence needs repair')
+
+
+def repair_view(row):
+    return dict(id=row['id'], status='OFF' if row['status'] == 'OFF' else 'NEEDS_REPAIR',
+                version=row['version'], scope_id=row['scope_id'], summary=None,
+                summary_hash=None, items=[], evidence_unavailable=True,
+                repair='Saved schedule evidence is unreadable. Check campaign receipts before retrying.')
+
+
 def item_status(db, app_id, scope_id, item):
     job = db.execute('SELECT status,result FROM jobs WHERE id=?', (item['job_id'],)).fetchone() if item['job_id'] else None
-    body = json.loads(item['body'])
+    body = retained_object(item['body'], item['body_hash'])
+    request = body.get('request')
+    if not isinstance(request, dict) or not isinstance(request.get('request_id'), str) or not isinstance(body.get('due_at'), str):
+        raise Invalid('Retained schedule evidence needs repair')
     operation = body.get('operation', 'campaign.publish')
     if operation == 'campaign.ad-launch':
         intent = db.execute('SELECT id,status,ids,commitment,currency FROM campaign_paid_intents WHERE app_id=? AND scope_id=? AND request_id=? AND request_hash=?',
-                            (app_id, scope_id, body['request']['request_id'], digest(body['request']))).fetchone()
+                            (app_id, scope_id, request['request_id'], digest(request))).fetchone()
     else:
         intent = db.execute('SELECT id,status,remote_id FROM campaign_intents WHERE app_id=? AND scope_id=? AND request_id=? AND request_hash=?',
-                            (app_id, scope_id, body['request']['request_id'], digest(body['request']))).fetchone()
+                            (app_id, scope_id, request['request_id'], digest(request))).fetchone()
     intent = dict(intent) if intent else None
     if intent and 'ids' in intent:
         intent['ids'] = json.loads(intent['ids'])
@@ -245,6 +266,25 @@ def effective_status(item_status, job, intent, operation):
     return item_status
 
 
+def due_payload(row):
+    """Validate retained queue inputs before a single item can reserve a job."""
+    body = retained_object(row['body'], row['body_hash'])
+    summary = retained_object(row['summary'], row['summary_hash'])
+    operation = body.get('operation', 'campaign.publish')
+    if (operation not in ('campaign.publish', 'campaign.ad-launch', 'organic-video.intent-execute')
+            or not isinstance(body['request'], dict) or not isinstance(summary['items'], list)
+            or body not in summary['items'] or body['item_id'] != row['id']
+            or (summary['batch_id'], summary['app_id'], summary['scope_id'])
+            != (row['batch_id'], row['app_id'], row['scope_id'])
+            or row['due'] != iso_time(body['due_at']).timestamp()):
+        raise Invalid('Retained schedule inputs changed')
+    data = dict(batch_id=row['batch_id'], item_id=row['id'], scope_id=row['scope_id'], request=body['request'])
+    if 'operation' in body:
+        data['operation'] = operation
+    action = 'campaign_ad' if operation == 'campaign.ad-launch' else 'campaign_post'
+    return action, data
+
+
 def tick(store):
     """Atomically enqueue each due item once; no provider calls occur here."""
     initialize(store)
@@ -258,18 +298,14 @@ def tick(store):
             WHERE i.status='READY' AND b.status='ACTIVE' AND i.due<=?
             ORDER BY i.due,i.id LIMIT ?""", (time.time(), MAX_ITEMS-count)).fetchall()
         for row in rows:
-            body = json.loads(row['body'])
-            summary = json.loads(row['summary'])
-            if (digest(body) != row['body_hash'] or digest(summary) != row['summary_hash']
-                    or body not in summary['items'] or body['item_id'] != row['id']
-                    or row['due'] != iso_time(body['due_at']).timestamp()):
-                db.execute("UPDATE campaign_schedule_items SET status='BLOCKED',updated=? WHERE id=?", (now(), row['id']))
+            try:
+                action, data = due_payload(row)
+            except (ValueError, TypeError, KeyError, OverflowError, OSError):
+                db.execute("UPDATE campaign_schedule_items SET status='BLOCKED',updated=? WHERE id=?",
+                           (now(), row['id']))
+                audit(db, row['app_id'], 'blocked',
+                      dict(batch_id=row['batch_id'], item_id=row['id'], reason='SAVED_ITEM_INTEGRITY'))
                 continue
-            data = dict(batch_id=row['batch_id'], item_id=row['id'], scope_id=row['scope_id'], request=body['request'])
-            operation = body.get('operation', 'campaign.publish')
-            if 'operation' in body:
-                data['operation'] = operation
-            action = 'campaign_ad' if operation == 'campaign.ad-launch' else 'campaign_post'
             job_id = uid()
             db.execute('INSERT INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)',
                        (job_id, row['app_id'], action, canonical(data), 'QUEUED', now(), now(), 'campaign-schedule-' + row['id']))

@@ -222,7 +222,7 @@ function campaignScheduleReviewItem(item,scope){
 }
 async function campaignScheduleStatus(batch,source=null){
  const app=state.app,version=state.workspace.app.version,principal=state.workspace.identity?.principal,data=await api('/api/apps/'+app+'/campaigns/schedule-status',{batch_id:batch});if(state.app!==app||state.workspace.app.version!==version||state.workspace.identity?.principal!==principal||(source&&!source.isConnected))return;
- modal('Scheduled campaign progress','<div id="campaign-schedule-progress" class="modal-content" data-app="'+esc(app)+'" data-version="'+version+'" data-principal="'+esc(principal||'')+'"><h3 id="schedule-batch-state">'+esc(data.status)+'</h3><p>Batch '+esc(data.id)+' · '+esc(data.items.length)+' scheduled items. WMM must remain running. Saved provider state does not establish app sales.</p><p id="schedule-live-stage" role="status">Saved stages refresh while this dialog is visible. Provider observation times may lag.</p><div id="schedule-live-items">'+data.items.map(i=>campaignScheduleProgressItem(i,data)).join('')+'</div><p id="campaign-error" role="alert"></p>'+button('Refresh scheduled receipts','campaign-schedule-status','data-batch="'+esc(data.id)+'"')+button('Turn scheduled batch OFF','campaign-schedule-off')+button('Report / Save PDF','campaign-schedule-report')+'</div>');const progress=$('#campaign-schedule-progress');progress.campaign=data;campaignScheduleWatch(progress);
+ modal('Scheduled campaign progress','<div id="campaign-schedule-progress" class="modal-content" data-app="'+esc(app)+'" data-version="'+version+'" data-principal="'+esc(principal||'')+'"><h3 id="schedule-batch-state">'+esc(data.status)+'</h3><p>Batch '+esc(data.id)+' · '+esc(data.evidence_unavailable?'Saved item details unavailable.':data.items.length+' scheduled items.')+' WMM must remain running. Saved provider state does not establish app sales.</p><p id="schedule-live-stage" role="status">'+esc(data.repair||'Saved stages refresh while this dialog is visible. Provider observation times may lag.')+'</p><div id="schedule-live-items">'+data.items.map(i=>campaignScheduleProgressItem(i,data)).join('')+'</div><p id="campaign-error" role="alert"></p>'+button('Refresh scheduled receipts','campaign-schedule-status','data-batch="'+esc(data.id)+'"')+button('Turn scheduled batch OFF','campaign-schedule-off')+button('Report / Save PDF','campaign-schedule-report')+'</div>');const progress=$('#campaign-schedule-progress');progress.campaign=data;campaignScheduleWatch(progress);
 }
 function campaignScheduleWatch(panel){
  let stopped=false,timer=null,reads=0,failures=0,inflight=false;
@@ -236,7 +236,7 @@ function campaignScheduleWatch(panel){
    const data=await api('/api/apps/'+panel.dataset.app+'/campaigns/schedule-status',{batch_id:batch});
    if(!valid()||panel.dataset.busy==='true'||data.id!==batch||data.version<panel.campaign.version)return;
    const changed=campaignStable(data)!==campaignStable(panel.campaign);panel.campaign=data;failures=0;
-   if(changed){panel.querySelector('#schedule-batch-state').textContent=data.status;panel.querySelector('#schedule-live-items').innerHTML=data.items.map(i=>campaignScheduleProgressItem(i,data)).join('');panel.querySelector('#schedule-live-stage').textContent='Saved stage: '+data.status+'. '+data.items.map(i=>i.effective_status||i.status).join(', ')+'. Provider status and app outcomes remain separate.';}
+   if(changed){panel.querySelector('#schedule-batch-state').textContent=data.status;panel.querySelector('#schedule-live-items').innerHTML=data.items.map(i=>campaignScheduleProgressItem(i,data)).join('');panel.querySelector('#schedule-live-stage').textContent=data.repair||('Saved stage: '+data.status+'. '+data.items.map(i=>i.effective_status||i.status).join(', ')+'. Provider status and app outcomes remain separate.');}
   }catch{failures++;if(valid())panel.querySelector('#schedule-live-stage').textContent='Saved stage refresh failed. Existing work continues; refresh receipts before any retry.';}
   finally{inflight=false;again(Math.min(60000,5000*2**Math.min(failures,4)));}
  };
@@ -250,8 +250,8 @@ function campaignScheduleProgressItem(item,data){
 }
 function campaignScheduleReport(data){
  const report=WMMPageReports.model(state);report.title='Scheduled campaign batch';report.purpose='Inspect saved schedule states and provider identities.';
- report.metrics=[{label:'Scheduled items',value:data.items.length,unit:'count',source:'Current owner schedule status'},{label:'Verified post receipts',value:data.items.filter(i=>i.effective_status==='VERIFIED').length,unit:'count',source:'Saved campaign intents'}];
- report.notes=['Schedule report uses saved local receipts; provider status may have changed.','No post text, credentials or rights prose in this report. Saved receipts do not establish app growth.',...data.items.map(i=>campaignScheduleReportLine(i,data))];
+ report.metrics=[{label:'Scheduled items',value:data.evidence_unavailable?null:data.items.length,unit:'count',source:'Current owner schedule status'},{label:'Verified post receipts',value:data.evidence_unavailable?null:data.items.filter(i=>i.effective_status==='VERIFIED').length,unit:'count',source:'Saved campaign intents'}];
+ report.notes=['Schedule report uses saved local receipts; provider status may have changed.','No post text, credentials or rights prose in this report. Saved receipts do not establish app growth.',...(data.repair?[data.repair]:[]),...data.items.map(i=>campaignScheduleReportLine(i,data))];
  return report;
 }
 function campaignScheduleReportLine(item,data){
