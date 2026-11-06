@@ -75,6 +75,16 @@ def preflight(env):
 
 
 def verify_binary(binary, env, label):
+    if not (binary.parent / 'WMM-Mission-Control').is_file():
+        raise AssertionError('Installed native Mission Control window is missing')
+    verifier = ROOT / 'tools/test_native_desktop_bundle.py'
+    pair = json.loads(run([sys.executable, verifier, binary.parent], env).stdout)
+    if pair.get('status') != 'PASS':
+        raise AssertionError('Installed native engine verification failed')
+    evidence = ROOT / '.factory/packaged-native-window' / label
+    evidence.mkdir(parents=True, exist_ok=True)
+    (evidence / 'evidence.json').write_text(json.dumps(dict(source_sha=env.get('GITHUB_SHA'),
+        pair=pair, interactive_window='NOT_RUN')), encoding='utf-8')
     for args in (['--check'], ['--self-test'], ['--vault-self-test'], ['--agent-cli', 'catalog']):
         result = json.loads(run([binary, *args], env).stdout)
         if args == ['--check'] and Path(result['data_directory']) != Path(env['XDG_DATA_HOME']) / 'Wize Marketing Machine':

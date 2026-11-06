@@ -26,6 +26,26 @@ class NativeDesktopPackageTests(unittest.TestCase):
             self.assertEqual(env[key], str(profile))
         self.assertNotIn('GITHUB_TOKEN', env)
 
+    def test_installer_acceptance_refuses_missing_or_failed_native_shell(self):
+        from types import SimpleNamespace
+
+        for script, native, windows in (
+            ('tools/test_windows_installer.py', 'WMM-Mission-Control.exe', True),
+            ('tools/test_linux_package.py', 'WMM-Mission-Control', False),
+        ):
+            verify = runpy.run_path(str(ROOT / script))['verify_binary']
+            with self.subTest(script=script), tempfile.TemporaryDirectory() as temporary:
+                folder = Path(temporary)
+                binary = folder / ('WMM.exe' if windows else 'WMM')
+                arguments = (binary, folder, {}, 'synthetic') if windows else (binary, {}, 'synthetic')
+                with patch.dict(verify.__globals__, {'run': lambda *a, **k: self.fail('Invoked missing native shell')}):
+                    with self.assertRaisesRegex(AssertionError, 'native Mission Control window is missing'):
+                        verify(*arguments)
+                (folder / native).write_bytes(b'synthetic native shell')
+                with patch.dict(verify.__globals__, {'run': lambda *a, **k: SimpleNamespace(stdout='{"status":"FAIL"}')}):
+                    with self.assertRaisesRegex(AssertionError, 'native .*verification failed'):
+                        verify(*arguments)
+
     def test_build_pins_exact_frozen_executable_before_copying_window(self):
         build = runpy.run_path(str(ROOT / 'tools/build_desktop.py'))['build_native_window']
         with tempfile.TemporaryDirectory() as temporary:
