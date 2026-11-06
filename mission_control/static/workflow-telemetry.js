@@ -5,7 +5,25 @@
   'use strict';
   const POLL_MS=2000,esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   let generation=0,timer=null,mounted=null,opening=null;
-  function panel(){return '<section class="panel" id="workflow-monitor" aria-label="Live workflow progression"><h2>See what your agent is doing</h2><p>Follow the recorded stage, current activity and saved result. A processed stage records work attempted; inspect its outcome to see what completed or still needs your decision.</p><p data-live-status role="status">Loading worker observations…</p><button class="button outline" type="button" data-action="telemetry-refresh">Refresh progress</button><div data-live-runs></div></section>';}
+  function panel(){return `<section class="panel" id="workflow-monitor" aria-label="Live workflow progression">
+    <h2>See what your agent is doing</h2><p>Follow the recorded stage, current activity and saved result.</p>
+    <p data-live-worker role="status">Checking the worker on this host…</p><p data-live-status>Loading saved observations…</p>
+    <details><summary>Keep approved work running</summary>
+      <p>Leave WMM running on an awake computer. Closing this browser leaves the worker running. Quitting WMM or putting its host to sleep stops new scheduled work.</p>
+      <p>For unattended operation, you can install WMM on a private host you control. Connect accounts and review approvals on that host. Your credentials stay in their existing protected store.</p>
+      <p><a href="https://github.com/zrk222/WMM/blob/main/docs/always-on-runtime.md" target="_blank" rel="noopener noreferrer">Open the private-host setup guide (new tab)</a></p>
+    </details>
+    <button class="button outline" type="button" data-action="telemetry-refresh">Refresh progress</button><div data-live-runs></div>
+    </section>`;}
+  function workerMessage(status){
+    switch(status){
+      case 'STARTING':return 'Worker starting. Refresh progress after its first completed poll.';
+      case 'RUNNING':return 'Worker reported healthy. Open a run to verify what was actually delivered.';
+      case 'RECOVERING':return 'Worker needs attention. Open Advanced tools → Guided workflow to check which work needs recovery.';
+      case 'STOPPED':return 'Worker stopped. Start WMM on the host where this workspace is installed, then refresh progress.';
+      default:return 'Worker status unavailable. Check WMM on this workspace’s host before relying on scheduled work.';
+    }
+  }
   function nextAction(status){
     const actions={QUEUED:'Waiting for the worker. Inspect the run to check its saved status.',RUNNING:'Work is running. Inspect its recorded steps and any saved output.',RETRY_WAIT:'Waiting for a permitted worker retry. Inspect the previous attempt before taking action.',FAILED:'Inspect the job status and any saved output before deciding whether to retry.',BLOCKED:'Inspect the job status and missing evidence or access before trying again.',SUCCEEDED:'Review the saved output and choose your next action. Completion alone does not establish app sales.',CANCELLED:'Work was cancelled. Inspect receipts for work that already completed.',UNKNOWN:'Inspect and reconcile the job status. Do not automatically resend uncertain work.',CANCEL_REQUESTED:'Cancellation is pending. Inspect the job status before starting replacement work.'};
     return actions[status]||'Inspect the recorded status and any saved output. Unrecognized states do not establish completion.';
@@ -38,6 +56,8 @@
   function mount(deps){
     clear();const node=deps.document.querySelector('#workflow-monitor');if(!node)return;
     const ticket={node,app:deps.state.app,version:++generation,pending:false,failures:0};mounted=ticket;
+    const worker=node.querySelector('[data-live-worker]');
+    const announce=message=>{if(worker.textContent!==message)worker.textContent=message;};
     const valid=()=>mounted===ticket&&generation===ticket.version&&deps.state.app===ticket.app&&node.isConnected;
     async function poll(){
       if(!valid())return;
@@ -50,8 +70,10 @@
           const target=node.querySelector('[data-live-runs]');
           if(!target.contains(deps.document.activeElement))target.innerHTML=markup(data);
           ticket.failures=0;
-          node.querySelector('[data-live-status]').textContent=`Connected · last refresh ${data.observed_at}. Updates checked every two seconds while visible. Processed stages are observations, not a success percentage.`;
-        }catch(error){if(valid()){ticket.failures++;node.querySelector('[data-live-status]').textContent='Updates unavailable — showing the last saved observations. Automatic retries slow down after failed reads. Select Refresh progress to retry.';}}
+          announce(workerMessage(data.worker?.status));
+          const healthyPoll=data.worker?.last_success;
+          node.querySelector('[data-live-status]').textContent=`Last refresh ${data.observed_at}. Last healthy worker poll ${healthyPoll||'unavailable'}. Updates checked every two seconds while visible.`;
+        }catch(error){if(valid()){ticket.failures++;announce(workerMessage());node.querySelector('[data-live-status]').textContent='Updates unavailable — showing the last saved observations. Automatic retries slow down after failed reads. Select Refresh progress to retry.';}}
         finally{ticket.pending=false;}
       }
       if(valid())timer=setTimeout(poll,Math.min(32000,POLL_MS*2**Math.min(ticket.failures,4)));

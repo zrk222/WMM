@@ -20,6 +20,26 @@ def run(browser,width,out):
  try:
   page.goto(f.origin);page.wait_for_function("() => state.workspace?.app?.id===state.app")
   page.locator("#navigation > [data-view=activity]").click()
+  expect(page.locator('[data-live-worker]')).to_contain_text('Worker starting')
+  f.server.runner.supervision.attempt('queue', lambda: 1 / 0)
+  f.server.runner.supervision.finish()
+  page.get_by_role('button', name='Refresh progress', exact=True).click()
+  expect(page.locator('[data-live-worker]')).to_contain_text('Worker needs attention')
+  host=page.get_by_text('Keep approved work running',exact=True)
+  host.focus();host.press('Enter')
+  expect(page.get_by_role('link',name='Open the private-host setup guide (new tab)')).to_be_visible()
+  expect(page.get_by_text('Closing this browser leaves the worker running.',exact=False)).to_be_visible()
+  assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
+  styles=page.evaluate(r"""() => Array.from(document.styleSheets).flatMap(sheet=>{
+   try{return Array.from(sheet.cssRules).map(rule=>rule.cssText)}catch{return []}
+  }).join('\n')""")
+  html=page.locator('#main .page-heading, #workflow-monitor').evaluate_all(
+   "(nodes) => nodes.map(node => node.outerHTML).join('')")
+  (out/f'worker-health-{width}.html').write_text(
+   '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Watch the work</title><style>'+styles+'</style><main>'+html+'</main></html>',encoding='utf-8')
+  host.press('Enter')
+  f.server.runner.supervision.stopped()
+  expect(page.locator('[data-live-worker]')).to_contain_text('Worker stopped')
   page.get_by_role("button",name="Sign in for verified review",exact=True).click()
   page.get_by_label("GitHub identity token",exact=True).fill(OWNER_TOKEN)
   page.get_by_role("button",name="Verify my identity",exact=True).click()
@@ -53,7 +73,9 @@ def run(browser,width,out):
   page.get_by_role('button',name='Check connections for this goal',exact=True).click()
   page.get_by_role('button',name='Use my personal agent',exact=True).click()
   page.get_by_role('button',name='Review revocation',exact=True).click()
-  page.get_by_role('button',name='Revoke this grant',exact=True).click()
+  with page.expect_response(f.origin+'/api/apps/sample-one/agent-grants/revoke') as revoked:
+   page.get_by_role('button',name='Revoke this grant',exact=True).click()
+  assert revoked.value.ok
   try:agent.call(dict(app_id='sample-one',operation='growth.history',input={}))
   except ClientError:pass
   else:raise AssertionError('Revoked external grant was admitted')
@@ -119,7 +141,7 @@ def run(browser,width,out):
   assert f.message not in agreement.locator("body").inner_text();assert OWNER_TOKEN not in agreement.locator("body").inner_text();agreement.close()
   assert f.wire.posts==0;assert not jobs(f.store,"sample-one");assert not errors,errors
   assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
-  return dict(width=width,personal_agent_without_profile=True,explicit_grant_and_revocation=True,managed_readiness_guards=True,owner_readiness=True,blockers_preserved=True,exact_schedule_review=True,no_effect_before_due=True,off=True,durable_reload=True,report_privacy=True,campaign_does_not_select_agent=True,javascript_errors=errors,provider="SYNTHETIC_ONLY")
+  return dict(width=width,live_worker_and_private_host_guidance=True,personal_agent_without_profile=True,explicit_grant_and_revocation=True,managed_readiness_guards=True,owner_readiness=True,blockers_preserved=True,exact_schedule_review=True,no_effect_before_due=True,off=True,durable_reload=True,report_privacy=True,campaign_does_not_select_agent=True,javascript_errors=errors,provider="SYNTHETIC_ONLY")
  finally:
   context.close();f.tearDown();f.doCleanups()
 
