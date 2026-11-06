@@ -67,7 +67,11 @@ def main():
         stage = Path(temporary).resolve()
         control = stage / 'DEBIAN'
         control.mkdir()
-        shutil.copy2(ROOT / 'packaging/linux/control', control / 'control')
+        native_window = (bundle / 'WMM-Mission-Control').is_file()
+        metadata = (ROOT / 'packaging/linux/control').read_text(encoding='utf-8')
+        if native_window:
+            metadata = metadata.replace('Depends: ', 'Depends: libwebkit2gtk-4.1-0, ', 1)
+        (control / 'control').write_text(metadata, encoding='utf-8')
         runtime = stage / 'usr/lib/wize-marketing-machine'
         runtime.parent.mkdir(parents=True)
         shutil.copytree(bundle, runtime, symlinks=True)
@@ -79,7 +83,10 @@ def main():
             target = stage / destination
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / 'packaging/linux' / source, target)
-        os.chmod(stage / 'usr/bin/wize-marketing-machine', 0o755)
+        launcher = stage / 'usr/bin/wize-marketing-machine'
+        if native_window:
+            launcher.write_text('#!/bin/sh\nexec /usr/lib/wize-marketing-machine/WMM-Mission-Control\n', encoding='utf-8')
+        os.chmod(launcher, 0o755)
         archive(stage, output / 'wize-marketing-machine_0.1.0_amd64.deb')
 
 

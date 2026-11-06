@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::path::Path;
+use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Mutex;
 use tauri::{webview::NewWindowResponse, Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuilder};
@@ -40,13 +40,18 @@ fn shell_window(
         .on_new_window(|_, _| NewWindowResponse::Deny)
 }
 
-fn dashboard(
-    app: &tauri::App,
-    engine_directory: &Path,
-) -> Result<Engine, Box<dyn std::error::Error>> {
+fn bundled_engine() -> Result<Engine, Box<dyn std::error::Error>> {
     let mut expected = [0; 32];
     hex::decode_to_slice(env!("WMM_NATIVE_ENGINE_SHA256"), &mut expected)?;
-    let engine = Engine::start(engine_directory, expected)?;
+    let directory: PathBuf = std::env::current_exe()?
+        .parent()
+        .ok_or("The WMM executable directory is unavailable")?
+        .to_owned();
+    Ok(Engine::start(&directory, expected)?)
+}
+
+fn dashboard(app: &tauri::App) -> Result<Engine, Box<dyn std::error::Error>> {
+    let engine = bundled_engine()?;
     let root: Url = engine.origin().parse()?;
     shell_window(app, WebviewUrl::External(root.clone()))
         .on_navigation(move |candidate| on_dashboard(candidate, &root))
@@ -55,14 +60,19 @@ fn dashboard(
 }
 
 fn main() -> ExitCode {
+    let arguments: Vec<_> = std::env::args_os().skip(1).collect();
+    if arguments == ["--verify-bundled-engine"] {
+        return match bundled_engine().and_then(|engine| Ok(engine.shutdown()?)) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(_) => ExitCode::FAILURE,
+        };
+    }
+    if !arguments.is_empty() {
+        return ExitCode::FAILURE;
+    }
     let app = tauri::Builder::default()
         .setup(|app| {
-            match app
-                .path()
-                .resource_dir()
-                .ok()
-                .and_then(|p| dashboard(app, &p.join("WMM")).ok())
-            {
+            match dashboard(app).ok() {
                 Some(engine) => {
                     app.manage(EngineSlot(Mutex::new(Some(engine))));
                 }
