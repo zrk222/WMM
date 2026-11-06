@@ -44,3 +44,18 @@ test('owner taste form exposes twelve examples and saves exact guidance without 
 test('uncertain owner taste save uses observation-only reconciliation with exact original input',async()=>{const h=setup();h.t.policy={policy_sha256:'b'.repeat(64),policy:{lenses:{product:'Show it'}}};const current=h.ui.tasteForm(h.t);h.d.fetch=async()=>{throw new Error('Lost response');};await h.ui.submit({id:'packaging-taste-form',values:{lens:'product',voice:'Plain',visual:'Authentic',exclusions:''}},h.d);const active=h.ui.tickets(h.t);assert.equal(active.length,1);assert.equal(active[0].taste,true);h.d.fetch=async(url,options)=>{h.calls.push({url,body:JSON.parse(options.body)});return ok({status:'MATCHING_REVISION_OBSERVED',document:tasteSaved(active[0].body)});};await h.ui.reconcile(current,active[0]);assert.equal(h.calls[0].url,'/api/apps/sample-one/packaging/taste-reconcile');assert.equal(h.ui.tickets(h.t).length,0);assert.ok(h.html.includes('Your reviewed guidance'));});
 
 test('late taste responses cannot reopen a changed app and foreign owner reviews reject',async()=>{const h=setup(),body={id:'taste-one',version:0,manifest_version:1,policy_sha256:'b'.repeat(64),data:{lens:'product',voice:'Plain',visual:'Clear',examples:[],exclusions:[]}},saved=tasteSaved(body);let release;h.d.fetch=async()=>new Promise(r=>release=r);const pending=h.ui.tasteRead(h.t,'taste-one',1);h.d.state.app='other-app';h.ui.invalidate(h.d.state);release(ok(saved));await pending;assert.equal(h.html,'');const second=setup();second.d.fetch=async()=>ok({...saved,app_id:'foreign'});await assert.rejects(second.ui.tasteRead(second.t,'taste-one',1),/another app/);assert.equal(second.html.includes('Your reviewed guidance'),false);});
+
+
+test('private taste PDF appends reviewed direction inside either report surface',()=>{
+  for(const inline of [false,true]){
+    const h=setup(),sections=[];
+    h.t.data.saved=tasteSaved({id:'taste-one',version:0,manifest_version:1,policy_sha256:'b'.repeat(64),data:{lens:'product',voice:'<private>',visual:'Clear',examples:[],exclusions:[]}});
+    const doc={createElement:()=>({}),querySelector:()=>({append:section=>sections.push(section)})};
+    const dialog={ownerDocument:{createElement:doc.createElement,querySelector:()=>assert.fail('Queried the workspace')},querySelector:doc.querySelector};
+    h.d.pageReports={openReport:()=>inline?dialog:{document:doc}};
+    h.ui.tasteReportAction(h.t,'pdf');
+    assert.equal(sections.length,1);
+    assert.match(sections[0].innerHTML,/&lt;private&gt;/);
+    assert.doesNotMatch(sections[0].innerHTML,/<private>/);
+  }
+});

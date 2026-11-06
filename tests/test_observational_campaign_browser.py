@@ -61,7 +61,7 @@ class ObservationalCampaignBrowserTests(unittest.TestCase):
         expect(pdf.value.get_by_role('heading',name='Organic campaign attribution')).to_be_visible()
         expect(pdf.value.locator('body')).to_contain_text('Source hash')
         pdf.value.close()
-        page.evaluate("() => { window.open = () => null; window.print = () => { window.reportPrinted = true; }; }")
+        page.evaluate("() => { window.open = () => { document.activeElement.blur(); return null; }; window.print = () => { window.reportPrinted = true; }; }")
         button = page.get_by_role('button', name='Save private report as PDF')
         button.click()
         report = page.get_by_role('dialog', name='Organic campaign attribution')

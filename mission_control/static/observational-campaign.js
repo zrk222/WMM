@@ -86,7 +86,7 @@ const WMMObservationalCampaign = (() => {
     $('#observational-campaign-status').textContent = message;
   }
 
-  function pdf(report) {
+  function pdf(report, trigger) {
     const model = WMMPageReports.model(state);
     WMMPageReports.openReport({
       ...model,
@@ -102,7 +102,7 @@ const WMMObservationalCampaign = (() => {
       notes:['Window: ' + report.starts_at + ' to ' + report.ends_at,
         'Study hash: ' + report.study_hash, 'Source hash: ' + report.source_hash,
         'Coverage: ' + JSON.stringify(report.coverage), ...report.limits],
-    }, window);
+    }, window, trigger);
   }
 
   function binding(task) {
@@ -130,7 +130,7 @@ const WMMObservationalCampaign = (() => {
     if (operation === 'page') return open(Number(node.dataset.id));
     if (operation === 'study') return showStudy(task, task.studies[Number(node.dataset.id)]);
     if (operation === 'pdf' && task.report) {
-      return perform(task, node, () => pdf(task.report));
+      return perform(task, null, () => pdf(task.report, node));
     }
     if (operation !== 'link' && operation !== 'report') return;
     return perform(task, node, async () => {
