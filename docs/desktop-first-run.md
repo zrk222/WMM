@@ -1,20 +1,24 @@
-# Your first useful marketing packet
+# Install and open WMM
 
-Start with one app and one job. WMM keeps the research, creative work and results together so you or your agent can take the next useful step.
+Open the [official WMM releases](https://github.com/zrk222/WMM/releases) and choose a published desktop preview. Download **WMM-Setup.exe** for Windows or **wize-marketing-machine_0.1.0_amd64.deb** for Ubuntu 24.04 amd64. GitHub sign-in is not required for these public release downloads. Source archives are for developers. If no installer release is listed, the desktop distribution has not been published yet.
 
-## Install and open
+On Windows, open the downloaded installer and follow its per-user setup screens. Launch **Wize Marketing Machine** from the Start menu. No terminal or separate Python installation is required. The current installer has no verified Windows publisher signature; Windows may display an unknown-publisher warning. An organization that requires a signed publisher should wait for a signed release. Do not disable OS security controls or install a root certificate to proceed.
 
-Preview installers are available under **Artifacts** in a successful [Desktop runtime packages run](https://github.com/zrk222/WMM/actions/workflows/desktop-packages.yml). Choose the intended source revision and its installer, rather than the raw runtime bundle. GitHub requires sign-in to download these artifacts, and the current preview artifacts expire after seven days. These are not permanent release downloads.
+On Ubuntu, open the downloaded Debian package with your graphical software installer and approve the system package installation. Open **Wize Marketing Machine** from Applications. Use a graphical desktop with a browser and unlocked Secret Service keyring. A Linux distribution without a graphical Debian package installer is outside this no-terminal path. Ubuntu's normal package and desktop prerequisites still apply.
 
-| Your computer | Download and start |
-| --- | --- |
-| Windows | Extract the **WMM-Setup** artifact. Open `WMM-Setup.exe`, complete the per-user installation, then open **Wize Marketing Machine** from Start. Python and a terminal are not needed. |
-| Ubuntu 24.04, amd64 | Extract the **WMM-Ubuntu** artifact. Install its `.deb` using your system's package installer, then open **Wize Marketing Machine** from Applications. If no graphical package installer is configured, the command-line fallback is `sudo apt install ./wize-marketing-machine_0.1.0_amd64.deb`. |
-| iPhone or iPad | Use the separate [native app and its distribution instructions](../ios/). The desktop installer is not an iOS app. |
+WMM opens its private workspace in your browser. Use the controller to stop it. Your workspace lives in your user application-data directory, outside the installed program. Keep a private backup before upgrading. Install a later preview over the current version; uninstall removes program files and preserves workspace data. Preview-to-preview schema compatibility still requires each release's acceptance checks.
 
-The small controller opens your private browser workspace. **Open my workspace** brings it back. Closing the browser leaves approved work running; **Quit WMM** stops this computer's worker. Your computer must stay awake and connected for scheduled work.
+Start with a practice app and choose a goal. Add optional agent integrations using the in-app agent setup, review the proposed configuration, and approve the handoff in your chosen agent. Installing WMM does not authorize a campaign, payment, external message or provider connection. Agent and provider credentials remain optional separate setup; never paste them into an issue or public release report.
 
-Your data stays outside the installed program. Windows uses your local application-data folder; Linux uses `$XDG_DATA_HOME/Wize Marketing Machine` or `~/.local/share/Wize Marketing Machine`. Upgrading or removing the installer preserves that workspace. Windows Credential Manager and an unlocked Linux Secret Service protect supported desktop credentials. The desktop macOS credential adapter is not supported.
+These are automated-tested preview packages. Synthetic fresh-install, upgrade, uninstall and offline-restart checks do not establish a nontechnical person's first-use acceptance. That acceptance and signed Windows publisher verification remain separate evidence.
+
+## Maintainer release handoff
+
+Merge the reviewed candidate into main. Use **Desktop runtime packages** for a build-only hosted check. After reviewing that evidence and obtaining explicit approval to publish, dispatch **Desktop public prerelease** from main with the exact current main commit SHA and a new version tag such as `v0.1.0-preview.1`. The workflow reruns the Windows and Ubuntu installer checks, records the tested installer hashes, and publishes only when both jobs pass. Only the final publication job receives repository contents write permission. Pull requests cannot trigger publication.
+
+The publisher creates a draft prerelease, uploads only the two native installers, SHA256SUMS.txt and their source-bound lifecycle receipts, checks the draft asset names/sizes, then publishes. It downloads the public assets anonymously over normal verified HTTPS and compares full SHA256 hashes. Retain the successful run URL and publisher readback as release evidence. CI logs and source archives alone are not installer distribution proof.
+
+Existing tags/releases/assets are never overwritten. An interrupted upload leaves a draft for inspection; choose a new tag after resolving the cause. A public-download verification failure may occur after publication: inspect that release and its logs explicitly before claiming successful distribution. This workflow does not sign Windows binaries, install trust roots, bypass TLS, or prove human first-use acceptance.
 
 ## Make one packet
 

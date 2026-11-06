@@ -74,9 +74,26 @@ def main():
         env = dict(os.environ, LOCALAPPDATA=str(data))
         app_id = 'WMM-CI-' + uuid.uuid4().hex
         script = ROOT / 'packaging/windows/WMM.iss'
-        run([iscc, '/DMyAppId='+app_id, '/DMyAppName='+app_id, '/DBundleDir='+str(bundle),
-             '/DOutputDir='+str(output), script], temp, env)
-        setup = output / 'WMM-Setup.exe'
+        release_installer = os.environ.get('WMM_RELEASE_INSTALLER')
+        if release_installer:
+            # The official AppId is safe only on a newly provisioned hosted runner.
+            if (os.environ.get('GITHUB_ACTIONS') != 'true'
+                    or os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted'):
+                raise RuntimeError('Final installer acceptance requires a disposable GitHub-hosted runner')
+            import winreg
+            key = r'Software\Microsoft\Windows\CurrentVersion\Uninstall\WizeMarketingMachine_is1'
+            try:
+                existing = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key)
+            except FileNotFoundError:
+                pass
+            else:
+                existing.Close()
+                raise RuntimeError('Refusing a runner with an existing WMM installation')
+            setup = Path(release_installer).resolve(strict=True)
+        else:
+            run([iscc, '/DMyAppId='+app_id, '/DMyAppName='+app_id, '/DBundleDir='+str(bundle),
+                 '/DOutputDir='+str(output), script], temp, env)
+            setup = output / 'WMM-Setup.exe'
         args = ['/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/DIR='+str(install)]
         run([setup, *args], temp, env)
         binary = install / 'WMM.exe'
