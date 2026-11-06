@@ -642,6 +642,8 @@ class CampaignExecutionService:
         campaign,adset,creative,ad=(found[x] for x in ('campaign','adset','creative','ad'))
         if campaign.get('objective')!='OUTCOME_ENGAGEMENT' or adset.get('campaign_id')!=ids['campaign']:
             raise Unconfirmed('Advertising campaign ownership differs from approval')
+        if campaign.get('is_adset_budget_sharing_enabled') is not False:
+            raise Unconfirmed('Provider ad set budget sharing is not confirmed disabled')
         if str(adset.get('lifetime_budget'))!=str(body['lifetime_budget_minor']) or iso_time(adset.get('end_time'))!=iso_time(body['end_time']):
             raise Unconfirmed('Provider lifetime budget or end time differs from approval')
         target=adset.get('targeting')
@@ -679,7 +681,8 @@ class CampaignExecutionService:
             name=body['name'];target={'geo_locations':{'countries':body['targeting']['countries']},
                 'publisher_platforms':['facebook'],'facebook_positions':['feed']}
             intent=self._paid_create(app_id,actor,scope,intent,'campaign',
-                dict(name=name,objective='OUTCOME_ENGAGEMENT',status='PAUSED',special_ad_categories=[]),token,secret)
+                dict(name=name,objective='OUTCOME_ENGAGEMENT',status='PAUSED',special_ad_categories=[],
+                     is_adset_budget_sharing_enabled=False),token,secret)
             intent=self._paid_create(app_id,actor,scope,intent,'adset',
                 dict(name=name,campaign_id=intent['ids']['campaign'],lifetime_budget=body['lifetime_budget_minor'],end_time=body['end_time'],
                      billing_event='IMPRESSIONS',optimization_goal='POST_ENGAGEMENT',targeting=target,status='PAUSED'),token,secret)

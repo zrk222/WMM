@@ -81,12 +81,14 @@ def checked_permalink(permalink):
 def paid_values(kind,fields):
     if kind=='campaign' and (fields['objective']!='OUTCOME_ENGAGEMENT' or fields['special_ad_categories']!=[]):
         raise Invalid('Unsupported campaign objective or special category')
+    if kind=='campaign' and fields['is_adset_budget_sharing_enabled'] is not False:
+        raise Invalid('Ad set budget sharing must remain disabled')
     if kind=='adset' and (fields['billing_event']!='IMPRESSIONS' or fields['optimization_goal']!='POST_ENGAGEMENT'):
         raise Invalid('Unsupported advertising optimization')
 
 
 def paid_shape(kind,fields):
-    expected={'campaign':{'name','objective','status','special_ad_categories'},
+    expected={'campaign':{'name','objective','status','special_ad_categories','is_adset_budget_sharing_enabled'},
           'adset':{'name','campaign_id','lifetime_budget','end_time','billing_event','optimization_goal','targeting','status'},
           'creative':{'name','object_story_id'},
           'ad':{'name','adset_id','creative','status'}}
@@ -160,7 +162,7 @@ class MetaTransport:
         """Only the four fixed typed construction steps can reach a provider edge."""
         numeric(account_id)
         edge=paid_shape(kind,fields)
-        data={key:json.dumps(value,separators=(',',':')) if isinstance(value,(dict,list)) else str(value) for key,value in fields.items()}
+        data={key:json.dumps(value,separators=(',',':')) if isinstance(value,(dict,list,bool)) else str(value) for key,value in fields.items()}
         data['appsecret_proof']=app_secret_proof(token,secret)
         result=self.request('POST','/'+META_VERSION+'/act_'+account_id+'/'+edge,data,token,alive)
         try:return numeric(result.get('id'))
@@ -168,7 +170,7 @@ class MetaTransport:
 
     def read_paid(self,kind,identity,token,secret,alive):
         numeric(identity)
-        selectors={'campaign':'id,account_id,status,effective_status,objective',
+        selectors={'campaign':'id,account_id,status,effective_status,objective,is_adset_budget_sharing_enabled',
           'adset':'id,account_id,campaign_id,status,lifetime_budget,end_time,targeting,optimization_goal,billing_event',
           'creative':'id,account_id,object_story_id',
           'ad':'id,account_id,adset_id,status,effective_status,creative'}
