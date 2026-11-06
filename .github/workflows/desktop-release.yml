@@ -1,0 +1,72 @@
+name: Desktop public prerelease
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Exact current main commit SHA (40 lowercase hex)
+        required: true
+        type: string
+      tag:
+        description: New immutable version tag (for example v0.1.0-preview.1)
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: desktop-public-release
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    outputs:
+      sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Admit exact official main candidate
+        id: target
+        env:
+          CANDIDATE: ${{ inputs.candidate_sha }}
+          TAG: ${{ inputs.tag }}
+          DISPATCH_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import os, subprocess, runpy
+          validate_target = runpy.run_path('tools/publish_desktop_release.py')['validate_target']
+          sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          validate_target(os.environ['CANDIDATE'], sha, os.environ['GITHUB_REF'], os.environ['GITHUB_REPOSITORY'], os.environ['TAG'])
+          if sha != os.environ['DISPATCH_SHA']:
+              raise SystemExit('Main moved after dispatch; start a fresh run with its exact SHA')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('sha=' + sha + '\n')
+          PY
+      - name: Release protocol unit checks
+        run: python -m unittest tests.test_desktop_release -v
+  packages:
+    needs: validate
+    uses: ./.github/workflows/desktop-packages.yml
+    with:
+      candidate_sha: ${{ needs.validate.outputs.sha }}
+  publish:
+    needs: [validate, packages]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ needs.validate.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: WMM-release-*-${{ needs.validate.outputs.sha }}
+          path: release-assets
+          merge-multiple: true
+      - name: Verify both receipts, publish prerelease, verify anonymous downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE: ${{ needs.validate.outputs.sha }}
+          TAG: ${{ inputs.tag }}
+        run: python tools/publish_desktop_release.py publish --folder release-assets --sha "$CANDIDATE" --tag "$TAG"
