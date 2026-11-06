@@ -69,6 +69,8 @@ class Server(ThreadingHTTPServer):
         self.service.build_id=digest({str(path.relative_to(source)):hashlib.sha256(path.read_bytes()).hexdigest() for path in files if path.is_file()})
         self.sessions={}
         self.identities=Identities()
+        from .device_signin import DeviceSignIns
+        self.device_signins=DeviceSignIns(self.identities)
         self.runner=Runner(store)
         from .audit_worker import AuditWorker
         self.audit_runner=AuditWorker(store)
@@ -300,7 +302,8 @@ class Handler(BaseHTTPRequestHandler):
             from .worker import jobs
             return self.send(200,jobs(store,app_id))
         if len(parts)==3:
-            return self.send(200,dict(self.server.service.workspace(app_id),identity=self.server.identities.public(self.session())))
+            return self.send(200,dict(self.server.service.workspace(app_id),identity=self.server.identities.public(self.session()),
+                                      device_signin_available=self.server.device_signins.available))
         if len(parts)==6 and parts[3:5]==['social-access','flows']:
             return self.get_social_progress(app_id,parts[5])
         histories={('aeo','history'):'aeo',('attribution','history'):'attribution'}
@@ -738,9 +741,44 @@ class Handler(BaseHTTPRequestHandler):
     def post_identity(self,parts,data):
         """Bind identity credentials to this existing CSRF-protected local session."""
         identities=self.server.identities;session=self.session()
-        if parts==["api","identity","login"]:return self.send(200,identities.login(session,data))
-        if parts==["api","identity","logout"] and not data:return self.send(200,identities.logout(session))
+        device=self.server.device_signins
+        if parts==["api","identity","login"]:
+            device.cancel(session)
+            return self.send(200,identities.login(session,data))
+        if parts==["api","identity","logout"] and not data:
+            with identities.lock:
+                device.cancel(session)
+                return self.send(200,identities.logout(session))
+        if len(parts)==4 and parts[2]=='device':
+            return self.post_device_signin(device,session,parts[3],data)
         raise KeyError("Identity route not found")
+
+    def post_device_signin(self,device,session,action,data):
+        """Keep desktop browser sign-in bound to one current app revision."""
+        fields={'begin':set(),'open':{'flow_id'},'poll':{'flow_id'},
+                'cancel':{'flow_id'},'confirm':{'flow_id','principal'}}
+        if self.path!='/api/identity/device/'+action or action not in fields:
+            raise KeyError('Identity route not found')
+        if set(data)!={'app_id','app_version'}|fields[action] or not isinstance(data['app_id'],str) or type(data['app_version']) is not int:
+            raise Invalid('Choose the current app before signing in.')
+        app=self.server.service.store.app(data['app_id'])
+        if app['version']!=data['app_version']:
+            raise Invalid('This app changed. Start a fresh GitHub sign-in.')
+        binding=(app['id'],app['version'])
+        if action=='begin':
+            result=device.begin(session,binding)
+        elif action=='open':
+            result=device.open_browser(session,binding,data['flow_id'])
+        elif action=='poll':
+            result=device.poll(session,binding,data['flow_id'])
+        elif action=='confirm':
+            result=device.confirm(session,binding,data['flow_id'],data['principal'])
+        else:
+            with device.lock:
+                device._current(session,binding,data['flow_id'])
+                device.cancel(session)
+            result={'status':'CANCELLED'}
+        return self.send(200,result)
 
     def post_agent_grants(self,parts,data):
         """Bind delegation controls to a freshly verified app owner, never request names."""

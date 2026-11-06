@@ -24,6 +24,10 @@ The optional MCP adapter launched with `--use-grant` advertises **19 tools**: th
 
 Bearer HTTP routes are exactly `POST /api/agent-operations/reviews/prepare`, `/status` and `/resume`. They require one scoped Authorization bearer header, exact loopback Host and matching Origin, JSON content type and unambiguous bounded framing. They create no browser cookie or CSRF session. Preparation and execution each reserve a grant attempt; status can inspect the receipt after its call quota is exhausted, while the grant remains current.
 
+### Optional browser sign-in
+
+An installation can set the public OAuth application client ID in `WMM_GITHUB_DEVICE_CLIENT_ID`. The GitHub app must have device flow enabled. The operator starts sign-in for the selected app, enters the displayed code at GitHub in their browser, then checks and confirms the verified account in WMM. The existing owner and reviewer roles still apply. The device code and bearer stay in the loopback engine's memory. A manual token remains available for installations without a device-flow app.
+
 Human actions use the existing CSRF browser session and freshly reverified GitHub identity at `POST /api/apps/{app_id}/agent-reviews/{action}`:
 
 | Action | Exact body |
