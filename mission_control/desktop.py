@@ -61,12 +61,16 @@ class DesktopRuntime:
             self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
             self.thread.start()
             if workers:
-                self.server.runner.start()
-                self.server.audit_runner.start()
+                self.start_workers()
         except BaseException:
             self.close()
             raise
         return self.origin
+
+    def start_workers(self):
+        """Start the existing workers after the listener is ready."""
+        self.server.runner.start()
+        self.server.audit_runner.start()
 
     def close(self):
         """Stop only this runtime, retaining user data and existing provider receipts."""
@@ -218,6 +222,10 @@ def main(arguments=None):
         return
     if arguments == ['--vault-self-test']:
         vault_self_test()
+        return
+    if arguments == ['--native-sidecar']:
+        from mission_control.desktop_sidecar import serve
+        serve(sys.stdin.buffer, sys.stdout.buffer)
         return
     if arguments == ['--headless']:
         headless()
