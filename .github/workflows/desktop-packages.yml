@@ -71,6 +71,8 @@ jobs:
         if: runner.os == 'Linux'
         run: python -m playwright install --with-deps chromium
       - name: Build native Mission Control and its frozen engine
+        env:
+          WMM_GITHUB_DEVICE_CLIENT_ID: ${{ vars.WMM_GITHUB_DEVICE_CLIENT_ID }}
         run: python tools/build_desktop.py --native-window
       - name: Verify exact native shell and engine
         run: python tools/test_native_desktop_bundle.py dist/desktop/WMM > native-package-receipt.json

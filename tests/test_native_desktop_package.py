@@ -15,6 +15,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class NativeDesktopPackageTests(unittest.TestCase):
+    def test_public_installer_compiles_with_the_publisher_device_client(self):
+        workflow=(ROOT/'.github/workflows/desktop-packages.yml').read_text(encoding='utf-8')
+        step=workflow.split('      - name: Build native Mission Control and its frozen engine\n',1)[1].split('      - name:',1)[0]
+        self.assertIn('WMM_GITHUB_DEVICE_CLIENT_ID: ${{ vars.WMM_GITHUB_DEVICE_CLIENT_ID }}',step)
+        self.assertIn('python tools/build_desktop.py --native-window',step)
+
     def test_native_probe_supplies_disposable_windows_home_without_inheriting_credentials(self):
         run = runpy.run_path(str(ROOT / 'tools/test_native_desktop_bundle.py'))['run']
         profile = Path('disposable-profile')
@@ -58,11 +64,13 @@ class NativeDesktopPackageTests(unittest.TestCase):
             release.mkdir(parents=True)
             (release / 'wmm-mission-control.exe').write_bytes(b'synthetic native shell')
             with patch.dict(build.__globals__, {'ROOT': root}), patch('sys.platform', 'win32'), \
+                 patch.dict('os.environ', {'WMM_GITHUB_DEVICE_CLIENT_ID':'synthetic_publisher_client'}), \
                  patch('subprocess.run') as cargo:
                 self.assertEqual(build(folder), 'WMM-Mission-Control.exe')
                 self.assertIn('--locked', cargo.call_args.args[0])
                 self.assertEqual(cargo.call_args.kwargs['env']['WMM_NATIVE_ENGINE_SHA256'],
                                  hashlib.sha256(engine.read_bytes()).hexdigest())
+                self.assertEqual(cargo.call_args.kwargs['env']['WMM_GITHUB_DEVICE_CLIENT_ID'],'synthetic_publisher_client')
                 self.assertEqual((folder / 'WMM-Mission-Control.exe').read_bytes(), b'synthetic native shell')
                 engine.unlink()
                 with self.assertRaisesRegex(RuntimeError, 'exact frozen WMM engine'):
