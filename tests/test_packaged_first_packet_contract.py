@@ -12,6 +12,47 @@ spec.loader.exec_module(harness)
 
 
 class PackagedFirstPacketTests(unittest.TestCase):
+    def test_failure_boundaries_drop_secrets_foreign_urls_and_unknown_routes(self):
+        value = harness.read_boundary(harness.ORIGIN+'/api/research?token=never-record', harness.ORIGIN, 'GET', 503)
+        self.assertEqual(value, dict(path='/api/research', method='GET', status=503))
+        for url in ('https://example.invalid/api/research', harness.ORIGIN+'/api/oauth/private-token',
+                    harness.ORIGIN+'/api/apps/private-customer'):
+            self.assertIsNone(harness.read_boundary(url, harness.ORIGIN, 'GET', 500))
+        self.assertIsNone(harness.read_boundary(harness.ORIGIN+'/api/research', harness.ORIGIN, 'DELETE'))
+
+    def test_failure_snapshot_is_allowlisted_and_bounded(self):
+        import tempfile, json
+        from unittest.mock import Mock
+        page = Mock()
+        page.evaluate.return_value = dict(boot_loaded=True, research_loaded=False, document_ready='complete',
+            selected_app='private-customer', csrf='never-record', token='never-record', workspace_error='raw-private-error')
+        error = TimeoutError('private exception text')
+        with tempfile.TemporaryDirectory() as folder:
+            harness.capture_packet_failure(page, folder, 1440, error, [dict(path='/api/research', status=503)]*100, ['private error'])
+            raw = (Path(folder)/'failure-1440.json').read_text()
+            report = json.loads(raw)
+        self.assertEqual(len(report['api_boundaries']), 32)
+        self.assertEqual(report['readiness']['selected_app'], 'UNEXPECTED_APP')
+        self.assertEqual(report['exception_type'], 'TimeoutError')
+        self.assertEqual(report['page_error_count'], 1)
+        for secret in ('never-record', 'private-customer', 'raw-private-error', 'private exception text', 'private error'):
+            self.assertNotIn(secret, raw)
+        self.assertIn('Packaged startup diagnostics:', error.__notes__[0])
+
+    def test_diagnostic_errors_preserve_original_failure(self):
+        import tempfile, json
+        from unittest.mock import Mock
+        page = Mock();page.evaluate.side_effect = RuntimeError('private browser detail')
+        error = TimeoutError('original timeout')
+        with tempfile.TemporaryDirectory() as folder:
+            harness.capture_packet_failure(page, folder, 390, error, [], [])
+            report = json.loads((Path(folder)/'failure-390.json').read_text())
+        self.assertEqual(report['snapshot_error_type'], 'RuntimeError')
+        self.assertNotIn('private browser detail', str(report))
+        with patch.object(harness.Path, 'write_text', side_effect=OSError('private path')):
+            harness.capture_packet_failure(page, '.', 390, error, [], [])
+        self.assertIn('could not be retained', error.__notes__[-1])
+
     def test_packet_binding_rejects_foreign_stale_and_wrong_subset(self):
         expected = dict(app_id='sample-one', version=1, source_hash='source')
         value = dict(schema='wmm.goal-evidence-packet.v1', classification='LOCAL_DRAFT_NO_AUTHORITY',

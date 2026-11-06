@@ -9,6 +9,34 @@ from tests import test_agent_grants as fixtures
 
 @unittest.skipUnless(os.environ.get('WMM_BROWSER_TEST_PROFILE') == '1', 'Enable browser profile')
 class OperationFeedbackBrowserTests(unittest.TestCase):
+    def test_packaged_startup_timeout_retains_research_boundary_without_secrets(self):
+        import tempfile
+        from unittest.mock import patch
+        from playwright.sync_api import TimeoutError as BrowserTimeout
+        from tests.test_packaged_first_packet_contract import harness
+        host = fixtures.GrantTests();host.setUp()
+        self.addCleanup(host.tearDown)
+        handler = host.server.RequestHandlerClass
+        original = handler.do_GET
+        def unavailable(request):
+            if request.path == '/api/research':
+                return request.send(503, dict(error='Synthetic research source unavailable'))
+            return original(request)
+        with tempfile.TemporaryDirectory() as folder, patch.object(handler, 'do_GET', unavailable):
+            with self.assertRaises(BrowserTimeout) as caught:
+                harness.verify_packet_browser(host.origin, folder)
+            raw = (Path(folder)/'failure-1440.json').read_text()
+            report = json.loads(raw)
+        self.assertEqual(report['exception_type'], 'TimeoutError')
+        self.assertTrue(report['readiness']['boot_loaded'])
+        self.assertFalse(report['readiness']['research_loaded'])
+        self.assertFalse(report['readiness']['workspace_loaded'])
+        self.assertTrue(report['readiness']['retry_visible'])
+        self.assertIn(dict(path='/api/research', method='GET', status=503), report['api_boundaries'])
+        self.assertNotIn('csrf', raw)
+        self.assertIn('Packaged startup diagnostics:', caught.exception.__notes__[0])
+        self.assertEqual(host.owner.request('GET', '/api/apps/sample-one/jobs'), [])
+
     def test_failed_packet_save_keeps_safe_guidance_and_never_retries(self):
         from playwright.sync_api import sync_playwright, expect
         host = fixtures.GrantTests()
