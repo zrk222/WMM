@@ -4,6 +4,7 @@ import hashlib
 import unittest
 from unittest.mock import patch
 
+from mission_control.apple_analytics import DISCOVERY
 from mission_control.common import Invalid, digest
 from mission_control.marketing_agent_manifest import APPLE_READ_OPERATIONS, authorize_read, operating_manifest
 from mission_control.provider_reports import prepare_analytics_metrics, report_options
@@ -67,6 +68,20 @@ class AppleMetricsScheduleSelectionTests(unittest.TestCase):
             prepare_analytics_metrics(self.reader,self.binding,APP,STORE_APP,
                 {'operation':'analytics_metrics_latest','report_id':REPORT},'connection-1',2)
         download.assert_not_called()
+
+    def test_existing_downloads_paths_reject_discovery_before_segment_download(self):
+        rows = [dict(id='newest', processing_date='2026-10-26', granularity='DAILY')]
+        discovery = inventory(rows)
+        discovery['reports'][0]['name'] = DISCOVERY
+        for options in (dict(operation='analytics_metrics_latest', report_id=REPORT),
+                        dict(operation='analytics_metrics', report_id=REPORT, instance_id='newest')):
+            with self.subTest(options=options), \
+                 patch('mission_control.provider_reports.read_analytics', return_value=discovery), \
+                 patch('mission_control.provider_reports.read_instance_segments') as download, \
+                 self.assertRaisesRegex(Invalid, 'complete App Downloads Standard'):
+                prepare_analytics_metrics(self.reader, self.binding, APP, STORE_APP,
+                                          options, 'connection-1', 2)
+            download.assert_not_called()
 
     def test_latest_waits_for_daily_and_rejects_ambiguous_daily(self):
         for rows in ([], [{'id':'weekly','processing_date':'2026-10-27','granularity':'WEEKLY'}]):

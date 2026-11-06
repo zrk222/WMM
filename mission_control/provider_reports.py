@@ -9,7 +9,7 @@ from .providers import credential,report_request
 from .ads_reports import REPORT_PATHS, read_keywords
 from .subscription_catalog import read_catalog
 from .release_inventory import read_inventory, release_options
-from .apple_analytics import DISCOVERY, METRIC_REPORTS, identity as analytics_identity, read_analytics
+from .apple_analytics import DISCOVERY, DOWNLOADS, identity as analytics_identity, read_analytics
 from .apple_segments import read_instance_segments
 from .apple_metrics import parse_partitions
 
@@ -192,11 +192,11 @@ def prepare_analytics_metrics(reader,binding,app_id,store_id,options,connection_
         raise Invalid('Apple analytics read requires the current connection version')
     inventory=read_analytics(reader,store_id)
     report=next((item for item in inventory['reports'] if item['id']==options['report_id']),None)
+    family = DISCOVERY if options.get('report_family') == DISCOVERY else DOWNLOADS
     if (inventory['coverage']!='COMPLETE' or report is None
             or report['coverage']!='COMPLETE'
-            or report['name'] not in METRIC_REPORTS
-            or report['name'] != options.get('report_family', report['name'])):
-        raise Invalid('Choose a complete supported Apple standard report from this app')
+            or report['name'] != family):
+        raise Invalid(f'Choose a complete {family} report from this app')
     if options['operation']=='analytics_metrics_latest':
         daily=[item for item in report['instances'] if item['granularity']=='DAILY']
         if not daily:
@@ -216,7 +216,7 @@ def prepare_analytics_metrics(reader,binding,app_id,store_id,options,connection_
     else:
         selected=next((item for item in report['instances'] if item['id']==options['instance_id']),None)
         if selected is None or selected['granularity']!='DAILY':
-            raise Invalid('Choose a complete daily Apple report instance')
+            raise Invalid('Choose a complete daily downloads report instance')
     selected_id=selected['id']
     segments=read_instance_segments(reader,store_id,options['report_id'],selected_id)
     key=dict(app_id=app_id,store_app_id=store_id,connection_id=connection_id,
