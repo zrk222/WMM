@@ -6,18 +6,26 @@ on:
       - '.github/workflows/native-desktop-launcher.yml'
       - 'desktop/launcher/**'
       - 'desktop/src-tauri/**'
+      - 'tools/build_desktop.py'
+      - 'tools/build_linux_package.py'
+      - 'tools/test_native_desktop_bundle.py'
       - 'mission_control/desktop*.py'
       - 'mission_control/server.py'
       - 'tests/test_desktop_sidecar.py'
+      - 'tests/test_native_desktop_package.py'
   push:
     branches: [main]
     paths:
       - '.github/workflows/native-desktop-launcher.yml'
       - 'desktop/launcher/**'
       - 'desktop/src-tauri/**'
+      - 'tools/build_desktop.py'
+      - 'tools/build_linux_package.py'
+      - 'tools/test_native_desktop_bundle.py'
       - 'mission_control/desktop*.py'
       - 'mission_control/server.py'
       - 'tests/test_desktop_sidecar.py'
+      - 'tests/test_native_desktop_package.py'
 
 permissions:
   contents: read
@@ -33,7 +41,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -46,15 +54,78 @@ jobs:
       - name: Verify the Rust parent and real Python child
         run: cargo test --locked --manifest-path desktop/launcher/Cargo.toml
       - name: Verify the child protocol and workspace cleanup
-        run: python -B -m unittest tests.test_desktop_sidecar -v
+        run: python -B -m unittest tests.test_desktop_sidecar tests.test_native_desktop_package -v
 
       - name: Install Ubuntu WebView build prerequisites
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=45 -o Acquire::https::Timeout=45 update
           sudo apt-get install --yes --no-install-recommends libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
-      - name: Compile the native shell and verify navigation boundaries
+      - name: Install pinned desktop build dependencies
+        run: python -m pip install --only-binary ":all:" pyinstaller==6.22.3 -r docs/requirements-mcp.txt
+      - name: Install Linux credential build dependency
+        if: runner.os == 'Linux'
+        run: python -m pip install --only-binary ":all:" SecretStorage==3.3.3
+      - name: Build the native shell and frozen engine as one candidate
+        run: python tools/build_desktop.py --native-window
+      - name: Verify the exact frozen pair and reject an altered engine
+        run: python tools/test_native_desktop_bundle.py dist/desktop/WMM > native-package-receipt.json
+      - name: Build the Ubuntu native preview installer
+        if: runner.os == 'Linux'
+        run: |
+          python tools/build_linux_package.py
+          dpkg-deb --extract dist/linux/wize-marketing-machine_0.1.0_amd64.deb .factory/native-deb-check
+          python tools/test_native_desktop_bundle.py .factory/native-deb-check/usr/lib/wize-marketing-machine > native-installer-payload-receipt.json
+      - name: Build the Windows native preview installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $compiler = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (!(Test-Path -LiteralPath $compiler)) { throw 'Inno Setup compiler missing on runner' }
+          & $compiler 'packaging\windows\WMM.iss'
+          if ($LASTEXITCODE -ne 0) { throw 'Native preview installer compilation failed' }
+      - name: Verify the exact installed Windows native pair
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $install = Join-Path $env:RUNNER_TEMP ('wmm-native-' + [guid]::NewGuid().ToString('N'))
+          $installer = (Resolve-Path -LiteralPath 'dist/installer/WMM-Setup.exe').Path
+          $directoryArgument = '/DIR="' + $install + '"'
+          $result = Start-Process -FilePath $installer -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',$directoryArgument) -Wait -PassThru -WindowStyle Hidden
+          if ($result.ExitCode -ne 0) { throw 'Isolated native installer failed' }
+          try {
+            python tools/test_native_desktop_bundle.py $install > native-installer-payload-receipt.json
+            if ($LASTEXITCODE -ne 0) { throw 'Installed native shell and engine failed verification' }
+          } finally {
+            $uninstaller = Join-Path $install 'unins000.exe'
+            $result = Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART') -Wait -PassThru -WindowStyle Hidden
+            if ($result.ExitCode -ne 0) { throw 'Isolated native uninstaller failed' }
+          }
+      - name: Compare packaged and staged native digests
+        run: >-
+          python -c "from pathlib import Path; import hashlib, json, os;
+          staged=json.loads(Path('native-package-receipt.json').read_bytes());
+          packaged=json.loads(Path('native-installer-payload-receipt.json').read_bytes());
+          assert staged == packaged, 'Installer did not retain the verified staged bytes';
+          archive=Path('dist/installer/WMM-Setup.exe' if os.name == 'nt' else 'dist/linux/wize-marketing-machine_0.1.0_amd64.deb');
+          installer_sha=hashlib.sha256(archive.read_bytes()).hexdigest();
+          receipt=dict(source_sha=os.environ['GITHUB_SHA'], installer=archive.name, installer_sha256=installer_sha, payload=packaged);
+          Path('native-installer-receipt.json').write_text(json.dumps(receipt), encoding='utf-8')"
+      - name: Compile the native shell tests and verify navigation boundaries
         env:
+          CARGO_TARGET_DIR: .factory/native-window-build
           # Compilation fixture only. An installed app pins the exact staged engine digest.
           WMM_NATIVE_ENGINE_SHA256: '0000000000000000000000000000000000000000000000000000000000000000'
-        run: cargo test --locked --manifest-path desktop/src-tauri/Cargo.toml
+        run: cargo test --locked --release --manifest-path desktop/src-tauri/Cargo.toml
+      - name: Retain native preview candidate and frozen pair receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: WMM-native-preview-${{ matrix.os }}-${{ github.sha }}
+          path: |
+            dist/installer/WMM-Setup.exe
+            dist/linux/wize-marketing-machine_0.1.0_amd64.deb
+            native-package-receipt.json
+            native-installer-payload-receipt.json
+            native-installer-receipt.json
+          if-no-files-found: error
+          retention-days: 7
