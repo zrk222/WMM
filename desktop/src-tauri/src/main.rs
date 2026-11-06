@@ -47,7 +47,11 @@ fn bundled_engine() -> Result<Engine, Box<dyn std::error::Error>> {
         .parent()
         .ok_or("The WMM executable directory is unavailable")?
         .to_owned();
-    Ok(Engine::start(&directory, expected)?)
+    Ok(Engine::start_with_device_client(
+        &directory,
+        expected,
+        Some(env!("WMM_PACKAGED_GITHUB_DEVICE_CLIENT_ID")).filter(|value| !value.is_empty()),
+    )?)
 }
 
 fn dashboard(app: &tauri::App) -> Result<Engine, Box<dyn std::error::Error>> {

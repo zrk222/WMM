@@ -42,6 +42,15 @@ pub struct Engine {
 impl Engine {
     /// The caller obtains the engine directory and expected digest from trusted package resources.
     pub fn start(engine_directory: &Path, expected_sha256: [u8; 32]) -> io::Result<Self> {
+        Self::start_with_device_client(engine_directory, expected_sha256, None)
+    }
+
+    /// Pass only the package's optional public device-flow client to the owned child.
+    pub fn start_with_device_client(
+        engine_directory: &Path,
+        expected_sha256: [u8; 32],
+        client_id: Option<&str>,
+    ) -> io::Result<Self> {
         let executable =
             fs::canonicalize(engine_directory)?.join(if cfg!(windows) { "WMM.exe" } else { "WMM" });
         if !fs::symlink_metadata(&executable)?.is_file() {
@@ -58,6 +67,7 @@ impl Engine {
 
         let mut command = Command::new(executable);
         command.arg("--native-sidecar");
+        set_device_client(&mut command, client_id)?;
         launch(command, expected_sha256)
     }
 
@@ -82,6 +92,23 @@ impl Drop for Engine {
             });
         }
     }
+}
+
+fn set_device_client(command: &mut Command, client_id: Option<&str>) -> io::Result<()> {
+    const KEY: &str = "WMM_GITHUB_DEVICE_CLIENT_ID";
+    if let Some(value) = client_id {
+        if !(10..=64).contains(&value.len())
+            || !value
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        {
+            return Err(invalid("The packaged GitHub device client ID is invalid."));
+        }
+        command.env(KEY, value);
+    } else {
+        command.env_remove(KEY);
+    }
+    Ok(())
 }
 
 fn launch(mut command: Command, expected_sha256: [u8; 32]) -> io::Result<Engine> {

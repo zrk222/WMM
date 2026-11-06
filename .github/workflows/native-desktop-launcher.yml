@@ -67,6 +67,8 @@ jobs:
         if: runner.os == 'Linux'
         run: python -m pip install --only-binary ":all:" SecretStorage==3.3.3
       - name: Build the native shell and frozen engine as one candidate
+        env:
+          WMM_GITHUB_DEVICE_CLIENT_ID: ${{ vars.WMM_GITHUB_DEVICE_CLIENT_ID }}
         run: python tools/build_desktop.py --native-window
       - name: Verify the exact frozen pair and reject an altered engine
         run: python tools/test_native_desktop_bundle.py dist/desktop/WMM > native-package-receipt.json
