@@ -9,6 +9,7 @@ never provider delivery or business lift.
 from pathlib import Path
 import hashlib
 import json
+import os
 import sys
 import threading
 from unittest.mock import patch
@@ -24,7 +25,12 @@ from mission_control.server import Server  # noqa: E402
 from tests.test_automation_agreement import AutomationAgreementTests, BATCH, SCOPE  # noqa: E402
 from tests.test_verified_review import OWNER, OWNER_TOKEN, synthetic_identity  # noqa: E402
 
-OUT = ROOT / ".factory" / "goal-first-automation"
+OUT = Path(
+    os.environ.get(
+        "WMM_AGREEMENT_BROWSER_OUT",
+        str(ROOT / ".factory" / "goal-first-automation"),
+    )
+)
 
 
 def run(browser, width):
@@ -42,6 +48,8 @@ def run(browser, width):
         # changes. The agreement must show its existing repair instruction.
         with connection(fixture.store.path) as db:
             db.execute("UPDATE agent_connections SET version=version+1")
+        local_work = fixture.preview()["summary"]["local_work"]
+        local_usage = local_work["usage"]
         server = Server(("127.0.0.1", 0), fixture.store)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
@@ -141,6 +149,12 @@ def run(browser, width):
         report_text = report.locator("body").inner_text()
         for expected in ("WMM background worker", "Owner " + OWNER["principal"],
                          "Batch " + BATCH, "Campaign scope " + SCOPE,
+                         "Local policy " + local_work["id"] + " " + local_work["effective_status"],
+                         "local-work agent " + local_work["summary"]["inventory"]["selection"]["agent_id"],
+                         "Local-work permitted operations " + ", ".join(local_work["summary"]["operations"]),
+                         "Local-work permission expires " + local_work["summary"]["stops_at"],
+                         "Local-work calls " + str(local_usage["used"]) + "/" + str(local_usage["max_calls"]),
+                         "Local-work spend limit 0 minor",
                          "Per-campaign media cap 90 minor CAD",
                          "Maximum total media commitment 100 minor CAD",
                          "Approved content fingerprints:", fixture.post["content_hash"],

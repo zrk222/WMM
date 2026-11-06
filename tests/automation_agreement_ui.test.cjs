@@ -4,6 +4,26 @@ test('selection includes exact existing resource IDs, never new authority fields
 test('combined review escapes source content and explicitly issues no authority',()=>{const a=fixture(),data={status:'warning',summary_hash:'hash',summary:{app:{id:'<script>',version:1},owner:{principal:'owner'},local_work:null,campaign:null,schedule:null,stop_rules:['<img>'],revocation:'OFF keeps receipts'}};const html=a.markup(data);assert.ok(html.includes('No execution authority is issued'));assert.equal(html.includes('<script>'),false);assert.equal(html.includes('<img>'),false);assert.match(html,/No local-work scope selected/);assert.match(html,/No campaign scope selected/);});
 test('agreement report projects states and excludes private post and credential payloads',()=>{const a=fixture(),data={summary_hash:'hash',observed_at:'now',summary:{app:{id:'one',version:1},blocked:false,local_work:null,campaign:{id:'scope',effective_status:'ACTIVE',commitment_held_minor:10,approval:{max_total_minor:100,currency:'CAD'},private_key:'SECRET'},schedule:{id:'batch',effective_status:'ACTIVE',items:[{request:{message:'PRIVATE_COPY'}}]}}};const model=a.reportModel(data,{notes:[],cohorts:[]});assert.equal(JSON.stringify(model).includes('PRIVATE_COPY'),false);assert.equal(JSON.stringify(model).includes('SECRET'),false);assert.equal(model.metrics[0].value,2);assert.match(model.notes.join(' '),/No approval/);});
 
+test('owner report includes exact local-work identity, scope, expiry, call quota and zero spend only',()=>{
+ const a=fixture(),privatePayload='PRIVATE_LOCAL_PAYLOAD',data={summary_hash:'hash',observed_at:'now',summary:{
+  app:{id:'one',version:1},blocked:false,
+  local_work:{id:'policy-1',effective_status:'ACTIVE',summary:{
+   inventory:{selection:{agent_id:'agent-7'}},operations:['evidence.read','brief.create'],
+   stops_at:'2026-11-06T18:00:00Z',private_payload:privatePayload
+  },usage:{used:3,max_calls:20},spend_limit_minor:0},campaign:null,schedule:null
+ }};
+ const report=a.reportModel(data,{notes:[],cohorts:[]}),notes=report.notes.join(' ');
+ for(const expected of ['Local policy policy-1 ACTIVE','local-work agent agent-7',
+  'Local-work permitted operations evidence.read, brief.create',
+  'Local-work permission expires 2026-11-06T18:00:00Z','Local-work calls 3/20',
+  'Local-work spend limit 0 minor'])assert.ok(notes.includes(expected),expected);
+ assert.equal(JSON.stringify(report).includes(privatePayload),false);
+ const sparse=a.reportModel({...data,summary:{...data.summary,local_work:{id:'sparse',effective_status:'BLOCKED',summary:{},usage:{},spend_limit_minor:0}}},{notes:[],cohorts:[]}).notes.join(' ');
+ assert.match(sparse,/Local-work permitted operations Unavailable/);
+ assert.match(sparse,/Local-work permission expires Unavailable/);
+ assert.match(sparse,/Local-work calls Unknown\/Unknown/);
+});
+
 test('paid review displays exact budgets, uncertainty, receipt identities and repair state',()=>{
  const a=fixture(),data={status:'warning',summary_hash:'hash',summary:{app:{id:'one',version:1},owner:{principal:'owner'},local_work:{effective_status:'BLOCKED',repair:'Reconnect before reapproval',summary:{},usage:{}},campaign:{effective_status:'ACTIVE',approval:{page_id:'123',ad_account_id:'456',expires_at:'later',max_posts:1,max_campaigns:1,max_calls:50,max_total_minor:100,currency:'CAD'},commitment_held_minor:80,account:{},blockers:[]},schedule:{id:'batch',effective_status:'BLOCKED',blockers:['SCHEDULE_ITEM_NEEDS_REVIEW'],items:[{operation:'campaign.ad-launch',due_at:'due',effective_status:'NEEDS_RECONCILIATION',request:{post_id:'123_777',lifetime_budget_minor:80,end_time:'end',targeting:{countries:['CA','US']}},job_status:'SUCCEEDED',intent:{status:'PENDING_ACTIVATE_campaign',commitment:80,currency:'CAD',ids:{ad:'104',campaign:'101'}}}]},stop_rules:[],revocation:'OFF'}};
  data.summary.campaign.permission_expires_at='extended-parent-date';
