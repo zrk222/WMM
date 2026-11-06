@@ -6,7 +6,7 @@ On Windows, open the downloaded installer and follow its per-user setup screens.
 
 On Ubuntu, open the downloaded Debian package with your graphical software installer and approve the system package installation. Open **Wize Marketing Machine** from Applications. Use a graphical desktop with a browser and unlocked Secret Service keyring. A Linux distribution without a graphical Debian package installer is outside this no-terminal path. Ubuntu's normal package and desktop prerequisites still apply.
 
-WMM opens its private workspace in your browser. Use the controller to stop it. Your workspace lives in your user application-data directory, outside the installed program. Keep a private backup before upgrading. Install a later preview over the current version; uninstall removes program files and preserves workspace data. Preview-to-preview schema compatibility still requires each release's acceptance checks.
+The native desktop preview opens your private workspace in its own Mission Control window. Closing that window stops its local engine and worker; leave it open for approved scheduled work. Your workspace lives in your user application-data directory, outside the installed program. Keep a private backup before upgrading. Install a later preview over the current version; uninstall removes program files and preserves workspace data. Preview-to-preview schema compatibility still requires each release's acceptance checks.
 
 Start with a practice app and choose a goal. Add optional agent integrations using the in-app agent setup, review the proposed configuration, and approve the handoff in your chosen agent. Installing WMM does not authorize a campaign, payment, external message or provider connection. Agent and provider credentials remain optional separate setup; never paste them into an issue or public release report.
 
@@ -28,6 +28,8 @@ Existing tags/releases/assets are never overwritten. An interrupted upload leave
 4. **Add a reference to study.** Choose **Add a research reference** from the packet, then add the source you want to study. Viral-only qualification requires 100,000 views and 10× a documented creator baseline. Open a new packet after adding evidence to see the updated next steps.
 
 Core preparation needs no model key or paid account. Connected reads, video tools and campaign execution show their own prerequisites. The goal-specific **Check connections for this goal** control identifies the selected agent and account setup. Owner sign-in is required before inspecting private account readiness or granting authority.
+
+Measure these as two separate setup journeys: **install → first useful packet** and **connect your account → first approved, verified campaign**. The first does not require Meta, TikTok or a local OAuth developer app. Campaign setup depends on the selected provider's permissions and supported WMM delivery path. Neither journey has a verified first-time human completion time yet.
 
 ## Let your agent take over
 

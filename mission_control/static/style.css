@@ -99,3 +99,6 @@
 .product-header .brand{width:fit-content;min-height:44px;padding:0;gap:10px;font-size:17px;font-weight:650}
 .product-header .brand-mark{flex:0 0 36px;width:36px;height:36px;border-radius:10px;font-size:25px}
 @media(max-width:760px){.product-header{padding-inline:16px}.sidebar #app-select{grid-column:1/-1}}
+
+/* Persistent action feedback keeps the next safe step beside its diagnosis. */
+.operation-feedback p{margin:0 0 10px}.operation-feedback details{margin:12px 0}.operation-feedback summary{cursor:pointer;min-height:44px;padding:10px 0}.toast[data-error]{width:560px;max-height:calc(100vh - 48px);overflow:auto}.toast[data-error] .button{margin-top:10px}

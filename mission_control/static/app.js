@@ -12,15 +12,43 @@ const empty = (title,description,action="") => `<div class="empty-state"><div cl
 
 async function api(path,body,options={}) {
   const headers = body ? {"Content-Type":"application/json","X-CSRF-Token":state.boot?.csrf} : {};
-  const response = await fetch(path,{method:body?"POST":"GET",headers,body:body?JSON.stringify(body):undefined,...options});
-  const result = await response.json();
-  if(!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
+  const method=options.method||(body?"POST":"GET");
+  let response,result;
+  try {
+    response = await fetch(path,{method,headers,body:body?JSON.stringify(body):undefined,...options});
+  } catch(error) {
+    throw WMMFeedback.error(error,{interrupted:true,method});
+  }
+  try {result = await response.json();}
+  catch(error) {throw WMMFeedback.error(error,{unreadable:true,status:response.status,method});}
+  if(!response.ok) throw WMMFeedback.error(new Error(result.error || `Request failed (${response.status})`),{...result,status:response.status,method});
   return result;
 }
 
 function toast(message) {
-  const node=$("#toast"); node.textContent=message;node.hidden=false;
+  const node=$("#toast"); node.textContent=message;node.hidden=false;delete node.dataset.error;
+  node.setAttribute("role","status");node.removeAttribute("tabindex");
   clearTimeout(toast.timer);toast.timer=setTimeout(()=>node.hidden=true,6000);
+}
+
+function showActionError(error) {
+  const issue=WMMFeedback.error(error);
+  let inline=$("#form-error");
+  if(!inline&&$("#modal")?.open){
+    inline=document.createElement("div");inline.id="form-error";inline.className="field-error";
+    $("#modal-body").prepend(inline);
+  }
+  const node=inline||$("#toast");
+  clearTimeout(toast.timer);
+  node.innerHTML=WMMFeedback.view(issue);
+  node.setAttribute("role","alert");
+  node.setAttribute("tabindex","-1");
+  node.hidden=false;
+  if(!inline){
+    node.dataset.error="true";
+    node.insertAdjacentHTML("beforeend",button("Dismiss message","dismiss-operation-error"));
+  }
+  node.focus();
 }
 
 async function initialize() {
@@ -915,7 +943,7 @@ async function formSubmit(event) {
     if(formId==="inspection-form")await saveInspection(form);
     if(formId==="brief-form")await saveBrief(form);
     await initialize();$("#modal").close();toast("Saved with source and workspace history.");
-  } catch(error) {$("#form-error").textContent=error.message;} finally {submit.disabled=false;}
+  } catch(error) {showActionError(error);} finally {submit.disabled=false;}
 }
 
 async function saveApp(data,isNew,form) {
@@ -1037,12 +1065,13 @@ async function handleAction(node) {
 document.addEventListener("click",async event=>{
   const node=event.target.closest("[data-action],[data-view],[data-report-page]");if(!node) return;
   if(node.hasAttribute("data-report-page")) {
-    try{WMMPageReports.openReport(WMMPageReports.model(state),window,node);}catch(error){toast(error.message);}return;
+    try{WMMPageReports.openReport(WMMPageReports.model(state),window,node);}catch(error){showActionError(error);}return;
   }
   const view=node.dataset.view||(node.dataset.action==="research-channel-open"?"research":null);
   if(view) {state.weeklyGeneration=(state.weeklyGeneration||0)+1;state.weeklyLoading=false;state.view=view;render();$("#main").focus();return;}
-  if(node.dataset.action?.startsWith('weekly-')){try{await weeklyAction(node);}catch(error){toast(error.message);}return;}
-  try {await handleAction(node);} catch(error) {if($("#form-error")) $("#form-error").textContent=error.message;else toast(error.message);}
+  if(node.dataset.action==="dismiss-operation-error"){$("#toast").hidden=true;return;}
+  if(node.dataset.action?.startsWith('weekly-')){try{await weeklyAction(node);}catch(error){showActionError(error);}return;}
+  try {await handleAction(node);} catch(error) {showActionError(error);}
 });
 document.addEventListener("submit",formSubmit);
 document.addEventListener("change",event=>{
