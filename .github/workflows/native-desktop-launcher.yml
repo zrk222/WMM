@@ -98,6 +98,8 @@ jobs:
           try {
             python tools/test_native_desktop_bundle.py $install > native-installer-payload-receipt.json
             if ($LASTEXITCODE -ne 0) { throw 'Installed native shell and engine failed verification' }
+            python tools/test_native_desktop_bundle.py $install --windows-window > native-windows-window-receipt.json
+            if ($LASTEXITCODE -ne 0) { throw 'Installed Mission Control failed window startup or close' }
           } finally {
             $uninstaller = Join-Path $install 'unins000.exe'
             $result = Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART') -Wait -PassThru -WindowStyle Hidden
@@ -129,5 +131,6 @@ jobs:
             native-package-receipt.json
             native-installer-payload-receipt.json
             native-installer-receipt.json
+            native-windows-window-receipt.json
           if-no-files-found: error
           retention-days: 7
