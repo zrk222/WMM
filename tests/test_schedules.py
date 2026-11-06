@@ -62,9 +62,14 @@ class ScheduleTests(unittest.TestCase):
         restarted=Store(self.store.path);self.assertEqual(Schedules(restarted).list("sample-one")[0]["last_job"],pending[0]["id"])
         self.assertTrue(self.execute());result=jobs(self.store,"sample-one")[0]
         self.assertEqual(result["status"],"SUCCEEDED");self.assertEqual(result["result"]["result"]["status"],"EVALUATED")
+        iteration = result["result"]["iteration"]
+        self.assertEqual(iteration["assessment_hash"], result["result"]["hash"])
+        self.assertFalse(iteration["authority_issued"])
+        self.assertEqual(iteration["external_execution"], "NOT_RUN")
         self.assertEqual(self.tick(),0);self.assertEqual(self.setting()["failures"],0)
         self.assertEqual(self.tick("2026-10-03T00:00:00+00:00"),1);self.execute("2026-10-03T00:00:00+00:00")
         self.assertFalse(jobs(self.store,"sample-one")[0]["result"]["new_assessment"])
+        self.assertEqual(jobs(self.store,"sample-one")[0]["result"]["iteration"], iteration)
         self.assertEqual(len(self.experiments.list("sample-one")[0]["assessments"]),1)
 
     def test_finite_reservation_concurrency_and_exhaustion(self):

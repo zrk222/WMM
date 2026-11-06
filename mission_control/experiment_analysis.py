@@ -3,6 +3,8 @@ import math
 from .common import Invalid, amount, fraction
 
 METRICS={"activation_rate":"activated","paid_conversion":"paid","retention_rate":"retained"}
+ASSIGNMENT_MISMATCH = "Sample ratio mismatch; investigate assignment and logging"
+GUARDRAIL_BREACH = "breached a predeclared retention/refund/contribution/cost guardrail"
 
 
 def sample_plan(baseline,effect,allocation):
@@ -55,7 +57,7 @@ def sample_diagnostics(reports,plan,allocation):
         if reports[arm]["installs"]<plan[arm]:issues.append(arm+" sample below predeclared requirement")
     total=c+t
     chi=(c-total*(1-allocation))**2/(total*(1-allocation))+(t-total*allocation)**2/(total*allocation) if total else None
-    if chi is not None and chi>6.634897:issues.append("Sample ratio mismatch; investigate assignment and logging")
+    if chi is not None and chi>6.634897:issues.append(ASSIGNMENT_MISMATCH)
     return {"issues":issues,"sample_ratio_chi_square":chi,"required":plan}
 
 
@@ -70,7 +72,7 @@ def guardrail_findings(reports,guardrails):
             failures.append(arm+" guardrail denominator or costs unavailable");continue
         checks=(values["retention"]>=guardrails["min_retention_rate"],values["contribution"]>=guardrails["min_contribution_minor"],
                 values["cost"]<=guardrails["max_acquisition_minor"],refund_fraction<=guardrails["max_refund_fraction"])
-        if not all(checks):failures.append(arm+" breached a predeclared retention/refund/contribution/cost guardrail")
+        if not all(checks):failures.append(f"{arm} {GUARDRAIL_BREACH}")
     return failures
 
 

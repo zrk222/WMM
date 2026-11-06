@@ -45,6 +45,12 @@ class AgentWorkflowProtocolTests(unittest.TestCase):
         self.assertFalse(result['execution_authority']);self.assertFalse(result['connection_verified'])
         self.assertEqual(policy['supported_execution']['spend_minor'],0)
         self.assertIn('campaign.ad-launch',policy['supported_execution']['provider_writes'])
+        improvement = result["workflow_protocol"]["continuous_improvement"]
+        self.assertEqual(improvement["evaluation"]["operation"], "experiment.evaluate")
+        self.assertEqual(improvement["evaluation"]["result_field"], "iteration")
+        self.assertEqual(set(improvement["decisions"]), {"COLLECT", "REPAIR", "STOP", "CONTINUE", "REVISE"})
+        self.assertNotIn("continuous_improvement", policy["owner_operating_protocol"])
+        self.assertEqual(result["scope"]["policy_sha256"], digest(policy))
         check=dict(result);check.pop('guide_sha256')
         self.assertEqual(digest(check),result['guide_sha256'])
 

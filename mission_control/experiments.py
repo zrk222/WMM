@@ -205,7 +205,9 @@ class Experiments:
                 db.execute("INSERT INTO experiment_assessments VALUES(?,?,?,?,?,?)",(app_id,experiment_id,result_hash,canonical(result),now(),current["version"]+1))
                 db.execute("UPDATE experiments SET state='EVALUATED',version=version+1,updated=? WHERE app_id=? AND id=?",(now(),app_id,experiment_id))
                 self.audit(db,app_id,experiment_id,"evaluated",result_hash)
-            return {"hash":result_hash,"result":result,"new_assessment":bool(inserted)}
+            from .experiment_iteration import iteration_plan
+            return {"hash":result_hash,"result":result,"new_assessment":bool(inserted),
+                    "iteration":iteration_plan(definition,result,result_hash)}
 
 
 def action_state(db,current,body):
