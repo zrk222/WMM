@@ -1,0 +1,68 @@
+:root {
+  --brand: #173c34;
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+  line-height: 1.6;
+}
+body {
+  margin: 0;
+  padding: clamp(1.5rem, 7vw, 5rem);
+}
+main {
+  max-width: 38rem;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 650;
+}
+.brand span {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.625rem;
+  color: #fff;
+  background: var(--brand);
+}
+h1 {
+  font-size: clamp(1.8rem, 5vw, 2.5rem);
+  line-height: 1.2;
+}
+
+@media (max-width: 480px) {
+  body {
+    padding: 1.5rem;
+  }
+}
+
+.repair-link {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  padding: 0.25rem 0.875rem;
+  border-radius: 0.5rem;
+  background: var(--brand);
+  color: #fff;
+  font-weight: 600;
+  transition: background-color 150ms;
+}
+.repair-link:hover {
+  background: #26584d;
+}
+.repair-link:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: -5px;
+}
+#repair {
+  display: none;
+}
+#repair:target {
+  display: block;
+}
+@media (prefers-reduced-motion: reduce) {
+  .repair-link {
+    transition: none;
+  }
+}

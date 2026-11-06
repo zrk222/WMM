@@ -1,0 +1,13 @@
+[package]
+name = "wmm-mission-control"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[build-dependencies]
+tauri-build = "2"
+
+[dependencies]
+hex = "0.4.3"
+tauri = "2.12.5"
+wmm-native-launcher = { path = "../launcher" }

@@ -8,6 +8,12 @@ import hashlib
 
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 
+# Only the reviewed synthetic native icon bytes are allowed at these two paths.
+NATIVE_ICONS={
+    'desktop/src-tauri/icons/icon.ico': 'bf5c20b5d2c88871e312a1605176daad830da56b0f3f7eb5136716e3458ede0e',
+    'desktop/src-tauri/icons/icon.png': '3dede082892ba0532c3228f7e78134ea6b7e596b2925ac492bd4dc37f9d36a06',
+}
+
 def decode_text(data):
     if data.startswith((b'\xff\xfe',b'\xfe\xff')):return data.decode('utf-16')
     if data.startswith(b'\xef\xbb\xbf'):return data.decode('utf-8-sig')
@@ -28,6 +34,11 @@ def check():
     for path in files():
         rel=path.relative_to(ROOT)
         if path.is_symlink() or not path.resolve().is_relative_to(ROOT.resolve()):issues.append(str(rel)+': escaping path');continue
+        expected_icon=NATIVE_ICONS.get(rel.as_posix())
+        if expected_icon is not None:
+            if hashlib.sha256(path.read_bytes()).hexdigest()!=expected_icon:
+                issues.append(str(rel)+': native icon digest mismatch')
+            continue
         if rel.as_posix() in {'docs/images/overview.png','docs/images/pipeline.png','docs/images/results.png','docs/images/sample-workflow.png','docs/images/agent-task-setup.png'}:
             try:
                 manifest=json.loads((ROOT/'docs/images/provenance.json').read_text(encoding='utf-8'))
