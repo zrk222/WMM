@@ -44,6 +44,10 @@ jobs:
           python tools/test_client_dashboard_browser.py
           python tools/test_authority_expiry_browser.py
           python tools/test_agent_task_presets_browser.py
+      - name: Verify actionable rejection and uncertain-delivery feedback
+        env:
+          WMM_BROWSER_TEST_PROFILE: '1'
+        run: python -m unittest tests.test_operation_feedback_browser -v
   windows:
     runs-on: windows-latest
     timeout-minutes: 45
