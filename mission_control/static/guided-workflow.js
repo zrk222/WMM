@@ -17,8 +17,38 @@ function guidedStep(step) {
 
 function guidedView() {
   const g=state.workspace.workflow;
-  return `${heading("Your guided workflow","Resume saved work and take the next useful step.",button("Continue workflow","guided-continue","",""))}<section class="panel guided-summary" id="guided-workflow" aria-label="Workflow progress"><p class="eyebrow">SAVED EVIDENCE / CURRENT RELEASE</p><h2>${g.local_ready_count} of 12 local input checks ready</h2><p>Next: ${esc(g.next_action.title)}</p><p class="description">Saved evidence keeps this checklist current. Ready inputs still need review, publication checks and measured results.</p><div class="toolbar">${button("Refresh saved work","guided-refresh")}${button("Download this checklist","guided-download")}${button("Inspect current packets","automatic-open")}</div><p id="guided-message" class="field-error" role="status" aria-live="polite"></p></section>${guidedEvidenceStates()}${guidedCriticalFindings(g)}${notice("Continue opens the next setup or review step. Provider changes keep their own approval.")}${guidedStageJourney(g)}${guidedWorker()}`;
+  return `${heading("Your guided workflow","Resume saved work and take the next useful step.",button("Continue workflow","guided-continue","",""))}<section class="panel guided-summary" id="guided-workflow" aria-label="Workflow progress"><p class="eyebrow">SAVED EVIDENCE / CURRENT RELEASE</p><h2>${g.local_ready_count} of 12 local input checks ready</h2><p>Next: ${esc(g.next_action.title)}</p><p class="description">Saved evidence keeps this checklist current. Ready inputs still need review, publication checks and measured results.</p><div class="toolbar">${button("Refresh saved work","guided-refresh")}${button("Download this checklist","guided-download")}${button("Inspect current packets","automatic-open")}</div><p id="guided-message" class="field-error" role="status" aria-live="polite"></p></section>${guidedExceptionPanel(g.exceptions)}${guidedEvidenceStates()}${guidedCriticalFindings(g)}${notice("Continue opens the next setup or review step. Provider changes keep their own approval.")}${guidedStageJourney(g)}${guidedWorker()}`;
 }
+
+/* Plain-language recovery guidance is a projection only. It never infers provider
+   effects or creates a retry; action buttons route to existing reviewed controls. */
+const WMMExceptionGuidance=(()=>{
+ const definitions={
+  UNKNOWN:{headline:"Delivery is unconfirmed",reason:"WMM could not confirm whether the provider received this action.",action:"Review saved receipts before retrying.",tool:"campaign"},
+  CANCEL_REQUESTED:{headline:"New local work stopped",reason:"A provider action may still be in progress.",action:"Inspect the saved attempt and reconcile it.",tool:"campaign"},
+  BLOCKED:{headline:"Work is paused",reason:"A required fact changed or execution was interrupted.",action:"Repair the listed connection or scope, then review it again.",tool:"connections"},
+  WAITING_FOR_REPORTS:{headline:"Report rows are not available yet",reason:"The connection works, but the provider has not supplied report rows. This does not mean zero activity.",action:"Keep the bounded read scheduled and check again at its next run.",tool:"connections"},
+  EXPIRED:{headline:"Permission or connection expired",reason:"The agent has stopped until fresh access is approved.",action:"Reconnect or renew the current owner-approved access.",tool:"connections"},
+  EXHAUSTED:{headline:"Approved check limit reached",reason:"WMM made no additional provider calls after the approved allowance was used.",action:"Inspect the saved receipts before issuing a new bounded approval.",tool:"agreement"}
+ };
+ const allowedTools=new Set(["campaign","connections","agreement","agents","owner"]);
+ function normalize(row){
+  if(!row||typeof row!=="object")return null;
+  const status=String(row.state||row.status||"").toUpperCase();
+  const definition=definitions[status]||{headline:"Work needs review",reason:"WMM received a state it cannot safely classify.",action:"Open the saved evidence and review the current scope.",tool:"agreement"};
+  const refs=Array.isArray(row.evidence_refs)?row.evidence_refs.filter(v=>typeof v==="string"):typeof row.evidence_ref==="string"?[row.evidence_ref]:[];
+  const tool=allowedTools.has(row.repair_route)?row.repair_route:definition.tool;
+  return {status,headline:definition.headline,reason:typeof row.reason==="string"?row.reason:definition.reason,action:typeof row.next_action==="string"?row.next_action:definition.action,tool,evidence_refs:refs,source:typeof row.source==="string"?row.source:null,observed_at:typeof row.observed_at==="string"?row.observed_at:null,next_due:typeof row.next_due==="string"?row.next_due:null};
+ }
+ function panel(rows){
+  if(!Array.isArray(rows)||!rows.length)return "";
+  const cards=rows.map(normalize).filter(Boolean);
+  if(!cards.length)return "";
+  return `<section class="panel" aria-label="Workflow exceptions"><h2>Workflow updates</h2><p>See what WMM observed and what to do next.</p><div class="guided-exceptions">${cards.map(c=>`<article class="panel guided-exception" data-exception-state="${esc(c.status)}"><h3>${esc(c.headline)}</h3><p>${esc(c.reason)}</p><p><strong>Next:</strong> ${esc(c.action)}</p>${c.observed_at?`<p><small>Observed: ${esc(c.observed_at)}${c.next_due?` · next due ${esc(c.next_due)}`:""}</small></p>`:""}${c.evidence_refs.length?`<p><small>Evidence: ${c.evidence_refs.map(esc).join(", ")}</small></p>`:""}${c.source?`<p><small>Source: ${esc(c.source)}</small></p>`:""}${button(`Open ${c.tool} controls`,"goal-repair",`data-tool="${esc(c.tool)}"`)}</article>`).join("")}</div></section>`;
+ }
+ return {normalize,panel,definitions};
+})();
+function guidedExceptionPanel(rows){return WMMExceptionGuidance.panel(rows);}
 
 function guidedEvidenceStates() {
   return `<section class="panel" aria-label="Understand workflow progress"><h2>Know what each result means</h2><dl><dt><strong>Inputs ready</strong></dt><dd>The saved facts pass this stage’s local checks.</dd><dt><strong>Execution approved</strong></dt><dd>You approved an exact action. Its execution receipt tells you whether it ran.</dd><dt><strong>Outcome observed</strong></dt><dd>A source records what happened. Missing results stay unknown; counts alone do not prove growth.</dd></dl></section>`;
