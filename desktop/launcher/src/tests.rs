@@ -117,3 +117,29 @@ with TemporaryDirectory() as directory:
     assert!(engine.origin().starts_with("http://127.0.0.1:"));
     engine.shutdown().unwrap();
 }
+
+#[test]
+fn packaged_device_client_is_scoped_to_the_child_and_rejects_invalid_config() {
+    let mut command = Command::new("WMM");
+    let key = std::ffi::OsStr::new("WMM_GITHUB_DEVICE_CLIENT_ID");
+    let public_id = "synthetic_public_client";
+    set_device_client(&mut command, Some(public_id)).unwrap();
+    assert_eq!(
+        command.get_envs().find(|(name, _)| *name == key).unwrap().1,
+        Some(std::ffi::OsStr::new(public_id))
+    );
+    for invalid in [
+        "",
+        "tiny",
+        "fixture\nwrong",
+        "example.invalid",
+        "fixture/other/client",
+    ] {
+        assert!(set_device_client(&mut command, Some(invalid)).is_err());
+    }
+    set_device_client(&mut command, None).unwrap();
+    assert_eq!(
+        command.get_envs().find(|(name, _)| *name == key).unwrap().1,
+        None
+    );
+}
