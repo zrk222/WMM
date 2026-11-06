@@ -56,18 +56,60 @@ async function saveInsights(form) {
   }catch(error){const target=form.querySelector("#form-error");if(target){const message=String(error.message||"Setup failed");const hasState=message.includes("Replacement not activated")||message.includes("SOURCE_NOT_SAVED");const rotating=!!form.dataset.version;target.textContent=hasState?message:(rotating?"Replacement not activated. The existing connection, schedule, and reports remain in use. ":"No source was saved. Enter the key again to retry. ")+message;}}
   finally{submit.disabled=false;}
 }
+function insightsHistory(source) {
+  return insightsState().reports.filter(report =>
+    report.app_id === state.app && report.source_id === source.id &&
+    report.provider === source.provider);
+}
+
+function insightsObservation(report, source) {
+  const data = report.data;
+  const binding = data.source_version === source.version ? "Current setup version" : "Earlier setup version";
+  const metrics = data.rows.slice(0, 100).map(row => {
+    const metric = row.name || row.id;
+    const values = row.values
+      ? Object.entries(row.values).map(([name, value]) => `${esc(name)}: ${esc(value)}`).join("<br>")
+      : esc(row.value ?? "Unavailable");
+    return `<tr><th scope="row">${esc(metric)}${row.row == null ? "" : ` · row ${esc(row.row + 1)}`}</th><td>${values}</td><td>${esc(row.unit || "Provider fields")}</td><td>${esc(row.period || "Unavailable")}</td></tr>`;
+  }).join("");
+  return `<p><strong>${binding}</strong> · Observed ${esc(data.observed_at || "Unavailable")} · Saved ${esc(report.created)}</p><p>Coverage: ${esc(data.coverage)} · Scope: ${esc(data.scope)}</p>${metrics ? `<div class="table-wrap"><table class="result-table"><caption>Metrics in this reading</caption><thead><tr><th scope="col">Metric</th><th scope="col">Value</th><th scope="col">Unit</th><th scope="col">Window</th></tr></thead><tbody>${metrics}</tbody></table></div>` : "<p>The provider returned no metric rows for this reading.</p>"}${data.rows.length > 100 ? "<p>Showing the first 100 rows. Download this reading for all saved rows.</p>" : ""}<details><summary>Source receipt</summary><p>Receipt: ${esc(report.id)} · SHA-256: ${esc(report.hash)}</p></details>`;
+}
+
+function insightsHistoryMarkup(source, history) {
+  if (!history.length) return notice("No saved observations yet. Refresh the connection to collect its first reading.", "warning");
+  const options = history.map((report, i) => `<option value="${esc(report.id)}">${esc(report.data.observed_at || report.created)}${i === 0 ? " · Latest saved" : ""}</option>`).join("");
+  return `<section aria-labelledby="insights-history-title"><h3 id="insights-history-title">Saved observations</h3><p>${history.length} saved readings. WMM keeps up to 100 per source across restarts. Reporting windows can overlap, so review each reading on its own.</p><label class="field" for="insights-history-select">Reading</label><select id="insights-history-select" data-app="${esc(state.app)}" data-source="${esc(source.id)}">${options}</select><div id="insights-observation">${insightsObservation(history[0], source)}</div></section>`;
+}
+
 function insightsInspect(id) {
   const w=insightsState(),s=w.sources.find(row=>row.id===id);if(!s)return;
-  const report=w.reports.find(r=>r.source_id===id),p=w.providers[s.provider];
-  const controls=(s.provider==="posthog"&&!["DISCONNECTED","CLEANUP_REQUIRED"].includes(s.status)?button("Match app events","insights-events",`data-id="${esc(id)}"`):"")+(!["DISCONNECTED","CLEANUP_REQUIRED"].includes(s.status)?button("Refresh now","insights-read",`data-id="${esc(id)}"`):"")+button("Change setup","insights-setup",`data-provider="${esc(s.provider)}"`)+(report?button("Download report","insights-download",`data-id="${esc(id)}"`):"")+button(s.status==="CLEANUP_REQUIRED"?"Retry local key cleanup":"Disconnect locally","insights-disconnect",`data-id="${esc(id)}" data-version="${s.version}"`);
-  modal(p.name+" · "+s.data.project_id,`<div class="modal-content">${status(s.status)}${s.last_error?notice(s.last_error,"warning"):""}<p>${s.data.automatic?"Six-hour automatic refresh while the worker runs.":"Automatic refresh disabled."} ${s.next_due?"Next due: "+esc(new Date(s.next_due*1000).toLocaleString()):""}</p>${insightsCoverage(s)}${report?`<details><summary>Last saved observation (historical if current coverage is unavailable)</summary><p>Observed ${esc(report.created)} · ${esc(report.data.scope)}</p><pre>${json(report.data)}</pre></details>`:notice("No successful observation yet. Check project and key permissions, then reconnect or retry.","warning")}${notice("Provider observations remain separate from transaction evidence. Disconnect removes local access; reports remain available. Revoke the key at the provider if needed.")}<div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions insights-actions">${controls}</div>`,"PROJECT MEASUREMENT");
+  const history=insightsHistory(s),p=w.providers[s.provider];
+  const controls=(s.provider==="posthog"&&!["DISCONNECTED","CLEANUP_REQUIRED"].includes(s.status)?button("Match app events","insights-events",`data-id="${esc(id)}"`):"")+(!["DISCONNECTED","CLEANUP_REQUIRED"].includes(s.status)?button("Refresh now","insights-read",`data-id="${esc(id)}"`):"")+button("Change setup","insights-setup",`data-provider="${esc(s.provider)}"`)+(history.length?button("Download selected reading (JSON)","insights-download",`data-id="${esc(id)}"`):"")+button(s.status==="CLEANUP_REQUIRED"?"Retry local key cleanup":"Disconnect locally","insights-disconnect",`data-id="${esc(id)}" data-version="${s.version}"`);
+  modal(p.name+" · "+s.data.project_id,`<div class="modal-content">${status(s.status)}${s.last_error?notice(s.last_error,"warning"):""}<p>${s.data.automatic?"Six-hour automatic refresh while the worker runs.":"Automatic refresh disabled."} ${s.next_due?"Next due: "+esc(new Date(s.next_due*1000).toLocaleString()):""}</p>${insightsCoverage(s)}${insightsHistoryMarkup(s,history)}${notice("Provider observations remain separate from transaction evidence. Disconnect removes local access; reports remain available. Revoke the key at the provider if needed.")}<div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions insights-actions">${controls}</div>`,"PROJECT MEASUREMENT");
+  const picker = $("#insights-history-select");
+  picker?.addEventListener("change", () => {
+    const selected = insightsSelectedReading(id);
+    if (selected) $("#insights-observation").innerHTML = insightsObservation(selected, s);
+  });
 }
+
+function insightsSelectedReading(id) {
+  const picker = $("#insights-history-select");
+  if (!picker || picker.dataset.app !== state.app || picker.dataset.source !== id) return null;
+  const source = insightsState().sources.find(row => row.id === id);
+  return source ? insightsHistory(source).find(report => report.id === picker.value) : null;
+}
+
 async function insightsAction(node) {
-  const action=node.dataset.action,id=node.dataset.id,app=state.app,w=insightsState();
+  const action=node.dataset.action,id=node.dataset.id,app=state.app;
   if(action==="insights-setup")return insightsSetup(node.dataset.provider);
   if(action==="insights-inspect")return insightsInspect(id);
   if(action==="insights-events")return insightsEvents(id);
-  if(action==="insights-download")return download(app+"-analytics-report.json",w.reports.find(r=>r.source_id===id));
+  if(action==="insights-download"){
+    const report = insightsSelectedReading(id);
+    if (!report) throw new Error("Reopen this source and select a saved reading.");
+    return download(app+"-analytics-reading-"+report.id+".json",report);
+  }
   if(action==="insights-read"||action==="insights-disconnect"){
     node.disabled=true;
     try{
