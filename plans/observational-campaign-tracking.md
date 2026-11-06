@@ -1,0 +1,17 @@
+# Plan: observational-campaign-tracking
+Spec: specs/observational-campaign-tracking.md (approved for local implementation after all SpecLine gates pass)
+Architect verdict: PASS for the specified WMM-local register/link/import/report/history/correction lifecycle only. Source-specific mapping must be validated from the existing WizeMe code before implementation. Live deployment, provider readback, and click-to-registration roundtrip are separate acceptance work and are not claimed here.
+
+## Logical decomposition (phases)
+1. **Source/contract validation:** inspect existing acquisition, analytics and API attribution code; verify exact UTM, consent, bot, identity, first-touch, dedup and event semantics. Freeze mapping without copying customer data.
+2. **Shared local domain:** add immutable study definitions, canonical URL builder, private batch import, source coverage, dedup/collision/correction, and descriptive assessment with app/version/hash receipts.
+3. **Surface parity:** expose all six actions through one handler, owner UI, CLI/MCP operation catalog and agent workflow/manifest/grant requirements.
+4. **Proof/readiness:** run synthetic positive, boundary, and negative tests; complete workflow audit and regression checks; keep live roundtrip as a separate post-deployment proof gate.
+
+## Tasks (atomic — each independently shippable)
+- [ ] T1 | slice=source-contract | files=<=4 | verify=`python -m unittest tests.test_observational_campaign_contract -q` | Validate the existing WizeMe source mapping and codify exact closed schemas, URL allowlist, event bounds, null/zero coverage semantics, first-touch rule, and report contract; do not change product source.
+- [ ] T2 | slice=domain-study | files=<=4 | verify=`python -m unittest tests.test_observational_campaign -q` | Implement immutable registration and same-origin canonical URL through the shared domain service, including app/version/hash/window bounds and atomic receipts.
+- [ ] T3 | slice=domain-events | files=<=4 | verify=`python -m unittest tests.test_observational_campaign -q` | Implement private bounded batch ingestion, explicit event states/coverage, exact retry, dedup, conflict rollback, append-only correction, and source-linked descriptive report; do not modify comparative experiments.
+- [ ] T4 | slice=automation-parity | files=<=4 | verify=`python -m unittest tests.test_observational_campaign_transport tests.test_agent_workflow_protocol -q` | Add the six operations to catalog/runtime plus agent workflow/manifest/grant declarations and CLI/MCP surfaces; every path calls the same handler and preserves app scope.
+- [ ] T5 | slice=human-interface | files=<=4 | verify=`python -m unittest tests.test_observational_campaign_browser -v` | With WMM_BROWSER_TEST_PROFILE=1, exercise owner UI for register/link/import/report/history/correction via the shared handler; render null, excluded and coverage states explicitly.
+- [ ] T6 | slice=proof | files=<=4 | verify=`python -m unittest tests.test_observational_campaign tests.test_observational_campaign_contract tests.test_observational_campaign_transport -q` | Prove URL/window bounds, exact positive join, zero-vs-null, denied/unknown/bot/test/missing-token handling, ordering, retries/conflicts atomicity, correction history, cross-app/grant isolation, UI/CLI/MCP/agent parity, and no exposure-to-conversion coercion; record workflow-audit evidence. Live deployment roundtrip remains a later separate gate.

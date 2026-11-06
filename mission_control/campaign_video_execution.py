@@ -152,6 +152,13 @@ def _guard(store, app_id, actor, identity, operation, *, recovery=False, charge=
         context = _authority(db, store, app_id, actor, operation, dict(intent_id=identity))
         row = _row(db, app_id, identity)
         policy, admission = _bound(db, store, app_id, row, context, recovery=recovery, heartbeat=heartbeat)
+        if operation == 'organic-video.intent-execute' and not context.get('scheduled_job'):
+            selection = policy['data']['policy']
+            artifact_hash = admission['data']['output']['artifact_sha256']
+            if artifact_hash not in selection['approved_output_hashes']:
+                raise PermissionError(
+                    'Review and approve this exact rendered Reel in a schedule before sending it to Facebook.'
+                )
         if charge:
             if row['calls'] >= admission['data']['provider_calls_reserved']:
                 raise PermissionError('Reel provider-call reservation exhausted; retain and inspect this intent')

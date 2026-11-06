@@ -61,6 +61,12 @@ WORKFLOWS = {
 # These operations remain separately approved through exact scoped grants or a
 # current owner session; they are not added to existing standing policies.
 UNBUNDLED_OPERATIONS = {
+    'observational-campaign.register': 'local_evidence',
+    'observational-campaign.link': 'local_evidence',
+    'observational-campaign.ingest': 'local_evidence',
+    'observational-campaign.report': 'local_evidence',
+    'observational-campaign.history': 'local_evidence',
+    'observational-campaign.correct': 'local_evidence',
     'organic-video.claim': 'viral_discovery',
     'organic-video.submit': 'viral_discovery',
     'organic-video.policy-read': 'social_publish',

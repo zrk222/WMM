@@ -82,6 +82,22 @@ class VideoGatewayTests(unittest.TestCase):
         with self.assertRaises(ClientError):
             self.agent.call(dict(app_id='sample-two',operation='organic-video.policy-read',input=selected))
 
+    def test_standing_render_requires_exact_human_approval_before_credentials(self):
+        self.policy = self.request('policy-create', dict(request_id=uid(), policy=dict(
+            self.f.policy, mode='STANDING_GENERATED', approved_output_hashes=[], max_calls=40,
+        )))
+        intent = self.intent()
+        body = dict(intent_id=intent['id'])
+        with patch.object(video, '_credentials', side_effect=AssertionError('Credentials must not be read')):
+            for execute in (self.call, self.request):
+                with self.subTest(caller=execute.__name__), self.assertRaises(ClientError) as denied:
+                    execute('intent-execute', body)
+                self.assertEqual(denied.exception.status, 403)
+        retained = self.call('intent-read', body)
+        self.assertEqual(retained['stage'], 'NEW')
+        self.assertEqual(retained['calls_used'], 0)
+        self.assertIsNone(retained['remote_id'])
+
     def test_current_grant_revocation_stops_read_and_reserved_generation(self):
         selected=dict(policy_id=self.policy['id'],policy_hash=self.policy['hash'])
         self.call('policy-read',selected)

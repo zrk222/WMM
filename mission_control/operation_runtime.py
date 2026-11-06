@@ -22,6 +22,14 @@ def execute(service,envelope,*,caller='SCOPED_AGENT'):
     from .funnel_founder_review import review as funnel_review
     from .video_edit_jobs import EditRenders
     request_data(envelope)
+    if envelope['operation'].startswith('observational-campaign.'):
+        from .observational_campaign import ObservationalCampaign
+        from .operation_authority import protected
+        action = envelope['operation'].split('.')[1]
+        with protected(service.store, envelope):
+            return ObservationalCampaign(service.store).dispatch(
+                envelope['app_id'], action, envelope['input'],
+            )
     if envelope['operation']=='evidence.save' and envelope['input']['kind']=='asset':
         data=envelope['input']['data']
         if isinstance(data,dict) and (data.get('authentic') is True or data.get('rights_cleared') is True):

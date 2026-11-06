@@ -856,6 +856,7 @@ async function formSubmit(event) {
   if(formId==="growth-review-form") {event.preventDefault();return WMMGrowthReview.submit(form,growthReviewServices());}
   if((formId||'').startsWith('agent-')) {event.preventDefault();return agentSubmit(form);}
   if(formId==='owner-report-form'){event.preventDefault();return WMMOwnerReports.submit(form);}
+  if((formId||'').startsWith('observational-campaign-')){event.preventDefault();return WMMObservationalCampaign.submit(form);}
   if(formId==='campaign-monitor-form'){event.preventDefault();return WMMCampaignMonitor.submit(form);}
   if(formId==='campaign-schedule-form'){event.preventDefault();return campaignScheduleSubmit(form);}
   if(formId==='campaign-scope-form'){event.preventDefault();return campaignSubmit(form);}
@@ -983,6 +984,7 @@ async function handleAction(node) {
   if(node.dataset.action.startsWith('goal-'))return goalAction(node);
   if(node.dataset.action.startsWith('agent-'))return agentAction(node);
   if(node.dataset.action.startsWith('owner-report-'))return WMMOwnerReports.action(node);
+  if(node.dataset.action.startsWith('observational-campaign-'))return WMMObservationalCampaign.action(node);
   if(node.dataset.action.startsWith('campaign-monitor-'))return WMMCampaignMonitor.action(node);
   if(node.dataset.action.startsWith('campaign-'))return campaignAction(node);
   if(node.dataset.action.startsWith('social-'))return socialAction(node);
