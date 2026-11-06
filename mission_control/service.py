@@ -124,6 +124,28 @@ class Service:
         finally:
             db.close()
 
+    def _workflow_exceptions(self, app):
+        """Project only exact current-source exceptions into guided workflow UI."""
+        from .apple_readiness_report import summary as apple_readiness
+        store_app_id = app.get('data', {}).get('store_app_id')
+        if not isinstance(store_app_id, str) or not store_app_id.isdigit():
+            return []
+        with connection(self.store.path) as db:
+            db.execute("BEGIN")
+            revision = db.execute("SELECT version FROM apps WHERE id=?", (app["id"],)).fetchone()
+            if revision is None or revision["version"] != app["version"]:
+                return []
+            health = apple_readiness(db, app['id'], store_app_id, now())
+        if not isinstance(health, dict) or health.get('read') != 'WAITING_FOR_REPORTS':
+            return []
+        return [dict(state='WAITING_FOR_REPORTS',
+                     source='App Store Connect',
+                     observed_at=health.get('observed_at'),
+                     next_due=health.get('next_due'),
+                     reason='Apple has not supplied report rows for this verified scheduled read. This does not mean zero activity.',
+                     next_action=health.get('next_action'),
+                     repair_route='connections')]
+
     def workspace(self,app_id):
         """Assemble the selected app dashboard from its own records and runs."""
         from .production_feasibility import Capabilities
@@ -146,6 +168,7 @@ class Service:
         release=release_readiness(app,records,job_rows,connection_statuses)
         evaluated=evaluate(app,records,ledger,catalog,release)
         workflow=guide(app,records,evaluated,ledger,catalog,release)
+        workflow['exceptions'] = self._workflow_exceptions(app)
         automation=recommend(app,records,ledger,workflow)
         preparation=prepare(app,records,ledger,catalog,release)
         preparation['release_inventory']=release

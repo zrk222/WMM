@@ -2,7 +2,10 @@
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 import json
+import os
 import sys
+import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -90,6 +93,12 @@ def exercise(browser, width, output):
 
 
 def main():
+    with patch.dict(os.environ, {"WMM_BROWSER_TEST_PROFILE": "1"}):
+        suite = unittest.defaultTestLoader.loadTestsFromName("tests.test_automation_profiles_browser")
+        result = unittest.TextTestRunner(verbosity=2).run(suite)
+        if not result.wasSuccessful() or result.testsRun == 0 or result.skipped:
+            raise SystemExit("The owner automation browser journeys must run and pass")
+
     output = ROOT / '.factory/authority-expiry-extension/browser'
     output.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as playwright:
