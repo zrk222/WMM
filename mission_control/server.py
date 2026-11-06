@@ -74,6 +74,7 @@ class Server(ThreadingHTTPServer):
         self.audit_runner=AuditWorker(store)
         self.service.worker_health=lambda:dict(self.runner.health)
         self.studio_shutdown_result=None
+        self.desktop_proof=None
 
     def server_close(self):
         """Retain native cleanup outcome separately from listening-socket closure."""
@@ -149,6 +150,16 @@ class Handler(BaseHTTPRequestHandler):
         """Return clear input errors and preserve existing state on operational failure."""
         try:
             path=urlparse(self.path).path
+            if path=='/api/desktop-proof':
+                proof=self.server.desktop_proof
+                if write or proof is None or self.path!=path:
+                    raise KeyError(path)
+                if self.headers.get_all('Host')!=[f'127.0.0.1:{self.server.server_port}'] or 'Origin' in self.headers:
+                    raise PermissionError('Desktop proof requires the exact local address')
+                challenges=self.headers.get_all('X-WMM-Desktop-Challenge', [])
+                if len(challenges)!=1 or not re.fullmatch(r'[a-f0-9]{64}', challenges[0]):
+                    raise Invalid('Desktop challenge is invalid')
+                return self.send(200,dict(proof=proof(challenges[0])))
             if write and path.startswith('/api/agent-operations/reviews/'):
                 from .agent_review_http import agent
                 return agent(self)
