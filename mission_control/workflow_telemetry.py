@@ -82,7 +82,7 @@ def monitor(store, app_id):
 def run_view(db, app_id, job):
     """Separate processed/blocked stages from elapsed-time estimates and job success."""
     raw_result = job.pop("result", None)
-    if job["action"] == "sync" and job["status"] == "SUCCEEDED":
+    if job.get("action") == "sync" and job["status"] == "SUCCEEDED":
         try:
             result = json.loads(raw_result)
         except (TypeError, ValueError, RecursionError):
