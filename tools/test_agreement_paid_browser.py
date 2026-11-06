@@ -90,6 +90,8 @@ def run(browser, width):
             "No execution authority is issued",
             "NEEDS_RECONCILIATION",
             "Exact media budget 80 minor CAD",
+            "Page for posts Facebook Page 123 · paid promotion Meta ad account 456",
+            "Scope destination Meta ad account 456",
             "Per-campaign media cap 90 minor CAD",
             "maximum total media commitment 100 minor CAD; held 80",
             "Exact approved content, rights and targeting hashes",
@@ -146,6 +148,12 @@ def run(browser, width):
         expect(report.locator("body")).to_contain_text(
             "Maximum total media commitment 100 minor CAD"
         )
+        expected_padding = "20px" if width <= 600 else "32px"
+        report.wait_for_function(
+            "(padding) => getComputedStyle(document.body).paddingLeft === padding",
+            arg=expected_padding,
+        )
+        assert report.evaluate("document.documentElement.scrollWidth <= innerWidth")
         report_text = report.locator("body").inner_text()
         for expected in ("WMM background worker", "Owner " + OWNER["principal"],
                          "Batch " + BATCH, "Campaign scope " + SCOPE,
@@ -157,6 +165,8 @@ def run(browser, width):
                          "Local-work spend limit 0 minor",
                          "Per-campaign media cap 90 minor CAD",
                          "Maximum total media commitment 100 minor CAD",
+                         "Page for posts Facebook Page 123 · paid promotion Meta ad account 456",
+                         "Scope destination Meta ad account 456",
                          "Approved content fingerprints:", fixture.post["content_hash"],
                          "Approved rights fingerprints:", "b" * 64,
                          "Approved targeting fingerprints:", digest(dict(countries=["CA"]))):
@@ -207,6 +217,8 @@ def run(browser, width):
             local_repair_visible=True,
             stop_rules_visible=True,
             pdf_privacy=True,
+            exact_destinations_on_screen_and_report=True,
+            report_responsive_styles_loaded=True,
             no_overflow=True,
             no_business_writes=True,
             read_only_posts=len(writes),

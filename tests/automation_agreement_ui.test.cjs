@@ -29,7 +29,25 @@ test('paid review displays exact budgets, uncertainty, receipt identities and re
  data.summary.campaign.permission_expires_at='extended-parent-date';
  data.summary.schedule.permission_expires_at='earlier-child-date';
  const html=a.markup(data);for(const text of ['80 minor CAD','ends end','CA, US','NEEDS_RECONCILIATION','ad: 104','campaign: 101','SCHEDULE_ITEM_NEEDS_REVIEW','Reconnect before reapproval','Permission expires extended-parent-date','original approval later','captured deadline earlier-child-date'])assert.ok(html.includes(text),text);
+ const notes=a.reportModel(data,{notes:[]}).notes;
+ assert.ok(notes.some(note=>note.includes('Page for posts Facebook Page 123 · paid promotion Meta ad account 456')));
+ assert.ok(notes.some(note=>note.includes('Scope destination Meta ad account 456')));
+ assert.ok(notes.some(note=>note.includes('Permission expires extended-parent-date · original approval later · posts 1 · campaigns 1 · calls 50')));
+ assert.match(html,/Scope destination Meta ad account 456/);
  assert.equal(data.summary.campaign.approval.expires_at,'later');
+
+ data.summary.campaign.approval.ad_account_id=null;
+ data.summary.schedule.items=[{item_id:'older-item',request:{message:'PRIVATE_COPY'}}];
+ const organicNotes=a.reportModel(data,{notes:[]}).notes.join(' ');
+ assert.match(organicNotes,/paid promotion None selected/);
+ assert.match(organicNotes,/older-item campaign.publish .*Scope destination Facebook Page 123/);
+ assert.doesNotMatch(organicNotes,/PRIVATE_COPY/);
+
+ data.summary.schedule.items[0].operation='unsupported.publish';
+ data.summary.campaign.approval.page_id='<credential>';
+ const badNotes=a.reportModel(data,{notes:[]}).notes.join(' ');
+ assert.match(badNotes,/unsupported.publish .*Scope destination Unavailable/);
+ assert.doesNotMatch(badNotes,/<credential>/);
 });
 
 test('agreement and owner report show per-campaign cap and exact approved fingerprints without private payloads',()=>{
