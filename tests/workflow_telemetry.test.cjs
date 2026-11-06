@@ -75,15 +75,26 @@ test('run guidance preserves uncertainty and escapes job button identities',()=>
 function pollFixture(){
  const timers=new Map();let seq=0;
  const ctx={module:{exports:{}},setTimeout:(fn,ms)=>{timers.set(++seq,{fn,ms});return seq;},clearTimeout:id=>timers.delete(id)};vm.createContext(ctx);vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../mission_control/static/workflow-telemetry.js'),'utf8'),ctx);
- const list={innerHTML:'retained',contains:()=>false},status={textContent:''},refresh={},node={isConnected:true,querySelector:s=>s==='[data-live-runs]'?list:s==='[data-live-status]'?status:refresh};
+ const list={innerHTML:'retained',contains:()=>false},status={textContent:''},worker={textContent:''},refresh={},node={isConnected:true,querySelector:s=>s==='[data-live-runs]'?list:s==='[data-live-status]'?status:s==='[data-live-worker]'?worker:refresh};
  const document={hidden:false,activeElement:null,querySelector:()=>node};let calls=0,answer=async()=>({app_id:'one',observed_at:'now',runs:[]});
  const deps={state:{app:'one'},document,api:()=>{calls++;return answer();}};
- return {ui:ctx.module.exports,timers,list,status,node,document,deps,refresh,get calls(){return calls;},set answer(value){answer=value;},async settle(){await new Promise(setImmediate);},async tick(){assert.equal(timers.size,1);const [id,row]=timers.entries().next().value;timers.delete(id);await row.fn();},delay(){assert.equal(timers.size,1);return timers.values().next().value.ms;}};
+ return {ui:ctx.module.exports,timers,list,status,worker,node,document,deps,refresh,get calls(){return calls;},set answer(value){answer=value;},async settle(){await new Promise(setImmediate);},async tick(){assert.equal(timers.size,1);const [id,row]=timers.entries().next().value;timers.delete(id);await row.fn();},delay(){assert.equal(timers.size,1);return timers.values().next().value.ms;}};
 }
 test('failed progress reads back off with a bounded timer and recover to normal cadence',async()=>{
  const f=pollFixture();f.answer=async()=>{throw Error('offline');};f.ui.mount(f.deps);await f.settle();
  for(const delay of [4000,8000,16000,32000,32000]){assert.equal(f.delay(),delay);assert.equal(f.list.innerHTML,'retained');await f.tick();}
- f.answer=async()=>({app_id:'one',observed_at:'now',runs:[]});await f.tick();assert.equal(f.delay(),2000);assert.match(f.status.textContent,/Connected/);f.ui.clear();assert.equal(f.timers.size,0);
+ f.answer=async()=>({app_id:'one',observed_at:'now',runs:[]});await f.tick();assert.equal(f.delay(),2000);assert.match(f.status.textContent,/Last refresh/);f.ui.clear();assert.equal(f.timers.size,0);
+});
+test('fresh telemetry distinguishes worker recovery, health and stopped state',async()=>{
+ const f=pollFixture(),reply=worker=>async()=>({app_id:'one',observed_at:'now',runs:[],worker});
+ f.answer=reply({status:'RECOVERING',last_success:'prior-poll',last_error:'PRIVATE_ERROR'});
+ f.ui.mount(f.deps);await f.settle();
+ assert.match(f.worker.textContent,/Worker needs attention/);assert.match(f.status.textContent,/prior-poll/);
+ assert.doesNotMatch(f.worker.textContent,/PRIVATE_ERROR|healthy/);
+ f.answer=reply({status:'RUNNING'});await f.tick();assert.match(f.worker.textContent,/reported healthy/);
+ f.answer=reply({status:'STOPPED'});await f.tick();assert.match(f.worker.textContent,/Start WMM on the host/);
+ f.answer=async()=>{throw Error('offline');};await f.tick();assert.match(f.worker.textContent,/status unavailable/);
+ assert.match(f.ui.panel(),/Open the private-host setup guide/);f.ui.clear();
 });
 test('manual refresh cancels backoff and cannot overlap an in-flight read',async()=>{
  const f=pollFixture();f.answer=async()=>{throw Error('offline');};f.ui.mount(f.deps);await f.settle();assert.equal(f.delay(),4000);

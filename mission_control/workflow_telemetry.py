@@ -2,7 +2,7 @@
 
 import json
 
-from .common import Invalid, now
+from .common import Invalid, iso_time, now
 from .db import connection
 from .catalog import stages
 
@@ -60,7 +60,20 @@ def emit(store, job, code, stage=None):
         append(db, job, code, stage)
 
 
-def monitor(store, app_id):
+def worker_observation(health):
+    """Expose host readiness without shared component details or error text."""
+    health = health if isinstance(health, dict) else {}
+    status = health.get("status")
+    if status not in ("STARTING", "RUNNING", "RECOVERING", "STOPPED"):
+        status = "UNKNOWN"
+    try:
+        last_success = iso_time(health.get("last_success")).isoformat()
+    except (Invalid, ValueError, OverflowError):
+        last_success = None
+    return dict(status=status, last_success=last_success)
+
+
+def monitor(store, app_id, worker_health=None):
     """Project bounded public progress without queued input or raw result errors."""
     store.app(app_id)
     with connection(store.path) as db:
@@ -75,6 +88,7 @@ def monitor(store, app_id):
         app_id=app_id,
         observed_at=now(),
         runs=runs,
+        worker=worker_observation(worker_health),
         scope="Actual local worker events; processed stages do not establish business outcomes.",
     )
 

@@ -10,7 +10,7 @@ from mission_control.common import Invalid
 from mission_control.db import connection
 from mission_control.store import Store
 from mission_control.worker import enqueue, claim, run_once
-from mission_control.workflow_telemetry import emit, monitor
+from mission_control.workflow_telemetry import emit, monitor, worker_observation
 from tests import test_agent_grants as http_fixture
 
 
@@ -134,7 +134,21 @@ class TelemetryHTTPTests(unittest.TestCase):
     def test_actual_http_route_module_and_query_rejection(self):
         base = self.origin + "/api/apps/sample-one/workflow-telemetry"
         with urlopen(base) as response:
-            self.assertEqual(json.load(response)["runs"], [])
+            initial = json.load(response)
+        self.assertEqual(initial["runs"], [])
+        self.assertEqual(initial["worker"], {"status": "STARTING", "last_success": None})
+        worker = self.server.runner.supervision
+        worker.attempt("queue", lambda: 1 / 0)
+        worker.finish()
+        with urlopen(base) as response:
+            self.assertEqual(json.load(response)["worker"], {"status": "RECOVERING", "last_success": None})
+        worker.stopped()
+        with urlopen(base) as response:
+            self.assertEqual(json.load(response)["worker"], {"status": "STOPPED", "last_success": None})
+        self.assertEqual(worker_observation({"status": "PRIVATE_STATUS", "last_success": "PRIVATE_DATE",
+            "last_error": "PRIVATE_ERROR"}), {"status": "UNKNOWN", "last_success": None})
+        self.assertEqual(worker_observation({"status": "RUNNING", "last_success": "2026-11-06T00:00:00Z"}),
+            {"status": "RUNNING", "last_success": "2026-11-06T00:00:00+00:00"})
         job = enqueue(self.store, "sample-one", "sync", {}, "http-waiting")
         with connection(self.store.path) as db:
             db.execute("UPDATE jobs SET status='SUCCEEDED',result=? WHERE id=?",
