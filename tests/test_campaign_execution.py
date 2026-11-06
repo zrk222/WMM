@@ -222,14 +222,32 @@ class TransportTests(unittest.TestCase):
             def getresponse(self):return Response()
             def close(self):pass
         with patch('mission_control.campaign_transport.PinnedHTTPS',Conn), patch('mission_control.campaign_transport.address',return_value='127.0.0.1'), patch('mission_control.campaign_transport.trust_context',return_value=None), patch('mission_control.campaign_transport.response_headers',return_value={}), patch('mission_control.campaign_transport.response_body',side_effect=[b'{"id":"1001"}',b'{"success":true}']):
-            transport=MetaTransport();fields=dict(name='Synthetic',objective='OUTCOME_ENGAGEMENT',status='PAUSED',special_ad_categories=[])
+            transport=MetaTransport();fields=dict(name='Synthetic',objective='OUTCOME_ENGAGEMENT',status='PAUSED',special_ad_categories=[],is_adset_budget_sharing_enabled=False)
             identity=transport.create_paid('campaign','456',fields,'token-value','secret-value',lambda:None)
             transport.set_paid_status('campaign',identity,'ACTIVE','token-value','secret-value',lambda:None)
         self.assertTrue(calls[0][0][1].endswith('/act_456/campaigns'))
         self.assertIn(b'status=PAUSED',calls[0][1]['body'])
+        self.assertIn(b'is_adset_budget_sharing_enabled=false',calls[0][1]['body'])
         self.assertTrue(calls[1][0][1].endswith('/1001'))
         self.assertIn(b'status=ACTIVE',calls[1][1]['body'])
         with self.assertRaises(Invalid):MetaTransport().create_paid('campaign','456',{**fields,'status':'ACTIVE'},'token','secret',lambda:None)
+
+    def test_paid_transport_rejects_enabled_missing_and_nonboolean_budget_sharing(self):
+        transport=MetaTransport()
+        fields=dict(name='Synthetic',objective='OUTCOME_ENGAGEMENT',status='PAUSED',special_ad_categories=[])
+        with patch.object(transport,'request') as request:
+            with self.assertRaises(Invalid):
+                transport.create_paid('campaign','456',fields,'token','secret',lambda:None)
+            for value in (True,None,0,1,'false','true'):
+                with self.subTest(value=value),self.assertRaises(Invalid):
+                    transport.create_paid('campaign','456',{**fields,'is_adset_budget_sharing_enabled':value},'token','secret',lambda:None)
+            request.assert_not_called()
+
+    def test_campaign_readback_requests_budget_sharing(self):
+        transport=MetaTransport()
+        with patch.object(transport,'request',return_value={'id':'1001'}) as request:
+            transport.read_paid('campaign','1001','token','secret',lambda:None)
+        self.assertIn('is_adset_budget_sharing_enabled',request.call_args.args[2]['fields'].split(','))
 
     def test_fixed_post_request_and_response(self):
         calls=[]
@@ -291,12 +309,36 @@ class PaidTests(unittest.TestCase):
     def test_paid_lifecycle_and_pause(self):
         result=self.service.run_ad('sample','grant:example',self.paid_scope['scope_id'],self.adbody)
         self.assertEqual(result['status'],'ACTIVE_campaign');self.assertEqual(result['commitment'],80)
+        self.assertIs(self.transport.objects[result['ids']['campaign']]['is_adset_budget_sharing_enabled'],False)
         self.assertEqual(set(result['ids']),{'campaign','adset','creative','ad'})
         self.assertEqual(self.service.run_ad('sample','grant:example',self.paid_scope['scope_id'],self.adbody)['id'],result['id'])
         observed=self.service.reconcile('sample','owner',self.paid_scope['scope_id'],result['id'])
         self.assertEqual(observed['result']['reported_spend'],'1.23')
         stopped=self.service.run_pause('sample','owner',self.paid_scope['scope_id'],result['id'])
         self.assertEqual(stopped['status'],'PAUSED_campaign');self.assertEqual(stopped['commitment'],80)
+
+    def test_budget_sharing_drift_blocks_final_activation_and_preserves_pause(self):
+        original=self.transport.read_paid
+        campaign_reads=0
+        def drift(kind,identity,token,secret,alive):
+            nonlocal campaign_reads
+            value=original(kind,identity,token,secret,alive)
+            if kind=='campaign':
+                campaign_reads+=1
+                if campaign_reads>=2:
+                    self.transport.objects[identity]['is_adset_budget_sharing_enabled']=True
+                    value['is_adset_budget_sharing_enabled']=True
+            return value
+        with patch.object(self.transport,'read_paid',side_effect=drift):
+            with self.assertRaisesRegex(Unconfirmed,'budget sharing'):
+                self.service.run_ad('sample','owner',self.paid_scope['scope_id'],self.adbody)
+        intent=self.service.list_intents('sample',self.paid_scope['scope_id'])[-1]
+        campaign=self.transport.objects[intent['ids']['campaign']]
+        self.assertEqual(campaign['status'],'PAUSED')
+        self.assertEqual(intent['commitment'],80)
+        stopped=self.service.run_pause('sample','owner',self.paid_scope['scope_id'],intent['id'])
+        self.assertEqual(stopped['status'],'PAUSED_campaign')
+        self.assertEqual(stopped['commitment'],80)
 
     def test_pause_readback_survives_restart_and_later_reconciliation(self):
         intent=self.service.run_ad('sample','owner',self.paid_scope['scope_id'],self.adbody)
