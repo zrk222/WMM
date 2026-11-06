@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/native-desktop-launcher.yml'
       - 'desktop/launcher/**'
+      - 'desktop/src-tauri/**'
       - 'mission_control/desktop*.py'
       - 'mission_control/server.py'
       - 'tests/test_desktop_sidecar.py'
@@ -13,6 +14,7 @@ on:
     paths:
       - '.github/workflows/native-desktop-launcher.yml'
       - 'desktop/launcher/**'
+      - 'desktop/src-tauri/**'
       - 'mission_control/desktop*.py'
       - 'mission_control/server.py'
       - 'tests/test_desktop_sidecar.py'
@@ -31,7 +33,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -45,3 +47,14 @@ jobs:
         run: cargo test --locked --manifest-path desktop/launcher/Cargo.toml
       - name: Verify the child protocol and workspace cleanup
         run: python -B -m unittest tests.test_desktop_sidecar -v
+
+      - name: Install Ubuntu WebView build prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
+      - name: Compile the native shell and verify navigation boundaries
+        env:
+          # Compilation fixture only. An installed app pins the exact staged engine digest.
+          WMM_NATIVE_ENGINE_SHA256: '0000000000000000000000000000000000000000000000000000000000000000'
+        run: cargo test --locked --manifest-path desktop/src-tauri/Cargo.toml
