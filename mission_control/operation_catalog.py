@@ -2,6 +2,7 @@
 import copy
 import re
 from .common import Invalid,digest
+from .observational_campaign_contract import ACTION_FIELDS, schema_contract
 
 
 def descriptor(method,suffix,effect,required=(),optional=(),resource=False):
@@ -10,6 +11,18 @@ def descriptor(method,suffix,effect,required=(),optional=(),resource=False):
 
 
 OPERATIONS={
+    'observational-campaign.register': descriptor(
+        'POST', '/observational-campaign/register', 'WRITE_LOCAL_PLAN', ACTION_FIELDS['register']['required']),
+    'observational-campaign.link': descriptor(
+        'POST', '/observational-campaign/link', 'READ_PRIVATE_LOCAL_DATA', ACTION_FIELDS['link']['required']),
+    'observational-campaign.ingest': descriptor(
+        'POST', '/observational-campaign/ingest', 'WRITE_LOCAL_EVIDENCE', ACTION_FIELDS['ingest']['required']),
+    'observational-campaign.report': descriptor(
+        'POST', '/observational-campaign/report', 'READ_PRIVATE_LOCAL_DATA', ACTION_FIELDS['report']['required']),
+    'observational-campaign.history': descriptor(
+        'POST', '/observational-campaign/history', 'READ_PRIVATE_LOCAL_DATA', optional=ACTION_FIELDS['history']['optional']),
+    'observational-campaign.correct': descriptor(
+        'POST', '/observational-campaign/correct', 'WRITE_LOCAL_EVIDENCE', ACTION_FIELDS['correct']['required']),
     'campaign.history':descriptor('POST','/campaigns/history','READ_PRIVATE_LOCAL_DATA'),
     'campaign.status':descriptor('POST','/campaigns/status','READ_PRIVATE_LOCAL_DATA',('scope_id',)),
     'campaign.publish':descriptor('POST','/campaigns/publish','PUBLISH_WITH_STANDING_CAMPAIGN_AUTHORITY',('scope_id','request')),
@@ -118,6 +131,7 @@ def catalog():
     """Return inspectable transport capabilities without granting agent or human authority."""
     value=dict(schema='growth.operation-catalog.v1',operations=copy.deepcopy({key:rule for key,rule in OPERATIONS.items() if key not in ('experiment.schedule','experiment.schedule-run')}),
         envelope=dict(required=['app_id','operation','input'],optional=['resource_id']),
+        observational_campaign_schema=schema_contract(),
         input_validation='Exact top-level fields here; authoritative nested domain checks run on the existing server.',
         transport='EXACT_LOOPBACK_HTTP_WITH_SCOPED_BEARER_OR_TRUSTED_LOCAL_SESSION',
         authority='Scoped bearer grants enforce current app, owner role, operations, expiry, revocation and call limits. Trusted local browser sessions are separate; neither grants human approval.',
