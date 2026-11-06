@@ -1,5 +1,7 @@
 """Durable worker observations with fixed public labels, never model or secret text."""
 
+import json
+
 from .common import Invalid, now
 from .db import connection
 from .catalog import stages
@@ -64,7 +66,7 @@ def monitor(store, app_id):
     with connection(store.path) as db:
         db.execute("BEGIN")
         jobs = db.execute(
-            "SELECT id,action,status,attempts,created,updated FROM jobs WHERE app_id=? AND action!='drive_import' ORDER BY created DESC,id LIMIT ?",
+            "SELECT id,action,status,attempts,created,updated,result FROM jobs WHERE app_id=? AND action!='drive_import' ORDER BY created DESC,id LIMIT ?",
             (app_id, MAX_JOBS),
         ).fetchall()
         runs = [run_view(db, app_id, dict(job)) for job in jobs]
@@ -79,6 +81,14 @@ def monitor(store, app_id):
 
 def run_view(db, app_id, job):
     """Separate processed/blocked stages from elapsed-time estimates and job success."""
+    raw_result = job.pop("result", None)
+    if job.get("action") == "sync" and job["status"] == "SUCCEEDED":
+        try:
+            result = json.loads(raw_result)
+        except (TypeError, ValueError, RecursionError):
+            result = None
+        if isinstance(result, dict) and result.get("status") == "WAITING_FOR_REPORTS":
+            job["outcome_code"] = "WAITING_FOR_REPORTS"
     rows = db.execute(
         "SELECT id,attempt,code,stage,observed_at FROM workflow_events WHERE app_id=? AND job_id=? ORDER BY id DESC LIMIT ?",
         (app_id, job["id"], MAX_EVENTS),

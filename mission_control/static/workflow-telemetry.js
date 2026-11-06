@@ -10,9 +10,14 @@
     const actions={QUEUED:'Waiting for the worker. Inspect the run to check its saved status.',RUNNING:'Work is running. Inspect its recorded steps and any saved output.',RETRY_WAIT:'Waiting for a permitted worker retry. Inspect the previous attempt before taking action.',FAILED:'Inspect the job status and any saved output before deciding whether to retry.',BLOCKED:'Inspect the job status and missing evidence or access before trying again.',SUCCEEDED:'Review the saved output and choose your next action. Completion alone does not establish app sales.',CANCELLED:'Work was cancelled. Inspect receipts for work that already completed.',UNKNOWN:'Inspect and reconcile the job status. Do not automatically resend uncertain work.',CANCEL_REQUESTED:'Cancellation is pending. Inspect the job status before starting replacement work.'};
     return actions[status]||'Inspect the recorded status and any saved output. Unrecognized states do not establish completion.';
   }
+  function waitingForReports(run){return run.action==='sync'&&run.status==='SUCCEEDED'&&run.outcome_code==='WAITING_FOR_REPORTS';}
+  function waitingResultMarkup(result){
+    const hash=typeof result?.source_hash==='string'&&/^[a-f0-9]{64}$/.test(result.source_hash)?result.source_hash:null;
+    return '<h3>Read completed · waiting for reports</h3><p>The provider returned no report data. This read supplied no app metrics.</p><p>Check the refresh schedule in Connections. An enabled schedule checks again at its saved due time.</p><p>Source receipt hash: '+(hash?esc(hash):'Not supplied by this read')+'</p>';
+  }
   function markup(data){
     if(!data.runs.length)return '<p>No workflow runs yet. Start an approved workflow to see its stages here.</p>';
-    return data.runs.map(run=>`<article class="panel"><h3>${esc(run.action)} · ${esc(run.status)}</h3><p>Attempt ${esc(run.attempts)} · ${esc(run.processed_stages)} stages processed · ${esc(run.blocked_stages)} blocked</p><p>${run.latest?.stage?`Stage ${esc(run.latest.stage)}: ${esc(run.latest.stage_title)} · `:''}${esc(run.activity)}</p><p>Last worker event: ${esc(run.latest?.observed_at||'No event recorded')}. Job updated: ${esc(run.updated)}.</p><p><strong>Next action:</strong> ${esc(nextAction(run.status))}</p>${typeof run.id==='string'&&run.id?`<button type="button" class="button outline" data-action="telemetry-open-job" data-id="${esc(run.id)}">Inspect run and saved output</button>`:''}<details><summary>Observed steps (${run.events.length})</summary><ol>${run.events.map(event=>`<li>${esc(event.observed_at)} · ${event.stage?`Stage ${esc(event.stage)} · `:''}${esc(event.message)}</li>`).join('')}</ol></details></article>`).join('');
+    return data.runs.map(run=>`<article class="panel"><h3>${waitingForReports(run)?'Read completed · waiting for reports':`${esc(run.action)} · ${esc(run.status)}`}</h3><p>Attempt ${esc(run.attempts)} · ${esc(run.processed_stages)} stages processed · ${esc(run.blocked_stages)} blocked</p><p>${waitingForReports(run)?'The source read completed, but the provider has no report data available yet. This read supplied no app metrics.':`${run.latest?.stage?`Stage ${esc(run.latest.stage)}: ${esc(run.latest.stage_title)} · `:''}${esc(run.activity)}`}</p><p>Last worker event: ${esc(run.latest?.observed_at||'No event recorded')}. Job updated: ${esc(run.updated)}.</p><p><strong>Next action:</strong> ${esc(waitingForReports(run)?'Inspect the saved source result and check its refresh schedule in Connections. An enabled schedule checks again at its saved due time.':nextAction(run.status))}</p>${typeof run.id==='string'&&run.id?`<button type="button" class="button outline" data-action="telemetry-open-job" data-id="${esc(run.id)}">Inspect run and saved output</button>`:''}<details><summary>Observed steps (${run.events.length})</summary><ol>${run.events.map(event=>`<li>${esc(event.observed_at)} · ${event.stage?`Stage ${esc(event.stage)} · `:''}${esc(event.message)}</li>`).join('')}</ol></details></article>`).join('');
   }
   async function openResult(node,deps){
     if(node.disabled||opening)return;
@@ -54,5 +59,5 @@
     node.querySelector('[data-action=telemetry-refresh]').onclick=()=>{if(timer!==null)clearTimeout(timer);timer=null;poll();};
     poll();
   }
-  return {panel,markup,mount,clear,openResult,nextAction,POLL_MS};
+  return {panel,markup,mount,clear,openResult,nextAction,waitingResultMarkup,POLL_MS};
 });

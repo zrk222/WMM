@@ -792,16 +792,17 @@ function providerResult(result) {
 }
 
 function openJob(id) {
-  if(state.workspace.jobs.some(j=>j.id===id&&j.action==='agent_run'))return agentOpenRun(id);
-  if(state.workspace.resolutions?.history.some(r=>r.job_id===id))return openResolutionRun(id);
   const job=state.workspace.jobs.find(j=>j.id===id);
+  const reportWaiting=job?.action==='sync'&&job.status==='SUCCEEDED'&&job.result?.status==='WAITING_FOR_REPORTS';
+  if(!reportWaiting&&state.workspace.jobs.some(j=>j.id===id&&j.action==='agent_run'))return agentOpenRun(id);
+  if(!reportWaiting&&state.workspace.resolutions?.history.some(r=>r.job_id===id))return openResolutionRun(id);
   if(!job)return toast("This run is outside the current history. Refresh the selected app.");
-  if(job.action==='sync'&&['play_releases','play_subscriptions'].includes(job.data.options?.operation))return playOpenJob(job);
-  const outputs=job.result?.outputs || [];
+  if(!reportWaiting&&job.action==='sync'&&['play_releases','play_subscriptions'].includes(job.data.options?.operation))return playOpenJob(job);
+  const outputs=reportWaiting?[]:job.result?.outputs || [];
   let content=notice("This run is saved locally. Prepared packets are not provider publication or measured acquisition.");
-  if(job.result?.error) content+=notice(job.result.error,"error");
+  if(job.result?.error&&!reportWaiting) content+=notice(job.result.error,"error");
   content+=outputs.map(output=>stagePacketCard(output,id)).join("");
-  if(job.result&&!outputs.length) content+=providerResult(job.result)+button("Download observed result","download-report",`data-id="${esc(id)}"`);
+  if(job.result&&!outputs.length) content+=(reportWaiting?WMMTelemetry.waitingResultMarkup(job.result):providerResult(job.result))+button("Download observed result","download-report",`data-id="${esc(id)}"`);
   if(job.action==="sync"&&job.data.options&&!["RUNNING","QUEUED"].includes(job.status))content+=button("Run report again","rerun-report",`data-id="${esc(id)}"`);
   const runState=outputs.length?`<p>Saved preparation · ${esc(new Date(job.created).toLocaleString())}. Buttons open the current workflow; the drafts below retain this run's saved inputs.</p><details><summary>Run reference</summary>${status(job.status)}<p class="app-mono">${esc(id)}</p></details>`:`${status(job.status)}<p class="app-mono">${esc(id)}</p>`;
   modal(outputs.length?"Your prepared workflow":"Saved run",`<div class="modal-content">${runState}${content}</div><div class="modal-actions">${["RUNNING","QUEUED"].includes(job.status)?button("Cancel local run","cancel-job",`data-id="${esc(id)}"`):button("Close result","close")}</div>`,outputs.length?"SAVED WORKFLOW":"RUN HISTORY");

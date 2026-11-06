@@ -4,6 +4,33 @@ const fs=require('node:fs'),vm=require('node:vm');
 const context={module:{exports:{}},setTimeout,clearTimeout};vm.createContext(context);
 vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../mission_control/static/workflow-telemetry.js'),'utf8'),context);
 const ui=context.module.exports;
+test('completed reads distinguish missing provider reports without claiming metrics or scheduled work',()=>{
+ const run={id:'waiting',action:'sync',status:'SUCCEEDED',outcome_code:'WAITING_FOR_REPORTS',attempts:1,processed_stages:0,blocked_stages:0,activity:'Worker finished',events:[],updated:'now'};
+ const html=ui.markup({runs:[run]});
+ assert.match(html,/Read completed · waiting for reports/);assert.match(html,/This read supplied no app metrics/);assert.match(html,/check its refresh schedule in Connections/);assert.match(html,/An enabled schedule/);
+ assert.ok(!html.includes('Worker finished'));assert.ok(html.includes('telemetry-open-job'));
+ for(const changes of [{action:'pipeline'},{status:'FAILED'},{status:'RUNNING'},{outcome_code:'PRIVATE_UNKNOWN'}]){
+  const other=ui.markup({runs:[{...run,...changes}]});assert.ok(!other.includes('Read completed · waiting for reports'));assert.ok(!other.includes('PRIVATE_UNKNOWN'));
+ }
+});
+test('waiting saved-result summary exposes only a validated source receipt hash',()=>{
+ const result={status:'WAITING_FOR_REPORTS',token:'PRIVATE_TOKEN',error:'PRIVATE_ERROR',outputs:[{secret:'PRIVATE_OUTPUT'}],source_hash:'a'.repeat(64)};
+ const html=ui.waitingResultMarkup(result);assert.ok(html.includes('a'.repeat(64)));assert.ok(!html.includes('PRIVATE_'));assert.match(html,/This read supplied no app metrics/);
+ for(const source_hash of [null,{},'<img src=x>','PRIVATE_HASH','A'.repeat(64)]){const other=ui.waitingResultMarkup({...result,source_hash});assert.match(other,/Not supplied by this read/);assert.ok(!other.includes('PRIVATE_'));assert.ok(!other.includes('<img'));}
+});
+test('waiting result summary precedes resolution and Play dispatch without changing nonwaiting routing',()=>{
+ const source=fs.readFileSync(require('node:path').join(__dirname,'../mission_control/static/app.js'),'utf8');
+ const start=source.indexOf('function openJob(id) {'),end=source.indexOf('\nfunction prepareReview()',start);
+ assert.ok(start>=0&&end>start);
+ for(const operation of ['play_releases','play_subscriptions']){
+  const job={id:'waiting',action:'sync',status:'SUCCEEDED',data:{options:{operation}},result:{status:'WAITING_FOR_REPORTS',error:'PRIVATE_ERROR',outputs:[{secret:'PRIVATE_OUTPUT'}]}};
+  const calls=[],ctx={state:{workspace:{jobs:[job],resolutions:{history:[{job_id:job.id}]}}},WMMTelemetry:ui,notice:x=>x,button:()=>'',status:x=>x,esc:x=>x,$:()=>({dataset:{}}),modal:(title,body)=>calls.push(body),playOpenJob:()=>calls.push('play'),openResolutionRun:()=>calls.push('resolution'),agentOpenRun:()=>calls.push('agent'),providerResult:()=>{throw Error('raw result');},stagePacketCard:()=>{throw Error('raw output');}};
+  vm.createContext(ctx);vm.runInContext(source.slice(start,end),ctx);ctx.openJob(job.id);
+  assert.equal(calls.length,1);assert.match(calls[0],/Read completed · waiting for reports/);assert.ok(!calls[0].includes('PRIVATE_'));
+  calls.length=0;job.status='FAILED';ctx.openJob(job.id);assert.deepEqual(calls,['resolution']);
+  calls.length=0;ctx.state.workspace.resolutions.history=[];ctx.openJob(job.id);assert.deepEqual(calls,['play']);
+ }
+});
 test('monitor displays actual stage and fixed activity without injecting source markup',()=>{
  const html=ui.markup({runs:[{action:'pipeline',status:'RUNNING',attempts:1,processed_stages:2,blocked_stages:1,updated:'now',latest:{stage:3,stage_title:'<script>bad</script>',observed_at:'now'},activity:'Checking evidence',events:[{observed_at:'now',stage:3,message:'<img src=x>'}]}]});
  assert.match(html,/Stage 3/);assert.match(html,/2 stages processed/);assert.match(html,/Checking evidence/);
