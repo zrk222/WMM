@@ -84,10 +84,20 @@ class AutomationRecoveryTests(unittest.TestCase):
         with ExitStack() as stack:
             calls=[stack.enter_context(patch(tick_target(n),return_value=0)) for n in TICKS]
             queue=stack.enter_context(patch("mission_control.worker.run_once",side_effect=OSError("private")))
-            self.assertFalse(self.runner.poll());self.assertFalse(self.runner.poll())
-            self.assertEqual(queue.call_count,1)
-            self.assertTrue(all(c.call_count==1 for c in calls))
-            self.assertEqual(self.runner.health["components"]["queue"]["failures"],1)
+            clock = stack.enter_context(patch("mission_control.automation_health.time"))
+            clock.monotonic.return_value = 100.0
+            self.assertFalse(self.runner.poll())
+            clock.monotonic.return_value = 100.99
+            self.assertFalse(self.runner.poll())
+            self.assertEqual(queue.call_count, 1)
+            self.assertEqual([call.call_count for call in calls], [1] * len(TICKS))
+            self.assertEqual(self.runner.health["components"]["queue"]["failures"], 1)
+
+            clock.monotonic.return_value = 101.0
+            self.assertFalse(self.runner.poll())
+            self.assertEqual(queue.call_count, 2)
+            self.assertEqual([call.call_count for call in calls], [2] * len(TICKS))
+            self.assertEqual(self.runner.health["components"]["queue"]["failures"], 2)
 
     def test_retry_does_not_change_durable_configuration_or_replay_failed_jobs(self):
         enqueue(self.store,"sample-one","pipeline",{"stage":0},"one")

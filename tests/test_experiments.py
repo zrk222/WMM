@@ -172,6 +172,92 @@ class ExperimentTests(unittest.TestCase):
         self.assertEqual(result["external_execution"],"NOT_RUN")
         self.assertEqual(self.current(e)["state"],"DECIDED")
 
+    def test_iteration_decisions_are_bound_and_never_grant_effects(self):
+        from mission_control.experiment_iteration import iteration_plan
+
+        definition = dict(self.plan, minimum_detectable_effect=.1)
+        definition["control"] = dict(definition["control"], creative_sha256="a" * 64)
+        assessment = dict(status="EVALUATED", definition_hash=digest(definition), guardrail_findings=[])
+        for bounds, expected in (
+            ((.1, .3), "CONTINUE"),
+            ((-.3, -.1), "REVISE"),
+            ((-.06, .07), "REVISE"),
+            ((-.02, .18), "COLLECT"),
+            ((-.1, .06), "COLLECT"),
+            ((.18, -.02), "REPAIR"),
+            ((True, .3), "REPAIR"),
+            ((0, 10**400), "REPAIR"),
+        ):
+            with self.subTest(bounds=bounds):
+                source = dict(assessment, effect={"interval": bounds})
+                plan = iteration_plan(definition, source, digest(source))
+                self.assertEqual(plan["decision"], expected)
+                self.assertEqual(plan["assessment_hash"], digest(source))
+                self.assertEqual(plan["definition_hash"], digest(definition))
+                self.assertFalse(plan["authority_issued"])
+                self.assertEqual(plan["external_execution"], "NOT_RUN")
+                payload = {k: v for k, v in plan.items() if k != "iteration_hash"}
+                self.assertEqual(plan["iteration_hash"], digest(payload))
+                if expected == "REVISE":
+                    self.assertEqual(plan["draft"]["variable"], "opening_hook")
+                    self.assertEqual(plan["draft"]["control_asset_sha256"], "a" * 64)
+                else:
+                    self.assertIsNone(plan["draft"])
+
+        invalid = dict(assessment, effect={"interval": [.1, .3]})
+        self.assertEqual(iteration_plan(definition, invalid, "0" * 64)["decision"], "REPAIR")
+        for nonfinite in (float("nan"), float("inf")):
+            corrupt = dict(assessment, effect={"interval": [.1, nonfinite]})
+            self.assertEqual(iteration_plan(definition, corrupt, "0" * 64)["decision"], "REPAIR")
+        self.assertEqual(iteration_plan(dict(definition, primary_metric="retention_rate"), invalid, digest(invalid))["decision"], "REPAIR")
+        bad_definition = dict(definition, minimum_detectable_effect=float("nan"))
+        invalid_plan = iteration_plan(bad_definition, invalid, digest(invalid))
+        self.assertEqual(invalid_plan["decision"], "REPAIR")
+        self.assertIsNone(invalid_plan["practical_effect_threshold"])
+        bad_diagnostics = dict(invalid, issues=None)
+        self.assertEqual(iteration_plan(definition, bad_diagnostics, digest(bad_diagnostics))["decision"], "REPAIR")
+        mismatch = dict(assessment, status="INCONCLUSIVE", issues=["Sample ratio mismatch; investigate assignment and logging"])
+        self.assertEqual(iteration_plan(definition, mismatch, digest(mismatch))["decision"], "REPAIR")
+        breach_and_mismatch = dict(mismatch, guardrail_findings=[
+            "treatment breached a predeclared retention/refund/contribution/cost guardrail",
+        ])
+        stop = iteration_plan(definition, breach_and_mismatch, digest(breach_and_mismatch))
+        self.assertEqual(stop["decision"], "STOP")
+        self.assertIn("assignment issue", stop["reason"])
+        self.assertIsNone(stop["draft"])
+        malformed_control = dict(definition, control="bad")
+        malformed_evidence = dict(assessment, definition_hash=digest(malformed_control), effect={"interval": [-.3, -.1]})
+        self.assertEqual(iteration_plan(malformed_control, malformed_evidence, digest(malformed_evidence))["decision"], "REPAIR")
+        subscription = dict(definition, control=dict(definition["control"], variant_type="SUBSCRIPTION"))
+        subscription_evidence = dict(malformed_evidence, definition_hash=digest(subscription))
+        self.assertIsNone(iteration_plan(subscription, subscription_evidence, digest(subscription_evidence))["draft"])
+
+        for status, findings, expected in (
+            ("BLOCKED", [], "REPAIR"),
+            ("INCONCLUSIVE", [], "COLLECT"),
+            ("INCONCLUSIVE", ["control guardrail denominator or costs unavailable"], "COLLECT"),
+            ("INCONCLUSIVE", ["treatment breached a predeclared retention/refund/contribution/cost guardrail"], "STOP"),
+        ):
+            with self.subTest(status=status, findings=findings):
+                source = dict(assessment, status=status, guardrail_findings=findings)
+                plan = iteration_plan(definition, source, digest(source))
+                self.assertEqual(plan["decision"], expected)
+                self.assertIsNone(plan["draft"])
+
+    def test_iteration_replays_across_restart_and_uses_same_owner_report_projection(self):
+        from mission_control.campaign_owner_reports import experiment_source
+
+        experiment, first = self.evaluated()
+        with patch("mission_control.experiments.now", return_value=ANALYZE):
+            second = Experiments(Store(self.store.path)).evaluate("sample-one", experiment["id"])
+        self.assertFalse(second["new_assessment"])
+        self.assertEqual(first["iteration"], second["iteration"])
+        self.assertEqual(first["hash"], digest(first["result"]))
+        self.assertNotIn("iteration", first["result"])
+        with connection(self.store.path) as db:
+            source = experiment_source(db, "sample-one", experiment["id"])
+        self.assertEqual(source["assessment"]["iteration"], first["iteration"])
+
     def test_missing_sample_and_guardrails_prevent_next_test(self):
         e=self.create();self.observe(e);self.ingest(count=2)
         with patch("mission_control.experiments.now",return_value=ANALYZE):result=self.experiments.evaluate("sample-one",e["id"])

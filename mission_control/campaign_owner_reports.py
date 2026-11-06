@@ -154,7 +154,7 @@ def experiment_source(db, app_id, identity):
         "SELECT * FROM experiment_assessments WHERE app_id=? AND experiment_id=? ORDER BY version DESC LIMIT 1",
         (app_id, identity),
     ).fetchone()
-    assessment = assessment_view(latest, row["hash"]) if latest else None
+    assessment = assessment_view(latest, row["hash"], data) if latest else None
     return dict(
         id=identity,
         definition_hash=row["hash"],
@@ -169,13 +169,14 @@ def experiment_source(db, app_id, identity):
     )
 
 
-def assessment_view(row, definition_hash):
+def assessment_view(row, definition_hash, definition):
     data = object_data(row["data"])
     if digest(data) != row["hash"]:
         raise Invalid("Experiment assessment integrity changed")
     state = data.get("status")
     if state not in ("BLOCKED", "INCONCLUSIVE", "EVALUATED"):
         raise Invalid("Unsupported saved experiment assessment state")
+    from .experiment_iteration import iteration_plan
     matches = data.get("definition_hash") == definition_hash
     return dict(
         hash=row["hash"],
@@ -183,6 +184,7 @@ def assessment_view(row, definition_hash):
         status=state,
         definition_matches=matches,
         effect=effect_view(data.get("effect")) if matches else None,
+        iteration=iteration_plan(definition, data, row["hash"]) if matches else None,
         diagnostics_hash=digest(data.get("diagnostics")),
         guardrails_hash=digest(data.get("guardrail_findings")),
         limitations="Saved descriptive assessment only; no verified causal lift or automatic winner.",
@@ -459,6 +461,12 @@ def next_action(campaign, observation, coverage, experiment):
         return (
             "Review current evidence and explicitly evaluate the existing experiment."
         )
+    if experiment and experiment["assessment"]:
+        iteration = experiment["assessment"]["iteration"]
+        if iteration:
+            draft = iteration["draft"]
+            change = " Draft for review. " + draft["proposed_change"] if draft else ""
+            return iteration["reason"] + change + " Re-evaluate current evidence before using this saved recommendation."
     return "Review the saved descriptive measurements and choose one bounded next decision."
 
 
