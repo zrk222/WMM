@@ -18,7 +18,13 @@ def run(browser,width,out):
  page.on("pageerror",lambda e:errors.append(str(e)))
  page.on("request",lambda r:posts.append(r.url) if r.method=="POST" else None)
  try:
+  page.add_init_script("window.wmmStyleViolations=[];document.addEventListener('securitypolicyviolation',e=>{if(e.effectiveDirective==='style-src-attr')window.wmmStyleViolations.push(e.effectiveDirective)});")
   page.goto(f.origin);page.wait_for_function("() => state.workspace?.app?.id===state.app")
+  channels=page.get_by_role('list',name='Video channels',exact=True)
+  expect(channels.locator('svg')).to_have_count(4)
+  expect(channels).to_have_css('list-style-type','none')
+  expect(channels.locator('svg').first).to_have_css('margin-right','6px')
+  assert page.evaluate('window.wmmStyleViolations')==[]
   page.locator("#navigation > [data-view=activity]").click()
   expect(page.locator('[data-live-worker]')).to_contain_text('Worker starting')
   f.server.runner.supervision.attempt('queue', lambda: 1 / 0)
