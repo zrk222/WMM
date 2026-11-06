@@ -9,6 +9,7 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+import time
 
 
 def digest(path):
@@ -65,22 +66,49 @@ def verify_bundle(folder):
                 profile='DISPOSABLE_SYNTHETIC', interactive_webview='NOT_RUN')
 
 
-WINDOW_READY_AND_CLOSE = r"""
-$ErrorActionPreference = 'Stop'
-$window = Get-Process -Id ([int]$env:WMM_PROBE_PID)
-$timer = [Diagnostics.Stopwatch]::StartNew()
-while ($timer.Elapsed.TotalSeconds -lt 25) {
-    $window.Refresh()
-    if ($window.HasExited) { throw 'Mission Control exited before opening its window' }
-    if ($window.MainWindowHandle -ne 0 -and $window.MainWindowTitle -eq 'Wize Marketing Machine' -and
-        (Test-Path -LiteralPath $env:WMM_PROBE_DATABASE -PathType Leaf)) {
-        if (!$window.CloseMainWindow()) { throw 'Could not close the owned Mission Control window' }
-        exit 0
-    }
-    Start-Sleep -Milliseconds 250
-}
-throw 'Mission Control native window or disposable workspace was unavailable'
-"""
+def close_owned_windows_window(child, database):
+    """Find the launched window by process and title before posting its close event."""
+    import ctypes
+    from ctypes import wintypes
+
+    user = ctypes.WinDLL('user32', use_last_error=True)
+    callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    user.EnumWindows.argtypes = (callback_type, wintypes.LPARAM)
+    user.EnumWindows.restype = wintypes.BOOL
+    user.GetWindowThreadProcessId.argtypes = (wintypes.HWND, ctypes.POINTER(wintypes.DWORD))
+    user.GetWindowThreadProcessId.restype = wintypes.DWORD
+    user.GetWindowTextW.argtypes = (wintypes.HWND, wintypes.LPWSTR, ctypes.c_int)
+    user.GetWindowTextW.restype = ctypes.c_int
+    user.PostMessageW.argtypes = (wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM)
+    user.PostMessageW.restype = wintypes.BOOL
+    windows = []
+
+    @callback_type
+    def collect(window, _parameter):
+        owner = wintypes.DWORD()
+        user.GetWindowThreadProcessId(window, ctypes.byref(owner))
+        if owner.value == child.pid:
+            title = ctypes.create_unicode_buffer(64)
+            user.GetWindowTextW(window, title, len(title))
+            if title.value == 'Wize Marketing Machine':
+                windows.append(window)
+        return True
+
+    deadline = time.monotonic() + 25
+    while time.monotonic() < deadline:
+        if child.poll() is not None:
+            raise RuntimeError('Mission Control exited before opening its window')
+        if database.is_file():
+            if not user.EnumWindows(collect, 0):
+                raise ctypes.WinError(ctypes.get_last_error())
+            if windows:
+                if len(windows) != 1:
+                    raise RuntimeError('Mission Control opened more than one primary window')
+                if not user.PostMessageW(windows[0], 0x0010, 0, 0):  # WM_CLOSE
+                    raise ctypes.WinError(ctypes.get_last_error())
+                return
+        time.sleep(.25)
+    raise RuntimeError('Mission Control native window or disposable workspace was unavailable')
 
 
 def verify_windows_window(folder):
@@ -99,9 +127,7 @@ def verify_windows_window(folder):
                                  stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         try:
             database = profile / 'Wize Marketing Machine' / 'mission-control.sqlite3'
-            env.update(WMM_PROBE_PID=str(child.pid), WMM_PROBE_DATABASE=str(database))
-            subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', WINDOW_READY_AND_CLOSE],
-                           env=env, check=True, timeout=35)
+            close_owned_windows_window(child, database)
             exit_code = child.wait(timeout=50)
             if exit_code != 0:
                 raise RuntimeError(f'Mission Control returned {exit_code} after its native window closed')
