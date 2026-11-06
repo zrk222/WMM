@@ -1037,7 +1037,7 @@ async function handleAction(node) {
 document.addEventListener("click",async event=>{
   const node=event.target.closest("[data-action],[data-view],[data-report-page]");if(!node) return;
   if(node.hasAttribute("data-report-page")) {
-    try{WMMPageReports.openReport(WMMPageReports.model(state),window);}catch(error){toast(error.message);}return;
+    try{WMMPageReports.openReport(WMMPageReports.model(state),window,node);}catch(error){toast(error.message);}return;
   }
   const view=node.dataset.view||(node.dataset.action==="research-channel-open"?"research":null);
   if(view) {state.weeklyGeneration=(state.weeklyGeneration||0)+1;state.weeklyLoading=false;state.view=view;render();$("#main").focus();return;}

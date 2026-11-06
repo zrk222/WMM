@@ -135,8 +135,36 @@
     return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(report.title)} — WMM report</title><link rel="stylesheet" href="${escape(origin)}/page-reporting.css"></head><body class="wmm-print-report"><header><p>WMM · Evidence report</p><h1>${escape(report.title)}</h1><p>${escape(report.app_name)} · ${escape(report.app_id || report.scope)}</p></header><nav class="report-controls" aria-label="Report actions"><button type="button" id="print-page-report">Print / Save as PDF</button><button type="button" id="close-page-report">Close report</button><p>The browser print dialog lets you select Save as PDF. No file has been saved until you complete that step.</p></nav><main><p>${escape(report.purpose)}</p><p><strong>Next step:</strong> ${escape(report.next_step)}</p><dl><div><dt>Generated</dt><dd>${escape(report.generated_at)}</dd></div><div><dt>Loaded / evaluated</dt><dd>${escape(report.loaded_at)}</dd></div><div><dt>App setup version</dt><dd>${escape(report.manifest_version ?? "Portfolio scope")}</dd></div>${Object.entries(report.filters).map(([key, value]) => `<div><dt>${escape(key.replaceAll("_", " "))}</dt><dd>${escape(value || "None")}</dd></div>`).join("")}</dl>${metricTable(report)}${cohorts}<section><h2>Evidence boundaries</h2><ul>${report.notes.map(note => `<li>${escape(note)}</li>`).join("")}</ul></section></main><footer>Saved local evidence. No publication, spend or approval authority.</footer></body></html>`;
   }
 
-  function openReport(report, browser) {
+  function openInlineReport(report, browser, trigger) {
+    const document = browser.document;
+    const active = document.querySelector(".wmm-report-dialog[open]");
+    if (active) return active;
+    const previousFocus = trigger ?? document.activeElement;
+    const parsed = new browser.DOMParser().parseFromString(reportHTML(report, browser.location.origin), "text/html");
+    const dialog = document.createElement("dialog");
+    dialog.className = "wmm-print-report wmm-report-dialog";
+    dialog.append(...parsed.body.children);
+    const title = dialog.querySelector("h1");
+    title.id = "inline-report-title";
+    title.tabIndex = -1;
+    dialog.setAttribute("aria-labelledby", title.id);
+    dialog.querySelector("#print-page-report").addEventListener("click", () => browser.print());
+    dialog.querySelector("#close-page-report").addEventListener("click", () => dialog.close());
+    dialog.addEventListener("close", () => {
+      dialog.remove();
+      document.body.classList.remove("wmm-report-preview-open");
+      if (previousFocus?.isConnected) previousFocus.focus();
+    }, {once:true});
+    document.body.append(dialog);
+    dialog.showModal();
+    document.body.classList.add("wmm-report-preview-open");
+    title.focus();
+    return dialog;
+  }
+
+  function openReport(report, browser, trigger) {
     const popup = browser.open("about:blank", "_blank");
+    if (!popup && browser.document && browser.DOMParser) return openInlineReport(report, browser, trigger);
     if (!popup) throw new Error("Allow a report window for this local app, then try Report / Save PDF again. Saved work is unchanged.");
     popup.document.open();
     popup.document.write(reportHTML(report, browser.location.origin));
