@@ -1,6 +1,7 @@
 """Synthetic Page execution, durable uncertainty and fixed HTTP boundary tests."""
 import tempfile
 import json
+import sqlite3
 import os
 import subprocess
 import sys
@@ -296,6 +297,72 @@ class PaidTests(unittest.TestCase):
         self.assertEqual(observed['result']['reported_spend'],'1.23')
         stopped=self.service.run_pause('sample','owner',self.paid_scope['scope_id'],result['id'])
         self.assertEqual(stopped['status'],'PAUSED_campaign');self.assertEqual(stopped['commitment'],80)
+
+    def test_pause_readback_survives_restart_and_later_reconciliation(self):
+        intent=self.service.run_ad('sample','owner',self.paid_scope['scope_id'],self.adbody)
+        campaign=self.transport.objects[intent['ids']['campaign']]
+        campaign.update(effective_status='ACTIVE',access_token='PRIVATE_PROVIDER_VALUE',
+                        name='PRIVATE_CAMPAIGN_COPY')
+        with patch.object(self.transport,'read_paid',wraps=self.transport.read_paid) as reads, \
+                patch.object(self.transport,'set_paid_status',wraps=self.transport.set_paid_status) as writes:
+            paused=self.service.run_pause('sample','owner',self.paid_scope['scope_id'],intent['id'])
+        self.assertEqual(reads.call_count,2)
+        self.assertEqual(writes.call_count,1)
+        receipt=paused['pause_readback']
+        self.assertEqual(receipt['configured_status'],'PAUSED')
+        self.assertEqual(receipt['effective_status'],'ACTIVE')
+        self.assertEqual(receipt['campaign_id'],intent['ids']['campaign'])
+        self.assertEqual(receipt['account_id'],'456')
+        self.assertEqual(receipt['sha256'],digest({k:v for k,v in receipt.items() if k!='sha256'}))
+        self.assertNotIn('PRIVATE_',canonical(receipt))
+        reopened=CampaignExecutionService(self.store,self.service.policy_checker,self.transport)
+        self.assertEqual(reopened.list_intents('sample',self.paid_scope['scope_id'])[-1]['pause_readback'],receipt)
+        with patch.object(reopened,'_credentials',self.service._credentials):
+            reopened.reconcile('sample','owner',self.paid_scope['scope_id'],intent['id'])
+        self.assertEqual(reopened.list_intents('sample',self.paid_scope['scope_id'])[-1]['pause_readback'],receipt)
+        with connection(self.store.path) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM campaign_pause_receipts').fetchone()[0],1)
+        self.assertEqual(paused['commitment'],80)
+
+    def test_pause_receipt_missing_or_unrecognized_effective_state_stays_unknown(self):
+        intent=self.service.run_ad('sample','owner',self.paid_scope['scope_id'],self.adbody)
+        self.transport.objects[intent['ids']['campaign']]['effective_status']='PRIVATE_UNSUPPORTED'
+        paused=self.service.run_pause('sample','owner',self.paid_scope['scope_id'],intent['id'])
+        self.assertIsNone(paused['pause_readback']['effective_status'])
+        self.assertNotIn('PRIVATE_',canonical(paused['pause_readback']))
+
+    def test_unconfirmed_pause_has_no_confirmation_receipt(self):
+        intent=self.service.run_ad('sample','owner',self.paid_scope['scope_id'],self.adbody)
+        read=self.transport.read_paid
+        calls=[]
+        def mismatch(kind,identity,token,secret,alive):
+            value=read(kind,identity,token,secret,alive)
+            calls.append(kind)
+            if len(calls)==2:value['account_id']='999'
+            return value
+        with patch.object(self.transport,'read_paid',side_effect=mismatch),self.assertRaises(Unconfirmed):
+            self.service.run_pause('sample','owner',self.paid_scope['scope_id'],intent['id'])
+        with connection(self.store.path) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM campaign_pause_receipts').fetchone()[0],0)
+        retained=self.service.list_intents('sample',self.paid_scope['scope_id'])[-1]
+        self.assertEqual(retained['status'],'ACK_PAUSED_campaign')
+        self.assertIsNone(retained['pause_readback'])
+        self.assertEqual(retained['commitment'],80)
+
+    def test_pause_receipt_storage_failure_rolls_back_confirmation(self):
+        intent=self.service.run_ad('sample','owner',self.paid_scope['scope_id'],self.adbody)
+        with connection(self.store.path) as db:
+            db.execute("CREATE TRIGGER reject_pause_receipt BEFORE INSERT ON campaign_pause_receipts "
+                       "BEGIN SELECT RAISE(ABORT, 'synthetic disk failure'); END")
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.service.run_pause('sample','owner',self.paid_scope['scope_id'],intent['id'])
+        retained=self.service.list_intents('sample',self.paid_scope['scope_id'])[-1]
+        self.assertEqual(retained['status'],'ACK_PAUSED_campaign')
+        self.assertIsNone(retained['pause_readback'])
+        self.assertEqual(retained['commitment'],80)
+        self.assertEqual(self.transport.objects[intent['ids']['campaign']]['status'],'PAUSED')
+        with connection(self.store.path) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM campaign_pause_receipts').fetchone()[0],0)
 
     def test_uncertain_creation_keeps_hold_and_rejects_second_campaign(self):
         self.transport.fail_kind='adset'
