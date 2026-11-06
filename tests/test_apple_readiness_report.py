@@ -7,6 +7,7 @@ from mission_control.common import canonical, now
 from mission_control.db import connection
 from mission_control.ios_reports import read, snapshot
 from mission_control.worker import jobs, run_once
+from mission_control.service import Service
 from tests import test_apple_metrics_schedule as fixture
 from tests import test_ios_host as host_fixture
 
@@ -40,6 +41,18 @@ class AppleReadinessReportTests(unittest.TestCase):
         encoded = json.dumps(report)
         for private in (fixture.REPORT, '"'+fixture.STORE_APP+'"', fixture.REF, self.connection_record['id'], 'synthetic-private-key'):
             self.assertNotIn(private, encoded)
+
+    def test_workspace_guided_workflow_projects_waiting_exception(self):
+        self.wait_once()
+        workflow = Service(self.store).workspace(fixture.APP)['workflow']
+        self.assertEqual(len(workflow['exceptions']), 1)
+        exception = workflow['exceptions'][0]
+        self.assertEqual(exception['state'], 'WAITING_FOR_REPORTS')
+        self.assertEqual(exception['repair_route'], 'connections')
+        self.assertIn('does not mean zero activity', exception['reason'])
+        self.assertIsNotNone(exception['observed_at'])
+        self.assertIsNotNone(exception['next_due'])
+        self.assertNotIn(fixture.REPORT, json.dumps(exception))
 
     def test_absent_paused_and_source_changed_are_distinct(self):
         self.assertEqual(self.rows()['Apple schedule']['observed'], 'NOT_CONFIGURED')

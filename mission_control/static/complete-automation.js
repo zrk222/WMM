@@ -4,6 +4,44 @@
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const button=(text,action,extra='')=>`<button type="button" class="button outline" data-action="standing-${action}" ${extra}>${esc(text)}</button>`;
  let active=null;
+ const automationProfiles={
+  research:{label:'Research & experiments',workflows:['local_evidence','experiment_preparation'],description:'Read and save research, import evidence, and prepare experiments. Review the exact operations before enabling this profile.'},
+  organic:{label:'Organic marketing',workflows:['local_evidence','pipeline_preparation','hypit_caption_render'],description:'Prepare research, Hypit/editor work and delivery reports. Publication still needs the separate exact organic policy and destination approval. Verified delivery is separate from analytics; missing analytics stays visible.'},
+  meta:{label:'Bounded Meta media buyer',workflows:['local_evidence','pipeline_preparation','social_publish','paid_effects'],description:'Prepare and report on Meta work. Publishing, paid effects and budget remain behind the separate exact campaign scope. Verified delivery is separate from analytics; missing analytics stays visible.'}
+ };
+ function profileWorkflows(profile){return automationProfiles[profile]?.workflows?.slice()||[];}
+ function resolveAutomationProfile(profile,available){
+  const definition=automationProfiles[profile];
+  if(!definition)return {available:true,selected:[],missing:[]};
+  const ids=new Set(available||[]),missing=definition.workflows.filter(id=>!ids.has(id));
+  return {available:missing.length===0,selected:definition.workflows.filter(id=>ids.has(id)),missing};
+ }
+ function profileAfterWorkflowEdit(){return 'custom';}
+ function bindAutomationProfiles(form){
+  const picker=form.querySelector('#standing-goal-profile'),note=form.querySelector('[data-standing-profile-note]');
+  if(!picker)return;
+  const boxes=[...form.querySelectorAll('input[name="workflows"]')],available=new Set(boxes.map(input=>input.value));
+  const render=()=>{
+   const definition=automationProfiles[picker.value];
+   if(!definition){if(note)note.textContent='Custom keeps your selected workflows. The exact operation list remains visible in the review step.';return;}
+   const resolved=resolveAutomationProfile(picker.value,available);
+   boxes.forEach(input=>{input.checked=resolved.selected.includes(input.value);});
+   if(note)note.textContent=resolved.missing.length?`${definition.label} is unavailable for this catalog until ${resolved.missing.join(', ')} is implemented or restored. No hidden operation was added.`:`${definition.description} This preset only fills the form; it does not issue authority.`;
+  };
+  picker.addEventListener('change',render);
+  form.addEventListener('change',event=>{if(event.target.name==='workflows'&&event.target!==picker)picker.value=profileAfterWorkflowEdit();});
+  render();
+ }
+ function decorateAutomationSetup(node){
+  const form=node?.querySelector?.('#standing-scope-form');
+  if(!form||form.querySelector('#standing-goal-profile'))return;
+  form.insertAdjacentHTML('afterbegin','<p>Start with the outcome you want. A preset fills the form; it never grants authority or bypasses readiness checks.</p><label class="field">Automation profile<select id="standing-goal-profile" name="standing_goal_profile"><option value="research">Research only</option><option value="organic">Organic marketing</option><option value="meta">Bounded Meta media buyer</option><option value="custom">Custom advanced scope</option></select></label><p data-standing-profile-note role="status"></p>');
+  const accountSection=form.querySelectorAll('fieldset')[1];
+  if(accountSection)accountSection.insertAdjacentHTML('beforebegin','<p>Choosing an account only identifies a destination for readiness checks. It does not publish, spend, or grant provider permission.</p>');
+  const submit=form.querySelector('[type="submit"]');
+  if(submit)submit.textContent='Review exact agreement';
+  bindAutomationProfiles(form);
+ }
  function scope(state){return {app:state.app,version:state.workspace.app.version,principal:state.workspace.identity?.principal};}
  function same(saved,state){const current=scope(state);return saved.app===current.app&&saved.version===current.version&&saved.principal===current.principal;}
  function owner(state){return state.workspace.access?.members?.some(r=>r.principal===state.workspace.identity?.principal&&r.role==='OWNER'&&r.status==='ACTIVE');}
@@ -14,7 +52,7 @@
  function valid(ticket,deps){return active===ticket&&same(ticket.scope,deps.state)&&ticket.node?.isConnected&&deps.document.querySelector('#modal').open;}
  function show(deps,title,kind,data,markup,saved=scope(deps.state)){
   deps.modal(title,`<div class="modal-content" id="standing-dialog">${markup}<p id="standing-error" role="alert"></p></div>`,'YOUR AUTOMATION AUTHORITY');
-  active={scope:saved,kind,data,node:deps.document.querySelector('#standing-dialog'),pending:false};return active;
+  active={scope:saved,kind,data,node:deps.document.querySelector('#standing-dialog'),pending:false};if(kind==='setup')decorateAutomationSetup(active.node);return active;
  }
  const endpoint=(app,action)=>`/api/apps/${encodeURIComponent(app)}/agent-grants/automation-${action}`;
  function summaryMarkup(summary){
@@ -49,7 +87,7 @@
   try{
    const fields=new deps.FormData(form),values=Object.fromEntries(fields);values.workflows=fields.getAll('workflows');values.social_connection_ids=fields.getAll('social_connection_ids');values.currency=deps.state.workspace.app.data.currency||'USD';
    const data=await deps.api(endpoint(ticket.scope.app,'preview'),proposal(values,ticket.scope));
-    if(valid(ticket,deps))show(deps,'Review automation authority','confirm',data,`${summaryMarkup(data.summary)}${ticket.data.proposal.extended_expiry_consent===true?'<p>You explicitly consented to this selected expiry being more than 24 hours away.</p>':''}<p>Summary SHA256: ${esc(data.summary_hash)}</p>${data.summary.inventory.scope_status==='READY_FOR_SCOPE_REVIEW'?button('Approve scope and switch ON','activate'):'<p role="alert">Activation is blocked. Repair the listed connection or workflow requirements and prepare a new summary.</p>'}`,ticket.scope);
+    if(valid(ticket,deps))show(deps,'Review automation authority','confirm',data,`${summaryMarkup(data.summary)}${data.proposal.extended_expiry_consent===true?'<p>You explicitly consented to this selected expiry being more than 24 hours away.</p>':''}<p>Summary SHA256: ${esc(data.summary_hash)}</p>${data.summary.inventory.scope_status==='READY_FOR_SCOPE_REVIEW'?button('Approve scope and switch ON','activate'):'<p role="alert">Activation is blocked. Repair the listed connection or workflow requirements and prepare a new summary.</p>'}`,ticket.scope);
   }catch(e){if(valid(ticket,deps))ticket.node.querySelector('#standing-error').textContent=e.message+' Your inputs are preserved.';}
   finally{ticket.pending=false;submit.disabled=false;}
  }
@@ -87,5 +125,5 @@
   }catch(e){if(valid(ticket,deps))ticket.node.querySelector('#standing-error').textContent=e.message+' Reload the current scope before retrying.';}
   finally{ticket.pending=false;}
  }
- return {panel,open,action,submit,clear,invalidate,proposal,summaryMarkup,statusMarkup,report};
+ return {panel,open,action,submit,clear,invalidate,proposal,summaryMarkup,statusMarkup,report,automationProfiles,profileWorkflows,resolveAutomationProfile,profileAfterWorkflowEdit};
 });
