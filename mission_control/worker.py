@@ -167,7 +167,11 @@ def _persist_prepared_apple_metrics(db,store,job,prepared):
             from .apple_metrics_schedule import check_scheduled_db
             check_scheduled_db(db,job)
         identity=prepared.identity
+        from .apple_analytics import DOWNLOADS
+        options = job['data'].get('options', {})
         if (identity['app_id']!=job['app_id']
+                or identity['report_id'] != options.get('report_id')
+                or identity['report_family'] != options.get('report_family', DOWNLOADS)
                 or identity['connection_id']!=job['data'].get('connection_id')
                 or identity['connection_version']!=job['data'].get('connection_version')):
             raise Invalid('Apple analytics result no longer matches the leased app connection')

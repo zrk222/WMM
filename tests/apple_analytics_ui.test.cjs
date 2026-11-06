@@ -59,6 +59,27 @@ test('pause uses the saved schedule version and a closed modal prevents repair a
  const request=apple.action(click('pause'),f.d);await apple.action(click('pause'),f.d);assert.deepEqual(calls.at(-1).body,{manifest_version:2,enabled:false,version:7});assert.equal(calls.filter(c=>c.path.endsWith('/schedule')).length,1);
  f.dialog.open=false;pending.resolve({enabled:false,version:8});await request;await apple.action(click('setup'),f.d);assert.equal(setup,0);assert.equal(calls.filter(c=>c.path.endsWith('/view')).length,1);
 });
+test('store impressions queues only the current complete discovery report',async()=>{
+ const f=fixture(),calls=[];
+ const discovery={id:'discovery-1',name:'App Store Discovery and Engagement Standard',coverage:'PARTIAL',instance_count:1};
+ f.data.reports.push(discovery);
+ f.d.api=async(path,body)=>{calls.push({path,body});return path.endsWith('/view')?f.data:{job_id:'impression-job'};};
+ await apple.open(f.d);assert.doesNotMatch(f.html,/Collect store impressions/);
+ await apple.action(click('impressions'),f.d);assert.equal(calls.length,1);
+ discovery.coverage='COMPLETE';await apple.open(f.d);
+ assert.match(f.html,/Collect store impressions/);assert.match(f.html,/Unique counts can overlap/);
+ await apple.action(click('impressions'),f.d);
+ assert.deepEqual(calls.at(-1),{path:'/api/apps/one/apple-analytics/impressions',body:{manifest_version:2,report_id:'discovery-1'}});
+ assert.match(f.node.fields['#apple-analytics-status'].textContent,/impression-job/);
+ assert.doesNotMatch(f.html,/<option value="discovery-1"/);
+});
+test('impression result distinguishes zero from unavailable and labels unique counts at row grain',()=>{
+ const render=store_impressions=>apple.impressionsResult({store_impressions});
+ assert.match(render({sample:[]}),/Impressions are unknown/);
+ const result=render({impression_rows:1,sample:[{date:'2026-10-23',counts:0,unique_counts:0,dimensions:{territory:'<US>'}}]});
+ assert.match(result,/Unique in row/);assert.match(result,/&lt;US&gt;/);
+ assert.match(result,/<td>0<\/td><td>0<\/td>/);
+});
 test('inspect latest refresh opens only the saved job while the app and session remain current',async()=>{
  const f=fixture(),opened=[];f.data.schedule={enabled:true,version:2,status:'ENABLED',failures:1,last_job:'refresh-1',last_job_status:'BLOCKED'};f.d.openJob=id=>opened.push(id);
  await apple.open(f.d);assert.match(f.html,/repair the reported issue/);await apple.action(click('job'),f.d);assert.deepEqual(opened,['refresh-1']);
