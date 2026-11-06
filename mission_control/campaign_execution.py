@@ -38,7 +38,54 @@ CREATE TABLE IF NOT EXISTS campaign_paid_intents (
 CREATE TABLE IF NOT EXISTS campaign_stop_requests (app_id TEXT NOT NULL, intent_id TEXT NOT NULL, created TEXT NOT NULL, PRIMARY KEY(app_id,intent_id));
 CREATE TABLE IF NOT EXISTS campaign_paid_leases (app_id TEXT NOT NULL, intent_id TEXT NOT NULL, step TEXT NOT NULL, owner_token TEXT NOT NULL, created TEXT NOT NULL, PRIMARY KEY(app_id,intent_id));
 CREATE TABLE IF NOT EXISTS campaign_safety_calls (app_id TEXT NOT NULL, scope_id TEXT NOT NULL, category TEXT NOT NULL, used INTEGER NOT NULL, PRIMARY KEY(app_id,scope_id,category));
+CREATE TABLE IF NOT EXISTS campaign_pause_receipts (
+ app_id TEXT NOT NULL, intent_id TEXT NOT NULL, hash TEXT NOT NULL, data TEXT NOT NULL,
+ observed_at TEXT NOT NULL, PRIMARY KEY(app_id,intent_id,hash));
 """
+
+EFFECTIVE_STATUSES = frozenset(('ACTIVE', 'PAUSED', 'DELETED', 'PENDING_REVIEW',
+    'DISAPPROVED', 'PREAPPROVED', 'PENDING_BILLING_INFO', 'CAMPAIGN_PAUSED',
+    'ARCHIVED', 'ADSET_PAUSED', 'IN_PROCESS', 'WITH_ISSUES'))
+
+
+def pause_receipt_data(intent, observed):
+    """Keep only the exact identity and status fields from a confirmed pause read."""
+    ids = json.loads(intent['ids']) if isinstance(intent['ids'], str) else intent['ids']
+    if (not isinstance(observed, dict) or observed.get('id') != ids.get('campaign')
+            or str(observed.get('account_id')) != intent['account_id']
+            or observed.get('status') != 'PAUSED'):
+        raise Invalid('Pause observation differs from the saved campaign')
+    effective = observed.get('effective_status')
+    if not isinstance(effective, str) or effective not in EFFECTIVE_STATUSES:
+        effective = None
+    return dict(schema='wmm.campaign-pause-readback.v1', app_id=intent['app_id'],
+                intent_id=intent['id'], scope_id=intent['scope_id'],
+                request_hash=intent['request_hash'], campaign_id=ids['campaign'],
+                account_id=intent['account_id'], configured_status='PAUSED',
+                effective_status=effective, observed_at=now())
+
+
+def saved_pause_receipt(db, intent):
+    """Read a retained pause observation independently of later reconciliation."""
+    if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='campaign_pause_receipts'").fetchone():
+        return None
+    row = db.execute('SELECT hash,data,observed_at FROM campaign_pause_receipts '
+                     'WHERE app_id=? AND intent_id=? ORDER BY observed_at DESC,rowid DESC LIMIT 1',
+                     (intent['app_id'], intent['id'])).fetchone()
+    if row is None:
+        return None
+    try:
+        receipt = json.loads(row['data'])
+        expected = pause_receipt_data(intent, dict(id=receipt['campaign_id'],
+            account_id=receipt['account_id'], status=receipt['configured_status'],
+            effective_status=receipt['effective_status']))
+        expected['observed_at'] = iso_time(receipt['observed_at']).isoformat()
+        if (receipt != expected or receipt['observed_at'] != row['observed_at']
+                or digest(receipt) != row['hash']):
+            raise Invalid('Saved pause receipt failed integrity validation')
+    except (KeyError, ValueError, TypeError, AttributeError):
+        raise Invalid('Saved pause receipt failed integrity validation') from None
+    return dict(receipt, sha256=row['hash'])
 
 
 def row_scope(row):
@@ -152,7 +199,9 @@ class CampaignExecutionService:
         self.get_scope(app_id,scope_id)
         with connection(self.store.path) as db:
             posts=[row_intent(row) for row in db.execute('SELECT * FROM campaign_intents WHERE app_id=? AND scope_id=? ORDER BY created',(app_id,scope_id))]
-            ads=[paid_view(row) for row in db.execute('SELECT * FROM campaign_paid_intents WHERE app_id=? AND scope_id=? ORDER BY created',(app_id,scope_id))]
+            ads=[]
+            for row in db.execute('SELECT * FROM campaign_paid_intents WHERE app_id=? AND scope_id=? ORDER BY created',(app_id,scope_id)):
+                ads.append(dict(paid_view(row), pause_readback=saved_pause_receipt(db,row)))
         return posts+ads
 
     def _check(self,db,app_id,actor,scope,action,active=True):
@@ -535,7 +584,7 @@ class CampaignExecutionService:
         except BaseException:db.rollback();raise
         finally:db.close()
 
-    def _confirm_paid(self,app_id,intent_id,expected,status):
+    def _confirm_paid(self,app_id,intent_id,expected,status,readback=None):
         """Record only a readback following a saved provider acknowledgment."""
         permitted={('ACK_ACTIVE_adset','ACTIVE_adset'),('ACK_ACTIVE_ad','ACTIVE_ad'),
                    ('ACK_ACTIVE_campaign','ACTIVE_campaign'),('ACK_PAUSED_campaign','PAUSED_campaign')}
@@ -543,10 +592,20 @@ class CampaignExecutionService:
         db=sqlite3.connect(str(self.store.path),timeout=15);db.row_factory=sqlite3.Row
         try:
             db.execute('BEGIN IMMEDIATE')
+            receipt = None
+            if status == 'PAUSED_campaign':
+                intent=db.execute('SELECT * FROM campaign_paid_intents WHERE app_id=? AND id=?',
+                                  (app_id,intent_id)).fetchone()
+                if intent is None:raise Invalid('Paid campaign intent was not found')
+                receipt=pause_receipt_data(intent,readback)
             changed=db.execute('UPDATE campaign_paid_intents SET status=?,updated=? WHERE app_id=? AND id=? AND status=?',
                                (status,now(),app_id,intent_id,expected)).rowcount
             if not changed:raise Invalid('Campaign verification state changed')
+            if receipt is not None:
+                db.execute('INSERT INTO campaign_pause_receipts VALUES(?,?,?,?,?)',
+                    (app_id,intent_id,digest(receipt),canonical(receipt),receipt['observed_at']))
             result=paid_view(db.execute('SELECT * FROM campaign_paid_intents WHERE app_id=? AND id=?',(app_id,intent_id)).fetchone())
+            if receipt is not None:result['pause_readback']=dict(receipt,sha256=digest(receipt))
             db.commit();return result
         except BaseException:db.rollback();raise
         finally:db.close()
@@ -673,4 +732,4 @@ class CampaignExecutionService:
         current=self._paid_read(app_id,actor,scope,'campaign',intent['ids']['campaign'],token,secret,action,False)
         if str(current.get('account_id'))!=scope['ad_account_id'] or current.get('status')!='PAUSED':
             raise Unconfirmed('Pause account or status readback was not confirmed')
-        return self._confirm_paid(app_id,intent['id'],'ACK_PAUSED_campaign','PAUSED_campaign')
+        return self._confirm_paid(app_id,intent['id'],'ACK_PAUSED_campaign','PAUSED_campaign',current)

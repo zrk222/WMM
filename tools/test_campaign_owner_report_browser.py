@@ -8,7 +8,7 @@ sys.path.insert(0,str(ROOT))
 from playwright.sync_api import sync_playwright, expect
 from mission_control.db import connection
 from tests.test_campaign_owner_reports import CampaignOwnerReportsTests
-OUT=ROOT/".factory/goal-first-automation"
+OUT=ROOT/".factory/paid-pause-readback"
 
 def run(browser,width):
     f=CampaignOwnerReportsTests()
@@ -19,6 +19,10 @@ def run(browser,width):
     try:
         with connection(f.store.path) as db:
             db.execute("UPDATE campaign_monitors SET status='OFF'")
+        intent=f.fixture.intent
+        f.fixture.wire.objects[intent['ids']['campaign']]['effective_status']='ACTIVE'
+        paused=f.fixture.fixture.service.run_pause('sample','owner',f.fixture.scope['scope_id'],intent['id'])
+        pause_hash=paused['pause_readback']['sha256']
         page.goto(f.fixture.client.origin)
         page.wait_for_function("() => state.workspace?.app?.id===state.app")
         page.locator("#app-select").select_option("sample")
@@ -29,6 +33,7 @@ def run(browser,width):
         page.get_by_role("button",name="Verify my identity",exact=True).click()
         expect(page.get_by_role("button",name="Sign out of review session")).to_be_visible()
         page.locator("#navigation > [data-view=overview]").click()
+        page.locator("#goal-advanced > summary").click()
         page.get_by_role("button",name="Review private campaign outcomes",exact=True).click()
         form=page.locator("#owner-report-form")
         form.locator("[name=monitor_id]").select_option(f.monitor["id"])
@@ -38,12 +43,25 @@ def run(browser,width):
         result=page.locator("#owner-report-result")
         expect(result).to_contain_text("Source dates stay separate")
         expect(result).to_contain_text("unknown")
+        result.get_by_text("Exact receipts, source window and integrity",exact=True).click()
+        expect(result).to_contain_text("configured PAUSED · effective ACTIVE")
+        expect(result).to_contain_text(pause_hash)
         page.screenshot(path=str(OUT/f"owner-report-{width}.png"),full_page=True)
-        (OUT/f"owner-report-{width}.html").write_text(page.content(),encoding="utf-8")
+        css=page.evaluate("""() => Array.from(document.styleSheets).flatMap(sheet=>{
+            try{return Array.from(sheet.cssRules).map(rule=>rule.cssText)}catch{return []}
+            }).join('\\n')""")
+        html=result.evaluate('(node)=>node.outerHTML')
+        (OUT/f"owner-report-{width}.html").write_text(
+            '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" '
+            'content="width=device-width,initial-scale=1"><title>Private campaign outcome review</title>'
+            '<style>'+css+'</style><main><h1>Your private campaign outcome review</h1>'+html+'</main></html>',
+            encoding="utf-8")
         with page.expect_popup() as popup:
             result.get_by_role("button",name="Private report / Save PDF",exact=True).click()
         report=popup.value
         expect(report.locator("body")).to_contain_text("Private campaign outcome review")
+        expect(report.locator("body")).to_contain_text("configured PAUSED · effective ACTIVE")
+        expect(report.locator("body")).to_contain_text(pause_hash)
         assert "synthetic-secret" not in report.locator("body").inner_text()
         assert "synthetic-token" not in report.locator("body").inner_text()
         report.close()
@@ -67,7 +85,7 @@ def run(browser,width):
         expect(page.locator("#owner-report-plan")).to_contain_text("OFF")
         assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
         assert not errors,errors
-        return dict(width=width,status="PASS",capture=True,finite_plan=True,actual_local_worker=True,pdf_privacy=True,source_windows_explicit=True,off=True,javascript_errors=errors)
+        return dict(width=width,status="PASS",capture=True,finite_plan=True,actual_local_worker=True,pdf_privacy=True,pause_readback_retained=True,effective_state_distinct=True,source_windows_explicit=True,off=True,javascript_errors=errors)
     except Exception:
         print(json.dumps({"errors":errors,"body":page.locator("body").inner_text()[-5000:]}))
         raise

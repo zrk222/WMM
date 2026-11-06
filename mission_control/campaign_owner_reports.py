@@ -13,7 +13,7 @@ from .experiments import lookup as lookup_experiment
 from .social_contract import reference
 from .operation_authority import store_identity, bound_owner, protected
 from .campaign_monitor import actor, whole, last_observation
-from .campaign_execution import scope_view
+from .campaign_execution import scope_view, saved_pause_receipt
 from .ios_reports import snapshot
 
 SELECTION = ("scope_id", "monitor_id", "experiment_id", "measurement_window")
@@ -231,10 +231,16 @@ def campaign_view(db, app_id, owner, scope_id):
     ]
     ads = []
     for row in db.execute(
-        "SELECT id,request_id,request_hash,status,ids,commitment,currency,updated FROM campaign_paid_intents WHERE app_id=? AND scope_id=? ORDER BY id",
+        "SELECT * FROM campaign_paid_intents WHERE app_id=? AND scope_id=? ORDER BY id",
         (app_id, scope_id),
     ):
-        item = dict(row, kind="AD")
+        item = {key: row[key] for key in ('id', 'request_id', 'request_hash', 'status',
+                'ids', 'commitment', 'currency', 'updated')}
+        item['kind'] = 'AD'
+        receipt = saved_pause_receipt(db, row)
+        if receipt is not None:
+            item['pause_readback'] = {key: receipt[key] for key in
+                ('configured_status', 'effective_status', 'observed_at', 'sha256')}
         if item["currency"] != summary["currency"]:
             raise Invalid("Campaign receipt currency differs from approved scope")
         ids = object_data(item.pop("ids"))

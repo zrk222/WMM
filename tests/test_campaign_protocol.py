@@ -9,6 +9,13 @@ from mission_control.social_registry import META_VERSION
 
 
 class CampaignProtocolTests(unittest.TestCase):
+    def test_campaign_read_requests_configured_and_effective_status_together(self):
+        transport=MetaTransport()
+        with patch.object(transport,'request',return_value={'id':'123'}) as request:
+            transport.read_paid('campaign','123','synthetic-token','synthetic-secret',lambda:None)
+        self.assertEqual(request.call_args.args[0],'GET')
+        self.assertIn('effective_status',request.call_args.args[2]['fields'].split(','))
+
     def test_reel_request_binds_exact_caption_and_all_effect_identities(self):
         body = dict(schema=REEL_SCHEMA, request_id=str(UUID(int=1)),
                     app_id='sample-one', page_id='123', policy_id=str(UUID(int=2)),

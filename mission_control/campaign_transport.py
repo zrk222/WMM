@@ -168,7 +168,7 @@ class MetaTransport:
 
     def read_paid(self,kind,identity,token,secret,alive):
         numeric(identity)
-        selectors={'campaign':'id,account_id,status,objective',
+        selectors={'campaign':'id,account_id,status,effective_status,objective',
           'adset':'id,account_id,campaign_id,status,lifetime_budget,end_time,targeting,optimization_goal,billing_event',
           'creative':'id,account_id,object_story_id',
           'ad':'id,account_id,adset_id,status,effective_status,creative'}

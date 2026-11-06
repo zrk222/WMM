@@ -22,6 +22,8 @@ Every irreversible step retains its request identity and returned object IDs. A 
 
 OFF blocks new scope work and attempts a verified pause of saved paid campaigns. Separate finite safety allowances preserve protective control when ordinary work has exhausted its quota. A current owner can stop the exact saved campaign after app changes or billing-readiness loss, using the unchanged authorized credential and matching provider account. Changed or revoked credentials require reconnection; WMM cannot pause an account it can no longer access. An unconfirmed pause remains explicit. No switch reverses an already delivered post or incurred charge.
 
+Confirmed pauses retain a dated provider observation bound to the exact saved campaign, account and approved request. Owner reports and private PDF exports show its configured status, effective status when available and receipt hash. Reconciliation preserves this observation. Older local paused records without a retained provider observation explicitly show that readback is unavailable. A saved campaign observation describes that moment; it does not establish current delivery across every ad or settle delayed charges.
+
 Agents should inspect saved status and reconcile within their agreed call/time budget, use a permitted protective pause when configuration drifts, and report missing authority or evidence. Read-only UI telemetry uses the existing local authenticated session rather than repeatedly querying GitHub; mutations retain fresh identity checks.
 
 ## Evidence limits

@@ -92,6 +92,47 @@ class CampaignOwnerReportsTests(unittest.TestCase):
                 ),
             )
 
+    def test_report_retains_pause_observation_and_rejects_rebound_receipts(self):
+        flow=self.fixture.fixture.service
+        intent=self.fixture.intent
+        self.fixture.wire.objects[intent['ids']['campaign']]['effective_status']='PAUSED'
+        paused=flow.run_pause('sample','owner',self.fixture.scope['scope_id'],intent['id'])
+        saved=self.capture()
+        ad=next(r for r in saved['report']['campaign']['receipts'] if r['kind']=='AD')
+        self.assertEqual(ad['pause_readback'],{key:paused['pause_readback'][key] for key in
+            ('configured_status','effective_status','observed_at','sha256')})
+        self.assertEqual(saved['report']['campaign']['retained_commitment_minor'],80)
+        self.assertEqual(saved['report']['campaign']['spend'],'UNKNOWN_PROVIDER_REPORTS_MAY_LAG')
+        with connection(self.store.path) as db:
+            row=db.execute('SELECT data FROM campaign_pause_receipts').fetchone()
+            import json
+            damaged=json.loads(row['data'])
+            damaged['scope_id']='foreign-scope'
+            db.execute('UPDATE campaign_pause_receipts SET data=?,hash=?',(canonical(damaged),digest(damaged)))
+        with self.assertRaises(Invalid):
+            self.capture()
+
+    def test_legacy_paused_state_has_no_invented_provider_receipt(self):
+        with connection(self.store.path) as db:
+            db.execute("UPDATE campaign_paid_intents SET status='PAUSED_campaign'")
+        ad=next(r for r in self.capture()['report']['campaign']['receipts'] if r['kind']=='AD')
+        self.assertNotIn('pause_readback',ad)
+
+    def test_invalid_pause_receipt_hash_time_and_identity_stop_capture(self):
+        import json
+        flow=self.fixture.fixture.service
+        flow.run_pause('sample','owner',self.fixture.scope['scope_id'],self.fixture.intent['id'])
+        with connection(self.store.path) as db:
+            original=json.loads(db.execute('SELECT data FROM campaign_pause_receipts').fetchone()['data'])
+        for change in ({'observed_at':'not-a-date'},{'campaign_id':'999'},
+                       {'account_id':'999'},{'request_hash':'0'*64},{'app_id':'foreign'},{}):
+            with self.subTest(change=change):
+                data={**original,**change}
+                with connection(self.store.path) as db:
+                    db.execute('UPDATE campaign_pause_receipts SET data=?,hash=?',
+                               (canonical(data),digest(data) if change else '0'*64))
+                with self.assertRaises(Invalid):self.capture()
+
     def plan(self, chosen=None, **changes):
         value = dict(
             selection=chosen or self.chosen(),
