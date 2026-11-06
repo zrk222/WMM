@@ -63,7 +63,8 @@ const WMMObservationalCampaign = (() => {
       button('All studies', 'observational-campaign-open') +
       ['ingest','correct'].map(operation => {
         const label = operation === 'ingest' ? 'Import a private source batch' : 'Append a correction';
-        return '<details><summary>' + label + '</summary><form id="observational-campaign-' + operation + '">' +
+        const formId = operation === 'ingest' ? 'observational-campaign-ingest' : 'observational-campaign-correct';
+        return '<details><summary>' + label + '</summary><form id="' + formId + '">' +
           '<label class="field">Evidence JSON<textarea required name="payload" maxlength="524288"></textarea></label>' +
           '<button class="button" type="submit">' + label + '</button></form></details>';
       }).join(''));

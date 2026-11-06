@@ -95,7 +95,15 @@ class AutomationReadinessTests(unittest.TestCase):
             'organic-video.claim','organic-video.submit',
             'organic-video.policy-read','organic-video.policy-reserve','organic-video.policy-admit',
             'organic-video.workflow-prepare','organic-video.intent-create','organic-video.intent-read','organic-video.intent-execute'}
+        study_operations = {
+            'observational-campaign.register', 'observational-campaign.link',
+            'observational-campaign.ingest', 'observational-campaign.report',
+            'observational-campaign.history', 'observational-campaign.correct',
+        }
+        expected |= study_operations
         self.assertEqual(set(UNBUNDLED_OPERATIONS),expected)
+        for name in study_operations:
+            self.assertEqual(UNBUNDLED_OPERATIONS[name], 'local_evidence')
         bundled={name for row in WORKFLOWS.values() for name in row['operations']}
         self.assertFalse(expected & bundled)
         for name in ('organic-video.claim','organic-video.submit'):
