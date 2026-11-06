@@ -1,5 +1,6 @@
 """Opt-in synthetic frozen-runtime acceptance; no application imports."""
 import hashlib
+from collections import deque
 from contextlib import closing, nullcontext
 import json
 import os
@@ -59,6 +60,54 @@ def exact_app_creation(request, origin, app_id, fields):
             and all(k in fields or (k in defaults and v == defaults[k]) for k, v in data.items()))
 
 
+def read_boundary(url, origin, method, status=None):
+    """Keep only fixed local API boundary metadata, never secrets or query text."""
+    parts, base = urlsplit(url), urlsplit(origin)
+    if (parts.scheme, parts.netloc) != (base.scheme, base.netloc):
+        return None
+    path = parts.path
+    if path not in ('/api/bootstrap', '/api/research', '/api/apps') and not re.fullmatch(
+            r'/api/apps/(?:sample-one|sample-two|packaged-first-app-(?:1440|390))', path):
+        return None
+    if method not in ('GET', 'HEAD', 'POST'):
+        return None
+    return dict(path=path, method=method, status=status if type(status) is int and 100 <= status <= 599 else None)
+
+
+def capture_packet_failure(page, out, width, exception, boundaries, page_errors):
+    """Best-effort metadata only; never obscure the original acceptance failure."""
+    report = dict(schema='wmm.packaged-packet-failure.v1', width=width,
+                  exception_type=type(exception).__name__,
+                  api_boundaries=list(boundaries)[-32:], page_error_count=len(page_errors))
+    try:
+        snapshot = page.evaluate("""() => ({
+            document_ready:document.readyState,
+            boot_loaded:typeof state!=='undefined' && !!state.boot,
+            research_loaded:typeof state!=='undefined' && !!state.research,
+            workspace_loaded:typeof state!=='undefined' && !!state.workspace,
+            selected_app:typeof state!=='undefined' ? state.app : null,
+            workspace_app:typeof state!=='undefined' ? state.workspace?.app?.id : null,
+            workspace_error:typeof state!=='undefined' && !!state.workspaceError,
+            retry_visible:!!document.querySelector('#main [data-action="reload"]')
+        })""")
+        safe = {}
+        for key in ('boot_loaded', 'research_loaded', 'workspace_loaded', 'workspace_error', 'retry_visible'):
+            safe[key] = snapshot.get(key) is True
+        safe['document_ready'] = snapshot.get('document_ready') if snapshot.get('document_ready') in ('loading', 'interactive', 'complete') else 'UNKNOWN'
+        for key in ('selected_app', 'workspace_app'):
+            value = snapshot.get(key)
+            safe[key] = value if value is None or value in ('sample-one', 'sample-two', 'packaged-first-app-1440', 'packaged-first-app-390') else 'UNEXPECTED_APP'
+        report['readiness'] = safe
+    except Exception as error:
+        report['snapshot_error_type'] = type(error).__name__
+    try:
+        target = Path(out) / f'failure-{width}.json'
+        target.write_text(json.dumps(report, indent=2), encoding='utf-8')
+        exception.add_note('Packaged startup diagnostics: ' + str(target))
+    except Exception:
+        exception.add_note('Packaged startup diagnostics could not be retained')
+
+
 def verify_packet_browser(origin, output_dir, storage_dir=None, expected_initial_goal=None):
     """Use the real form on a fresh profile; read only across restart and upgrade."""
     from playwright.sync_api import sync_playwright, expect
@@ -80,6 +129,13 @@ def verify_packet_browser(origin, output_dir, storage_dir=None, expected_initial
                     options['storage_state'] = str(storage)
                 context = browser.new_context(**options)
                 violations, errors, setup_writes = [], [], []
+                boundaries = deque(maxlen=32)
+                def observe(request, status=None):
+                    value = read_boundary(request.url, origin, request.method, status)
+                    if value is not None:
+                        boundaries.append(value)
+                context.on('response', lambda response: observe(response.request, response.status))
+                context.on('requestfailed', lambda request: observe(request))
                 def guard(route):
                     request = route.request
                     if request.url.startswith(origin + '/') and request.method in ('GET', 'HEAD'):
@@ -145,6 +201,9 @@ def verify_packet_browser(origin, output_dir, storage_dir=None, expected_initial
                                         keyboard=True, escape=True, writes=len(setup_writes),
                                         write_scope='SYNTHETIC_APP_SETUP_ONLY' if fresh else 'READ_ONLY',
                                         external_requests=0))
+                except Exception as error:
+                    capture_packet_failure(page, out, width, error, boundaries, errors)
+                    raise
                 finally:
                     context.close()
         finally:
