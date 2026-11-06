@@ -96,3 +96,14 @@ test('scheduled campaign names its worker, owner and saved scopes independently 
   assert.equal(notes.includes('Campaign agent local-only-agent'),false);
  }
 });
+
+test('an unreadable batch cannot be selected while healthy schedules remain available',async()=>{
+ const h=interactive();
+ h.c.api=async()=>({policies:[],scopes:[],batches:[
+  {id:'damaged',status:'NEEDS_REPAIR',evidence_unavailable:true},{id:'healthy',status:'ACTIVE'}
+ ]});
+ await h.a.open();
+ const {html}=h.requests.at(-1);
+ assert.match(html,/<option value="damaged" disabled>damaged · Review saved campaign receipts/);
+ assert.match(html,/<option value="healthy">healthy · ACTIVE/);
+});
