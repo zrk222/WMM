@@ -9,6 +9,11 @@ WORKFLOWS={
     'native_production':('workspace.read','ios.scene.projects','ios.scene.read','ios.scene.save','ios.scene.plan','ios.scene.start','ios.scene.inspect'),
     'campaign_delivery':('campaign.history','campaign.status','campaign.publish','campaign.ad-launch','campaign.reconcile','campaign.pause','report.read'),
     'app_outcome_measurement':('measurement.read','cohort.define','events.import','experiment.evaluate','funnel.report','report.read'),
+    'observational_campaign_attribution': (
+        'workspace.read', 'observational-campaign.history', 'observational-campaign.register',
+        'observational-campaign.link', 'observational-campaign.ingest',
+        'observational-campaign.report', 'observational-campaign.correct',
+    ),
 }
 
 
@@ -27,6 +32,13 @@ def build(catalog):
         authority='GUIDANCE_ONLY_NO_EXECUTION_AUTHORITY',
         determinism='Runtime schemas, scope checks, budgets and state transitions are deterministic. Model-generated copy and marketing outcomes are not.',
         operations=sorted(operations),operation_count=len(operations),workflows=workflow_steps(operations),
+        observational_campaign={
+            'prepare': 'Read existing studies, register the fixed local window, and preview the exact tagged URL.',
+            'checkpoint': 'Show the final creative, destination, account and action for explicit human approval before export, scheduling, launch or credential use.',
+            'collect': 'Import scoped source observations with the current study hash and stable batch ID. Preserve coverage and unknowns.',
+            'recover': 'Read saved history after an uncertain response. Reuse the exact batch ID and payload for an import retry. Append a correction with the original evidence hash.',
+            'report': 'Report attributable landing and linked registration counts, coverage and source receipts. Lift requires a separate valid comparison.',
+        },
         continuous_improvement={
             'objective':'Prioritize measurable acquisition, activation, retention or revenue improvements for the owner.',
             'start':'Preregister one primary KPI, baseline or control, sample threshold, measurement window and guardrails.',

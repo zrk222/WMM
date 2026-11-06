@@ -33,7 +33,7 @@ jobs:
       - name: Verify saved analytics history at desktop and mobile widths
         env:
           WMM_BROWSER_TEST_PROFILE: '1'
-        run: python -m unittest tests.test_insights_history_browser -v
+        run: python -m unittest tests.test_insights_history_browser tests.test_observational_campaign_browser -v
       - name: Verify owner onboarding and protective campaign pause in Chromium
         run: |
           python tools/test_owner_onboarding_browser.py

@@ -4,7 +4,7 @@
 
 You built the app. Now you need people to find it, try it and come back. The research, creative, campaign work and results should lead to one clear next move.
 
-Wize Marketing Machine (WMM) was created for founders and teams who want agents to carry that marketing work forward. It gives people and agents one structured workspace: collect app facts and research, make creative, prepare and run supported campaigns, follow the work and review the evidence.
+Wize Marketing Machine (WMM) is an **Autonomous Growth Operations Engine** for founders and teams. Agents collect evidence, prepare creative and run supported campaigns under explicit human approval. Mission Control shows what ran, what needs a decision and what results the sources recorded.
 
 **You choose the goal and approve the scope. Your agent handles the work inside it. You receive the deliverables, analytics, receipts and next decision.** Choose a task preset to prepare an editable owner grant; review it before issuing. Each grant has its own finite expiry and revocation. Existing provider effects keep their own status and recovery paths.
 
