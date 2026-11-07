@@ -12,6 +12,7 @@ Unified owner-facing inspection of existing separately enforced workflow/campaig
 - The system shall emit a `sanitized owner report` containing identifiers, status and approved resource allowances without private copy or credentials through `agreement_report`.
 - The system shall display the `Per-campaign media cap` and `Maximum total media commitment` as distinct labeled fields with currency through `agreement_read` and `agreement_report`.
 - The system shall display the `Exact approved content, rights and targeting hashes` in the agreement and owner report without exposing private content or rights prose through `agreement_read` and `agreement_report`.
+- The owner-only schedule review shall show the exact saved organic post link as text, or show that no link was approved. The exported report shall exclude the link.
 - If a local-work policy is selected, the system shall display exactly its agent, permitted operations, saved ISO-8601 expiry timestamp, integer calls-used count, configured integer call allowance (1 through 10000 calls), and `spend_limit_minor` as a fixed 0 minor currency units in the sanitized owner report through `agreement_report`; unavailable fields shall be labeled and private payloads and credentials shall remain excluded.
 
 ### Acceptance criteria (Gherkin)
