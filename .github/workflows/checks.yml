@@ -58,6 +58,22 @@ jobs:
         env:
           WMM_BROWSER_TEST_PROFILE: '1'
         run: python -m unittest tests.test_operation_feedback_browser -v
+      - name: Verify the owner automation journey and paid agreement in Chromium
+        env:
+          WMM_AGREEMENT_BROWSER_OUT: .factory/owner-agreement-browser
+        run: |
+          python tools/test_goal_automation_browser.py
+          python tools/test_agreement_paid_browser.py
+      - name: Retain owner automation and agreement receipts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: owner-automation-browser-receipts
+          path: |
+            .factory/agent-mode-browser/automation-browser.json
+            .factory/owner-agreement-browser/agreement-paid-browser.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 3
       - name: Retain synthetic goal-first packet evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
