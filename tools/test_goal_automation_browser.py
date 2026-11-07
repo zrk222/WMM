@@ -14,6 +14,7 @@ from mission_control.operator_client import OperatorClient,ClientError
 
 def run(browser,width,out):
  f=CampaignGatewayTests();f.setUp()
+ link="https://example.test/app?utm_source=facebook&utm_campaign="+("sample-"*45)
  context=browser.new_context(viewport={"width":width,"height":900});page=context.new_page();errors=[];posts=[]
  page.on("pageerror",lambda e:errors.append(str(e)))
  page.on("request",lambda r:posts.append(r.url) if r.method=="POST" else None)
@@ -107,6 +108,7 @@ def run(browser,width,out):
   page.get_by_role("button",name="Review campaign scope",exact=True).click()
   form=page.locator("#campaign-scope-form");form.locator("[name=connection_id]").select_option(f.connection)
   form.get_by_label("Approved post copy",exact=True).fill(f.message)
+  form.get_by_label("App or landing-page link",exact=True).fill(link)
   form.get_by_label("Rights and claims evidence",exact=True).fill("Original synthetic app claim evidence")
   form.get_by_role("button",name="Review exact automation scope",exact=True).click()
   page.get_by_role("button",name="Approve scope and enable automation",exact=True).click()
@@ -139,15 +141,21 @@ def run(browser,width,out):
   form.get_by_role("button",name="Review combined agreement",exact=True).click()
   expect(page.locator("#agreement-summary")).to_contain_text("No execution authority is issued")
   expect(page.locator("#agreement-summary")).to_contain_text(f.message)
+  approved_link=page.locator("#agreement-summary").get_by_text("Approved post link",exact=False)
+  expect(approved_link.locator("span")).to_have_text(link)
+  expect(approved_link.locator("a")).to_have_count(0)
+  assert page.locator("#modal").evaluate("(modal) => modal.scrollWidth <= modal.clientWidth")
   expect(page.locator('#agreement-summary')).to_contain_text('Scheduled executor when the batch is active')
   expect(page.locator('#agreement-summary')).to_contain_text('WMM background worker')
   page.screenshot(path=str(out/f"agreement-{width}.png"));(out/f"agreement-{width}.html").write_text(page.content(),encoding="utf-8")
   with page.expect_popup() as agreement_info:page.get_by_role("button",name="Agreement report / Save PDF",exact=True).click()
   agreement=agreement_info.value;expect(agreement.locator("body")).to_contain_text("Combined automation agreement")
-  assert f.message not in agreement.locator("body").inner_text();assert OWNER_TOKEN not in agreement.locator("body").inner_text();agreement.close()
+  exported=agreement.locator("body").inner_text()
+  assert f.message not in exported and link not in exported and OWNER_TOKEN not in exported
+  agreement.close()
   assert f.wire.posts==0;assert not jobs(f.store,"sample-one");assert not errors,errors
   assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
-  return dict(width=width,live_worker_and_private_host_guidance=True,personal_agent_without_profile=True,explicit_grant_and_revocation=True,managed_readiness_guards=True,owner_readiness=True,blockers_preserved=True,exact_schedule_review=True,no_effect_before_due=True,off=True,durable_reload=True,report_privacy=True,campaign_does_not_select_agent=True,javascript_errors=errors,provider="SYNTHETIC_ONLY")
+  return dict(width=width,live_worker_and_private_host_guidance=True,personal_agent_without_profile=True,explicit_grant_and_revocation=True,managed_readiness_guards=True,owner_readiness=True,blockers_preserved=True,exact_schedule_review=True,exact_post_link_visible_in_private_review=True,no_effect_before_due=True,off=True,durable_reload=True,report_privacy=True,campaign_does_not_select_agent=True,javascript_errors=errors,provider="SYNTHETIC_ONLY")
  finally:
   context.close();f.tearDown();f.doCleanups()
 
