@@ -86,7 +86,7 @@ class AutomationProfilesBrowserTests(unittest.TestCase):
         with connection(host.store.path) as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM automation_policies").fetchone()[0], 0)
 
-    def test_waiting_apple_read_routes_to_connections(self):
+    def test_watch_work_opens_the_saved_apple_read(self):
         host = fixture.GrantTests()
         host.setUp()
         self.addCleanup(host.tearDown)
@@ -104,24 +104,41 @@ class AutomationProfilesBrowserTests(unittest.TestCase):
             "mission_control.provider_reports.read_analytics", side_effect=read,
         ):
             self.assertTrue(run_once(host.store))
+        before = schedules.get(apple.APP)
         with sync_playwright() as runtime:
             browser = runtime.chromium.launch()
-            page = browser.new_page(viewport={"width": 390, "height": 900})
-            page.add_init_script("localStorage.setItem('growth-app','sample-one')")
-            page.goto(host.origin)
-            page.wait_for_function("() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one'")
-            nav = page.locator('.nav-item[data-view="workflow"]')
-            if not nav.is_visible():
-                page.locator("details").filter(has=nav).locator("summary").first.click()
-            nav.click()
-            card = page.locator('[data-exception-state="WAITING_FOR_REPORTS"]')
-            expect(card).to_contain_text("App Store Connect")
-            expect(card).to_contain_text("This does not mean zero activity.")
-            expect(card).to_contain_text("next due")
-            self.save_render(page, "waiting-390", '[aria-label="Workflow exceptions"]')
-            card.get_by_role("button", name="Open connections controls").click()
-            expect(page.locator("#main")).to_contain_text("Connect with clarity")
+            for width in (390, 1280):
+                with self.subTest(width=width), browser.new_context(viewport={"width": width, "height": 900}) as context:
+                    context.add_cookies([
+                        dict(name=c.name, value=c.value, domain="127.0.0.1", path=c.path or "/")
+                        for c in host.owner.cookies
+                    ])
+                    context.add_init_script("localStorage.setItem('growth-app','sample-one')")
+                    page = context.new_page()
+                    page.goto(host.origin)
+                    page.wait_for_function("() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one'")
+                    requests = []
+                    page.on("request", lambda req: requests.append((req.method, req.url)))
+                    nav = page.get_by_role("button", name="Watch the work", exact=True)
+                    nav.press("Enter")
+                    card = page.locator('[data-exception-state="WAITING_FOR_REPORTS"]')
+                    expect(card).to_contain_text("App Store Connect")
+                    expect(card).to_contain_text("This does not mean zero activity.")
+                    expect(card).to_contain_text("next due")
+                    self.save_render(page, f"waiting-{width}", '[aria-label="Workflow exceptions"]')
+                    card.get_by_role("button", name="Review Apple analytics", exact=True).press("Enter")
+                    expect(page.get_by_role("dialog")).to_contain_text("Inspect latest refresh")
+                    self.assertEqual([url for method, url in requests if method == "POST"],
+                                     [f"{host.origin}/api/apps/{apple.APP}/apple-analytics/view"])
+                    self.assertTrue(all(url.startswith(host.origin + "/") for _, url in requests))
+                    page.keyboard.press("Escape")
+                    page.locator("#app-select").select_option("sample-two")
+                    page.wait_for_function("() => state.workspace?.app?.id === 'sample-two'")
+                    nav.press("Enter")
+                    expect(card).to_have_count(0)
+                    self.assertTrue(page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
             browser.close()
+        self.assertEqual(schedules.get(apple.APP), before)
 
     def save_render(self, page, name, selector):
         if not ARTIFACTS:
