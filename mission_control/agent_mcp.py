@@ -80,10 +80,17 @@ def create_server(origin,grant_token=None):
 
 def serve(origin,grant_token=None):
     """Build a stdio runner; closing the client session terminates the adapter."""
+    import sys
+    import anyio
     from mcp.server.stdio import stdio_server
     server=create_server(origin,grant_token=grant_token)
     async def run():
-        async with stdio_server() as (reader,writer):
+        # Borrow process-owned text streams. The SDK defaults create temporary
+        # TextIOWrappers whose finalizers close the underlying process handles.
+        sys.stdin.reconfigure(encoding='utf-8',errors='replace')
+        sys.stdout.reconfigure(encoding='utf-8')
+        async with stdio_server(stdin=anyio.wrap_file(sys.stdin),
+                                stdout=anyio.wrap_file(sys.stdout)) as (reader,writer):
             await server.run(reader,writer,server.create_initialization_options())
     return run
 

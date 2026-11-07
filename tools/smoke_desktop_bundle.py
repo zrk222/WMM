@@ -28,8 +28,8 @@ async def mcp_smoke(binary, folder, config=None, env=None):
     params = StdioServerParameters(command=config['command'] if config else str(binary),
         args=config['args'] if config else ['--mcp', '--origin', 'http://127.0.0.1:1'],
         cwd=str(folder), env=env)
-    with anyio.fail_after(45):
-        async with stdio_client(params) as (reader, writer):
+    with tempfile.TemporaryFile(mode='w+', encoding='utf-8') as diagnostics, anyio.fail_after(45):
+        async with stdio_client(params, errlog=diagnostics) as (reader, writer):
             async with ClientSession(reader, writer) as client:
                 initialized = await client.initialize()
                 assert initialized.serverInfo.name == 'wmm-local-operations'
@@ -44,6 +44,8 @@ async def mcp_smoke(binary, folder, config=None, env=None):
                     dict(app_id='sample-one', input={}))
                 assert failure.isError
                 assert 'TRANSPORT_UNAVAILABLE' in failure.content[0].text
+        diagnostics.seek(0)
+        assert not diagnostics.read(1), 'Healthy MCP session emitted stderr; shutdown was not clean'
     print(json.dumps(dict(command=['--mcp'], lifecycle='initialize-discover-ping-catalog-clean-close',
                          workspace_access='UNAVAILABLE_AS_EXPECTED', provider_access='NONE')))
 

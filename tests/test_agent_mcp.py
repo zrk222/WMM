@@ -22,6 +22,34 @@ from tests.test_ledger import cohort,event
 
 class MCPDefinitionTests(unittest.TestCase):
     @unittest.skipUnless(HAS_MCP,'Optional MCP SDK is not installed')
+    def test_stdio_eof_preserves_process_streams_and_utf8(self):
+        import gc
+        import io
+        from mission_control.agent_mcp import serve
+
+        incoming=io.BytesIO()
+        outgoing=io.BytesIO()
+        stdin=io.TextIOWrapper(incoming,encoding='cp1252')
+        stdout=io.TextIOWrapper(outgoing,encoding='cp1252')
+        async def run():
+            with anyio.fail_after(8):
+                await serve('http://127.0.0.1:1')()
+        try:
+            with patch.object(sys,'stdin',stdin),patch.object(sys,'stdout',stdout):
+                anyio.run(run)
+                gc.collect()
+                self.assertFalse(incoming.closed,'MCP closed process-owned stdin')
+                self.assertFalse(outgoing.closed,'MCP closed process-owned stdout')
+                self.assertEqual(stdin.encoding,'utf-8')
+                self.assertEqual(stdout.encoding,'utf-8')
+                stdout.write('Café 東京')
+                stdout.flush()
+                self.assertEqual(outgoing.getvalue(),'Café 東京'.encode('utf-8'))
+        finally:
+            stdin.close()
+            stdout.close()
+
+    @unittest.skipUnless(HAS_MCP,'Optional MCP SDK is not installed')
     def test_catalog_schemas_effects_and_closed_boundary(self):
         rows=tool_definitions()
         self.assertEqual(len(rows),len(OPERATIONS)+1)
