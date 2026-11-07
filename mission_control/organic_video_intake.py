@@ -67,7 +67,9 @@ def adopt(store,app_id,actor,body):
             raise Invalid('Use the exact completed discovery submission')
         app=app_context(db,app_id)
         if (app['version'],app['hash'])!=(view['task']['app']['version'],view['task']['app']['hash']):raise Invalid('Discovery app context changed')
-        submission=json.loads(row['submission']);qualified=qualify_submission(view['task'],submission)
+        submission=json.loads(row['submission'])
+        # Reproduce saved qualification from before the post-link admission rule.
+        qualified=qualify_submission(view['task'],submission,require_post_links=False)
         if digest(qualified)!=row['result_hash']:raise Invalid('Discovery qualification changed')
         matches=[item for item in submission['candidates'] if item['candidate']['post_id']==body['candidate_id']]
         if len(matches)!=1 or digest(matches[0]['candidate'])!=body['candidate_hash']:raise Invalid('Select the exact submitted candidate')
