@@ -177,6 +177,21 @@ class PublicationExecutionTests(unittest.TestCase):
             saved=json.loads(db.execute('SELECT result FROM jobs WHERE id=?',(job['id'],)).fetchone()[0])
             self.assertFalse(saved['monitoring'])
 
+    def test_provider_read_can_confirm_progress_after_a_lost_phase_response(self):
+        item,job=self.leased()
+        created=self.state('CREATED');created['asset_id']='provider-asset'
+        self.run_step(job,SimpleNamespace(create=lambda *args:created))
+        with connection(self.store.path) as db:
+            db.execute("UPDATE jobs SET status='BLOCKED',lease=0 WHERE id=?",(job['id'],))
+        def read(draft,state,ctx):
+            self.assertEqual(state['asset_id'],'provider-asset');ctx.before_call()
+            return {**self.state('PUBLISHED','urn:li:share:123'),'asset_id':'provider-asset'}
+        with patch('mission_control.publication_credentials.context',side_effect=self.context),patch('mission_control.publication_linkedin.read',side_effect=read):
+            recovered=self.call('publication.reconcile',{'id':item['id']},lambda:execution.reconcile(self.store,APP,item['id']))
+        self.assertEqual(recovered['status'],'PUBLISHED')
+        self.assertFalse(execution._advance_allowed('PUBLISHED','CREATED','read'))
+        self.assertFalse(execution._advance_allowed('CREATED','PUBLISHED','publish'))
+
     def setUp(self):
         fixtures.PublicationAuthorityTests.setUp(self)
         self.vault=Vault();self.patch=patch('mission_control.publication_sessions.Vault',return_value=self.vault)

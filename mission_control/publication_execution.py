@@ -155,9 +155,17 @@ def _guard(store,job,identity,pending=None,charge=False):
                    (time.time()+360,now(),job['id'],job['attempts']))
     return approved
 
+def _advance_allowed(before,after,action):
+    if after in _NEXT.get(before,set())|{'FAILED','UNKNOWN'}:return True
+    # A verified status read can observe provider progress after a lost response.
+    # This grants no create/upload/publish action and never permits regression.
+    if action!='read' or before not in ('CREATED','UPLOAD_IN_PROGRESS','UPLOADED'):return False
+    return after in ('PROCESSING','READY_TO_PUBLISH','PUBLISHED')
+
+
 def _save(db,row,state,checkpoint,action,attempt,attention=False):
     public=_public(state);before=json.loads(row['state'])['status'];after=state['status']
-    if after not in _NEXT.get(before,set())|{'FAILED','UNKNOWN'}:
+    if not _advance_allowed(before,after,action):
         raise Invalid('Publication phase regressed or was not allowed')
     if after=='PUBLISHED' and (action!='read' or not (public['remote_id'] or public['asset_id'])):
         raise Invalid('Published status needs a provider read and retained identifier')
