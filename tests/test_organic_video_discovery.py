@@ -72,6 +72,40 @@ class DiscoveryContractTests(unittest.TestCase):
             with self.subTest(changed=changed), self.assertRaises(Invalid):
                 qualify_submission(value, changed)
 
+    def test_post_links_are_required_for_new_observations_but_not_failure_sources(self):
+        cases = (
+            ('facebook', 'www.facebook.com', '/synthetic-page/videos/', '/synthetic-page'),
+            ('instagram', 'www.instagram.com', '/reel/', '/synthetic-profile/'),
+            ('tiktok', 'www.tiktok.com', '/@synthetic/video/', '/@synthetic'),
+            ('youtube', 'www.youtube.com', '/shorts/', '/@synthetic'),
+        )
+        for platform, host, post_path, profile_path in cases:
+            with self.subTest(platform=platform):
+                value = task()
+                value['policy'].update(platforms=[platform], hosts=[host])
+                data = bundle(value, 1)
+                item = data['candidates'][0]
+                observations = [item['candidate'], *item['history']]
+                for index, row in enumerate(observations):
+                    identity = f'{index + 1:011d}'
+                    row.update(platform=platform, post_id=identity, url=f'https://{host}{post_path}{identity}')
+                    if platform == 'youtube':
+                        row['format'] = 'short'
+                    item['evidence'][index].update(post_id=identity, url=row['url'], observation_hash=digest(row))
+                profile_url = f'https://{host}{profile_path}'
+                for index in range(len(observations)):
+                    invalid = copy.deepcopy(data)
+                    invalid_item = invalid['candidates'][0]
+                    row = [invalid_item['candidate'], *invalid_item['history']][index]
+                    row['url'] = profile_url
+                    invalid_item['evidence'][index].update(url=profile_url, observation_hash=digest(row))
+                    with self.assertRaises(Invalid):
+                        validate_submission(value, invalid)
+                    if platform != 'youtube':
+                        self.assertEqual(validate_submission(value, invalid, require_post_links=False), invalid)
+                data['failures'] = [{'source': profile_url, 'code': 'LOGIN'}]
+                self.assertEqual(validate_submission(value, data), data)
+
     def test_fractional_median_and_both_thresholds(self):
         value = task(); data = bundle(value)
         # Five 10000-view and five 10001-view posts yield an exact half-view median.

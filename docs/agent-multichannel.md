@@ -32,7 +32,9 @@ replayed. Browser sign-out does not cancel already approved scheduled work.
 
 For viral source selection, require both at least 100,000 observed views and a
 documented creator baseline multiple of at least 10x. Missing or stale baseline
-evidence means the candidate is not qualified. Qualification does not grant
+evidence means the candidate is not qualified. Submit a direct post link for
+each candidate and baseline observation. Use profile or channel links in source
+failure reports when collection stops there. Qualification does not grant
 reuse rights: preserve the source, evidence, and owner reuse decision before
 production. Keep the selected source-driven workflow; do not replace it with an
 original-demo or UGC path when the viral criteria fail. Do not claim virality,
