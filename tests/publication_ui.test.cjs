@@ -168,3 +168,14 @@ test('retained engagement and provider visibility are explicit without inventing
  assert.match(html,/Views: 123/);assert.match(html,/Likes: Not returned/);assert.match(html,/Comments: 0/);
  assert.match(html,/do not establish app installs or revenue/);assert.doesNotMatch(html,/\[object Object\]/);
 });
+
+test('the printable report distinguishes missing provider metrics from zero',()=>{
+ const h=fixture(),reportModel=h.c.WMMPublicationUI.test.reportModel;
+ const observed_at='2026-11-07T00:00:00Z',receipt_hash='test-receipt';
+ const missing={observed_at,receipt_hash,metrics:null,reason:'PROVIDER_READ_RETURNED_NO_METRICS'};
+ const row=sample=>reportModel({report:{latest_metric_sample:sample}},h.state).metrics.find(x=>x.label==='Latest channel metrics');
+ assert.equal(row(missing).value,'The channel returned no metrics.');
+ assert.ok(row(missing).source.includes(observed_at));
+ assert.ok(row(missing).source.includes(receipt_hash));
+ assert.equal(row({...missing,metrics:{counts:{views:0}},reason:null}).value,'{"counts":{"views":0}}');
+});

@@ -102,6 +102,10 @@ def report(store,app_id,identity):
         intent,events=_intent(db,app_id,base,channel_hash,draft)
         schedule=_schedule(db,app_id,base,draft)
     metrics=intent['observation'].get('metrics') if intent else None
+    history = _metric_history(events)
+    latest_sample = history[-1] if history else {
+        'receipt_hash': None, 'observed_at': None, 'metrics': None, 'reason': 'NO_PROVIDER_READ_RECORDED',
+    }
     proof=binding.get('proof',{})
     detail={'schema':'wmm.publication-report.v1','channel':channel,'channel_hash':channel_hash,
             'content':{'artifact':draft['artifact'],'rights_hashes':draft['rights_hashes'],'source_hashes':draft['source_hashes'],
@@ -109,7 +113,7 @@ def report(store,app_id,identity):
             'approval':{'id':base['id'],'review_hash':base['review_hash'],'approval_hash':base['approval_hash'],'owner':base['owner'],
                         'status':base['status'],'expires':base['expires'],'max_calls':base['max_calls'],'calls_used':base['calls_used']},
             'schedule':schedule,'intent':intent,'events':events,'latest_metrics':metrics,
-            'metric_history':_metric_history(events),
+            'metric_history':history,'latest_metric_sample':latest_sample,
             'public_visibility':'NOT_INDEPENDENTLY_VERIFIED',
             'attribution':{'installs':None,'revenue':None,'reason':'NOT_MEASURED_BY_PUBLICATION_PROVIDER'}}
     safe_data(detail)
@@ -118,10 +122,13 @@ def report(store,app_id,identity):
 
 
 def _metric_history(events):
-    """Keep successful provider-read samples tied to their immutable receipts."""
+    """Keep each saved provider read, including reads that returned no metrics."""
     result=[]
     for event in events:
         if event['action']!='read' or not event.get('state'):continue
         metrics=event['state']['observation'].get('metrics')
-        if metrics is not None:result.append({'receipt_hash':event['hash'],'metrics':metrics})
+        result.append({
+            'receipt_hash': event['hash'], 'observed_at': event['observed_at'], 'metrics': metrics,
+            'reason': 'PROVIDER_READ_RETURNED_NO_METRICS' if metrics is None else None,
+        })
     return result

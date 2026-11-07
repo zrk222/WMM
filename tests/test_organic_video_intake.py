@@ -77,6 +77,37 @@ class IntakeTests(unittest.TestCase):
             self.assertFalse(exists)
             self.assertEqual(db.execute('SELECT count(*) FROM discovery_documents').fetchone()[0],0)
 
+    def test_same_post_id_on_two_platforms_adopts_each_exact_candidate(self):
+        body = deepcopy(self.fixture.body)
+        body['request_id'] = 'mixed-platform-task'
+        body['policy']['platforms'].append('facebook')
+        body['policy']['hosts'].append('www.facebook.com')
+        task = self.fixture.owner_call(body)
+        claim = self.fixture.claim_task(task)
+        request = self.fixture.submission(task, claim)
+        tiktok = request['result']['candidates'][0]
+        facebook = deepcopy(tiktok)
+        for observation, receipt in zip([facebook['candidate'], *facebook['history']], facebook['evidence']):
+            url = 'https://www.facebook.com/reel/' + observation['post_id']
+            observation.update(platform='facebook', format='reel', url=url)
+            receipt.update(url=url, observation_hash=digest(observation))
+        request['result']['candidates'].append(facebook)
+        request['result']['read_count'] = 22
+        result = self.fixture.agent_call('organic-video.submit', request, submit)
+        self.assertEqual([row['status'] for row in result['result']['items']], ['COLLECTION_REVIEW_REQUIRED'] * 2)
+        for item in (facebook, tiktok):
+            candidate = item['candidate']
+            value = dict(self.body, request_id=uid(), task_id=task['id'], task_hash=task['task_hash'],
+                         submission_hash=result['submission_hash'], result_hash=digest(result['result']),
+                         candidate_id=candidate['post_id'], candidate_hash=digest(candidate))
+            intake = self.call(value)
+            self.assertEqual(self.call(value), intake)
+            source = next(row for row in Library(self.store).list(self.app) if row['id'] == intake['data']['source']['id'])
+            self.assertEqual(source['current']['data']['platform'], candidate['platform'])
+            self.assertEqual(source['current']['data']['url'], candidate['url'])
+            self.assertEqual(intake['data']['foreign_bytes'], 'NOT_AUTHORIZED')
+            self.assertEqual(intake['data']['publication'], 'NOT_RUN')
+
     def test_research_without_app_proof_saves_but_cannot_enter_production(self):
         value=deepcopy(self.body);value['review']['card']['authentic_evidence_ids']=[]
         value['review']['card'].update(rights_status='ALLOWED_BY_ATTESTATION',rights_evidence='Synthetic owner permission')

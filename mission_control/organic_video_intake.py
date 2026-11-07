@@ -71,10 +71,18 @@ def adopt(store,app_id,actor,body):
         # Reproduce saved qualification from before the post-link admission rule.
         qualified=qualify_submission(view['task'],submission,require_post_links=False)
         if digest(qualified)!=row['result_hash']:raise Invalid('Discovery qualification changed')
-        matches=[item for item in submission['candidates'] if item['candidate']['post_id']==body['candidate_id']]
-        if len(matches)!=1 or digest(matches[0]['candidate'])!=body['candidate_hash']:raise Invalid('Select the exact submitted candidate')
-        candidate=matches[0];selected=[x for x in qualified['items'] if x['candidate_id']==body['candidate_id']]
-        if len(selected)!=1 or selected[0]['status']!='COLLECTION_REVIEW_REQUIRED':raise Invalid('Select a qualified relevant research candidate')
+        # Provider post IDs are only unique within their own platform.
+        matches = [
+            (item, decision)
+            for item, decision in zip(submission['candidates'], qualified['items'])
+            if item['candidate']['post_id'] == body['candidate_id']
+            and digest(item['candidate']) == body['candidate_hash']
+        ]
+        if len(matches) != 1:
+            raise Invalid('Select the exact submitted candidate')
+        candidate, selected = matches[0]
+        if selected['status'] != 'COLLECTION_REVIEW_REQUIRED':
+            raise Invalid('Select a qualified relevant research candidate')
         if not 0<=(iso_time(stamp)-iso_time(candidate['candidate']['observed_at'])).total_seconds()<=86400:raise Invalid('Submitted candidate is stale')
         prior=db.execute('SELECT * FROM organic_video_intakes WHERE app_id=? AND request_id=?',(app_id,body['request_id'])).fetchone()
         if prior:
