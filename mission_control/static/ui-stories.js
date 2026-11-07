@@ -146,7 +146,7 @@
       'Your video production approvals':'Open a saved approval to see its current status, held capacity and delivery evidence.'
     }[title];
     if(research)return `<header class="notice" aria-label="Task guide"><p>${esc(research)}</p></header>`;
-    if(title==='Choose how your agent works')return '<aside class="notice" aria-label="Task guide"><p>Your personal agent uses scoped access. WMM-managed work needs a tested connection. Choose the path you want to set up.</p></aside>';
+    if(['Choose your agent setup','Choose how your agent works'].includes(title))return '<aside class="notice" aria-label="Task guide"><p>Your personal agent uses scoped access. WMM-managed work needs a tested connection. Choose the path you want to set up.</p></aside>';
     if(title==='WMM-managed automation setup')return '<aside class="notice" aria-label="Task guide"><p>WMM checks the tested connection, workflows and accounts for work it will run. This check starts no work.</p></aside>';
     if(title==='WMM-managed readiness checklist')return '<aside class="notice" aria-label="Task guide"><p>These are setup observations for WMM-managed work. Fix listed needs before reviewing its limits and approvals.</p></aside>';
     if(title==='OneSignal setup')return '<aside class="notice" aria-label="Task guide"><p>Keys stay protected on this device. Review provider changes before applying them.</p></aside>';

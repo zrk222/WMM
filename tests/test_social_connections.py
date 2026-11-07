@@ -30,6 +30,15 @@ class SocialConnectionTests(unittest.TestCase):
         self.assertEqual(result['provider_revocation'],'NOT_PERFORMED');self.assertEqual(len(FakeVault.values),1)
         self.assertEqual(service.get('sample-one',saved['id'])['status'],'DISCONNECTED')
 
+    def test_view_lists_all_implemented_channels_without_refresh_or_authority(self):
+        service=Connections(self.store)
+        with patch('mission_control.social_connections.verify') as network:
+            snapshot=service.view('sample-one')
+        self.assertEqual(snapshot['publication_providers'],['facebook','instagram','tiktok','youtube','linkedin'])
+        self.assertEqual(snapshot['accounts'],[])
+        self.assertFalse(snapshot['automatic_ad_spend'])
+        network.assert_not_called()
+
     def test_destination_replay_or_invention_cannot_adopt_or_duplicate_accounts(self):
         started,request=self.begin();self.success(request);service=Connections(self.store)
         body=dict(flow_id=started['flow_id'],destination_id='invented-user',connection_id='',version=0)

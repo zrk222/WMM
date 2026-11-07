@@ -12,6 +12,7 @@ from .agent_registry import REGISTRY, TASKS
 from .agent_contract import model_id
 from .review_access import member
 from .social_contract import reference, account_id, provider_id, reported_scopes
+from .social_registry import catalog as social_catalog
 
 MAX_ACCOUNTS = 20
 FRESH_HOURS = 24
@@ -227,6 +228,7 @@ def social_account(db, app_id, identity, observed):
     if scopes is not None:
         scopes = reported_scopes(scopes)
     config = db.execute('SELECT version,status FROM social_configs WHERE app_id=? AND provider=?', (app_id, row['provider'])).fetchone()
+    channel = social_catalog()[row['provider']]
     return dict(id=identity, version=row['version'], provider=row['provider'],
                 config_version=row['config_version'], subject_id=account_id(row['subject_id']),
                 destination_id=account_id(destination.get('id')),
@@ -236,7 +238,8 @@ def social_account(db, app_id, identity, observed):
                 expires_at=row['expires'], refresh_expires_at=row['refresh_expires'],
                 renewal=renewal_state(facts.get('renewal')),
                 binding_sha256=digest(dict(connection=dict(row), config=dict(config) if config else None)),
-                publishing_implemented=row['provider']=='facebook',
+                publishing_implemented=channel['publishing_implemented'],
+                publication_connection_provider=channel['publication_connection_provider'],
                 protected_access='REVALIDATE_AT_ACTIVATION_AND_DISPATCH',
                 repair='Verify the exact account, destination and required read/publish scopes through official onboarding.')
 
@@ -276,6 +279,12 @@ def workflow_states(selected, inference, accounts, native_host=False):
             row['blockers'].append('PUBLICATION_ADAPTER_REQUIRED')
         if identity in ('social_publish','paid_effects'):
             row['repair']='Open Connections → Campaign automation to approve exact external scope; use a separately issued campaign grant. This local-work policy cannot issue campaign authority.'
+        if identity == 'organic_publication':
+            if not accounts or any(account['status'] != 'TESTED_FRESH' for account in accounts):
+                row['blockers'].append('FRESH_DESTINATION_ACCOUNT_REQUIRED')
+            if any(account['provider'] != account['publication_connection_provider'] for account in accounts):
+                row['blockers'].append('PUBLICATION_CONNECTION_REQUIRED')
+            row['repair']='Open Connections → Publish an approved post. Review the exact channel, destination, copy, media, rights, time and allowance. Instagram uses a linked professional account through a Facebook Page. Reconnect with publishing permissions where needed; a read test issues no publication approval.'
         row.update(id=identity, status='BLOCKED' if row['blockers'] else 'READY_FOR_SCOPE_REVIEW')
         result.append(row)
     return result

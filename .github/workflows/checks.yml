@@ -46,6 +46,7 @@ jobs:
       - name: Verify owner onboarding and protective campaign pause in Chromium
         run: |
           python tools/test_owner_onboarding_browser.py
+          python tools/test_goal_journey_browser.py
           python tools/test_campaign_monitor_browser.py
           python tools/test_organic_taste_browser.py
           python tools/test_goal_packet_history_browser.py
@@ -57,6 +58,15 @@ jobs:
         env:
           WMM_BROWSER_TEST_PROFILE: '1'
         run: python -m unittest tests.test_operation_feedback_browser -v
+      - name: Retain synthetic goal-first packet evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: goal-first-browser-evidence
+          path: .factory/goal-first-automation/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 3
   windows:
     runs-on: windows-latest
     timeout-minutes: 45

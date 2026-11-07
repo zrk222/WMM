@@ -88,7 +88,7 @@ def run(browser,width,out):
   token='';agent=None
   page.locator('#close-modal').click()
   page.get_by_role('button',name='Check connections for this goal',exact=True).click()
-  page.get_by_role('button',name='Let WMM run approved work',exact=True).press('Enter')
+  page.get_by_role('button',name='Check WMM-managed setup',exact=True).press('Enter')
   form=page.locator("#goal-readiness-form");form.get_by_label("Agent identifier",exact=True).fill("grok-bot")
   form.locator("[name=social_connection_ids]").check()
   form.get_by_role("button",name="Check selected connections",exact=True).click()

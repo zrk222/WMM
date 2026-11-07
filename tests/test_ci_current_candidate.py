@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # both owner-bound OneSignal journeys, creative batches, organic research and
 # exact-approved publication with retained synthetic desktop/mobile evidence.
 # All eight backend shards and the native/package job definitions are retained.
-BASELINES = {".github/workflows/checks.yml":"f68cd981a0db05d38651d5f5c151e6f7f3cd7fa672ac7680edca046f1f90e2ff",".github/workflows/platform-checks.yml":"8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",".github/workflows/desktop-packages.yml":"c9dd8f316a7660ef7baa92c46628fe49c948b455ea7f87f45fac866b6c323e45"}
+BASELINES = {".github/workflows/checks.yml":"a411f6041a86a204c104b8f1e38fa93ac4e4140497fec0c48e895c7cef6936b7",".github/workflows/platform-checks.yml":"8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",".github/workflows/desktop-packages.yml":"c9dd8f316a7660ef7baa92c46628fe49c948b455ea7f87f45fac866b6c323e45"}
 GROUP = "${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}"
 
 def job_digest(path):
@@ -29,6 +29,7 @@ class CurrentCandidateCITests(unittest.TestCase):
         self.assertIn("retention-days: 3", browser)
         self.assertIn("python -m unittest tests.test_insights_history_browser tests.test_observational_campaign_browser -v", browser)
         self.assertIn("python tools/test_owner_onboarding_browser.py", browser)
+        self.assertIn("python tools/test_goal_journey_browser.py", browser)
         self.assertIn("python tools/test_campaign_monitor_browser.py", browser)
         self.assertIn("python tools/test_organic_taste_browser.py", browser)
         self.assertIn("python tools/test_goal_packet_history_browser.py", browser)

@@ -9,6 +9,7 @@ from .social_secrets import Secrets,queue
 from .social_setup import Setup
 from .social_tokens import Grant
 from .social_profiles import verify,selected_page
+from .social_registry import catalog
 
 
 def decoded(row):
@@ -39,7 +40,8 @@ class Connections:
         for row in rows:
             value=public(row);value['reconnect_required']=row['expires'] is not None and row['expires']<=time.time()
             result.append(value)
-        return dict(accounts=result,publishing_implemented=True,publication_providers=['facebook'],automatic_ad_spend=False,paid_campaign_execution_implemented=True)
+        providers=[key for key,value in catalog().items() if value['publishing_implemented']]
+        return dict(accounts=result,publishing_implemented=True,publication_providers=providers,automatic_ad_spend=False,paid_campaign_execution_implemented=True)
 
     def confirm(self,app_id,body):
         """An explicit destination and exact prior version are required to adopt access."""

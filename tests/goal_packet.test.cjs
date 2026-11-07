@@ -8,7 +8,7 @@ function fixture(goal='measurement'){
  const p=vm.runInContext('WMMGoalPacket',c);const node=action=>({dataset:{action,app:'one',version:'2',goal:p.model().goal,sourceHash:'source'}});return {p,c,state,calls,node};
 }
 test('all four goals retain only fixed evidence subsets, escaped drafts and existing next routes',()=>{
- for(const [goal,stages,route] of [['research',[5,6],'sources'],['creative',[6],'research'],['campaign',[7],'campaign'],['measurement',[3,4,10,11],'results']]){
+ for(const [goal,stages,route] of [['research',[5,6],'sources'],['creative',[6],'research'],['campaign',[7],'connections'],['measurement',[3,4,10,11],'results']]){
  const h=fixture(goal),m=h.p.model();assert.deepEqual(Array.from(m.outputs,x=>x.stage),stages);h.p.open(h.node('automatic-goal-open'));assert.match(h.calls[0][2],/LOCAL|Local/);assert.ok(!h.calls[0][2].includes('<unsafe>'));assert.ok(!h.calls[0][2].includes('<Title'));assert.match(h.calls[0][2],/<details>/);assert.match(h.calls[0][2],/automatic-open/);
  h.p.action(h.node('automatic-goal-download'));const saved=h.calls[1][2];assert.equal(saved.app_id,'one');assert.equal(saved.manifest_version,2);assert.equal(saved.source_hash,'source');assert.deepEqual(Array.from(saved.outputs,x=>x.stage),stages);h.p.action(h.node('automatic-goal-next'));assert.equal(h.calls[2].at(-1),route);
  }

@@ -11,6 +11,7 @@ Present outcome-specific owner connection selection and the existing authoritati
 - If app, manifest, principal, dialog or selected goal changes, the system shall reject late readback through `stale_readback`.
 - The system shall display every selected workflow blocker and a fixed repair action through `show_blockers`.
 - The system shall display readiness as preparation for scope review and shall issue no execution authority through `no_authority`.
+- The system shall display owner-reviewed organic Instagram, TikTok, YouTube and LinkedIn work alongside Facebook through `organic_channels`, naming the supported connection path without treating adapter availability or a read-tested account as publication permission.
 
 ### Acceptance criteria (Gherkin)
 ```gherkin
@@ -34,6 +35,12 @@ Scenario: no_authority
  Given a readiness check
  When `no_authority` checks the selected state
  Then no grant or policy or campaign is activated
+Scenario: organic_channels
+ Given a campaign goal and current app-owned connections
+ When organic publication is selected
+ Then the wizard names Instagram, TikTok, YouTube Shorts and LinkedIn
+ And direct Instagram Login is directed to the supported Facebook Page connection path
+ And the exact owner publication approval remains required
 ```
 
 ## SHOULD - Technical

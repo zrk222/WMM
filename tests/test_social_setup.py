@@ -23,12 +23,16 @@ class SocialSetupTests(unittest.TestCase):
         vault=patch('mission_control.social_secrets.Vault',FakeVault);vault.start();self.addCleanup(vault.stop)
 
     def test_known_app_facts_and_setup_links_without_invented_provider_app(self):
-        for provider in ('facebook','instagram','linkedin','tiktok'):
+        for provider in ('facebook','instagram','linkedin','tiktok','youtube'):
             packet=self.setup.packet('sample-one',provider)
             self.assertEqual(packet['app_name'],self.store.app('sample-one')['data']['name'])
             self.assertTrue(packet['official_setup'].startswith('https://'))
             self.assertTrue(packet['no_publication_or_spending'])
             self.assertNotIn('client_id',packet)
+        youtube=self.setup.packet('sample-one','youtube')
+        self.assertEqual(youtube['scopes'],['https://www.googleapis.com/auth/youtube.readonly'])
+        self.assertIn('Google',youtube['steps'][0])
+        self.assertEqual(self.setup.view('sample-one')['publication_providers'],['facebook','instagram','tiktok','youtube','linkedin'])
         self.assertEqual(self.setup.packet('sample-one','tiktok')['redirect_uri'],'http://127.0.0.1:8765/social/callback/tiktok')
 
     def test_save_hides_secret_survives_reopen_and_is_app_scoped(self):
