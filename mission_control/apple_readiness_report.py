@@ -99,8 +99,11 @@ def summary(db, app_id, store_app_id, observed_at):
             result.update(read=job['status'], next_action='Keep the local service running and check the read again.')
         elif (job['status'] == 'SUCCEEDED' and valid_waiting(db, row, job, job['result'])
               and (observed := _time(job['result']['observed_at'], ceiling))):
-            result.update(read='WAITING_FOR_REPORTS', observed_at=observed,
-                          next_action='Apple had no daily report at this observation; keep the schedule enabled and check later.')
+            next_action = 'Apple had no daily report at this observation. Keep the schedule enabled and check later.'
+            if row['next_due'] < ceiling.timestamp():
+                next_action = ('The scheduled refresh is overdue. Check that the WMM worker is running, '
+                               'then review the saved refresh in Apple analytics.')
+            result.update(read='WAITING_FOR_REPORTS', observed_at=observed, next_action=next_action)
         elif (job['status'] == 'SUCCEEDED' and valid_numeric(db, row, job, job['result'])
               and (observed := _time(job['result']['observed_at'], ceiling))):
             result.update(read='DOWNLOAD_OBSERVATIONS_AVAILABLE', observed_at=observed,

@@ -1,9 +1,10 @@
 """Scheduled Apple read readiness in the shared app-scoped report."""
 import json
+from datetime import timedelta
 import unittest
 from unittest.mock import patch
 
-from mission_control.common import canonical, now
+from mission_control.common import canonical, iso_time, now
 from mission_control.db import connection
 from mission_control.ios_reports import read, snapshot
 from mission_control.worker import jobs, run_once
@@ -53,6 +54,25 @@ class AppleReadinessReportTests(unittest.TestCase):
         self.assertIsNotNone(exception['observed_at'])
         self.assertIsNotNone(exception['next_due'])
         self.assertNotIn(fixture.REPORT, json.dumps(exception))
+
+    def test_waiting_read_shows_repair_after_saved_due_time(self):
+        self.wait_once()
+        service = Service(self.store)
+        before = service.workspace(fixture.APP)['workflow']['exceptions'][0]
+        self.assertIn('keep the schedule enabled', before['next_action'].lower())
+        after_due = (iso_time(before['next_due']) + timedelta(seconds=1)).isoformat()
+        schedule = self.schedules.get(fixture.APP)
+        saved_jobs = jobs(self.store, fixture.APP)
+        with patch('mission_control.service.now', return_value=after_due):
+            after = service.workspace(fixture.APP)['workflow']['exceptions'][0]
+        self.assertEqual(after['state'], 'WAITING_FOR_REPORTS')
+        self.assertEqual(after['observed_at'], before['observed_at'])
+        self.assertEqual(after['next_due'], before['next_due'])
+        self.assertIn('scheduled refresh is overdue', after['next_action'])
+        self.assertIn('Check that the WMM worker is running', after['next_action'])
+        self.assertEqual(after['repair_route'], 'apple-analytics')
+        self.assertEqual(self.schedules.get(fixture.APP), schedule)
+        self.assertEqual(jobs(self.store, fixture.APP), saved_jobs)
 
     def test_absent_paused_and_source_changed_are_distinct(self):
         self.assertEqual(self.rows()['Apple schedule']['observed'], 'NOT_CONFIGURED')
