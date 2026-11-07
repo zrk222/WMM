@@ -74,14 +74,31 @@ class OrganicDemoHTTPTests(unittest.TestCase):
                        {'contains_private_data': True}, {'filename': '../demo.mp4'}):
             with self.assertRaises(HTTPError):
                 self.upload(dict(value, **change))
-        for headers in ({'X-CSRF-Token': 'wrong'}, {'Origin': 'http://foreign.invalid'},
-                        {'Cookie': ''}, {'Authorization': 'Bearer forbidden'},
-                        {'Content-Type': 'application/json'}, {'Content-Length': '67108865'},
-                        {'X-WMM-Demo-Selection': '{"request_id":"a","request_id":"b"}'}):
-            with self.assertRaises(HTTPError):
-                self.upload(**headers)
+        for headers, expected in (
+            ({'X-CSRF-Token': 'wrong'}, 403),
+            ({'Origin': 'http://foreign.invalid'}, 403),
+            ({'Authorization': 'Bearer forbidden'}, 403),
+            ({'Content-Type': 'application/json'}, 400),
+            ({'X-WMM-Demo-Selection': '{"request_id":"a","request_id":"b"}'}, 400),
+        ):
+            with self.subTest(headers=tuple(headers)):
+                with self.assertRaises(HTTPError) as error:
+                    self.upload(**headers)
+                with error.exception as response:
+                    self.assertEqual(response.code, expected)
+        # Reject an oversized declaration before sending any media bytes.
+        with self.assertRaises(HTTPError) as error:
+            self.upload(raw=b'', **{'Content-Length': '67108865'})
+        with error.exception as response:
+            self.assertEqual(response.code, 400)
+            self.assertEqual(json.load(response)['error'], 'Media input exceeds its bounded byte limit')
         with self.assertRaises(HTTPError):
             self.upload(path=BASE.replace('sample-one', 'sample-two') + 'import-demo')
+        # This request can replace the opener's session cookie, so run it last.
+        with self.assertRaises(HTTPError) as error:
+            self.upload(Cookie='')
+        with error.exception as response:
+            self.assertEqual(response.code, 403)
         with connection(self.store.path) as db:
             if db.execute("SELECT 1 FROM sqlite_master WHERE name='managed_media'").fetchone():
                 self.assertEqual(db.execute('SELECT count(*) FROM managed_media').fetchone()[0], 0)
