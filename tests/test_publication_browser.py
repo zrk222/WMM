@@ -80,8 +80,11 @@ class PublicationBrowserTests(unittest.TestCase):
   with connection(self.fixture.store.path) as db:
    self.assertEqual(db.execute("SELECT count(*) FROM jobs WHERE action='social_publication'").fetchone()[0],0)
   self.assertEqual(self.fixture.owner.request('GET',self.fixture.base)['authorities'],[])
-  body.locator('[data-action="goal-repair"][data-tool="connections"]').filter(has_text='Review organic publication').click()
-  expect(page.locator('[data-action="publication-load"]')).to_be_visible()
+  body.get_by_role('button',name='Review organic publication',exact=True).press('Enter')
+  expect(page.get_by_role('heading',name='Organic publishing',exact=True)).to_be_focused()
+  page.keyboard.press('Tab')
+  expect(page.get_by_role('button',name='Load publishing options',exact=True)).to_be_focused()
+  self.assertEqual(self.fixture.owner.request('GET',self.fixture.base)['authorities'],[])
   page.locator('[data-action="social-setup"][data-provider="youtube"]').click()
   setup=page.locator('#social-setup-form');expect(setup).to_be_visible()
   expect(setup).to_contain_text('Google');expect(setup.locator('[name=campaign_access]')).to_have_value('read')
