@@ -81,10 +81,15 @@ def verify_binary(binary, env, label):
     pair = json.loads(run([sys.executable, verifier, binary.parent], env).stdout)
     if pair.get('status') != 'PASS':
         raise AssertionError('Installed native engine verification failed')
+    window = json.loads((ROOT / 'ubuntu-native-window-receipt.json').read_text(encoding='utf-8'))
+    if (window.get('status') != 'PASS' or window.get('window') != 'VERIFIED_LINUX_X11_NATIVE_HANDLE'
+            or window.get('exit_code') != 0 or window.get('profile') != 'DISPOSABLE_SYNTHETIC'
+            or any(window.get(key) != pair[key] for key in ('shell_sha256', 'engine_sha256'))):
+        raise AssertionError('Installed native pair does not match the tested Ubuntu window')
     evidence = ROOT / '.factory/packaged-native-window' / label
     evidence.mkdir(parents=True, exist_ok=True)
     (evidence / 'evidence.json').write_text(json.dumps(dict(source_sha=env.get('GITHUB_SHA'),
-        pair=pair, interactive_window='NOT_RUN')), encoding='utf-8')
+        pair=pair, window=window, interactive_scope='IDENTICAL_BUNDLED_SHELL_AND_ENGINE')), encoding='utf-8')
     for args in (['--check'], ['--self-test'], ['--vault-self-test'], ['--agent-cli', 'catalog']):
         result = json.loads(run([binary, *args], env).stdout)
         if args == ['--check'] and Path(result['data_directory']) != Path(env['XDG_DATA_HOME']) / 'Wize Marketing Machine':
