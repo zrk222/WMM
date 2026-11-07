@@ -1,6 +1,7 @@
 """Verify native package assembly and reject invalid smoke observations."""
 import hashlib
 import io
+import json
 from pathlib import Path
 import runpy
 import shutil
@@ -15,6 +16,35 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class NativeDesktopPackageTests(unittest.TestCase):
+    def test_linux_window_selection_checks_exact_process_title_and_id(self):
+        choose = runpy.run_path(str(ROOT / 'tools/test_native_desktop_bundle.py'))['linux_window_id']
+        target = '0x02000001 0 123 runner Wize Marketing Machine'
+        foreign = '0x02000002 0 124 runner Wize Marketing Machine'
+        similar = '0x02000003 0 123 runner Wize Marketing Machine repair'
+        malformed = 'invalid 0 123 runner Wize Marketing Machine'
+        self.assertEqual(choose('\n'.join((foreign, similar, malformed, target)), 123), '0x02000001')
+        self.assertIsNone(choose('\n'.join((foreign, similar, malformed)), 123))
+        with self.assertRaisesRegex(RuntimeError, 'more than one'):
+            choose(target + '\n' + target.replace('000001', '000004'), 123)
+
+    def test_ubuntu_installer_rejects_window_receipt_from_other_engine(self):
+        from types import SimpleNamespace
+
+        verify = runpy.run_path(str(ROOT / 'tools/test_linux_package.py'))['verify_binary']
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'WMM-Mission-Control').touch()
+            (root / 'ubuntu-native-window-receipt.json').write_text(json.dumps(dict(status='PASS',
+                window='VERIFIED_LINUX_X11_NATIVE_HANDLE', exit_code=0, profile='DISPOSABLE_SYNTHETIC',
+                shell_sha256='a' * 64, engine_sha256='b' * 64)), encoding='utf-8')
+            pair = dict(status='PASS', shell_sha256='a' * 64, engine_sha256='c' * 64)
+            with patch.dict(verify.__globals__, {'ROOT': root}), patch.dict(verify.__globals__, {
+                'run': lambda *a, **k: SimpleNamespace(stdout=json.dumps(pair)),
+            }):
+                with self.assertRaisesRegex(AssertionError, 'does not match the tested Ubuntu window'):
+                    verify(root / 'WMM', {}, 'ubuntu-fresh')
+            self.assertFalse((root / '.factory').exists())
+
     def test_public_installer_compiles_with_the_publisher_device_client(self):
         workflow=(ROOT/'.github/workflows/desktop-packages.yml').read_text(encoding='utf-8')
         step=workflow.split('      - name: Build native Mission Control and its frozen engine\n',1)[1].split('      - name:',1)[0]

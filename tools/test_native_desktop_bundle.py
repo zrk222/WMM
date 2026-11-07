@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -141,12 +142,84 @@ def verify_windows_window(folder):
                 profile='DISPOSABLE_SYNTHETIC', shell_sha256=digest(shell))
 
 
+def linux_window_id(listing, pid):
+    """Select only the expected titled window owned by the launched process."""
+    matches = []
+    for row in listing.splitlines():
+        fields = row.split(maxsplit=4)
+        if (len(fields) == 5 and fields[2] == str(pid) and fields[4] == 'Wize Marketing Machine'
+                and re.fullmatch(r'0x[0-9a-fA-F]+', fields[0])):
+            matches.append(fields[0])
+    if len(matches) > 1:
+        raise RuntimeError('Mission Control opened more than one primary window')
+    return matches[0] if matches else None
+
+
+def verify_linux_window(folder):
+    """Launch the bundled Linux window on an isolated, unprivileged CI display."""
+    if (sys.platform != 'linux' or os.geteuid() == 0
+            or any(os.environ.get(key) != value for key, value in (
+                ('CI', 'true'), ('GITHUB_ACTIONS', 'true'), ('WMM_LINUX_NATIVE_WINDOW_CI', '1')))
+            or not all(os.environ.get(key) for key in ('DISPLAY', 'XAUTHORITY', 'DBUS_SESSION_BUS_ADDRESS'))):
+        raise RuntimeError('Linux window verification requires the disposable unprivileged CI display')
+    folder = folder.resolve(strict=True)
+    shell, engine = folder / 'WMM-Mission-Control', folder / 'WMM'
+    with tempfile.TemporaryDirectory(prefix='wmm-native-window-') as temporary:
+        profile = Path(temporary)
+        env = isolated_environment(profile)
+        env.update({key: os.environ[key] for key in ('DISPLAY', 'XAUTHORITY', 'DBUS_SESSION_BUS_ADDRESS')})
+        env['GDK_BACKEND'] = 'x11'
+        manager = subprocess.Popen(['openbox', '--sm-disable'], env=env, stdin=subprocess.DEVNULL,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        child = None
+        try:
+            for _ in range(40):
+                if manager.poll() is not None:
+                    raise RuntimeError('Disposable window manager stopped')
+                if subprocess.run(['wmctrl', '-m'], env=env, timeout=5, capture_output=True).returncode == 0:
+                    break
+                time.sleep(.25)
+            else:
+                raise RuntimeError('Disposable window manager did not start')
+            with (profile / 'window.log').open('w+b') as log:
+                child = subprocess.Popen([str(shell)], cwd=folder, env=env, stdin=subprocess.DEVNULL,
+                                         stdout=log, stderr=subprocess.STDOUT)
+                database = profile / 'Wize Marketing Machine' / 'mission-control.sqlite3'
+                deadline = time.monotonic() + 35
+                try:
+                    while child.poll() is None and time.monotonic() < deadline:
+                        windows = subprocess.run(['wmctrl', '-l', '-p'], env=env, timeout=5,
+                                                 check=True, capture_output=True, text=True).stdout
+                        window = linux_window_id(windows, child.pid)
+                        if window and database.is_file():
+                            subprocess.run(['wmctrl', '-i', '-c', window], env=env, timeout=5,
+                                           check=True, capture_output=True)
+                            if child.wait(timeout=45) != 0:
+                                raise RuntimeError('Mission Control failed after the native close event')
+                            break
+                        time.sleep(.25)
+                    else:
+                        raise RuntimeError('Native Mission Control window or disposable workspace did not open')
+                except (RuntimeError, subprocess.SubprocessError) as error:
+                    log.seek(max(0, log.seek(0, os.SEEK_END) - 4096))
+                    raise RuntimeError(f'{error}\n{log.read().decode(errors="replace")}') from error
+        finally:
+            for process in (child, manager):
+                if process is not None and process.poll() is None:
+                    process.kill()
+                    process.wait(timeout=10)
+    return dict(status='PASS', window='VERIFIED_LINUX_X11_NATIVE_HANDLE', exit_code=0,
+                profile='DISPOSABLE_SYNTHETIC', shell_sha256=digest(shell), engine_sha256=digest(engine))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('folder', type=Path)
-    parser.add_argument('--windows-window', action='store_true')
+    native = parser.add_mutually_exclusive_group()
+    native.add_argument('--windows-window', action='store_true')
+    native.add_argument('--linux-window', action='store_true')
     args = parser.parse_args()
-    verify = verify_windows_window if args.windows_window else verify_bundle
+    verify = verify_windows_window if args.windows_window else verify_linux_window if args.linux_window else verify_bundle
     print(json.dumps(verify(args.folder)))
 
 
