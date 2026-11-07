@@ -144,7 +144,15 @@
     if(intent){add("Provider phase",intent.status,"Saved provider observation");add("Remote ID",intent.remote_id,"Saved provider observation");add("Latest observation",JSON.stringify(intent.observation||{}),"Saved provider observation");}
     const visibleEvents=events.length>500?events.slice(-500):events;
     for(const event of visibleEvents)add(`Event ${event.sequence} · ${event.action}`,`${event.status||""} · ${event.observed_at||""} · hash ${event.hash||""} · previous ${event.previous_hash||""}`,"Verified retained event chain");
-    if(detail.latest_metrics!==null&&detail.latest_metrics!==undefined)add("Latest channel metrics",JSON.stringify(detail.latest_metrics),"Saved provider observation");
+    const sample=detail.latest_metric_sample;
+    if(sample?.observed_at){
+      add("Latest channel metrics",sample.metrics==null?"The channel returned no metrics.":JSON.stringify(sample.metrics),
+        `Provider read at ${sample.observed_at} · receipt ${sample.receipt_hash}`);
+    }else if(detail.latest_metrics!=null){
+      add("Latest channel metrics",JSON.stringify(detail.latest_metrics),"Saved provider observation");
+    }else if(sample?.reason==="NO_PROVIDER_READ_RECORDED"){
+      add("Latest channel metrics","No provider read has been saved.");
+    }
     if(detail.attribution)add("Attribution",JSON.stringify(detail.attribution),"WMM measurement boundary");
     const notes=["This report reflects retained approval and provider observations. Public visibility is not independently verified.","No installs or revenue are attributed by this publication report."];
     if(detail.public_visibility)notes.push(`Public visibility: ${detail.public_visibility}.`);

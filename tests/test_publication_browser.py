@@ -108,10 +108,12 @@ class PublicationBrowserTests(unittest.TestCase):
   self.assertEqual(report['id'],approval_id);self.assertEqual(report['report']['approval']['id'],approval_id)
   channel=report['report']['channel'];self.assertEqual(channel['provider'],'linkedin');self.assertEqual(channel['destination_id'],'profile1')
   self.assertEqual(report['report']['channel_hash'],digest(channel))
+  self.assertEqual(report['report']['latest_metric_sample']['reason'],'NO_PROVIDER_READ_RECORDED')
   with page.expect_popup() as captured:
    page.locator(f'[data-action="publication-report-pdf"][data-id="{approval_id}"]').click()
   popup=captured.value;popup.wait_for_selector('#print-page-report')
   self.assertIn(approval_id,popup.locator('body').inner_text());self.assertIn(report['report']['channel_hash'],popup.locator('body').inner_text())
+  self.assertIn('No provider read has been saved.',popup.locator('body').inner_text())
   self.assertTrue(popup.pdf().startswith(b'%PDF'));popup.close()
  def test_desktop(self):self.journey(1440)
  def test_mobile(self):self.journey(390)

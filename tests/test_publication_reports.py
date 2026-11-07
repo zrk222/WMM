@@ -23,6 +23,7 @@ class PublicationReportTests(unittest.TestCase):
   item=self.prepare();result=self.read(item);r=result['report']
   self.assertEqual(result['id'],item['id']);self.assertEqual(r['channel']['destination_id'],'profile1');self.assertEqual(r['content']['rights_hashes'],self.draft['rights_hashes'])
   self.assertIsNone(r['latest_metrics']);self.assertIsNone(r['attribution']['installs']);self.assertIsNone(r['attribution']['revenue']);self.assertEqual(r['events'],[])
+  self.assertEqual(r['latest_metric_sample'],{'receipt_hash':None,'observed_at':None,'metrics':None,'reason':'NO_PROVIDER_READ_RECORDED'})
   self.assertNotIn('fixture-secret',canonical(result));self.assertEqual(r['public_visibility'],'NOT_INDEPENDENTLY_VERIFIED')
  def test_receipts_and_chain_tampering(self):
   item,job=self.leased();vault=execution.Vault()
@@ -53,5 +54,14 @@ class PublicationReportTests(unittest.TestCase):
    self.assertIsNone(history[0]['metrics']['counts']['likes'])
    self.assertNotEqual(history[0]['receipt_hash'],history[1]['receipt_hash'])
    self.assertEqual(report['latest_metrics']['counts']['views'],20)
+   self.assertEqual(report['latest_metric_sample'],history[-1])
+   self.run_step(job,SimpleNamespace(read=lambda *a:self.state('PUBLISHED','urn:li:share:123')))
+   report=self.read(item)['report'];history=report['metric_history'];event=report['events'][-1]
+   self.assertEqual([sample['metrics']['counts']['views'] for sample in history[:2]],[10,20])
+   self.assertIsNone(report['latest_metrics'])
+   self.assertEqual(report['latest_metric_sample'],history[-1])
+   self.assertEqual(history[-1],{'receipt_hash':event['hash'],'observed_at':event['observed_at'],
+                                 'metrics':None,'reason':'PROVIDER_READ_RETURNED_NO_METRICS'})
+   self.assertTrue(event['observed_at'])
 
 if __name__=='__main__':unittest.main()

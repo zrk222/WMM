@@ -52,6 +52,17 @@ test('only qualified relevant current references can be adopted and saved source
  assert.equal(ui.adoptable(data,row,{...entry,kind:'UGC'},s()),false);
  data.intakes=[{data:{provenance:{candidate_hash:row.qualification.candidate_hash}}}];assert.equal(ui.adoptable(data,row,entry,s()),false);
 });
+test('review controls use different hashes when two platforms report the same post ID',async()=>{
+ const data=await saved(),first=data.result.items[0],entry=data.submission.candidates[0];
+ const candidate={...entry.candidate,platform:'facebook',url:'https://www.facebook.com/reel/post-one'};
+ const hash=await sha(candidate);
+ data.submission.candidates.push({...entry,candidate});
+ data.result.items.push({...first,qualification:{...first.qualification,candidate_hash:hash}});
+ const html=ui.taskHTML(data,s());
+ for(const key of [first.qualification.candidate_hash,hash]){
+   assert.ok(html.includes('data-action="oresearch-adopt" data-id="'+key+'"'));
+ }
+});
 test('structured adoption binds original source and proof without inventing rights or transcript',async()=>{
  const data=await saved(),t={data:{saved:data,row:data.result.items[0],entry:data.submission.candidates[0]},d:{state:s(),uuid:()=> 'intake-one',browser:{crypto:webcrypto}}};
  const v={title:'Synthetic source',industry:'BUSINESS',narrative:'APP_DEMO',treatment:'TALKING_HEAD',duration:'30',hook_end:'3',hook:'An opening question',mechanism:'Curiosity',rationale:'Our app demonstrates the next step',requirements:'Authentic app screen',evidence:['proof-one'],experiment:'Test an original app opening',uncertainty:'Reported counters only',inspected:'on'};
