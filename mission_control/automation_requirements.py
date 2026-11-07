@@ -13,7 +13,6 @@ from .agent_contract import model_id
 from .review_access import member
 from .social_contract import reference, account_id, provider_id, reported_scopes
 
-MAX_WORKFLOWS = 12
 MAX_ACCOUNTS = 20
 FRESH_HOURS = 24
 
@@ -60,6 +59,10 @@ WORKFLOWS = {
         'campaign.ad-launch','campaign.pause'],
         blockers=['EXACT_OWNER_CAMPAIGN_SCOPE_REQUIRED']),
 }
+
+# Selection can cover the full explicit catalog while each workflow retains its
+# own operation map and blockers as the authority boundary.
+MAX_WORKFLOWS = len(WORKFLOWS)
 
 # These operations remain separately approved through exact scoped grants or a
 # current owner session; they are not added to existing standing policies.
