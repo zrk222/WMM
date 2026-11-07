@@ -47,10 +47,19 @@ test('unsafe source URLs and source text cannot become executable markup',async(
 });
 test('only qualified relevant current references can be adopted and saved sources cannot be readopted',async()=>{
  const data=await saved(),row=data.result.items[0],entry=data.submission.candidates[0];assert.ok(ui.adoptable(data,row,entry,s()));
- assert.equal(ui.adoptable({...data,status:'INCOMPLETE'},row,entry,s()),false);
+ assert.equal(ui.adoptable({...data,status:'INCOMPLETE'},row,entry,s()),true);
+ assert.equal(ui.adoptable({...data,status:'CLAIMED'},row,entry,s()),false);
  assert.equal(ui.adoptable(data,{...row,status:'RELEVANCE_REVIEW_REQUIRED'},entry,s()),false);
  assert.equal(ui.adoptable(data,row,{...entry,kind:'UGC'},s()),false);
  data.intakes=[{data:{provenance:{candidate_hash:row.qualification.candidate_hash}}}];assert.equal(ui.adoptable(data,row,entry,s()),false);
+});
+test('channel coverage names missing and partial sources while qualified candidates stay reviewable',async()=>{
+ const data=await saved();data.status='INCOMPLETE';data.channel_coverage={facebook:{candidates:0,failures:0},tiktok:{candidates:1,failures:1}};
+ const html=ui.taskHTML(data,s());
+ assert.match(html,/Facebook[^<]+No candidates reported/);
+ assert.match(html,/TikTok[^<]+1 candidate reported · 1 source check failed/);
+ assert.match(html,/Review this research idea/);
+ assert.ok(ui.report(data,s()).notes.some(row=>row.includes('No candidates reported')));
 });
 test('review controls use different hashes when two platforms report the same post ID',async()=>{
  const data=await saved(),first=data.result.items[0],entry=data.submission.candidates[0];

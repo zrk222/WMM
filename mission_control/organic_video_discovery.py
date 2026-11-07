@@ -4,7 +4,7 @@ import re
 from urllib.parse import urlsplit
 
 from .common import Invalid, digest, iso_time, required
-from .viral_policy import PLATFORMS, observation, qualify
+from .viral_policy import FIELDS, PLATFORMS, observation, qualify
 
 HOSTS = {'tiktok': {'tiktok.com', 'www.tiktok.com'},
          'facebook': {'facebook.com', 'www.facebook.com'},
@@ -17,6 +17,32 @@ POST_PATHS = {
     'tiktok': re.compile(r'/@[A-Za-z0-9._-]+/video/(?P<post>[A-Za-z0-9_-]+)/?'),
 }
 HEX = re.compile(r'[0-9a-f]{64}\Z')
+FAILURE_CODES = ('LOGIN', 'CAPTCHA', 'TIMEOUT', 'UNAVAILABLE', 'EMPTY', 'PARTIAL')
+
+
+def collector_contract():
+    """Give CLI and MCP collectors the exact claim and submission shapes."""
+    return {
+        'claim': {'operation': 'organic-video.claim', 'fields': ['task_id', 'task_hash']},
+        'submit': {'operation': 'organic-video.submit', 'fields': ['task_id', 'result'],
+                   'result_fields': ['task_id', 'task_hash', 'claim_id', 'collected_at', 'read_count',
+                                     'candidates', 'failures', 'execution'],
+                   'execution': 'LIVE_EXTERNAL_AGENT'},
+        'candidate_fields': ['candidate', 'history', 'evidence', 'relevance', 'kind', 'rights'],
+        'observation_fields': sorted(FIELDS),
+        'evidence_fields': ['post_id', 'url', 'observed_at', 'observation_hash', 'source_sha256'],
+        'failure_fields': ['source', 'code'],
+        'failure_codes': list(FAILURE_CODES),
+        'direct_post_examples': {
+            'facebook': 'https://www.facebook.com/reel/12345678901',
+            'instagram': 'https://www.instagram.com/reel/ABCdef12345/',
+            'tiktok': 'https://www.tiktok.com/@example/video/12345678901',
+            'youtube': 'https://www.youtube.com/shorts/ABCdef12345',
+        },
+        'post_identity': 'Use the exact post ID or shortcode in the direct link, without share parameters.',
+        'coverage': 'Use permitted metadata reads for each selected channel. Report unavailable or empty sources explicitly.',
+        'handoff': 'Owner review can adopt qualified references from partial searches. Rights and footage stay separate.',
+    }
 
 
 def exact(value, fields):
@@ -113,10 +139,9 @@ def validate_submission(task, result, *, require_post_links=True) -> object:
     for failure in failures:
         exact(failure, ('source', 'code'))
         _url(failure['source'], task['policy']['hosts'])
-        if failure['code'] not in ('LOGIN', 'CAPTCHA', 'TIMEOUT', 'UNAVAILABLE', 'EMPTY', 'PARTIAL'):
+        if failure['code'] not in FAILURE_CODES:
             raise Invalid('Use a supported discovery failure')
     seen = set()
-    link_ids = {}
     for item in candidates:
         exact(item, ('candidate', 'history', 'evidence', 'relevance', 'kind', 'rights'))
         if item['relevance'] not in ('MATCH', 'UNKNOWN', 'MISMATCH'):
@@ -147,11 +172,8 @@ def validate_submission(task, result, *, require_post_links=True) -> object:
                 match = post_path.fullmatch(path)
                 if match is None:
                     raise Invalid(f'Use a direct {platform} post link for the candidate and each baseline observation')
-                link_id = match['post']
-                if platform == 'tiktok' and link_id != row['post_id']:
-                    raise Invalid('TikTok post identity must match the video link')
-                if link_ids.setdefault((platform, link_id), row['post_id']) != row['post_id']:
-                    raise Invalid('One post link cannot represent different post identities')
+                if match['post'] != row['post_id']:
+                    raise Invalid(f'{platform.capitalize()} post identity must match the direct link')
             if iso_time(row['observed_at']) < stamp - timedelta(hours=24):
                 raise Invalid('Observation is stale')
         key = (normalized[0]['platform'], normalized[0]['post_id'])
@@ -170,6 +192,21 @@ def validate_submission(task, result, *, require_post_links=True) -> object:
                     or not HEX.fullmatch(receipt['source_sha256'])):
                 raise Invalid('Observation and source receipt differ')
     return result
+
+
+def collection_coverage(task, submission):
+    """Summarize retained candidate and failure counts for every selected platform."""
+    coverage = {platform: {'candidates': 0, 'failures': 0} for platform in task['policy']['platforms']}
+    if submission:
+        for item in submission['candidates']:
+            coverage[item['candidate']['platform']]['candidates'] += 1
+        for failure in submission['failures']:
+            host = urlsplit(failure['source']).hostname
+            for platform in coverage:
+                if host in HOSTS[platform]:
+                    coverage[platform]['failures'] += 1
+                    break
+    return coverage
 
 
 def qualify_submission(task, result, *, require_post_links=True) -> object:

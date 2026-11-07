@@ -6,7 +6,7 @@ from .agent_grants import app_scope, current
 from .common import Invalid, canonical, digest, iso_time, now, required, safe_data, uid
 from .db import connection
 from .operation_authority import PROTECTED, check, store_identity
-from .organic_video_discovery import discovery_task, exact, qualify_submission
+from .organic_video_discovery import collection_coverage, discovery_task, exact, qualify_submission
 from .review_access import exact_role
 from .store import audit
 
@@ -73,10 +73,13 @@ def _view(row):
              'provider_access': 'EXTERNAL_AGENT_NOT_VERIFIED', 'publication': 'NOT_RUN'}
     if digest(value['task']) != row['task_hash']:
         raise Invalid('Discovery task integrity changed')
+    submission = None
     if row['submission_hash']:
-        if (not row['submission'] or digest(json.loads(row['submission'])) != row['submission_hash']
+        submission = json.loads(row['submission']) if row['submission'] else None
+        if (submission is None or digest(submission) != row['submission_hash']
                 or value['result'] is None or digest(value['result']) != row['result_hash']):
             raise Invalid('Discovery submission or result integrity changed')
+    value['channel_coverage'] = collection_coverage(value['task'], submission)
     return value
 
 
@@ -241,7 +244,8 @@ def submit(store, app_id, actor, body) -> object:
         _current(db, row, observed)
         if iso_time(row['claim_until']) <= observed:
             raise PermissionError('Discovery claim expired before submission commit')
-        incomplete = bool(result['failures']) or any(
+        coverage = collection_coverage(task, result)
+        incomplete = bool(result['failures']) or any(not counts['candidates'] for counts in coverage.values()) or any(
             item['status'] == 'INSUFFICIENT_BASELINE' for item in qualified['items'])
         status = 'INCOMPLETE' if incomplete else 'SUBMITTED'
         db.execute('''UPDATE organic_discovery_tasks SET status=?,submission=?,submission_hash=?,result=?,result_hash=?,updated=?

@@ -114,6 +114,19 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual(result['result']['items'][0]['status'], 'INSUFFICIENT_BASELINE')
         self.assertEqual(result['result']['source_failures'][0]['code'], 'LOGIN')
 
+    def test_selected_platform_with_no_report_stays_incomplete(self):
+        value = copy.deepcopy(self.body)
+        value['policy']['platforms'].append('instagram')
+        value['policy']['hosts'].append('www.instagram.com')
+        saved = self.owner_call(value)
+        claimed = self.claim_task(saved)
+        result = self.agent_call('organic-video.submit', self.submission(saved, claimed), submit)
+        self.assertEqual(result['status'], 'INCOMPLETE')
+        self.assertEqual(result['channel_coverage'], {
+            'instagram': {'candidates': 0, 'failures': 0}, 'tiktok': {'candidates': 1, 'failures': 0},
+        })
+        self.assertEqual(result['result']['items'][0]['status'], 'COLLECTION_REVIEW_REQUIRED')
+
     def test_identity_scope_grant_revocation_and_claim_expiry_are_enforced(self):
         with self.assertRaises(PermissionError): prepare(self.store, 'sample-one', self.owner['principal'], self.body)
         with self.assertRaises(PermissionError): self.owner_call(actor='github:forged')

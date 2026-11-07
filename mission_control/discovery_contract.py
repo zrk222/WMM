@@ -112,6 +112,7 @@ def watch(value):
 def agent_contract():
     """Expose closed nested inputs and acceptance boundaries to generic clients."""
     from .viral_policy import FIELDS, MIN_VIEWS, MULTIPLIER, MIN_BASELINE, MAX_BASELINE
+    from .organic_video_discovery import collector_contract
     return dict(schema='wmm.discovery-contract.v1',
         review_fields=['taxonomy','duration_ms','transcript','card','baseline','metrics'],
         taxonomy_fields=['original_labels','industry','narrative','treatment','classified_by','rationale'],
@@ -129,4 +130,5 @@ def agent_contract():
         viral_policy=dict(minimum_views=MIN_VIEWS,creator_multiplier=MULTIPLIER,minimum_comparable_posts=MIN_BASELINE,maximum_recent_posts=MAX_BASELINE,
                           combination='AND',baseline='DOCUMENTED_SAME_CREATOR_PLATFORM_FORMAT_PRIOR_POST_MEDIAN',supplier_outlier_label='CANDIDATE_ONLY',ugc_intake='EXEMPT'),
         authority='Research saves and prepared handoffs grant no reuse approval, production execution, publication or measured app sales. Existing exact human/standing authority must be checked downstream. No automatic retry.',
-        collection='LOCAL_PERMITTED_SOURCES_ONLY; reported read coverage is supplied, not independently verified; watch schedules are NOT_ACTIVATED; provider collectors remain required.')
+        collection='LOCAL_PERMITTED_SOURCES_ONLY; reported read coverage is supplied, not independently verified; watch schedules are NOT_ACTIVATED; provider collectors remain required.',
+        short_video_collector=collector_contract())

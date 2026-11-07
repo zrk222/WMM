@@ -45,3 +45,11 @@ No new paid-media operations are added; paid ads remain within the existing
 Facebook scope. Catalog entries describe local agent operations and do not
 certify provider eligibility, actual delivery, public visibility, or marketing
 outcomes.
+
+## Collect short-video references for Hypit
+
+Open **Research → Find viral ideas for my app** in an owner session. Select Facebook, Instagram, TikTok, and YouTube Shorts or narrow the search to the channels relevant to this app. Choose a grant with `organic-video.claim` and `organic-video.submit`. Give the assigned agent the saved task ID and hash.
+
+The agent reads `domain_contracts.discovery_research.short_video_collector` from the WMM catalog, claims the saved task, and uses its permitted platform access. For each channel, record direct post links, exact URL post IDs or shortcodes, views, observation times, and 10–20 comparable earlier posts from the same creator and format. Retain source hashes and report login, unavailable data, and empty results explicitly. Use the link's shortcode when a provider supplies a different internal ID. Submit through the scoped WMM operation. A partially observed search stays partial, and its qualifying references can still be reviewed individually.
+
+Open a qualifying reference, inspect it and save a research card. Choose **Render a local Hypit video** to prepare or select the current brief. Its original script and source proof can go through local Hypit preflight without a social connection. To edit third-party footage, supply permitted media through the media library and record the owner's separate rights decision. A research link never imports source footage or authorizes publication.
