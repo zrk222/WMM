@@ -72,11 +72,12 @@ async function reviewCreativeBatch(form) {
   $('#creative-batch-review').batch={plan:reviewed.plan_json,plan_hash:reviewed.plan_hash,request_key:form.dataset.key};
 }
 
-function renderForm() {
-  const briefs=(state.workspace.briefs||[]).filter(b=>b.evidence_status==="CURRENT"&&b.current.data.definition.channel==="SHORT_VIDEO");
+function renderForm(hypitBriefIds=null) {
+  const briefs=(state.workspace.briefs||[]).filter(b=>b.evidence_status==="CURRENT"&&b.current.data.definition.channel==="SHORT_VIDEO"
+    &&(!hypitBriefIds||hypitBriefIds.includes(b.id)));
   if(!briefs.length)return modal("Prepare a video brief first",`<div class="modal-content">${notice("A video needs current approved claims, actual rights-cleared screens and a tested route. Your other work is preserved.")}</div><div class="modal-actions">${button("Prepare original brief","production-prepare")}</div>`);
   const choices=briefs.map(b=>({id:b.id,title:b.current.data.definition.objective+" · "+b.current.data.definition.duration_seconds+" seconds"}));
-  modal("Render an original video",`<form id="render-form" data-app="${esc(state.app)}" data-key="${crypto.randomUUID()}"><div class="modal-content">${notice("App screens creates a silent screen-and-caption video. Hypit creates a title and timed text composition using its installed local runtime. Both preserve the selected brief; preview and review the result before publishing.")}<div class="form-grid">${choiceField("renderer",[{id:"NATIVE_FFMPEG",title:"App screens and captions"},{id:"HYPIT_LOCAL",title:"Hypit caption composition"}])}${choiceField("brief_id",choices)}${choiceField("shape",[{id:"PORTRAIT",title:"Portrait · 720 × 1280"},{id:"LANDSCAPE",title:"Landscape · 1280 × 720"}])}</div><div class="field-error" id="form-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Queue local render</button></div></form>`);
+  modal("Render an original video",`<form id="render-form" data-app="${esc(state.app)}" data-key="${crypto.randomUUID()}"><div class="modal-content">${notice("App screens creates a silent screen-and-caption video. Hypit creates a title and timed text composition using its installed local runtime. Both preserve the selected brief; preview and review the result before publishing.")}<div class="form-grid">${choiceField("renderer",[{id:"NATIVE_FFMPEG",title:"App screens and captions"},{id:"HYPIT_LOCAL",title:"Hypit caption composition"}],hypitBriefIds?"HYPIT_LOCAL":"")}${choiceField("brief_id",choices,hypitBriefIds&&choices.length===1?choices[0].id:"")}${choiceField("shape",[{id:"PORTRAIT",title:"Portrait · 720 × 1280"},{id:"LANDSCAPE",title:"Landscape · 1280 × 720"}])}</div><div class="field-error" id="form-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Queue local render</button></div></form>`);
 }
 
 function openRender(id) {

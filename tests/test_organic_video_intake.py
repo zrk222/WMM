@@ -17,6 +17,7 @@ from tests.test_discovery_intelligence import reviewed, filters
 from tests.production_fixtures import ready_capabilities
 from mission_control.creative_library import Library
 from mission_control.discovery_store import Discovery
+from mission_control.hypit_jobs import resolve_inputs
 
 
 class IntakeTests(unittest.TestCase):
@@ -77,25 +78,37 @@ class IntakeTests(unittest.TestCase):
             self.assertFalse(exists)
             self.assertEqual(db.execute('SELECT count(*) FROM discovery_documents').fetchone()[0],0)
 
-    def test_same_post_id_on_two_platforms_adopts_each_exact_candidate(self):
+    def test_partial_four_channel_search_adopts_each_exact_candidate(self):
         body = deepcopy(self.fixture.body)
         body['request_id'] = 'mixed-platform-task'
-        body['policy']['platforms'].append('facebook')
-        body['policy']['hosts'].append('www.facebook.com')
+        body['policy']['platforms'] = ['tiktok', 'facebook', 'instagram', 'youtube']
+        body['policy']['hosts'] = ['www.tiktok.com', 'www.facebook.com', 'www.instagram.com', 'www.youtube.com']
         task = self.fixture.owner_call(body)
         claim = self.fixture.claim_task(task)
         request = self.fixture.submission(task, claim)
-        tiktok = request['result']['candidates'][0]
-        facebook = deepcopy(tiktok)
-        for observation, receipt in zip([facebook['candidate'], *facebook['history']], facebook['evidence']):
-            url = 'https://www.facebook.com/reel/' + observation['post_id']
-            observation.update(platform='facebook', format='reel', url=url)
-            receipt.update(url=url, observation_hash=digest(observation))
-        request['result']['candidates'].append(facebook)
-        request['result']['read_count'] = 22
+        template = request['result']['candidates'][0]
+        cases = (
+            ('tiktok', 'video', 'https://www.tiktok.com/@creator/video/'),
+            ('facebook', 'reel', 'https://www.facebook.com/reel/'),
+            ('instagram', 'reel', 'https://www.instagram.com/reel/'),
+            ('youtube', 'short', 'https://www.youtube.com/shorts/'),
+        )
+        candidates = []
+        for platform, format_name, base in cases:
+            item = deepcopy(template)
+            for index, (observation, receipt) in enumerate(zip([item['candidate'], *item['history']], item['evidence'])):
+                identity = f'{index:011d}'
+                url = base + identity
+                observation.update(platform=platform, format=format_name, post_id=identity, url=url)
+                receipt.update(post_id=identity, url=url, observation_hash=digest(observation))
+            candidates.append(item)
+        request['result']['candidates'] = candidates
+        request['result']['failures'] = [{'source': 'https://www.instagram.com/', 'code': 'LOGIN'}]
+        request['result']['read_count'] = 45
         result = self.fixture.agent_call('organic-video.submit', request, submit)
-        self.assertEqual([row['status'] for row in result['result']['items']], ['COLLECTION_REVIEW_REQUIRED'] * 2)
-        for item in (facebook, tiktok):
+        self.assertEqual(result['status'], 'INCOMPLETE')
+        self.assertEqual([row['status'] for row in result['result']['items']], ['COLLECTION_REVIEW_REQUIRED'] * 4)
+        for item in reversed(candidates):
             candidate = item['candidate']
             value = dict(self.body, request_id=uid(), task_id=task['id'], task_hash=task['task_hash'],
                          submission_hash=result['submission_hash'], result_hash=digest(result['result']),
@@ -107,6 +120,19 @@ class IntakeTests(unittest.TestCase):
             self.assertEqual(source['current']['data']['url'], candidate['url'])
             self.assertEqual(intake['data']['foreign_bytes'], 'NOT_AUTHORIZED')
             self.assertEqual(intake['data']['publication'], 'NOT_RUN')
+            proof = intake['data']
+            ready_capabilities(self.store, self.app, [source])
+            definition = dict(self.brief, analysis_id=proof['analysis']['id'], analysis_hash=proof['analysis']['hash'],
+                discovery=dict(schema='wmm.brief-discovery.v1', mode='ORIGINAL_RECREATION',
+                    manifest_version=self.store.app(self.app)['version'], collection_id=proof['collection']['id'],
+                    collection_hash=proof['collection']['hash'], reference_id=proof['source']['id'],
+                    review_hash=proof['review']['hash']))
+            brief = Briefs(self.store).save(self.app, {'data': definition})
+            with connection(self.store.path) as db:
+                inputs, sources = resolve_inputs(db, self.store, self.app,
+                    {'brief_id': brief['id'], 'brief_hash': brief['hash'], 'shape': 'PORTRAIT'})
+            self.assertEqual(inputs['request']['brief']['data']['discovery']['collection_provenance'], proof['provenance'])
+            self.assertEqual(sources, {})
 
     def test_research_without_app_proof_saves_but_cannot_enter_production(self):
         value=deepcopy(self.body);value['review']['card']['authentic_evidence_ids']=[]

@@ -387,6 +387,7 @@ function resultsView() {
 function growthReviewServices() {
   return {state,modal,api,refresh,toast,openExperiment,openJob,connectionSetup,openAccess:()=>{state.view="activity";render();},uuid:()=>crypto.randomUUID(),FormData,document,
     close:()=>$("#modal").close(),openResearchBrief:preset=>briefForm(null,null,preset),openResearchRender:openRender,
+    openResearchHypit:briefIds=>renderForm(briefIds),
     pageReports:WMMPageReports,download,browser:window,ui:WMMGrowthReview};
 }
 

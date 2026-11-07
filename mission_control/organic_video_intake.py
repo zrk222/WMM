@@ -63,7 +63,7 @@ def adopt(store,app_id,actor,body):
         db.execute('BEGIN IMMEDIATE');context=_identity(db,store,app_id,actor,body);_schema(db)
         row=task_row(db,app_id,body['task_id']);view=task_view(row)
         if row['owner']!=actor:raise PermissionError('Only the task owner may adopt reported research')
-        if row['status']!='SUBMITTED' or any(row[key]!=body[key] for key in ('task_hash','submission_hash','result_hash')):
+        if row['status'] not in ('SUBMITTED', 'INCOMPLETE') or any(row[key]!=body[key] for key in ('task_hash','submission_hash','result_hash')):
             raise Invalid('Use the exact completed discovery submission')
         app=app_context(db,app_id)
         if (app['version'],app['hash'])!=(view['task']['app']['version'],view['task']['app']['hash']):raise Invalid('Discovery app context changed')

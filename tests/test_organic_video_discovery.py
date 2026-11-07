@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 import unittest
 
 from mission_control.common import Invalid, digest
+from mission_control.operation_catalog import catalog
 from mission_control.organic_video_discovery import discovery_task, qualify_submission, validate_submission
 from mission_control.viral_policy import qualify
 
@@ -38,6 +39,14 @@ def bundle(task_value, count=10, collected=None):
 
 
 class DiscoveryContractTests(unittest.TestCase):
+    def test_agent_catalog_describes_the_four_channel_submission(self):
+        contract = catalog()['domain_contracts']['discovery_research']['short_video_collector']
+        self.assertEqual(set(contract['direct_post_examples']), {'facebook', 'instagram', 'tiktok', 'youtube'})
+        sample = bundle(task())
+        self.assertEqual(set(contract['submit']['result_fields']), set(sample))
+        self.assertEqual(set(contract['observation_fields']), set(sample['candidates'][0]['candidate']))
+        self.assertEqual(set(contract['evidence_fields']), set(sample['candidates'][0]['evidence'][0]))
+
     def test_exact_existing_viral_threshold_and_history_limits(self):
         value = task()
         for count in (9, 10, 20):
@@ -111,14 +120,14 @@ class DiscoveryContractTests(unittest.TestCase):
                     url=aliased_candidate['url'], observation_hash=digest(aliased_candidate))
                 with self.assertRaises(Invalid):
                     validate_submission(value, aliased)
-                if platform == 'tiktok':
+                if platform != 'youtube':
                     mismatched = copy.deepcopy(data)
                     wrong_item = mismatched['candidates'][0]
                     wrong_candidate = wrong_item['candidate']
                     wrong_candidate['url'] = f'https://{host}{post_path}99999999999'
                     wrong_item['evidence'][0].update(
                         url=wrong_candidate['url'], observation_hash=digest(wrong_candidate))
-                    with self.assertRaisesRegex(Invalid, 'TikTok post identity must match'):
+                    with self.assertRaisesRegex(Invalid, 'post identity must match'):
                         validate_submission(value, mismatched)
                 data['failures'] = [{'source': profile_url, 'code': 'LOGIN'}]
                 self.assertEqual(validate_submission(value, data), data)
