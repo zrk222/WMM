@@ -38,7 +38,8 @@ def selection(body):
     """Existing exact resources and an explicit review window, no implicit attribution."""
     exact(body, SELECTION)
     reference(body["scope_id"])
-    reference(body["monitor_id"])
+    if body["monitor_id"] is not None:
+        reference(body["monitor_id"])
     if body["experiment_id"] is not None:
         path_segment(body["experiment_id"])
     window = body["measurement_window"]
@@ -106,28 +107,24 @@ def binding(db, store, app_id, owner, chosen):
     if app is None:
         raise Invalid("Report app is unavailable")
     scope = owned_resource(db, "campaign_scopes", app_id, owner, chosen["scope_id"])
-    monitor = owned_resource(
-        db, "campaign_monitors", app_id, owner, chosen["monitor_id"]
-    )
     scope_data = object_data(scope["summary"])
-    monitor_data = object_data(monitor["summary"])
-    if (
-        digest(scope_data) != scope["summary_hash"]
-        or digest(monitor_data) != monitor["summary_hash"]
-    ):
+    if digest(scope_data) != scope["summary_hash"]:
         raise Invalid("Report source summary integrity changed")
-    if (
-        scope_data["app_id"],
-        scope_data["owner_principal"],
-        monitor_data["app_id"],
-        monitor_data["owner"],
-    ) != (app_id, owner, app_id, owner):
+    if (scope_data["app_id"], scope_data["owner_principal"]) != (app_id, owner):
         raise Invalid("Report summary ownership changed")
-    if (monitor_data["source"]["scope_id"], monitor_data["source"]["scope_hash"]) != (
-        scope["id"],
-        scope["summary_hash"],
-    ):
-        raise Invalid("Monitor and campaign scope do not match")
+    monitor_hash = None
+    if chosen["monitor_id"] is not None:
+        monitor = owned_resource(db, "campaign_monitors", app_id, owner, chosen["monitor_id"])
+        monitor_data = object_data(monitor["summary"])
+        monitor_hash = monitor["summary_hash"]
+        if digest(monitor_data) != monitor_hash:
+            raise Invalid("Report source summary integrity changed")
+        if (monitor_data["app_id"], monitor_data["owner"]) != (app_id, owner):
+            raise Invalid("Report summary ownership changed")
+        if (monitor_data["source"]["scope_id"], monitor_data["source"]["scope_hash"]) != (
+            scope["id"], scope["summary_hash"]
+        ):
+            raise Invalid("Monitor and campaign scope do not match")
     experiment = experiment_source(db, app_id, chosen["experiment_id"])
     return dict(
         app_id=app_id,
@@ -136,7 +133,7 @@ def binding(db, store, app_id, owner, chosen):
         owner=owner,
         role_version=role["version"],
         scope_hash=scope["summary_hash"],
-        monitor_hash=monitor["summary_hash"],
+        monitor_hash=monitor_hash,
         experiment_hash=experiment["definition_hash"] if experiment else None,
         host_hash=digest(store_identity(store)),
     )
@@ -379,10 +376,13 @@ def comparison(db, app_id, owner, key, current):
 def build(db, store, app_id, owner, chosen):
     observed = now()
     source = binding(db, store, app_id, owner, chosen)
-    monitor = owned_resource(
-        db, "campaign_monitors", app_id, owner, chosen["monitor_id"]
-    )
-    monitor_summary = object_data(monitor["summary"])
+    monitor_view = dict(id=None, status="NOT_SELECTED", summary_hash=None, last_observation=None)
+    if chosen["monitor_id"] is not None:
+        monitor = owned_resource(db, "campaign_monitors", app_id, owner, chosen["monitor_id"])
+        monitor_view = dict(
+            id=monitor["id"], status=monitor["status"], summary_hash=monitor["summary_hash"],
+            last_observation=last_observation(db, monitor, object_data(monitor["summary"])),
+        )
     metrics = snapshot(db, store, app_id, observed, include_workflows=False)
     campaign = campaign_view(db, app_id, owner, chosen["scope_id"])
     experiment = experiment_source(db, app_id, chosen["experiment_id"])
@@ -397,7 +397,7 @@ def build(db, store, app_id, owner, chosen):
             window=chosen["measurement_window"],
         )
     )
-    observation = last_observation(db, monitor, monitor_summary)
+    observation = monitor_view["last_observation"]
     coverage = dict(
         available_rows=sum(
             r["observed"] is not None
@@ -418,12 +418,7 @@ def build(db, store, app_id, owner, chosen):
         observed_at=observed,
         source=source,
         campaign=campaign,
-        monitor=dict(
-            id=monitor["id"],
-            status=monitor["status"],
-            summary_hash=monitor["summary_hash"],
-            last_observation=observation,
-        ),
+        monitor=monitor_view,
         kpis=metrics,
         kpi_coverage=coverage,
         experiment=experiment,
