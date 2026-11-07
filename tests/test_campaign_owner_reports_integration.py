@@ -1,6 +1,7 @@
 """Private report HTTP and real background worker retain owner authority."""
 import json
 import unittest
+from unittest.mock import patch
 from mission_control.db import connection
 from mission_control.server import owner_domain_post
 from mission_control import campaign_owner_reports as reports
@@ -42,6 +43,26 @@ class ReportIntegrationTests(unittest.TestCase):
         off = self.client.request("POST", self.base+"off", {"plan_id":plan["id"],"version":plan["version"]})
         self.assertEqual(off["status"], "OFF")
         self.assertEqual(reports.tick(self.store), 0)
+
+    def test_owner_can_capture_receipts_without_a_monitor(self):
+        chosen = self.f.chosen(monitor_id=None)
+        with connection(self.store.path) as db:
+            db.execute("DELETE FROM campaign_monitors")
+        body = {"selection": chosen, "request_key": "99999999-9999-4999-8999-999999999999"}
+        with patch.object(reports, "last_observation", side_effect=AssertionError("No monitor selected")):
+            saved = self.client.request("POST", self.base+"capture", body)
+            replay = self.client.request("POST", self.base+"capture", body)
+        self.assertEqual(saved["hash"], replay["hash"])
+        report = saved["report"]
+        self.assertEqual(report["monitor"]["status"], "NOT_SELECTED")
+        self.assertIsNone(report["monitor"]["last_observation"])
+        self.assertIsNone(report["source"]["monitor_hash"])
+        self.assertTrue(report["campaign"]["receipts"])
+        self.assertEqual(report["campaign"]["provider_readback"], "NOT_PERFORMED")
+        self.assertFalse(report["authority_issued"])
+        with connection(self.store.path) as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM campaign_monitors").fetchone()[0], 0)
+            self.assertEqual(db.execute("SELECT count(*) FROM campaign_owner_reports").fetchone()[0], 1)
 
 if __name__ == "__main__":
     unittest.main()

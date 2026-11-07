@@ -67,6 +67,16 @@ def run(browser,width):
         report.close()
         result.get_by_role("button",name="Return to saved reports",exact=True).click()
         form=page.locator("#owner-report-form")
+        form.locator("[name=scope_id]").select_option(f.fixture.scope["scope_id"])
+        form.locator("[name=starts_at]").fill("2026-10-01T00:00")
+        form.locator("[name=ends_at]").fill("2026-11-01T00:00")
+        form.get_by_role("button",name="Continue with exact sources",exact=True).press("Enter")
+        expect(result).to_contain_text("No monitor selected. Monitoring results are unavailable.")
+        result.get_by_text("Exact receipts, source window and integrity",exact=True).click()
+        expect(result).to_contain_text(pause_hash)
+        page.screenshot(path=str(OUT/f"owner-report-without-monitor-{width}.png"))
+        result.get_by_role("button",name="Return to saved reports",exact=True).click()
+        form=page.locator("#owner-report-form")
         form.locator("[name=monitor_id]").select_option(f.monitor["id"])
         form.locator("[name=starts_at]").fill("2026-10-01T00:00")
         form.locator("[name=ends_at]").fill("2026-11-01T00:00")
@@ -80,12 +90,12 @@ def run(browser,width):
         expect(page.locator("#owner-report-plan")).to_contain_text("ACTIVE")
         assert f.fixture.server.runner.poll()
         with connection(f.store.path) as db:
-            assert db.execute("SELECT count(*) FROM campaign_owner_reports").fetchone()[0]==2
+            assert db.execute("SELECT count(*) FROM campaign_owner_reports").fetchone()[0]==3
         page.get_by_role("button",name="Turn report plan OFF",exact=True).click()
         expect(page.locator("#owner-report-plan")).to_contain_text("OFF")
         assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
         assert not errors,errors
-        return dict(width=width,status="PASS",capture=True,finite_plan=True,actual_local_worker=True,pdf_privacy=True,pause_readback_retained=True,effective_state_distinct=True,source_windows_explicit=True,off=True,javascript_errors=errors)
+        return dict(width=width,status="PASS",capture=True,capture_without_monitor=True,finite_plan=True,actual_local_worker=True,pdf_privacy=True,pause_readback_retained=True,effective_state_distinct=True,source_windows_explicit=True,off=True,javascript_errors=errors)
     except Exception:
         print(json.dumps({"errors":errors,"body":page.locator("body").inner_text()[-5000:]}))
         raise

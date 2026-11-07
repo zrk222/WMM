@@ -3,10 +3,11 @@ Status: draft
 
 ## MUST - Functional core
 ### Description
-Save private source-bound owner reports from existing campaign receipts, monitor observations, app KPI projection and optional existing experiment assessment. Owner capture and finite report plans authorize local report storage only.
+Save private source-bound owner reports from existing campaign receipts, optional monitor observations, app KPI projection and optional existing experiment assessment. Owner capture and finite report plans authorize local report storage only.
 
 ### Requirements (EARS)
 - The system shall reject foreign app, owner, monitor, scope, experiment and changed approval hashes through `source_boundary`.
+- With an owned campaign scope and no monitor selected, the system shall save the existing campaign receipts and identify monitoring as unavailable without creating a monitor or reading a provider.
 - The system shall store an immutable current report with source hashes, observation dates, retained commitments, missing KPI states, experiment maturity and one next action through `private_report`.
 - The system shall return a previous snapshot comparison only for the same app, scope approval, metric definitions and declared measurement window through `comparison_boundary`.
 - The system shall require explicit owner capture or exact hash activation of a plan with cadence from 30 to 86400 seconds, one through 100 reports and expiry within 7 days through `finite_authority`.
@@ -45,4 +46,4 @@ Scenario: no_effect
 - Existing ios_reports.snapshot supplies metric rows with source windows retained. A selected review window is not proof that every source aligns; report this boundary explicitly.
 - Reuse saved experiment analysis; do not invoke effectful assessment or fabricate attribution.
 - Read-only report generation can continue after a campaign or monitor is OFF, but current app/owner and exact resource summary hashes remain mandatory.
-- Only existing monitor and scope IDs are selected; report storage never grants provider authority.
+- Select an existing scope and optionally its existing monitor; report storage never grants provider authority.
