@@ -104,6 +104,9 @@ class AutomationProfilesBrowserTests(unittest.TestCase):
             "mission_control.provider_reports.read_analytics", side_effect=read,
         ):
             self.assertTrue(run_once(host.store))
+        with connection(host.store.path) as db:
+            db.execute("UPDATE apple_metrics_schedules SET next_due=? WHERE app_id=?",
+                       (datetime.now(timezone.utc).timestamp() - 60, apple.APP))
         before = schedules.get(apple.APP)
         with sync_playwright() as runtime:
             browser = runtime.chromium.launch()
@@ -125,6 +128,8 @@ class AutomationProfilesBrowserTests(unittest.TestCase):
                     expect(card).to_contain_text("App Store Connect")
                     expect(card).to_contain_text("This does not mean zero activity.")
                     expect(card).to_contain_text("next due")
+                    expect(card).to_contain_text("The scheduled refresh is overdue.")
+                    expect(card).to_contain_text("Check that the WMM worker is running")
                     self.save_render(page, f"waiting-{width}", '[aria-label="Workflow exceptions"]')
                     card.get_by_role("button", name="Review Apple analytics", exact=True).press("Enter")
                     expect(page.get_by_role("dialog")).to_contain_text("Inspect latest refresh")
