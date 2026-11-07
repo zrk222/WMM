@@ -71,7 +71,7 @@ def renewal(provider,credentials,short=False):
     """Do not present absent refresh entitlement as permanent or automatic login."""
     if short:return 'LONG_TOKEN_EXCHANGE_REQUIRED'
     if provider=='instagram':return 'LONG_LIVED_TOKEN_REFRESH'
-    if provider in ('tiktok','linkedin') and credentials.get('refresh_token'):return 'REFRESH_TOKEN'
+    if provider in ('tiktok','linkedin','youtube') and credentials.get('refresh_token'):return 'REFRESH_TOKEN'
     return 'OFFICIAL_REAUTHORIZATION'
 
 

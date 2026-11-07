@@ -56,7 +56,7 @@ class SocialProviderTests(unittest.TestCase):
         for provider in PROVIDERS:
             url=authorization(config(provider),state,verifier);query=parse_qs(urlsplit(url).query)
             self.assertNotIn('client_secret',query);self.assertEqual(query['state'],[state])
-            self.assertEqual('code_challenge' in query,provider=='tiktok')
+            self.assertEqual('code_challenge' in query,provider in ('tiktok','youtube'))
             if provider=='tiktok':self.assertEqual(query['code_challenge'],[hashlib.sha256(verifier.encode()).hexdigest()])
         native=authorization(config('linkedin',True),state,verifier)
         self.assertIn('/oauth/native-pkce/authorization?',native)

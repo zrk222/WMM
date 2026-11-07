@@ -3,7 +3,7 @@ import time,secrets,hashlib,hmac
 from urllib.parse import urlencode
 from .common import Invalid
 from .social_contract import provider_id,opaque,challenge
-from .social_registry import PROVIDERS,NATIVE_LINKEDIN
+from .social_registry import PROVIDERS,NATIVE_LINKEDIN,resolve_scopes
 from .social_tokens import Grant,parse,same_subject
 from .social_transport import request
 
@@ -18,11 +18,7 @@ def validated_scopes(config):
     """Rebuild the selected permission set and reject altered persisted setup."""
     provider=provider_id(config['provider']);entry=PROVIDERS[provider]
     mode=config.get('campaign_access','read')
-    if mode not in ('read','publish','ads') or (provider!='facebook' and mode!='read'):
-        raise Invalid('Social permission configuration changed; prepare setup again')
-    scopes=list(entry['scopes'])
-    if mode in ('publish','ads'):scopes.append('pages_manage_posts')
-    if mode=='ads':scopes.extend(['ads_management','ads_read'])
+    scopes=resolve_scopes(provider,mode)
     if config.get('scopes')!=scopes:raise Invalid('Social permission configuration changed; prepare setup again')
     return scopes
 
@@ -36,7 +32,8 @@ def authorization(config,state,verifier,rerequest=False):
             'redirect_uri':config['redirect_uri'],'response_type':'code',
             'scope':entry['separator'].join(scopes),'state':state}
     native=provider=='linkedin' and config['native_enabled']
-    if provider=='tiktok' or native:fields.update(code_challenge=challenge(provider,verifier),code_challenge_method='S256')
+    if provider in ('tiktok','youtube') or native:fields.update(code_challenge=challenge(provider,verifier),code_challenge_method='S256')
+    if provider=='youtube':fields.update(access_type='offline',include_granted_scopes='false',prompt='consent')
     if provider=='facebook' and rerequest:fields['auth_type']='rerequest'
     return (NATIVE_LINKEDIN if native else entry['authorize'])+'?'+urlencode(fields)
 
@@ -47,7 +44,7 @@ def code_fields(config,secret,code,verifier):
     fields={'client_key' if provider=='tiktok' else 'client_id':config['client_id'],
             'redirect_uri':config['redirect_uri'],'code':opaque(code,'authorization code',4096)}
     if not native:fields['client_secret']=opaque(secret,'client secret')
-    if provider=='tiktok' or native:
+    if provider in ('tiktok','youtube') or native:
         challenge(provider,verifier);fields['code_verifier']=verifier
     return fields,'code_native' if native else 'code'
 
@@ -80,7 +77,7 @@ def refresh(config,secret,credentials,facts,alive=lambda:None):
     else:fields=refresh_fields(config,secret,credentials,facts,clock)
     value=request(provider,'refresh',fields,alive=alive)
     grant=parse(provider,value,clock,prior=facts,requested_scopes=scopes)
-    if provider=='linkedin' and 'refresh_token' not in grant.credentials:
+    if provider in ('linkedin','youtube') and 'refresh_token' not in grant.credentials:
         grant=Grant({**grant.credentials,'refresh_token':credentials['refresh_token']},
                     {**grant.facts,'renewal':'REFRESH_TOKEN'})
     same_subject(grant,facts['subject_id']);return grant
@@ -89,7 +86,7 @@ def refresh(config,secret,credentials,facts,alive=lambda:None):
 def refresh_fields(config,secret,credentials,facts,clock):
     """Token presence and expiry, not a marketing label, determine refresh availability."""
     provider=config['provider']
-    if provider not in ('tiktok','linkedin') or config['native_enabled']:
+    if provider not in ('tiktok','linkedin','youtube') or config['native_enabled']:
         raise Invalid('This connection needs official browser reauthorization; saved access is preserved')
     refresh_token=credentials.get('refresh_token')
     if not refresh_token:raise Invalid('Programmatic renewal is unavailable; reconnect through the official login')

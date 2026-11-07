@@ -6,18 +6,18 @@ from mission_control.social_contract import configuration,challenge,reported_sco
 
 
 def setup(provider='tiktok',native=False):
-    return dict(provider=provider,client_id='123456789' if provider in ('facebook','instagram') else 'synthetic-client',
+    return dict(provider=provider,client_id='123456789' if provider in ('facebook','instagram') else 'synthetic-client.apps.googleusercontent.com' if provider=='youtube' else 'synthetic-client',
                 client_secret='' if native else 'synthetic-client-secret',native_enabled=native,
                 redirect_uri='' if provider=='tiktok' or native else 'https://relay.example/cb/'+provider,version=0)
 
 
 class SocialContractTests(unittest.TestCase):
-    def test_all_four_protocols_have_separate_read_first_scopes(self):
-        self.assertEqual(set(catalog()),{'facebook','instagram','tiktok','linkedin'})
+    def test_all_five_protocols_have_separate_read_first_scopes(self):
+        self.assertEqual(set(catalog()),{'facebook','instagram','tiktok','linkedin','youtube'})
         for name in PROVIDERS:
             value=configuration(setup(name));self.assertEqual(value['scopes'],PROVIDERS[name]['scopes'])
             self.assertNotIn('client_secret',value)
-            self.assertEqual(catalog()[name]['publishing_implemented'],name=='facebook');self.assertFalse(catalog()[name]['automatic_ad_spend'])
+            self.assertTrue(catalog()[name]['publishing_implemented']);self.assertFalse(catalog()[name]['automatic_ad_spend'])
             self.assertEqual(catalog()[name]['paid_campaign_execution_implemented'],name=='facebook')
         self.assertNotIn('instagram_basic',PROVIDERS['instagram']['scopes'])
 
@@ -29,7 +29,11 @@ class SocialContractTests(unittest.TestCase):
         self.assertNotIn('ads_management',publish['scopes'])
         paid=configuration({**setup('facebook'),'campaign_access':'ads'})
         self.assertTrue({'pages_manage_posts','ads_management','ads_read'}<=set(paid['scopes']))
-        for provider,mode in [('instagram','publish'),('tiktok','ads'),('facebook','arbitrary')]:
+        instagram=configuration({**setup('instagram'),'campaign_access':'publish'})
+        self.assertIn('instagram_business_content_publish',instagram['scopes'])
+        self.assertEqual(catalog()['instagram']['publication_kinds'],['instagram_reel'])
+        self.assertEqual(catalog()['instagram']['publication_connection_provider'],'facebook')
+        for provider,mode in [('instagram','ads'),('tiktok','ads'),('linkedin','ads'),('youtube','ads'),('facebook','arbitrary')]:
             with self.subTest(provider=provider,mode=mode),self.assertRaises(Invalid):
                 configuration({**setup(provider),'campaign_access':mode})
         self.assertEqual(configuration(setup('facebook')),base)
