@@ -169,9 +169,9 @@
     const counts=Object.entries(metrics.counts||{}).map(([name,value])=>
       `<li>${escText(labelText(name))}: ${typeof value==="number"&&Number.isSafeInteger(value)&&value>=0?escText(value):"Not returned"}</li>`).join("");
     const visibility=observation.privacy_status||observation.public_visibility||observation.visibility||"Not independently verified";
-    const requested=observation.requested_privacy_status?` · requested ${escText(observation.requested_privacy_status)}`:"";
+    const requested=observation.requested_privacy_status?` Â· requested ${escText(observation.requested_privacy_status)}`:"";
     const next=observation.next_action||item.next_action;
-    return `<p>Provider visibility: ${escText(visibility)}${requested}</p>${counts?`<ul aria-label="Observed engagement">${counts}</ul><p class="description">${escText(metrics.source||"Provider observation")} · ${escText(metrics.observed_at||"Time unavailable")}. Video engagement counts do not establish app installs or revenue.</p>`:"<p>Engagement counts have not been returned yet.</p>"}${next?`<p>${escText(next)}</p>`:""}`;
+    return `<p>Provider visibility: ${escText(visibility)}${requested}</p>${counts?`<ul aria-label="Observed engagement">${counts}</ul><p class="description">${escText(metrics.source||"Provider observation")} Â· ${escText(metrics.observed_at||"Time unavailable")}. Video engagement counts do not establish app installs or revenue.</p>`:"<p>Engagement counts have not been returned yet.</p>"}${next?`<p>${escText(next)}</p>`:""}`;
   }
   function authorityMarkup(state, model) {
     const reportButtons=id=>`${buttonMarkup("Download report JSON","publication-report-json",id)}${buttonMarkup("Print / Save PDF","publication-report-pdf",id)}`;
