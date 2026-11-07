@@ -70,7 +70,7 @@ test('goal packet guidance explains its useful next step without repeating gener
 });
 
 test('readiness guidance distinguishes personal-agent access from managed-work requirements',()=>{
- const choice=stories.dialog('Choose how your agent works','');
+ const choice=stories.dialog('Choose your agent setup','');
  assert.match(choice,/personal agent uses scoped access/);
  assert.match(choice,/WMM-managed work needs a tested connection/);
  const form=stories.dialog('WMM-managed automation setup','<form id="goal-readiness-form"></form>');
