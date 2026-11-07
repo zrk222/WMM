@@ -90,7 +90,7 @@ def definition(value):
     refs=[source_ref(row)for row in rows(value['creative_refs'],20,'Creative sources',1)]
     unique(refs,'id','Creative sources')
     return dict(deepcopy(value),outcome=outcome(value['outcome']),creative_refs=refs,
-                destination=public_url(value['destination']),stages=stages(value['stages']),
+                destination=public_url(value['destination'], allow_tracking=True),stages=stages(value['stages']),
                 attribution=window(value['attribution']),offer_boundary=offer_boundary(value['offer_boundary']))
 
 

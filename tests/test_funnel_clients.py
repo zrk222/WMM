@@ -41,13 +41,20 @@ class FunnelClientsTests(unittest.IsolatedAsyncioTestCase):
     @unittest.skipUnless(sdk.HAS_MCP,'Official MCP SDK required for funnel client acceptance')
     async def test_owner_cli_mcp_share_saved_funnel_and_observation_history(self):
         self.grant(['funnel.save','funnel.list','funnel.read','funnel.import','funnel.observations','funnel.report'])
-        saved=self.cli(self.envelope('funnel.save',self.payload()))
-        self.assertEqual(self.owner.request('POST','/api/apps/'+APP+'/funnels',self.payload()),saved)
+        destination = 'https://example.com/app?utm_source=wmm&utm_campaign=launch%2b1'
+        self.plan['destination'] = destination
+        path = '/api/apps/' + APP + '/funnels'
+        saved = self.owner.request('POST', path, self.payload())
+        self.assertEqual(saved['data']['definition']['destination'], destination)
+        self.assertEqual(self.cli(self.envelope('funnel.save', self.payload())), saved)
         self.assertEqual(self.cli(self.envelope('funnel.list')),self.owner.request('GET','/api/apps/'+APP+'/funnels'))
         async with self.session() as client:
             tools={t.name for t in (await client.list_tools()).tools}
             self.assertTrue({'wmm_funnel_save','wmm_funnel_import','wmm_funnel_report'}<=tools)
             self.assertNotIn('wmm_human_approve',tools)
+            stored = await client.call_tool('wmm_funnel_read', dict(app_id=APP, resource_id=saved['id'], input={}))
+            self.assertFalse(stored.isError, stored.content)
+            self.assertEqual(stored.structuredContent['data'], self.owner.request('GET', path + '/' + saved['id']))
             data=dict(funnel_hash=saved['hash'],manifest_version=self.version,observations=[observed(self.plan)])
             result=await client.call_tool('wmm_funnel_import',dict(app_id=APP,resource_id=saved['id'],input=data))
             self.assertFalse(result.isError,result.content)
