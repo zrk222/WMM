@@ -17,8 +17,9 @@ response hash and byte count. It retains no response body. Reconciliation keeps
 that original check. It proves reachability at that time, not rendered page
 function, app-store availability, conversion, or continuing uptime.
 
-Current supported destination checks exclude credentials, literal IP addresses,
-custom ports, fragments and query strings. These fail explicitly; WMM does not
-strip parameters and pretend it checked the approved link. Tracking-query support
-requires a separate exact-query transport extension. Caption-only URLs in Reels
-and paid-ad destinations are not covered by this link-post gate.
+Facebook link posts support public UTM parameters for source, medium, campaign,
+content, and term. WMM sends the approved query in its original order and
+encoding. A redirect that changes or drops the query stops dispatch.
+Credentials, literal IP addresses, custom ports, fragments, other query
+parameters, and duplicate tracking fields are rejected. Caption-only URLs in
+Reels and paid-ad destinations are outside this link-post check.
