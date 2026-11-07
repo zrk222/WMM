@@ -542,6 +542,33 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
                 self.assertFalse(result["authority_issued"])
                 self.assertEqual(result["summary_hash"], digest(result["summary"]))
                 self.assertEqual(before, self.fixture.dump())
+
+                link = "https://example.test/?utm_source=wmm&utm_medium=organic&utm_campaign=trial&utm_content=post"
+                post = dict(self.post, link=link, content_hash=digest(dict(message=self.post["message"], link=link)))
+                body = self.body(schedule_batch_id=None, draft_posts=[post])
+                with self.assertRaises(ClientError):
+                    owner.request("POST", route, body)
+                scope = dict(self.scope, approved_content_hashes=[post["content_hash"]])
+                with connection(self.store.path) as db:
+                    db.execute("UPDATE campaign_scopes SET status='DRAFT',summary=?,summary_hash=? WHERE id=?",
+                               (canonical(scope), digest(scope), SCOPE))
+                before = self.fixture.dump()
+                with patch("mission_control.campaign_transport.MetaTransport.request",
+                           side_effect=AssertionError("No Meta request during review")):
+                    draft = owner.request("POST", route, body)
+                self.assertEqual(draft["summary"]["campaign"]["draft_posts"], [post])
+                self.assertEqual(draft["summary_hash"], digest(draft["summary"]))
+                self.assertNotIn("draft_posts", draft["summary"]["selection"])
+                self.assertFalse(draft["authority_issued"])
+                for changed in (
+                    dict(body, draft_posts=[dict(post, link="https://other.example/")]),
+                    dict(body, draft_posts=[dict(post, rights_hash="c" * 64)]),
+                    dict(body, draft_posts=[post, post]),
+                    dict(body, schedule_batch_id=BATCH),
+                ):
+                    with self.assertRaises(ClientError):
+                        owner.request("POST", route, changed)
+                self.assertEqual(before, self.fixture.dump())
         finally:
             server.shutdown()
             server.server_close()

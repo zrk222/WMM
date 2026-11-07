@@ -110,7 +110,18 @@ def run(browser,width,out):
   form.get_by_label("Approved post copy",exact=True).fill(f.message)
   form.get_by_label("App or landing-page link",exact=True).fill(link)
   form.get_by_label("Rights and claims evidence",exact=True).fill("Original synthetic app claim evidence")
+  form.get_by_label("Maximum Meta requests",exact=True).fill("70")
   form.get_by_role("button",name="Review exact automation scope",exact=True).click()
+  preview=page.locator("#campaign-review")
+  expect(preview.get_by_role("heading",name="Exact proposed Facebook posts")).to_be_visible()
+  expect(preview.get_by_text("Proposed post link",exact=False).locator("span")).to_have_text(link)
+  expect(preview).to_contain_text("calls 70")
+  expect(preview).to_contain_text("No execution authority is issued")
+  with connection(f.store.path) as db:
+   assert db.execute("SELECT status FROM campaign_scopes").fetchone()[0]=="DRAFT"
+  assert f.wire.posts==0 and not jobs(f.store,"sample-one")
+  assert page.locator("#modal").evaluate("(modal) => modal.scrollWidth <= modal.clientWidth")
+  page.screenshot(path=str(out/f"campaign-draft-agreement-{width}.png"))
   page.get_by_role("button",name="Approve scope and enable automation",exact=True).click()
   expect(page.locator("#campaign-progress")).to_contain_text("ACTIVE")
   page.get_by_role("button",name="Schedule approved posts",exact=True).click()
@@ -155,7 +166,7 @@ def run(browser,width,out):
   agreement.close()
   assert f.wire.posts==0;assert not jobs(f.store,"sample-one");assert not errors,errors
   assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
-  return dict(width=width,live_worker_and_private_host_guidance=True,personal_agent_without_profile=True,explicit_grant_and_revocation=True,managed_readiness_guards=True,owner_readiness=True,blockers_preserved=True,exact_schedule_review=True,exact_post_link_visible_in_private_review=True,no_effect_before_due=True,off=True,durable_reload=True,report_privacy=True,campaign_does_not_select_agent=True,javascript_errors=errors,provider="SYNTHETIC_ONLY")
+  return dict(width=width,live_worker_and_private_host_guidance=True,personal_agent_without_profile=True,explicit_grant_and_revocation=True,managed_readiness_guards=True,owner_readiness=True,blockers_preserved=True,exact_draft_link_before_activation=True,exact_meta_request_ceiling=70,exact_schedule_review=True,exact_post_link_visible_in_private_review=True,no_effect_before_due=True,off=True,durable_reload=True,report_privacy=True,campaign_does_not_select_agent=True,javascript_errors=errors,provider="SYNTHETIC_ONLY")
  finally:
   context.close();f.tearDown();f.doCleanups()
 
