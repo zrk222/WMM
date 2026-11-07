@@ -2,6 +2,10 @@
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
+import json
+import multiprocessing
+import os
+from pathlib import Path
 import time
 import unittest
 from unittest.mock import patch
@@ -11,10 +15,47 @@ from mission_control.common import Invalid, canonical, digest
 from mission_control.db import connection
 from mission_control.operation_authority import bound_owner, protected
 from mission_control.store import Store
-from mission_control.worker import claim, run_once
+from mission_control.worker import Runner, claim, run_once
 from tests.test_campaign_access import CampaignGatewayTests
 from tests.test_campaign_execution import FakePaidTransport
 from tests.test_verified_review import OWNER
+
+
+def run_isolated_schedule_worker(db_path, journal_path, crash_message, clock_advance, stop):
+    """Run the production poller in a fresh process with a synthetic provider."""
+    class Provider:
+        def publish(self, page, message, link, token, secret, alive):
+            alive()
+            with Path(journal_path).open('a', encoding='utf-8') as journal:
+                journal.write(json.dumps({'message': message, 'pid': os.getpid(), 'at': time.time()}) + '\n')
+                journal.flush()
+                os.fsync(journal.fileno())
+            if message == crash_message:
+                os._exit(23)
+            return page + '_777'
+
+        def read_post(self, page, identity, content_hash, token, secret, alive):
+            alive()
+            return {'id': identity, 'permalink_url': 'https://www.facebook.com/post'}
+
+    from mission_control import campaign_schedule
+    service = campaign_schedule.CampaignExecutionService
+    clock = time.time
+    with (
+        patch('time.time', side_effect=lambda: clock() + clock_advance),
+        patch('socket.create_connection', side_effect=AssertionError('No live connections in this fixture')),
+        patch.object(campaign_schedule, 'CampaignExecutionService',
+                     side_effect=lambda store, checker: service(store, checker, Provider())),
+        patch.object(service, '_preflight', lambda flow, app, actor, scope_id, action, active=True:
+                     (flow.get_scope(app, scope_id), 'synthetic-secret', 'synthetic-token')),
+    ):
+        runner = Runner(Store(db_path, seed=False))
+        runner.start()
+        try:
+            if not stop.wait(30):
+                raise RuntimeError('Isolated worker did not receive a stop signal')
+        finally:
+            runner.stop()
 
 
 class ScheduleTests(unittest.TestCase):
@@ -105,6 +146,73 @@ class ScheduleTests(unittest.TestCase):
         self.assertEqual(self.wire.posts, 1)
         self.assertEqual(status['items'][0]['job_status'], 'BLOCKED')
         self.assertEqual(status['items'][0]['intent']['status'], 'UNKNOWN')
+
+    def test_unattended_worker_process_restart_preserves_delivery_and_unknown(self):
+        crash_message = 'Another exact synthetic app post'
+        crash_hash = digest({'message': crash_message, 'link': None})
+        interrupted = dict(self.post, message=crash_message, content_hash=crash_hash,
+                           request_id='33333333-3333-4333-8333-333333333333')
+        self.scope.update(max_posts=2, approved_content_hashes=[self.content, crash_hash])
+        scope = self.activate()
+        service = CampaignSchedules(self.store)
+        first_due = datetime.now(timezone.utc) + timedelta(seconds=5)
+        second_due = first_due + timedelta(seconds=1)
+        with self.owner_bound():
+            draft = service.prepare('sample-one', dict(scope_id=scope['scope_id'], items=[
+                dict(due_at=first_due.isoformat(), request=self.post),
+                dict(due_at=second_due.isoformat(), request=interrupted),
+            ]))
+            active = service.activate('sample-one', draft['summary']['batch_id'], draft['summary_hash'])
+        journal = self.store.path.with_name('synthetic-provider.jsonl')
+        context = multiprocessing.get_context('spawn')
+
+        def start(clock_advance):
+            stop = context.Event()
+            child = context.Process(target=run_isolated_schedule_worker, args=(
+                str(self.store.path), str(journal), crash_message, clock_advance, stop))
+            child.start()
+            def cleanup():
+                if child.is_alive():
+                    stop.set()
+                    child.join(timeout=6)
+                if child.is_alive():
+                    child.kill()
+                    child.join(timeout=6)
+                child.close()
+            self.addCleanup(cleanup)
+            return child, stop
+
+        worker, _ = start(0)
+        worker.join(timeout=20)
+        self.assertEqual(worker.exitcode, 23, 'Expected a hard exit inside the second simulated provider call')
+        entries = [json.loads(line) for line in journal.read_text(encoding='utf-8').splitlines()]
+        self.assertEqual([item['message'] for item in entries], [self.message, crash_message])
+        self.assertTrue(all(item['pid'] == worker.pid for item in entries))
+        self.assertGreaterEqual(entries[0]['at'], first_due.timestamp())
+        self.assertGreaterEqual(entries[1]['at'], second_due.timestamp())
+
+        # Advance only the restarted process clock beyond the durable lease.
+        restarted, stop = start(90)
+        self.assertNotEqual(worker.pid, restarted.pid)
+        deadline = time.monotonic() + 12
+        while True:
+            with self.owner_bound():
+                items = service.status('sample-one', active['id'])['items']
+            if items[1]['job_status'] == 'BLOCKED':
+                break
+            if restarted.exitcode is not None or time.monotonic() >= deadline:
+                self.fail('Restarted worker did not quarantine the expired job')
+            time.sleep(0.1)
+        stop.set()
+        restarted.join(timeout=12)
+        self.assertEqual(restarted.exitcode, 0)
+        self.assertEqual(items[0]['effective_status'], 'VERIFIED')
+        self.assertEqual(items[0]['intent']['remote_id'], '123_777')
+        self.assertEqual(items[1]['effective_status'], 'NEEDS_RECONCILIATION')
+        self.assertIsNone(items[1]['intent']['remote_id'])
+        self.assertEqual([json.loads(line) for line in journal.read_text(encoding='utf-8').splitlines()], entries)
+        with connection(self.store.path) as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM jobs WHERE action='campaign_post'").fetchone()[0], 2)
 
     def test_changed_owner_or_connection_blocks_provider(self):
         service, draft, active, due = self.prepare_batch()
