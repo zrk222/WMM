@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # both owner-bound OneSignal journeys, creative batches, organic research and
 # exact-approved publication with retained synthetic desktop/mobile evidence.
 # All eight backend shards and the native/package job definitions are retained.
-BASELINES = {".github/workflows/checks.yml":"a411f6041a86a204c104b8f1e38fa93ac4e4140497fec0c48e895c7cef6936b7",".github/workflows/platform-checks.yml":"8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",".github/workflows/desktop-packages.yml":"c9dd8f316a7660ef7baa92c46628fe49c948b455ea7f87f45fac866b6c323e45"}
+BASELINES = {".github/workflows/checks.yml":"6b35c3d33ec3e14af0dcf70cea5e70bf2a38a965b83584a356debbc242c0ae0e",".github/workflows/platform-checks.yml":"8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",".github/workflows/desktop-packages.yml":"c9dd8f316a7660ef7baa92c46628fe49c948b455ea7f87f45fac866b6c323e45"}
 GROUP = "${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}"
 
 def job_digest(path):
