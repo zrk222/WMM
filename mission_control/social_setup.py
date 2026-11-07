@@ -28,7 +28,9 @@ class Setup:
         with connection(self.store.path) as db:
             rows=[decoded(row) for row in db.execute('SELECT * FROM social_configs WHERE app_id=? ORDER BY provider',(app_id,))]
         for row in rows:row['protected_secret']=bool(row.pop('secret_ref'))
-        return dict(providers=catalog(),configurations=rows,publication_implemented=True,publication_providers=['facebook'],automatic_ad_spend=False,paid_campaign_execution_implemented=True)
+        providers=catalog()
+        publishers=[key for key,value in providers.items() if value['publishing_implemented']]
+        return dict(providers=providers,configurations=rows,publication_implemented=True,publication_providers=publishers,automatic_ad_spend=False,paid_campaign_execution_implemented=True)
 
     def packet(self,app_id,provider,native=False):
         """Populate known app facts and official steps; never invent a developer app."""
@@ -42,6 +44,7 @@ class Setup:
         extra={'facebook':'Use Facebook Login for Business and select only the Pages for this app.',
                'instagram':'Use Instagram API with Instagram Login and a professional Business or Creator account.',
                'tiktok':'Enable Desktop Login Kit, register the exact displayed loopback callback and request user.info.basic.',
+               'youtube':'Enable YouTube Data API v3 in your Google project. Create Web application OAuth credentials and register the exact displayed callback. Setup starts with read-only channel access; publishing requires its own permission review.',
                'linkedin':'Enable Sign In with LinkedIn using OpenID Connect. Native PKCE additionally requires LinkedIn approval.'}[provider]
         return dict(provider=provider,app_id=app_id,app_name=app['name'],website=app.get('website',''),
             suggested_developer_name=app['name']+' Marketing',official_setup=entry['setup'],protocol_source=entry['docs'],

@@ -215,7 +215,8 @@ class AutomationReadinessTests(unittest.TestCase):
         self.assertEqual(account['destination_id'], 'synthetic-destination')
         self.assertEqual(account['reported_scopes'], ['user.info.basic'])
         self.assertEqual(account['status'], 'TESTED_FRESH')
-        self.assertFalse(account['publishing_implemented'])
+        self.assertTrue(account['publishing_implemented'])
+        self.assertEqual(account['publication_connection_provider'], 'tiktok')
         self.assertIn('PUBLICATION_ADAPTER_REQUIRED', result['inventory']['workflows'][0]['blockers'])
         self.assertNotIn(PRIVATE, json.dumps(result))
         for changes, expected in [({'expires': NOW.timestamp()}, 'EXPIRED'),
@@ -224,6 +225,34 @@ class AutomationReadinessTests(unittest.TestCase):
                                   ({'status': 'DISCONNECTED'}, 'DISCONNECTED')]:
             self.account(**changes)
             self.assertEqual(self.report(social_connection_ids=[ACCOUNT])['inventory']['accounts'][0]['status'], expected)
+
+    def test_organic_publication_lists_implemented_channels_without_granting_approval(self):
+        for provider in ('facebook', 'instagram', 'tiktok', 'youtube', 'linkedin'):
+            self.account(provider=provider)
+            with connection(self.store.path) as db:
+                db.execute('INSERT OR IGNORE INTO social_configs VALUES(?,?,?,?,?,?,?,?)',
+                           ('sample-one', provider, 1, '{}', PRIVATE, 'CONFIGURED', NOW.isoformat(), NOW.isoformat()))
+            before = self.dump()
+            result = self.report(workflows=['organic_publication'], social_connection_ids=[ACCOUNT])
+            inventory = result['inventory']; account = inventory['accounts'][0]
+            self.assertTrue(account['publishing_implemented'])
+            self.assertEqual(account['publication_connection_provider'], 'facebook' if provider == 'instagram' else provider)
+            workflow = inventory['workflows'][0]
+            self.assertEqual(workflow['status'], 'BLOCKED')
+            self.assertIn('EXACT_CURRENT_OWNER_PUBLICATION_APPROVAL_REQUIRED', workflow['blockers'])
+            self.assertIn('Publish an approved post', workflow['repair'])
+            self.assertEqual('PUBLICATION_CONNECTION_REQUIRED' in workflow['blockers'], provider == 'instagram')
+            self.assertFalse(inventory['grants_issued'])
+            self.assertNotIn(PRIVATE, json.dumps(result))
+            self.assertEqual(before, self.dump())
+
+    def test_organic_publication_requires_every_selected_account_to_be_fresh(self):
+        missing = self.report(workflows=['organic_publication'])['inventory']['workflows'][0]
+        self.assertIn('FRESH_DESTINATION_ACCOUNT_REQUIRED', missing['blockers'])
+        self.account(expires=NOW.timestamp())
+        self.account(identity=FOREIGN)
+        expired = self.report(workflows=['organic_publication'], social_connection_ids=[ACCOUNT, FOREIGN])['inventory']['workflows'][0]
+        self.assertIn('FRESH_DESTINATION_ACCOUNT_REQUIRED', expired['blockers'])
 
     def test_social_state_unknown_scopes_renewal_state_stale_read_and_provider_changes(self):
         with connection(self.store.path) as db:

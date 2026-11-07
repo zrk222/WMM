@@ -59,7 +59,7 @@ def run(browser,width,out):
   page.get_by_role("button",name="Run an approved campaign",exact=True).click()
   expect(page.locator("#goal-message")).to_contain_text("No work has started")
   expect(page.get_by_role("button",name="Review campaign setup",exact=True)).to_be_focused()
-  expect(page.get_by_role("region",name="Your selected goal")).to_contain_text("No Facebook Page connection")
+  expect(page.get_by_role("region",name="Your selected goal")).to_contain_text("No channel connection")
   assert not writes,writes
   page.screenshot(path=str(out/f"goal-home-{width}.png"),full_page=True)
   (out/f"goal-home-{width}.html").write_text(page.content(),encoding="utf-8")

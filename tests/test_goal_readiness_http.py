@@ -71,6 +71,18 @@ class GoalReadinessHTTPTests(unittest.TestCase):
             for table in ('agent_grants', 'automation_policies', 'automation_executions', 'jobs'):
                 self.assertEqual(db.execute('SELECT count(*) FROM '+table).fetchone()[0], 0)
 
+    def test_organic_channel_readiness_is_owner_only_and_issues_no_authority(self):
+        before = self.dump()
+        report = self.read(self.body(workflows=['organic_publication'], social_connection_ids=[readiness_fixture.ACCOUNT]))
+        inventory = report['inventory']; account = inventory['accounts'][0]
+        self.assertTrue(account['publishing_implemented'])
+        self.assertEqual(account['publication_connection_provider'], 'tiktok')
+        self.assertIn('EXACT_CURRENT_OWNER_PUBLICATION_APPROVAL_REQUIRED', inventory['workflows'][0]['blockers'])
+        self.assertIn('Publish an approved post', inventory['workflows'][0]['repair'])
+        self.assertFalse(report['authority_issued'])
+        self.assertEqual(before, self.dump())
+        self.assertNotIn(readiness_fixture.PRIVATE, json.dumps(report))
+
     def test_gateway_token_cannot_replace_owner_session_and_fresh_identity(self):
         anonymous = OperatorClient(self.origin); anonymous.bootstrap()
         with self.assertRaises(ClientError) as denied:
