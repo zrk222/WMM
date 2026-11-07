@@ -12,9 +12,9 @@ HOSTS = {'tiktok': {'tiktok.com', 'www.tiktok.com'},
          'youtube': {'youtube.com', 'www.youtube.com'}}
 # YouTube already binds the exact Shorts link and ID in observation().
 POST_PATHS = {
-    'facebook': re.compile(r'/(?:[A-Za-z0-9._-]+/)?(?:reels?|videos|posts)/[A-Za-z0-9_-]+/?'),
-    'instagram': re.compile(r'/(?:[A-Za-z0-9._-]+/)?(?:reel|p|tv)/[A-Za-z0-9_-]+/?'),
-    'tiktok': re.compile(r'/@[A-Za-z0-9._-]+/video/[A-Za-z0-9_-]+/?'),
+    'facebook': re.compile(r'/(?:[A-Za-z0-9._-]+/)?(?:reels?|videos|posts)/(?P<post>[A-Za-z0-9_-]+)/?'),
+    'instagram': re.compile(r'/(?:[A-Za-z0-9._-]+/)?(?:reel|p|tv)/(?P<post>[A-Za-z0-9_-]+)/?'),
+    'tiktok': re.compile(r'/@[A-Za-z0-9._-]+/video/(?P<post>[A-Za-z0-9_-]+)/?'),
 }
 HEX = re.compile(r'[0-9a-f]{64}\Z')
 
@@ -116,6 +116,7 @@ def validate_submission(task, result, *, require_post_links=True) -> object:
         if failure['code'] not in ('LOGIN', 'CAPTCHA', 'TIMEOUT', 'UNAVAILABLE', 'EMPTY', 'PARTIAL'):
             raise Invalid('Use a supported discovery failure')
     seen = set()
+    link_ids = {}
     for item in candidates:
         exact(item, ('candidate', 'history', 'evidence', 'relevance', 'kind', 'rights'))
         if item['relevance'] not in ('MATCH', 'UNKNOWN', 'MISMATCH'):
@@ -142,8 +143,15 @@ def validate_submission(task, result, *, require_post_links=True) -> object:
             platform = row['platform']
             path = _url(row['url'], set(task['policy']['hosts']) & HOSTS[platform])
             post_path = POST_PATHS.get(platform)
-            if require_post_links and post_path and not post_path.fullmatch(path):
-                raise Invalid(f'Use a direct {platform} post link for the candidate and each baseline observation')
+            if require_post_links and post_path:
+                match = post_path.fullmatch(path)
+                if match is None:
+                    raise Invalid(f'Use a direct {platform} post link for the candidate and each baseline observation')
+                link_id = match['post']
+                if platform == 'tiktok' and link_id != row['post_id']:
+                    raise Invalid('TikTok post identity must match the video link')
+                if link_ids.setdefault((platform, link_id), row['post_id']) != row['post_id']:
+                    raise Invalid('One post link cannot represent different post identities')
             if iso_time(row['observed_at']) < stamp - timedelta(hours=24):
                 raise Invalid('Observation is stale')
         key = (normalized[0]['platform'], normalized[0]['post_id'])

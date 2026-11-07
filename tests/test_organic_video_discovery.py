@@ -103,6 +103,23 @@ class DiscoveryContractTests(unittest.TestCase):
                         validate_submission(value, invalid)
                     if platform != 'youtube':
                         self.assertEqual(validate_submission(value, invalid, require_post_links=False), invalid)
+                aliased = copy.deepcopy(data)
+                aliased_item = aliased['candidates'][0]
+                aliased_candidate = aliased_item['candidate']
+                aliased_candidate['url'] = aliased_item['history'][0]['url']
+                aliased_item['evidence'][0].update(
+                    url=aliased_candidate['url'], observation_hash=digest(aliased_candidate))
+                with self.assertRaises(Invalid):
+                    validate_submission(value, aliased)
+                if platform == 'tiktok':
+                    mismatched = copy.deepcopy(data)
+                    wrong_item = mismatched['candidates'][0]
+                    wrong_candidate = wrong_item['candidate']
+                    wrong_candidate['url'] = f'https://{host}{post_path}99999999999'
+                    wrong_item['evidence'][0].update(
+                        url=wrong_candidate['url'], observation_hash=digest(wrong_candidate))
+                    with self.assertRaisesRegex(Invalid, 'TikTok post identity must match'):
+                        validate_submission(value, mismatched)
                 data['failures'] = [{'source': profile_url, 'code': 'LOGIN'}]
                 self.assertEqual(validate_submission(value, data), data)
 
