@@ -31,7 +31,11 @@ const WMMExceptionGuidance=(()=>{
   EXPIRED:{headline:"Permission or connection expired",reason:"The agent has stopped until fresh access is approved.",action:"Reconnect or renew the current owner-approved access.",tool:"connections"},
   EXHAUSTED:{headline:"Approved check limit reached",reason:"WMM made no additional provider calls after the approved allowance was used.",action:"Inspect the saved receipts before issuing a new bounded approval.",tool:"agreement"}
  };
- const allowedTools=new Set(["campaign","connections","agreement","agents","owner"]);
+ const allowedTools=new Set(["campaign","connections","agreement","agents","owner","apple-analytics"]);
+ function repairButton(tool){
+  if(tool==="apple-analytics")return button("Review Apple analytics","apple-analytics-open");
+  return button(`Open ${tool} controls`,"goal-repair",`data-tool="${esc(tool)}"`);
+ }
  function normalize(row){
   if(!row||typeof row!=="object")return null;
   const status=String(row.state||row.status||"").toUpperCase();
@@ -44,7 +48,7 @@ const WMMExceptionGuidance=(()=>{
   if(!Array.isArray(rows)||!rows.length)return "";
   const cards=rows.map(normalize).filter(Boolean);
   if(!cards.length)return "";
-  return `<section class="panel" aria-label="Workflow exceptions"><h2>Workflow updates</h2><p>See what WMM observed and what to do next.</p><div class="guided-exceptions">${cards.map(c=>`<article class="panel guided-exception" data-exception-state="${esc(c.status)}"><h3>${esc(c.headline)}</h3><p>${esc(c.reason)}</p><p><strong>Next:</strong> ${esc(c.action)}</p>${c.observed_at?`<p><small>Observed: ${esc(c.observed_at)}${c.next_due?` · next due ${esc(c.next_due)}`:""}</small></p>`:""}${c.evidence_refs.length?`<p><small>Evidence: ${c.evidence_refs.map(esc).join(", ")}</small></p>`:""}${c.source?`<p><small>Source: ${esc(c.source)}</small></p>`:""}${button(`Open ${c.tool} controls`,"goal-repair",`data-tool="${esc(c.tool)}"`)}</article>`).join("")}</div></section>`;
+  return `<section class="panel" aria-label="Workflow exceptions"><h2>Workflow updates</h2><p>See what WMM observed and what to do next.</p><div class="guided-exceptions">${cards.map(c=>`<article class="panel guided-exception" data-exception-state="${esc(c.status)}"><h3>${esc(c.headline)}</h3><p>${esc(c.reason)}</p><p><strong>Next:</strong> ${esc(c.action)}</p>${c.observed_at?`<p><small>Observed: ${esc(c.observed_at)}${c.next_due?` · next due ${esc(c.next_due)}`:""}</small></p>`:""}${c.evidence_refs.length?`<p><small>Evidence: ${c.evidence_refs.map(esc).join(", ")}</small></p>`:""}${c.source?`<p><small>Source: ${esc(c.source)}</small></p>`:""}${repairButton(c.tool)}</article>`).join("")}</div></section>`;
  }
  return {normalize,panel,definitions};
 })();

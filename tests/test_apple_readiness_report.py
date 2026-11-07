@@ -48,7 +48,7 @@ class AppleReadinessReportTests(unittest.TestCase):
         self.assertEqual(len(workflow['exceptions']), 1)
         exception = workflow['exceptions'][0]
         self.assertEqual(exception['state'], 'WAITING_FOR_REPORTS')
-        self.assertEqual(exception['repair_route'], 'connections')
+        self.assertEqual(exception['repair_route'], 'apple-analytics')
         self.assertIn('does not mean zero activity', exception['reason'])
         self.assertIsNotNone(exception['observed_at'])
         self.assertIsNotNone(exception['next_due'])

@@ -144,7 +144,7 @@ class Service:
                      next_due=health.get('next_due'),
                      reason='Apple has not supplied report rows for this verified scheduled read. This does not mean zero activity.',
                      next_action=health.get('next_action'),
-                     repair_route='connections')]
+                     repair_route='apple-analytics')]
 
     def workspace(self,app_id):
         """Assemble the selected app dashboard from its own records and runs."""
