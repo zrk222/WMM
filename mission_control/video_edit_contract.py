@@ -103,9 +103,17 @@ def output_frames(value):
     return frames.numerator
 
 
+def project_shape(value):
+    """Keep optional reviewed packaging references within a closed project shape."""
+    exact(value, ('title', 'purpose', 'locale', 'output', 'clips', *(['packaging'] if 'packaging' in value else [])))
+    if 'packaging' in value:
+        from .packaging_editor import provenance
+        provenance(value['packaging'])
+
+
 def definition(value):
     """A project timeline is ordered and bounded, with unique clip identities."""
-    exact(value, ('title', 'purpose', 'locale', 'output', 'clips'))
+    project_shape(value)
     for key in ('title', 'purpose', 'locale'):required(value[key], key, 2000 if key == 'purpose' else 200)
     if not isinstance(value['output'], str) or value['output'] not in PROFILES:
         raise Invalid('Choose a supported portrait, landscape, square or 4:5 feed output')

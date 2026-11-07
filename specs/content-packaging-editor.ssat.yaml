@@ -1,0 +1,76 @@
+{
+  "name": "content-packaging-editor",
+  "language": "python",
+  "modules": [
+    {
+      "name": "packaging_editor",
+      "path": "mission_control/packaging_editor.py",
+      "language": "python",
+      "functions": []
+    },
+    {
+      "name": "video_edit_contract",
+      "path": ".factory/content-packaging-t5/editor/qa-scope/video_edit_contract.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "definition",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "project_shape",
+          "args": [],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "video_edit_projects",
+      "path": ".factory/content-packaging-t5/editor/qa-scope/video_edit_projects.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "revision",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "head",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "app_version",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "replay",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "append",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "current",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "saved_data",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "write",
+          "args": [],
+          "returns": "object"
+        }
+      ]
+    }
+  ]
+}
