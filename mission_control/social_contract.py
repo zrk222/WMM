@@ -3,7 +3,7 @@ import base64,hashlib,re,uuid
 from urllib.parse import urlsplit
 from .common import Invalid,identifier
 from .aeo_transport import public_url
-from .social_registry import PROVIDERS
+from .social_registry import PROVIDERS,resolve_scopes
 
 
 def exact(value,keys):
@@ -13,7 +13,7 @@ def exact(value,keys):
 
 def provider_id(value):
     """Only registered social providers can select hosts, scopes or protected names."""
-    if not isinstance(value,str) or value not in PROVIDERS:raise Invalid('Choose Facebook, Instagram, TikTok or LinkedIn')
+    if not isinstance(value,str) or value not in PROVIDERS:raise Invalid('Choose a registered social provider')
     return value
 
 
@@ -74,23 +74,27 @@ def relay_base(value):
     return target.rstrip('/')
 
 
+def configuration_client(provider,value):
+    """Keep provider client identifiers distinct from URLs or executable input."""
+    client=opaque(value,'client ID',128,3)
+    if provider=='youtube':
+        if not re.fullmatch(r'[A-Za-z0-9_-]+\.apps\.googleusercontent\.com',client):raise Invalid('Use the Google OAuth client ID')
+    elif not re.fullmatch(r'[A-Za-z0-9_-]+',client):raise Invalid('Use the provider client ID without URL or command characters')
+    if provider in ('facebook','instagram') and not client.isdigit():raise Invalid('Use the numeric provider app ID')
+    return client
+
+
 def configuration(body,port=8765):
     """Validate one app-owned developer setup with read-only initial permissions."""
     if not isinstance(body,dict):raise Invalid('Use a social setup object')
     exact(body,('provider','client_id','client_secret','redirect_uri','native_enabled','version',*(['campaign_access'] if 'campaign_access' in body else [])))
     provider=provider_id(body['provider']);native=body['native_enabled']
     if type(native) is not bool or (native and provider!='linkedin'):raise Invalid('Native enablement applies only to an approved LinkedIn app')
-    client=opaque(body['client_id'],'client ID',128,3)
-    if not re.fullmatch(r'[A-Za-z0-9_-]+',client):raise Invalid('Use the provider client ID without URL or command characters')
-    if provider in ('facebook','instagram') and not client.isdigit():raise Invalid('Use the numeric provider app ID')
+    client=configuration_client(provider,body['client_id'])
     configuration_secret(provider,native,body['client_secret'])
     if type(body['version']) is not int or body['version']<0:raise Invalid('Use the current setup version, or zero for new setup')
     mode=body.get('campaign_access','read')
-    if mode not in ('read','publish','ads') or (provider!='facebook' and mode!='read'):
-        raise Invalid('Campaign access applies only to Facebook; choose read, publish or ads')
-    scopes=list(PROVIDERS[provider]['scopes'])
-    if mode in ('publish','ads'):scopes.append('pages_manage_posts')
-    if mode=='ads':scopes.extend(['ads_management','ads_read'])
+    scopes=resolve_scopes(provider,mode)
     value=dict(provider=provider,client_id=client,native_enabled=native,
                redirect_uri=redirect(provider,native,body['redirect_uri'],port),scopes=scopes)
     if mode!='read':value['campaign_access']=mode
@@ -109,7 +113,7 @@ def challenge(provider,verifier):
     if not isinstance(verifier,str) or not re.fullmatch(r'[A-Za-z0-9._~-]{43,128}',verifier):raise Invalid('OAuth proof verifier is invalid')
     raw=hashlib.sha256(verifier.encode('ascii')).digest()
     if provider=='tiktok':return raw.hex()
-    if provider=='linkedin':return base64.urlsafe_b64encode(raw).decode().rstrip('=')
+    if provider in ('linkedin','youtube'):return base64.urlsafe_b64encode(raw).decode().rstrip('=')
     raise Invalid('This provider does not use the native proof-key flow')
 
 
@@ -117,7 +121,7 @@ def reported_scopes(value,required=()):
     """Return only validated scope names; do not infer grants from requested values."""
     if isinstance(value,str):value=re.split(r'[, ]+',value.strip())
     if not isinstance(value,list) or len(value)>50:raise Invalid('Provider did not report a supported permission list')
-    if any(not isinstance(s,str) or not re.fullmatch(r'[A-Za-z0-9_.:-]{1,100}',s) for s in value):raise Invalid('Provider returned invalid permission names')
+    if any(not isinstance(s,str) or not re.fullmatch(r'(?:[A-Za-z0-9_.:-]{1,100}|https://www\.googleapis\.com/auth/[A-Za-z0-9_.-]{1,100})',s) for s in value):raise Invalid('Provider returned invalid permission names')
     result=sorted(set(value))
     if not set(required)<=set(result):raise Invalid('Required read permissions were declined; reconnect and review the requested access')
     return result

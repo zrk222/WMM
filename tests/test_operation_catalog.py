@@ -66,6 +66,10 @@ class OperationCatalogTests(unittest.TestCase):
             self.assertEqual(rule['optional'], [])
         workflows = workflow_catalog()
         self.assertEqual(workflows['workflows']['viral_discovery']['operations'], [])
+        self.assertEqual(set(workflows['workflows']['organic_publication']['operations']),
+                         {'publication.list','publication.get','publication.draft','publication.prepare','publication.execute'})
+        self.assertEqual(workflows['workflows']['organic_publication']['blockers'],
+                         ['EXACT_CURRENT_OWNER_PUBLICATION_APPROVAL_REQUIRED'])
         for action in ('claim', 'submit'):
             self.assertEqual(workflows['unbundled_operations']['organic-video.' + action], 'viral_discovery')
 

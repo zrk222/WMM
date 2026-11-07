@@ -13,7 +13,6 @@ from .agent_contract import model_id
 from .review_access import member
 from .social_contract import reference, account_id, provider_id, reported_scopes
 
-MAX_WORKFLOWS = 12
 MAX_ACCOUNTS = 20
 FRESH_HOURS = 24
 
@@ -51,12 +50,19 @@ WORKFLOWS = {
     'social_publish': dict(name='Publish inside a separately approved campaign scope', operations=[
         'campaign.history','campaign.status','campaign.publish','campaign.reconcile'],
         blockers=['EXACT_OWNER_CAMPAIGN_SCOPE_REQUIRED']),
+    'organic_publication': dict(name='Prepare and enqueue exact owner-approved organic publication', operations=[
+        'publication.list','publication.get','publication.draft','publication.prepare','publication.execute'],
+        blockers=['EXACT_CURRENT_OWNER_PUBLICATION_APPROVAL_REQUIRED']),
     'release_delivery': dict(name='Build and deployment delivery', operations=[],
         blockers=['RELEASE_EFFECT_OPERATION_COVERAGE_REQUIRED']),
     'paid_effects': dict(name='Paid effects inside a separately approved campaign scope', operations=[
         'campaign.ad-launch','campaign.pause'],
         blockers=['EXACT_OWNER_CAMPAIGN_SCOPE_REQUIRED']),
 }
+
+# Selection can cover the full explicit catalog while each workflow retains its
+# own operation map and blockers as the authority boundary.
+MAX_WORKFLOWS = len(WORKFLOWS)
 
 # These operations remain separately approved through exact scoped grants or a
 # current owner session; they are not added to existing standing policies.

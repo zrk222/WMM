@@ -105,6 +105,7 @@ function render() {
   WMMFunnels.invalidate(state);
   WMMAppleAnalytics.invalidate(state);
   WMMOneSignal.invalidate(state);
+  window.WMMPublicationUI?.invalidate(state);
   $("#edit-app").disabled=!currentWorkspace();
   document.querySelectorAll(".nav-item").forEach(node=>{
     node.classList.toggle("active",node.dataset.view===state.view);
@@ -136,6 +137,7 @@ function render() {
     $("#main .page-heading").insertAdjacentHTML("afterend",WMMTelemetry.panel());
     WMMTelemetry.mount(growthReviewServices());
   }
+  window.WMMPublicationUI?.mount(state,growthReviewServices());
 }
 
 function summary() {
@@ -531,7 +533,7 @@ function historicalForm(id) {
 }
 
 function connectionsView() {
-  return heading("Connect with clarity","Connect each app’s evidence, then verify actual access.")+WMMOneSignal.panel()+WMMAppleAnalytics.panel()+WMMDrive.panel()+googlePlayPanel()+socialPanel()+campaignPanel()+releaseInventoryPanel()+subscriptionPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyConnectionsView();
+  return heading("Connect with clarity","Connect each app’s evidence, then verify actual access.")+WMMOneSignal.panel()+WMMAppleAnalytics.panel()+WMMDrive.panel()+googlePlayPanel()+socialPanel()+WMMPublicationUI.panel(state)+campaignPanel()+releaseInventoryPanel()+subscriptionPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyConnectionsView();
 }
 
 function legacyConnectionsView() {
@@ -861,6 +863,7 @@ function serverDownload(path,name) {
 async function formSubmit(event) {
   const form=event.target;
   const formId=form.getAttribute("id");
+  if(formId?.startsWith("publication-")){event.preventDefault();return WMMPublicationUI.submit(form,event,growthReviewServices());}
   if(!form.isConnected||(!currentWorkspace()&&!(formId==="app-form"&&form.dataset.new==="true"))) {
     event.preventDefault();toast("App changed. Wait for this app to load and reopen the form.");return;
   }
@@ -991,6 +994,7 @@ async function saveEvidence(data,form) {
 
 async function handleAction(node) {
   if(node.dataset.action==='agreement-report')return WMMAgreement.report();
+  if(node.dataset.action?.startsWith("publication-"))return WMMPublicationUI.action(node,growthReviewServices());
   if(node.dataset.action.startsWith('veditor-'))return WMMVideoEditor.action(node,growthReviewServices());
   if(node.dataset.action.startsWith('studio-'))return WMMStudio.action(node,growthReviewServices());
   if(node.dataset.action.startsWith('drive-'))return WMMDrive.action(node,growthReviewServices());
@@ -1075,6 +1079,7 @@ document.addEventListener("click",async event=>{
 });
 document.addEventListener("submit",formSubmit);
 document.addEventListener("change",event=>{
+  if(event.target.closest("#publication-draft-form"))return WMMPublicationUI.change(event.target.closest("#publication-draft-form"),growthReviewServices(),event.target);
   if(event.target.closest('.funnel-workspace'))return WMMFunnels.change(event.target,growthReviewServices());
   if(event.target.id==="reference-platform"){state.referencePlatform=event.target.value;render();}
   if(event.target.id==="reference-rights"){state.referenceRights=event.target.value;render();}

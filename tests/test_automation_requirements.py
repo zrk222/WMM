@@ -75,7 +75,10 @@ class AutomationReadinessTests(unittest.TestCase):
         unbundled=set(catalog['unbundled_operations'])
         self.assertFalse(mapped & unbundled)
         self.assertEqual(mapped | unbundled, set(OPERATIONS))
-        self.assertEqual(len(catalog['workflows']), 12)
+        self.assertEqual(len(catalog['workflows']), 13)
+        self.assertEqual(catalog['workflows']['release_delivery'], dict(
+            name='Build and deployment delivery', operations=[],
+            blockers=['RELEASE_EFFECT_OPERATION_COVERAGE_REQUIRED']))
         catalog['workflows']['local_evidence']['operations'].clear()
         self.assertTrue(workflow_catalog()['workflows']['local_evidence']['operations'])
         with patch.dict(OPERATIONS, {'new.unmapped': dict(effect='NEW_EFFECT')}):
@@ -261,6 +264,10 @@ class AutomationReadinessTests(unittest.TestCase):
                 self.assertEqual(row['status'], 'BLOCKED')
         social = next(row for row in result['workflows'] if row['id'] == 'social_publish')
         self.assertIn('FRESH_DESTINATION_ACCOUNT_REQUIRED', social['blockers'])
+        release = next(row for row in result['workflows'] if row['id'] == 'release_delivery')
+        self.assertEqual(release['operations'], [])
+        self.assertEqual(release['status'], 'BLOCKED')
+        self.assertIn('RELEASE_EFFECT_OPERATION_COVERAGE_REQUIRED', release['blockers'])
 
     def test_object_field_and_malformed_public_projection_do_not_return_secret_objects(self):
         malformed = ['not JSON', '[]', canonical(dict(provider={}, model='')),

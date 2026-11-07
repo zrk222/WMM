@@ -1,5 +1,7 @@
 """Fixed-provider pinned TLS transport; credential-bearing URLs never enter receipts."""
 import http.client,secrets,time
+from contextlib import contextmanager
+from contextvars import ContextVar
 from urllib.parse import urlsplit,urlencode
 from .common import Invalid
 from .aeo_transport import address,PinnedHTTPS,response_headers,response_body
@@ -7,6 +9,17 @@ from .aeo_tls import trust_context
 from .payment_signature import strict_json
 from .social_contract import provider_id,opaque,account_id
 from .social_registry import PROVIDERS,META_VERSION
+
+_READ_METER=ContextVar('wmm_social_read_meter',default=None)
+
+
+@contextmanager
+def metered_reads(before_call):
+    """Charge each actual provider HTTP read in this synchronous operation scope."""
+    if not callable(before_call):raise Invalid('Invalid social read meter')
+    token=_READ_METER.set(before_call)
+    try:yield
+    finally:_READ_METER.reset(token)
 
 
 class SocialError(Invalid):
@@ -36,6 +49,8 @@ OPERATIONS={
  ('facebook','permissions'):endpoint('GET',FB+'/me/permissions',optional=('appsecret_proof','after')),
  ('facebook','pages'):endpoint('GET',FB+'/me/accounts',constants={'fields':'id,name,tasks,access_token','limit':'50'},optional=('after','appsecret_proof')),
  ('facebook','page_identity'):endpoint('GET',FB+'/{account}',('account',),{'fields':'id,name'},optional=('appsecret_proof',)),
+ ('facebook','instagram_account'):endpoint('GET',FB+'/{account}',('account',),
+    {'fields':'id,instagram_business_account{id,username}'},optional=('appsecret_proof',)),
  ('instagram','code'):endpoint('POST',PROVIDERS['instagram']['token_url'],('client_id','client_secret','redirect_uri','code'),{'grant_type':'authorization_code'},multipart=True),
  ('instagram','long'):endpoint('GET','https://graph.instagram.com/access_token',('client_secret','access_token'),{'grant_type':'ig_exchange_token'}),
  ('instagram','refresh'):endpoint('GET','https://graph.instagram.com/refresh_access_token',('access_token',),{'grant_type':'ig_refresh_token'}),
@@ -46,7 +61,10 @@ OPERATIONS={
  ('linkedin','code'):endpoint('POST',PROVIDERS['linkedin']['token_url'],('client_id','client_secret','redirect_uri','code'),{'grant_type':'authorization_code'}),
  ('linkedin','code_native'):endpoint('POST',PROVIDERS['linkedin']['token_url'],('client_id','redirect_uri','code','code_verifier'),{'grant_type':'authorization_code'}),
  ('linkedin','refresh'):endpoint('POST',PROVIDERS['linkedin']['token_url'],('client_id','client_secret','refresh_token'),{'grant_type':'refresh_token'}),
- ('linkedin','identity'):endpoint('GET',PROVIDERS['linkedin']['identity'])}
+ ('linkedin','identity'):endpoint('GET',PROVIDERS['linkedin']['identity']),
+ ('youtube','code'):endpoint('POST','https://oauth2.googleapis.com/token',('client_id','client_secret','redirect_uri','code','code_verifier'),{'grant_type':'authorization_code'}),
+ ('youtube','refresh'):endpoint('POST','https://oauth2.googleapis.com/token',('client_id','client_secret','refresh_token'),{'grant_type':'refresh_token'}),
+ ('youtube','identity'):endpoint('GET','https://www.googleapis.com/youtube/v3/channels',constants={'part':'id,snippet','mine':'true'})}
 
 
 def parameters(spec,values):
@@ -102,6 +120,8 @@ def exchange(parts,method,route,body,headers,alive,deadline):
     conn=None;alive()
     try:
         conn=PinnedHTTPS(parts.hostname,address(parts.hostname,limit),trust_context(),limit)
+        meter=_READ_METER.get()
+        if meter is not None:meter()
         conn.request(method,route,body=body,headers=headers);response=conn.getresponse();status_code(response.status)
         raw=response_body(response,response_headers(response),1048576,conn,limit)
         value=strict_json(raw)

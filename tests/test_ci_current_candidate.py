@@ -6,9 +6,10 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 # The browser profile provisions Chromium and the local render runtime and runs
-# both owner-bound OneSignal journeys, creative batches and organic research.
+# both owner-bound OneSignal journeys, creative batches, organic research and
+# exact-approved publication with retained synthetic desktop/mobile evidence.
 # All eight backend shards and the native/package job definitions are retained.
-BASELINES = {".github/workflows/checks.yml":"393471e00a0d031368e533ecfbb4f73eb09b29ea0f41cb5f021f0496e7bd1af2",".github/workflows/platform-checks.yml":"8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",".github/workflows/desktop-packages.yml":"c9dd8f316a7660ef7baa92c46628fe49c948b455ea7f87f45fac866b6c323e45"}
+BASELINES = {".github/workflows/checks.yml":"f68cd981a0db05d38651d5f5c151e6f7f3cd7fa672ac7680edca046f1f90e2ff",".github/workflows/platform-checks.yml":"8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",".github/workflows/desktop-packages.yml":"c9dd8f316a7660ef7baa92c46628fe49c948b455ea7f87f45fac866b6c323e45"}
 GROUP = "${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}"
 
 def job_digest(path):
@@ -22,7 +23,10 @@ class CurrentCandidateCITests(unittest.TestCase):
         browser = text.split("  browser:\n", 1)[1].split("  windows:\n", 1)[0]
         self.assertIn("timeout-minutes: 45", browser)
         self.assertIn("WMM_BROWSER_TEST_PROFILE: '1'", browser)
-        self.assertIn("python -m unittest tests.test_creative_batches_browser tests.test_onesignal_ui_browser tests.test_onesignal_browser_integration tests.test_organic_research_browser tests.test_market_research_browser tests.test_organic_policy_gui_browser -v", browser)
+        self.assertIn("python -m unittest tests.test_creative_batches_browser tests.test_onesignal_ui_browser tests.test_onesignal_browser_integration tests.test_organic_research_browser tests.test_market_research_browser tests.test_organic_policy_gui_browser tests.test_publication_browser -v", browser)
+        self.assertIn("name: publication-browser-evidence", browser)
+        self.assertIn("path: .factory/multichannel/browser/", browser)
+        self.assertIn("retention-days: 3", browser)
         self.assertIn("python -m unittest tests.test_insights_history_browser tests.test_observational_campaign_browser -v", browser)
         self.assertIn("python tools/test_owner_onboarding_browser.py", browser)
         self.assertIn("python tools/test_campaign_monitor_browser.py", browser)

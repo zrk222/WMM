@@ -34,6 +34,10 @@ def verify(config,secret,grant,alive=lambda:None):
                 bearer=None if provider=='instagram' else access,alive=alive)
     if provider=='tiktok':return tiktok(raw,grant)
     if provider=='instagram':return instagram(raw,grant)
+    if provider=='youtube':
+        from .social_youtube import channel
+        subject,name=channel(raw,grant.facts.get('subject_id'))
+        return Identity(subject,name,[destination(subject,name,'CHANNEL')],grant.facts['reported_scopes'])
     if provider=='linkedin':
         subject=account_id(raw.get('sub'));name=display(raw.get('name'))
         return Identity(subject,name,[destination(subject,name,'PROFILE')],grant.facts['reported_scopes'])

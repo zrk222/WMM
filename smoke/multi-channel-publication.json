@@ -1,0 +1,22 @@
+{
+  "checks": [
+    {
+      "name": "closed-organic-contract-and-explicit-provider-scopes",
+      "kind": "python",
+      "run": "from mission_control.publication_contract import validate_draft; from mission_control.social_registry import resolve_scopes; import uuid; d=dict(schema='wmm.organic-publication.v1',request_id=str(uuid.uuid4()),app_id='smoke-app',manifest_version=1,provider='linkedin',connection_id=str(uuid.uuid4()),connection_version=1,destination_id='profile1',kind='linkedin_text',title='',caption='Synthetic example',link=None,artifact=None,rights_hashes=['a'*64],source_hashes=[],settings={'visibility':'PUBLIC'}); assert validate_draft(d)==d; assert 'w_member_social' in resolve_scopes('linkedin','publish'); assert 'w_member_social' not in resolve_scopes('linkedin','read'); print('ORGANIC_CONTRACT_PASS')",
+      "expect_exit": 0,
+      "expect_stdout": "ORGANIC_CONTRACT_PASS",
+      "timeout_s": 20,
+      "must_fail_on_stub": true
+    },
+    {
+      "name": "durable-quota-unknown-and-off-counterexamples",
+      "kind": "python",
+      "run": "import unittest; r=unittest.TextTestRunner().run(unittest.defaultTestLoader.loadTestsFromName('tests.test_publication_execution')); assert r.wasSuccessful() and r.testsRun>=6; print('DURABLE_EXECUTION_PASS')",
+      "expect_exit": 0,
+      "expect_stdout": "DURABLE_EXECUTION_PASS",
+      "timeout_s": 60,
+      "must_fail_on_stub": true
+    }
+  ]
+}
