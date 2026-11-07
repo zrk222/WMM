@@ -23,14 +23,26 @@ def token_object(raw):
     return raw
 
 
+def _access_expiry(provider,value,issued_at,short,facebook_long_missing_expiry):
+    """Keep short-token and narrowly provisional Facebook expiry semantics."""
+    if facebook_long_missing_expiry and (provider!='facebook' or short):raise Invalid('Unsupported provisional social expiry')
+    if short or (facebook_long_missing_expiry and 'expires_in' not in value):return None
+    return issued_at+seconds(value.get('expires_in'))
+
+
+def _subject(provider,value,prior,short):
+    """Select a subject only where the provider response proves its identity."""
+    subject=account_id(value['open_id']) if provider=='tiktok' else prior.get('subject_id')
+    if provider=='instagram' and short:subject=account_id(value.get('user_id'))
+    return subject
+
+
 def parse(provider,raw,issued_at,prior=None,short=False,requested_scopes=None,facebook_long_missing_expiry=False):
     """Preserve actual lifetime/scope reporting and require a usable protected token."""
     provider_id(provider);value=token_object(raw);prior=prior or {}
     credentials=credential_fields(value)
-    if facebook_long_missing_expiry and (provider!='facebook' or short):raise Invalid('Unsupported provisional social expiry')
-    expires=None if short or (facebook_long_missing_expiry and 'expires_in' not in value) else issued_at+seconds(value.get('expires_in'))
-    subject=account_id(value['open_id']) if provider=='tiktok' else prior.get('subject_id')
-    if provider=='instagram' and short:subject=account_id(value.get('user_id'))
+    expires=_access_expiry(provider,value,issued_at,short,facebook_long_missing_expiry)
+    subject=_subject(provider,value,prior,short)
     required=list(PROVIDERS[provider]['scopes']) if requested_scopes is None else requested_scopes
     scopes=parse_scopes(provider,value,prior,required)
     refresh_expiry=refresh_lifetime(provider,value,issued_at,prior)

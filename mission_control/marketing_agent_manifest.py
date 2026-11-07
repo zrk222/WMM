@@ -14,7 +14,7 @@ PROVIDER_READS = {'app_store':APPLE_READ_OPERATIONS,'apple_ads':('identity_inven
 def operating_manifest(app):
     """Bind expert operating rules and implemented capabilities to exact app intent."""
     return {
-        'schema':'growth.marketing-agent-manifest.v1', 'policy_version':16,
+        'schema':'growth.marketing-agent-manifest.v1', 'policy_version':17,
         'app_id':app['id'], 'manifest_version':app['version'],
         'release':app['data'].get('release'), 'locale':app['data'].get('locale'),
         'store_app_id':app['data'].get('store_app_id'),
@@ -44,6 +44,15 @@ def operating_manifest(app):
                                'external_authority':'SEPARATE_CURRENT_OWNER_CAMPAIGN_SCOPE_AND_SCOPED_GRANT',
                                'provider_scope':'SUPPORTED_FACEBOOK_PAGE_AND_META_AD_OPERATIONS_ONLY',
                                'runtime_readiness':'VERIFY_CURRENT_ACCOUNT_SCOPES_BILLING_AND_BUDGET_BEFORE_EFFECT'},
+        'organic_publication':{
+            'agent_operations':['publication.list','publication.get','publication.draft','publication.prepare','publication.execute'],
+            'supported_channels':['instagram','tiktok','youtube','linkedin'],
+            'workflow':'Agents may inspect, draft, and prepare. An agent may enqueue only an exact, currently approved owner publication; the existing worker performs scheduled effects.',
+            'owner_only':['publication.preflight','publication.instagram-account','publication.activate','publication.revoke','publication.reconcile','credentials'],
+            'approval':'The approval binds exact app, account, destination, content, media hash, rights, settings, expiry, due time and call allowance. Agents cannot create, activate, widen or revoke approval.',
+            'queue':'Queued is not published. Provider acceptance, processing, publication and independent public visibility remain distinct.',
+            'recovery':'Unknown effects are reconciled by a fresh owner only and never replayed by an agent.',
+            'ads':'No new ad-spending authority. Paid media remains limited to existing Facebook scope.'},
         'supported_resolution_tools':['collect_sources','inspect_site','refresh_analytics','evaluate_experiment','reuse_observation','inspect_tracking','discover_setup'],
         'resolution_approval_seconds':1800,
         'sequence_contract':{'approval':'EXACT_ORDERED_ACTIONS','resume':'SAVED_CHECKPOINT',

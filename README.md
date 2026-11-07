@@ -31,13 +31,13 @@ Task presets prepare an editable grant; the owner reviews and issues it. Each gr
 
 Through a permitted connected agent, research metadata for **Facebook Page, Instagram Reels, TikTok and YouTube Shorts**. Viral qualification requires **100,000 views AND 10× a documented creator baseline**. Save source evidence, build a brief, prepare a Hypit preview and export approved artifacts.
 
-**Delivery today:** WMM has a governed publisher for approved Facebook Page posts. Instagram and TikTok connections provide account identity only. YouTube Shorts supports metadata and packaging, with no connected publisher. [Open the interactive sample](docs/demo.html).
+**Approve the post. Let your agent carry it through.** WMM queues approved Facebook Page posts, Instagram Reels, TikTok videos, YouTube Shorts and LinkedIn text/video posts, then keeps the provider IDs, status reads and available engagement counts together. Each channel uses its official publishing permissions and account setup. Open **Connections → Publish an approved post** to review content, destination, rights and timing before queueing. [Agent workflow](docs/agent-multichannel.md) · [Interactive sample](docs/demo.html).
 
 In WMM: **Set your goal → Explore video channels → Find viral ideas for my app.**
 
 The intended payoff is less coordination, faster creative cycles and better decisions about installs, activation, paid conversion and retention. Analytics retain source dates, definitions and missing data; receipts show what was actually done. Measure the benefit on your app—growth and time savings are not yet established by the dogfooding trial.
 
-**Available today:** local workspaces, personal-agent CLI/MCP, creative and evidence tools, supported analytics paths, Facebook Page posts and bounded Meta engagement campaigns. Shared cloud team dashboards, broader campaign publishing and complete KPI coverage remain in development. [Current tools and limits](#what-is-included-today).
+**Available today:** local workspaces, personal-agent CLI/MCP, creative and evidence tools, supported analytics paths, reviewed organic distribution across five networks and bounded Meta engagement campaigns. Shared cloud team dashboards, additional paid-ad networks and complete KPI coverage remain in development. [Current tools and limits](#what-is-included-today).
 
 [Follow the WizeMe dogfooding journey](docs/WIZEME-DOGFOODING.md): dated operations, verified receipts and the next measurement step.
 
@@ -51,7 +51,7 @@ The intended payoff is less coordination, faster creative cycles and better deci
 | **Make and revise content** | Eight-piece copy packs; local and selected Google Drive media; UGC and clip intake; timeline editing, trimming, ordering and stitching; human/agent edits and history. Hypit guided renders create timed title/caption scenes; editor/Studio handles richer projects. Preflight checks timing, text density and prerequisites; explicit verified-render reuse avoids queuing a new build. |
 | **Improve the app’s sales journey** | ASO, ASA and AEO worksheets, store/listing checks, funnel plans, paywall/offer experiments, cohorts, event/billing imports and experiment assessments. App Store promotional text has its own maker/checker approval path. |
 | **Collect and understand results** | Supported App Store Connect, Apple Ads, Google Play, PostHog, Clarity and RevenueCat paths, plus imports. Coverage varies by source and platform. Reports retain dates, definitions, denominators and missing data; PDF and data exports support review and handoff. |
-| **Execute supported campaigns** | Facebook Page text/link publishing and fixed Meta engagement campaigns: exact owner scope, content/rights/targeting review, expiry, quotas, media-budget ceilings, saved provider IDs, reconciliation and protective pause. Other networks do not gain publishing support merely by connecting OAuth. |
+| **Execute supported campaigns** | Facebook Page posts, Instagram Reels, TikTok videos, YouTube Shorts and LinkedIn text/video: review the post and destination, approve a bounded allowance, queue it and inspect the receipt. Interrupted writes stay held for reconciliation. Available engagement counts are retained; installs and revenue need their own tracking. Paid execution remains bounded Meta engagement campaigns. |
 | **Delegate and monitor** | CLI/MCP operations, app-scoped grants, manual or bounded autonomous work, approval checkpoints, progress, durable jobs, cancellation and recovery. Missing source analytics stay marked as missing; they are not evidence of growth. Provider-reported token/cache usage stays separate from estimated cost. |
 
 [Campaign controls and limits](docs/campaign-automation.md) · [Hypit production guide](docs/hypit-production-preflight.md) · [Agent workflow upgrades](docs/personal-agent-upgrades.md)

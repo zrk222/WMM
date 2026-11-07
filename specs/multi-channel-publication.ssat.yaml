@@ -1,0 +1,1421 @@
+{
+  "name": "multi-channel-publication",
+  "language": "python",
+  "modules": [
+    {
+      "name": "publication_artifacts",
+      "path": "mission_control/publication_artifacts.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "describe",
+          "args": [
+            "store",
+            "app_id",
+            "artifact_id"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "verify",
+          "args": [
+            "store",
+            "db",
+            "app_id",
+            "draft",
+            "verify_bytes"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "load",
+          "args": [
+            "store",
+            "app_id",
+            "draft"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "publication_authority",
+      "path": "mission_control/publication_authority.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "initialize",
+          "args": [
+            "store"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "record_preflight",
+          "args": [
+            "store",
+            "app_id",
+            "connection_id",
+            "connection_version",
+            "destination_id"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "current",
+          "args": [
+            "db",
+            "store",
+            "app_id",
+            "identity"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "publication_contract",
+      "path": "mission_control/publication_contract.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "validate_draft",
+          "args": [
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "channel_descriptor",
+          "args": [
+            "draft"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "preview_summary",
+          "args": [
+            "draft"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "channel_catalog",
+          "args": [],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "publication_credentials",
+      "path": "mission_control/publication_credentials.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "context",
+          "args": [
+            "store",
+            "app_id",
+            "draft",
+            "before_call",
+            "heartbeat"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "inspect_instagram",
+          "args": [
+            "store",
+            "app_id",
+            "connection_id",
+            "version",
+            "before_call",
+            "heartbeat"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "publication_execution",
+      "path": "mission_control/publication_execution.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "initialize",
+          "args": [
+            "store"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "verified_result",
+          "args": [
+            "db",
+            "app_id",
+            "identity",
+            "result"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "process_job",
+          "args": [
+            "store",
+            "job",
+            "adapters"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "list_intents",
+          "args": [
+            "store",
+            "app_id"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "reconcile",
+          "args": [
+            "store",
+            "app_id",
+            "identity"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "publication_http",
+      "path": "mission_control/publication_http.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "route",
+          "args": [
+            "handler",
+            "parts"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "publication_instagram_connection",
+      "path": "mission_control/publication_instagram_connection.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "assert_saved_connection",
+          "args": [
+            "connectionrow",
+            "draft"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "inspect",
+          "args": [
+            "config",
+            "client_secret",
+            "credentials",
+            "page_id",
+            "expected_ig_id",
+            "alive"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "publication_linkedin",
+      "path": "mission_control/publication_linkedin.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "create",
+          "args": [
+            "draft",
+            "artifact",
+            "context"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "upload",
+          "args": [
+            "draft",
+            "artifact",
+            "state",
+            "context"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "publish",
+          "args": [
+            "draft",
+            "state",
+            "context"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "read",
+          "args": [
+            "draft",
+            "state",
+            "context"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "publication_meta",
+      "path": "mission_control/publication_meta.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "create",
+          "args": [
+            "draft",
+            "artifact",
+            "context"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "upload",
+          "args": [
+            "draft",
+            "artifact",
+            "state",
+            "context"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "publish",
+          "args": [
+            "draft",
+            "state",
+            "context"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "read",
+          "args": [
+            "draft",
+            "state",
+            "context"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "publication_schedule",
+      "path": "mission_control/publication_schedule.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "initialize",
+          "args": [
+            "store"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "enqueue_approved",
+          "args": [
+            "store",
+            "app_id",
+            "authority_id"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "advance",
+          "args": [
+            "db",
+            "store"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "disable_db",
+          "args": [
+            "db",
+            "app_id",
+            "authority_id"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "check_job",
+          "args": [
+            "db",
+            "store",
+            "job"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "ready_job",
+          "args": [
+            "db",
+            "job"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "finish_step",
+          "args": [
+            "db",
+            "store",
+            "job",
+            "result",
+            "reschedule_at"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "publication_service",
+      "path": "mission_control/publication_service.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "list_publications",
+          "args": [
+            "store",
+            "app_id"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "draft",
+          "args": [
+            "store",
+            "app_id",
+            "body"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "dispatch",
+          "args": [
+            "store",
+            "app_id",
+            "action",
+            "body",
+            "identity"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "publication_sessions",
+      "path": "mission_control/publication_sessions.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "retain",
+          "args": [
+            "store",
+            "app_id",
+            "intent_id",
+            "intent_hash",
+            "checkpoint",
+            "state"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "load",
+          "args": [
+            "store",
+            "app_id",
+            "intent_id",
+            "intent_hash",
+            "checkpoint"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "retire",
+          "args": [
+            "store",
+            "app_id",
+            "intent_id",
+            "checkpoint"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "publication_tiktok",
+      "path": "mission_control/publication_tiktok.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "creator_info",
+          "args": [
+            "context"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "chunk_plan",
+          "args": [
+            "size"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "create",
+          "args": [
+            "draft",
+            "artifact",
+            "context"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "upload",
+          "args": [
+            "draft",
+            "artifact",
+            "state",
+            "context"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "publish",
+          "args": [
+            "draft",
+            "state",
+            "context"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "read",
+          "args": [
+            "draft",
+            "state",
+            "context"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "publication_transport",
+      "path": "mission_control/publication_transport.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "checked_context",
+          "args": [
+            "context"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "checked_path",
+          "args": [
+            "path"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "api_url",
+          "args": [
+            "context",
+            "path"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "upload_target",
+          "args": [
+            "context",
+            "url"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "extra_headers",
+          "args": [
+            "values"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "request",
+          "args": [
+            "context",
+            "method",
+            "path"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "upload",
+          "args": [
+            "context",
+            "url",
+            "data"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "publication_youtube",
+      "path": "mission_control/publication_youtube.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "create",
+          "args": [
+            "draft",
+            "artifact",
+            "context"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "upload",
+          "args": [
+            "draft",
+            "artifact",
+            "state",
+            "context"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "publish",
+          "args": [
+            "draft",
+            "state",
+            "context"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "read",
+          "args": [
+            "draft",
+            "state",
+            "context"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "social_registry",
+      "path": "mission_control/social_registry.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "resolve_scopes",
+          "args": [
+            "provider",
+            "mode"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "catalog",
+          "args": [],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "social_contract",
+      "path": "mission_control/social_contract.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "exact",
+          "args": [
+            "value",
+            "keys"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "provider_id",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "reference",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "opaque",
+          "args": [
+            "value",
+            "label",
+            "maximum",
+            "minimum"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "display",
+          "args": [
+            "value",
+            "label",
+            "maximum"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "account_id",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "callback",
+          "args": [
+            "provider",
+            "native",
+            "port"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "redirect",
+          "args": [
+            "provider",
+            "native",
+            "value",
+            "port"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "relay_base",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "configuration_client",
+          "args": [
+            "provider",
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "configuration",
+          "args": [
+            "body",
+            "port"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "configuration_secret",
+          "args": [
+            "provider",
+            "native",
+            "secret"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "challenge",
+          "args": [
+            "provider",
+            "verifier"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "reported_scopes",
+          "args": [
+            "value",
+            "required"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "seconds",
+          "args": [
+            "value",
+            "label"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "social_auth",
+      "path": "mission_control/social_auth.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "fresh_state",
+          "args": [],
+          "returns": "object"
+        },
+        {
+          "name": "validated_scopes",
+          "args": [
+            "config"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "authorization",
+          "args": [
+            "config",
+            "state",
+            "verifier",
+            "rerequest"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "code_fields",
+          "args": [
+            "config",
+            "secret",
+            "code",
+            "verifier"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "exchange_code",
+          "args": [
+            "config",
+            "secret",
+            "code",
+            "verifier",
+            "alive"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "refresh",
+          "args": [
+            "config",
+            "secret",
+            "credentials",
+            "facts",
+            "alive"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "refresh_fields",
+          "args": [
+            "config",
+            "secret",
+            "credentials",
+            "facts",
+            "clock"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "app_secret_proof",
+          "args": [
+            "access",
+            "secret"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "social_youtube",
+      "path": "mission_control/social_youtube.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "channel",
+          "args": [
+            "raw",
+            "expected"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "social_profiles",
+      "path": "mission_control/social_profiles.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "one",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "verify",
+          "args": [
+            "config",
+            "secret",
+            "grant",
+            "alive"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "destination",
+          "args": [
+            "identity",
+            "name",
+            "kind",
+            "tasks"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "tiktok",
+          "args": [
+            "raw",
+            "grant"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "instagram",
+          "args": [
+            "raw",
+            "grant"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "facebook",
+          "args": [
+            "config",
+            "secret",
+            "access",
+            "alive"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "facebook_expiry",
+          "args": [
+            "inspection"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "facebook_page",
+          "args": [
+            "page"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "page_rows",
+          "args": [
+            "operation",
+            "access",
+            "proof",
+            "alive"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "next_cursor",
+          "args": [
+            "raw"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "selected_page",
+          "args": [
+            "secret",
+            "access",
+            "selected",
+            "alive"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "social_tokens",
+      "path": "mission_control/social_tokens.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "token_object",
+          "args": [
+            "raw"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "parse",
+          "args": [
+            "provider",
+            "raw",
+            "issued_at",
+            "prior",
+            "short",
+            "requested_scopes",
+            "facebook_long_missing_expiry"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "credential_fields",
+          "args": [
+            "value"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "parse_scopes",
+          "args": [
+            "provider",
+            "value",
+            "prior",
+            "required"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "refresh_lifetime",
+          "args": [
+            "provider",
+            "value",
+            "issued_at",
+            "prior"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "renewal",
+          "args": [
+            "provider",
+            "credentials",
+            "short"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "same_subject",
+          "args": [
+            "grant",
+            "expected"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "social_transport",
+      "path": "mission_control/social_transport.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "metered_reads",
+          "args": [
+            "before_call"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "endpoint",
+          "args": [
+            "method",
+            "url",
+            "params",
+            "constants",
+            "optional",
+            "multipart"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "parameters",
+          "args": [
+            "spec",
+            "values"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "form_body",
+          "args": [
+            "fields",
+            "multipart"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "status_code",
+          "args": [
+            "status"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "request",
+          "args": [
+            "provider",
+            "operation",
+            "values",
+            "bearer",
+            "alive",
+            "deadline"
+          ],
+          "returns": "object"
+        },
+        {
+          "name": "exchange",
+          "args": [
+            "parts",
+            "method",
+            "route",
+            "body",
+            "headers",
+            "alive",
+            "deadline"
+          ],
+          "returns": "object"
+        }
+      ]
+    },
+    {
+      "name": "publication_reports",
+      "path": "mission_control/publication_reports.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "report",
+          "args": [
+            "store",
+            "app_id",
+            "identity"
+          ],
+          "returns": "object"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "publication_artifacts",
+      "to": "publication_contract"
+    },
+    {
+      "from": "publication_authority",
+      "to": "publication_contract"
+    },
+    {
+      "from": "publication_authority",
+      "to": "social_contract"
+    },
+    {
+      "from": "publication_authority",
+      "to": "publication_artifacts"
+    },
+    {
+      "from": "publication_authority",
+      "to": "publication_credentials"
+    },
+    {
+      "from": "publication_authority",
+      "to": "publication_tiktok"
+    },
+    {
+      "from": "publication_authority",
+      "to": "publication_instagram_connection"
+    },
+    {
+      "from": "publication_authority",
+      "to": "publication_schedule"
+    },
+    {
+      "from": "publication_contract",
+      "to": "social_contract"
+    },
+    {
+      "from": "publication_credentials",
+      "to": "social_auth"
+    },
+    {
+      "from": "publication_credentials",
+      "to": "social_contract"
+    },
+    {
+      "from": "publication_credentials",
+      "to": "social_profiles"
+    },
+    {
+      "from": "publication_credentials",
+      "to": "social_tokens"
+    },
+    {
+      "from": "publication_credentials",
+      "to": "social_transport"
+    },
+    {
+      "from": "publication_credentials",
+      "to": "publication_instagram_connection"
+    },
+    {
+      "from": "publication_credentials",
+      "to": "publication_transport"
+    },
+    {
+      "from": "publication_execution",
+      "to": "publication_authority"
+    },
+    {
+      "from": "publication_execution",
+      "to": "publication_contract"
+    },
+    {
+      "from": "publication_execution",
+      "to": "publication_sessions"
+    },
+    {
+      "from": "publication_execution",
+      "to": "publication_schedule"
+    },
+    {
+      "from": "publication_execution",
+      "to": "publication_meta"
+    },
+    {
+      "from": "publication_execution",
+      "to": "publication_linkedin"
+    },
+    {
+      "from": "publication_execution",
+      "to": "publication_youtube"
+    },
+    {
+      "from": "publication_execution",
+      "to": "publication_tiktok"
+    },
+    {
+      "from": "publication_execution",
+      "to": "publication_credentials"
+    },
+    {
+      "from": "publication_execution",
+      "to": "publication_artifacts"
+    },
+    {
+      "from": "publication_http",
+      "to": "publication_service"
+    },
+    {
+      "from": "publication_http",
+      "to": "social_contract"
+    },
+    {
+      "from": "publication_http",
+      "to": "publication_reports"
+    },
+    {
+      "from": "publication_instagram_connection",
+      "to": "social_auth"
+    },
+    {
+      "from": "publication_instagram_connection",
+      "to": "social_contract"
+    },
+    {
+      "from": "publication_instagram_connection",
+      "to": "social_profiles"
+    },
+    {
+      "from": "publication_instagram_connection",
+      "to": "social_transport"
+    },
+    {
+      "from": "publication_linkedin",
+      "to": "publication_transport"
+    },
+    {
+      "from": "publication_meta",
+      "to": "social_registry"
+    },
+    {
+      "from": "publication_meta",
+      "to": "publication_transport"
+    },
+    {
+      "from": "publication_schedule",
+      "to": "publication_authority"
+    },
+    {
+      "from": "publication_schedule",
+      "to": "social_contract"
+    },
+    {
+      "from": "publication_schedule",
+      "to": "publication_execution"
+    },
+    {
+      "from": "publication_service",
+      "to": "publication_authority"
+    },
+    {
+      "from": "publication_service",
+      "to": "publication_contract"
+    },
+    {
+      "from": "publication_service",
+      "to": "publication_artifacts"
+    },
+    {
+      "from": "publication_service",
+      "to": "social_contract"
+    },
+    {
+      "from": "publication_service",
+      "to": "publication_execution"
+    },
+    {
+      "from": "publication_service",
+      "to": "publication_schedule"
+    },
+    {
+      "from": "publication_service",
+      "to": "publication_credentials"
+    },
+    {
+      "from": "publication_sessions",
+      "to": "social_contract"
+    },
+    {
+      "from": "publication_tiktok",
+      "to": "social_contract"
+    },
+    {
+      "from": "publication_tiktok",
+      "to": "publication_transport"
+    },
+    {
+      "from": "publication_transport",
+      "to": "social_contract"
+    },
+    {
+      "from": "publication_youtube",
+      "to": "publication_transport"
+    },
+    {
+      "from": "social_contract",
+      "to": "social_registry"
+    },
+    {
+      "from": "social_auth",
+      "to": "social_contract"
+    },
+    {
+      "from": "social_auth",
+      "to": "social_registry"
+    },
+    {
+      "from": "social_auth",
+      "to": "social_tokens"
+    },
+    {
+      "from": "social_auth",
+      "to": "social_transport"
+    },
+    {
+      "from": "social_youtube",
+      "to": "social_contract"
+    },
+    {
+      "from": "social_youtube",
+      "to": "social_transport"
+    },
+    {
+      "from": "social_profiles",
+      "to": "social_auth"
+    },
+    {
+      "from": "social_profiles",
+      "to": "social_contract"
+    },
+    {
+      "from": "social_profiles",
+      "to": "social_transport"
+    },
+    {
+      "from": "social_profiles",
+      "to": "social_youtube"
+    },
+    {
+      "from": "social_tokens",
+      "to": "social_contract"
+    },
+    {
+      "from": "social_tokens",
+      "to": "social_registry"
+    },
+    {
+      "from": "social_tokens",
+      "to": "social_transport"
+    },
+    {
+      "from": "social_transport",
+      "to": "social_contract"
+    },
+    {
+      "from": "social_transport",
+      "to": "social_registry"
+    },
+    {
+      "from": "publication_reports",
+      "to": "publication_authority"
+    },
+    {
+      "from": "publication_reports",
+      "to": "publication_contract"
+    },
+    {
+      "from": "publication_reports",
+      "to": "publication_execution"
+    },
+    {
+      "from": "publication_reports",
+      "to": "publication_schedule"
+    }
+  ],
+  "invariants": []
+}

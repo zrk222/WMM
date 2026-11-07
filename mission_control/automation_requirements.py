@@ -51,6 +51,9 @@ WORKFLOWS = {
     'social_publish': dict(name='Publish inside a separately approved campaign scope', operations=[
         'campaign.history','campaign.status','campaign.publish','campaign.reconcile'],
         blockers=['EXACT_OWNER_CAMPAIGN_SCOPE_REQUIRED']),
+    'organic_publication': dict(name='Prepare and enqueue exact owner-approved organic publication', operations=[
+        'publication.list','publication.get','publication.draft','publication.prepare','publication.execute'],
+        blockers=['EXACT_CURRENT_OWNER_PUBLICATION_APPROVAL_REQUIRED']),
     'release_delivery': dict(name='Build and deployment delivery', operations=[],
         blockers=['RELEASE_EFFECT_OPERATION_COVERAGE_REQUIRED']),
     'paid_effects': dict(name='Paid effects inside a separately approved campaign scope', operations=[

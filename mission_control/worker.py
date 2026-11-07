@@ -60,20 +60,29 @@ def jobs(store,app_id):
 def claim(store):
     """Atomically lease one queued or expired job within the retry limit."""
     from .campaign_monitor import interrupted_result
+    from .publication_schedule import initialize as publication_initialize
+    publication_initialize(store)
     with connection(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
         db.execute("""UPDATE jobs SET status='BLOCKED',result=CASE WHEN action='campaign_monitor' THEN ? ELSE ? END,updated=?
             WHERE action IN ('campaign_post','campaign_ad','campaign_monitor') AND status='RUNNING' AND lease<?""",
                    (canonical(interrupted_result()),canonical({"error":"Scheduled post was interrupted; inspect its saved intent before any retry","external_execution":"UNKNOWN"}),now(),time.time()))
+        db.execute("UPDATE publication_schedules SET status='BLOCKED',updated=? WHERE job_id IN (SELECT id FROM jobs WHERE action='social_publication' AND status='RUNNING' AND lease<?) AND status='QUEUED'",(now(),time.time()))
+        db.execute("UPDATE jobs SET status='BLOCKED',result=?,updated=? WHERE action='social_publication' AND status='RUNNING' AND lease<?",(canonical({'error':'Publication interrupted; reconcile the saved intent before another action','external_execution':'UNKNOWN'}),now(),time.time()))
+        db.execute("UPDATE publication_schedules SET status='BLOCKED',updated=? WHERE job_id IN (SELECT id FROM jobs WHERE action='social_publication' AND status='QUEUED' AND attempts>=1000) AND status='QUEUED'",(now(),))
+        db.execute("UPDATE jobs SET status='BLOCKED',result=?,updated=? WHERE action='social_publication' AND status='QUEUED' AND attempts>=1000",(canonical({'error':'Publication step limit reached; inspect the saved intent','external_execution':'UNKNOWN_OR_NOT_DISPATCHED'}),now()))
         db.execute("UPDATE creative_batches SET state='BLOCKED_HOLD',updated=? WHERE state='ACTIVE' AND EXISTS (SELECT 1 FROM creative_batch_variants v JOIN jobs j ON j.id=v.job_id WHERE v.app_id=creative_batches.app_id AND v.batch_id=creative_batches.id AND j.status='RUNNING' AND j.lease<?)",(now(),time.time()))
         db.execute("UPDATE creative_batch_variants SET native_state='STOP_PENDING' WHERE job_id IN (SELECT id FROM jobs WHERE status='RUNNING') AND EXISTS (SELECT 1 FROM creative_batches b WHERE b.app_id=creative_batch_variants.app_id AND b.id=creative_batch_variants.batch_id AND b.state='BLOCKED_HOLD')")
         db.execute("UPDATE creative_batch_variants SET native_state='CANCELLED' WHERE job_id IN (SELECT id FROM jobs WHERE status='QUEUED') AND EXISTS (SELECT 1 FROM creative_batches b WHERE b.app_id=creative_batch_variants.app_id AND b.id=creative_batch_variants.batch_id AND b.state='BLOCKED_HOLD')")
         db.execute("UPDATE jobs SET status='BLOCKED',result=?,updated=? WHERE action='render' AND status='RUNNING' AND lease<? AND EXISTS (SELECT 1 FROM creative_batch_variants v JOIN creative_batches b ON b.app_id=v.app_id AND b.id=v.batch_id WHERE v.job_id=jobs.id AND b.state='BLOCKED_HOLD')",(canonical({"error":"Render lease expired; inspect the retained batch hold before recovery","external_execution":"UNKNOWN"}),now(),time.time()))
         db.execute("UPDATE jobs SET status='CANCELLED',updated=? WHERE action='render' AND status='QUEUED' AND EXISTS (SELECT 1 FROM creative_batch_variants v JOIN creative_batches b ON b.app_id=v.app_id AND b.id=v.batch_id WHERE v.job_id=jobs.id AND b.state='BLOCKED_HOLD')",(now(),))
-        db.execute("UPDATE jobs SET status='FAILED',result=?,updated=? WHERE status='RUNNING' AND lease<? AND attempts>=3",(canonical({"error":"Recovery attempt limit reached; review the job before retry"}),now(),time.time()))
-        candidates=db.execute("SELECT * FROM jobs WHERE (status='QUEUED' OR (status='RUNNING' AND lease<? AND action NOT IN ('campaign_post','campaign_ad','campaign_monitor'))) AND attempts<3 ORDER BY created",(time.time(),))
+        db.execute("UPDATE jobs SET status='FAILED',result=?,updated=? WHERE status='RUNNING' AND lease<? AND attempts>=3 AND action!='social_publication'",(canonical({"error":"Recovery attempt limit reached; review the job before retry"}),now(),time.time()))
+        candidates=db.execute("SELECT * FROM jobs WHERE (status='QUEUED' OR (status='RUNNING' AND lease<? AND action NOT IN ('campaign_post','campaign_ad','campaign_monitor','social_publication'))) AND ((action='social_publication' AND attempts<1000) OR (action!='social_publication' AND attempts<3)) ORDER BY created",(time.time(),))
         row=None
         for candidate in candidates:
+            if candidate['action']=='social_publication':
+                from .publication_schedule import ready_job
+                if not ready_job(db,candidate):continue
             batch=db.execute("SELECT b.* FROM creative_batches b JOIN creative_batch_variants v ON v.app_id=b.app_id AND v.batch_id=b.id WHERE v.app_id=? AND v.job_id=?",(candidate['app_id'],candidate['id'])).fetchone()
             if batch:
                 from .creative_batch_authority import bound_plan
@@ -92,7 +101,7 @@ def claim(store):
 
 def process(store,job,stop=None):
     """Prepare local packets or perform a configured read-only provider request."""
-    if job['action'] in ('campaign_post','campaign_ad','campaign_monitor','campaign_owner_report','agent_run'):
+    if job['action'] in ('campaign_post','campaign_ad','campaign_monitor','campaign_owner_report','agent_run','social_publication'):
         return process_special(store,job,stop)
     if job['action'] in ('drive_import','hypit_render','edit_render','render'):
         return process_media(store,job,stop)
@@ -140,6 +149,9 @@ def process(store,job,stop=None):
 
 def process_special(store,job,stop):
     """Dispatch scoped special work without widening the generic queue API."""
+    if job['action']=='social_publication':
+        from .publication_execution import process_job
+        return process_job(store,job)
     if job['action']=='campaign_owner_report':
         from .campaign_owner_reports import execute
         return execute(store,job)
@@ -254,7 +266,7 @@ def current_connection(store,app_id,data):
 
 def failed_result(job,error):
     """Only already-permitted transient source reads get the existing bounded retry."""
-    if job['action'] in ('campaign_post','campaign_ad','campaign_monitor','drive_import'):
+    if job['action'] in ('campaign_post','campaign_ad','campaign_monitor','drive_import','social_publication'):
         return failed_special(job)
     if job['action']=='sync' and 'analytics_schedule_id' in job['data']:
         if transient_read_error(error) and job['attempts']<3:
@@ -279,6 +291,8 @@ def failed_result(job,error):
 
 def failed_special(job):
     """Failures of special jobs never inherit generic retries."""
+    if job['action']=='social_publication':
+        return dict(error='Publication stopped; reconcile the saved intent before another action.',external_execution='UNKNOWN_OR_NOT_DISPATCHED'),'BLOCKED',0
     if job['action'] in ('campaign_post','campaign_ad','campaign_monitor'):
         return dict(error='Scheduled campaign stopped; inspect its saved campaign intent before any retry.',
                     next_action='Review the exact intent and provider state.',
@@ -322,13 +336,24 @@ def run_once(store,stop=None):
 
 def persist_job_result(store,job,result,status,retry_delay):
     """Commit only the still-owned result and its existing telemetry/hooks."""
+    from .publication_execution import PreparedPublicationStep
     with connection(store.path) as db:
+        if isinstance(result,PreparedPublicationStep):
+            from .publication_schedule import finish_step
+            db.execute('BEGIN IMMEDIATE')
+            outcome=finish_step(db,store,job,result.result,result.reschedule_at)
+            from .workflow_telemetry import append
+            append(db,job,'RETRY_WAIT' if outcome['job_status']=='QUEUED' else outcome['job_status'])
+            db.execute("INSERT INTO audit(app_id,action,detail,created) VALUES(?,?,?,?)",(job['app_id'],'job.'+outcome['job_status'].lower(),canonical({'id':job['id'],'action':job['action'],'result_hash':digest(result.result)}),now()))
+            return
         if isinstance(result,PreparedAppleMetrics):
             result,status=_persist_prepared_apple_metrics(db,store,job,result)
             if status is None:
                 return
         changed=db.execute("UPDATE jobs SET status=?,result=?,lease=?,updated=? WHERE id=? AND status='RUNNING' AND attempts=?",(status,canonical(result),time.time()+retry_delay if retry_delay else 0,now(),job["id"],job["attempts"])).rowcount
         if changed:
+            if job['action']=='social_publication' and status=='BLOCKED':
+                db.execute("UPDATE publication_schedules SET status='BLOCKED',updated=? WHERE job_id=? AND status='QUEUED'",(now(),job['id']))
             from .workflow_telemetry import append
             append(db,job,'RETRY_WAIT' if retry_delay else status)
             if 'analytics_schedule_id' in job['data']:

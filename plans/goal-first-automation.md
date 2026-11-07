@@ -39,3 +39,6 @@ A general toggle does not authorize new networks, newly generated public content
 
 ### Completion rule
 The goal remains active until both the original five deliverables and these additions have requirement-matched evidence. Keep local synthetic acceptance, actual provider/device acceptance, deployment and measured business outcomes separate. Do not mark the goal complete based on a subset of completed tracks.
+
+## Owner-added channel execution - November 6, 2026
+The owner requires Instagram, TikTok, YouTube Shorts and LinkedIn operating workflows alongside Facebook: account connection, content review, exact approval, publication, status reconciliation, monitoring and receipts. This extends the prior Meta-only execution scope. Implement through `specs/multi-channel-publication.md` and `plans/multi-channel-publication.md`; OAuth-only connections or preview labels do not satisfy channel execution. Preserve zero-spend organic defaults and per-channel owner consent. Complete the attributable WizeMe experiment in parallel; channel implementation does not establish marketing gains.

@@ -32,6 +32,8 @@ test('every static task form has an explicit narrative and renders without contr
   assert.ok(html.includes(stories.FORMS[id][0].replaceAll('’','’'))||html.includes('&#39;'));
   assert.ok(!html.includes('PRIVATE_SENTINEL'));assert.ok(!/<input|<form|<button/.test(html));
  }
+ assert.match(stories.FORMS['publication-draft-form'][1],/TikTok options/);
+ assert.match(stories.FORMS['publication-approval-form'][2],/not a provider success receipt/);
 });
 test('read-only and unknown dialogs escape hostile titles without inventing an effect',()=>{
  const title='<img src=x onerror=alert(1)>';

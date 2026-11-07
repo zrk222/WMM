@@ -288,15 +288,19 @@ def due_payload(row):
 def tick(store):
     """Atomically enqueue each due item once; no provider calls occur here."""
     initialize(store)
+    from .publication_schedule import initialize as publication_initialize, advance as advance_publications
+    from .publication_execution import initialize as execution_initialize
+    publication_initialize(store);execution_initialize(store)
     count = 0
     with connection(store.path) as db:
         db.execute('BEGIN IMMEDIATE')
+        count += advance_publications(db,store)
         from .organic_video_monitor import advance as advance_video
         count += advance_video(db, store)
         rows = db.execute("""SELECT i.*,b.app_id,b.scope_id,b.summary,b.summary_hash
             FROM campaign_schedule_items i JOIN campaign_schedule_batches b ON b.id=i.batch_id
             WHERE i.status='READY' AND b.status='ACTIVE' AND i.due<=?
-            ORDER BY i.due,i.id LIMIT ?""", (time.time(), MAX_ITEMS-count)).fetchall()
+            ORDER BY i.due,i.id LIMIT ?""", (time.time(), max(0, MAX_ITEMS-count))).fetchall()
         for row in rows:
             try:
                 action, data = due_payload(row)

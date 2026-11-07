@@ -92,6 +92,9 @@ def execute(service,envelope,*,caller='SCOPED_AGENT'):
         from .operation_authority import protected
         with protected(service.store,envelope):
             return dispatch(service.store,envelope['app_id'],envelope['operation'].split('.')[1],envelope['input'])
+    if envelope['operation'].startswith('publication.'):
+        from .agent_dispatch import dispatch as publication_dispatch
+        return publication_dispatch(service,envelope,caller=caller)
     if envelope['operation'].startswith('studio.'):
         return service.studio.dispatch(envelope)
     if envelope['operation'].startswith('packaging.'):
