@@ -8,14 +8,14 @@ def check_destination(link):
     """Observe the approved URL, with no cookies, auth, unsafe hosts or silent rewrite.
 
     The shared reader pins public DNS, verifies TLS and permits at most two
-    same-origin redirects. Query-bearing links currently require owner repair;
-    stripping a query would check a different destination than the approved one.
+    same-origin redirects. Public UTM parameters must survive each request and
+    redirect exactly as approved.
     """
     if link is None:
         return None
     try:
-        target = public_url(link)
-        reader = PublicReader()
+        target = public_url(link, allow_tracking=True)
+        reader = PublicReader(allow_tracking=True)
         reader.deadline = time.monotonic() + 10
         result = reader.read(target, 1048576)
     except ReadError as exc:

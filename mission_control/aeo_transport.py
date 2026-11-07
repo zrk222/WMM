@@ -15,6 +15,7 @@ from .aeo_tls import trust_context
 AGENT = "AppGrowthMissionControl"
 DNS_SLOTS = threading.BoundedSemaphore(4)
 REDIRECTS = {301, 302, 303, 307, 308}
+TRACKING_FIELDS = frozenset(("utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"))
 
 
 class ReadError(Invalid):
@@ -25,14 +26,14 @@ class ReadError(Invalid):
         super().__init__("Public page check failed: " + code)
 
 
-def url_parts(value):
+def url_parts(value, *, allow_tracking=False):
     """Reject authority ambiguity and secret-bearing URL components."""
     if not isinstance(value, str) or len(value) > 2400 or re.search(r"[\x00-\x20\x7f\\]", value):
         raise ReadError("URL_INVALID")
     u = urlsplit(value)
     if u.scheme != "https" or u.username is not None or u.password is not None or u.port not in (None, 443):
         raise ReadError("URL_INVALID")
-    if "?" in value or "#" in value:
+    if "#" in value or ("?" in value and (not allow_tracking or not u.query)):
         raise ReadError("URL_INVALID")
     return u
 
@@ -61,11 +62,25 @@ def url_path(value):
     return quote(path, safe="/%:@!$&'()*+,;=-._~")
 
 
-def public_url(value):
-    """Canonical public origin and path; queries/credentials never enter reads."""
+def tracking_query(query):
+    """Validate public UTM fields without rewriting their wire representation."""
+    seen = set()
+    for field in query.split("&"):
+        key, separator, value = field.partition("=")
+        if (key not in TRACKING_FIELDS or key in seen or not separator
+                or not re.fullmatch(r"(?:[A-Za-z0-9._~+-]|%[0-9A-Fa-f]{2})+", value)
+                or re.search(r"[\x00-\x1f\x7f\\]", unquote(value, errors="strict"))):
+            raise ReadError("URL_INVALID")
+        seen.add(key)
+    return query
+
+
+def public_url(value, *, allow_tracking=False):
+    """Canonical public origin and path, with an opt-in for exact UTM queries."""
     try:
-        u = url_parts(value)
-        return urlunsplit(("https", hostname(u.hostname), url_path(u.path), "", ""))
+        u = url_parts(value, allow_tracking=allow_tracking)
+        query = tracking_query(u.query) if u.query else ""
+        return urlunsplit(("https", hostname(u.hostname), url_path(u.path), query, ""))
     except (ValueError, AttributeError, UnicodeError) as exc:
         raise ReadError("URL_INVALID") from exc
 
@@ -236,17 +251,20 @@ def response_body(response, headers, cap, conn, deadline):
 
 class PublicReader:
     """One six-request/two-redirect, thirty-second public inspection budget."""
-    def __init__(self):
+    def __init__(self, *, allow_tracking=False):
         """Allocate one bounded diagnostic run using existing CA trust."""
         self.deadline = time.monotonic() + 30
         self.requests = 0; self.redirects = 0
         self.context = trust_context()
+        self.allow_tracking = allow_tracking
 
     def once(self, url, cap):
-        host = urlsplit(url).hostname; ip = address(host, self.deadline)
+        target = urlsplit(url)
+        host = target.hostname; ip = address(host, self.deadline)
         conn = PinnedHTTPS(host, ip, self.context, self.deadline)
         try:
-            conn.request("GET", urlsplit(url).path or "/", headers={"User-Agent": AGENT+"/1.0", "Accept-Encoding": "identity", "Accept": "text/html,text/plain,application/xml;q=0.9"})
+            request_target = urlunsplit(("", "", target.path or "/", target.query, ""))
+            conn.request("GET", request_target, headers={"User-Agent": AGENT+"/1.0", "Accept-Encoding": "identity", "Accept": "text/html,text/plain,application/xml;q=0.9"})
             response = conn.getresponse(); headers = response_headers(response)
             raw = b"" if response.status in REDIRECTS else response_body(response, headers, cap, conn, self.deadline)
             return {"url": url, "status": response.status, "headers": headers, "body": raw,
@@ -255,7 +273,8 @@ class PublicReader:
             conn.close()
 
     def read(self, value, cap, permit=None):
-        url = public_url(value); initial = origin(url)
+        url = public_url(value, allow_tracking=self.allow_tracking)
+        initial = "https://" + urlsplit(url).netloc
         if type(cap) is not int or not 1 <= cap <= 1048576:
             raise ReadError("LIMIT_INVALID")
         while True:
@@ -285,9 +304,15 @@ class PublicReader:
         locations = resource["headers"].get("location", [])
         if self.redirects > 2 or len(locations) != 1:
             raise ReadError("REDIRECT_LIMIT")
-        url = public_url(urljoin(resource["url"], locations[0]))
-        if origin(url) != initial:
+        location = locations[0]
+        if location.endswith("?"):
+            raise ReadError("REDIRECT_QUERY")
+        url = public_url(urljoin(resource["url"], location), allow_tracking=self.allow_tracking)
+        target = urlsplit(url)
+        if "https://" + target.netloc != initial:
             raise ReadError("REDIRECT_ORIGIN")
+        if target.query != urlsplit(resource["url"]).query:
+            raise ReadError("REDIRECT_QUERY")
         return url
 
 
