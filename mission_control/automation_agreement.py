@@ -42,7 +42,7 @@ UNCERTAIN = (
 
 def selection(body):
     """Accept exact existing resource references, never new authority choices."""
-    exact_keys(body, FIELDS)
+    exact_keys(body, FIELDS, ("draft_posts",))
     if type(body["manifest_version"]) is not int or body["manifest_version"] < 1:
         raise Invalid("Use the current app manifest version")
     selected = [body[name] for name in FIELDS[1:] if body[name] is not None]
@@ -50,6 +50,12 @@ def selection(body):
         raise Invalid("Select at least one existing automation resource")
     for identity in selected:
         reference(identity)
+    if "draft_posts" in body:
+        posts = body["draft_posts"]
+        if (body["campaign_scope_id"] is None or body["schedule_batch_id"] is not None
+                or not isinstance(posts, list) or not 1 <= len(posts) <= 20):
+            raise Invalid("Select one draft campaign and one to twenty exact posts")
+        return dict(body, draft_posts=[post_data(post) for post in posts])
     return dict(body)
 
 
@@ -465,6 +471,17 @@ def build_summary(db, app, owner, chosen, observed):
         db, app["id"], owner["principal"], chosen["workflow_policy_id"], observed
     )
     campaign = campaign_scope(db, app, owner, campaign_id, observed)
+    draft_posts = chosen.get("draft_posts")
+    if draft_posts is not None:
+        approval = campaign["approval"]
+        if (campaign["status"] != "DRAFT" or approval["ad_account_id"] is not None
+                or len(draft_posts) > approval["max_posts"]):
+            raise Invalid("Use the current draft organic campaign scope")
+        if any(post["content_hash"] not in approval["approved_content_hashes"]
+               or post["rights_hash"] not in approval["approved_rights_hashes"]
+               for post in draft_posts):
+            raise Invalid("Draft post differs from the saved campaign scope")
+        campaign["draft_posts"] = draft_posts
     batch = batch_scope(db, app["id"], row, saved, campaign, observed)
     uncertain = uncertainty(local, campaign, batch)
     blocked = uncertain or any(
@@ -473,7 +490,7 @@ def build_summary(db, app, owner, chosen, observed):
     )
     return dict(
         schema="wmm.automation-agreement.v1",
-        selection=chosen,
+        selection={name: chosen[name] for name in FIELDS},
         app=dict(id=app["id"], version=app["version"], hash=digest(app["data"])),
         owner=dict(principal=owner["principal"], role_version=owner["version"]),
         policy_sha256=digest(operating_manifest(app)),
