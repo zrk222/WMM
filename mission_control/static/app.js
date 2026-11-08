@@ -540,8 +540,15 @@ function historicalForm(id) {
   modal("Reproduce an earlier report",`<form id="history-form" data-cohort="${esc(id)}"><div class="modal-content">${notice("Only events observed by this timestamp will count. Later refunds remain in the ledger and restate later reports.")}${field("as_of",new Date().toISOString(),"text","ISO timestamp with timezone; no future dates")}<div class="field-error" id="form-error" role="alert"></div></div><div class="modal-actions"><button type="submit" class="button">Inspect historical report</button></div></form>`);
 }
 
+function providerHealthPanel() {
+  const value=state.workspace.provider_health,entries=value?.entries||[];
+  const when=epoch=>{if(!epoch)return "Not recorded";const date=new Date(typeof epoch==="number"?epoch*1000:epoch);return Number.isNaN(date.getTime())?"Not recorded":date.toLocaleString();};
+  const rows=entries.map(item=>`<tr><th scope="row">${esc(label(item.provider))}</th><td>${esc(label(item.kind))}</td><td>${status(item.state)}</td><td>${esc(label(item.permission_state))}</td><td>${esc(when(item.expires_at))}</td><td>${esc(item.failure||"None recorded")}</td><td>${esc(item.next_action||"No action")}</td></tr>`).join('');
+  return `<section class="panel" aria-label="Provider health"><h2>Provider health</h2>${value?.recovery?notice("Highest-priority recovery: "+value.recovery.next_action,"warning"):notice("No provider needs repair from the saved local state. Missing scope or delivery is not inferred.")}${entries.length?`<div class="table-wrap"><table><caption>Saved provider state and one recovery path per row</caption><thead><tr><th scope="col">Provider</th><th scope="col">Kind</th><th scope="col">Observed state</th><th scope="col">Permission</th><th scope="col">Expires</th><th scope="col">Failure</th><th scope="col">Next action</th></tr></thead><tbody>${rows}</tbody></table></div>`:notice("No supported provider connection is saved for this app. A missing connection is not a successful or zero read.")}<p class="description">${esc(value?.scope||"Login, key presence and publishing access are not analytics permission or measured outcomes.")}</p></section>`;
+}
+
 function connectionsView() {
-  return heading("Connect with clarity","Connect each app’s evidence, then verify actual access.")+WMMOneSignal.panel()+WMMAppleAnalytics.panel()+WMMDrive.panel()+googlePlayPanel()+socialPanel()+WMMPublicationUI.panel(state)+campaignPanel()+releaseInventoryPanel()+subscriptionPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyConnectionsView();
+  return heading("Connect with clarity","Connect each app’s evidence, then verify actual access.")+providerHealthPanel()+WMMOneSignal.panel()+WMMAppleAnalytics.panel()+WMMDrive.panel()+googlePlayPanel()+socialPanel()+WMMPublicationUI.panel(state)+campaignPanel()+releaseInventoryPanel()+subscriptionPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyConnectionsView();
 }
 
 function legacyConnectionsView() {
