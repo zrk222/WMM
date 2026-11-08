@@ -1161,7 +1161,7 @@ $("#edit-app").addEventListener("click",()=>appForm(false));
 $("#close-modal").addEventListener("click",()=>$("#modal").close());
 $("#modal").addEventListener("close",()=>{WMMAppleAnalytics.clear();WMMOneSignal.clear();WMMAgentControl.clear();WMMCompleteAutomation.clear();WMMVideoEditor.clear();WMMStudio.clear();WMMMedia.clear();WMMDrive.clear();WMMDiscovery.clear();WMMPackaging.clear();WMMFunnels.clear();delete $("#modal-body").dataset.job;const target=modalReturnFocus;modalReturnFocus=null;if(target&&target.isConnected&&typeof target.focus==="function")target.focus();});
 $("#modal").addEventListener("keydown",modalTab);
-document.addEventListener("keydown",event=>{if(event.key==="Escape"&&$("#modal")?.open){event.preventDefault();$("#modal").close();}});
+document.addEventListener("keydown",event=>{const dialog=$("#modal");if(event.key==="Escape"&&dialog?.open&&dialog.contains(event.target)){event.preventDefault();dialog.close();}});
 document.addEventListener("input",event=>{
   if(event.target.id==="reference-search"){const position=event.target.selectionStart;state.referenceFilter=event.target.value;render();$("#reference-search").focus();$("#reference-search").setSelectionRange(position,position);return;}
   if(event.target.closest("#experiment-form"))return samplePreview();
