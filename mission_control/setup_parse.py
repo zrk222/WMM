@@ -71,7 +71,8 @@ class Candidates(HTMLParser):
         if len(rows) >= MAX_CANDIDATES:
             self.limited.add(field)
             return
-        rows.append(dict(value=value, basis=basis, reference=reference, label='PUBLIC_METADATA_UNVERIFIED'))
+        rows.append(dict(value=value, basis=basis, reference=reference, origin='PUBLIC_SOURCE',
+                         support='SUPPORTED_BY_SOURCE', label='PUBLIC_METADATA_UNVERIFIED'))
 
     def handle_starttag(self, tag, attrs):
         """Duplicate attributes have no chosen browser-dependent interpretation."""

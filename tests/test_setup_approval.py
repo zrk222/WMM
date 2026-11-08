@@ -24,10 +24,35 @@ class SetupApprovalTests(SetupFixture):
         sources = app['data']['setup_sources']
         self.assertEqual(sources['name']['label'], 'PUBLIC_METADATA_UNVERIFIED')
         self.assertEqual(sources['audience']['label'], 'HUMAN_EDIT')
+        self.assertEqual(sources['name']['origin'], 'PUBLIC_SOURCE')
+        self.assertEqual(sources['name']['support'], 'SUPPORTED_BY_SOURCE')
+        self.assertEqual(sources['audience']['origin'], 'HUMAN')
+        self.assertEqual(sources['audience']['support'], 'UNSUPPORTED')
+        self.assertIsNone(sources['audience']['reference'])
         self.assertEqual(sources['name']['value_sha256'], digest('Real app'))
+        self.assertFalse({'reasoning', 'prompt', 'transcript'} & set(sources['name']))
         self.assertEqual(result['readiness'], 'NOT_VERIFIED')
         self.assertFalse(result['external_writes'])
         self.assertEqual(self.service.list('sample-one')['proposals'][0]['currentness'], 'APPLIED')
+
+    def test_public_source_keeps_the_exact_store_reference_and_agent_origin(self):
+        from tests.test_aeo_inspection import Reader
+        from mission_control.operation_authority import REQUEST
+        row = self.start(Reader(page='<title>Real app</title><a href="https://apps.apple.com/app/id456">App</a>'))
+        apply(self.store, 'sample-one', self.approval(row, {'store_app_id': '456'}))
+        source = self.store.app('sample-one')['data']['setup_sources']['store_app_id']
+        self.assertEqual(source['origin'], 'PUBLIC_SOURCE')
+        self.assertEqual(source['support'], 'SUPPORTED_BY_SOURCE')
+        self.assertTrue(source['reference'].startswith('https://apps.apple.com/'))
+        row = self.start()
+        token = REQUEST.set(dict(grant_id='grant-one'))
+        try:
+            apply(self.store, 'sample-one', self.approval(row, {'name': 'Real app'}))
+        finally:
+            REQUEST.reset(token)
+        agent = self.store.app('sample-one')['data']['setup_sources']['name']
+        self.assertEqual(agent['origin'], 'AGENT')
+        self.assertEqual(agent['support'], 'SUPPORTED_BY_SOURCE')
 
     def test_replay_and_changed_manifest_are_rejected_without_second_update(self):
         row = self.start()

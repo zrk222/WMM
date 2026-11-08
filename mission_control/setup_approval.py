@@ -61,16 +61,26 @@ def source_guard(app, row, body):
 
 
 def provenance(app, row, changes):
-    """Bind each value to its observed source or explicit human edit, without claiming truth."""
+    """Bind each value to a public source, agent or human origin without claiming truth.
+
+    Only fixed source metadata is retained. Model reasoning, prompts and free-form
+    agent narration are never stored here.
+    """
     existing = app['data'].get('setup_sources', {})
     if not isinstance(existing, dict):
         raise Invalid('Saved setup provenance needs review before replacement')
+    from .operation_authority import REQUEST
+    context = REQUEST.get()
+    agent = bool(context and context.get('grant_id'))
     result = dict(existing)
     data = row['data']
     for key, value in changes.items():
         candidates = data['projection']['fields'].get(key, [])
         match = next((item for item in candidates if item['value'] == value), None)
         result[key] = dict(value_sha256=digest(value), proposal_id=row['id'], proposal_hash=row['hash'],
+                           origin='AGENT' if agent else ('PUBLIC_SOURCE' if match else 'HUMAN'),
+                           support='SUPPORTED_BY_SOURCE' if match else 'UNSUPPORTED',
+                           reference=(match.get('reference') if match else None),
                            source_url=data['source_url'], source_sha256=data['source_sha256'], observed_at=data['observed_at'],
                            basis=match['basis'] if match else 'EXPLICIT_REVIEW_EDIT',
                            label='PUBLIC_METADATA_UNVERIFIED' if match else 'HUMAN_EDIT',
