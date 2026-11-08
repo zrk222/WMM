@@ -53,6 +53,16 @@ STEP_TOOLS = {
 }
 
 
+EVIDENCE_STATES = (
+    {"id": "INPUTS_READY", "title": "Inputs ready",
+     "detail": "The saved facts pass this stage's local checks."},
+    {"id": "EXECUTION_APPROVED", "title": "Execution approved",
+     "detail": "You approved an exact action. Its execution receipt tells you whether it ran."},
+    {"id": "OUTCOME_OBSERVED", "title": "Outcome observed",
+     "detail": "A source records what happened. Missing results stay unknown; counts alone do not prove growth."},
+)
+
+
 def tool(identity):
     """Return a fixed named tool; no source data becomes a dynamic URL."""
     title, route = TOOLS[identity]
@@ -105,6 +115,7 @@ def guide(app, records, evaluations, reports=(), catalog=None, release=None):
             "next_step": unresolved["id"] if unresolved else None,
             "local_ready_count": sum(r["local_status"] == "LOCAL_INPUTS_READY" for r in steps),
             "checklist_storage": "DERIVED_FROM_SAVED_APP_EVIDENCE",
+            "evidence_states": [dict(state) for state in EVIDENCE_STATES],
             "classification": "LOCAL_GUIDANCE_NOT_RELEASE_APPROVAL",
             "execution": "INSPECT_EXACT_ACTION_RECORDS", "outcomes": "INSPECT_MATURE_SOURCE_REPORTS",
             "automatic_external_writes": False, "authorized_spend_minor": 0}

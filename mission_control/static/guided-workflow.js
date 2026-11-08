@@ -55,8 +55,15 @@ const WMMExceptionGuidance=(()=>{
 })();
 function guidedExceptionPanel(rows){return WMMExceptionGuidance.panel(rows);}
 
+const EVIDENCE_STATE_FALLBACK=[
+ {id:"INPUTS_READY",title:"Inputs ready",detail:"The saved facts pass this stage’s local checks."},
+ {id:"EXECUTION_APPROVED",title:"Execution approved",detail:"You approved an exact action. Its execution receipt tells you whether it ran."},
+ {id:"OUTCOME_OBSERVED",title:"Outcome observed",detail:"A source records what happened. Missing results stay unknown; counts alone do not prove growth."}
+];
 function guidedEvidenceStates() {
-  return `<section class="panel" aria-label="Understand workflow progress"><h2>Know what each result means</h2><dl><dt><strong>Inputs ready</strong></dt><dd>The saved facts pass this stage’s local checks.</dd><dt><strong>Execution approved</strong></dt><dd>You approved an exact action. Its execution receipt tells you whether it ran.</dd><dt><strong>Outcome observed</strong></dt><dd>A source records what happened. Missing results stay unknown; counts alone do not prove growth.</dd></dl></section>`;
+  const saved=typeof state!=="undefined"?state.workspace?.workflow?.evidence_states:null;
+  const states=Array.isArray(saved)&&saved.length===3?saved:EVIDENCE_STATE_FALLBACK;
+  return `<section class="panel" aria-label="Understand workflow progress"><h2>Know what each result means</h2><p>These labels mean the same thing in onboarding, review and results.</p><dl>${states.map(s=>`<dt><strong>${esc(s.title)}</strong></dt><dd>${esc(s.detail)}</dd>`).join("")}</dl></section>`;
 }
 
 function guidedCriticalFindings(g) {
