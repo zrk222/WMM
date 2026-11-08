@@ -205,6 +205,8 @@ class Service:
         if workspace['apple_analytics_schedule'] is not None:
             workspace['apple_analytics_schedule']['last_error']=None
         workspace['subscription_growth']=self.subscription_review(app_id,expected=app)
+        from .activity_timeline import read as activity_read
+        workspace['activity_timeline']=activity_read(self.store,app_id)
         return workspace
 
     def subscription_review(self,app_id,expected=None):

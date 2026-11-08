@@ -318,6 +318,8 @@ class Handler(BaseHTTPRequestHandler):
             if urlparse(self.path).query:raise Invalid('Use the exact app job history address')
             from .worker import jobs
             return self.send(200,jobs(store,app_id))
+        if parts[3:]==['activity','history']:
+            return self.get_activity(app_id)
         if len(parts)==3:
             return self.send(200,dict(self.server.service.workspace(app_id),identity=self.server.identities.public(self.session()),
                                       device_signin_available=self.server.device_signins.available))
@@ -361,6 +363,22 @@ class Handler(BaseHTTPRequestHandler):
         if not re.fullmatch(r"[a-f0-9-]+\.(?:png|jpg|jpeg)",parts[4]):raise Invalid('Invalid asset identifier')
         file=store.path.parent/'files'/app_id/parts[4]
         return self.send(200,file.read_bytes(),mimetypes.guess_type(file.name)[0])
+
+    def get_activity(self,app_id):
+        """Serve one bounded, filtered page of joined app-owned local records."""
+        from .activity_timeline import read as activity_read
+        query=parse_qs(urlparse(self.path).query,keep_blank_values=True)
+        if any(key not in ('kind','status','cursor','limit') for key in query):
+            raise Invalid('Use only kind, status, cursor and limit')
+        if any(len(values)!=1 for values in query.values()):
+            raise Invalid('Use each activity filter once')
+        try:
+            limit=int(query.get('limit',['20'])[0])
+        except ValueError as exc:
+            raise Invalid('Activity limit must be an integer') from exc
+        value=activity_read(self.server.service.store,app_id,kind=query.get('kind',[None])[0],
+                            status=query.get('status',[None])[0],cursor=query.get('cursor',[None])[0],limit=limit)
+        return self.send(200,value,filename=app_id+'-activity-history.json')
 
     def get_history(self,app_id,kind):
         """Export only registered app-scoped histories through exact addresses."""
