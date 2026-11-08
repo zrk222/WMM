@@ -184,7 +184,7 @@ def local_constraints(operation,body):
         count(body['offset'],0,10000)
     if operation=='billing.save' and body['kind']!='billing':
         raise Invalid('billing.save accepts billing evidence only')
-    if operation=='experiment.action' and body['operation'] not in ('observe','decide','cancel','rollback'):
+    if operation=='experiment.action' and body['operation'] not in ('observe','decide','cancel','rollback','note'):
         raise Invalid('Use only the existing local experiment lifecycle actions')
     if operation=='evidence.save':
         path_segment(body['id'])

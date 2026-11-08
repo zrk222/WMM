@@ -172,6 +172,25 @@ class ExperimentTests(unittest.TestCase):
         self.assertEqual(result["external_execution"],"NOT_RUN")
         self.assertEqual(self.current(e)["state"],"DECIDED")
 
+    def test_decision_note_is_history_only_immutable_and_idempotent(self):
+        e,result=self.evaluated();current=self.current(e);state=current["state"]
+        body=dict(operation="note",version=current["version"],note="Human note: watched retention; no provider read")
+        first=self.experiments.act("sample-one",e["id"],body)
+        self.assertEqual(first["status"],state)
+        self.assertEqual(first["external_execution"],"NOT_RUN")
+        saved=self.current(e)
+        self.assertEqual(saved["state"],state)
+        self.assertEqual(saved["version"],current["version"]+1)
+        self.assertEqual(saved["actions"][-1]["data"],body)
+        self.assertFalse([a for a in saved["actions"] if a["data"]["operation"]=="decide"])
+        replay=self.experiments.act("sample-one",e["id"],body)
+        self.assertEqual(replay["status"],"ALREADY_RECORDED")
+        self.assertEqual(self.current(e)["version"],saved["version"])
+        for bad in (dict(operation="note",version=saved["version"],note=" "),
+                    dict(operation="note",version=saved["version"],note="ok",reason="extra")):
+            with self.subTest(bad=bad),self.assertRaises(Invalid):
+                self.experiments.act("sample-one",e["id"],bad)
+
     def test_iteration_decisions_are_bound_and_never_grant_effects(self):
         from mission_control.experiment_iteration import iteration_plan
 
