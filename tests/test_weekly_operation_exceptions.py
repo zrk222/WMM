@@ -27,6 +27,68 @@ class WeeklyOperationTests(unittest.TestCase):
             self.store, self.store.app("sample"), self.owner if user is None else user
         )
 
+    def active(self, user=()):
+        from mission_control.weekly_inbox import active_work
+        return active_work(
+            self.store, self.store.app("sample"), self.owner if user == () else user
+        )
+
+    def test_active_work_lists_jobs_sequences_and_expiring_authority(self):
+        from mission_control.worker import enqueue
+        job = enqueue(self.store, "sample", "pipeline", dict(stage=1), "active-work-key")
+        stamp = now()
+        expires = (datetime.now(timezone.utc) + timedelta(days=2)).isoformat()
+        with connection(self.store.path) as db:
+            db.execute("INSERT INTO campaign_sequences VALUES(?,?,?,?,?,?,?,?,?,?)",
+                       ("sequence-1", "sample", "{}", digest({}), "{}", "sequence-request",
+                        "WAITING", "{}", stamp, stamp))
+            db.execute("INSERT INTO agent_grants VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                       ("grant-soon", "sample", "agent", "owner", 1, 1, "a" * 64,
+                        '["workspace.read"]', "b" * 64, expires, 5, 0, "ACTIVE", 1, stamp, stamp))
+            summary = dict(stops_at=(datetime.now(timezone.utc) + timedelta(days=3)).isoformat())
+            db.execute("INSERT INTO automation_policies VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                       ("policy-soon", "sample", "grant-soon", "owner", 1, "ACTIVE", "{}",
+                        canonical(summary), digest(summary), stamp, stamp))
+        items = self.active()
+        job_id = digest(["sample", "JOB", job["id"]])
+        queued = next(item for item in items if item["id"] == job_id)
+        self.assertEqual(queued["state"], "QUEUED")
+        self.assertEqual(queued["resolution_route"], "activity")
+        self.assertEqual(queued["source_receipt"]["manifest_version"], self.store.app("sample")["version"])
+        self.assertEqual(next(item for item in items if item["kind"] == "SEQUENCE")["state"], "WAITING")
+        for kind in ("AGENT_GRANT", "AUTOMATION"):
+            item = next(card for card in items if card["kind"] == kind)
+            self.assertEqual(item["state"], "EXPIRING")
+            self.assertIsNotNone(item["expires_at"])
+        self.assertNotIn("active-work-key", canonical(items))
+        with connection(self.store.path) as db:
+            db.execute("UPDATE jobs SET status='SUCCEEDED' WHERE id=?", (job["id"],))
+            db.execute("UPDATE campaign_sequences SET state='CANCELLED'")
+            db.execute("UPDATE agent_grants SET expires=?",
+                       ((datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),))
+            db.execute("UPDATE automation_policies SET status='OFF'")
+        remaining = {item["id"] for item in self.active()}
+        for kind, identity in (("JOB", job["id"]), ("SEQUENCE", "sequence-1"),
+                               ("AGENT_GRANT", "grant-soon"), ("AUTOMATION", "policy-soon")):
+            self.assertNotIn(digest(["sample", kind, identity]), remaining)
+
+    def test_active_work_is_owner_only_bounded_and_never_exports_results(self):
+        stamp = now()
+        with connection(self.store.path) as db:
+            for ordinal in range(60):
+                db.execute("INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                           ("active-%03d" % ordinal, "sample", "pipeline", "{}", "RUNNING",
+                            0, 0, canonical(dict(secret="PRIVATE_JOB_RESULT")), stamp, stamp,
+                            "active-request-%03d" % ordinal))
+        items = self.active()
+        self.assertLessEqual(sum(item["kind"] == "JOB" for item in items), 50)
+        self.assertNotIn("PRIVATE_JOB_RESULT", canonical(items))
+        self.assertEqual(self.active(None), [])
+        self.assertEqual(self.active(dict(principal="maker")), [])
+        value = review(self.server.service, user=self.owner)
+        self.assertTrue(any(item["kind"] == "JOB" for item in value["active_work"]))
+        self.assertIn("next_offset", value["coverage"])
+
     def handoff(self):
         from mission_control.agent_handoffs import Handoffs
         from mission_control.worker import enqueue

@@ -11,6 +11,8 @@ Extend the existing five-app weekly exception inbox with owner-scoped saved oper
 - The system shall return stable deduplicated actionable cards for UNKNOWN or PENDING campaign delivery, blocked monitors or report plans and active resources with expiry at or before observation time needing a decision through `actionable`.
 - The system shall return zero operational alerts for intentional OFF and completed finite work through `quiet`.
 - The system shall return fixed action tools, exact owned resource IDs, source hashes and observation dates without credentials or raw operation payloads through `privacy`.
+- The system shall project, separately from exceptions and only for the active app owner, current local queued or running jobs, waiting saved sequences and approvals expiring within seven days through `active_work`, with bounded per-source reads, app coverage, the saved update time, the stored expiry when present and one fixed next action.
+- The system shall never infer a completed result from a queued, running or waiting state and shall keep active work out of the exception count.
 
 ### Acceptance criteria (Gherkin)
 ```gherkin
@@ -30,6 +32,12 @@ Scenario: quiet
   Given intentionally OFF scopes and finished finite plans
   When `quiet` reviews unchanged normal work
   Then no operational alert is created
+Scenario: active_work
+  Given owner-scoped queued or running jobs, waiting sequences and approvals expiring within seven days
+  When `active_work` projects the weekly page
+  Then each item carries app coverage, the saved update time, expiry when stored and one fixed next action
+  And no payload, result or credential is disclosed
+  And non-owner identities receive none
 Scenario: privacy
   Given credential-like raw error and request payloads
   When `privacy` projects exceptions
