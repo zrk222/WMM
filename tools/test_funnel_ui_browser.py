@@ -27,7 +27,7 @@ def open_results(page):
 def create(page,t):
     button(page,'Create app-sales funnel').click()
     expect(page.locator('#funnel-plan-form')).to_be_visible()
-    fill(page,dict(audience='Synthetic app users',pain='Tasks lack a next action',milestone='Save the next useful task',metric='Activated users',target='100',due_at='2026-11-01T00:00:00Z',hook='Choose your next useful action',cta='Try the app',destination='https://example.com/app',method='Synthetic source export',identity_scope='source-app-cohort',conversion_window_seconds='86400',free_deliverables='One saved action',paid_deliverables='Additional app workflows'))
+    fill(page,dict(audience='Synthetic app users',pain='Tasks lack a next action',milestone='Save the next useful task',metric='Activated users',target='100',due_at='2026-11-01T00:00:00Z',hook='Choose your next useful action',cta='Try the app',destination='https://example.com/app?utm_source=wmm&utm_campaign=launch%2b1',method='Synthetic source export',identity_scope='source-app-cohort',conversion_window_seconds='86400',free_deliverables='One saved action',paid_deliverables='Additional app workflows'))
     page.locator('[name="creative"]').select_option(index=0)
     page.locator('[name="research"]').select_option('customer-ui-source')
     # Exercise a complete optional stage and keyboard controls, then remove it.
@@ -55,6 +55,7 @@ def create(page,t):
     assert len(posts)==1,'Reconciliation must never resend a plan'
     saved=Funnels(t.store).read('sample-one',Funnels(t.store).list('sample-one')['items'][0]['id'])
     assert saved['data']['definition']['outcome']['research_refs'][0]['id']=='customer-ui-source'
+    assert saved['data']['definition']['destination']=='https://example.com/app?utm_source=wmm&utm_campaign=launch%2b1'
     return saved
 
 def single(page,coverage,count,event,stage):

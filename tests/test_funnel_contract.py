@@ -35,6 +35,15 @@ class FunnelContractTests(unittest.TestCase):
         for route in ('WEBINAR','COACHING','GUARANTEED_INCOME'):
             with self.assertRaises(Invalid):definition(dict(self.plan,route=route))
 
+    def test_destination_keeps_public_utm_bytes_and_rejects_other_query_fields(self):
+        base = 'https://example.com/app'
+        exact = base + '?utm_medium=organic&utm_campaign=Spring%2bSale&utm_source=wmm&utm_content=fb_01'
+        self.assertEqual(definition(dict(self.plan, destination=exact))['destination'], exact)
+        for suffix in ('?token=private', '?utm_source=wmm&utm_source=other',
+                       '?utm_source=%0Ainvalid', '?utm_content=', '?utm_source=wmm#section'):
+            with self.subTest(suffix=suffix), self.assertRaises(Invalid):
+                definition(dict(self.plan, destination=base + suffix))
+
     def test_stage_graph_rejects_cycles_unknown_parents_duplicates_and_oversized_plans(self):
         for rows in ([dict(self.plan['stages'][0],parents=['install']),self.plan['stages'][1]],
                      [dict(self.plan['stages'][0],parents=['missing'])],
