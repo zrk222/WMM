@@ -14,9 +14,20 @@ def exercise(browser,width):
     try:
         page=browser.new_page(viewport=dict(width=width,height=900 if width==1440 else 844))
         errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
-        page.goto(fixture.origin);page.locator('#app-select').select_option('sample-two')
+        page.goto(fixture.origin);        page.locator('#app-select').select_option('sample-two')
         page.locator('[data-view="activity"]').click()
-        page.get_by_role('button',name='Establish app owner',exact=True).click()
+        trigger=page.get_by_role('button',name='Establish app owner',exact=True)
+        trigger.focus();page.keyboard.press('Enter')
+        expect(page.locator('#identity-form')).to_be_visible()
+        assert page.evaluate("document.querySelector('#modal').contains(document.activeElement)")
+        for _ in range(12):
+            page.keyboard.press('Tab')
+            assert page.evaluate("document.querySelector('#modal').contains(document.activeElement)")
+        page.keyboard.press('Escape')
+        assert not page.locator('#modal').evaluate('node=>node.open')
+        assert page.evaluate("document.activeElement && document.activeElement.textContent.includes('Establish app owner')")
+        assert not Access(fixture.store).list('sample-two')['configured']
+        trigger.focus();page.keyboard.press('Enter')
         expect(page.locator('#identity-form')).to_be_visible()
         page.get_by_label('GitHub identity token',exact=True).fill(identities.OWNER_TOKEN)
         page.get_by_role('button',name='Verify my identity',exact=True).focus();page.keyboard.press('Enter')
@@ -32,7 +43,8 @@ def exercise(browser,width):
         assert not page.evaluate('document.documentElement.scrollWidth>innerWidth')
         assert not errors,errors
         page.close()
-        return dict(width=width,login_continues=True,explicit_confirmation=True,no_automatic_owner=True,owner_saved=True,keyboard=True,no_overflow=True,no_page_errors=True)
+        return dict(width=width,login_continues=True,explicit_confirmation=True,no_automatic_owner=True,owner_saved=True,keyboard=True,
+                    keyboard_trap=True,focus_returned=True,escape_no_submit=True,no_overflow=True,no_page_errors=True)
     finally:fixture.tearDown()
 
 

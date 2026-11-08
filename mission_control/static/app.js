@@ -635,7 +635,25 @@ function activityView() {
   return `${heading("Every action leaves a trail","Inspect saved runs, review packets and the history of this app workspace.")}${guidedEvidenceStates()}${activityTimelinePanel()}${guidedExceptionPanel(w.workflow.exceptions)}${verifiedReviewPanel()}<section class="panel" aria-label="Watch campaign delivery"><h2>Watch campaign delivery</h2><p>Review saved provider checks, exceptions and protective pauses for approved Facebook campaigns.</p>${button("Monitor approved campaigns","campaign-monitor-open")}${button("Review private campaign outcomes","owner-report-open")}</section>${providerActionsPanel()}${notice("Legacy local-name packets below are manual bookkeeping. They cannot establish verified identity or authorize provider execution.")}<div class="section-heading"><h2>Manual review history</h2>${button("Prepare review packet","prepare-review")}</div>${w.approvals.length?`<div class="record-list">${w.approvals.map(r=>`<button class="record-row" data-action="review" data-id="${esc(r.id)}"><span class="record-icon" aria-hidden="true">✓</span><span class="record-main"><strong>${esc(r.packet.record.title)}</strong><small>Prepared by ${esc(r.preparer)} · expires ${esc(new Date(r.expires).toLocaleString())}</small></span>${status(r.status)}</button>`).join("")}</div>`:empty("Nothing waiting for review","Add a distribution, store or experiment record, then freeze its exact contents into a review packet.")}<div class="section-heading"><h2>Saved runs</h2></div>${w.jobs.length?`<div class="record-list">${w.jobs.map(job=>`<button class="record-row" data-action="job" data-id="${esc(job.id)}"><span class="record-icon" aria-hidden="true">↻</span><span class="record-main"><strong>${job.action==="agent_run"?"Agent campaign draft":job.action==="resolution"?"Agent evidence resolution":job.action==="pipeline"?"Pipeline preparation":job.action==="experiment"?"Experiment analysis":"Provider synchronization"}</strong><small>${esc(new Date(job.created).toLocaleString())} · attempt ${job.attempts}</small></span>${status(job.status)}</button>`).join("")}</div>`:empty("Your first run starts the trail","Prepare the pipeline to save app-scoped packets and exact missing-input checklists.",button("Prepare the pipeline","run-all"))}<div class="section-heading"><h2>Workspace history</h2></div>${w.audit.length?`<div class="record-list">${w.audit.slice(0,20).map(entry=>`<div class="record-row"><span class="record-main"><strong>${esc(label(entry.action.replaceAll("."," ")))}</strong><small>${esc(new Date(entry.created).toLocaleString())}</small></span><span class="app-mono">#${entry.id}</span></div>`).join("")}</div>`:notice("No workspace changes have been recorded yet.")}`;
 }
 
+let modalReturnFocus=null;
+function modalFocusable() {
+  const dialog=$("#modal");
+  if(!dialog)return [];
+  return [...dialog.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')]
+    .filter(node=>node.getClientRects().length>0);
+}
+function modalTab(event) {
+  if(event.key!=="Tab")return;
+  const dialog=$("#modal");
+  if(!dialog?.open)return;
+  const items=modalFocusable();
+  if(!items.length){event.preventDefault();dialog.focus();return;}
+  const first=items[0],last=items[items.length-1],active=document.activeElement;
+  if(event.shiftKey&&(active===first||!dialog.contains(active))){event.preventDefault();last.focus();}
+  else if(!event.shiftKey&&(active===last||!dialog.contains(active))){event.preventDefault();first.focus();}
+}
 function modal(title,html,eyebrow="WORKSPACE") {
+  if(!$("#modal").open&&document.activeElement&&document.activeElement!==document.body)modalReturnFocus=document.activeElement;
   WMMAppleAnalytics.clear();
   WMMOneSignal.clear();
   WMMAgentControl.clear();
@@ -653,6 +671,8 @@ function modal(title,html,eyebrow="WORKSPACE") {
   $("#modal-body").insertAdjacentHTML("afterbegin",WMMStories.dialog(title,html));
   if(currentWorkspace()) automationAttach();
   if(!$("#modal").open) $("#modal").showModal();
+  const first=modalFocusable()[0];
+  if(first)first.focus();
 }
 
 function openStage(id) {
@@ -1139,7 +1159,9 @@ $("#app-select").addEventListener("change",async event=>{state.app=event.target.
 $("#add-app").addEventListener("click",()=>appForm(true));
 $("#edit-app").addEventListener("click",()=>appForm(false));
 $("#close-modal").addEventListener("click",()=>$("#modal").close());
-$("#modal").addEventListener("close",()=>{WMMAppleAnalytics.clear();WMMOneSignal.clear();WMMAgentControl.clear();WMMCompleteAutomation.clear();WMMVideoEditor.clear();WMMStudio.clear();WMMMedia.clear();WMMDrive.clear();WMMDiscovery.clear();WMMPackaging.clear();WMMFunnels.clear();delete $("#modal-body").dataset.job;});
+$("#modal").addEventListener("close",()=>{WMMAppleAnalytics.clear();WMMOneSignal.clear();WMMAgentControl.clear();WMMCompleteAutomation.clear();WMMVideoEditor.clear();WMMStudio.clear();WMMMedia.clear();WMMDrive.clear();WMMDiscovery.clear();WMMPackaging.clear();WMMFunnels.clear();delete $("#modal-body").dataset.job;const target=modalReturnFocus;modalReturnFocus=null;if(target&&target.isConnected&&typeof target.focus==="function")target.focus();});
+$("#modal").addEventListener("keydown",modalTab);
+document.addEventListener("keydown",event=>{const dialog=$("#modal");if(event.key==="Escape"&&dialog?.open&&dialog.contains(event.target)){event.preventDefault();dialog.close();}});
 document.addEventListener("input",event=>{
   if(event.target.id==="reference-search"){const position=event.target.selectionStart;state.referenceFilter=event.target.value;render();$("#reference-search").focus();$("#reference-search").setSelectionRange(position,position);return;}
   if(event.target.closest("#experiment-form"))return samplePreview();
