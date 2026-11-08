@@ -192,6 +192,8 @@ class Service:
                                    history=Sequences(self.store,self.operator).history(app_id))
         from .experiment_tracking import Tracking
         workspace['experiment_tracking']=Tracking(self.store).list(app_id)
+        from .instrumentation_state import readout as instrumentation_readout
+        workspace['instrumentation_lifecycle']=instrumentation_readout(self.store,app_id)
         from .agent_access import AgentAccess
         workspace['agent_access']=AgentAccess(self.store).view(app_id)
         from .social_http import view as social_view

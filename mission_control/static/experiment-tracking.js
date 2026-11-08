@@ -38,8 +38,29 @@ function trackingForm(plan) {
 }
 
 /** Keep installation preparation explicit and separate from read approval. */
+function instrumentationLifecycle(plan) {
+  const lifecycle = (state.workspace.instrumentation_lifecycle || []).find(item => item.experiment_id === plan.experiment_id && item.proposal_hash === plan.proposal_hash);
+  const receipts = lifecycle?.receipts || [];
+  const downloaded = [...receipts].reverse().find(item => item.state === "DOWNLOADED");
+  const installed = [...receipts].reverse().find(item => item.state === "REPORTED_INSTALLED");
+  const states = (lifecycle?.states || [{state:"DOWNLOADED"},{state:"REPORTED_INSTALLED"},{state:"PROBE_OBSERVED"}]).map(item => `<li>${esc(label(item.state))}: ${item.observed?`reported ${esc(new Date(item.at).toLocaleString())}`:"not reported"}</li>`).join("");
+  const actions = (lifecycle?.next_actions || ["Downloading does not install code; report installation separately"]).map(text => `<li>${esc(text)}</li>`).join("");
+  const controls = `${downloaded?button("Report installation","automatic-tracking-installed",`data-id="${esc(plan.experiment_id)}" data-proposal="${esc(plan.proposal_hash)}" data-receipt="${esc(downloaded.id)}" data-hash="${esc(downloaded.hash)}"`):""}${installed?button("Record live provider probe","automatic-tracking-probe",`data-id="${esc(plan.experiment_id)}" data-receipt="${esc(installed.id)}" data-hash="${esc(installed.hash)}"`):""}`;
+  return `<section><h3>Integration state</h3><ul>${states}</ul><p class="description">${esc(lifecycle?.boundary || "Download is not installation; attestation is not verified delivery.")}</p><p><strong>Next steps</strong></p><ul>${actions}</ul><div class="toolbar">${controls}</div></section>`;
+}
+
+function instrumentationForm(node, kind) {
+  const report = kind === "REPORTED_INSTALLED";
+  const release = state.workspace.app.data.release || "";
+  const provider = `<label class="field" for="probe-provider">Provider<select id="probe-provider" name="provider">${["POSTHOG","CLARITY","REVENUECAT","APPLE","OTHER"].map(value => `<option value="${value}">${value}</option>`).join("")}</select></label>`;
+  const fields = report
+    ? `${field("release",release)}${field("install_reference","","text","Exact commit, build or version reference")}${field("reported_at",new Date().toISOString())}`
+    : `${provider}${field("event_id","","text","Exact provider event identity")}${field("observed_at",new Date().toISOString())}${field("scope","","textarea","Exact release, locale, cohort or surface observed")}${field("source_receipt_sha256","","text","Lowercase SHA-256 of the source receipt")}${field("release",release)}`;
+  modal(label(kind),`<form id="instrumentation-lifecycle-form" data-app="${esc(state.app)}" data-id="${esc(node.dataset.id)}" data-state="${kind}" data-proposal="${esc(node.dataset.proposal||"")}" data-receipt="${esc(node.dataset.receipt)}" data-hash="${esc(node.dataset.hash)}"><div class="modal-content">${notice(report?"This records an owner attestation, not verified delivery.":"This records an owner-reported live probe; it does not prove provider delivery or business outcomes.")}<div class="form-grid">${fields}</div><div class="field-error" role="alert"></div></div><div class="modal-actions"><button type="submit" class="button">Save ${esc(label(kind))}</button></div></form>`);
+}
+
 function instrumentationDownloadControl(plan) {
-  return `<section><h3>Connect the app’s measurement</h3><p>Download an exact browser integration package for this app, release and experiment. It includes source hashes and consent/identity checks. Downloading does not install code, launch variants or verify delivery. Native app integration remains separate.</p>${button("Download browser integration package","automatic-tracking-package",`data-app="${esc(state.app)}" data-id="${esc(plan.experiment_id)}" data-source="${esc(plan.source_id)}" data-proposal="${esc(plan.proposal_hash)}"`)}</section>`;
+  return `<section><h3>Connect the app’s measurement</h3><p>Download an exact browser integration package for this app, release and experiment. It includes source hashes and consent/identity checks. Downloading does not install code, launch variants or verify delivery. Native app integration remains separate.</p>${button("Download browser integration package","automatic-tracking-package",`data-app="${esc(state.app)}" data-id="${esc(plan.experiment_id)}" data-source="${esc(plan.source_id)}" data-proposal="${esc(plan.proposal_hash)}"`)}</section>${instrumentationLifecycle(plan)}`;
 }
 
 /** Reject stale setup and surface download errors within the current review. */
@@ -61,7 +82,20 @@ async function trackingPackage(node) {
 }
 
 /** Persist exact read consent without accepting commands or credentials. */
+async function saveInstrumentation(form) {
+  const submit=form.querySelector('button[type="submit"]');if(submit)submit.disabled=true;
+  const data=Object.fromEntries(new FormData(form));data.state=form.dataset.state;
+  if(data.state==="REPORTED_INSTALLED"){data.proposal_hash=form.dataset.proposal;data.downloaded_id=form.dataset.receipt;data.downloaded_hash=form.dataset.hash;}
+  else {data.previous_id=form.dataset.receipt;data.previous_hash=form.dataset.hash;}
+  try {
+    await api(`/api/apps/${encodeURIComponent(form.dataset.app)}/experiment-tracking/${encodeURIComponent(form.dataset.id)}/lifecycle`,data);
+    await refresh();$("#modal").close();toast("Instrumentation state saved. It is not verified delivery.");
+  } catch(error) {const target=form.querySelector('.field-error');if(target)target.textContent=error.message;}
+  finally {if(form.isConnected&&submit)submit.disabled=false;}
+}
+
 async function trackingSubmit(event) {
+  if(event.target.id==="instrumentation-lifecycle-form"){event.preventDefault();return saveInstrumentation(event.target);}
   if(event.target.id!=="tracking-form")return;
   event.preventDefault();const form=event.target,app=form.dataset.app,submit=form.querySelector('button[type="submit"]');submit.disabled=true;
   try {
@@ -142,6 +176,8 @@ async function trackingAction(node) {
   if(action==="automatic-tracking-run")return trackingRun(id);
   if(action==="automatic-tracking-history")return trackingHistory();
   if(action==="automatic-tracking-package")return trackingPackage(node);
+  if(action==="automatic-tracking-installed")return instrumentationForm(node,"REPORTED_INSTALLED");
+  if(action==="automatic-tracking-probe")return instrumentationForm(node,"PROBE_OBSERVED");
   if(action==="automatic-tracking-reload") {await refresh();$("#modal").close();return render();}
   if(action==="automatic-tracking-cancel")await api(`/api/apps/${encodeURIComponent(app)}/experiment-tracking/${encodeURIComponent(id)}/cancel`,{cancel_run:true});
   await refresh();if(state.app===app)trackingRun(id);

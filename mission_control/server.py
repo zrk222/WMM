@@ -345,9 +345,11 @@ class Handler(BaseHTTPRequestHandler):
     def get_instrumentation(self,parts):
         """Download the exact reviewed app-owned package without provider or install authority."""
         from .instrumentation import prepare,archive
+        from .instrumentation_state import record_download
         if urlparse(self.path).query or len(parts)!=8 or parts[5]!='instrumentation':
             raise Invalid('Use the current exact integration package address')
         value=prepare(self.server.service.store,parts[2],parts[4],parts[6],parts[7])
+        record_download(self.server.service.store,parts[2],value['experiment_id'],parts[7],value['bundle_hash'])
         return self.send(200,archive(value),'application/zip',filename='wmm-'+value['experiment_id']+'-instrumentation.zip')
 
     def get_social_progress(self,app_id,identity):
@@ -656,7 +658,14 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts)==5 and parts[4]=='prepare':return self.send(200,service.prepare(parts[2],data))
         if len(parts)==5 and parts[4]=='approve':return self.send(201,service.approve(parts[2],data))
         if len(parts)==6 and parts[5]=='cancel':return self.send(200,service.cancel(parts[2],parts[4],data))
-        raise Invalid('Use a current tracking proposal, approval or cancellation address')
+        if len(parts)==6 and parts[5]=='lifecycle':
+            from .instrumentation_state import record_installed,record_probe
+            if not isinstance(data,dict) or data.get('state') not in ('REPORTED_INSTALLED','PROBE_OBSERVED'):
+                raise Invalid('Use a supported instrumentation lifecycle state')
+            body={key:value for key,value in data.items() if key!='state'}
+            action=record_installed if data['state']=='REPORTED_INSTALLED' else record_probe
+            return self.send(201,action(self.server.service.store,parts[2],parts[4],body))
+        raise Invalid('Use a current tracking proposal, approval, lifecycle or cancellation address')
 
     def post_sequence(self,parts,data):
         """Approve exact reviewed actions or stop owned work in the selected app only."""

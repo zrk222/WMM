@@ -99,6 +99,7 @@
   define('oresearch-schedule-form','Pick when your approved Reel should go out.','Choose a time before the approval expires. WMM saves a draft with the exact video, caption and Page.','Review the saved time and activate the schedule when ready.');
   define('publication-draft-form','Prepare one post for a verified social account.','Choose the channel, account, app-owned video or LinkedIn text, copy and posting settings. TikTok options are checked for the selected creator.','Review the exact destination, media, copy, privacy and disclosures before deciding whether to approve.');
   define('publication-approval-form','Approve one exact post or schedule.','The approval binds the destination, copy, media, settings, rights confirmation, deadline and provider-call limit. Advertising spend remains zero.','Approve only to save the permission, or explicitly approve and queue the post. A queued request is not a provider success receipt.');
+  define('instrumentation-lifecycle-form','Report the integration state for this exact downloaded bundle.','WMM saves your attestation or live probe as owner-reported evidence with its release, time and scope.','Continue with the next listed step; downloading still does not verify installation or delivery.');
   Object.freeze(FORMS);
   const DIALOGS=Object.freeze({
     'Connect Cloudflare Workers AI':['Connect Cloudflare once.','Choose free or paid inference and set your limits.','Save your protected connection, then test it.'],
