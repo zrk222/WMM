@@ -136,6 +136,14 @@ class AutomationReadinessTests(unittest.TestCase):
         self.assertEqual(native_blockers({'workflows':['video_authoring_editing']}),
                          [{'workflow':'video_authoring_editing','reason':'NATIVE_WORKFLOW_ADAPTER_REQUIRED'}])
 
+    def test_native_workflow_maps_track_the_shared_catalog_exactly(self):
+        from mission_control.ios_automation import NATIVE_WORKFLOWS, native_blockers
+        for name, approved in NATIVE_WORKFLOWS.items():
+            with self.subTest(workflow=name):
+                self.assertEqual(sorted(approved), sorted(WORKFLOWS[name]['operations']))
+        self.assertEqual(native_blockers({'workflows': ['local_evidence']}), [])
+        self.assertEqual(native_blockers({'workflows': ['native_video_authoring']}), [])
+
     def test_inference_profile_is_not_authority_and_report_performs_no_writes_or_tools(self):
         before = self.dump()
         with patch('mission_control.credential_vault.Vault.get', side_effect=AssertionError('No vault read')), \

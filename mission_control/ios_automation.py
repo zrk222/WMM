@@ -19,7 +19,7 @@ NATIVE_WORKFLOWS = {
         'experiment.register', 'experiment.evaluate', 'experiment.action',
     }),
     'local_evidence': frozenset({
-        'workspace.read', 'evidence.save', 'operations.read', 'growth.read',
+        'workspace.read', 'evidence.save', 'operations.read', 'activity.history', 'growth.read',
         'growth.history', 'growth.save', 'customer.history', 'customer.save',
         'measurement.read', 'report.read', 'snapshot.export', 'cohort.define', 'events.import',
         'billing.save', 'funnel.list', 'funnel.review', 'funnel.read', 'funnel.save',
