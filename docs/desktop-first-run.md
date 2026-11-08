@@ -1,40 +1,113 @@
-# Install and open WMM
+﻿# Start here: install WMM and make your first plan
 
-Open the [official WMM releases](https://github.com/zrk222/WMM/releases) and choose a published desktop preview. Download **WMM-Setup.exe** for Windows or **wize-marketing-machine_0.1.0_amd64.deb** for Ubuntu 24.04 amd64. GitHub sign-in is not required for these public release downloads. Source archives are for developers. If no installer release is listed, the desktop distribution has not been published yet.
+WMM helps you plan and check marketing for one app, then keep the receipts. You
+can use it on your own or hand approved work to an AI assistant. This guide is
+for the desktop preview.
 
-On Windows, open the downloaded installer and follow its per-user setup screens. Launch **Wize Marketing Machine** from the Start menu. No terminal or separate Python installation is required. The current installer has no verified Windows publisher signature; Windows may display an unknown-publisher warning. An organization that requires a signed publisher should wait for a signed release. Do not disable OS security controls or install a root certificate to proceed.
+## What you need
 
-On Ubuntu, open the downloaded Debian package with your graphical software installer and approve the system package installation. Open **Wize Marketing Machine** from Applications. Use a graphical desktop with a browser and unlocked Secret Service keyring. A Linux distribution without a graphical Debian package installer is outside this no-terminal path. Ubuntu's normal package and desktop prerequisites still apply.
+- Windows 10/11, or Ubuntu 24.04 on a graphical desktop.
+- A browser and, on Ubuntu, your normal unlocked keyring.
+- No terminal, Python install or developer account for the preview.
 
-The native desktop preview opens your private workspace in its own Mission Control window. Closing that window stops its local engine and worker; leave it open for approved scheduled work. Your workspace lives in your user application-data directory, outside the installed program. Keep a private backup before upgrading. Install a later preview over the current version; uninstall removes program files and preserves workspace data. Preview-to-preview schema compatibility still requires each release's acceptance checks.
+## Install
 
-Start with a practice app and choose a goal. Add optional agent integrations using the in-app agent setup, review the proposed configuration, and approve the handoff in your chosen agent. Installing WMM does not authorize a campaign, payment, external message or provider connection. Agent and provider credentials remain optional separate setup; never paste them into an issue or public release report.
+1. Open the [WMM releases](https://github.com/zrk222/WMM/releases) and download
+   **WMM-Setup.exe** (Windows) or **wize-marketing-machine_0.1.0_amd64.deb**
+   (Ubuntu). Public downloads do not need a GitHub sign-in.
+2. Install it the normal way for your system, then open **Wize Marketing
+   Machine** from the Start menu or Applications.
+3. Keep the WMM window open while you work. Closing it stops its local engine
+   and any approved scheduled work.
 
-These are automated-tested preview packages. Synthetic fresh-install, upgrade, uninstall and offline-restart checks do not establish a nontechnical person's first-use acceptance. That acceptance and signed Windows publisher verification remain separate evidence.
+If no installer is listed, the desktop preview has not been published yet.
 
-## Maintainer release handoff
+**Windows note:** the preview installer is not publisher-signed. Windows may
+warn you. Do not disable OS security controls or install a root certificate to
+get past it.
 
-Merge the reviewed candidate into main. Use **Desktop runtime packages** for a build-only hosted check. After reviewing that evidence and obtaining explicit approval to publish, dispatch **Desktop public prerelease** from main with the exact current main commit SHA and a new version tag such as `v0.1.0-preview.1`. The workflow reruns the Windows and Ubuntu installer checks, records the tested installer hashes, and publishes only when both jobs pass. Only the final publication job receives repository contents write permission. Pull requests cannot trigger publication.
+## Your first 15 minutes
 
-The publisher creates a draft prerelease, uploads only the two native installers, SHA256SUMS.txt and their source-bound lifecycle receipts, checks the draft asset names/sizes, then publishes. It downloads the public assets anonymously over normal verified HTTPS and compares full SHA256 hashes. Retain the successful run URL and publisher readback as release evidence. CI logs and source archives alone are not installer distribution proof.
+You do not need an account, a paid model or a provider connection for these
+steps.
 
-Existing tags/releases/assets are never overwritten. An interrupted upload leaves a draft for inspection; choose a new tag after resolving the cause. A public-download verification failure may occur after publication: inspect that release and its logs explicitly before claiming successful distribution. This workflow does not sign Windows binaries, install trust roots, bypass TLS, or prove human first-use acceptance.
+1. **Add your app.** Give it a name, who it helps, what it helps them do, the
+   first useful action, the version or build you tested, and the language/locale.
+   Choose **Save and choose a goal**.
+2. **Pick a goal.** Start with **Find a useful marketing angle**, then choose
+   **Open your first packet**.
+3. **Read the packet.** It lists the research and creative steps for this app
+   and the missing pieces you can add next.
+4. **Keep a copy.** Choose **Download goal packet**. This works before you
+   connect anything, publish anything or spend anything.
+5. **Add one reference.** Choose **Add a research reference** and save a source
+   you want to study. To qualify as viral, a source also needs 100,000 views and
+   10× a documented creator baseline. That is evidence, not a promise.
 
-## Make one packet
+## Words you will see
 
-1. **Add your app.** Enter its name, who it helps, what it helps them do, the first useful action, the app version or build and the locale you tested. Choose **Save and choose a goal**. WMM generates a workspace ID. To choose your own ID, open **Optional settings** before saving. The saved ID is permanent. Other optional details stay editable in **App setup**.
-2. **Choose “Find a useful marketing angle.”** Select **Open your first packet**. The packet shows the research and creative steps for this app, including missing inputs you can add next.
-3. **Keep a copy.** Choose **Download goal packet** to save the local draft for yourself, your agent or your teammate. You can do this before connecting an account, publishing or spending.
-4. **Add a reference to study.** Choose **Add a research reference** from the packet, then add the source you want to study. Viral-only qualification requires 100,000 views and 10× a documented creator baseline. Open a new packet after adding evidence to see the updated next steps.
+- **Permission slip (also called a grant):** a time-limited list of actions you
+  allow an AI assistant to take for one app. It has an expiry and a call limit.
+  You can revoke it.
+- **Packet:** saved work for one step, with its sources and what is still
+  missing. A packet is not a published post or a measured result.
+- **Connection:** a saved provider login or key that lets WMM read one kind of
+  data. A saved login is not analytics permission and does not approve a post.
+- **Prepare vs publish vs measure:** three separate things. WMM can prepare
+  work, you approve a specific publish, and only a connected source can show
+  what happened.
 
-Core preparation needs no model key or paid account. Connected reads, video tools and campaign execution show their own prerequisites. The goal-specific **Check connections for this goal** control identifies the selected agent and account setup. Owner sign-in is required before inspecting private account readiness or granting authority.
+## Optional: let an AI assistant help
 
-Measure these as two separate setup journeys: **install → first useful packet** and **connect your account → first approved, verified campaign**. The first does not require Meta, TikTok or a local OAuth developer app. Campaign setup depends on the selected provider's permissions and supported WMM delivery path. Neither journey has a verified first-time human completion time yet.
+Any assistant that can run a local command on this computer can work with WMM.
+WMM does not require a particular AI product or plan.
 
-## Let your agent take over
+1. Sign in as the app owner under **Activity & reviews**.
+2. Open **Connect your agent** and review the setup for this installation.
+3. Create a permission slip for only the actions you want, with an expiry and a
+   call limit. Give the one-time token to the assistant through its own
+   protected environment, never in a prompt, chat, file or screenshot.
+4. Ask the assistant to inspect the app first and report what it found. Give it
+   more permission later only if you choose to.
 
-Open **Connect your agent** from the selected goal and follow the [CLI/MCP quickstart](agent-quickstart.md). Choose its app, supported operations, expiry and limits. Review the combined automation agreement before enabling supported autonomous work; local workflow permission and campaign authority remain separately enforced.
+For technical setup details, see the [assistant setup guide](agent-quickstart.md).
 
-Use **Watch the work** for saved progress, **Monitor approved campaigns** for the exact protective monitor, and **Review private campaign outcomes** for saved results and PDF reports. **Advanced tools → Weekly review** brings actionable exceptions together. The receipt distinguishes prepared work, confirmed delivery and observed app results.
+## What WMM will not do on its own
 
-Want this work to continue on another computer? Choose the [optional owner-managed always-on path](always-on-runtime.md). It uses that host's own private workspace and account connections; installing the desktop app does not enable a service or move credentials.
+- It will not publish, message anyone, change a provider account or spend money
+  without a separate exact approval. Default ad spending is zero.
+- It will not treat a saved login, a key or a prepared packet as verified
+  delivery or a business result.
+- It does not yet establish growth. Installs, retention and paid conversion are
+  only reported when a connected source supplies them.
+- It does not store provider credentials in exports or snapshots.
+
+## Where your work lives
+
+Your workspace is stored in your user application-data folder, outside the
+installed program. Install a newer preview over this one; uninstalling removes
+the program and keeps your workspace. Back it up before upgrading if it matters
+to you.
+
+## If something goes wrong
+
+- **No installer:** the desktop preview has not been published.
+- **Windows warns about the publisher:** expected for this preview; do not
+  weaken OS security.
+- **Ubuntu package tools missing:** use a graphical desktop with the normal
+  Debian package installer, or wait for a later build.
+- **Your workspace will not open:** keep a copy of the data folder and open an
+  issue with the version, the error text and the steps you took. Never include
+  tokens, keys or private customer data.
+
+## Current limits
+
+This is an automated-tested preview. A nontechnical first-use acceptance test,
+a signed Windows publisher and measured growth remain separate evidence. The
+macOS desktop credential adapter is unsupported. Native iPhone/iPad support is
+separate from this desktop guide.
+
+## Releasing a preview (maintainers)
+
+The installer and publication steps moved to the
+[release handoff guide](release-handoff.md).

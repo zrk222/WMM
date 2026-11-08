@@ -1,12 +1,12 @@
 # Wize Marketing Machine
 
-**Your AI employees need a boss you can audit.**
+**A calmer way to market your app — with receipts.**
 
 You built the app. Now you need people to find it, try it and come back. The research, creative, campaign work and results should lead to one clear next move.
 
-Wize Marketing Machine (WMM) is an **Autonomous Growth Operations Engine** for founders and teams. Agents collect evidence, prepare creative and run supported campaigns under explicit human approval. Mission Control shows what ran, what needs a decision and what results the sources recorded.
+Wize Marketing Machine (WMM) is a local workspace for one app at a time. It helps you plan the work, keep the evidence and see what actually happened. An AI assistant can do approved steps inside limits you set; nothing publishes or spends on its own.
 
-**You choose the goal and approve the scope. Your agent handles the work inside it. You receive the deliverables, analytics, receipts and next decision.** Choose a task preset to prepare an editable owner grant; review it before issuing. Each grant has its own finite expiry and revocation. Existing provider effects keep their own status and recovery paths.
+**You choose the goal and approve each permission slip. Your assistant works inside it. You get the files, the receipts, the measurements and one next decision.** A permission slip is a time-limited list of actions for one app. You can edit it, set its expiry and call limit, and revoke it.
 
 [**Try the sample workspace**](https://zrk222.github.io/WMM/demo.html) · [See the visual tour](https://zrk222.github.io/WMM/) · [Install WMM](docs/desktop-first-run.md)
 
@@ -16,28 +16,28 @@ Wize Marketing Machine (WMM) is an **Autonomous Growth Operations Engine** for f
 
 ![Owner task setup example with synthetic interface data and no account results](docs/images/agent-task-setup.png)
 
-*Task presets prepare an editable owner grant for review.*
+*Starter task presets prepare a permission slip you can edit before approving.*
 
-## The intended path from “market my app” to a decision
+## A simple path from “market my app” to a decision
 
 1. **Set the direction.** Describe your app, audience and outcome. Bring research, clips and your own supported accounts.
-2. **Shape an owner grant.** Start with Research only, Organic marketing or Bounded Meta media buyer, or choose Custom. WMM prepares an editable operation list for your review before you issue the grant. Approve exact content and destinations before reuse or publishing. Paid Meta activity needs separate campaign approval for its account, content, targeting, expiry and budget.
-3. **Follow the work.** Once a grant is active, your agent can research, prepare creative and carry out supported work within its limits. Follow progress and handle exceptions that need your decision.
-4. **Open the report.** See the files, execution status, dated measurements and receipts. Choose what to continue, revise or stop.
+2. **Choose how much to delegate.** Start with Research only, Organic marketing, Bounded Meta media buyer, or Custom. WMM prepares a list of allowed actions for you to review. Edit it, then approve a permission slip with an expiry and a call limit. Approve exact content and destinations before any reuse or publishing. Paid Meta activity needs its own campaign approval for account, content, targeting, expiry and budget.
+3. **Follow the work.** While a permission slip is active, your assistant can research, prepare creative and carry out supported work within its limits. Watch progress and decide what needs attention.
+4. **Open the report.** See the files, what ran, dated measurements and receipts. Choose what to continue, revise or stop.
 
-Task presets prepare an editable grant; the owner reviews and issues it. Each grant has a finite owner-set expiry, including durations longer than 24 hours, and does not renew automatically. The default allowance is 20 total calls until expiry, with no weekly refill. Optional advanced settings open the full operation catalog.
+Each permission slip has an expiry you set and does not renew by itself. The default allowance is 20 calls. Advanced settings show every supported action individually.
 
 ## Research ideas across four channels
 
-Through a permitted connected agent, research metadata for **Facebook Page, Instagram Reels, TikTok and YouTube Shorts**. Viral qualification requires **100,000 views AND 10× a documented creator baseline**. Save source evidence, build a brief, prepare a Hypit preview and export approved artifacts.
+Through a permitted connected assistant, research metadata for **Facebook Page, Instagram Reels, TikTok and YouTube Shorts**. Viral qualification requires **100,000 views AND 10× a documented creator baseline**. Save source evidence, build a brief, prepare a short captioned video preview and export approved artifacts.
 
-**Approve the post. Let your agent carry it through.** WMM queues approved Facebook Page posts, Instagram Reels, TikTok videos, YouTube Shorts and LinkedIn text/video posts, then keeps the provider IDs, status reads and available engagement counts together. Each channel uses its official publishing permissions and account setup. Open **Connections → Publish an approved post** to review content, destination, rights and timing before queueing. [Agent workflow](docs/agent-multichannel.md) · [Interactive sample](docs/demo.html).
+**Approve the post. Let your assistant carry it through.** WMM queues approved Facebook Page posts, Instagram Reels, TikTok videos, YouTube Shorts and LinkedIn text/video posts, then keeps the provider IDs, status reads and available engagement counts together. Each channel uses its official publishing permissions and account setup. Open **Connections → Publish an approved post** to review content, destination, rights and timing before queueing. [Publishing guide](docs/agent-multichannel.md) · [Interactive sample](docs/demo.html).
 
 In WMM: **Set your goal → Explore video channels → Find viral ideas for my app.**
 
 The intended payoff is less coordination, faster creative cycles and better decisions about installs, activation, paid conversion and retention. Analytics retain source dates, definitions and missing data; receipts show what was actually done. Measure the benefit on your app—growth and time savings are not yet established by the dogfooding trial.
 
-**Available today:** local workspaces, personal-agent CLI/MCP, creative and evidence tools, supported analytics paths, reviewed organic distribution across five networks and bounded Meta engagement campaigns. Shared cloud team dashboards, additional paid-ad networks and complete KPI coverage remain in development. [Current tools and limits](#what-is-included-today).
+**Available today:** local workspaces, optional assistant access through a local command or MCP, creative and evidence tools, supported analytics paths, reviewed organic distribution across five networks and bounded Meta engagement campaigns. Shared cloud team dashboards, additional paid-ad networks and complete KPI coverage remain in development. [Current tools and limits](#what-is-included-today).
 
 [Follow the WizeMe dogfooding journey](docs/WIZEME-DOGFOODING.md): dated operations, verified receipts and the next measurement step.
 
@@ -48,21 +48,26 @@ The intended payoff is less coordination, faster creative cycles and better deci
 | **Organize the app** | Separate app workspaces, versioned facts, the twelve-stage pipeline, readiness checks, next actions, history and noncredential snapshots. |
 | **Find useful creative references** | App-scoped discovery queries, industry/narrative/treatment filters, saved collections, source snapshots, watch attempts and evidence cards that feed creative briefs. Viral-only qualification requires **100,000 views AND 10× a documented creator baseline**. Uploaded UGC follows its own intake path. |
 | **Choose the packaging before production** | Title and thumbnail concepts, creator-relative outlier research, remix workspaces, feed previews, creative taste guidance and review checklists. A preview is a design check, not a measured performance prediction. |
-| **Make and revise content** | Eight-piece copy packs; local and selected Google Drive media; UGC and clip intake; timeline editing, trimming, ordering and stitching; human/agent edits and history. Hypit guided renders create timed title/caption scenes; editor/Studio handles richer projects. Preflight checks timing, text density and prerequisites; explicit verified-render reuse avoids queuing a new build. |
+| **Make and revise content** | Eight-piece copy packs; local and selected Google Drive media; UGC and clip intake; timeline editing, trimming, ordering and stitching; human/agent edits and history. Built-in caption renders create timed title/caption scenes; the editor handles richer projects. Preflight checks timing, text density and prerequisites; explicit verified-render reuse avoids queuing a new build. |
 | **Improve the app’s sales journey** | ASO, ASA and AEO worksheets, store/listing checks, funnel plans, paywall/offer experiments, cohorts, event/billing imports and experiment assessments. App Store promotional text has its own maker/checker approval path. |
 | **Collect and understand results** | Supported App Store Connect, Apple Ads, Google Play, PostHog, Clarity and RevenueCat paths, plus imports. Coverage varies by source and platform. Reports retain dates, definitions, denominators and missing data; PDF and data exports support review and handoff. |
 | **Execute supported campaigns** | Facebook Page posts, Instagram Reels, TikTok videos, YouTube Shorts and LinkedIn text/video: review the post and destination, approve a bounded allowance, queue it and inspect the receipt. Interrupted writes stay held for reconciliation. Available engagement counts are retained; installs and revenue need their own tracking. Paid execution remains bounded Meta engagement campaigns. |
 | **Delegate and monitor** | CLI/MCP operations, app-scoped grants, manual or bounded autonomous work, approval checkpoints, progress, durable jobs, cancellation and recovery. Missing source analytics stay marked as missing; they are not evidence of growth. Provider-reported token/cache usage stays separate from estimated cost. |
 
-[Campaign controls and limits](docs/campaign-automation.md) · [Hypit production guide](docs/hypit-production-preflight.md) · [Agent workflow upgrades](docs/personal-agent-upgrades.md)
+[Campaign controls and limits](docs/campaign-automation.md) · [Video-caption production guide](docs/hypit-production-preflight.md) · [Assistant workflow upgrades](docs/personal-agent-upgrades.md)
 
-## Built for personal agents—including Grok Bot
+## Optional: connect an AI assistant
 
-The CLI/MCP catalog gives agents an explicit operating surface. Named profiles for **Grok Bot, Instinct, Hark Pro, Meta Muse, Codex/Dots and Claude Duet**, plus generic agents and agent teams, share one current protocol: check the app and permissions, reuse current evidence, run within limits, verify the saved result and report back to the owner.
+WMM gives an assistant a clear, limited way to work: inspect the app and permissions, reuse current evidence, stay inside the limits, verify the saved result and report back. It works with any assistant that can run a local command or MCP connection; no specific product or plan is required.
 
-**For Grok Bot:** verify a separately approved local command connection to the computer running WMM, then read the current operation guide. Keep the repeatable method in a private skill. Use scoped grants, retain request IDs and serialize changes to the same resource. Return the artifact, actual status, KPI evidence, resource use and next action in your conversation.
+A cloud assistant cannot reach another computer’s localhost. Each host still needs a verified way to run on this computer; the setup guide supplies instructions, not connectivity or account permission. [Assistant setup and owner reports](docs/personal-agent-operations.md).
 
-A cloud browser cannot reach another computer’s localhost. Each host still needs a verified execution path; the manifest supplies guidance, not connectivity or account permission. [Agent-specific setup and owner reports](docs/personal-agent-operations.md).
+<details>
+<summary>Named setups (optional)</summary>
+
+Named profiles for **Grok Bot, Instinct, Hark Pro, Meta Muse, Codex/Dots and Claude Duet**, plus generic agents and agent teams, share one protocol. For Grok Bot specifically: verify a separately approved local command connection, keep the repeatable method in a private skill, use scoped permission slips, retain request IDs and serialize changes to the same resource.
+
+</details>
 
 Try this first task:
 
