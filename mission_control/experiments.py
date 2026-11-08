@@ -216,6 +216,10 @@ def action_state(db,current,body):
     if current["state"]=="CANCELLED":raise Invalid("This test is cancelled; register a new experiment")
     if operation=="observe":return observe_state(current,body)
     if operation=="decide":return decide_state(db,current,body)
+    if operation=="note":
+        if set(body)!={"operation","version","note"}:raise Invalid("A decision note needs version and note text")
+        required(body["note"],"Decision note",2000)
+        return current["state"]
     if operation=="cancel":
         if set(body)!={"operation","version","reason"}:raise Invalid("Cancellation needs version and reason")
         required(body["reason"],"Cancellation reason",2000);return "CANCELLED"
