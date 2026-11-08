@@ -3,7 +3,7 @@ const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const esc=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const context={esc,status:s=>`<span>${esc(s)}</span>`,button:(title,action)=>`<button data-action="${action}">${esc(title)}</button>`,resolutionButton:()=>'',heading:(a,b,c)=>`<h1>${a}</h1><p>${b}</p>${c}`,notice:s=>`<p>${s}</p>`,label:s=>s};
 vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(__dirname,'../mission_control/static/guided-workflow.js'),'utf8'),context);
-const guide=()=>({next_step:2,local_ready_count:1,next_action:{title:'Review current inputs'},steps:Array.from({length:12},(_,i)=>({id:i+1,title:`Stage ${i+1}`,description:'Purpose of stage',local_status:'NEEDS_INPUT',direct_needs:['Current source'],critical_findings:[],dependency_needs:[],verify:'Verify actual result',tools:[],primary:{id:'app',title:'Edit setup'},record_ids:[]}))});
+const guide=()=>({next_step:2,local_ready_count:1,next_action:{title:'Review current inputs'},steps:Array.from({length:12},(_,i)=>({id:i+1,title:`Stage ${i+1}`,description:'Purpose of stage',local_status:'NEEDS_INPUT',direct_needs:['Current source'],critical_findings:[],dependency_needs:[],deliverable:'Reviewed stage packet',verify:'Verify actual result',tools:[],primary:{id:'app',title:'Edit setup'},record_ids:[]}))});
 test('recommended stage appears before native disclosure and every other stage remains accessible',()=>{
  const g=guide(),html=context.guidedStageJourney(g),fold=html.indexOf('<details');
  assert.ok(html.indexOf('id="workflow-step-2"')<fold);
@@ -17,6 +17,13 @@ test('critical findings remain outside folded stages and source strings are esca
  assert.ok(html.indexOf('Critical findings across')<html.indexOf('id="guided-all-stages"'));
  assert.ok(html.includes('&lt;img'));assert.ok(!html.includes('<img'));assert.ok(html.includes('Step 12'));
 });
+test('every stage shows purpose, needed input, delivered artifact and acceptance',()=>{
+ const g=guide();g.steps[1].deliverable='<b>Prepared packet</b>';const html=context.guidedStageJourney(g);
+ for(const label of ['Purpose','Needed input','Delivered artifact','Acceptance'])assert.ok(html.includes(`<dt>${label}</dt>`));
+ assert.ok(html.includes('Purpose of stage'));assert.ok(html.includes('Current source'));assert.ok(html.includes('Verify actual result'));
+ assert.ok(html.includes('&lt;b&gt;Prepared packet'));assert.ok(!html.includes('<b>Prepared packet'));
+});
+
 test('all locally ready stages remain available without claiming execution completion',()=>{
  const g=guide();g.next_step=null;const html=context.guidedStageJourney(g);
  assert.equal((html.match(/id="workflow-step-/g)||[]).length,12);assert.ok(!html.includes('guided-all-stages'));

@@ -11,6 +11,7 @@ input counts, worker health and original approval boundaries.
 - The system shall render the recommended unresolved stage expanded and place other stages inside an accessible full-workflow disclosure through `progressive_focus`.
 - The system shall return a visible summary of critical findings across all stages even when other stages are collapsed through `progressive_blockers`.
 - The system shall render explicit saved-input approved-execution and observed-outcome explanations without treating input readiness as completed execution through `progressive_states`.
+- The system shall render every stage's plain-language purpose, needed input, delivered artifact and acceptance from the existing catalog operations through `progressive_stage_facts`, visible without opening a disclosure and keyboard-accessible through native list semantics.
 - The system shall render all stages when no next stage exists and preserve every stage action and verification detail through `progressive_complete`.
 
 ### Acceptance criteria (Gherkin)
@@ -27,6 +28,11 @@ Scenario: progressive_states
   Given saved inputs but no measured result
   When `progressive_states` explains progress
   Then readiness never implies execution or measured outcome
+Scenario: progressive_stage_facts
+  Given any stage with catalog purpose, needed input, delivered artifact and acceptance
+  When `progressive_stage_facts` renders the stage
+  Then all four facts are visible without opening a disclosure
+  And the delivered artifact stays distinct from execution or a measured outcome
 Scenario: progressive_complete
   Given all local stage inputs ready
   When `progressive_complete` renders

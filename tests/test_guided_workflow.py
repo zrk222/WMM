@@ -45,6 +45,14 @@ class GuidedWorkflowTests(unittest.TestCase):
         self.assertEqual(set(STEP_TOOLS),set(range(1,13)))
         self.assertEqual(tool("upload")["route"],"upload")
 
+    def test_every_stage_names_purpose_input_deliverable_and_acceptance(self):
+        from mission_control.catalog import OPERATIONS
+        g=self.build()
+        for s in g["steps"]:
+            self.assertTrue(s["description"] and s["deliverable"] and s["verify"])
+            self.assertEqual(s["deliverable"],OPERATIONS[s["id"]]["deliverable"])
+            self.assertIsInstance(s["direct_needs"],list)
+
     def test_all_local_ready_is_never_execution_or_success(self):
         g=self.build(complete_records(self.app))
         self.assertEqual(g["local_ready_count"],12);self.assertIsNone(g["next_step"])
