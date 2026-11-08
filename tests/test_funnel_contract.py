@@ -44,6 +44,12 @@ class FunnelContractTests(unittest.TestCase):
             with self.subTest(suffix=suffix), self.assertRaises(Invalid):
                 definition(dict(self.plan, destination=base + suffix))
 
+    def test_observational_tagged_link_round_trips_byte_identical(self):
+        from mission_control.observational_campaign_contract import tagged_url
+        link=tagged_url('https://wizeme.app',dict(id='11111111-1111-1111-1111-111111111111',source='facebook',
+                        creative_id='creative_01',landing_path='/welcome'))
+        self.assertEqual(definition(dict(self.plan,destination=link))['destination'],link)
+
     def test_stage_graph_rejects_cycles_unknown_parents_duplicates_and_oversized_plans(self):
         for rows in ([dict(self.plan['stages'][0],parents=['install']),self.plan['stages'][1]],
                      [dict(self.plan['stages'][0],parents=['missing'])],
