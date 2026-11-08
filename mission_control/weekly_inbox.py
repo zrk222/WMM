@@ -74,6 +74,10 @@ def project(workspace):
             cost_minor=None,
             owner="App operator",
         )
+    workflow = workspace.get("workflow") or {}
+    current = workflow.get("next_step")
+    stage = next((s for s in workspace.get("stages", []) if s["id"] == current), None)
+    sequences = (workspace.get("sequences") or {}).get("history") or []
     return dict(
         app_id=app["id"],
         app_name=app["data"]["name"],
@@ -82,6 +86,13 @@ def project(workspace):
         local_ready=[
             g["id"] for g in controls["gates"] if g["state"] == "LOCAL_INPUTS_READY"
         ],
+        current_stage=dict(
+            id=current,
+            title=stage["title"] if stage else None,
+            next_action=(workflow.get("next_action") or {}).get("title"),
+        ),
+        high_priority_gaps=sum(len(s.get("critical_findings", [])) for s in workflow.get("steps", [])),
+        active_sequences=sum(1 for r in sequences if r.get("state") in ("QUEUED", "WAITING")),
     )
 
 
@@ -104,6 +115,9 @@ def review(service, offset=0, user=None):
                 app_name=app["data"]["name"],
                 local_ready=[],
                 active_work=[],
+                current_stage=dict(id=None, title=None, next_action=None),
+                high_priority_gaps=None,
+                active_sequences=None,
                 exceptions=[
                     dict(
                         id=digest([app["id"], "unavailable"]),

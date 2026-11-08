@@ -352,6 +352,28 @@ class WeeklyOperationTests(unittest.TestCase):
         self.assertTrue(any(not c.get("owner_only") for c in value["exceptions"]))
         self.assertNotIn("PRIVATE_SQL_ERROR", canonical(value))
 
+    def test_portfolio_status_projects_stage_gaps_and_active_sequences(self):
+        from mission_control.weekly_inbox import project
+        workspace = self.server.service.workspace("sample")
+        workspace["sequences"] = {"history": [dict(state="WAITING"), dict(state="QUEUED"), dict(state="CANCELLED")]}
+        workspace["workflow"] = dict(
+            workspace["workflow"],
+            steps=[dict(critical_findings=["One confirmed P0"]), dict(critical_findings=[])],
+        )
+        value = project(workspace)
+        self.assertEqual(value["active_sequences"], 2)
+        self.assertEqual(value["high_priority_gaps"], 1)
+        self.assertEqual(value["current_stage"]["next_action"], workspace["workflow"]["next_action"]["title"])
+        with patch("mission_control.weekly_inbox.project", side_effect=RuntimeError("PRIVATE_SQL_ERROR")):
+            broken = review(self.server.service, user=self.owner)
+        for row in broken["apps"]:
+            self.assertIsNone(row["current_stage"]["id"])
+            self.assertIsNone(row["high_priority_gaps"])
+            self.assertIsNone(row["active_sequences"])
+            self.assertEqual(row["active_work"], [])
+        self.assertNotIn("PRIVATE_SQL_ERROR", canonical(broken))
+        self.assertEqual(set(broken["coverage"]), {"offset", "evaluated", "total_apps", "next_offset"})
+
     def test_trusted_principal_rejects_untrusted_shapes(self):
         for value in (
             None,

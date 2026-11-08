@@ -13,6 +13,8 @@ evidence. No new provider reads, approvals, spend or publication occurs in a rev
 - When one workspace evaluation fails, the system shall retain an `UNAVAILABLE` exception for that workspace and continue evaluating the other workspaces.
 - The system shall display `source_receipt` fields with app identity, manifest version, source hash and observation time beside each exception.
 - The system shall provide a `resolution_route` to the existing app-scoped tool and retain missing evidence as unknown instead of inventing a successful result.
+- The system shall return per-app `current_stage`, a `high_priority_gaps` count from confirmed critical findings and an `active_sequences` count from saved queued or waiting sequences, and shall return null for each when that app's evidence is unavailable.
+- The system shall present those saved local counts per app without comparing incompatible metrics or inferring outcomes.
 - The system shall return `NO_EXECUTION_AUTHORITY` and false spending, scale and learning-pilot authority for the read-only inbox.
 - The system shall render an accessible `weekly_review` at desktop1440x900 and mobile390x844 without horizontal overflow or JavaScript errors.
 
@@ -23,6 +25,11 @@ Scenario: Cross-app exception review
   When the founder opens the `exception_inbox`
   Then each exception retains its own app identity and recovery action
 
+Scenario: Portfolio status
+  Given readable and unavailable apps with saved stages, findings and sequences
+  When the weekly review is prepared
+  Then each readable app reports its current stage, P0 gap count and active sequence count
+  And an unavailable app reports null for each instead of zero
 Scenario: Source outage is visible
   Given one failed workspace and one readable workspace
   When the review is prepared
