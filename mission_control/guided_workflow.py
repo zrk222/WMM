@@ -85,6 +85,7 @@ def step(stage, app, records, reports, catalog=None, release=None):
             "critical_findings": critical, "primary": primary(stage, direct, critical),
             "tools": [tool(identity) for identity in STEP_TOOLS[stage["id"]]],
             "record_ids": [r["id"] for r in records if r["kind"] in stage["inputs"]],
+            "deliverable": stage["operations"]["deliverable"],
             "verify": stage["operations"]["verify"]}
 
 

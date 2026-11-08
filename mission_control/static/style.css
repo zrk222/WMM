@@ -37,6 +37,10 @@
 .guided-step .section-heading {flex-wrap:wrap;gap:12px;}
 .guided-step .toolbar,.guided-summary .toolbar {flex-wrap:wrap;}
 .guided-step li {margin-bottom:10px;}
+.guided-stage-facts {display:grid;grid-template-columns:max-content minmax(0,1fr);gap:8px 18px;margin:16px 0;}
+.guided-stage-facts dt {font-weight:700;}
+.guided-stage-facts dd {margin:0;min-width:0;}
+.guided-stage-facts dd p {margin:0;}
 .guided-tools {border-top:1px solid var(--line);padding-top:14px;margin-top:16px;}
 .automation-panel{margin-bottom:24px;border-top:4px solid var(--forest)}
 .automation-panel .section-heading{flex-wrap:wrap;gap:14px}
@@ -51,6 +55,7 @@
 @media(max-width:600px){.automation-panel .section-heading{flex-direction:column;align-items:stretch}}
 .guided-step summary {cursor:pointer;min-height:44px;display:flex;align-items:center;}
 @media(max-width:900px){.guided-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:760px){.guided-stage-facts{grid-template-columns:minmax(0,1fr)}.guided-stage-facts dd{margin:0 0 10px}}
 #aeo-form .modal-actions,.aeo-detail+.modal-actions {flex-wrap:wrap;}
 @media(max-width:760px){.aeo-panel .record-row{flex-wrap:wrap}.aeo-panel .record-main{flex:1 1 100%;min-width:0}.two-column{grid-template-columns:minmax(0,1fr)}}
 
