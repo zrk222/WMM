@@ -60,6 +60,17 @@ def source_guard(app, row, body):
         raise Invalid('Setup proposal is expired, changed or already applied; inspect history or rediscover')
 
 
+def comparison_guard(app, row, changes):
+    """Reject approval when the saved value differs from the recorded comparison."""
+    rows = (row['data'].get('comparison') or {}).get('fields') or []
+    if not rows:
+        return
+    current = {item['field']: item.get('current') for item in rows}
+    for key in changes:
+        if key in current and current[key] != app['data'].get(key):
+            raise Invalid('App setup changed since this comparison; review the current diff again')
+
+
 def provenance(app, row, changes):
     """Bind each value to a public source, agent or human origin without claiming truth.
 
@@ -98,6 +109,7 @@ def apply(store, app_id, body):
         app = dict(id=saved['id'], data=json.loads(saved['data']), version=saved['version'])
         row = proposal(db, app_id, body['id'])
         source_guard(app, row, body)
+        comparison_guard(app, row, changes)
         data = app_data(dict(app['data'], **changes, setup_sources=provenance(app, row, changes)))
         stamp = now()
         result = dict(status='APPLIED', app_id=app_id, proposal_id=row['id'], app_version=app['version'] + 1,

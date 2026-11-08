@@ -1,7 +1,8 @@
 """Atomic selected-field approval; no provider credentials, app data or authority borrowing."""
 from datetime import timedelta
+import json
 from unittest.mock import patch
-from mission_control.common import Invalid, digest, iso_time
+from mission_control.common import Invalid, canonical, digest, iso_time
 from mission_control.db import connection
 from mission_control.setup_approval import apply
 from tests.test_setup_discovery import SetupFixture
@@ -34,6 +35,26 @@ class SetupApprovalTests(SetupFixture):
         self.assertEqual(result['readiness'], 'NOT_VERIFIED')
         self.assertFalse(result['external_writes'])
         self.assertEqual(self.service.list('sample-one')['proposals'][0]['currentness'], 'APPLIED')
+
+    def test_recorded_comparison_invalidates_approval_after_a_saved_value_moves(self):
+        row = self.start()
+        with connection(self.store.path) as db:
+            data = json.loads(db.execute("SELECT data FROM setup_proposals WHERE app_id='sample-one' AND id=?",
+                                         (row['id'],)).fetchone()['data'])
+            data['comparison']['fields'] = [
+                dict(item, current='Different') if item['field'] == 'name' else item
+                for item in data['comparison']['fields']
+            ]
+            db.execute("UPDATE setup_proposals SET data=?,hash=? WHERE app_id='sample-one' AND id=?",
+                       (canonical(data), digest(data), row['id']))
+        app = self.store.app('sample-one')
+        body = dict(app_id='sample-one', id=row['id'], proposal_hash=digest(data),
+                    app_version=app['version'], app_hash=digest(app['data']),
+                    changes={'name': 'Real app'}, confirm_apply=True)
+        saved = self.store.app('sample-one')
+        with self.assertRaises(Invalid):
+            apply(self.store, 'sample-one', body)
+        self.assertEqual(self.store.app('sample-one'), saved)
 
     def test_public_source_keeps_the_exact_store_reference_and_agent_origin(self):
         from tests.test_aeo_inspection import Reader

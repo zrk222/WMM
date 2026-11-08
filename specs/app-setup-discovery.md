@@ -17,6 +17,8 @@ product claims, release readiness, tested locale, billing or business outcomes.
 - The system shall apply `setup_approval` only to explicitly selected editable setup fields after exact app/proposal/hash/expiry checks, preserving unrelated fields, existing provider credentials and zero spending authority.
 - The system shall standardize each applied field's stored provenance with a closed `origin` of `PUBLIC_SOURCE`, `AGENT` or `HUMAN`, a closed `support` of `SUPPORTED_BY_SOURCE` or `UNSUPPORTED`, the exact source basis, and an external reference only when the source supplied one.
 - The system shall never persist model reasoning, prompts, transcripts or free-form agent narration in setup provenance.
+- The system shall record a current-versus-proposed comparison for every editable setup field with a closed state of `ADD`, `CHANGE`, `UNCHANGED`, `CONFLICT` or `NO_SOURCE`, together with the saved version and hash, and shall render it before approval.
+- The system shall reject an approval when a compared field's saved value changed after the comparison was recorded.
 - When the agent executes a proposal, the system shall return a saved `setup_agent` job using current approved policy and require another review before manifest changes.
 - The system shall protect `setup_http` with strict finite JSON, app isolation, Host, Origin and CSRF checks and no caller-supplied destination or executable command.
 - The system shall render `setup_review` at desktop1440x900 and mobile390x844 with source labels, edits, keyboard controls, explicit approval and guarded delayed responses without overflow or JavaScript errors.
@@ -29,6 +31,11 @@ Scenario: Inspect the declared app source
   Then only the declared website origin is read through pinned public transport
   And changed app sources deny adoption of the result
 
+Scenario: Current versus proposed setup diff
+  Given a saved app manifest and a current source projection
+  When the setup proposal is recorded
+  Then each editable field reports its saved value, proposed value and closed diff state
+  And approval is rejected if a saved value moved after the comparison
 Scenario: Standardized field provenance
   Given an approved public-source value, a human-edited value and an agent-applied value
   When `setup_approval` stores the selected fields

@@ -10,6 +10,27 @@ from .aeo_inspection import inspect_page
 from .setup_parse import extract
 
 
+COMPARE_FIELDS = ('name', 'job', 'audience', 'locale', 'store_app_id', 'android_package', 'android_track')
+
+
+def comparison(app, projection):
+    """Show saved, proposed and current scope per editable field without choosing for the owner."""
+    fields = (projection or {}).get('fields', {})
+    rows = []
+    for key in COMPARE_FIELDS:
+        saved = app['data'].get(key)
+        candidates = [item['value'] for item in fields.get(key, [])]
+        if len(candidates) > 1:
+            state, proposed = 'CONFLICT', None
+        elif candidates:
+            proposed = candidates[0]
+            state = 'UNCHANGED' if proposed == saved else ('ADD' if not saved else 'CHANGE')
+        else:
+            state, proposed = 'NO_SOURCE', None
+        rows.append(dict(field=key, current=saved, proposed=proposed, state=state))
+    return dict(fields=rows, current_version=app['version'], current_hash=digest(app['data']))
+
+
 def binding(app, body):
     """No caller-supplied URL, source text, credentials or destination enters discovery."""
     if not isinstance(body, dict) or set(body) != {'app_id', 'app_version', 'app_hash', 'confirm_read'}:
@@ -125,7 +146,7 @@ class SetupDiscovery:
             capacity(db, app_id)
         observed = inspect(bound, reader)
         stamp = now()
-        data = dict(binding=bound, observed_at=stamp, **observed,
+        data = dict(binding=bound, observed_at=stamp, comparison=comparison(app, observed['projection']), **observed,
                     ownership='NOT_VERIFIED', external_writes=False, authority='NO_EXECUTION_AUTHORITY')
         state = 'PENDING' if observed['projection'] and any(observed['projection']['fields'].values()) else 'NEEDS_RESOLUTION'
         row = dict(app_id=app_id, id=uid(), data=data, hash=digest(data), state=state, result=None,

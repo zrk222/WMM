@@ -47,6 +47,18 @@ class SetupDiscoveryTests(SetupFixture):
         self.assertTrue(all(not url.startswith('https://apps.apple.com') for url, _ in reader.calls))
         self.assertEqual(iso_time(row['expires']) - iso_time(row['created']), timedelta(seconds=3600))
 
+    def test_proposal_records_current_versus_proposed_scope(self):
+        row = self.start(Reader(page='<html lang="en"><head><title>Real app</title></head></html>'))
+        scope = row['data']['comparison']
+        fields = {item['field']: item for item in scope['fields']}
+        self.assertEqual(fields['name']['current'], 'Synthetic')
+        self.assertEqual(fields['name']['proposed'], 'Real app')
+        self.assertEqual(fields['name']['state'], 'CHANGE')
+        self.assertEqual(fields['audience']['state'], 'NO_SOURCE')
+        self.assertEqual(fields['locale']['state'], 'ADD')
+        self.assertEqual(scope['current_version'], self.store.app('sample-one')['version'])
+        self.assertEqual(scope['current_hash'], digest(self.store.app('sample-one')['data']))
+
     def test_restart_and_expiry_do_not_silently_renew_evidence(self):
         row = self.start()
         restored = SetupDiscovery(Store(self.store.path, seed=False))
