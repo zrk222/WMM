@@ -33,6 +33,9 @@ observed work without opening each domain surface.
   `activity_timeline` and one filtered, paged owner read at
   `/api/apps/{app}/activity/history` accepting only `kind`, `status`, `cursor`
   and `limit`.
+- The system shall expose the same read as `activity.history` in the fixed
+  operation catalog for CLI and MCP, marked read-only, carrying only those four
+  optional fields and requiring a current scoped grant or owner session.
 
 ### Acceptance criteria (Gherkin)
 ```gherkin

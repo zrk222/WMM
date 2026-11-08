@@ -23,7 +23,7 @@ WORKFLOWS = {
         'ios.scene.projects','ios.scene.read','ios.scene.save','ios.scene.plan','ios.scene.start','ios.scene.inspect','ios.scene.cancel',
         'ios.timeline.queue','ios.timeline.inspect','ios.timeline.cancel'], blockers=[]),
     'local_evidence': dict(name='Local evidence and measurement', operations=[
-        'workspace.read', 'evidence.save', 'operations.read', 'growth.read',
+        'workspace.read', 'evidence.save', 'operations.read', 'activity.history', 'growth.read',
         'growth.history', 'growth.save', 'customer.history', 'customer.save',
         'measurement.read', 'report.read', 'snapshot.export', 'cohort.define', 'events.import',
         'billing.save','funnel.list','funnel.review','funnel.read','funnel.save','funnel.observations','funnel.import','funnel.report',

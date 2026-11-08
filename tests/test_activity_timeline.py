@@ -147,6 +147,25 @@ class ActivityTimelineTests(unittest.TestCase):
         self.assertEqual([item["id"] for item in workspace["activity_timeline"]["events"]],
                          [item["id"] for item in read(self.store, APP)["events"]])
 
+    def test_agent_catalog_exposes_one_filtered_read(self):
+        from mission_control.operation_catalog import request_data, catalog
+        value = request_data({"app_id": APP, "operation": "activity.history",
+                              "input": {"kind": "JOB", "status": "QUEUED", "limit": 10}})
+        self.assertEqual(value["method"], "GET")
+        self.assertEqual(value["path"], "/api/apps/" + APP + "/activity/history?kind=JOB&status=QUEUED&limit=10")
+        self.assertIsNone(value["body"])
+        self.assertIn("activity.history", catalog()["operations"])
+        with self.assertRaises(Invalid):
+            request_data({"app_id": APP, "operation": "activity.history", "input": {"offset": 1}})
+
+    def test_mcp_tool_is_read_only_and_closed(self):
+        from mission_control.agent_mcp import tool_definitions
+        tool = next(item for item in tool_definitions() if item["name"] == "wmm_activity_history")
+        self.assertTrue(tool["annotations"]["readOnlyHint"])
+        self.assertFalse(tool["annotations"]["destructiveHint"])
+        self.assertEqual(set(tool["inputSchema"]["properties"]["input"]["properties"]),
+                         {"kind", "status", "cursor", "limit"})
+
     def test_unknown_app_is_denied(self):
         with self.assertRaises(KeyError):
             read(self.store, "sample-three")

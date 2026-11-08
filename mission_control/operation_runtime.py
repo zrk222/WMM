@@ -20,6 +20,7 @@ def execute(service,envelope,*,caller='SCOPED_AGENT'):
     from .managed_media_store import Media
     from .funnel_store import Funnels
     from .funnel_founder_review import review as funnel_review
+    from .activity_timeline import read as activity_read
     from .video_edit_jobs import EditRenders
     request_data(envelope)
     if envelope['operation'].startswith('observational-campaign.'):
@@ -146,6 +147,8 @@ def execute(service,envelope,*,caller='SCOPED_AGENT'):
         'editor.diff':lambda:Projects(store,caller).diff(app,resource,body),
         'job.cancel':lambda:service.cancel(app,resource),
         'operations.read':lambda:discovery(store.app(app),body.get('profile')),
+        'activity.history':lambda:activity_read(store,app,kind=body.get('kind'),status=body.get('status'),
+                                                cursor=body.get('cursor'),limit=body.get('limit',20)),
         'growth.read':lambda:service.subscription_review(app),
         'growth.history':lambda:GrowthReviews(store).list(app),
         'growth.save':lambda:GrowthReviews(store).save(app,body),
