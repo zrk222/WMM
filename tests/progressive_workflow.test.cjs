@@ -24,9 +24,20 @@ test('every stage shows purpose, needed input, delivered artifact and acceptance
  assert.ok(html.includes('&lt;b&gt;Prepared packet'));assert.ok(!html.includes('<b>Prepared packet'));
 });
 
+test('evidence-state legend uses the saved vocabulary and escapes it',()=>{
+ const g=guide();g.evidence_states=[
+  {id:'INPUTS_READY',title:'<img src=x>',detail:'Saved <b>fact</b>'},
+  {id:'EXECUTION_APPROVED',title:'Execution approved',detail:'Approved detail'},
+  {id:'OUTCOME_OBSERVED',title:'Outcome observed',detail:'Observed detail'}];
+ context.state={workspace:{workflow:g}};const html=context.guidedEvidenceStates();
+ assert.ok(html.includes('&lt;img src=x&gt;'));assert.ok(!html.includes('<img src=x>'));
+ assert.ok(html.includes('&lt;b&gt;fact'));assert.ok(html.includes('onboarding, review and results'));
+});
+
 test('all locally ready stages remain available without claiming execution completion',()=>{
  const g=guide();g.next_step=null;const html=context.guidedStageJourney(g);
  assert.equal((html.match(/id="workflow-step-/g)||[]).length,12);assert.ok(!html.includes('guided-all-stages'));
+ context.state={workspace:{workflow:g}};
  const states=context.guidedEvidenceStates();for(const text of ['Inputs ready','Execution approved','Outcome observed','Missing results stay unknown'])assert.ok(states.includes(text));
  assert.ok(!/all.*complete|growth guaranteed/i.test(states));
 });

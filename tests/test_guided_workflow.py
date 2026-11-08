@@ -53,6 +53,16 @@ class GuidedWorkflowTests(unittest.TestCase):
             self.assertEqual(s["deliverable"],OPERATIONS[s["id"]]["deliverable"])
             self.assertIsInstance(s["direct_needs"],list)
 
+    def test_evidence_state_vocabulary_is_shared_and_never_claims_completion(self):
+        from mission_control.guided_workflow import EVIDENCE_STATES
+        g=self.build()
+        self.assertEqual([s["id"] for s in g["evidence_states"]],
+                         ["INPUTS_READY","EXECUTION_APPROVED","OUTCOME_OBSERVED"])
+        self.assertEqual(g["evidence_states"],[dict(s) for s in EVIDENCE_STATES])
+        text=" ".join(s["title"]+" "+s["detail"] for s in g["evidence_states"]).lower()
+        for forbidden in ("complete","guaranteed","success"):
+            self.assertNotIn(forbidden,text)
+
     def test_all_local_ready_is_never_execution_or_success(self):
         g=self.build(complete_records(self.app))
         self.assertEqual(g["local_ready_count"],12);self.assertIsNone(g["next_step"])
