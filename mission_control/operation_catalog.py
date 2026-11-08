@@ -1,13 +1,14 @@
 """Fixed local upgrade operations shared by CLI and MCP protocol adapters."""
 import copy
 import re
+from urllib.parse import urlencode
 from .common import Invalid,digest
 from .observational_campaign_contract import ACTION_FIELDS, schema_contract
 
 
-def descriptor(method,suffix,effect,required=(),optional=(),resource=False):
+def descriptor(method,suffix,effect,required=(),optional=(),resource=False,query=()):
     """Describe a closed envelope; nested domain validation remains server authoritative."""
-    return dict(method=method,suffix=suffix,effect=effect,required=list(required),optional=list(optional),resource=resource)
+    return dict(method=method,suffix=suffix,effect=effect,required=list(required),optional=list(optional),resource=resource,query=list(query))
 
 
 OPERATIONS={
@@ -58,6 +59,8 @@ OPERATIONS={
     'organic-video.intent-create':descriptor('POST','/organic-video/intent-create','PREPARE_ADMITTED_EXTERNAL_EFFECT',('schema','request_id','app_id','page_id','policy_id','policy_hash','admission_id','admission_hash','artifact_id','artifact_sha256','caption','rights_hashes')),
     'organic-video.intent-read':descriptor('POST','/organic-video/intent-read','READ_PRIVATE_LOCAL_DATA',('intent_id',)),
     'organic-video.intent-execute':descriptor('POST','/organic-video/intent-execute','PUBLISH_WITH_EXACT_ORGANIC_POLICY',('intent_id',)),
+    'activity.history':descriptor('GET','/activity/history','READ_PRIVATE_LOCAL_DATA',
+        optional=('kind','status','cursor','limit'),query=('kind','status','cursor','limit')),
     'workspace.read':descriptor('GET','','READ_PRIVATE_LOCAL_DATA'),
     'evidence.save':descriptor('POST','/workflow-evidence','WRITE_LOCAL_EVIDENCE',('id','manifest_version','kind','title','source','data'),('version',)),
     'pipeline.prepare':descriptor('POST','/jobs','QUEUE_LOCAL_PREPARATION',('action','data','request_key')),
@@ -217,8 +220,11 @@ def request_data(envelope):
     elif 'resource_id' in envelope:
         raise Invalid('This operation has no resource identifier')
     local_constraints(name,envelope['input'])
-    if rule['method']=='GET' and 'offset' in envelope['input']:
-        suffix+='?offset='+str(envelope['input']['offset'])
-    if name=='operations.read' and 'profile' in envelope['input']:
-        suffix+='?profile='+envelope['input']['profile']
+    if rule['method']=='GET':
+        params=[]
+        if 'offset' in envelope['input']:params.append(('offset',str(envelope['input']['offset'])))
+        for key in rule['query']:
+            if key in envelope['input']:params.append((key,str(envelope['input'][key])))
+        if name=='operations.read' and 'profile' in envelope['input']:params.append(('profile',envelope['input']['profile']))
+        if params:suffix+='?'+urlencode(params)
     return dict(method=rule['method'],path='/api/apps/'+app_id+suffix,body=envelope['input'] if rule['method']=='POST' else None)
