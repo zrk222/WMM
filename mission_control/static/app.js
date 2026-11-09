@@ -671,10 +671,7 @@ function modal(title,html,eyebrow="WORKSPACE") {
   $("#modal-body").insertAdjacentHTML("afterbegin",WMMStories.dialog(title,html));
   if(currentWorkspace()) automationAttach();
   if(!$("#modal").open) $("#modal").showModal();
-  if(!$("#modal").contains(document.activeElement)){
-    const first=modalFocusable()[0];
-    if(first)first.focus();else $("#modal").focus();
-  }
+  $("#modal").focus();
 }
 
 function openStage(id) {
