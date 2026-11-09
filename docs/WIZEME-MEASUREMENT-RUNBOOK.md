@@ -31,7 +31,41 @@ Anything else is commentary.
 ## Step 2 — Collect installs (MMP)
 
 Export installs from your measurement partner for the same campaign token and
-window. Ingest one exact batch through the owner-scoped install attribution
+window. Map the export to a checked batch first:
+
+```sh
+python -m mission_control.install_import \
+  --input installs.csv --input-format csv \
+  --mapping mapping.json \
+  --source APPSFLYER \
+  --campaign-token <study uuid> \
+  --observed-at <UTC ISO time after the window> \
+  --source-receipt-file installs.csv \
+  --coverage-complete --source-event-count <export row count> \
+  --out batch.json --checklist checklist.json
+```
+
+`mapping.json` names three columns and optional raw state values:
+
+```json
+{
+  "install_id": "customer_user_id",
+  "state": "attribution_status",
+  "occurred_at": "install_time",
+  "state_values": {
+    "attributed": "ATTRIBUTED",
+    "organic": "UNATTRIBUTED",
+    "opt_out": "SUPPRESSED"
+  }
+}
+```
+
+The command exits nonzero if the checklist is `BLOCKED`. Read the checklist
+before ingesting: it lists rows read/emitted, counts by state, missing values,
+duplicate/conflicting install IDs, unmapped columns and incomplete coverage. Do
+not edit a blocked batch into shape silently; fix the mapping or the source.
+
+Ingest the resulting `batch.json` through the owner-scoped install attribution
 service (`mission_control.install_attribution.record_batch`). Batch shape:
 
 ```json
