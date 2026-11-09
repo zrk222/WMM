@@ -103,6 +103,20 @@ class InstallAttributionTests(unittest.TestCase):
         self.assertEqual(value["study_status"], "LINKED")
         self.assertEqual(value["study"]["study_hash"], "b" * 64)
 
+    def test_day_aggregation_counts_distinct_installs_without_double_count(self):
+        rows = [dict(install_id="day0", state="ATTRIBUTED", occurred_at="2026-11-01T00:00:00+00:00"),
+                dict(install_id="day2", state="ATTRIBUTED", occurred_at="2026-11-03T00:00:00+00:00"),
+                dict(install_id="day6", state="UNATTRIBUTED", occurred_at="2026-11-07T00:00:00+00:00")]
+        body = dict(self.body(request="88888888-8888-4888-8888-888888888888", rows=rows, count=3),
+                    window=dict(starts_at="2026-11-01T00:00:00+00:00", ends_at="2026-11-10T00:00:00+00:00"),
+                    observed_at="2026-11-10T00:00:00+00:00")
+        record_batch(self.store, APP, OWNER, body)
+        self.assertEqual(report(self.store, APP, OWNER, CAMPAIGN, day=1)["recorded"], 1)
+        self.assertEqual(report(self.store, APP, OWNER, CAMPAIGN, day=3)["recorded"], 2)
+        self.assertEqual(report(self.store, APP, OWNER, CAMPAIGN, day=7)["recorded"], 3)
+        with self.assertRaises(Invalid):
+            report(self.store, APP, OWNER, CAMPAIGN, day=2)
+
     def test_workspace_summary_states_no_export_then_metadata_without_counts(self):
         self.assertEqual(summary(self.store, APP)["campaigns"], [])
         record_batch(self.store, APP, OWNER, self.body())
