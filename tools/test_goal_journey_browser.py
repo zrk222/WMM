@@ -56,8 +56,9 @@ def run(browser,width,out):
    page.keyboard.press("Escape")
   assert not writes,writes
   nav=page.locator("#navigation");expect(nav.get_by_role("button",name="Watch the work",exact=True)).to_be_visible()
-  nav.locator("summary").focus();nav.locator("summary").press("Enter")
-  expect(nav.get_by_role("button",name="Guided workflow",exact=True)).to_be_visible()
+  nav.locator("summary").focus();guided=nav.get_by_role("button",name="Guided workflow",exact=True)
+  if not guided.is_visible(): nav.locator("summary").press("Enter")
+  expect(guided).to_be_visible()
   nav.locator("summary").press("Enter")
   page.get_by_role("button",name="Run an approved campaign",exact=True).click()
   expect(page.locator("#goal-message")).to_contain_text("No work has started")

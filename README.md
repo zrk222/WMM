@@ -37,7 +37,7 @@ In WMM: **Set your goal → Explore video channels → Find viral ideas for my a
 
 The intended payoff is less coordination, faster creative cycles and better decisions about installs, activation, paid conversion and retention. Analytics retain source dates, definitions and missing data; receipts show what was actually done. Measure the benefit on your app—growth and time savings are not yet established by the dogfooding trial.
 
-**Available today:** local workspaces, optional assistant access through a local command or MCP, creative and evidence tools, supported analytics paths, reviewed organic distribution across five networks and bounded Meta engagement campaigns. Shared team dashboards, additional paid-ad networks and complete KPI coverage remain in development; the team-tier architecture is [proposed here](docs/adr/0001-team-tier.md). [Current tools and limits](#what-is-included-today).
+**Available today:** local workspaces, optional assistant access through a local command or MCP, creative and evidence tools, supported analytics paths, reviewed organic distribution across five networks and bounded Meta engagement campaigns. Shared team dashboards, additional paid-ad networks and complete KPI coverage remain in development; the team-tier architecture is [proposed here](docs/adr/0001-team-tier.md), and scope stays narrow until [verified value](docs/adr/0002-stay-narrow.md). [Current tools and limits](#what-is-included-today).
 
 [Follow the WizeMe dogfooding journey](docs/WIZEME-DOGFOODING.md): dated operations, verified receipts and the next measurement step.
 
