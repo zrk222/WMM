@@ -60,9 +60,8 @@ def _coverage(value):
     return dict(complete=value["complete"], source_event_count=count)
 
 
-def record_batch(store, app_id, user, body):
-    """Retain one atomic, app-owner install export; never infer lift or rates."""
-    store.app(app_id)
+def validate_batch(body):
+    """Validate one exact batch without touching storage; used by imports and the mapper."""
     _exact(body, ("source", "campaign_token", "request_id", "source_receipt_sha256",
                   "observed_at", "coverage", "installs"))
     source = body["source"]
@@ -81,9 +80,17 @@ def record_batch(store, app_id, user, body):
     rows = [_install(row, observed) for row in installs]
     if len({row["install_id"] for row in rows}) != len(rows):
         raise Invalid("Install identities must be unique within one batch")
-    data = dict(source=source, campaign_token=campaign, request_id=request,
+    return dict(source=source, campaign_token=campaign, request_id=request,
                 source_receipt_sha256=receipt, observed_at=observed.isoformat(),
                 coverage=coverage, installs=rows)
+
+
+def record_batch(store, app_id, user, body):
+    """Retain one atomic, app-owner install export; never infer lift or rates."""
+    store.app(app_id)
+    data = validate_batch(body)
+    source, campaign, request, rows = (data["source"], data["campaign_token"],
+                                       data["request_id"], data["installs"])
     hashed = digest(data)
     with connection(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
