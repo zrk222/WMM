@@ -449,6 +449,37 @@ async function installImportConfirm(){
   toast(`Install export imported: ${result.result.inserted} new, ${result.result.duplicates} duplicate.`);
 }
 
+async function digestText(text){
+  if(!globalThis.crypto?.subtle)return null;
+  const bytes=new TextEncoder().encode(text);
+  const hash=await crypto.subtle.digest("SHA-256",bytes);
+  return [...new Uint8Array(hash)].map(value=>value.toString(16).padStart(2,"0")).join("");
+}
+
+async function nextAnswer(){
+  const app=state.app,workspace=state.workspace;
+  if(!workspace)throw new Error("Wait for this app to load.");
+  const next=workspace.workflow?.next_action||workspace.automation?.next_action||{title:"Review the saved workflow"};
+  const exceptions=workspace.workflow?.exceptions||[];
+  const packets=(workspace.approvals||[]).filter(row=>row.status==="WAITING_REVIEW");
+  let publications={authorities:[],intents:[]},unavailable=false;
+  try{publications=await api(`/api/apps/${encodeURIComponent(app)}/publications`);}
+  catch{unavailable=true;}
+  if(state.app!==app||!state.workspace)return;
+  const authorities=(publications.authorities||[]).filter(row=>["PREPARED","APPROVED"].includes(row.status));
+  const intents=publications.intents||[];
+  const hashes=[...packets.map(row=>row.hash),...authorities.map(row=>row.review_hash)].filter(Boolean).sort();
+  const index=hashes.length?await digestText(hashes.join("\n")):null;
+  if(state.app!==app||!state.workspace)return;
+  const exceptionRows=exceptions.slice(0,3).map(row=>`<article class="next-step"><div><h3>${esc(row.headline)}</h3><p>${esc(row.reason)}</p><p><strong>Next:</strong> ${esc(row.action)}</p></div></article>`).join("");
+  const approvalRows=[
+    ...packets.map(row=>`<p><strong>Manual review packet</strong> ${esc(row.id)} · expires ${esc(row.expires||"saved expiry")} · hash ${esc((row.hash||"").slice(0,16))}…</p>`),
+    ...authorities.map(row=>`<p><strong>${esc(row.status==="APPROVED"?"Approved publication":"Prepared publication")}</strong> ${esc(row.id)} · hash ${esc((row.review_hash||"").slice(0,16))}…</p>`),
+    ...intents.map(row=>`<p><strong>Publication result</strong> ${esc(row.id||"saved receipt")} · ${esc(row.status||"unknown state")}</p>`),
+  ].join("");
+  modal("What should I do next?",`<div class="modal-content"><p class="eyebrow">NEXT ACTION</p><h3>${esc(next.title)}</h3><p>This answer is read-only. It does not approve, publish or spend.</p>${exceptionRows?`<h3>Needs attention</h3>${exceptionRows}`:""}<h3>Pending approvals</h3>${approvalRows||notice("No prepared publication approval or manual review packet is waiting.")}${unavailable?notice("Publication approvals could not be loaded; reload before relying on this list.","warning"):""}${index?`<details><summary>Review index</summary><p class="app-mono">${esc(index)}</p><p class="description">A display index of the listed review hashes only. Each item still needs its own exact review and approval.</p></details>`:""}<div class="modal-actions">${button("Open guided workflow","next-answer-workflow")}${button("Open organic publishing","next-answer-publishing")}${button("Close","close")}</div></div>`,"NEXT STEP");
+}
+
 function firstPostMarkup(studies,intents,installs,loaded,note=""){
   const step=(number,title,detail,done,controls)=>`<section class="panel"><p class="eyebrow">STEP ${number}</p><h3>${done?"✓ ":""}${esc(title)}</h3><p>${esc(detail)}</p><div class="toolbar">${controls}</div></section>`;
   return `${note?`<p>${esc(note)}</p>`:""}<p>One path, three approvals you control. Each step keeps its own exact check; this guide does not publish or spend.</p>`
@@ -1186,6 +1217,9 @@ async function handleAction(node) {
   if(action==="measurement-download")return download(`${state.app}-payment-comparison.json`,state.workspace.measurement_integrity);
   if(action==="measurement-connections"){$("#modal").close();state.view="connections";return render();}
   if(action==="first-post-open")return firstMeasuredPost();
+  if(action==="next-answer")return nextAnswer();
+  if(action==="next-answer-workflow"){$("#modal").close();state.view="workflow";return render();}
+  if(action==="next-answer-publishing"){$("#modal").close();return guidedNavigate("connections","#publication-heading");}
   if(action==="first-post-publishing")return guidedNavigate("connections","#publication-heading");
   if(action==="install-import-open")return installImportForm();
   if(action==="install-import-confirm")return installImportConfirm();
