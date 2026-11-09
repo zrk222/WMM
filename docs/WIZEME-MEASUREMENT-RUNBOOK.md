@@ -76,7 +76,8 @@ service (`mission_control.install_attribution.record_batch`). Batch shape:
   "request_id": "<new canonical uuid>",
   "source_receipt_sha256": "<64 lowercase hex>",
   "observed_at": "<UTC ISO time after the window>",
-  "coverage": {"complete": true, "source_event_count": 0},
+  "window": {"starts_at": "<UTC study start>", "ends_at": "<UTC study end>"},
+  "coverage": {"complete": true, "source_event_count": 1, "excluded": {}},
   "installs": [
     {"install_id": "<opaque token>", "state": "ATTRIBUTED", "occurred_at": "<UTC ISO time>"}
   ]
