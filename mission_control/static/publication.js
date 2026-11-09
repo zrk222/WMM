@@ -215,7 +215,7 @@
     return `<p>Options loaded for ${escText(state.workspace.app.data.name)}. No post has been sent.</p>${instagramLinks(state)}${formHtml(state,model,model.form_values||{})}${recordsMarkup(state,model)}`;
   }
   function recordsMarkup(state,model) {
-    return `<div class="publication-records">${authorityMarkup(state,model)}</div>`;
+    return `<details class="publication-history"><summary>Saved approvals, queues and results</summary><div class="publication-records">${authorityMarkup(state,model)}</div></details>`;
   }
   function panelFor(state, model) {
     let cached=stateCache.get(`${state.app}:${owner(state)}`);
