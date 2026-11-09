@@ -83,6 +83,20 @@ class InstallAttributionTests(unittest.TestCase):
             with self.subTest(changed=changed), self.assertRaises(Invalid):
                 record_batch(self.store, APP, OWNER, dict(self.body(request="66666666-6666-4666-8666-666666666666"), **changed))
 
+    def test_batch_auto_links_to_the_exact_registered_study(self):
+        from mission_control.db import connection
+        from mission_control.observational_campaign import _tables
+        with connection(self.store.path) as db:
+            _tables(db)
+            db.execute("INSERT INTO observational_campaign_studies VALUES(?,?,?,?,?,?,?,?)",
+                       (APP, CAMPAIGN, "77777777-7777-4777-8777-777777777777", "a" * 64, 1, "{}", "b" * 64,
+                        "2026-11-01T00:00:00+00:00"))
+        self.assertEqual(report(self.store, APP, OWNER, CAMPAIGN)["study_status"], "UNLINKED")
+        record_batch(self.store, APP, OWNER, self.body())
+        value = report(self.store, APP, OWNER, CAMPAIGN)
+        self.assertEqual(value["study_status"], "LINKED")
+        self.assertEqual(value["study"]["study_hash"], "b" * 64)
+
     def test_owner_and_app_boundaries(self):
         with self.assertRaises(PermissionError):
             record_batch(self.store, APP, {"principal": "github:other", "login": "other"}, self.body())
