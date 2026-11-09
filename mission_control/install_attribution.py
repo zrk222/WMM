@@ -85,16 +85,29 @@ def validate_batch(body):
                 coverage=coverage, installs=rows)
 
 
+def _study_link(db, app_id, campaign_token):
+    """Link to the exact app-scoped observational study when one is registered."""
+    if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='observational_campaign_studies'").fetchone():
+        return None
+    row = db.execute("SELECT study_id,hash,app_version,registered_at FROM observational_campaign_studies "
+                     "WHERE app_id=? AND study_id=?", (app_id, campaign_token)).fetchone()
+    if row is None:
+        return None
+    return dict(study_id=row["study_id"], study_hash=row["hash"],
+                app_version=row["app_version"], registered_at=row["registered_at"])
+
+
 def record_batch(store, app_id, user, body):
     """Retain one atomic, app-owner install export; never infer lift or rates."""
     store.app(app_id)
     data = validate_batch(body)
     source, campaign, request, rows = (data["source"], data["campaign_token"],
                                        data["request_id"], data["installs"])
-    hashed = digest(data)
     with connection(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
         member(db, app_id, user["principal"], "OWNER")
+        data["study_link"] = _study_link(db, app_id, campaign)
+        hashed = digest(data)
         saved = db.execute("SELECT * FROM install_attribution_batches WHERE app_id=? AND id=?",
                            (app_id, request)).fetchone()
         if saved:
@@ -145,21 +158,28 @@ def report(store, app_id, user, campaign_token):
     for row in rows:
         counts[row["state"]] += 1
     coverage = []
+    linked = []
     for batch in batches:
         data = json.loads(batch["data"])
+        if data.get("study_link"):
+            linked.append(data["study_link"])
         coverage.append(dict(batch_id=batch["id"], source=data["source"],
                              complete=data["coverage"]["complete"],
                              source_event_count=data["coverage"]["source_event_count"],
-                             observed_at=data["observed_at"], receipt_sha256=batch["hash"]))
+                             observed_at=data["observed_at"], receipt_sha256=batch["hash"],
+                             study_linked=bool(data.get("study_link"))))
     if not coverage:
         status = "NO_IMPORT"
     elif all(item["complete"] for item in coverage):
         status = "COMPLETE"
     else:
         status = "PARTIAL"
+    study = linked[0] if linked and all(item == linked[0] for item in linked) else None
+    study_status = "LINKED" if study else ("MIXED" if linked else "UNLINKED")
     return dict(schema="growth.install-attribution-report.v1", app_id=app_id,
                 campaign_token=campaign, counts=counts, recorded=len(rows),
-                coverage_status=status, batches=coverage,
+                coverage_status=status, batches=coverage, study=study,
+                study_status=study_status,
                 scope="Descriptive linked installs from supplied exports only; no rate, lift, revenue or causal claim.",
                 external_writes=False)
 
