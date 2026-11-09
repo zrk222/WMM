@@ -1,5 +1,17 @@
 # WMM licensing
 
+## Plain answers
+
+| Question | Answer |
+| --- | --- |
+| Can I use WMM for my own app or my company's internal work? | Yes, free. |
+| Can I change it and keep the changes private? | Yes. |
+| Do my outputs and customer data belong to me? | Yes. |
+| Can I host it for other organizations, resell it or white-label it? | No, not without a paid written commercial agreement. |
+| Can I use it to deliver paid marketing or automation services to clients? | No, not without a paid written commercial agreement. |
+| Is this OSI open source? | No. It is source-available. Prior Apache 2.0 grants are preserved. |
+| Is there a price list? | Internal use is free. Commercial use is quoted in writing; see [pricing](pricing.md). |
+
 WMM is source-available. The [current license](../LICENSE) permits free personal evaluation and internal business use, including marketing your own apps. Your outputs and customer data remain yours. Private modifications do not require publication.
 
 Resale, repackaging, white-label distribution, hosting, SaaS/API access and paid marketing or automation services for outside clients require a separate paid written commercial agreement from an authorized rights holder. Publishing modifications does not substitute for payment or permission. Fees are negotiated; no default royalty is imposed.
