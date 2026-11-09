@@ -39,7 +39,7 @@ def load_rows(path, fmt):
     raise Invalid("Choose csv or json input")
 
 
-def map_rows(rows, mapping, source, campaign_token, observed_at, coverage, request_id=None,
+def map_rows(rows, mapping, source, campaign_token, observed_at, window, coverage, request_id=None,
              source_receipt_sha256=None, columns=None):
     """Produce one batch and a coverage checklist; never write or infer missing values."""
     mapping = _mapping(mapping)
@@ -78,7 +78,7 @@ def map_rows(rows, mapping, source, campaign_token, observed_at, coverage, reque
     unmapped = [name for name in columns if name not in used]
     batch = dict(source=source, campaign_token=campaign_token, request_id=request_id,
                  source_receipt_sha256=source_receipt_sha256, observed_at=observed_at,
-                 coverage=coverage, installs=installed)
+                 window=window, coverage=coverage, installs=installed)
     checklist = dict(schema="wmm.install-import-checklist.v1", status="READY",
                      rows_read=len(rows), rows_emitted=len(installed),
                      counts=counts, duplicates=duplicates[:50], conflicts=conflicts[:50],
@@ -114,6 +114,8 @@ def main(argv=None):
     parser.add_argument("--source", required=True)
     parser.add_argument("--campaign-token", required=True)
     parser.add_argument("--observed-at", required=True)
+    parser.add_argument("--window-start", required=True)
+    parser.add_argument("--window-end", required=True)
     parser.add_argument("--request-id")
     parser.add_argument("--source-receipt-sha256")
     parser.add_argument("--source-receipt-file")
@@ -129,7 +131,7 @@ def main(argv=None):
         digest_value = hashlib.sha256(Path(args.source_receipt_file).read_bytes()).hexdigest()
     coverage = dict(complete=args.coverage_complete, source_event_count=args.source_event_count)
     batch, checklist = map_rows(rows, mapping, args.source, args.campaign_token, args.observed_at,
-                                coverage, args.request_id, digest_value,
+                                dict(starts_at=args.window_start, ends_at=args.window_end), coverage, args.request_id, digest_value,
                                 columns=list(rows[0].keys()) if rows else [])
     payload = (json.dumps(checklist.pop("_batch", batch), indent=2) if checklist["status"] == "READY" else json.dumps({"status": "BLOCKED", "reason": checklist.get("reason")}, indent=2)) + "\n"
     if args.out == "-":
@@ -144,5 +146,6 @@ def main(argv=None):
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
 
 

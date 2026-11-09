@@ -1,4 +1,4 @@
-"""MMP export mapping produces a validated batch or a blocking checklist."""
+﻿"""MMP export mapping produces a validated batch or a blocking checklist."""
 from pathlib import Path
 import json
 import tempfile
@@ -30,8 +30,10 @@ class InstallImportTests(unittest.TestCase):
     def map(self, rows=None, **changes):
         rows = rows if rows is not None else load_rows(self.csv, "csv")
         coverage = changes.pop("coverage", {"complete": True, "source_event_count": 2})
+        window = changes.pop("window", dict(starts_at="2026-10-31T00:00:00+00:00",
+                                            ends_at="2026-11-03T00:00:00+00:00"))
         return map_rows(rows, MAPPING, "APPSFLYER", CAMPAIGN, "2026-11-02T00:00:00+00:00",
-                        coverage, columns=["id", "event", "time", "extra"], **changes)
+                        window, coverage, columns=["id", "event", "time", "extra"], **changes)
 
     def test_csv_maps_to_ready_batch_and_checklist(self):
         batch, checklist = self.map()
@@ -87,7 +89,7 @@ class InstallImportTests(unittest.TestCase):
         out, checklist = self.root / "batch.json", self.root / "checklist.json"
         code = main(["--input", str(self.csv), "--input-format", "csv", "--mapping", str(self.mapping),
                      "--source", "APPSFLYER", "--campaign-token", CAMPAIGN,
-                     "--observed-at", "2026-11-02T00:00:00+00:00", "--coverage-complete",
+                     "--observed-at", "2026-11-02T00:00:00+00:00", "--window-start", "2026-10-31T00:00:00+00:00", "--window-end", "2026-11-03T00:00:00+00:00", "--coverage-complete",
                      "--source-event-count", "2", "--out", str(out), "--checklist", str(checklist)])
         self.assertEqual(code, 0)
         self.assertEqual(json.loads(out.read_text(encoding="utf-8"))["installs"][0]["install_id"], "install_a")
@@ -96,10 +98,11 @@ class InstallImportTests(unittest.TestCase):
         bad.write_text("id,event,time\ninstall_a,install,2026-11-03T00:00:00+00:00\n", encoding="utf-8")
         code = main(["--input", str(bad), "--input-format", "csv", "--mapping", str(self.mapping),
                      "--source", "APPSFLYER", "--campaign-token", CAMPAIGN,
-                     "--observed-at", "2026-11-02T00:00:00+00:00", "--coverage-complete",
+                     "--observed-at", "2026-11-02T00:00:00+00:00", "--window-start", "2026-10-31T00:00:00+00:00", "--window-end", "2026-11-03T00:00:00+00:00", "--coverage-complete",
                      "--source-event-count", "1", "--out", str(self.root / "blocked.json")])
         self.assertEqual(code, 1)
 
 
 if __name__ == "__main__":
     unittest.main()
+

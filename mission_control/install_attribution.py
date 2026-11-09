@@ -33,7 +33,18 @@ def _time(value, name):
         raise Invalid(name + " must be an ISO timestamp with timezone") from exc
 
 
-def _install(row, observed):
+def _window(value):
+    _exact(value, ("starts_at", "ends_at"))
+    starts = _time(value["starts_at"], "Window start")
+    ends = _time(value["ends_at"], "Window end")
+    if not starts < ends:
+        raise Invalid("Window start must be before its end")
+    if (ends - starts).total_seconds() > 90 * 86400:
+        raise Invalid("Window cannot exceed 90 days")
+    return dict(starts_at=starts.isoformat(), ends_at=ends.isoformat())
+
+
+def _install(row, observed, window):
     _exact(row, ("install_id", "state", "occurred_at"))
     identity = row["install_id"]
     if not isinstance(identity, str) or not OPAQUE.fullmatch(identity):
@@ -45,6 +56,8 @@ def _install(row, observed):
     occurred = _time(row["occurred_at"], "Occurred time")
     if occurred > observed:
         raise Invalid("Install time cannot be after the source observation")
+    if not iso_time(window["starts_at"]) <= occurred <= iso_time(window["ends_at"]):
+        raise Invalid("Install time must fall inside the declared window")
     return dict(install_id=identity, state=row["state"], occurred_at=occurred.isoformat())
 
 
@@ -63,7 +76,7 @@ def _coverage(value):
 def validate_batch(body):
     """Validate one exact batch without touching storage; used by imports and the mapper."""
     _exact(body, ("source", "campaign_token", "request_id", "source_receipt_sha256",
-                  "observed_at", "coverage", "installs"))
+                  "observed_at", "window", "coverage", "installs"))
     source = body["source"]
     if not isinstance(source, str) or not SOURCE.fullmatch(source):
         raise Invalid("Attribution source must be an uppercase token")
@@ -73,15 +86,18 @@ def validate_batch(body):
     if not isinstance(receipt, str) or not SHA256.fullmatch(receipt):
         raise Invalid("Source receipt must be a lowercase SHA-256")
     observed = _time(body["observed_at"], "Observed time")
+    window = _window(body["window"])
+    if observed < iso_time(window["starts_at"]):
+        raise Invalid("Source observation cannot precede the declared window")
     coverage = _coverage(body["coverage"])
     installs = body["installs"]
     if not isinstance(installs, list) or len(installs) > 1000:
         raise Invalid("Provide between 0 and 1000 install rows")
-    rows = [_install(row, observed) for row in installs]
+    rows = [_install(row, observed, window) for row in installs]
     if len({row["install_id"] for row in rows}) != len(rows):
         raise Invalid("Install identities must be unique within one batch")
     return dict(source=source, campaign_token=campaign, request_id=request,
-                source_receipt_sha256=receipt, observed_at=observed.isoformat(),
+                source_receipt_sha256=receipt, observed_at=observed.isoformat(), window=window,
                 coverage=coverage, installs=rows)
 
 

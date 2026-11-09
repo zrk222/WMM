@@ -40,6 +40,7 @@ python -m mission_control.install_import \
   --source APPSFLYER \
   --campaign-token <study uuid> \
   --observed-at <UTC ISO time after the window> \
+  --window-start <UTC study start> --window-end <UTC study end> \
   --source-receipt-file installs.csv \
   --coverage-complete --source-event-count <export row count> \
   --out batch.json --checklist checklist.json
