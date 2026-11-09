@@ -2,7 +2,7 @@
 
 - **Status:** Proposed — authorizes no code by itself.
 - **Date:** 2026-11-08
-- **Owners:** Product/security (needs a second human reviewer; see P4)
+- **Owners:** Product/security (owner-reviewed; a separate reviewer is optional)
 
 ## Context
 
@@ -144,7 +144,7 @@ Snapshots continue to exclude authority.
 1. Which identity provider first: GitHub OAuth (already present) or generic OIDC?
 2. Is an owner-hosted host acceptable for the first buyers, or is hosted required
    before any team sale?
-3. Who is the second human reviewer for the security-sensitive work?
+3. Is an independent reviewer wanted before the hosted multi-user phase? Owner review is sufficient for now.
 4. Which single design-partner team will validate Phase 1?
 
 ## Consequences

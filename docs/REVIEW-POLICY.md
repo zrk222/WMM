@@ -2,9 +2,9 @@
 
 ## Requirement
 
-Every security-sensitive change needs **one approving review from a human other
-than the author** in addition to green CI. This is a process requirement; code
-cannot create the second person.
+Every security-sensitive change needs **owner review** and green CI before merge.
+The repository owner is the reviewer. A separate non-author reviewer is not
+required and is not a merge blocker.
 
 Security-sensitive paths:
 
@@ -14,43 +14,9 @@ Security-sensitive paths:
 - `ios/**` (native storage, Keychain, device identity)
 - `LICENSE`, `SECURITY.md`, `docs/SERVER-ENFORCEMENT-AUDIT.md`, this file
 
-## Current status
+## Owner review checklist
 
-No second reviewer is configured. The repository owner must name one. Until then,
-security-sensitive changes should be treated as unreviewed even when CI is green.
-
-## How to enforce it
-
-1. Name the second reviewer's GitHub handle.
-2. Add `.github/CODEOWNERS`:
-
-   ```
-   * @OWNER_HANDLE @SECOND_REVIEWER_HANDLE
-   /mission_control/ @SECOND_REVIEWER_HANDLE
-   /.github/ @SECOND_REVIEWER_HANDLE
-   /packaging/ @SECOND_REVIEWER_HANDLE
-   /ios/ @SECOND_REVIEWER_HANDLE
-   /LICENSE @SECOND_REVIEWER_HANDLE
-   /SECURITY.md @SECOND_REVIEWER_HANDLE
-   ```
-
-3. In **Settings → Branches → main**, require:
-   - a pull request before merging;
-   - at least **1 approving review**;
-   - **dismiss stale approvals** on new commits;
-   - **require review from Code Owners**;
-   - **do not allow the author to self-approve** (GitHub does this by default);
-   - the existing required checks.
-4. Keep CodeRabbit or another automated reviewer as an extra signal, never a
-   substitute for the human review.
-
-The CLI token used in this workspace can create PRs and checks but cannot
-administer branch protection; steps 3 must be done by the repository admin in
-GitHub settings.
-
-## Review checklist
-
-Use `.github/pull_request_template.md`. Reviewers should confirm:
+Before merging a security-sensitive change, the owner should confirm:
 
 - server-side authority is re-derived, not trusted from the body;
 - no credential, token or private payload is logged, exported or returned;
@@ -60,8 +26,19 @@ Use `.github/pull_request_template.md`. Reviewers should confirm:
 - tests cover the denial path, not just success;
 - no measured result or provider outcome is claimed without receipts.
 
+Use `.github/pull_request_template.md` to record the check.
+
+## Enforcement
+
+Green CI is required. Do **not** enable “require approvals” while the owner is
+also the only author: GitHub does not allow self-approval, so it would block work
+without adding a reviewer.
+
+If a second human becomes available later, CODEOWNERS and required approvals can
+be added as an optional strengthening. That is a future choice, not a current
+blocker.
+
 ## Emergency changes
 
-If a security fix must land before the reviewer is available, record the reason,
-the exact change, the tests run and a follow-up review deadline in the PR. Do not
-merge silently.
+Record the reason, the exact change and the tests run in the PR. The owner review
+checklist still applies.
