@@ -29,6 +29,7 @@ class InstallAttributionTests(unittest.TestCase):
         ]
         return dict(source="APPSFLYER", campaign_token=CAMPAIGN, request_id=request,
                     source_receipt_sha256="a" * 64, observed_at="2026-11-02T00:00:00+00:00",
+                    window=dict(starts_at="2026-10-31T00:00:00+00:00", ends_at="2026-11-03T00:00:00+00:00"),
                     coverage=dict(complete=complete, source_event_count=count if count is not None else (len(installs) if complete else None)),
                     installs=installs)
 
@@ -77,6 +78,11 @@ class InstallAttributionTests(unittest.TestCase):
                         dict(installs=[dict(install_id="install_a", state="ATTRIBUTED",
                                             occurred_at="2026-11-03T00:00:00+00:00")]),
                         dict(installs=[dict(install_id="install_a", state="ATTRIBUTED",
+                                            occurred_at="2026-10-30T00:00:00+00:00")]),
+                        dict(window=dict(starts_at="2026-11-03T00:00:00+00:00",
+                                         ends_at="2026-11-02T00:00:00+00:00")),
+                        dict(observed_at="2026-10-30T00:00:00+00:00"),
+                        dict(installs=[dict(install_id="install_a", state="ATTRIBUTED",
                                             occurred_at="2026-11-01T00:00:00+00:00"),
                                        dict(install_id="install_a", state="UNKNOWN",
                                             occurred_at="2026-11-01T00:00:00+00:00")])):
@@ -117,4 +123,5 @@ class InstallAttributionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
 

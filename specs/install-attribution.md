@@ -16,6 +16,7 @@ causal claim, and it does not replace Apple SKAN/AdAttributionKit postbacks.
 - The system shall accept 0 through 1000 install rows with exactly `install_id`, `state` in `ATTRIBUTED`, `UNATTRIBUTED`, `SUPPRESSED` or `UNKNOWN`, and an aware `occurred_at` not after the observation through `install_rows`.
 - The system shall reject raw personal identifiers: opaque install IDs only, no email or phone-like values.
 - The system shall require coverage with explicit `complete` and a nullable bounded `source_event_count`; complete coverage must state the count.
+- The system shall require an exact `window` with ordered `starts_at`/`ends_at` no longer than 90 days, require the source observation at or after the window start, and reject installs outside the window.
 - The system shall retain each batch atomically; an exact repeated request returns the retained batch, while a reused request identity or conflicting install identity rejects the whole batch without writes.
 - The system shall keep installs app-scoped and owner-only.
 - When the campaign token matches an app-scoped observational study, the system shall record that study's identity, hash and app version with the batch; otherwise it shall report `UNLINKED`, and disagreeing links shall report `MIXED`.
@@ -34,6 +35,10 @@ Scenario: install_idempotence
   When the exact request is replayed
   Then the retained batch is returned without duplicate rows
   And a conflicting batch is rejected atomically
+Scenario: install_window
+  Given a declared install window and source observation time
+  When an install falls outside the window or the observation precedes it
+  Then the batch is rejected without writes
 Scenario: install_coverage
   Given complete, partial and absent coverage
   When the report is prepared
