@@ -38,7 +38,8 @@ channel for [zrk222/WMM](https://github.com/zrk222/WMM). Say:
 - the term you need.
 
 **Do not post credentials, customer data or confidential terms in a public
-issue.** Use a private channel for contract details.
+issue.** Use a private channel for contract details. If you are unsure whether
+your use is free, ask before you host for others or charge for the work.
 
 ## What the agreement covers
 
