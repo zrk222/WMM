@@ -111,6 +111,6 @@ Open **http://127.0.0.1:8765/**, add one app and prepare one evidence packet. A 
 
 ## License and development
 
-Free personal evaluation and internal business use under the [WMM Personal and Internal Business Use License](LICENSE). Resale, hosting, white-label products and paid external-client services require a separate commercial agreement. [Prior Apache grants and third-party rights remain preserved](docs/licensing.md).
+Free personal evaluation and internal business use under the [WMM Personal and Internal Business Use License](LICENSE). Resale, hosting, white-label products and paid external-client services require a separate commercial agreement. [Pricing and commercial path](docs/pricing.md) · [Prior Apache grants and third-party rights remain preserved](docs/licensing.md).
 
 [Development checks](docs/workspace-guide.md#development-checks) · [Release scope](RELEASE-SCOPE.md) · [Security guidance](SECURITY.md)
