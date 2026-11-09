@@ -183,3 +183,35 @@ def report(store, app_id, user, campaign_token):
                 scope="Descriptive linked installs from supplied exports only; no rate, lift, revenue or causal claim.",
                 external_writes=False)
 
+
+
+def summary(store, app_id):
+    """Workspace-safe metadata: campaign tokens, coverage and study linkage only."""
+    store.app(app_id)
+    with connection(store.path) as db:
+        rows = [dict(row) for row in db.execute(
+            "SELECT campaign_token,data,created FROM install_attribution_batches WHERE app_id=? "
+            "ORDER BY created,id", (app_id,))]
+    campaigns = {}
+    for row in rows:
+        data = json.loads(row["data"])
+        item = campaigns.setdefault(row["campaign_token"], dict(campaign_token=row["campaign_token"],
+                                                                 batches=0, complete=True, linked=[],
+                                                                 last_observed_at=None))
+        item["batches"] += 1
+        item["complete"] = item["complete"] and data["coverage"]["complete"]
+        if data.get("study_link"):
+            item["linked"].append(data["study_link"])
+        observed = data["observed_at"]
+        if item["last_observed_at"] is None or observed > item["last_observed_at"]:
+            item["last_observed_at"] = observed
+    result = []
+    for token in sorted(campaigns):
+        item = campaigns[token]
+        linked = item.pop("linked")
+        item["coverage_status"] = "COMPLETE" if item.pop("complete") else "PARTIAL"
+        item["study_status"] = "LINKED" if linked and all(link == linked[0] for link in linked) else (
+            "MIXED" if linked else "UNLINKED")
+        result.append(item)
+    return dict(schema="growth.install-attribution-summary.v1", app_id=app_id, campaigns=result,
+                scope="Export coverage and study link metadata only; install counts are in the owner report.")

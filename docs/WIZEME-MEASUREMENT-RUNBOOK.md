@@ -116,6 +116,9 @@ substitute engagement counts.
 3. Retention or paid-conversion report: denominator, window, maturity and source
    hash.
 
+The Results page shows `No install export yet` until a batch exists. That is an
+honest waiting state, not zero installs.
+
 Record the exact `as_of`, source hashes, sample sizes, exclusions and any unknown
 values. If a source is incomplete, the result is inconclusive, not zero.
 

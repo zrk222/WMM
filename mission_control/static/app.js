@@ -387,8 +387,14 @@ function money(value,currency) {
 }
 function percent(value) {return value===null || value===undefined?"Unavailable":`${(value*100).toFixed(1)}%`;}
 
+function installAttributionPanel(){
+  const value=state.workspace.install_attribution,campaigns=value?.campaigns||[];
+  const rows=campaigns.map(item=>`<div class="record-row"><span class="record-main"><strong>${esc(item.campaign_token)}</strong><small>${esc(item.batches)} batch(es) · coverage ${esc(item.coverage_status)} · study ${esc(item.study_status)} · last observed ${esc(item.last_observed_at||"unknown")}</small></span></div>`).join("");
+  return `<section class="panel" aria-label="Install attribution"><h2>Install attribution</h2>${campaigns.length?`<div class="record-list">${rows}</div><p class="description">Install counts stay in the owner report; this shows export coverage and study linkage only.</p>`:notice("No install export yet. The observation window may still be open, or no MMP export has been ingested. Engagement is not an install.")}</section>`;
+}
+
 function resultsView() {
-  return WMMFunnels.panel()+WMMGrowthReview.panel(state)+WMMSubscriptionAuthoring.panel(state)+WMMCustomerWorkflow.panel(state)+measurementIntegrityPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyResultsView();
+  return WMMFunnels.panel()+installAttributionPanel()+WMMGrowthReview.panel(state)+WMMSubscriptionAuthoring.panel(state)+WMMCustomerWorkflow.panel(state)+measurementIntegrityPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyResultsView();
 }
 
 function growthReviewServices() {
