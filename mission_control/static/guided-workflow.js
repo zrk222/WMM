@@ -169,9 +169,13 @@ const WMMGoalJourney=(()=>{
  return {read,save,model,view,choices,browserStorage};
 })();
 
+function firstMeasuredPostPanel(){
+ return `<section class="panel" aria-label="First measured post"><div class="section-heading"><div><p class="eyebrow">START HERE</p><h2>Your first measured post</h2><p>Four steps: tagged link, exact post approval, one publish, then what the source recorded. Each step keeps its own approval; nothing publishes or spends on its own.</p></div>${button("Start the guided path","first-post-open")}</div></section>`;
+}
+
 function goalOverview(){
  const id=state.goalChoice?.app===state.app?state.goalChoice.id:WMMGoalJourney.read(WMMGoalJourney.browserStorage(),state.app);
- return heading("Set your goal","Choose one outcome. Watch the work. Review what happened.")+WMMGoalJourney.view(state.workspace,id,esc)+button("Open your first packet","automatic-goal-open",WMMGoalPacket.attributes(WMMGoalPacket.model()))+`<details class="panel" id="goal-advanced"><summary>Advanced app overview and twelve-stage diagnostics</summary><div class="toolbar">${button("Review combined automation agreement","goal-agreement")}${button("Monitor approved campaigns","campaign-monitor-open")}${button("Review private campaign outcomes","owner-report-open")}${button("Measure one organic post","observational-campaign-open")}</div>${detailedOverview().replace(/<h1>/g,"<h2>").replace(/<\/h1>/g,"</h2>")}</details>`;
+ return heading("Set your goal","Choose one outcome. Watch the work. Review what happened.")+firstMeasuredPostPanel()+WMMGoalJourney.view(state.workspace,id,esc)+button("Open your first packet","automatic-goal-open",WMMGoalPacket.attributes(WMMGoalPacket.model()))+`<details class="panel" id="goal-advanced"><summary>Advanced app overview and twelve-stage diagnostics</summary><div class="toolbar">${button("Review combined automation agreement","goal-agreement")}${button("Monitor approved campaigns","campaign-monitor-open")}${button("Review private campaign outcomes","owner-report-open")}${button("Measure one organic post","observational-campaign-open")}</div>${detailedOverview().replace(/<h1>/g,"<h2>").replace(/<\/h1>/g,"</h2>")}</details>`;
 }
 
 function goalAction(node){

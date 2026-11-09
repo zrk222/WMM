@@ -1,4 +1,4 @@
-"""Actual goal-first home, synthetic apps, no provider or campaign execution."""
+﻿"""Actual goal-first home, synthetic apps, no provider or campaign execution."""
 from pathlib import Path
 import json,sys,threading
 ROOT=Path(__file__).resolve().parents[1]
@@ -19,6 +19,8 @@ def run(browser,width,out):
   page.goto("http://127.0.0.1:"+str(server.server_port))
   page.wait_for_function("() => state.workspace?.app?.id===state.app")
   expect(page.get_by_role("heading",name="Set your goal",exact=True)).to_be_visible()
+  expect(page.get_by_role("region",name="First measured post")).to_be_visible()
+  expect(page.get_by_role("button",name="Start the guided path",exact=True)).to_be_visible()
   expect(page.get_by_role("button",name="Review combined automation agreement")).to_be_hidden()
   page.get_by_role("button",name="Open your first packet",exact=True).press("Enter")
   packet=page.get_by_role("dialog")
@@ -32,6 +34,7 @@ def run(browser,width,out):
                              ("measurement","Understand app results",[3,4,10,11])):
    page.get_by_role("button",name=title,exact=True).click()
    page.get_by_role("button",name="Open your first packet",exact=True).press("Enter")
+   page.wait_for_timeout(300)
    expect(packet).to_contain_text(title+" — evidence packet")
    expect(packet).not_to_contain_text("of 12 steps")
    assert packet.locator('[data-goal-packet-stage]').evaluate_all('(rows) => rows.map(row => Number(row.dataset.goalPacketStage))')==stages
@@ -72,7 +75,7 @@ def run(browser,width,out):
   expect(page.get_by_role("heading",name="Run an approved campaign",exact=True)).to_be_visible()
   page.locator("#goal-advanced > summary").click()
   with page.expect_popup() as popup_info: page.get_by_role("button",name="Report / Save PDF",exact=True).click()
-  popup=popup_info.value;expect(popup.get_by_role("heading",name="Overview — WMM report",exact=True)).to_have_count(0)
+  popup=popup_info.value;expect(popup.get_by_role("heading",name="Overview â€” WMM report",exact=True)).to_have_count(0)
   expect(popup.locator("body")).to_contain_text("No publication, spend or approval authority")
   popup.close()
   nav.get_by_role("button",name="Watch the work",exact=True).click();expect(page.locator("#main .page-heading")).to_be_visible()
@@ -90,3 +93,6 @@ def main():
   browser=p.chromium.launch();result={"status":"PASS","observations":[run(browser,width,out) for width in (1440,390)]};browser.close()
  (out/"browser.json").write_text(json.dumps(result,indent=2),encoding="utf-8");print(json.dumps(result))
 if __name__=="__main__":main()
+
+
+

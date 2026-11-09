@@ -439,6 +439,32 @@ async function installImportConfirm(){
   toast(`Install export imported: ${result.result.inserted} new, ${result.result.duplicates} duplicate.`);
 }
 
+function firstPostMarkup(studies,intents,installs,loaded,note=""){
+  const step=(number,title,detail,done,controls)=>`<section class="panel"><p class="eyebrow">STEP ${number}</p><h3>${done?"✓ ":""}${esc(title)}</h3><p>${esc(detail)}</p><div class="toolbar">${controls}</div></section>`;
+  return `${note?`<p>${esc(note)}</p>`:""}<p>One path, three approvals you control. Each step keeps its own exact check; this guide does not publish or spend.</p>`
+    +step(1,"Create the tagged link",studies.length?`Saved study: ${studies[0].data.study_id}`:(loaded?"Register one study. WMM gives you the exact link to use in the post.":"Register one study with the tagged link you will use in the post."),loaded&&studies.length>0,button(studies.length?"Open the tagged link":"Create the tagged link","observational-campaign-open"))
+    +step(2,"Prepare, approve and queue one post",intents.length?"A saved publication approval or queue exists.":(loaded?"Write one post with that exact link, then approve its content, destination and time.":"Prepare one post with that link, then approve its content, destination and time."),loaded&&intents.length>0,button("Open organic publishing","first-post-publishing"))
+    +step(3,"Check what arrived",installs.length?"At least one install export is imported.":(loaded?"Read tagged landings and registrations. Add an MMP install export when one exists; missing installs stay unknown.":"Read tagged landings and registrations, and import installs when your source provides them."),loaded&&installs.length>0,button("Read tagged results","observational-campaign-open")+button("Import install export","install-import-open"))
+    +`<div class="modal-actions">${button("Close","close")}</div>`;
+}
+
+async function firstMeasuredPost(){
+  modal("Your first measured post",`<div class="modal-content" id="first-post-panel">${firstPostMarkup([],[],[],false)}</div>`,"GUIDED PATH");
+  const app=state.app;
+  try{
+    const [history,pubs]=await Promise.all([
+      api(`/api/apps/${encodeURIComponent(app)}/observational-campaign/history`,{offset:0}),
+      api(`/api/apps/${encodeURIComponent(app)}/publications`)]);
+    if(state.app!==app||!$("#modal").open)return;
+    const studies=(history.records||[]).filter(row=>row.kind==="REGISTERED");
+    const intents=pubs.intents||[];
+    const installs=state.workspace.install_attribution?.campaigns||[];
+    $("#first-post-panel").innerHTML=firstPostMarkup(studies,intents,installs,true);
+  }catch(_){
+    if($("#first-post-panel"))$("#first-post-panel").innerHTML=firstPostMarkup([],[],[],false,"Sign in as the app owner to load saved progress. The steps still work.");
+  }
+}
+
 function resultsView() {
   return WMMFunnels.panel()+installAttributionPanel()+WMMGrowthReview.panel(state)+WMMSubscriptionAuthoring.panel(state)+WMMCustomerWorkflow.panel(state)+measurementIntegrityPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyResultsView();
 }
@@ -1149,6 +1175,8 @@ async function handleAction(node) {
   if(action==="measurement-inspect")return measurementIntegrityInspect();
   if(action==="measurement-download")return download(`${state.app}-payment-comparison.json`,state.workspace.measurement_integrity);
   if(action==="measurement-connections"){$("#modal").close();state.view="connections";return render();}
+  if(action==="first-post-open")return firstMeasuredPost();
+  if(action==="first-post-publishing")return guidedNavigate("connections","#publication-heading");
   if(action==="install-import-open")return installImportForm();
   if(action==="install-import-confirm")return installImportConfirm();
   if(action.startsWith("activity-"))return activityAction(node);
