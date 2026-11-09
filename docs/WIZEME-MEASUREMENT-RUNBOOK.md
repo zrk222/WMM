@@ -113,7 +113,9 @@ substitute engagement counts.
    exclusions and coverage.
 2. Install attribution report: attributed/unattributed/suppressed/unknown counts
    for the same campaign token, with coverage and `LINKED`/`UNLINKED` to the
-   registered study. `MIXED` means batches disagree; inspect them.
+   registered study. `MIXED` means batches disagree; inspect them. Day 1, 3 and
+   7 views count distinct installs up to that day without double counting
+   repeated batches.
 3. Retention or paid-conversion report: denominator, window, maturity and source
    hash.
 

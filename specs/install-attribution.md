@@ -22,6 +22,7 @@ causal claim, and it does not replace Apple SKAN/AdAttributionKit postbacks.
 - When the campaign token matches an app-scoped observational study, the system shall record that study's identity, hash and app version with the batch; otherwise it shall report `UNLINKED`, and disagreeing links shall report `MIXED`.
 - The system shall report counts per state, the retained batches, and `COMPLETE`, `PARTIAL` or `NO_IMPORT` coverage, and shall not emit a rate, lift, revenue or causal decision.
 - The system shall expose a workspace summary with campaign token, batch count, coverage status and study status only, and the Results page shall state `No install export yet` while no batch exists.
+- The system shall accept an optional `day` of 1, 3 or 7 and count only distinct installs whose `occurred_at` is at or before each batch's window start plus that day, without double counting repeated installs; any other day is rejected.
 
 ### Acceptance criteria (Gherkin)
 ```gherkin
@@ -49,6 +50,11 @@ Scenario: install_study_link
   When the batch is recorded
   Then the report links that exact study hash and app version
   And an unregistered token stays UNLINKED
+Scenario: install_day_aggregation
+  Given installs across the first week and repeated batches
+  When the report requests day 1, 3 or 7
+  Then only distinct installs at or before that day are counted
+  And any other day is rejected
 Scenario: install_no_export
   Given no install batch for the app
   When the Results page or workspace summary is read

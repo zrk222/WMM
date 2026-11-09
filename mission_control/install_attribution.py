@@ -2,6 +2,7 @@
 import json
 import re
 import uuid
+from datetime import timedelta
 from .common import Invalid, canonical, digest, iso_time, now
 from .db import connection
 from .review_access import member
@@ -158,25 +159,26 @@ def record_batch(store, app_id, user, body):
         return dict(id=request, hash=hashed, status="RECORDED", inserted=inserted, duplicates=duplicates)
 
 
-def report(store, app_id, user, campaign_token):
+def report(store, app_id, user, campaign_token, day=None):
     """Return descriptive install counts and explicit coverage, never a rate or lift."""
     store.app(app_id)
     campaign = _uuid(campaign_token, "Campaign token")
+    if day is not None and day not in (1, 3, 7):
+        raise Invalid("Day aggregation must be 1, 3, 7 or omitted")
     with connection(store.path) as db:
         member(db, app_id, user["principal"], "OWNER")
         rows = [dict(row) for row in db.execute(
-            "SELECT state,occurred_at FROM install_attribution_rows WHERE app_id=? AND campaign_token=?",
+            "SELECT state,occurred_at,batch_id FROM install_attribution_rows WHERE app_id=? AND campaign_token=?",
             (app_id, campaign))]
         batches = [dict(row) for row in db.execute(
             "SELECT id,source,data,hash,created FROM install_attribution_batches "
             "WHERE app_id=? AND campaign_token=? ORDER BY created,id", (app_id, campaign))]
-    counts = {state: 0 for state in STATES}
-    for row in rows:
-        counts[row["state"]] += 1
     coverage = []
     linked = []
+    windows = {}
     for batch in batches:
         data = json.loads(batch["data"])
+        windows[batch["id"]] = iso_time(data["window"]["starts_at"])
         if data.get("study_link"):
             linked.append(data["study_link"])
         coverage.append(dict(batch_id=batch["id"], source=data["source"],
@@ -184,6 +186,12 @@ def report(store, app_id, user, campaign_token):
                              source_event_count=data["coverage"]["source_event_count"],
                              observed_at=data["observed_at"], receipt_sha256=batch["hash"],
                              study_linked=bool(data.get("study_link"))))
+    if day is not None:
+        rows = [row for row in rows
+                if iso_time(row["occurred_at"]) <= windows[row["batch_id"]] + timedelta(days=day)]
+    counts = {state: 0 for state in STATES}
+    for row in rows:
+        counts[row["state"]] += 1
     if not coverage:
         status = "NO_IMPORT"
     elif all(item["complete"] for item in coverage):
@@ -195,7 +203,9 @@ def report(store, app_id, user, campaign_token):
     return dict(schema="growth.install-attribution-report.v1", app_id=app_id,
                 campaign_token=campaign, counts=counts, recorded=len(rows),
                 coverage_status=status, batches=coverage, study=study,
-                study_status=study_status,
+                study_status=study_status, day=day,
+                aggregation=(dict(day=day, rule="INSTALL_OCCURRED_AT_OR_BEFORE_WINDOW_START_PLUS_DAY")
+                             if day is not None else None),
                 scope="Descriptive linked installs from supplied exports only; no rate, lift, revenue or causal claim.",
                 external_writes=False)
 
@@ -231,3 +241,4 @@ def summary(store, app_id):
         result.append(item)
     return dict(schema="growth.install-attribution-summary.v1", app_id=app_id, campaigns=result,
                 scope="Export coverage and study link metadata only; install counts are in the owner report.")
+
