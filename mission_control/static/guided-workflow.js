@@ -169,13 +169,20 @@ const WMMGoalJourney=(()=>{
  return {read,save,model,view,choices,browserStorage};
 })();
 
+function needsYouPanel(){
+ const rows=state.workspace?.workflow?.exceptions||[];
+ if(!rows.length)return "";
+ const top=rows.slice(0,3).map(c=>`<article class="next-step"><div><h3>${esc(c.headline)}</h3><p>${esc(c.reason)}</p><p><strong>Next:</strong> ${esc(c.action)}</p></div></article>`).join("");
+ return `<section class="panel" aria-label="Needs you"><div class="section-heading"><div><p class="eyebrow">NEEDS YOU</p><h2>${rows.length} item${rows.length===1?"":"s"} need a decision</h2></div><button type="button" class="button outline" data-view="workflow">Review workflow</button></div>${top}${rows.length>3?`<p class="description">${rows.length-3} more in the workflow view.</p>`:""}</section>`;
+}
+
 function firstMeasuredPostPanel(){
  return `<section class="panel" aria-label="First measured post"><div class="section-heading"><div><p class="eyebrow">START HERE</p><h2>Your first measured post</h2><p>Four steps: tagged link, exact post approval, one publish, then what the source recorded. Each step keeps its own approval; nothing publishes or spends on its own.</p></div>${button("Start the guided path","first-post-open")}</div></section>`;
 }
 
 function goalOverview(){
  const id=state.goalChoice?.app===state.app?state.goalChoice.id:WMMGoalJourney.read(WMMGoalJourney.browserStorage(),state.app);
- return heading("Set your goal","Choose one outcome. Watch the work. Review what happened.")+firstMeasuredPostPanel()+WMMGoalJourney.view(state.workspace,id,esc)+button("Open your first packet","automatic-goal-open",WMMGoalPacket.attributes(WMMGoalPacket.model()))+`<details class="panel" id="goal-advanced"><summary>Advanced app overview and twelve-stage diagnostics</summary><div class="toolbar">${button("Review combined automation agreement","goal-agreement")}${button("Monitor approved campaigns","campaign-monitor-open")}${button("Review private campaign outcomes","owner-report-open")}${button("Measure one organic post","observational-campaign-open")}</div>${detailedOverview().replace(/<h1>/g,"<h2>").replace(/<\/h1>/g,"</h2>")}</details>`;
+ return heading("Set your goal","Choose one outcome. Watch the work. Review what happened.")+needsYouPanel()+firstMeasuredPostPanel()+WMMGoalJourney.view(state.workspace,id,esc)+button("Open your first packet","automatic-goal-open",WMMGoalPacket.attributes(WMMGoalPacket.model()))+`<details class="panel" id="goal-advanced"><summary>Advanced app overview and twelve-stage diagnostics</summary><div class="toolbar">${button("Review combined automation agreement","goal-agreement")}${button("Monitor approved campaigns","campaign-monitor-open")}${button("Review private campaign outcomes","owner-report-open")}${button("Measure one organic post","observational-campaign-open")}</div>${detailedOverview().replace(/<h1>/g,"<h2>").replace(/<\/h1>/g,"</h2>")}</details>`;
 }
 
 function goalAction(node){

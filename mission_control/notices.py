@@ -1,5 +1,6 @@
 """Opt-in local notices with durable deduplication; a terminal channel, not browser UI."""
 import argparse
+import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -8,7 +9,7 @@ from .db import connection
 from .store import Store
 
 HORIZON = timedelta(days=7)
-KINDS = ("JOB", "AGENT_GRANT", "CAMPAIGN_MONITOR", "APPLE_SCHEDULE")
+KINDS = ("JOB", "AGENT_GRANT", "CAMPAIGN_MONITOR", "APPLE_SCHEDULE", "OBSERVATIONAL_STUDY")
 
 
 def enabled(store, app_id):
@@ -60,6 +61,21 @@ def collect(store, app_id):
                               "AND status='BLOCKED' LIMIT 5", (app_id,)):
             items.append(_candidate("APPLE_SCHEDULE", row["app_id"], "Apple analytics schedule is blocked",
                                     row["status"], row["updated"]))
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
+                      "AND name='observational_campaign_studies'").fetchone():
+            for row in db.execute("SELECT study_id,data,registered_at FROM observational_campaign_studies "
+                                  "WHERE app_id=? ORDER BY registered_at DESC,study_id LIMIT 50", (app_id,)):
+                try:
+                    ends = iso_time(json.loads(row["data"])["ends_at"])
+                except (Invalid, KeyError, TypeError, ValueError):
+                    continue
+                if ends <= current:
+                    state, title = "ENDED", "Tagged study window ended — read results"
+                elif ends <= current + HORIZON:
+                    state, title = "ENDING_SOON", "Tagged study window ends soon"
+                else:
+                    continue
+                items.append(_candidate("OBSERVATIONAL_STUDY", row["study_id"], title, state, row["registered_at"]))
     return sorted(items, key=lambda item: (item["kind"], item["id"]))
 
 

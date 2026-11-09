@@ -19,6 +19,18 @@ const WMMObservationalCampaign = (() => {
     return '<label class="field">' + label + '<input required name="' + name + '" type="' + type + '" ' + extra + '></label>';
   }
 
+  function localInput(date) {
+    const pad = value => String(value).padStart(2, '0');
+    return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()) +
+      'T' + pad(date.getHours()) + ':' + pad(date.getMinutes());
+  }
+
+  function windowDefaults() {
+    const start = new Date(Date.now() + 3600 * 1000);
+    const end = new Date(Date.now() + 10 * 86400 * 1000);
+    return {start: localInput(start), end: localInput(end)};
+  }
+
   function panel(task, content) {
     modal('Measure one organic post', '<div id="observational-campaign-panel" class="modal-content">' +
       content + '<p id="observational-campaign-status" role="status"></p>' +
@@ -34,6 +46,7 @@ const WMMObservationalCampaign = (() => {
       const saved = await call(task, 'history', {offset});
       if (!valid(task)) return;
       task.studies = saved.records.filter(row => row.kind === 'REGISTERED').map(row => row.data);
+      const window = windowDefaults();
       const rows = task.studies.map((study, i) =>
         '<p>' + esc(study.study_id) + ' · app version ' + esc(study.app_version) + ' ' +
         button('Open study', 'observational-campaign-study', 'data-id="' + i + '"') + '</p>').join('');
@@ -45,9 +58,11 @@ const WMMObservationalCampaign = (() => {
         '<label class="field">Channel<select name="source"><option value="facebook">Facebook</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option></select></label>' +
         field('creative_id','Creative reference','text','pattern="[A-Za-z0-9_-]{1,128}"') +
         field('landing_path','Landing path on your app website','text','value="/" maxlength="1024"') +
-        field('starts_at','Starts (local time)','datetime-local') + field('ends_at','Ends (local time)','datetime-local') +
+        field('starts_at','Starts (local time)','datetime-local','value="' + window.start + '"') +
+        field('ends_at','Ends (local time)','datetime-local','value="' + window.end + '"') +
         field('landing_event','Landing event in your source','text','maxlength="128"') +
         field('registration_event','Registration event in your source','text','maxlength="128"') +
+        '<p class="description">The window defaults to starting in one hour and ending in ten days. Adjust both before saving; the source events must be the names your export actually records.</p>' +
         '<button class="button primary" type="submit">Save study</button></form></details>');
     } catch (error) {
       if (valid(task)) $('#observational-campaign-status').textContent = error.message;

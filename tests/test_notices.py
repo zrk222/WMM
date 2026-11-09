@@ -39,6 +39,26 @@ class NoticeTests(unittest.TestCase):
                        (APP, "connection", "conn-1", 1, "c" * 64, 1, "report", 24, 1, 1, 0, None, None, None, 0,
                         "BLOCKED", None, "Synthetic failure", stamp))
 
+    def test_study_windows_are_surfaced_without_inventing_results(self):
+        import json
+        from mission_control.observational_campaign import _tables
+        configure(self.store, APP, True)
+        ended = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+        ending = (datetime.now(timezone.utc) + timedelta(days=2)).isoformat()
+        with connection(self.store.path) as db:
+            _tables(db)
+            for study_id, ends in (("study-ended", ended), ("study-ending", ending)):
+                db.execute("INSERT INTO observational_campaign_studies VALUES(?,?,?,?,?,?,?,?)",
+                           (APP, study_id, "request-" + study_id, "a" * 64, 1,
+                            json.dumps({"ends_at": ends}), "b" * 64, now()))
+        items = {item["id"]: item for item in collect(self.store, APP)}
+        self.assertEqual({item["kind"] for item in items.values()}, {"OBSERVATIONAL_STUDY"})
+        states = {item["state"] for item in items.values()}
+        self.assertEqual(states, {"ENDED", "ENDING_SOON"})
+        self.assertTrue(all("read results" in item["title"] or "ends soon" in item["title"]
+                            for item in items.values()))
+        self.assertNotIn("installs", canonical(list(items.values())))
+
     def test_default_is_quiet_and_opt_in_is_explicit(self):
         self.assertFalse(enabled(self.store, APP))
         self.assertEqual(sync(self.store, APP), [])
