@@ -194,6 +194,8 @@ class Service:
         workspace['experiment_tracking']=Tracking(self.store).list(app_id)
         from .instrumentation_state import readout as instrumentation_readout
         workspace['instrumentation_lifecycle']=instrumentation_readout(self.store,app_id)
+        from .install_attribution import summary as install_attribution_summary
+        workspace['install_attribution']=install_attribution_summary(self.store,app_id)
         from .agent_access import AgentAccess
         workspace['agent_access']=AgentAccess(self.store).view(app_id)
         from .social_http import view as social_view

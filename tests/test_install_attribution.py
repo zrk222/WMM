@@ -1,9 +1,9 @@
-"""MMP install exports stay app-scoped, descriptive and explicitly covered."""
+﻿"""MMP install exports stay app-scoped, descriptive and explicitly covered."""
 from pathlib import Path
 import tempfile
 import unittest
 from mission_control.common import Invalid
-from mission_control.install_attribution import record_batch, report
+from mission_control.install_attribution import record_batch, report, summary
 from mission_control.review_access import Access
 from mission_control.store import Store
 
@@ -97,6 +97,16 @@ class InstallAttributionTests(unittest.TestCase):
         self.assertEqual(value["study_status"], "LINKED")
         self.assertEqual(value["study"]["study_hash"], "b" * 64)
 
+    def test_workspace_summary_states_no_export_then_metadata_without_counts(self):
+        self.assertEqual(summary(self.store, APP)["campaigns"], [])
+        record_batch(self.store, APP, OWNER, self.body())
+        item = summary(self.store, APP)["campaigns"][0]
+        self.assertEqual(item["campaign_token"], CAMPAIGN)
+        self.assertEqual(item["batches"], 1)
+        self.assertEqual(item["coverage_status"], "COMPLETE")
+        self.assertEqual(item["study_status"], "UNLINKED")
+        self.assertNotIn("counts", item)
+
     def test_owner_and_app_boundaries(self):
         with self.assertRaises(PermissionError):
             record_batch(self.store, APP, {"principal": "github:other", "login": "other"}, self.body())
@@ -107,3 +117,4 @@ class InstallAttributionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
