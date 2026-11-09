@@ -15,7 +15,7 @@ from mission_control.production_contract import declaration
 from mission_control.production_feasibility import Capabilities,assess,context
 from tests.production_fixtures import profile,requirement
 from tests.test_creative_production import ready_production
-from tests.test_creative_ranking import ready_ranking,APP
+from tests.test_creative_ranking import ready_ranking,APP,EVALUATED
 from mission_control.creative_ranking import Rankings
 
 class ProductionFeasibilityTests(unittest.TestCase):
@@ -100,7 +100,8 @@ class ProductionFeasibilityTests(unittest.TestCase):
         sources=ready_ranking(self.store,count=2);ranking=Rankings(self.store);caps=Capabilities(self.store)
         row=caps.list(APP)["requirement"][0]
         caps.save(APP,"requirement",dict(id=row["id"],version=1,data=dict(row["current"]["data"],rights_available=False)))
-        result=ranking.run(APP,{"reference_ids":[s["id"] for s in sources]})["data"]
+        with patch("mission_control.creative_ranking.now",return_value=EVALUATED):
+            result=ranking.run(APP,{"reference_ids":[s["id"] for s in sources]})["data"]
         self.assertEqual(result["coverage"]["eligible"],1)
         blocked=next(r for r in result["rows"] if not r["eligible"])
         self.assertNotIn(blocked["reference_id"],result["slate"]["selected"])

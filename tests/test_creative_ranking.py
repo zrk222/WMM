@@ -1,10 +1,11 @@
-"""Source math, honest missingness, current relevance, immutable ranking and replay."""
+﻿"""Source math, honest missingness, current relevance, immutable ranking and replay."""
 import copy
 import math
 from pathlib import Path
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 from mission_control.common import Invalid,digest
 from mission_control.db import connection
 from mission_control.store import Store
@@ -50,6 +51,7 @@ def ready_ranking(store,count=9):
 class CreativeRankingTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.store=Store(Path(self.tmp.name)/"source/state.sqlite");self.ranking=Rankings(self.store)
+        self.clock=patch("mission_control.creative_ranking.now",return_value=EVALUATED);self.clock.start();self.addCleanup(self.clock.stop)
 
     def tearDown(self):self.tmp.cleanup()
 
@@ -131,7 +133,7 @@ class CreativeRankingTests(unittest.TestCase):
         from tests.production_fixtures import requirement
         capability=Capabilities(self.store)
         needed=next(r for r in capability.list(APP)["requirement"] if r["current"]["data"]["reference_id"]==source["id"])
-        capability.save(APP,"requirement",dict(id=needed["id"],version=needed["current"]["version"],data=requirement(source)))
+        capability.save(APP,"requirement",dict(id=needed["id"],version=needed["current"]["version"],data=requirement(source,EVALUATED)))
         self.assertEqual(self.ranking.run(APP,{"reference_ids":ids})["data"]["coverage"]["eligible"],9)
         declared=self.ranking.list(APP)["policy"][0]
         new=dict(declared["current"]["data"],rationale="Corrected proposed policy")
@@ -171,3 +173,4 @@ class CreativeRankingTests(unittest.TestCase):
 
 
 if __name__=="__main__":unittest.main()
+

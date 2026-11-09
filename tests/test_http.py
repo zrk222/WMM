@@ -231,10 +231,11 @@ class HTTPTests(unittest.TestCase):
         workspace=self.request(f"/api/apps/{APP}")[1];self.assertEqual(len(workspace["acquisition"]["observations"]),1)
 
     def test_ranking_scope_types_and_saved_rationale(self):
-        from tests.test_creative_ranking import ready_ranking,APP
+        from tests.test_creative_ranking import ready_ranking,APP,EVALUATED
         sources=ready_ranking(self.server.service.store);ids=[s["id"] for s in sources]
         self.assertEqual(self.request("/creative-ranking.js")[0],200)
-        code,report,_=self.request(f"/api/apps/{APP}/rankings/run",{"reference_ids":ids})
+        with patch("mission_control.creative_ranking.now",return_value=EVALUATED):
+            code,report,_=self.request(f"/api/apps/{APP}/rankings/run",{"reference_ids":ids})
         self.assertEqual(code,201);self.assertEqual(report["data"]["coverage"]["comparable_attention"],7)
         workspace=self.request(f"/api/apps/{APP}")[1]
         self.assertEqual(workspace["rankings"]["report"][0]["input_status"],"CURRENT")
