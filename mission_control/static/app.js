@@ -460,6 +460,7 @@ async function nextAnswer(){
   const app=state.app,workspace=state.workspace;
   if(!workspace)throw new Error("Wait for this app to load.");
   const next=workspace.workflow?.next_action||workspace.automation?.next_action||{title:"Review the saved workflow"};
+  const analytics=WMMAnalyticsInventory.summary(workspace);
   const exceptions=workspace.workflow?.exceptions||[];
   const packets=(workspace.approvals||[]).filter(row=>row.status==="WAITING_REVIEW");
   let publications={authorities:[],intents:[]},unavailable=false;
@@ -477,7 +478,7 @@ async function nextAnswer(){
     ...authorities.map(row=>`<p><strong>${esc(row.status==="APPROVED"?"Approved publication":"Prepared publication")}</strong> ${esc(row.id)} · hash ${esc((row.review_hash||"").slice(0,16))}…</p>`),
     ...intents.map(row=>`<p><strong>Publication result</strong> ${esc(row.id||"saved receipt")} · ${esc(row.status||"unknown state")}</p>`),
   ].join("");
-  modal("What should I do next?",`<div class="modal-content"><p class="eyebrow">NEXT ACTION</p><h3>${esc(next.title)}</h3><p>This answer is read-only. It does not approve, publish or spend.</p>${exceptionRows?`<h3>Needs attention</h3>${exceptionRows}`:""}<h3>Pending approvals</h3>${approvalRows||notice("No prepared publication approval or manual review packet is waiting.")}${unavailable?notice("Publication approvals could not be loaded; reload before relying on this list.","warning"):""}${index?`<details><summary>Review index</summary><p class="app-mono">${esc(index)}</p><p class="description">A display index of the listed review hashes only. Each item still needs its own exact review and approval.</p></details>`:""}<div class="modal-actions">${button("Open guided workflow","next-answer-workflow")}${button("Open organic publishing","next-answer-publishing")}${button("Close","close")}</div></div>`,"NEXT STEP");
+  modal("What should I do next?",`<div class="modal-content"><p class="eyebrow">NEXT ACTION</p><h3>${esc(next.title)}</h3><p>This answer is read-only. It does not approve, publish or spend.</p><p><strong>Measurement next:</strong> ${esc(analytics.step.title)}. ${esc(analytics.step.detail)}</p>${exceptionRows?`<h3>Needs attention</h3>${exceptionRows}`:""}<h3>Pending approvals</h3>${approvalRows||notice("No prepared publication approval or manual review packet is waiting.")}${unavailable?notice("Publication approvals could not be loaded; reload before relying on this list.","warning"):""}${index?`<details><summary>Review index</summary><p class="app-mono">${esc(index)}</p><p class="description">A display index of the listed review hashes only. Each item still needs its own exact review and approval.</p></details>`:""}<div class="modal-actions">${button("Open guided workflow","next-answer-workflow")}${button("Open analytics","next-answer-results")}${button("Open organic publishing","next-answer-publishing")}${button("Close","close")}</div></div>`,"NEXT STEP");
 }
 
 function firstPostMarkup(studies,intents,installs,loaded,note=""){
@@ -506,8 +507,37 @@ async function firstMeasuredPost(){
   }
 }
 
+function savedWhen(value){
+  if(!value)return "Not recorded";
+  const date=new Date(value);
+  return Number.isNaN(date.getTime())?"Not recorded":date.toLocaleString();
+}
+
+function analyticsOverviewPanel(){
+  const view=WMMAnalyticsInventory.summary(state.workspace||{});
+  const counts=view.counts;
+  const controls={
+    cohorts:counts.cohorts?"":button("Add cohort evidence","add-evidence",'data-kind="cohort"'),
+    ledger:"",
+    retention:counts.retention?"":button("Add retention evidence","add-evidence",'data-kind="retention"'),
+    installs:button("Import install export","install-import-open"),
+    payments:state.workspace?.measurement_integrity?.state==="UNAVAILABLE"?button("Review connections","measurement-connections"):button("Inspect comparison","measurement-inspect"),
+    experiments:counts.experiments?"":button("Plan an experiment","experiment-create"),
+  };
+  const stepControls={
+    add_acquisition:button("Add cohort evidence","add-evidence",'data-kind="cohort"'),
+    repair_cohort:button("Add corrected cohort evidence","add-evidence",'data-kind="cohort"'),
+    import_installs:button("Import install export","install-import-open"),
+    repair_payments:button("Review connections","measurement-connections"),
+    add_retention:button("Add retention evidence","add-evidence",'data-kind="retention"'),
+    inspect_result:button("Inspect payment comparison","measurement-inspect"),
+  };
+  const rows=view.areas.map(row=>`<tr><td>${esc(row.name)}</td><td>${esc(row.saved)}</td><td>${esc(row.id==="payments"&&state.workspace?.measurement_integrity?.state!=="UNAVAILABLE"?"Current comparison":savedWhen(row.latest))}</td><td>${esc(row.next)}</td><td>${controls[row.id]||""}</td></tr>`).join("");
+  return `<section class="panel" aria-label="Analytics overview"><div class="section-heading"><div><p class="eyebrow">ANALYTICS</p><h2>What you can answer now</h2><p>Saved evidence in ${view.savedCount} of ${view.total} areas. Availability is not confidence, attribution completeness or causality.</p></div></div><div class="table-wrap"><table class="result-table"><caption>Saved analytics evidence and the next useful action</caption><thead><tr><th scope="col">Area</th><th scope="col">Saved evidence</th><th scope="col">Latest saved</th><th scope="col">Next</th><th scope="col">Action</th></tr></thead><tbody>${rows}</tbody></table></div><div class="next-step"><div><h3>${esc(view.step.title)}</h3><p>${esc(view.step.detail)}</p>${stepControls[view.step.id]||""}</div></div><p class="description">A missing source stays unknown. WMM does not infer installs, revenue, retention or lift from unrelated counts.</p></section>`;
+}
+
 function resultsView() {
-  return WMMFunnels.panel()+installAttributionPanel()+WMMGrowthReview.panel(state)+WMMSubscriptionAuthoring.panel(state)+WMMCustomerWorkflow.panel(state)+measurementIntegrityPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyResultsView();
+  return analyticsOverviewPanel()+WMMFunnels.panel()+installAttributionPanel()+WMMGrowthReview.panel(state)+WMMSubscriptionAuthoring.panel(state)+WMMCustomerWorkflow.panel(state)+measurementIntegrityPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyResultsView();
 }
 
 function growthReviewServices() {
@@ -1219,6 +1249,7 @@ async function handleAction(node) {
   if(action==="first-post-open")return firstMeasuredPost();
   if(action==="next-answer")return nextAnswer();
   if(action==="next-answer-workflow"){$("#modal").close();state.view="workflow";return render();}
+  if(action==="next-answer-results"){$("#modal").close();state.view="results";return render();}
   if(action==="next-answer-publishing"){$("#modal").close();return guidedNavigate("connections","#publication-heading");}
   if(action==="first-post-publishing")return guidedNavigate("connections","#publication-heading");
   if(action==="install-import-open")return installImportForm();
