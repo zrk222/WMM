@@ -76,8 +76,9 @@ stale approvals (`tests/test_agent_grants.py`, `tests/test_publication_authority
 
 ## Residual risks (not code bypasses)
 
-1. **Process:** every PR is currently solo-merged. A second human reviewer on
-   security-sensitive changes is still required and cannot be supplied by code.
+1. **Process:** security-sensitive changes are owner-reviewed with green CI; no
+   separate non-author reviewer is required. An independent reviewer remains an
+   optional future strengthening, not a merge blocker.
 2. **Local owner session:** the loopback server trusts the workstation. Host
    compromise or a same-user process remains outside this model.
 3. **Bearer tokens:** grants are hashed at rest and delivered once, but a leaked
