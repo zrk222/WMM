@@ -26,9 +26,8 @@ def _mapping(value):
     return value
 
 
-def load_rows(path, fmt):
-    """Read a bounded CSV or JSON row list without file-system paths in the output."""
-    text = Path(path).read_text(encoding="utf-8")
+def parse_text(text, fmt):
+    """Parse a bounded uploaded CSV/JSON export without touching the filesystem."""
     if fmt == "json":
         value = json.loads(text)
         if not isinstance(value, list) or any(not isinstance(row, dict) for row in value):
@@ -37,6 +36,11 @@ def load_rows(path, fmt):
     if fmt == "csv":
         return list(csv.DictReader(text.splitlines()))
     raise Invalid("Choose csv or json input")
+
+
+def load_rows(path, fmt):
+    """Read a local export file; the HTTP import path uses parse_text directly."""
+    return parse_text(Path(path).read_text(encoding="utf-8"), fmt)
 
 
 def map_rows(rows, mapping, source, campaign_token, observed_at, window, coverage, request_id=None,
@@ -76,6 +80,9 @@ def map_rows(rows, mapping, source, campaign_token, observed_at, window, coverag
     columns = list(columns or (rows[0].keys() if rows else []))
     used = set(mapping[field] for field in MAPPING_FIELDS)
     unmapped = [name for name in columns if name not in used]
+    coverage = dict(coverage, excluded=dict(coverage.get("excluded", {})))
+    if duplicates:
+        coverage["excluded"]["DUPLICATE"] = len(duplicates)
     batch = dict(source=source, campaign_token=campaign_token, request_id=request_id,
                  source_receipt_sha256=source_receipt_sha256, observed_at=observed_at,
                  window=window, coverage=coverage, installs=installed)

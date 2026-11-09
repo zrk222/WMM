@@ -63,7 +63,9 @@ def _install(row, observed, window):
 
 
 def _coverage(value):
-    _exact(value, ("complete", "source_event_count"))
+    if (not isinstance(value, dict) or not {"complete", "source_event_count"} <= set(value)
+            or set(value) - {"complete", "source_event_count", "excluded"}):
+        raise Invalid("Use the exact coverage fields")
     if type(value["complete"]) is not bool:
         raise Invalid("Coverage complete must be an explicit boolean")
     count = value["source_event_count"]
@@ -71,7 +73,15 @@ def _coverage(value):
         raise Invalid("Source event count must be null or a bounded whole number")
     if value["complete"] and count is None:
         raise Invalid("Complete coverage must state the source event count")
-    return dict(complete=value["complete"], source_event_count=count)
+    excluded = value.get("excluded", {})
+    if not isinstance(excluded, dict) or len(excluded) > 20:
+        raise Invalid("Excluded counts must be a bounded object")
+    for reason, number in excluded.items():
+        if not isinstance(reason, str) or not re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", reason):
+            raise Invalid("Exclusion reasons must be uppercase tokens")
+        if type(number) is not int or not 0 <= number <= 1000000:
+            raise Invalid("Excluded counts must be bounded whole numbers")
+    return dict(complete=value["complete"], source_event_count=count, excluded=dict(excluded))
 
 
 def validate_batch(body):
@@ -97,6 +107,11 @@ def validate_batch(body):
     rows = [_install(row, observed, window) for row in installs]
     if len({row["install_id"] for row in rows}) != len(rows):
         raise Invalid("Install identities must be unique within one batch")
+    accounted = len(rows) + sum(coverage["excluded"].values())
+    if coverage["source_event_count"] is not None and coverage["source_event_count"] < accounted:
+        raise Invalid("Source event count cannot be below imported plus excluded records")
+    if coverage["complete"] and coverage["source_event_count"] != accounted:
+        raise Invalid("Complete coverage must equal imported plus excluded records")
     return dict(source=source, campaign_token=campaign, request_id=request,
                 source_receipt_sha256=receipt, observed_at=observed.isoformat(), window=window,
                 coverage=coverage, installs=rows)
@@ -176,35 +191,56 @@ def report(store, app_id, user, campaign_token, day=None):
     coverage = []
     linked = []
     windows = {}
+    starts = set()
     for batch in batches:
         data = json.loads(batch["data"])
-        windows[batch["id"]] = iso_time(data["window"]["starts_at"])
+        window_start = iso_time(data["window"]["starts_at"])
+        windows[batch["id"]] = window_start
+        starts.add(window_start)
         if data.get("study_link"):
             linked.append(data["study_link"])
+        imported = len(data["installs"])
+        excluded = sum(data["coverage"].get("excluded", {}).values())
+        declared = data["coverage"]["source_event_count"]
+        reconciled = (not data["coverage"]["complete"]) or declared == imported + excluded
         coverage.append(dict(batch_id=batch["id"], source=data["source"],
                              complete=data["coverage"]["complete"],
-                             source_event_count=data["coverage"]["source_event_count"],
-                             observed_at=data["observed_at"], receipt_sha256=batch["hash"],
-                             study_linked=bool(data.get("study_link"))))
+                             source_event_count=declared, imported=imported, excluded=excluded,
+                             reconciled=reconciled, observed_at=data["observed_at"],
+                             window=data["window"], source_receipt_sha256=data["source_receipt_sha256"],
+                             batch_hash=batch["hash"], study_linked=bool(data.get("study_link"))))
     if day is not None:
+        if len(starts) != 1:
+            raise Invalid("Day views require one frozen campaign window; batches declare different starts")
+        campaign_start = next(iter(starts))
         rows = [row for row in rows
-                if iso_time(row["occurred_at"]) <= windows[row["batch_id"]] + timedelta(days=day)]
+                if iso_time(row["occurred_at"]) <= campaign_start + timedelta(days=day)]
+    else:
+        campaign_start = next(iter(starts)) if len(starts) == 1 else None
     counts = {state: 0 for state in STATES}
     for row in rows:
         counts[row["state"]] += 1
+    reasons = []
+    if len(coverage) > 1:
+        reasons.append("MULTIPLE_BATCH_DECLARATIONS")
+    if any(not item["complete"] for item in coverage):
+        reasons.append("INCOMPLETE_COVERAGE")
+    if any(not item["reconciled"] for item in coverage):
+        reasons.append("UNRECONCILED_COUNTS")
     if not coverage:
         status = "NO_IMPORT"
-    elif all(item["complete"] for item in coverage):
-        status = "COMPLETE"
-    else:
+    elif reasons:
         status = "PARTIAL"
+    else:
+        status = "COMPLETE"
     study = linked[0] if linked and all(item == linked[0] for item in linked) else None
     study_status = "LINKED" if study else ("MIXED" if linked else "UNLINKED")
     return dict(schema="growth.install-attribution-report.v1", app_id=app_id,
                 campaign_token=campaign, counts=counts, recorded=len(rows),
-                coverage_status=status, batches=coverage, study=study,
-                study_status=study_status, day=day,
-                aggregation=(dict(day=day, rule="INSTALL_OCCURRED_AT_OR_BEFORE_WINDOW_START_PLUS_DAY")
+                coverage_status=status, coverage_reasons=reasons, batches=coverage,
+                campaign_start=campaign_start.isoformat() if campaign_start else None,
+                study=study, study_status=study_status, day=day,
+                aggregation=(dict(day=day, rule="INSTALL_OCCURRED_AT_OR_BEFORE_CAMPAIGN_START_PLUS_DAY")
                              if day is not None else None),
                 scope="Descriptive linked installs from supplied exports only; no rate, lift, revenue or causal claim.",
                 external_writes=False)

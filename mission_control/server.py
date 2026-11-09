@@ -1,4 +1,4 @@
-"""Loopback-only Mission Control server. Run: python -m mission_control.server."""
+﻿"""Loopback-only Mission Control server. Run: python -m mission_control.server."""
 import argparse
 from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -637,7 +637,7 @@ class Handler(BaseHTTPRequestHandler):
                 "reviews":lambda:service.prepare_review(app_id,data),"cohorts":lambda:service.cohort(app_id,data),"events":lambda:service.events(app_id,data)}
         handlers={"agent-reviews":self.post_agent_reviews,"agent-grants":self.post_agent_grants,"setup-discovery":self.post_setup_discovery,"play":self.post_play,"experiment-tracking":self.post_tracking,"sequences":self.post_sequence,"resolutions":self.post_resolution,"release-selection":self.post_release_selection,"inspections":self.post_inspection,
                   "pmf-research":self.post_pmf_research,"followup":self.post_followup,"aeo":self.post_aeo,
-                  "insights":self.post_insights,"storekit":self.post_storekit,"attribution":self.post_attribution,
+                  "insights":self.post_insights,"storekit":self.post_storekit,"attribution":self.post_attribution,"install-attribution":self.post_install_import,
                   "connections":self.post_connection,"experiments":self.post_experiment,"references":self.post_reference,"production":self.post_production,"rankings":self.post_ranking,"acquisition":self.post_acquisition,"access":self.post_access,"verified-reviews":self.post_verified_review,"provider-actions":self.post_provider_action,"learning":self.post_learning,"payments":self.post_payments}
         if action in handlers:
             return handlers[action](parts,data)
@@ -666,6 +666,32 @@ class Handler(BaseHTTPRequestHandler):
             action=record_installed if data['state']=='REPORTED_INSTALLED' else record_probe
             return self.send(201,action(self.server.service.store,parts[2],parts[4],body))
         raise Invalid('Use a current tracking proposal, approval, lifecycle or cancellation address')
+
+    def post_install_import(self,parts,data):
+        """Preview or confirm one mapped MMP install export for the signed-in owner."""
+        from .install_attribution import record_batch
+        from .install_import import map_rows,parse_text
+        if urlparse(self.path).query or len(parts)!=6 or parts[4]!='imports' or parts[5] not in ('preview','confirm'):
+            raise Invalid('Use the exact install import preview or confirmation address')
+        required=('text','format','mapping','source','campaign_token','observed_at','window','coverage')
+        if not isinstance(data,dict) or not set(required)<=set(data) or set(data)-set(required)-{'request_id','source_receipt_sha256'}:
+            raise Invalid('Use the exact install import fields')
+        if not isinstance(data['text'],str) or len(data['text'])>2000000:
+            raise Invalid('Install export must be text up to 2 MB')
+        user=self.server.identities.fresh(self.session())
+        rows=parse_text(data['text'],data['format'])
+        batch,checklist=map_rows(rows,data['mapping'],data['source'],data['campaign_token'],
+                                 data['observed_at'],data['window'],data['coverage'],
+                                 data.get('request_id'),data.get('source_receipt_sha256'),
+                                 columns=list(rows[0].keys()) if rows else [])
+        normalized=checklist.pop('_batch',None)
+        if checklist['status']!='READY':
+            if parts[5]=='preview':return self.send(200,dict(checklist=checklist,batch=None))
+            raise Invalid('Install import is blocked: '+str(checklist.get('reason') or 'review the checklist'))
+        if parts[5]=='preview':
+            return self.send(200,dict(checklist=checklist,batch=normalized))
+        result=record_batch(self.server.service.store,parts[2],user,normalized)
+        return self.send(201,dict(result=result,checklist=checklist))
 
     def post_sequence(self,parts,data):
         """Approve exact reviewed actions or stop owned work in the selected app only."""
@@ -1097,3 +1123,4 @@ def main():
 
 if __name__=="__main__":
     main()
+

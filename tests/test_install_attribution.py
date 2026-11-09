@@ -82,6 +82,7 @@ class InstallAttributionTests(unittest.TestCase):
                         dict(window=dict(starts_at="2026-11-03T00:00:00+00:00",
                                          ends_at="2026-11-02T00:00:00+00:00")),
                         dict(observed_at="2026-10-30T00:00:00+00:00"),
+                        dict(coverage=dict(complete=True, source_event_count=5)),
                         dict(installs=[dict(install_id="install_a", state="ATTRIBUTED",
                                             occurred_at="2026-11-01T00:00:00+00:00"),
                                        dict(install_id="install_a", state="UNKNOWN",
@@ -102,6 +103,23 @@ class InstallAttributionTests(unittest.TestCase):
         value = report(self.store, APP, OWNER, CAMPAIGN)
         self.assertEqual(value["study_status"], "LINKED")
         self.assertEqual(value["study"]["study_hash"], "b" * 64)
+
+    def test_multiple_batches_are_partial_and_day_requires_one_window(self):
+        record_batch(self.store, APP, OWNER, self.body())
+        second = dict(self.body(request="99999999-9999-4999-8999-999999999999",
+                                rows=[dict(install_id="install_c", state="ATTRIBUTED",
+                                           occurred_at="2026-11-02T00:00:00+00:00")], count=1),
+                      window=dict(starts_at="2026-11-01T00:00:00+00:00",
+                                  ends_at="2026-11-10T00:00:00+00:00"),
+                      observed_at="2026-11-10T00:00:00+00:00")
+        record_batch(self.store, APP, OWNER, second)
+        value = report(self.store, APP, OWNER, CAMPAIGN)
+        self.assertEqual(value["coverage_status"], "PARTIAL")
+        self.assertIn("MULTIPLE_BATCH_DECLARATIONS", value["coverage_reasons"])
+        self.assertEqual(value["batches"][0]["source_receipt_sha256"], "a" * 64)
+        self.assertNotEqual(value["batches"][0]["batch_hash"], value["batches"][0]["source_receipt_sha256"])
+        with self.assertRaises(Invalid):
+            report(self.store, APP, OWNER, CAMPAIGN, day=1)
 
     def test_day_aggregation_counts_distinct_installs_without_double_count(self):
         rows = [dict(install_id="day0", state="ATTRIBUTED", occurred_at="2026-11-01T00:00:00+00:00"),
