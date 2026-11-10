@@ -121,8 +121,8 @@ function render() {
   $("#main").setAttribute("aria-busy","false");
   const views={weekly:weeklyView,overview:goalOverview,workflow:guidedView,pipeline:pipelineView,evidence:evidenceView,results:resultsView,connections:connectionsView,agents:agentAccessView,activity:activityView,research:researchView};
   $("#main").innerHTML=views[state.view]();
-  if(["agents","activity"].includes(state.view))$("#main .page-heading").insertAdjacentHTML("afterend",WMMAgentControl.panel(state));
-  if(["agents","activity"].includes(state.view))$("#main .page-heading").insertAdjacentHTML("afterend",WMMCompleteAutomation.panel(state));
+  if(["agents","activity"].includes(state.view))$("#main .page-heading").insertAdjacentHTML("afterend",WMMAgentControl.panel(state,verifiedOwnerNext(state.workspace,"connect an agent")));
+  if(["agents","activity"].includes(state.view))$("#main .page-heading").insertAdjacentHTML("afterend",WMMCompleteAutomation.panel(state,verifiedOwnerNext(state.workspace,"manage automation")));
   if(state.view==='research')$("#main .page-heading").insertAdjacentHTML('afterend',WMMVideoEditor.panel());
   if(state.view==='research')$("#main .page-heading").insertAdjacentHTML('afterend',WMMStudio.panel());
   if(state.view==='research')$("#main .page-heading").insertAdjacentHTML('afterend',WMMOrganicResearch.panel()+(window.WMMOrganicPolicy?.panel()||'')+WMMDiscovery.panel()+WMMPackaging.panel(state)+WMMMedia.panel()+WMMDrive.panel());

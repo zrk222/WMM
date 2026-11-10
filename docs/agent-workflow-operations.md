@@ -7,7 +7,7 @@ envelopes. The same operations appear as MCP tools using underscores.
 Use an owner-issued grant containing the required operations. For selected
 writes, the owner can require independent human review. The agent prepares an
 exact reviewed request, a separately authenticated checker approves it in
-Activity & reviews, and the agent resumes with its exact revision and packet
+Watch the work, and the agent resumes with its exact revision and packet
 hash. Agents cannot approve or replace the frozen input.
 
 1. Read `workspace.read` for app version, required evidence and current gaps.

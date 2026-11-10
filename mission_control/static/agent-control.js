@@ -71,9 +71,9 @@
       browser.URL.revokeObjectURL(url);
     }
   }
-  function panel(state){
+  function panel(state,ownerNext=''){
     const owner=role(state)==="OWNER",signed=!!identity(state);
-    return `<section class="panel" aria-label="Agent permissions and checkpoints"><p class="eyebrow">HUMAN CONTROL</p><h2>Delegate work. Review exact changes.</h2><p>Give an agent access to selected local operations, a deadline and a call allowance. Require a different signed-in checker before selected writes run. Inspect the saved result here after the agent resumes.</p><p>${signed?`Your app role: ${esc(role(state)||"No active role")}.`:"Sign in under Activity & reviews, then ask the app owner to assign your role."} Grant management requires the app owner. Approvals require a distinct owner or checker.</p><div class="button-row">${button("Inspect agent review queue","queue",signed?"":"disabled")}${owner?button("Manage agent grants","grants"):""}</div>${owner?button("Review agent setup","setup"):""}${setupMarkup()}</section>`;
+    return `<section class="panel" aria-label="Agent permissions and checkpoints"><p class="eyebrow">HUMAN CONTROL</p><h2>Delegate work. Review exact changes.</h2><p>Give an agent access to selected local operations, a deadline and a call allowance. Require a different signed-in checker before selected writes run. Inspect the saved result here after the agent resumes.</p><p>${signed?`Your app role: ${esc(role(state)||"No active role")}.`:"Review access depends on your role in this app."} Grant management requires the app owner. Approvals require a distinct owner or checker.</p><div class="button-row">${button("Inspect agent review queue","queue",signed?"":"disabled")}${owner?button("Manage agent grants","grants"):""}</div>${owner?button("Review agent setup","setup"):ownerNext}${setupMarkup()}</section>`;
   }
   function show(deps,title,kind,data,markup,saved=scope(deps.state)){
     clear();deps.modal(title,`<div id="agent-control-dialog" class="modal-content">${markup}${errorBox}</div>`,"AGENT PERMISSIONS & REVIEW");

@@ -41,7 +41,7 @@ class MediaHTTPTests(unittest.TestCase):
         self.origin='http://127.0.0.1:'+str(self.server.server_port);self.base='/api/apps/'+APP+'/media'
         self.client=OperatorClient(self.origin);self.client.bootstrap()
         self.client.request('POST','/api/identity/login',dict(token=identities.OWNER_TOKEN))
-        self.client.request('POST','/api/apps/'+APP+'/access/bootstrap',dict(confirm_owner=True))
+        self.client.request('POST','/api/apps/'+APP+'/access/bootstrap',dict(confirm_owner=True,expected_principal=identities.OWNER["principal"],manifest_version=1))
 
     def tearDown(self):
         self.server.shutdown();self.server.server_close();self.thread.join(timeout=10);self.temp.cleanup()

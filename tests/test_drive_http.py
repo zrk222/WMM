@@ -73,7 +73,8 @@ class DriveHTTPTests(unittest.TestCase):
 
     def test_cross_app_callback_is_rejected_before_claim_or_exchange(self):
         self.store.save_app('other-app', dict(name='Other synthetic app', release='one', locale='en-US'))
-        self.client.request('POST', '/api/apps/other-app/access/bootstrap', dict(confirm_owner=True))
+        identity=self.client.request('GET','/api/bootstrap')['identity']
+        self.client.request('POST', '/api/apps/other-app/access/bootstrap', dict(confirm_owner=True,expected_principal=identity['principal'],manifest_version=1))
         flow, query = self.start()
         code, _, _ = self.send('POST', '/api/apps/other-app/drive/callback', json.dumps(dict(query=query)).encode(), {'Content-Type':'application/json'})
         self.assertEqual(code, 400); self.exchange_mock.assert_not_called()

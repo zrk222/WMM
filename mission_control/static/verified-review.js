@@ -12,6 +12,17 @@ function verifiedReviewPanel() {
   return `<section class="panel"><p class="eyebrow">VERIFIED REVIEW ACCESS</p><h2>Your app's maker and checker</h2><p class="description">${signed?`Signed in as ${esc(identity.login)} (${esc(identity.principal)}). ${role?`App role: ${esc(role.role)}.`:"No active role in this app."}`:"Sign in with your own GitHub account to prepare or independently review exact packets."}</p>${notice("Identity is rechecked for every protected action. Tokens stay in server memory for 15 minutes. Recorded review does not execute a provider action or authorize spending.")}<div class="toolbar">${action}${setup}</div>${members?`<details><summary>App access (${access.members.length})</summary>${members}</details>`:notice("The first verified owner must establish this app's local access policy.")}</section><div class="section-heading"><h2>Verified review inbox</h2>${button("Prepare verified review","verified-review-prepare")}</div>${reviews?`<div class="record-list">${reviews}</div>`:notice("No verified packets yet. Add distribution, store or experiment evidence, then prepare its exact contents for a different authenticated checker.")}`;
 }
 
+/** Point directly to the existing sign-in and first-owner review without granting access. */
+function verifiedOwnerNext(workspace, task) {
+  if(workspace.access?.configured===false){
+    return '<p>Set up this app’s owner to '+esc(task)+'. WMM asks you to confirm before setting ownership.</p>'+button("Set up app owner","access-bootstrap");
+  }
+  if(workspace.identity?.status!=="AUTHENTICATED"){
+    return '<p>Sign in as the app owner to '+esc(task)+'.</p>'+button("Sign in with GitHub","identity-login");
+  }
+  return '<p>Only the current app owner can '+esc(task)+'. Ask the owner to make this change.</p>';
+}
+
 /** Collect an ephemeral identity token and optionally retain the explicit first-owner task. */
 function identityLogin(next="",manual=false) {
   if(!manual&&state.workspace.device_signin_available){
@@ -99,7 +110,7 @@ document.addEventListener("close",event=>{
 /** Require an authenticated identity and explicit checkbox before establishing the first app owner. */
 function accessBootstrap() {
   if(reviewIdentity().status!=="AUTHENTICATED")return identityLogin("owner-bootstrap");
-  modal("Establish this app's owner",`<form id="access-bootstrap-form" data-app="${esc(state.app)}"><div class="modal-content">${notice(`This establishes ${reviewIdentity().login} as the fixed local owner of ${state.workspace.app.data.name}. Use the actual app owner's account on this trusted workstation. It cannot replace an existing owner.`)}<label class="check-label"><input type="checkbox" name="confirm_owner" required> I am establishing the first owner for this local app.</label><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Establish verified owner</button></div></form>`);
+  modal("Establish this app's owner",`<form id="access-bootstrap-form" data-app="${esc(state.app)}" data-app-version="${state.workspace.app.version}" data-principal="${esc(reviewIdentity().principal)}"><div class="modal-content">${notice(`This establishes ${reviewIdentity().login} as the fixed local owner of ${state.workspace.app.data.name}. Use the actual app owner's account on this trusted workstation. It cannot replace an existing owner.`)}<label class="check-label"><input type="checkbox" name="confirm_owner" required> I am establishing the first owner for this local app.</label><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Establish verified owner</button></div></form>`);
 }
 
 function accessMember(principal) {
@@ -131,7 +142,7 @@ function ownerContinuation(form,app,active) {
 async function verifiedRequest(form,id,data,app) {
   if(id==='identity-form'){const token=data.token;form.reset();return api('/api/identity/login',{token});}
   const requests={
-    'access-bootstrap-form':()=>api(`/api/apps/${app}/access/bootstrap`,{confirm_owner:!!data.confirm_owner}),
+    'access-bootstrap-form':()=>api(`/api/apps/${app}/access/bootstrap`,{confirm_owner:!!data.confirm_owner,expected_principal:form.dataset.principal,manifest_version:Number(form.dataset.appVersion)}),
     'access-member-form':()=>api(`/api/apps/${app}/access/members`,{...data,version:form.dataset.version?Number(form.dataset.version):null}),
     'verified-prepare-form':()=>api(`/api/apps/${app}/verified-reviews`,data)
   };

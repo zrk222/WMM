@@ -169,7 +169,7 @@ class AuthorityExpiryHTTPTests(HTTPHelpers, unittest.TestCase):
             checker.request('POST', self.route('preview'), proposal)
         self.assertEqual(denied.exception.status, 403)
         self.assertEqual(self.wire(self.route('preview', 'sample-two'), proposal)[0], 403)
-        self.owner.request('POST', '/api/apps/sample-two/access/bootstrap', dict(confirm_owner=True))
+        self.owner.request('POST', '/api/apps/sample-two/access/bootstrap', dict(confirm_owner=True,expected_principal=identities.OWNER["principal"],manifest_version=1))
         self.assertEqual(self.wire(self.route('preview', 'sample-two'), proposal)[0], 400)
         self.assertEqual(self.receipt_count(), 0)
 
