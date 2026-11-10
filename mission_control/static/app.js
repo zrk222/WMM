@@ -838,7 +838,10 @@ function modalTab(event) {
   else if(!event.shiftKey&&(active===last||!dialog.contains(active))){event.preventDefault();first.focus();}
 }
 function modal(title,html,eyebrow="WORKSPACE") {
-  if(!$("#modal").open&&document.activeElement&&document.activeElement!==document.body)modalReturnFocus=document.activeElement;
+  if(!$("#modal").open){
+    const active=document.activeElement;
+    modalReturnFocus=active===document.body?null:active;
+  }
   WMMAppleAnalytics.clear();
   WMMOneSignal.clear();
   WMMAgentControl.clear();
@@ -1356,7 +1359,16 @@ $("#app-select").addEventListener("change",async event=>{state.app=event.target.
 $("#add-app").addEventListener("click",()=>appForm(true));
 $("#edit-app").addEventListener("click",()=>appForm(false));
 $("#close-modal").addEventListener("click",()=>$("#modal").close());
-$("#modal").addEventListener("close",()=>{WMMAppleAnalytics.clear();WMMOneSignal.clear();WMMAgentControl.clear();WMMCompleteAutomation.clear();WMMVideoEditor.clear();WMMStudio.clear();WMMMedia.clear();WMMDrive.clear();WMMDiscovery.clear();WMMPackaging.clear();WMMFunnels.clear();delete $("#modal-body").dataset.job;const target=modalReturnFocus;modalReturnFocus=null;if(target&&target.isConnected&&typeof target.focus==="function")target.focus();});
+$("#modal").addEventListener("close",()=>{
+  const dialog=$("#modal");
+  // The close event is queued. A newer dialog or focus choice takes precedence.
+  if(dialog.open)return;
+  WMMAppleAnalytics.clear();WMMOneSignal.clear();WMMAgentControl.clear();WMMCompleteAutomation.clear();WMMVideoEditor.clear();WMMStudio.clear();WMMMedia.clear();WMMDrive.clear();WMMDiscovery.clear();WMMOrganicResearch.clear();WMMPackaging.clear();WMMFunnels.clear();
+  delete $("#modal-body").dataset.job;
+  const target=modalReturnFocus;modalReturnFocus=null;
+  const active=document.activeElement;
+  if(target?.isConnected&&(active===document.body||dialog.contains(active)))target.focus();
+});
 $("#modal").addEventListener("keydown",modalTab);
 document.addEventListener("keydown",event=>{const dialog=$("#modal");if(event.key==="Escape"&&dialog?.open&&dialog.contains(event.target)){event.preventDefault();dialog.close();}});
 document.addEventListener("input",event=>{
@@ -1400,7 +1412,6 @@ $("#event-file").addEventListener("change",async event=>{
   }catch(error){toast(error.message);}finally{input.value="";}
 });
 initialize();
-$("#modal").addEventListener("close",()=>WMMOrganicResearch.clear());
 $("#modal").addEventListener("close",()=>{if(!$("#modal").open)window.WMMOrganicPolicy?.clear();});
 document.addEventListener('invalid',event=>window.WMMOrganicPolicy?.validation(event.target,growthReviewServices(),true),true);
 document.addEventListener('input',event=>window.WMMOrganicPolicy?.validation(event.target,growthReviewServices()));
