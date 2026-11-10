@@ -14,9 +14,10 @@ records the tested installer hashes, and publishes only when both jobs pass.
 Only the final publication job receives repository contents write permission.
 Pull requests cannot trigger publication.
 
-The publisher creates a draft prerelease, uploads only the two native installers,
-SHA256SUMS.txt and their source-bound lifecycle receipts, checks the draft asset
-names/sizes, then publishes. It downloads the public assets anonymously over
+The publisher creates a draft prerelease, uploads the two native installers,
+their source-bound lifecycle receipts, one build-environment SBOM per platform
+(`sbom-Windows.json`, `sbom-Linux.json`) and SHA256SUMS.txt, checks the draft
+asset names/sizes, then publishes. It downloads the public assets anonymously over
 normal verified HTTPS and compares full SHA256 hashes. Retain the successful run
 URL and publisher readback as release evidence. CI logs and source archives alone
 are not installer distribution proof.
@@ -26,7 +27,9 @@ a draft for inspection; choose a new tag after resolving the cause. A
 public-download verification failure may occur after publication: inspect that
 release and its logs explicitly before claiming successful distribution. This
 workflow does not sign Windows binaries, install trust roots, bypass TLS, or prove
-human first-use acceptance.
+human first-use acceptance. The SBOM is a build-environment package inventory, not
+a file-level runtime inventory or a provenance attestation. SHA256SUMS.txt covers
+every uploaded asset.
 
 ## Installer checks
 

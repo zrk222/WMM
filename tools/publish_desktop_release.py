@@ -74,9 +74,22 @@ def validate_assets(folder, sha):
                        or not re.fullmatch('[0-9a-f]{64}', c.get('evidence_sha256', '')) for c in checks)):
             raise ValueError('Missing browser-isolated restart checks: ' + platform)
         paths.append(path)
+    sboms = []
+    for platform in ASSETS:
+        sbom = folder / ('sbom-' + platform + '.json')
+        value = json.loads(sbom.read_text(encoding='utf-8'))
+        component = value.get('metadata', {}).get('component', {})
+        properties = {row.get('name'): row.get('value') for row in component.get('properties', [])}
+        if (value.get('bomFormat') != 'CycloneDX' or value.get('specVersion') != '1.5'
+                or component.get('version') != sha or properties.get('wmm:platform') != platform
+                or properties.get('wmm:inventory_scope') != 'build_environment'
+                or not isinstance(value.get('components'), list)):
+            raise ValueError('Missing or invalid source-bound SBOM: ' + platform)
+        sboms.append(sbom)
     manifest = folder / 'SHA256SUMS.txt'
-    manifest.write_text(''.join(f'{digest(p)}  {p.name}\n' for p in paths), encoding='ascii')
-    return paths + [manifest, folder / 'Windows.json', folder / 'Linux.json']
+    all_paths = paths + sboms
+    manifest.write_text(''.join(f'{digest(p)}  {p.name}\n' for p in all_paths), encoding='ascii')
+    return all_paths + [manifest, folder / 'Windows.json', folder / 'Linux.json']
 
 
 def gh(*args):
@@ -99,6 +112,8 @@ def publish(folder, sha, tag):
     if any(r['ref'] == 'refs/tags/' + tag for r in refs) or any(r['tag_name'] == tag for page in releases for r in page):
         raise ValueError('Existing release/tag is immutable; choose a new version')
     notes = ('Windows and Ubuntu amd64 preview installers. No system Python required. '
+             'SHA256SUMS.txt covers every uploaded file. sbom-Windows.json and sbom-Linux.json list the '
+             'build-environment packages; this is not a runtime file inventory. '
              'Windows publisher signature is not provided; OS trust prompts can appear. '
              'See docs/desktop-first-run.md at source commit ' + sha + '. '
              'Automated synthetic installer checks are not human first-use acceptance.')

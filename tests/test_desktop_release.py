@@ -35,13 +35,30 @@ class ReleaseTests(unittest.TestCase):
             result.write_text(json.dumps(dict(status='PASS', install='VERIFIED', upgrade='VERIFIED',
                 uninstall='VERIFIED', removal='VERIFIED', workspace='SYNTHETIC_PRESERVED')))
             release.receipt(platform, SHA, asset, result, self.folder / (platform + '.json'), self.folder)
+            (self.folder / ('sbom-' + platform + '.json')).write_text(json.dumps(dict(
+                bomFormat='CycloneDX', specVersion='1.5', version=1,
+                metadata=dict(component=dict(type='application', name='wmm', version=SHA, properties=[
+                    dict(name='wmm:platform', value=platform),
+                    dict(name='wmm:inventory_scope', value='build_environment')])),
+                components=[])))
 
     def test_both_passed_assets_and_manifest(self):
         paths = release.validate_assets(self.folder, SHA)
-        self.assertEqual(len(paths), 5)
+        self.assertEqual(len(paths), 7)
         manifest = (self.folder / 'SHA256SUMS.txt').read_text()
         for name in release.ASSETS.values():
             self.assertIn(release.digest(self.folder / name) + '  ' + name, manifest)
+
+    def test_missing_or_stale_sbom_refused(self):
+        (self.folder / 'sbom-Linux.json').unlink()
+        with self.assertRaises(FileNotFoundError):
+            release.validate_assets(self.folder, SHA)
+        path = self.folder / 'sbom-Windows.json'
+        value = json.loads(path.read_text())
+        value['metadata']['component']['version'] = 'b' * 40
+        path.write_text(json.dumps(value))
+        with self.assertRaises(ValueError):
+            release.validate_assets(self.folder, SHA)
 
     def test_missing_platform_refused(self):
         (self.folder / 'Linux.json').unlink()
@@ -138,7 +155,7 @@ class ReleaseTests(unittest.TestCase):
         with patch.dict(os.environ, GITHUB_REF='refs/heads/main', GITHUB_REPOSITORY=release.REPOSITORY), patch.object(
                 release, 'gh', self.fake_gh), patch.object(release, 'urlopen', download):
             release.publish(self.folder, SHA, TAG)
-        self.assertEqual(len(urls), 5)
+        self.assertEqual(len(urls), 7)
         self.assertTrue(all(url.startswith('https://github.com/zrk222/WMM/releases/download/') for url in urls))
         self.assertTrue(any(c[:2] == ('release', 'edit') for c in self.calls))
 
