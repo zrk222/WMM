@@ -154,6 +154,25 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends ffmpeg fonts-dejavu-core dbus gnome-keyring
+      - name: Verify Linux Secret Service round trip and locked rejection
+        if: matrix.shard == 0
+        shell: bash
+        env:
+          WMM_ISOLATED_NATIVE_KEYRING: '1'
+        run: |
+          XDG_DATA_HOME="$(mktemp -d "$RUNNER_TEMP/wmm-native-vault-data.XXXXXX")"
+          XDG_RUNTIME_DIR="$(mktemp -d "$RUNNER_TEMP/wmm-native-vault-runtime.XXXXXX")"
+          export XDG_DATA_HOME XDG_RUNTIME_DIR
+          unset GNOME_KEYRING_CONTROL
+          dbus-run-session -- bash -euo pipefail -c '
+            printf "%s\n" "disposable-synthetic-native-keyring" | gnome-keyring-daemon --unlock --components=secrets
+            if ! output="$(python -X utf8 -m unittest discover -s tests -p test_linux_vault_native.py -v 2>&1)"; then
+              printf "%s\n" "$output" >&2
+              exit 1
+            fi
+            printf "%s\n" "$output"
+            grep -Fxq "LINUX_NATIVE_VAULT_ROUNDTRIP_SCOPE_REPLACE_DELETE_CLEANUP_LOCK_PASS" <<< "$output"
+          '
       - name: Verify full test-profile prerequisites
         run: python -c "from zoneinfo import ZoneInfo; from importlib.metadata import version; from mission_control.media_native import capability; ZoneInfo('America/Toronto'); assert capability()['status'] == 'READY', capability(); assert version('mcp') == '1.30.0', version('mcp')"
       - name: Check clean distribution

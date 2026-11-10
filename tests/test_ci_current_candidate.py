@@ -9,8 +9,9 @@ ROOT = Path(__file__).resolve().parents[1]
 # both owner-bound OneSignal journeys, creative batches, organic research and
 # exact-approved publication with retained synthetic desktop/mobile evidence.
 # All eight backend shards and the native/package job definitions are retained.
+# One Ubuntu shard also runs the isolated native Secret Service acceptance.
 BASELINES = {
-    ".github/workflows/checks.yml": "f23a8de6520401bb7299ddbaf2fd5a81c2e7cb5d5168372277d15ebecc7d0d54",
+    ".github/workflows/checks.yml": "2bee5db73bfa2922e470878e1cfd04547dfe4703a0b66e021cd0486407ea4309",
     ".github/workflows/platform-checks.yml": "8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",
     ".github/workflows/desktop-packages.yml": "7b3c79b9d8d4c3de876768e804e5794f23d37cf4f3a912013d051eeb7f238504",
 }
