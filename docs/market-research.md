@@ -40,3 +40,27 @@ returns the same immutable entry; different evidence needs a new entry identity.
 If app setup changes, reopen the form in the intended app. Saved/imported history
 keeps its original source context and is marked for review when that context is
 stale. No research URL is fetched by this workflow.
+
+## Group phrases by what buyers want
+
+Agents can add up to ten optional `snapshot.intent_clusters` to an existing
+research packet. Each cluster links phrases, separate sources for demand,
+competitor gap and proof from the app, and one proposed change with a hypothesis.
+Demand sources must already be linked to one of the cluster's phrases. Missing
+evidence can be left empty. Use the optional schema in
+`wmm_catalog.domain_contracts.market_research`; older packets still work.
+
+Open the saved report to see which experiments are ready for review and exactly
+what evidence to collect for the rest. Review requires a current listing, one
+hypothesis and three distinct, nonempty, current evidence excerpts. Source roles
+are analyst assertions. Review the excerpts to confirm they support the roles,
+then preregister the control, primary metric, sample and stopping rule before
+launching any experiment. The ordering reflects missing evidence, not predicted
+rank, installs or revenue. Imported and outdated app scopes need rechecking.
+
+For an intent packet, the saved report opens with marketing decisions. Expand
+**Sources and research details** to inspect the dated excerpts and hashes.
+**Report / Save PDF** prints the same decisions, the complete source register and
+the saved app/release scope. **Download report JSON** keeps the report sections
+structured for handoffs. The reports count saved intents and evidence states;
+they do not contain a ranking or install forecast.

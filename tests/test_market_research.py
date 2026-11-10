@@ -34,6 +34,29 @@ def fixture():
         }}}
 
 
+def intent_fixture():
+    body = fixture()
+    snapshot = body["data"]["snapshot"]
+    for name, excerpt in (("gap", "Trail reviews ask for route planning without a signal."),
+                          ("proof", "Build 1 can save a route and reopen it offline.")):
+        snapshot["sources"].append(dict(snapshot["sources"][0], id=name, excerpt=excerpt,
+                                        sha256=hashlib.sha256(excerpt.encode()).hexdigest()))
+    base = snapshot["phrases"][0]
+    for name, phrase in (("offline", "offline trail planner"), ("family", "family trail maps")):
+        snapshot["phrases"].append(dict(base, id=name, phrase=phrase))
+    def cluster(name, pid, demand, gap, proof, test):
+        return dict(id=name, intent=name + " trip planning", phrase_ids=[pid],
+                    evidence=dict(demand=demand, competitive_gap=gap, app_proof=proof), test=test)
+    test = dict(change="Show an offline route on the first screenshot",
+                hypothesis="Visitors looking for offline routes will install more often.")
+    snapshot["intent_clusters"] = [
+        cluster("family", "family", [], [], [], None),
+        cluster("generic", base["id"], ["src-1"], ["src-1"], ["src-1"], test),
+        cluster("offline", "offline", ["src-1"], ["gap"], ["proof"], test),
+    ]
+    return body
+
+
 class MarketResearchTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -143,6 +166,48 @@ class MarketResearchTests(unittest.TestCase):
         self.assertEqual(analyze_snapshot(validate_snapshot(value,{'locale':'en-US'},STAMP),STAMP)['state'],'PARTIAL')
         value['sources']=[]
         with self.assertRaises(Invalid):validate_snapshot(value,{'locale':'en-US'},STAMP)
+
+    def test_intent_readout_prioritizes_reviewable_test_and_keeps_unknowns(self):
+        body = intent_fixture()
+        row = self.work.save("sample-one", body)
+        read = lambda: self.work.list("sample-one")["history"][0]["readout"]["analysis"]
+        results = read()["intent_opportunities"]
+        self.assertEqual([(r["id"], r["status"]) for r in results], [
+            ("offline", "REVIEW_TEST"), ("generic", "COLLECT_EVIDENCE"), ("family", "COLLECT_EVIDENCE")])
+        self.assertEqual(results[0]["phrases"], ["offline trail planner"])
+        self.assertEqual(results[0]["evidence"]["app_proof"], ["proof"])
+        self.assertFalse(results[0]["organic_demand_verified"])
+        self.assertEqual(results[1]["missing"], ["distinct_evidence"])
+        self.assertIn("test_hypothesis", results[2]["missing"])
+        self.assertEqual(self.work.save("sample-one", body)["hash"], row["hash"])
+        self.assertEqual(read()["intent_opportunities"], results)
+        self.stamp += timedelta(days=91)
+        stale = {r["id"]: r for r in read()["intent_opportunities"]}["offline"]
+        self.assertEqual(stale["status"], "COLLECT_EVIDENCE")
+        self.assertIn("current_listing", stale["missing"])
+        self.assertIn("app_proof", stale["missing"])
+
+    def test_cluster_rejects_ambiguous_or_unlinked_evidence(self):
+        for field, value in (
+            ("phrase_ids", ["family"]),
+            ("phrase_ids", [{}]),
+            ("evidence", dict(demand=["proof"], competitive_gap=["gap"], app_proof=["proof"])),
+            ("evidence", dict(demand=["src-1"], competitive_gap=["other-app"], app_proof=["proof"])),
+            ("test", dict(change="Replace screenshot", hypothesis="")),
+        ):
+            body = intent_fixture()
+            body["data"]["snapshot"]["intent_clusters"][-1][field] = value
+            with self.subTest(field=field, value=value), self.assertRaises(Invalid):
+                self.work.save("sample-one", body)
+
+    def test_partial_sources_cannot_support_intent_roles(self):
+        body = intent_fixture()
+        body["data"]["snapshot"]["sources"][1]["coverage"] = "PARTIAL"
+        self.work.save("sample-one", body)
+        analysis = self.work.list("sample-one")["history"][0]["readout"]["analysis"]
+        opportunity = next(row for row in analysis["intent_opportunities"] if row["id"] == "offline")
+        self.assertEqual(opportunity["missing"], ["competitive_gap"])
+        self.assertEqual(opportunity["status"], "COLLECT_EVIDENCE")
 
     def test_no_network_and_contract_fixture_shape(self):
         self.assertEqual(agent_contract()["kind"], "MARKET_RESEARCH")

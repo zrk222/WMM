@@ -2,6 +2,7 @@
 from datetime import timedelta
 import hashlib
 import ipaddress
+from itertools import product
 import math
 import re
 from urllib.parse import urlsplit
@@ -12,6 +13,9 @@ from .pmf_contract import exact, hashed
 MAX_SOURCES, MAX_PHRASES, MAX_COMPETITORS = 20, 50, 10
 MAX_EXCERPT, MAX_PHRASE, MAX_BYTES = 1000, 120, 65536
 METRIC_NAMES = ("search_volume", "rank", "difficulty")
+MAX_INTENT_CLUSTERS = 10
+EVIDENCE_ROLES = ("demand", "competitive_gap", "app_proof")
+SOURCE_MAX_AGE = timedelta(days=90)
 
 
 def _phrase(value):
@@ -69,7 +73,10 @@ def _unique_rows(rows, cap, label):
 
 def validate_snapshot(value, context, as_of):
     """Validate exact app scope, source lineage and all user-provided assertions."""
-    exact(value, {"platform", "locale", "territory", "observed_at", "own_listing", "sources", "phrases", "competitors"})
+    fields = {"platform", "locale", "territory", "observed_at", "own_listing", "sources", "phrases", "competitors"}
+    if isinstance(value, dict) and "intent_clusters" in value:
+        fields.add("intent_clusters")
+    exact(value, fields)
     if value["platform"] not in ("iOS", "Android"):
         raise Invalid("Platform must be iOS or Android")
     if value["locale"] != context.get("locale") or not context.get("locale"):
@@ -173,15 +180,83 @@ def validate_snapshot(value, context, as_of):
     exact(own, {"excerpt", "source_id"})
     if not isinstance(own["excerpt"], str) or len(own["excerpt"]) > MAX_EXCERPT or own["source_id"] not in source_ids:
         raise Invalid("Own listing excerpt must be bounded and cite a snapshot source")
+    if "intent_clusters" in value:
+        value = dict(value, intent_clusters=_validate_intent_clusters(value["intent_clusters"], normalized_phrases, source_ids))
     return dict(value, observed_at=observed.isoformat(), sources=normalized_sources, phrases=normalized_phrases,
                 competitors=[dict(row, provenance="OPERATOR_SUPPLIED") for row in comp_normalized],
                 own_listing=dict(own, provenance="OPERATOR_SUPPLIED"))
 
 
+def _cluster_refs(value, allowed, label):
+    if (not isinstance(value, list) or len(value) > len(allowed)
+            or any(not isinstance(ref, str) or ref not in allowed for ref in value)
+            or len(set(value)) != len(value)):
+        raise Invalid(label + " must contain unique references from this snapshot")
+    return value
+
+
+def _validate_intent_clusters(rows, phrases, source_ids):
+    phrase_sources = {row["id"]: set(row["source_ids"]) for row in phrases}
+    result, ids, intents, assigned = [], set(), set(), set()
+    for row in _unique_rows(rows, MAX_INTENT_CLUSTERS, "Intent clusters"):
+        exact(row, {"id", "intent", "phrase_ids", "evidence", "test"})
+        cid = required(row["id"], "Cluster ID", 80)
+        intent = required(row["intent"], "Buyer intent", 160)
+        key = _normalize_excerpt(intent)
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,79}", cid) or cid in ids:
+            raise Invalid("Intent cluster IDs must be unique bounded identifiers")
+        if not key or key in intents:
+            raise Invalid("Buyer intents must be distinct")
+        refs = _cluster_refs(row["phrase_ids"], phrase_sources, "Cluster phrases")
+        if not refs or assigned.intersection(refs):
+            raise Invalid("Each cluster needs phrases; a phrase may belong to only one cluster")
+        exact(row["evidence"], EVIDENCE_ROLES)
+        evidence = {role: _cluster_refs(row["evidence"][role], source_ids, role) for role in EVIDENCE_ROLES}
+        if set(evidence["demand"]).difference(set().union(*(phrase_sources[ref] for ref in refs))):
+            raise Invalid("Demand evidence must be linked to a phrase in this cluster")
+        test = row["test"]
+        if test is not None:
+            exact(test, {"change", "hypothesis"})
+            test = dict(change=required(test["change"], "One proposed change", 500),
+                        hypothesis=required(test["hypothesis"], "Test hypothesis", 500))
+        result.append(dict(id=cid, intent=intent, phrase_ids=refs, evidence=evidence, test=test))
+        ids.add(cid)
+        intents.add(key)
+        assigned.update(refs)
+    return result
+
+
+def _intent_opportunities(snapshot, as_of):
+    sources = {row["id"]: row for row in snapshot["sources"]}
+    cutoff = iso_time(as_of) - SOURCE_MAX_AGE
+    eligible = {sid: src["sha256"] for sid, src in sources.items()
+                if src["coverage"] == "COMPLETE" and src["excerpt"].strip()
+                and iso_time(src["retrieved_at"]) >= cutoff}
+    phrases = {row["id"]: row["phrase"] for row in snapshot["phrases"]}
+    opportunities = []
+    for cluster in snapshot.get("intent_clusters", []):
+        support = {role: sorted({eligible[sid] for sid in refs if sid in eligible})
+                   for role, refs in cluster["evidence"].items()}
+        missing = [role for role in EVIDENCE_ROLES if not support[role]]
+        if not missing and not any(len(set(group)) == len(EVIDENCE_ROLES)
+                                   for group in product(*(support[role] for role in EVIDENCE_ROLES))):
+            missing.append("distinct_evidence")
+        if snapshot["own_listing"]["source_id"] not in eligible or not snapshot["own_listing"]["excerpt"].strip():
+            missing.append("current_listing")
+        if cluster["test"] is None:
+            missing.append("test_hypothesis")
+        opportunities.append(dict(cluster, phrases=[phrases[ref] for ref in cluster["phrase_ids"]],
+            status="COLLECT_EVIDENCE" if missing else "REVIEW_TEST", missing=missing,
+            next_action="Fill the evidence gaps before choosing a test." if missing else
+            "Review the sources and freeze a control, metric, sample and stopping rule before launching.",
+            evidence_status="OPERATOR_SUPPLIED", organic_demand_verified=False))
+    return sorted(opportunities, key=lambda row: (len(row["missing"]), row["id"]))
+
+
 def analyze_snapshot(snapshot, as_of):
     """Derive reproducible advisory coverage and copy-test candidates only."""
     sources = snapshot["sources"]
-    stale = any(iso_time(as_of) - iso_time(src["retrieved_at"]) > timedelta(days=90) for src in sources)
+    stale = any(iso_time(as_of) - iso_time(src["retrieved_at"]) > SOURCE_MAX_AGE for src in sources)
     coverage_states = {s["coverage"] for s in sources}
     if not snapshot["phrases"] or coverage_states == {"NO_RESULTS"}:
         state, action = "NO_RESULTS", "Capture a broader query"
@@ -216,7 +291,7 @@ def analyze_snapshot(snapshot, as_of):
             source_count=len(sources),
             source_states={key: sum(s["coverage"] == key for s in sources) for key in ("COMPLETE", "PARTIAL", "NO_RESULTS")},
             normalized_unique_phrases=len({p["normalized_phrase"] for p in snapshot["phrases"]})),
-        candidates=candidates[:25], provider_verified=False, outcomes_verified=False, external_writes=False,
+        candidates=candidates[:25], intent_opportunities=_intent_opportunities(snapshot, as_of), provider_verified=False, outcomes_verified=False, external_writes=False,
         phrase_results=phrase_results, own_listing=snapshot["own_listing"], competitors=snapshot["competitors"],
         source_provenance="OPERATOR_SUPPLIED_SOURCE_SNAPSHOT",
         organic_rank_inferred=False, paid_counts_used=False,
@@ -246,8 +321,14 @@ def agent_contract():
             "competitors": [{"id": "competitor-1", "name": "Competitor", "listing_excerpt": "supplied listing text", "source_id": "src-1"}],
         }},
         "bounds": {"sources": MAX_SOURCES, "phrases": MAX_PHRASES, "competitors": MAX_COMPETITORS,
-            "phrase_chars": MAX_PHRASE, "excerpt_chars": MAX_EXCERPT, "snapshot_bytes": MAX_BYTES, "candidates": 25},
+            "phrase_chars": MAX_PHRASE, "excerpt_chars": MAX_EXCERPT, "snapshot_bytes": MAX_BYTES, "candidates": 25, "intent_clusters": MAX_INTENT_CLUSTERS},
         "provenance": {"observed": "operator-supplied text and source snapshots", "inferred": "analyst intent/relevance hypothesis",
             "metrics": "each non-null metric requires value and source_id; provenance=OPERATOR_ASSERTION; provider_verified=false"},
+        "optional_snapshot_fields": {"intent_clusters": [{
+            "id": "cluster-1", "intent": "one buyer problem", "phrase_ids": ["phrase-1"],
+            "evidence": {"demand": [], "competitive_gap": [], "app_proof": []},
+            "test": {"change": "one listing or creative change", "hypothesis": "expected effect and why"},
+        }]},
+        "intent_cluster_guidance": "Supply fresh, distinct evidence for each role. Separate actual search observations from language hypotheses. An empty role stays unknown. REVIEW_TEST is advisory and does not grant approval.",
         "no_network": True,
     }

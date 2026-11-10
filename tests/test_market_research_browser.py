@@ -1,10 +1,11 @@
 """Real market-file controls, strict HTTP persistence and reports with synthetic data."""
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
 import unittest
 from tests import test_agent_grants as fixture
-from tests.test_market_research import fixture as research_fixture
+from tests.test_market_research import intent_fixture as research_fixture
 
 PROFILE=os.environ.get('WMM_BROWSER_TEST_PROFILE')=='1'
 if PROFILE:
@@ -39,9 +40,13 @@ class MarketResearchBrowserTests(unittest.TestCase):
         file=page.locator('#market-research-file');button=page.locator('#growth-review-form button[type="submit"]')
         file.set_input_files(dict(name='invalid.json',mimeType='application/json',buffer=b'{'))
         button.click();expect(page.locator('#growth-form-error')).to_contain_text('Inputs are preserved')
-        body=research_fixture();raw=json.dumps(body['data']).encode()
+        body=research_fixture()
+        stamp=datetime.now(timezone.utc).isoformat()
+        snapshot=body['data']['snapshot'];snapshot['observed_at']=stamp
+        for source in snapshot['sources']:source['retrieved_at']=stamp
+        raw=json.dumps(body['data']).encode()
         file.set_input_files(dict(name='synthetic-research.json',mimeType='application/json',buffer=raw))
-        button.click();expect(page.locator('#market-research-preview')).to_contain_text('1 keyword phrases')
+        button.click();expect(page.locator('#market-research-preview')).to_contain_text('3 keyword phrases')
         expect(button).to_have_text('Save researched packet')
         ARTIFACTS.mkdir(parents=True,exist_ok=True)
         page.screenshot(path=str(ARTIFACTS/f'{width}-review.png'))
@@ -66,14 +71,41 @@ class MarketResearchBrowserTests(unittest.TestCase):
         page.locator(f'[data-action="growth-detail"][data-id="{row["id"]}"]').click()
         expect(page.locator('#modal')).to_contain_text('hiking trails')
         expect(page.locator('#modal')).to_contain_text('search volume: Unknown')
+        decision=page.locator('#modal .report-item').first
+        expect(decision.get_by_role('heading',name='offline trip planning')).to_be_visible()
+        expect(decision).to_contain_text('Review proposed test')
+        expect(page.locator('#modal .report-item').nth(1)).to_contain_text('Distinct sources')
+        page.locator('#modal summary').focus()
+        page.keyboard.press('Enter')
+        expect(page.get_by_role('heading',name='Source register')).to_be_visible()
+        self.assertTrue(page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
         expect(page.locator('#modal')).to_contain_text('https://example.com/report')
         with page.expect_download() as download:page.locator('#modal [data-action="growth-json"]').click()
         report=json.loads(Path(download.value.path()).read_text(encoding='utf-8'))
-        self.assertIn('hiking trails',json.dumps(report))
-        with page.expect_popup() as captured:page.locator('#modal [data-action="growth-report"]').click()
-        popup=captured.value;popup.wait_for_selector('#print-page-report')
-        self.assertIn('hiking trails',popup.locator('body').inner_text())
-        self.assertTrue(popup.pdf().startswith(b'%PDF'));popup.close()
+        self.assertEqual(report['title'],'ASO opportunity report')
+        self.assertEqual(report['filters']['source_hash'],row['hash'])
+        self.assertEqual(report['sections'][0]['items'][0]['title'],'offline trip planning')
+        trigger=page.locator('#modal [data-action="growth-report"]')
+        trigger.click()
+        preview=page.locator('.wmm-report-dialog[open]')
+        expect(preview.get_by_role('heading',name='ASO opportunity report')).to_be_focused()
+        expect(preview.get_by_role('heading',name='Marketing decisions')).to_be_visible()
+        expect(preview.get_by_role('heading',name='Source register')).to_be_visible()
+        self.assertIn('hiking trails',preview.inner_text())
+        self.assertEqual(preview.locator('.report-section').first.locator('article').count(),3)
+        page.emulate_media(media="print")
+        expect(preview.locator('.report-controls')).to_be_hidden()
+        expect(page.locator('#modal')).to_be_hidden()
+        pdf=page.pdf(prefer_css_page_size=True)
+        self.assertTrue(pdf.startswith(b'%PDF'))
+        page.emulate_media(media="screen")
+        if width==1440:
+            (ARTIFACTS/'aso-opportunity-report-sample.pdf').write_bytes(pdf)
+            css=(ROOT/'mission_control/static/page-reporting.css').read_text(encoding='utf-8')
+            html=preview.evaluate('(node)=>node.innerHTML')
+            (ARTIFACTS/'aso-opportunity-report.html').write_text(f'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ASO opportunity report</title><style>{css}</style></head><body class="wmm-print-report">{html}</body></html>',encoding='utf-8')
+        preview.get_by_role('button',name='Close report').click()
+        expect(trigger).to_be_focused()
         self.assertEqual(errors,[]);self.assertEqual(external,[])
 
     def test_desktop_import_review_persist_and_reports(self):self.run_journey(1440)
