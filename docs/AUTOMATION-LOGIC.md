@@ -142,7 +142,9 @@ python -m mission_control.automation_rules \
   --app <app-id>
 ```
 
-The projection includes only saved facts; absent counts and unavailable measurements stay absent.
+The database mode opens an existing WMM database read-only and scopes one snapshot to the selected app. It reads saved app details, cohort and retention record counts, the number of campaigns with saved import batches, and local experiment counts. It does not initialize a database, seed workspaces, load credentials, or execute any proposal.
+
+The bundled cohort-setup rule proposes an owner review when the workspace has no saved cohort metric records. That zero is a local record count. Study coverage, retention maturity, and unavailable measurements remain unknown unless supplied explicitly in `--facts`.
 
 ## Delivery phases
 

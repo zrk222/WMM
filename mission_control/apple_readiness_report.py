@@ -50,6 +50,20 @@ def _stopped_failure(db, row, ceiling):
     return (job['status'], observed) if observed else (None, None)
 
 
+def _catchup_note(row, job, observed):
+    """Explain a missed cadence using the bound slot and the job's enqueue time."""
+    scheduled = _due(row['last_due'])
+    queued = _time(job['created'], iso_time(observed))
+    if not scheduled or not queued:
+        return ''
+    delay = (iso_time(queued) - iso_time(scheduled)).total_seconds()
+    if delay < row['interval_hours'] * 3600:
+        return ''
+    hours = int(delay // 3600)
+    return (f' WMM queued this read {hours} hours after it was due. Keep WMM running, or use '
+            'your own always-on host for reads while this computer is off.')
+
+
 def summary(db, app_id, store_app_id, observed_at):
     """Use one schedule and its exact current job; never return source identifiers."""
     row = db.execute('SELECT * FROM apple_metrics_schedules WHERE app_id=?', (app_id,)).fetchone()
@@ -103,11 +117,13 @@ def summary(db, app_id, store_app_id, observed_at):
             if row['next_due'] < ceiling.timestamp():
                 next_action = ('The scheduled refresh is overdue. Check that the WMM worker is running, '
                                'then review the saved refresh in Apple analytics.')
+            next_action += _catchup_note(row, job, observed)
             result.update(read='WAITING_FOR_REPORTS', observed_at=observed, next_action=next_action)
         elif (job['status'] == 'SUCCEEDED' and valid_numeric(db, row, job, job['result'])
               and (observed := _time(job['result']['observed_at'], ceiling))):
             result.update(read='DOWNLOAD_OBSERVATIONS_AVAILABLE', observed_at=observed,
-                          next_action='Read completed; inspect saved Apple download observations in this report.')
+                          next_action=('Read completed; inspect saved Apple download observations in this report.'
+                                       + _catchup_note(row, job, observed)))
         elif job['status'] in ('FAILED', 'BLOCKED', 'CANCELLED') and (observed := _time(job['updated'], ceiling)):
             result.update(read=job['status'], observed_at=observed,
                           next_action='Review the scheduled read and Apple connection before retrying.')

@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 import json
 from pathlib import Path
+import sqlite3
 
-from .common import Invalid, canonical, digest, iso_time, now
+from .common import Invalid, digest, iso_time, now
 
 SCHEMA = "wmm.automation-rules.v1"
 TRUE, FALSE, UNKNOWN = "TRUE", "FALSE", "UNKNOWN"
@@ -82,6 +84,16 @@ def _rule(value):
                 cooldown=cooldown, expires_at=expires)
 
 
+def _saved_rows(value):
+    return value if isinstance(value, list) and all(isinstance(row, dict) for row in value) else None
+
+
+def _count(rows, field=None, value=None):
+    if rows is None:
+        return None
+    return len(rows) if field is None else sum(row.get(field) == value for row in rows)
+
+
 def project(workspace):
     """Project a read-only Service workspace into typed facts; absent facts stay absent."""
     if not isinstance(workspace, dict):
@@ -92,12 +104,12 @@ def project(workspace):
     metrics = workspace.get("metrics") or {}
     attribution = workspace.get("install_attribution") or {}
     integrity = workspace.get("measurement_integrity") or {}
-    experiments = workspace.get("experiments") or []
+    experiments = _saved_rows(workspace.get("experiments"))
     automation = workspace.get("automation") or {}
-    cohorts = metrics.get("cohorts") or []
-    retention = metrics.get("retention") or []
-    ledger = metrics.get("event_ledger") or []
-    campaigns = attribution.get("campaigns") or []
+    cohorts = _saved_rows(metrics.get("cohorts"))
+    retention = _saved_rows(metrics.get("retention"))
+    ledger = _saved_rows(metrics.get("event_ledger"))
+    campaigns = _saved_rows(attribution.get("campaigns"))
     facts = {
         "app": {
             "id": app.get("id"),
@@ -110,7 +122,7 @@ def project(workspace):
         "workflow": {
             "local_ready_count": workflow.get("local_ready_count"),
             "next_action": (workflow.get("next_action") or {}).get("id"),
-            "exception_count": len(workflow.get("exceptions") or []),
+            "exception_count": _count(_saved_rows(workflow.get("exceptions"))),
         },
         "automation": {
             "mode": automation.get("mode"),
@@ -118,27 +130,64 @@ def project(workspace):
             "channel": (automation.get("channel") or {}).get("value"),
         },
         "metrics": {
-            "cohort_count": len(cohorts),
-            "measured_cohort_count": sum(1 for row in cohorts if row.get("status") == "MEASURED"),
-            "retention_window_count": len(retention),
-            "ledger_report_count": len(ledger),
+            "cohort_count": _count(cohorts),
+            "measured_cohort_count": _count(cohorts, "status", "MEASURED"),
+            "retention_window_count": _count(retention),
+            "ledger_report_count": _count(ledger),
         },
         "install": {
-            "campaign_count": len(campaigns),
-            "campaign_tokens": sorted(row.get("campaign_token") for row in campaigns if row.get("campaign_token")),
-            "last_observed_at": max((row.get("last_observed_at") for row in campaigns
+            "campaign_count": _count(campaigns),
+            "campaign_tokens": (sorted(row.get("campaign_token") for row in campaigns if row.get("campaign_token"))
+                                if campaigns is not None else None),
+            "last_observed_at": max((row.get("last_observed_at") for row in campaigns or []
                                      if row.get("last_observed_at")), default=None),
         },
         "measurement": {"state": integrity.get("state")},
         "experiments": {
-            "count": len(experiments),
-            "planned": sum(1 for row in experiments if row.get("state") == "PLANNED"),
-            "awaiting_analysis": sum(1 for row in experiments if row.get("state") == "AWAITING_ANALYSIS"),
+            "count": _count(experiments),
+            "planned": _count(experiments, "state", "PLANNED"),
+            "awaiting_analysis": _count(experiments, "state", "AWAITING_ANALYSIS"),
         },
     }
     return {key: {inner: value for inner, value in values.items() if value is not None}
             for key, values in facts.items()
             if any(value is not None for value in values.values())}
+
+
+def project_database(path, app_id):
+    """Read durable app facts from one SQLite snapshot without opening the runtime or vault."""
+    path = Path(path)
+    if not path.is_file():
+        raise Invalid("Choose an existing WMM workspace database")
+    try:
+        with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True, timeout=5)) as db:
+            db.row_factory = sqlite3.Row
+            db.execute("PRAGMA query_only=ON")
+            db.execute("BEGIN")
+            row = db.execute("SELECT id,version,data FROM apps WHERE id=?", (app_id,)).fetchone()
+            if row is None:
+                raise Invalid("The selected app is not in this WMM workspace")
+            facts = project({"app": dict(row, data=json.loads(row["data"]))})
+            facts["metrics"] = {
+                "cohort_count": db.execute(
+                    "SELECT count(*) FROM records WHERE app_id=? AND kind='cohort'", (app_id,)).fetchone()[0],
+                "retention_window_count": db.execute(
+                    "SELECT count(*) FROM records WHERE app_id=? AND kind='retention'", (app_id,)).fetchone()[0],
+            }
+            campaign_count = db.execute(
+                "SELECT count(DISTINCT campaign_token) FROM install_attribution_batches WHERE app_id=?",
+                (app_id,)).fetchone()[0]
+            facts["install"] = {"campaign_count": campaign_count}
+            row = db.execute("""SELECT count(*) AS count,
+                count(CASE WHEN state='PLANNED' THEN 1 END) AS planned,
+                count(CASE WHEN state='AWAITING_ANALYSIS' THEN 1 END) AS awaiting_analysis
+                FROM experiments WHERE app_id=?""", (app_id,)).fetchone()
+            facts["experiments"] = dict(row)
+            return facts
+    except Invalid:
+        raise
+    except (OSError, sqlite3.Error, ValueError, TypeError, AttributeError) as error:
+        raise Invalid("Cannot read saved facts from this WMM workspace") from error
 
 
 def validate(document):
@@ -281,9 +330,10 @@ def main(argv=None):
     if args.facts:
         facts = json.loads(Path(args.facts).read_text(encoding="utf-8"))
     elif args.database and args.app:
-        from .store import Store
-        from .service import Service
-        facts = project(Service(Store(Path(args.database))).workspace(args.app))
+        try:
+            facts = project_database(args.database, args.app)
+        except Invalid as error:
+            parser.error(str(error))
     else:
         raise SystemExit("Provide --facts or both --database and --app")
     print(json.dumps(evaluate(document, facts), indent=2, sort_keys=True))
