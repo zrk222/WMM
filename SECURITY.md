@@ -16,4 +16,4 @@ operation and external change before approving it.
 
 ## Threat model
 
-Read the explicit boundaries and residual risks in the [threat model](docs/THREAT-MODEL.md). In particular, scoped grants are application boundaries, not an OS sandbox; a process running as the same OS user may have unrelated access.
+Read the explicit boundaries and residual risks in the [threat model](docs/THREAT-MODEL.md) and the [team-session security review](docs/TEAM-SESSION-SECURITY-REVIEW.md). Scoped grants are application boundaries, not an OS sandbox; a process running as the same OS user may have unrelated access. Team sessions are local-only and have no remote HTTP route.

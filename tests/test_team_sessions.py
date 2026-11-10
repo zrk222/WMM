@@ -24,6 +24,10 @@ class TeamSessionTests(unittest.TestCase):
             self.store.save_app(app, dict(name="Synthetic " + app, release="build-1", job="Synthetic job",
                                          audience="Synthetic audience", activation="Synthetic value", locale="en-US"))
         Access(self.store).bootstrap(APP, OWNER, {"confirm_owner": True})
+        from mission_control.team_access import accept, issue
+        invitation = issue(self.store, APP, OWNER, dict(login=MEMBER["login"], role="MAKER",
+            expires=(datetime.now(timezone.utc) + timedelta(hours=4)).isoformat()))
+        accept(self.store, invitation["token"], MEMBER)
 
     def test_login_stores_only_a_hash_and_verify_returns_identity(self):
         with patch("mission_control.team_sessions.github_read", return_value=MEMBER):
@@ -50,6 +54,16 @@ class TeamSessionTests(unittest.TestCase):
             verify(self.store, second["token"])
         with self.assertRaises(PermissionError):
             revoke(self.store, APP, MEMBER, listed["id"], listed["version"])
+
+    def test_current_active_membership_is_required_to_open_and_verify(self):
+        with self.assertRaises(PermissionError):
+            open_session(self.store, APP, {"principal": "github:3", "login": "outsider"})
+        issued = open_session(self.store, APP, MEMBER)
+        with connection(self.store.path) as db:
+            db.execute("UPDATE operator_roles SET status='REVOKED',version=version+1 WHERE app_id=? AND principal=?",
+                       (APP, MEMBER["principal"]))
+        with self.assertRaises(PermissionError):
+            verify(self.store, issued["token"])
 
     def test_scope_validation_and_hostile_inputs(self):
         for hours in (0, 721, True):

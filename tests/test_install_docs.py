@@ -34,6 +34,12 @@ class InstallDocTests(unittest.TestCase):
         self.assertEqual(value["coverage"]["source_event_count"], 1)
         self.assertEqual(value["installs"][0]["install_id"], "install_a")
 
+    def test_runbook_points_to_the_shipped_preview_confirm_ui_first(self):
+        self.assertIn("Results ? Install attribution", RUNBOOK)
+        self.assertIn("Import install", RUNBOOK)
+        self.assertIn("previews the coverage checklist", RUNBOOK)
+        self.assertNotIn("not shipped yet", RUNBOOK)
+
     def test_runbook_cli_and_example_include_the_required_window(self):
         self.assertIn("--window-start", RUNBOOK)
         self.assertIn("--window-end", RUNBOOK)
