@@ -166,3 +166,19 @@ class AutomationSimulationHTTPTests(unittest.TestCase):
             with self.subTest(route=route), self.assertRaises(ClientError) as error:
                 client.request("POST", route, {"rules": EXAMPLE})
             self.assertEqual(error.exception.status, 403)
+
+
+    def test_saved_rule_http_is_local_and_owner_only(self):
+        route = self.route.replace("/evaluate", "/rules")
+        anonymous = OperatorClient(self.origin)
+        anonymous.bootstrap()
+        with (patch("mission_control.connection_setup.Connections.vault", side_effect=AssertionError("opened vault")),
+              patch("mission_control.operator_identity.github_read", side_effect=AssertionError("called provider"))):
+            self.assertIsNone(self.owner.request("GET", route))
+            saved = self.owner.request("POST", route, {"document": EXAMPLE})
+            self.assertEqual(self.owner.request("GET", route), saved)
+            for client, target in ((anonymous, route), (self.owner, route.replace("sample-one", "sample-two"))):
+                for method, data in (("GET", None), ("POST", {"document": EXAMPLE})):
+                    with self.subTest(method=method, target=target), self.assertRaises(ClientError) as error:
+                        client.request(method, target, data)
+                    self.assertEqual(error.exception.status, 403)

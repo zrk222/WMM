@@ -328,12 +328,10 @@ class Handler(BaseHTTPRequestHandler):
         if parts[3:]==['automation','rules']:
             if urlparse(self.path).query:raise Invalid('Use the exact automation rules address')
             from .automation_store import current
-            from .db import connection as db_connection
-            from .review_access import member
-            session=self.session();user=self.server.identities.fresh(session)
-            with db_connection(store.path) as db:
-                member(db,app_id,user['principal'],'OWNER')
-            return self.send(200,current(store,app_id))
+            user, recheck=self.automation_owner_session()
+            result=current(store,app_id,user['principal'])
+            recheck()
+            return self.send(200,result)
         if parts[3:]==['jobs']:
             if urlparse(self.path).query:raise Invalid('Use the exact app job history address')
             from .worker import jobs
@@ -730,29 +728,31 @@ class Handler(BaseHTTPRequestHandler):
         result=record_batch(store,parts[2],user,normalized,preview_id=data['preview_id'])
         return self.send(201,dict(result=result,checklist=checklist))
 
-    def post_automation(self,parts,data):
-        """Simulate owner-authored rules against the current saved workspace; no writes."""
-        if len(parts)!=5 or parts[4] not in ('evaluate','rules') or urlparse(self.path).query:
-            raise Invalid('Use the exact automation rule preview or save address')
-        from .db import connection
-        from .review_access import member
+    def automation_owner_session(self):
+        """Pin the local session without touching a provider or the credential vault."""
         session=self.session();identities=self.server.identities;public=identities.public(session)
         if public.get('status')!='AUTHENTICATED':
             raise PermissionError("Sign in as this app's owner to use automation rules")
-        user=identities.local(session,public['principal']);store=self.server.service.store
-        with connection(store.path) as db:
-            member(db,parts[2],user['principal'],'OWNER')
+        user=identities.local(session,public['principal'])
+        return user, lambda: identities.local(session,user['principal'],user['session_generation'])
+
+    def post_automation(self,parts,data):
+        """Preview or save local owner-authored rules without granting action authority."""
+        if len(parts)!=5 or parts[4] not in ('evaluate','rules') or urlparse(self.path).query:
+            raise Invalid('Use the exact automation rule preview or save address')
+        user, recheck=self.automation_owner_session()
+        store=self.server.service.store
         if parts[4]=='rules':
             if not isinstance(data,dict) or set(data)!={'document'}:
                 raise Invalid('Submit the exact rules document')
             from .automation_store import save
-            return self.send(201,save(store,parts[2],user,data['document']))
+            return self.send(201,save(store,parts[2],user,data['document'],commit_check=recheck))
         if not isinstance(data,dict) or set(data)!={'rules'}:
             raise Invalid('Submit the exact rules document')
         from .automation_rules import evaluate, project_database
         facts=project_database(store.path,parts[2],owner_principal=user['principal'])
         result=evaluate(data['rules'],facts)
-        identities.local(session,user['principal'],user['session_generation'])
+        recheck()
         return self.send(200,result)
 
     def post_sequence(self,parts,data):
