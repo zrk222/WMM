@@ -56,6 +56,20 @@ class DesktopEntryTests(unittest.TestCase):
             reopened = DesktopRuntime(root / 'unconnected', unused_port, fixed_port=True)
             reopened.close()
 
+    def test_headless_start_exposes_mode_on_loopback_without_workspace_paths(self):
+        with tempfile.TemporaryDirectory() as folder:
+            runtime = DesktopRuntime(Path(folder), 0, fixed_port=True, headless=True)
+            try:
+                origin = runtime.start(workers=False)
+                with urlopen(origin + '/api/apps/sample-one/workflow-telemetry', timeout=5) as response:
+                    value = json.load(response)
+                self.assertEqual(value['worker'], {
+                    'runtime_mode': 'HEADLESS', 'status': 'STARTING', 'last_success': None,
+                })
+                self.assertNotIn(str(folder), json.dumps(value))
+            finally:
+                runtime.close()
+
     def test_ephemeral_wmm_listener_drives_fixed_refusal_and_fallback(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
@@ -245,7 +259,7 @@ class DesktopEntryTests(unittest.TestCase):
             patch("webbrowser.open") as browser,
         ):
             headless()
-        factory.assert_called_once_with(fixed_port=True)
+        factory.assert_called_once_with(fixed_port=True, headless=True)
         event.return_value.wait.assert_called_once_with(0.5)
         runtime.close.assert_called_once()
         browser.assert_not_called()

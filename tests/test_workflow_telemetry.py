@@ -136,19 +136,20 @@ class TelemetryHTTPTests(unittest.TestCase):
         with urlopen(base) as response:
             initial = json.load(response)
         self.assertEqual(initial["runs"], [])
-        self.assertEqual(initial["worker"], {"status": "STARTING", "last_success": None})
+        self.assertEqual(initial["worker"], {"status": "STARTING", "last_success": None, "runtime_mode": "SERVER"})
         worker = self.server.runner.supervision
         worker.attempt("queue", lambda: 1 / 0)
         worker.finish()
         with urlopen(base) as response:
-            self.assertEqual(json.load(response)["worker"], {"status": "RECOVERING", "last_success": None})
+            self.assertEqual(json.load(response)["worker"], {"status": "RECOVERING", "last_success": None, "runtime_mode": "SERVER"})
         worker.stopped()
         with urlopen(base) as response:
-            self.assertEqual(json.load(response)["worker"], {"status": "STOPPED", "last_success": None})
+            self.assertEqual(json.load(response)["worker"], {"status": "STOPPED", "last_success": None, "runtime_mode": "SERVER"})
         self.assertEqual(worker_observation({"status": "PRIVATE_STATUS", "last_success": "PRIVATE_DATE",
-            "last_error": "PRIVATE_ERROR"}), {"status": "UNKNOWN", "last_success": None})
+            "last_error": "PRIVATE_ERROR", "runtime_mode": "PRIVATE_MODE"}),
+            {"status": "UNKNOWN", "last_success": None, "runtime_mode": "UNKNOWN"})
         self.assertEqual(worker_observation({"status": "RUNNING", "last_success": "2026-11-06T00:00:00Z"}),
-            {"status": "RUNNING", "last_success": "2026-11-06T00:00:00+00:00"})
+            {"status": "RUNNING", "last_success": "2026-11-06T00:00:00+00:00", "runtime_mode": "UNKNOWN"})
         job = enqueue(self.store, "sample-one", "sync", {}, "http-waiting")
         with connection(self.store.path) as db:
             db.execute("UPDATE jobs SET status='SUCCEEDED',result=? WHERE id=?",

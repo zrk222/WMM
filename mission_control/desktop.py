@@ -27,7 +27,7 @@ def data_directory(platform=None, environ=None, home=None):
 class DesktopRuntime:
     """Own exactly one listener and its existing workers; no startup registration."""
 
-    def __init__(self, directory=None, preferred_port=8765, fixed_port=False):
+    def __init__(self, directory=None, preferred_port=8765, fixed_port=False, *, headless=False):
         from mission_control.server import Server, check_timezone_support
         from mission_control.store import Store
         from mission_control.workspace_lock import WorkspaceLock
@@ -36,14 +36,15 @@ class DesktopRuntime:
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.lock = WorkspaceLock(self.directory)
         self.lock.acquire()
+        mode = 'HEADLESS' if headless else 'DESKTOP'
         try:
             store = Store(self.directory / 'mission-control.sqlite3')
             try:
-                self.server = Server(('127.0.0.1', preferred_port), store)
+                self.server = Server(('127.0.0.1', preferred_port), store, runtime_mode=mode)
             except OSError as error:
                 if fixed_port or error.errno not in (errno.EADDRINUSE, errno.EACCES, 10048, 10013):
                     raise
-                self.server = Server(('127.0.0.1', 0), store)
+                self.server = Server(('127.0.0.1', 0), store, runtime_mode=mode)
         except BaseException:
             self.lock.release()
             raise
@@ -118,7 +119,7 @@ def headless():
             sig = getattr(signal, name, None)
             if sig is not None:
                 previous[sig] = signal.signal(sig, request_stop)
-        runtime = DesktopRuntime(fixed_port=True)
+        runtime = DesktopRuntime(fixed_port=True, headless=True)
         try:
             origin = runtime.start()
             print(json.dumps(dict(status='RUNNING', origin=origin, mode='HEADLESS')), flush=True)

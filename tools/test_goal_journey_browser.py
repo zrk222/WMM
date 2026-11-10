@@ -11,7 +11,8 @@ from tests.test_guided_workflow import GuidedWorkflowTests
 def run(browser,width,out):
  fixture=GuidedWorkflowTests();fixture.setUp()
  fixture.store.save_app("sample-two",dict(name="Second synthetic app",release="test",job="Another app goal",audience="Synthetic audience",activation="Synthetic value",locale="en-US"))
- server=Server(("127.0.0.1",0),fixture.store);thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+ mode="DESKTOP" if width>760 else "HEADLESS"
+ server=Server(("127.0.0.1",0),fixture.store,runtime_mode=mode);thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
  context=browser.new_context(viewport={"width":width,"height":900});page=context.new_page();errors=[];writes=[]
  page.on("pageerror",lambda error:errors.append(str(error)))
  page.on("request",lambda request:writes.append(request.url) if request.method=="POST" else None)
@@ -61,11 +62,48 @@ def run(browser,width,out):
   advanced=nav.locator("details")
   summary=advanced.locator("summary")
   expect(advanced).not_to_have_attribute("open","")
-  summary.press("Enter")
+  page.get_by_role("button",name="Open your first packet",exact=True).press("Enter")
+  expect(packet).to_be_visible()
+  page.evaluate("""() => new Promise(resolve => {
+   const dialog=document.querySelector("#modal");
+   dialog.addEventListener("close", () => resolve(), {once:true});
+   dialog.close();
+   document.querySelector("#navigation details summary").focus();
+  })""")
+  expect(summary).to_be_focused()
+  page.keyboard.press("Enter")
   expect(advanced).to_have_attribute("open","")
   expect(nav.get_by_role("button",name="Guided workflow",exact=True)).to_be_visible()
   summary.press("Enter")
   expect(advanced).not_to_have_attribute("open","")
+  page.get_by_role("button",name="Open your first packet",exact=True).press("Enter")
+  expect(packet).to_be_visible()
+  page.evaluate("""() => new Promise(resolve => {
+   const dialog=document.querySelector("#modal");
+   dialog.addEventListener("close", () => resolve(), {once:true});
+   dialog.close();
+   document.querySelector("#navigation details summary").focus();
+   document.querySelector('[data-action="automatic-goal-open"]').click();
+   dialog.querySelector("#modal-body").dataset.job="synthetic-reopened-dialog";
+  })""")
+  expect(packet).to_be_visible()
+  expect(packet.locator("#modal-body")).to_have_attribute("data-job","synthetic-reopened-dialog")
+  page.keyboard.press("Escape")
+  expect(packet).to_be_hidden()
+  expect(page.locator("#modal-body")).not_to_have_attribute("data-job","synthetic-reopened-dialog")
+  expect(summary).to_be_focused()
+  page.get_by_role("button",name="Open your first packet",exact=True).press("Enter")
+  expect(packet).to_be_visible()
+  assert page.evaluate("""() => new Promise(resolve => {
+   const dialog=document.querySelector("#modal");
+   dialog.addEventListener("close", () => {
+    dialog.addEventListener("close", () => resolve(document.activeElement===document.body), {once:true});
+    dialog.close();
+   }, {once:true});
+   dialog.close();
+   document.activeElement.blur();
+   document.querySelector('[data-action="automatic-goal-open"]').click();
+  })"""),"Opening from the page body must discard the previous dialog's opener"
   page.get_by_role("button",name="Run an approved campaign",exact=True).click()
   expect(page.locator("#goal-message")).to_contain_text("No work has started")
   expect(page.get_by_role("button",name="Review campaign setup",exact=True)).to_be_focused()
@@ -86,11 +124,16 @@ def run(browser,width,out):
   expect(popup.locator("body")).to_contain_text("No publication, spend or approval authority")
   popup.close()
   nav.get_by_role("button",name="Watch the work",exact=True).click();expect(page.locator("#main .page-heading")).to_be_visible()
+  worker=page.locator("#workflow-monitor [data-live-worker]")
+  expect(worker).to_contain_text("Desktop mode" if mode=="DESKTOP" else "Headless mode on this workspace")
+  assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
+  page.screenshot(path=str(out/f"worker-mode-{width}.png"))
+  (out/f"worker-mode-{width}.html").write_text(page.content(),encoding="utf-8")
   nav.get_by_role("button",name="Review results",exact=True).click();expect(page.locator("#main .page-heading")).to_be_visible()
   assert not jobs(fixture.store,"sample-one");assert not writes,writes
   assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
   assert not errors,errors
-  return dict(width=width,keyboard_navigation=True,goal_packets=["research","creative","campaign","measurement"],scoped_downloads=True,advanced_twelve_stages=True,app_isolation=True,reload_retains_choice=True,pdf_preview=True,no_mutations=True,javascript_errors=errors)
+  return dict(width=width,keyboard_navigation=True,late_close_preserves_focus=True,late_close_preserves_reopened_dialog=True,goal_packets=["research","creative","campaign","measurement"],scoped_downloads=True,advanced_twelve_stages=True,app_isolation=True,reload_retains_choice=True,pdf_preview=True,no_mutations=True,javascript_errors=errors)
  finally:
   context.close();server.shutdown();server.server_close();thread.join();fixture.doCleanups()
 

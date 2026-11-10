@@ -489,7 +489,7 @@ function campaignPlanOpen(){
   const value=WMMCampaignPlan.build(state.workspace,{goal});
   state.campaignPlan=value;
   const missing=value.missing.length?notice(`Missing before this plan is complete: ${value.missing.join(", ")}.`,"warning"):notice("Planner inputs are present. Saved evidence still needs current release, locale and rights review.");
-  modal("Campaign plan",`<div class="modal-content"><div class="section-heading"><div><p class="eyebrow">MARKETING PLAN</p><h2>${esc(state.workspace?.app?.data?.name||state.app)}</h2></div>${status(value.status)}</div><p><strong>${esc(value.objective.metric)}</strong> for <strong>${esc(value.positioning.audience||"your audience")}</strong>${value.channels.pilot?` via <strong>${esc(value.channels.pilot)}</strong>`:""}.</p>${missing}<h3>Objective</h3><p><strong>${esc(value.objective.metric)}</strong> · baseline ${esc(value.objective.baseline)}</p><p class="description">${esc(value.objective.baseline_reason)}</p><h3>Audience and hypothesis</h3><p><strong>${esc(value.positioning.audience||"Audience not supplied")}</strong> · ${esc(value.positioning.job||"User job not supplied")}</p><p>${esc(value.positioning.hypothesis)}</p><h3>Pilot channel</h3><p><strong>${esc(value.channels.pilot||"Not selected")}</strong>${value.channels.alternatives.length?` · alternatives ${esc(value.channels.alternatives.join(", "))}`:""}</p><p class="description">${esc(value.channels.basis)}</p><h3>Proof to verify</h3><p>Saved claims ${value.proof.claims} · screens/assets ${value.proof.assets} · readiness ${value.proof.readiness} · store ${value.proof.store} · first-value routes ${value.proof.route}</p><p class="description">Counts are saved evidence, not current approval or public availability.</p><h3>Measurement and guardrails</h3><p><strong>Next:</strong> ${esc(value.measurement.next_action)}</p><p>Window: ${esc(value.measurement.window)}</p><p>Stop: ${esc(value.measurement.stop_rule)}</p><p>Rollback: ${esc(value.measurement.rollback)}</p><h3>Budget</h3><p>${esc(value.distribution.budget_minor)} ${esc(value.distribution.currency||"")} · ${esc(value.distribution.mode)} · no spend authorized</p><details><summary>Boundaries</summary><ul>${value.boundaries.map(item=>`<li>${esc(item)}</li>`).join("")}</ul></details><div class="modal-actions">${button("Download Markdown","campaign-plan-download-md")}${button("Download JSON","campaign-plan-download-json")}${button("Close","close")}</div></div>`,"CAMPAIGN PLAN");
+  modal("Campaign plan",`<div class="modal-content"><div class="section-heading"><div><p class="eyebrow">MARKETING PLAN</p><h2>${esc(state.workspace?.app?.data?.name||state.app)}</h2></div>${status(value.status)}</div><p><strong>${esc(value.objective.metric)}</strong> for <strong>${esc(value.positioning.audience||"your audience")}</strong>${value.channels.pilot?` via <strong>${esc(value.channels.pilot)}</strong>`:""}.</p><p class="description">Agent-proposed draft. You edit and approve; this plan does not publish or spend.</p>${missing}<h3>Objective</h3><p><strong>${esc(value.objective.metric)}</strong> · baseline ${esc(value.objective.baseline)}</p><p class="description">${esc(value.objective.baseline_reason)}</p><h3>Audience and hypothesis</h3><p><strong>${esc(value.positioning.audience||"Audience not supplied")}</strong> · ${esc(value.positioning.job||"User job not supplied")}</p><p>${esc(value.positioning.hypothesis)}</p><h3>Pilot channel</h3><p><strong>${esc(value.channels.pilot||"Not selected")}</strong>${value.channels.alternatives.length?` · alternatives ${esc(value.channels.alternatives.join(", "))}`:""}</p><p class="description">${esc(value.channels.basis)}</p><h3>Proof to verify</h3><p>Saved claims ${value.proof.claims} · screens/assets ${value.proof.assets} · readiness ${value.proof.readiness} · store ${value.proof.store} · first-value routes ${value.proof.route}</p><p class="description">Counts are saved evidence, not current approval or public availability.</p><h3>Measurement and guardrails</h3><p><strong>Next:</strong> ${esc(value.measurement.next_action)}</p><p>Window: ${esc(value.measurement.window)}</p><p>Stop: ${esc(value.measurement.stop_rule)}</p><p>Rollback: ${esc(value.measurement.rollback)}</p><h3>Budget</h3><p>${esc(value.distribution.budget_minor)} ${esc(value.distribution.currency||"")} · ${esc(value.distribution.mode)} · no spend authorized</p><details><summary>Boundaries</summary><ul>${value.boundaries.map(item=>`<li>${esc(item)}</li>`).join("")}</ul></details><div class="modal-actions">${button("Download Markdown","campaign-plan-download-md")}${button("Download JSON","campaign-plan-download-json")}${button("Close","close")}</div></div>`,"CAMPAIGN PLAN");
 }
 
 async function nextAnswer(){
@@ -838,7 +838,10 @@ function modalTab(event) {
   else if(!event.shiftKey&&(active===last||!dialog.contains(active))){event.preventDefault();first.focus();}
 }
 function modal(title,html,eyebrow="WORKSPACE") {
-  if(!$("#modal").open&&document.activeElement&&document.activeElement!==document.body)modalReturnFocus=document.activeElement;
+  if(!$("#modal").open){
+    const active=document.activeElement;
+    modalReturnFocus=active===document.body?null:active;
+  }
   WMMAppleAnalytics.clear();
   WMMOneSignal.clear();
   WMMAgentControl.clear();
@@ -1356,7 +1359,16 @@ $("#app-select").addEventListener("change",async event=>{state.app=event.target.
 $("#add-app").addEventListener("click",()=>appForm(true));
 $("#edit-app").addEventListener("click",()=>appForm(false));
 $("#close-modal").addEventListener("click",()=>$("#modal").close());
-$("#modal").addEventListener("close",()=>{const dialog=$("#modal");if(dialog.open)return;WMMAppleAnalytics.clear();WMMOneSignal.clear();WMMAgentControl.clear();WMMCompleteAutomation.clear();WMMVideoEditor.clear();WMMStudio.clear();WMMMedia.clear();WMMDrive.clear();WMMDiscovery.clear();WMMPackaging.clear();WMMFunnels.clear();delete $("#modal-body").dataset.job;const target=modalReturnFocus;modalReturnFocus=null;const active=document.activeElement;if(target?.isConnected&&(active===document.body||dialog.contains(active)))target.focus();});
+$("#modal").addEventListener("close",()=>{
+  const dialog=$("#modal");
+  // The close event is queued. A newer dialog or focus choice takes precedence.
+  if(dialog.open)return;
+  WMMAppleAnalytics.clear();WMMOneSignal.clear();WMMAgentControl.clear();WMMCompleteAutomation.clear();WMMVideoEditor.clear();WMMStudio.clear();WMMMedia.clear();WMMDrive.clear();WMMDiscovery.clear();WMMOrganicResearch.clear();WMMPackaging.clear();WMMFunnels.clear();
+  delete $("#modal-body").dataset.job;
+  const target=modalReturnFocus;modalReturnFocus=null;
+  const active=document.activeElement;
+  if(target?.isConnected&&(active===document.body||dialog.contains(active)))target.focus();
+});
 $("#modal").addEventListener("keydown",modalTab);
 document.addEventListener("keydown",event=>{const dialog=$("#modal");if(event.key==="Escape"&&dialog?.open&&dialog.contains(event.target)){event.preventDefault();dialog.close();}});
 document.addEventListener("input",event=>{
@@ -1400,7 +1412,6 @@ $("#event-file").addEventListener("change",async event=>{
   }catch(error){toast(error.message);}finally{input.value="";}
 });
 initialize();
-$("#modal").addEventListener("close",()=>WMMOrganicResearch.clear());
 $("#modal").addEventListener("close",()=>{if(!$("#modal").open)window.WMMOrganicPolicy?.clear();});
 document.addEventListener('invalid',event=>window.WMMOrganicPolicy?.validation(event.target,growthReviewServices(),true),true);
 document.addEventListener('input',event=>window.WMMOrganicPolicy?.validation(event.target,growthReviewServices()));
