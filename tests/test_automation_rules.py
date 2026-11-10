@@ -6,7 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from mission_control.automation_rules import evaluate, main, project, validate
+from mission_control.automation_rules import evaluate, evaluate_app, main, project, validate
 from mission_control.common import Invalid
 from mission_control.service import Service
 from mission_control.store import Store
@@ -108,6 +108,22 @@ class AutomationRuleTests(unittest.TestCase):
 
     def test_omitted_sections_do_not_project_zero_counts(self):
         self.assertEqual(project({}), {})
+
+    def test_evaluate_app_uses_the_current_saved_workspace(self):
+        import tempfile
+        from pathlib import Path as PathValue
+        with tempfile.TemporaryDirectory() as folder:
+            store = Store(PathValue(folder) / "state.sqlite", seed=False)
+            store.save_app("sample-one", dict(name="Synthetic app", release="build-1", job="Synthetic job",
+                                             audience="Synthetic audience", activation="Synthetic value",
+                                             locale="en-US", currency="USD"))
+            document = {"schema": "wmm.automation-rules.v1", "mode": "PROPOSE_ONLY", "timezone": "UTC", "rules": [
+                {"id": "app-ready", "enabled": True, "priority": 1,
+                 "when": {"fact": "app.release", "op": "eq", "value": "build-1"},
+                 "then": {"propose": {"action": "review", "tool": "reports.read", "reason": "saved app"},
+                          "requires": ["OWNER_REVIEW"]}}]}
+            value = evaluate_app(store, "sample-one", document)
+        self.assertEqual(value["proposals"][0]["rule_id"], "app-ready")
 
     def test_invalid_unknown_and_unsafe_shapes_reject(self):
         bad = json.loads(json.dumps(EXAMPLE))

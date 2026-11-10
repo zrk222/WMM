@@ -317,6 +317,12 @@ def evaluate(document, facts, observed_at=None):
                             "Exact approval or an existing grant is still required before any action."])
 
 
+def evaluate_app(store, app_id, rules):
+    """Evaluate owner-authored rules against the current saved workspace."""
+    from .service import Service
+    return evaluate(rules, project(Service(store).workspace(app_id)))
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rules", required=True)
