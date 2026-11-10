@@ -225,6 +225,30 @@
     return notes;
   }
 
+  function researchSections(row) {
+    const {snapshot}=row.data, {analysis,availability}=row.readout;
+    const current=availability==="CURRENT_LOCAL_EVIDENCE";
+    const names={demand:"Search demand",competitive_gap:"Competitor gap",app_proof:"Proof from this app",distinct_evidence:"Distinct sources",current_listing:"Current listing",test_hypothesis:"Test hypothesis"};
+    const decisions=(analysis.intent_opportunities||[]).map(item=>({
+      title:item.intent,
+      status:!current?"Recheck saved evidence":item.status==="REVIEW_TEST"?"Review proposed test":"Collect evidence",
+      facts:[
+        ["Search phrases",item.phrases.join(", ")],
+        ["Still needed",item.missing.map(key=>names[key]).join(", ")||"Review the supplied evidence"],
+        ...Object.entries(item.evidence).map(([role,ids])=>[names[role],ids.join(", ")||"Unknown"]),
+        ...(item.test?[["Proposed change",item.test.change],["Hypothesis",item.test.hypothesis]]:[]),
+        ["Next step",current?item.next_action:"Capture current evidence before reviewing the test."],
+      ],
+    }));
+    return [
+      {title:"Marketing decisions",items:decisions},
+      {title:"Source register",items:snapshot.sources.map(source=>({
+        title:source.id,status:human(source.coverage),
+        facts:[["Source",source.url],["Observed",source.retrieved_at],["SHA-256",source.sha256],["Supplied excerpt",source.excerpt||"Unavailable"]],
+      }))},
+    ];
+  }
+
   function comparisonNotes(row) {
     const data=row.data,analysis=row.readout.analysis, projection=data.projection;
     const observed=projection.observed;
@@ -234,11 +258,30 @@
   function report(state,pageReports,id="") {
     const value=review(state),rows=id?[selected(state,id)]:history(state);
     const base=pageReports.model({...state,view:"results"});
+    const research=id && rows[0].kind==="MARKET_RESEARCH" && rows[0].readout.analysis.intent_opportunities?.length ? rows[0] : null;
+    if(research){
+      const s=research.data.snapshot,a=research.readout.analysis;
+      const notes=entryNotes(research).filter(note=>!note.startsWith("Source "));
+      const current=research.readout.availability==="CURRENT_LOCAL_EVIDENCE";
+      const reviewable=current?a.intent_opportunities.filter(item=>item.status==="REVIEW_TEST").length:0;
+      return {...base,title:"ASO opportunity report",purpose:"Decide which search intent to investigate or test next.",
+        next_step:!current?"Capture current evidence for this app.":reviewable?"Review the proposed test and preregister the experiment.":"Fill the named evidence gaps.",
+        loaded_at:value.observed_at,filters:{platform:s.platform,locale:s.locale,territory:s.territory,release:research.data.release,observed_at:s.observed_at,source_hash:research.hash},
+        metrics:[["Buyer intents",a.intent_opportunities.length],["Ready for review",reviewable],["Need evidence review",a.intent_opportunities.length-reviewable]].map(([label,value])=>({label,value,unit:"intents",source:"Saved research only"})),
+        cohorts:[],sections:researchSections(research),notes};
+    }
     return {...base,title:id?"Saved growth review: "+id:"Subscription growth review",purpose:"Review saved listing, benchmark and subscription evidence for this selected app.",next_step:"Repair evidence gaps, then choose the next bounded test. Publishing and spending require separate approval.",loaded_at:value.observed_at,filters:{scope:id?"Exact saved item "+id:"All saved growth review history",source_hash:value.source_hash},metrics:metrics(value),cohorts:[],notes:[...rows.flatMap(entryNotes),...value.issues.map(item=>item.next_action),...Object.values(value.evidence_states).map(item=>human(item.state)+": "+(item.reason||"Local evidence only")),"No credentials, private form inputs, provider approval or growth guarantees are included."]};
   }
 
   function detail(id,deps) {
     const row=selected(deps.state,id);
+    if(row.kind==="MARKET_RESEARCH" && row.readout.analysis.intent_opportunities?.length) {
+      const s=row.data.snapshot;
+      const [decisions,sources]=researchSections(row);
+      const notes=entryNotes(row).filter(note=>!note.startsWith("Source "));
+      deps.modal("ASO opportunities",`<div class="modal-content aso-decision-report"><p>Choose the next search intent to investigate or test.</p><p class="description">${escape(s.platform)} · ${escape(s.territory)} · ${escape(s.locale)} · ${escape(s.observed_at)}</p>${deps.pageReports.sectionsHTML([decisions],3)}<details><summary>Sources and research details</summary>${deps.pageReports.sectionsHTML([sources],3)}${notes.map(note=>`<p>${escape(note)}</p>`).join("")}</details></div><div class="modal-actions">${button("Report / Save PDF","report",id)}${button("Download report JSON","json",id)}${button("Add editorial note","note",id)}</div>`,"STORE SEARCH RESEARCH");
+      return;
+    }
     deps.modal("Saved growth review",`<div class="modal-content"><p>Inspect this saved source and its current readout. Corrections create a new version; the original remains unchanged.</p>${entryNotes(row).map(note=>`<p>${escape(note)}</p>`).join("")}</div><div class="modal-actions">${row.kind!=="EDITORIAL_NOTE"?button("Add editorial note","note",id):""}${button("Download report JSON","json",id)}${button("Report / Save PDF","report",id)}</div>`,"SOURCE-BOUND HISTORY");
   }
 
@@ -252,7 +295,7 @@
 
   function action(node,deps) {
     const mode=node.dataset.action.slice("growth-".length),id=node.dataset.id;
-    const actions={refresh:()=>deps.refresh(),detail:()=>detail(id,deps),json:()=>downloadReport(deps,id),report:()=>deps.pageReports.openReport(report(deps.state,deps.pageReports,id),deps.browser),experiment:()=>deps.openExperiment(id)};
+    const actions={refresh:()=>deps.refresh(),detail:()=>detail(id,deps),json:()=>downloadReport(deps,id),report:()=>deps.pageReports.openReport(report(deps.state,deps.pageReports,id),deps.browser,node),experiment:()=>deps.openExperiment(id)};
     if (actions[mode]) return actions[mode]();
     return openForm(mode,deps,id);
   }

@@ -52,3 +52,15 @@
 .wmm-story-steps h3{line-height:1.6}
 .wmm-story-outcomes{padding:20px;background:var(--soft,#eaf1ed);border-radius:12px}
 @media(max-width:760px){.wmm-story-steps{grid-template-columns:1fr;gap:8px}}
+
+.aso-decision-report,.report-section{overflow-wrap:anywhere}
+.report-section{margin-block:20px}
+.report-item{min-width:0;padding:16px;margin-block:12px;border:1px solid var(--line,#8d9e95);border-radius:12px}
+.report-item :is(h3,h4){margin:0}
+.report-status{font-weight:700;margin:.25rem 0 .75rem}
+.aso-decision-report .report-item dl{margin:0}
+.aso-decision-report .report-item dl>div{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:8px;padding:6px 0}
+.aso-decision-report .report-item dt{font-weight:600}
+.aso-decision-report .report-item dd{margin:0}
+@media(max-width:600px){.aso-decision-report .report-item dl>div{grid-template-columns:1fr;gap:2px}}
+@media print{.report-item{border-radius:0;padding:8px}.report-item :is(h3,h4),.report-status{break-after:avoid}}
