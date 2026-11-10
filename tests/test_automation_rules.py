@@ -3,8 +3,10 @@ import json
 from pathlib import Path
 import unittest
 
-from mission_control.automation_rules import evaluate, validate
+from mission_control.automation_rules import evaluate, project, validate
 from mission_control.common import Invalid
+from mission_control.service import Service
+from mission_control.store import Store
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE = json.loads((ROOT / "docs/automation-rules.example.json").read_text(encoding="utf-8"))
@@ -58,6 +60,21 @@ class AutomationRuleTests(unittest.TestCase):
         value = evaluate(document, {"a": 2, "b": "x", "d": ["ok"]}, STAMP)
         self.assertEqual(value["proposals"][0]["action"], "review")
         self.assertEqual(evaluate(document, {"a": 1, "b": "x", "d": ["ok"]}, STAMP)["proposals"], [])
+
+    def test_live_workspace_projection_has_no_invented_metrics(self):
+        import tempfile
+        from pathlib import Path as PathValue
+        with tempfile.TemporaryDirectory() as folder:
+            store = Store(PathValue(folder) / "state.sqlite", seed=False)
+            store.save_app("sample-one", dict(name="Synthetic app", release="build-1", job="Synthetic job",
+                                             audience="Synthetic audience", activation="Synthetic value",
+                                             locale="en-US", currency="USD"))
+            facts = project(Service(store).workspace("sample-one"))
+        self.assertEqual(facts["app"]["release"], "build-1")
+        self.assertEqual(facts["metrics"]["cohort_count"], 0)
+        self.assertEqual(facts["install"]["campaign_count"], 0)
+        self.assertEqual(facts["measurement"]["state"], "NO_DATA")
+        self.assertNotIn("retention_rate", str(facts))
 
     def test_invalid_unknown_and_unsafe_shapes_reject(self):
         bad = json.loads(json.dumps(EXAMPLE))

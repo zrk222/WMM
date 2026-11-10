@@ -1,6 +1,6 @@
 # Automation logic: facts → rules → proposals
 
-Status: **P0 evaluator implemented; P1+ not implemented.** The pure evaluator and JSON rules are shipped; the UI builder, scheduled evaluation and fact projection from the live workspace are not.
+Status: **P0 evaluator and P1 fact projection implemented; UI/inbox and scheduling are not.** The pure evaluator, JSON rules and read-only projection from the live workspace are shipped.
 
 ## Principle
 
@@ -133,10 +133,21 @@ python -m mission_control.automation_rules \
 
 `facts.json` is a read-only snapshot of typed values. The evaluator validates the rules, returns `MATCH` / `NO_MATCH` / `UNKNOWN` / `EXPIRED` / `DISABLED`, and emits proposals only. It never writes, calls a provider or approves an action.
 
+Against a local workspace database:
+
+```sh
+python -m mission_control.automation_rules \
+  --rules docs/automation-rules.example.json \
+  --database <owner-private>/mission-control.sqlite3 \
+  --app <app-id>
+```
+
+The projection includes only saved facts; absent counts and unavailable measurements stay absent.
+
 ## Delivery phases
 
 1. **P0 (implemented):** deterministic evaluator + validation + simulation + tests.
-2. **P1:** typed fact projection from the live workspace, owner rule builder and proposal inbox.
+2. **P1 (projection implemented; UI pending):** typed fact projection from the live workspace, owner rule builder and proposal inbox.
 3. **P2:** scheduled evaluation, persistence/cooldown store and deduplication across runs.
 4. **P3:** agent-suggested rules and explanations, never auto-activation.
 
