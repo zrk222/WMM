@@ -1,6 +1,6 @@
 # Automation logic: facts → rules → proposals
 
-Status: **design proposal**, not implemented. This is the safe shape for an advanced logic system that accepts user input without turning WMM into an unreviewed autonomous agent.
+Status: **P0 evaluator implemented; P1+ not implemented.** The pure evaluator and JSON rules are shipped; the UI builder, scheduled evaluation and fact projection from the live workspace are not.
 
 ## Principle
 
@@ -123,11 +123,21 @@ Retain rule version/hash, evaluator version, evaluation time, fact snapshot hash
 - blocked actions and unknown-fact rate;
 - no claim of time saved or growth without measurement.
 
+## P0 usage
+
+```sh
+python -m mission_control.automation_rules \
+  --rules docs/automation-rules.example.json \
+  --facts facts.json
+```
+
+`facts.json` is a read-only snapshot of typed values. The evaluator validates the rules, returns `MATCH` / `NO_MATCH` / `UNKNOWN` / `EXPIRED` / `DISABLED`, and emits proposals only. It never writes, calls a provider or approves an action.
+
 ## Delivery phases
 
-1. **P0:** typed fact projection + deterministic evaluator + simulation + tests.
-2. **P1:** owner rule builder and proposal inbox.
-3. **P2:** scheduled evaluation and cooldown persistence.
+1. **P0 (implemented):** deterministic evaluator + validation + simulation + tests.
+2. **P1:** typed fact projection from the live workspace, owner rule builder and proposal inbox.
+3. **P2:** scheduled evaluation, persistence/cooldown store and deduplication across runs.
 4. **P3:** agent-suggested rules and explanations, never auto-activation.
 
 This design preserves the validation-first scope in [ADR 0002](adr/0002-stay-narrow.md).

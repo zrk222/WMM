@@ -1,0 +1,74 @@
+"""User-authored automation rules are deterministic proposals, never effects."""
+import json
+from pathlib import Path
+import unittest
+
+from mission_control.automation_rules import evaluate, validate
+from mission_control.common import Invalid
+
+ROOT = Path(__file__).resolve().parents[1]
+EXAMPLE = json.loads((ROOT / "docs/automation-rules.example.json").read_text(encoding="utf-8"))
+STAMP = "2026-11-10T12:00:00+00:00"
+
+
+class AutomationRuleTests(unittest.TestCase):
+    def test_example_rule_fires_repair_proposal_without_side_effects(self):
+        value = evaluate(EXAMPLE, {"study": {"window": {"state": "ENDED"}, "coverage": "PARTIAL"}}, STAMP)
+        self.assertEqual([row["rule_id"] for row in value["proposals"]], ["coverage-repair"])
+        proposal = value["proposals"][0]
+        self.assertEqual(proposal["status"], "PROPOSED")
+        self.assertEqual(proposal["mode"], "PROPOSE_ONLY")
+        self.assertIn("no publication", value["boundaries"][0])
+
+    def test_missing_and_partial_facts_never_match(self):
+        value = evaluate(EXAMPLE, {"study": {"window": {"state": "ENDED"}}}, STAMP)
+        coverage = next(row for row in value["results"] if row["rule_id"] == "coverage-repair")
+        self.assertEqual(coverage["status"], "UNKNOWN")
+        self.assertIn("study.coverage", coverage["missing"])
+        self.assertEqual(value["proposals"], [])
+
+    def test_complete_mature_result_proposes_review(self):
+        value = evaluate(EXAMPLE, {"study": {"window": {"state": "ENDED"}, "coverage": "COMPLETE"},
+                                   "retention": {"maturity": "MATURE"}}, STAMP)
+        self.assertEqual([row["rule_id"] for row in value["proposals"]], ["mature-result-review"])
+
+    def test_priority_deduplication_and_expiry(self):
+        document = {"schema": "wmm.automation-rules.v1", "mode": "PROPOSE_ONLY", "timezone": "UTC", "rules": [
+            {"id": "a", "enabled": True, "priority": 1, "when": {"fact": "x", "op": "eq", "value": 1},
+             "then": {"propose": {"action": "review", "tool": "reports.read", "reason": "low"}, "requires": ["OWNER_REVIEW"]}},
+            {"id": "b", "enabled": True, "priority": 9, "when": {"fact": "x", "op": "eq", "value": 1},
+             "then": {"propose": {"action": "review", "tool": "reports.read", "reason": "high"}, "requires": ["OWNER_REVIEW"]}},
+            {"id": "c", "enabled": True, "priority": 5, "expires_at": "2026-01-01T00:00:00+00:00",
+             "when": {"fact": "x", "op": "eq", "value": 1},
+             "then": {"propose": {"action": "other", "tool": "reports.read", "reason": "old"}, "requires": ["OWNER_REVIEW"]}}]}
+        value = evaluate(document, {"x": 1}, STAMP)
+        self.assertEqual(len(value["proposals"]), 1)
+        self.assertEqual(value["proposals"][0]["reason"], "high")
+        expired = next(row for row in value["results"] if row["rule_id"] == "c")
+        self.assertEqual(expired["status"], "EXPIRED")
+
+    def test_boolean_logic_and_comparisons(self):
+        document = {"schema": "wmm.automation-rules.v1", "mode": "PROPOSE_ONLY", "timezone": "UTC", "rules": [
+            {"id": "logic", "enabled": True, "priority": 1,
+             "when": {"all": [{"fact": "a", "op": "gte", "value": 2},
+                              {"any": [{"fact": "b", "op": "in", "value": ["x", "y"]},
+                                       {"not": {"fact": "c", "op": "exists"}}]},
+                              {"fact": "d", "op": "contains", "value": "ok"}]},
+             "then": {"propose": {"action": "review", "tool": "reports.read", "reason": "matched"}, "requires": ["OWNER_REVIEW"]}}]}
+        value = evaluate(document, {"a": 2, "b": "x", "d": ["ok"]}, STAMP)
+        self.assertEqual(value["proposals"][0]["action"], "review")
+        self.assertEqual(evaluate(document, {"a": 1, "b": "x", "d": ["ok"]}, STAMP)["proposals"], [])
+
+    def test_invalid_unknown_and_unsafe_shapes_reject(self):
+        bad = json.loads(json.dumps(EXAMPLE))
+        bad["rules"][0]["when"] = {"fact": "x", "op": "sql", "value": 1}
+        with self.assertRaises(Invalid):
+            validate(bad)
+        bad = json.loads(json.dumps(EXAMPLE))
+        bad["rules"][0]["unexpected"] = True
+        with self.assertRaises(Invalid):
+            validate(bad)
+        bad = json.loads(json.dumps(EXAMPLE))
+        bad["rules"][0]["then"]["propose"]["tool"] = ""
+        with self.assertRaises(Invalid):
+            validate(bad)
