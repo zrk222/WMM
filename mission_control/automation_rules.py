@@ -154,7 +154,7 @@ def project(workspace):
             if any(value is not None for value in values.values())}
 
 
-def project_database(path, app_id):
+def project_database(path, app_id, *, owner_principal=None):
     """Read durable app facts from one SQLite snapshot without opening the runtime or vault."""
     path = Path(path)
     if not path.is_file():
@@ -164,6 +164,9 @@ def project_database(path, app_id):
             db.row_factory = sqlite3.Row
             db.execute("PRAGMA query_only=ON")
             db.execute("BEGIN")
+            if owner_principal is not None:
+                from .review_access import member
+                member(db, app_id, owner_principal, "OWNER")
             row = db.execute("SELECT id,version,data FROM apps WHERE id=?", (app_id,)).fetchone()
             if row is None:
                 raise Invalid("The selected app is not in this WMM workspace")
@@ -184,7 +187,7 @@ def project_database(path, app_id):
                 FROM experiments WHERE app_id=?""", (app_id,)).fetchone()
             facts["experiments"] = dict(row)
             return facts
-    except Invalid:
+    except (Invalid, PermissionError):
         raise
     except (OSError, sqlite3.Error, ValueError, TypeError, AttributeError) as error:
         raise Invalid("Cannot read saved facts from this WMM workspace") from error

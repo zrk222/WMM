@@ -1,15 +1,21 @@
 """User-authored automation rules are deterministic proposals, never effects."""
 from contextlib import redirect_stderr, redirect_stdout
+from hashlib import sha256
 from io import StringIO
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from mission_control.automation_rules import evaluate, main, project, validate
 from mission_control.common import Invalid
+from mission_control.operator_client import ClientError, OperatorClient
+from mission_control.review_access import Access
 from mission_control.service import Service
 from mission_control.store import Store
+from tests import test_verified_review as identities
+from tests import test_agent_grants as grant_fixtures
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE = json.loads((ROOT / "docs/automation-rules.example.json").read_text(encoding="utf-8"))
@@ -122,3 +128,41 @@ class AutomationRuleTests(unittest.TestCase):
         bad["rules"][0]["then"]["propose"]["tool"] = ""
         with self.assertRaises(Invalid):
             validate(bad)
+
+
+class AutomationSimulationHTTPTests(unittest.TestCase):
+    setUp = grant_fixtures.GrantTests.setUp
+    tearDown = grant_fixtures.GrantTests.tearDown
+    route = "/api/apps/sample-one/automation/evaluate"
+
+    def test_owner_preview_reads_saved_facts_without_vault_provider_or_database_write(self):
+        self.store.save_record("sample-one", {
+            "kind": "connection", "title": "Synthetic connection", "source": "Synthetic test",
+            "data": {"provider": "app_store", "auth_mode": "managed_key", "credential_ref": "fixture-only"},
+        })
+        paths = (self.store.path, Path(f"{self.store.path}-wal"))
+        # A read-only SQLite WAL session can create an empty coordination file.
+        def hashes():
+            return [sha256(path.read_bytes() if path.exists() else b"").hexdigest() for path in paths]
+        before = hashes()
+        with (patch("mission_control.connection_setup.Connections.vault", side_effect=AssertionError("opened vault")),
+              patch("mission_control.operator_identity.github_read", side_effect=AssertionError("called provider"))):
+            report = self.owner.request("POST", self.route, {"rules": EXAMPLE})
+        self.assertEqual([row["rule_id"] for row in report["proposals"]], ["cohort-setup-review"])
+        self.assertEqual(report["results"][0]["status"], "UNKNOWN")
+        self.assertEqual(hashes(), before)
+
+    def test_anonymous_checker_and_other_app_are_denied(self):
+        Access(self.store).save("sample-one", identities.OWNER, identities.CHECKER, {
+            "login": identities.CHECKER["login"], "role": "CHECKER", "status": "ACTIVE", "version": None,
+        })
+        anonymous = OperatorClient(self.origin)
+        anonymous.bootstrap()
+        checker = OperatorClient(self.origin)
+        checker.bootstrap()
+        checker.request("POST", "/api/identity/login", {"token": identities.CHECKER_TOKEN})
+        for client, route in ((anonymous, self.route), (checker, self.route),
+                              (self.owner, self.route.replace("sample-one", "sample-two"))):
+            with self.subTest(route=route), self.assertRaises(ClientError) as error:
+                client.request("POST", route, {"rules": EXAMPLE})
+            self.assertEqual(error.exception.status, 403)

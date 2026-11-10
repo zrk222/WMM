@@ -1,6 +1,6 @@
 # Automation logic: facts → rules → proposals
 
-Status: **P0 evaluator and P1 fact projection implemented; UI/inbox and scheduling are not.** The pure evaluator, JSON rules and read-only projection from the live workspace are shipped.
+Status: **P0 evaluator, P1 fact projection and owner-only simulation UI implemented; persistent proposal inbox and scheduling are not.**
 
 ## Principle
 
@@ -146,10 +146,16 @@ The database mode opens an existing WMM database read-only and scopes one snapsh
 
 The bundled cohort-setup rule proposes an owner review when the workspace has no saved cohort metric records. That zero is a local record count. Study coverage, retention maturity, and unavailable measurements remain unknown unless supplied explicitly in `--facts`.
 
+## Simulation UI
+
+In **Review results**, app owners can open **Try an automation rule**. The starter rule suggests reviewing measurement setup when the app has no saved cohort metrics. Preview another rule by editing the JSON. Missing evidence is listed separately from rules that did not match.
+
+The preview checks the current local owner session and checks app membership in the same read-only database snapshot as the facts. It does not save rules, open the credential vault, call providers, or create approvals. A response is discarded if its panel or app context changes before it arrives.
+
 ## Delivery phases
 
 1. **P0 (implemented):** deterministic evaluator + validation + simulation + tests.
-2. **P1 (projection implemented; UI pending):** typed fact projection from the live workspace, owner rule builder and proposal inbox.
+2. **P1 (projection and simulation UI implemented; inbox pending):** typed fact projection, owner rule simulation and proposal inbox.
 3. **P2:** scheduled evaluation, persistence/cooldown store and deduplication across runs.
 4. **P3:** agent-suggested rules and explanations, never auto-activation.
 
