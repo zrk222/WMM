@@ -171,6 +171,7 @@ def verify_packet_browser(origin, output_dir, storage_dir=None, expected_initial
                     expected = page.evaluate("() => ({app_id:state.workspace.app.id,version:state.workspace.app.version,source_hash:state.workspace.preparation.source_hash})")
                     for goal, title, stages in GOALS:
                         page.get_by_role('button', name=title, exact=True).press('Enter')
+                        expect(page.locator('[data-action="goal-select"][data-goal="'+goal+'"]')).to_have_attribute('aria-pressed', 'true')
                         page.get_by_role('button', name='Open your first packet', exact=True).press('Enter')
                         dialog = page.get_by_role('dialog')
                         expect(dialog).to_contain_text(title + ' — evidence packet')
