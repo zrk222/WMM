@@ -62,8 +62,11 @@ steps.
 Any assistant that can run a local command on this computer can work with WMM.
 WMM does not require a particular AI product or plan.
 
-1. Sign in as the app owner under **Activity & reviews**.
-2. Open **Connect your agent** and review the setup for this installation.
+1. Choose a goal, then select **Connect your agent**. In **Delegate work.
+   Review exact changes**, choose **Set up app owner** if this app is new, or
+   **Sign in with GitHub** if it already has an owner. Setting up the first
+   owner requires an explicit confirmation for this app.
+2. Select **Review agent setup** for this installation.
 3. Create a permission slip for only the actions you want, with an expiry and a
    call limit. Give the one-time token to the assistant through its own
    protected environment, never in a prompt, chat, file or screenshot.

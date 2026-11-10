@@ -39,7 +39,7 @@ edit personal Codex/Claude settings. No `wmm` command is globally installed.
 
 ## Choose authority before connecting
 
-- **Delegated agent:** in WMM, select the app, sign in under **Activity & reviews**
+- **Delegated agent:** in WMM, select the app, sign in from **Watch the work** or **Connect your agent**
   as its OWNER, then open **Your agents → Manage agent grants**. Select only
   needed operations, expiry and call allowance. Keep independent write reviews
   enabled where required. Supply the once-only token as `WMM_AGENT_GRANT` using

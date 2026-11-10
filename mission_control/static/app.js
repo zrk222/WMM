@@ -121,8 +121,8 @@ function render() {
   $("#main").setAttribute("aria-busy","false");
   const views={weekly:weeklyView,overview:goalOverview,workflow:guidedView,pipeline:pipelineView,evidence:evidenceView,results:resultsView,connections:connectionsView,agents:agentAccessView,activity:activityView,research:researchView};
   $("#main").innerHTML=views[state.view]();
-  if(["agents","activity"].includes(state.view))$("#main .page-heading").insertAdjacentHTML("afterend",WMMAgentControl.panel(state));
-  if(["agents","activity"].includes(state.view))$("#main .page-heading").insertAdjacentHTML("afterend",WMMCompleteAutomation.panel(state));
+  if(["agents","activity"].includes(state.view))$("#main .page-heading").insertAdjacentHTML("afterend",WMMAgentControl.panel(state,verifiedOwnerNext(state.workspace,"connect an agent")));
+  if(["agents","activity"].includes(state.view))$("#main .page-heading").insertAdjacentHTML("afterend",WMMCompleteAutomation.panel(state,verifiedOwnerNext(state.workspace,"manage automation")));
   if(state.view==='research')$("#main .page-heading").insertAdjacentHTML('afterend',WMMVideoEditor.panel());
   if(state.view==='research')$("#main .page-heading").insertAdjacentHTML('afterend',WMMStudio.panel());
   if(state.view==='research')$("#main .page-heading").insertAdjacentHTML('afterend',WMMOrganicResearch.panel()+(window.WMMOrganicPolicy?.panel()||'')+WMMDiscovery.panel()+WMMPackaging.panel(state)+WMMMedia.panel()+WMMDrive.panel());
@@ -1356,7 +1356,7 @@ $("#app-select").addEventListener("change",async event=>{state.app=event.target.
 $("#add-app").addEventListener("click",()=>appForm(true));
 $("#edit-app").addEventListener("click",()=>appForm(false));
 $("#close-modal").addEventListener("click",()=>$("#modal").close());
-$("#modal").addEventListener("close",()=>{WMMAppleAnalytics.clear();WMMOneSignal.clear();WMMAgentControl.clear();WMMCompleteAutomation.clear();WMMVideoEditor.clear();WMMStudio.clear();WMMMedia.clear();WMMDrive.clear();WMMDiscovery.clear();WMMPackaging.clear();WMMFunnels.clear();delete $("#modal-body").dataset.job;const target=modalReturnFocus;modalReturnFocus=null;if(target&&target.isConnected&&typeof target.focus==="function")target.focus();});
+$("#modal").addEventListener("close",()=>{const dialog=$("#modal");if(dialog.open)return;WMMAppleAnalytics.clear();WMMOneSignal.clear();WMMAgentControl.clear();WMMCompleteAutomation.clear();WMMVideoEditor.clear();WMMStudio.clear();WMMMedia.clear();WMMDrive.clear();WMMDiscovery.clear();WMMPackaging.clear();WMMFunnels.clear();delete $("#modal-body").dataset.job;const target=modalReturnFocus;modalReturnFocus=null;const active=document.activeElement;if(target?.isConnected&&(active===document.body||dialog.contains(active)))target.focus();});
 $("#modal").addEventListener("keydown",modalTab);
 document.addEventListener("keydown",event=>{const dialog=$("#modal");if(event.key==="Escape"&&dialog?.open&&dialog.contains(event.target)){event.preventDefault();dialog.close();}});
 document.addEventListener("input",event=>{

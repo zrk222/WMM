@@ -904,7 +904,7 @@ class Handler(BaseHTTPRequestHandler):
         access=Access(self.server.service.store);identities=self.server.identities
         if len(parts)!=5:raise KeyError("Access route not found")
         user=identities.fresh(self.session())
-        if parts[4]=="bootstrap":return self.send(201,access.bootstrap(parts[2],user,data))
+        if parts[4]=="bootstrap":return self.send(201,access.bootstrap_reviewed(parts[2],user,data))
         if parts[4]=="members":
             target=identities.lookup(self.session(),data.get("login"))
             return self.send(200,access.save(parts[2],user,target,data))

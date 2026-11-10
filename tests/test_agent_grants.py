@@ -32,12 +32,33 @@ class GrantTests(unittest.TestCase):
         self.origin='http://127.0.0.1:'+str(self.server.server_port)
         self.owner=OperatorClient(self.origin);self.owner.bootstrap()
         self.owner.request('POST','/api/identity/login',dict(token=identity_fixture.OWNER_TOKEN))
-        self.owner.request('POST','/api/apps/sample-one/access/bootstrap',dict(confirm_owner=True))
+        self.owner.request('POST','/api/apps/sample-one/access/bootstrap',dict(confirm_owner=True,expected_principal=identity_fixture.OWNER["principal"],manifest_version=1))
         self.grants=Grants(self.store)
 
     def tearDown(self):
         self.server.shutdown();self.server.server_close();self.thread.join()
         self.mock.stop();self.tmp.cleanup()
+
+    def test_first_owner_confirmation_rejects_changed_account_and_manifest(self):
+        path = "/api/apps/sample-two/access/bootstrap"
+        reviewed = dict(confirm_owner=True, expected_principal=identity_fixture.OWNER["principal"], manifest_version=1)
+        with self.assertRaises(ClientError) as incomplete:
+            self.owner.request("POST", path, {"confirm_owner": True})
+        self.assertEqual(incomplete.exception.status, 400)
+        self.owner.request("POST", "/api/identity/login", {"token": identity_fixture.CHECKER_TOKEN})
+        with self.assertRaises(ClientError) as changed:
+            self.owner.request("POST", path, reviewed)
+        self.assertEqual(changed.exception.status, 400)
+        self.assertFalse(self.owner.request("GET", "/api/apps/sample-two")["access"]["configured"])
+        self.owner.request("POST", "/api/identity/login", {"token": identity_fixture.OWNER_TOKEN})
+        original = self.store.app("sample-two")
+        self.store.save_app("sample-two", dict(original["data"], name="Changed fixture"), original["version"])
+        with self.assertRaises(ClientError) as stale:
+            self.owner.request("POST", path, reviewed)
+        self.assertEqual(stale.exception.status, 400)
+        self.assertFalse(self.owner.request("GET", "/api/apps/sample-two")["access"]["configured"])
+        saved = self.owner.request("POST", path, dict(reviewed, manifest_version=2))
+        self.assertEqual([row["principal"] for row in saved["members"]], [identity_fixture.OWNER["principal"]])
 
     def body(self,operations=None,max_calls=10):
         return dict(agent_id='generic-agent',manifest_version=1,operations=operations or ['growth.read','growth.history','growth.save'],

@@ -167,7 +167,9 @@ class DeviceRouteTests(unittest.TestCase):
                     page.goto(self.fixture.origin)
                     expect(page.locator('#app-select')).to_have_value('sample-one')
                     page.locator('#navigation > [data-view="activity"]').click()
-                    page.get_by_role('button', name='Sign in for verified review', exact=True).click()
+                    authority=page.get_by_role('region', name='Automation authority')
+                    expect(authority.get_by_role('button', name='Open automation controls')).to_be_disabled()
+                    authority.get_by_role('button', name='Sign in with GitHub', exact=True).press('Enter')
                     page.get_by_role('button', name='Start GitHub sign-in').click()
                     expect(page.get_by_text(CODE['user_code'], exact=True)).to_be_visible()
                     expect(page.locator('#modal input[type=password]')).to_have_count(0)
@@ -177,4 +179,12 @@ class DeviceRouteTests(unittest.TestCase):
                     expect(page.get_by_text('GitHub verified fixture-owner', exact=False)).to_be_visible()
                     page.get_by_role('button', name='Confirm this account').click()
                     expect(page.get_by_role('button', name='Sign out of review session')).to_be_visible()
+                    expect(authority.get_by_role('button', name='Open automation controls')).to_be_enabled()
+                    self.assertTrue(page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
+                    evidence=os.environ.get('WMM_OWNER_BROWSER_EVIDENCE')
+                    if evidence:
+                        from pathlib import Path
+                        destination=Path(evidence)
+                        destination.mkdir(parents=True,exist_ok=True)
+                        (destination/f'owner-setup-{width}.html').write_text(page.content(),encoding='utf-8')
             self.assertEqual(opener.call_count, 2)

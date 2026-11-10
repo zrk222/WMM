@@ -38,12 +38,23 @@ class Access:
         return {"configured":bool(rows),"members":rows,"bootstrap":"First verified owner on this trusted local workstation",
                 "identity_provider":"GITHUB","external_execution":"NOT_IMPLEMENTED","snapshot_authority":"NOT_EXPORTED"}
 
-    def bootstrap(self,app_id,user,body,*,commit_check=None):
+    def bootstrap_reviewed(self, app_id, user, body):
+        """Bind a desktop confirmation to the reviewed identity and manifest."""
+        if (set(body) != {"confirm_owner", "expected_principal", "manifest_version"}
+                or body["confirm_owner"] is not True or type(body["manifest_version"]) is not int):
+            raise Invalid("Reopen owner setup and confirm the displayed account and app")
+        if body["expected_principal"] != user["principal"]:
+            raise Invalid("The signed-in account changed. Reopen owner setup before confirming")
+        return self.bootstrap(app_id, user, {"confirm_owner": True}, manifest_version=body["manifest_version"])
+
+    def bootstrap(self,app_id,user,body,*,commit_check=None,manifest_version=None):
         """Establish exactly one verified owner on an unconfigured local workspace."""
         self.store.app(app_id)
         if body!={"confirm_owner":True}:raise Invalid("Confirm that you are establishing the first owner for this local app")
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
+            from .automation_policy import check_manifest_version
+            check_manifest_version(db, app_id, manifest_version)
             if db.execute("SELECT 1 FROM operator_roles WHERE app_id=?",(app_id,)).fetchone():raise Invalid("This app already has an owner; ask that owner to assign your role")
             self.write(db,app_id,user,"OWNER","ACTIVE",1,user["principal"])
             audit(db,app_id,"access.owner_established",{"principal":user["principal"],"policy":"TRUSTED_LOCAL_BOOTSTRAP"})
