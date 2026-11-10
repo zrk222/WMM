@@ -595,14 +595,42 @@ function analyticsOverviewPanel(){
 }
 
 function automationRulesPanel(){
-  const sample={schema:"wmm.automation-rules.v1",mode:"PROPOSE_ONLY",timezone:state.workspace?.app?.data?.timezone||"America/Toronto",rules:[{id:"incomplete-coverage",enabled:true,priority:10,when:{all:[{fact:"workflow.exception_count",op:"gte",value:1},{fact:"install.campaign_count",op:"gte",value:1}]},then:{propose:{action:"review_exceptions",tool:"reports.read",reason:"Saved exceptions exist alongside an install export."},requires:["OWNER_REVIEW"]}}]};
-  return `<section class="panel" aria-label="Automation rules simulation"><div class="section-heading"><div><p class="eyebrow">AUTOMATION / SIMULATION</p><h2>Test rules against saved facts</h2><p>Rules produce proposals only. Nothing is approved, published or spent.</p></div></div><label class="field" for="automation-rules-json">Rules JSON<textarea id="automation-rules-json" name="rules" spellcheck="false">${esc(JSON.stringify(sample,null,2))}</textarea></label><div class="toolbar">${button("Run simulation","automation-rules-run")}</div><div id="automation-rules-result" role="status"></div></section>`;
+  const operator=experimentScheduleIdentity();
+  if(operator.status!=="AUTHENTICATED"||operator.role!=="OWNER")return "";
+  const sample={schema:"wmm.automation-rules.v1",mode:"PROPOSE_ONLY",timezone:state.workspace?.app?.data?.timezone||"UTC",rules:[{id:"cohort-setup-review",enabled:true,priority:5,when:{fact:"metrics.cohort_count",op:"eq",value:0},then:{propose:{action:"review_measurement_setup",tool:"reports.read",reason:"This app has no saved cohort metrics. Choose what to measure before starting a test."},requires:["OWNER_REVIEW"]}}]};
+  return `<section class="panel" aria-label="Automation rule preview"><details><summary>Try an automation rule</summary><p class="description">See what WMM would suggest for this app using saved evidence. A preview does not save rules, approve work, publish or spend.</p><label class="field" for="automation-rules-json">Rule to preview (JSON)<textarea id="automation-rules-json" name="rules" rows="8" spellcheck="false">${esc(JSON.stringify(sample,null,2))}</textarea></label><div class="toolbar">${button("Preview suggestions","automation-rules-run")}</div><div id="automation-rules-result" role="status" aria-live="polite"></div></details></section>`;
 }
 
 function automationRulesResult(value){
-  const proposals=(value.proposals||[]).map(row=>`<article class="next-step"><div><h3>${esc(row.action)}</h3><p>${esc(row.reason)}</p><p><strong>Requires:</strong> ${esc(row.requires.join(", "))} ? rule ${esc(row.rule_id)}</p><p class="app-mono">${esc(row.fact_snapshot_sha256.slice(0,16))}?</p></div></article>`).join("");
-  const results=(value.results||[]).map(row=>`<li>${esc(row.rule_id)}: <strong>${esc(row.status)}</strong>${row.missing?.length?` ? missing ${esc(row.missing.join(", "))}`:""}</li>`).join("");
-  return `${notice("Proposals only. Missing facts stay unknown; no approval was created.")}<h3>Proposals</h3>${proposals||"<p>No rule matched.</p>"}<details><summary>Rule results</summary><ul>${results}</ul></details>`;
+  const labels=new Map([["MATCH","Matched"],["NO_MATCH","Did not match"],["UNKNOWN","Missing evidence"],["EXPIRED","Expired"],["DISABLED","Off"]]);
+  const approvals=new Map([["OWNER_REVIEW","Owner review"],["EXACT_APPROVAL","Approval for the exact action"]]);
+  const proposals=value.proposals.map(row=>`<article class="next-step"><div><h3>${esc(row.action.replaceAll("_"," "))}</h3><p>${esc(row.reason)}</p><p><strong>Next:</strong> ${esc(row.requires.map(key=>approvals.get(key)||key).join(", "))}</p><details><summary>Evidence details</summary><p>Rule: ${esc(row.rule_id)}</p><p class="app-mono">${esc(row.fact_snapshot_sha256)}</p></details></div></article>`).join("");
+  const results=value.results.map(row=>`<li>${esc(row.rule_id)}: <strong>${esc(labels.get(row.status)||row.status)}</strong>${row.missing?.length?` (${esc(row.missing.join(", "))})`:""}</li>`).join("");
+  const empty=value.results.some(row=>row.status==="UNKNOWN")?"No suggestion yet. Open the rule details to see what evidence is missing.":"No rule matched the saved evidence.";
+  return `<h3>Preview complete</h3>${proposals||`<p>${empty}</p>`}<details><summary>Rule results</summary><ul>${results}</ul></details>`;
+}
+
+async function runAutomationRulePreview(node){
+  const panel=node.closest("section"),target=panel.querySelector("#automation-rules-result");
+  const input=panel.querySelector("#automation-rules-json"),binding=JSON.stringify(experimentScheduleIdentity());
+  const app=state.app;
+  let rules;
+  try{rules=JSON.parse(input.value);}catch{
+    target.textContent="Check the rule JSON and try again.";
+    input.focus();
+    return;
+  }
+  const stillHere=()=>target.isConnected&&state.app===app&&binding===JSON.stringify(experimentScheduleIdentity());
+  node.disabled=true;
+  target.textContent="Checking saved evidence…";
+  try{
+    const result=await api(`/api/apps/${encodeURIComponent(app)}/automation/evaluate`,{rules});
+    if(stillHere())target.innerHTML=automationRulesResult(result);
+  }catch(error){
+    if(stillHere())target.textContent=`Could not preview this rule. ${error.message}`;
+  }finally{
+    if(node.isConnected)node.disabled=false;
+  }
 }
 
 function resultsView() {
@@ -1320,15 +1348,7 @@ async function handleAction(node) {
   if(action==="measurement-connections"){$("#modal").close();state.view="connections";return render();}
   if(action==="first-post-open")return firstMeasuredPost();
   if(action==="next-answer")return nextAnswer();
-  if(action==="automation-rules-run"){
-    const input=document.getElementById("automation-rules-json");
-    let rules;
-    try{rules=JSON.parse(input?.value||"");}catch{throw new Error("Rules must be valid JSON.");}
-    const result=await api(`/api/apps/${encodeURIComponent(state.app)}/automation/evaluate`,{rules});
-    const target=document.getElementById("automation-rules-result");
-    if(target)target.innerHTML=automationRulesResult(result);
-    return;
-  }
+  if(action==="automation-rules-run")return runAutomationRulePreview(node);
   if(action==="campaign-plan-open")return campaignPlanOpen();
   if(action==="campaign-plan-download-md"){if(!state.campaignPlan)throw new Error("Open the campaign plan first.");return download(`${state.app}-campaign-plan.md`,WMMCampaignPlan.markdown(state.campaignPlan),"text/markdown");}
   if(action==="campaign-plan-download-json"){if(!state.campaignPlan)throw new Error("Open the campaign plan first.");return download(`${state.app}-campaign-plan.json`,state.campaignPlan);}

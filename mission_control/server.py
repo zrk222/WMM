@@ -727,13 +727,15 @@ class Handler(BaseHTTPRequestHandler):
             raise Invalid('Use the exact automation rule simulation address')
         if not isinstance(data,dict) or set(data)!={'rules'}:
             raise Invalid('Submit the exact rules document')
-        from .automation_rules import evaluate_app
-        from .db import connection
-        from .review_access import member
-        session=self.session();user=self.server.identities.fresh(session);store=self.server.service.store
-        with connection(store.path) as db:
-            member(db,parts[2],user['principal'],'OWNER')
-        return self.send(200,evaluate_app(store,parts[2],data['rules']))
+        from .automation_rules import evaluate, project_database
+        session=self.session();identities=self.server.identities;public=identities.public(session)
+        if public.get('status')!='AUTHENTICATED':
+            raise PermissionError('Sign in as this app’s owner to try an automation rule')
+        user=identities.local(session,public['principal'])
+        facts=project_database(self.server.service.store.path,parts[2],owner_principal=user['principal'])
+        result=evaluate(data['rules'],facts)
+        identities.local(session,user['principal'],user['session_generation'])
+        return self.send(200,result)
 
     def post_sequence(self,parts,data):
         """Approve exact reviewed actions or stop owned work in the selected app only."""

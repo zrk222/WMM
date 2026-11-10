@@ -148,7 +148,9 @@ The bundled cohort-setup rule proposes an owner review when the workspace has no
 
 ## Simulation UI
 
-Results ? **Automation / simulation** accepts a rules document, posts it to the owner-only endpoint and shows proposals and rule results. It writes nothing and creates no approval.
+In **Review results**, app owners can open **Try an automation rule**. The starter rule suggests reviewing measurement setup when the app has no saved cohort metrics. Preview another rule by editing the JSON. Missing evidence is listed separately from rules that did not match.
+
+The preview checks the current local owner session and checks app membership in the same read-only database snapshot as the facts. It does not save rules, open the credential vault, call providers, or create approvals. A response is discarded if its panel or app context changes before it arrives.
 
 ## Delivery phases
 
