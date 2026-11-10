@@ -403,7 +403,29 @@ function rememberInstallMapping(payload){
 
 function installImportForm(){
   const saved=savedInstallMapping()||{},mapping=saved.mapping||{};
-  modal("Import install export",`<form id="install-import-form" data-app="${esc(state.app)}"><div class="modal-content">${notice("Upload the original MMP CSV or JSON export. WMM shows a coverage checklist before anything is stored; the import is owner-scoped and needs the study's campaign token and frozen window.")}${saved.source?"<p class=\"description\">Using the source token and column names saved on this machine. You can change them for this import.</p>":""}<label class="field" for="install-export-file">Export file<input id="install-export-file" name="export_file" type="file" accept=".csv,.json" required></label><div class="form-grid"><label class="field" for="install-source">Source token<input id="install-source" name="source" required value="${esc(saved.source||"MMP")}"></label><label class="field" for="install-campaign">Campaign token<input id="install-campaign" name="campaign_token" required></label><label class="field" for="install-observed">Observed at (UTC ISO)<input id="install-observed" name="observed_at" required></label><label class="field" for="install-window-start">Window start (UTC ISO)<input id="install-window-start" name="window_start" required></label><label class="field" for="install-window-end">Window end (UTC ISO)<input id="install-window-end" name="window_end" required></label><label class="field" for="install-col-id">install_id column<input id="install-col-id" name="col_install_id" required value="${esc(mapping.install_id||"install_id")}"></label><label class="field" for="install-col-state">state column<input id="install-col-state" name="col_state" required value="${esc(mapping.state||"state")}"></label><label class="field" for="install-col-time">occurred_at column<input id="install-col-time" name="col_occurred_at" required value="${esc(mapping.occurred_at||"occurred_at")}"></label><label class="field" for="install-state-values">Source status mapping (optional JSON)<textarea id="install-state-values" name="state_values" placeholder='{"install":"ATTRIBUTED"}'>${esc(mapping.state_values?JSON.stringify(mapping.state_values):"")}</textarea></label><label class="field" for="install-count">Source event count<input id="install-count" name="source_event_count" type="number" min="0" step="1"></label></div><label class="check-row"><input type="checkbox" name="coverage_complete"> Source coverage is complete</label><div class="field-error" role="alert"></div></div><div class="modal-actions"><button type="submit" class="button">Preview import</button></div></form>`,"INSTALL ATTRIBUTION");
+  modal("Import install export",`<form id="install-import-form" data-app="${esc(state.app)}"><div class="modal-content">${notice("Upload the original MMP CSV or JSON export. WMM shows a coverage checklist before anything is stored; the import is owner-scoped and needs the study's campaign token and frozen window.")}${saved.source?"<p class=\"description\">Using the source token and column names saved on this machine. You can change them for this import.</p>":""}<label class="field" for="install-export-file">Export file<input id="install-export-file" name="export_file" type="file" accept=".csv,.json" required></label><div class="toolbar">${button("Detect columns","install-import-detect")}${button("CSV template","install-import-template")}</div><p id="install-detect-status" class="description" role="status">Choose a file, then detect headers. Suggestions only; review the mapping and source states.</p><div class="form-grid"><label class="field" for="install-source">Source token<input id="install-source" name="source" required value="${esc(saved.source||"MMP")}"></label><label class="field" for="install-campaign">Campaign token<input id="install-campaign" name="campaign_token" required></label><label class="field" for="install-observed">Observed at (UTC ISO)<input id="install-observed" name="observed_at" required></label><label class="field" for="install-window-start">Window start (UTC ISO)<input id="install-window-start" name="window_start" required></label><label class="field" for="install-window-end">Window end (UTC ISO)<input id="install-window-end" name="window_end" required></label><label class="field" for="install-col-id">install_id column<input id="install-col-id" name="col_install_id" required value="${esc(mapping.install_id||"install_id")}"></label><label class="field" for="install-col-state">state column<input id="install-col-state" name="col_state" required value="${esc(mapping.state||"state")}"></label><label class="field" for="install-col-time">occurred_at column<input id="install-col-time" name="col_occurred_at" required value="${esc(mapping.occurred_at||"occurred_at")}"></label><label class="field" for="install-state-values">Source status mapping (optional JSON)<textarea id="install-state-values" name="state_values" placeholder='{"install":"ATTRIBUTED"}'>${esc(mapping.state_values?JSON.stringify(mapping.state_values):"")}</textarea></label><label class="field" for="install-count">Source event count<input id="install-count" name="source_event_count" type="number" min="0" step="1"></label></div><label class="check-row"><input type="checkbox" name="coverage_complete"> Source coverage is complete</label><div class="field-error" role="alert"></div></div><div class="modal-actions"><button type="submit" class="button">Preview import</button></div></form>`,"INSTALL ATTRIBUTION");
+}
+
+async function installImportDetect(form){
+  const file=form.querySelector('[name="export_file"]').files[0];
+  const status=form.querySelector('#install-detect-status');
+  if(!file){if(status)status.textContent="Choose an export file first.";return;}
+  if(file.size>2000000){if(status)status.textContent="Use an export smaller than 2 MB.";return;}
+  try{
+    const text=await file.text();
+    const format=file.name.toLowerCase().endsWith('.json')?'json':'csv';
+    const headers=WMMMmpImport.parseHeaders(text,format);
+    const value=WMMMmpImport.suggest(headers);
+    const fields={install_id:'col_install_id',state:'col_state',occurred_at:'col_occurred_at'};
+    for(const [key,name] of Object.entries(fields)){
+      const input=form.querySelector('[name="'+name+'"]');
+      if(input&&value.mapping[key])input.value=value.mapping[key];
+    }
+    const found=Object.keys(value.mapping).length;
+    if(status)status.textContent=`Detected ${found}/3 columns from ${headers.length} headers.${value.unmapped.length?` Unmapped: ${value.unmapped.join(', ')}.`:" "}Review source states and coverage before previewing.`;
+  }catch(error){
+    if(status)status.textContent=error.message;
+  }
 }
 
 async function installImportSubmit(form){
@@ -1295,6 +1317,8 @@ async function handleAction(node) {
   if(action==="next-answer-publishing"){$("#modal").close();return guidedNavigate("connections","#publication-heading");}
   if(action==="first-post-publishing")return guidedNavigate("connections","#publication-heading");
   if(action==="install-import-open")return installImportForm();
+  if(action==="install-import-detect"){const form=document.getElementById("install-import-form");if(!form)throw new Error("Open the install import form first.");return installImportDetect(form);}
+  if(action==="install-import-template")return download("mmp-install-template.csv",WMMMmpImport.templateCsv(),"text/csv");
   if(action==="install-import-confirm")return installImportConfirm();
   if(action==="install-report")return installReportOpen(id,node.dataset.day);
   if(action.startsWith("activity-"))return activityAction(node);
@@ -1348,6 +1372,7 @@ document.addEventListener("click",async event=>{
 });
 document.addEventListener("submit",formSubmit);
 document.addEventListener("change",event=>{
+  if(event.target.id==="install-export-file"&&event.target.closest("#install-import-form"))return installImportDetect(event.target.closest("#install-import-form"));
   if(event.target.closest("#publication-draft-form"))return WMMPublicationUI.change(event.target.closest("#publication-draft-form"),growthReviewServices(),event.target);
   if(event.target.closest('.funnel-workspace'))return WMMFunnels.change(event.target,growthReviewServices());
   if(event.target.id==="reference-platform"){state.referencePlatform=event.target.value;render();}
