@@ -82,6 +82,65 @@ def _rule(value):
                 cooldown=cooldown, expires_at=expires)
 
 
+def project(workspace):
+    """Project a read-only Service workspace into typed facts; absent facts stay absent."""
+    if not isinstance(workspace, dict):
+        raise Invalid("Workspace must be an object")
+    app = workspace.get("app") or {}
+    data = app.get("data") or {}
+    workflow = workspace.get("workflow") or {}
+    metrics = workspace.get("metrics") or {}
+    attribution = workspace.get("install_attribution") or {}
+    integrity = workspace.get("measurement_integrity") or {}
+    experiments = workspace.get("experiments") or []
+    automation = workspace.get("automation") or {}
+    cohorts = metrics.get("cohorts") or []
+    retention = metrics.get("retention") or []
+    ledger = metrics.get("event_ledger") or []
+    campaigns = attribution.get("campaigns") or []
+    facts = {
+        "app": {
+            "id": app.get("id"),
+            "version": app.get("version"),
+            "name": data.get("name"),
+            "release": data.get("release"),
+            "locale": data.get("locale"),
+            "currency": data.get("currency"),
+        },
+        "workflow": {
+            "local_ready_count": workflow.get("local_ready_count"),
+            "next_action": (workflow.get("next_action") or {}).get("id"),
+            "exception_count": len(workflow.get("exceptions") or []),
+        },
+        "automation": {
+            "mode": automation.get("mode"),
+            "metric": (automation.get("metric") or {}).get("value"),
+            "channel": (automation.get("channel") or {}).get("value"),
+        },
+        "metrics": {
+            "cohort_count": len(cohorts),
+            "measured_cohort_count": sum(1 for row in cohorts if row.get("status") == "MEASURED"),
+            "retention_window_count": len(retention),
+            "ledger_report_count": len(ledger),
+        },
+        "install": {
+            "campaign_count": len(campaigns),
+            "campaign_tokens": sorted(row.get("campaign_token") for row in campaigns if row.get("campaign_token")),
+            "last_observed_at": max((row.get("last_observed_at") for row in campaigns
+                                     if row.get("last_observed_at")), default=None),
+        },
+        "measurement": {"state": integrity.get("state")},
+        "experiments": {
+            "count": len(experiments),
+            "planned": sum(1 for row in experiments if row.get("state") == "PLANNED"),
+            "awaiting_analysis": sum(1 for row in experiments if row.get("state") == "AWAITING_ANALYSIS"),
+        },
+    }
+    return {key: {inner: value for inner, value in values.items() if value is not None}
+            for key, values in facts.items()
+            if any(value is not None for value in values.values())}
+
+
 def validate(document):
     if not isinstance(document, dict):
         raise Invalid("Rules document must be an object")
@@ -212,10 +271,21 @@ def evaluate(document, facts, observed_at=None):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rules", required=True)
-    parser.add_argument("--facts", required=True)
+    parser.add_argument("--facts")
+    parser.add_argument("--database")
+    parser.add_argument("--app")
     args = parser.parse_args(argv)
     document = json.loads(Path(args.rules).read_text(encoding="utf-8"))
-    facts = json.loads(Path(args.facts).read_text(encoding="utf-8"))
+    if args.facts and (args.database or args.app):
+        raise SystemExit("Use --facts or --database/--app, not both")
+    if args.facts:
+        facts = json.loads(Path(args.facts).read_text(encoding="utf-8"))
+    elif args.database and args.app:
+        from .store import Store
+        from .service import Service
+        facts = project(Service(Store(Path(args.database))).workspace(args.app))
+    else:
+        raise SystemExit("Provide --facts or both --database and --app")
     print(json.dumps(evaluate(document, facts), indent=2, sort_keys=True))
     return 0
 
