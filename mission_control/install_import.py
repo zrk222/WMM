@@ -1,14 +1,17 @@
 ﻿"""Map an MMP CSV/JSON export into a validated install-attribution batch plus checklist."""
 import argparse
 import csv
+from datetime import timezone
 import hashlib
+import io
 import json
 from pathlib import Path
 import sys
 import uuid
+from itertools import islice
 
-from .common import Invalid, digest
-from .install_attribution import validate_batch
+from .common import Invalid, digest, iso_time
+from .install_attribution import STATES, _coverage, validate_batch
 
 MAPPING_FIELDS = {"install_id", "state", "occurred_at"}
 
@@ -20,21 +23,42 @@ def _mapping(value):
         if not isinstance(value[key], str) or not value[key]:
             raise Invalid("Mapping columns must be nonempty names")
     states = value.get("state_values", {})
-    if not isinstance(states, dict) or any(
-            not isinstance(key, str) or not isinstance(mapped, str) for key, mapped in states.items()):
+    if len({value[key] for key in MAPPING_FIELDS}) != len(MAPPING_FIELDS):
+        raise Invalid("Map each required field to a different source column")
+    if not isinstance(states, dict) or len(states) > 40 or any(
+            not isinstance(key, str) or not 1 <= len(key) <= 100 or mapped not in STATES
+            for key, mapped in states.items()):
         raise Invalid("state_values must map raw values to state names")
     return value
 
 
+def _unique_columns(pairs):
+    result = dict(pairs)
+    if len(result) != len(pairs):
+        raise Invalid("JSON export contains duplicate column names")
+    return result
+
+
 def parse_text(text, fmt):
     """Parse a bounded uploaded CSV/JSON export without touching the filesystem."""
+    text = text.removeprefix("\ufeff")
     if fmt == "json":
-        value = json.loads(text)
+        value = json.loads(text, object_pairs_hook=_unique_columns)
         if not isinstance(value, list) or any(not isinstance(row, dict) for row in value):
             raise Invalid("JSON input must be a list of objects")
         return value
     if fmt == "csv":
-        return list(csv.DictReader(text.splitlines()))
+        reader = csv.DictReader(io.StringIO(text, newline=""), strict=True)
+        try:
+            headers = reader.fieldnames
+            if not headers or any(not column for column in headers) or len(set(headers)) != len(headers):
+                raise Invalid("CSV requires unique nonempty column headers")
+            rows = list(islice(reader, 1001))
+        except csv.Error as exc:
+            raise Invalid("CSV export could not be parsed") from exc
+        if any(None in row or None in row.values() for row in rows):
+            raise Invalid("CSV rows must have one value per column")
+        return rows
     raise Invalid("Choose csv or json input")
 
 
@@ -47,6 +71,9 @@ def map_rows(rows, mapping, source, campaign_token, observed_at, window, coverag
              source_receipt_sha256=None, columns=None):
     """Produce one batch and a coverage checklist; never write or infer missing values."""
     mapping = _mapping(mapping)
+    coverage = _coverage(coverage)
+    if len(rows) > 1000:
+        raise Invalid("Use an export with at most 1000 source rows")
     request_id = request_id or str(uuid.uuid4())
     derived_receipt = source_receipt_sha256 is None
     source_receipt_sha256 = source_receipt_sha256 or digest({"rows": rows})
@@ -65,14 +92,25 @@ def map_rows(rows, mapping, source, campaign_token, observed_at, window, coverag
             values[field] = raw.strip() if isinstance(raw, str) else raw
         if len(values) != len(MAPPING_FIELDS):
             continue
+        if not all(isinstance(value, str) for value in values.values()):
+            rejected.append({"row": index, "reason": "Install ID, state and time must be text"})
+            continue
         state = mapping.get("state_values", {}).get(values["state"], values["state"])
-        item = dict(install_id=values["install_id"], state=state, occurred_at=values["occurred_at"])
+        if state not in STATES:
+            rejected.append({"row": index, "reason": "Install state is not mapped to a supported state"})
+            continue
+        try:
+            occurred_at = iso_time(values["occurred_at"]).astimezone(timezone.utc).isoformat()
+        except (ValueError, TypeError):
+            rejected.append({"row": index, "reason": "Use an install timestamp with a timezone"})
+            continue
+        item = dict(install_id=values["install_id"], state=state, occurred_at=occurred_at)
         prior = seen.get(item["install_id"])
         if prior is not None:
             if prior == item:
-                duplicates.append(item["install_id"])
+                duplicates.append(index)
             else:
-                conflicts.append(item["install_id"])
+                conflicts.append(index)
             continue
         seen[item["install_id"]] = item
         installed.append(item)
@@ -89,17 +127,17 @@ def map_rows(rows, mapping, source, campaign_token, observed_at, window, coverag
     checklist = dict(schema="wmm.install-import-checklist.v1", status="READY",
                      rows_read=len(rows), rows_emitted=len(installed),
                      counts=counts, duplicates=duplicates[:50], conflicts=conflicts[:50],
-                     rejected=rejected[:50], unmapped_columns=unmapped,
+                     rejected=rejected[:50], unmapped_column_count=len(unmapped),
                      request_id=request_id, source_receipt_sha256=source_receipt_sha256)
     if rejected:
         checklist["status"] = "BLOCKED"
-        checklist["reason"] = "Rows with missing required values"
+        checklist["reason"] = "Some rows have missing or invalid install fields"
     if conflicts:
         checklist["status"] = "BLOCKED"
         checklist["reason"] = "Conflicting duplicate install identities"
-    if not rows:
+    if not rows and not (coverage.get("complete") is True and coverage.get("source_event_count") == 0):
         checklist["status"] = "BLOCKED"
-        checklist["reason"] = "No rows were read"
+        checklist["reason"] = "An empty export needs explicit complete coverage and a source event count of zero"
     if derived_receipt:
         checklist.setdefault("warnings", []).append("Source receipt hash was derived from input rows; supply the original receipt for audit.")
     if not coverage.get("complete"):
@@ -133,9 +171,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     mapping = json.loads(Path(args.mapping).read_text(encoding="utf-8"))
     rows = load_rows(args.input, args.input_format)
-    digest_value = args.source_receipt_sha256
-    if args.source_receipt_file:
-        digest_value = hashlib.sha256(Path(args.source_receipt_file).read_bytes()).hexdigest()
+    digest_value = args.source_receipt_sha256 or hashlib.sha256(
+        Path(args.source_receipt_file or args.input).read_bytes()).hexdigest()
     coverage = dict(complete=args.coverage_complete, source_event_count=args.source_event_count)
     batch, checklist = map_rows(rows, mapping, args.source, args.campaign_token, args.observed_at,
                                 dict(starts_at=args.window_start, ends_at=args.window_end), coverage, args.request_id, digest_value,

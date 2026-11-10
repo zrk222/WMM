@@ -11,18 +11,19 @@ campaign token, with explicit source coverage. It is not a rate, lift, revenue o
 causal claim, and it does not replace Apple SKAN/AdAttributionKit postbacks.
 
 ### Requirements (EARS)
-- The system shall accept an owner-scoped install batch with exactly `source`, `campaign_token`, `request_id`, `source_receipt_sha256`, `observed_at`, `coverage` and `installs` through `install_batch`.
+- The system shall accept an owner-scoped install batch with exactly `source`, `campaign_token`, `request_id`, `source_receipt_sha256`, `observed_at`, `window`, `coverage` and `installs` through `install_batch`.
 - The system shall require an uppercase source token, canonical UUID campaign and request identities, a lowercase source-receipt SHA-256, and an aware observation time through `install_identity`.
 - The system shall accept 0 through 1000 install rows with exactly `install_id`, `state` in `ATTRIBUTED`, `UNATTRIBUTED`, `SUPPRESSED` or `UNKNOWN`, and an aware `occurred_at` not after the observation through `install_rows`.
-- The system shall reject raw personal identifiers: opaque install IDs only, no email or phone-like values.
+- The system shall require an operator-provided pseudonymous install token. It shall reject common email, phone and device-ID shapes and keep install tokens out of browser preview responses and errors.
 - The system shall require coverage with explicit `complete` and a nullable bounded `source_event_count`; complete coverage must state the count.
-- The system shall require an exact `window` with ordered `starts_at`/`ends_at` no longer than 90 days, require the source observation at or after the window start, and reject installs outside the window.
+- The system shall require an exact `window` with ordered `starts_at`/`ends_at` no longer than 90 days, require the source observation between the window start and now, and reject installs outside the window. Complete coverage requires an observation at or after the window ends.
 - The system shall retain each batch atomically; an exact repeated request returns the retained batch, while a reused request identity or conflicting install identity rejects the whole batch without writes.
-- The system shall keep installs app-scoped and owner-only.
-- When the campaign token matches an app-scoped observational study, the system shall record that study's identity, hash and app version with the batch; otherwise it shall report `UNLINKED`, and disagreeing links shall report `MIXED`.
+- The system shall keep installs app-scoped and owner-only. The authenticated owner must confirm the exact server-bound preview within 15 minutes. A preview binds app and role versions, the current study, and the normalized export including its source digest.
+- An owner shall be able to open install counts and source receipts from Results and select all observations or day 1, 3 or 7. A valid empty export with mature complete coverage may produce a zero. An incomplete or absent result shall keep unobserved counts unknown.
+- When the campaign token matches an app-scoped observational study, the system shall require its exact window and record that study's identity, hash and app version with the batch; otherwise it shall report `UNLINKED`, and disagreeing links shall report `MIXED`.
 - The system shall report counts per state, the retained batches, and `COMPLETE`, `PARTIAL` or `NO_IMPORT` coverage, and shall not emit a rate, lift, revenue or causal decision.
-- The system shall expose a workspace summary with campaign token, batch count, coverage status and study status only, and the Results page shall state `No install export yet` while no batch exists.
-- The system shall accept an optional `day` of 1, 3 or 7 and count only distinct installs whose `occurred_at` is at or before each batch's window start plus that day, without double counting repeated installs; any other day is rejected.
+- The system shall expose a workspace summary with campaign token, batch count, coverage status, study status and latest observation time without raw rows, and the Results page shall state `No install export yet` while no batch exists.
+- The system shall accept an optional `day` of 1, 3 or 7 and count only distinct installs whose `occurred_at` is at or before the one frozen campaign start plus that day without double counting repeated installs. Conflicting starts require reconciliation. When the export does not cover the cutoff, return partial coverage.
 
 ### Acceptance criteria (Gherkin)
 ```gherkin

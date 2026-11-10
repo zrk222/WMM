@@ -32,7 +32,7 @@ class InstallImportTests(unittest.TestCase):
         coverage = changes.pop("coverage", {"complete": True, "source_event_count": 2})
         window = changes.pop("window", dict(starts_at="2026-10-31T00:00:00+00:00",
                                             ends_at="2026-11-03T00:00:00+00:00"))
-        return map_rows(rows, MAPPING, "APPSFLYER", CAMPAIGN, "2026-11-02T00:00:00+00:00",
+        return map_rows(rows, MAPPING, "APPSFLYER", CAMPAIGN, "2026-11-03T00:00:00+00:00",
                         window, coverage, columns=["id", "event", "time", "extra"], **changes)
 
     def test_csv_maps_to_ready_batch_and_checklist(self):
@@ -41,7 +41,7 @@ class InstallImportTests(unittest.TestCase):
         self.assertEqual(checklist["rows_read"], 2)
         self.assertEqual(checklist["rows_emitted"], 2)
         self.assertEqual(checklist["counts"], {"ATTRIBUTED": 1, "UNATTRIBUTED": 1})
-        self.assertEqual(checklist["unmapped_columns"], ["extra"])
+        self.assertEqual(checklist["unmapped_column_count"], 1)
         self.assertEqual([row["state"] for row in batch["installs"]], ["ATTRIBUTED", "UNATTRIBUTED"])
         self.assertEqual(batch["source_receipt_sha256"], digest({"rows": load_rows(self.csv, "csv")}))
 
@@ -65,8 +65,8 @@ class InstallImportTests(unittest.TestCase):
         rows = [dict(id="install_a", event="purchase", time="2026-11-01T00:00:00+00:00")]
         _, checklist = self.map(rows=rows)
         self.assertEqual(checklist["status"], "BLOCKED")
-        self.assertIn("state", checklist["reason"].lower())
-        rows = [dict(id="install_a", event="install", time="2026-11-03T00:00:00+00:00")]
+        self.assertIn("state", checklist["rejected"][0]["reason"].lower())
+        rows = [dict(id="install_a", event="install", time="2026-11-04T00:00:00+00:00")]
         _, checklist = self.map(rows=rows)
         self.assertEqual(checklist["status"], "BLOCKED")
 
@@ -75,13 +75,17 @@ class InstallImportTests(unittest.TestCase):
                 dict(id="install_a", event="install", time="2026-11-01T00:00:00+00:00")]
         _, checklist = self.map(rows=rows)
         self.assertEqual(checklist["status"], "READY")
-        self.assertEqual(checklist["duplicates"], ["install_a"])
+        self.assertEqual(checklist["duplicates"], [2])
         self.assertEqual(checklist["rows_emitted"], 1)
+        rows[1]["time"] = "2026-10-31T20:00:00-04:00"
+        _, equivalent = self.map(rows=rows)
+        self.assertEqual(equivalent["duplicates"], [2])
+        self.assertEqual(equivalent["status"], "READY")
         rows = [dict(id="install_a", event="install", time="2026-11-01T00:00:00+00:00"),
                 dict(id="install_a", event="unattributed", time="2026-11-01T00:00:00+00:00")]
         _, checklist = self.map(rows=rows)
         self.assertEqual(checklist["status"], "BLOCKED")
-        self.assertEqual(checklist["conflicts"], ["install_a"])
+        self.assertEqual(checklist["conflicts"], [2])
         _, checklist = self.map(coverage={"complete": False, "source_event_count": None})
         self.assertIn("warnings", checklist)
 
@@ -89,16 +93,16 @@ class InstallImportTests(unittest.TestCase):
         out, checklist = self.root / "batch.json", self.root / "checklist.json"
         code = main(["--input", str(self.csv), "--input-format", "csv", "--mapping", str(self.mapping),
                      "--source", "APPSFLYER", "--campaign-token", CAMPAIGN,
-                     "--observed-at", "2026-11-02T00:00:00+00:00", "--window-start", "2026-10-31T00:00:00+00:00", "--window-end", "2026-11-03T00:00:00+00:00", "--coverage-complete",
+                     "--observed-at", "2026-11-03T00:00:00+00:00", "--window-start", "2026-10-31T00:00:00+00:00", "--window-end", "2026-11-03T00:00:00+00:00", "--coverage-complete",
                      "--source-event-count", "2", "--out", str(out), "--checklist", str(checklist)])
         self.assertEqual(code, 0)
         self.assertEqual(json.loads(out.read_text(encoding="utf-8"))["installs"][0]["install_id"], "install_a")
         self.assertEqual(json.loads(checklist.read_text(encoding="utf-8"))["status"], "READY")
         bad = self.root / "bad.csv"
-        bad.write_text("id,event,time\ninstall_a,install,2026-11-03T00:00:00+00:00\n", encoding="utf-8")
+        bad.write_text("id,event,time\ninstall_a,install,2026-11-04T00:00:00+00:00\n", encoding="utf-8")
         code = main(["--input", str(bad), "--input-format", "csv", "--mapping", str(self.mapping),
                      "--source", "APPSFLYER", "--campaign-token", CAMPAIGN,
-                     "--observed-at", "2026-11-02T00:00:00+00:00", "--window-start", "2026-10-31T00:00:00+00:00", "--window-end", "2026-11-03T00:00:00+00:00", "--coverage-complete",
+                     "--observed-at", "2026-11-03T00:00:00+00:00", "--window-start", "2026-10-31T00:00:00+00:00", "--window-end", "2026-11-03T00:00:00+00:00", "--coverage-complete",
                      "--source-event-count", "1", "--out", str(self.root / "blocked.json")])
         self.assertEqual(code, 1)
 

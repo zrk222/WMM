@@ -51,7 +51,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_missing_or_stale_sbom_refused(self):
         (self.folder / 'sbom-Linux.json').unlink()
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaises(ValueError):
             release.validate_assets(self.folder, SHA)
         path = self.folder / 'sbom-Windows.json'
         value = json.loads(path.read_text())
@@ -60,9 +60,18 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             release.validate_assets(self.folder, SHA)
 
+    def test_duplicate_sbom_property_rejected_before_publication(self):
+        path = self.folder / "sbom-Windows.json"
+        value = json.loads(path.read_text())
+        properties = value["metadata"]["component"]["properties"]
+        properties.append(properties[0])
+        path.write_text(json.dumps(value))
+        with self.assertRaisesRegex(ValueError, "duplicated"):
+            release.validate_assets(self.folder, SHA)
+
     def test_missing_platform_refused(self):
         (self.folder / 'Linux.json').unlink()
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaises(ValueError):
             release.validate_assets(self.folder, SHA)
 
     def test_changed_installer_refused(self):

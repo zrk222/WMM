@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import re
+import runpy
 import subprocess
 from urllib.request import urlopen
 
@@ -52,44 +53,20 @@ def receipt(platform, sha, asset, lifecycle, destination, evidence_root=None):
 
 def validate_assets(folder, sha):
     folder = Path(folder)
-    paths = []
-    for platform, name in ASSETS.items():
-        record = json.loads((folder / (platform + '.json')).read_text())
-        path = folder / name
-        if (record.get('schema') != 'wmm.desktop-release.v1' or record.get('platform') != platform
-                or record.get('status') != 'PASS' or record.get('source_sha') != sha
-                or record.get('asset') != name or path.is_symlink() or not path.is_file()
-                or path.stat().st_size == 0 or digest(path) != record.get('sha256')):
-            raise ValueError('Installer receipt or hash mismatch: ' + platform)
-        lifecycle = record.get('lifecycle', {})
-        removal = 'uninstall' if platform == 'Windows' else 'removal'
-        if (lifecycle.get('status') != 'PASS'
-                or any(lifecycle.get(k) != 'VERIFIED' for k in ('install', 'upgrade', removal))
-                or lifecycle.get('workspace') != 'SYNTHETIC_PRESERVED'):
-            raise ValueError('Failed installer lifecycle: ' + platform)
-        checks = record.get('restart_checks', [])
-        if (len(checks) != 2 or [c.get('phase') for c in checks] != ['fresh', 'upgrade']
-                or any(c.get('offline_restart') != 'PASS_SAME_PRIVATE_WORKSPACE_AND_BROWSER_STORAGE'
-                       or c.get('network') != 'BROWSER_EXTERNAL_BLOCKED_NOT_OS_OFFLINE'
-                       or not re.fullmatch('[0-9a-f]{64}', c.get('evidence_sha256', '')) for c in checks)):
-            raise ValueError('Missing browser-isolated restart checks: ' + platform)
-        paths.append(path)
-    sboms = []
-    for platform in ASSETS:
-        sbom = folder / ('sbom-' + platform + '.json')
-        value = json.loads(sbom.read_text(encoding='utf-8'))
-        component = value.get('metadata', {}).get('component', {})
-        properties = {row.get('name'): row.get('value') for row in component.get('properties', [])}
-        if (value.get('bomFormat') != 'CycloneDX' or value.get('specVersion') != '1.5'
-                or component.get('version') != sha or properties.get('wmm:platform') != platform
-                or properties.get('wmm:inventory_scope') != 'build_environment'
-                or not isinstance(value.get('components'), list)):
-            raise ValueError('Missing or invalid source-bound SBOM: ' + platform)
-        sboms.append(sbom)
-    manifest = folder / 'SHA256SUMS.txt'
-    all_paths = paths + sboms
-    manifest.write_text(''.join(f'{digest(p)}  {p.name}\n' for p in all_paths), encoding='ascii')
-    return all_paths + [manifest, folder / 'Windows.json', folder / 'Linux.json']
+    paths = [folder / name for name in ASSETS.values()]
+    paths += [folder / ("sbom-" + platform + ".json") for platform in ASSETS]
+    paths += [folder / (platform + ".json") for platform in ASSETS]
+    for path in paths:
+        if path.is_symlink() or not path.is_file() or path.stat().st_size == 0:
+            raise ValueError("Release asset must be a nonempty regular file: " + path.name)
+    manifest = folder / "SHA256SUMS.txt"
+    if manifest.is_symlink() or (manifest.exists() and not manifest.is_file()):
+        raise ValueError("Checksum manifest must be a regular file")
+    manifest.write_text("".join(f"{digest(path)}  {path.name}\n" for path in paths), encoding="ascii")
+    staged = paths + [manifest]
+    verifier = runpy.run_path(str(Path(__file__).with_name("verify_release_assets.py")))
+    verifier["verify_files"](staged, sha)
+    return staged
 
 
 def gh(*args):
