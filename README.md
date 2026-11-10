@@ -1,10 +1,12 @@
 # Wize Marketing Machine
 
-**A calmer way to market your app — with receipts.**
+**Turn one app-growth question into an evidence-backed marketing experiment.**
 
-You built the app. Now you need people to find it, try it and come back. The research, creative, campaign work and results should lead to one clear next move.
+Wize Marketing Machine (WMM) is the local, owner-approved workspace for that job. Start with one measured outcome and one experiment, not the whole marketing catalog. Research, creative, publishing and analytics support that loop; they are not separate promises.
 
-Wize Marketing Machine (WMM) is a local workspace for one app at a time. It helps you plan the work, keep the evidence and see what actually happened. An AI assistant can do approved steps inside limits you set; nothing publishes or spends on its own.
+You built the app. Now you need people to find it, try it and come back. WMM helps you prepare the work, keep the evidence and see what actually happened. An AI assistant can do approved steps inside limits you set; nothing publishes or spends on its own.
+
+> **License:** source-available, not OSI-approved open source. Personal and internal business use is free. Hosting, resale, white-labeling and paid external-client services need a separate commercial agreement. [Read the license](LICENSE).
 
 **You choose the goal and approve each permission slip. Your assistant works inside it. You get the files, the receipts, the measurements and one next decision.** A permission slip is a time-limited list of actions for one app. You can edit it, set its expiry and call limit, and revoke it.
 
@@ -105,6 +107,16 @@ python -X utf8 -m mission_control.server
 
 Open **http://127.0.0.1:8765/**, add one app and prepare one evidence packet. A private virtual environment is recommended; [Windows/Linux setup, optional tools and recovery](docs/workspace-guide.md) cover the details. Core use needs no model API key or paid service. Provider and video workflows need their own prerequisites.
 
+Run the canonical test entry point rather than guessing a CI profile:
+
+~~~sh
+python tools/test.py --profile inventory
+python tools/test.py --profile core --install
+python tools/test.py --profile node
+~~~
+
+[Test profiles, OS tools and clean-checkout expectations](docs/TESTING.md). `pytest` is not required.
+
 **Platforms:** protected desktop credentials use Windows Credential Manager or a configured Linux/Ubuntu Secret Service. The desktop macOS credential adapter is unsupported. The separate [native iPhone/iPad app](ios/) uses on-device Keychain and media execution; see its current acceptance limits rather than assuming desktop parity. Keep the desktop server private on loopback.
 
 **Your accounts stay yours.** Bring your own supported keys/OAuth or installed official agent CLI. A subscription is not a general API entitlement. Snapshots do not carry credentials or execution authority. Default ad spending is zero; an enabled campaign needs a separate exact owner scope. Media limits exclude provider taxes, fees and currency effects. Live provider behavior and business gains require actual account evidence.
@@ -113,4 +125,4 @@ Open **http://127.0.0.1:8765/**, add one app and prepare one evidence packet. A 
 
 Free personal evaluation and internal business use under the [WMM Personal and Internal Business Use License](LICENSE). Resale, hosting, white-label products and paid external-client services require a separate commercial agreement. [Pricing and commercial path](docs/pricing.md) · [Prior Apache grants and third-party rights remain preserved](docs/licensing.md).
 
-[Development checks](docs/workspace-guide.md#development-checks) · [Release scope](RELEASE-SCOPE.md) · [Security guidance](SECURITY.md)
+[Development checks](docs/workspace-guide.md#development-checks) ? [Test profiles](docs/TESTING.md) ? [Threat model](docs/THREAT-MODEL.md) · [Release scope](RELEASE-SCOPE.md) · [Security guidance](SECURITY.md)
