@@ -62,7 +62,7 @@ class Server(ThreadingHTTPServer):
             self.socket.setsockopt(socket.SOL_SOCKET,socket.SO_EXCLUSIVEADDRUSE,1)
         super().server_bind()
 
-    def __init__(self,address,store,operator="local-operator"):
+    def __init__(self,address,store,operator="local-operator",*,runtime_mode="SERVER"):
         if address[0]!="127.0.0.1":
             raise Invalid("Mission Control may bind only to 127.0.0.1")
         super().__init__(address,Handler)
@@ -77,7 +77,8 @@ class Server(ThreadingHTTPServer):
         self.runner=Runner(store)
         from .audit_worker import AuditWorker
         self.audit_runner=AuditWorker(store)
-        self.service.worker_health=lambda:dict(self.runner.health)
+        self.runtime_mode=runtime_mode if runtime_mode in ("DESKTOP","HEADLESS","SERVER") else "UNKNOWN"
+        self.service.worker_health=lambda:dict(self.runner.health,runtime_mode=self.runtime_mode)
         self.studio_shutdown_result=None
         self.desktop_proof=None
 
@@ -295,7 +296,7 @@ class Handler(BaseHTTPRequestHandler):
         if parts[3:]==['workflow-telemetry']:
             if urlparse(self.path).query:raise Invalid('Use the exact workflow telemetry address')
             from .workflow_telemetry import monitor
-            return self.send(200,monitor(store,app_id,self.server.runner.health))
+            return self.send(200,monitor(store,app_id,self.server.service.worker_health()))
         if parts[3:]==['reports','summary']:
             if urlparse(self.path).query:raise Invalid('Use the exact app summary report address')
             from .ios_reports import read

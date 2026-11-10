@@ -91,7 +91,11 @@ test('fresh telemetry distinguishes worker recovery, health and stopped state',a
  f.ui.mount(f.deps);await f.settle();
  assert.match(f.worker.textContent,/Worker needs attention/);assert.match(f.status.textContent,/prior-poll/);
  assert.doesNotMatch(f.worker.textContent,/PRIVATE_ERROR|healthy/);
- f.answer=reply({status:'RUNNING'});await f.tick();assert.match(f.worker.textContent,/reported healthy/);
+ f.answer=reply({status:'RUNNING',runtime_mode:'HEADLESS'});await f.tick();assert.match(f.worker.textContent,/reported healthy/);
+ assert.match(f.worker.textContent,/Headless mode.*Closing this browser leaves the worker running/);
+ f.answer=reply({status:'STARTING',runtime_mode:'DESKTOP'});await f.tick();assert.match(f.worker.textContent,/Desktop mode.*Keep WMM open/);
+ f.answer=reply({status:'STARTING',runtime_mode:'PRIVATE_MODE'});await f.tick();assert.match(f.worker.textContent,/Run mode unavailable/);
+ assert.doesNotMatch(f.worker.textContent,/PRIVATE_MODE/);
  f.answer=reply({status:'STOPPED'});await f.tick();assert.match(f.worker.textContent,/Start WMM on the host/);
  f.answer=async()=>{throw Error('offline');};await f.tick();assert.match(f.worker.textContent,/status unavailable/);
  assert.match(f.ui.panel(),/Open the private-host setup guide/);f.ui.clear();

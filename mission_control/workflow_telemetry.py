@@ -70,7 +70,10 @@ def worker_observation(health):
         last_success = iso_time(health.get("last_success")).isoformat()
     except (Invalid, ValueError, OverflowError):
         last_success = None
-    return dict(status=status, last_success=last_success)
+    mode = health.get("runtime_mode")
+    if mode not in ("DESKTOP", "HEADLESS", "SERVER"):
+        mode = "UNKNOWN"
+    return dict(status=status, last_success=last_success, runtime_mode=mode)
 
 
 def monitor(store, app_id, worker_health=None):

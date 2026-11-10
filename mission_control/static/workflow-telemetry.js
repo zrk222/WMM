@@ -24,6 +24,14 @@
       default:return 'Worker status unavailable. Check WMM on this workspace’s host before relying on scheduled work.';
     }
   }
+  function workerContext(mode){
+    switch(mode){
+      case 'DESKTOP':return 'Desktop mode. Keep WMM open and its computer awake to run scheduled work.';
+      case 'HEADLESS':return 'Headless mode on this workspace’s host. Closing this browser leaves the worker running. The host and its protected credential store must stay available.';
+      case 'SERVER':return 'Server mode on this workspace’s host. Keep the server process running and its host awake.';
+      default:return 'Run mode unavailable.';
+    }
+  }
   function nextAction(status){
     const actions={QUEUED:'Waiting for the worker. Inspect the run to check its saved status.',RUNNING:'Work is running. Inspect its recorded steps and any saved output.',RETRY_WAIT:'Waiting for a permitted worker retry. Inspect the previous attempt before taking action.',FAILED:'Inspect the job status and any saved output before deciding whether to retry.',BLOCKED:'Inspect the job status and missing evidence or access before trying again.',SUCCEEDED:'Review the saved output and choose your next action. Completion alone does not establish app sales.',CANCELLED:'Work was cancelled. Inspect receipts for work that already completed.',UNKNOWN:'Inspect and reconcile the job status. Do not automatically resend uncertain work.',CANCEL_REQUESTED:'Cancellation is pending. Inspect the job status before starting replacement work.'};
     return actions[status]||'Inspect the recorded status and any saved output. Unrecognized states do not establish completion.';
@@ -70,7 +78,7 @@
           const target=node.querySelector('[data-live-runs]');
           if(!target.contains(deps.document.activeElement))target.innerHTML=markup(data);
           ticket.failures=0;
-          announce(workerMessage(data.worker?.status));
+          announce(workerMessage(data.worker?.status)+' '+workerContext(data.worker?.runtime_mode));
           const healthyPoll=data.worker?.last_success;
           node.querySelector('[data-live-status]').textContent=`Last refresh ${data.observed_at}. Last healthy worker poll ${healthyPoll||'unavailable'}. Updates checked every two seconds while visible.`;
         }catch(error){if(valid()){ticket.failures++;announce(workerMessage());node.querySelector('[data-live-status]').textContent='Updates unavailable — showing the last saved observations. Automatic retries slow down after failed reads. Select Refresh progress to retry.';}}
