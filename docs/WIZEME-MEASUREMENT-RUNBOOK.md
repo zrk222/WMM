@@ -31,7 +31,16 @@ Anything else is commentary.
 ## Step 2 — Collect installs (MMP)
 
 Export installs from your measurement partner for the same campaign token and
-window. Map the export to a checked batch first:
+window.
+
+**Use the shipped UI first:** Results ? Install attribution ? **Import install
+export**. Choose the original CSV/JSON file, source token, campaign token,
+observed time, frozen window and the `install_id`/`state`/`occurred_at` columns.
+WMM previews the coverage checklist and stores nothing until you confirm. After a
+successful preview it remembers the source token and column names on this
+machine, so the next import needs fewer fields.
+
+The CLI remains a fallback for a headless owner workstation:
 
 ```sh
 python -m mission_control.install_import \
@@ -95,8 +104,9 @@ Rules:
 - The report returns counts per state and coverage. It never returns a rate, lift
   or causal claim. Zero is only zero with complete coverage.
 
-A UI for this batch is not shipped yet; use the owner-scoped local service. Do not
-paste tokens or customer data into a public issue.
+The UI and CLI submit the same owner-scoped batch contract. Do not paste tokens
+or customer data into a public issue. The CLI's `record_batch` path remains
+available only for a headless owner session.
 
 ## Step 3 — Collect retention or paid conversion (choose one)
 

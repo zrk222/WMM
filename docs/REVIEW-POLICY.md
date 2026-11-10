@@ -38,6 +38,22 @@ If a second human becomes available later, CODEOWNERS and required approvals can
 be added as an optional strengthening. That is a future choice, not a current
 blocker.
 
+## Residual risk and expansion gate
+
+Owner-only review is accepted for the current local, single-owner preview. It does
+not provide independent assurance. Before enabling remote team access, a hosted
+tenant service, materially expanded paid execution or commercial delivery, require
+an independent security review covering the combined session, membership, HTTPS,
+revocation and tenant boundary. Record the reviewer, scope, findings and disposition
+in the PR. See [TEAM-SESSION-SECURITY-REVIEW.md](TEAM-SESSION-SECURITY-REVIEW.md).
+
+## Documentation accuracy
+
+Security-relevant operator docs must describe the shipped interface. The install
+import preview/confirm UI is shipped; the measurement runbook points to it first and
+keeps the CLI as a headless fallback. Do not restore a "not shipped" warning without
+checking the current UI and tests.
+
 ## Emergency changes
 
 Record the reason, the exact change and the tests run in the PR. The owner review

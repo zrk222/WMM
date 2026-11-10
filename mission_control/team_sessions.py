@@ -44,6 +44,7 @@ def open_session(store, app_id, user, hours=8):
     identity = uid()
     with connection(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
+        member(db, app_id, user["principal"])
         db.execute("INSERT INTO team_sessions VALUES(?,?,?,?,?,?,?,?,?,?)",
                    (app_id, identity, token_hash(token), user["principal"], user["login"], "GITHUB",
                     observed.isoformat(), (observed + timedelta(hours=hours)).isoformat(), 0, 1))
@@ -65,15 +66,17 @@ def verify(store, token):
     digest = token_hash(token)
     with connection(store.path) as db:
         row = db.execute("SELECT * FROM team_sessions WHERE token_hash=?", (digest,)).fetchone()
-    if row is None:
-        raise PermissionError("Team session is unknown")
-    if row["revoked"]:
-        raise PermissionError("Team session was revoked")
-    if iso_time(row["expires"]) <= datetime.now(timezone.utc):
-        raise PermissionError("Team session expired")
+        if row is None:
+            raise PermissionError("Team session is unknown")
+        if row["revoked"]:
+            raise PermissionError("Team session was revoked")
+        if iso_time(row["expires"]) <= datetime.now(timezone.utc):
+            raise PermissionError("Team session expired")
+        current = member(db, row["app_id"], row["principal"])
     store.app(row["app_id"])
     return dict(app_id=row["app_id"], session_id=row["id"], principal=row["principal"],
-                login=row["login"], provider=row["provider"], expires=row["expires"])
+                login=row["login"], provider=row["provider"], expires=row["expires"],
+                role=current["role"], role_version=current["version"])
 
 
 def revoke(store, app_id, owner, identity, version):
