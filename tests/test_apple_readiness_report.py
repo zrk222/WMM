@@ -37,6 +37,7 @@ class AppleReadinessReportTests(unittest.TestCase):
         self.assertIsNotNone(rows['Apple read observed']['observed'])
         self.assertIsNotNone(rows['Apple next due']['observed'])
         self.assertIn('no daily report', rows['Apple next action']['observed'])
+        self.assertNotIn('after it was due', rows['Apple next action']['observed'])
         self.assertIsNone(rows['Apple numeric outcome']['observed'])
         self.assertIsNone(rows['App performance']['observed'])
         encoded = json.dumps(report)
@@ -71,6 +72,29 @@ class AppleReadinessReportTests(unittest.TestCase):
         self.assertIn('scheduled refresh is overdue', after['next_action'])
         self.assertIn('Check that the WMM worker is running', after['next_action'])
         self.assertEqual(after['repair_route'], 'apple-analytics')
+        self.assertEqual(self.schedules.get(fixture.APP), schedule)
+        self.assertEqual(jobs(self.store, fixture.APP), saved_jobs)
+
+    def test_caught_up_read_explains_missed_schedule_without_changing_result(self):
+        self.save()
+        due = (iso_time(now()) - timedelta(hours=72, minutes=5)).timestamp()
+        with connection(self.store.path) as db:
+            db.execute('UPDATE apple_metrics_schedules SET next_due=? WHERE app_id=?', (due, fixture.APP))
+        self.assertEqual(self.schedules.tick(), 1)
+        with patch('mission_control.provider_reports.read_analytics', side_effect=self.waiting_read):
+            self.assertTrue(run_once(self.store))
+        schedule = self.schedules.get(fixture.APP)
+        saved_jobs = jobs(self.store, fixture.APP)
+
+        rows = self.rows()
+        exception = Service(self.store).workspace(fixture.APP)['workflow']['exceptions'][0]
+        self.assertEqual(rows['Apple scheduled read']['observed'], 'WAITING_FOR_REPORTS')
+        self.assertIsNone(rows['Apple numeric outcome']['observed'])
+        self.assertEqual(exception['state'], 'WAITING_FOR_REPORTS')
+        self.assertIn('no daily report', exception['next_action'])
+        self.assertIn('queued this read 72 hours after it was due', exception['next_action'])
+        self.assertIn('your own always-on host', exception['next_action'])
+        self.assertEqual(rows['Apple next action']['observed'], exception['next_action'])
         self.assertEqual(self.schedules.get(fixture.APP), schedule)
         self.assertEqual(jobs(self.store, fixture.APP), saved_jobs)
 
