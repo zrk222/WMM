@@ -8,6 +8,14 @@ You built the app. Now you need people to find it, try it and come back. WMM hel
 
 > **License:** source-available, not OSI-approved open source. Personal and internal business use is free. Hosting, resale, white-labeling and paid external-client services need a separate commercial agreement. [Read the license](LICENSE).
 
+## The workflow, not a replacement
+
+- **Your agent directs:** it proposes the plan, drafts and next useful action.
+- **You remain the editor:** you edit the plan, approve exact content/destinations and can revoke every permission.
+- **The receipts stay:** results are source-bound counts with dates, coverage and missing data. WMM will not invent D7 retention or causal lift.
+
+Read the [one-wedge positioning](docs/POSITIONING.md), [attribution honesty](docs/ATTRIBUTION-HONESTY.md) and the pending [security summary for buyers](docs/SECURITY-SALES-ASSET.md).
+
 **You choose the goal and approve each permission slip. Your assistant works inside it. You get the files, the receipts, the measurements and one next decision.** A permission slip is a time-limited list of actions for one app. You can edit it, set its expiry and call limit, and revoke it.
 
 [**Try the sample workspace**](https://zrk222.github.io/WMM/demo.html) · [See the visual tour](https://zrk222.github.io/WMM/) · [Install WMM](docs/desktop-first-run.md)
