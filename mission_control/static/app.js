@@ -633,6 +633,44 @@ async function runAutomationRulePreview(node){
   }
 }
 
+async function manageAutomationRules(node,action){
+  const panel=node.closest("section"),input=panel.querySelector("#automation-rules-json");
+  const status=panel.querySelector("#automation-rules-status"),app=state.app;
+  const binding=JSON.stringify(experimentScheduleIdentity()),original=input.value;
+  const saving=action==="automation-rules-save";
+  const stillHere=()=>input.isConnected&&status.isConnected&&state.app===app&&
+    binding===JSON.stringify(experimentScheduleIdentity());
+  let document;
+  if(saving){
+    try{document=JSON.parse(original);}catch{
+      status.textContent="Check the rule JSON and try again.";
+      input.focus();
+      return;
+    }
+  }
+  const buttons=[...panel.querySelectorAll('[data-action="automation-rules-load"],[data-action="automation-rules-save"]')];
+  if(buttons.some(button=>button.disabled))return;
+  for(const button of buttons)button.disabled=true;
+  try{
+    const path=`/api/apps/${encodeURIComponent(app)}/automation/rules`;
+    const saved=saving?await api(path,{document}):await api(path);
+    if(!stillHere()||saved&&saved.app_id!==app)return;
+    if(!saved){status.textContent="No saved rule set yet.";return;}
+    if(!saving){
+      if(input.value!==original){
+        status.textContent="Your draft changed while loading. Load again to replace it with the saved version.";
+        return;
+      }
+      input.value=JSON.stringify(saved.document,null,2);
+    }
+    status.textContent=`${saving?"Saved":"Loaded"} version ${saved.version} · ${saved.hash.slice(0,16)}…`;
+  }catch(error){
+    if(stillHere())status.textContent=`Could not ${saving?"save":"load"} rules. ${error.message}`;
+  }finally{
+    for(const button of buttons)if(button.isConnected)button.disabled=false;
+  }
+}
+
 function resultsView() {
   return analyticsOverviewPanel()+automationRulesPanel()+WMMFunnels.panel()+installAttributionPanel()+WMMGrowthReview.panel(state)+WMMSubscriptionAuthoring.panel(state)+WMMCustomerWorkflow.panel(state)+measurementIntegrityPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyResultsView();
 }
@@ -1348,22 +1386,7 @@ async function handleAction(node) {
   if(action==="measurement-connections"){$("#modal").close();state.view="connections";return render();}
   if(action==="first-post-open")return firstMeasuredPost();
   if(action==="next-answer")return nextAnswer();
-  if(action==="automation-rules-load"){
-    const saved=await api(`/api/apps/${encodeURIComponent(state.app)}/automation/rules`);
-    const input=document.getElementById("automation-rules-json"),status=document.getElementById("automation-rules-status");
-    if(!saved){if(status)status.textContent="No saved rule set yet.";return;}
-    if(input)input.value=JSON.stringify(saved.document,null,2);
-    if(status)status.textContent=`Loaded version ${saved.version} ? ${saved.hash.slice(0,16)}?`;
-    return;
-  }
-  if(action==="automation-rules-save"){
-    const input=document.getElementById("automation-rules-json"),status=document.getElementById("automation-rules-status");
-    let document;
-    try{document=JSON.parse(input?.value||"");}catch{throw new Error("Rules must be valid JSON.");}
-    const saved=await api(`/api/apps/${encodeURIComponent(state.app)}/automation/rules`,{document});
-    if(status)status.textContent=`Saved version ${saved.version} ? ${saved.hash.slice(0,16)}?`;
-    return;
-  }
+  if(action==="automation-rules-load"||action==="automation-rules-save")return manageAutomationRules(node,action);
   if(action==="automation-rules-run")return runAutomationRulePreview(node);
   if(action==="campaign-plan-open")return campaignPlanOpen();
   if(action==="campaign-plan-download-md"){if(!state.campaignPlan)throw new Error("Open the campaign plan first.");return download(`${state.app}-campaign-plan.md`,WMMCampaignPlan.markdown(state.campaignPlan),"text/markdown");}
