@@ -456,6 +456,14 @@ async function digestText(text){
   return [...new Uint8Array(hash)].map(value=>value.toString(16).padStart(2,"0")).join("");
 }
 
+function campaignPlanOpen(){
+  const goal=state.goalChoice?.app===state.app?state.goalChoice.id:(typeof WMMGoalJourney!=="undefined"?WMMGoalJourney.read(WMMGoalJourney.browserStorage(),state.app):"");
+  const value=WMMCampaignPlan.build(state.workspace,{goal});
+  state.campaignPlan=value;
+  const missing=value.missing.length?notice(`Missing before this plan is complete: ${value.missing.join(", ")}.`,"warning"):notice("Planner inputs are present. Saved evidence still needs current release, locale and rights review.");
+  modal("Campaign plan",`<div class="modal-content"><div class="section-heading"><div><p class="eyebrow">MARKETING PLAN</p><h2>${esc(state.workspace?.app?.data?.name||state.app)}</h2></div>${status(value.status)}</div>${missing}<h3>Objective</h3><p><strong>${esc(value.objective.metric)}</strong> · baseline ${esc(value.objective.baseline)}</p><p class="description">${esc(value.objective.baseline_reason)}</p><h3>Audience and hypothesis</h3><p><strong>${esc(value.positioning.audience||"Audience not supplied")}</strong> · ${esc(value.positioning.job||"User job not supplied")}</p><p>${esc(value.positioning.hypothesis)}</p><h3>Pilot channel</h3><p><strong>${esc(value.channels.pilot||"Not selected")}</strong>${value.channels.alternatives.length?` · alternatives ${esc(value.channels.alternatives.join(", "))}`:""}</p><p class="description">${esc(value.channels.basis)}</p><h3>Proof to verify</h3><p>Saved claims ${value.proof.claims} · screens/assets ${value.proof.assets} · readiness ${value.proof.readiness} · store ${value.proof.store} · first-value routes ${value.proof.route}</p><p class="description">Counts are saved evidence, not current approval or public availability.</p><h3>Measurement and guardrails</h3><p><strong>Next:</strong> ${esc(value.measurement.next_action)}</p><p>Window: ${esc(value.measurement.window)}</p><p>Stop: ${esc(value.measurement.stop_rule)}</p><p>Rollback: ${esc(value.measurement.rollback)}</p><h3>Budget</h3><p>${esc(value.distribution.budget_minor)} ${esc(value.distribution.currency||"")} · ${esc(value.distribution.mode)} · no spend authorized</p><details><summary>Boundaries</summary><ul>${value.boundaries.map(item=>`<li>${esc(item)}</li>`).join("")}</ul></details><div class="modal-actions">${button("Download Markdown","campaign-plan-download-md")}${button("Download JSON","campaign-plan-download-json")}${button("Close","close")}</div></div>`,"CAMPAIGN PLAN");
+}
+
 async function nextAnswer(){
   const app=state.app,workspace=state.workspace;
   if(!workspace)throw new Error("Wait for this app to load.");
@@ -1248,6 +1256,9 @@ async function handleAction(node) {
   if(action==="measurement-connections"){$("#modal").close();state.view="connections";return render();}
   if(action==="first-post-open")return firstMeasuredPost();
   if(action==="next-answer")return nextAnswer();
+  if(action==="campaign-plan-open")return campaignPlanOpen();
+  if(action==="campaign-plan-download-md"){if(!state.campaignPlan)throw new Error("Open the campaign plan first.");return download(`${state.app}-campaign-plan.md`,WMMCampaignPlan.markdown(state.campaignPlan),"text/markdown");}
+  if(action==="campaign-plan-download-json"){if(!state.campaignPlan)throw new Error("Open the campaign plan first.");return download(`${state.app}-campaign-plan.json`,state.campaignPlan);}
   if(action==="next-answer-workflow"){$("#modal").close();state.view="workflow";return render();}
   if(action==="next-answer-results"){$("#modal").close();state.view="results";return render();}
   if(action==="next-answer-publishing"){$("#modal").close();return guidedNavigate("connections","#publication-heading");}
