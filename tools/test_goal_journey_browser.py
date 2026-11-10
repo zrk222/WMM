@@ -54,12 +54,18 @@ def run(browser,width,out):
     expect(packet).to_contain_text("Your prepared workflow")
     expect(packet.locator('[data-packet-stage]')).to_have_count(12)
    page.keyboard.press("Escape")
+   expect(packet).to_be_hidden()
+   expect(page.get_by_role("button",name="Open your first packet",exact=True)).to_be_focused()
   assert not writes,writes
   nav=page.locator("#navigation");expect(nav.get_by_role("button",name="Watch the work",exact=True)).to_be_visible()
-  nav.locator("summary").focus();guided=nav.get_by_role("button",name="Guided workflow",exact=True)
-  if not guided.is_visible(): nav.locator("summary").press("Enter")
-  expect(guided).to_be_visible()
-  nav.locator("summary").press("Enter")
+  advanced=nav.locator("details")
+  summary=advanced.locator("summary")
+  expect(advanced).not_to_have_attribute("open","")
+  summary.press("Enter")
+  expect(advanced).to_have_attribute("open","")
+  expect(nav.get_by_role("button",name="Guided workflow",exact=True)).to_be_visible()
+  summary.press("Enter")
+  expect(advanced).not_to_have_attribute("open","")
   page.get_by_role("button",name="Run an approved campaign",exact=True).click()
   expect(page.locator("#goal-message")).to_contain_text("No work has started")
   expect(page.get_by_role("button",name="Review campaign setup",exact=True)).to_be_focused()
@@ -94,6 +100,3 @@ def main():
   browser=p.chromium.launch();result={"status":"PASS","observations":[run(browser,width,out) for width in (1440,390)]};browser.close()
  (out/"browser.json").write_text(json.dumps(result,indent=2),encoding="utf-8");print(json.dumps(result))
 if __name__=="__main__":main()
-
-
-

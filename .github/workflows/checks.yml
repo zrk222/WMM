@@ -47,6 +47,7 @@ jobs:
         run: |
           python tools/test_owner_onboarding_browser.py
           python tools/test_goal_journey_browser.py
+          python tools/test_install_report_browser.py
           python tools/test_campaign_monitor_browser.py
           python tools/test_organic_taste_browser.py
           python tools/test_goal_packet_history_browser.py
