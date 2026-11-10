@@ -1,6 +1,13 @@
 # Independent security-review packet
 
-Status: **PREPARED, NOT REVIEWED**. This packet is input for an external reviewer. It is not a security attestation and does not authorize remote access.
+Status: **REVIEWER ASSIGNED ? REVIEW NOT STARTED**.
+
+- Assigned reviewer: **Jason McGill**
+- Candidate commit: `04ac0cc4ef8410705aab9cfd91e9a30fe3886ec1`
+- Reviewer independence must be confirmed in the deliverable.
+- No findings, pass/fail or attestation exist yet.
+
+This packet is input for an external reviewer. It is not a security attestation and does not authorize remote access.
 
 ## Scope
 
