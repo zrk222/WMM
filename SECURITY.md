@@ -13,3 +13,7 @@ Protected connection storage currently requires Windows Credential Manager.
 No plaintext fallback is provided. Optional CLI process controls are application
 boundaries, not an operating-system sandbox. Review every requested native
 operation and external change before approving it.
+
+## Threat model
+
+Read the explicit boundaries and residual risks in the [threat model](docs/THREAT-MODEL.md). In particular, scoped grants are application boundaries, not an OS sandbox; a process running as the same OS user may have unrelated access.
