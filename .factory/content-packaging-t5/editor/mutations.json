@@ -1,0 +1,17 @@
+[
+  {
+    "name": "taste",
+    "status": "KILLED",
+    "exit": 1
+  },
+  {
+    "name": "origin",
+    "status": "KILLED",
+    "exit": 1
+  },
+  {
+    "name": "audio",
+    "status": "KILLED",
+    "exit": 1
+  }
+]

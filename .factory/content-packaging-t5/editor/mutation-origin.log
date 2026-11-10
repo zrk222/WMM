@@ -1,0 +1,13 @@
+....F.
+======================================================================
+FAIL: test_saved_project_cannot_drop_origin_or_substitute_unselected_media (tests.test_packaging_editor.PackagingEditorTests.test_saved_project_cannot_drop_origin_or_substitute_unselected_media)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<LOCAL_PROFILE>\AppData\Local\Temp\wmm-editor-mutant-6zj3rxx_\tests\test_packaging_editor.py", line 104, in test_saved_project_cannot_drop_origin_or_substitute_unselected_media
+    with self.assertRaises(Invalid):Projects(self.store).save(self.app,dict(id='editor-one',revision=1,manifest_version=self.manifest,data=value,request_key='drop-origin'))
+AssertionError: Invalid not raised
+
+----------------------------------------------------------------------
+Ran 6 tests in 8.435s
+
+FAILED (failures=1)
