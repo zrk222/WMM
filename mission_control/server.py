@@ -258,6 +258,16 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts)>=4 and parts[3]=='drive':
             from .drive_http import get
             return get(self,parts)
+        if len(parts)>=4 and parts[3]=='install-attribution':
+            from .install_attribution import report
+            if len(parts)!=6 or parts[4]!='reports' or path!='/'+ '/'.join(parts):
+                raise Invalid('Open the exact install report address')
+            query=urlparse(self.path).query
+            if query not in ('','day=1','day=3','day=7'):
+                raise Invalid('Choose a day of 1, 3 or 7')
+            user=self.server.identities.fresh(self.session())
+            day=int(query[-1]) if query else None
+            return self.send(200,report(store,app_id,user,parts[5],day))
         if len(parts)>=4 and parts[3]=='funnels':
             from .funnel_http import get
             return get(self,parts)
@@ -664,33 +674,50 @@ class Handler(BaseHTTPRequestHandler):
                 raise Invalid('Use a supported instrumentation lifecycle state')
             body={key:value for key,value in data.items() if key!='state'}
             action=record_installed if data['state']=='REPORTED_INSTALLED' else record_probe
-            return self.send(201,action(self.server.service.store,parts[2],parts[4],body))
+            user=self.server.identities.fresh(self.session())
+            return self.send(201,action(self.server.service.store,parts[2],parts[4],body,user=user))
         raise Invalid('Use a current tracking proposal, approval, lifecycle or cancellation address')
 
     def post_install_import(self,parts,data):
         """Preview or confirm one mapped MMP install export for the signed-in owner."""
-        from .install_attribution import record_batch
+        from .install_attribution import preview_batch, record_batch
         from .install_import import map_rows,parse_text
-        if urlparse(self.path).query or len(parts)!=6 or parts[4]!='imports' or parts[5] not in ('preview','confirm'):
+        if len(parts)!=6 or parts[4]!='imports' or parts[5] not in ('preview','confirm') or self.path!='/'+ '/'.join(parts):
             raise Invalid('Use the exact install import preview or confirmation address')
-        required=('text','format','mapping','source','campaign_token','observed_at','window','coverage')
-        if not isinstance(data,dict) or not set(required)<=set(data) or set(data)-set(required)-{'request_id','source_receipt_sha256'}:
-            raise Invalid('Use the exact install import fields')
-        if not isinstance(data['text'],str) or len(data['text'])>2000000:
-            raise Invalid('Install export must be text up to 2 MB')
+        confirm=parts[5]=='confirm'
+        required={'text','format','mapping','source','campaign_token','observed_at','window','coverage'}
+        if confirm:
+            required.update(('request_id','preview_id'))
+        if not isinstance(data,dict) or not required<=set(data) or set(data)-required-{'request_id','source_receipt_sha256'}:
+            raise Invalid('Preview the exact install export before confirming it' if confirm else 'Use the exact install import fields')
+        if not isinstance(data['text'],str):
+            raise Invalid('Install export must be UTF-8 text up to 2 MB')
+        try:
+            file_bytes=data['text'].encode('utf-8')
+        except UnicodeEncodeError as exc:
+            raise Invalid('Install export contains invalid UTF-8 text') from exc
+        if len(file_bytes)>2000000:
+            raise Invalid('Install export must be UTF-8 text up to 2 MB')
         user=self.server.identities.fresh(self.session())
+        source_hash=hashlib.sha256(file_bytes).hexdigest()
+        if 'source_receipt_sha256' in data and data['source_receipt_sha256']!=source_hash:
+            raise Invalid('The upload bytes differ from the supplied source digest')
         rows=parse_text(data['text'],data['format'])
-        batch,checklist=map_rows(rows,data['mapping'],data['source'],data['campaign_token'],
-                                 data['observed_at'],data['window'],data['coverage'],
-                                 data.get('request_id'),data.get('source_receipt_sha256'),
-                                 columns=list(rows[0].keys()) if rows else [])
+        _,checklist=map_rows(rows,data['mapping'],data['source'],data['campaign_token'],
+                             data['observed_at'],data['window'],data['coverage'],
+                             data.get('request_id'),source_hash)
         normalized=checklist.pop('_batch',None)
         if checklist['status']!='READY':
-            if parts[5]=='preview':return self.send(200,dict(checklist=checklist,batch=None))
+            if not confirm:return self.send(200,dict(checklist=checklist,batch=None,preview_id=None))
             raise Invalid('Install import is blocked: '+str(checklist.get('reason') or 'review the checklist'))
-        if parts[5]=='preview':
-            return self.send(200,dict(checklist=checklist,batch=normalized))
-        result=record_batch(self.server.service.store,parts[2],user,normalized)
+        store=self.server.service.store
+        if not confirm:
+            preview=preview_batch(store,parts[2],user,normalized)
+            metadata={key:value for key,value in normalized.items() if key!='installs'}
+            return self.send(200,dict(checklist=checklist,batch=metadata,preview_id=preview))
+        if not isinstance(data['preview_id'],str):
+            raise Invalid('Preview this exact install export again before confirming')
+        result=record_batch(store,parts[2],user,normalized,preview_id=data['preview_id'])
         return self.send(201,dict(result=result,checklist=checklist))
 
     def post_sequence(self,parts,data):

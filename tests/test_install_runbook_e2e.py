@@ -1,5 +1,5 @@
 ﻿"""Synthetic end-to-end runbook path: register study -> import installs -> linked report."""
-from pathlib import Path
+from unittest.mock import patch
 import unittest
 from datetime import timedelta
 from mission_control.install_attribution import record_batch, report, summary
@@ -28,7 +28,8 @@ class RunbookPathTests(unittest.TestCase):
                      window=dict(starts_at=starts, ends_at=ends),
                      coverage=dict(complete=True, source_event_count=1),
                      installs=[dict(install_id="install_a", state="ATTRIBUTED", occurred_at=install_time)])
-        result = record_batch(self.fx.store, campaign_fixture.APP, OWNER, batch)
+        with patch("mission_control.install_attribution.now", return_value=ends):
+            result = record_batch(self.fx.store, campaign_fixture.APP, OWNER, batch)
         self.assertEqual(result["inserted"], 1)
         value = report(self.fx.store, campaign_fixture.APP, OWNER, campaign, day=1)
         self.assertEqual(value["study_status"], "LINKED")

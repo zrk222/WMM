@@ -36,11 +36,16 @@ window.
 **Use the shipped UI first:** Results ? Install attribution ? **Import install
 export**. Choose the original CSV/JSON file, source token, campaign token,
 observed time, frozen window and the `install_id`/`state`/`occurred_at` columns.
-WMM previews the coverage checklist and stores nothing until you confirm. After a
-successful preview it remembers the source token and column names on this
-machine, so the next import needs fewer fields.
+WMM previews the coverage checklist and saves only a confirmation reference
+until you confirm the exact export. The preview expires after 15 minutes.
+Enter a status mapping when the source uses labels other than WMM's four states.
+A complete export must be observed after the window ends and its count must
+equal the imported and excluded rows. For a verified empty export, select
+complete coverage and enter a source event count of zero. WMM remembers the
+source and column mapping on this machine for the next import.
 
-The CLI remains a fallback for a headless owner workstation:
+The command below checks and maps a file locally. To persist the export,
+use the signed-in owner's import dialog.
 
 ```sh
 python -m mission_control.install_import \
@@ -59,7 +64,7 @@ python -m mission_control.install_import \
 
 ```json
 {
-  "install_id": "customer_user_id",
+  "install_id": "pseudonymous_install_id",
   "state": "attribution_status",
   "occurred_at": "install_time",
   "state_values": {
@@ -75,8 +80,8 @@ before ingesting: it lists rows read/emitted, counts by state, missing values,
 duplicate/conflicting install IDs, unmapped columns and incomplete coverage. Do
 not edit a blocked batch into shape silently; fix the mapping or the source.
 
-Ingest the resulting `batch.json` through the owner-scoped install attribution
-service (`mission_control.install_attribution.record_batch`). Batch shape:
+The mapper prints the normalized batch below. Review the checklist and use the
+original export and matching mapping in the owner dialog.
 
 ```json
 {
@@ -104,9 +109,10 @@ Rules:
 - The report returns counts per state and coverage. It never returns a rate, lift
   or causal claim. Zero is only zero with complete coverage.
 
-The UI and CLI submit the same owner-scoped batch contract. Do not paste tokens
-or customer data into a public issue. The CLI's `record_batch` path remains
-available only for a headless owner session.
+The owner dialog verifies the original UTF-8 file bytes, including any BOM and
+line endings, and records the source SHA-256. Use stable pseudonymous install
+tokens prepared by your export process. Do not paste customer data into a
+public issue.
 
 ## Step 3 — Collect retention or paid conversion (choose one)
 
@@ -122,11 +128,12 @@ substitute engagement counts.
 
 1. Observational campaign report: tagged landings and linked registrations, with
    exclusions and coverage.
-2. Install attribution report: attributed/unattributed/suppressed/unknown counts
-   for the same campaign token, with coverage and `LINKED`/`UNLINKED` to the
-   registered study. `MIXED` means batches disagree; inspect them. Day 1, 3 and
-   7 views count distinct installs up to that day without double counting
-   repeated batches.
+2. In Results, choose **Open install report** beside the campaign token.
+   Review attributed, unattributed, suppressed and unknown counts with the
+   coverage, dates and source receipts. `MIXED` means some batches lack the same
+   study link. Day 1, 3 and 7 views count retained installs through the selected
+   cutoff. An export that ends early or was observed before the cutoff shows
+   partial coverage. An unobserved count remains unknown.
 3. Retention or paid-conversion report: denominator, window, maturity and source
    hash.
 

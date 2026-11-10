@@ -103,7 +103,7 @@ class AutomationReadinessTests(unittest.TestCase):
             'observational-campaign.ingest', 'observational-campaign.report',
             'observational-campaign.history', 'observational-campaign.correct',
         }
-        expected |= study_operations
+        expected |= study_operations | {'packaging.editor-prepare'}
         self.assertEqual(set(UNBUNDLED_OPERATIONS),expected)
         for name in study_operations:
             self.assertEqual(UNBUNDLED_OPERATIONS[name], 'local_evidence')

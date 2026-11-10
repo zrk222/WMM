@@ -39,6 +39,8 @@ OPERATIONS={
     'packaging.taste-read':descriptor('POST','/packaging/taste-read','READ_PRIVATE_LOCAL_DATA',('id',),('version',)),
     'packaging.taste-history':descriptor('POST','/packaging/taste-history','READ_PRIVATE_LOCAL_DATA',(),('offset',)),
     'packaging.checklist':descriptor('POST','/packaging/checklist','READ_PRIVATE_LOCAL_DATA',('manifest_version','shots')),
+    'packaging.editor-prepare':descriptor('POST','/packaging/editor-prepare','READ_PRIVATE_LOCAL_DATA',
+                                          ('manifest_version','shots','taste','title','purpose','output','clips')),
     'packaging.history':descriptor('POST','/packaging/history','READ_PRIVATE_LOCAL_DATA',(),('offset',)),
     'packaging.read':descriptor('POST','/packaging/read','READ_PRIVATE_LOCAL_DATA',('id','kind'),('version',)),
     'packaging.save':descriptor('POST','/packaging/save','WRITE_LOCAL_PLAN',('id','version','kind','manifest_version','data')),

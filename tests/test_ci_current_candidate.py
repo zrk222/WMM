@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # exact-approved publication with retained synthetic desktop/mobile evidence.
 # All eight backend shards and the native/package job definitions are retained.
 BASELINES = {
-    ".github/workflows/checks.yml": "6b35c3d33ec3e14af0dcf70cea5e70bf2a38a965b83584a356debbc242c0ae0e",
+    ".github/workflows/checks.yml": "f23a8de6520401bb7299ddbaf2fd5a81c2e7cb5d5168372277d15ebecc7d0d54",
     ".github/workflows/platform-checks.yml": "8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",
     ".github/workflows/desktop-packages.yml": "7b3c79b9d8d4c3de876768e804e5794f23d37cf4f3a912013d051eeb7f238504",
 }
@@ -34,6 +34,7 @@ class CurrentCandidateCITests(unittest.TestCase):
         self.assertIn("python -m unittest tests.test_insights_history_browser tests.test_observational_campaign_browser -v", browser)
         self.assertIn("python tools/test_owner_onboarding_browser.py", browser)
         self.assertIn("python tools/test_goal_journey_browser.py", browser)
+        self.assertIn("python tools/test_install_report_browser.py", browser)
         self.assertIn("python tools/test_campaign_monitor_browser.py", browser)
         self.assertIn("python tools/test_organic_taste_browser.py", browser)
         self.assertIn("python tools/test_goal_packet_history_browser.py", browser)
