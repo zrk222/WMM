@@ -59,6 +59,13 @@ jobs:
           python -m pip install --only-binary :all: SecretStorage==3.3.3
           sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=45 -o Acquire::https::Timeout=45 update
           sudo apt-get install --yes --no-install-recommends dbus gnome-keyring libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev libgl1 xvfb xauth openbox wmctrl
+      - name: Generate source-bound build-environment SBOM
+        shell: bash
+        run: |
+          mkdir -p release-assets
+          if [ "$RUNNER_OS" = "Windows" ]; then platform=Windows; else platform=Linux; fi
+          python tools/build_sbom.py --output "release-assets/sbom-$platform.json" --source-sha "$GITHUB_SHA" --platform "$platform"
+
       - name: Verify desktop entry
         run: python -m unittest tests.test_desktop_entry tests.test_packaged_first_packet_contract -v
       - name: Install declared first-packet browser profile
