@@ -1,6 +1,6 @@
 # Automation logic: facts → rules → proposals
 
-Status: **P0 evaluator, P1 fact projection and owner-only simulation UI implemented; persistent proposal inbox and scheduling are not.**
+Status: **P0 evaluator, P1 fact projection/simulation UI and immutable rule versions implemented; persistent proposal inbox, cooldowns across runs and scheduling are not.**
 
 ## Principle
 
@@ -148,15 +148,15 @@ The bundled cohort-setup rule proposes an owner review when the workspace has no
 
 ## Simulation UI
 
-In **Review results**, app owners can open **Try an automation rule**. The starter rule suggests reviewing measurement setup when the app has no saved cohort metrics. Preview another rule by editing the JSON. Missing evidence is listed separately from rules that did not match.
+In **Review results**, app owners can open **Automation rules**. The starter rule suggests reviewing measurement setup when the app has no saved cohort metrics. Preview another rule by editing the JSON. Missing evidence is listed separately from rules that did not match.
 
-The preview checks the current local owner session and checks app membership in the same read-only database snapshot as the facts. It does not save rules, open the credential vault, call providers, or create approvals. A response is discarded if its panel or app context changes before it arrives.
+The preview checks the current local owner session and checks app membership in the same read-only database snapshot as the facts. It does not call providers or create approvals. **Save rules** appends an immutable owner-authored version; saving writes only the rule set, while evaluation still creates no approval or effect. A response is discarded if its panel or app context changes before it arrives.
 
 ## Delivery phases
 
 1. **P0 (implemented):** deterministic evaluator + validation + simulation + tests.
 2. **P1 (projection and simulation UI implemented; inbox pending):** typed fact projection, owner rule simulation and proposal inbox.
-3. **P2:** scheduled evaluation, persistence/cooldown store and deduplication across runs.
+3. **P2 (rule versions implemented; inbox/schedule pending):** scheduled evaluation, proposal inbox, cooldown store and deduplication across runs.
 4. **P3:** agent-suggested rules and explanations, never auto-activation.
 
 This design preserves the validation-first scope in [ADR 0002](adr/0002-stay-narrow.md).

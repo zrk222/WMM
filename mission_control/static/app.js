@@ -598,7 +598,7 @@ function automationRulesPanel(){
   const operator=experimentScheduleIdentity();
   if(operator.status!=="AUTHENTICATED"||operator.role!=="OWNER")return "";
   const sample={schema:"wmm.automation-rules.v1",mode:"PROPOSE_ONLY",timezone:state.workspace?.app?.data?.timezone||"UTC",rules:[{id:"cohort-setup-review",enabled:true,priority:5,when:{fact:"metrics.cohort_count",op:"eq",value:0},then:{propose:{action:"review_measurement_setup",tool:"reports.read",reason:"This app has no saved cohort metrics. Choose what to measure before starting a test."},requires:["OWNER_REVIEW"]}}]};
-  return `<section class="panel" aria-label="Automation rule preview"><details><summary>Try an automation rule</summary><p class="description">See what WMM would suggest for this app using saved evidence. A preview does not save rules, approve work, publish or spend.</p><label class="field" for="automation-rules-json">Rule to preview (JSON)<textarea id="automation-rules-json" name="rules" rows="8" spellcheck="false">${esc(JSON.stringify(sample,null,2))}</textarea></label><div class="toolbar">${button("Preview suggestions","automation-rules-run")}</div><div id="automation-rules-result" role="status" aria-live="polite"></div></details></section>`;
+  return `<section class="panel" aria-label="Automation rule preview"><details><summary>Automation rules</summary><p class="description">See what WMM would suggest for this app using saved evidence. Previewing does not approve work, publish or spend. Saving adds an immutable version.</p><label class="field" for="automation-rules-json">Rule to preview (JSON)<textarea id="automation-rules-json" name="rules" rows="8" spellcheck="false">${esc(JSON.stringify(sample,null,2))}</textarea></label><div class="toolbar">${button("Preview suggestions","automation-rules-run")}${button("Load saved","automation-rules-load")}${button("Save rules","automation-rules-save")}</div><p id="automation-rules-status" class="description" role="status"></p><div id="automation-rules-result" role="status" aria-live="polite"></div></details></section>`;
 }
 
 function automationRulesResult(value){
@@ -1348,6 +1348,22 @@ async function handleAction(node) {
   if(action==="measurement-connections"){$("#modal").close();state.view="connections";return render();}
   if(action==="first-post-open")return firstMeasuredPost();
   if(action==="next-answer")return nextAnswer();
+  if(action==="automation-rules-load"){
+    const saved=await api(`/api/apps/${encodeURIComponent(state.app)}/automation/rules`);
+    const input=document.getElementById("automation-rules-json"),status=document.getElementById("automation-rules-status");
+    if(!saved){if(status)status.textContent="No saved rule set yet.";return;}
+    if(input)input.value=JSON.stringify(saved.document,null,2);
+    if(status)status.textContent=`Loaded version ${saved.version} ? ${saved.hash.slice(0,16)}?`;
+    return;
+  }
+  if(action==="automation-rules-save"){
+    const input=document.getElementById("automation-rules-json"),status=document.getElementById("automation-rules-status");
+    let document;
+    try{document=JSON.parse(input?.value||"");}catch{throw new Error("Rules must be valid JSON.");}
+    const saved=await api(`/api/apps/${encodeURIComponent(state.app)}/automation/rules`,{document});
+    if(status)status.textContent=`Saved version ${saved.version} ? ${saved.hash.slice(0,16)}?`;
+    return;
+  }
   if(action==="automation-rules-run")return runAutomationRulePreview(node);
   if(action==="campaign-plan-open")return campaignPlanOpen();
   if(action==="campaign-plan-download-md"){if(!state.campaignPlan)throw new Error("Open the campaign plan first.");return download(`${state.app}-campaign-plan.md`,WMMCampaignPlan.markdown(state.campaignPlan),"text/markdown");}

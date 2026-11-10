@@ -325,6 +325,15 @@ class Handler(BaseHTTPRequestHandler):
                 raise Invalid('Use the exact app operation discovery address and supported profile')
             from .agent_operations import discovery
             return self.send(200,discovery(store.app(app_id),'meta_media_buyer' if query else None))
+        if parts[3:]==['automation','rules']:
+            if urlparse(self.path).query:raise Invalid('Use the exact automation rules address')
+            from .automation_store import current
+            from .db import connection as db_connection
+            from .review_access import member
+            session=self.session();user=self.server.identities.fresh(session)
+            with db_connection(store.path) as db:
+                member(db,app_id,user['principal'],'OWNER')
+            return self.send(200,current(store,app_id))
         if parts[3:]==['jobs']:
             if urlparse(self.path).query:raise Invalid('Use the exact app job history address')
             from .worker import jobs
@@ -723,16 +732,25 @@ class Handler(BaseHTTPRequestHandler):
 
     def post_automation(self,parts,data):
         """Simulate owner-authored rules against the current saved workspace; no writes."""
-        if len(parts)!=5 or parts[4]!='evaluate' or urlparse(self.path).query:
-            raise Invalid('Use the exact automation rule simulation address')
+        if len(parts)!=5 or parts[4] not in ('evaluate','rules') or urlparse(self.path).query:
+            raise Invalid('Use the exact automation rule preview or save address')
+        from .db import connection
+        from .review_access import member
+        session=self.session();identities=self.server.identities;public=identities.public(session)
+        if public.get('status')!='AUTHENTICATED':
+            raise PermissionError("Sign in as this app's owner to use automation rules")
+        user=identities.local(session,public['principal']);store=self.server.service.store
+        with connection(store.path) as db:
+            member(db,parts[2],user['principal'],'OWNER')
+        if parts[4]=='rules':
+            if not isinstance(data,dict) or set(data)!={'document'}:
+                raise Invalid('Submit the exact rules document')
+            from .automation_store import save
+            return self.send(201,save(store,parts[2],user,data['document']))
         if not isinstance(data,dict) or set(data)!={'rules'}:
             raise Invalid('Submit the exact rules document')
         from .automation_rules import evaluate, project_database
-        session=self.session();identities=self.server.identities;public=identities.public(session)
-        if public.get('status')!='AUTHENTICATED':
-            raise PermissionError('Sign in as this app’s owner to try an automation rule')
-        user=identities.local(session,public['principal'])
-        facts=project_database(self.server.service.store.path,parts[2],owner_principal=user['principal'])
+        facts=project_database(store.path,parts[2],owner_principal=user['principal'])
         result=evaluate(data['rules'],facts)
         identities.local(session,user['principal'],user['session_generation'])
         return self.send(200,result)
