@@ -7,7 +7,7 @@ from .funnel_store import app_context
 from .packaging_store import Packaging, decode, readback
 from . import packaging_contract as contract
 
-ACTIONS={'save','read','history','reconcile','checklist','taste-review','taste-read','taste-reconcile','taste-history'}
+ACTIONS={'save','read','history','reconcile','checklist','taste-review','taste-read','taste-reconcile','taste-history','editor-prepare'}
 SAVE_FIELDS={'id','version','kind','manifest_version','data'}
 
 
@@ -53,6 +53,9 @@ def dispatch(store, app_id, action, body):
     if action in {'taste-review','taste-read','taste-reconcile','taste-history'}:
         from .creative_taste_store import dispatch as taste
         return taste(store,app_id,action,body)
+    if action=='editor-prepare':
+        from .packaging_editor import prepare
+        return prepare(store,app_id,body)
     service=Packaging(store)
     if action=='checklist':
         from .packaging_handoff import preview

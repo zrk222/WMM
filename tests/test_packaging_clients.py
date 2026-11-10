@@ -134,7 +134,9 @@ class PackagingClientTests(unittest.IsolatedAsyncioTestCase):
         from mission_control.automation_requirements import workflow_catalog
         contract=catalog()['domain_contracts']['content_packaging'];self.assertEqual(set(contract['variant_fields']),set(draft()))
         self.assertFalse(contract['execution_authority']);self.assertEqual(contract['render'],'NOT_RUN')
-        self.assertTrue(set(contract['operations'])<=set(workflow_catalog()['workflows']['local_evidence']['operations']))
+        workflow = workflow_catalog()
+        self.assertEqual(workflow['unbundled_operations']['packaging.editor-prepare'], 'video_authoring_editing')
+        self.assertTrue((set(contract['operations'])-{'packaging.editor-prepare'})<=set(workflow['workflows']['local_evidence']['operations']))
         self.assertEqual(set(contract['uncertain_write']['statuses']),{'MATCHING_REVISION_OBSERVED','DIFFERENT_REVISION_OBSERVED','NO_REVISION_OBSERVED'})
 
     def test_closed_access_fields_and_history_paging(self):

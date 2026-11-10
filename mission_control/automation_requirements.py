@@ -68,6 +68,7 @@ MAX_WORKFLOWS = len(WORKFLOWS)
 # These operations remain separately approved through exact scoped grants or a
 # current owner session; they are not added to existing standing policies.
 UNBUNDLED_OPERATIONS = {
+    'packaging.editor-prepare': 'video_authoring_editing',
     'observational-campaign.register': 'local_evidence',
     'observational-campaign.link': 'local_evidence',
     'observational-campaign.ingest': 'local_evidence',

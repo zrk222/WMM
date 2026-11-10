@@ -100,7 +100,12 @@ def execute(service,envelope,*,caller='SCOPED_AGENT'):
         return service.studio.dispatch(envelope)
     if envelope['operation'].startswith('packaging.'):
         from .packaging_access import dispatch
-        return dispatch(service.store,envelope['app_id'],envelope['operation'].split('.')[1],envelope['input'])
+        action=envelope['operation'].split('.')[1]
+        if action=='editor-prepare':
+            from .operation_authority import protected
+            with protected(service.store,envelope):
+                return dispatch(service.store,envelope['app_id'],action,envelope['input'])
+        return dispatch(service.store,envelope['app_id'],action,envelope['input'])
     if envelope['operation'].startswith('organic-video.'):
         from .operation_authority import protected
         from .organic_video_collector import claim, submit

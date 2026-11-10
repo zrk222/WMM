@@ -80,11 +80,13 @@ def shotlist(value):
 def agent_contract():
     """Describe actual preparation controls without promoting drafts to execution."""
     return dict(schema='growth.packaging-contract.v1',kinds=['VARIANT','SHOTS'],
-                operations=['packaging.save','packaging.read','packaging.history','packaging.reconcile','packaging.checklist','packaging.taste-read','packaging.taste-history'],
+                operations=['packaging.save','packaging.read','packaging.history','packaging.reconcile','packaging.checklist','packaging.editor-prepare','packaging.taste-read','packaging.taste-history'],
                 taste=dict(read_fields=['id','version (optional)'],history_fields=['offset (optional)'],
                            approval='Only current protected owner review; no agent approval operation.',
                            usage='Read exact selected guidance; stale owner/app/policy/examples require a new owner review. Preferences never grant execution or reuse rights.'),
                 checklist_fields=['manifest_version','shots'],
+                editor_prepare_fields=['manifest_version','shots','taste','title','purpose','output','clips'],
+                editor_prepare_effect='Read-only desktop preparation. Choose one original clip per shot, including shot_id, exact source, frame range and audio. Save the returned definition separately with editor.save.' ,
                 checklist_effect='Read-only exact SHOTS reference; missing media/rights/claims and editing decisions grant no execution authority.',
                 save_fields=['id','version','kind','manifest_version','data'],
                 variant_fields=['audience','app_outcome','title','thumbnail','opening_frame','hook','cta','sources','creative','app_proofs'],
