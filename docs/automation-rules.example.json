@@ -1,0 +1,47 @@
+{
+  "schema": "wmm.automation-rules.v1",
+  "mode": "PROPOSE_ONLY",
+  "timezone": "America/Toronto",
+  "rules": [
+    {
+      "id": "coverage-repair",
+      "enabled": true,
+      "priority": 20,
+      "when": {
+        "all": [
+          {"fact": "study.window.state", "op": "eq", "value": "ENDED"},
+          {"fact": "study.coverage", "op": "ne", "value": "COMPLETE"}
+        ]
+      },
+      "then": {
+        "propose": {
+          "action": "repair_coverage",
+          "tool": "install.import.preview",
+          "reason": "The study window ended but coverage is incomplete."
+        },
+        "requires": ["EXACT_APPROVAL"]
+      },
+      "cooldown": "P1D"
+    },
+    {
+      "id": "mature-result-review",
+      "enabled": true,
+      "priority": 10,
+      "when": {
+        "all": [
+          {"fact": "study.coverage", "op": "eq", "value": "COMPLETE"},
+          {"fact": "retention.maturity", "op": "eq", "value": "MATURE"}
+        ]
+      },
+      "then": {
+        "propose": {
+          "action": "review_result",
+          "tool": "reports.read",
+          "reason": "A mature, complete coverage result is ready for a decision."
+        },
+        "requires": ["OWNER_REVIEW"]
+      },
+      "cooldown": "P7D"
+    }
+  ]
+}
