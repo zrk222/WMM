@@ -594,8 +594,19 @@ function analyticsOverviewPanel(){
   return `<section class="panel" aria-label="Analytics overview"><div class="section-heading"><div><p class="eyebrow">ANALYTICS</p><h2>What you can answer now</h2><p>Saved evidence in ${view.savedCount} of ${view.total} areas. Availability is not confidence, attribution completeness or causality.</p></div></div><div class="table-wrap"><table class="result-table"><caption>Saved analytics evidence and the next useful action</caption><thead><tr><th scope="col">Area</th><th scope="col">Saved evidence</th><th scope="col">Latest saved</th><th scope="col">Next</th><th scope="col">Action</th></tr></thead><tbody>${rows}</tbody></table></div><div class="next-step"><div><h3>${esc(view.step.title)}</h3><p>${esc(view.step.detail)}</p>${stepControls[view.step.id]||""}</div></div><p class="description">A missing source stays unknown. WMM does not infer installs, revenue, retention or lift from unrelated counts.</p></section>`;
 }
 
+function automationRulesPanel(){
+  const sample={schema:"wmm.automation-rules.v1",mode:"PROPOSE_ONLY",timezone:state.workspace?.app?.data?.timezone||"America/Toronto",rules:[{id:"incomplete-coverage",enabled:true,priority:10,when:{all:[{fact:"workflow.exception_count",op:"gte",value:1},{fact:"install.campaign_count",op:"gte",value:1}]},then:{propose:{action:"review_exceptions",tool:"reports.read",reason:"Saved exceptions exist alongside an install export."},requires:["OWNER_REVIEW"]}}]};
+  return `<section class="panel" aria-label="Automation rules simulation"><div class="section-heading"><div><p class="eyebrow">AUTOMATION / SIMULATION</p><h2>Test rules against saved facts</h2><p>Rules produce proposals only. Nothing is approved, published or spent.</p></div></div><label class="field" for="automation-rules-json">Rules JSON<textarea id="automation-rules-json" name="rules" spellcheck="false">${esc(JSON.stringify(sample,null,2))}</textarea></label><div class="toolbar">${button("Run simulation","automation-rules-run")}</div><div id="automation-rules-result" role="status"></div></section>`;
+}
+
+function automationRulesResult(value){
+  const proposals=(value.proposals||[]).map(row=>`<article class="next-step"><div><h3>${esc(row.action)}</h3><p>${esc(row.reason)}</p><p><strong>Requires:</strong> ${esc(row.requires.join(", "))} ? rule ${esc(row.rule_id)}</p><p class="app-mono">${esc(row.fact_snapshot_sha256.slice(0,16))}?</p></div></article>`).join("");
+  const results=(value.results||[]).map(row=>`<li>${esc(row.rule_id)}: <strong>${esc(row.status)}</strong>${row.missing?.length?` ? missing ${esc(row.missing.join(", "))}`:""}</li>`).join("");
+  return `${notice("Proposals only. Missing facts stay unknown; no approval was created.")}<h3>Proposals</h3>${proposals||"<p>No rule matched.</p>"}<details><summary>Rule results</summary><ul>${results}</ul></details>`;
+}
+
 function resultsView() {
-  return analyticsOverviewPanel()+WMMFunnels.panel()+installAttributionPanel()+WMMGrowthReview.panel(state)+WMMSubscriptionAuthoring.panel(state)+WMMCustomerWorkflow.panel(state)+measurementIntegrityPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyResultsView();
+  return analyticsOverviewPanel()+automationRulesPanel()+WMMFunnels.panel()+installAttributionPanel()+WMMGrowthReview.panel(state)+WMMSubscriptionAuthoring.panel(state)+WMMCustomerWorkflow.panel(state)+measurementIntegrityPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyResultsView();
 }
 
 function growthReviewServices() {
@@ -1309,6 +1320,15 @@ async function handleAction(node) {
   if(action==="measurement-connections"){$("#modal").close();state.view="connections";return render();}
   if(action==="first-post-open")return firstMeasuredPost();
   if(action==="next-answer")return nextAnswer();
+  if(action==="automation-rules-run"){
+    const input=document.getElementById("automation-rules-json");
+    let rules;
+    try{rules=JSON.parse(input?.value||"");}catch{throw new Error("Rules must be valid JSON.");}
+    const result=await api(`/api/apps/${encodeURIComponent(state.app)}/automation/evaluate`,{rules});
+    const target=document.getElementById("automation-rules-result");
+    if(target)target.innerHTML=automationRulesResult(result);
+    return;
+  }
   if(action==="campaign-plan-open")return campaignPlanOpen();
   if(action==="campaign-plan-download-md"){if(!state.campaignPlan)throw new Error("Open the campaign plan first.");return download(`${state.app}-campaign-plan.md`,WMMCampaignPlan.markdown(state.campaignPlan),"text/markdown");}
   if(action==="campaign-plan-download-json"){if(!state.campaignPlan)throw new Error("Open the campaign plan first.");return download(`${state.app}-campaign-plan.json`,state.campaignPlan);}

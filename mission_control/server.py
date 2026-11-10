@@ -648,7 +648,7 @@ class Handler(BaseHTTPRequestHandler):
                 "reviews":lambda:service.prepare_review(app_id,data),"cohorts":lambda:service.cohort(app_id,data),"events":lambda:service.events(app_id,data)}
         handlers={"agent-reviews":self.post_agent_reviews,"agent-grants":self.post_agent_grants,"setup-discovery":self.post_setup_discovery,"play":self.post_play,"experiment-tracking":self.post_tracking,"sequences":self.post_sequence,"resolutions":self.post_resolution,"release-selection":self.post_release_selection,"inspections":self.post_inspection,
                   "pmf-research":self.post_pmf_research,"followup":self.post_followup,"aeo":self.post_aeo,
-                  "insights":self.post_insights,"storekit":self.post_storekit,"attribution":self.post_attribution,"install-attribution":self.post_install_import,
+                  "insights":self.post_insights,"storekit":self.post_storekit,"attribution":self.post_attribution,"install-attribution":self.post_install_import,"automation":self.post_automation,
                   "connections":self.post_connection,"experiments":self.post_experiment,"references":self.post_reference,"production":self.post_production,"rankings":self.post_ranking,"acquisition":self.post_acquisition,"access":self.post_access,"verified-reviews":self.post_verified_review,"provider-actions":self.post_provider_action,"learning":self.post_learning,"payments":self.post_payments}
         if action in handlers:
             return handlers[action](parts,data)
@@ -720,6 +720,20 @@ class Handler(BaseHTTPRequestHandler):
             raise Invalid('Preview this exact install export again before confirming')
         result=record_batch(store,parts[2],user,normalized,preview_id=data['preview_id'])
         return self.send(201,dict(result=result,checklist=checklist))
+
+    def post_automation(self,parts,data):
+        """Simulate owner-authored rules against the current saved workspace; no writes."""
+        if len(parts)!=5 or parts[4]!='evaluate' or urlparse(self.path).query:
+            raise Invalid('Use the exact automation rule simulation address')
+        if not isinstance(data,dict) or set(data)!={'rules'}:
+            raise Invalid('Submit the exact rules document')
+        from .automation_rules import evaluate_app
+        from .db import connection
+        from .review_access import member
+        session=self.session();user=self.server.identities.fresh(session);store=self.server.service.store
+        with connection(store.path) as db:
+            member(db,parts[2],user['principal'],'OWNER')
+        return self.send(200,evaluate_app(store,parts[2],data['rules']))
 
     def post_sequence(self,parts,data):
         """Approve exact reviewed actions or stop owned work in the selected app only."""
