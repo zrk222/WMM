@@ -42,6 +42,21 @@
         "requires": ["OWNER_REVIEW"]
       },
       "cooldown": "P7D"
+    },
+    {
+      "id": "cohort-setup-review",
+      "enabled": true,
+      "priority": 5,
+      "when": {"fact": "metrics.cohort_count", "op": "eq", "value": 0},
+      "then": {
+        "propose": {
+          "action": "review_measurement_setup",
+          "tool": "reports.read",
+          "reason": "This workspace has no saved cohort metric records. Review what to measure before starting a test."
+        },
+        "requires": ["OWNER_REVIEW"]
+      },
+      "cooldown": "P1D"
     }
   ]
 }

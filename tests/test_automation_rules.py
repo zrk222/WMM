@@ -1,9 +1,12 @@
 """User-authored automation rules are deterministic proposals, never effects."""
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 import json
 from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 
-from mission_control.automation_rules import evaluate, project, validate
+from mission_control.automation_rules import evaluate, main, project, validate
 from mission_control.common import Invalid
 from mission_control.service import Service
 from mission_control.store import Store
@@ -75,6 +78,36 @@ class AutomationRuleTests(unittest.TestCase):
         self.assertEqual(facts["install"]["campaign_count"], 0)
         self.assertEqual(facts["measurement"]["state"], "NO_DATA")
         self.assertNotIn("retention_rate", str(facts))
+
+    def test_database_example_proposes_review_without_writing_workspace(self):
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "existing.sqlite3"
+            store = Store(path, seed=False)
+            store.save_app("facts-review", dict(name="Synthetic app", release="build-1"))
+            other = store.save_app("separate-app", dict(name="Separate synthetic app", release="build-2"))
+            store.save_record("separate-app", dict(kind="cohort", title="Separate cohort",
+                source="Synthetic fixture", data={"installs": 3}, manifest_version=other["version"]))
+            before = path.read_bytes()
+            captured = StringIO()
+            with redirect_stdout(captured):
+                self.assertEqual(main(["--rules", str(ROOT / "docs/automation-rules.example.json"),
+                                       "--database", str(path), "--app", "facts-review"]), 0)
+            self.assertEqual([app["id"] for app in store.apps()], ["facts-review", "separate-app"])
+            self.assertEqual(path.read_bytes(), before)
+        result = json.loads(captured.getvalue())
+        self.assertEqual([row["rule_id"] for row in result["proposals"]], ["cohort-setup-review"])
+        self.assertEqual(result["proposals"][0]["status"], "PROPOSED")
+
+    def test_missing_database_does_not_create_a_workspace(self):
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "not-created" / "missing.sqlite3"
+            with redirect_stderr(StringIO()), self.assertRaises(SystemExit):
+                main(["--rules", str(ROOT / "docs/automation-rules.example.json"),
+                      "--database", str(path), "--app", "facts-review"])
+            self.assertFalse(path.parent.exists())
+
+    def test_omitted_sections_do_not_project_zero_counts(self):
+        self.assertEqual(project({}), {})
 
     def test_invalid_unknown_and_unsafe_shapes_reject(self):
         bad = json.loads(json.dumps(EXAMPLE))
