@@ -83,7 +83,7 @@ function guidedWorker() {
   const worker=state.workspace.worker||{}, rows=worker.components||{};
   const names={experiments:"Experiment analysis",analytics:"Analytics reads",followup:"Follow-up preparation",queue:"Local job queue"};
   const failed=Object.values(rows).some(r=>r.failures>0);
-  return `<section class="panel" aria-label="Automatic workflow health"><h2>Automatic workflow</h2><p>${esc(label(worker.status||"NOT_STARTED"))} · Shared local worker for all app workspaces.</p><ul>${Object.entries(rows).map(([name,row])=>`<li>${esc(names[name]||name)}: ${esc(label(row.status))}${row.failures?` · ${row.failures} consecutive failures`:""}</li>`).join("")}</ul>${failed?notice(worker.last_error,"error")+button("Retry failed automation","guided-worker-retry"):""}<p class="description">Healthy components keep running. Three consecutive failures pause that component. Retry preserves app opt-ins, failed-job receipts and provider approvals.</p></section>`;
+  return `<section class="panel" aria-label="Automatic workflow health"><h2>Automatic workflow</h2><p>${esc(label(worker.status||"NOT_STARTED"))} · Shared worker for app workspaces on this host.</p><ul>${Object.entries(rows).map(([name,row])=>`<li>${esc(names[name]||name)}: ${esc(label(row.status))}${row.failures?` · ${row.failures} consecutive failures`:""}</li>`).join("")}</ul>${failed?notice(worker.last_error,"error")+button("Retry failed automation","guided-worker-retry"):""}<p class="description">Healthy components keep running. Three consecutive failures pause that component. Retry preserves app opt-ins, failed-job receipts and provider approvals.</p></section>`;
 }
 
 function guidedNavigate(view,anchor=null) {

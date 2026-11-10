@@ -172,7 +172,8 @@ def verify_packet_browser(origin, output_dir, storage_dir=None, expected_initial
                     for goal, title, stages in GOALS:
                         page.get_by_role('button', name=title, exact=True).press('Enter')
                         expect(page.locator('[data-action="goal-select"][data-goal="'+goal+'"]')).to_have_attribute('aria-pressed', 'true')
-                        page.get_by_role('button', name='Open your first packet', exact=True).press('Enter')
+                        packet_trigger = page.get_by_role('button', name='Open your first packet', exact=True)
+                        packet_trigger.press('Enter')
                         dialog = page.get_by_role('dialog')
                         expect(dialog).to_contain_text(title + ' — evidence packet')
                         expect(dialog).to_contain_text('Missing measurements remain unknown')
@@ -188,6 +189,19 @@ def verify_packet_browser(origin, output_dir, storage_dir=None, expected_initial
                         page.screenshot(path=str(out / f'{goal}-{width}.png'), full_page=True)
                         page.keyboard.press('Escape')
                         expect(dialog).to_be_hidden()
+                        expect(packet_trigger).to_be_focused()
+                    packet_trigger.press('Enter')
+                    expect(dialog).to_be_visible()
+                    advanced = page.locator('#navigation details')
+                    page.evaluate("""() => new Promise(resolve => {
+                        const dialog=document.querySelector('#modal');
+                        dialog.addEventListener('close', () => resolve(), {once:true});
+                        dialog.close();
+                        document.querySelector('#navigation details summary').focus();
+                    })""")
+                    expect(advanced.locator('summary')).to_be_focused()
+                    page.keyboard.press('Enter')
+                    expect(advanced).to_have_attribute('open', '')
                     page.reload()
                     page.wait_for_function("id => state.workspace?.app?.id===id", arg=app_id)
                     expect(page.locator('[data-action="goal-select"][data-goal="measurement"]')).to_have_attribute('aria-pressed', 'true')
@@ -199,7 +213,7 @@ def verify_packet_browser(origin, output_dir, storage_dir=None, expected_initial
                         storage.parent.mkdir(parents=True, exist_ok=True)
                         context.storage_state(path=str(storage))
                     results.append(dict(width=width, binding=expected, goals=[g[0] for g in GOALS], reload=True,
-                                        keyboard=True, escape=True, writes=len(setup_writes),
+                                        keyboard=True, escape=True, late_close_preserves_focus=True, writes=len(setup_writes),
                                         write_scope='SYNTHETIC_APP_SETUP_ONLY' if fresh else 'READ_ONLY',
                                         external_requests=0))
                 except Exception as error:
