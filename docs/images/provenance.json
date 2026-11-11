@@ -7,9 +7,17 @@
     "pipeline.png": "384e65c306ca65fabe0f7ae6fca478124067b38342f91bc49596d47237d3717e",
     "results.png": "e46e440b18c33d91fe1ce4cd2795ab50434cf896fd4217f7de956253bed72d58",
     "sample-workflow.png": "78be07a47083dae0e3b9fee86ccfeec1ed0c612822208b9c715f47ba3c343f1e",
-    "agent-task-setup.png": "cad3721275d32a646ddd460ed9f5c7dc7da0f32d2e97d3053c711d212d20b8c3"
+    "agent-task-setup.png": "cad3721275d32a646ddd460ed9f5c7dc7da0f32d2e97d3053c711d212d20b8c3",
+    "goal-to-proof.png": "12e2cf6d0891f689cbf7b151299af4d608c5187fb8ba5351c8a0ae3636a1d6af"
   },
   "additional_captures": {
+    "goal-to-proof.png": {
+      "source": "Actual Chromium capture of the Start Here panel on an isolated local WMM server with a synthetic app; no account connection, publication or spending",
+      "source_commit": "5a604eaffbc4b95371c58528fa09c702b2ad1b22",
+      "captured_at": "2026-11-11T12:13:23.1761724Z",
+      "viewport_width": 1440,
+      "synthetic": true
+    },
     "agent-task-setup.png": {
       "source": "Actual Chromium render of an isolated WMM owner grant form; built-in synthetic sample only, captured before grant issuance; no connected account, provider effect or private workspace",
       "captured_at": "2026-11-05",
