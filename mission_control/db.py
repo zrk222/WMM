@@ -2,6 +2,7 @@
 from contextlib import contextmanager
 from pathlib import Path
 import sqlite3
+import time
 
 from .schema_apple_metrics import SCHEMA as APPLE_METRICS_SCHEMA
 from .schema_discovery import SCHEMA as DISCOVERY_SCHEMA
@@ -224,28 +225,92 @@ def migrate_execution_authority(db):
         db.execute('DROP TRIGGER IF EXISTS automation_execution_authority_'+operation)
     db.execute('ALTER TABLE automation_execution_authority RENAME TO automation_execution_authority_old')
     db.execute('CREATE TABLE automation_execution_authority(execution_id TEXT PRIMARY KEY,permission_expires_at TEXT NOT NULL,policy_revision INTEGER NOT NULL,policy_hash TEXT NOT NULL,grant_revision INTEGER NOT NULL,grant_hash TEXT NOT NULL,record_hash TEXT NOT NULL)')
-    db.execute('INSERT INTO automation_execution_authority SELECT * FROM automation_execution_authority_old')
+    db.execute('INSERT INTO automation_execution_authority '
+               '(rowid,execution_id,permission_expires_at,policy_revision,policy_hash,grant_revision,grant_hash,record_hash) '
+               'SELECT rowid,execution_id,permission_expires_at,policy_revision,policy_hash,grant_revision,grant_hash,record_hash '
+               'FROM automation_execution_authority_old')
     db.execute('DROP TABLE automation_execution_authority_old')
     db.execute("CREATE TRIGGER automation_execution_authority_no_update BEFORE UPDATE ON automation_execution_authority BEGIN SELECT RAISE(ABORT,'standing execution authority is immutable'); END")
     db.execute("CREATE TRIGGER automation_execution_authority_no_delete BEFORE DELETE ON automation_execution_authority BEGIN SELECT RAISE(ABORT,'standing execution authority is immutable'); END")
 
 
+def _normalize_legacy_workspace(db):
+    """Version 1: apply the existing core workspace compatibility repairs."""
+    migrate_execution_authority(db)
+    db.execute('DROP TRIGGER IF EXISTS authority_expiry_no_replace')
+    db.execute("CREATE TRIGGER authority_expiry_no_replace BEFORE INSERT ON authority_expiry_consents WHEN EXISTS(SELECT 1 FROM authority_expiry_consents WHERE rowid=NEW.rowid OR (app_id=NEW.app_id AND kind=NEW.kind AND authority_id=NEW.authority_id AND (revision=NEW.revision OR request_id=NEW.request_id))) BEGIN SELECT RAISE(ABORT,'expiry consent is immutable'); END")
+    db.execute('DROP TRIGGER IF EXISTS automation_execution_authority_no_replace')
+    db.execute("CREATE TRIGGER automation_execution_authority_no_replace BEFORE INSERT ON automation_execution_authority WHEN EXISTS(SELECT 1 FROM automation_execution_authority WHERE rowid=NEW.rowid OR execution_id=NEW.execution_id) BEGIN SELECT RAISE(ABORT,'standing execution authority is immutable'); END")
+    columns={row["name"] for row in db.execute("PRAGMA table_info(authority_expiry_consents)")}
+    if "stable_hash" not in columns:db.execute("ALTER TABLE authority_expiry_consents ADD COLUMN stable_hash TEXT NOT NULL DEFAULT ''")
+    columns={row["name"] for row in db.execute("PRAGMA table_info(creative_batch_variants)")}
+    if "native_state" not in columns:db.execute("ALTER TABLE creative_batch_variants ADD COLUMN native_state TEXT NOT NULL DEFAULT 'PREPARED'")
+    if "native_packet_hash" not in columns:db.execute("ALTER TABLE creative_batch_variants ADD COLUMN native_packet_hash TEXT")
+
+
+_WORKSPACE_MIGRATIONS = ((1, "normalize_legacy_workspace", _normalize_legacy_workspace),)
+
+
+def _applied_workspace_migrations(db):
+    # Read before bootstrap, and again under the writer lock to serialize startup.
+    entry = db.execute(
+        "SELECT type FROM sqlite_master WHERE name='workspace_schema_migrations' COLLATE NOCASE"
+    ).fetchone()
+    if entry is None:
+        return 0
+    if entry["type"] != "table":
+        raise RuntimeError("Invalid workspace migration ledger")
+    rows = db.execute("SELECT version,name FROM workspace_schema_migrations ORDER BY version").fetchall()
+    known = [(version, name) for version, name, _ in _WORKSPACE_MIGRATIONS]
+    if [tuple(row) for row in rows] != known[:len(rows)]:
+        raise RuntimeError("Unsupported workspace schema version; use a compatible WMM version")
+    return len(rows)
+
+
+def _execute_bootstrap(db, script):
+    """Run trusted schema DDL without executescript's implicit commit."""
+    pending = []
+    for line in script.splitlines(keepends=True):
+        if not pending and not line.strip():
+            continue
+        pending.append(line)
+        statement = "".join(pending)
+        if sqlite3.complete_statement(statement):
+            db.execute(statement)
+            pending.clear()
+    if pending:
+        raise RuntimeError("Incomplete workspace bootstrap SQL")
+
+
+def _enable_wal(db):
+    """SQLite can report BUSY immediately when two processes first select WAL."""
+    deadline = time.monotonic() + 15
+    while True:
+        try:
+            db.execute("PRAGMA journal_mode=WAL").fetchone()
+            return
+        except sqlite3.OperationalError as exc:
+            if (getattr(exc, "sqlite_errorcode", None) != sqlite3.SQLITE_BUSY
+                    or time.monotonic() >= deadline):
+                raise
+            time.sleep(0.025)
+
+
 def initialize(path):
-    """Initialize only the independent local database and its indexes."""
+    """Bootstrap the local database and atomically record its core schema repairs."""
+    from .onesignal_setup import SCHEMA as ONESIGNAL_SCHEMA
+
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     with connection(path) as db:
-        db.execute("PRAGMA journal_mode=WAL")
-        db.executescript(SCHEMA)
-        from .onesignal_setup import SCHEMA as ONESIGNAL_SCHEMA
-        db.executescript(ONESIGNAL_SCHEMA)
+        _applied_workspace_migrations(db)
+        _enable_wal(db)
         db.execute("BEGIN IMMEDIATE")
-        migrate_execution_authority(db)
-        db.execute('DROP TRIGGER IF EXISTS authority_expiry_no_replace')
-        db.execute("CREATE TRIGGER authority_expiry_no_replace BEFORE INSERT ON authority_expiry_consents WHEN EXISTS(SELECT 1 FROM authority_expiry_consents WHERE rowid=NEW.rowid OR (app_id=NEW.app_id AND kind=NEW.kind AND authority_id=NEW.authority_id AND (revision=NEW.revision OR request_id=NEW.request_id))) BEGIN SELECT RAISE(ABORT,'expiry consent is immutable'); END")
-        db.execute('DROP TRIGGER IF EXISTS automation_execution_authority_no_replace')
-        db.execute("CREATE TRIGGER automation_execution_authority_no_replace BEFORE INSERT ON automation_execution_authority WHEN EXISTS(SELECT 1 FROM automation_execution_authority WHERE rowid=NEW.rowid OR execution_id=NEW.execution_id) BEGIN SELECT RAISE(ABORT,'standing execution authority is immutable'); END")
-        columns={row["name"] for row in db.execute("PRAGMA table_info(authority_expiry_consents)")}
-        if "stable_hash" not in columns:db.execute("ALTER TABLE authority_expiry_consents ADD COLUMN stable_hash TEXT NOT NULL DEFAULT ''")
-        columns={row["name"] for row in db.execute("PRAGMA table_info(creative_batch_variants)")}
-        if "native_state" not in columns:db.execute("ALTER TABLE creative_batch_variants ADD COLUMN native_state TEXT NOT NULL DEFAULT 'PREPARED'")
-        if "native_packet_hash" not in columns:db.execute("ALTER TABLE creative_batch_variants ADD COLUMN native_packet_hash TEXT")
+        applied = _applied_workspace_migrations(db)
+        _execute_bootstrap(db, SCHEMA)
+        _execute_bootstrap(db, ONESIGNAL_SCHEMA)
+        db.execute("CREATE TABLE IF NOT EXISTS workspace_schema_migrations("
+                   "version INTEGER PRIMARY KEY, name TEXT NOT NULL)")
+        for version, name, migrate in _WORKSPACE_MIGRATIONS[applied:]:
+            migrate(db)
+            db.execute("INSERT INTO workspace_schema_migrations(version,name) VALUES (?,?)",
+                       (version, name))

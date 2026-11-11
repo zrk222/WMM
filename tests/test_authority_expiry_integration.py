@@ -121,6 +121,7 @@ class StandingIntegration(AuthorityFixture, unittest.TestCase):
         extend(self.store,'sample-one',AUTOMATION_OWNER,'AUTOMATION',issued['policy_id'],
                (self.observed+timedelta(days=3)).isoformat(),lambda:self.observed)
         with connection(self.store.path) as db:
+            db.execute('DROP TABLE workspace_schema_migrations')
             db.execute('DROP TRIGGER authority_expiry_no_replace')
             db.execute("CREATE TRIGGER authority_expiry_no_replace BEFORE INSERT ON authority_expiry_consents WHEN EXISTS(SELECT 1 FROM authority_expiry_consents WHERE authority_id=NEW.authority_id AND revision=NEW.revision) BEGIN SELECT RAISE(ABORT,'old'); END")
             db.execute('DROP TRIGGER automation_execution_authority_no_replace')
@@ -146,6 +147,7 @@ class StandingIntegration(AuthorityFixture, unittest.TestCase):
         admission=self.grants.admit(issued['token'],self.envelope())
         identity=admission['automation_execution_id']
         with connection(self.store.path) as db:
+            db.execute('DROP TABLE workspace_schema_migrations')
             before=dict(db.execute('SELECT * FROM automation_execution_authority WHERE execution_id=?',(identity,)).fetchone())
             for suffix in ('no_replace','no_update','no_delete'):
                 db.execute('DROP TRIGGER automation_execution_authority_'+suffix)
