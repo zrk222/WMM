@@ -139,7 +139,7 @@ def binding(db, store, app_id, owner, chosen):
     )
 
 
-def experiment_source(db, app_id, identity):
+def experiment_source(db, app_id, identity, *, review_window=None, observed_at=None):
     """Read existing analysis only; never evaluate or select a winner during reporting."""
     if identity is None:
         return None
@@ -151,7 +151,10 @@ def experiment_source(db, app_id, identity):
         "SELECT * FROM experiment_assessments WHERE app_id=? AND experiment_id=? ORDER BY version DESC LIMIT 1",
         (app_id, identity),
     ).fetchone()
+    analysis_at = iso_time(data["analysis_at"])
+    observed = iso_time(observed_at or now())
     assessment = assessment_view(latest, row["hash"], data) if latest else None
+    aligned = review_window is not None and experiment_window_matches(data, review_window)
     return dict(
         id=identity,
         definition_hash=row["hash"],
@@ -159,11 +162,24 @@ def experiment_source(db, app_id, identity):
         analysis_at=data["analysis_at"],
         state=row["state"],
         maturity="ANALYSIS_WINDOW_REACHED"
-        if iso_time(data["analysis_at"]) <= iso_time(now())
+        if analysis_at <= observed
         else "AWAITING_ANALYSIS",
+        review_window_alignment="MATCHED" if aligned else "NOT_MATCHED",
+        assessment_in_window=bool(latest and analysis_at <= iso_time(latest["created"]) <= observed),
         assessment=assessment,
         analysis_method="EXISTING_SAVED_ASSESSMENT_NO_NEW_EVALUATION",
     )
+
+
+def experiment_window_matches(definition, review_window):
+    try:
+        return all(
+            iso_time(definition[arm]["cohort"][key]) == iso_time(review_window[key])
+            for arm in ("control", "treatment")
+            for key in ("starts_at", "ends_at")
+        )
+    except (KeyError, TypeError, Invalid):
+        return False
 
 
 def assessment_view(row, definition_hash, definition):
@@ -385,7 +401,10 @@ def build(db, store, app_id, owner, chosen):
         )
     metrics = snapshot(db, store, app_id, observed, include_workflows=False)
     campaign = campaign_view(db, app_id, owner, chosen["scope_id"])
-    experiment = experiment_source(db, app_id, chosen["experiment_id"])
+    experiment = experiment_source(
+        db, app_id, chosen["experiment_id"],
+        review_window=chosen["measurement_window"], observed_at=observed,
+    )
     metric_hash = definitions(db, app_id, metrics)
     key = digest(
         dict(
@@ -397,7 +416,6 @@ def build(db, store, app_id, owner, chosen):
             window=chosen["measurement_window"],
         )
     )
-    observation = monitor_view["last_observation"]
     coverage = dict(
         available_rows=sum(
             r["observed"] is not None
@@ -423,7 +441,7 @@ def build(db, store, app_id, owner, chosen):
         kpi_coverage=coverage,
         experiment=experiment,
         comparison=comparison(db, app_id, owner, key, metrics),
-        next_action=next_action(campaign, observation, coverage, experiment),
+        next_action=next_action(campaign, monitor_view, experiment),
         authority_issued=False,
         limits="Saved local evidence only; no fresh provider reads, messages, publication or verified business lift.",
     )
@@ -439,7 +457,7 @@ def build(db, store, app_id, owner, chosen):
     return value, key
 
 
-def next_action(campaign, observation, coverage, experiment):
+def next_action(campaign, monitor, experiment):
     uncertain = ("UNKNOWN", "DISPATCHING", "ACKNOWLEDGED", "VERIFYING")
     if any(
         r["status"] in uncertain or r["status"].startswith("PENDING_")
@@ -448,27 +466,28 @@ def next_action(campaign, observation, coverage, experiment):
         return "Inspect and reconcile the exact uncertain campaign receipts; do not replay mutations."
     if _historical(campaign):
         return "Review historical campaign receipts; this report does not renew expired or OFF execution authority."
-    if not observation:
+    observation = monitor["last_observation"]
+    if monitor["id"] and not observation:
         return (
             "Inspect the selected monitor; no saved monitor observation is available."
         )
-    if observation.get("status") == "BLOCKED":
+    if observation and observation.get("status") == "BLOCKED":
         return "Inspect the blocked monitor and reconcile its saved campaign receipts; do not replay mutations."
-    if not coverage["available_rows"]:
-        return "Connect or import app-scoped KPI evidence with denominators and source windows."
-    if experiment and experiment["maturity"] == "AWAITING_ANALYSIS":
+    if not experiment:
+        return "Choose a primary outcome and a measured study for this campaign. App-wide KPI totals do not show what this campaign did."
+    if experiment["review_window_alignment"] != "MATCHED":
+        return "Use the selected experiment’s exact acquisition dates as the report window before interpreting its result."
+    if experiment["maturity"] == "AWAITING_ANALYSIS":
         return "Wait for the declared experiment analysis window and mature evidence."
-    if experiment and not experiment["assessment"]:
+    assessment = experiment["assessment"]
+    if not assessment or not experiment["assessment_in_window"] or not assessment["definition_matches"]:
         return (
             "Review current evidence and explicitly evaluate the existing experiment."
         )
-    if experiment and experiment["assessment"]:
-        iteration = experiment["assessment"]["iteration"]
-        if iteration:
-            draft = iteration["draft"]
-            change = " Draft for review. " + draft["proposed_change"] if draft else ""
-            return iteration["reason"] + change + " Re-evaluate current evidence before using this saved recommendation."
-    return "Review the saved descriptive measurements and choose one bounded next decision."
+    iteration = assessment["iteration"]
+    draft = iteration["draft"]
+    change = " Draft for review. " + draft["proposed_change"] if draft else ""
+    return iteration["reason"] + change + " Re-evaluate current evidence before using this saved recommendation."
 
 
 def _historical(campaign):

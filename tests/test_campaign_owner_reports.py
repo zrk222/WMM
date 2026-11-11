@@ -24,6 +24,11 @@ from tests import test_campaign_monitor_integration as fixture
 EXPERIMENT = "99999999-9999-4999-8999-999999999999"
 
 
+def positive_effect():
+    return dict(control_rate=0.2, treatment_rate=0.29, difference=0.09,
+                interval=[0.06, 0.12], method="synthetic")
+
+
 class CampaignOwnerReportsTests(unittest.TestCase):
     def setUp(self):
         self.fixture = fixture.CampaignMonitorIntegrationTests(
@@ -145,13 +150,14 @@ class CampaignOwnerReportsTests(unittest.TestCase):
             draft = self.reports.prepare("sample", value)
             return self.reports.activate("sample", draft["id"], draft["summary_hash"])
 
-    def experiment(self, analysis_at=None, status=None):
+    def experiment(self, analysis_at=None, status=None, window=None, effect=None, assessed_at=None):
         definition = dict(
             primary_metric="activation_rate",
             analysis_at=analysis_at
             or (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
-            control={},
-            treatment={},
+            control={"cohort": window} if window else {},
+            treatment={"cohort": window} if window else {},
+            minimum_detectable_effect=0.05,
         )
         with connection(self.store.path) as db:
             db.execute(
@@ -173,7 +179,7 @@ class CampaignOwnerReportsTests(unittest.TestCase):
                     definition_hash=digest(definition),
                     diagnostics={"sample_ratio_chi_square": None},
                     guardrail_findings=[],
-                    effect=None,
+                    effect=effect,
                 )
                 db.execute(
                     "INSERT INTO experiment_assessments VALUES(?,?,?,?,?,?)",
@@ -182,7 +188,7 @@ class CampaignOwnerReportsTests(unittest.TestCase):
                         EXPERIMENT,
                         digest(assessment),
                         canonical(assessment),
-                        now(),
+                        assessed_at or now(),
                         1,
                     ),
                 )
@@ -450,6 +456,46 @@ class CampaignOwnerReportsTests(unittest.TestCase):
                 1,
             )
         self.assertIsNone(report["experiment"]["assessment"]["effect"])
+
+    def test_optional_monitor_and_app_kpis_do_not_substitute_for_primary_outcome(self):
+        self.cohort()
+        chosen = self.chosen(monitor_id=None)
+        report = self.capture(chosen)["report"]
+        self.assertGreater(report["kpi_coverage"]["available_rows"], 0)
+        self.assertIn("Choose a primary outcome", report["next_action"])
+        self.assertEqual(report["monitor"]["status"], "NOT_SELECTED")
+
+    def test_saved_experiment_recommendation_requires_matching_mature_window(self):
+        chosen = self.chosen(experiment_id=EXPERIMENT, monitor_id=None)
+        window = chosen["measurement_window"]
+        self.experiment(
+            analysis_at=(datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
+            status="EVALUATED",
+            window=dict(window, starts_at="2026-09-30T20:00:00-04:00"),
+            effect=positive_effect(),
+        )
+        wrong_window = self.chosen(
+            experiment_id=EXPERIMENT, monitor_id=None,
+            measurement_window=dict(window, starts_at="2026-10-02T00:00:00+00:00"),
+        )
+        unmatched = self.capture(wrong_window)["report"]
+        self.assertIn("exact acquisition dates", unmatched["next_action"])
+        self.assertEqual(unmatched["experiment"]["review_window_alignment"], "NOT_MATCHED")
+        matched = self.capture(chosen)["report"]
+        self.assertIn("untouched holdout", matched["next_action"])
+        self.assertTrue(matched["experiment"]["assessment_in_window"])
+
+    def test_matching_report_rejects_assessment_saved_before_analysis(self):
+        chosen = self.chosen(experiment_id=EXPERIMENT, monitor_id=None)
+        self.experiment(
+            analysis_at=(datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
+            assessed_at=(datetime.now(timezone.utc) - timedelta(days=2)).isoformat(),
+            status="EVALUATED", window=chosen["measurement_window"], effect=positive_effect(),
+        )
+        report = self.capture(chosen)["report"]
+        self.assertFalse(report["experiment"]["assessment_in_window"])
+        self.assertIn("explicitly evaluate", report["next_action"])
+        self.assertNotIn("untouched holdout", report["next_action"])
 
     def test_finite_plan_hash_activation_tick_restart_and_local_job_idempotency(self):
         plan = self.plan()
