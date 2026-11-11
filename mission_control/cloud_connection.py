@@ -25,7 +25,13 @@ def _public(row):
 class CloudConnections:
     def __init__(self, store, vault=None):
         self.store = store
-        self.vault = vault or Vault()
+        self._vault = vault
+
+    @property
+    def vault(self):
+        if self._vault is None:
+            self._vault = Vault()
+        return self._vault
 
     def current(self, app_id):
         self.store.app(app_id)
