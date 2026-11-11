@@ -1,6 +1,6 @@
 # WizeMe dogfooding: operations with receipts
 
-**Snapshot: November 6, 2026 (UTC).** We are using Wize Marketing Machine on
+**Snapshot: November 11, 2026 (UTC).** We are using Wize Marketing Machine on
 WizeMe.APP to prove the working marketing loop: connect a real app, collect
 evidence, make one approved change, then measure what happened.
 
@@ -21,6 +21,8 @@ evidence, make one approved change, then measure what happened.
 | Nov 5, 01:15 | Inspected the private workspace's saved schedule and its two successive due Apple downloads reads. | Jobs queued on Nov 3 and Nov 4 at 13:28 UTC, 24 hours and 0.434 seconds apart. Both completed with `WAITING_FOR_REPORTS`. The latest job matches the enabled 24-hour schedule. Numerical observations remain unavailable. This inspection made no provider request. | E11 |
 | Nov 5, 02:25 | Read aggregate activity from WizeMe's production database using the existing connection in its local source checkout. | An explicit read-only transaction returned external-classified user, registration, conversation and retention-event counts for a 30-day window. The primary connection succeeded after the configured failover failed. Counts stay private. Latest observed activity predates the Facebook trial, leaving campaign impact inconclusive. | E12 |
 | Nov 6, 04:12–04:14 | Re-read the fixed 24-hour before and after windows in production and checked whether web traffic was present. | Registrations, conversations and retention events showed no recorded change. The post used an untagged link, so campaign attribution remains unavailable. | E13 |
+| Nov 11, 11:58 | Matched an internal tagged landing visit against its prior readback receipt. | The landing tag was observed. The internal visit is excluded from campaign measurement. Registration linkage and campaign impact remain unverified. | V01 |
+| Nov 11, 15:57 | Checked the installed workspace's saved schedule, delivery and private owner report. | One successful scheduled job matched one verified post and one hash-verified owner report. The report establishes no attribution. No fresh provider read occurred. | V02 |
 
 The delivered change can be inspected on the public Page. [Published WizeMe.APP post](https://www.facebook.com/122102679789533699/posts/122102676339533699)
 
@@ -60,10 +62,11 @@ observations were 1 minute 57 seconds apart. That interval measures two
 recorded system events. The full work cycle and a comparable manual run still
 need timing.
 
-**Next proof:** preregister a new organic test with a unique campaign link and
-verify that the tag reaches the landing-page and registration records. Freeze
-the measurement window, sample requirements and decision rule before launch.
-Then collect the follow-up and record a continue, stop or revise decision.
+**Next proof:** verify that the tagged visit reaches a consented test registration.
+The [follow-up worksheet](WIZEME-PREREGISTRATION-20261108.md) remains a draft.
+Freeze the measurement window, sample requirements and decision rule before
+any separately approved launch. Then collect the follow-up and record a
+continue, stop or revise decision.
 
 The verified publication proves delivery. Notification delivery, ad spending,
 measured growth and time savings remain unproven. OneSignal auto-setup code and
