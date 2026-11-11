@@ -1,9 +1,11 @@
 """Owner-authored rule sets are immutable versions; saving does not evaluate."""
 from pathlib import Path
+import sqlite3
 import tempfile
 import unittest
 
-from mission_control.automation_store import current, history, save
+from mission_control.automation_rules import validate
+from mission_control.automation_store import current, history, save, version_index
 from mission_control.common import Invalid
 from mission_control.db import connection
 from mission_control.review_access import Access
@@ -35,6 +37,26 @@ class AutomationStoreTests(unittest.TestCase):
         second = save(self.store, APP, OWNER, self.document)
         self.assertEqual(second["version"], 2)
         self.assertEqual([row["version"] for row in history(self.store, APP, OWNER["principal"])], [2, 1])
+
+    def test_loaded_legacy_rows_round_trip_and_remain_immutable(self):
+        first = save(self.store, APP, OWNER, self.document)
+        self.assertEqual(validate(first["document"]), validate(self.document))
+        with connection(self.store.path) as db:
+            for command in ("UPDATE automation_rule_sets SET version=2", "DELETE FROM automation_rule_sets"):
+                with self.assertRaises(sqlite3.IntegrityError):
+                    db.execute(command)
+        self.assertEqual(current(self.store, APP, OWNER["principal"]), first)
+
+    def test_index_pages_without_returning_full_rule_documents(self):
+        for _ in range(27):
+            save(self.store, APP, OWNER, self.document)
+        first = version_index(self.store, APP, OWNER["principal"])
+        self.assertEqual([row["version"] for row in first["versions"]], list(range(27, 2, -1)))
+        self.assertEqual(first["next_before"], 3)
+        older = version_index(self.store, APP, OWNER["principal"], first["next_before"])
+        self.assertEqual([row["version"] for row in older["versions"]], [2, 1])
+        self.assertIsNone(older["next_before"])
+        self.assertTrue(all("document" not in row for row in first["versions"] + older["versions"]))
 
     def test_invalid_document_and_identity_reject(self):
         with self.assertRaises(Invalid):

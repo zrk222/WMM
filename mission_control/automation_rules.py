@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import closing
+from contextlib import closing, contextmanager
 import json
 from pathlib import Path
 import sqlite3
@@ -28,32 +28,43 @@ def _text(value, label, maximum=2000, optional=False):
     return value
 
 
-def _condition(value):
+def _condition(value, depth=0):
+    if depth > 16:
+        raise Invalid("Use at most 16 nested condition levels")
     if not isinstance(value, dict) or not value:
         raise Invalid("Every condition must be a non-empty object")
     keys = set(value)
-    if keys == {"fact", "op", "value"}:
-        if not isinstance(value["fact"], str) or not value["fact"]:
-            raise Invalid("Conditions need a fact path")
-        if value["op"] not in COMPARISONS:
+    if keys in ({"fact", "op", "value"}, {"fact", "op"}):
+        fact = _text(value["fact"], "fact path", 200)
+        if any(not part or part.strip() != part for part in fact.split(".")):
+            raise Invalid("Conditions need a dotted fact path")
+        op = value["op"]
+        if not isinstance(op, str) or op not in COMPARISONS:
             raise Invalid("Unsupported condition operator")
-        return dict(kind="compare", fact=value["fact"], op=value["op"], value=value["value"])
-    if keys == {"fact", "op"} and value["op"] in ("exists", "missing"):
-        return dict(kind="compare", fact=value["fact"], op=value["op"], value=None)
+        if op not in ("exists", "missing") and "value" not in value:
+            raise Invalid("Comparisons need a value")
+        expected = value.get("value")
+        try:
+            digest(expected)
+        except (TypeError, ValueError, RecursionError) as error:
+            raise Invalid("Comparison values must be finite JSON") from error
+        return dict(kind="compare", fact=fact, op=op, value=expected)
     if keys == {"all"}:
         if not isinstance(value["all"], list) or not 1 <= len(value["all"]) <= 50:
             raise Invalid("Use 1-50 all conditions")
-        return dict(kind="all", items=[_condition(item) for item in value["all"]])
+        return dict(kind="all", items=[_condition(item, depth + 1) for item in value["all"]])
     if keys == {"any"}:
         if not isinstance(value["any"], list) or not 1 <= len(value["any"]) <= 50:
             raise Invalid("Use 1-50 any conditions")
-        return dict(kind="any", items=[_condition(item) for item in value["any"]])
+        return dict(kind="any", items=[_condition(item, depth + 1) for item in value["any"]])
     if keys == {"not"}:
-        return dict(kind="not", item=_condition(value["not"]))
+        return dict(kind="not", item=_condition(value["not"], depth + 1))
     raise Invalid("Use one of all, any, not or a fact comparison")
 
 
 def _rule(value):
+    if not isinstance(value, dict):
+        raise Invalid("Every rule must be an object")
     _exact(value, RULE_KEYS - ({"cooldown", "expires_at"} - set(value)), "rule")
     if not isinstance(value.get("id"), str) or not value["id"].strip() or len(value["id"]) > 100:
         raise Invalid("Rules need a stable id")
@@ -154,8 +165,9 @@ def project(workspace):
             if any(value is not None for value in values.values())}
 
 
-def project_database(path, app_id, *, owner_principal=None):
-    """Read durable app facts from one SQLite snapshot without opening the runtime or vault."""
+@contextmanager
+def _database_snapshot(path, app_id, owner_principal):
+    """Pin owner, rule and facts to one read-only SQLite snapshot."""
     path = Path(path)
     if not path.is_file():
         raise Invalid("Choose an existing WMM workspace database")
@@ -167,30 +179,68 @@ def project_database(path, app_id, *, owner_principal=None):
             if owner_principal is not None:
                 from .review_access import member
                 member(db, app_id, owner_principal, "OWNER")
-            row = db.execute("SELECT id,version,data FROM apps WHERE id=?", (app_id,)).fetchone()
-            if row is None:
-                raise Invalid("The selected app is not in this WMM workspace")
-            facts = project({"app": dict(row, data=json.loads(row["data"]))})
-            facts["metrics"] = {
-                "cohort_count": db.execute(
-                    "SELECT count(*) FROM records WHERE app_id=? AND kind='cohort'", (app_id,)).fetchone()[0],
-                "retention_window_count": db.execute(
-                    "SELECT count(*) FROM records WHERE app_id=? AND kind='retention'", (app_id,)).fetchone()[0],
-            }
-            campaign_count = db.execute(
-                "SELECT count(DISTINCT campaign_token) FROM install_attribution_batches WHERE app_id=?",
-                (app_id,)).fetchone()[0]
-            facts["install"] = {"campaign_count": campaign_count}
-            row = db.execute("""SELECT count(*) AS count,
-                count(CASE WHEN state='PLANNED' THEN 1 END) AS planned,
-                count(CASE WHEN state='AWAITING_ANALYSIS' THEN 1 END) AS awaiting_analysis
-                FROM experiments WHERE app_id=?""", (app_id,)).fetchone()
-            facts["experiments"] = dict(row)
-            return facts
+            yield db
     except (Invalid, PermissionError):
         raise
     except (OSError, sqlite3.Error, ValueError, TypeError, AttributeError) as error:
         raise Invalid("Cannot read saved facts from this WMM workspace") from error
+
+
+FACT_SOURCES = {
+    "app": "Saved app manifest",
+    "metrics": "Saved evidence record counts; no measured metric inferred",
+    "install": "Campaigns with saved install import batches; no install count inferred",
+    "experiments": "Saved experiment lifecycle counts",
+    "jobs": "Saved local worker state counts; no provider result inferred",
+}
+
+
+def _project_snapshot(db, app_id):
+    app = db.execute("SELECT id,version,data FROM apps WHERE id=?", (app_id,)).fetchone()
+    if app is None:
+        raise Invalid("The selected app is not in this WMM workspace")
+    facts = project({"app": dict(app, data=json.loads(app["data"]))})
+    counts = db.execute("""SELECT count(CASE WHEN kind='cohort' THEN 1 END) AS cohort_count,
+        count(CASE WHEN kind='retention' THEN 1 END) AS retention_window_count
+        FROM records WHERE app_id=? AND kind IN ('cohort','retention')""", (app_id,)).fetchone()
+    facts["metrics"] = dict(counts)
+    campaign_count = db.execute(
+        "SELECT count(DISTINCT campaign_token) FROM install_attribution_batches WHERE app_id=?",
+        (app_id,)).fetchone()[0]
+    facts["install"] = {"campaign_count": campaign_count}
+    experiments = db.execute("""SELECT count(*) AS count,
+        count(CASE WHEN state='PLANNED' THEN 1 END) AS planned,
+        count(CASE WHEN state='AWAITING_ANALYSIS' THEN 1 END) AS awaiting_analysis
+        FROM experiments WHERE app_id=?""", (app_id,)).fetchone()
+    facts["experiments"] = dict(experiments)
+    jobs = db.execute("""SELECT count(CASE WHEN status='QUEUED' THEN 1 END) AS queued,
+        count(CASE WHEN status='RUNNING' THEN 1 END) AS running,
+        count(CASE WHEN status='UNKNOWN' THEN 1 END) AS unknown
+        FROM jobs WHERE app_id=? AND action!='drive_import' AND status IN ('QUEUED','RUNNING','UNKNOWN')""",
+                      (app_id,)).fetchone()
+    facts["jobs"] = dict(jobs)
+    return facts
+
+
+def project_database(path, app_id, *, owner_principal=None):
+    """Read durable app facts without opening the runtime or vault."""
+    with _database_snapshot(path, app_id, owner_principal) as db:
+        return _project_snapshot(db, app_id)
+
+
+def simulate_database(path, app_id, owner_principal, *, rules=None, reference=None):
+    if not owner_principal:
+        raise PermissionError("A verified owner is required")
+    with _database_snapshot(path, app_id, owner_principal) as db:
+        binding = None
+        if reference is not None:
+            from .automation_store import version_in_snapshot
+            saved = version_in_snapshot(db, app_id, reference)
+            binding = {key: saved[key] for key in ("app_id", "version", "hash")}
+            rules = saved["document"]
+        facts = _project_snapshot(db, app_id)
+    result = evaluate(rules, facts, binding=binding)
+    return {**result, "fact_snapshot": {"sources": FACT_SOURCES, "values": facts}}
 
 
 def validate(document):
@@ -221,7 +271,35 @@ def _lookup(facts, path):
         if not isinstance(value, dict) or part not in value:
             return UNKNOWN, None
         value = value[part]
-    return TRUE, value
+    return (UNKNOWN, None) if value is None else (TRUE, value)
+
+
+def _equality(value, expected):
+    if value is None or expected is None:
+        return UNKNOWN
+    if type(value) in (int, float) and type(expected) in (int, float):
+        return TRUE if value == expected else FALSE
+    if type(value) is not type(expected):
+        return UNKNOWN
+    if isinstance(value, list):
+        if len(value) != len(expected):
+            return FALSE
+        return _all_values(_equality(a, b) for a, b in zip(value, expected))
+    if isinstance(value, dict):
+        if value.keys() != expected.keys():
+            return FALSE
+        return _all_values(_equality(value[key], expected[key]) for key in value)
+    return TRUE if value == expected else FALSE
+
+
+def _all_values(values):
+    values = list(values)
+    return FALSE if FALSE in values else UNKNOWN if UNKNOWN in values else TRUE
+
+
+def _any_values(values):
+    values = list(values)
+    return TRUE if TRUE in values else UNKNOWN if UNKNOWN in values else FALSE
 
 
 def _compare(facts, item):
@@ -234,10 +312,9 @@ def _compare(facts, item):
         return UNKNOWN
     op, expected = item["op"], item["value"]
     try:
-        if op == "eq":
-            return TRUE if value == expected else FALSE
-        if op == "ne":
-            return TRUE if value != expected else FALSE
+        if op in ("eq", "ne"):
+            result = _equality(value, expected)
+            return result if op == "eq" or result == UNKNOWN else FALSE if result == TRUE else TRUE
         if op in ("gt", "gte", "lt", "lte"):
             if type(value) not in (int, float) or type(expected) not in (int, float):
                 return UNKNOWN
@@ -246,9 +323,11 @@ def _compare(facts, item):
         if op == "in":
             if not isinstance(expected, list):
                 return UNKNOWN
-            return TRUE if value in expected else FALSE
+            return _any_values(_equality(value, option) for option in expected)
         if op == "contains":
-            if isinstance(value, (list, str)) and isinstance(expected, (list, str, int, float)):
+            if isinstance(value, list):
+                return _any_values(_equality(option, expected) for option in value)
+            if isinstance(value, str) and isinstance(expected, str):
                 return TRUE if expected in value else FALSE
             return UNKNOWN
     except (TypeError, ValueError):
@@ -256,68 +335,77 @@ def _compare(facts, item):
     return UNKNOWN
 
 
-def _evaluate(facts, condition):
+def _evaluate(facts, condition, gaps):
     kind = condition["kind"]
     if kind == "compare":
-        return _compare(facts, condition)
+        result = _compare(facts, condition)
+        if result == UNKNOWN:
+            path = condition["fact"]
+            key = "missing" if _lookup(facts, path)[0] == UNKNOWN else "incompatible"
+            gaps[key].add(path)
+        return result
     if kind == "not":
-        value = _evaluate(facts, condition["item"])
+        value = _evaluate(facts, condition["item"], gaps)
         return {"TRUE": FALSE, "FALSE": TRUE, "UNKNOWN": UNKNOWN}[value]
-    values = [_evaluate(facts, item) for item in condition["items"]]
+    values = (_evaluate(facts, item, gaps) for item in condition["items"])
     if kind == "all":
-        if FALSE in values:
-            return FALSE
-        return TRUE if all(value == TRUE for value in values) else UNKNOWN
-    if TRUE in values:
-        return TRUE
-    return FALSE if all(value == FALSE for value in values) else UNKNOWN
+        return _all_values(values)
+    if kind == "any":
+        return _any_values(values)
     raise Invalid("Unknown condition kind")
 
 
-def _missing(facts, condition):
-    if condition["kind"] == "compare":
-        return [condition["fact"]] if condition["op"] not in ("exists", "missing") and _lookup(facts, condition["fact"])[0] == UNKNOWN else []
-    if condition["kind"] == "not":
-        return _missing(facts, condition["item"])
-    return sorted({path for item in condition["items"] for path in _missing(facts, item)})
-
-
-def evaluate(document, facts, observed_at=None):
+def evaluate(document, facts, observed_at=None, *, binding=None):
     rules = validate(document)
     if not isinstance(facts, dict):
         raise Invalid("Facts must be an object")
     stamp = observed_at or now()
-    snapshot = digest(facts)
+    iso_time(stamp)
+    try:
+        snapshot = digest(facts)
+    except (ValueError, TypeError, RecursionError) as error:
+        raise Invalid("Facts must be finite JSON") from error
+    rule_set = digest(rules)
+    if binding is not None and binding["hash"] != rule_set:
+        raise Invalid("Saved rule fingerprint does not match its contents")
+    version = binding["version"] if binding else None
     results, proposals, seen = [], [], set()
     for rule in sorted(rules["rules"], key=lambda value: (-value["priority"], value["id"])):
         status = "DISABLED" if not rule["enabled"] else "ACTIVE"
         if rule["enabled"] and rule["expires_at"] and iso_time(rule["expires_at"]) <= iso_time(stamp):
             status = "EXPIRED"
         value = UNKNOWN
+        gaps = {"missing": set(), "incompatible": set()}
         if status == "ACTIVE":
-            value = _evaluate(facts, rule["when"])
+            value = _evaluate(facts, rule["when"], gaps)
             status = "MATCH" if value == TRUE else "UNKNOWN" if value == UNKNOWN else "NO_MATCH"
         record = dict(rule_id=rule["id"], priority=rule["priority"], status=status,
-                      condition=value, missing=_missing(facts, rule["when"]))
+                      condition=value, **{key: sorted(paths) for key, paths in gaps.items()})
         results.append(record)
         if status != "MATCH":
             continue
         key = (rule["action"], rule["tool"])
         if key in seen:
+            record["proposal_status"] = "SUPPRESSED_BY_HIGHER_PRIORITY"
             continue
         seen.add(key)
-        proposal = dict(id=digest([rule["id"], snapshot, rule["action"], rule["tool"]]),
+        record["proposal_status"] = "PROPOSED"
+        proposal = dict(id=digest([rule_set, version, rule["id"], snapshot, rule["action"], rule["tool"]]),
                         rule_id=rule["id"], priority=rule["priority"], status="PROPOSED",
                         action=rule["action"], tool=rule["tool"], reason=rule["reason"],
                         requires=rule["requires"], cooldown=rule["cooldown"],
                         fact_snapshot_sha256=snapshot, rule_sha256=digest(rule),
+                        rule_set_sha256=rule_set, rule_version=version,
                         observed_at=stamp, mode=rules["mode"])
         proposals.append(proposal)
-    return dict(schema="wmm.automation-evaluation.v1", mode=rules["mode"], timezone=rules["timezone"],
-                facts_sha256=snapshot, observed_at=stamp, results=results, proposals=proposals,
-                boundaries=["Proposals only; no publication, spend, provider or filesystem effect.",
-                            "Missing facts never match; UNKNOWN is not success.",
-                            "Exact approval or an existing grant is still required before any action."])
+    report = dict(schema="wmm.automation-evaluation.v1", evaluator_version=2,
+                  mode=rules["mode"], timezone=rules["timezone"],
+                  rules_sha256=rule_set, rule_binding=binding, facts_sha256=snapshot,
+                  observed_at=stamp, results=results, proposals=proposals,
+                  boundaries=["Proposals only; no publication, spend, provider or filesystem effect.",
+                              "Unavailable facts cannot satisfy comparisons; explicit missing checks can match.",
+                              "Exact approval or an existing grant is still required before any action."])
+    return {**report, "evaluation_sha256": digest(report)}
 
 
 def main(argv=None):
