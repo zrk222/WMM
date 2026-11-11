@@ -13,8 +13,8 @@ Wize Marketing Machine (WMM) is a local app marketing workspace designed for fou
 ## From goal to decision
 
 1. **Set your goal.** Describe your app, audience and outcome. Start with research, creative, an approved campaign, or results.
-2. **Set the limits.** Give your assistant a revocable permission slip for one app. Approve the exact content and destination before publication; paid Meta work also needs its own approved budget and targeting.
-3. **Watch the work.** Follow recorded steps as your assistant prepares assets or runs approved work. WMM retains provider receipts and holds interrupted writes for reconciliation.
+2. **Set the limits.** Give your assistant a revocable permission slip for one app. By default, nothing publishes or spends on its own. Approve the exact content and destination before publication; paid Meta work also needs its own approved budget and targeting.
+3. **Watch the work.** Follow recorded steps as your assistant prepares assets or runs approved work. WMM keeps provider receipts and pauses if it can’t confirm whether an action went through.
 4. **Decide what’s next.** Open the evidence, see what was measured or is still missing, and choose what to continue, revise, or stop.
 
 ## What you can do
@@ -26,7 +26,7 @@ Wize Marketing Machine (WMM) is a local app marketing workspace designed for fou
 | Run an approved campaign | Queue supported organic posts and inspect provider status and receipts. Paid execution is limited to bounded Meta engagement campaigns. [Channels and account requirements](docs/agent-multichannel.md). |
 | Measure app growth | Work on store listings and acquisition experiments. Review source dates, denominators and missing data. Social engagement does not establish installs, revenue, or lift. |
 
-[WizeMe dogfooding: dated operations and evidence](docs/WIZEME-DOGFOODING.md) · [Current release scope](RELEASE-SCOPE.md)
+[WizeMe dogfooding: dated operations and evidence](docs/WIZEME-DOGFOODING.md) · [Current release scope](RELEASE-SCOPE.md). Measured growth and time savings are not yet established.
 
 ## Run WMM
 
@@ -50,4 +50,4 @@ Open http://127.0.0.1:8765/. Keep the server on loopback. Core use needs no mode
 
 [Workspace guide](docs/workspace-guide.md) · [Contributing](CONTRIBUTING.md) · [Test profiles](docs/TESTING.md) · [Security](SECURITY.md)
 
-WMM is source available. Personal and internal business use are free under the [license](LICENSE). Hosting, resale, white-labeling and paid services for external clients require a separate commercial agreement.
+WMM is source available. Personal and internal business use are free under the [license](LICENSE). Hosting, resale, white-labeling and paid services for external clients require a [separate commercial agreement](docs/pricing.md).
