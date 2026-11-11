@@ -106,6 +106,33 @@ class GoalReadinessHTTPTests(unittest.TestCase):
             vault.assert_not_called()
         self.assertEqual(before, self.dump())
 
+    def test_restored_facebook_connection_surfaces_missing_credential_before_scope_review(self):
+        from uuid import uuid4
+
+        with connection(self.store.path) as db:
+            data = json.loads(db.execute('SELECT data FROM social_connections').fetchone()[0])
+            data['facts'].pop('reported_scopes')
+            db.execute("UPDATE social_connections SET provider='facebook',secret_ref=?,data=?",
+                       (str(uuid4()), json.dumps(data)))
+            db.execute("UPDATE social_configs SET provider='facebook',secret_ref=?", (str(uuid4()),))
+        selected = self.body(workflows=['social_publish'], social_connection_ids=[readiness_fixture.ACCOUNT])
+        before = self.dump()
+        with patch('mission_control.credential_vault.Vault', autospec=True) as vault:
+            vault.return_value.get.return_value = None
+            report = self.read(selected)
+            self.assertEqual(report['inventory']['accounts'][0]['status'], 'SCOPES_UNKNOWN')
+            self.assertEqual(report['credential_repairs'], {readiness_fixture.ACCOUNT: 'RECONNECT_REQUIRED'})
+            vault.return_value.get.assert_called_once()
+        self.assertEqual(before, self.dump())
+        self.assertFalse(report['authority_issued'])
+        with connection(self.store.path) as db:
+            db.execute('UPDATE social_connections SET expires=?', (self.observed.timestamp() - 1,))
+        with patch('mission_control.credential_vault.Vault', autospec=True) as vault:
+            report = self.read(selected)
+            self.assertEqual(report['inventory']['accounts'][0]['status'], 'EXPIRED')
+            self.assertEqual(report['credential_repairs'], {})
+            vault.assert_not_called()
+
     def test_organic_channel_readiness_is_owner_only_and_issues_no_authority(self):
         before = self.dump()
         report = self.read(self.body(workflows=['organic_publication'], social_connection_ids=[readiness_fixture.ACCOUNT]))

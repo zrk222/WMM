@@ -129,8 +129,12 @@ def goal_readiness(store,app_id,user,body):
     if {'social_publish', 'paid_effects', 'organic_publication'}.intersection(
         inventory['selection']['workflows']
     ):
+        # Saved access can have incomplete or stale evidence after a workspace restore.
+        # Expired, disconnected and changing bindings already have a repair state.
+        checkable = {'TESTED_FRESH', 'SCOPES_UNKNOWN', 'STALE', 'EXPIRY_UNKNOWN',
+                     'NOT_VERIFIED', 'INVALID_VERIFICATION'}
         for account in inventory['accounts']:
-            if account['provider'] == 'facebook' and account['status'] == 'TESTED_FRESH':
+            if account['provider'] == 'facebook' and account['status'] in checkable:
                 repair = facebook_credential_repair(store, app_id, account)
                 if repair:
                     repairs[account['id']] = repair
