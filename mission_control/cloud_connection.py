@@ -53,6 +53,8 @@ class CloudConnections:
             raise Invalid("Enter a valid cloud token")
         with connection(self.store.path) as db:
             row = db.execute("SELECT * FROM cloud_connections WHERE app_id=?", (app_id,)).fetchone()
+        if row and endpoint != row["endpoint"] and not token:
+            raise Invalid("Enter a new token when changing the cloud URL")
         reference = uid()
         previous = row["credential_ref"] if row else None
         if token or previous is None:
@@ -64,6 +66,10 @@ class CloudConnections:
         try:
             with connection(self.store.path) as db:
                 db.execute("BEGIN IMMEDIATE")
+                latest = db.execute("SELECT version,credential_ref FROM cloud_connections WHERE app_id=?",
+                                    (app_id,)).fetchone()
+                if (tuple(latest) if latest else None) != ((row["version"], previous) if row else None):
+                    raise Invalid("Cloud settings changed; reload and try again")
                 version = (row["version"] + 1) if row else 1
                 db.execute("INSERT INTO cloud_connections VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(app_id) DO UPDATE SET "
                            "endpoint=excluded.endpoint,credential_ref=excluded.credential_ref,status=excluded.status,"
@@ -85,32 +91,38 @@ class CloudConnections:
 
     def test(self, app_id):
         """Test token/contract only; no evidence is sent and failures stay explicit."""
-        current = self.current(app_id)
-        if current["mode"] == "LOCAL":
-            raise Invalid("No personal cloud connection is configured; WMM is running locally.")
+        self.store.app(app_id)
         with connection(self.store.path) as db:
             row = db.execute("SELECT * FROM cloud_connections WHERE app_id=?", (app_id,)).fetchone()
+        if row is None:
+            raise Invalid("No personal cloud connection is configured; WMM is running locally.")
         secret = self.vault.get(_name(self.store, app_id, row["credential_ref"]))
         if not secret or not isinstance(secret.get("token"), str):
-            self._set_status(app_id, "FAILED", "Protected token is unavailable; reconnect")
+            self._set_status(row, "FAILED", "Protected token is unavailable; reconnect")
             raise Invalid("Protected cloud token is unavailable; reconnect.")
         try:
             value = CloudIngest(row["endpoint"], secret["token"]).health()
         except (IngestError, ValueError) as exc:
-            self._set_status(app_id, "FAILED", type(exc).__name__)
+            self._set_status(row, "FAILED", type(exc).__name__)
             raise Invalid("Cloud connection test failed: " + type(exc).__name__) from None
-        self._set_status(app_id, "TESTED", None)
+        self._set_status(row, "TESTED", None)
         return {"status": "TESTED", "tenant": value.get("tenant"), "version": value.get("version")}
 
-    def _set_status(self, app_id, status, error):
+    def _set_status(self, row, status, error):
         with connection(self.store.path) as db:
-            db.execute("UPDATE cloud_connections SET status=?,last_test=?,last_error=?,updated=? WHERE app_id=?",
-                       (status, now() if status == "TESTED" else None, error, now(), app_id))
+            updated = db.execute(
+                "UPDATE cloud_connections SET status=?,last_test=?,last_error=?,updated=? "
+                "WHERE app_id=? AND version=? AND endpoint=? AND credential_ref=?",
+                (status, now() if status == "TESTED" else None, error, now(), row["app_id"],
+                 row["version"], row["endpoint"], row["credential_ref"]))
+            if updated.rowcount != 1:
+                raise Invalid("Cloud settings changed during the test; test the saved connection again")
 
     def remove(self, app_id):
         """Return to local mode and delete the protected token; no provider revocation."""
         self.store.app(app_id)
         with connection(self.store.path) as db:
+            db.execute("BEGIN IMMEDIATE")
             row = db.execute("SELECT credential_ref FROM cloud_connections WHERE app_id=?", (app_id,)).fetchone()
             db.execute("DELETE FROM cloud_connections WHERE app_id=?", (app_id,))
         if row:

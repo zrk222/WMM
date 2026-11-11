@@ -390,7 +390,7 @@ function percent(value) {return value===null || value===undefined?"Unavailable":
 function installAttributionPanel(){
   const value=state.workspace.install_attribution,campaigns=value?.campaigns||[];
   const rows=campaigns.map(item=>`<div class="record-row"><span class="record-main"><strong>${esc(item.campaign_token)}</strong><small>${esc(item.batches)} batch(es) Â· coverage ${esc(item.coverage_status)} Â· study ${esc(item.study_status)} Â· last observed ${esc(item.last_observed_at||"unknown")}</small></span>${button("Open install report","install-report",`data-id="${esc(item.campaign_token)}"`)}</div>`).join("");
-  return `<section class="panel" aria-label="Install attribution"><div class="section-heading"><h2>Install attribution</h2>${button("Import install export","install-import-open")}</div>${campaigns.length?`<div class="record-list">${rows}</div><p class="description">Open a report for counts, dates and the source receipt.</p>`:notice("No install export yet. The observation window may still be open, or no MMP export has been ingested. Engagement is not an install.")}</section>`;
+  return `<section class="panel" aria-label="Install attribution"><div class="section-heading"><h2>Install attribution</h2><div class="toolbar">${button("Import install export","install-import-open")}${button("Connection options","mmp-connections")}</div></div>${campaigns.length?`<div class="record-list">${rows}</div><p class="description">Open a report for counts, dates and the source receipt.</p>`:notice("No install export yet. The observation window may still be open, or no MMP export has been ingested. Engagement is not an install.")}</section>`;
 }
 
 function installMappingKey(){return `wmm.install-import-mapping.${state.app}`;}
@@ -402,40 +402,62 @@ function rememberInstallMapping(payload){
 }
 
 function installImportForm(){
+  state.installImport=null;
   const saved=savedInstallMapping()||{},mapping=saved.mapping||{};
-  modal("Import install export",`<form id="install-import-form" data-app="${esc(state.app)}"><div class="modal-content">${notice("Upload the original MMP CSV or JSON export. WMM shows a coverage checklist before anything is stored; the import is owner-scoped and needs the study's campaign token and frozen window.")}${saved.source?"<p class=\"description\">Using the source token and column names saved on this machine. You can change them for this import.</p>":""}<label class="field" for="install-export-file">Export file<input id="install-export-file" name="export_file" type="file" accept=".csv,.json" required></label><div class="toolbar">${button("Detect columns","install-import-detect")}${button("CSV template","install-import-template")}</div><p id="install-detect-status" class="description" role="status">Choose a file, then detect headers. Suggestions only; review the mapping and source states.</p><div class="form-grid"><label class="field" for="install-source">Source token<input id="install-source" name="source" required value="${esc(saved.source||"MMP")}"></label><label class="field" for="install-campaign">Campaign token<input id="install-campaign" name="campaign_token" required></label><label class="field" for="install-observed">Observed at (UTC ISO)<input id="install-observed" name="observed_at" required></label><label class="field" for="install-window-start">Window start (UTC ISO)<input id="install-window-start" name="window_start" required></label><label class="field" for="install-window-end">Window end (UTC ISO)<input id="install-window-end" name="window_end" required></label><label class="field" for="install-col-id">install_id column<input id="install-col-id" name="col_install_id" required value="${esc(mapping.install_id||"install_id")}"></label><label class="field" for="install-col-state">state column<input id="install-col-state" name="col_state" required value="${esc(mapping.state||"state")}"></label><label class="field" for="install-col-time">occurred_at column<input id="install-col-time" name="col_occurred_at" required value="${esc(mapping.occurred_at||"occurred_at")}"></label><label class="field" for="install-state-values">Source status mapping (optional JSON)<textarea id="install-state-values" name="state_values" placeholder='{"install":"ATTRIBUTED"}'>${esc(mapping.state_values?JSON.stringify(mapping.state_values):"")}</textarea></label><label class="field" for="install-count">Source event count<input id="install-count" name="source_event_count" type="number" min="0" step="1"></label></div><label class="check-row"><input type="checkbox" name="coverage_complete"> Source coverage is complete</label><div class="field-error" role="alert"></div></div><div class="modal-actions"><button type="submit" class="button">Preview import</button></div></form>`,"INSTALL ATTRIBUTION");
+  modal("Import install export",`<form id="install-import-form" data-app="${esc(state.app)}"><div class="modal-content">${notice("1. Choose your MMP CSV or JSON export. 2. Enter the campaign token and the study’s dates. 3. Review the preview before saving. The file stays in this workspace.")}${saved.source?"<p class=\"description\">Using the source token and column names saved on this machine. You can change them for this import.</p>":""}<label class="field" for="install-export-file">Export file<input id="install-export-file" name="export_file" type="file" accept=".csv,.json" required></label><div class="toolbar">${button("Detect columns","install-import-detect")}${button("CSV template","install-import-template")}</div><p id="install-detect-status" class="description" role="status">Choose a file. WMM will suggest column matches automatically; review them before previewing.</p><div class="form-grid"><label class="field" for="install-source">Source token<input id="install-source" name="source" required value="${esc(saved.source||"MMP")}"></label><label class="field" for="install-campaign">Campaign token<input id="install-campaign" name="campaign_token" required></label><label class="field" for="install-observed">Observed at (UTC ISO)<input id="install-observed" name="observed_at" required></label><label class="field" for="install-window-start">Window start (UTC ISO)<input id="install-window-start" name="window_start" required></label><label class="field" for="install-window-end">Window end (UTC ISO)<input id="install-window-end" name="window_end" required></label><label class="field" for="install-col-id">install_id column<input id="install-col-id" name="col_install_id" required value="${esc(mapping.install_id||"install_id")}"></label><label class="field" for="install-col-state">state column<input id="install-col-state" name="col_state" required value="${esc(mapping.state||"state")}"></label><label class="field" for="install-col-time">occurred_at column<input id="install-col-time" name="col_occurred_at" required value="${esc(mapping.occurred_at||"occurred_at")}"></label><label class="field" for="install-state-values">Source status mapping (optional JSON)<textarea id="install-state-values" name="state_values" placeholder='{"install":"ATTRIBUTED"}'>${esc(mapping.state_values?JSON.stringify(mapping.state_values):"")}</textarea></label><label class="field" for="install-count">Source event count<input id="install-count" name="source_event_count" type="number" min="0" step="1"></label></div><label class="check-row"><input type="checkbox" name="coverage_complete"> Source coverage is complete</label><div class="field-error" role="alert"></div></div><div class="modal-actions"><button type="submit" class="button">Preview import</button></div></form>`,"INSTALL ATTRIBUTION");
 }
 
 async function installImportDetect(form){
-  const file=form.querySelector('[name="export_file"]').files[0];
+  const picker=form.querySelector('[name="export_file"]'),file=picker.files[0];
   const status=form.querySelector('#install-detect-status');
+  const active=()=>state.app===form.dataset.app&&form.isConnected&&form.closest("dialog")?.open&&picker.files[0]===file;
   if(!file){if(status)status.textContent="Choose an export file first.";return;}
   if(file.size>2000000){if(status)status.textContent="Use an export smaller than 2 MB.";return;}
+  const fields={install_id:'col_install_id',state:'col_state',occurred_at:'col_occurred_at'};
+  const original=Object.fromEntries(Object.values(fields).map(name=>[name,form.elements[name]?.value]));
   try{
+    if(status)status.textContent="Checking export columns…";
     const text=await file.text();
+    if(!active())return;
     const format=file.name.toLowerCase().endsWith('.json')?'json':'csv';
     const headers=WMMMmpImport.parseHeaders(text,format);
     const value=WMMMmpImport.suggest(headers);
-    const fields={install_id:'col_install_id',state:'col_state',occurred_at:'col_occurred_at'};
     for(const [key,name] of Object.entries(fields)){
       const input=form.querySelector('[name="'+name+'"]');
-      if(input&&value.mapping[key])input.value=value.mapping[key];
+      if(input&&input.value===original[name]&&value.mapping[key])input.value=value.mapping[key];
     }
     const found=Object.keys(value.mapping).length;
     if(status)status.textContent=`Detected ${found}/3 columns from ${headers.length} headers.${value.unmapped.length?` Unmapped: ${value.unmapped.join(', ')}.`:" "}Review source states and coverage before previewing.`;
   }catch(error){
-    if(status)status.textContent=error.message;
+    if(active()&&status)status.textContent=error.message;
   }
 }
 
 async function saveCloudConnection(form){
   const values=Object.fromEntries(new FormData(form)),button=form.querySelector('button[type="submit"]');
+  const app=form.dataset.app;
+  if(app!==state.app||button?.disabled)return;
   if(button)button.disabled=true;
   try{
-    const saved=await api(`/api/apps/${encodeURIComponent(state.app)}/cloud-connection/save`,
+    const saved=await api(`/api/apps/${encodeURIComponent(app)}/cloud-connection/save`,
       {endpoint:values.endpoint.trim(),token:values.token});
-    await refresh();toast(saved.mode==="PERSONAL_CLOUD"?"Personal cloud saved. Test it before sending any import.":"Connection saved.");
+    if(state.app!==app||!form.isConnected)return;
+    await refresh();
+    if(state.app===app&&state.view==="connections")toast(saved.mode==="PERSONAL_CLOUD"?"Personal cloud settings saved. Test the connection to verify access.":"Connection saved.");
+  }catch(error){
+    if(state.app===app&&form.isConnected)form.querySelector(".field-error").textContent=error.message;
   }finally{if(button)button.disabled=false;}
+}
+
+async function previewInstallFromForm(form){
+  const submit=form.querySelector('button[type="submit"]');
+  if(!submit||submit.disabled)return;
+  submit.disabled=true;
+  try{await installImportSubmit(form);}
+  catch(error){
+    if(form.isConnected&&form.closest("dialog")?.open&&state.app===form.dataset.app)
+      form.querySelector(".field-error").textContent=error.message;
+  }finally{if(submit.isConnected)submit.disabled=false;}
 }
 
 async function installImportSubmit(form){
@@ -443,9 +465,10 @@ async function installImportSubmit(form){
   if(!file)throw new Error("Choose an export file.");
   if(file.size>2000000)throw new Error("Use an export smaller than 2 MB.");
   const app=form.dataset.app;
+  const active=()=>state.app===app&&form.isConnected&&form.closest("dialog")?.open&&form.elements.export_file.files[0]===file;
   const bytes=await file.arrayBuffer();
   const text=new TextDecoder("utf-8",{fatal:true,ignoreBOM:true}).decode(bytes);
-  if(state.app!==app||!form.isConnected)return;
+  if(!active())return;
   const mappingText=form.elements.state_values.value.trim();
   let stateValues={};
   try{if(mappingText)stateValues=JSON.parse(mappingText);}
@@ -464,7 +487,7 @@ async function installImportSubmit(form){
     coverage:{complete:form.querySelector('[name="coverage_complete"]').checked,
               source_event_count:count===""?null:Number(count)}};
   const result=await api(`/api/apps/${encodeURIComponent(app)}/install-attribution/imports/preview`,payload);
-  if(state.app!==app||!form.isConnected)return;
+  if(!active())return;
   rememberInstallMapping(payload);
   state.installImport=result.preview_id?{app,payload:{...payload,preview_id:result.preview_id}}:null;
   installImportPreview(result);
@@ -478,15 +501,23 @@ function installImportPreview(result){
   modal("Review install import",`<div class="modal-content">${status(c.status)}<p>${esc(c.rows_read)} rows read Â· ${esc(c.rows_emitted)} install records Â· ${counts}</p>${c.reason?notice(c.reason,"warning"):""}${duplicate}${rejected?`<h3>Rows needing repair</h3><ul>${rejected}</ul>`:""}${warnings?`<h3>Warnings</h3><ul>${warnings}</ul>`:""}${c.unmapped_column_count?`<p class="description">Unmapped columns: ${esc(c.unmapped_column_count)}</p>`:""}<p class="description">Review the checklist. Nothing has been stored yet.</p><div class="field-error" role="alert"></div></div><div class="modal-actions">${c.status==="READY"?button("Confirm import","install-import-confirm"):button("Close","close")}</div>`,"IMPORT / REVIEW / CONFIRM");
 }
 
-async function installImportConfirm(){
+async function installImportConfirm(node){
   const saved=state.installImport;
   if(!saved||saved.app!==state.app)throw new Error("Preview the import again before confirming.");
-  const result=await api(`/api/apps/${encodeURIComponent(saved.app)}/install-attribution/imports/confirm`,saved.payload);
-  if(state.app!==saved.app||state.installImport!==saved)return;
-  state.installImport=null;
-  await refresh();
-  $("#modal").close();
-  toast(`Install export imported: ${result.result.inserted} new, ${result.result.duplicates} duplicate.`);
+  const dialog=$("#modal");
+  const active=()=>state.app===saved.app&&state.installImport===saved&&dialog.open&&node.isConnected;
+  if(!active()||node.disabled)return;
+  node.disabled=true;
+  try{
+    const result=await api(`/api/apps/${encodeURIComponent(saved.app)}/install-attribution/imports/confirm`,saved.payload);
+    if(!active())return;
+    await refresh();
+    if(!active())return;
+    state.installImport=null;
+    dialog.close();
+    toast(`Install export imported: ${result.result.inserted} new, ${result.result.duplicates} duplicate.`);
+  }catch(error){if(active())showActionError(error);}
+  finally{if(node.isConnected)node.disabled=false;}
 }
 
 async function installReportOpen(token,day){
@@ -844,12 +875,16 @@ function providerHealthPanel() {
 function cloudConnectionPanel(){
   const value=state.workspace?.cloud_connection||{mode:"LOCAL",status:"LOCAL",endpoint:null};
   const local=value.mode==="LOCAL";
-  const statusText=local?"Local workspace (default)":`${value.status}${value.endpoint?" ? "+value.endpoint:""}`;
-  return `<section class="panel" aria-label="Personal cloud connection"><div class="section-heading"><div><p class="eyebrow">PERSONAL CLOUD / OPTIONAL</p><h2>${local?"Local by default":"Personal cloud configured"}</h2><p>${statusText}</p></div>${status(value.status)}</div>${notice("MMP imports and reports work locally without this connection. A personal cloud is optional and receives nothing until you explicitly send an import.")}<form id="cloud-connection-form" data-app="${esc(state.app)}"><div class="form-grid"><label class="field">Cloud base URL<input name="endpoint" type="url" placeholder="https://cloud.example.com" value="${esc(value.endpoint||"")}" required></label><label class="field">Token (write-only)<input name="token" type="password" autocomplete="new-password" placeholder="${local?"Enter token":"Leave blank to keep the saved token"}"></label></div><div class="field-error" role="alert"></div><div class="modal-actions"><button class="button" type="submit">Save connection</button>${button("Test connection","cloud-connection-test")}${local?"":button("Return to local","cloud-connection-remove")}</div></form></section>`;
+  const statusText=local?"No personal cloud configured":(value.endpoint||"Settings saved");
+  return `<section class="panel" aria-label="Personal cloud connection"><div class="section-heading"><div><p class="eyebrow">PERSONAL CLOUD / OPTIONAL</p><h3>Personal cloud endpoint</h3><p>${esc(statusText)}</p></div>${status(value.status)}</div>${notice("Save and test an endpoint for external SDK use. The connection test sends no install data. Imports from WMM stay local.")}<form id="cloud-connection-form" data-app="${esc(state.app)}"><div class="form-grid"><label class="field">Cloud base URL<input name="endpoint" type="url" placeholder="https://cloud.example.com" value="${esc(value.endpoint||"")}" required></label><label class="field">Token (write-only)<input name="token" type="password" autocomplete="new-password" placeholder="${local?"Enter token":"Leave blank only if the URL stays the same"}"></label></div><div class="field-error" role="alert"></div><div class="modal-actions"><button class="button" type="submit">Save connection</button>${local?"":button("Test saved connection","cloud-connection-test")}${local?"":button("Return to local","cloud-connection-remove")}</div></form></section>`;
+}
+
+function mmpConnectionsPanel(){
+  return `<section class="panel" aria-labelledby="mmp-connections-heading"><div class="section-heading"><div><p class="eyebrow">MEASUREMENT</p><h2 id="mmp-connections-heading" tabindex="-1">Connect install data</h2><p>Use a CSV or JSON export from your mobile measurement partner. No cloud account is needed.</p></div>${button("Import install export","install-import-open")}</div><details><summary>Optional personal cloud settings</summary>${cloudConnectionPanel()}</details></section>`;
 }
 
 function connectionsView() {
-  return heading("Connect with clarity","Connect each appâ€™s evidence, then verify actual access.")+providerHealthPanel()+WMMOneSignal.panel()+WMMAppleAnalytics.panel()+WMMDrive.panel()+googlePlayPanel()+socialPanel()+WMMPublicationUI.panel(state)+campaignPanel()+releaseInventoryPanel()+subscriptionPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyConnectionsView();
+  return heading("Connect with clarity","Connect each appâ€™s evidence, then verify actual access.")+mmpConnectionsPanel()+providerHealthPanel()+WMMOneSignal.panel()+WMMAppleAnalytics.panel()+WMMDrive.panel()+googlePlayPanel()+socialPanel()+WMMPublicationUI.panel(state)+campaignPanel()+releaseInventoryPanel()+subscriptionPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyConnectionsView();
 }
 
 function legacyConnectionsView() {
@@ -1238,7 +1273,7 @@ async function formSubmit(event) {
   if(!form.isConnected||(!currentWorkspace()&&!(formId==="app-form"&&form.dataset.new==="true"))) {
     event.preventDefault();toast("App changed. Wait for this app to load and reopen the form.");return;
   }
-  if(formId==='install-import-form'){event.preventDefault();return installImportSubmit(form);}
+  if(formId==='install-import-form'){event.preventDefault();return previewInstallFromForm(form);}
   if(formId==='cloud-connection-form'){event.preventDefault();return saveCloudConnection(form);}
   if((formId||'').startsWith('onesignal-')){event.preventDefault();return WMMOneSignal.submit(form,growthReviewServices());}
   if(formId==='apple-analytics-form'){event.preventDefault();return WMMAppleAnalytics.submit(form,growthReviewServices());}
@@ -1406,13 +1441,23 @@ async function handleAction(node) {
   if(action==="next-answer")return nextAnswer();
   if(action==="automation-rules-load"||action==="automation-rules-save")return manageAutomationRules(node,action);
   if(action==="automation-rules-run")return runAutomationRulePreview(node);
-  if(action==="cloud-connection-test"){
-    const value=await api(`/api/apps/${encodeURIComponent(state.app)}/cloud-connection/test`,{});
-    await refresh();toast(value.tenant?`Cloud connection tested ? tenant ${value.tenant}`:"Cloud connection tested.");return;
-  }
-  if(action==="cloud-connection-remove"){
-    const value=await api(`/api/apps/${encodeURIComponent(state.app)}/cloud-connection/remove`,{});
-    await refresh();toast(value.cleanup==="REMOVED"?"Personal cloud removed. WMM is local-only.":"Local mode restored; protected token cleanup needs attention.");return;
+  if(action==="cloud-connection-test"||action==="cloud-connection-remove"){
+    const form=node.closest("#cloud-connection-form"),app=form?.dataset.app;
+    if(!app||state.app!==app||!form.isConnected||node.disabled)return;
+    const test=action==="cloud-connection-test";
+    const controls=[...form.querySelectorAll("button")];
+    if(controls.some(control=>control.disabled))return;
+    controls.forEach(control=>control.disabled=true);
+    try{
+      const value=await api(`/api/apps/${encodeURIComponent(app)}/cloud-connection/${test?"test":"remove"}`,{});
+      if(state.app!==app||!form.isConnected)return;
+      await refresh();
+      if(state.app===app&&state.view==="connections")toast(test?"Cloud health check passed. No install data was sent.":
+        value.cleanup==="REMOVED"?"Personal cloud removed. Install imports stay local.":"Local mode restored; protected token cleanup needs attention.");
+    }catch(error){
+      if(state.app===app&&form.isConnected)form.querySelector(".field-error").textContent=error.message;
+    }finally{controls.forEach(control=>control.disabled=false);}
+    return;
   }
   if(action==="campaign-plan-open")return campaignPlanOpen();
   if(action==="campaign-plan-download-md"){if(!state.campaignPlan)throw new Error("Open the campaign plan first.");return download(`${state.app}-campaign-plan.md`,WMMCampaignPlan.markdown(state.campaignPlan),"text/markdown");}
@@ -1421,10 +1466,11 @@ async function handleAction(node) {
   if(action==="next-answer-results"){$("#modal").close();state.view="results";return render();}
   if(action==="next-answer-publishing"){$("#modal").close();return guidedNavigate("connections","#publication-heading");}
   if(action==="first-post-publishing")return guidedNavigate("connections","#publication-heading");
+  if(action==="mmp-connections")return guidedNavigate("connections","#mmp-connections-heading");
   if(action==="install-import-open")return installImportForm();
   if(action==="install-import-detect"){const form=document.getElementById("install-import-form");if(!form)throw new Error("Open the install import form first.");return installImportDetect(form);}
   if(action==="install-import-template")return download("mmp-install-template.csv",WMMMmpImport.templateCsv(),"text/csv");
-  if(action==="install-import-confirm")return installImportConfirm();
+  if(action==="install-import-confirm")return installImportConfirm(node);
   if(action==="install-report")return installReportOpen(id,node.dataset.day);
   if(action.startsWith("activity-"))return activityAction(node);
   if(action.startsWith("guided-"))return guidedAction(node);
