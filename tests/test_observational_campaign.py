@@ -63,12 +63,12 @@ class ObservationalCampaignTests(unittest.TestCase):
         value.update(changes)
         return value
 
-    def register(self):
+    def register(self, **definition):
         app = self.store.app(APP)
         index = self.count("observational_campaign_studies")
         study_id = f"{index + 1:08d}-1111-4111-8111-111111111111"
         request_id = f"{index + 1:08d}-2222-4222-8222-222222222222"
-        body = {"request_id": request_id, "manifest_version": app["version"], "definition": self.definition(id=study_id)}
+        body = {"request_id": request_id, "manifest_version": app["version"], "definition": self.definition(id=study_id, **definition)}
         receipt = self.invoke("register", body)
         return body, receipt
 
@@ -140,6 +140,8 @@ class ObservationalCampaignTests(unittest.TestCase):
         self.assertEqual(report["landing_subjects"], 2)
         self.assertEqual(report["linked_registration_subjects"], 1)
         self.assertEqual(report["status"], "ATTRIBUTED_DESCRIPTIVE_ONLY")
+        self.assertEqual(report["checkpoint"]["state"], "SOURCE_NOT_DECLARED")
+        self.assertIsNone(report["checkpoint"]["ratio_counts"])
         self.assertNotIn("lift", report)
         self.assertEqual(report["provenance"], "SOURCE_REPORTED_NOT_PROVIDER_VERIFIED")
 
@@ -152,6 +154,56 @@ class ObservationalCampaignTests(unittest.TestCase):
         self.invoke("ingest", self.scoped(empty_receipt, "ingest", batch=complete_batch))
         zero = self.invoke("report", self.scoped(empty_receipt, "report"))
         self.assertEqual(zero["landing_subjects"], 0)
+
+    def test_declared_collector_must_reconcile_both_event_types_after_close(self):
+        definition, receipt = self.register(collector_source_id="wize-api")
+        start = self.clock + timedelta(seconds=13)
+        events = [self.event(receipt, "land-a", "a", "LANDING", start.isoformat()),
+                  self.event(receipt, "land-b", "b", "LANDING", start.isoformat()),
+                  self.event(receipt, "reg-a", "a", "REGISTRATION", (start + timedelta(seconds=1)).isoformat()),
+                  self.event(receipt, "unmatched", "c", "REGISTRATION", (start + timedelta(seconds=1)).isoformat())]
+        with self.assertRaisesRegex(Invalid, "differs from the collector"):
+            self.invoke("ingest", self.scoped(receipt, "ingest", batch=self.batch(receipt, events, source_id="other")))
+        self.assertEqual(self.count("observational_campaign_batches"), 0)
+        self.invoke("ingest", self.scoped(receipt, "ingest", batch=self.batch(receipt, events)))
+        binding = self.scoped(receipt, "report")
+        early = self.invoke("report", binding)
+        self.assertEqual(early["checkpoint"]["state"], "COLLECTING")
+        self.assertFalse(early["coverage"]["LANDING"]["coverage_complete"])
+        self.assertIsNone(early["checkpoint"]["ratio_counts"])
+        self.clock = datetime.fromisoformat(definition["definition"]["ends_at"]) + timedelta(seconds=1)
+        overdue = self.invoke("report", binding)
+        self.assertEqual(overdue["checkpoint"]["state"], "COVERAGE_INCOMPLETE")
+        self.assertEqual(overdue["checkpoint"]["coverage_issues"],
+                         {"LANDING": "BEFORE_CLOSE", "REGISTRATION": "BEFORE_CLOSE"})
+        final = self.batch(receipt, [], batch_id="44444444-4444-4444-8444-444444444444",
+                           coverage_count={"LANDING": 2, "REGISTRATION": 2})
+        self.invoke("ingest", self.scoped(receipt, "ingest", batch=final))
+        ready = self.invoke("report", binding)
+        self.assertEqual(ready["checkpoint"]["state"], "DESCRIPTIVE_READY")
+        self.assertEqual(ready["checkpoint"]["ratio_counts"], {"linked_registrations": 1, "eligible_landings": 2})
+        self.assertEqual(ready["exclusions"]["UNMATCHED_REGISTRATION"], 1)
+        self.assertNotEqual(overdue["source_hash"], ready["source_hash"])
+        mismatch = self.batch(receipt, [], batch_id="55555555-5555-4555-8555-555555555555",
+                              coverage_count={"LANDING": 2, "REGISTRATION": 1})
+        self.invoke("ingest", self.scoped(receipt, "ingest", batch=mismatch))
+        current = self.invoke("report", binding)
+        self.assertEqual(current["checkpoint"]["coverage_issues"], {"REGISTRATION": "COUNT_MISMATCH"})
+        self.assertIsNone(current["checkpoint"]["ratio_counts"])
+
+    def test_missing_coverage_and_reconciled_zero_are_distinct(self):
+        definition, receipt = self.register(collector_source_id="wize-api")
+        self.clock = datetime.fromisoformat(definition["definition"]["ends_at"]) + timedelta(seconds=1)
+        binding = self.scoped(receipt, "report")
+        missing = self.invoke("report", binding)
+        self.assertEqual(missing["checkpoint"]["coverage_issues"],
+                         {"LANDING": "MISSING_RECEIPT", "REGISTRATION": "MISSING_RECEIPT"})
+        self.assertIsNone(missing["landing_subjects"])
+        self.invoke("ingest", self.scoped(receipt, "ingest", batch=self.batch(receipt, [])))
+        complete = self.invoke("report", binding)
+        self.assertEqual(complete["checkpoint"]["state"], "NO_ELIGIBLE_LANDINGS")
+        self.assertEqual((complete["landing_subjects"], complete["linked_registration_subjects"]), (0, 0))
+        self.assertIsNone(complete["checkpoint"]["ratio_counts"])
 
     def test_exclusions_explicit_and_bot_false_not_human_claim(self):
         _, receipt = self.register()

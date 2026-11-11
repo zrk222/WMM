@@ -195,6 +195,20 @@ class CampaignExecutionService:
                             (app_id,owner,limit)).fetchall()
             return [scope_view(db,row) for row in rows]
 
+    def tracked_posts(self,app_id,owner,link_hash):
+        """Read verified canonical Page receipts with the exact retained link binding."""
+        with connection(self.store.path) as db:
+            member(db,app_id,owner,'OWNER')
+            rows=db.execute("""
+                SELECT i.id,i.page_id,i.remote_id FROM campaign_intents i
+                JOIN campaign_scopes s ON s.app_id=i.app_id AND s.id=i.scope_id
+                WHERE i.app_id=? AND s.owner=? AND i.status='VERIFIED' AND i.remote_id IS NOT NULL
+                  AND CASE WHEN json_valid(i.result)
+                      THEN json_extract(i.result,'$.destination_check.approved_link_sha256')
+                      END=?
+                ORDER BY i.updated DESC,i.id LIMIT 101""",(app_id,owner,link_hash)).fetchall()
+        return {'records':[dict(row) for row in rows[:100]],'complete':len(rows)<=100}
+
     def list_intents(self,app_id,scope_id):
         self.get_scope(app_id,scope_id)
         with connection(self.store.path) as db:

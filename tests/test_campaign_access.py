@@ -66,6 +66,30 @@ class CampaignGatewayTests(unittest.TestCase):
         with self.assertRaises(ClientError):agent.call(envelope)
         self.assertEqual(self.wire.posts,1)
 
+    def test_tracked_receipts_match_exact_link_and_do_not_widen_grant_access(self):
+        link='https://example.com/?utm_campaign=study-a'
+        self.content=digest({'message':self.message,'link':link})
+        self.scope['approved_content_hashes']=[self.content]
+        self.post.update(link=link,content_hash=self.content)
+        scope=self.activate()['scope_id']
+        with patch('mission_control.campaign_execution.check_destination',
+                   return_value={'approved_link_sha256':digest(link)}), patch.object(
+                   self.wire,'read_post',side_effect=TimeoutError('Synthetic read failure')):
+            result=self.owner_call('publish',{'scope_id':scope,'request':self.post})
+        self.assertEqual(result['status'],'VERIFYING')
+        body={'approved_link_sha256':digest(link)}
+        self.assertEqual(self.owner_call('history',body)['tracked_posts']['records'],[])
+        self.owner_call('reconcile',{'scope_id':scope,'intent_id':result['id']})
+        self.assertEqual(self.owner_call('history',body)['tracked_posts'],
+                         {'complete':True,'records':[{'id':result['id'],'page_id':'123','remote_id':'123_777'}]})
+        self.assertEqual(self.owner_call('history',{'approved_link_sha256':digest(link+'b')})['tracked_posts']['records'],[])
+        self.assertNotIn('tracked_posts',self.owner_call('history',{}))
+        with self.assertRaises(ClientError):
+            self.owner_call('history',{'approved_link_sha256':'not-a-fingerprint'})
+        with self.assertRaises(ClientError):
+            self.agent(['campaign.history']).call(dict(app_id='sample-one',operation='campaign.history',input=body))
+        self.assertEqual(self.wire.posts,1)
+
     def test_grant_cannot_create_scope_or_call_unsupported_effect(self):
         saved=self.activate();agent=self.agent(['campaign.status'])
         with self.assertRaises((ClientError,ValueError)):

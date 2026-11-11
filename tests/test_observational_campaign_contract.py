@@ -63,12 +63,13 @@ class ObservationalCampaignContractTests(unittest.TestCase):
                 "study_hash": self.study["hash"], "app_version": 1, "source_id": "wize-api",
                 "source_receipt_sha256": "b" * 64, "observed_at": "2030-01-02T00:00:00Z",
                 "coverage": {kind: {"complete": True, "source_event_count": 0} for kind in ("LANDING", "REGISTRATION")}, "events": []}
-        normalized = batch_data(body, self.study, 1, "2030-01-02T00:00:01Z")
+        study = {"id": self.study_id, "hash": self.study["hash"], "data": self.study}
+        normalized = batch_data(body, study, 1, "2030-01-02T00:00:01Z")
         self.assertEqual(normalized["coverage"]["LANDING"], {"complete": True, "source_event_count": 0})
         with self.assertRaises(Invalid):
-            batch_data(dict(body, events=[{}] * 501), self.study, 1, "2030-01-02T00:00:01Z")
+            batch_data(dict(body, events=[{}] * 501), study, 1, "2030-01-02T00:00:01Z")
         with self.assertRaises(Invalid):
-            batch_data(dict(body, coverage={"LANDING": {"complete": True, "source_event_count": None}, "REGISTRATION": body["coverage"]["REGISTRATION"]}), self.study, 1, "2030-01-02T00:00:01Z")
+            batch_data(dict(body, coverage={"LANDING": {"complete": True, "source_event_count": None}, "REGISTRATION": body["coverage"]["REGISTRATION"]}), study, 1, "2030-01-02T00:00:01Z")
 
 
 if __name__ == "__main__":

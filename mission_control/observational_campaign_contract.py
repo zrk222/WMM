@@ -8,6 +8,9 @@ from .common import Invalid, canonical, digest, iso_time, required
 
 SOURCES = ("facebook", "instagram", "tiktok", "youtube")
 EVENT_TYPES = ("LANDING", "REGISTRATION")
+CHECKPOINT_STATES = ("COLLECTING", "SOURCE_NOT_DECLARED", "COVERAGE_INCOMPLETE",
+                     "NO_ELIGIBLE_LANDINGS", "DESCRIPTIVE_READY")
+OPTIONAL_DEFINITION_FIELDS = {"collector_source_id"}
 ID_RE = re.compile(r"[A-Za-z0-9_-]{1,128}\Z", re.ASCII)
 SOURCE_ID_RE = re.compile(r"[A-Za-z0-9_-]{1,64}\Z", re.ASCII)
 SHA256_RE = re.compile(r"[a-f0-9]{64}\Z", re.ASCII)
@@ -60,8 +63,12 @@ def aware_utc(value, label):
 
 
 def definition_data(value, registered_at):
-    exact(value, DEFINITION_FIELDS, "Study definition")
+    if (not isinstance(value, dict) or not DEFINITION_FIELDS <= set(value)
+            or set(value) - DEFINITION_FIELDS - OPTIONAL_DEFINITION_FIELDS):
+        raise Invalid("Study definition fields must match the registered schema")
     result = dict(value)
+    if "collector_source_id" in result:
+        result["collector_source_id"] = opaque(result["collector_source_id"], "collector_source_id", SOURCE_ID_RE)
     result["id"] = uuid_value(result["id"], "study_id")
     result["name"] = required(result["name"], "name", 120)
     result["hypothesis"] = required(result["hypothesis"], "hypothesis", 1000)
@@ -171,6 +178,9 @@ def batch_data(value, study, app_version, current_time):
     if type(result["app_version"]) is not int or result["app_version"] != app_version:
         raise Invalid("Batch app version differs")
     result["source_id"] = opaque(result["source_id"], "source_id", SOURCE_ID_RE)
+    collector = study["data"].get("collector_source_id")
+    if collector is not None and result["source_id"] != collector:
+        raise Invalid("The batch source differs from the collector declared for this study")
     if not isinstance(result["source_receipt_sha256"], str) or not SHA256_RE.fullmatch(result["source_receipt_sha256"]):
         raise Invalid("source_receipt_sha256 must be 64 lowercase hex characters")
     result["observed_at"] = aware_utc(result["observed_at"], "observed_at")
@@ -218,6 +228,7 @@ def schema_contract():
             "actions": {name: {"required": list(fields["required"]), "optional": list(fields["optional"]), "effect": "PRIVATE_APP_LOCAL_EVIDENCE"}
                         for name, fields in ACTION_FIELDS.items()},
             "study_fields": sorted(DEFINITION_FIELDS),
+            "optional_study_fields": sorted(OPTIONAL_DEFINITION_FIELDS),
             "study_constraints": {"starts_at": "at least 1 second after registered_at", "window_max_seconds": 2592000,
                                   "source_allowlist": list(SOURCES), "attribution_model": "FIRST_TOUCH",
                                   "origin": "registered app HTTPS origin", "query_parameter_count": 4},
@@ -232,6 +243,10 @@ def schema_contract():
             "correction_fields": ["correction_id", "source_id", "event_id", "original_hash", "replacement", "reason"],
             "max_batch_events": 500, "history_limit": 100,
             "report_schema": "growth.observational-campaign-report.v1",
+            "measurement_checkpoint": {"states": list(CHECKPOINT_STATES),
+                "fields": ["state", "collector_source_id", "coverage_issues", "ratio_counts"],
+                "ratio_counts": "null or linked_registrations and eligible_landings; positive denominator and reconciled declared collector receipts at or after close",
+                "legacy": "undeclared collector is never descriptive-ready"},
             "report_scope": "ATTRIBUTED_DESCRIPTIVE_ONLY; no installs, activation, paid conversion, revenue, lift, or causal decision",
             "exclusions": ["consent_denied", "consent_unknown", "bot_true", "bot_unknown", "internal_test",
                            "token_missing", "token_invalid", "unmatched_registration", "duplicate", "source_coverage_unknown"]}
