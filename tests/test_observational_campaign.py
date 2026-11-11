@@ -171,6 +171,10 @@ class ObservationalCampaignTests(unittest.TestCase):
         self.assertEqual(early["checkpoint"]["state"], "COLLECTING")
         self.assertFalse(early["coverage"]["LANDING"]["coverage_complete"])
         self.assertIsNone(early["checkpoint"]["ratio_counts"])
+        from mission_control.automation_rules import _study_facts
+        with connection(self.store.path) as db:
+            db.execute("PRAGMA query_only=ON")
+            self.assertNotIn("linked_registration_rate", _study_facts(db, APP, binding, self._now()))
         self.clock = datetime.fromisoformat(definition["definition"]["ends_at"]) + timedelta(seconds=1)
         overdue = self.invoke("report", binding)
         self.assertEqual(overdue["checkpoint"]["state"], "COVERAGE_INCOMPLETE")
@@ -183,6 +187,14 @@ class ObservationalCampaignTests(unittest.TestCase):
         self.assertEqual(ready["checkpoint"]["state"], "DESCRIPTIVE_READY")
         self.assertEqual(ready["checkpoint"]["ratio_counts"], {"linked_registrations": 1, "eligible_landings": 2})
         self.assertEqual(ready["exclusions"]["UNMATCHED_REGISTRATION"], 1)
+        with connection(self.store.path) as db:
+            db.execute("PRAGMA query_only=ON")
+            facts = _study_facts(db, APP, binding, self._now())
+            self.assertEqual((facts["linked_registrations"], facts["eligible_landings"]), (1, 2))
+            self.assertEqual(facts["linked_registration_rate"], 0.5)
+            self.assertEqual(facts["source_sha256"], ready["source_hash"])
+            with self.assertRaisesRegex(Invalid, "Study hash differs"):
+                _study_facts(db, APP, dict(binding, study_hash="0"*64), self._now())
         self.assertNotEqual(overdue["source_hash"], ready["source_hash"])
         mismatch = self.batch(receipt, [], batch_id="55555555-5555-4555-8555-555555555555",
                               coverage_count={"LANDING": 2, "REGISTRATION": 1})
@@ -190,6 +202,9 @@ class ObservationalCampaignTests(unittest.TestCase):
         current = self.invoke("report", binding)
         self.assertEqual(current["checkpoint"]["coverage_issues"], {"REGISTRATION": "COUNT_MISMATCH"})
         self.assertIsNone(current["checkpoint"]["ratio_counts"])
+        with connection(self.store.path) as db:
+            db.execute("PRAGMA query_only=ON")
+            self.assertNotIn("linked_registration_rate", _study_facts(db, APP, binding, self._now()))
 
     def test_missing_coverage_and_reconciled_zero_are_distinct(self):
         definition, receipt = self.register(collector_source_id="wize-api")
@@ -204,6 +219,11 @@ class ObservationalCampaignTests(unittest.TestCase):
         self.assertEqual(complete["checkpoint"]["state"], "NO_ELIGIBLE_LANDINGS")
         self.assertEqual((complete["landing_subjects"], complete["linked_registration_subjects"]), (0, 0))
         self.assertIsNone(complete["checkpoint"]["ratio_counts"])
+        from mission_control.automation_rules import _study_facts
+        with connection(self.store.path) as db:
+            facts = _study_facts(db, APP, binding, self._now())
+        self.assertEqual((facts["eligible_landings"], facts["linked_registrations"]), (0, 0))
+        self.assertNotIn("linked_registration_rate", facts)
 
     def test_exclusions_explicit_and_bot_false_not_human_claim(self):
         _, receipt = self.register()

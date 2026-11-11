@@ -671,6 +671,7 @@ async function firstMeasuredPost(offset=0){
           <p id="first-post-progress">Choose a destination to check delivery.</p>
           ${exactReport?WMMObservationalCampaign.checkpointMarkup(exactReport):'<p>Measurement report unavailable. Reopen this guide to retry.</p>'}
           ${exactReport?button("Save study report as PDF","first-post-report-pdf"):""}
+          ${exactReport?button("Review this study in Results","first-post-results"):""}
           ${button("Prepare tagged draft","first-post-publishing")}${button("Prepare creative brief","first-post-brief")}${button("Import installs for this study","first-post-import")}`;
         const draftButton=output.querySelector('[data-action="first-post-publishing"]');
         draftButton.disabled=true;
@@ -732,23 +733,42 @@ function automationRulesPanel(){
   const operator=experimentScheduleIdentity();
   if(operator.status!=="AUTHENTICATED"||operator.role!=="OWNER")return "";
   const sample={schema:"wmm.automation-rules.v1",mode:"PROPOSE_ONLY",timezone:state.workspace?.app?.data?.timezone||"UTC",rules:[{id:"cohort-setup-review",enabled:true,priority:5,when:{fact:"metrics.cohort_count",op:"eq",value:0},then:{propose:{action:"review_measurement_setup",tool:"reports.read",reason:"This app has no saved cohort metrics. Choose what to measure before starting a test."},requires:["OWNER_REVIEW"]}}]};
-  return `<section class="panel" aria-label="Automation rule preview"><details><summary>Automation rules</summary><p class="description">See what WMM would suggest for this app using saved evidence. Previewing does not approve work, publish or spend. Saving adds an immutable version.</p><label class="field" for="automation-rules-json">Rule to preview (JSON)<textarea id="automation-rules-json" name="rules" rows="8" spellcheck="false">${esc(JSON.stringify(sample,null,2))}</textarea></label><div class="toolbar">${button("Preview draft","automation-rules-run")}${button("Load latest into editor","automation-rules-load")}${button("Save rules","automation-rules-save")}</div><details><summary>Saved rule versions</summary>${button("Show saved versions","automation-rules-history")}<div id="automation-rules-history" aria-live="polite"></div></details><p id="automation-rules-status" class="description" role="status"></p><div id="automation-rules-result" role="status" aria-live="polite"></div></details></section>`;
+  const selected=ruleStudySelection();
+  return `<section class="panel" aria-label="Automation rule preview"><details ${selected?"open":""}><summary>Automation rules</summary><p class="description">See what WMM would suggest using saved evidence. A preview does not approve work, publish or spend.</p>
+    ${selected?`<p><strong>Example for ${esc(selected.link.study.name)}:</strong> If the observation window has ended and coverage is incomplete, suggest collecting the final evidence.</p>${button("Preview this example","automation-rules-run",'data-example="study"')}`:button("Choose study evidence","first-post-open")}
+    <details><summary>Advanced rule editor</summary><p>Saving adds an immutable version.</p><label class="field" for="automation-rules-json">Rule to preview (JSON)<textarea id="automation-rules-json" name="rules" rows="8" spellcheck="false">${esc(JSON.stringify(sample,null,2))}</textarea></label><div class="toolbar">${button("Preview draft","automation-rules-run")}${button("Load latest into editor","automation-rules-load")}${button("Save rules","automation-rules-save")}</div></details>
+    <details><summary>Saved rule versions</summary>${button("Show saved versions","automation-rules-history")}<div id="automation-rules-history" aria-live="polite"></div></details><p id="automation-rules-status" class="description" role="status"></p><div id="automation-rules-result" role="status" aria-live="polite"></div></details></section>`;
 }
 
-function automationRulesResult(value){
+function automationRulesResult(value, example=false){
   const labels=new Map([["MATCH","Matched"],["NO_MATCH","Did not match"],["UNKNOWN","Missing or incompatible evidence"],["EXPIRED","Expired"],["DISABLED","Off"]]);
   const approvals=new Map([["OWNER_REVIEW","Owner review"],["EXACT_APPROVAL","Approval for the exact action"]]);
-  const proposals=value.proposals.map(row=>`<article class="next-step"><div><h3>${esc(row.action.replaceAll("_"," "))}</h3><p>${esc(row.reason)}</p><p><strong>Next:</strong> ${esc(row.requires.map(key=>approvals.get(key)||key).join(", "))}</p><details><summary>Evidence details</summary><p>Rule: ${esc(row.rule_id)}</p><p class="app-mono">${esc(row.fact_snapshot_sha256)}</p></details></div></article>`).join("");
+  const proposals=value.proposals.map(row=>`<article class="next-step"><div><h3>${esc(row.action.replaceAll("_"," "))}</h3><p>${esc(row.reason)}</p><p><strong>Next:</strong> ${esc(row.requires.map(key=>approvals.get(key)||key).join(", "))}</p>${row.action==="collect_study_evidence"&&value.fact_snapshot?.values?.study?button("Open study evidence","first-post-evidence"):""}<details><summary>Evidence details</summary><p>Rule: ${esc(row.rule_id)}</p><p class="app-mono">${esc(row.fact_snapshot_sha256)}</p></details></div></article>`).join("");
   const results=value.results.map(row=>`<li>${esc(row.rule_id)}: <strong>${esc(labels.get(row.status)||row.status)}</strong>${row.missing?.length?` · Missing: ${esc(row.missing.join(", "))}`:""}${row.incompatible?.length?` · Incompatible: ${esc(row.incompatible.join(", "))}`:""}${row.proposal_status==="SUPPRESSED_BY_HIGHER_PRIORITY"?" · A higher priority rule already suggested the same action.":""}</li>`).join("");
   const empty=value.results.some(row=>row.status==="UNKNOWN")?"No suggestion yet. Open the rule details to see what evidence is missing.":"No rule matched the saved evidence.";
-  const source=value.rule_binding?`Saved version ${esc(value.rule_binding.version)}`:"Draft (not a saved version)";
+  const source=example?"Example rule (not saved)":value.rule_binding?`Saved version ${esc(value.rule_binding.version)}`:"Draft (not a saved version)";
   const facts=value.fact_snapshot;
+  const study=facts?.values?.study;
+  const studyStatus=study?`<p><strong>Observed:</strong> Window ${study.window.state==="ENDED"?"ended":"still open"} · ${study.coverage==="COMPLETE"?"collector coverage complete":"collector coverage incomplete"}.</p><p>Collector-reported evidence. A linked registration rate describes the recorded visits; it does not verify individual identities or establish lift.</p>`:"";
   const evidence=Object.entries(facts?.values||{}).flatMap(([group,fields])=>Object.entries(fields).map(([name,entry])=>
     `<tr><th scope="row">${esc(group)}.${esc(name)}</th><td>${esc(JSON.stringify(entry))}</td><td>${esc(facts.sources[group]||"Saved app evidence")}</td></tr>`)).join("");
-  return `<h3>Preview complete</h3><p>${source}${value.observed_at?` · ${esc(savedWhen(value.observed_at))}`:""}</p>${proposals||`<p>${empty}</p>`}
+  return `<h3>Preview complete</h3><p>${source}${value.observed_at?` · ${esc(savedWhen(value.observed_at))}`:""}</p>${studyStatus}${proposals||`<p>${empty}</p>`}
     <details><summary>Rule results</summary><ul>${results}</ul></details>
     ${evidence?`<details><summary>Facts used for this preview</summary><div class="table-wrap"><table class="result-table"><caption>Observed facts; unlisted facts are unavailable</caption><thead><tr><th scope="col">Fact</th><th scope="col">Value</th><th scope="col">Source</th></tr></thead><tbody>${evidence}</tbody></table></div>
     <p>Rule fingerprint: <span class="app-mono">${esc(value.rules_sha256)}</span></p><p>Fact fingerprint: <span class="app-mono">${esc(value.facts_sha256)}</span></p><p>Preview fingerprint: <span class="app-mono">${esc(value.evaluation_sha256)}</span></p></details>`:""}`;
+}
+
+function ruleStudySelection(){
+  const selected=state.ruleStudy;
+  return selected?.app===state.app&&selected.context===measuredPostContext()?selected:null;
+}
+
+function studyRuleExample(){
+  return {schema:"wmm.automation-rules.v1",mode:"PROPOSE_ONLY",timezone:"UTC",rules:[{
+    id:"collect-study-evidence",enabled:true,priority:5,
+    when:{all:[{fact:"study.window.state",op:"eq",value:"ENDED"},{fact:"study.coverage",op:"ne",value:"COMPLETE"}]},
+    then:{propose:{action:"collect_study_evidence",tool:"reports.read",reason:"The observation window ended. Review the declared collector and reconcile the final landing and registration counts."},requires:["OWNER_REVIEW"]}
+  }]};
 }
 
 async function runAutomationRulePreview(node){
@@ -756,16 +776,19 @@ async function runAutomationRulePreview(node){
   const input=panel.querySelector("#automation-rules-json"),binding=JSON.stringify(experimentScheduleIdentity());
   const app=state.app, original=input.value;
   const saved=node.dataset?.version?{version:Number(node.dataset.version),hash:node.dataset.hash}:null;
+  const example=node.dataset?.example==="study",study=ruleStudySelection();
   let payload;
-  try{payload=saved?{saved}:{rules:JSON.parse(original)};}catch{
+  if(example&&!study){target.textContent="Choose the study again to preview this example.";return;}
+  try{payload=saved?{saved}:{rules:example?studyRuleExample():JSON.parse(original)};}catch{
     target.textContent="Check the rule JSON and try again.";
     input.focus();
     return;
   }
+  if(study)payload.study=study.binding;
   const request={};
   target.previewRequest=request;
   const stillHere=()=>node.isConnected&&target.isConnected&&target.previewRequest===request&&state.app===app&&
-    binding===JSON.stringify(experimentScheduleIdentity());
+    binding===JSON.stringify(experimentScheduleIdentity())&&ruleStudySelection()===study;
   node.disabled=true;
   target.textContent="Checking saved evidence…";
   try{
@@ -775,11 +798,17 @@ async function runAutomationRulePreview(node){
       target.textContent="The returned preview did not match the selected saved version.";
       return;
     }
-    if(!saved&&input.value!==original){
+    const returnedStudy=result.fact_snapshot?.values?.study;
+    if(study&&(returnedStudy?.id!==study.binding.study_id||returnedStudy.definition_sha256!==study.binding.study_hash||
+      returnedStudy.manifest_version!==study.binding.manifest_version)){
+      target.textContent="The returned preview did not match the selected study.";
+      return;
+    }
+    if(!saved&&!example&&input.value!==original){
       target.textContent="Your draft changed while checking. Preview the current draft again.";
       return;
     }
-    target.innerHTML=automationRulesResult(result);
+    target.innerHTML=automationRulesResult(result,example);
   }catch(error){
     if(stillHere())target.textContent=`Could not preview this rule. ${error.message}`;
   }finally{
@@ -850,7 +879,11 @@ async function manageAutomationRules(node,action){
 }
 
 function resultsView() {
-  return analyticsOverviewPanel()+automationRulesPanel()+WMMFunnels.panel()+installAttributionPanel()+WMMGrowthReview.panel(state)+WMMSubscriptionAuthoring.panel(state)+WMMCustomerWorkflow.panel(state)+measurementIntegrityPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyResultsView();
+  const study=ruleStudySelection();
+  const decision=`<section class="panel" aria-labelledby="results-decision-heading"><h2 id="results-decision-heading" tabindex="-1">What should you do next?</h2>
+    ${study?`<h3>${esc(study.link.study.name)}</h3><p>Saved view checked ${esc(savedWhen(study.report.as_of))}.</p>${WMMObservationalCampaign.checkpointMarkup(study.report)}`:"<p>Choose a tracked study to see the result it supports or what you need to collect next.</p>"}
+    ${study?button("Open study evidence","first-post-evidence"):""}${button(study?"Change tracked study":"Choose a tracked study","first-post-open")}</section>`;
+  return decision+analyticsOverviewPanel()+automationRulesPanel()+WMMFunnels.panel()+installAttributionPanel()+WMMGrowthReview.panel(state)+WMMSubscriptionAuthoring.panel(state)+WMMCustomerWorkflow.panel(state)+measurementIntegrityPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyResultsView();
 }
 
 function growthReviewServices() {
@@ -1587,6 +1620,17 @@ async function handleAction(node) {
   if(action==="measurement-download")return download(`${state.app}-payment-comparison.json`,state.workspace.measurement_integrity);
   if(action==="measurement-connections"){$("#modal").close();state.view="connections";return render();}
   if(action==="first-post-open")return firstMeasuredPost();
+  if(action==="first-post-evidence"){
+    const study=ruleStudySelection();
+    if(!study)throw new Error("Select the study again to review its evidence.");
+    return WMMObservationalCampaign.openBoundStudy(study.binding);
+  }
+  if(action==="first-post-results"){
+    const study=selectedMeasuredPost();
+    if(!study.report)throw new Error("Refresh the study report first.");
+    state.ruleStudy=study;
+    return guidedNavigate("results","#results-decision-heading");
+  }
   if(action==="next-answer")return nextAnswer();
   if(action==="automation-rules-load"||action==="automation-rules-save")return manageAutomationRules(node,action);
   if(action==="automation-rules-run")return runAutomationRulePreview(node);

@@ -114,3 +114,24 @@ class ObservationalCampaignBrowserTests(unittest.TestCase):
         assert page.get_by_label('Window end (UTC ISO)').input_value()
         expect(page.get_by_label('Source coverage is complete')).not_to_be_checked()
         assert not errors,errors
+        page.keyboard.press('Escape')
+        page.unroute('**/observational-campaign/history',older_study)
+        page.locator('[data-action="first-post-open"]').click()
+        page.get_by_label('Registered study').select_option(label=selected)
+        page.get_by_role('button', name='Review this study in Results').click()
+        heading = page.get_by_role('heading', name='What should you do next?')
+        expect(heading).to_be_focused()
+        expect(page.get_by_role('region', name='Study measurement checkpoint')).to_contain_text('Still collecting')
+        with page.expect_response('**/automation/evaluate') as preview:
+            page.get_by_role('button', name='Preview this example').click()
+        assert preview.value.ok
+        result = preview.value.json()
+        assert result['fact_snapshot']['values']['study']['id'] == selected
+        assert not result['proposals']
+        expect(page.locator('#automation-rules-result')).to_contain_text('Example rule (not saved)')
+        expect(page.locator('#automation-rules-result')).to_contain_text('Window still open')
+        expect(page.locator('#automation-rules-result')).to_contain_text('does not verify individual identities or establish lift')
+        page.get_by_role('button', name='Open study evidence', exact=True).click()
+        expect(page.get_by_role('dialog')).to_contain_text('Study ' + selected)
+        expect(page.get_by_role('dialog')).to_contain_text('Still collecting')
+        assert not errors,errors

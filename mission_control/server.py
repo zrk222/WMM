@@ -765,13 +765,15 @@ class Handler(BaseHTTPRequestHandler):
                 raise Invalid('Submit the exact rules document')
             from .automation_store import save
             return self.send(201,save(store,parts[2],user,data['document'],commit_check=recheck))
-        if not isinstance(data,dict) or set(data) not in ({'rules'},{'saved'}):
+        if not isinstance(data,dict) or set(data)-{'study'} not in ({'rules'},{'saved'}):
             raise Invalid('Submit a rules draft or an exact saved version')
         if 'saved' in data and not isinstance(data['saved'],dict):
             raise Invalid('Choose a saved version and its exact fingerprint')
+        if 'study' in data and not isinstance(data['study'],dict):
+            raise Invalid('Choose the exact study and its fingerprint')
         from .automation_rules import simulate_database
         result=simulate_database(store.path,parts[2],user['principal'],
-                                 rules=data.get('rules'),reference=data.get('saved'))
+                                 rules=data.get('rules'),reference=data.get('saved'),study=data.get('study'))
         recheck()
         return self.send(200,result)
 
