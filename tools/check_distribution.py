@@ -39,7 +39,7 @@ def check():
             if hashlib.sha256(path.read_bytes()).hexdigest()!=expected_icon:
                 issues.append(str(rel)+': native icon digest mismatch')
             continue
-        if rel.as_posix() in {'docs/images/overview.png','docs/images/pipeline.png','docs/images/results.png','docs/images/sample-workflow.png','docs/images/agent-task-setup.png'}:
+        if rel.as_posix() in {'docs/images/overview.png','docs/images/pipeline.png','docs/images/results.png','docs/images/sample-workflow.png','docs/images/agent-task-setup.png','docs/images/goal-to-proof.png'}:
             try:
                 manifest=json.loads((ROOT/'docs/images/provenance.json').read_text(encoding='utf-8'))
                 data=path.read_bytes()

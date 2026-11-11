@@ -87,10 +87,14 @@ Try this first task:
 
 Actual screens with synthetic example data—not customer campaign results.
 
-![WMM overview: app context and next actions](docs/images/overview.png)
+![WMM’s Start Here panel: choose a goal, review and approve the work, then see the evidence](docs/images/goal-to-proof.png)
+
+*From goal to proof: your agent proposes the work, you approve it, and WMM keeps the evidence for your next decision.*
 
 <details>
-<summary>See the pipeline and analytics screens</summary>
+<summary>See the app overview, pipeline and analytics screens</summary>
+
+![WMM overview: app context and next actions](docs/images/overview.png)
 
 ![Twelve-stage app marketing pipeline](docs/images/pipeline.png)
 
