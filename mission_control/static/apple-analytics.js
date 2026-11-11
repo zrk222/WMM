@@ -20,16 +20,22 @@
  }
  function friendly(value){return value?String(value).replaceAll('_',' '):'Not recorded';}
  function time(value,epoch=false){if(value===null||value===undefined||value==='')return 'Not recorded';const d=new Date(epoch?Number(value)*1000:value);return Number.isNaN(d.getTime())?'Not recorded':d.toLocaleString();}
+ const canRead=data=>data?.connection?.status==='CONFIGURED_UNVERIFIED';
  function details(data){
   const s=data.schedule, reports=data.reports||[], options=reports.filter(r=>r.name==='App Downloads Standard');
   const discovery=reports.find(r=>r.name==='App Store Discovery and Engagement Standard'&&r.coverage==='COMPLETE');
-  const impressions=discovery&&data.connection?button('Collect store impressions','impressions')+'<p>Read the latest daily Apple discovery file. Activity shows the counts Apple supplied for each report row. Unique counts can overlap across rows.</p>':'';
+  const impressions=discovery&&canRead(data)?button('Collect store impressions','impressions')+'<p>Read the latest daily Apple discovery file. Activity shows the counts Apple supplied for each report row. Unique counts can overlap across rows.</p>':'';
   const state=s?`<p><strong>Refresh:</strong> ${esc(friendly(s.status))} · ${s.enabled?'On':'Off'}<br>Last job: ${esc(s.last_job||'Not recorded')} · ${esc(s.last_job_status?friendly(s.last_job_status):'No status')} · Failures: ${esc(s.failures)}<br>Last metrics collected: ${esc(time(s.last_success))} · Next due: ${s.enabled?esc(time(s.next_due,true)):'Not scheduled'}</p>${['BLOCKED','FAILED'].includes(s.last_job_status)?'<p>Inspect the latest refresh and repair the reported issue before trying again.</p>':''}${s.last_job?button('Inspect latest refresh','job'):''}`:'<p>No saved refresh schedule.</p>';
   const rows=reports.map(r=>`<li>${esc(r.name)}: ${esc(r.instance_count)} report instances · ${esc(friendly(r.coverage))}</li>`).join('');
   const selects=options.map(r=>`<option value="${esc(r.id)}" ${s?.report_id===r.id?'selected':''}>${esc(r.name)}</option>`).join('');
   const form=options.length?`<form id="apple-analytics-form"><div class="field"><label for="apple-analytics-report">Report</label><select id="apple-analytics-report" name="report_id" required>${selects}</select></div><div class="field"><label for="apple-analytics-interval">Refresh every (hours)</label><input id="apple-analytics-interval" type="number" name="interval_hours" min="24" max="168" step="1" value="${esc(s?.interval_hours||24)}" required></div><button class="button" type="submit">${s?.enabled?'Save refresh settings':'Enable refresh'}</button></form>`:'<p>Read the current inventory to choose the App Downloads Standard report.</p>';
   const source=data.connection?(data.inventory?'Saved for this app. The successful inventory below records access at that time, not a guarantee of current access.':'Saved for this app. No successful current-source inventory is recorded.'):'Not connected for this app.';
-  return `<p>Apple source: ${esc(source)}</p><p>Inventory: ${esc(data.inventory?friendly(data.inventory.status):'Not read')} · observed ${esc(time(data.inventory?.observed_at))}.</p>${rows?`<ul>${rows}</ul>`:'<p>No current report inventory is available.</p>'}<p>Report instance counts describe available files, not downloads, revenue, retention or other metrics. Missing metrics remain unknown.</p>${state}${data.connection?button('Read Apple inventory','inventory'):button('Set up App Store connection','setup')}${impressions}${button('Refresh saved status','refresh')}${data.connection?form:''}${s?.enabled?button('Pause refresh','pause'):''}${button('Report / Save PDF','report')}<p>Scheduled reads run only while the WMM worker is running. Pausing stops future scheduled reads; it does not remove saved evidence.</p>`;
+  const controls=canRead(data)
+    ?button('Read Apple inventory','inventory')
+    :data.connection?.status==='PROTECTED_STORAGE_UNAVAILABLE'
+      ?'<p>Unlock protected storage on this host, then refresh saved status.</p>'
+      :button(data.connection?'Reconnect App Store Connect':'Set up App Store connection','setup');
+  return `<p>Apple source: ${esc(source)}</p><p>Inventory: ${esc(data.inventory?friendly(data.inventory.status):'Not read')} · observed ${esc(time(data.inventory?.observed_at))}.</p>${rows?`<ul>${rows}</ul>`:'<p>No current report inventory is available.</p>'}<p>Report instance counts describe available files, not downloads, revenue, retention or other metrics. Missing metrics remain unknown.</p>${state}${controls}${impressions}${button('Refresh saved status','refresh')}${canRead(data)?form:''}${s?.enabled?button('Pause refresh','pause'):''}${button('Report / Save PDF','report')}<p>Scheduled reads run only while the WMM worker is running. Pausing stops future scheduled reads; it does not remove saved evidence.</p>`;
  }
  function validate(t,data){
   if(!data||data.app_id!==t.scope.app||data.manifest_version!==t.scope.version||data.store_app_id!==t.scope.store||!Array.isArray(data.reports))throw Error('App setup changed. Reopen Apple analytics.');
@@ -51,7 +57,7 @@
   const kind=node.dataset.action;
   if(kind==='apple-analytics-open')return open(d);
   const t=active;if(!t||!current(t)||t.pending)return;
-  if(kind==='apple-analytics-setup'){d.close();return d.connectionSetup('app_store');}
+  if(kind==='apple-analytics-setup'){d.close();return d.connectionSetup('app_store',t.data?.connection?.id??null);}
   if(kind==='apple-analytics-access'){d.close();return d.openAccess();}
   if(kind==='apple-analytics-job'&&t.data?.schedule?.last_job)return d.openJob(t.data.schedule.last_job);
   if(kind==='apple-analytics-refresh')return open(d);
@@ -59,11 +65,11 @@
   if(!t.data)return;
   let body,path;
   if(kind==='apple-analytics-inventory'){
-   if(!t.data.connection)return;
+   if(!canRead(t.data))return;
    path='inventory';body={manifest_version:t.scope.version,connection_id:t.data.connection.id,connection_version:t.data.connection.version};
   }else if(kind==='apple-analytics-impressions'){
    const report=t.data.reports.find(r=>r.name==='App Store Discovery and Engagement Standard'&&r.coverage==='COMPLETE');
-   if(!report||!t.data.connection)return;
+   if(!report||!canRead(t.data))return;
    path='impressions';body={manifest_version:t.scope.version,report_id:report.id};
   }else if(kind==='apple-analytics-pause'){
    if(!t.data.schedule?.enabled)return;
@@ -74,7 +80,7 @@
   catch(e){fail(t,e);}finally{busy(t,false);}
  }
  async function submit(form,d){
-  const t=active;if(!t||!current(t)||t.pending||!form.isConnected||form.id!=='apple-analytics-form'||!t.data?.connection)return;
+  const t=active;if(!t||!current(t)||t.pending||!form.isConnected||form.id!=='apple-analytics-form'||!canRead(t.data))return;
   const values=new d.FormData(form),reportId=values.get('report_id'),hours=Number(values.get('interval_hours'));
   if(!Number.isSafeInteger(hours)||hours<24||hours>168||!t.data.reports.some(r=>r.id===reportId&&r.name==='App Downloads Standard')){fail(t,Error('Choose the displayed downloads report and an interval from 24 to 168 hours.'));return;}
   const body={manifest_version:t.scope.version,enabled:true,interval_hours:hours,report_id:reportId,version:t.data.schedule?.version??null};

@@ -6,6 +6,7 @@ import secrets
 from .apple_analytics import DISCOVERY, DOWNLOADS, REPORTS, identity
 from .apple_metrics_schedule import AppleMetricsSchedules, public_row
 from .common import Invalid, digest, identifier, uid
+from .connection_setup import Connections
 from .db import connection
 from .discovery_http import json_body
 from .managed_media_http import singleton
@@ -86,8 +87,28 @@ def inventory(db, app_id, version, store_id, record):
     return None, []
 
 
+def connection_status(store, app_id, record):
+    """Expose only whether this host can access the saved local credential."""
+    status = Connections(store).credential_status(app_id, record['id'], json.loads(record['data']))
+    if status in ('PROTECTED_KEY_PRESENT', 'ENVIRONMENT_REFERENCE'):
+        return 'CONFIGURED_UNVERIFIED'
+    if status == 'RECONNECT_REQUIRED':
+        return status
+    return 'PROTECTED_STORAGE_UNAVAILABLE'
+
+
+def require_connection_ready(store, app_id, record):
+    if record is None:
+        raise Invalid('Set up App Store Connect before starting an analytics read')
+    status = connection_status(store, app_id, record)
+    if status == 'RECONNECT_REQUIRED':
+        raise Invalid('Reconnect App Store Connect before starting an analytics read')
+    if status == 'PROTECTED_STORAGE_UNAVAILABLE':
+        raise Invalid('Unlock protected storage on this host for App Store Connect, then refresh')
+
+
 def check_source(db, app_id, manifest_version, connection_id=None, connection_version=None,
-                 report_id=None, report_family=DOWNLOADS):
+                 report_id=None, report_family=DOWNLOADS, *, readiness_store=None):
     """Revalidate all inputs inside the scheduler or queue write transaction."""
     version, store_id, record = source(db, app_id)
     if type(manifest_version) is not int or version != manifest_version:
@@ -96,6 +117,8 @@ def check_source(db, app_id, manifest_version, connection_id=None, connection_ve
                                       or type(connection_version) is not int
                                       or record['version'] != connection_version):
         raise Invalid('Apple connection changed; reload Apple analytics')
+    if readiness_store is not None:
+        require_connection_ready(readiness_store, app_id, record)
     inventory_id = None
     if report_id is not None:
         current, reports = inventory(db, app_id, version, store_id, record)
@@ -117,7 +140,8 @@ def view(store, app_id):
         if schedule is not None:
             schedule['last_error'] = None
         return dict(app_id=app_id, manifest_version=version, store_app_id=store_id,
-                    connection=dict(id=record['id'], version=record['version'], status='CONFIGURED_UNVERIFIED') if record else None,
+                    connection=dict(id=record['id'], version=record['version'],
+                                    status=connection_status(store, app_id, record)) if record else None,
                     reports=reports, inventory=current, schedule=schedule)
 
 
@@ -132,7 +156,8 @@ def dispatch(service, app_id, action, body):
         if not isinstance(body['connection_id'], str):
             raise Invalid('Select this app Apple connection')
         with connection(service.store.path) as db:
-            expected = check_source(db, app_id, body['manifest_version'], body['connection_id'], body['connection_version'])
+            expected = check_source(db, app_id, body['manifest_version'], body['connection_id'],
+                                    body['connection_version'], readiness_store=service.store)
         def check(db):
             actual = check_source(db, app_id, body['manifest_version'], body['connection_id'], body['connection_version'])
             if actual != expected:
@@ -146,11 +171,12 @@ def dispatch(service, app_id, action, body):
         report_id = identity(body['report_id'])
         if report_id != body['report_id']:
             raise Invalid('Select the exact Apple analytics report identity')
-        def impression_source(db):
+        def impression_source(db, readiness_store=None):
             return check_source(db, app_id, body['manifest_version'],
-                                report_id=report_id, report_family=DISCOVERY)
+                                report_id=report_id, report_family=DISCOVERY,
+                                readiness_store=readiness_store)
         with connection(service.store.path) as db:
-            snapshot = impression_source(db)
+            snapshot = impression_source(db, service.store)
         def check(db):
             if impression_source(db) != snapshot:
                 raise Invalid('Apple analytics source changed; reload before collecting impressions')
@@ -170,7 +196,8 @@ def dispatch(service, app_id, action, body):
         if report_id is not None and report_id != body['report_id']:
             raise Invalid('Select the exact Apple analytics report identity')
         with connection(service.store.path) as db:
-            snapshot = check_source(db, app_id, body['manifest_version'], report_id=report_id)
+            snapshot = check_source(db, app_id, body['manifest_version'], report_id=report_id,
+                                    readiness_store=service.store if body['enabled'] else None)
         def check(db):
             if check_source(db, app_id, body['manifest_version'], report_id=report_id) != snapshot:
                 raise Invalid('Apple analytics source changed; reload before saving')

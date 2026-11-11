@@ -24,6 +24,26 @@ test('shows truthful inventory, schedule and PDF evidence without private fields
  assert.match(f.html,/<label for="apple-analytics-interval">Refresh every \(hours\)<\/label><input id="apple-analytics-interval"/);
  const value=apple.report(f.data,f.state,f.d.pageReports);assert.equal(value.metrics[0].value,0);assert.ok(value.notes.join(' ').includes('not downloads'));assert.ok(!JSON.stringify(value).includes('PRIVATE_SENTINEL'));
 });
+test('a missing local key offers repair and keeps saved reports and pause available',async()=>{
+ const f=fixture(),calls=[];let repair=0;
+ f.data.connection.status='RECONNECT_REQUIRED';
+ f.data.schedule={enabled:true,status:'ENABLED',version:3,failures:0};
+ f.data.reports.push({id:'discovery-1',name:'App Store Discovery and Engagement Standard',coverage:'COMPLETE',instance_count:0});
+ f.d.api=async(path)=>{calls.push(path);return f.data;};
+ f.d.connectionSetup=(provider,id)=>{assert.equal(provider,'app_store');assert.equal(id,'connection-1');repair++;};
+ await apple.open(f.d);
+ assert.match(f.html,/Reconnect App Store Connect/);
+ assert.match(f.html,/WAITING FOR REPORTS|0 report instances/);
+ assert.match(f.html,/Pause refresh/);
+ assert.match(f.html,/Report \/ Save PDF/);
+ assert.doesNotMatch(f.html,/Read Apple inventory|Collect store impressions|Enable refresh|Save refresh settings/);
+ await apple.action(click('inventory'),f.d);
+ await apple.action(click('impressions'),f.d);
+ await apple.submit(form(),f.d);
+ assert.equal(calls.length,1);
+ await apple.action(click('setup'),f.d);assert.equal(repair,1);
+});
+
 test('signed out and nonowner are routed to existing repair choices without data read',async()=>{
  const f=fixture();let calls=0;f.d.api=async()=>{calls++;return f.data};f.state.workspace.identity={status:'SIGNED_OUT'};await apple.open(f.d);assert.match(f.html,/Sign in/);assert.equal(calls,0);
  f.state.workspace.identity={status:'AUTHENTICATED',principal:'reviewer'};await apple.open(f.d);assert.match(f.html,/current app owner/);assert.match(f.html,/Review app access/);assert.equal(calls,0);

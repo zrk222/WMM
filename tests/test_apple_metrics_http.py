@@ -15,6 +15,7 @@ from mission_control.apple_analytics import DISCOVERY
 from mission_control.apple_metrics_store import read_partition
 from mission_control.apple_metrics_schedule import AppleMetricsSchedules
 from mission_control.common import Invalid, canonical, now
+from mission_control.connection_setup import Connections, bound_status_source
 from mission_control.db import connection
 from mission_control.operation_authority import bound_owner, protected
 from mission_control.service import Service
@@ -114,6 +115,47 @@ class AppleMetricsHttpTests(unittest.TestCase):
         self.assertNotIn('GROWTH_SAMPLE_ONE_SYNTHETIC', json.dumps(value))
         self.assertNotIn('metrics', value)
         self.assertEqual(value['connection']['status'], 'CONFIGURED_UNVERIFIED')
+
+    def test_unavailable_local_key_preserves_history_and_pausing_but_cannot_start_reads(self):
+        self.saved_inventory(discovery=True)
+        schedule = self.dispatch('schedule', self.schedule_body())
+        initial_jobs = self.count('jobs')
+        for status in ('RECONNECT_REQUIRED', 'PROTECTED_STORAGE_UNAVAILABLE'):
+            with self.subTest(status=status), bound_status_source(
+                    lambda store, app_id: {self.record['id']: {'status': status}}):
+                value = self.dispatch('view', {})
+                self.assertEqual(value['connection']['status'], status)
+                self.assertEqual(value['inventory']['job_id'], 'job-1')
+                self.assertEqual(len(value['reports']), 2)
+                for action, body in (
+                    ('inventory', self.inventory_body()),
+                    ('impressions', dict(manifest_version=self.app['version'], report_id='discovery-1')),
+                    ('schedule', dict(self.schedule_body(), version=schedule['version'])),
+                ):
+                    with self.subTest(action=action), self.assertRaisesRegex(Invalid, 'App Store Connect'):
+                        self.dispatch(action, body)
+                self.assertEqual(self.count('jobs'), initial_jobs)
+                self.assertTrue(self.dispatch('view', {})['schedule']['enabled'])
+        with bound_status_source(lambda store, app_id: {self.record['id']: {'status': 'RECONNECT_REQUIRED'}}):
+            paused = self.dispatch('schedule', dict(manifest_version=self.app['version'], enabled=False,
+                                                    version=schedule['version']))
+        self.assertFalse(paused['enabled'])
+
+    def test_managed_key_probe_uses_exact_binding_and_does_not_return_configuration(self):
+        data = dict(self.record['data'], auth_mode='managed_key', credential_ref='00000000-0000-4000-8000-000000000001')
+        self.record = self.store.save_record(APP, dict(self.record, data=data))
+        local_get = unittest.mock.Mock(side_effect=[None, {'private_key': 'PRIVATE_SENTINEL'}])
+        vault = SimpleNamespace(get=local_get)
+        with patch.object(Connections, 'vault', return_value=vault), \
+             patch('mission_control.provider_auth.jwt') as signer:
+            value = self.dispatch('view', {})
+            self.assertEqual(value['connection']['status'], 'RECONNECT_REQUIRED')
+            value = self.dispatch('view', {})
+            self.assertEqual(value['connection']['status'], 'CONFIGURED_UNVERIFIED')
+        target = Connections(self.store).name(APP, data)
+        self.assertEqual([call.args for call in local_get.call_args_list], [(target,), (target,)])
+        self.assertNotIn('PRIVATE_SENTINEL', json.dumps(value))
+        signer.assert_not_called()
 
     def test_inventory_is_selected_only_for_current_app_and_connection(self):
         self.saved_inventory(manifest_version=self.app['version'] - 1)
