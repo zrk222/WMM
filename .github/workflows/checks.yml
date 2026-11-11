@@ -138,7 +138,7 @@ jobs:
           if ($testFiles.Count -eq 0) { throw 'No browser logic tests found' }
           node --test @($testFiles.FullName)
       - name: Run isolated synthetic regressions
-        run: python -X utf8 tools/run_ci_tests.py --shards 4 --index ${{ matrix.shard }}
+        run: python -X utf8 tools/run_ci_tests.py --shards 4 --index ${{ matrix.shard }} --timing-profile tools/ci-windows-timings.json
   ubuntu:
     runs-on: ubuntu-24.04
     timeout-minutes: 45

@@ -1,4 +1,4 @@
-"""Deterministic complete unittest sharding; test counts are not duration estimates."""
+"""Deterministic complete unittest sharding with optional module timing hints."""
 from collections import Counter
 import argparse
 import hashlib
@@ -37,7 +37,27 @@ def verify_assignment(cases, assigned):
         raise ValueError('Shard assignment changed the full discovered ID multiset')
 
 
-def partition(cases, shards):
+def timing_profile(path):
+    """Load reviewed duration estimates without changing test discovery."""
+    with path.open(encoding='utf-8') as stream:
+        raw = stream.read(64 * 1024 + 1)
+    if len(raw) > 64 * 1024:
+        raise ValueError('Timing profile is too large')
+    profile = json.loads(raw)
+    if (not isinstance(profile, dict)
+        or set(profile) != {'schema', 'source_run', 'default_case_ms', 'module_case_ms'}
+        or profile['schema'] != 'wmm.ci-module-timings.v1'
+        or type(profile['source_run']) is not int or profile['source_run'] <= 0
+        or type(profile['default_case_ms']) is not int
+        or not 1 <= profile['default_case_ms'] <= 600_000
+        or not isinstance(profile['module_case_ms'], dict)
+        or any(not key or type(value) is not int or not 1 <= value <= 600_000
+               for key, value in profile['module_case_ms'].items())):
+        raise ValueError('Invalid module timing profile')
+    return profile
+
+
+def partition(cases, shards, profile=None):
     """Greedily balance whole defining modules, preserving their discovery order."""
     if type(shards) is not int or shards < 1:
         raise ValueError('Shard count must be a positive integer')
@@ -50,11 +70,16 @@ def partition(cases, shards):
     if shards > len(cases):
         raise ValueError('Shard count exceeds the discovered test occurrence count')
     assigned = [[] for _ in range(shards)]
-    counts = [0] * shards
-    for module, members in sorted(groups.items(), key=lambda pair: (-len(pair[1]), pair[0])):
-        index = min(range(shards), key=lambda number: (counts[number], number))
+    loads = [0] * shards
+    case_ms = profile['module_case_ms'] if profile is not None else {}
+    default_ms = profile['default_case_ms'] if profile is not None else 1
+    costs = {module: len(members) * case_ms.get(module, default_ms)
+             for module, members in groups.items()}
+    for module, members in sorted(groups.items(),
+                                  key=lambda pair: (-costs[pair[0]], -len(pair[1]), pair[0])):
+        index = min(range(shards), key=lambda number: (loads[number], number))
         assigned[index].extend(members)
-        counts[index] += len(members)
+        loads[index] += costs[module]
     verify_assignment(cases, assigned)
     return assigned
 
@@ -79,6 +104,7 @@ def main(argv=None):
     parser.add_argument('--shards', type=int, default=4)
     parser.add_argument('--index', type=int, required=True)
     parser.add_argument('--plan-only', action='store_true', help='Discover/assign only; no tests run or pass claim')
+    parser.add_argument('--timing-profile', type=Path, help='Optional reviewed module timing estimates')
     args = parser.parse_args(argv)
     if args.shards < 1 or not 0 <= args.index < args.shards:
         parser.error('Require shards >= 1 and 0 <= index < shards')
@@ -86,12 +112,16 @@ def main(argv=None):
         # Do not set top_level_dir: that would change test_* imports to tests.*.
         suite = unittest.TestLoader().discover(start_dir='tests', pattern='test_*.py')
         cases = list(flatten(suite))
-        assigned = partition(cases, args.shards)
+        profile = timing_profile(args.timing_profile) if args.timing_profile else None
+        assigned = partition(cases, args.shards, profile)
         value = inventory(cases, assigned, args.index, args.plan_only)
+        value['weighting'] = 'duration' if profile else 'count'
+        if profile:
+            value['timing_source_run'] = profile['source_run']
         print('CI_INVENTORY ' + json.dumps(value, sort_keys=True), flush=True)
         if not assigned[args.index]:
             raise ValueError('Selected shard is empty; refusing a green empty run')
-    except (ValueError, ImportError) as error:
+    except (ValueError, ImportError, OSError) as error:
         print('CI_INVENTORY_ERROR: ' + str(error), file=sys.stderr, flush=True)
         return 2
     if args.plan_only:

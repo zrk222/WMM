@@ -23,10 +23,18 @@
           "returns": "unknown"
         },
         {
+          "name": "timing_profile",
+          "args": [
+            "path"
+          ],
+          "returns": "unknown"
+        },
+        {
           "name": "partition",
           "args": [
             "cases",
-            "shards"
+            "shards",
+            "profile"
           ],
           "returns": "unknown"
         },

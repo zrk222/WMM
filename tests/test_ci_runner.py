@@ -42,6 +42,34 @@ class ShardTests(unittest.TestCase):
         shorter = flat[:-1]; other = runner.partition(shorter, 4)
         self.assertNotEqual(hashes[0], runner.inventory(shorter, other, 0, True)['inventory_sha256'])
 
+    def test_duration_hints_separate_slow_modules_and_keep_unknown_cases(self):
+        flat = cases('slow_a', 2) + cases('slow_b', 2) + cases('quick_a', 6) + cases('quick_b', 6)
+        profile = {'module_case_ms': {'slow_a': 500, 'slow_b': 500}, 'default_case_ms': 5}
+        by_duration = runner.partition(flat, 2, profile)
+        runner.verify_assignment(flat, by_duration)
+        slow_sets = [
+            {type(case).__module__ for _, case in shard if type(case).__module__.startswith('slow_')}
+            for shard in by_duration
+        ]
+        self.assertEqual(slow_sets, [{'slow_a'}, {'slow_b'}])
+        self.assertEqual([[index for index, _ in shard] for shard in by_duration],
+                         [[index for index, _ in shard] for shard in runner.partition(flat, 2, profile)])
+
+    def test_cli_rejects_invalid_timing_profile_and_reports_valid_provenance(self):
+        source = 'import unittest\nclass Example(unittest.TestCase):\n def test_ok(self): pass\n'
+        profile = dict(schema='wmm.ci-module-timings.v1', source_run=10,
+                       default_case_ms=30, module_case_ms={'test_mini': 20})
+        args = ('--shards', '1', '--index', '0', '--timing-profile', 'tests/timings.json')
+        result, _ = self.invoke({'test_mini.py': source, 'timings.json': json.dumps(profile)}, *args)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        inventory = json.loads(result.stdout.split('CI_INVENTORY ', 1)[1].splitlines()[0])
+        self.assertEqual((inventory['weighting'], inventory['timing_source_run']), ('duration', 10))
+        for invalid in (True, 0, -1, '1'):
+            result, _ = self.invoke({'test_mini.py': source, 'timings.json': json.dumps(
+                dict(profile, module_case_ms={'test_mini': invalid}))}, *args)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn('Invalid module timing profile', result.stderr)
+
     def test_assignment_sabotage_drop_duplicate_or_substitute_cannot_pass(self):
         flat = cases('one_module', 4); assigned = runner.partition(flat, 1)
         mutants = [[], [assigned[0][:-1]], [assigned[0]+[assigned[0][0]]],
