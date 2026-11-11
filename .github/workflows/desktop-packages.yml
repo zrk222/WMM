@@ -14,6 +14,7 @@ on:
       - 'tools/test_native_desktop_bundle.py'
       - 'tests/test_native_desktop_package.py'
       - 'tools/build_desktop.py'
+      - 'tools/ci_ubuntu_apt.sh'
       - 'tools/smoke_desktop_bundle.py'
       - 'tools/test_windows_installer.py'
       - 'tools/test_packaged_first_packet.py'
@@ -59,41 +60,7 @@ jobs:
         timeout-minutes: 20
         run: |
           python -m pip install --only-binary :all: SecretStorage==3.3.3
-          apt_network=(-o Acquire::Retries=2 -o Acquire::http::Timeout=25 -o Acquire::https::Timeout=25)
-          packages=(dbus gnome-keyring libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev libgl1 xvfb xauth openbox wmctrl)
-          fetch_packages() {
-            sudo timeout --kill-after=10s 90s apt-get "${apt_network[@]}" -o APT::Update::Error-Mode=any update &&
-              sudo timeout --kill-after=10s 6m apt-get "${apt_network[@]}" install --yes --no-install-recommends --download-only "${packages[@]}"
-          }
-          if ! fetch_packages; then
-            sources=/etc/apt/sources.list.d/ubuntu.sources
-            mirror='(https?://azure[.]archive[.]ubuntu[.]com/ubuntu|mirror[+]file:/etc/apt/apt-mirrors[.]txt)'
-            if ! grep -Eq "${mirror}([[:space:]]|$)" "$sources"; then
-              echo "::error::Ubuntu dependency download failed and the Azure Ubuntu mirror was not configured."
-              exit 1
-            fi
-            template=$(cat "$sources")
-            fetched=0
-            for archive in https://archive.ubuntu.com/ubuntu https://mirrors.mit.edu/ubuntu https://mirrors.edge.kernel.org/ubuntu; do
-              if ! curl --fail --silent --show-error --head --max-time 6 --output /dev/null "$archive/dists/noble/InRelease"; then
-                continue
-              fi
-              echo "::warning::Trying Ubuntu dependencies from $archive (APT signature checks still apply)."
-              printf '%s\n' "$template" |
-                sed -E "s@${mirror}([[:space:]]|$)@${archive}\2@g" |
-                sudo tee "$sources" > /dev/null
-              if fetch_packages; then
-                fetched=1
-                break
-              fi
-            done
-            if [[ $fetched == 0 ]]; then
-              echo "::error::No configured Ubuntu archive delivered the required dependencies."
-              exit 1
-            fi
-          fi
-          # Retry only downloads, before any package installation can mutate dpkg state.
-          sudo apt-get install --yes --no-install-recommends --no-download "${packages[@]}"
+          bash tools/ci_ubuntu_apt.sh dbus gnome-keyring libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev libgl1 xvfb xauth openbox wmctrl libtk8.6 xdg-utils ffmpeg fonts-dejavu-core
       - name: Generate source-bound build-environment SBOM
         shell: bash
         run: |
@@ -141,7 +108,6 @@ jobs:
       - name: Verify isolated Ubuntu install upgrade and removal
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get install --yes --no-install-recommends libtk8.6 libgl1 xdg-utils ffmpeg fonts-dejavu-core
           sudo env CI=true GITHUB_ACTIONS=true GITHUB_SHA="$GITHUB_SHA" WMM_HOST_SERVICE_CI=1 WMM_LINUX_PACKAGE_TEST=1 WMM_ISOLATED_NATIVE_KEYRING=1 WMM_PACKAGED_FIRST_PACKET_TEST=1 PLAYWRIGHT_BROWSERS_PATH="$PLAYWRIGHT_BROWSERS_PATH" WMM_TEST_PYTHON="$(command -v python)" WMM_TEST_ROOT="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" dbus-run-session -- bash -euo pipefail -c '
             export XDG_DATA_HOME="$(mktemp -d "$RUNNER_TEMP/wmm-deb-keyring.XXXXXX")"
             printf "%s\n" "disposable-synthetic-deb-keyring" | gnome-keyring-daemon --unlock --components=secrets
