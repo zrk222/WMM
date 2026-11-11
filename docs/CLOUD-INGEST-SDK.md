@@ -1,6 +1,6 @@
 # Personal-cloud ingest SDK (BYOC)
 
-Status: **client implemented; no live cloud endpoint is configured.**
+Status: **client and optional connection settings implemented; local is the default and no live cloud endpoint is configured.**
 
 This is the first deliverable for the local/cloud SDK discussion. It is a small client for a **personal cloud endpoint you operate** that implements the WMM v1 contract. It does not host a service, store tokens, or silently fall back to local.
 
@@ -44,10 +44,14 @@ Rules:
 - No retry, no fallback and no implicit send on save/import.
 - The cloud endpoint receives only the batch the caller explicitly sends.
 
+## Connection settings
+
+Connections ? **Personal cloud (optional)** lets the owner enter an HTTPS base URL and a write-only token. The token is stored in the OS vault, never SQLite. **Test connection** sends only `GET /v1/health`. **Return to local** deletes the token and restores the default mode. MMP import and reporting do not require this connection.
+
 ## Not built yet
 
-- token storage/UI and connection testing in the desktop app;
 - automatic local?cloud sync and conflict resolution;
+- explicit "send this local batch to my cloud" action;
 - hosted deployment, tenant auth, SSO, WORM audit and DPA;
 - live provider postbacks and mobile SDKs.
 

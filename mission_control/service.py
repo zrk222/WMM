@@ -167,6 +167,8 @@ class Service:
         catalog=catalog_readiness(app,records,job_rows,connection_statuses)
         release=release_readiness(app,records,job_rows,connection_statuses)
         evaluated=evaluate(app,records,ledger,catalog,release)
+        from .cloud_connection import CloudConnections
+        cloud_connection=CloudConnections(self.store).current(app_id)
         workflow=guide(app,records,evaluated,ledger,catalog,release)
         workflow['exceptions'] = self._workflow_exceptions(app)
         automation=recommend(app,records,ledger,workflow)
@@ -175,7 +177,7 @@ class Service:
         preparation["recommendations"]=automation
         preparation['collection']=CampaignInputs(self.store).preview(app_id)
         research=Research(self.store).list(app_id)
-        workspace={"app":app,"measurement_integrity":measurement_integrity(self.store,app_id),"subscription_catalog":catalog,"release_inventory":release,"inspections":Inspections(self.store).view(app_id),"workflow":workflow,"automation":automation,"pmf":prepare_pmf(app,records,ledger,research=research),"public_store_checks":PublicStore(self.store).list(app_id),"followup":Followup(self.store).list(app_id),"aeo":Checks(self.store).list(app_id),"records":records,"preparation":preparation,"stages":evaluated,"metrics":summarize(records,app_id,ledger),
+        workspace={"app":app,"measurement_integrity":measurement_integrity(self.store,app_id),"subscription_catalog":catalog,"release_inventory":release,"inspections":Inspections(self.store).view(app_id),"workflow":workflow,"automation":automation,"cloud_connection":cloud_connection,"pmf":prepare_pmf(app,records,ledger,research=research),"public_store_checks":PublicStore(self.store).list(app_id),"followup":Followup(self.store).list(app_id),"aeo":Checks(self.store).list(app_id),"records":records,"preparation":preparation,"stages":evaluated,"metrics":summarize(records,app_id,ledger),
                 "jobs":job_rows,"audit":self.store.history(app_id),"approvals":self.approvals(app_id),"ledger":ledger,"capabilities":Capabilities(self.store).list(app_id),
                 "connections":connection_statuses,"insights":Insights(self.store).list(app_id),"storekit":Notifications(self.store).list(app_id),"attribution":Observations(self.store).list(app_id),"experiments":Experiments(self.store).list(app_id),
                 "schedules":schedules,"worker":getattr(self,"worker_health",lambda:{"status":"NOT_STARTED"})(),

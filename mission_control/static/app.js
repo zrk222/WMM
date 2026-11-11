@@ -428,6 +428,16 @@ async function installImportDetect(form){
   }
 }
 
+async function saveCloudConnection(form){
+  const values=Object.fromEntries(new FormData(form)),button=form.querySelector('button[type="submit"]');
+  if(button)button.disabled=true;
+  try{
+    const saved=await api(`/api/apps/${encodeURIComponent(state.app)}/cloud-connection/save`,
+      {endpoint:values.endpoint.trim(),token:values.token});
+    await refresh();toast(saved.mode==="PERSONAL_CLOUD"?"Personal cloud saved. Test it before sending any import.":"Connection saved.");
+  }finally{if(button)button.disabled=false;}
+}
+
 async function installImportSubmit(form){
   const file=form.querySelector('[name="export_file"]').files[0];
   if(!file)throw new Error("Choose an export file.");
@@ -831,6 +841,13 @@ function providerHealthPanel() {
   return `<section class="panel" aria-label="Provider health"><h2>Provider health</h2>${value?.recovery?notice("Highest-priority recovery: "+value.recovery.next_action,"warning"):notice("No provider needs repair from the saved local state. Missing scope or delivery is not inferred.")}${entries.length?`<div class="table-wrap"><table><caption>Saved provider state and one recovery path per row</caption><thead><tr><th scope="col">Provider</th><th scope="col">Kind</th><th scope="col">Observed state</th><th scope="col">Permission</th><th scope="col">Expires</th><th scope="col">Failure</th><th scope="col">Next action</th></tr></thead><tbody>${rows}</tbody></table></div>`:notice("No supported provider connection is saved for this app. A missing connection is not a successful or zero read.")}<p class="description">${esc(value?.scope||"Login, key presence and publishing access are not analytics permission or measured outcomes.")}</p></section>`;
 }
 
+function cloudConnectionPanel(){
+  const value=state.workspace?.cloud_connection||{mode:"LOCAL",status:"LOCAL",endpoint:null};
+  const local=value.mode==="LOCAL";
+  const statusText=local?"Local workspace (default)":`${value.status}${value.endpoint?" ? "+value.endpoint:""}`;
+  return `<section class="panel" aria-label="Personal cloud connection"><div class="section-heading"><div><p class="eyebrow">PERSONAL CLOUD / OPTIONAL</p><h2>${local?"Local by default":"Personal cloud configured"}</h2><p>${statusText}</p></div>${status(value.status)}</div>${notice("MMP imports and reports work locally without this connection. A personal cloud is optional and receives nothing until you explicitly send an import.")}<form id="cloud-connection-form" data-app="${esc(state.app)}"><div class="form-grid"><label class="field">Cloud base URL<input name="endpoint" type="url" placeholder="https://cloud.example.com" value="${esc(value.endpoint||"")}" required></label><label class="field">Token (write-only)<input name="token" type="password" autocomplete="new-password" placeholder="${local?"Enter token":"Leave blank to keep the saved token"}"></label></div><div class="field-error" role="alert"></div><div class="modal-actions"><button class="button" type="submit">Save connection</button>${button("Test connection","cloud-connection-test")}${local?"":button("Return to local","cloud-connection-remove")}</div></form></section>`;
+}
+
 function connectionsView() {
   return heading("Connect with clarity","Connect each appâ€™s evidence, then verify actual access.")+providerHealthPanel()+WMMOneSignal.panel()+WMMAppleAnalytics.panel()+WMMDrive.panel()+googlePlayPanel()+socialPanel()+WMMPublicationUI.panel(state)+campaignPanel()+releaseInventoryPanel()+subscriptionPanel()+attributionPanel()+storekitPanel()+insightsPanel()+legacyConnectionsView();
 }
@@ -1222,6 +1239,7 @@ async function formSubmit(event) {
     event.preventDefault();toast("App changed. Wait for this app to load and reopen the form.");return;
   }
   if(formId==='install-import-form'){event.preventDefault();return installImportSubmit(form);}
+  if(formId==='cloud-connection-form'){event.preventDefault();return saveCloudConnection(form);}
   if((formId||'').startsWith('onesignal-')){event.preventDefault();return WMMOneSignal.submit(form,growthReviewServices());}
   if(formId==='apple-analytics-form'){event.preventDefault();return WMMAppleAnalytics.submit(form,growthReviewServices());}
   if(formId==='agreement-form'){event.preventDefault();return WMMAgreement.submit(form);}
@@ -1388,6 +1406,14 @@ async function handleAction(node) {
   if(action==="next-answer")return nextAnswer();
   if(action==="automation-rules-load"||action==="automation-rules-save")return manageAutomationRules(node,action);
   if(action==="automation-rules-run")return runAutomationRulePreview(node);
+  if(action==="cloud-connection-test"){
+    const value=await api(`/api/apps/${encodeURIComponent(state.app)}/cloud-connection/test`,{});
+    await refresh();toast(value.tenant?`Cloud connection tested ? tenant ${value.tenant}`:"Cloud connection tested.");return;
+  }
+  if(action==="cloud-connection-remove"){
+    const value=await api(`/api/apps/${encodeURIComponent(state.app)}/cloud-connection/remove`,{});
+    await refresh();toast(value.cleanup==="REMOVED"?"Personal cloud removed. WMM is local-only.":"Local mode restored; protected token cleanup needs attention.");return;
+  }
   if(action==="campaign-plan-open")return campaignPlanOpen();
   if(action==="campaign-plan-download-md"){if(!state.campaignPlan)throw new Error("Open the campaign plan first.");return download(`${state.app}-campaign-plan.md`,WMMCampaignPlan.markdown(state.campaignPlan),"text/markdown");}
   if(action==="campaign-plan-download-json"){if(!state.campaignPlan)throw new Error("Open the campaign plan first.");return download(`${state.app}-campaign-plan.json`,state.campaignPlan);}

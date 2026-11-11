@@ -325,6 +325,15 @@ class Handler(BaseHTTPRequestHandler):
                 raise Invalid('Use the exact app operation discovery address and supported profile')
             from .agent_operations import discovery
             return self.send(200,discovery(store.app(app_id),'meta_media_buyer' if query else None))
+        if parts[3:]==['cloud-connection']:
+            if urlparse(self.path).query:raise Invalid('Use the exact personal cloud connection address')
+            from .cloud_connection import CloudConnections
+            from .db import connection as db_connection
+            from .review_access import member
+            session=self.session();user=self.server.identities.fresh(session)
+            with db_connection(store.path) as db:
+                member(db,app_id,user['principal'],'OWNER')
+            return self.send(200,CloudConnections(store).current(app_id))
         if parts[3:]==['automation','rules']:
             if urlparse(self.path).query:raise Invalid('Use the exact automation rules address')
             from .automation_store import current
@@ -655,7 +664,7 @@ class Handler(BaseHTTPRequestHandler):
                 "reviews":lambda:service.prepare_review(app_id,data),"cohorts":lambda:service.cohort(app_id,data),"events":lambda:service.events(app_id,data)}
         handlers={"agent-reviews":self.post_agent_reviews,"agent-grants":self.post_agent_grants,"setup-discovery":self.post_setup_discovery,"play":self.post_play,"experiment-tracking":self.post_tracking,"sequences":self.post_sequence,"resolutions":self.post_resolution,"release-selection":self.post_release_selection,"inspections":self.post_inspection,
                   "pmf-research":self.post_pmf_research,"followup":self.post_followup,"aeo":self.post_aeo,
-                  "insights":self.post_insights,"storekit":self.post_storekit,"attribution":self.post_attribution,"install-attribution":self.post_install_import,"automation":self.post_automation,
+                  "insights":self.post_insights,"storekit":self.post_storekit,"attribution":self.post_attribution,"install-attribution":self.post_install_import,"automation":self.post_automation,"cloud-connection":self.post_cloud_connection,
                   "connections":self.post_connection,"experiments":self.post_experiment,"references":self.post_reference,"production":self.post_production,"rankings":self.post_ranking,"acquisition":self.post_acquisition,"access":self.post_access,"verified-reviews":self.post_verified_review,"provider-actions":self.post_provider_action,"learning":self.post_learning,"payments":self.post_payments}
         if action in handlers:
             return handlers[action](parts,data)
@@ -754,6 +763,25 @@ class Handler(BaseHTTPRequestHandler):
         result=evaluate(data['rules'],facts)
         recheck()
         return self.send(200,result)
+
+    def post_cloud_connection(self,parts,data):
+        """Owner-only optional personal cloud setup; local mode remains the default."""
+        if len(parts)!=5 or parts[4] not in ('save','test','remove') or urlparse(self.path).query:
+            raise Invalid('Use the exact personal cloud save, test or remove address')
+        from .cloud_connection import CloudConnections
+        from .db import connection
+        from .review_access import member
+        session=self.session();user=self.server.identities.fresh(session);store=self.server.service.store
+        with connection(store.path) as db:
+            member(db,parts[2],user['principal'],'OWNER')
+        clouds=CloudConnections(store)
+        if parts[4]=='save':
+            return self.send(200,clouds.save(parts[2],user,data))
+        if parts[4]=='test':
+            if data!={}:raise Invalid('Testing sends no fields and no evidence')
+            return self.send(200,clouds.test(parts[2]))
+        if data!={}:raise Invalid('Removing the connection sends no fields')
+        return self.send(200,clouds.remove(parts[2]))
 
     def post_sequence(self,parts,data):
         """Approve exact reviewed actions or stop owned work in the selected app only."""
