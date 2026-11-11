@@ -4,10 +4,12 @@
 })(typeof globalThis==='object'?globalThis:this,function(){
   'use strict';
   const POLL_MS=2000,esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const IN_PROGRESS = new Set(['RUNNING', 'QUEUED', 'RETRY_WAIT', 'CANCEL_REQUESTED']);
   let generation=0,timer=null,mounted=null,opening=null;
   function panel(){return `<section class="panel" id="workflow-monitor" aria-label="Live workflow progression">
     <h2>See what your agent is doing</h2><p>Follow the recorded stage, current activity and saved result.</p>
     <p data-live-worker role="status">Checking the worker on this host…</p><p data-live-status>Loading saved observations…</p>
+    <p class="sr-only" data-live-stage role="status"></p>
     <details><summary>Keep approved work running</summary>
       <p>Leave WMM running on an awake computer. Closing this browser leaves the worker running. Quitting WMM or putting its host to sleep stops new scheduled work.</p>
       <p>For unattended operation, you can install WMM on a private host you control. Connect accounts and review approvals on that host. Your credentials stay in their existing protected store.</p>
@@ -37,6 +39,14 @@
     return actions[status]||'Inspect the recorded status and any saved output. Unrecognized states do not establish completion.';
   }
   function waitingForReports(run){return run.action==='sync'&&run.status==='SUCCEEDED'&&run.outcome_code==='WAITING_FOR_REPORTS';}
+  function stageAnnouncement(runs) {
+    const run = runs.find(item => IN_PROGRESS.has(item.status)) || runs[0];
+    if (!run) return '';
+    if (waitingForReports(run)) return 'Workflow update: read completed, waiting for reports.';
+    const {stage, stage_title: title} = run.latest || {};
+    const prefix = stage && title ? `Stage ${stage}: ${title}. ` : '';
+    return `Workflow update: ${prefix}${run.activity || nextAction(run.status)}`;
+  }
   function waitingResultMarkup(result){
     const hash=typeof result?.source_hash==='string'&&/^[a-f0-9]{64}$/.test(result.source_hash)?result.source_hash:null;
     return '<h3>Read completed · waiting for reports</h3><p>The provider returned no report data. This read supplied no app metrics.</p><p>Check the refresh schedule in Connections. An enabled schedule checks again at its saved due time.</p><p>Source receipt hash: '+(hash?esc(hash):'Not supplied by this read')+'</p>';
@@ -76,6 +86,7 @@
     clear();const node=deps.document.querySelector('#workflow-monitor');if(!node)return;
     const ticket={node,app:deps.state.app,version:++generation,pending:false,failures:0,runsKey:null};mounted=ticket;
     const worker=node.querySelector('[data-live-worker]');
+    const stage=node.querySelector('[data-live-stage]');
     const announce=message=>{if(worker.textContent!==message)worker.textContent=message;};
     const valid=()=>mounted===ticket&&generation===ticket.version&&deps.state.app===ticket.app&&node.isConnected;
     async function poll(){
@@ -91,6 +102,8 @@
             const key=JSON.stringify(data.runs);
             if(key!==ticket.runsKey){target.innerHTML=markup(data);ticket.runsKey=key;}
           }
+          const message = stageAnnouncement(data.runs);
+          if (stage.textContent !== message) stage.textContent = message;
           ticket.failures=0;
           announce(workerMessage(data.worker?.status)+' '+workerContext(data.worker?.runtime_mode));
           const healthyPoll=data.worker?.last_success;
