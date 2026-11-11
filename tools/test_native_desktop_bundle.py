@@ -155,6 +155,16 @@ def linux_window_id(listing, pid):
     return matches[0] if matches else None
 
 
+def linux_window_observation(env, pid):
+    result = subprocess.run(
+        ['wmctrl', '-l', '-p'], env=env, timeout=5, capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        reason = result.stderr.strip()[-1024:]
+        return None, reason or f'wmctrl exited with status {result.returncode}'
+    return linux_window_id(result.stdout, pid), None
+
+
 def verify_linux_window(folder):
     """Launch the bundled Linux window on an isolated, unprivileged CI display."""
     if (sys.platform != 'linux' or os.geteuid() == 0
@@ -186,11 +196,14 @@ def verify_linux_window(folder):
                                          stdout=log, stderr=subprocess.STDOUT)
                 database = profile / 'Wize Marketing Machine' / 'mission-control.sqlite3'
                 deadline = time.monotonic() + 35
+                last_window_error = None
                 try:
                     while child.poll() is None and time.monotonic() < deadline:
-                        windows = subprocess.run(['wmctrl', '-l', '-p'], env=env, timeout=5,
-                                                 check=True, capture_output=True, text=True).stdout
-                        window = linux_window_id(windows, child.pid)
+                        if manager.poll() is not None:
+                            raise RuntimeError('Disposable window manager stopped during startup')
+                        window, observation_error = linux_window_observation(env, child.pid)
+                        if observation_error:
+                            last_window_error = observation_error
                         if window and database.is_file():
                             subprocess.run(['wmctrl', '-i', '-c', window], env=env, timeout=5,
                                            check=True, capture_output=True)
@@ -199,7 +212,8 @@ def verify_linux_window(folder):
                             break
                         time.sleep(.25)
                     else:
-                        raise RuntimeError('Native Mission Control window or disposable workspace did not open')
+                        reason = f': {last_window_error}' if last_window_error else ''
+                        raise RuntimeError('Native Mission Control window or disposable workspace did not open' + reason)
                 except (RuntimeError, subprocess.SubprocessError) as error:
                     log.seek(max(0, log.seek(0, os.SEEK_END) - 4096))
                     raise RuntimeError(f'{error}\n{log.read().decode(errors="replace")}') from error

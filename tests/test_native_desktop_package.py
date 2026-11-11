@@ -27,6 +27,22 @@ class NativeDesktopPackageTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'more than one'):
             choose(target + '\n' + target.replace('000001', '000004'), 123)
 
+    def test_linux_window_listing_waits_for_successful_manager_observation(self):
+        from types import SimpleNamespace
+
+        observe = runpy.run_path(str(ROOT / 'tools/test_native_desktop_bundle.py'))[
+            'linux_window_observation'
+        ]
+        matching = '0x02000004 0 123 runner Wize Marketing Machine'
+        results = [
+            SimpleNamespace(returncode=1, stdout=matching, stderr='Cannot get client list'),
+            SimpleNamespace(returncode=0, stdout=matching, stderr=''),
+        ]
+        with patch('subprocess.run', side_effect=results) as query:
+            self.assertEqual(observe({}, 123), (None, 'Cannot get client list'))
+            self.assertEqual(observe({}, 123), ('0x02000004', None))
+        self.assertTrue(all(call.kwargs['timeout'] == 5 for call in query.call_args_list))
+
     def test_ubuntu_installer_rejects_window_receipt_from_other_engine(self):
         from types import SimpleNamespace
 
