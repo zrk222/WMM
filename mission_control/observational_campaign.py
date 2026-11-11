@@ -208,7 +208,9 @@ class ObservationalCampaign:
             _manifest(body, app)
             study = _study(db, app_id, body["study_id"], body["study_hash"], app)
             url = contract.tagged_url(app["data"].get("website"), study["data"])
-            return {"study_id": study["id"], "study_hash": study["hash"], "url": url, "url_sha256": __import__("hashlib").sha256(url.encode()).hexdigest(), "status": "LOCAL_LINK_PREPARED"}
+            return {"study_id": study["id"], "study_hash": study["hash"], "url": url, "url_sha256": __import__("hashlib").sha256(url.encode()).hexdigest(), "status": "LOCAL_LINK_PREPARED",
+                    "study": {key: study["data"][key] for key in
+                              ("name", "hypothesis", "source", "creative_id", "starts_at", "ends_at")}}
 
     def ingest(self, app_id, body):
         context = _context(app_id, "ingest", body, self.store)

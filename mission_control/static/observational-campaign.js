@@ -56,7 +56,13 @@ const WMMObservationalCampaign = (() => {
         '<details><summary>Register a study</summary><form id="observational-campaign-register">' +
         field('name','Study name','text','maxlength="120"') + field('hypothesis','What will you learn?','text','maxlength="1000"') +
         '<label class="field">Channel<select name="source"><option value="facebook">Facebook</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option></select></label>' +
-        field('creative_id','Creative reference','text','pattern="[A-Za-z0-9_-]{1,128}"') +
+        field('creative_id','Creative reference','text','pattern="[A-Za-z0-9_-]{1,128}" list="observational-creative-options"') +
+        '<datalist id="observational-creative-options">' +
+        (state.workspace.analyses||[]).filter(row=>row.source_status==='CURRENT').map(row=>
+          '<option value="' + esc(row.id) + '">' + esc(row.current?.data?.format_family||'Saved creative inspection') + '</option>').join('') +
+        (state.workspace.records||[]).filter(row=>row.kind==='store').map(row=>
+          '<option value="' + esc(row.id) + '">' + esc(row.title||'Saved store listing evidence') + '</option>').join('') +
+        '</datalist><p class="description">Choose a saved creative inspection or store listing observation, or enter your own creative reference.</p>' +
         field('landing_path','Landing path on your app website','text','value="/" maxlength="1024"') +
         field('starts_at','Starts (local time)','datetime-local','value="' + window.start + '"') +
         field('ends_at','Ends (local time)','datetime-local','value="' + window.end + '"') +

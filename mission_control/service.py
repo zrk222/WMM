@@ -182,6 +182,11 @@ class Service:
                 "connections":connection_statuses,"insights":Insights(self.store).list(app_id),"storekit":Notifications(self.store).list(app_id),"attribution":Observations(self.store).list(app_id),"experiments":Experiments(self.store).list(app_id),
                 "schedules":schedules,"worker":getattr(self,"worker_health",lambda:{"status":"NOT_STARTED"})(),
                 "references":Library(self.store).list(app_id),"analyses":Analyses(self.store).list(app_id),"briefs":Briefs(self.store).list(app_id),"rankings":Rankings(self.store).list(app_id),"acquisition":Acquisition(self.store).list(app_id),"renders":Renders(self.store).list(app_id),"access":dict(Access(self.store).list(app_id),external_execution="EXPLICIT_APP_STORE_PROMOTIONAL_TEXT_ONLY"),"verified_reviews":Reviews(self.store).list(app_id),"provider_actions":Outbox(self.store).list(app_id),"learning":Learning(self.store).list(app_id),"payments":Payments(self.store).list(app_id)}
+        from .experiment_iteration import iteration_plan
+        for experiment in workspace["experiments"]:
+            if experiment["assessments"]:
+                latest = experiment["assessments"][-1]
+                experiment["iteration"] = iteration_plan(experiment["data"], latest["data"], latest["hash"])
         from .resolution_plan import prepare as prepare_resolutions
         from .resolutions import Resolutions
         from .agent_feedback import reuse_candidate

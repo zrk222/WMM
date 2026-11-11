@@ -338,8 +338,15 @@
     return ctx;
   }
   async function loadOptions(deps, panel) {
-    const ctx=currentContext(deps.state),data=await deps.api(`/api/apps/${encodeURIComponent(ctx.app)}/publications`);
-    if(!valid(deps.state,ctx,panel))return;
+    const ctx=currentContext(deps.state),study=deps.state.measuredPost;
+    const data=await deps.api(`/api/apps/${encodeURIComponent(ctx.app)}/publications`);
+    if(!valid(deps.state,ctx,panel)||(study&&deps.state.measuredPost!==study))return;
+    if(study?.app===ctx.app&&study.context===measuredPostContext()&&providers.includes(study.link.study.source)){
+      const provider=study.link.study.source;
+      const selected=connectionOptions(provider,deps.state,data).find(item=>item.destination_id===study.destination);
+      data.form_values={provider,link:study.link.url,connection_id:selected?.id||""};
+      deps.state.measuredPost=null;
+    }
     setCache(deps.state,data);panel.innerHTML=panelContent(deps.state,data);
     mount(deps.state,deps);
   }
