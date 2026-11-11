@@ -7,6 +7,7 @@ on:
       - 'desktop/launcher/**'
       - 'desktop/src-tauri/**'
       - 'tools/build_desktop.py'
+      - 'tools/ci_ubuntu_apt.sh'
       - 'tools/build_linux_package.py'
       - 'tools/test_native_desktop_bundle.py'
       - 'mission_control/desktop*.py'
@@ -20,6 +21,7 @@ on:
       - 'desktop/launcher/**'
       - 'desktop/src-tauri/**'
       - 'tools/build_desktop.py'
+      - 'tools/ci_ubuntu_apt.sh'
       - 'tools/build_linux_package.py'
       - 'tools/test_native_desktop_bundle.py'
       - 'mission_control/desktop*.py'
@@ -58,9 +60,9 @@ jobs:
 
       - name: Install Ubuntu WebView build prerequisites
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=45 -o Acquire::https::Timeout=45 update
-          sudo apt-get install --yes --no-install-recommends libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
+        shell: bash
+        timeout-minutes: 15
+        run: bash tools/ci_ubuntu_apt.sh libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
       - name: Install pinned desktop build dependencies
         run: python -m pip install --only-binary ":all:" pyinstaller==6.22.3 -r docs/requirements-mcp.txt
       - name: Install Linux credential build dependency
