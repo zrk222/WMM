@@ -72,9 +72,25 @@ jobs:
               echo "::error::Ubuntu dependency download failed and the Azure Ubuntu mirror was not configured."
               exit 1
             fi
-            echo "::warning::Ubuntu dependency download failed; trying the signed Ubuntu archive once."
-            sudo sed -Ei "s@${mirror}([[:space:]]|$)@https://archive.ubuntu.com/ubuntu\2@g" "$sources"
-            fetch_packages
+            template=$(cat "$sources")
+            fetched=0
+            for archive in https://archive.ubuntu.com/ubuntu https://mirrors.mit.edu/ubuntu https://mirrors.edge.kernel.org/ubuntu; do
+              if ! curl --fail --silent --show-error --head --max-time 6 --output /dev/null "$archive/dists/noble/InRelease"; then
+                continue
+              fi
+              echo "::warning::Trying Ubuntu dependencies from $archive (APT signature checks still apply)."
+              printf '%s\n' "$template" |
+                sed -E "s@${mirror}([[:space:]]|$)@${archive}\2@g" |
+                sudo tee "$sources" > /dev/null
+              if fetch_packages; then
+                fetched=1
+                break
+              fi
+            done
+            if [[ $fetched == 0 ]]; then
+              echo "::error::No configured Ubuntu archive delivered the required dependencies."
+              exit 1
+            fi
           fi
           # Retry only downloads, before any package installation can mutate dpkg state.
           sudo apt-get install --yes --no-install-recommends --no-download "${packages[@]}"
