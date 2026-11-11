@@ -18,12 +18,18 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install declared browser test profile
+        timeout-minutes: 20
         run: |
           python -m pip install --require-hashes --only-binary :all: -r requirements.txt
           python -m pip install --only-binary :all: -r docs/requirements-browser.txt
           python -m pip install --only-binary :all: -r docs/requirements-auth.txt
-          python -m playwright install --with-deps chromium
-          sudo apt-get install --yes --no-install-recommends ffmpeg fonts-dejavu-core
+          python -m playwright install --only-shell chromium
+          bash tools/ci_ubuntu_apt.sh ffmpeg fonts-dejavu-core
+      - name: Verify the pinned headless Chromium can start
+        run: >-
+          python -c "from playwright.sync_api import sync_playwright;
+          pw=sync_playwright().start(); browser=pw.chromium.launch();
+          assert browser.new_page().evaluate('1+1')==2; browser.close(); pw.stop()"
       - name: Verify local render prerequisites before queueing
         run: python -c "from mission_control.media_native import capability; result = capability(); assert result['status'] == 'READY', result"
       - name: Exercise owner batch and OneSignal browser flows at desktop and mobile widths
@@ -155,9 +161,8 @@ jobs:
       - name: Install native Linux credential dependency
         run: python -m pip install SecretStorage==3.3.3
       - name: Install optional native integration-test tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends ffmpeg fonts-dejavu-core dbus gnome-keyring
+        timeout-minutes: 20
+        run: bash tools/ci_ubuntu_apt.sh ffmpeg fonts-dejavu-core dbus gnome-keyring
       - name: Verify Linux Secret Service round trip and locked rejection
         if: matrix.shard == 0
         shell: bash

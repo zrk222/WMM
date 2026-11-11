@@ -1,6 +1,6 @@
 {
   "schema": "wmm.dogfood.public-receipt-index.v1",
-  "snapshot_date_utc": "2026-11-06",
+  "snapshot_date_utc": "2026-11-11",
   "product": "Wize Marketing Machine",
   "dogfood_app": "WizeMe.APP",
   "originals_access": "OWNER_PRIVATE_NOT_PUBLICLY_DISTRIBUTED",
@@ -240,6 +240,26 @@
       "time_savings": null,
       "decision": "REVISE_TRACKING",
       "external_writes": false
+    },
+    {
+      "id": "V01",
+      "kind": "INTERNAL_LANDING_CANARY_READBACK",
+      "observed_at": "2026-11-11T11:58:12.928347+00:00",
+      "source_sha256": "94cd3408a9d859f6d2b9370fb1ed17670a221364e532954b38da33256b03d08b",
+      "landing": "READBACK_MATCHED_PRIOR_RECEIPT",
+      "registration": "NOT_VERIFIED",
+      "internal_canary_excluded_from_campaign_measurement": true,
+      "campaign_effect": null
+    },
+    {
+      "id": "V02",
+      "kind": "INSTALLED_WORKSPACE_RECEIPT_LINKAGE_READBACK",
+      "observed_at": "2026-11-11T15:57:23.267556+00:00",
+      "source_sha256": "699e2ce839b8609f3dfdae456052975631f82c3fbb1be4a96224c0f9d3eda9a6",
+      "verified_scheduled_posts": 1,
+      "hash_verified_linked_owner_reports": 1,
+      "fresh_provider_readback": false,
+      "campaign_effect": null
     }
   ],
   "unproven": [
