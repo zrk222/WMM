@@ -3,7 +3,7 @@ Status: draft
 
 ## MUST - Functional core
 ### Description
-Expose the existing read-only selected-workflow inventory through the protected owner HTTP control. No inference, credential resolution, grant, policy or work is created.
+Expose the existing read-only selected-workflow inventory through the protected owner HTTP control. No provider request, inference, grant, policy or work is created. For a selected recently verified Facebook destination in a publication workflow, the owner check also reports whether the required protected fields are available on this device.
 
 ### Requirements (EARS)
 - The system shall return the original readiness inventory and matching digest with an additive observation envelope through `read_inventory`.
@@ -38,6 +38,6 @@ Scenario: read_only
 
 ## SHOULD - Technical
 - Reuse post_agent_grants fresh session identity and Readiness.report membership/manifest checks.
-- Envelope status is success or warning, with summary, next_actions, artifacts and authority_issued false.
+- Envelope status is success or warning, with summary, next_actions, artifacts and authority_issued false. The additive credential_repairs map names only selected Facebook account IDs and closed repair states. A missing field asks for reconnect; an unavailable store asks for protected storage to be unlocked or checked. This observation cannot authorize provider work or change the saved inventory digest.
 - Preserve inventory, inventory_sha256 and observed_at returned by Readiness.report without recomputing its contents.
 - HTTP authentication is tested with a synthetic GitHub adapter; no live provider acceptance is claimed.
