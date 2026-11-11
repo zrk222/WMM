@@ -125,3 +125,16 @@ test('actual workspace refresh returns an applied receipt and superseded reads r
  assert.equal(applied.app,'one');assert.equal(applied.generation,2);assert.equal(applied.workspace,workspace);
  pending[0]({app:{id:'one',data:{name:'Stale'}}});assert.equal(await first,undefined);assert.equal(state.workspace,workspace);
 });
+
+test('unchanged polls retain the job list; new measured timings update it once',async()=>{
+ const f=pollFixture();let markup=f.list.innerHTML,writes=0;
+ Object.defineProperty(f.list,'innerHTML',{get:()=>markup,set:v=>{markup=v;writes++;}});
+ let timing={initial_queue_ms:450};
+ f.answer=async()=>({app_id:'one',observed_at:String(f.calls),runs:[{id:'sample',action:'render',status:'RUNNING',attempts:1,processed_stages:0,blocked_stages:0,events:[],timing}]});
+ f.ui.mount(f.deps);await f.settle();
+ assert.equal(writes,1);assert.match(markup,/Waited &lt;1 s to start/);assert.doesNotMatch(markup,/Worker ran/);
+ await f.tick();await f.tick();assert.equal(writes,1);
+ timing={initial_queue_ms:450,attempt_ms:64000};
+ await f.tick();assert.equal(writes,2);assert.match(markup,/Worker ran for 1 min 4 s/);
+ await f.tick();assert.equal(writes,2);f.ui.clear();
+});
