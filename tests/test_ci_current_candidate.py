@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # All eight backend shards and the native/package job definitions are retained.
 # One Ubuntu shard also runs the isolated native Secret Service acceptance.
 BASELINES = {
-    ".github/workflows/checks.yml": "d34b0455be889e13c7b60f96bbbb1952992ce3e31edf7c49e520942dfa9411bb",
+    ".github/workflows/checks.yml": "ec67c62c6d3734f55da0d7b0c905aeefd9aed719b40ef9d82f5d0ac992093611",
     ".github/workflows/platform-checks.yml": "8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",
     ".github/workflows/desktop-packages.yml": "7b3c79b9d8d4c3de876768e804e5794f23d37cf4f3a912013d051eeb7f238504",
 }
