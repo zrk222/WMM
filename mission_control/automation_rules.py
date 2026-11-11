@@ -192,6 +192,7 @@ FACT_SOURCES = {
     "install": "Campaigns with saved install import batches; no install count inferred",
     "experiments": "Saved experiment lifecycle counts",
     "jobs": "Saved local worker state counts; no provider result inferred",
+    "study": "Selected study and saved collector receipts; descriptive only",
 }
 
 
@@ -228,9 +229,37 @@ def project_database(path, app_id, *, owner_principal=None):
         return _project_snapshot(db, app_id)
 
 
-def simulate_database(path, app_id, owner_principal, *, rules=None, reference=None):
+def _study_facts(db, app_id, reference, observed_at):
+    from .observational_campaign import _app, _manifest, _study, report_in_snapshot
+
+    _exact(reference, {"study_id", "study_hash", "manifest_version"}, "Study reference")
+    app = _app(db, app_id)
+    _manifest(reference, app)
+    study = _study(db, app_id, reference["study_id"], reference["study_hash"], app)
+    report = report_in_snapshot(db, app_id, study, app, observed_at)
+    checkpoint = report["checkpoint"]
+    counts = checkpoint["ratio_counts"]
+    ready = checkpoint["state"] in ("DESCRIPTIVE_READY", "NO_ELIGIBLE_LANDINGS")
+    facts = dict(
+        id=study["id"], definition_sha256=study["hash"], manifest_version=app["version"],
+        source_sha256=report["source_hash"], provenance=report["provenance"],
+        coverage="COMPLETE" if ready else "INCOMPLETE",
+        checkpoint=checkpoint["state"],
+        window=dict(starts_at=report["starts_at"], ends_at=report["ends_at"],
+                    state="COLLECTING" if iso_time(observed_at) < iso_time(report["ends_at"]) else "ENDED"),
+    )
+    if counts:
+        facts.update(counts, linked_registration_rate=counts["linked_registrations"] / counts["eligible_landings"])
+    elif ready:
+        facts.update(eligible_landings=report["landing_subjects"],
+                     linked_registrations=report["linked_registration_subjects"])
+    return facts
+
+
+def simulate_database(path, app_id, owner_principal, *, rules=None, reference=None, study=None):
     if not owner_principal:
         raise PermissionError("A verified owner is required")
+    observed_at = now()
     with _database_snapshot(path, app_id, owner_principal) as db:
         binding = None
         if reference is not None:
@@ -239,7 +268,9 @@ def simulate_database(path, app_id, owner_principal, *, rules=None, reference=No
             binding = {key: saved[key] for key in ("app_id", "version", "hash")}
             rules = saved["document"]
         facts = _project_snapshot(db, app_id)
-    result = evaluate(rules, facts, binding=binding)
+        if study is not None:
+            facts["study"] = _study_facts(db, app_id, study, observed_at)
+    result = evaluate(rules, facts, observed_at=observed_at, binding=binding)
     return {**result, "fact_snapshot": {"sources": FACT_SOURCES, "values": facts}}
 
 

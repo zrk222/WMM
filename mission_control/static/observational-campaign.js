@@ -94,6 +94,12 @@ const WMMObservationalCampaign = (() => {
       }).join(''));
   }
 
+  function openBoundStudy(reference) {
+    const task = active = {app:state.app, version:state.workspace?.app?.version, identity:identity(), studies:[]};
+    showStudy(task, reference);
+    return action({dataset:{action:'observational-campaign-report'},disabled:false});
+  }
+
   function checkpointModel(report) {
     const c=report.checkpoint||{state:'SOURCE_NOT_DECLARED',coverage_issues:{}};
     const guidance={
@@ -225,5 +231,5 @@ const WMMObservationalCampaign = (() => {
     });
   }
 
-  return {action, submit, checkpointMarkup, pdf};
+  return {action, submit, checkpointMarkup, pdf, openBoundStudy};
 })();

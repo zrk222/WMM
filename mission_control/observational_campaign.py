@@ -182,6 +182,78 @@ def _measurement_checkpoint(study, coverage, as_of):
             "ratio_counts": ratio_counts}
 
 
+def report_in_snapshot(db, app_id, study, app, as_of):
+    """Project the selected study without opening another transaction or writing."""
+    events = _effective_events(db, app_id, study["id"])
+    counts = {name: {} for name in contract.EVENT_TYPES}
+    observed_counts = Counter((source_id, event["type"]) for source_id, _, event in events)
+    collector = study["data"].get("collector_source_id")
+    if collector and any(source_id != collector for source_id, _ in observed_counts):
+        raise Invalid("Stored events do not match the declared study collector")
+    exclusions = {name: 0 for name in ("CONSENT_DENIED", "CONSENT_UNKNOWN", "BOT", "BOT_UNKNOWN", "INTERNAL_TEST", "TOKEN_MISSING", "TOKEN_INVALID", "UNMATCHED_REGISTRATION")}
+    eligible_landings = {}
+    observed_by_type = {name: False for name in contract.EVENT_TYPES}
+    eligible = []
+    for source_id, _event_id, event in events:
+        kind = event["type"]
+        observed_by_type[kind] = True
+        if event["consent"] != "GRANTED":
+            exclusions["CONSENT_" + event["consent"]] += 1
+            continue
+        if event["bot"] is not False:
+            exclusions["BOT_UNKNOWN" if event["bot"] is None else "BOT"] += 1
+            continue
+        if event["internal_test"]:
+            exclusions["INTERNAL_TEST"] += 1
+            continue
+        if event["campaign_token"] is None:
+            exclusions["TOKEN_MISSING"] += 1
+            continue
+        if event["campaign_token"] != study["id"]:
+            exclusions["TOKEN_INVALID"] += 1
+            continue
+        key = (source_id, event["subject_id"])
+        time = iso_time(event["occurred_at"])
+        if kind == "LANDING":
+            eligible_landings[key] = min(time, eligible_landings.get(key, time))
+        eligible.append((kind, key, time))
+    for kind, key, time in eligible:
+        if kind == "LANDING":
+            counts[kind][key] = min(time, counts[kind].get(key, time))
+        elif key in eligible_landings and eligible_landings[key] < time:
+            counts[kind][key] = min(time, counts[kind].get(key, time))
+        else:
+            exclusions["UNMATCHED_REGISTRATION"] += 1
+    coverage = {}
+    for event_type in contract.EVENT_TYPES:
+        sources = db.execute("SELECT source_id,complete,source_event_count,observed_at,receipt_hash FROM observational_campaign_coverage WHERE app_id=? AND study_id=? AND event_type=? ORDER BY observed_at DESC,created DESC,batch_id DESC", (app_id, study["id"], event_type))
+        latest = {}
+        for row in sources:
+            latest.setdefault(row["source_id"], row)
+        complete_sources = 0
+        expected_sources = 1 if collector else len(latest)
+        source_rows = []
+        mismatch = False
+        for source_id, row in latest.items():
+            if collector and source_id != collector:
+                raise Invalid("Stored coverage does not match the declared study collector")
+            actual = observed_counts[source_id, event_type]
+            valid_complete = bool(row["complete"] and row["source_event_count"] == actual)
+            complete_sources += int(valid_complete)
+            mismatch = mismatch or bool(row["complete"] and not valid_complete)
+            source_rows.append({"source_id": source_id, "complete": valid_complete, "reported_count": row["source_event_count"], "stored_count": actual, "source_receipt_sha256": row["receipt_hash"], "observed_at": row["observed_at"]})
+        complete = expected_sources > 0 and complete_sources == expected_sources and not mismatch
+        if collector:
+            complete = complete and all(iso_time(row["observed_at"]) >= iso_time(study["data"]["ends_at"])
+                                        for row in source_rows)
+        n = len(counts[event_type])
+        value = n if observed_by_type[event_type] or complete else None
+        coverage[event_type] = {"coverage_complete": complete, "source_count": expected_sources, "complete_source_count": complete_sources, "mismatch": mismatch, "sources": source_rows}
+        coverage[event_type]["observed_count"] = value
+    checkpoint = _measurement_checkpoint(study["data"], coverage, as_of)
+    return {"schema": "growth.observational-campaign-report.v1", "checkpoint": checkpoint, "study_id": study["id"], "study_hash": study["hash"], "app_id": app_id, "app_version": app["version"], "release": study["data"]["release"], "starts_at": study["data"]["starts_at"], "ends_at": study["data"]["ends_at"], "as_of": as_of, "landing_subjects": coverage["LANDING"]["observed_count"], "linked_registration_subjects": coverage["REGISTRATION"]["observed_count"], "coverage": coverage, "exclusions": exclusions, "status": "ATTRIBUTED_DESCRIPTIVE_ONLY", "provenance": "SOURCE_REPORTED_NOT_PROVIDER_VERIFIED", "source_hash": digest({"study_hash": study["hash"], "events": [(s, i, digest(e)) for s, i, e in events], "coverage": coverage}), "limits": ["No install, activation, revenue, lift, or causal decision is reported.", "bot=false is not proof of a human.", "First-touch attribution may reflect an earlier campaign."]}
+
+
 class ObservationalCampaign:
     """Append-only one-study attribution with current exact operation authority."""
     def __init__(self, store):
@@ -310,74 +382,7 @@ class ObservationalCampaign:
             app = _app(db, app_id)
             _manifest(body, app)
             study = _study(db, app_id, body["study_id"], body["study_hash"], app)
-            events = _effective_events(db, app_id, study["id"])
-            counts = {name: {} for name in contract.EVENT_TYPES}
-            observed_counts = Counter((source_id, event["type"]) for source_id, _, event in events)
-            collector = study["data"].get("collector_source_id")
-            if collector and any(source_id != collector for source_id, _ in observed_counts):
-                raise Invalid("Stored events do not match the declared study collector")
-            exclusions = {name: 0 for name in ("CONSENT_DENIED", "CONSENT_UNKNOWN", "BOT", "BOT_UNKNOWN", "INTERNAL_TEST", "TOKEN_MISSING", "TOKEN_INVALID", "UNMATCHED_REGISTRATION")}
-            eligible_landings = {}
-            observed_by_type = {name: False for name in contract.EVENT_TYPES}
-            eligible = []
-            for source_id, _event_id, event in events:
-                kind = event["type"]
-                observed_by_type[kind] = True
-                if event["consent"] != "GRANTED":
-                    exclusions["CONSENT_" + event["consent"]] += 1
-                    continue
-                if event["bot"] is not False:
-                    exclusions["BOT_UNKNOWN" if event["bot"] is None else "BOT"] += 1
-                    continue
-                if event["internal_test"]:
-                    exclusions["INTERNAL_TEST"] += 1
-                    continue
-                if event["campaign_token"] is None:
-                    exclusions["TOKEN_MISSING"] += 1
-                    continue
-                if event["campaign_token"] != study["id"]:
-                    exclusions["TOKEN_INVALID"] += 1
-                    continue
-                key = (source_id, event["subject_id"])
-                time = iso_time(event["occurred_at"])
-                if kind == "LANDING":
-                    eligible_landings[key] = min(time, eligible_landings.get(key, time))
-                eligible.append((kind, key, time))
-            for kind, key, time in eligible:
-                if kind == "LANDING":
-                    counts[kind][key] = min(time, counts[kind].get(key, time))
-                elif key in eligible_landings and eligible_landings[key] < time:
-                    counts[kind][key] = min(time, counts[kind].get(key, time))
-                else:
-                    exclusions["UNMATCHED_REGISTRATION"] += 1
-            coverage = {}
-            for event_type in contract.EVENT_TYPES:
-                sources = db.execute("SELECT source_id,complete,source_event_count,observed_at,receipt_hash FROM observational_campaign_coverage WHERE app_id=? AND study_id=? AND event_type=? ORDER BY observed_at DESC,created DESC,batch_id DESC", (app_id, study["id"], event_type))
-                latest = {}
-                for row in sources:
-                    latest.setdefault(row["source_id"], row)
-                complete_sources = 0
-                expected_sources = 1 if collector else len(latest)
-                source_rows = []
-                mismatch = False
-                for source_id, row in latest.items():
-                    if collector and source_id != collector:
-                        raise Invalid("Stored coverage does not match the declared study collector")
-                    actual = observed_counts[source_id, event_type]
-                    valid_complete = bool(row["complete"] and row["source_event_count"] == actual)
-                    complete_sources += int(valid_complete)
-                    mismatch = mismatch or bool(row["complete"] and not valid_complete)
-                    source_rows.append({"source_id": source_id, "complete": valid_complete, "reported_count": row["source_event_count"], "stored_count": actual, "source_receipt_sha256": row["receipt_hash"], "observed_at": row["observed_at"]})
-                complete = expected_sources > 0 and complete_sources == expected_sources and not mismatch
-                if collector:
-                    complete = complete and all(iso_time(row["observed_at"]) >= iso_time(study["data"]["ends_at"])
-                                                for row in source_rows)
-                n = len(counts[event_type])
-                value = n if observed_by_type[event_type] or complete else None
-                coverage[event_type] = {"coverage_complete": complete, "source_count": expected_sources, "complete_source_count": complete_sources, "mismatch": mismatch, "sources": source_rows}
-                coverage[event_type]["observed_count"] = value
-            checkpoint = _measurement_checkpoint(study["data"], coverage, as_of)
-            return {"schema": "growth.observational-campaign-report.v1", "checkpoint": checkpoint, "study_id": study["id"], "study_hash": study["hash"], "app_id": app_id, "app_version": app["version"], "release": study["data"]["release"], "starts_at": study["data"]["starts_at"], "ends_at": study["data"]["ends_at"], "as_of": as_of, "landing_subjects": coverage["LANDING"]["observed_count"], "linked_registration_subjects": coverage["REGISTRATION"]["observed_count"], "coverage": coverage, "exclusions": exclusions, "status": "ATTRIBUTED_DESCRIPTIVE_ONLY", "provenance": "SOURCE_REPORTED_NOT_PROVIDER_VERIFIED", "source_hash": digest({"study_hash": study["hash"], "events": [(s, i, digest(e)) for s, i, e in events], "coverage": coverage}), "limits": ["No install, activation, revenue, lift, or causal decision is reported.", "bot=false is not proof of a human.", "First-touch attribution may reflect an earlier campaign."]}
+            return report_in_snapshot(db, app_id, study, app, as_of)
 
     def history(self, app_id, body):
         context = _context(app_id, "history", body, self.store)

@@ -46,6 +46,7 @@ class AutomationRulesBrowserTests(unittest.TestCase):
         nav.click()
         section = page.get_by_role("region", name="Automation rule preview")
         section.get_by_text("Automation rules", exact=True).press("Enter")
+        section.get_by_text("Advanced rule editor", exact=True).press("Enter")
         editor = section.get_by_label("Rule to preview (JSON)")
         section.get_by_role("button", name="Save rules").click()
         expect(section.locator("#automation-rules-status")).to_contain_text("Saved version 1")
