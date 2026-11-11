@@ -42,6 +42,65 @@ async function campaignOpen(source=null,study=null) {
    campaignExpiryUI().bindConsent(scopeForm,'expires_at');
 }
 
+function campaignReviewMarkup(scope, preview, posts, rights, targeting, pageName) {
+  const paid = Boolean(scope.ad_account_id);
+  const reviewedPosts = preview ? preview.summary.campaign.draft_posts : posts;
+  const row = (label, value) => `<div><dt>${label}</dt><dd>${esc(value)}</dd></div>`;
+  const media = (amount) => `${amount} minor units ${scope.currency}`;
+  const facts = [
+    row('Facebook Page', `${pageName} · ${scope.page_id}`),
+    row('What is allowed', `Up to ${scope.max_posts} exact ${scope.max_posts === 1 ? 'post' : 'posts'}${paid ? ` and ${scope.max_campaigns} Meta engagement campaign` : '; organic only'}`),
+    row('Maximum media commitment', paid ? media(scope.max_total_minor) : `0 ${scope.currency} · no paid ads`),
+    row('Permission expires', campaignExpiryUI().dateLine(scope.expires_at)),
+    row('Maximum Meta requests', scope.max_calls),
+    ...(paid ? [
+      row('Meta ad account', scope.ad_account_id),
+      row('Media cap per campaign', media(scope.max_campaign_minor)),
+      row('Audience countries', targeting.countries.join(', ')),
+    ] : []),
+  ].join('');
+  const cards = reviewedPosts.map((post, index) => `
+    <article class="panel">
+      <h4>Post ${index + 1}</h4>
+      <p class="campaign-review-copy">${esc(post.message)}</p>
+      <p class="campaign-review-link">Proposed post link: <span>${esc(post.link || 'None')}</span></p>
+    </article>`).join('');
+  const stopRules = preview?.summary.stop_rules || [
+    'OFF, revoked owner or grant',
+    'Expiry, changed source or resource revisions',
+    'Allowance or approved media ceiling exhausted',
+    'Uncertain dispatch: reconcile before retry',
+  ];
+  return `
+    <ol class="campaign-review-steps" aria-label="Campaign approval progress">
+      <li><span aria-hidden="true">✓</span><strong>Draft ready</strong></li>
+      <li aria-current="step"><span aria-hidden="true">2</span><strong>Review limits</strong></li>
+      <li><span aria-hidden="true">3</span><strong>Run separately</strong></li>
+    </ol>
+    <section class="panel" aria-labelledby="campaign-review-decision">
+      <h3 id="campaign-review-decision">What you’re approving</h3>
+      <p>This saves permission. It does not publish, schedule, or spend now. An authorized run still needs to start.</p>
+      <dl class="campaign-review-facts">${facts}</dl>
+      ${paid ? `<p>${esc(scope.billing_notice)}</p>` : ''}
+    </section>
+    <section aria-labelledby="campaign-review-posts">
+      <h3 id="campaign-review-posts">Exact post copy and links</h3>
+      ${cards}
+      <p><strong>Rights and claims evidence:</strong> ${esc(rights)}</p>
+      <p>${esc(scope.rights_notice)}</p>
+    </section>
+    <p><strong>When work stops:</strong> ${esc(stopRules.join('; '))}. Already dispatched effects and incurred charges remain recorded.</p>
+    <details><summary>Exact authority and limits</summary>
+      ${preview ? `<p>Agreement summary hash: ${esc(preview.summary_hash)}</p>` : ''}
+      <pre>${esc(JSON.stringify(scope, null, 2))}</pre>
+    </details>
+    <p id="campaign-error" role="alert"></p>
+    <div class="button-row">
+      ${button('Approve scope and enable automation', 'campaign-activate', '', 'primary')}
+      ${button('Cancel', 'close')}
+    </div>`;
+}
+
 async function campaignSubmit(form) {
   const submit=form.querySelector('[type=submit]');if(submit.disabled)return;submit.disabled=true;
   try {
@@ -63,19 +122,23 @@ async function campaignSubmit(form) {
     if(!Number.isInteger(maxCalls)||maxCalls<1||maxCalls>500)throw new Error('Use a Meta request limit from 1 to 500.');
     const scope={connection_id:selected.id,page_id:selected.data.destination.id,ad_account_id:values.ad_account_id.trim()||null,currency:values.currency.trim(),expires_at:expires,...(extended?.extended?{extended_expiry_consent:true}:{}),max_posts:posts.length,max_calls:maxCalls,max_campaigns:paid?1:0,max_campaign_minor:paid?budget:0,max_total_minor:paid?budget:0,approved_content_hashes:[...new Set(posts.map(p=>p.content_hash))],approved_rights_hashes:[rightsHash],approved_targeting_hashes:paid?[targetingHash]:[],billing_acknowledged:values.billing==='on',ordinary_ad_attestation:values.ordinary==='on'};
     campaignBound(form);const saved=await api(`/api/apps/${app}/campaigns/prepare`,{scope});campaignBound(form);
-    let agreement='';
-    if(!paid){
-      const preview=await api(`/api/apps/${app}/agent-grants/agreement-preview`,{
-        manifest_version:state.workspace.app.version,workflow_policy_id:null,
-        campaign_scope_id:saved.scope_id,schedule_batch_id:null,draft_posts:posts,
+    let preview = null;
+    if (!paid) {
+      preview = await api(`/api/apps/${app}/agent-grants/agreement-preview`, {
+        manifest_version: state.workspace.app.version,
+        workflow_policy_id: null,
+        campaign_scope_id: saved.scope_id,
+        schedule_batch_id: null,
+        draft_posts: posts,
       });
       campaignBound(form);
-      agreement=WMMAgreement.draftMarkup(preview);
     }
-    modal('Approve your campaign scope',`<div id="campaign-review" class="modal-content" data-app="${esc(app)}" data-version="${state.workspace.app.version}"><p>Page ${esc(saved.page_id)} · ${posts.length} exact posts · expires ${esc(saved.expires_at)}.</p><p>Ad account: ${esc(saved.ad_account_id||'None — organic publishing only')}. Maximum media commitment: ${saved.max_total_minor} minor units ${esc(saved.currency)}. ${esc(saved.billing_notice)}</p><p>Rights evidence: ${esc(rights)}. ${esc(saved.rights_notice)}</p>${agreement||posts.map(p=>`<section class="panel"><p>${esc(p.message)}</p><p>${esc(p.link||'No link')}</p><small>Content hash: ${esc(p.content_hash)}</small></section>`).join('')}<details><summary>Exact authority and limits</summary><pre>${esc(JSON.stringify(saved,null,2))}</pre></details><p>Approval permits these supported effects without reviewing each post again. It does not guarantee reach, installs or revenue.</p><p id="campaign-error" role="alert"></p>${button('Approve scope and enable automation','campaign-activate','', 'primary')}${button('Cancel','close')}</div>`);
+    const review = campaignReviewMarkup(saved, preview, posts, rights, targeting, selected.data.destination.name);
+    modal('Approve your campaign scope', `<div id="campaign-review" class="modal-content" data-app="${esc(app)}" data-version="${state.workspace.app.version}">${review}</div>`);
     $('#campaign-review').dataset.principal=state.workspace.identity?.principal||'';
      if(scope.extended_expiry_consent===true||saved.extended_expiry_consent===true)$('#campaign-review').insertAdjacentHTML('afterbegin','<p>You explicitly consented to this selected expiry being more than 24 hours away.</p>');
     $('#campaign-review').campaign={scope:saved,posts,targeting,targetingHash,budget,expires,adRequestID:crypto.randomUUID()};
+    $('#modal').scrollTop=0;
   } catch(error) {if(form.isConnected)form.querySelector('#campaign-error').textContent=error.message;}
   finally {submit.disabled=false;}
 }

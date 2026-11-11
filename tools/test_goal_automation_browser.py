@@ -113,10 +113,21 @@ def run(browser,width,out):
   form.get_by_label("Maximum Meta requests",exact=True).fill("70")
   form.get_by_role("button",name="Review exact automation scope",exact=True).click()
   preview=page.locator("#campaign-review")
-  expect(preview.get_by_role("heading",name="Exact proposed Facebook posts")).to_be_visible()
+  expect(preview.get_by_role("heading",name="What you’re approving")).to_be_visible()
+  assert page.locator("#modal").evaluate("(modal) => modal.scrollTop === 0")
+  assert page.locator("#modal").get_by_role("complementary",name="Task guide").count()==0
+  steps=preview.get_by_role("list",name="Campaign approval progress")
+  expect(steps.locator('[aria-current="step"]')).to_contain_text("Review limits")
+  expect(steps.get_by_text("Run separately")).to_be_visible()
+  expect(preview).to_contain_text("organic only")
+  expect(preview).to_contain_text("no paid ads")
+  expect(preview).to_contain_text("Maximum Meta requests")
+  assert preview.get_by_text("Meta ad account",exact=True).count()==0
+  expect(preview.get_by_role("heading",name="Exact post copy and links")).to_be_visible()
   expect(preview.get_by_text("Proposed post link",exact=False).locator("span")).to_have_text(link)
-  expect(preview).to_contain_text("calls 70")
-  expect(preview).to_contain_text("No execution authority is issued")
+  requests=preview.get_by_text("Maximum Meta requests",exact=True).locator("..").locator("dd")
+  expect(requests).to_have_text("70")
+  expect(preview).to_contain_text("does not publish, schedule, or spend now")
   with connection(f.store.path) as db:
    assert db.execute("SELECT status FROM campaign_scopes").fetchone()[0]=="DRAFT"
   assert f.wire.posts==0 and not jobs(f.store,"sample-one")
