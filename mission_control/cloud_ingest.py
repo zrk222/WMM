@@ -19,7 +19,7 @@ class _RejectRedirects(HTTPRedirectHandler):
         raise IngestError("Cloud redirects are not accepted")
 
 
-def _endpoint(value):
+def validate_endpoint(value):
     if not isinstance(value, str) or len(value) > 2048:
         raise ValueError("Use an HTTPS cloud endpoint")
     parsed = urlsplit(value)
@@ -34,7 +34,7 @@ def _endpoint(value):
 
 class CloudIngest:
     def __init__(self, endpoint, token, *, timeout=10, opener=None):
-        self.endpoint = _endpoint(endpoint)
+        self.endpoint = validate_endpoint(endpoint)
         if not isinstance(token, str) or not 8 <= len(token) <= 4096 or "\n" in token or "\r" in token:
             raise ValueError("Use a valid cloud token")
         self._token = token
