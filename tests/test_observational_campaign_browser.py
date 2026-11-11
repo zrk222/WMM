@@ -81,8 +81,21 @@ class ObservationalCampaignBrowserTests(unittest.TestCase):
         expect(button).to_be_focused()
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         page.keyboard.press('Escape')
+        history_offsets=[]
+        def older_study(route):
+            offset=route.request.post_data_json['offset']
+            history_offsets.append(offset)
+            if offset==0:
+                route.fulfill(json={'offset':0,'limit':100,'records':[{'kind':'INGESTED'}]*100})
+            else:
+                route.fulfill(response=route.fetch(post_data={'offset':0}))
+        page.route('**/observational-campaign/history',older_study)
         page.locator('[data-action="first-post-open"]').click()
+        expect(page.get_by_text('No current study registrations on this page.')).to_be_visible()
+        page.get_by_role('button',name='Older activity').click()
         study = page.get_by_label('Registered study')
+        expect(page.get_by_role('button',name='Newer activity')).to_be_visible()
+        assert history_offsets==[0,100],history_offsets
         expect(study.locator('option').nth(1)).to_be_attached()
         selected = study.locator('option').nth(1).inner_text()
         study.select_option(index=1)

@@ -580,17 +580,19 @@ async function nextAnswer(){
   modal("What should I do next?",`<div class="modal-content"><p class="eyebrow">NEXT ACTION</p><h3>${esc(next.title)}</h3><p>This answer is read-only. It does not approve, publish or spend.</p><p><strong>Measurement next:</strong> ${esc(analytics.step.title)}. ${esc(analytics.step.detail)}</p>${exceptionRows?`<h3>Needs attention</h3>${exceptionRows}`:""}<h3>Pending approvals</h3>${approvalRows||notice("No prepared publication approval or manual review packet is waiting.")}${unavailable?notice("Publication approvals could not be loaded; reload before relying on this list.","warning"):""}${index?`<details><summary>Review index</summary><p class="app-mono">${esc(index)}</p><p class="description">A display index of the listed review hashes only. Each item still needs its own exact review and approval.</p></details>`:""}<div class="modal-actions">${button("Open guided workflow","next-answer-workflow")}${button("Open analytics","next-answer-results")}${button("Open organic publishing","next-answer-publishing")}${button("Close","close")}</div></div>`,"NEXT STEP");
 }
 
-function measuredPostEvidence(link,destination,pubs,workspace,scopes=[]){
+function measuredPostEvidence(link,destination,pubs,workspace,scopes=[],tracked=null){
   if(!destination)return {delivery:false,ambiguous:false,queued:false,approved:false,coverage:null};
   const channel=link.study.source;
-  const approvals=(pubs.authorities||[]).filter(row=>row.draft?.provider===channel&&
+  const approvals=(pubs?.authorities||[]).filter(row=>row.draft?.provider===channel&&
     row.draft.link===link.url&&row.draft.destination_id===destination);
   const ids=new Set(approvals.map(row=>row.id));
-  const intents=(pubs.intents||[]).filter(row=>ids.has(row.authority_id));
+  const intents=(pubs?.intents||[]).filter(row=>ids.has(row.authority_id));
   const facebook=channel==="facebook"?(workspace.jobs||[]).filter(row=>row.action==="campaign_post"&&
-    row.data?.request?.link===link.url&&(row.result?.page_id===destination||
-    scopes.some(scope=>scope.scope_id===row.data.scope_id&&scope.page_id===destination))):[];
+    row.data?.request?.link===link.url&&(row.result?.page_id!=null
+      ? row.result.page_id===destination
+      : scopes?.some(scope=>scope.scope_id===row.data.scope_id&&scope.page_id===destination))):[];
   const delivered=new Set([
+    ...(channel==="facebook"?tracked?.records||[]:[]).filter(row=>row.page_id===destination&&row.remote_id).map(row=>row.remote_id),
     ...intents.filter(row=>row.status==="PUBLISHED"&&(row.remote_id||row.asset_id)&&row.receipt_hash).map(row=>row.remote_id||row.asset_id),
     ...facebook.filter(row=>row.status==="SUCCEEDED"&&row.result?.status==="VERIFIED"&&row.result.remote_id).map(row=>row.result.remote_id)
   ]).size;
@@ -599,27 +601,36 @@ function measuredPostEvidence(link,destination,pubs,workspace,scopes=[]){
     facebook.some(row=>["QUEUED","RUNNING"].includes(row.status));
   const installs=workspace.install_attribution?.campaigns?.find(row=>row.campaign_token===link.study_id&&
     row.study_status==="LINKED");
-  return {delivery:delivered===1,ambiguous:delivered>1,queued,approved:approvals.some(row=>row.status==="APPROVED"),
-    coverage:installs?.coverage_status||null};
+  const complete=channel!=="facebook"||tracked?.complete!==false;
+  return {delivery:delivered===1&&complete,ambiguous:delivered>1,queued,approved:approvals.some(row=>row.status==="APPROVED"),
+    coverage:installs?.coverage_status||null,
+    historyAvailable:channel==="facebook"?Array.isArray(workspace.jobs)&&Array.isArray(scopes)&&tracked?.complete===true:
+      Array.isArray(pubs?.authorities)&&Array.isArray(pubs?.intents)};
 }
 
 function measuredPostContext(){
-  const w=state.workspace;
-  return JSON.stringify([state.app,w?.app?.version,w?.identity?.principal,w?.identity?.expires_at_epoch,state.boot?.csrf]);
+  const w=state.workspace, expiry=w?.identity?.expires_at_epoch;
+  if(Number.isFinite(expiry)&&expiry<=Date.now()/1000)return null;
+  return JSON.stringify([state.app,w?.app?.version,w?.identity?.principal,expiry,state.boot?.csrf]);
 }
 
-async function firstMeasuredPost(){
+async function firstMeasuredPost(offset=0){
   state.measuredPost=null;
   const app=state.app, context=measuredPostContext();
+  if(!context)throw new Error("Sign in again to review your study and its saved receipts.");
   modal("Your first measured post",'<div class="modal-content" id="first-post-panel"><p role="status">Loading saved studies…</p></div>',"GUIDED PATH");
   const panel=$("#first-post-panel");
   const current=()=>panel.isConnected&&$("#modal").open&&measuredPostContext()===context;
   try{
-    const history=await api(`/api/apps/${encodeURIComponent(app)}/observational-campaign/history`,{offset:0});
+    const history=await api(`/api/apps/${encodeURIComponent(app)}/observational-campaign/history`,{offset});
     if(!current())return;
     const studies=(history.records||[]).filter(row=>row.kind==="REGISTERED"&&row.data.app_version===state.workspace.app.version);
+    const page=(title,start)=>button(title,"first-post-page","data-offset="+String(start));
     panel.innerHTML=`<p>Choose one study to track its own draft, delivery and evidence.</p>
       <label class="field">Registered study<select id="first-post-study"><option value="">Choose a study</option>${studies.map((row,i)=>`<option value="${i}">${esc(row.data.study_id)}</option>`).join("")}</select></label>
+      ${studies.length?"":'<p>No current study registrations on this page.</p>'}
+      ${offset>0?page("Newer activity",Math.max(0,offset-history.limit)):""}
+      ${history.records?.length===history.limit&&offset+history.limit<=10000?page("Older activity",offset+history.limit):""}
       ${button("Register or browse studies","observational-campaign-open")}<div id="first-post-selection" role="status"></div>`;
     const select=panel.querySelector("select"), output=panel.querySelector("#first-post-selection");
     let generation=0;
@@ -636,16 +647,22 @@ async function firstMeasuredPost(){
         const url=`/api/apps/${encodeURIComponent(app)}`;
         const link=await api(url+"/observational-campaign/link",binding);
         if(!valid())return;
+        const linkHash=link.study.source==="facebook"?await campaignHash(link.url):null;
+        if(!valid())return;
         const [pubs,report,campaigns]=await Promise.all([
           link.study.source==="facebook"?Promise.resolve(null):api(url+"/publications").catch(()=>null),
           api(url+"/observational-campaign/report",binding).catch(()=>null),
-          link.study.source==="facebook"?api(url+"/campaigns/history",{}).catch(()=>null):Promise.resolve(null)]);
+          link.study.source==="facebook"?api(url+"/campaigns/history",{approved_link_sha256:linkHash}).catch(()=>null):Promise.resolve(null)]);
         if(!valid())return;
         const destinations=new Map();
         for(const a of pubs?.authorities||[])if(a.draft?.provider===link.study.source&&a.draft.link===link.url)
           destinations.set(a.draft.destination_id,a.draft.destination_id);
-        for(const a of state.workspace.social_access?.accounts||[])if(a.provider===link.study.source&&a.data?.destination?.id)
-          destinations.set(a.data.destination.id,a.data.destination.name||a.data.destination.id);
+        for(const receipt of campaigns?.tracked_posts?.records||[])destinations.set(receipt.page_id,receipt.page_id);
+        const ready=new Set();
+        for(const account of WMMPublicationUI.eligibleDestinations(link.study.source,state,pubs)){
+          destinations.set(account.destination_id,account.name||account.destination_id);
+          ready.add(account.destination_id);
+        }
         const selected=state.measuredPost={app,context,link,binding,destination:""};
         output.innerHTML=`<h3>${esc(link.study.name)}</h3><p>${esc(link.study.hypothesis)}</p><p>Observation window: ${esc(savedWhen(link.study.starts_at))} to ${esc(savedWhen(link.study.ends_at))}</p>
           <label class="field">Exact tagged link<input readonly value="${esc(link.url)}"></label>
@@ -657,15 +674,17 @@ async function firstMeasuredPost(){
         draftButton.disabled=true;
         if(!destinations.size){
           output.querySelector("#first-post-progress").textContent="Connect a destination for this channel before preparing a post.";
-          output.querySelector("#first-post-progress").insertAdjacentHTML("afterend",button("Review connections","measurement-connections"));
         }
+        if(!ready.size)output.querySelector("#first-post-progress").insertAdjacentHTML("afterend",
+          button(link.study.source==="instagram"?"Verify the linked Instagram account":"Review connections",
+            link.study.source==="instagram"?"next-answer-publishing":"measurement-connections"));
         output.querySelector("select").addEventListener("change",event=>{
           if(!valid()||state.measuredPost!==selected)return;
           selected.destination=event.target.value;
-          draftButton.disabled=!selected.destination;
-          const e=measuredPostEvidence(link,selected.destination,pubs||{},state.workspace,campaigns?.scopes);
+          draftButton.disabled=!ready.has(selected.destination);
+          const e=measuredPostEvidence(link,selected.destination,pubs,state.workspace,campaigns?.scopes??null,campaigns?.tracked_posts);
           output.querySelector("#first-post-progress").textContent=!selected.destination?"Choose a destination to check delivery.":
-            `Publication: ${e.ambiguous?"Multiple delivered posts share this tag; keep results at study level":e.delivery?"Delivered · provider verified":e.queued?"Queued · delivery pending":e.approved?"Approved · not queued":"No matching delivery receipt"}. Install export: ${e.coverage==="COMPLETE"?"Matching window covered":e.coverage?"Matching export · coverage incomplete":"Unknown" }.`;
+            `Publication: ${e.ambiguous?"Multiple delivered posts share this tag; keep results at study level":e.delivery?"Delivered · provider verified":e.queued?"Queued · delivery pending":e.approved?"Approved · not queued":e.historyAvailable?"No matching receipt in recent history":"Delivery history unavailable; reopen this guide to retry"}. Install export: ${e.coverage==="COMPLETE"?"Matching window covered":e.coverage?"Matching export · coverage incomplete":"Unknown" }.`;
         });
       }catch(error){if(valid())output.textContent=error.message;}
     });
@@ -1549,6 +1568,7 @@ async function handleAction(node) {
   if(action==="next-answer-workflow"){$("#modal").close();state.view="workflow";return render();}
   if(action==="next-answer-results"){$("#modal").close();state.view="results";return render();}
   if(action==="next-answer-publishing"){$("#modal").close();return guidedNavigate("connections","#publication-heading");}
+  if(action==="first-post-page")return firstMeasuredPost(Number(node.dataset.offset));
   if(action==="first-post-import")return installImportForm(selectedMeasuredPost().link);
   if(action==="first-post-brief"){
     const {link}=selectedMeasuredPost();
@@ -1570,7 +1590,7 @@ async function handleAction(node) {
     if(!current.destination)throw new Error("Choose the destination for this study before opening a draft.");
     if(current.link.study.source==="facebook")return campaignOpen(node,current);
     guidedNavigate("connections","#publication-heading");
-    return WMMPublicationUI.action({dataset:{action:"publication-load"}},growthReviewServices());
+    return WMMPublicationUI.action({dataset:{action:"publication-load",fromStudy:"true"}},growthReviewServices());
   }
   if(action==="mmp-connections")return guidedNavigate("connections","#mmp-connections-heading");
   if(action==="install-import-open")return installImportForm();

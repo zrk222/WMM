@@ -32,11 +32,39 @@ test("Facebook delivery requires matching scheduled request, Page and verified r
   assert.equal(evidence(fb,"one",{},ws,[{scope_id:"scope",page_id:"one"}]).queued,true);
   job.status="SUCCEEDED";
   job.result={page_id:"two",status:"VERIFIED",remote_id:"post"};
-  assert.equal(evidence(fb,"one",{},ws).delivery,false);
+  assert.equal(evidence(fb,"one",{},ws,[{scope_id:"scope",page_id:"one"}]).delivery,false);
+  assert.equal(evidence(fb,"one",{},ws,null).historyAvailable,false);
   job.result.page_id="one";
   assert.equal(evidence(fb,"one",{},ws).delivery,true);
   ws.jobs.push({...job});
   assert.equal(evidence(fb,"one",{},ws).ambiguous,false);
   ws.jobs.push({...job,result:{...job.result,remote_id:"second-post"}});
   assert.equal(evidence(fb,"one",{},ws).ambiguous,true);
+});
+
+test("missing delivery history stays distinct from a successful empty read", () => {
+  assert.equal(evidence(link,"one",null,{}).historyAvailable,false);
+  assert.equal(evidence(link,"one",{authorities:[],intents:[]},{}).historyAvailable,true);
+});
+
+test("a canonical Facebook receipt completes only its Page and deduplicates scheduled proof", () => {
+  const fb={...link,study:{source:"facebook"}};
+  const result={page_id:"one",status:"VERIFIED",remote_id:"post"};
+  const ws={jobs:[{action:"campaign_post",status:"SUCCEEDED",data:{request:{link:link.url}},result}]};
+  const tracked={complete:true,records:[result]};
+  assert.equal(evidence(fb,"one",{},ws,[],tracked).delivery,true);
+  assert.equal(evidence(fb,"one",{},ws,[],tracked).ambiguous,false);
+  assert.equal(evidence(fb,"two",{},ws,[],tracked).delivery,false);
+  assert.equal(evidence(fb,"one",{},ws,[],{...tracked,complete:false}).delivery,false);
+  assert.equal(evidence(fb,"one",{}, {jobs:[]},[],tracked).delivery,true);
+});
+
+test("a cached identity ceases to bind a study after its expiry", () => {
+  const state={app:"app",workspace:{app:{version:1},identity:{principal:"owner",expires_at_epoch:101}}};
+  let time=100000;
+  const context=vm.runInNewContext(source.slice(source.indexOf("function measuredPostContext("),
+    source.indexOf("async function firstMeasuredPost(")) + "\nmeasuredPostContext",{state,Date:{now:()=>time}});
+  assert.notEqual(context(),null);
+  time=101000;
+  assert.equal(context(),null);
 });
