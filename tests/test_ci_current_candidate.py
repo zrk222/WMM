@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # All eight backend shards and the native/package job definitions are retained.
 # One Ubuntu shard also runs the isolated native Secret Service acceptance.
 BASELINES = {
-    ".github/workflows/checks.yml": "2bee5db73bfa2922e470878e1cfd04547dfe4703a0b66e021cd0486407ea4309",
+    ".github/workflows/checks.yml": "d34b0455be889e13c7b60f96bbbb1952992ce3e31edf7c49e520942dfa9411bb",
     ".github/workflows/platform-checks.yml": "8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",
     ".github/workflows/desktop-packages.yml": "7b3c79b9d8d4c3de876768e804e5794f23d37cf4f3a912013d051eeb7f238504",
 }
@@ -29,6 +29,7 @@ class CurrentCandidateCITests(unittest.TestCase):
         self.assertIn("timeout-minutes: 45", browser)
         self.assertIn("WMM_BROWSER_TEST_PROFILE: '1'", browser)
         self.assertIn("python -m unittest tests.test_creative_batches_browser tests.test_onesignal_ui_browser tests.test_onesignal_browser_integration tests.test_organic_research_browser tests.test_market_research_browser tests.test_organic_policy_gui_browser tests.test_publication_browser -v", browser)
+        self.assertIn("python -m unittest tests.test_automation_rules_browser -v", browser)
         self.assertIn("name: publication-browser-evidence", browser)
         self.assertIn("path: .factory/multichannel/browser/", browser)
         self.assertIn("retention-days: 3", browser)
