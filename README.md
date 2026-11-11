@@ -123,7 +123,7 @@ python tools/test.py --profile core --install
 python tools/test.py --profile node
 ~~~
 
-[Test profiles, OS tools and clean-checkout expectations](docs/TESTING.md). `pytest` is not required. [First-run validation protocol](docs/VALIDATION-PROTOCOL.md) ? [Independent security-review packet](docs/SECURITY-REVIEW-PACKET.md) ? [Verify a downloaded release](docs/VERIFY-RELEASE.md) ? [Audit evidence bundle](docs/AUDIT-BUNDLE.md) ? [Enterprise readiness](docs/ENTERPRISE-READINESS.md).
+[Test profiles, OS tools and clean-checkout expectations](docs/TESTING.md). `pytest` is not required. [First-run validation protocol](docs/VALIDATION-PROTOCOL.md) ? [Independent security-review packet](docs/SECURITY-REVIEW-PACKET.md) ? [Verify a downloaded release](docs/VERIFY-RELEASE.md) ? [Audit evidence bundle](docs/AUDIT-BUNDLE.md) ? [Enterprise readiness](docs/ENTERPRISE-READINESS.md) ? [Personal-cloud ingest SDK](docs/CLOUD-INGEST-SDK.md).
 
 **Platforms:** protected desktop credentials use Windows Credential Manager or a configured Linux/Ubuntu Secret Service. The desktop macOS credential adapter is unsupported. The separate [native iPhone/iPad app](ios/) uses on-device Keychain and media execution; see its current acceptance limits rather than assuming desktop parity. Keep the desktop server private on loopback.
 
