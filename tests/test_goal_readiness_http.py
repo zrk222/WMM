@@ -71,6 +71,41 @@ class GoalReadinessHTTPTests(unittest.TestCase):
             for table in ('agent_grants', 'automation_policies', 'automation_executions', 'jobs'):
                 self.assertEqual(db.execute('SELECT count(*) FROM '+table).fetchone()[0], 0)
 
+    def test_facebook_readiness_distinguishes_missing_and_unavailable_credentials(self):
+        from uuid import uuid4
+
+        account_ref, config_ref = str(uuid4()), str(uuid4())
+        with connection(self.store.path) as db:
+            db.execute("UPDATE social_connections SET provider='facebook',secret_ref=?", (account_ref,))
+            db.execute("UPDATE social_configs SET provider='facebook',secret_ref=?", (config_ref,))
+        selected = self.body(workflows=['social_publish'], social_connection_ids=[readiness_fixture.ACCOUNT])
+        before = self.dump()
+        for fixture, expected, count in (
+            ((None,), 'RECONNECT_REQUIRED', 1),
+            (({'value': 'synthetic-user-token'}, None), 'RECONNECT_REQUIRED', 2),
+            (Invalid('synthetic private vault error'), 'PROTECTED_STORAGE_UNAVAILABLE', 1),
+            (({'value': 'synthetic-user-token'}, {'value': 'synthetic-client-secret'}), None, 2),
+        ):
+            with self.subTest(expected=expected), patch(
+                'mission_control.credential_vault.Vault', autospec=True
+            ) as vault:
+                fetch = vault.return_value.get
+                fetch.side_effect = fixture
+                response = self.read(selected)
+                self.assertEqual(fetch.call_count, count)
+                repairs = {readiness_fixture.ACCOUNT: expected} if expected else {}
+                self.assertEqual(response['credential_repairs'], repairs)
+                self.assertEqual(response['inventory']['accounts'][0]['status'], 'TESTED_FRESH')
+                self.assertEqual(response['inventory_sha256'], digest(response['inventory']))
+                self.assertFalse(response['authority_issued'])
+                for value in (account_ref, config_ref, 'synthetic-user-token',
+                              'synthetic-client-secret', 'synthetic private vault error'):
+                    self.assertNotIn(value, json.dumps(response))
+        with patch('mission_control.credential_vault.Vault', autospec=True) as vault:
+            self.assertEqual(self.read(self.body())['credential_repairs'], {})
+            vault.assert_not_called()
+        self.assertEqual(before, self.dump())
+
     def test_organic_channel_readiness_is_owner_only_and_issues_no_authority(self):
         before = self.dump()
         report = self.read(self.body(workflows=['organic_publication'], social_connection_ids=[readiness_fixture.ACCOUNT]))

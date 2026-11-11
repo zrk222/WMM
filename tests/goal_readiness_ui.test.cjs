@@ -28,3 +28,15 @@ test('inherited and unknown diagnostic keys use review guidance while preserving
 
 test('exception guidance translates supported recovery states without overclaiming',()=>{const h=fixture(),g=h.g;for(const [state,headline,tool] of [['UNKNOWN','Delivery is unconfirmed','campaign'],['CANCEL_REQUESTED','New local work stopped','campaign'],['BLOCKED','Work is paused','connections'],['WAITING_FOR_REPORTS','Report rows are not available yet','connections'],['EXPIRED','Permission or connection expired','connections'],['EXHAUSTED','Approved check limit reached','agreement']]){const row=g.normalize({state,evidence_refs:['receipt-1']});assert.equal(row.headline,headline,state);assert.equal(row.tool,tool,state);assert.deepEqual(row.evidence_refs,['receipt-1']);}const unknown=g.normalize({state:'PROVIDER_SURPRISE',reason:'<unsafe>'});assert.equal(unknown.headline,'Work needs review');assert.equal(unknown.reason,'<unsafe>');assert.equal(unknown.tool,'agreement');});
 test('exception panel keeps evidence escaped and renders no panel for absent states',()=>{const h=fixture(),g=h.g;assert.equal(g.panel([]),'');const html=g.panel([{state:'WAITING_FOR_REPORTS',evidence_refs:['<receipt>'],source:'App Store Connect',observed_at:'2026-11-05T00:00:00Z',next_due:'2026-11-06T00:00:00Z',repair_route:'connections'}]);assert.match(html,/Workflow updates/);assert.match(html,/Report rows are not available yet/);assert.match(html,/This does not mean zero activity/);assert.match(html,/&lt;receipt&gt;/);assert.equal(html.includes('<receipt>'),false);assert.match(html,/Observed: 2026-11-05/);assert.match(html,/next due 2026-11-06/);assert.match(html,/Source: App Store Connect/);assert.match(html,/data-tool="connections"/);});
+
+test('missing Facebook credential replaces the historical verified label with a repair',()=>{
+ const {w}=fixture();
+ const data={inventory:{scope_status:'READY_FOR_SCOPE_REVIEW',workflows:[],inference:{status:'MISSING'},accounts:[
+  {id:'a',provider:'facebook',destination_id:'page',status:'TESTED_FRESH'}]},observed_at:'now',inventory_sha256:'hash'};
+ const reconnect=w.markup({...data,credential_repairs:{a:'RECONNECT_REQUIRED'}});
+ assert.match(reconnect,/<h3>Needs setup<\/h3>/);
+ assert.match(reconnect,/facebook \/ page · Reconnect Facebook in Connections/);
+ assert.doesNotMatch(reconnect,/Recently verified/);
+ assert.match(w.markup({...data,credential_repairs:{a:'PROTECTED_STORAGE_UNAVAILABLE'}}),/Unlock this device’s protected credential storage/);
+ assert.match(w.markup(data),/Recently verified/);
+});

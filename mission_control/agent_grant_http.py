@@ -84,12 +84,58 @@ def owner(store,app_id,action,user,body,*,runtime_origin=None,runtime_executable
     raise Invalid('Unknown owner grant-management action')
 
 
+def facebook_credential_repair(store, app_id, account):
+    """Check only the selected Page's local credential fields; return no secret material."""
+    from .credential_vault import Vault
+    from .social_connections import Connections
+    from .social_contract import opaque
+    from .social_secrets import name
+
+    connections = Connections(store)
+    try:
+        saved = connections.get(app_id, account['id'])
+        config = connections.setup.get(app_id, 'facebook')
+        if (saved['provider'], saved['version'], config['version']) != (
+            'facebook', account['version'], account['config_version']
+        ):
+            return 'RECONNECT_REQUIRED'
+        names = (
+            name(store, app_id, 'facebook', saved['secret_ref'], 'access_token'),
+            name(store, app_id, 'facebook', config['secret_ref'], 'client_secret'),
+        )
+    except Invalid:
+        return 'RECONNECT_REQUIRED'
+    try:
+        vault = Vault()
+        for address in names:
+            record = vault.get(address)
+            if not isinstance(record, dict) or set(record) != {'value'}:
+                return 'RECONNECT_REQUIRED'
+            try:
+                opaque(record['value'])
+            except Invalid:
+                return 'RECONNECT_REQUIRED'
+    except Invalid:
+        return 'PROTECTED_STORAGE_UNAVAILABLE'
+    return None
+
+
 def goal_readiness(store,app_id,user,body):
-    """Project selected readiness without issuing authority or opening protected access."""
+    """Keep the saved inventory intact and add a local repair observation for the owner."""
     from .automation_requirements import Readiness
     report=Readiness(store).report(app_id,user,body)
-    ready=report['inventory']['scope_status']=='READY_FOR_SCOPE_REVIEW'
-    return dict(report,status='success' if ready else 'warning',
+    inventory = report['inventory']
+    repairs = {}
+    if {'social_publish', 'paid_effects', 'organic_publication'}.intersection(
+        inventory['selection']['workflows']
+    ):
+        for account in inventory['accounts']:
+            if account['provider'] == 'facebook' and account['status'] == 'TESTED_FRESH':
+                repair = facebook_credential_repair(store, app_id, account)
+                if repair:
+                    repairs[account['id']] = repair
+    ready = inventory['scope_status'] == 'READY_FOR_SCOPE_REVIEW' and not repairs
+    return dict(report,status='success' if ready else 'warning',credential_repairs=repairs,
                 summary='Selected requirements are ready for scope review.' if ready else 'Selected requirements need repair before scope review.',
                 next_actions=['Review the current exact scope with the owner; this inventory grants no authority.'] if ready else
                              ['Repair the listed workflow and connection blockers, then check readiness again.'],
