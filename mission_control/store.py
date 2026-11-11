@@ -3,9 +3,12 @@ import json
 import base64
 import hashlib
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
+from sqlite3 import Connection
 from pathlib import Path
 from .common import Invalid, canonical, digest, identifier, now, required, safe_data, uid
-from .db import connection, initialize
+from .db import connection, initialize, session, transaction
 from .catalog import FIELDS
 from .ledger import Ledger, restore_ledger, validate_snapshot
 from .experiments import Experiments, restore_experiments, snapshot_data
@@ -83,9 +86,24 @@ class Store:
         """Resolve an exact app namespace or return an explicit missing-workspace error."""
         with connection(self.path) as db:
             row = db.execute("SELECT * FROM apps WHERE id=?", (app_id,)).fetchone()
+        return self._decode_app(row)
+
+    @staticmethod
+    def _decode_app(row):
         if row is None:
             raise KeyError("App workspace not found")
         return decode(row)
+
+    @contextmanager
+    def read_scope(self, app_id: str) -> Iterator[Connection]:
+        """Reuse one handle across separately guarded app and domain reads."""
+        with session(self.path) as db:
+            with transaction(self.path, db):
+                row = db.execute("SELECT * FROM apps WHERE id=?", (app_id,)).fetchone()
+            self._decode_app(row)
+            # No shared read transaction: committed changes remain visible to this query.
+            with transaction(self.path, db):
+                yield db
 
     def save_app(self, app_id, data, version=None):
         """Create or version-check a manifest before committing an audited update."""
@@ -105,8 +123,7 @@ class Store:
 
     def records(self, app_id):
         """Read evidence for one existing workspace, ordered by freshness."""
-        self.app(app_id)
-        with connection(self.path) as db:
+        with self.read_scope(app_id) as db:
             return [decode(r) for r in db.execute("SELECT * FROM records WHERE app_id=? ORDER BY updated DESC,id",(app_id,))]
 
     def save_record(self, app_id, body, provenance="operator"):
@@ -139,8 +156,7 @@ class Store:
 
     def history(self, app_id):
         """Return the bounded most-recent audit history for one workspace."""
-        self.app(app_id)
-        with connection(self.path) as db:
+        with self.read_scope(app_id) as db:
             return [decode(r) for r in db.execute("SELECT * FROM audit WHERE app_id=? ORDER BY id DESC LIMIT 100",(app_id,))]
 
     def export(self, app_id):

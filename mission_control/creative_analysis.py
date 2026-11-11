@@ -113,8 +113,7 @@ class Analyses:
 
     def list(self,app_id):
         """Show stale capture status without replacing historic observations."""
-        self.store.app(app_id)
-        with connection(self.store.path) as db:
+        with self.store.read_scope(app_id) as db:
             items=saved_items(db,"creative_analyses",app_id)
             for item in items:
                 data=item["current"]["data"];capture=latest_capture(db,app_id,data["reference_id"])

@@ -52,8 +52,7 @@ def json_job(row):
 
 def jobs(store,app_id):
     """Return bounded recent runs for one workspace."""
-    store.app(app_id)
-    with connection(store.path) as db:
+    with store.read_scope(app_id) as db:
         return [json_job(r) for r in db.execute("SELECT * FROM jobs WHERE app_id=? AND action!='drive_import' ORDER BY created DESC LIMIT 100",(app_id,))]
 
 

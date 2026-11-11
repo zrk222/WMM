@@ -88,8 +88,7 @@ class Renders:
 
     def list(self,app_id):
         """Expose saved bytes and source freshness independently from job status."""
-        self.store.app(app_id)
-        with connection(self.store.path) as db:rows=render_rows(db,app_id)
+        with self.store.read_scope(app_id) as db:rows=render_rows(db,app_id)
         for row in rows:
             try:
                 artifact_file(self.store,app_id,row["id"])

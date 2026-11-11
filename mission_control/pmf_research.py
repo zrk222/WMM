@@ -86,8 +86,7 @@ class Research:
 
     def list(self, app_id):
         """Read research without implying current release compatibility."""
-        self.store.app(app_id)
-        with connection(self.store.path) as db: return view(rows(db, app_id), self.clock())
+        with self.store.read_scope(app_id) as db: return view(rows(db, app_id), self.clock())
 
     def validate(self, app, kind, value, items, db):
         """Dispatch finite typed contracts and owned references."""

@@ -162,8 +162,7 @@ class HypitRenders:
 
     def list(self, app_id):
         """Show immutable outputs, source freshness and retained unfinished history."""
-        self.store.app(app_id)
-        with connection(self.store.path) as db:
+        with self.store.read_scope(app_id) as db:
             rows = [saved(row) for row in db.execute('SELECT * FROM hypit_renders WHERE app_id=? ORDER BY created DESC,id', (app_id,))]
             attempts = [saved(row) for row in db.execute('SELECT * FROM hypit_attempts WHERE app_id=? ORDER BY created DESC,job_id', (app_id,))]
         for row in rows:

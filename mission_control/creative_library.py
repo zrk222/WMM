@@ -199,8 +199,7 @@ class Library:
 
     def list(self,app_id):
         """Return current sources plus immutable capture history, never fabricated metrics."""
-        self.store.app(app_id)
-        with connection(self.store.path) as db:
+        with self.store.read_scope(app_id) as db:
             rows=[dict(r) for r in db.execute("SELECT * FROM creative_references WHERE app_id=? ORDER BY identity",(app_id,))]
             for row in rows:
                 captures=[]
