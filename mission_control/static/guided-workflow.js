@@ -169,12 +169,38 @@ const WMMGoalJourney=(()=>{
  return {read,save,model,view,choices,browserStorage};
 })();
 
+function goalProofIllustration(){
+ return `<figure class="goal-proof" aria-label="From goal to proof">
+  <svg viewBox="0 0 396 126" width="396" height="126" aria-hidden="true" focusable="false">
+   <g fill="none" stroke="currentColor" stroke-width="1.5" opacity=".38">
+    <path d="M105 63h43m100 0h43" stroke-dasharray="3 5"/>
+    <path d="m143 58 5 5-5 5m143-10 5 5-5 5" stroke-linecap="round" stroke-linejoin="round"/>
+   </g>
+   <g fill="var(--panel)" stroke="currentColor" stroke-width="1.5">
+    <rect x="22" y="23" width="78" height="78" rx="20"/>
+    <rect x="159" y="23" width="78" height="78" rx="20"/>
+    <rect x="296" y="23" width="78" height="78" rx="20"/>
+   </g>
+   <g fill="var(--accent)" opacity=".55">
+    <circle cx="61" cy="62" r="24"/><circle cx="198" cy="62" r="24"/><circle cx="335" cy="62" r="24"/>
+   </g>
+   <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="61" cy="62" r="14"/><circle cx="61" cy="62" r="6"/>
+    <path d="M61 42v6m20 14h-6M61 82v-6M41 62h6"/>
+    <path d="M190 46h21v32h-26V51l5-5Zm-5 6h6v-6m0 17 5 5 10-11"/>
+    <path d="M324 45h22v34l-5-3-6 3-5-3-6 3V45Zm6 8h10m-10 7h10m-10 7h6"/>
+   </g>
+  </svg>
+  <figcaption><ol><li>Choose a goal</li><li>Review and approve</li><li>See the evidence</li></ol></figcaption>
+ </figure>`;
+}
+
 function startHerePanel(){
  const data=state.workspace?.app?.data||{};
  const missing=[["job","user job"],["audience","audience"],["activation","useful activation"],["currency","currency"],["release","release"],["locale","locale"]].filter(([key])=>!data[key]).map(([,text])=>text);
  const exceptions=state.workspace?.workflow?.exceptions||[];
  const primary=missing.length?button("Finish app setup","edit-app"):button("Build your campaign plan","campaign-plan-open");
- return `<section class="panel" aria-label="First measured post"><p class="eyebrow">START HERE</p><h2>One useful result, not a tour</h2><p>Your agent proposes the work. You edit and approve. Every result keeps its source and missing data.</p><p>${missing.length?`Add ${esc(missing.join(", "))} to turn your app facts into a reviewable campaign plan.`:"Build a campaign plan from your saved facts, channel and outcome. Review it before anything runs."}</p><div class="toolbar">${primary}${button("Start the guided path","first-post-open")}${button("Open your first packet","automatic-goal-open",WMMGoalPacket.attributes(WMMGoalPacket.model()))}</div>${exceptions.length?`<p class="description">${exceptions.length} saved item${exceptions.length===1?"":"s"} need attention. <button type="button" class="button outline" data-view="workflow">Review workflow</button></p>`:""}<details><summary>More options</summary><div class="toolbar">${button("What should I do next?","next-answer")}${button("Measure one organic post","observational-campaign-open")}</div><p class="description">Each path keeps its own approval. Nothing publishes or spends on its own.</p></details></section>`;
+ return `<section class="panel goal-proof-layout" aria-label="First measured post"><div><p class="eyebrow">START HERE</p><h2>One useful result, not a tour</h2><p>Your agent proposes the work. You edit and approve. Every result keeps its source and missing data.</p><p>${missing.length?`Add ${esc(missing.join(", "))} to turn your app facts into a reviewable campaign plan.`:"Build a campaign plan from your saved facts, channel and outcome. Review it before anything runs."}</p><div class="toolbar">${primary}${button("Start the guided path","first-post-open")}${button("Open your first packet","automatic-goal-open",WMMGoalPacket.attributes(WMMGoalPacket.model()))}</div>${exceptions.length?`<p class="description">${exceptions.length} saved item${exceptions.length===1?"":"s"} need attention. <button type="button" class="button outline" data-view="workflow">Review workflow</button></p>`:""}<details><summary>More options</summary><div class="toolbar">${button("What should I do next?","next-answer")}${button("Measure one organic post","observational-campaign-open")}</div><p class="description">Each path keeps its own approval. Nothing publishes or spends on its own.</p></details></div>${goalProofIllustration()}</section>`;
 }
 
 function goalOverview(){
