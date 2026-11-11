@@ -23,3 +23,20 @@ npx --yes prettier@3.6.2 --check mission_control/static/campaign-monitor.js
 For a new gap, record the affected workflow, a reproducer and the acceptance
 test in the owning spec or issue. A small formatting diff, green synthetic
 tests or a saved agent receipt does not establish live provider behavior.
+
+## Replay archived evidence
+
+Eight large historical scan reports are indexed in
+[archive-index.json](evidence/archive-index.json). A full Git clone and the
+local Code Factory CLI can verify the exact original receipts:
+
+~~~sh
+python tools/replay_historical_evidence.py
+~~~
+
+The command reads immutable Git blobs, checks their size and SHA-256, and
+runs the historical workflow verifier in disposable directories. It does
+not regenerate scans, edit the current checkout, or certify current source.
+A shallow clone must fetch the historical commits first. Report files are
+still available in Git history; reducing the current checkout does not
+rewrite history or reduce a full clone by the same amount.
