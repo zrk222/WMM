@@ -639,36 +639,80 @@ function automationRulesPanel(){
   const operator=experimentScheduleIdentity();
   if(operator.status!=="AUTHENTICATED"||operator.role!=="OWNER")return "";
   const sample={schema:"wmm.automation-rules.v1",mode:"PROPOSE_ONLY",timezone:state.workspace?.app?.data?.timezone||"UTC",rules:[{id:"cohort-setup-review",enabled:true,priority:5,when:{fact:"metrics.cohort_count",op:"eq",value:0},then:{propose:{action:"review_measurement_setup",tool:"reports.read",reason:"This app has no saved cohort metrics. Choose what to measure before starting a test."},requires:["OWNER_REVIEW"]}}]};
-  return `<section class="panel" aria-label="Automation rule preview"><details><summary>Automation rules</summary><p class="description">See what WMM would suggest for this app using saved evidence. Previewing does not approve work, publish or spend. Saving adds an immutable version.</p><label class="field" for="automation-rules-json">Rule to preview (JSON)<textarea id="automation-rules-json" name="rules" rows="8" spellcheck="false">${esc(JSON.stringify(sample,null,2))}</textarea></label><div class="toolbar">${button("Preview suggestions","automation-rules-run")}${button("Load saved","automation-rules-load")}${button("Save rules","automation-rules-save")}</div><p id="automation-rules-status" class="description" role="status"></p><div id="automation-rules-result" role="status" aria-live="polite"></div></details></section>`;
+  return `<section class="panel" aria-label="Automation rule preview"><details><summary>Automation rules</summary><p class="description">See what WMM would suggest for this app using saved evidence. Previewing does not approve work, publish or spend. Saving adds an immutable version.</p><label class="field" for="automation-rules-json">Rule to preview (JSON)<textarea id="automation-rules-json" name="rules" rows="8" spellcheck="false">${esc(JSON.stringify(sample,null,2))}</textarea></label><div class="toolbar">${button("Preview draft","automation-rules-run")}${button("Load latest into editor","automation-rules-load")}${button("Save rules","automation-rules-save")}</div><details><summary>Saved rule versions</summary>${button("Show saved versions","automation-rules-history")}<div id="automation-rules-history" aria-live="polite"></div></details><p id="automation-rules-status" class="description" role="status"></p><div id="automation-rules-result" role="status" aria-live="polite"></div></details></section>`;
 }
 
 function automationRulesResult(value){
-  const labels=new Map([["MATCH","Matched"],["NO_MATCH","Did not match"],["UNKNOWN","Missing evidence"],["EXPIRED","Expired"],["DISABLED","Off"]]);
+  const labels=new Map([["MATCH","Matched"],["NO_MATCH","Did not match"],["UNKNOWN","Missing or incompatible evidence"],["EXPIRED","Expired"],["DISABLED","Off"]]);
   const approvals=new Map([["OWNER_REVIEW","Owner review"],["EXACT_APPROVAL","Approval for the exact action"]]);
   const proposals=value.proposals.map(row=>`<article class="next-step"><div><h3>${esc(row.action.replaceAll("_"," "))}</h3><p>${esc(row.reason)}</p><p><strong>Next:</strong> ${esc(row.requires.map(key=>approvals.get(key)||key).join(", "))}</p><details><summary>Evidence details</summary><p>Rule: ${esc(row.rule_id)}</p><p class="app-mono">${esc(row.fact_snapshot_sha256)}</p></details></div></article>`).join("");
-  const results=value.results.map(row=>`<li>${esc(row.rule_id)}: <strong>${esc(labels.get(row.status)||row.status)}</strong>${row.missing?.length?` (${esc(row.missing.join(", "))})`:""}</li>`).join("");
+  const results=value.results.map(row=>`<li>${esc(row.rule_id)}: <strong>${esc(labels.get(row.status)||row.status)}</strong>${row.missing?.length?` · Missing: ${esc(row.missing.join(", "))}`:""}${row.incompatible?.length?` · Incompatible: ${esc(row.incompatible.join(", "))}`:""}${row.proposal_status==="SUPPRESSED_BY_HIGHER_PRIORITY"?" · A higher priority rule already suggested the same action.":""}</li>`).join("");
   const empty=value.results.some(row=>row.status==="UNKNOWN")?"No suggestion yet. Open the rule details to see what evidence is missing.":"No rule matched the saved evidence.";
-  return `<h3>Preview complete</h3>${proposals||`<p>${empty}</p>`}<details><summary>Rule results</summary><ul>${results}</ul></details>`;
+  const source=value.rule_binding?`Saved version ${esc(value.rule_binding.version)}`:"Draft (not a saved version)";
+  const facts=value.fact_snapshot;
+  const evidence=Object.entries(facts?.values||{}).flatMap(([group,fields])=>Object.entries(fields).map(([name,entry])=>
+    `<tr><th scope="row">${esc(group)}.${esc(name)}</th><td>${esc(JSON.stringify(entry))}</td><td>${esc(facts.sources[group]||"Saved app evidence")}</td></tr>`)).join("");
+  return `<h3>Preview complete</h3><p>${source}${value.observed_at?` · ${esc(savedWhen(value.observed_at))}`:""}</p>${proposals||`<p>${empty}</p>`}
+    <details><summary>Rule results</summary><ul>${results}</ul></details>
+    ${evidence?`<details><summary>Facts used for this preview</summary><div class="table-wrap"><table class="result-table"><caption>Observed facts; unlisted facts are unavailable</caption><thead><tr><th scope="col">Fact</th><th scope="col">Value</th><th scope="col">Source</th></tr></thead><tbody>${evidence}</tbody></table></div>
+    <p>Rule fingerprint: <span class="app-mono">${esc(value.rules_sha256)}</span></p><p>Fact fingerprint: <span class="app-mono">${esc(value.facts_sha256)}</span></p><p>Preview fingerprint: <span class="app-mono">${esc(value.evaluation_sha256)}</span></p></details>`:""}`;
 }
 
 async function runAutomationRulePreview(node){
   const panel=node.closest("section"),target=panel.querySelector("#automation-rules-result");
   const input=panel.querySelector("#automation-rules-json"),binding=JSON.stringify(experimentScheduleIdentity());
-  const app=state.app;
-  let rules;
-  try{rules=JSON.parse(input.value);}catch{
+  const app=state.app, original=input.value;
+  const saved=node.dataset?.version?{version:Number(node.dataset.version),hash:node.dataset.hash}:null;
+  let payload;
+  try{payload=saved?{saved}:{rules:JSON.parse(original)};}catch{
     target.textContent="Check the rule JSON and try again.";
     input.focus();
     return;
   }
-  const stillHere=()=>target.isConnected&&state.app===app&&binding===JSON.stringify(experimentScheduleIdentity());
+  const request={};
+  target.previewRequest=request;
+  const stillHere=()=>node.isConnected&&target.isConnected&&target.previewRequest===request&&state.app===app&&
+    binding===JSON.stringify(experimentScheduleIdentity());
   node.disabled=true;
   target.textContent="Checking saved evidence…";
   try{
-    const result=await api(`/api/apps/${encodeURIComponent(app)}/automation/evaluate`,{rules});
-    if(stillHere())target.innerHTML=automationRulesResult(result);
+    const result=await api(`/api/apps/${encodeURIComponent(app)}/automation/evaluate`,payload);
+    if(!stillHere())return;
+    if(saved&&(result.rule_binding?.app_id!==app||result.rule_binding.version!==saved.version||result.rule_binding.hash!==saved.hash)){
+      target.textContent="The returned preview did not match the selected saved version.";
+      return;
+    }
+    if(!saved&&input.value!==original){
+      target.textContent="Your draft changed while checking. Preview the current draft again.";
+      return;
+    }
+    target.innerHTML=automationRulesResult(result);
   }catch(error){
     if(stillHere())target.textContent=`Could not preview this rule. ${error.message}`;
+  }finally{
+    if(node.isConnected)node.disabled=false;
+  }
+}
+
+async function showAutomationVersions(node){
+  const panel=node.closest("section"),target=panel.querySelector("#automation-rules-history");
+  const app=state.app,binding=JSON.stringify(experimentScheduleIdentity()),cursor=node.dataset.before;
+  const request={};
+  target.historyRequest=request;
+  const stillHere=()=>target.isConnected&&target.historyRequest===request&&app===state.app&&
+    binding===JSON.stringify(experimentScheduleIdentity());
+  node.disabled=true;
+  try{
+    const saved=await api(`/api/apps/${encodeURIComponent(app)}/automation/rules/history${cursor?`?before=${encodeURIComponent(cursor)}`:""}`);
+    if(!stillHere()||saved.app_id!==app)return;
+    target.innerHTML=saved.versions.length?`<ul>${saved.versions.map(row=>
+      `<li>Version ${esc(row.version)} · ${esc(savedWhen(row.created))} · ${esc(row.hash.slice(0,12))}…
+      ${button(`Preview saved version ${row.version}`,"automation-rules-run",`data-version="${esc(row.version)}" data-hash="${esc(row.hash)}"`)}</li>`).join("")}</ul>`:"<p>No saved rule versions yet.</p>";
+    if(saved.next_before)target.insertAdjacentHTML("beforeend",button("Older versions","automation-rules-history",`data-before="${esc(saved.next_before)}"`));
+    if(cursor)target.insertAdjacentHTML("beforeend",button("Back to latest versions","automation-rules-history"));
+    if(cursor)target.querySelector("button")?.focus();
+  }catch(error){
+    if(stillHere())target.textContent=`Could not load saved versions. ${error.message}`;
   }finally{
     if(node.isConnected)node.disabled=false;
   }
@@ -704,7 +748,7 @@ async function manageAutomationRules(node,action){
       }
       input.value=JSON.stringify(saved.document,null,2);
     }
-    status.textContent=`${saving?"Saved":"Loaded"} version ${saved.version} · ${saved.hash.slice(0,16)}…`;
+    status.textContent=`${saving?"Saved":"Loaded"} version ${saved.version} · ${saved.hash.slice(0,16)}…${saving&&input.value!==original?" Your newer draft has not been saved.":""}`;
   }catch(error){
     if(stillHere())status.textContent=`Could not ${saving?"save":"load"} rules. ${error.message}`;
   }finally{
@@ -1441,6 +1485,7 @@ async function handleAction(node) {
   if(action==="next-answer")return nextAnswer();
   if(action==="automation-rules-load"||action==="automation-rules-save")return manageAutomationRules(node,action);
   if(action==="automation-rules-run")return runAutomationRulePreview(node);
+  if(action==="automation-rules-history")return showAutomationVersions(node);
   if(action==="cloud-connection-test"||action==="cloud-connection-remove"){
     const form=node.closest("#cloud-connection-form"),app=form?.dataset.app;
     if(!app||state.app!==app||!form.isConnected||node.disabled)return;

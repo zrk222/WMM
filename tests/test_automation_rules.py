@@ -38,6 +38,31 @@ class AutomationRuleTests(unittest.TestCase):
         self.assertIn("study.coverage", coverage["missing"])
         self.assertEqual(value["proposals"], [])
 
+    def test_unknown_and_incompatible_values_cannot_trigger_numeric_inequality(self):
+        document = json.loads(json.dumps(EXAMPLE))
+        rule = document["rules"][0]
+        document["rules"] = [rule]
+        rule["when"] = {"fact": "metric", "op": "ne", "value": 1}
+        for facts, reason in (({"metric": None}, "missing"), ({"metric": True}, "incompatible"),
+                              ({"metric": "1"}, "incompatible")):
+            with self.subTest(facts=facts):
+                report = evaluate(document, facts, STAMP)
+                self.assertEqual(report["results"][0]["status"], "UNKNOWN")
+                self.assertEqual(report["results"][0][reason], ["metric"])
+                self.assertEqual(report["proposals"], [])
+        self.assertEqual(evaluate(document, {"metric": 2}, STAMP)["results"][0]["status"], "MATCH")
+        rule["when"] = {"fact": "metric", "op": "missing"}
+        self.assertEqual(evaluate(document, {"metric": None}, STAMP)["results"][0]["status"], "MATCH")
+
+    def test_deterministic_report_pins_the_rule_set_and_fact_snapshot(self):
+        from mission_control.common import digest
+        report = evaluate(EXAMPLE, {"jobs":{"queued":0}}, STAMP)
+        self.assertEqual(report, evaluate(EXAMPLE, {"jobs":{"queued":0}}, STAMP))
+        self.assertEqual(report["facts_sha256"], digest({"jobs":{"queued":0}}))
+        self.assertEqual(report["rules_sha256"], digest(validate(EXAMPLE)))
+        fingerprint = report.pop("evaluation_sha256")
+        self.assertEqual(fingerprint, digest(report))
+
     def test_complete_mature_result_proposes_review(self):
         value = evaluate(EXAMPLE, {"study": {"window": {"state": "ENDED"}, "coverage": "COMPLETE"},
                                    "retention": {"maturity": "MATURE"}}, STAMP)
@@ -182,3 +207,42 @@ class AutomationSimulationHTTPTests(unittest.TestCase):
                     with self.subTest(method=method, target=target), self.assertRaises(ClientError) as error:
                         client.request(method, target, data)
                     self.assertEqual(error.exception.status, 403)
+
+    def test_preview_exact_older_version_reads_current_app_facts_without_writing(self):
+        from mission_control.common import digest
+        route = self.route.replace("/evaluate", "/rules")
+        first = self.owner.request("POST", route, {"document": EXAMPLE})
+        second_doc = json.loads(json.dumps(EXAMPLE))
+        for rule in second_doc["rules"]:
+            rule["enabled"] = False
+        second = self.owner.request("POST", route, {"document": second_doc})
+        versions = self.owner.request("GET", route + "/history")
+        self.assertEqual([row["version"] for row in versions["versions"]], [2, 1])
+        self.assertNotIn("document", versions["versions"][0])
+        self.assertEqual(self.owner.request("GET", route), second)
+        reference = {"version": first["version"], "hash": first["hash"]}
+        snapshot = self.store.path.read_bytes()
+        with (patch("mission_control.connection_setup.Connections.vault", side_effect=AssertionError("opened vault")),
+              patch("mission_control.operator_identity.github_read", side_effect=AssertionError("called provider"))):
+            saved = self.owner.request("POST", self.route, {"saved": reference})
+            draft = self.owner.request("POST", self.route, {"rules": first["document"]})
+        self.assertEqual(saved["rule_binding"], {"app_id": "sample-one", **reference})
+        self.assertEqual(saved["results"], draft["results"])
+        self.assertEqual(saved["rules_sha256"], draft["rules_sha256"])
+        self.assertEqual(saved["facts_sha256"], digest(saved["fact_snapshot"]["values"]))
+        self.assertEqual(saved["fact_snapshot"]["values"]["app"]["id"], "sample-one")
+        self.assertIn("jobs", saved["fact_snapshot"]["sources"])
+        self.assertNotIn("retention_rate", str(saved["fact_snapshot"]))
+        self.assertEqual(self.store.path.read_bytes(), snapshot)
+        for invalid in ({"saved": {**reference, "hash": second["hash"]}},
+                        {"saved": {**reference, "version": True}}, {"saved": None},
+                        {"saved": reference, "rules": EXAMPLE}):
+            with self.subTest(body=invalid), self.assertRaises(ClientError) as error:
+                self.owner.request("POST", self.route, invalid)
+            self.assertEqual(error.exception.status, 400)
+        for method, target, data in (
+                ("GET", route.replace("sample-one", "sample-two") + "/history", None),
+                ("POST", self.route.replace("sample-one", "sample-two"), {"saved": reference})):
+            with self.assertRaises(ClientError) as error:
+                self.owner.request(method, target, data)
+            self.assertEqual(error.exception.status, 403)

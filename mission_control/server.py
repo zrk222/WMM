@@ -334,6 +334,15 @@ class Handler(BaseHTTPRequestHandler):
             with db_connection(store.path) as db:
                 member(db,app_id,user['principal'],'OWNER')
             return self.send(200,CloudConnections(store).current(app_id))
+        if parts[3:]==['automation','rules','history']:
+            query=urlparse(self.path).query
+            if query and not re.fullmatch(r'before=[1-9][0-9]{0,18}',query):
+                raise Invalid('Use one exact rule history cursor')
+            from .automation_store import version_index
+            user,recheck=self.automation_owner_session()
+            result=version_index(store,app_id,user['principal'],int(query[7:]) if query else None)
+            recheck()
+            return self.send(200,result)
         if parts[3:]==['automation','rules']:
             if urlparse(self.path).query:raise Invalid('Use the exact automation rules address')
             from .automation_store import current
@@ -756,11 +765,13 @@ class Handler(BaseHTTPRequestHandler):
                 raise Invalid('Submit the exact rules document')
             from .automation_store import save
             return self.send(201,save(store,parts[2],user,data['document'],commit_check=recheck))
-        if not isinstance(data,dict) or set(data)!={'rules'}:
-            raise Invalid('Submit the exact rules document')
-        from .automation_rules import evaluate, project_database
-        facts=project_database(store.path,parts[2],owner_principal=user['principal'])
-        result=evaluate(data['rules'],facts)
+        if not isinstance(data,dict) or set(data) not in ({'rules'},{'saved'}):
+            raise Invalid('Submit a rules draft or an exact saved version')
+        if 'saved' in data and not isinstance(data['saved'],dict):
+            raise Invalid('Choose a saved version and its exact fingerprint')
+        from .automation_rules import simulate_database
+        result=simulate_database(store.path,parts[2],user['principal'],
+                                 rules=data.get('rules'),reference=data.get('saved'))
         recheck()
         return self.send(200,result)
 

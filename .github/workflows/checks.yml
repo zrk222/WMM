@@ -29,7 +29,7 @@ jobs:
       - name: Exercise owner batch and OneSignal browser flows at desktop and mobile widths
         env:
           WMM_BROWSER_TEST_PROFILE: '1'
-        run: python -m unittest tests.test_creative_batches_browser tests.test_onesignal_ui_browser tests.test_onesignal_browser_integration tests.test_organic_research_browser tests.test_market_research_browser tests.test_organic_policy_gui_browser tests.test_publication_browser -v
+        run: python -m unittest tests.test_creative_batches_browser tests.test_onesignal_ui_browser tests.test_onesignal_browser_integration tests.test_organic_research_browser tests.test_market_research_browser tests.test_organic_policy_gui_browser tests.test_publication_browser tests.test_automation_rules_browser -v
       - name: Retain synthetic publication review evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

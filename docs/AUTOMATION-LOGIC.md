@@ -47,14 +47,13 @@ saved facts ──> rule evaluation ──> proposal + reason ──> human/agen
 }
 ```
 
-Rules support:
+The evaluator supports:
 
 - `all`, `any`, `not`;
 - comparisons: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`, `exists`, `missing`;
-- typed facts with units and timestamps;
-- optional persistence (`for`) and cooldowns;
-- priority and stable ordering;
-- `unknown_policy`: `DO_NOT_FIRE` (default) or `PROPOSE_DATA_REPAIR`.
+- strict comparison types, expiry, priority and stable ordering.
+
+Cooldown is retained as a label; it is not enforced across previews. Persistence (`for`) and configurable unknown handling are future features.
 
 ## Fact model
 
@@ -69,18 +68,17 @@ Facts are read-only projections of saved state:
 - current grants and remaining authority;
 - current time in the declared timezone.
 
-Every fact carries `source`, `observed_at`, `value`, `unit` and `status`. Missing/partial/stale facts are explicit. There is no inferred D7 retention, no engagement-as-install and no blended ROI.
+The preview exposes the source and observed value for each projected field and the time of the snapshot. Fields outside the current projection are unavailable unless supplied explicitly through the standalone evaluator. There is no inferred D7 retention, no engagement-as-install and no blended ROI.
 
 ## Evaluation semantics
 
 For each rule, in priority order:
 
-1. Resolve facts against the current app version/hash.
+1. Read the selected app and facts in one snapshot.
 2. Evaluate booleans with three-valued logic (`TRUE`, `FALSE`, `UNKNOWN`).
-3. A rule fires only on `TRUE`; `UNKNOWN` produces a data-repair proposal only if configured.
-4. Apply persistence/cooldown/deduplication.
-5. Validate the proposed action against the operation catalog and current authority.
-6. Emit a proposal with fact snapshot hash, rule version/hash, reason and required approvals.
+3. A rule proposes only on `TRUE`. Missing values and incompatible types remain unknown in ordinary comparisons; an explicit `missing` check can match.
+4. Within a preview, keep the highest priority proposal for the same action/tool pair and show which matched suggestions were suppressed.
+5. Record the evaluated rule set, optional saved version, facts and result fingerprints. A suggestion does not validate or grant authority for its named tool; any later action must pass the existing approval checks.
 
 No model call is required. An optional agent may explain or suggest rules, but cannot silently activate them.
 
@@ -142,7 +140,7 @@ python -m mission_control.automation_rules \
   --app <app-id>
 ```
 
-The database mode opens an existing WMM database read-only and scopes one snapshot to the selected app. It reads saved app details, cohort and retention record counts, the number of campaigns with saved import batches, and local experiment counts. It does not initialize a database, seed workspaces, load credentials, or execute any proposal.
+The database mode opens an existing WMM database read-only and scopes one snapshot to the selected app. It reads saved app details, cohort and retention record counts, the number of campaigns with saved import batches, local experiment counts, and counts of queued, running and unknown local jobs. It does not initialize a database, seed workspaces, load credentials, or execute any proposal.
 
 The bundled cohort-setup rule proposes an owner review when the workspace has no saved cohort metric records. That zero is a local record count. Study coverage, retention maturity, and unavailable measurements remain unknown unless supplied explicitly in `--facts`.
 
@@ -150,7 +148,9 @@ The bundled cohort-setup rule proposes an owner review when the workspace has no
 
 In **Review results**, app owners can open **Automation rules**. The starter rule suggests reviewing measurement setup when the app has no saved cohort metrics. Preview another rule by editing the JSON. Missing evidence is listed separately from rules that did not match.
 
-The preview checks the current local owner session and checks app membership in the same read-only database snapshot as the facts. It does not call providers or create approvals. **Save rules** appends an immutable owner-authored version; saving writes only the rule set, while evaluation still creates no approval or effect. A response is discarded if its panel or app context changes before it arrives.
+The preview checks the current local owner session and checks app membership in the same read-only database snapshot as the facts. **Preview draft** uses the current editor. **Save rules** appends an immutable version, and **Load latest into editor** brings back editable rule JSON. Open **Saved rule versions** to preview an older version by its exact version number and fingerprint. A saved version is evaluated against current saved facts; this does not replay a historical snapshot. Previously saved versions and their fingerprints stay intact.
+
+The result identifies the draft or exact saved version, the observed facts and their sources, missing or incompatible values, and fingerprints for the rule set, facts and evaluation. Local job state counts are not evidence of provider delivery. A response is discarded if its panel, app or session changes. Preview does not call providers, read credentials, save a rule, or create approval. Saving writes only a new rule version.
 
 ## Delivery phases
 
