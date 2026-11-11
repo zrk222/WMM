@@ -26,6 +26,10 @@ Accepted response:
 
 `DUPLICATE` is accepted with its original receipt. Any other status is a failure.
 
+## Reference relay
+
+`cloud/relay.py` + `cloud/Dockerfile` implement this contract for a **single owner**. Deploy it behind HTTPS on a host you control, then enter its URL/token in the app. See [cloud/README.md](../cloud/README.md). It is not a hosted multi-tenant service.
+
 ## Client
 
 ```python
