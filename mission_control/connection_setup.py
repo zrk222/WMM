@@ -152,24 +152,37 @@ class Connections:
         except Invalid:
             return "UNCONFIRMED"
 
-    def statuses(self,app_id):
+    def local_status(self, app_id, data):
+        """Check one binding's protected storage without signing or contacting a provider."""
+        if data.get("auth_mode") == "disconnected":
+            return "DISCONNECTED"
+        if not data.get("credential_ref"):
+            return "ENVIRONMENT_REFERENCE"
+        try:
+            present = self.vault(app_id).get(self.name(app_id, data))
+            return "PROTECTED_KEY_PRESENT" if present else "RECONNECT_REQUIRED"
+        except Invalid:
+            return "PROTECTED_STORAGE_UNAVAILABLE"
+
+    def credential_status(self, app_id, record_id, data):
+        """Use the trusted host projection when it owns credential status."""
+        source = STATUS_SOURCE.get()
+        if source is not None:
+            return source(self.store, app_id).get(record_id, {}).get("status", "PROTECTED_STORAGE_UNAVAILABLE")
+        return self.local_status(app_id, data)
+
+    def statuses(self, app_id):
         """Return presence only; never return private configuration or cached bearer."""
-        source=STATUS_SOURCE.get()
-        if source is not None:return source(self.store,app_id)
-        result={}
+        source = STATUS_SOURCE.get()
+        if source is not None:
+            return source(self.store, app_id)
+        result = {}
         for record in self.store.records(app_id):
-            if record["kind"]!="connection":
+            if record["kind"] != "connection":
                 continue
-            data=record["data"]
-            status="ENVIRONMENT_REFERENCE"
-            if data.get("auth_mode")=="disconnected":
-                status="DISCONNECTED"
-            elif data.get("credential_ref"):
-                try:
-                    status="PROTECTED_KEY_PRESENT" if self.vault(app_id).get(self.name(app_id,data)) else "RECONNECT_REQUIRED"
-                except Invalid:
-                    status="PROTECTED_STORAGE_UNAVAILABLE"
-            result[record["id"]]={"status":status}
-            if status=="DISCONNECTED":
-                result[record["id"]]["cleanup"]=self.cleanup_status(app_id,data)
+            data = record["data"]
+            status = self.local_status(app_id, data)
+            result[record["id"]] = {"status": status}
+            if status == "DISCONNECTED":
+                result[record["id"]]["cleanup"] = self.cleanup_status(app_id, data)
         return result

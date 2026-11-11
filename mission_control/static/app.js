@@ -1082,9 +1082,11 @@ function legacyConnectionsView() {
   }).join("")}`;
 }
 
-function connectionSetup(providerId) {
+function connectionSetup(providerId, recordId) {
   if(providerId==="aeo") return acquisitionForm("aeo");
-  const binding=state.workspace.records.find(r=>r.kind==="connection"&&r.data.provider===providerId);
+  const binding=recordId===null?undefined:state.workspace.records.find(r=>
+    r.kind==="connection"&&r.data.provider===providerId&&(recordId===undefined||r.id===recordId));
+  if(recordId!=null&&!binding)return toast("Connection changed. Reopen Apple analytics to select its current connection.");
   const ads=providerId==="apple_ads";
   const guide=ads?"Register a P-256 public key in Apple Ads API settings. Copy the resulting team, client and key IDs, then upload the matching private PEM key here.":"In App Store Connect, open Users and Access â†’ Integrations â†’ App Store Connect API. Use a team API key, copy its issuer and key IDs, and upload the downloaded .p8 file. Individual keys use a different contract and are not accepted here.";
   const link=ads?"https://searchads.apple.com/":"https://appstoreconnect.apple.com/access/api";
