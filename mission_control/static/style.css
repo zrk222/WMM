@@ -112,3 +112,25 @@
 
 /* Persistent action feedback keeps the next safe step beside its diagnosis. */
 .operation-feedback p{margin:0 0 10px}.operation-feedback details{margin:12px 0}.operation-feedback summary{cursor:pointer;min-height:44px;padding:10px 0}.toast[data-error]{width:560px;max-height:calc(100vh - 48px);overflow:auto}.toast[data-error] .button{margin-top:10px}
+
+.campaign-review-copy { white-space: pre-wrap; overflow-wrap: anywhere; }
+.campaign-review-link { overflow-wrap: anywhere; }
+.campaign-review-facts { display: grid; gap: 12px 20px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); }
+.campaign-review-facts dt { font-weight: 600; }
+.campaign-review-facts dd { margin: 0; overflow-wrap: anywhere; }
+
+.campaign-review-steps {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px; margin: 0 0 16px; padding: 0; list-style: none;
+}
+.campaign-review-steps li {
+  display: grid; justify-items: center; gap: 5px; padding: 8px 4px;
+  border: 1px solid var(--line); border-radius: 12px; text-align: center; line-height: 1.25;
+}
+.campaign-review-steps li[aria-current="step"] {
+  background: var(--forest); color: white; border-color: var(--forest);
+}
+.campaign-review-steps span {
+  display: grid; place-items: center; min-width: 26px; min-height: 26px;
+  border: 1px solid currentColor; border-radius: 50%;
+}

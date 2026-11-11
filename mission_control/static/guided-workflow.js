@@ -303,16 +303,6 @@ const WMMAgreement=(()=>{
   const postLink=paid?'':'<p>Approved post link <span>'+esc(r.link||'None')+'</span></p>';
   return '<article><h4>'+esc(item.operation||'campaign.publish')+' · '+esc(item.due_at)+'</h4><p>Scope destination '+esc(scopeDestination(item.operation||'campaign.publish',approval))+'</p><p>'+esc(paid?'Promotion of verified Page post '+r.post_id:r.message)+'</p>'+postLink+(paid?'<p>Exact media budget '+esc(r.lifetime_budget_minor)+' minor '+esc(currency)+' · ends '+esc(r.end_time)+'</p><p>Audience countries '+esc((r.targeting?.countries||[]).join(', '))+'</p><p>Retained commitment '+esc(intent?.commitment??'Not yet recorded')+' minor '+esc(intent?.currency||currency)+'. Provider fees and taxes are separate.</p>':'')+'<p>Effective state '+esc(item.effective_status||'Unknown')+' · worker '+esc(item.job_status||'Not queued')+' · saved result '+esc(intent?.status||'Unconfirmed')+'</p><p>Saved provider IDs: '+(ids||'Not confirmed')+'</p></article>';
  }
- function draftMarkup(data){
-  const s=data.summary,c=s.campaign;
-  return '<section class="panel"><h3>Draft automation agreement</h3><p>No execution authority is issued.</p>'+
-   '<h4>Exact proposed Facebook posts</h4>'+c.draft_posts.map(post=>
-    '<article><p>'+esc(post.message)+'</p><p>Proposed post link <span>'+esc(post.link||'None')+
-    '</span></p><small>Content hash: '+esc(post.content_hash)+'</small></article>').join('')+
-   '<p>'+esc(campaignLimits(c))+'</p><details><summary>Agreement details and stop rules</summary>'+
-   '<p>'+esc(campaignDestinations(c.approval))+'</p><p>'+esc(campaignExecutor(s))+'</p>'+
-   '<p>'+esc(s.stop_rules.join('; '))+'</p><p>Summary hash: '+esc(data.summary_hash)+'</p></details></section>';
- }
  function campaignExecutor(s){
   if(s.schedule)return 'Scheduled executor when the batch is active — WMM background worker. Owner '+(s.owner?.principal||'Unavailable')+'. Batch '+s.schedule.id+'. Campaign scope '+(s.campaign?.id||'Unavailable')+'. Dispatch rechecks the exact batch, scope and stop rules.';
   return 'No agent selected by campaign scope. Direct execution requires separate owner, worker or scoped grant authority.';
@@ -337,5 +327,5 @@ const WMMAgreement=(()=>{
  }
  function reportModel(data,base){const s=data.summary,c=s.campaign;return {...base,title:'Combined automation agreement',purpose:'Review selected independent scope identities, states and resource allowances.',metrics:[{label:'Selected scope families',value:[s.local_work,c,s.schedule].filter(Boolean).length,unit:'count',source:'Current owner agreement snapshot'},{label:'Needs attention',value:s.blocked?'Yes':'No',unit:'state',source:'Current owner agreement snapshot'},{label:'Retained media commitment',value:c?.commitment_held_minor??null,unit:c?'minor '+c.approval.currency:'unavailable',source:'Saved campaign intents'}],cohorts:[],notes:['Summary '+data.summary_hash+'; observed '+data.observed_at,'App '+s.app.id+' version '+s.app.version,c?campaignExecutor(s):'No campaign executor selected','No approval or execution authority issued; underlying scope controls remain separate.',...localWorkReportNotes(s.local_work),...(c?campaignReportNotes(c):['No campaign']),s.schedule?'Batch '+s.schedule.id+' '+s.schedule.effective_status:'No batch',...(s.schedule?.items||[]).map(i=>'Item '+(i.item_id||'Unknown')+' '+(i.operation||'campaign.publish')+' · due '+(i.due_at||'Unknown')+' · Scope destination '+scopeDestination(i.operation||'campaign.publish',c?.approval)+' · '+(i.effective_status||'Unknown')+(i.operation==='campaign.ad-launch'?' · media budget '+i.request.lifetime_budget_minor+' minor '+(c?.approval.currency||'Unknown')+' · held '+(i.intent?.commitment??'Not yet recorded')+' · ends '+i.request.end_time+' · saved provider IDs '+Object.entries(i.intent?.ids||{}).map(([k,v])=>k+': '+v).join('; '):'')),'Private content, rights prose and credentials are excluded. Business improvement is not established.']};}
  function report(){if(!active?.data||!valid(active))throw new Error('Reload the current agreement first.');return WMMPageReports.openReport(reportModel(active.data,WMMPageReports.model(state)),window);}
- return {open,submit,selection,guidance,markup,draftMarkup,reportModel,report};
+ return {open,submit,selection,guidance,markup,reportModel,report};
 })();

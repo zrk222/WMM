@@ -125,6 +125,7 @@
     return `<section class="wmm-page-story" aria-label="How to use this page"><h3>${esc(row[0])}</h3><p>${esc(row[1])}</p><p><strong>What goes in:</strong> ${esc(row[2])}</p><p><strong>What you get:</strong> ${esc(row[3])}</p><p><strong>Your next step:</strong> ${esc(row[4])}</p></section>`;
   }
   function dialog(title,markup){
+    if(title==='Approve your campaign scope')return ''; // The exact decision summary is the guide.
     if(title==='Add your app')return '<aside class="notice" aria-label="Task guide"><p>Tell WMM who uses your app and what they do first. Save to choose a marketing goal and open your first packet.</p></aside>';
     const research={
       'Your agent research':'Choose a marketing question, assign a bounded search and inspect the returned evidence here.',

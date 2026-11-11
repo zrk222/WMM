@@ -29,7 +29,8 @@ def run(browser,width,out):
     page=context.new_page();errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
     try:
         login(page,fixture.origin,OWNER_TOKEN)
-        page.locator('[data-view=connections]').click()
+        page.locator('#navigation > details > summary').click()
+        page.locator('#navigation [data-view=connections]').click()
         page.get_by_role('button',name='Review campaign automation',exact=True).click()
         form=page.locator('#campaign-scope-form')
         form.locator('[name=connection_id]').select_option(fixture.connection)
@@ -42,11 +43,24 @@ def run(browser,width,out):
         form.locator('[name=billing]').check();form.locator('[name=ordinary]').check()
         assert fixture.wire.posts==0
         form.get_by_role('button',name='Review exact automation scope').click()
-        expect(page.locator('#campaign-review')).to_contain_text(fixture.message)
-        assert fixture.wire.posts==0
-        assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+        review=page.locator('#campaign-review')
+        expect(review.get_by_role('heading',name='What you’re approving')).to_be_visible()
+        for value in ('Synthetic Page · 123', '80 minor units CAD', 'Meta ad account', '456',
+                      'Audience countries', 'CA', 'Permission expires', 'Maximum Meta requests',
+                      'does not publish, schedule, or spend now', fixture.message):
+            expect(review).to_contain_text(value)
+        assert page.locator('#modal').evaluate('(modal) => modal.scrollTop === 0')
         page.screenshot(path=str(out/f'campaign-review-{width}.png'))
         (out/f'campaign-review-{width}.html').write_text(page.content(),encoding='utf-8')
+        details=review.locator('details').filter(has_text='Exact authority and limits')
+        assert details.get_attribute('open') is None
+        details.locator('summary').focus()
+        page.keyboard.press('Enter')
+        expect(details.locator('pre')).to_be_visible()
+        page.keyboard.press('Enter')
+        assert details.get_attribute('open') is None
+        assert fixture.wire.posts==0
+        assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
         page.get_by_role('button',name='Approve scope and enable automation',exact=True).focus()
         page.keyboard.press('Enter')
         expect(page.locator('#campaign-progress')).to_contain_text('ACTIVE')
