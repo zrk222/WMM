@@ -1,4 +1,5 @@
 """Private app-scoped observational campaign attribution records and reports."""
+from collections import Counter
 import json
 import re
 from datetime import timezone
@@ -132,21 +133,53 @@ def _activity(db, app_id, study_id, kind, record_id, value, created):
 
 
 def _effective_events(db, app_id, study_id):
-    rows = db.execute("SELECT source_id,event_id,data,hash FROM observational_campaign_events WHERE app_id=? AND study_id=? ORDER BY source_id,event_id", (app_id, study_id)).fetchall()
+    rows = db.execute("""SELECT e.source_id,e.event_id,e.data,e.hash,c.replacement,c.replacement_hash
+        FROM observational_campaign_events e LEFT JOIN observational_campaign_corrections c
+        ON c.app_id=e.app_id AND c.source_id=e.source_id AND c.event_id=e.event_id
+        WHERE e.app_id=? AND e.study_id=? ORDER BY e.source_id,e.event_id""", (app_id, study_id)).fetchall()
     result = []
     for row in rows:
         data = json.loads(row["data"])
-        correction = db.execute("SELECT replacement,replacement_hash FROM observational_campaign_corrections WHERE app_id=? AND source_id=? AND event_id=?", (app_id, row["source_id"], row["event_id"])).fetchone()
-        if correction:
-            if digest(data) != row["hash"]:
-                raise Invalid("Stored event integrity differs")
-            data = json.loads(correction["replacement"])
-            if digest(data) != correction["replacement_hash"]:
-                raise Invalid("Stored correction integrity differs")
-        elif digest(data) != row["hash"]:
+        if digest(data) != row["hash"]:
             raise Invalid("Stored event integrity differs")
+        if row["replacement"] is not None:
+            data = json.loads(row["replacement"])
+            if digest(data) != row["replacement_hash"]:
+                raise Invalid("Stored correction integrity differs")
         result.append((row["source_id"], row["event_id"], data))
     return result
+
+
+def _measurement_checkpoint(study, coverage, as_of):
+    """A rate is usable only after exact, source-reported post-close reconciliation."""
+    collector = study.get("collector_source_id")
+    closed = iso_time(as_of) >= iso_time(study["ends_at"])
+    issues = {}
+    if collector:
+        for kind in contract.EVENT_TYPES:
+            rows = coverage[kind]["sources"]
+            source = next((row for row in rows if row["source_id"] == collector), None)
+            if source is None:
+                issues[kind] = "MISSING_RECEIPT"
+            elif iso_time(source["observed_at"]) < iso_time(study["ends_at"]):
+                issues[kind] = "BEFORE_CLOSE"
+            elif not source["complete"]:
+                issues[kind] = "COUNT_MISMATCH" if coverage[kind]["mismatch"] else "INCOMPLETE"
+    landing = coverage["LANDING"]["observed_count"]
+    registration = coverage["REGISTRATION"]["observed_count"]
+    if not collector:
+        state = "SOURCE_NOT_DECLARED"
+    elif not closed:
+        state = "COLLECTING"
+    elif issues:
+        state = "COVERAGE_INCOMPLETE"
+    elif not landing:
+        state = "NO_ELIGIBLE_LANDINGS"
+    else:
+        state = "DESCRIPTIVE_READY"
+    ratio_counts = {"linked_registrations": registration, "eligible_landings": landing} if state == "DESCRIPTIVE_READY" else None
+    return {"state": state, "collector_source_id": collector, "coverage_issues": issues,
+            "ratio_counts": ratio_counts}
 
 
 class ObservationalCampaign:
@@ -208,7 +241,10 @@ class ObservationalCampaign:
             _manifest(body, app)
             study = _study(db, app_id, body["study_id"], body["study_hash"], app)
             url = contract.tagged_url(app["data"].get("website"), study["data"])
-            return {"study_id": study["id"], "study_hash": study["hash"], "url": url, "url_sha256": __import__("hashlib").sha256(url.encode()).hexdigest(), "status": "LOCAL_LINK_PREPARED"}
+            return {"study_id": study["id"], "study_hash": study["hash"], "url": url, "url_sha256": __import__("hashlib").sha256(url.encode()).hexdigest(), "status": "LOCAL_LINK_PREPARED",
+                    "study": {key: study["data"][key] for key in
+                              ("name", "hypothesis", "source", "creative_id", "starts_at", "ends_at")}
+                              | {"collector_source_id": study["data"].get("collector_source_id")}}
 
     def ingest(self, app_id, body):
         context = _context(app_id, "ingest", body, self.store)
@@ -276,6 +312,10 @@ class ObservationalCampaign:
             study = _study(db, app_id, body["study_id"], body["study_hash"], app)
             events = _effective_events(db, app_id, study["id"])
             counts = {name: {} for name in contract.EVENT_TYPES}
+            observed_counts = Counter((source_id, event["type"]) for source_id, _, event in events)
+            collector = study["data"].get("collector_source_id")
+            if collector and any(source_id != collector for source_id, _ in observed_counts):
+                raise Invalid("Stored events do not match the declared study collector")
             exclusions = {name: 0 for name in ("CONSENT_DENIED", "CONSENT_UNKNOWN", "BOT", "BOT_UNKNOWN", "INTERNAL_TEST", "TOKEN_MISSING", "TOKEN_INVALID", "UNMATCHED_REGISTRATION")}
             eligible_landings = {}
             observed_by_type = {name: False for name in contract.EVENT_TYPES}
@@ -312,26 +352,32 @@ class ObservationalCampaign:
                     exclusions["UNMATCHED_REGISTRATION"] += 1
             coverage = {}
             for event_type in contract.EVENT_TYPES:
-                sources = db.execute("SELECT source_id,complete,source_event_count,observed_at,receipt_hash FROM observational_campaign_coverage WHERE app_id=? AND study_id=? AND event_type=? ORDER BY observed_at DESC,created DESC", (app_id, study["id"], event_type)).fetchall()
+                sources = db.execute("SELECT source_id,complete,source_event_count,observed_at,receipt_hash FROM observational_campaign_coverage WHERE app_id=? AND study_id=? AND event_type=? ORDER BY observed_at DESC,created DESC,batch_id DESC", (app_id, study["id"], event_type))
                 latest = {}
                 for row in sources:
                     latest.setdefault(row["source_id"], row)
                 complete_sources = 0
-                expected_sources = len(latest)
+                expected_sources = 1 if collector else len(latest)
                 source_rows = []
                 mismatch = False
                 for source_id, row in latest.items():
-                    actual = sum(1 for event_source, _event_id, event in events if event_source == source_id and event["type"] == event_type)
+                    if collector and source_id != collector:
+                        raise Invalid("Stored coverage does not match the declared study collector")
+                    actual = observed_counts[source_id, event_type]
                     valid_complete = bool(row["complete"] and row["source_event_count"] == actual)
                     complete_sources += int(valid_complete)
                     mismatch = mismatch or bool(row["complete"] and not valid_complete)
                     source_rows.append({"source_id": source_id, "complete": valid_complete, "reported_count": row["source_event_count"], "stored_count": actual, "source_receipt_sha256": row["receipt_hash"], "observed_at": row["observed_at"]})
                 complete = expected_sources > 0 and complete_sources == expected_sources and not mismatch
+                if collector:
+                    complete = complete and all(iso_time(row["observed_at"]) >= iso_time(study["data"]["ends_at"])
+                                                for row in source_rows)
                 n = len(counts[event_type])
                 value = n if observed_by_type[event_type] or complete else None
                 coverage[event_type] = {"coverage_complete": complete, "source_count": expected_sources, "complete_source_count": complete_sources, "mismatch": mismatch, "sources": source_rows}
                 coverage[event_type]["observed_count"] = value
-            return {"schema": "growth.observational-campaign-report.v1", "study_id": study["id"], "study_hash": study["hash"], "app_id": app_id, "app_version": app["version"], "release": study["data"]["release"], "starts_at": study["data"]["starts_at"], "ends_at": study["data"]["ends_at"], "as_of": as_of, "landing_subjects": coverage["LANDING"]["observed_count"], "linked_registration_subjects": coverage["REGISTRATION"]["observed_count"], "coverage": coverage, "exclusions": exclusions, "status": "ATTRIBUTED_DESCRIPTIVE_ONLY", "provenance": "SOURCE_REPORTED_NOT_PROVIDER_VERIFIED", "source_hash": digest({"study_hash": study["hash"], "events": [(s, i, digest(e)) for s, i, e in events], "coverage": coverage}), "limits": ["No install, activation, revenue, lift, or causal decision is reported.", "bot=false is not proof of a human.", "First-touch attribution may reflect an earlier campaign."]}
+            checkpoint = _measurement_checkpoint(study["data"], coverage, as_of)
+            return {"schema": "growth.observational-campaign-report.v1", "checkpoint": checkpoint, "study_id": study["id"], "study_hash": study["hash"], "app_id": app_id, "app_version": app["version"], "release": study["data"]["release"], "starts_at": study["data"]["starts_at"], "ends_at": study["data"]["ends_at"], "as_of": as_of, "landing_subjects": coverage["LANDING"]["observed_count"], "linked_registration_subjects": coverage["REGISTRATION"]["observed_count"], "coverage": coverage, "exclusions": exclusions, "status": "ATTRIBUTED_DESCRIPTIVE_ONLY", "provenance": "SOURCE_REPORTED_NOT_PROVIDER_VERIFIED", "source_hash": digest({"study_hash": study["hash"], "events": [(s, i, digest(e)) for s, i, e in events], "coverage": coverage}), "limits": ["No install, activation, revenue, lift, or causal decision is reported.", "bot=false is not proof of a human.", "First-touch attribution may reflect an earlier campaign."]}
 
     def history(self, app_id, body):
         context = _context(app_id, "history", body, self.store)

@@ -179,3 +179,14 @@ test('the printable report distinguishes missing provider metrics from zero',()=
  assert.ok(row(missing).source.includes(receipt_hash));
  assert.equal(row({...missing,metrics:{counts:{views:0}},reason:null}).value,'{"counts":{"views":0}}');
 });
+
+test('guided Instagram destinations reuse only the verified mapping for this connection version',()=>{
+ const h=fixture(),fb={...account,provider:'facebook',config_version:1,data:{destination:{id:'123',name:'Page'}}};
+ h.state.workspace.social_access={accounts:[fb],setup:{configurations:[{provider:'facebook',version:1,data:{campaign_access:'instagram_publish'}}]}};
+ h.c.WMMPublicationUI.test.setCache(h.state,{...model,instagram_accounts:[
+  {connection_id:uuid,connection_version:3,destination_id:'ig-1',name:'Creator'},
+  {connection_id:uuid,connection_version:2,destination_id:'ig-old',name:'Stale'}]});
+ assert.deepEqual(Array.from(h.c.WMMPublicationUI.eligibleDestinations('instagram',h.state,{}),r=>r.destination_id),['ig-1']);
+ h.state.workspace.identity.principal='other-owner';
+ assert.equal(h.c.WMMPublicationUI.eligibleDestinations('instagram',h.state,{}).length,0);
+});

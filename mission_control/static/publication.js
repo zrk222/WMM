@@ -41,7 +41,7 @@
     const {accounts, mapped} = roots(state, model);
     if (provider === "instagram") return mapped.map(item => {
       const linked=accounts.find(row=>row.id===item.connection_id&&row.provider==="facebook");
-      if(!linked||!instagramReady(state,linked))return null;
+      if(!linked||linked.version!==item.connection_version||!instagramReady(state,linked))return null;
       return {id:linked.id,version:linked.version,destination_id:item.destination_id,
         name:item.name||item.destination_name||item.destination_id,mapping:item};
     }).filter(Boolean);
@@ -71,6 +71,14 @@
     if (provider === "linkedin") return select("visibility","LinkedIn visibility",[
       {value:"PUBLIC",label:"Public"},{value:"CONNECTIONS",label:"Connections"}],values.visibility);
     return "";
+  }
+  function currentInstagramMappings(state, model) {
+    const cached=stateCache.get(`${state.app}:${owner(state)}`);
+    return model?.instagram_accounts??(cached&&valid(state,cached._context)?cached.instagram_accounts:[])??[];
+  }
+  function eligibleDestinations(provider,state,model) {
+    return connectionOptions(provider,state,{...model,instagram_accounts:currentInstagramMappings(state,model)})
+      .map(({destination_id,name})=>({destination_id,name}));
   }
   function formHtml(state, model, saved={}) {
     const channelList=channels(model), provider=saved.provider || "";
@@ -337,9 +345,20 @@
     if(!valid(deps.state,ctx,formOrPanel))throw new Error("This review belongs to an older app or owner session. Reload the current workspace.");
     return ctx;
   }
-  async function loadOptions(deps, panel) {
-    const ctx=currentContext(deps.state),data=await deps.api(`/api/apps/${encodeURIComponent(ctx.app)}/publications`);
-    if(!valid(deps.state,ctx,panel))return;
+  async function loadOptions(deps, panel, study=null) {
+    const ctx=currentContext(deps.state),destination=study?.destination;
+    const data=await deps.api(`/api/apps/${encodeURIComponent(ctx.app)}/publications`);
+    if(!valid(deps.state,ctx,panel)||(study&&(deps.state.measuredPost!==study||study.destination!==destination)))return;
+    data.instagram_accounts=currentInstagramMappings(deps.state,data);
+    if(study){
+      if(study.app!==ctx.app||study.context!==measuredPostContext()||!providers.includes(study.link.study.source))
+        throw new Error("Reopen the measured-post guide and select a current study.");
+      const provider=study.link.study.source;
+      const selected=connectionOptions(provider,deps.state,data).find(item=>item.destination_id===destination);
+      if(!selected)throw new Error("The selected destination is no longer available. Recheck the connection and select it again.");
+      data.form_values={provider,link:study.link.url,connection_id:selected.id};
+      deps.state.measuredPost=null;
+    }
     setCache(deps.state,data);panel.innerHTML=panelContent(deps.state,data);
     mount(deps.state,deps);
   }
@@ -430,7 +449,7 @@
   }
   async function action(node, deps) {
     const actionName=node.dataset.action,ctx=currentContext(deps.state),panel=panelNode(deps);
-    if(actionName==="publication-load")return loadOptions(deps,panel);
+    if(actionName==="publication-load")return loadOptions(deps,panel,node.dataset.fromStudy==="true"?deps.state.measuredPost:null);
     if(actionName==="publication-instagram-account")return inspectInstagram(deps,node);
     if(actionName==="publication-preflight")return preflight(deps,node.closest("form"));
     if(actionName==="publication-report-json")return publicationReport(deps,node,"json");
@@ -479,5 +498,5 @@
     if(state.view!=="connections"||!owner(state)||pollState.context&&!valid(state,pollState.context))clearPoll();
   }
   window.WMMPublicationUI={panel:panelFor,action,submit,change,invalidate,mount,
-    test:{channels,connectionOptions,formHtml,reviewMarkup,draftInput,ticket,valid,setCache,authorityMarkup,needsRefresh,reportModel}};
+    eligibleDestinations,test:{channels,connectionOptions,formHtml,reviewMarkup,draftInput,ticket,valid,setCache,authorityMarkup,needsRefresh,reportModel}};
 })();

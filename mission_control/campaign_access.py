@@ -1,5 +1,6 @@
 """Fresh owner or scoped-agent access to finite external campaign effects."""
 import json
+import re
 from .common import Invalid
 from .db import connection
 from .operation_authority import REQUEST, PROTECTED, check, store_identity
@@ -71,7 +72,13 @@ def dispatch(store,app_id,action,body):
     from .campaign_execution import CampaignExecutionService
     service=CampaignExecutionService(store,policy_checker(store))
     if action=='history':
-        return dict(scopes=service.list_scopes(app_id,scope_owner(store,context,actor)))
+        owner=scope_owner(store,context,actor)
+        if 'approved_link_sha256' not in body:
+            return dict(scopes=service.list_scopes(app_id,owner))
+        if 'principal' not in context:
+            raise PermissionError('Only the authenticated owner can look up tracked post receipts')
+        return dict(scopes=service.list_scopes(app_id,owner),
+                    tracked_posts=service.tracked_posts(app_id,owner,body['approved_link_sha256']))
     if action=='prepare':return service.prepare_scope(app_id,actor,body['scope'])
     scope_id=reference(body['scope_id'])
     if 'intent_id' in body:reference(body['intent_id'])
@@ -93,5 +100,10 @@ def dispatch(store,app_id,action,body):
 
 def validate_fields(action,body):
     """Close every owner and agent campaign payload before resolving authority."""
+    if action=='history' and isinstance(body,dict) and set(body)=={'approved_link_sha256'}:
+        value=body['approved_link_sha256']
+        if not isinstance(value,str) or not re.fullmatch(r'[0-9a-f]{64}',value):
+            raise Invalid('Choose a valid tracked-link fingerprint')
+        return
     if action not in FIELDS or not isinstance(body,dict) or set(body)!=FIELDS[action]:
         raise Invalid('Use the exact campaign operation fields')

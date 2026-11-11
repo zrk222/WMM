@@ -24,7 +24,7 @@ OPERATIONS={
         'POST', '/observational-campaign/history', 'READ_PRIVATE_LOCAL_DATA', optional=ACTION_FIELDS['history']['optional']),
     'observational-campaign.correct': descriptor(
         'POST', '/observational-campaign/correct', 'WRITE_LOCAL_EVIDENCE', ACTION_FIELDS['correct']['required']),
-    'campaign.history':descriptor('POST','/campaigns/history','READ_PRIVATE_LOCAL_DATA'),
+    'campaign.history':descriptor('POST','/campaigns/history','READ_PRIVATE_LOCAL_DATA',optional=('approved_link_sha256',)),
     'campaign.status':descriptor('POST','/campaigns/status','READ_PRIVATE_LOCAL_DATA',('scope_id',)),
     'campaign.publish':descriptor('POST','/campaigns/publish','PUBLISH_WITH_STANDING_CAMPAIGN_AUTHORITY',('scope_id','request')),
     'campaign.ad-launch':descriptor('POST','/campaigns/ad-launch','SPEND_WITH_STANDING_CAMPAIGN_AUTHORITY',('scope_id','request')),

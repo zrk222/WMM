@@ -401,10 +401,10 @@ function rememberInstallMapping(payload){
   try{localStorage.setItem(installMappingKey(),JSON.stringify({source:payload.source,mapping:payload.mapping}));}catch{}
 }
 
-function installImportForm(){
+function installImportForm(study=null){
   state.installImport=null;
   const saved=savedInstallMapping()||{},mapping=saved.mapping||{};
-  modal("Import install export",`<form id="install-import-form" data-app="${esc(state.app)}"><div class="modal-content">${notice("1. Choose your MMP CSV or JSON export. 2. Enter the campaign token and the study’s dates. 3. Review the preview before saving. The file stays in this workspace.")}${saved.source?"<p class=\"description\">Using the source token and column names saved on this machine. You can change them for this import.</p>":""}<label class="field" for="install-export-file">Export file<input id="install-export-file" name="export_file" type="file" accept=".csv,.json" required></label><div class="toolbar">${button("Detect columns","install-import-detect")}${button("CSV template","install-import-template")}</div><p id="install-detect-status" class="description" role="status">Choose a file. WMM will suggest column matches automatically; review them before previewing.</p><div class="form-grid"><label class="field" for="install-source">Source token<input id="install-source" name="source" required value="${esc(saved.source||"MMP")}"></label><label class="field" for="install-campaign">Campaign token<input id="install-campaign" name="campaign_token" required></label><label class="field" for="install-observed">Observed at (UTC ISO)<input id="install-observed" name="observed_at" required></label><label class="field" for="install-window-start">Window start (UTC ISO)<input id="install-window-start" name="window_start" required></label><label class="field" for="install-window-end">Window end (UTC ISO)<input id="install-window-end" name="window_end" required></label><label class="field" for="install-col-id">install_id column<input id="install-col-id" name="col_install_id" required value="${esc(mapping.install_id||"install_id")}"></label><label class="field" for="install-col-state">state column<input id="install-col-state" name="col_state" required value="${esc(mapping.state||"state")}"></label><label class="field" for="install-col-time">occurred_at column<input id="install-col-time" name="col_occurred_at" required value="${esc(mapping.occurred_at||"occurred_at")}"></label><label class="field" for="install-state-values">Source status mapping (optional JSON)<textarea id="install-state-values" name="state_values" placeholder='{"install":"ATTRIBUTED"}'>${esc(mapping.state_values?JSON.stringify(mapping.state_values):"")}</textarea></label><label class="field" for="install-count">Source event count<input id="install-count" name="source_event_count" type="number" min="0" step="1"></label></div><label class="check-row"><input type="checkbox" name="coverage_complete"> Source coverage is complete</label><div class="field-error" role="alert"></div></div><div class="modal-actions"><button type="submit" class="button">Preview import</button></div></form>`,"INSTALL ATTRIBUTION");
+  modal("Import install export",`<form id="install-import-form" data-app="${esc(state.app)}"><div class="modal-content">${notice("1. Choose your MMP CSV or JSON export. 2. Enter the campaign token and the study’s dates. 3. Review the preview before saving. The file stays in this workspace.")}${saved.source?"<p class=\"description\">Using the source token and column names saved on this machine. You can change them for this import.</p>":""}<label class="field" for="install-export-file">Export file<input id="install-export-file" name="export_file" type="file" accept=".csv,.json" required></label><div class="toolbar">${button("Detect columns","install-import-detect")}${button("CSV template","install-import-template")}</div><p id="install-detect-status" class="description" role="status">Choose a file. WMM will suggest column matches automatically; review them before previewing.</p><div class="form-grid"><label class="field" for="install-source">Source token<input id="install-source" name="source" required value="${esc(saved.source||"MMP")}"></label><label class="field" for="install-campaign">Campaign token<input id="install-campaign" name="campaign_token" required ${study?`readonly value="${esc(study.study_id)}"`:""}></label><label class="field" for="install-observed">Observed at (UTC ISO)<input id="install-observed" name="observed_at" required></label><label class="field" for="install-window-start">Window start (UTC ISO)<input id="install-window-start" name="window_start" required ${study?`readonly value="${esc(study.study.starts_at)}"`:""}></label><label class="field" for="install-window-end">Window end (UTC ISO)<input id="install-window-end" name="window_end" required ${study?`readonly value="${esc(study.study.ends_at)}"`:""}></label><label class="field" for="install-col-id">install_id column<input id="install-col-id" name="col_install_id" required value="${esc(mapping.install_id||"install_id")}"></label><label class="field" for="install-col-state">state column<input id="install-col-state" name="col_state" required value="${esc(mapping.state||"state")}"></label><label class="field" for="install-col-time">occurred_at column<input id="install-col-time" name="col_occurred_at" required value="${esc(mapping.occurred_at||"occurred_at")}"></label><label class="field" for="install-state-values">Source status mapping (optional JSON)<textarea id="install-state-values" name="state_values" placeholder='{"install":"ATTRIBUTED"}'>${esc(mapping.state_values?JSON.stringify(mapping.state_values):"")}</textarea></label><label class="field" for="install-count">Source event count<input id="install-count" name="source_event_count" type="number" min="0" step="1"></label></div><label class="check-row"><input type="checkbox" name="coverage_complete"> Source coverage is complete</label><div class="field-error" role="alert"></div></div><div class="modal-actions"><button type="submit" class="button">Preview import</button></div></form>`,"INSTALL ATTRIBUTION");
 }
 
 async function installImportDetect(form){
@@ -580,30 +580,123 @@ async function nextAnswer(){
   modal("What should I do next?",`<div class="modal-content"><p class="eyebrow">NEXT ACTION</p><h3>${esc(next.title)}</h3><p>This answer is read-only. It does not approve, publish or spend.</p><p><strong>Measurement next:</strong> ${esc(analytics.step.title)}. ${esc(analytics.step.detail)}</p>${exceptionRows?`<h3>Needs attention</h3>${exceptionRows}`:""}<h3>Pending approvals</h3>${approvalRows||notice("No prepared publication approval or manual review packet is waiting.")}${unavailable?notice("Publication approvals could not be loaded; reload before relying on this list.","warning"):""}${index?`<details><summary>Review index</summary><p class="app-mono">${esc(index)}</p><p class="description">A display index of the listed review hashes only. Each item still needs its own exact review and approval.</p></details>`:""}<div class="modal-actions">${button("Open guided workflow","next-answer-workflow")}${button("Open analytics","next-answer-results")}${button("Open organic publishing","next-answer-publishing")}${button("Close","close")}</div></div>`,"NEXT STEP");
 }
 
-function firstPostMarkup(studies,intents,installs,loaded,note=""){
-  const step=(number,title,detail,done,controls)=>`<section class="panel"><p class="eyebrow">STEP ${number}</p><h3>${done?"✓ ":""}${esc(title)}</h3><p>${esc(detail)}</p><div class="toolbar">${controls}</div></section>`;
-  return `${note?`<p>${esc(note)}</p>`:""}<p>One path, three approvals you control. Each step keeps its own exact check; this guide does not publish or spend.</p>`
-    +step(1,"Create the tagged link",studies.length?`Saved study: ${studies[0].data.study_id}`:(loaded?"Register one study. WMM gives you the exact link to use in the post.":"Register one study with the tagged link you will use in the post."),loaded&&studies.length>0,button(studies.length?"Open the tagged link":"Create the tagged link","observational-campaign-open"))
-    +step(2,"Prepare, approve and queue one post",intents.length?"A saved publication approval or queue exists.":(loaded?"Write one post with that exact link, then approve its content, destination and time.":"Prepare one post with that link, then approve its content, destination and time."),loaded&&intents.length>0,button("Open organic publishing","first-post-publishing"))
-    +step(3,"Check what arrived",installs.length?"At least one install export is imported.":(loaded?"Read tagged landings and registrations. Add an MMP install export when one exists; missing installs stay unknown.":"Read tagged landings and registrations, and import installs when your source provides them."),loaded&&installs.length>0,button("Read tagged results","observational-campaign-open")+button("Import install export","install-import-open"))
-    +`<div class="modal-actions">${button("Close","close")}</div>`;
+function measuredPostEvidence(link,destination,pubs,workspace,scopes=[],tracked=null){
+  if(!destination)return {delivery:false,ambiguous:false,queued:false,approved:false,coverage:null};
+  const channel=link.study.source;
+  const approvals=(pubs?.authorities||[]).filter(row=>row.draft?.provider===channel&&
+    row.draft.link===link.url&&row.draft.destination_id===destination);
+  const ids=new Set(approvals.map(row=>row.id));
+  const intents=(pubs?.intents||[]).filter(row=>ids.has(row.authority_id));
+  const facebook=channel==="facebook"?(workspace.jobs||[]).filter(row=>row.action==="campaign_post"&&
+    row.data?.request?.link===link.url&&(row.result?.page_id!=null
+      ? row.result.page_id===destination
+      : scopes?.some(scope=>scope.scope_id===row.data.scope_id&&scope.page_id===destination))):[];
+  const delivered=new Set([
+    ...(channel==="facebook"?tracked?.records||[]:[]).filter(row=>row.page_id===destination&&row.remote_id).map(row=>row.remote_id),
+    ...intents.filter(row=>row.status==="PUBLISHED"&&(row.remote_id||row.asset_id)&&row.receipt_hash).map(row=>row.remote_id||row.asset_id),
+    ...facebook.filter(row=>row.status==="SUCCEEDED"&&row.result?.status==="VERIFIED"&&row.result.remote_id).map(row=>row.result.remote_id)
+  ]).size;
+  const queued=approvals.some(row=>["QUEUED","RUNNING"].includes(row.schedule?.job_status))||
+    intents.some(row=>!["FAILED","UNKNOWN","PUBLISHED"].includes(row.status))||
+    facebook.some(row=>["QUEUED","RUNNING"].includes(row.status));
+  const installs=workspace.install_attribution?.campaigns?.find(row=>row.campaign_token===link.study_id&&
+    row.study_status==="LINKED");
+  const complete=channel!=="facebook"||tracked?.complete!==false;
+  return {delivery:delivered===1&&complete,ambiguous:delivered>1,queued,approved:approvals.some(row=>row.status==="APPROVED"),
+    coverage:installs?.coverage_status||null,
+    historyAvailable:channel==="facebook"?Array.isArray(workspace.jobs)&&Array.isArray(scopes)&&tracked?.complete===true:
+      Array.isArray(pubs?.authorities)&&Array.isArray(pubs?.intents)};
 }
 
-async function firstMeasuredPost(){
-  modal("Your first measured post",`<div class="modal-content" id="first-post-panel">${firstPostMarkup([],[],[],false)}</div>`,"GUIDED PATH");
-  const app=state.app;
+function measuredPostContext(){
+  const w=state.workspace, expiry=w?.identity?.expires_at_epoch;
+  if(Number.isFinite(expiry)&&expiry<=Date.now()/1000)return null;
+  return JSON.stringify([state.app,w?.app?.version,w?.identity?.principal,expiry,state.boot?.csrf]);
+}
+
+async function firstMeasuredPost(offset=0){
+  state.measuredPost=null;
+  const app=state.app, context=measuredPostContext();
+  if(!context)throw new Error("Sign in again to review your study and its saved receipts.");
+  modal("Your first measured post",'<div class="modal-content" id="first-post-panel"><p role="status">Loading saved studies…</p></div>',"GUIDED PATH");
+  const panel=$("#first-post-panel");
+  const current=()=>panel.isConnected&&$("#modal").open&&measuredPostContext()===context;
   try{
-    const [history,pubs]=await Promise.all([
-      api(`/api/apps/${encodeURIComponent(app)}/observational-campaign/history`,{offset:0}),
-      api(`/api/apps/${encodeURIComponent(app)}/publications`)]);
-    if(state.app!==app||!$("#modal").open)return;
-    const studies=(history.records||[]).filter(row=>row.kind==="REGISTERED");
-    const intents=pubs.intents||[];
-    const installs=state.workspace.install_attribution?.campaigns||[];
-    $("#first-post-panel").innerHTML=firstPostMarkup(studies,intents,installs,true);
-  }catch(_){
-    if($("#first-post-panel"))$("#first-post-panel").innerHTML=firstPostMarkup([],[],[],false,"Sign in as the app owner to load saved progress. The steps still work.");
-  }
+    const history=await api(`/api/apps/${encodeURIComponent(app)}/observational-campaign/history`,{offset});
+    if(!current())return;
+    const studies=(history.records||[]).filter(row=>row.kind==="REGISTERED"&&row.data.app_version===state.workspace.app.version);
+    const page=(title,start)=>button(title,"first-post-page","data-offset="+String(start));
+    panel.innerHTML=`<p>Choose one study to track its own draft, delivery and evidence.</p>
+      <label class="field">Registered study<select id="first-post-study"><option value="">Choose a study</option>${studies.map((row,i)=>`<option value="${i}">${esc(row.data.study_id)}</option>`).join("")}</select></label>
+      ${studies.length?"":'<p>No current study registrations on this page.</p>'}
+      ${offset>0?page("Newer activity",Math.max(0,offset-history.limit)):""}
+      ${history.records?.length===history.limit&&offset+history.limit<=10000?page("Older activity",offset+history.limit):""}
+      ${button("Register or browse studies","observational-campaign-open")}<div id="first-post-selection" role="status"></div>`;
+    const select=panel.querySelector("select"), output=panel.querySelector("#first-post-selection");
+    let generation=0;
+    select.addEventListener("change",async()=>{
+      const index=select.value, request=++generation;
+      state.measuredPost=null;
+      const valid=()=>current()&&request===generation;
+      if(index===""){output.replaceChildren();return;}
+      const row=studies[Number(index)]?.data;
+      if(!row)return;
+      const binding={manifest_version:row.app_version,study_id:row.study_id,study_hash:row.study_hash};
+      output.textContent="Preparing the study link…";
+      try{
+        const url=`/api/apps/${encodeURIComponent(app)}`;
+        const link=await api(url+"/observational-campaign/link",binding);
+        if(!valid())return;
+        const linkHash=link.study.source==="facebook"?await campaignHash(link.url):null;
+        if(!valid())return;
+        const [pubs,report,campaigns]=await Promise.all([
+          link.study.source==="facebook"?Promise.resolve(null):api(url+"/publications").catch(()=>null),
+          api(url+"/observational-campaign/report",binding).catch(()=>null),
+          link.study.source==="facebook"?api(url+"/campaigns/history",{approved_link_sha256:linkHash}).catch(()=>null):Promise.resolve(null)]);
+        if(!valid())return;
+        const destinations=new Map();
+        for(const a of pubs?.authorities||[])if(a.draft?.provider===link.study.source&&a.draft.link===link.url)
+          destinations.set(a.draft.destination_id,a.draft.destination_id);
+        for(const receipt of campaigns?.tracked_posts?.records||[])destinations.set(receipt.page_id,receipt.page_id);
+        const ready=new Set();
+        for(const account of WMMPublicationUI.eligibleDestinations(link.study.source,state,pubs)){
+          destinations.set(account.destination_id,account.name||account.destination_id);
+          ready.add(account.destination_id);
+        }
+        const exactReport=report?.app_id===app&&report.study_id===link.study_id&&report.study_hash===link.study_hash?report:null;
+        const selected=state.measuredPost={app,context,link,binding,destination:"",report:exactReport};
+        output.innerHTML=`<h3>${esc(link.study.name)}</h3><p>${esc(link.study.hypothesis)}</p><p>Observation window: ${esc(savedWhen(link.study.starts_at))} to ${esc(savedWhen(link.study.ends_at))}</p>
+          <label class="field">Exact tagged link<input readonly value="${esc(link.url)}"></label>
+          <label class="field">Destination<select id="first-post-destination"><option value="">Choose where this post belongs</option>${[...destinations].map(([id,title])=>`<option value="${esc(id)}">${esc(title)}</option>`).join("")}</select></label>
+          <p id="first-post-progress">Choose a destination to check delivery.</p>
+          ${exactReport?WMMObservationalCampaign.checkpointMarkup(exactReport):'<p>Measurement report unavailable. Reopen this guide to retry.</p>'}
+          ${exactReport?button("Save study report as PDF","first-post-report-pdf"):""}
+          ${button("Prepare tagged draft","first-post-publishing")}${button("Prepare creative brief","first-post-brief")}${button("Import installs for this study","first-post-import")}`;
+        const draftButton=output.querySelector('[data-action="first-post-publishing"]');
+        draftButton.disabled=true;
+        if(!destinations.size){
+          output.querySelector("#first-post-progress").textContent="Connect a destination for this channel before preparing a post.";
+        }
+        if(!ready.size)output.querySelector("#first-post-progress").insertAdjacentHTML("afterend",
+          button(link.study.source==="instagram"?"Verify the linked Instagram account":"Review connections",
+            link.study.source==="instagram"?"next-answer-publishing":"measurement-connections"));
+        output.querySelector("select").addEventListener("change",event=>{
+          if(!valid()||state.measuredPost!==selected)return;
+          selected.destination=event.target.value;
+          draftButton.disabled=!ready.has(selected.destination);
+          const e=measuredPostEvidence(link,selected.destination,pubs,state.workspace,campaigns?.scopes??null,campaigns?.tracked_posts);
+          output.querySelector("#first-post-progress").textContent=!selected.destination?"Choose a destination to check delivery.":
+            `Publication: ${e.ambiguous?"Multiple delivered posts share this tag; keep results at study level":e.delivery?"Delivered · provider verified":e.queued?"Queued · delivery pending":e.approved?"Approved · not queued":e.historyAvailable?"No matching receipt in recent history":"Delivery history unavailable; reopen this guide to retry"}. Install export: ${e.coverage==="COMPLETE"?"Matching window covered":e.coverage?"Matching export · coverage incomplete":"Unknown" }.`;
+        });
+      }catch(error){if(valid())output.textContent=error.message;}
+    });
+  }catch(error){if(current())panel.textContent=error.message;}
+}
+
+function selectedMeasuredPost(){
+  const current=state.measuredPost;
+  if(!current||current.context!==measuredPostContext())throw new Error("Reopen Your first measured post and select a current study.");
+  return current;
 }
 
 function savedWhen(value){
@@ -792,11 +885,23 @@ function ledgerResults() {
   return `${paymentResultsPanel()}${outcomeLearningPanel()}${experimentResults()}<div class="section-heading"><h2>Reconciled event ledger</h2>${button("Define event cohort","define-cohort")}</div>${notice("Import permitted exports using opaque IDs only. Late refunds restate these cohorts. Imported files are not authenticated provider notifications.")}${rows.length?panels:empty("Start with a declared observation window","Define the app build, acquisition dates, follow-up maturity and attribution coverage. Then import a CSV or JSON export.",button("Set up event cohort","define-cohort"))}`;
 }
 
+function experimentIterationPanel(e){
+  const plan=e.iteration,assessment=e.assessments.at(-1)?.data;
+  if(!plan||!assessment)return "";
+  const samples=Object.entries(assessment.reports||{}).map(([arm,row])=>
+    `${esc(label(arm))}: ${esc(row.installs??"unknown")} installs`).join(" · ");
+  return `<section class="next-step"><h4>Suggested next decision: ${esc(label(plan.decision))}</h4>
+    <p>${esc(plan.reason)}</p><p>Analysis date: ${esc(savedWhen(e.data.analysis_at))}${samples?" · "+samples:""}</p>
+    ${plan.draft?`<details><summary>Review one-variable draft</summary><p>${esc(plan.draft.proposed_change)}</p>
+      <p>Keep fixed: ${esc(plan.draft.keep_fixed.join(", "))}.</p><p>${esc(plan.draft.next_step)}</p></details>`:""}
+    <p class="description">This recommendation does not approve, publish, or spend.</p></section>`;
+}
+
 function experimentResults() {
   const tests=state.workspace.experiments||[];
   const cards=tests.map(e=>{
     const latest=e.assessments.at(-1),decision=e.actions.filter(a=>a.data.operation==="decide").at(-1);
-    return `<section class="panel experiment-panel"><div class="section-heading"><h3>${esc(e.data.name)}</h3>${status(e.state)}</div><p>${esc(e.data.hypothesis)}</p><p class="description">${esc(label(e.data.primary_metric))} Â· ${esc(e.data.assignment_method)} Â· analysis ${esc(new Date(e.data.analysis_at).toLocaleString())}</p><p>Approximate sample: ${e.data.sample_plan.control} control / ${e.data.sample_plan.treatment} treatment installs</p>${latest?`<p>Latest assessment: ${status(latest.data.status)} Â· decision ${status(e.decision_status)}</p>${latest.data.issues.map(i=>notice(i,"warning")).join("")}`:notice("No assessment recorded. Exposure and the fixed analysis date are required.")}${decision?`<p>Recorded decision: ${esc(label(decision.data.decision))}</p>`:""}${button("Inspect experiment","experiment-open",`data-id="${esc(e.id)}"`)}</section>`;
+    return `<section class="panel experiment-panel"><div class="section-heading"><h3>${esc(e.data.name)}</h3>${status(e.state)}</div><p>${esc(e.data.hypothesis)}</p><p class="description">${esc(label(e.data.primary_metric))} Â· ${esc(e.data.assignment_method)} Â· analysis ${esc(new Date(e.data.analysis_at).toLocaleString())}</p><p>Approximate sample: ${e.data.sample_plan.control} control / ${e.data.sample_plan.treatment} treatment installs</p>${latest?`<p>Latest assessment: ${status(latest.data.status)} Â· decision ${status(e.decision_status)}</p>${latest.data.issues.map(i=>notice(i,"warning")).join("")}`:notice("No assessment recorded. Exposure and the fixed analysis date are required.")}${decision?`<p>Recorded decision: ${esc(label(decision.data.decision))}</p>`:""}${experimentIterationPanel(e)}${button("Inspect experiment","experiment-open",`data-id="${esc(e.id)}"`)}</section>`;
   }).join("");
   const worker=state.workspace.worker||{status:"NOT_STARTED"};
   return `<div class="section-heading"><h2>Experiments with a fixed learning window</h2>${button("Plan an experiment","experiment-create")}</div>${notice("Pre-register before acquisition begins. Compare supplied observations; launch, random assignment, publication and spending are separate actions.")}<p class="description">Local analysis worker: ${esc(label(worker.status))}${worker.last_success?` Â· last healthy poll ${esc(new Date(worker.last_success).toLocaleString())}`:""}</p>${worker.last_error?notice(worker.last_error,"error"):""}${tests.length?cards:empty("Turn a hypothesis into a bounded test","Choose two comparable event cohorts and reviewed creatives, declare the outcome, sample, dates and guardrails, then track exposure and decisions.",button("Register your first test","experiment-create"))}`;
@@ -837,7 +942,7 @@ function openExperiment(id) {
   const controls=e.state==="CANCELLED"?"":`${e.state==="PLANNED"?button("Record observed exposure","experiment-action",`data-id="${esc(id)}" data-operation="observe"`):button("Evaluate current evidence","experiment-evaluate",`data-id="${esc(id)}"`)}${latest?button("Record decision","experiment-action",`data-id="${esc(id)}" data-operation="decide"`):""}${e.state==="DECIDED"?button("Propose rollback","experiment-action",`data-id="${esc(id)}" data-operation="rollback"`):""}${button("Record decision note","experiment-action",`data-id="${esc(id)}" data-operation="note"`)}${button("Cancel test","experiment-action",`data-id="${esc(id)}" data-operation="cancel"`)}`;
   const effect=latest?.data.effect;
   const scheduled=experimentSchedulePanel(e);
-  modal(e.data.name,`<div class="modal-content">${notice("Exposure receipts are operator reported. Rollback is a proposal, not a provider action. Re-evaluate after new imports: previous decisions may become stale.")}${status(e.state)} ${status(latest?.data.status||"NOT_EVALUATED")} ${status(e.decision_status)}<p>${esc(e.data.hypothesis)}</p>${effect?`<p>Descriptive difference: ${percent(effect.difference)} Â· 95% interval ${effect.interval.map(percent).join(" to ")}</p><p>${esc(effect.method)}</p>`:notice("No defensible comparison is available yet.","warning")}${latest?latest.data.issues.map(i=>notice(i,"warning")).join(""):""}${scheduled}<h3>Decision and recovery history</h3>${e.actions.map(a=>`<p><strong>${esc(label(a.data.operation))}</strong> Â· ${esc(a.data.operation==="note"?(a.data.note||""):(a.data.reason||a.data.source))} Â· ${esc(a.created)}${a.data.operation==="rollback"?" Â· External rollback NOT RUN":""}${a.data.operation==="note"?" Â· Human note, not provider verification":""}</p>`).join("")||"<p>No lifecycle actions recorded.</p>"}<details><summary>Immutable plan, source hashes and all assessments</summary><pre>${json(e)}</pre></details><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions">${controls}${button("Download experiment","experiment-download",`data-id="${esc(id)}"`)}</div>`,"EXPERIMENT EVIDENCE");
+  modal(e.data.name,`<div class="modal-content">${notice("Exposure receipts are operator reported. Rollback is a proposal, not a provider action. Re-evaluate after new imports: previous decisions may become stale.")}${status(e.state)} ${status(latest?.data.status||"NOT_EVALUATED")} ${status(e.decision_status)}<p>${esc(e.data.hypothesis)}</p>${effect?`<p>Descriptive difference: ${percent(effect.difference)} Â· 95% interval ${effect.interval.map(percent).join(" to ")}</p><p>${esc(effect.method)}</p>`:notice("No defensible comparison is available yet.","warning")}${latest?latest.data.issues.map(i=>notice(i,"warning")).join(""):""}${experimentIterationPanel(e)}${scheduled}<h3>Decision and recovery history</h3>${e.actions.map(a=>`<p><strong>${esc(label(a.data.operation))}</strong> Â· ${esc(a.data.operation==="note"?(a.data.note||""):(a.data.reason||a.data.source))} Â· ${esc(a.created)}${a.data.operation==="rollback"?" Â· External rollback NOT RUN":""}${a.data.operation==="note"?" Â· Human note, not provider verification":""}</p>`).join("")||"<p>No lifecycle actions recorded.</p>"}<details><summary>Immutable plan, source hashes and all assessments</summary><pre>${json(e)}</pre></details><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions">${controls}${button("Download experiment","experiment-download",`data-id="${esc(id)}"`)}</div>`,"EXPERIMENT EVIDENCE");
 }
 
 function experimentActionForm(id,operation) {
@@ -1510,7 +1615,35 @@ async function handleAction(node) {
   if(action==="next-answer-workflow"){$("#modal").close();state.view="workflow";return render();}
   if(action==="next-answer-results"){$("#modal").close();state.view="results";return render();}
   if(action==="next-answer-publishing"){$("#modal").close();return guidedNavigate("connections","#publication-heading");}
-  if(action==="first-post-publishing")return guidedNavigate("connections","#publication-heading");
+  if(action==="first-post-page")return firstMeasuredPost(Number(node.dataset.offset));
+  if(action==="first-post-report-pdf"){
+    const {report}=selectedMeasuredPost();
+    if(!report)throw new Error("Reopen the study to load its report.");
+    return WMMObservationalCampaign.pdf(report,node);
+  }
+  if(action==="first-post-import")return installImportForm(selectedMeasuredPost().link);
+  if(action==="first-post-brief"){
+    const {link}=selectedMeasuredPost();
+    const analysis=(state.workspace.analyses||[]).find(a=>a.source_status==="CURRENT"&&
+      (a.id===link.study.creative_id||a.current?.data?.reference_id===link.study.creative_id));
+    if(analysis)return briefForm(null,null,{analysis_id:analysis.id,objective:`${link.study.hypothesis} Use one call to action: ${link.url}`});
+    const listing=(state.workspace.records||[]).find(row=>row.kind==="store"&&row.id===link.study.creative_id);
+    if(!listing)throw new Error("Choose a current creative inspection or saved store listing observation as the study’s creative reference.");
+    return modal("Review acquisition draft outline",`<div class="modal-content">
+      <h3>${esc(link.study.name)}</h3><p>Hypothesis: ${esc(link.study.hypothesis)}</p>
+      <p>Audience: ${esc(state.workspace.app.data.audience||"Confirm your audience")}</p>
+      <p>Evidence: ${esc(listing.title)} · ${esc(listing.hash||"Fingerprint unavailable")}</p>
+      <p>Use one claim you can demonstrate in the current app. Confirm the exact copy, proof and destination during review.</p>
+      <label class="field">One call to action<input readonly value="${esc(link.url)}"></label>
+      ${button("Prepare tagged draft","first-post-publishing")}</div>`,"DRAFT OUTLINE");
+  }
+  if(action==="first-post-publishing"){
+    const current=selectedMeasuredPost();
+    if(!current.destination)throw new Error("Choose the destination for this study before opening a draft.");
+    if(current.link.study.source==="facebook")return campaignOpen(node,current);
+    guidedNavigate("connections","#publication-heading");
+    return WMMPublicationUI.action({dataset:{action:"publication-load",fromStudy:"true"}},growthReviewServices());
+  }
   if(action==="mmp-connections")return guidedNavigate("connections","#mmp-connections-heading");
   if(action==="install-import-open")return installImportForm();
   if(action==="install-import-detect"){const form=document.getElementById("install-import-form");if(!form)throw new Error("Open the install import form first.");return installImportDetect(form);}
