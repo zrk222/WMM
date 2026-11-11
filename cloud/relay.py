@@ -1,6 +1,7 @@
 """Single-owner WMM cloud relay reference: HTTPS behind a proxy, bearer token, idempotent batches."""
 from __future__ import annotations
 
+from contextlib import closing
 import hashlib
 import hmac
 import json
@@ -66,7 +67,10 @@ class Handler(BaseHTTPRequestHandler):
         key = self.headers.get("Idempotency-Key") or ""
         if not KEY.fullmatch(key):
             return self._send(400, {"error": "invalid idempotency key"})
-        length = int(self.headers.get("Content-Length") or 0)
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return self._send(400, {"error": "invalid content length"})
         if length <= 0 or length > MAX_BODY:
             return self._send(413, {"error": "invalid body size"})
         try:
@@ -81,14 +85,19 @@ class Handler(BaseHTTPRequestHandler):
         body = json.dumps(batch, sort_keys=True, separators=(",", ":"))
         value_hash = hashlib.sha256(body.encode()).hexdigest()
         receipt = "wmm-" + value_hash[:32]
-        with database() as db:
-            row = db.execute("SELECT hash,receipt FROM batches WHERE idempotency_key=?", (key,)).fetchone()
-            if row:
-                if row[0] != value_hash:
-                    return self._send(409, {"error": "idempotency key reused with different content"})
-                return self._send(200, {"schema": SCHEMA, "status": "DUPLICATE", "receipt": row[1], "tenant": TENANT})
-            db.execute("INSERT INTO batches VALUES(?,?,?,?,datetime('now'))", (key, receipt, body, value_hash))
-        return self._send(201, {"schema": SCHEMA, "status": "ACCEPTED", "receipt": receipt, "tenant": TENANT})
+        with closing(database()) as db, db:
+            inserted = db.execute(
+                "INSERT INTO batches VALUES(?,?,?,?,datetime('now')) "
+                "ON CONFLICT(idempotency_key) DO NOTHING", (key, receipt, body, value_hash)
+            ).rowcount == 1
+            saved_hash, saved_receipt = db.execute(
+                "SELECT hash,receipt FROM batches WHERE idempotency_key=?", (key,)
+            ).fetchone()
+        if saved_hash != value_hash:
+            return self._send(409, {"error": "idempotency key reused with different content"})
+        return self._send(201 if inserted else 200, {"schema": SCHEMA,
+                          "status": "ACCEPTED" if inserted else "DUPLICATE",
+                          "receipt": saved_receipt, "tenant": TENANT})
 
 
 def main():

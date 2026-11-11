@@ -97,6 +97,7 @@ CREATE INDEX IF NOT EXISTS record_app_kind ON records(app_id,kind);
 CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY, app_id TEXT NOT NULL REFERENCES apps(id), action TEXT NOT NULL, data TEXT NOT NULL, status TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, lease REAL NOT NULL DEFAULT 0, result TEXT, created TEXT NOT NULL, updated TEXT NOT NULL, request_key TEXT NOT NULL, UNIQUE(app_id,request_key));
 CREATE TABLE IF NOT EXISTS campaign_sequences(id TEXT PRIMARY KEY,app_id TEXT NOT NULL REFERENCES apps(id),plan TEXT NOT NULL,plan_hash TEXT NOT NULL,original_request TEXT NOT NULL,request_key TEXT NOT NULL,state TEXT NOT NULL,result TEXT NOT NULL,created TEXT NOT NULL,updated TEXT NOT NULL,UNIQUE(app_id,request_key));
 CREATE TABLE IF NOT EXISTS sequence_jobs(run_id TEXT NOT NULL REFERENCES campaign_sequences(id),app_id TEXT NOT NULL REFERENCES apps(id),job_id TEXT NOT NULL REFERENCES jobs(id),owned INTEGER NOT NULL CHECK(owned IN (0,1)),data_hash TEXT NOT NULL,PRIMARY KEY(run_id,job_id));
+CREATE INDEX IF NOT EXISTS jobs_app_recent ON jobs(app_id,created DESC) WHERE action!='drive_import';
 CREATE INDEX IF NOT EXISTS sequence_job_lookup ON sequence_jobs(job_id,owned);
 CREATE UNIQUE INDEX IF NOT EXISTS sequence_job_owner ON sequence_jobs(job_id) WHERE owned=1;
 CREATE INDEX IF NOT EXISTS sequence_ready ON campaign_sequences(state,updated);

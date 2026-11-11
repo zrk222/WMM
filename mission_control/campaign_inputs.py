@@ -122,8 +122,13 @@ class CampaignInputs:
 
     def preview(self, app_id):
         """Show derived sources and durable job status; do not request a provider."""
+        return self.preview_from_snapshot(self.store.app(app_id), self.store.records(app_id))
+
+    def preview_from_snapshot(self, app, records):
+        """Reuse the dashboard's app and evidence when deriving its collection plan."""
+        app_id = app['id']
         hour = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H')
-        plan = build_plan(self.store.app(app_id), self.store.records(app_id), hour)
+        plan = build_plan(app, records, hour)
         from .source_retry import project
         plan['retry_candidates']=[]
         plan['next_collection_at']=(datetime.fromisoformat(hour+':00:00+00:00')+timedelta(hours=1)).isoformat()

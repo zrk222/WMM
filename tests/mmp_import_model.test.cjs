@@ -31,3 +31,37 @@ test("template uses the exact accepted columns and no customer identifiers", () 
   assert.match(text, /^install_id,state,occurred_at/m);
   assert.doesNotMatch(text, /email|phone|idfa|device/i);
 });
+
+test("column detection preserves edits and ignores replaced files", async () => {
+  const fs = require("node:fs"), vm = require("node:vm");
+  const source = fs.readFileSync(require.resolve("../mission_control/static/app.js"), "utf8");
+  const snippet = source.slice(source.indexOf("async function installImportDetect("),
+    source.indexOf("async function saveCloudConnection("));
+  const state = {app: "demo"};
+  const detect = vm.runInNewContext(snippet + "\ninstallImportDetect", {state, WMMMmpImport: model});
+  const fields = Object.fromEntries(["col_install_id", "col_state", "col_occurred_at"]
+    .map(name => [name, {value: name}]));
+  const status = {textContent: ""};
+  const picker = {files: []};
+  const form = {dataset: {app: "demo"}, isConnected: true, elements: fields,
+    closest: () => ({open: true}),
+    querySelector: selector => selector === "#install-detect-status" ? status
+      : selector.includes("export_file") ? picker : fields[selector.match(/"([^"]+)"/)[1]]};
+  const header = "customer_user_id,attribution_status,install_time\na,b,c";
+  let deliver;
+  const file = () => ({size: 10, name: "export.csv", text: () => new Promise(resolve => { deliver = resolve; })});
+  picker.files = [file()];
+  const first = detect(form);
+  fields.col_install_id.value = "operator_choice";
+  deliver(header);
+  await first;
+  assert.equal(fields.col_install_id.value, "operator_choice");
+  assert.equal(fields.col_state.value, "attribution_status");
+  picker.files = [file()];
+  const second = detect(form);
+  picker.files = [file()];
+  status.textContent = "new file";
+  deliver(header);
+  await second;
+  assert.equal(status.textContent, "new file");
+});

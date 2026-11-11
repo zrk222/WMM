@@ -175,7 +175,7 @@ class Service:
         preparation=prepare(app,records,ledger,catalog,release)
         preparation['release_inventory']=release
         preparation["recommendations"]=automation
-        preparation['collection']=CampaignInputs(self.store).preview(app_id)
+        preparation['collection']=CampaignInputs(self.store).preview_from_snapshot(app,records)
         research=Research(self.store).list(app_id)
         workspace={"app":app,"measurement_integrity":measurement_integrity(self.store,app_id),"subscription_catalog":catalog,"release_inventory":release,"inspections":Inspections(self.store).view(app_id),"workflow":workflow,"automation":automation,"cloud_connection":cloud_connection,"pmf":prepare_pmf(app,records,ledger,research=research),"public_store_checks":PublicStore(self.store).list(app_id),"followup":Followup(self.store).list(app_id),"aeo":Checks(self.store).list(app_id),"records":records,"preparation":preparation,"stages":evaluated,"metrics":summarize(records,app_id,ledger),
                 "jobs":job_rows,"audit":self.store.history(app_id),"approvals":self.approvals(app_id),"ledger":ledger,"capabilities":Capabilities(self.store).list(app_id),
