@@ -24,6 +24,16 @@ modules:
     - store
     - app_id
     returns: object
+  - name: elapsed_ms
+    args:
+    - start
+    - end
+    returns: object
+  - name: attempt_timing
+    args:
+    - job
+    - events
+    returns: object
   - name: run_view
     args:
     - db

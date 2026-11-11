@@ -63,6 +63,35 @@ class TelemetryTests(unittest.TestCase):
             emit(self.store, job, "STAGE_STARTED", 1)
         self.assertEqual(monitor(self.store, "sample-one")["runs"][0]["events"], [])
 
+    def test_monitor_times_only_retained_current_attempt_events(self):
+        job = enqueue(self.store, "sample-one", "pipeline", {}, "timed-attempt")
+        with connection(self.store.path) as db:
+            db.execute("UPDATE jobs SET created=?,status='SUCCEEDED',attempts=1 WHERE id=?",
+                       ("2026-11-11T14:00:00+00:00", job["id"]))
+            for attempt, code, at in (
+                (1, "STARTED", "2026-11-11T14:00:03+00:00"),
+                (1, "SUCCEEDED", "2026-11-11T14:00:08+00:00"),
+            ):
+                db.execute("INSERT INTO workflow_events(app_id,job_id,attempt,code,observed_at) VALUES(?,?,?,?,?)",
+                           ("sample-one", job["id"], attempt, code, at))
+        self.assertEqual(monitor(self.store, "sample-one")["runs"][0]["timing"],
+                         {"initial_queue_ms": 3000, "attempt_ms": 5000})
+        with connection(self.store.path) as db:
+            db.execute("UPDATE jobs SET attempts=2,status='RUNNING' WHERE id=?", (job["id"],))
+        self.assertEqual(monitor(self.store, "sample-one")["runs"][0]["timing"], {})
+        with connection(self.store.path) as db:
+            for code, at in (
+                ("STARTED", "2026-11-11T14:01:00+00:00"),
+                ("RETRY_WAIT", "2026-11-11T14:01:01.500+00:00"),
+            ):
+                db.execute("INSERT INTO workflow_events(app_id,job_id,attempt,code,observed_at) VALUES(?,?,?,?,?)",
+                           ("sample-one", job["id"], 2, code, at))
+        self.assertEqual(monitor(self.store, "sample-one")["runs"][0]["timing"], {"attempt_ms": 1500})
+        with connection(self.store.path) as db:
+            db.execute("UPDATE workflow_events SET observed_at='2026-11-11T13:59:59+00:00' "
+                       "WHERE job_id=? AND code='RETRY_WAIT'", (job["id"],))
+        self.assertEqual(monitor(self.store, "sample-one")["runs"][0]["timing"], {})
+
     def test_monitor_excludes_payloads_and_old_attempt_counts(self):
         enqueue(
             self.store,

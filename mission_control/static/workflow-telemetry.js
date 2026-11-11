@@ -1,4 +1,4 @@
-/* Actual job events; no simulated percentages or elapsed-time progress. */
+/* Actual job events and recorded durations; no simulated progress. */
 (function(root,factory){
   const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.WMMTelemetry=api;
 })(typeof globalThis==='object'?globalThis:this,function(){
@@ -41,9 +41,20 @@
     const hash=typeof result?.source_hash==='string'&&/^[a-f0-9]{64}$/.test(result.source_hash)?result.source_hash:null;
     return '<h3>Read completed · waiting for reports</h3><p>The provider returned no report data. This read supplied no app metrics.</p><p>Check the refresh schedule in Connections. An enabled schedule checks again at its saved due time.</p><p>Source receipt hash: '+(hash?esc(hash):'Not supplied by this read')+'</p>';
   }
+  function duration(value){
+    if(!Number.isSafeInteger(value)||value<0)return null;
+    if(value<1000)return '<1 s';
+    const seconds=Math.floor(value/1000);
+    return seconds<60?`${seconds} s`:`${Math.floor(seconds/60)} min ${seconds%60} s`;
+  }
+  function timingMarkup(timing){
+    const queue=duration(timing?.initial_queue_ms),attempt=duration(timing?.attempt_ms);
+    const parts=[queue&&`Waited ${queue} to start`,attempt&&`Worker ran for ${attempt}`].filter(Boolean);
+    return parts.length?`<p>${esc(parts.join(' · '))}.</p>`:'';
+  }
   function markup(data){
     if(!data.runs.length)return '<p>No workflow runs yet. Start an approved workflow to see its stages here.</p>';
-    return data.runs.map(run=>`<article class="panel"><h3>${waitingForReports(run)?'Read completed · waiting for reports':`${esc(run.action)} · ${esc(run.status)}`}</h3><p>Attempt ${esc(run.attempts)} · ${esc(run.processed_stages)} stages processed · ${esc(run.blocked_stages)} blocked</p><p>${waitingForReports(run)?'The source read completed, but the provider has no report data available yet. This read supplied no app metrics.':`${run.latest?.stage?`Stage ${esc(run.latest.stage)}: ${esc(run.latest.stage_title)} · `:''}${esc(run.activity)}`}</p><p>Last worker event: ${esc(run.latest?.observed_at||'No event recorded')}. Job updated: ${esc(run.updated)}.</p><p><strong>Next action:</strong> ${esc(waitingForReports(run)?'Inspect the saved source result and check its refresh schedule in Connections. An enabled schedule checks again at its saved due time.':nextAction(run.status))}</p>${typeof run.id==='string'&&run.id?`<button type="button" class="button outline" data-action="telemetry-open-job" data-id="${esc(run.id)}">Inspect run and saved output</button>`:''}<details><summary>Observed steps (${run.events.length})</summary><ol>${run.events.map(event=>`<li>${esc(event.observed_at)} · ${event.stage?`Stage ${esc(event.stage)} · `:''}${esc(event.message)}</li>`).join('')}</ol></details></article>`).join('');
+    return data.runs.map(run=>`<article class="panel"><h3>${waitingForReports(run)?'Read completed · waiting for reports':`${esc(run.action)} · ${esc(run.status)}`}</h3><p>Attempt ${esc(run.attempts)} · ${esc(run.processed_stages)} stages processed · ${esc(run.blocked_stages)} blocked</p>${timingMarkup(run.timing)}<p>${waitingForReports(run)?'The source read completed, but the provider has no report data available yet. This read supplied no app metrics.':`${run.latest?.stage?`Stage ${esc(run.latest.stage)}: ${esc(run.latest.stage_title)} · `:''}${esc(run.activity)}`}</p><p>Last worker event: ${esc(run.latest?.observed_at||'No event recorded')}. Job updated: ${esc(run.updated)}.</p><p><strong>Next action:</strong> ${esc(waitingForReports(run)?'Inspect the saved source result and check its refresh schedule in Connections. An enabled schedule checks again at its saved due time.':nextAction(run.status))}</p>${typeof run.id==='string'&&run.id?`<button type="button" class="button outline" data-action="telemetry-open-job" data-id="${esc(run.id)}">Inspect run and saved output</button>`:''}<details><summary>Observed steps (${run.events.length})</summary><ol>${run.events.map(event=>`<li>${esc(event.observed_at)} · ${event.stage?`Stage ${esc(event.stage)} · `:''}${esc(event.message)}</li>`).join('')}</ol></details></article>`).join('');
   }
   async function openResult(node,deps){
     if(node.disabled||opening)return;
@@ -63,7 +74,7 @@
   function clear(){generation++;if(timer!==null)clearTimeout(timer);timer=null;mounted=null;}
   function mount(deps){
     clear();const node=deps.document.querySelector('#workflow-monitor');if(!node)return;
-    const ticket={node,app:deps.state.app,version:++generation,pending:false,failures:0};mounted=ticket;
+    const ticket={node,app:deps.state.app,version:++generation,pending:false,failures:0,runsKey:null};mounted=ticket;
     const worker=node.querySelector('[data-live-worker]');
     const announce=message=>{if(worker.textContent!==message)worker.textContent=message;};
     const valid=()=>mounted===ticket&&generation===ticket.version&&deps.state.app===ticket.app&&node.isConnected;
@@ -76,7 +87,10 @@
           const data=await deps.api(`/api/apps/${encodeURIComponent(ticket.app)}/workflow-telemetry`);
           if(!valid())return;if(data.app_id!==ticket.app)throw new Error('Wrong app progress received.');
           const target=node.querySelector('[data-live-runs]');
-          if(!target.contains(deps.document.activeElement))target.innerHTML=markup(data);
+          if(!target.contains(deps.document.activeElement)){
+            const key=JSON.stringify(data.runs);
+            if(key!==ticket.runsKey){target.innerHTML=markup(data);ticket.runsKey=key;}
+          }
           ticket.failures=0;
           announce(workerMessage(data.worker?.status)+' '+workerContext(data.worker?.runtime_mode));
           const healthyPoll=data.worker?.last_success;

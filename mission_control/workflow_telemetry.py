@@ -1,5 +1,6 @@
 """Durable worker observations with fixed public labels, never model or secret text."""
 
+from datetime import timedelta
 import json
 
 from .common import Invalid, iso_time, now
@@ -8,6 +9,8 @@ from .catalog import stages
 
 MAX_JOBS = 100
 MAX_EVENTS = 200
+STAGE_TITLES = {row["id"]: row["title"] for row in stages()}
+ATTEMPT_ENDS = frozenset(("SUCCEEDED", "FAILED", "BLOCKED", "CANCELLED", "RETRY_WAIT"))
 EVENTS = {
     'DRIVE_ACCOUNT': 'Verifying the confirmed account for the selected original.',
     'DRIVE_METADATA': 'Checking the selected video format, version and download permission.',
@@ -96,6 +99,32 @@ def monitor(store, app_id, worker_health=None):
     )
 
 
+def elapsed_ms(start, end):
+    try:
+        delta = iso_time(end) - iso_time(start)
+    except (Invalid, ValueError, OverflowError):
+        return None
+    return delta // timedelta(milliseconds=1) if delta.days >= 0 else None
+
+
+def attempt_timing(job, events):
+    """Derive timings only from the current attempt's retained observations."""
+    started = next((row["observed_at"] for row in events if row["code"] == "STARTED"), None)
+    if started is None:
+        return {}
+    timing = {}
+    if job["attempts"] == 1:
+        queue = elapsed_ms(job.get("created"), started)
+        if queue is not None:
+            timing["initial_queue_ms"] = queue
+    last = events[-1]
+    if last["code"] in ATTEMPT_ENDS:
+        runtime = elapsed_ms(started, last["observed_at"])
+        if runtime is not None:
+            timing["attempt_ms"] = runtime
+    return timing
+
+
 def run_view(db, app_id, job):
     """Separate processed/blocked stages from elapsed-time estimates and job success."""
     raw_result = job.pop("result", None)
@@ -110,12 +139,11 @@ def run_view(db, app_id, job):
         "SELECT id,attempt,code,stage,observed_at FROM workflow_events WHERE app_id=? AND job_id=? ORDER BY id DESC LIMIT ?",
         (app_id, job["id"], MAX_EVENTS),
     ).fetchall()
-    names = {row["id"]: row["title"] for row in stages()}
     events = [
         dict(
             row,
             message=EVENTS.get(row["code"], "Unknown retained event; inspect job."),
-            stage_title=names.get(row["stage"]),
+            stage_title=STAGE_TITLES.get(row["stage"]),
         )
         for row in reversed(rows)
     ]
@@ -131,6 +159,7 @@ def run_view(db, app_id, job):
         job,
         events=events,
         latest=latest,
+        timing=attempt_timing(job, current),
         processed_stages=len(finished),
         blocked_stages=len(blocked),
         telemetry="OBSERVED" if latest else "NO_STAGE_EVENTS",
