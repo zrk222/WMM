@@ -75,10 +75,14 @@ test('run guidance preserves uncertainty and escapes job button identities',()=>
 function pollFixture(){
  const timers=new Map();let seq=0;
  const ctx={module:{exports:{}},setTimeout:(fn,ms)=>{timers.set(++seq,{fn,ms});return seq;},clearTimeout:id=>timers.delete(id)};vm.createContext(ctx);vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../mission_control/static/workflow-telemetry.js'),'utf8'),ctx);
- const list={innerHTML:'retained',contains:()=>false},status={textContent:''},worker={textContent:''},refresh={},node={isConnected:true,querySelector:s=>s==='[data-live-runs]'?list:s==='[data-live-status]'?status:s==='[data-live-worker]'?worker:refresh};
+ const list={innerHTML:'retained',contains:()=>false},status={textContent:''},worker={textContent:''},refresh={};
+ const announcements=[];
+ const stage={get textContent(){return announcements.at(-1)??'';},set textContent(value){announcements.push(value);}};
+ const targets={'[data-live-runs]':list,'[data-live-status]':status,'[data-live-worker]':worker,'[data-live-stage]':stage};
+ const node={isConnected:true,querySelector:s=>targets[s]??refresh};
  const document={hidden:false,activeElement:null,querySelector:()=>node};let calls=0,answer=async()=>({app_id:'one',observed_at:'now',runs:[]});
  const deps={state:{app:'one'},document,api:()=>{calls++;return answer();}};
- return {ui:ctx.module.exports,timers,list,status,worker,node,document,deps,refresh,get calls(){return calls;},set answer(value){answer=value;},async settle(){await new Promise(setImmediate);},async tick(){assert.equal(timers.size,1);const [id,row]=timers.entries().next().value;timers.delete(id);await row.fn();},delay(){assert.equal(timers.size,1);return timers.values().next().value.ms;}};
+ return {ui:ctx.module.exports,timers,list,status,worker,announcements,node,document,deps,refresh,get calls(){return calls;},set answer(value){answer=value;},async settle(){await new Promise(setImmediate);},async tick(){assert.equal(timers.size,1);const [id,row]=timers.entries().next().value;timers.delete(id);await row.fn();},delay(){assert.equal(timers.size,1);return timers.values().next().value.ms;}};
 }
 test('failed progress reads back off with a bounded timer and recover to normal cadence',async()=>{
  const f=pollFixture();f.answer=async()=>{throw Error('offline');};f.ui.mount(f.deps);await f.settle();
@@ -137,4 +141,34 @@ test('unchanged polls retain the job list; new measured timings update it once',
  timing={initial_queue_ms:450,attempt_ms:64000};
  await f.tick();assert.equal(writes,2);assert.match(markup,/Worker ran for 1 min 4 s/);
  await f.tick();assert.equal(writes,2);f.ui.clear();
+});
+
+
+test('progress announces the active stage once and preserves it during stale or failed reads',async()=>{
+ const f=pollFixture();
+ const stage={id:'active',action:'pipeline',status:'RUNNING',attempts:1,processed_stages:0,blocked_stages:0,events:[],
+  latest:{stage:2,stage_title:'Research',observed_at:'earlier'},activity:'Research started.',updated:'earlier'};
+ let reply={app_id:'one',observed_at:'earlier',runs:[{...stage,id:'done',status:'SUCCEEDED',activity:'Finished.'},stage]};
+ f.answer=async()=>reply;
+ assert.match(f.ui.panel(),/data-live-stage role="status"/);
+ f.ui.mount(f.deps);
+ try{
+  await f.settle();
+  assert.deepEqual(f.announcements,['Workflow update: Stage 2: Research. Research started.']);
+  reply={...reply,observed_at:'later',runs:[reply.runs[0],{...stage,updated:'later'}]};
+  await f.tick();
+  assert.equal(f.announcements.length,1);
+  f.list.contains=()=>true;
+  const retained=f.list.innerHTML;
+  reply={...reply,runs:[{...stage,latest:{stage:3,stage_title:'Creative'},activity:'Drafting.'}]};
+  await f.tick();
+  assert.equal(f.list.innerHTML,retained);
+  assert.equal(f.announcements.at(-1),'Workflow update: Stage 3: Creative. Drafting.');
+  const count=f.announcements.length;
+  reply={...reply,app_id:'other',runs:[{...stage,activity:'FOREIGN'}]};
+  await f.tick();
+  f.answer=async()=>{throw Error('PRIVATE_FAILURE');};
+  await f.tick();
+  assert.equal(f.announcements.length,count);
+ }finally{f.ui.clear();}
 });
