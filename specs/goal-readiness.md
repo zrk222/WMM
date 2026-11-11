@@ -3,7 +3,7 @@ Status: draft
 
 ## MUST - Functional core
 ### Description
-Expose the existing read-only selected-workflow inventory through the protected owner HTTP control. No provider request, inference, grant, policy or work is created. For a selected recently verified Facebook destination in a publication workflow, the owner check also reports whether the required protected fields are available on this device.
+Expose the existing read-only selected-workflow inventory through the protected owner HTTP control. No provider request, inference, grant, policy or work is created. For a selected Facebook destination in a publication workflow, the owner check also reports whether required protected fields are available on this device, including when saved scope or verification evidence is missing or stale. Expired, disconnected and changing bindings retain their existing repair states.
 
 ### Requirements (EARS)
 - The system shall return the original readiness inventory and matching digest with an additive observation envelope through `read_inventory`.
