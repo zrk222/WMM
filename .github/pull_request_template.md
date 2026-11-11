@@ -18,7 +18,7 @@ Paths: `mission_control/**`, `.github/**`, `packaging/**`, `ios/**`,
 - [ ] I reviewed this change as the repository owner.
 - [ ] I checked server-side authority, secret handling, exact-field validation,
       expiry/quota/budget enforcement and denial tests.
-- [ ] The owner review is sufficient; no separate non-author reviewer is required.
+- [ ] I applied the owner review policy and its expansion gate.
 
 ## Boundary
 
@@ -27,4 +27,4 @@ Paths: `mission_control/**`, `.github/**`, `packaging/**`, `ios/**`,
 
 ## Notes for the reviewer
 
-<!-- Anything surprising, risky, or deliberately out of scope. -->
+<!-- Record the head SHA, environment, reproduction steps, and any limits. Link an independent review of this head or state 'Independent review pending'. See ../CONTRIBUTING.md for the protocol. -->
