@@ -68,3 +68,29 @@ test("a cached identity ceases to bind a study after its expiry", () => {
   time=101000;
   assert.equal(context(),null);
 });
+
+test("study view and private PDF share descriptive guidance and never turn incomplete data into a rate",()=>{
+  const script=fs.readFileSync(require.resolve("../mission_control/static/observational-campaign.js"),"utf8");
+  const renders=[];
+  const view=vm.runInNewContext(script+"\nWMMObservationalCampaign",{
+    esc:String,state:{},window:{},WMMPageReports:{model:()=>({}),openReport:model=>renders.push(model)},
+  });
+  const report={checkpoint:{state:"DESCRIPTIVE_READY",collector_source_id:"collector-a",
+    coverage_issues:{},ratio_counts:{linked_registrations:1,eligible_landings:2}},
+    landing_subjects:2,linked_registration_subjects:1,coverage:{},exclusions:{UNMATCHED_REGISTRATION:1},
+    starts_at:"2030-01-01T00:00:00Z",ends_at:"2030-01-02T00:00:00Z",
+    study_hash:"study-digest",source_hash:"source-digest",limits:[]};
+  const html=view.checkpointMarkup(report);
+  view.pdf(report);
+  const printed=renders[0];
+  assert.match(html,/1 of 2 eligible landings \(50%\)/);
+  assert.match(printed.notes.join(" "),/1 of 2 eligible landings \(50%\)/);
+  assert.ok(html.includes(printed.next_step));
+  assert.match(html,/Source hash: source-digest/);
+  assert.ok(printed.notes.includes("Source hash: source-digest"));
+  report.checkpoint={...report.checkpoint,state:"COVERAGE_INCOMPLETE",coverage_issues:{LANDING:"BEFORE_CLOSE"}};
+  assert.match(view.checkpointMarkup(report),/Receipt predates the end of the window/);
+  assert.doesNotMatch(view.checkpointMarkup(report),/Linked registration rate/);
+  view.pdf(report);
+  assert.doesNotMatch(renders[1].notes.join(" "),/Linked registration rate/);
+});

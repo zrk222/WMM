@@ -663,12 +663,14 @@ async function firstMeasuredPost(offset=0){
           destinations.set(account.destination_id,account.name||account.destination_id);
           ready.add(account.destination_id);
         }
-        const selected=state.measuredPost={app,context,link,binding,destination:""};
+        const exactReport=report?.app_id===app&&report.study_id===link.study_id&&report.study_hash===link.study_hash?report:null;
+        const selected=state.measuredPost={app,context,link,binding,destination:"",report:exactReport};
         output.innerHTML=`<h3>${esc(link.study.name)}</h3><p>${esc(link.study.hypothesis)}</p><p>Observation window: ${esc(savedWhen(link.study.starts_at))} to ${esc(savedWhen(link.study.ends_at))}</p>
           <label class="field">Exact tagged link<input readonly value="${esc(link.url)}"></label>
           <label class="field">Destination<select id="first-post-destination"><option value="">Choose where this post belongs</option>${[...destinations].map(([id,title])=>`<option value="${esc(id)}">${esc(title)}</option>`).join("")}</select></label>
           <p id="first-post-progress">Choose a destination to check delivery.</p>
-          <p>Observed landings: ${esc(report?.landing_subjects??"Unknown")} · linked registrations: ${esc(report?.linked_registration_subjects??"Unknown")}. Source-reported; no lift inferred.</p>
+          ${exactReport?WMMObservationalCampaign.checkpointMarkup(exactReport):'<p>Measurement report unavailable. Reopen this guide to retry.</p>'}
+          ${exactReport?button("Save study report as PDF","first-post-report-pdf"):""}
           ${button("Prepare tagged draft","first-post-publishing")}${button("Prepare creative brief","first-post-brief")}${button("Import installs for this study","first-post-import")}`;
         const draftButton=output.querySelector('[data-action="first-post-publishing"]');
         draftButton.disabled=true;
@@ -1569,6 +1571,11 @@ async function handleAction(node) {
   if(action==="next-answer-results"){$("#modal").close();state.view="results";return render();}
   if(action==="next-answer-publishing"){$("#modal").close();return guidedNavigate("connections","#publication-heading");}
   if(action==="first-post-page")return firstMeasuredPost(Number(node.dataset.offset));
+  if(action==="first-post-report-pdf"){
+    const {report}=selectedMeasuredPost();
+    if(!report)throw new Error("Reopen the study to load its report.");
+    return WMMObservationalCampaign.pdf(report,node);
+  }
   if(action==="first-post-import")return installImportForm(selectedMeasuredPost().link);
   if(action==="first-post-brief"){
     const {link}=selectedMeasuredPost();

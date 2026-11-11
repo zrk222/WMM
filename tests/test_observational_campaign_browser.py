@@ -49,6 +49,7 @@ class ObservationalCampaignBrowserTests(unittest.TestCase):
         start=datetime.now()+timedelta(hours=2)
         page.get_by_label('Starts (local time)').fill(start.strftime('%Y-%m-%dT%H:%M'))
         page.get_by_label('Ends (local time)').fill((start+timedelta(days=1)).strftime('%Y-%m-%dT%H:%M'))
+        page.get_by_label('Collector source ID').fill('synthetic-collector')
         page.get_by_label('Landing event in your source').fill('page_view')
         page.get_by_label('Registration event in your source').fill('registration_completed')
         page.get_by_role('button',name='Save study').click()
@@ -60,6 +61,8 @@ class ObservationalCampaignBrowserTests(unittest.TestCase):
          page.get_by_role('button',name='Save private report as PDF').click()
         expect(pdf.value.get_by_role('heading',name='Organic campaign attribution')).to_be_visible()
         expect(pdf.value.locator('body')).to_contain_text('Source hash')
+        expect(pdf.value.locator('body')).to_contain_text('Still collecting')
+        expect(pdf.value.locator('body')).to_contain_text('After the fixed window ends')
         pdf.value.close()
         page.evaluate("() => { window.open = () => { document.activeElement.blur(); return null; }; window.print = () => { window.reportPrinted = true; }; }")
         button = page.get_by_role('button', name='Save private report as PDF')
@@ -102,6 +105,8 @@ class ObservationalCampaignBrowserTests(unittest.TestCase):
         expect(page.get_by_label('Exact tagged link')).to_have_value(
             __import__('re').compile('utm_campaign=' + selected))
         expect(page.locator('#first-post-progress')).to_contain_text('destination')
+        expect(page.get_by_role('region',name='Study measurement checkpoint')).to_contain_text('Still collecting')
+        expect(page.get_by_role('button',name='Save study report as PDF')).to_be_visible()
         page.get_by_role('button',name='Import installs for this study').click()
         expect(page.get_by_label('Campaign token')).to_have_value(selected)
         assert page.get_by_label('Campaign token').get_attribute('readonly') is not None
