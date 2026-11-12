@@ -6,9 +6,17 @@
 
 WMM is the local, owner-approved workspace for that job. It is not sold as a full marketing SaaS, an autonomous growth guarantee or a complete KPI platform.
 
+## First-day and first-month expectations
+
+- **Day 1 — a clearer next marketing move.** Choose one app-growth question and prepare your first evidence packet: a plan, its sources and what is still missing.
+- **Around Day 30, with regular use — a record you can build on.** Bring research, approved work and available results into a dated record, then decide what to continue, revise or stop.
+- **Potential benefit:** less repeated research, clearer campaign decisions and fewer unsupported bets. Available measurements depend on completed work and connected sources. Growth and time savings are not guaranteed or established by this message.
+
+Use these expectations in the public overview, first-run guide and app introduction. Day 30 is a review horizon, not a promised performance deadline. Exact actions still require their existing approvals.
+
 ## Who it is for
 
-A founder or small app team that can name one growth question, has a real app destination and is willing to approve one bounded experiment before expanding.
+Founders and marketing teams promoting and managing one app or a portfolio. Begin with one growth question and one bounded experiment per app. Keep each app’s permissions and evidence separate. This describes the audience and multi-app workflow, not a claim of shared cloud team dashboards.
 
 ## Three proof pillars
 

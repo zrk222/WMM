@@ -1,8 +1,8 @@
-﻿# Start here: install WMM and make your first plan
+# Start here: install WMM and make your first plan
 
-WMM helps you plan and check marketing for one app, then keep the receipts. You
-can use it on your own or hand approved work to an AI assistant. This guide is
-for the desktop preview.
+Built for founders and marketing teams, WMM helps you promote and manage one
+app or a portfolio. Keep a separate question, evidence and permissions for each
+app, and hand approved work to your AI assistant. This guide is for the desktop preview.
 
 ## What you need
 
@@ -26,21 +26,36 @@ get past it.
 
 ## Your first 15 minutes
 
+**Day 1 — a clearer next marketing move.** Choose one app-growth question and
+prepare your first evidence packet: a plan, its sources and what is still missing.
+
 You do not need an account, a paid model or a provider connection for these
 steps.
 
 1. **Add your app.** Give it a name, who it helps, what it helps them do, the
    first useful action, the version or build you tested, and the language/locale.
    Choose **Save and choose a goal**.
-2. **Pick a goal.** Start with **Find a useful marketing angle**, then choose
-   **Open your first packet**.
+2. **Pick a goal.** Choose **Find a useful marketing angle**. In **Start here**
+   above, choose **Open your first packet**.
 3. **Read the packet.** It lists the research and creative steps for this app
    and the missing pieces you can add next.
-4. **Keep a copy.** Choose **Download goal packet**. This works before you
-   connect anything, publish anything or spend anything.
+4. **Keep your place.** Choose **Save packet in this workspace**. Reopen it
+   under **Pick up where you left off** after restarting WMM. Once it is saved,
+   **Report / Save PDF** opens a readable report. **Download goal packet** keeps
+   a JSON copy if you need one. These steps do not publish or spend.
 5. **Add one reference.** Choose **Add a research reference** and save a source
    you want to study. To qualify as viral, a source also needs 100,000 views and
    10× a documented creator baseline. That is evidence, not a promise.
+
+## Around Day 30, with regular use
+
+**A record you can build on.** Return to your
+question, add research, review creative, and inspect approved work and available
+results. Keep dated decisions about what to continue, revise or stop.
+
+This can help you repeat less research and focus your marketing effort.
+Measurements depend on the sources you connect and the work you complete.
+Missing measurements stay unknown. Growth and time savings are not guaranteed.
 
 ## Words you will see
 
