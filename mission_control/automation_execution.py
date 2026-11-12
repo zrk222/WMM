@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+import json
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 from sqlite3 import Connection, Row
 from typing import TYPE_CHECKING, NotRequired, TypedDict
-import json
-import time
 
 from .common import Invalid, digest, iso_time
 
@@ -29,9 +29,7 @@ class WorkerLease(TypedDict):
     attempts: int
 
 
-ACTIVE: ContextVar[StandingExecutionContext | None] = ContextVar(
-    "wmm_standing_execution", default=None
-)
+ACTIVE: ContextVar[StandingExecutionContext | None] = ContextVar("wmm_standing_execution", default=None)
 
 
 def execution_row(db, identity):
@@ -47,9 +45,7 @@ def capture_deadline(db, identity, policy, grant):
     from .authority_expiry import effective_expiry, initial_base
 
     proposal = json.loads(policy["proposal"])
-    base = initial_base(
-        proposal["limits"]["expires"], policy["created"], proposal.get("extended_expiry_consent")
-    )
+    base = initial_base(proposal["limits"]["expires"], policy["created"], proposal.get("extended_expiry_consent"))
     policy_proof = effective_expiry(db, "AUTOMATION", policy, base)
     grant_proof = effective_expiry(db, "AGENT_GRANT", grant, grant["expires"])
     expiry = min(iso_time(policy_proof["expires"]), iso_time(grant_proof["expires"])).isoformat()
@@ -62,9 +58,7 @@ def capture_deadline(db, identity, policy, grant):
         grant_hash=grant_proof["receipt_hash"],
     )
     data["record_hash"] = digest(data)
-    db.execute(
-        "INSERT INTO automation_execution_authority VALUES (?,?,?,?,?,?,?)", tuple(data.values())
-    )
+    db.execute("INSERT INTO automation_execution_authority VALUES (?,?,?,?,?,?,?)", tuple(data.values()))
 
 
 def execution_deadline(db, execution):
@@ -73,16 +67,12 @@ def execution_deadline(db, execution):
         "SELECT * FROM automation_execution_authority WHERE execution_id=?", (execution["id"],)
     ).fetchone()
     if saved:
-        data = {key: saved[key] for key in saved.keys() if key != "record_hash"}
+        data = {key: saved[key] for key in saved.keys() if key != "record_hash"}  # noqa: SIM118 - sqlite3.Row
         if digest(data) != saved["record_hash"]:
             raise PermissionError("Standing execution authority changed")
         return iso_time(saved["permission_expires_at"])
-    policy = db.execute(
-        "SELECT summary FROM automation_policies WHERE id=?", (execution["policy_id"],)
-    ).fetchone()
-    grant = db.execute(
-        "SELECT expires FROM agent_grants WHERE id=?", (execution["grant_id"],)
-    ).fetchone()
+    policy = db.execute("SELECT summary FROM automation_policies WHERE id=?", (execution["policy_id"],)).fetchone()
+    grant = db.execute("SELECT expires FROM agent_grants WHERE id=?", (execution["grant_id"],)).fetchone()
     if not policy or not grant:
         raise PermissionError("Standing execution original authority is unavailable")
     return min(iso_time(json.loads(policy["summary"])["stops_at"]), iso_time(grant["expires"]))
@@ -125,15 +115,19 @@ def guard_connection(path: str | Path, db: Connection, committing: bool = False)
 
 def check_job(db: Connection, context: StandingExecutionContext, execution: Row) -> None:
     """Cancelled, modified or replaced worker leases cannot inherit old authority."""
+    job_id = context.get("job_id")
+    attempt = context.get("attempt")
+    if job_id is None or attempt is None:
+        raise PermissionError("Standing job context is incomplete")
     row = db.execute(
         "SELECT j.*,s.execution_id,s.request_hash FROM jobs j JOIN automation_job_scopes s ON s.job_id=j.id WHERE j.id=?",
-        (context["job_id"],),
+        (job_id,),
     ).fetchone()
     if (
         row is None
         or row["execution_id"] != execution["id"]
         or row["status"] != "RUNNING"
-        or row["attempts"] != context["attempt"]
+        or row["attempts"] != attempt
         or row["lease"] <= time.time()
     ):
         raise PermissionError("Standing job is cancelled or its worker lease changed")
@@ -143,7 +137,7 @@ def check_job(db: Connection, context: StandingExecutionContext, execution: Row)
         raise PermissionError("Standing job input changed after admission")
     data = value["data"]
     if data.get("native_runtime") == "IOS_LOCAL_V1":
-        from .ios_jobs import source_hash, require_native_sources
+        from .ios_jobs import require_native_sources, source_hash
 
         app = db.execute("SELECT version,data FROM apps WHERE id=?", (row["app_id"],)).fetchone()
         if (
@@ -167,16 +161,12 @@ def attach_job(db, job, created):
     ).fetchone()
     if previous:
         original = execution_row(db, context["id"])
-        if previous["policy_id"] != original["policy_id"] or previous["request_hash"] != job_hash(
-            job
-        ):
+        if previous["policy_id"] != original["policy_id"] or previous["request_hash"] != job_hash(job):
             raise PermissionError("Existing job belongs to a different standing scope")
         return
     if not created:
         raise PermissionError("Standing scope cannot adopt an unrelated existing job")
-    db.execute(
-        "INSERT INTO automation_job_scopes VALUES(?,?,?)", (job["id"], context["id"], job_hash(job))
-    )
+    db.execute("INSERT INTO automation_job_scopes VALUES(?,?,?)", (job["id"], context["id"], job_hash(job)))
 
 
 @contextmanager
@@ -195,8 +185,8 @@ def bound(store: Store, identity: str, job: WorkerLease | None = None) -> Iterat
 
 def start(store, admission, envelope):
     """Linearize dispatch against OFF and reject intent substitution or replay."""
-    from .db import connection
     from .complete_automation import checked_policy, utc
+    from .db import connection
 
     identity = admission["automation_execution_id"]
     with connection(store.path) as db:
@@ -219,8 +209,8 @@ def start(store, admission, envelope):
 
 def finish(store, identity, result=None, error=None):
     """Persist outcome outside domain authority; partial failures stay uncertain."""
-    from .db import connection
     from .complete_automation import utc
+    from .db import connection
 
     with connection(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
@@ -255,8 +245,8 @@ def execution_outcome(row, error):
 
 def execute_admitted(service, envelope, admission):
     """Use the fixed dispatcher with admitted context; legacy grants remain intact."""
-    from .operation_runtime import execute
     from .operation_authority import bound_agent
+    from .operation_runtime import execute
     from .video_edit_projects import admitted_caller
 
     with bound_agent(service.store, envelope, admission), admitted_caller(admission):
@@ -281,20 +271,16 @@ def dispatch_admitted(service, envelope, admission, execute):
 @contextmanager
 def job_execution(store, job):
     """Workers inherit only their durable exact job scope, never ambient credentials."""
-    from .db import connection
     from .complete_automation import checked_policy, utc, verify_access
+    from .db import connection
 
     with connection(store.path) as db:
-        row = db.execute(
-            "SELECT execution_id FROM automation_job_scopes WHERE job_id=?", (job["id"],)
-        ).fetchone()
+        row = db.execute("SELECT execution_id FROM automation_job_scopes WHERE job_id=?", (job["id"],)).fetchone()
         if row is not None:
             execution = execution_row(db, row["execution_id"])
             policy, summary = checked_policy(db, execution["policy_id"], utc())
             check_execution_deadline(db, execution, utc())
-            verify_access(
-                store, policy["app_id"], summary["inventory"]["selection"]["agent_connection_id"]
-            )
+            verify_access(store, policy["app_id"], summary["inventory"]["selection"]["agent_connection_id"])
     if row is None:
         yield
         return

@@ -8,7 +8,7 @@ Each row mirrors a closed descriptor in `mission_control/operation_catalog.py`.
 | `activity.history` | `GET` | `/activity/history` | `READ_PRIVATE_LOCAL_DATA` | - | `kind`, `status`, `cursor`, `limit` | `kind`, `status`, `cursor`, `limit` |
 | `billing.save` | `POST` | `/records` | `WRITE_LOCAL_EVIDENCE` | `id`, `manifest_version`, `kind`, `title`, `source`, `data` | - | - |
 | `campaign.ad-launch` | `POST` | `/campaigns/ad-launch` | `SPEND_WITH_STANDING_CAMPAIGN_AUTHORITY` | `scope_id`, `request` | - | - |
-| `campaign.history` | `POST` | `/campaigns/history` | `READ_PRIVATE_LOCAL_DATA` | - | - | - |
+| `campaign.history` | `POST` | `/campaigns/history` | `READ_PRIVATE_LOCAL_DATA` | - | `approved_link_sha256` | - |
 | `campaign.pause` | `POST` | `/campaigns/pause` | `PAUSE_OWNED_EXTERNAL_CAMPAIGN` | `scope_id`, `intent_id` | - | - |
 | `campaign.publish` | `POST` | `/campaigns/publish` | `PUBLISH_WITH_STANDING_CAMPAIGN_AUTHORITY` | `scope_id`, `request` | - | - |
 | `campaign.reconcile` | `POST` | `/campaigns/reconcile` | `READ_OWNED_PROVIDER_STATUS` | `scope_id`, `intent_id` | - | - |
