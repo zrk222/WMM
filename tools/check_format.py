@@ -14,7 +14,7 @@ def maintained():
     return [
         line.strip()
         for line in LIST.read_text(encoding="utf-8").splitlines()
-        if line.strip() and not line.lstrip().startswith("#")
+        if line.strip() and not line.lstrip().startswith("#") and (ROOT / line.strip()).is_file()
     ]
 
 
@@ -22,7 +22,7 @@ def maintained_js():
     return [
         line.strip()
         for line in JS_LIST.read_text(encoding="utf-8").splitlines()
-        if line.strip() and not line.lstrip().startswith("#")
+        if line.strip() and not line.lstrip().startswith("#") and (ROOT / line.strip()).is_file()
     ]
 
 

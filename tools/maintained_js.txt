@@ -1,4 +1,4 @@
-# Static JavaScript covered by the Prettier ratchet.
+# Automatically enrolled source; entries only grow.
 mission_control/static/acquisition.mjs
 mission_control/static/aeo.mjs
 mission_control/static/agent-access.mjs

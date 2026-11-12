@@ -119,3 +119,12 @@ python tools/integrity_drill.py
 For a new gap, record the affected workflow, a reproducer and the acceptance
 test in the owning spec or issue. A small formatting diff, green synthetic
 tests or a saved agent receipt does not establish live provider behavior.
+
+## Automatic source enrollment
+
+Before pushing, run `python tools/source_ratchet.py --base origin/main --write`.
+Every changed or new Python/JavaScript file joins its existing maintained registry.
+CI compares the exact reviewed base and candidate, rejecting missing enrollment
+or registry shrinkage. Removed source remains as historical registry entries;
+format/type runners check existing files. The checker never changes source.
+Generated source receives no automatic exemption. Fix its generator when needed.

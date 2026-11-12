@@ -2,8 +2,8 @@
 
 import hashlib
 import json
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 # The browser profile provisions Chromium and the local render runtime and runs
@@ -21,6 +21,15 @@ GROUP = "${{ github.workflow }}-${{ github.event.pull_request.number || github.r
 
 def job_digest(path):
     text = (ROOT / path).read_text(encoding="utf-8")
+    if path == ".github/workflows/checks.yml":
+        gate = text.split("      - name: Enforce automatically enrolled source ratchets\n", 1)
+        if len(gate) == 2:
+            text = (
+                gate[0]
+                + "      - name: Install pinned runtime and formatter"
+                + gate[1].split("      - name: Install pinned runtime and formatter", 1)[1]
+            )
+        text = text.replace("        with:\n          fetch-depth: 0\n", "", 1)
     raw = (
         json.dumps(json.loads(text)["jobs"], separators=(",", ":"), ensure_ascii=False)
         if path.endswith("platform-checks.yml")
@@ -58,6 +67,12 @@ class CurrentCandidateCITests(unittest.TestCase):
         self.assertIn("python tools/test_authority_expiry_browser.py", browser)
         self.assertIn("python tools/test_agent_task_presets_browser.py", browser)
         self.assertEqual(text.count("python -m pip install --only-binary :all: -r docs/requirements-auth.txt"), 3)
+
+    def test_ratchet_reads_exact_base_without_executing_enrollment(self):
+        text = (ROOT / ".github/workflows/checks.yml").read_text()
+        self.assertIn('python tools/source_ratchet.py --base "$RATCHET_BASE" --head HEAD', text)
+        self.assertIn("github.event.pull_request.base.sha || github.event.before", text)
+        self.assertNotIn("source_ratchet.py --write", text)
 
     def test_full_job_definitions_and_test_matrices_are_preserved(self):
         for path, expected in BASELINES.items():
