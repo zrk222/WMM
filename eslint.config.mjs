@@ -1,5 +1,16 @@
 export default [
   {
+    files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
+    languageOptions: { ecmaVersion: 2022 },
+    rules: {
+      'no-unreachable': 'error',
+      'no-dupe-args': 'error',
+      'no-dupe-keys': 'error',
+      'valid-typeof': 'error',
+      'no-unsafe-finally': 'error',
+    },
+  },
+  {
     files: ['mission_control/static/app.mjs', 'mission_control/static/*.mjs'],
     languageOptions: {
       ecmaVersion: 2022,
