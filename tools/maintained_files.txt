@@ -26,6 +26,7 @@ mission_control/operation_catalog.py
 mission_control/payment_sources.py
 mission_control/play_connections.py
 mission_control/review_access.py
+mission_control/server.py
 mission_control/service.py
 mission_control/social_renewal.py
 mission_control/store.py
@@ -40,6 +41,7 @@ tests/test_kpi_data_gaps.py
 tests/test_measurement_economics.py
 tests/test_migrations.py
 tests/test_operation_docs.py
+tests/test_page_reporting_http.py
 tests/test_parser_properties.py
 tests/test_property_profiles.py
 tests/test_query_budgets.py

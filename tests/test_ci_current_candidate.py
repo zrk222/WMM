@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # All eight backend shards and the native/package job definitions are retained.
 # One Ubuntu shard also runs the isolated native Secret Service acceptance.
 BASELINES = {
-    ".github/workflows/checks.yml": "eaddaeec9595f63c20a14b9cd7ae9cc201e6e106f13dea2fa2ada5c88d1086f0",
+    ".github/workflows/checks.yml": "3dc252440b5568f4ee53491534fb796427a94acf18bda8a4d5176e25d623bfc7",
     ".github/workflows/platform-checks.yml": "8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",
     ".github/workflows/desktop-packages.yml": "f0aac774bb6117a0f8a60ae2ad681282ee537fcfcc9b0919cbe7a0df6f854541",
 }
@@ -100,6 +100,12 @@ class CurrentCandidateCITests(unittest.TestCase):
         requirements = (ROOT / "docs/requirements-report-types.txt").read_text(encoding="utf-8")
         for dependency in ("playwright==1.57.0", "PyMuPDF==1.27.2.2"):
             self.assertIn(dependency + " --hash=sha256:", requirements)
+
+    def test_native_library_types_run_with_pinned_local_tooling(self):
+        text = (ROOT / ".github/workflows/checks.yml").read_text(encoding="utf-8")
+        maintained = text.split("  maintainability:\n", 1)[1].split("  browser:\n", 1)[0]
+        self.assertIn("run: node tools/check_js_types.mjs", maintained)
+        self.assertLess(maintained.index("npm ci --ignore-scripts"), maintained.index("node tools/check_js_types.mjs"))
 
     def test_full_job_definitions_and_test_matrices_are_preserved(self):
         for path, expected in BASELINES.items():

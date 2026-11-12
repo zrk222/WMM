@@ -1,25 +1,27 @@
 """Loopback-only Mission Control server. Run: python -m mission_control.server."""
 
 import argparse
-from http import cookies
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import hashlib
 import json
 import mimetypes
 import os
-from pathlib import Path
 import re
 import secrets
 import socket
 import sys
-from urllib.parse import urlparse, unquote, parse_qs
+from http import cookies
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Callable, Protocol, cast
+from urllib.parse import parse_qs, unquote, urlparse
+
 from .common import Invalid, canonical, digest
-import hashlib
-from .store import Store
 from .db import connection
-from .service import Service
-from .worker import Runner
-from .operator_identity import Identities
 from .operation_outcome import EffectUncertain
+from .operator_identity import Identities
+from .service import Service
+from .store import Store
+from .worker import Runner
 
 STATIC = Path(__file__).resolve().parent / "static"
 
@@ -68,6 +70,10 @@ def owner_domain_post(parts):
     return import_module("." + module, __package__).post
 
 
+class WorkerHealthHook(Protocol):
+    worker_health: Callable[[], dict[str, object]]
+
+
 class Server(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = os.name != "nt"
@@ -106,7 +112,9 @@ class Server(ThreadingHTTPServer):
 
         self.audit_runner = AuditWorker(store)
         self.runtime_mode = runtime_mode if runtime_mode in ("DESKTOP", "HEADLESS", "SERVER") else "UNKNOWN"
-        self.service.worker_health = lambda: dict(self.runner.health, runtime_mode=self.runtime_mode)
+        cast(WorkerHealthHook, self.service).worker_health = lambda: dict(
+            self.runner.health, runtime_mode=self.runtime_mode
+        )
         self.studio_shutdown_result = None
         self.desktop_proof = None
 
@@ -120,6 +128,9 @@ class Server(ThreadingHTTPServer):
 
 
 class Handler(BaseHTTPRequestHandler):
+    # Server.__init__ always constructs this handler with the local Server subclass.
+    server: Server  # pyright: ignore[reportIncompatibleVariableOverride]
+
     def log_message(self, format, *args):
         """Avoid logging request paths or sensitive provider references to console."""
         return
@@ -265,7 +276,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send(400, {"error": str(exc)})
         except (ConnectionAbortedError, BrokenPipeError, ConnectionResetError):
             return
-        except Exception:
+        except Exception:  # noqa: BLE001 - HTTP boundary returns a fixed private failure response.
             self.send(
                 500,
                 {
@@ -325,9 +336,9 @@ class Handler(BaseHTTPRequestHandler):
             "/insights.mjs",
             "/storekit.mjs",
             "/attribution.mjs",
-            "/analytics-inventory.js",
-            "/campaign-plan.js",
-            "/mmp-import-model.js",
+            "/analytics-inventory.mjs",
+            "/campaign-plan.mjs",
+            "/mmp-import-model.mjs",
             "/guided-workflow.mjs",
             "/subscriptions.mjs",
             "/workflow-automation.mjs",
@@ -399,7 +410,9 @@ class Handler(BaseHTTPRequestHandler):
         if path not in files:
             raise KeyError(path)
         file = STATIC / files[path]
-        content_type = "text/javascript" if file.suffix in (".js", ".mjs") else mimetypes.guess_type(file.name)[0]
+        content_type = (
+            "text/javascript" if file.suffix in (".js", ".mjs") else cast(str, mimetypes.guess_type(file.name)[0])
+        )
         return self.send_asset(file, content_type + "; charset=utf-8")
 
     def get_weekly_review(self):
@@ -499,7 +512,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise Invalid("Use the exact workflow telemetry address")
             from .workflow_telemetry import monitor
 
-            return self.send(200, monitor(store, app_id, self.server.service.worker_health()))
+            return self.send(200, monitor(store, app_id, cast(WorkerHealthHook, self.server.service).worker_health()))
         if parts[3:] == ["reports", "summary"]:
             if urlparse(self.path).query:
                 raise Invalid("Use the exact app summary report address")
@@ -617,15 +630,24 @@ class Handler(BaseHTTPRequestHandler):
 
     def get_instrumentation(self, parts):
         """Download the exact reviewed app-owned package without provider or install authority."""
-        from .instrumentation import prepare, archive
+        from .instrumentation import archive, prepare
         from .instrumentation_state import record_download
 
         if urlparse(self.path).query or len(parts) != 8 or parts[5] != "instrumentation":
             raise Invalid("Use the current exact integration package address")
-        value = prepare(self.server.service.store, parts[2], parts[4], parts[6], parts[7])
-        record_download(self.server.service.store, parts[2], value["experiment_id"], parts[7], value["bundle_hash"])
+        value = cast(dict[str, object], prepare(self.server.service.store, parts[2], parts[4], parts[6], parts[7]))
+        record_download(
+            self.server.service.store,
+            parts[2],
+            cast(str, value["experiment_id"]),
+            parts[7],
+            cast(str, value["bundle_hash"]),
+        )
         return self.send(
-            200, archive(value), "application/zip", filename="wmm-" + value["experiment_id"] + "-instrumentation.zip"
+            200,
+            archive(value),
+            "application/zip",
+            filename="wmm-" + cast(str, value["experiment_id"]) + "-instrumentation.zip",
         )
 
     def get_social_progress(self, app_id, identity):
@@ -646,7 +668,7 @@ class Handler(BaseHTTPRequestHandler):
         if not re.fullmatch(r"[a-f0-9-]+\.(?:png|jpg|jpeg)", parts[4]):
             raise Invalid("Invalid asset identifier")
         file = store.path.parent / "files" / app_id / parts[4]
-        return self.send(200, file.read_bytes(), mimetypes.guess_type(file.name)[0])
+        return self.send(200, file.read_bytes(), cast(str, mimetypes.guess_type(file.name)[0]))
 
     def get_activity(self, app_id):
         """Serve one bounded, filtered page of joined app-owned local records."""
@@ -869,7 +891,7 @@ class Handler(BaseHTTPRequestHandler):
             or path == "/api/restore"
         )
         if strict:
-            from .payment_signature import unique_pairs, bounded_tree
+            from .payment_signature import bounded_tree, unique_pairs
 
             data = json.loads(
                 raw,
@@ -954,7 +976,7 @@ class Handler(BaseHTTPRequestHandler):
         """Finite app-owned access operations cannot accept arbitrary commands."""
         from .agent_access import AgentAccess, detect
         from .agent_contract import exact
-        from .agent_tasks import proposal, AgentWork
+        from .agent_tasks import AgentWork, proposal
 
         store = self.server.service.store
         store.app(app_id)
@@ -1180,7 +1202,7 @@ class Handler(BaseHTTPRequestHandler):
             data.get("request_id"),
             source_hash,
         )
-        normalized = checklist.pop("_batch", None)
+        normalized = cast(dict[str, object], checklist.pop("_batch", None))
         if checklist["status"] != "READY":
             if not confirm:
                 return self.send(200, dict(checklist=checklist, batch=None, preview_id=None))
@@ -1337,8 +1359,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def post_storekit(self, parts, data):
         """Fresh app owner/maker identity protects source setup, manual verification and disconnect."""
-        from .storekit_sources import Sources
         from .storekit_ingestion import Notifications
+        from .storekit_sources import Sources
 
         user = self.server.identities.fresh(self.session())
         store = self.server.service.store
@@ -1380,10 +1402,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def post_attribution(self, parts, data):
         """Fresh app roles protect declarations, immutable maps and explicit one-shot reads."""
-        from .attribution_sources import Sources
-        from .attribution_maps import Maps
-        from .attribution_ingestion import Observations
         from .attribution_adservices import AdServices
+        from .attribution_ingestion import Observations
+        from .attribution_maps import Maps
+        from .attribution_sources import Sources
 
         user = self.server.identities.fresh(self.session())
         store = self.server.service.store
