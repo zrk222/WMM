@@ -188,8 +188,8 @@ def self_test():
                 assert json.load(response)["apps"]
             for route, marker in (
                 ("/", b"Set your goal"),
-                ("/app.js", b"goalOverview"),
-                ("/guided-workflow.js", b"WMMGoalJourney"),
+                ("/app.mjs", b"goalOverview"),
+                ("/guided-workflow.mjs", b"WMMGoalJourney"),
             ):
                 with client.open(runtime.origin + route, timeout=10) as response:
                     assert marker in response.read()

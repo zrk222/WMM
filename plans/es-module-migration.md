@@ -37,6 +37,11 @@ Move top-level app listener registration and initial load into startApplication;
 
 - [x] T28 | slice=mission_control | files=mission_control/migrations/__init__.py,tests/test_migrations.py | verify=`python -m unittest tests.test_migrations -q` | Reject future or renamed migration ledger entries before mutating ledger or user_version; preserve evidence for manual recovery.
 
+- [x] T29 | slice=mission_control | files=mission_control/desktop.py | verify=`python -m unittest tests.test_desktop_entry tests.test_packaged_first_packet_contract -q` | Update desktop self-test routes to the native module filenames and verify packaged entry acceptance.
+
+- [x] T30 | slice=tests | files=tests/test_organic_policy_gui_browser.py | verify=`python -m unittest tests.test_organic_policy_gui_browser -q` | Poll module state explicitly in the remaining concatenated browser predicate.
+- [x] T31 | slice=tests | files=tests/agent-handoffs-ui.test.js,tests/agent-handoffs-ui.test.mjs,tests/hypit-interface.test.js,tests/hypit-interface.test.mjs | verify=`node --test tests/agent-handoffs-ui.test.mjs tests/hypit-interface.test.mjs` | Move dormant ESM tests into the active mjs CI discovery pattern and inject isolated module services.
+
 ## Validation
 Run all Node logic tests, migrated Python source-contract tests, HTTP asset traversal and actual owner automation desktop/mobile browser journeys. Retain original failures and current source hashes. Pure feature CommonJS tests remain supported; callback pages are separate. No provider effects or publication. Record bounded DeepSeek audit and current limitations.
 

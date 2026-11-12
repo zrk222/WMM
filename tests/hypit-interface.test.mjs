@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
+import fs from './helpers/module-source.cjs';
 import vm from 'node:vm';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -19,7 +19,7 @@ function fixture() {
     modal:(title,html)=>{markup=html;},json:JSON.stringify,toast:()=>{},refresh:async()=>{},download:()=>{},
     $:selector=>selector==='#form-error'?error:selector==='#modal video'?{addEventListener:()=>{}}:{close:()=>{}},
     api:async(url,body)=>calls.push({url,body}),FormData:class {constructor(form){return form.values;}}};
-  vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(__dirname,'../mission_control/static/creative-rendering.js'),'utf8'),context);
+  vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(__dirname,'../mission_control/static/creative-rendering.mjs'),'utf8'),context);
   return {context,listeners,calls,error,request,markup:()=>markup};
 }
 

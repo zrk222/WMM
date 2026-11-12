@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
+import fs from './helpers/module-source.cjs';
 import vm from 'node:vm';
 
 test('handoff view shows original job, digest and bounded authority without injecting markup', async () => {
@@ -16,7 +16,7 @@ test('handoff view shows original job, digest and bounded authority without inje
     api:async url=>url.endsWith('handoff-list')?{handoffs:[saved]}:url.endsWith('agent-operations')?{local_catalog:{operations:{'jobs.read':{},'handoff.create':{}}}}:{grants:[{agent_id:'replacement',status:'ACTIVE'}]},
     modal:(title,html)=>{rendered=html;}};
   vm.createContext(context);
-  vm.runInContext(fs.readFileSync('mission_control/static/agent-access.js','utf8'),context);
+  vm.runInContext(fs.readFileSync('mission_control/static/agent-access.mjs','utf8'),context);
   await context.agentHandoffs();
   assert.match(rendered,/job-one/);assert.match(rendered,/digest-only/);
   assert.match(rendered,/&lt;replacement&gt;/);assert.doesNotMatch(rendered,/<replacement>/);
