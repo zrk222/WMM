@@ -26,7 +26,9 @@ EXAMPLE_DATABASE = DirectoryBasedExampleDatabase(
     Path(__file__).resolve().parents[1] / ".factory" / "hypothesis" / "examples"
 )
 for profile in ("wmm-local", "wmm-ci"):
-    settings.register_profile(profile, max_examples=200, deadline=None, print_blob=True, derandomize=False, database=EXAMPLE_DATABASE)
+    settings.register_profile(
+        profile, max_examples=200, deadline=None, print_blob=True, derandomize=False, database=EXAMPLE_DATABASE
+    )
 settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "wmm-local"))
 
 JSON_VALUES = st.recursive(
