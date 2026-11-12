@@ -6,10 +6,12 @@ mission_control/static/agent-control.js
 mission_control/static/analytics-inventory.js
 mission_control/static/app-campaign.js
 mission_control/static/app-connections.js
+mission_control/static/app-events.js
 mission_control/static/app-install.js
 mission_control/static/app-production.js
 mission_control/static/app-research.js
 mission_control/static/app-results.js
+mission_control/static/app-weekly.js
 mission_control/static/app.js
 mission_control/static/apple-analytics.js
 mission_control/static/attribution.js

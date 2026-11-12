@@ -82,7 +82,7 @@ test('closed dialog or new app drops late library reads; owner is required for w
  const g=fixture();await media.open(g.d);g.d.state.workspace.access.members[0].role='CHECKER';await media.submit(upload([file('one.mp4')]),g.d);assert.equal(g.calls.length,1);
 });
 test('Research and modal hooks load one exact module and preserve scoped cleanup',()=>{
- const app=fs.readFileSync('mission_control/static/app.js','utf8'),index=fs.readFileSync('mission_control/static/index.html','utf8');
+ const app=fs.readFileSync('mission_control/static/app.js','utf8')+fs.readFileSync('mission_control/static/app-events.js','utf8'),index=fs.readFileSync('mission_control/static/index.html','utf8');
  const flat=app.replace(/\s+/g,'');for(const hook of ['WMMMedia.panel()','WMMMedia.invalidate(state)','WMMMedia.clear()','WMMMedia.submit(form,growthReviewServices())','WMMMedia.action(node,growthReviewServices())'])assert.ok(flat.includes(hook),hook);
  assert.equal((index.match(/src="\/managed-media.js"/g)||[]).length,1);assert.match(media.panel(),/Optional Drive selection/);
 });

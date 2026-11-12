@@ -371,6 +371,8 @@ class Handler(BaseHTTPRequestHandler):
             "/app-results.js",
             "/app-connections.js",
             "/app-research.js",
+            "/app-weekly.js",
+            "/app-events.js",
         )
         if path in scripts:
             return self.send_asset(STATIC / path[1:], "text/javascript; charset=utf-8")

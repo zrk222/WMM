@@ -94,7 +94,7 @@ test('explicit validation denial stays certain and server errors stay uncertain'
  for(const code of [400,403,500]){const t={scope:{app:'one'},d:{state:s(),fetch:async()=>({ok:false,status:code,json:async()=>({error:'Safe failure'})})}};await assert.rejects(()=>ui.request(t,'task-list',{}),e=>e.message==='Safe failure'&&e.uncertain===(code>=500));}
 });
 test('production entry points load the module and route actual actions, forms, invalidation and close',()=>{
- const app=fs.readFileSync(path.join(folder,'app.js'),'utf8'),index=fs.readFileSync(path.join(folder,'index.html'),'utf8');
+ const app=fs.readFileSync(path.join(folder,'app.js'),'utf8')+fs.readFileSync(path.join(folder,'app-events.js'),'utf8'),index=fs.readFileSync(path.join(folder,'index.html'),'utf8');
  const flat=app.replace(/\s+/g,'');for(const text of ['WMMOrganicResearch.panel()','WMMOrganicResearch.invalidate(state)','WMMOrganicResearch.clear()','WMMOrganicResearch.action(node,growthReviewServices())','WMMOrganicResearch.submit(form,growthReviewServices())'])assert.ok(flat.includes(text),text);
  assert.ok(index.includes('src="/organic-research.js"'));assert.ok(ui.panel().includes('100,000 views AND 10×'));
 });

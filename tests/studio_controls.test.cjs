@@ -73,7 +73,7 @@ test('network ambiguity is not a rejected edit and explicit stop shows durable c
  f.d.fetch=original;await studio.action(action('stop'),f.d);assert.match(f.nodes['#studio-error'].textContent,/CLOSED/);
 });
 test('workspace and submit hooks use the shared module and clear stale modal state',()=>{
- const dir=path.join(__dirname,'../mission_control/static'),app=fs.readFileSync(path.join(dir,'app.js'),'utf8'),index=fs.readFileSync(path.join(dir,'index.html'),'utf8');
+ const dir=path.join(__dirname,'../mission_control/static'),app=fs.readFileSync(path.join(dir,'app.js'),'utf8')+fs.readFileSync(path.join(dir,'app-events.js'),'utf8'),index=fs.readFileSync(path.join(dir,'index.html'),'utf8');
  const flat=app.replace(/\s+/g,'');for(const hook of ['WMMStudio.panel()','WMMStudio.invalidate(state)','WMMStudio.clear()','WMMStudio.submit(form,growthReviewServices())','WMMStudio.action(node,growthReviewServices())'])assert.ok(flat.includes(hook),hook);
  assert.ok(index.includes('src="/studio-controls.js"'));
 });
