@@ -53,7 +53,22 @@ def check():
     for script in scripts:
         syntax = subprocess.run(["node", "--check", script], cwd=ROOT)
         syntax_ok = syntax.returncode == 0 and syntax_ok
-    return 0 if formatted.returncode == 0 and lint.returncode == 0 and prettier.returncode == 0 and syntax_ok else 1
+    if not (ROOT / "node_modules/eslint").exists():
+        print("ESLINT_REQUIRED run npm ci", file=sys.stderr)
+        return 2
+    eslint = subprocess.run(
+        ["npx", "--no-install", "eslint", "mission_control/static/app.js", "mission_control/static/app-*.js"],
+        cwd=ROOT,
+    )
+    return (
+        0
+        if formatted.returncode == 0
+        and lint.returncode == 0
+        and prettier.returncode == 0
+        and syntax_ok
+        and eslint.returncode == 0
+        else 1
+    )
 
 
 def main():

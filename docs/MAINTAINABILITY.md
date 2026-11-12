@@ -60,7 +60,7 @@ The maintained set is `tools/maintained_files.txt`. It may only grow: add a file
 when you take ownership of its formatting and types.
 
 ```sh
-python tools/check_format.py   # Ruff, Prettier and node --check on both maintained sets
+python tools/check_format.py   # Ruff, Prettier, node --check and ESLint (app scripts)
 python tools/check_types.py    # Pyright basic on maintained Python + row types
 python tools/check_layering.py # import cycles, storage/portable/HTTP edges, docs rows
 python tools/query_budget.py   # SQL statement budgets; --update only lowers
