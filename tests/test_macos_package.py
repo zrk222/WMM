@@ -17,6 +17,8 @@ class MacOSPackageTests(unittest.TestCase):
             root = Path(temporary)
             bundle = root / 'bundle'
             bundle.mkdir()
+            (bundle / '_internal').mkdir()
+            (bundle / '_internal/runtime-fixture').write_bytes(b'synthetic library')
             for name in ('WMM', 'WMM-Mission-Control'):
                 (bundle / name).write_bytes(('synthetic ' + name).encode())
             app = stage(bundle, root / 'Wize Marketing Machine.app')
@@ -24,6 +26,8 @@ class MacOSPackageTests(unittest.TestCase):
                 info = plistlib.load(stream)
             self.assertEqual(info['CFBundleExecutable'], 'WMM-Mission-Control')
             self.assertEqual(info['CFBundlePackageType'], 'APPL')
+            self.assertEqual((app / 'Contents/Frameworks/runtime-fixture').read_bytes(), b'synthetic library')
+            self.assertFalse((app / 'Contents/MacOS/_internal').exists())
             for name in ('WMM', 'WMM-Mission-Control'):
                 self.assertEqual((app / 'Contents/MacOS' / name).read_bytes(), (bundle / name).read_bytes())
             self.assertIn('not notarized', (app / 'Contents/DEVELOPMENT-PREVIEW.txt').read_text())
@@ -40,6 +44,9 @@ class MacOSPackageTests(unittest.TestCase):
                 stage(bundle, root / 'Missing.app')
             for name in ('WMM', 'WMM-Mission-Control'):
                 (bundle / name).touch()
+            with self.assertRaisesRegex(ValueError, 'runtime libraries'):
+                stage(bundle, root / 'Incomplete.app')
+            (bundle / '_internal').mkdir()
             (root / 'private-file').write_text('synthetic external file')
             try:
                 (bundle / 'external').symlink_to(root / 'private-file')

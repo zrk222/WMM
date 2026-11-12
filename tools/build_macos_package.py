@@ -21,6 +21,8 @@ def stage(bundle: Path, destination: Path) -> Path:
         binary = bundle / name
         if not binary.is_file() or binary.is_symlink():
             raise ValueError('Build both native Mac executables before staging the app')
+    if not (bundle / '_internal').is_dir() or (bundle / '_internal').is_symlink():
+        raise ValueError('Frozen Mac runtime libraries are missing')
     for item in bundle.rglob('*'):
         if item.is_symlink():
             if Path(os.readlink(item)).is_absolute() or not item.resolve(strict=True).is_relative_to(bundle):
@@ -30,6 +32,9 @@ def stage(bundle: Path, destination: Path) -> Path:
     executables = destination / 'Contents/MacOS'
     executables.parent.mkdir(parents=True)
     shutil.copytree(bundle, executables, symlinks=True)
+    # PyInstaller recognizes .app/Contents/MacOS and resolves its library root
+    # as Contents/Frameworks, regardless of the onedir _internal setting.
+    (executables / '_internal').rename(destination / 'Contents/Frameworks')
     info = dict(CFBundleName='Wize Marketing Machine',
                 CFBundleDisplayName='Wize Marketing Machine',
                 CFBundleIdentifier='app.wizemarketing.missioncontrol',
