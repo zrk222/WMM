@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # All eight backend shards and the native/package job definitions are retained.
 # One Ubuntu shard also runs the isolated native Secret Service acceptance.
 BASELINES = {
-    ".github/workflows/checks.yml": "2348af99eab45380cb7b0a42c444d7afc13f22d92159a352e3ea573e010f6a64",
+    ".github/workflows/checks.yml": "aa6112b0c1af64996be3af504741c61f993ada07658eec31eee62a9866cedc66",
     ".github/workflows/platform-checks.yml": "8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",
     ".github/workflows/desktop-packages.yml": "f0aac774bb6117a0f8a60ae2ad681282ee537fcfcc9b0919cbe7a0df6f854541",
 }
@@ -104,7 +104,9 @@ class CurrentCandidateCITests(unittest.TestCase):
     def test_native_library_types_run_with_pinned_local_tooling(self):
         text = (ROOT / ".github/workflows/checks.yml").read_text(encoding="utf-8")
         maintained = text.split("  maintainability:\n", 1)[1].split("  browser:\n", 1)[0]
-        self.assertIn("run: node tools/check_js_types.mjs", maintained)
+        self.assertIn("node tools/check_js_types.mjs", maintained)
+        self.assertIn("node --test tests/feature_library_types.test.mjs", maintained)
+        self.assertIn("WMM_CHECK_JS_TYPES_REQUIRED: '1'", maintained)
         self.assertLess(maintained.index("npm ci --ignore-scripts"), maintained.index("node tools/check_js_types.mjs"))
 
     def test_full_job_definitions_and_test_matrices_are_preserved(self):
