@@ -7,7 +7,7 @@ on:
       - 'mission_control/credential_vault.py'
       - 'tools/build_desktop.py'
       - 'tools/build_macos_package.py'
-      - 'tools/test_macos_package.py'
+      - 'tools/check_macos_bundle.py'
       - 'tools/test_native_desktop_bundle.py'
       - 'tests/test_macos_*.py'
       - 'docs/requirements-macos.txt'
@@ -58,7 +58,7 @@ jobs:
       - name: Verify actual native pair and Keychain cleanup
         run: |
           ditto -x -k "dist/macos/WMM-macOS-${{ matrix.architecture }}.zip" dist/macos/extracted
-          python tools/test_macos_package.py
+          python tools/check_macos_bundle.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: WMM-macOS-${{ matrix.architecture }}-${{ github.sha }}

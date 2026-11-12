@@ -58,7 +58,7 @@ class MacOSPackageTests(unittest.TestCase):
         self.assertNotIn('--collect-all=keyring', argv)
 
     def test_acceptance_refuses_non_mac_or_non_hosted_machine(self):
-        main = runpy.run_path(str(ROOT / 'tools/test_macos_package.py'))['main']
+        main = runpy.run_path(str(ROOT / 'tools/check_macos_bundle.py'))['main']
         with patch('sys.platform', 'darwin'), patch.dict('os.environ', {}, clear=True):
             with self.assertRaisesRegex(SystemExit, 'disposable GitHub runner'):
                 main()
@@ -93,7 +93,7 @@ class MacOSPackageTests(unittest.TestCase):
     def test_ci_declares_both_architectures_without_publishing(self):
         workflow = (ROOT / '.github/workflows/macos-desktop.yml').read_text()
         for value in ('macos-15-intel', 'macos-15', 'x86_64', 'arm64',
-                      'tools/test_macos_package.py', 'retention-days: 7'):
+                      'tools/check_macos_bundle.py', 'retention-days: 7'):
             self.assertIn(value, workflow)
         self.assertNotIn('contents: write', workflow)
         self.assertNotIn('gh release', workflow)

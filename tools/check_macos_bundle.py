@@ -21,14 +21,19 @@ def main() -> None:
     bundle = app / 'Contents/MacOS'
     binary = bundle / 'WMM'
     native = runpy.run_path(str(ROOT / 'tools/test_native_desktop_bundle.py'))
-    pair = native['verify_bundle'](bundle)
     with tempfile.TemporaryDirectory(prefix='wmm-mac-package-') as temporary:
         profile = Path(temporary)
         environment = native['isolated_environment'](profile)
         checks = {}
         for flag in ('--check', '--self-test', '--vault-self-test'):
             result = subprocess.run([str(binary), flag], cwd=profile, env=environment,
-                                    check=True, capture_output=True, text=True, timeout=90)
+                                    capture_output=True, text=True, timeout=90)
+            if result.returncode != 0:
+                # This opted-in hosted profile has only synthetic fixtures and no
+                # provider credentials. Retain the actual bootloader diagnostic.
+                print(json.dumps(dict(check=flag, exit_code=result.returncode,
+                                      stdout=result.stdout[-4096:], stderr=result.stderr[-4096:])))
+                raise RuntimeError('Frozen Mac engine check failed')
             checks[flag] = json.loads(result.stdout)
         expected = profile / 'Library/Application Support/Wize Marketing Machine'
         if Path(checks['--check']['data_directory']).resolve() != expected.resolve():
@@ -40,6 +45,7 @@ def main() -> None:
             raise AssertionError('Mac native Keychain fixture was not removed')
         adapters = runpy.run_path(str(ROOT / 'tools/smoke_desktop_bundle.py'))
         adapters['setup_smoke'](binary, profile, environment, label='macos-' + platform.machine())
+    pair = native['verify_bundle'](bundle)
     with binary.open('rb') as stream:
         engine_sha256 = hashlib.file_digest(stream, 'sha256').hexdigest()
     receipt = dict(schema='wmm.macos-package-check.v1', status='PASS',
