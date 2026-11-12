@@ -1,53 +1,53 @@
 """Shared input contracts. No credentials or personal conversations in records."""
 
-from datetime import datetime, timezone
 import hashlib
 import json
 import math
 import re
 import uuid
-from typing import Any
+from datetime import datetime, timezone
+from typing import cast
 
 
 class Invalid(ValueError):
     """Readable input error for the API."""
 
 
-def canonical(value: Any) -> str:
+def canonical(value: object) -> str:
     """Encode finite JSON values deterministically for evidence hashing."""
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
 
 
-def digest(value):
+def digest(value: object) -> str:
     """Hash canonical JSON bytes so review and source evidence remain bound."""
     return hashlib.sha256(canonical(value).encode()).hexdigest()
 
 
-def now():
+def now() -> str:
     """Return an unambiguous UTC timestamp for durable records."""
     return datetime.now(timezone.utc).isoformat()
 
 
-def uid():
+def uid() -> str:
     """Create a unique opaque record or job identity."""
     return str(uuid.uuid4())
 
 
-def required(value, name, limit=4000):
+def required(value: object, name: str, limit: int = 4000) -> str:
     """Validate a bounded nonempty text field and normalize surrounding space."""
     if not isinstance(value, str) or not value.strip() or len(value) > limit:
         raise Invalid(f"{name}: enter text between 1 and {limit} characters")
     return value.strip()
 
 
-def amount(value, name):
+def amount(value: object, name: str) -> int:
     """Reject negative, boolean or fractional minor-unit amounts and counts."""
     if type(value) is not int or value < 0:
         raise Invalid(f"{name}: enter a nonnegative whole number in minor currency units")
     return value
 
 
-def fraction(value, name):
+def fraction(value: object, name: str) -> int | float:
     """Validate a finite fraction in the closed interval from zero to one."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise Invalid(f"{name}: enter a fraction from 0 to 1")
@@ -56,7 +56,7 @@ def fraction(value, name):
     return value
 
 
-def identifier(value):
+def identifier(value: object) -> str:
     """Validate a portable app namespace without traversal or separator ambiguity."""
     value = required(value, "App ID", 60)
     if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", value):
@@ -64,7 +64,7 @@ def identifier(value):
     return value
 
 
-def safe_data(value):
+def safe_data(value: object) -> dict[object, object]:
     """Validate finite record JSON and reject secrets or private conversation fields."""
     if not isinstance(value, dict):
         raise Invalid("Record data must be a JSON object")
@@ -79,10 +79,10 @@ def safe_data(value):
         raise Invalid("Do not store secrets, contacts or personal conversations here")
     if re.search(r"https?://[^\s/\"]+:[^\s/\"]+@", encoded, re.I):
         raise Invalid("Remove embedded credentials from source URLs")
-    return value
+    return cast(dict[object, object], value)
 
 
-def iso_time(value):
+def iso_time(value: object) -> datetime:
     """Parse an explicit timezone-bearing timestamp or reject ambiguous input."""
     try:
         parsed = datetime.fromisoformat(required(value, "Timestamp").replace("Z", "+00:00"))

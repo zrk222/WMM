@@ -1,8 +1,16 @@
 {
-  "typeCheckingMode": "basic",
+  "typeCheckingMode": "standard",
   "pythonVersion": "3.11",
-  "extraPaths": ["."],
+  "extraPaths": [
+    "."
+  ],
   "reportMissingImports": "error",
   "reportMissingTypeStubs": "none",
-  "exclude": [".factory", "node_modules", "**/__pycache__", "mission_control/static"]
+  "exclude": [
+    ".factory",
+    "node_modules",
+    "**/__pycache__",
+    "mission_control/static"
+  ],
+  "include": []
 }

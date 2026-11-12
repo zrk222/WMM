@@ -1,26 +1,55 @@
 """Owner-issued local operation credentials; independent human review stays separate."""
 
-from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import re
 import secrets
+import sqlite3
+from collections.abc import Mapping
+from datetime import datetime, timedelta, timezone
+from typing import TypedDict, cast
+
+from . import agent_review_policy
 from .common import Invalid, canonical, digest, iso_time, uid
 from .db import connection
 from .operation_catalog import OPERATIONS, exact_keys, path_segment, request_data
-from .review_access import member, exact_role
+from .review_access import exact_role, member
+from .schema_types import AgentGrantsRow, AppsRow, AutomationPoliciesRow
 from .store import audit
-from . import agent_review_policy
 
 
-def token_digest(token):
+class GrantPublic(TypedDict):
+    id: str
+    app_id: str
+    agent_id: str
+    owner: str
+    owner_version: int
+    app_version: int
+    app_hash: str
+    expires: str
+    max_calls: int
+    used: int
+    status: str
+    version: int
+    created: str
+    updated: str
+    operations: list[str]
+
+
+class GrantAdmission(TypedDict):
+    grant_id: str
+    agent_id: str
+    attempt: int
+
+
+def token_digest(token: object) -> str:
     """Validate only the delegated credential format; never persist plaintext tokens."""
     if not isinstance(token, str) or not re.fullmatch(r"wmmg_[A-Za-z0-9_-]{43}", token):
         raise PermissionError("A valid scoped WMM agent grant is required")
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def validate_grant_operations(names):
+def validate_grant_operations(names: object) -> None:
     if (
         not isinstance(names, list)
         or not names
@@ -33,26 +62,27 @@ def validate_grant_operations(names):
         raise Invalid("Grant operations must be unique")
 
 
-def issue_data(body, observed):
+def issue_data(body: object, observed: datetime) -> None:
     """Validate a finite exact operation scope and owner-selected lifetime/quota."""
     exact_keys(
         body,
         ("agent_id", "manifest_version", "operations", "expires", "max_calls"),
         ("review_operations", "extended_expiry_consent"),
     )
+    body = cast(dict[str, object], body)
     path_segment(body["agent_id"])
     validate_grant_operations(body["operations"])
     agent_review_policy.validate(body)
-    if type(body["max_calls"]) is not int or not 1 <= body["max_calls"] <= 10000:
+    if type(body["max_calls"]) is not int or not 1 <= cast(int, body["max_calls"]) <= 10000:
         raise Invalid("Use a call ceiling from 1 through 10000")
     if "extended_expiry_consent" in body and type(body["extended_expiry_consent"]) is not bool:
         raise Invalid("Expiry consent must be an explicit boolean")
     from .authority_expiry import deadline
 
-    deadline(body["expires"], observed, body.get("extended_expiry_consent"))
+    deadline(body["expires"], observed, cast(bool, body.get("extended_expiry_consent", False)))
 
 
-def public(row):
+def public(row: AgentGrantsRow | sqlite3.Row) -> GrantPublic:
     """Return public delegation metadata, excluding credential hashes as well as secrets."""
     names = (
         "id",
@@ -70,18 +100,28 @@ def public(row):
         "created",
         "updated",
     )
-    return dict({key: row[key] for key in names}, operations=json.loads(row["operations"]))
+    return cast(
+        GrantPublic,
+        dict({key: cast(Mapping[str, object], row)[key] for key in names}, operations=json.loads(row["operations"])),
+    )
 
 
-def app_scope(db, app_id):
+def app_scope(db: sqlite3.Connection, app_id: str) -> tuple[int, str]:
     """Read the exact app revision and content hash inside the authorization transaction."""
     app = db.execute("SELECT * FROM apps WHERE id=?", (app_id,)).fetchone()
     if not app:
         raise Invalid("Grant app does not exist")
-    return app["version"], digest(json.loads(app["data"]))
+    typed_app = cast(AppsRow, dict(app))
+    return typed_app["version"], digest(json.loads(typed_app["data"]))
 
 
-def current(db, row, envelope, observed, check_quota=True):
+def current(
+    db: sqlite3.Connection,
+    row: AgentGrantsRow | sqlite3.Row,
+    envelope: Mapping[str, object],
+    observed: datetime,
+    check_quota: bool = True,
+) -> None:
     """Check delegated scope, owner membership and quota before reserving admission."""
     if envelope["operation"] in ("experiment.schedule", "experiment.schedule-run"):
         raise PermissionError("Experiment monitoring requires a verified owner")
@@ -99,17 +139,22 @@ def current(db, row, envelope, observed, check_quota=True):
         raise PermissionError("Agent grant call ceiling is exhausted")
 
 
-def authenticated(db, token, envelope, observed, check_quota=True):
+def authenticated(
+    db: sqlite3.Connection, token: object, envelope: object, observed: datetime, check_quota: bool = True
+) -> sqlite3.Row:
     """Resolve delegated identity and current scope inside the admission transaction."""
     request_data(envelope)
     row = db.execute("SELECT * FROM agent_grants WHERE token_hash=?", (token_digest(token),)).fetchone()
     if not row:
         raise PermissionError("Agent grant is unknown")
-    current(db, row, envelope, observed, check_quota=check_quota)
+    typed_row = cast(AgentGrantsRow, dict(row))
+    current(db, typed_row, cast(Mapping[str, object], envelope), observed, check_quota=check_quota)
     return row
 
 
-def consume(db, row, envelope, observed):
+def consume(
+    db: sqlite3.Connection, row: AgentGrantsRow | sqlite3.Row, envelope: Mapping[str, object], observed: datetime
+) -> GrantAdmission:
     """Record one reserved attempt after all admission checks have passed."""
     db.execute("UPDATE agent_grants SET used=used+1,updated=? WHERE id=?", (observed.isoformat(), row["id"]))
     audit(
@@ -118,7 +163,7 @@ def consume(db, row, envelope, observed):
         "agent_grant.admitted",
         dict(grant_id=row["id"], agent_id=row["agent_id"], operation=envelope["operation"], attempt=row["used"] + 1),
     )
-    return dict(grant_id=row["id"], agent_id=row["agent_id"], attempt=row["used"] + 1)
+    return {"grant_id": row["id"], "agent_id": row["agent_id"], "attempt": row["used"] + 1}
 
 
 def _batch_input(body, operation, plan_hash):
@@ -168,14 +213,17 @@ def _batch_envelope(store, app_id, operation, plan_hash, expires):
 
 
 def _capture_standing_batch(db, result, deadline):
-    from .automation_execution import execution_row, execution_deadline
-    from .ios_agent_media import execution_hash
     from .authority_expiry import effective_expiry, initial_base
+    from .automation_execution import execution_deadline, execution_row
+    from .ios_agent_media import execution_hash
 
     row = execution_row(db, result["execution_id"])
     if deadline > execution_deadline(db, row):
         raise PermissionError("Batch deadline exceeds its standing execution")
-    policy = db.execute("SELECT * FROM automation_policies WHERE id=?", (row["policy_id"],)).fetchone()
+    policy = cast(
+        AutomationPoliciesRow,
+        db.execute("SELECT * FROM automation_policies WHERE id=?", (row["policy_id"],)).fetchone(),
+    )
     proposal = json.loads(policy["proposal"])
     base = initial_base(proposal["limits"]["expires"], policy["created"], proposal.get("extended_expiry_consent"))
     proof = effective_expiry(db, "AUTOMATION", policy, base)
@@ -212,7 +260,7 @@ def capture_batch_authority(db, store, app_id, operation, plan_hash, expires):
             raise Invalid("Owner batch authority remains limited to 24 hours")
         result.update(kind="OWNER", principal=context["principal"], role_version=context["role_version"])
         return result
-    grant = db.execute("SELECT * FROM agent_grants WHERE id=?", (context["grant_id"],)).fetchone()
+    grant = cast(AgentGrantsRow, db.execute("SELECT * FROM agent_grants WHERE id=?", (context["grant_id"],)).fetchone())
     from .authority_expiry import effective_expiry
 
     grant_proof = effective_expiry(db, "AGENT_GRANT", grant, grant["expires"])
@@ -254,7 +302,10 @@ def check_batch_authority(db, store, app_id, reference, plan_hash):
         return
     if reference.get("kind") != "AGENT":
         raise PermissionError("Unknown batch authority")
-    row = db.execute("SELECT * FROM agent_grants WHERE id=?", (reference.get("grant_id"),)).fetchone()
+    row = cast(
+        AgentGrantsRow | None,
+        db.execute("SELECT * FROM agent_grants WHERE id=?", (reference.get("grant_id"),)).fetchone(),
+    )
     if not row or row["version"] != reference.get("grant_version") or row["agent_id"] != reference.get("agent_id"):
         raise PermissionError("Batch source grant changed")
     current(db, row, dict(app_id=app_id, operation=reference["operation"]), observed, check_quota=False)
@@ -278,8 +329,9 @@ def check_batch_authority(db, store, app_id, reference, plan_hash):
     if review is None:
         agent_review_policy.ordinary_dispatch(db, row["id"], reference["operation"])
     else:
+        from .agent_checkpoints import current as checkpoint_current
+        from .agent_checkpoints import read_row
         from .agent_review_dispatch import saved_request
-        from .agent_checkpoints import read_row, current as checkpoint_current
 
         request = saved_request(db, app_id, review["id"])
         checkpoint = read_row(db, app_id, review["id"])
@@ -298,8 +350,8 @@ def check_batch_authority(db, store, app_id, reference, plan_hash):
     policy = db.execute("SELECT id FROM automation_policies WHERE grant_id=?", (row["id"],)).fetchone()
     if identity:
         from .automation_execution import execution_row
+        from .complete_automation import ACCESS_VERIFIER, checked_policy
         from .ios_agent_media import execution_hash
-        from .complete_automation import checked_policy, ACCESS_VERIFIER
 
         if reference.get("native_host_required") and not callable(ACCESS_VERIFIER.get()):
             raise PermissionError("Fresh native protected-access verification is required")
@@ -348,7 +400,10 @@ def batch_authority_pending(db, reference):
             return False
     except (Invalid, TypeError, ValueError):
         return False
-    grant = db.execute("SELECT * FROM agent_grants WHERE id=?", (reference.get("grant_id"),)).fetchone()
+    grant = cast(
+        AgentGrantsRow | None,
+        db.execute("SELECT * FROM agent_grants WHERE id=?", (reference.get("grant_id"),)).fetchone(),
+    )
     if not grant or grant["status"] != "ACTIVE" or grant["version"] != reference.get("grant_version"):
         return False
     try:
@@ -376,23 +431,26 @@ def issue_in_db(db, app_id, user, body, observed, token):
 
     requested = iso_time(body["expires"]).astimezone(timezone.utc)
     base = min(requested, observed + timedelta(hours=24))
-    row = dict(
-        id=identity,
-        app_id=app_id,
-        agent_id=body["agent_id"],
-        owner=user["principal"],
-        owner_version=owner["version"],
-        app_version=version,
-        app_hash=app_hash,
-        operations=canonical(sorted(body["operations"])),
-        token_hash=token_digest(token),
-        expires=base.isoformat(),
-        max_calls=body["max_calls"],
-        used=0,
-        status="ACTIVE",
-        version=1,
-        created=stamp,
-        updated=stamp,
+    row = cast(
+        AgentGrantsRow,
+        dict(
+            id=identity,
+            app_id=app_id,
+            agent_id=body["agent_id"],
+            owner=user["principal"],
+            owner_version=owner["version"],
+            app_version=version,
+            app_hash=app_hash,
+            operations=canonical(sorted(body["operations"])),
+            token_hash=token_digest(token),
+            expires=base.isoformat(),
+            max_calls=body["max_calls"],
+            used=0,
+            status="ACTIVE",
+            version=1,
+            created=stamp,
+            updated=stamp,
+        ),
     )
     db.execute("INSERT INTO agent_grants VALUES(" + ",".join("?" for _ in row) + ")", tuple(row.values()))
     agent_review_policy.save(db, identity, body)
@@ -408,11 +466,11 @@ def issue_in_db(db, app_id, user, body, observed, token):
         observed,
     )
     audit(db, app_id, "agent_grant.issued", dict(grant_id=identity, agent_id=body["agent_id"], owner=user["principal"]))
-    return dict(
-        grant=dict(public(row), expires=requested.isoformat(), review_operations=agent_review_policy.validate(body)),
-        token=token,
-        token_delivery="ONCE_ONLY",
-    )
+    return {
+        "grant": dict(public(row), expires=requested.isoformat(), review_operations=agent_review_policy.validate(body)),
+        "token": token,
+        "token_delivery": "ONCE_ONLY",
+    }
 
 
 class Grants:
@@ -440,6 +498,7 @@ class Grants:
 
             grants = []
             for row in db.execute("SELECT * FROM agent_grants WHERE app_id=? ORDER BY created,id", (app_id,)):
+                row = cast(AgentGrantsRow, row)
                 try:
                     proof = effective_expiry(db, "AGENT_GRANT", row, row["expires"])
                 except PermissionError:
@@ -462,6 +521,7 @@ class Grants:
 
         with connection(self.store.path) as db:
             row = db.execute("SELECT * FROM agent_grants WHERE id=? AND app_id=?", (grant_id, app_id)).fetchone()
+            row = cast(AgentGrantsRow | None, row)
             if not row:
                 raise PermissionError("Agent grant is unavailable")
             names = json.loads(row["operations"])
@@ -485,6 +545,7 @@ class Grants:
             db.execute("BEGIN IMMEDIATE")
             member(db, app_id, user["principal"], "OWNER")
             row = db.execute("SELECT * FROM agent_grants WHERE app_id=? AND id=?", (app_id, body["id"])).fetchone()
+            row = cast(AgentGrantsRow | None, row)
             if not row or type(body["version"]) is not int or row["version"] != body["version"]:
                 raise Invalid("Grant revision changed; reload")
             db.execute(

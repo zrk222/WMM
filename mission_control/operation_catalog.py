@@ -2,14 +2,48 @@
 
 import copy
 import re
+from collections.abc import Iterable
+from typing import NotRequired, TypedDict, cast
 from urllib.parse import urlencode
+
 from .common import Invalid, digest
 from .observational_campaign_contract import ACTION_FIELDS, schema_contract
 
 
-def descriptor(method, suffix, effect, required=(), optional=(), resource=False, query=()):
+class OperationDescriptor(TypedDict):
+    method: str
+    suffix: str
+    effect: str
+    required: list[str]
+    optional: list[str]
+    resource: bool
+    query: list[str]
+
+
+class RequestEnvelope(TypedDict):
+    app_id: str
+    operation: str
+    input: dict[str, object]
+    resource_id: NotRequired[str]
+
+
+class ResolvedRequest(TypedDict):
+    method: str
+    path: str
+    body: dict[str, object] | None
+
+
+def descriptor(
+    method: str,
+    suffix: str,
+    effect: str,
+    required: Iterable[str] = (),
+    optional: Iterable[str] = (),
+    resource: bool = False,
+    query: Iterable[str] = (),
+) -> OperationDescriptor:
     """Describe a closed envelope; nested domain validation remains server authoritative."""
-    return dict(
+    return OperationDescriptor(
         method=method,
         suffix=suffix,
         effect=effect,
@@ -415,9 +449,9 @@ OPERATIONS = {
 }
 
 
-def catalog():
+def catalog() -> dict[str, object]:
     """Return inspectable transport capabilities without granting agent or human authority."""
-    value = dict(
+    value: dict[str, object] = dict(
         schema="growth.operation-catalog.v1",
         operations=copy.deepcopy(
             {
@@ -471,28 +505,28 @@ def catalog():
             "Provider-specific authorized effect adapters",
         ],
     )
-    from .funnel_contract import agent_contract
     from .discovery_contract import agent_contract as discovery_contract
-    from .packaging_contract import agent_contract as packaging_contract
+    from .funnel_contract import agent_contract
     from .market_research import agent_contract as market_contract
+    from .packaging_contract import agent_contract as packaging_contract
 
     value["domain_contracts"] = {
         "app_sales_funnel": agent_contract(),
         "discovery_research": discovery_contract(),
         "content_packaging": packaging_contract(),
     }
-    value["domain_contracts"]["market_research"] = market_contract()
+    cast(dict[str, object], value["domain_contracts"])["market_research"] = market_contract()
     return dict(value, catalog_sha256=digest(value))
 
 
-def path_segment(value):
+def path_segment(value: object) -> str:
     """Do not permit query, encoded slash, traversal, host or arbitrary path injection."""
     if not isinstance(value, str) or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,199}", value):
         raise Invalid("Use a lowercase app or resource identifier containing letters, digits and hyphens")
     return value
 
 
-def exact_keys(value, required, optional=()):
+def exact_keys(value: object, required: Iterable[str], optional: Iterable[str] = ()) -> None:
     """Close protocol boundaries before any transport or bootstrap side effect."""
     if not isinstance(value, dict) or set(required) - set(value) or set(value) - set(required) - set(optional):
         raise Invalid("Operation fields must match the declared required and optional names")
@@ -540,9 +574,10 @@ def pipeline_input(body):
         raise Invalid("Use a pipeline request key containing 1 through 120 characters")
 
 
-def request_data(envelope):
+def request_data(envelope: object) -> ResolvedRequest:
     """Validate a catalog call and resolve only its fixed app-owned route."""
     exact_keys(envelope, ("app_id", "operation", "input"), ("resource_id",))
+    envelope = cast(RequestEnvelope, envelope)
     app_id = path_segment(envelope["app_id"])
     name = envelope["operation"]
     if not isinstance(name, str) or name not in OPERATIONS:
@@ -563,10 +598,10 @@ def request_data(envelope):
             if key in envelope["input"]:
                 params.append((key, str(envelope["input"][key])))
         if name == "operations.read" and "profile" in envelope["input"]:
-            params.append(("profile", envelope["input"]["profile"]))
+            params.append(("profile", cast(str, envelope["input"]["profile"])))
         if params:
             suffix += "?" + urlencode(params)
-    return dict(
+    return ResolvedRequest(
         method=rule["method"],
         path="/api/apps/" + app_id + suffix,
         body=envelope["input"] if rule["method"] == "POST" else None,
