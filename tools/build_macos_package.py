@@ -14,9 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 APP_NAME = 'Wize Marketing Machine.app'
 
 
-def stage(bundle: Path, destination: Path) -> Path:
-    """Copy only a completed frozen bundle; reject source links outside that bundle."""
-    bundle = bundle.resolve(strict=True)
+def validate_bundle(bundle: Path) -> None:
+    """Admit only complete executables, runtime libraries and contained relative links."""
     for name in ('WMM', 'WMM-Mission-Control'):
         binary = bundle / name
         if not binary.is_file() or binary.is_symlink():
@@ -27,6 +26,12 @@ def stage(bundle: Path, destination: Path) -> Path:
         if item.is_symlink():
             if Path(os.readlink(item)).is_absolute() or not item.resolve(strict=True).is_relative_to(bundle):
                 raise ValueError('Mac bundle contains an external symbolic link')
+
+
+def stage(bundle: Path, destination: Path) -> Path:
+    """Copy a completed frozen bundle into the bootloader's declared Mac app layout."""
+    bundle = bundle.resolve(strict=True)
+    validate_bundle(bundle)
     if destination.exists():
         raise ValueError('Mac app destination exists; preserve it and use a clean build directory')
     executables = destination / 'Contents/MacOS'
