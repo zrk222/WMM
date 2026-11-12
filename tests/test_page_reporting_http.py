@@ -1,11 +1,13 @@
 """Serve the actual page-reporting assets under existing loopback boundaries."""
 
-from pathlib import Path
+import re
 import tempfile
 import threading
 import unittest
+from pathlib import Path
 from urllib.error import HTTPError
-from urllib.request import urlopen, Request
+from urllib.request import Request, urlopen
+
 from mission_control.server import Server
 from mission_control.store import Store
 
@@ -40,9 +42,9 @@ class PageReportingHTTPTests(unittest.TestCase):
                 self.assertNotIn("unsafe-inline", response.headers["Content-Security-Policy"])
                 self.assertIn("page-reporting", value)
         with urlopen(self.origin + "/app.js") as response:
-            value = response.read().decode("utf-8")
+            value = re.sub(r"\s+", "", response.read().decode("utf-8"))
             self.assertIn("WMMPageReports.decorate(state,document)", value)
-            self.assertIn("workspaceObservedAt=new Date().toISOString()", value)
+            self.assertIn("workspaceObservedAt=newDate().toISOString()", value)
 
     def test_report_privacy_preserves_static_allowlist_and_host_boundary(self):
         for route in ("/page-reporting.js/extra", "/page-reporting.css/extra", "/agent-checkpoints.json"):

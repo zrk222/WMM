@@ -15,6 +15,12 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install runtime profile
-        run: python -m pip install --require-hashes --only-binary :all: -r requirements.txt
+        run: |
+          python -m pip install --require-hashes --only-binary :all: -r requirements.txt
       - name: Check integrity, backup restore and migration replay
         run: python tools/integrity_drill.py
+      - name: Build the SBOM twice and compare
+        run: |
+          python tools/build_sbom.py --source-sha "$GITHUB_SHA" --platform Linux --output "$RUNNER_TEMP/sbom-a.json"
+          python tools/build_sbom.py --source-sha "$GITHUB_SHA" --platform Linux --output "$RUNNER_TEMP/sbom-b.json"
+          cmp "$RUNNER_TEMP/sbom-a.json" "$RUNNER_TEMP/sbom-b.json"

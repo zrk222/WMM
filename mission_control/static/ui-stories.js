@@ -1,165 +1,763 @@
 /* Nanna UX narration: factual purpose, useful output and a recognizable choice. */
-(function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.WMMStories=api;})(typeof globalThis==='object'?globalThis:this,function(){
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.WMMStories = api;
+})(typeof globalThis === 'object' ? globalThis : this, function () {
   'use strict';
-  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const PAGES=Object.freeze({
-    weekly:['Choose the next useful piece of work.','Bring your apps into one review so the work that needs attention is easy to find.','WMM reads the displayed apps, saved checks and unresolved exceptions.','You get a list of issues to resolve and the app each one belongs to.','Open an issue, inspect its source and decide what to repair first.'],
-    overview:['See where your app stands.','Start with the app you want to grow and the first useful task its users should complete.','WMM brings together your app setup, evidence, stage checks and saved work.','You get the next stage to work on and the evidence still needed.','Open Guided workflow to complete the next task, or inspect a saved result.'],
-    workflow:['Move from an app idea to checked marketing work.','Follow the twelve stages in order and see what each one needs.','WMM uses your app facts, uploaded assets, test records and imported performance data.','You get stage checklists, prepared work and a live trail of the worker’s current activity.','Complete a missing input, prepare the stage and review its saved output.'],
-    pipeline:['Know what is ready before moving ahead.','See the whole sequence of work for this app in one place.','WMM checks stage inputs and the stages each task depends on.','You get a stage-by-stage view of ready inputs, blockers and preparation packets.','Open a stage to inspect its requirements, then prepare its packet.'],
-    evidence:['Keep the proof beside the work.','Save the facts and original material that support this app’s marketing.','Add app tests, approved claims, screenshots, assets and source records for the current release.','You get searchable evidence linked to the stages and drafts that use it.','Add the missing record or open one to check its source and date.'],
-    results:['See what happened after the work.','Compare the usage and payment records you have collected.','WMM uses imported events, customer groups, costs, purchases and refunds.','You get calculated rates, payment comparisons and visible gaps in the supplied data.','Check the source dates and group size, then use the findings to choose the next experiment.'],
-    connections:['Bring the right account into this app.','Choose the source that holds the data you need.','WMM uses the account, app identifiers and protected access you explicitly configure.','You get saved connection status and the results of supported read checks.','Connect the source and test access. Repair an expired or failed connection before relying on new data.'],
-    agents:['Give your agent the right tools and a clear job.','Choose your existing subscription, API connection or local model server.','WMM uses the selected connection and the exact app facts shown before a request.','You get tested connection status, saved drafts and the work your permissions allow.','Connect and test a provider, choose its task route and review the work you are authorizing.'],
-    activity:['Follow the work and keep control.','See what has run, what is running and what needs a human decision.','WMM reads saved jobs, stage events, permission grants and review packets.','You get an activity trail, exact proposed changes and recorded outcomes.','Inspect the current step, approve an exact permitted request or investigate a blocked or uncertain run.'],
-    research:['Turn a useful source into something to test.','Start with a clear question about this app and its audience.','WMM uses the research sources, public observations, app evidence and creative references you supply.','You get traceable research notes, ranked references, briefs and supported local video outputs.','Inspect the source, choose the idea worth testing and prepare a brief for your audience.']
+  const esc = (value) =>
+    String(value ?? '').replace(
+      /[&<>"']/g,
+      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+    );
+  const PAGES = Object.freeze({
+    weekly: [
+      'Choose the next useful piece of work.',
+      'Bring your apps into one review so the work that needs attention is easy to find.',
+      'WMM reads the displayed apps, saved checks and unresolved exceptions.',
+      'You get a list of issues to resolve and the app each one belongs to.',
+      'Open an issue, inspect its source and decide what to repair first.',
+    ],
+    overview: [
+      'See where your app stands.',
+      'Start with the app you want to grow and the first useful task its users should complete.',
+      'WMM brings together your app setup, evidence, stage checks and saved work.',
+      'You get the next stage to work on and the evidence still needed.',
+      'Open Guided workflow to complete the next task, or inspect a saved result.',
+    ],
+    workflow: [
+      'Move from an app idea to checked marketing work.',
+      'Follow the twelve stages in order and see what each one needs.',
+      'WMM uses your app facts, uploaded assets, test records and imported performance data.',
+      'You get stage checklists, prepared work and a live trail of the worker’s current activity.',
+      'Complete a missing input, prepare the stage and review its saved output.',
+    ],
+    pipeline: [
+      'Know what is ready before moving ahead.',
+      'See the whole sequence of work for this app in one place.',
+      'WMM checks stage inputs and the stages each task depends on.',
+      'You get a stage-by-stage view of ready inputs, blockers and preparation packets.',
+      'Open a stage to inspect its requirements, then prepare its packet.',
+    ],
+    evidence: [
+      'Keep the proof beside the work.',
+      'Save the facts and original material that support this app’s marketing.',
+      'Add app tests, approved claims, screenshots, assets and source records for the current release.',
+      'You get searchable evidence linked to the stages and drafts that use it.',
+      'Add the missing record or open one to check its source and date.',
+    ],
+    results: [
+      'See what happened after the work.',
+      'Compare the usage and payment records you have collected.',
+      'WMM uses imported events, customer groups, costs, purchases and refunds.',
+      'You get calculated rates, payment comparisons and visible gaps in the supplied data.',
+      'Check the source dates and group size, then use the findings to choose the next experiment.',
+    ],
+    connections: [
+      'Bring the right account into this app.',
+      'Choose the source that holds the data you need.',
+      'WMM uses the account, app identifiers and protected access you explicitly configure.',
+      'You get saved connection status and the results of supported read checks.',
+      'Connect the source and test access. Repair an expired or failed connection before relying on new data.',
+    ],
+    agents: [
+      'Give your agent the right tools and a clear job.',
+      'Choose your existing subscription, API connection or local model server.',
+      'WMM uses the selected connection and the exact app facts shown before a request.',
+      'You get tested connection status, saved drafts and the work your permissions allow.',
+      'Connect and test a provider, choose its task route and review the work you are authorizing.',
+    ],
+    activity: [
+      'Follow the work and keep control.',
+      'See what has run, what is running and what needs a human decision.',
+      'WMM reads saved jobs, stage events, permission grants and review packets.',
+      'You get an activity trail, exact proposed changes and recorded outcomes.',
+      'Inspect the current step, approve an exact permitted request or investigate a blocked or uncertain run.',
+    ],
+    research: [
+      'Turn a useful source into something to test.',
+      'Start with a clear question about this app and its audience.',
+      'WMM uses the research sources, public observations, app evidence and creative references you supply.',
+      'You get traceable research notes, ranked references, briefs and supported local video outputs.',
+      'Inspect the source, choose the idea worth testing and prepare a brief for your audience.',
+    ],
   });
-  const FORMS={};
-  FORMS['oresearch-task-form']=['Give your agent one focused marketing question.','The saved task fixes its permitted sources, expiry and research limits. It delegates no WMM credential or publication authority.','Review the exact assignment, then let the selected agent claim it through its scoped access.'];
-  FORMS['oresearch-adopt-form']=['Turn an inspected source into an original app experiment.','Your observations, interpretation and authentic app proof bind to the exact reported candidate. Reuse rights remain separate.','Review and approve the research card, then prepare its original creative through the existing brief controls.'];
-  function define(ids,mission,result,next){for(const id of ids.split(' '))FORMS[id]=Object.freeze([mission,result,next]);}
-  define('campaign-scope-form','Turn your approved app message into a bounded campaign.','WMM records exact Page, copy, rights, audience, time and media limits before saving provider delivery receipts.','Review the scope and permissions, approve it, then run the workflow. Compare measured app outcomes afterward.');
-  define('authority-expiry-form','Give approved work more time.','WMM records your exact later deadline and consent. Used calls, campaign limits and existing child deadlines stay unchanged.','Choose a date, review the remaining allowance and earlier stopping points, then confirm the extension.');
-  define('packaging-variant-form','Turn one app outcome into a clear title and opening.','WMM saves a creative revision with the source ideas and app proof you select.','Fill the message, choose an uploaded thumbnail and save. Compare that saved revision before preparing shots.');
-  define('packaging-shots-form','Give every script beat a shot you can produce.','WMM saves ordered script segments, shots, source times, selected footage and claim links as one revision.','Describe each shot, select its material and save the checklist. Resolve missing evidence before production.');
-  define('packaging-preview-form','See your title and thumbnail beside competing ideas.','WMM builds a repeatable desktop or mobile comparison from your saved sources and uploaded images. This produces simulation notes, not measured CTR.','Choose two or three source cards, select the viewing size and compare. Record what you would change.');
-  define('discovery-query-form','Find saved video references that fit your app and audience.','WMM saves an immutable collection of observed source decisions, qualification and evidence gaps. It evaluates saved references; it does not start a platform scan.','Choose filters and save the collection. Review why each source qualified or stayed a candidate before adapting it.');
-  define('discovery-source-form','Turn an inspected source into a specific app experiment.','WMM saves your observations, separate classifications, documented baseline and rights attestation against the exact source and app. Saving a review grants no production authority.','Record what you observed, name your interpretation and keep rights and authentic app proof explicit. Then evaluate the source in a collection.');
-  define('drive-setup-form','Choose the Google Drive files this app can access.','WMM protects your client configuration and prepares Google consent for selected files. No clips are imported by this step.','Open Google, select the files and review the returned account before saving access.');
-  define('drive-confirm-form','Keep the account and selected files you have just reviewed.','WMM saves access to this exact account and file selection. Saving access does not import clips or grant reuse permission.','Save the reviewed access, then choose which clips to import into the original video library.');
-  define('drive-import-form','Bring the selected original clips into this app.','WMM queues durable imports and shows each worker step. A successful import retains the original picture and sound; it does not approve reuse.','Select the clips to import, monitor their progress and review each original before editing.');
-  define('drive-disconnect-form','Stop this app from using its saved Drive connection.','WMM disables the displayed local connection and records credential cleanup. This does not revoke access in your Google account.','Confirm the exact connection to disconnect. Use Google account settings if you also want to revoke provider access.');
-  define('media-upload-form','Keep your original clips together before choosing their use.','WMM saves and decodes each selected local clip; upload does not grant reuse permission.','Inspect the original picture, sound and provenance, then review reuse for each clip.');
-  define('media-review-form','Decide whether this app may reuse the selected original clip.','WMM saves a source-bound owner attestation or revocation in retained history.','Inspect the saved status; approval by attestation is not independent legal verification.');
-  define('studio-source-form','Choose the approved composition you want to customize.','WMM prepares an exact local startup summary without launching Studio.','Review the source and resource limits, then choose whether to start the local session.');
-  define('cloud-connection-form','Choose whether this app stays local or uses a personal cloud you operate.','WMM stores the HTTPS endpoint and keeps the token in the OS vault. Saving does not send evidence; testing calls only the health route.','Save and test the connection, or return to local. MMP import and reports stay local until you explicitly send a batch.');
-  define('app-form','Tell WMM who the app serves and the useful task it delivers.','Your saved app facts guide stage checks and future preparation.','Enter the current release and audience, then save the setup.');
-  define('setup-review','Turn the discovered app information into a setup you have checked.','Your confirmed choices become the app facts used by this workspace.','Correct the proposed fields and inspect their sources before applying them.');
-  define('evidence-form','Keep a source-backed fact beside the work that uses it.','Saving creates or updates this evidence record in the selected app.','Check the record type, source and release before saving.');
-  define('brief-form','Give one piece of marketing a specific job.','You get a saved brief that connects the audience, message and requested format.','Review the claim and source material, then save the brief.');
-  define('cohort-form','Make a group of users and its measurement window clear.','The saved group gives imported events a defined time range and source.','Check the dates, currency and observation limits before saving.');
-  define('experiment-form subscription-plan-form','Turn an idea into a test with a clear decision rule.','You get a saved experiment definition with the proposed change, metric and stop conditions.','Check the control, treatment and measurement plan before saving.');
-  define('funnel-plan-form','Connect your creative to a useful app outcome and app sales.','You get an immutable plan linking current creative, customer evidence, a saved cohort and the stages you choose.','Name the outcome, select the sources and review stage populations before saving.');
-  define('funnel-observation-form','Record what a source observed at one app-sales stage.','You get a source-bound count with its window, population and complete, partial or unknown coverage.','Use the source event identity and inspected export hash; zero is a real observation and unknown remains unknown.');
-  define('funnel-batch-form','Bring an inspected observation batch into this saved app-sales plan.','You get deduplicated local evidence and a complete stage report; existing payment and refund events are not recreated.','Inspect the original JSON, confirm the saved stage scope and import once. If the response is lost, reconcile or explicitly retry the identical request.');
-  define('experiment-action-form','Decide what to do with this experiment’s current evidence.','The selected action is recorded against this experiment.','Read the assessment and exact action below before confirming.');
-  define('experiment-schedule-form','Choose when this experiment is checked again.','You get the saved schedule for supported local evaluation.','Review the interval and current experiment before saving.');
-  define('history-form provider-report-form release-inventory-form','Ask a connected source for a specific set of records.','A supported read saves its result with the selected account and app context.','Review the source, time range and requested read before running it.');
-  define('inspection-form audit-form','Check the current product or source against a defined question.','The inspection saves its observations and the checks it could not complete.','Choose the exact target and inspect the proposed scope before starting.');
-  define('reference-form reference-import-form','Keep a creative reference with its source and reuse information.','You get a saved reference to inspect and compare when preparing creative work.','Check the source, platform and rights information before saving or importing.');
-  define('connection-setup-form play-setup-form social-setup-form','Connect the account that holds this app’s data.','The setup stores protected access locally; the account still needs its supported access check.','Use the named provider’s setup and verify the exact app and account before saving.');
-  define('agent-setup-form','Choose how WMM reaches your agent or model provider.','You get a saved connection profile. A successful connection test establishes its tested state.','Check the provider, endpoint and charge consent, then save and test the connection.');
-  define('agent-routes-form','Choose which connection handles each kind of work.','The saved routes keep tasks attached to your selected providers.','Select the tested profiles you want to use and save the routes.');
-  define('agent-work-form','Give your agent a focused preparation task.','You get a proposed request to inspect before the selected connection runs.','Choose the task and focus, then review the exact request.');
-  define('agent-approve-form','Know exactly what you are sending to this provider.','Confirmation runs this displayed request and retains its local result.','Check the connection, transmitted facts and cost information before approving.');
-  define('control-grant-form','Let an agent do a defined set of work for this app.','You get a scoped credential with the selected actions, deadline and call allowance.','Choose the permissions and review checkpoints, then issue the grant.');
-  define('standing-scope-form','Let your agent work within the boundaries you choose.','You get an exact scope summary to approve after the selected connections and workflows are checked.','Choose the work, tested connection and limits, then review the authority before enabling it.');
-  define('control-reconcile-form','Resolve an uncertain result using what actually happened.','You get a recorded outcome and evidence hash; this does not retry the action.','Inspect the saved effect first, then record the verified outcome.');
-  define('access-bootstrap-form','Establish who controls this local app’s verified permissions.','The signed-in account becomes the first owner for this app.','Check the app and signed-in identity before confirming ownership.');
-  define('access-member-form','Give a person the role they need for this app.','The saved role determines which verified review actions that person can perform.','Check the person, role and access state before saving.');
-  define('identity-form','Identify yourself for owner controls and verified reviews.','Successful verification opens a temporary local review session for your account.','Use the requested identity credential; close or sign out when finished.');
-  define('verified-prepare-form review-form','Freeze the exact work you want someone to review.','You get a review packet tied to the displayed input and current app.','Inspect the proposed work, then prepare the packet for the appropriate reviewer.');
-  define('attribution-setup-form attribution-map-form attribution-intake-form attribution-token-form','Connect a recorded user arrival to its declared source.','You get saved source, mapping or observation records with their measurement limits.','Check the source identifiers and consent conditions before the action below.');
-  define('attribution-disconnect-form storekit-disconnect-form','Stop this app from using the selected local connection.','Disconnecting disables future local access while saved evidence remains.','Read the exact removal scope before confirming; provider-side revocation is a separate action.');
-  define('storekit-setup-form storekit-intake-form','Bring Apple purchase observations into this app’s records.','Supported imports retain purchase evidence and its source status.','Check the app, environment and requested evidence before saving or importing.');
-  define('insights-setup-form insights-events-form','Bring usage events into a defined measurement source.','You get saved source configuration or imported events for later analysis.','Check the event identifiers, dates and consent scope before continuing.');
-  define('apple-analytics-form','Keep a dated downloads record for your next marketing test.','WMM reads the selected Apple report while its worker is running. Missing report files stay unknown, rather than becoming zero downloads.','Choose a refresh interval, save it and inspect the latest result. Pause future reads here whenever you need.');
-  define('payment-setup-form payment-action-form','Connect payment evidence to the exact account and app.','Supported setup or reads retain payment-source facts and their verification state.','Review the account, requested action and protected access before confirming.');
-  define('provider-prepare-form provider-confirm-form','Make a provider action explicit before it runs.','You get the prepared action or the saved result of its permitted execution.','Read the exact target, effect and approval requirements below before confirming.');
-  define('social-confirm-form','Choose the account destination you intend this app to use.','The confirmed subject and destination are saved with the supported access facts.','Check the account and destination returned by the provider before connecting it.');
-  define('render-form','Turn a current approved brief into a local video.','You get a local MP4 using the selected renderer’s supported output.','Choose the renderer, brief and frame shape; preview the finished video before use.');
-  define('capability-form','Describe what this product can actually deliver.','You get a saved capability record for checking whether proposed work fits the product.','Record the real supported behavior and limits before saving.');
-  define('customer-workflow-form','Connect a proposed product change to a customer’s actual task.','You get a traceable workflow proposal linked to the supplied customer evidence.','Check the source and expected task change before saving the proposal.');
-  define('growth-review-form','Choose the next experiment from the evidence already saved.','You get a review that links the current growth question, findings and next decision.','Inspect the source records and select the next bounded action.');
-  define('opolicy-form','Choose what your agent may use for app videos.','The approval records the Page, source rights, claims, captions and limits.','Review the exact proposal before saving the approval.');
-  define('research-form','Keep a research question connected to its sources.','You get saved research work with visible observations and gaps.','Choose the question and source scope, then review the requested action.');
-  define('public-store-form','Check what a customer actually sees on the public store page.','You get a saved public-page observation tied to the selected app and listing.','Check the store address and requested locale before reading the page.');
-  define('ranking-form','Compare references against a specific purpose.','You get a saved ranking based on the selected evidence and rules.','Set the audience and ranking criteria, then inspect why each reference was placed.');
-  define('acq-form aeo-form','Work out how the right audience finds this app.','You get a saved acquisition or answer-engine worksheet from the supplied observations.','Choose the audience and source evidence, then review the proposed test.');
-  define('resolution-form','Close a specific evidence gap in the workflow.','You get a prepared resolution request with its source and required approval.','Inspect the missing proof and exact proposed work before authorizing it.');
-  define('sequence-form','Put a series of permitted tasks in the right order.','You get a saved sequence with dependencies and review boundaries.','Check each step’s purpose and authority before saving the sequence.');
-  define('tracking-form','Collect the defined evidence needed to evaluate this experiment.','The supported read retains its source-bound observations for the experiment.','Review the source, measurement window and exact requested read before approving.');
-  define('followup-form','Keep the next useful follow-up tied to its evidence.','You get a saved follow-up policy or task with its selected limits.','Read the cadence, recipient scope and permission requirements before continuing.');
-  define('learning-propose-form learning-link-form learning-action-form','Carry a lesson from observed work into the next decision.','You get a saved proposal, evidence link or decision; an untested idea stays a proposal.','Check the original observation and choose the exact next action below.');
-  define('video-project-create-form','Give this video one audience and one intended action.','Choose a current source video and save an editable project with its source hash.','Name the edit, describe its purpose and create the draft before changing clips.');
-  define('video-project-edit-form','Shape the saved video for the people you want to reach.','Your timing, framing and color choices become a new shared project revision. Rendering creates an actual MP4.','Save field edits before clip commands or rendering, then preview the exact output and review it before use.');
-  define('packaging-taste-form','Describe how your app should look and sound.','Your selected examples explain style. Your rules and exclusions stay attached to this app and the current guidance policy.','Review the fields, then save your owner-reviewed direction.');
-  define('campaign-schedule-form','Choose when your approved campaign runs.','WMM saves exact posts or a verified post promotion with its start, end, audience, media budget and campaign approval hash.','Review the exact batch and keep WMM running. OFF stops undispatched work; reconcile uncertain delivery and inspect retained commitments.');
-  define('goal-readiness-form','Check the setup WMM needs to run approved work.','WMM inspects the owner, selected workflows and tested connections without issuing a grant or starting work.','Personal agents can use ordinary scoped grants without this managed-work checklist.');
-  define('owner-report-form','See what ran and what the app evidence says.','Save exact campaign and monitor receipts beside source-scoped measurements and their unknowns.','Choose the review window, then save one private report or approve a finite local report plan. No message is sent.');
-  define('observational-campaign-register','Find out what one organic post sends to your app.','WMM saves the observation window and prepares a unique link for your app website.','Review the exact link and final creative before approving a schedule.');
-  define('observational-campaign-ingest','Add evidence from your app’s tracking source.','WMM checks the campaign, window and receipt, then deduplicates matching records.','Import a batch from your app’s private source and read the coverage before interpreting the counts.');
-  define('observational-campaign-correct','Correct one imported observation.','WMM retains the original record and appends your correction with its reason and identity.','Use the original evidence hash and review the changed counts after saving.');
-  define('campaign-monitor-form','Keep an eye on approved work.','Choose exact saved delivery intents, a finite read allowance and optional protective pause rules.','Review the exact plan. Monitoring keeps receipts and budget holds; OFF stops future monitoring without claiming an ad has paused.');
-  define('agreement-form','See your automation permissions together.','WMM reads selected existing local, campaign and scheduled scopes into one current summary without granting new authority.','Check accounts, exact actions, deadlines and resource allowances; use the separate scope controls to change or stop work.');
-  define('agent-handoff-form','Keep an existing task available to another authorized agent.','WMM saves bounded task context for the original job; a handoff starts no work and grants no execution authority.','Choose the job, recipient, permitted operation and expiry. The recipient needs its own current grant.');
-  define('creative-batch-form','Prepare a finite set of local videos from reviewed briefs.','WMM shows the selected variants, expiry and frame allowance before any batch is queued.','Choose the current briefs and shapes, review the exact plan, then queue only if it matches your intent. Publishing remains separate.');
-  define('onesignal-key-form onesignal-read-form onesignal-create-form onesignal-channel-form onesignal-recovery-form','Connect your OneSignal app.','WMM keeps keys protected and reads the exact selected app.','Review provider changes or recovery readback before confirming.');
-  define('oresearch-render-form','Place footage from your approval.','Choose a shape and match approved clips to scenes. The local render uses muted clips and the original brief text.','Review the exact inputs and tool checks before reserving one local slot.');
-  define('oresearch-artifact-form','Check the finished video and its caption.','The saved approval holds capacity for this exact file and Facebook Page.','Review the video, then choose how many provider calls to hold for later delivery and verification.');
-  define('oresearch-schedule-form','Pick when your approved Reel should go out.','Choose a time before the approval expires. WMM saves a draft with the exact video, caption and Page.','Review the saved time and activate the schedule when ready.');
-  define('publication-draft-form','Prepare one post for a verified social account.','Choose the channel, account, app-owned video or LinkedIn text, copy and posting settings. TikTok options are checked for the selected creator.','Review the exact destination, media, copy, privacy and disclosures before deciding whether to approve.');
-  define('publication-approval-form','Approve one exact post or schedule.','The approval binds the destination, copy, media, settings, rights confirmation, deadline and provider-call limit. Advertising spend remains zero.','Approve only to save the permission, or explicitly approve and queue the post. A queued request is not a provider success receipt.');
-  define('instrumentation-lifecycle-form','Report the integration state for this exact downloaded bundle.','WMM saves your attestation or live probe as owner-reported evidence with its release, time and scope.','Continue with the next listed step; downloading still does not verify installation or delivery.');
-  define('install-import-form','Map your original install export to the campaign and frozen window.','WMM checks columns, states, timestamps, duplicates and coverage before storing anything.','Review the checklist, fix blocked rows, then confirm the import.');
+  const FORMS = {};
+  FORMS['oresearch-task-form'] = [
+    'Give your agent one focused marketing question.',
+    'The saved task fixes its permitted sources, expiry and research limits. It delegates no WMM credential or publication authority.',
+    'Review the exact assignment, then let the selected agent claim it through its scoped access.',
+  ];
+  FORMS['oresearch-adopt-form'] = [
+    'Turn an inspected source into an original app experiment.',
+    'Your observations, interpretation and authentic app proof bind to the exact reported candidate. Reuse rights remain separate.',
+    'Review and approve the research card, then prepare its original creative through the existing brief controls.',
+  ];
+  function define(ids, mission, result, next) {
+    for (const id of ids.split(' ')) FORMS[id] = Object.freeze([mission, result, next]);
+  }
+  define(
+    'campaign-scope-form',
+    'Turn your approved app message into a bounded campaign.',
+    'WMM records exact Page, copy, rights, audience, time and media limits before saving provider delivery receipts.',
+    'Review the scope and permissions, approve it, then run the workflow. Compare measured app outcomes afterward.',
+  );
+  define(
+    'authority-expiry-form',
+    'Give approved work more time.',
+    'WMM records your exact later deadline and consent. Used calls, campaign limits and existing child deadlines stay unchanged.',
+    'Choose a date, review the remaining allowance and earlier stopping points, then confirm the extension.',
+  );
+  define(
+    'packaging-variant-form',
+    'Turn one app outcome into a clear title and opening.',
+    'WMM saves a creative revision with the source ideas and app proof you select.',
+    'Fill the message, choose an uploaded thumbnail and save. Compare that saved revision before preparing shots.',
+  );
+  define(
+    'packaging-shots-form',
+    'Give every script beat a shot you can produce.',
+    'WMM saves ordered script segments, shots, source times, selected footage and claim links as one revision.',
+    'Describe each shot, select its material and save the checklist. Resolve missing evidence before production.',
+  );
+  define(
+    'packaging-preview-form',
+    'See your title and thumbnail beside competing ideas.',
+    'WMM builds a repeatable desktop or mobile comparison from your saved sources and uploaded images. This produces simulation notes, not measured CTR.',
+    'Choose two or three source cards, select the viewing size and compare. Record what you would change.',
+  );
+  define(
+    'discovery-query-form',
+    'Find saved video references that fit your app and audience.',
+    'WMM saves an immutable collection of observed source decisions, qualification and evidence gaps. It evaluates saved references; it does not start a platform scan.',
+    'Choose filters and save the collection. Review why each source qualified or stayed a candidate before adapting it.',
+  );
+  define(
+    'discovery-source-form',
+    'Turn an inspected source into a specific app experiment.',
+    'WMM saves your observations, separate classifications, documented baseline and rights attestation against the exact source and app. Saving a review grants no production authority.',
+    'Record what you observed, name your interpretation and keep rights and authentic app proof explicit. Then evaluate the source in a collection.',
+  );
+  define(
+    'drive-setup-form',
+    'Choose the Google Drive files this app can access.',
+    'WMM protects your client configuration and prepares Google consent for selected files. No clips are imported by this step.',
+    'Open Google, select the files and review the returned account before saving access.',
+  );
+  define(
+    'drive-confirm-form',
+    'Keep the account and selected files you have just reviewed.',
+    'WMM saves access to this exact account and file selection. Saving access does not import clips or grant reuse permission.',
+    'Save the reviewed access, then choose which clips to import into the original video library.',
+  );
+  define(
+    'drive-import-form',
+    'Bring the selected original clips into this app.',
+    'WMM queues durable imports and shows each worker step. A successful import retains the original picture and sound; it does not approve reuse.',
+    'Select the clips to import, monitor their progress and review each original before editing.',
+  );
+  define(
+    'drive-disconnect-form',
+    'Stop this app from using its saved Drive connection.',
+    'WMM disables the displayed local connection and records credential cleanup. This does not revoke access in your Google account.',
+    'Confirm the exact connection to disconnect. Use Google account settings if you also want to revoke provider access.',
+  );
+  define(
+    'media-upload-form',
+    'Keep your original clips together before choosing their use.',
+    'WMM saves and decodes each selected local clip; upload does not grant reuse permission.',
+    'Inspect the original picture, sound and provenance, then review reuse for each clip.',
+  );
+  define(
+    'media-review-form',
+    'Decide whether this app may reuse the selected original clip.',
+    'WMM saves a source-bound owner attestation or revocation in retained history.',
+    'Inspect the saved status; approval by attestation is not independent legal verification.',
+  );
+  define(
+    'studio-source-form',
+    'Choose the approved composition you want to customize.',
+    'WMM prepares an exact local startup summary without launching Studio.',
+    'Review the source and resource limits, then choose whether to start the local session.',
+  );
+  define(
+    'cloud-connection-form',
+    'Choose whether this app stays local or uses a personal cloud you operate.',
+    'WMM stores the HTTPS endpoint and keeps the token in the OS vault. Saving does not send evidence; testing calls only the health route.',
+    'Save and test the connection, or return to local. MMP import and reports stay local until you explicitly send a batch.',
+  );
+  define(
+    'app-form',
+    'Tell WMM who the app serves and the useful task it delivers.',
+    'Your saved app facts guide stage checks and future preparation.',
+    'Enter the current release and audience, then save the setup.',
+  );
+  define(
+    'setup-review',
+    'Turn the discovered app information into a setup you have checked.',
+    'Your confirmed choices become the app facts used by this workspace.',
+    'Correct the proposed fields and inspect their sources before applying them.',
+  );
+  define(
+    'evidence-form',
+    'Keep a source-backed fact beside the work that uses it.',
+    'Saving creates or updates this evidence record in the selected app.',
+    'Check the record type, source and release before saving.',
+  );
+  define(
+    'brief-form',
+    'Give one piece of marketing a specific job.',
+    'You get a saved brief that connects the audience, message and requested format.',
+    'Review the claim and source material, then save the brief.',
+  );
+  define(
+    'cohort-form',
+    'Make a group of users and its measurement window clear.',
+    'The saved group gives imported events a defined time range and source.',
+    'Check the dates, currency and observation limits before saving.',
+  );
+  define(
+    'experiment-form subscription-plan-form',
+    'Turn an idea into a test with a clear decision rule.',
+    'You get a saved experiment definition with the proposed change, metric and stop conditions.',
+    'Check the control, treatment and measurement plan before saving.',
+  );
+  define(
+    'funnel-plan-form',
+    'Connect your creative to a useful app outcome and app sales.',
+    'You get an immutable plan linking current creative, customer evidence, a saved cohort and the stages you choose.',
+    'Name the outcome, select the sources and review stage populations before saving.',
+  );
+  define(
+    'funnel-observation-form',
+    'Record what a source observed at one app-sales stage.',
+    'You get a source-bound count with its window, population and complete, partial or unknown coverage.',
+    'Use the source event identity and inspected export hash; zero is a real observation and unknown remains unknown.',
+  );
+  define(
+    'funnel-batch-form',
+    'Bring an inspected observation batch into this saved app-sales plan.',
+    'You get deduplicated local evidence and a complete stage report; existing payment and refund events are not recreated.',
+    'Inspect the original JSON, confirm the saved stage scope and import once. If the response is lost, reconcile or explicitly retry the identical request.',
+  );
+  define(
+    'experiment-action-form',
+    'Decide what to do with this experiment’s current evidence.',
+    'The selected action is recorded against this experiment.',
+    'Read the assessment and exact action below before confirming.',
+  );
+  define(
+    'experiment-schedule-form',
+    'Choose when this experiment is checked again.',
+    'You get the saved schedule for supported local evaluation.',
+    'Review the interval and current experiment before saving.',
+  );
+  define(
+    'history-form provider-report-form release-inventory-form',
+    'Ask a connected source for a specific set of records.',
+    'A supported read saves its result with the selected account and app context.',
+    'Review the source, time range and requested read before running it.',
+  );
+  define(
+    'inspection-form audit-form',
+    'Check the current product or source against a defined question.',
+    'The inspection saves its observations and the checks it could not complete.',
+    'Choose the exact target and inspect the proposed scope before starting.',
+  );
+  define(
+    'reference-form reference-import-form',
+    'Keep a creative reference with its source and reuse information.',
+    'You get a saved reference to inspect and compare when preparing creative work.',
+    'Check the source, platform and rights information before saving or importing.',
+  );
+  define(
+    'connection-setup-form play-setup-form social-setup-form',
+    'Connect the account that holds this app’s data.',
+    'The setup stores protected access locally; the account still needs its supported access check.',
+    'Use the named provider’s setup and verify the exact app and account before saving.',
+  );
+  define(
+    'agent-setup-form',
+    'Choose how WMM reaches your agent or model provider.',
+    'You get a saved connection profile. A successful connection test establishes its tested state.',
+    'Check the provider, endpoint and charge consent, then save and test the connection.',
+  );
+  define(
+    'agent-routes-form',
+    'Choose which connection handles each kind of work.',
+    'The saved routes keep tasks attached to your selected providers.',
+    'Select the tested profiles you want to use and save the routes.',
+  );
+  define(
+    'agent-work-form',
+    'Give your agent a focused preparation task.',
+    'You get a proposed request to inspect before the selected connection runs.',
+    'Choose the task and focus, then review the exact request.',
+  );
+  define(
+    'agent-approve-form',
+    'Know exactly what you are sending to this provider.',
+    'Confirmation runs this displayed request and retains its local result.',
+    'Check the connection, transmitted facts and cost information before approving.',
+  );
+  define(
+    'control-grant-form',
+    'Let an agent do a defined set of work for this app.',
+    'You get a scoped credential with the selected actions, deadline and call allowance.',
+    'Choose the permissions and review checkpoints, then issue the grant.',
+  );
+  define(
+    'standing-scope-form',
+    'Let your agent work within the boundaries you choose.',
+    'You get an exact scope summary to approve after the selected connections and workflows are checked.',
+    'Choose the work, tested connection and limits, then review the authority before enabling it.',
+  );
+  define(
+    'control-reconcile-form',
+    'Resolve an uncertain result using what actually happened.',
+    'You get a recorded outcome and evidence hash; this does not retry the action.',
+    'Inspect the saved effect first, then record the verified outcome.',
+  );
+  define(
+    'access-bootstrap-form',
+    'Establish who controls this local app’s verified permissions.',
+    'The signed-in account becomes the first owner for this app.',
+    'Check the app and signed-in identity before confirming ownership.',
+  );
+  define(
+    'access-member-form',
+    'Give a person the role they need for this app.',
+    'The saved role determines which verified review actions that person can perform.',
+    'Check the person, role and access state before saving.',
+  );
+  define(
+    'identity-form',
+    'Identify yourself for owner controls and verified reviews.',
+    'Successful verification opens a temporary local review session for your account.',
+    'Use the requested identity credential; close or sign out when finished.',
+  );
+  define(
+    'verified-prepare-form review-form',
+    'Freeze the exact work you want someone to review.',
+    'You get a review packet tied to the displayed input and current app.',
+    'Inspect the proposed work, then prepare the packet for the appropriate reviewer.',
+  );
+  define(
+    'attribution-setup-form attribution-map-form attribution-intake-form attribution-token-form',
+    'Connect a recorded user arrival to its declared source.',
+    'You get saved source, mapping or observation records with their measurement limits.',
+    'Check the source identifiers and consent conditions before the action below.',
+  );
+  define(
+    'attribution-disconnect-form storekit-disconnect-form',
+    'Stop this app from using the selected local connection.',
+    'Disconnecting disables future local access while saved evidence remains.',
+    'Read the exact removal scope before confirming; provider-side revocation is a separate action.',
+  );
+  define(
+    'storekit-setup-form storekit-intake-form',
+    'Bring Apple purchase observations into this app’s records.',
+    'Supported imports retain purchase evidence and its source status.',
+    'Check the app, environment and requested evidence before saving or importing.',
+  );
+  define(
+    'insights-setup-form insights-events-form',
+    'Bring usage events into a defined measurement source.',
+    'You get saved source configuration or imported events for later analysis.',
+    'Check the event identifiers, dates and consent scope before continuing.',
+  );
+  define(
+    'apple-analytics-form',
+    'Keep a dated downloads record for your next marketing test.',
+    'WMM reads the selected Apple report while its worker is running. Missing report files stay unknown, rather than becoming zero downloads.',
+    'Choose a refresh interval, save it and inspect the latest result. Pause future reads here whenever you need.',
+  );
+  define(
+    'payment-setup-form payment-action-form',
+    'Connect payment evidence to the exact account and app.',
+    'Supported setup or reads retain payment-source facts and their verification state.',
+    'Review the account, requested action and protected access before confirming.',
+  );
+  define(
+    'provider-prepare-form provider-confirm-form',
+    'Make a provider action explicit before it runs.',
+    'You get the prepared action or the saved result of its permitted execution.',
+    'Read the exact target, effect and approval requirements below before confirming.',
+  );
+  define(
+    'social-confirm-form',
+    'Choose the account destination you intend this app to use.',
+    'The confirmed subject and destination are saved with the supported access facts.',
+    'Check the account and destination returned by the provider before connecting it.',
+  );
+  define(
+    'render-form',
+    'Turn a current approved brief into a local video.',
+    'You get a local MP4 using the selected renderer’s supported output.',
+    'Choose the renderer, brief and frame shape; preview the finished video before use.',
+  );
+  define(
+    'capability-form',
+    'Describe what this product can actually deliver.',
+    'You get a saved capability record for checking whether proposed work fits the product.',
+    'Record the real supported behavior and limits before saving.',
+  );
+  define(
+    'customer-workflow-form',
+    'Connect a proposed product change to a customer’s actual task.',
+    'You get a traceable workflow proposal linked to the supplied customer evidence.',
+    'Check the source and expected task change before saving the proposal.',
+  );
+  define(
+    'growth-review-form',
+    'Choose the next experiment from the evidence already saved.',
+    'You get a review that links the current growth question, findings and next decision.',
+    'Inspect the source records and select the next bounded action.',
+  );
+  define(
+    'opolicy-form',
+    'Choose what your agent may use for app videos.',
+    'The approval records the Page, source rights, claims, captions and limits.',
+    'Review the exact proposal before saving the approval.',
+  );
+  define(
+    'research-form',
+    'Keep a research question connected to its sources.',
+    'You get saved research work with visible observations and gaps.',
+    'Choose the question and source scope, then review the requested action.',
+  );
+  define(
+    'public-store-form',
+    'Check what a customer actually sees on the public store page.',
+    'You get a saved public-page observation tied to the selected app and listing.',
+    'Check the store address and requested locale before reading the page.',
+  );
+  define(
+    'ranking-form',
+    'Compare references against a specific purpose.',
+    'You get a saved ranking based on the selected evidence and rules.',
+    'Set the audience and ranking criteria, then inspect why each reference was placed.',
+  );
+  define(
+    'acq-form aeo-form',
+    'Work out how the right audience finds this app.',
+    'You get a saved acquisition or answer-engine worksheet from the supplied observations.',
+    'Choose the audience and source evidence, then review the proposed test.',
+  );
+  define(
+    'resolution-form',
+    'Close a specific evidence gap in the workflow.',
+    'You get a prepared resolution request with its source and required approval.',
+    'Inspect the missing proof and exact proposed work before authorizing it.',
+  );
+  define(
+    'sequence-form',
+    'Put a series of permitted tasks in the right order.',
+    'You get a saved sequence with dependencies and review boundaries.',
+    'Check each step’s purpose and authority before saving the sequence.',
+  );
+  define(
+    'tracking-form',
+    'Collect the defined evidence needed to evaluate this experiment.',
+    'The supported read retains its source-bound observations for the experiment.',
+    'Review the source, measurement window and exact requested read before approving.',
+  );
+  define(
+    'followup-form',
+    'Keep the next useful follow-up tied to its evidence.',
+    'You get a saved follow-up policy or task with its selected limits.',
+    'Read the cadence, recipient scope and permission requirements before continuing.',
+  );
+  define(
+    'learning-propose-form learning-link-form learning-action-form',
+    'Carry a lesson from observed work into the next decision.',
+    'You get a saved proposal, evidence link or decision; an untested idea stays a proposal.',
+    'Check the original observation and choose the exact next action below.',
+  );
+  define(
+    'video-project-create-form',
+    'Give this video one audience and one intended action.',
+    'Choose a current source video and save an editable project with its source hash.',
+    'Name the edit, describe its purpose and create the draft before changing clips.',
+  );
+  define(
+    'video-project-edit-form',
+    'Shape the saved video for the people you want to reach.',
+    'Your timing, framing and color choices become a new shared project revision. Rendering creates an actual MP4.',
+    'Save field edits before clip commands or rendering, then preview the exact output and review it before use.',
+  );
+  define(
+    'packaging-taste-form',
+    'Describe how your app should look and sound.',
+    'Your selected examples explain style. Your rules and exclusions stay attached to this app and the current guidance policy.',
+    'Review the fields, then save your owner-reviewed direction.',
+  );
+  define(
+    'campaign-schedule-form',
+    'Choose when your approved campaign runs.',
+    'WMM saves exact posts or a verified post promotion with its start, end, audience, media budget and campaign approval hash.',
+    'Review the exact batch and keep WMM running. OFF stops undispatched work; reconcile uncertain delivery and inspect retained commitments.',
+  );
+  define(
+    'goal-readiness-form',
+    'Check the setup WMM needs to run approved work.',
+    'WMM inspects the owner, selected workflows and tested connections without issuing a grant or starting work.',
+    'Personal agents can use ordinary scoped grants without this managed-work checklist.',
+  );
+  define(
+    'owner-report-form',
+    'See what ran and what the app evidence says.',
+    'Save exact campaign and monitor receipts beside source-scoped measurements and their unknowns.',
+    'Choose the review window, then save one private report or approve a finite local report plan. No message is sent.',
+  );
+  define(
+    'observational-campaign-register',
+    'Find out what one organic post sends to your app.',
+    'WMM saves the observation window and prepares a unique link for your app website.',
+    'Review the exact link and final creative before approving a schedule.',
+  );
+  define(
+    'observational-campaign-ingest',
+    'Add evidence from your app’s tracking source.',
+    'WMM checks the campaign, window and receipt, then deduplicates matching records.',
+    'Import a batch from your app’s private source and read the coverage before interpreting the counts.',
+  );
+  define(
+    'observational-campaign-correct',
+    'Correct one imported observation.',
+    'WMM retains the original record and appends your correction with its reason and identity.',
+    'Use the original evidence hash and review the changed counts after saving.',
+  );
+  define(
+    'campaign-monitor-form',
+    'Keep an eye on approved work.',
+    'Choose exact saved delivery intents, a finite read allowance and optional protective pause rules.',
+    'Review the exact plan. Monitoring keeps receipts and budget holds; OFF stops future monitoring without claiming an ad has paused.',
+  );
+  define(
+    'agreement-form',
+    'See your automation permissions together.',
+    'WMM reads selected existing local, campaign and scheduled scopes into one current summary without granting new authority.',
+    'Check accounts, exact actions, deadlines and resource allowances; use the separate scope controls to change or stop work.',
+  );
+  define(
+    'agent-handoff-form',
+    'Keep an existing task available to another authorized agent.',
+    'WMM saves bounded task context for the original job; a handoff starts no work and grants no execution authority.',
+    'Choose the job, recipient, permitted operation and expiry. The recipient needs its own current grant.',
+  );
+  define(
+    'creative-batch-form',
+    'Prepare a finite set of local videos from reviewed briefs.',
+    'WMM shows the selected variants, expiry and frame allowance before any batch is queued.',
+    'Choose the current briefs and shapes, review the exact plan, then queue only if it matches your intent. Publishing remains separate.',
+  );
+  define(
+    'onesignal-key-form onesignal-read-form onesignal-create-form onesignal-channel-form onesignal-recovery-form',
+    'Connect your OneSignal app.',
+    'WMM keeps keys protected and reads the exact selected app.',
+    'Review provider changes or recovery readback before confirming.',
+  );
+  define(
+    'oresearch-render-form',
+    'Place footage from your approval.',
+    'Choose a shape and match approved clips to scenes. The local render uses muted clips and the original brief text.',
+    'Review the exact inputs and tool checks before reserving one local slot.',
+  );
+  define(
+    'oresearch-artifact-form',
+    'Check the finished video and its caption.',
+    'The saved approval holds capacity for this exact file and Facebook Page.',
+    'Review the video, then choose how many provider calls to hold for later delivery and verification.',
+  );
+  define(
+    'oresearch-schedule-form',
+    'Pick when your approved Reel should go out.',
+    'Choose a time before the approval expires. WMM saves a draft with the exact video, caption and Page.',
+    'Review the saved time and activate the schedule when ready.',
+  );
+  define(
+    'publication-draft-form',
+    'Prepare one post for a verified social account.',
+    'Choose the channel, account, app-owned video or LinkedIn text, copy and posting settings. TikTok options are checked for the selected creator.',
+    'Review the exact destination, media, copy, privacy and disclosures before deciding whether to approve.',
+  );
+  define(
+    'publication-approval-form',
+    'Approve one exact post or schedule.',
+    'The approval binds the destination, copy, media, settings, rights confirmation, deadline and provider-call limit. Advertising spend remains zero.',
+    'Approve only to save the permission, or explicitly approve and queue the post. A queued request is not a provider success receipt.',
+  );
+  define(
+    'instrumentation-lifecycle-form',
+    'Report the integration state for this exact downloaded bundle.',
+    'WMM saves your attestation or live probe as owner-reported evidence with its release, time and scope.',
+    'Continue with the next listed step; downloading still does not verify installation or delivery.',
+  );
+  define(
+    'install-import-form',
+    'Map your original install export to the campaign and frozen window.',
+    'WMM checks columns, states, timestamps, duplicates and coverage before storing anything.',
+    'Review the checklist, fix blocked rows, then confirm the import.',
+  );
   Object.freeze(FORMS);
-  const DIALOGS=Object.freeze({
-    'Connect Cloudflare Workers AI':['Connect Cloudflare once.','Choose free or paid inference and set your limits.','Save your protected connection, then test it.'],
-    'Review exact video batch':['Review the exact videos before creating the batch.','The plan binds each variant to its brief, source and cleared stills, with a finite frame allowance and expiry.','Check the captions and output limits, then queue the reviewed plan if it matches your intent. Publication remains separate.'],
-    'Your video direction':['Give your editor and agent the same clear direction.','WMM keeps your reviewed voice, visual rules, examples and exclusions as exact saved revisions.','Create your direction or inspect a revision before using it in production.'],
-    'Guide your video editor':['Describe how your app should look and sound.','Your selected examples explain style. Your rules and exclusions stay attached to this app and the current guidance policy.','Review the fields, then save your owner-reviewed direction.'],
-    'Your reviewed video direction':['Your creative direction is saved and inspectable.','The status shows whether the app, owner review, examples and policy remain current. This guidance grants no footage reuse or production authority.','Revise stale direction or export the exact saved review for your editor.'],
-    'Your production evidence checklist':['Find what this video still needs before editing.','WMM rechecks your saved shots, current app evidence and owner-reviewed original clips. Research references do not grant reuse rights.','Revise missing inputs, check again and export the checklist. Frame, sound and taste decisions still need review before rendering.'],
-    'Your creative packaging':['Make the video idea clear before you film.','Your app owns these saved title, opening and shot-plan revisions.','Create an original candidate or inspect a saved plan and its evidence.'],
-    'Your saved creative revision':['Your plan is saved and ready to inspect.','The revision keeps its exact inputs and shows which evidence is missing or changed.','Compare the packaging, revise the plan or build its shot checklist.'],
-    'Your packaging in context':['Judge the message in a crowded feed.','This layout uses the saved title, selected local thumbnails and repeatable ordering.','Inspect the cards at their target width, then export your observations or revise the comparison.'],
-    'Your selected Drive clips':['Bring your selected Google Drive clips into this app.','Connect the Google account and select files. When you import a clip, WMM keeps the original picture and sound and shows its progress.','Choose access first, then select clips to import. Review each saved original and approve reuse before editing.'],
-    'Your app-sales founder review':['Choose your next app-sales task.','See missing stages beside source-bound results.','Open an exact stage report or export this page.'],
-    'Your app-sales stage results':['See where app sales advance.','Stage counts, matching conversion ratios and subscription economics come from this cohort’s saved evidence.','Resolve a missing stage or export this report.'],
-    'Your app-sales funnels':['Choose the app-sales path to work on.','Each saved plan connects creative, a cohort and the app milestones you chose.','Open its results or create a new plan.'],
-    'Saved stage observations':['See the evidence behind the counts.','This page shows retained source observations, including zero, partial and unknown counts.','Page through the history or return to the complete stage report.'],
-    'Inspect an uncertain request':['Find out what was saved.','The exact request is retained because its response was uncertain.','Reconcile saved evidence or explicitly retry the identical request.']
+  const DIALOGS = Object.freeze({
+    'Connect Cloudflare Workers AI': [
+      'Connect Cloudflare once.',
+      'Choose free or paid inference and set your limits.',
+      'Save your protected connection, then test it.',
+    ],
+    'Review exact video batch': [
+      'Review the exact videos before creating the batch.',
+      'The plan binds each variant to its brief, source and cleared stills, with a finite frame allowance and expiry.',
+      'Check the captions and output limits, then queue the reviewed plan if it matches your intent. Publication remains separate.',
+    ],
+    'Your video direction': [
+      'Give your editor and agent the same clear direction.',
+      'WMM keeps your reviewed voice, visual rules, examples and exclusions as exact saved revisions.',
+      'Create your direction or inspect a revision before using it in production.',
+    ],
+    'Guide your video editor': [
+      'Describe how your app should look and sound.',
+      'Your selected examples explain style. Your rules and exclusions stay attached to this app and the current guidance policy.',
+      'Review the fields, then save your owner-reviewed direction.',
+    ],
+    'Your reviewed video direction': [
+      'Your creative direction is saved and inspectable.',
+      'The status shows whether the app, owner review, examples and policy remain current. This guidance grants no footage reuse or production authority.',
+      'Revise stale direction or export the exact saved review for your editor.',
+    ],
+    'Your production evidence checklist': [
+      'Find what this video still needs before editing.',
+      'WMM rechecks your saved shots, current app evidence and owner-reviewed original clips. Research references do not grant reuse rights.',
+      'Revise missing inputs, check again and export the checklist. Frame, sound and taste decisions still need review before rendering.',
+    ],
+    'Your creative packaging': [
+      'Make the video idea clear before you film.',
+      'Your app owns these saved title, opening and shot-plan revisions.',
+      'Create an original candidate or inspect a saved plan and its evidence.',
+    ],
+    'Your saved creative revision': [
+      'Your plan is saved and ready to inspect.',
+      'The revision keeps its exact inputs and shows which evidence is missing or changed.',
+      'Compare the packaging, revise the plan or build its shot checklist.',
+    ],
+    'Your packaging in context': [
+      'Judge the message in a crowded feed.',
+      'This layout uses the saved title, selected local thumbnails and repeatable ordering.',
+      'Inspect the cards at their target width, then export your observations or revise the comparison.',
+    ],
+    'Your selected Drive clips': [
+      'Bring your selected Google Drive clips into this app.',
+      'Connect the Google account and select files. When you import a clip, WMM keeps the original picture and sound and shows its progress.',
+      'Choose access first, then select clips to import. Review each saved original and approve reuse before editing.',
+    ],
+    'Your app-sales founder review': [
+      'Choose your next app-sales task.',
+      'See missing stages beside source-bound results.',
+      'Open an exact stage report or export this page.',
+    ],
+    'Your app-sales stage results': [
+      'See where app sales advance.',
+      'Stage counts, matching conversion ratios and subscription economics come from this cohort’s saved evidence.',
+      'Resolve a missing stage or export this report.',
+    ],
+    'Your app-sales funnels': [
+      'Choose the app-sales path to work on.',
+      'Each saved plan connects creative, a cohort and the app milestones you chose.',
+      'Open its results or create a new plan.',
+    ],
+    'Saved stage observations': [
+      'See the evidence behind the counts.',
+      'This page shows retained source observations, including zero, partial and unknown counts.',
+      'Page through the history or return to the complete stage report.',
+    ],
+    'Inspect an uncertain request': [
+      'Find out what was saved.',
+      'The exact request is retained because its response was uncertain.',
+      'Reconcile saved evidence or explicitly retry the identical request.',
+    ],
   });
-  function page(view){
-    const row=PAGES[view];if(!row)throw new Error('This page needs its own story.');
+  function page(view) {
+    const row = PAGES[view];
+    if (!row) throw new Error('This page needs its own story.');
     return `<section class="wmm-page-story" aria-label="How to use this page"><h3>${esc(row[0])}</h3><p>${esc(row[1])}</p><p><strong>What goes in:</strong> ${esc(row[2])}</p><p><strong>What you get:</strong> ${esc(row[3])}</p><p><strong>Your next step:</strong> ${esc(row[4])}</p></section>`;
   }
-  function dialog(title,markup){
-    if(title==='Approve your campaign scope')return ''; // The exact decision summary is the guide.
-    if(title==='Add your app')return '<aside class="notice" aria-label="Task guide"><p>Tell WMM who uses your app and what they do first. Save to choose a marketing goal and open your first packet.</p></aside>';
-    const research={
-      'Your agent research':'Choose a marketing question, assign a bounded search and inspect the returned evidence here.',
-      'Connect an agent for research':'Give your connected agent research access for this app. Source browsing is configured in that agent.',
-      'Give your agent a focused search':'Choose the agent, sources and limits. You review the exact assignment before saving it.',
-      'Review the search assignment':'Assigning saves a metadata-research task for the selected agent. Nothing downloads or publishes.',
-      'Review agent research':'Check the source counts, baseline, relevance and failures. Approve an original app experiment after inspection.',
-      'Turn this source into an app experiment':'Keep the observed hook separate from your interpretation. Add authentic app proof and a proposed experiment.',
-      'Review this research approval':'Approval saves a research card and proposed experiment. Media reuse, production and publication need their own authority.',
-      'Choose an approved local render':'Start from a saved brief and the caption you’ve already approved for it.',
-      'Place your approved clips':'Decide what viewers will see while each line of your brief plays.',
-      'Review this exact local render':'Check the frame size and footage before you use a slot from your approval.',
-      'Local render status':'Follow the same job from reservation to a local MP4.',
-      'Inspect this render request':'Check whether WMM saved the action before retrying.',
-      'Review your finished video':'Play or download the finished video. Check its caption and Page before holding any delivery capacity.',
-      'Plan one Facebook Reel':'Choose when this approved video should go out. Activation comes after draft review.',
-      'Facebook Reel schedule':'Review the due time, saved provider phase and worker receipts. Turn the schedule off here if plans change.',
-      'Inspect Facebook delivery':'Find the saved schedule before repeating a delivery action.',
-      'Find the words your app should test':'Review your agent’s sources, then save a packet of keyword coverage, competitor overlaps and next experiments.',
-      'Choose the rules for your app videos':'Pick the Page, clips, claims and captions. Then review the exact rules your agent will follow.',
-      'Review this video production approval':'Check the destination, captions, evidence and limits before granting this approval.',
-      'Your video production approvals':'Open a saved approval to see its current status, held capacity and delivery evidence.'
+  function dialog(title, markup) {
+    if (title === 'Approve your campaign scope') return ''; // The exact decision summary is the guide.
+    if (title === 'Add your app')
+      return '<aside class="notice" aria-label="Task guide"><p>Tell WMM who uses your app and what they do first. Save to choose a marketing goal and open your first packet.</p></aside>';
+    const research = {
+      'Your agent research':
+        'Choose a marketing question, assign a bounded search and inspect the returned evidence here.',
+      'Connect an agent for research':
+        'Give your connected agent research access for this app. Source browsing is configured in that agent.',
+      'Give your agent a focused search':
+        'Choose the agent, sources and limits. You review the exact assignment before saving it.',
+      'Review the search assignment':
+        'Assigning saves a metadata-research task for the selected agent. Nothing downloads or publishes.',
+      'Review agent research':
+        'Check the source counts, baseline, relevance and failures. Approve an original app experiment after inspection.',
+      'Turn this source into an app experiment':
+        'Keep the observed hook separate from your interpretation. Add authentic app proof and a proposed experiment.',
+      'Review this research approval':
+        'Approval saves a research card and proposed experiment. Media reuse, production and publication need their own authority.',
+      'Choose an approved local render':
+        'Start from a saved brief and the caption you’ve already approved for it.',
+      'Place your approved clips':
+        'Decide what viewers will see while each line of your brief plays.',
+      'Review this exact local render':
+        'Check the frame size and footage before you use a slot from your approval.',
+      'Local render status': 'Follow the same job from reservation to a local MP4.',
+      'Inspect this render request': 'Check whether WMM saved the action before retrying.',
+      'Review your finished video':
+        'Play or download the finished video. Check its caption and Page before holding any delivery capacity.',
+      'Plan one Facebook Reel':
+        'Choose when this approved video should go out. Activation comes after draft review.',
+      'Facebook Reel schedule':
+        'Review the due time, saved provider phase and worker receipts. Turn the schedule off here if plans change.',
+      'Inspect Facebook delivery': 'Find the saved schedule before repeating a delivery action.',
+      'Find the words your app should test':
+        'Review your agent’s sources, then save a packet of keyword coverage, competitor overlaps and next experiments.',
+      'Choose the rules for your app videos':
+        'Pick the Page, clips, claims and captions. Then review the exact rules your agent will follow.',
+      'Review this video production approval':
+        'Check the destination, captions, evidence and limits before granting this approval.',
+      'Your video production approvals':
+        'Open a saved approval to see its current status, held capacity and delivery evidence.',
     }[title];
-    if(research)return `<header class="notice" aria-label="Task guide"><p>${esc(research)}</p></header>`;
-    if(['Choose your agent setup','Choose how your agent works'].includes(title))return '<aside class="notice" aria-label="Task guide"><p>Your personal agent uses scoped access. WMM-managed work needs a tested connection. Choose the path you want to set up.</p></aside>';
-    if(title==='WMM-managed automation setup')return '<aside class="notice" aria-label="Task guide"><p>WMM checks the tested connection, workflows and accounts for work it will run. This check starts no work.</p></aside>';
-    if(title==='WMM-managed readiness checklist')return '<aside class="notice" aria-label="Task guide"><p>These are setup observations for WMM-managed work. Fix listed needs before reviewing its limits and approvals.</p></aside>';
-    if(title==='OneSignal setup')return '<aside class="notice" aria-label="Task guide"><p>Keys stay protected on this device. Review provider changes before applying them.</p></aside>';
-    if(['Find a useful marketing angle','Produce or revise a video','Run an approved campaign','Understand app results'].some(goal=>title===goal+' — evidence packet'))return '<aside class="notice" aria-label="Task guide"><p>Here is the saved evidence for your goal. Review what is missing, continue the next task, or download this snapshot.</p></aside>';
-    const found=[...markup.matchAll(/<form\b[^>]*\sid=["']([^"']+)["']/g)].map(match=>match[1]);
-    const rows=found.map(id=>FORMS[id]);
-    if(rows.some(row=>!row))return `<aside class="notice" aria-label="Task guide"><p>Review ${esc(title)}. Check the exact inputs, result and action described below before continuing.</p></aside>`;
-    const story=DIALOGS[title]||rows[0]||[`Inspect ${title}.`,'Read the displayed status, source and saved evidence to understand this work.','Use an action below only after reviewing its exact effect. Close this view to return to your workspace.'];
+    if (research)
+      return `<header class="notice" aria-label="Task guide"><p>${esc(research)}</p></header>`;
+    if (['Choose your agent setup', 'Choose how your agent works'].includes(title))
+      return '<aside class="notice" aria-label="Task guide"><p>Your personal agent uses scoped access. WMM-managed work needs a tested connection. Choose the path you want to set up.</p></aside>';
+    if (title === 'WMM-managed automation setup')
+      return '<aside class="notice" aria-label="Task guide"><p>WMM checks the tested connection, workflows and accounts for work it will run. This check starts no work.</p></aside>';
+    if (title === 'WMM-managed readiness checklist')
+      return '<aside class="notice" aria-label="Task guide"><p>These are setup observations for WMM-managed work. Fix listed needs before reviewing its limits and approvals.</p></aside>';
+    if (title === 'OneSignal setup')
+      return '<aside class="notice" aria-label="Task guide"><p>Keys stay protected on this device. Review provider changes before applying them.</p></aside>';
+    if (
+      [
+        'Find a useful marketing angle',
+        'Produce or revise a video',
+        'Run an approved campaign',
+        'Understand app results',
+      ].some((goal) => title === goal + ' — evidence packet')
+    )
+      return '<aside class="notice" aria-label="Task guide"><p>Here is the saved evidence for your goal. Review what is missing, continue the next task, or download this snapshot.</p></aside>';
+    const found = [...markup.matchAll(/<form\b[^>]*\sid=["']([^"']+)["']/g)].map(
+      (match) => match[1],
+    );
+    const rows = found.map((id) => FORMS[id]);
+    if (rows.some((row) => !row))
+      return `<aside class="notice" aria-label="Task guide"><p>Review ${esc(title)}. Check the exact inputs, result and action described below before continuing.</p></aside>`;
+    const story = DIALOGS[title] ||
+      rows[0] || [
+        `Inspect ${title}.`,
+        'Read the displayed status, source and saved evidence to understand this work.',
+        'Use an action below only after reviewing its exact effect. Close this view to return to your workspace.',
+      ];
     return `<aside class="notice" aria-label="Task guide"><div><p><strong>${esc(story[0])}</strong></p><p>${esc(story[1])}</p><p>${esc(story[2])}</p></div></aside>`;
   }
-  return {PAGES,FORMS,page,dialog};
+  return { PAGES, FORMS, page, dialog };
 });

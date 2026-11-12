@@ -1,6 +1,8 @@
 """Customer authoring script integration through real loopback/static boundaries."""
 
+import re
 import unittest
+
 from tests import test_http
 
 
@@ -15,7 +17,7 @@ class CustomerWorkflowUIHTTPTests(unittest.TestCase):
         self.assertIn("text/javascript", headers["Content-Type"])
         self.assertIn("WMMCustomerWorkflow", content.decode("utf-8"))
         self.assertIn("/customer-workflow.js", self.request("/")[1].decode("utf-8"))
-        source = self.request("/app.js")[1].decode("utf-8")
+        source = re.sub(r"\s+", "", self.request("/app.js")[1].decode("utf-8"))
         for expected in (
             "WMMCustomerWorkflow.panel(state)",
             "WMMCustomerWorkflow.submit(form,growthReviewServices())",

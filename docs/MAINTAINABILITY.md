@@ -5,11 +5,21 @@ protocol. For current product boundaries, see [Release scope](../RELEASE-SCOPE.m
 
 | Area | Current approach | Next acceptance gate |
 | --- | --- | --- |
-| Readable code | Ruff formats and lints the maintained Python set; the full tracked tree had one behavior-preserving format pass. Prettier checks the standing campaign monitor. | Expand Prettier coverage module by module; existing UI tests assert exact script text, so a static-JavaScript pass must update those tests and release pins together. |
+| Readable code | Ruff formats and lints the maintained Python set after one behavior-preserving pass over all tracked Python; Prettier formats and checks all static JavaScript. | Keep the ratchet green; when UI scripts change, keep source-text tests whitespace-normalized instead of asserting exact formatting. |
 | Typed boundaries | Generated TypedDict row shapes cover the core schema; Pyright checks the maintained Python allowlist. | Add request and storage boundary types one at a time. Static typing and runtime validation remain separate checks. |
 | SQLite schema | An ordered transactional ledger (`mission_control/migrations/NNNN_*.sql`) records immutable checksums; every foreign-key child now has a leading index. | Add a new ordered file for every schema change; exercise old, current and new workspaces, interrupted upgrades and backup restore. |
 | HTTP server | The loopback transport owns routing, sessions, request validation and write controls. Static assets revalidate by build-bound ETag while API responses stay `no-store`. | Compare a candidate adapter against the same route, origin, CSRF, session, OAuth and error tests before choosing a framework or moving traffic. |
 | Evidence and review | PRs record the exact candidate SHA and review status. New or enlarged tracked evidence over 512 KiB is rejected; generated `.factory` evidence is untracked. | Prove durable retrieval and hash replay before removing old tracked reports. Retire merged branches only after checking they are not referenced by open work or release evidence. A second human maintainer and independent review are still pending. |
+
+## JavaScript modules
+
+Static scripts stay classic, ordered `<script defer>` files so the app keeps its
+no-build-step constraint. The reference library, inspection and production-brief
+screens now live in `app-production.js`, loaded before `app.js`; `app.js`
+remains the core shell, bootstrap and shared helpers. New screen groups should
+follow the same pattern: load before `app.js`, reference only runtime globals,
+and join `tools/maintained_js.txt`. ES-module conversion waits for an explicit
+global-binding migration and the full browser matrix.
 
 ## Schema changes
 
@@ -50,7 +60,7 @@ The maintained set is `tools/maintained_files.txt`. It may only grow: add a file
 when you take ownership of its formatting and types.
 
 ```sh
-python tools/check_format.py   # Ruff format + lint on the maintained set
+python tools/check_format.py   # Ruff, Prettier and node --check on both maintained sets
 python tools/check_types.py    # Pyright basic on maintained Python + row types
 python tools/check_layering.py # import cycles, storage/portable/HTTP edges, docs rows
 python tools/query_budget.py   # SQL statement budgets; --update only lowers
@@ -76,8 +86,9 @@ python tools/integrity_drill.py
 
 That drill checks `PRAGMA integrity_check`, `foreign_key_check`, an online
 backup/restore round trip, migration replay, `user_version` and schema-digest
-agreement across the primary, backup and a fresh database. CI runs it nightly
-and on each change.
+agreement across the primary, backup and a fresh database. The nightly
+workflow also builds the SBOM twice and compares the bytes. Binary
+reproducibility of the PyInstaller bundle remains dependent on that toolchain.
 
 ## Repository hygiene
 
