@@ -1,41 +1,43 @@
 """Application service for workspaces, evidence, review packets and exports."""
 
-from datetime import datetime, timezone, timedelta
-import json
-import os
-from pathlib import Path
-import re
 import hashlib
-from .common import Invalid, amount, canonical, digest, iso_time, now, required, uid
-from .db import connection
-from .catalog import FIELDS, LABELS, PROVIDERS
-from .pipeline import evaluate
+import json
+import re
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import cast
+
+from .acquisition_workflows import Acquisition
 from .automatic_preparation import prepare
-from .metrics import summarize, cohort_metrics, retention_metrics, acquisition_metrics
-from .worker import enqueue, jobs
-from .ledger import Ledger
-from .provider_reports import report_options
+from .catalog import FIELDS, LABELS, PROVIDERS
+from .common import Invalid, amount, canonical, digest, iso_time, now, uid
 from .connection_setup import Connections
-from .review_access import Access
-from .verified_reviews import Reviews
-from .provider_outbox import Outbox
-from .outcome_learning import Learning
-from .signed_payments import Payments
-from .insights import Insights
-from .storekit_ingestion import Notifications
-from .experiments import Experiments
-from .experiment_schedules import Schedules
-from .creative_library import Library
 from .creative_analysis import Analyses
 from .creative_briefs import Briefs
+from .creative_library import Library
 from .creative_ranking import Rankings
-from .acquisition_workflows import Acquisition
 from .creative_rendering import Renders
-from .hypit_jobs import HypitRenders
+from .db import connection
+from .experiment_schedules import Schedules
+from .experiments import Experiments
 from .guided_workflow import guide
-from .workflow_automation import recommend
-from .subscription_readiness import readiness as catalog_readiness, validate_catalog_scope
+from .hypit_jobs import HypitRenders
+from .insights import Insights
+from .ledger import Ledger
+from .metrics import acquisition_metrics, cohort_metrics, retention_metrics, summarize
+from .outcome_learning import Learning
+from .pipeline import evaluate
+from .provider_outbox import Outbox
+from .provider_reports import report_options
 from .release_readiness import readiness as release_readiness
+from .review_access import Access
+from .signed_payments import Payments
+from .storekit_ingestion import Notifications
+from .subscription_readiness import readiness as catalog_readiness
+from .subscription_readiness import validate_catalog_scope
+from .verified_reviews import Reviews
+from .worker import enqueue, jobs
+from .workflow_automation import recommend
 
 
 def validate_evidence(kind, data, app_id):
@@ -122,6 +124,7 @@ class Service:
     def client_dashboard(self, app_id):
         """Read a finite client summary without initializing a missing database."""
         import sqlite3
+
         from .common import identifier
 
         identifier(app_id)
@@ -182,16 +185,16 @@ class Service:
 
     def workspace(self, app_id):
         """Assemble the selected app dashboard from its own records and runs."""
-        from .production_feasibility import Capabilities
-        from .attribution_ingestion import Observations
         from .aeo_workflows import Checks
-        from .followup import Followup
-        from .public_store_readback import PublicStore
-        from .pmf_workflow import prepare as prepare_pmf
-        from .pmf_research import Research
+        from .attribution_ingestion import Observations
         from .audit_runtime import Inspections
-        from .measurement_integrity import view as measurement_integrity
         from .campaign_inputs import CampaignInputs
+        from .followup import Followup
+        from .measurement_integrity import view as measurement_integrity
+        from .pmf_research import Research
+        from .pmf_workflow import prepare as prepare_pmf
+        from .production_feasibility import Capabilities
+        from .public_store_readback import PublicStore
 
         app = self.store.app(app_id)
         records = self.store.records(app_id)
@@ -208,7 +211,7 @@ class Service:
         workflow = guide(app, records, evaluated, ledger, catalog, release)
         workflow["exceptions"] = self._workflow_exceptions(app)
         automation = recommend(app, records, ledger, workflow)
-        preparation = prepare(app, records, ledger, catalog, release)
+        preparation = cast(dict[str, object], prepare(app, records, ledger, catalog, release))
         preparation["release_inventory"] = release
         preparation["recommendations"] = automation
         preparation["collection"] = CampaignInputs(self.store).preview_from_snapshot(app, records)
@@ -262,9 +265,9 @@ class Service:
             if experiment["assessments"]:
                 latest = experiment["assessments"][-1]
                 experiment["iteration"] = iteration_plan(experiment["data"], latest["data"], latest["hash"])
+        from .agent_feedback import reuse_candidate
         from .resolution_plan import prepare as prepare_resolutions
         from .resolutions import Resolutions
-        from .agent_feedback import reuse_candidate
 
         workspace["resolutions"] = prepare_resolutions(
             app,
@@ -407,7 +410,7 @@ class Service:
             data = self.play_sync_data(app_id, binding, data)
         if "options" in data:
             report_options(binding["data"]["provider"], data["options"])
-            if data["options"]["operation"] == "subscription_catalog":
+            if cast(dict[str, object], data["options"])["operation"] == "subscription_catalog":
                 validate_catalog_scope(self.store.app(app_id), binding["data"])
         return {**data, "connection_version": version}
 
@@ -425,7 +428,7 @@ class Service:
     def cancel(self, app_id, job_id):
         """Cancel only an active job in the selected workspace."""
         self.store.app(app_id)
-        with connection(self.store.path) as db:
+        with connection(self.store.path, write=True) as db:
             target = db.execute("SELECT action FROM jobs WHERE id=? AND app_id=?", (job_id, app_id)).fetchone()
             if target and target["action"] == "drive_import":
                 raise PermissionError("Use the owner-authorized Drive import cancellation control")
@@ -468,7 +471,7 @@ class Service:
         }
         review_id = uid()
         expires = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
-        with connection(self.store.path) as db:
+        with connection(self.store.path, write=True) as db:
             db.execute(
                 "INSERT INTO approvals(id,app_id,packet,hash,preparer,status,expires,created) VALUES(?,?,?,?,?,?,?,?)",
                 (review_id, app_id, canonical(packet), digest(packet), self.operator, "WAITING_REVIEW", expires, now()),
@@ -478,7 +481,7 @@ class Service:
     def review(self, app_id, review_id, body):
         """Record a distinct reviewer after checking expiry, source integrity and replay."""
         self.store.app(app_id)
-        with connection(self.store.path) as db:
+        with connection(self.store.path, write=True) as db:
             row = db.execute("SELECT * FROM approvals WHERE id=? AND app_id=?", (review_id, app_id)).fetchone()
             self._check_review(row, body)
             db.execute("UPDATE approvals SET checker=?,status='REVIEW_RECORDED' WHERE id=?", (self.operator, review_id))

@@ -1,18 +1,23 @@
 """Actual SQLite plans and scoped analytics retention/quota regression at synthetic scale."""
 
-from contextlib import contextmanager
 import json
 import time
 import unittest
+from contextlib import contextmanager
 from unittest.mock import patch
+
+import tests.test_measurement_connectors as fixtures
 from mission_control import insights as module
 from mission_control.common import Invalid, canonical, digest, now, uid
 from mission_control.db import connection
+from mission_control.insights import Insights
 from mission_control.insights_transport import ProviderFailure
-import tests.test_measurement_connectors as fixtures
+from mission_control.store import Store
 
 
 class AnalyticsReadIndexTests(unittest.TestCase):
+    store: Store
+    insights: Insights
     setUp = fixtures.MeasurementTests.setUp
     create = fixtures.MeasurementTests.create
 
@@ -48,8 +53,8 @@ class AnalyticsReadIndexTests(unittest.TestCase):
         original = module.connection
 
         @contextmanager
-        def observed(path):
-            with original(path) as db:
+        def observed(path, **options):
+            with original(path, **options) as db:
                 db.set_trace_callback(statements.append)
                 yield db
 

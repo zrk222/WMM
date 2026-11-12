@@ -1,14 +1,14 @@
 """Independent SQLite persistence with foreign keys and transactional writes."""
 
+import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-import sqlite3
 
 from .schema_apple_metrics import SCHEMA as APPLE_METRICS_SCHEMA
 from .schema_discovery import SCHEMA as DISCOVERY_SCHEMA
 
 SCHEMA = (
-    "\n"
+    "\n"  # noqa: S608 -- assembled literal DDL only, without request interpolation.
     + APPLE_METRICS_SCHEMA
     + DISCOVERY_SCHEMA
     + """\
@@ -208,9 +208,13 @@ def session(path):
 
 
 @contextmanager
-def transaction(path, db):
+def transaction(path, db, *, write=False):
     """Guard each independently committed transaction, including reused connections."""
+    if write and db.in_transaction:
+        raise ValueError("Write scope requires a connection without an active transaction")
     with db:
+        if write:
+            db.execute("BEGIN IMMEDIATE")
         from .automation_execution import guard_connection
         from .operation_authority import guard_connection as operation_guard
 
@@ -222,10 +226,14 @@ def transaction(path, db):
 
 
 @contextmanager
-def connection(path):
+def connection(path, *, write=False, busy_timeout_ms=None):
     """Open a scoped transactional connection with the same entry and commit guards."""
+    if busy_timeout_ms is not None and (type(busy_timeout_ms) is not int or not 0 <= busy_timeout_ms <= 60000):
+        raise ValueError("Busy timeout must be an integer from 0 to 60000 milliseconds")
     with session(path) as db:
-        with transaction(path, db):
+        if busy_timeout_ms is not None:
+            db.execute(f"PRAGMA busy_timeout={busy_timeout_ms}")
+        with transaction(path, db, write=write):
             yield db
 
 
@@ -277,7 +285,8 @@ def initialize(path):
         if "native_packet_hash" not in columns:
             db.execute("ALTER TABLE creative_batch_variants ADD COLUMN native_packet_hash TEXT")
         db.execute("COMMIT")
-        from . import migrations
         from hashlib import sha256
+
+        from . import migrations
 
         migrations.apply(db, baseline_checksum=sha256((SCHEMA + ONESIGNAL_SCHEMA).encode()).hexdigest())

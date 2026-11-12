@@ -1,15 +1,15 @@
 """Durable signed StoreKit intake with immutable sanitized records and visible retry failures."""
 
 import hashlib
-import json
+
 from .common import Invalid, canonical, digest, now, uid
 from .db import connection
+from .payment_signature import strict_json
 from .review_access import member
 from .store import audit
-from .payment_signature import strict_json
 from .storekit_contract import normalize
-from .storekit_sources import Sources, source, checked
 from .storekit_lifecycle import report
+from .storekit_sources import Sources, checked, source
 
 
 def receipt(row):
@@ -128,7 +128,7 @@ class Notifications:
     def failure(self, app, sid, body_hash):
         """Redacted failures stay visible, without claiming any unverified field or body."""
         data = {"body_sha256": body_hash, "code": "VERIFICATION_FAILED", "retry": "RESELECT_ORIGINAL_FILE"}
-        with connection(self.store.path) as db:
+        with connection(self.store.path, write=True) as db:
             db.execute(
                 "INSERT INTO storekit_failures VALUES(?,?,?,?,?,?,?)",
                 (app, uid(), sid, canonical(data), digest(data), 0, now()),

@@ -2,12 +2,13 @@
 
 import json
 import uuid
+
+from .audit_contract import exact, scope
+from .audit_ecc import review
+from .audit_tools import capability, invoke
 from .common import Invalid, canonical, digest, now
 from .db import connection
 from .pmf_research import app_snapshot, rows, task_source
-from .audit_contract import scope, exact
-from .audit_tools import capability, invoke
-from .audit_ecc import review
 
 ACTIVE = ("QUEUED", "RUNNING")
 
@@ -173,7 +174,7 @@ class Inspections:
 
     def interrupt(self):
         """Mark abandoned work on startup; browser actions are never automatically retried."""
-        with connection(self.store.path) as db:
+        with connection(self.store.path, write=True) as db:
             db.execute(
                 "UPDATE inspection_runs SET status='INTERRUPTED',error='Worker restarted; explicitly rerun with a new request key',updated=? WHERE status='RUNNING'",
                 (now(),),

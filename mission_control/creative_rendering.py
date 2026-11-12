@@ -1,16 +1,16 @@
 """Proof-bound, owned native rendering with immutable app-scoped artifacts."""
 
 import hashlib
-import json
-from pathlib import Path
 import re
 import shutil
 import tempfile
 import time
-from .common import Invalid, canonical, digest, now, required, uid
-from .db import connection
-from .creative_analysis import latest, decoded
+from pathlib import Path
+
+from .common import Invalid, canonical, digest, now, uid
+from .creative_analysis import decoded, latest
 from .creative_briefs import stale_findings
+from .db import connection
 from .media_native import SHAPES, capability, caption_lines, render_native
 
 
@@ -62,7 +62,7 @@ def heartbeat(store, job, stop=None):
     """Renew only the owned attempt; worker shutdown terminates its private process."""
     if stop is not None and stop.is_set():
         raise Invalid("Worker stopped; retry the saved render")
-    with connection(store.path) as db:
+    with connection(store.path, write=True) as db:
         owned(db, job, store)
         db.execute(
             "UPDATE jobs SET lease=?,updated=? WHERE id=? AND attempts=? AND status=?",

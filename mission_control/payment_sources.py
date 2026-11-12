@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 import uuid
+
 from .common import Invalid, canonical, digest, identifier, now
 from .credential_vault import Vault, namespace
 from .db import connection
@@ -166,6 +167,6 @@ class Sources:
                 "status": "CLEANUP_REQUIRED",
                 "message": "Intake is disabled. Retry disconnect to remove the local protected credential.",
             }
-        with connection(self.store.path) as db:
+        with connection(self.store.path, write=True) as db:
             db.execute("UPDATE payment_sources SET status='DISCONNECTED' WHERE app_id=? AND id=?", (app_id, source_id))
         return {"status": "DISCONNECTED"}

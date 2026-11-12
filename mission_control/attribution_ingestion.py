@@ -1,14 +1,15 @@
 """Durable native-verified postbacks, immutable map bindings and visible redacted recovery."""
 
 import hashlib
+
+from . import attribution_aak, attribution_skan
+from .attribution_maps import Maps, mapping
+from .attribution_reporting import report
+from .attribution_sources import Sources, checked, current_authority, source
 from .common import Invalid, canonical, digest, now, uid
 from .db import connection
 from .review_access import member
 from .store import audit
-from .attribution_sources import Sources, source, checked, current_authority
-from .attribution_maps import Maps, mapping
-from . import attribution_skan, attribution_aak
-from .attribution_reporting import report
 
 
 def room(db, app):
@@ -22,7 +23,7 @@ def room(db, app):
 def failure(store, app, sid, body_hash, code="VERIFICATION_FAILED"):
     """Retain only a finite failure code, digest and repair action, never raw input."""
     data = {"body_sha256": body_hash, "code": code, "retry": "RESELECT_FRESH_INPUT"}
-    with connection(store.path) as db:
+    with connection(store.path, write=True) as db:
         db.execute(
             "INSERT INTO attribution_failures VALUES(?,?,?,?,?,?,?)",
             (app, uid(), sid, canonical(data), digest(data), 0, now()),
