@@ -30,6 +30,7 @@ tests/test_integrity_drill.py
 tests/test_migrations.py
 tests/test_operation_docs.py
 tests/test_parser_properties.py
+tests/test_property_profiles.py
 tests/test_query_budgets.py
 tests/test_repo_hygiene.py
 tests/test_sbom_reproducibility.py
