@@ -23,6 +23,7 @@ mission_control/service.py
 mission_control/social_renewal.py
 mission_control/store.py
 mission_control/storekit_ingestion.py
+tests/test_analytics_read_indexes.py
 tests/test_architecture_gates.py
 tests/test_ci_current_candidate.py
 tests/test_format_ratchet.py
