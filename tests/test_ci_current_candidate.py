@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # All eight backend shards and the native/package job definitions are retained.
 # One Ubuntu shard also runs the isolated native Secret Service acceptance.
 BASELINES = {
-    ".github/workflows/checks.yml": "96f38bcefd3bf4eb11840482c4503c5bc3b3ef96c4bc2495d35f3f90f0ae8b01",
+    ".github/workflows/checks.yml": "eaddaeec9595f63c20a14b9cd7ae9cc201e6e106f13dea2fa2ada5c88d1086f0",
     ".github/workflows/platform-checks.yml": "8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",
     ".github/workflows/desktop-packages.yml": "f0aac774bb6117a0f8a60ae2ad681282ee537fcfcc9b0919cbe7a0df6f854541",
 }
@@ -89,6 +89,17 @@ class CurrentCandidateCITests(unittest.TestCase):
             self.assertIn("matrix.shard", prefix)
             self.assertNotIn("github.run_id", prefix)
         self.assertNotIn("pull_request_target", text)
+
+    def test_report_type_imports_are_hash_pinned_without_runtime_provisioning(self):
+        text = (ROOT / ".github/workflows/checks.yml").read_text(encoding="utf-8")
+        maintained = text.split("  maintainability:\n", 1)[1].split("  browser:\n", 1)[0]
+        self.assertIn(
+            "--require-hashes --no-deps --only-binary :all: -r docs/requirements-report-types.txt", maintained
+        )
+        self.assertNotIn("playwright install", maintained)
+        requirements = (ROOT / "docs/requirements-report-types.txt").read_text(encoding="utf-8")
+        for dependency in ("playwright==1.57.0", "PyMuPDF==1.27.2.2"):
+            self.assertIn(dependency + " --hash=sha256:", requirements)
 
     def test_full_job_definitions_and_test_matrices_are_preserved(self):
         for path, expected in BASELINES.items():

@@ -12,3 +12,6 @@ Architect verdict: PASS
 - [ ] T7 | slice=specs | files=specs/kpi-report-coverage.json | verify=`python -m unittest tests.test_kpi_data_gaps -q` | Add concrete repair inputs and closure evidence for every registered metric.
 - [ ] T8 | slice=tests | files=tests/test_kpi_data_gaps.py | verify=`python -m unittest tests.test_kpi_data_gaps -q` | Reject missing coverage requirements and invented completed status.
 - [ ] T9 | slice=tools | files=tools/test_page_reporting_browser.py | verify=`python tools/test_page_reporting_browser.py` | Exercise actual Results economics and unsuccessful assessment PDF rendering at desktop and mobile widths.
+- [ ] T10 | slice=docs | files=docs/requirements-report-types.txt | verify=`python tools/check_types.py` | Pin optional report packages for static CI analysis without browser binaries.
+- [ ] T11 | slice=.github | files=.github/workflows/checks.yml | verify=`python tools/check_types.py` | Provision declared report imports in the maintained type job.
+- [ ] T12 | slice=tests | files=tests/test_ci_current_candidate.py | verify=`python -m unittest tests.test_ci_current_candidate -q` | Pin the reviewed static-only dependency step and retain existing job matrices.
