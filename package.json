@@ -1,4 +1,7 @@
 {
   "private": true,
-  "type": "commonjs"
+  "type": "commonjs",
+  "devDependencies": {
+    "pyright": "1.1.407"
+  }
 }

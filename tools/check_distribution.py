@@ -8,6 +8,9 @@ import hashlib
 
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 
+# Generated evidence and dependency trees stay out of the published source.
+IGNORED_TRACKED={'.factory','.forge','.prestige','.wrangler','node_modules'}
+
 # Only the reviewed synthetic native icon bytes are allowed at these two paths.
 NATIVE_ICONS={
     'desktop/src-tauri/icons/icon.ico': 'bf5c20b5d2c88871e312a1605176daad830da56b0f3f7eb5136716e3458ede0e',
@@ -33,6 +36,8 @@ def check():
               r'\bsk-proj-[A-Za-z0-9_-]{30,}',r'C:[/\\]Users[/\\][^/\\\s]+']
     for path in files():
         rel=path.relative_to(ROOT)
+        if rel.parts and rel.parts[0] in IGNORED_TRACKED:
+            issues.append(str(rel)+': generated or dependency path is tracked');continue
         if path.is_symlink() or not path.resolve().is_relative_to(ROOT.resolve()):issues.append(str(rel)+': escaping path');continue
         expected_icon=NATIVE_ICONS.get(rel.as_posix())
         if expected_icon is not None:

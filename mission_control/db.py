@@ -188,10 +188,13 @@ CREATE TRIGGER IF NOT EXISTS managed_media_reviews_append_only_delete BEFORE DEL
 
 @contextmanager
 def session(path):
-    """Own one scoped SQLite handle; callers use guarded transactions for business SQL."""
+    """Own one scoped SQLite handle with bounded cache and default durable commits."""
     db = sqlite3.connect(str(path), timeout=15)
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA foreign_keys=ON")
+    db.execute("PRAGMA cache_size=-16000")
+    db.execute("PRAGMA temp_store=MEMORY")
+    db.execute("PRAGMA mmap_size=268435456")
     try:yield db
     finally:db.close()
 
@@ -249,3 +252,7 @@ def initialize(path):
         columns={row["name"] for row in db.execute("PRAGMA table_info(creative_batch_variants)")}
         if "native_state" not in columns:db.execute("ALTER TABLE creative_batch_variants ADD COLUMN native_state TEXT NOT NULL DEFAULT 'PREPARED'")
         if "native_packet_hash" not in columns:db.execute("ALTER TABLE creative_batch_variants ADD COLUMN native_packet_hash TEXT")
+        db.execute("COMMIT")
+        from . import migrations
+        from hashlib import sha256
+        migrations.apply(db,baseline_checksum=sha256((SCHEMA+ONESIGNAL_SCHEMA).encode()).hexdigest())

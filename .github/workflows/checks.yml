@@ -9,6 +9,34 @@ concurrency:
 permissions:
   contents: read
 jobs:
+  maintainability:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - name: Install pinned runtime and formatter
+        run: |
+          python -m pip install --require-hashes --only-binary :all: -r requirements.txt
+          python -m pip install --require-hashes --only-binary :all: -r docs/requirements-dev.txt
+      - name: Check import layering and catalog coverage
+        run: python tools/check_layering.py
+      - name: Check generated schema and operation references
+        run: |
+          python tools/generate_schema_types.py --check
+          python tools/generate_operation_docs.py --check
+      - name: Check maintained formatting and lint
+        run: python tools/check_format.py
+      - name: Install pinned type checker
+        run: npm ci --ignore-scripts
+      - name: Check maintained Python types
+        run: python tools/check_types.py
+      - name: Check SQL statement budgets
+        run: python tools/query_budget.py
+      - name: Check integrity, backup restore and migration replay
+        run: python tools/integrity_drill.py
   browser:
     runs-on: ubuntu-24.04
     timeout-minutes: 45

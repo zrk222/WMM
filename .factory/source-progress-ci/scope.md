@@ -1,1 +1,0 @@
-Test fixture holds the hourly proposal clock stable only while authorizing and dispatching a synthetic job. Production hourly expiry and approval checks are unchanged. Existing tests cover stale and foreign proposals. No UI, timing performance claim, network, provider write or production mutation is added.

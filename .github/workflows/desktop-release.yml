@@ -54,6 +54,8 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -64,6 +66,10 @@ jobs:
           pattern: WMM-release-*-${{ needs.validate.outputs.sha }}
           path: release-assets
           merge-multiple: true
+      - name: Attest release asset provenance
+        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f
+        with:
+          subject-path: 'release-assets/*'
       - name: Verify both receipts, publish prerelease, verify anonymous downloads
         env:
           GH_TOKEN: ${{ github.token }}

@@ -5,13 +5,14 @@ import json
 import math
 import re
 import uuid
+from typing import Any
 
 
 class Invalid(ValueError):
     """Readable input error for the API."""
 
 
-def canonical(value: dict) -> str:
+def canonical(value: Any) -> str:
     """Encode finite JSON values deterministically for evidence hashing."""
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
 

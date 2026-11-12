@@ -30,7 +30,7 @@ def media_range(value,size):
     left,right=match.groups()
     if not left:
         length=int(right)
-        if length<=0:raise Invalid("Invalid video suffix range")
+        if length<=0 or size<=0:raise Invalid("Invalid video suffix range")
         return max(0,size-length),size-1
     start=int(left);end=min(int(right),size-1) if right else size-1
     if start>=size or start>end:raise Invalid("Video byte range is unavailable")
@@ -95,7 +95,7 @@ class Handler(BaseHTTPRequestHandler):
         """Avoid logging request paths or sensitive provider references to console."""
         return
 
-    def send(self,code,body,content_type="application/json; charset=utf-8",filename=None,headers=None):
+    def send(self,code,body,content_type="application/json; charset=utf-8",filename=None,headers=None,cache_control="no-store",etag=None):
         """Return a bounded response with cache, content, framing and cookie protection."""
         if code>=400 and self.command=='POST':
             from .http_body import discard_rejected_body
@@ -104,7 +104,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type",content_type)
         self.send_header("Content-Length",str(len(raw)))
-        self.send_header("Cache-Control","no-store")
+        self.send_header("Cache-Control",cache_control)
+        if etag:self.send_header("ETag",etag)
         self.send_header("X-Content-Type-Options","nosniff")
         self.send_header("Referrer-Policy","no-referrer")
         self.send_header("Content-Security-Policy","default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
@@ -115,6 +116,31 @@ class Handler(BaseHTTPRequestHandler):
         for key,value in (headers or {}).items():self.send_header(key,value)
         self.end_headers()
         self.wfile.write(raw)
+
+    def asset_tag(self,file,raw):
+        """Bind a static asset version to the server build and its exact bytes."""
+        build=getattr(self.server.service,"build_id","") or ""
+        return '"%s"' % digest(dict(build=build,path=file.name,bytes=hashlib.sha256(raw).hexdigest()))
+
+    def matches_asset_tag(self,tag):
+        """Honor exact, weak and wildcard If-None-Match forms without overclaiming."""
+        value=self.headers.get("If-None-Match","")
+        if value.strip()=="*":
+            return True
+        return any(item.strip().removeprefix("W/")==tag for item in value.split(",") if item.strip())
+
+    def send_asset(self,file,content_type):
+        """Serve an immutable-per-build static asset with a cheap revalidation 304."""
+        raw=file.read_bytes()
+        tag=self.asset_tag(file,raw)
+        if self.matches_asset_tag(tag):
+            self.send_response(304)
+            self.send_header("ETag",tag)
+            self.send_header("Cache-Control","no-cache")
+            self.send_header("Content-Length","0")
+            self.end_headers()
+            return
+        self.send(200,raw,content_type,cache_control="no-cache",etag=tag)
 
     def session(self):
         """Establish a local HttpOnly session with its bound anti-CSRF token."""
@@ -203,7 +229,7 @@ class Handler(BaseHTTPRequestHandler):
         """Serve the fixed UI routes and app-scoped read endpoints."""
         callback=self.callback_page(path)
         if callback:
-            return self.send(200,(STATIC/callback).read_bytes(),'text/html; charset=utf-8')
+            return self.send_asset(STATIC/callback,'text/html; charset=utf-8')
         if path=="/api/bootstrap":
             return self.send(200,dict(self.server.service.bootstrap(),csrf=token,identity=self.server.identities.public(token)))
         if path=="/api/weekly-review":
@@ -219,12 +245,12 @@ class Handler(BaseHTTPRequestHandler):
                  '/spytok-workflow.js','/production-feasibility.js','/spira-workflow.js','/journey-readiness.js','/workflow-telemetry.js','/ui-stories.js','/complete-automation.js','/video-editor.js','/studio-controls.js','/managed-media.js','/drive-library.js','/discovery-model.js','/discovery-ui.js','/packaging-model.js','/packaging-ui.js','/funnel-model.js','/funnel-ui.js')
         scripts += ('/publication.js','/organic-research.js','/organic-policy.js','/operation-feedback.js')
         if path in scripts:
-            return self.send(200,(STATIC/path[1:]).read_bytes(),"text/javascript; charset=utf-8")
+            return self.send_asset(STATIC/path[1:],"text/javascript; charset=utf-8")
         files={"/packaging.css":"packaging.css","/drive-callback.css":"drive-callback.css","/":"index.html","/index.html":"index.html","/style.css":"style.css","/page-reporting.css":"page-reporting.css","/video-editor.css":"video-editor.css","/app.js":"app.js","/creative-ranking.js":"creative-ranking.js","/acquisition.js":"acquisition.js","/creative-rendering.js":"creative-rendering.js","/verified-review.js":"verified-review.js","/provider-actions.js":"provider-actions.js","/outcome-learning.js":"outcome-learning.js","/signed-payments.js":"signed-payments.js"}
         if path not in files:
             raise KeyError(path)
         file=STATIC/files[path]
-        return self.send(200,file.read_bytes(),mimetypes.guess_type(file.name)[0]+"; charset=utf-8")
+        return self.send_asset(file,mimetypes.guess_type(file.name)[0]+"; charset=utf-8")
 
     def get_weekly_review(self):
         """Parse only the closed portfolio offset before a bounded saved-evidence read."""

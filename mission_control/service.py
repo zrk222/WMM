@@ -93,6 +93,7 @@ class Service:
     def __init__(self,store,operator="local-operator"):
         self.store=store
         self.operator=operator
+        self.build_id: str | None = None
         from .hypit_studio_sessions import Manager
         self.studio=Manager(store)
 

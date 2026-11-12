@@ -1,0 +1,21 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+extend-exclude = [
+  "mission_control/static",
+  "mission_control/schema_types.py",
+  "ios",
+  "desktop",
+  "package",
+  "dist",
+  ".factory",
+]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "B", "SIM", "S", "BLE", "I", "RUF100"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S310", "S311", "S603", "S607"]
+"tools/*" = ["S101", "S603", "S607"]
+"mission_control/integrity_drill.py" = ["S608"]
