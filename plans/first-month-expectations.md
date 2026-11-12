@@ -14,3 +14,4 @@ Architect verdict: PASS
 - [ ] T4 | slice=tools | files=tools/test_goal_journey_browser.py | verify=`python tools/test_goal_journey_browser.py` | Verify the current headings and first-month text in the rendered interface.
 - [ ] T5 | slice=ios | files=ios/WMM/Workflow/WorkflowNavigation.swift | verify=`python tools/check_platform_receipts.py --ci-contract` | Render native copy with semantic text and 680 point reading width.
 - [ ] T6 | slice=tests | files=tests/page_reporting.test.cjs | verify=`node --test tests/page_reporting.test.cjs` | Verify overview expectations preserve source and approval limits.
+- [ ] T7 | slice=docs/images | files=docs/images/goal-to-proof.png,docs/images/overview.png,docs/images/provenance.json | verify=`python tools/check_distribution.py` | Refresh actual synthetic overview screenshots from the candidate UI.
