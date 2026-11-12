@@ -46,7 +46,14 @@ def check():
         print("PRETTIER_REQUIRED run npm ci", file=sys.stderr)
         return 2
     prettier = subprocess.run(["npx", "--no-install", "prettier", "--check", *scripts], cwd=ROOT)
-    return 0 if formatted.returncode == 0 and lint.returncode == 0 and prettier.returncode == 0 else 1
+    if shutil.which("node") is None:
+        print("NODE_REQUIRED install Node.js", file=sys.stderr)
+        return 2
+    syntax_ok = True
+    for script in scripts:
+        syntax = subprocess.run(["node", "--check", script], cwd=ROOT)
+        syntax_ok = syntax.returncode == 0 and syntax_ok
+    return 0 if formatted.returncode == 0 and lint.returncode == 0 and prettier.returncode == 0 and syntax_ok else 1
 
 
 def main():

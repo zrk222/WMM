@@ -50,7 +50,7 @@ The maintained set is `tools/maintained_files.txt`. It may only grow: add a file
 when you take ownership of its formatting and types.
 
 ```sh
-python tools/check_format.py   # Ruff + Prettier checks on both maintained sets
+python tools/check_format.py   # Ruff, Prettier and node --check on both maintained sets
 python tools/check_types.py    # Pyright basic on maintained Python + row types
 python tools/check_layering.py # import cycles, storage/portable/HTTP edges, docs rows
 python tools/query_budget.py   # SQL statement budgets; --update only lowers
@@ -76,8 +76,9 @@ python tools/integrity_drill.py
 
 That drill checks `PRAGMA integrity_check`, `foreign_key_check`, an online
 backup/restore round trip, migration replay, `user_version` and schema-digest
-agreement across the primary, backup and a fresh database. CI runs it nightly
-and on each change.
+agreement across the primary, backup and a fresh database. The nightly
+workflow also builds the SBOM twice and compares the bytes. Binary
+reproducibility of the PyInstaller bundle remains dependent on that toolchain.
 
 ## Repository hygiene
 
