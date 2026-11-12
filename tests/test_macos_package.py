@@ -2,6 +2,8 @@
 from pathlib import Path
 import plistlib
 import runpy
+import os
+import stat
 import tempfile
 import unittest
 import zipfile
@@ -63,6 +65,31 @@ class MacOSPackageTests(unittest.TestCase):
         self.assertIn('keyring', argv)
         self.assertNotIn('secretstorage', argv)
         self.assertNotIn('--collect-all=keyring', argv)
+
+    def test_internal_framework_links_survive_staging_and_archive(self):
+        helpers = runpy.run_path(str(ROOT / 'tools/build_macos_package.py'))
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            bundle = root / 'bundle'
+            runtime = bundle / '_internal'
+            runtime.mkdir(parents=True)
+            (runtime / 'library').write_bytes(b'synthetic library')
+            try:
+                (runtime / 'linked-library').symlink_to('library')
+            except OSError:
+                self.skipTest('Creating symlinks needs native Mac/Linux or Windows link privileges')
+            for name in ('WMM', 'WMM-Mission-Control'):
+                (bundle / name).touch()
+            app = helpers['stage'](bundle, root / 'Wize Marketing Machine.app')
+            link = app / 'Contents/Frameworks/linked-library'
+            self.assertEqual(link.read_bytes(), b'synthetic library')
+            self.assertEqual(os.readlink(link), 'library')
+            output = root / 'package.zip'
+            helpers['archive_app'](app, output)
+            with zipfile.ZipFile(output) as archive:
+                entry = archive.getinfo('Wize Marketing Machine.app/Contents/Frameworks/linked-library')
+                self.assertTrue(stat.S_ISLNK(entry.external_attr >> 16))
+                self.assertEqual(archive.read(entry), b'library')
 
     def test_acceptance_refuses_non_mac_or_non_hosted_machine(self):
         main = runpy.run_path(str(ROOT / 'tools/check_macos_bundle.py'))['main']

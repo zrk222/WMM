@@ -75,6 +75,18 @@ class MacOSVaultTests(unittest.TestCase):
                 self.assertNotIn('PRIVATE_NATIVE_ERROR', str(error.exception))
         self.assertEqual(self.vault.get('scoped'), {'token': 'BEFORE'})
 
+    def test_non_finite_native_json_is_rejected_without_changing_stored_items(self):
+        self.vault.put('preserved', {'token': 'BEFORE'})
+        for raw in ('NaN', 'Infinity', '-Infinity', '[NaN]',
+                    '{"token":Infinity}', '{"nested":[-Infinity]}'):
+            with self.subTest(raw=raw):
+                self.backend.items[native.SERVICE, native.address('corrupt')] = raw
+                with self.assertRaisesRegex(Invalid, 'rotate this connection') as error:
+                    self.vault.get('corrupt')
+                self.assertNotIn(raw, str(error.exception))
+                self.assertEqual(self.backend.items[native.SERVICE, native.address('corrupt')], raw)
+                self.assertEqual(self.vault.get('preserved'), {'token': 'BEFORE'})
+
     def test_unavailable_dependency_never_chooses_another_backend(self):
         with patch.object(native.importlib, 'import_module', side_effect=ImportError('PRIVATE_PATH')):
             with self.assertRaises(Invalid) as error:

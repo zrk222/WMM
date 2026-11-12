@@ -33,9 +33,15 @@ def decode(raw: str):
     try:
         if len(raw.encode('utf-8')) > MAX_BYTES:
             raise Invalid('Protected credential size is invalid')
-        return json.loads(raw, object_pairs_hook=unique_pairs)
+        return json.loads(raw, object_pairs_hook=unique_pairs,
+                          parse_constant=reject_constant)
     except (ValueError, UnicodeError, RecursionError):
         raise Invalid('Protected credential is invalid; rotate this connection') from None
+
+
+def reject_constant(_value: str):
+    """Keep native reads as strict as canonical JSON writes."""
+    raise ValueError('Non-finite values are not JSON')
 
 
 class MacOSVault:
