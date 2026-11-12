@@ -365,6 +365,7 @@ class Handler(BaseHTTPRequestHandler):
             "/organic-research.js",
             "/organic-policy.js",
             "/operation-feedback.js",
+            "/app-ui.js",
             "/app-production.js",
             "/app-install.js",
             "/app-campaign.js",

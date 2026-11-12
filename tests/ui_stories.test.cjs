@@ -43,7 +43,7 @@ test('read-only and unknown dialogs escape hostile titles without inventing an e
  }
 });
 test('shared modal and page hooks add narrative alongside existing control and report paths',()=>{
- const app=fs.readFileSync(path.join(directory,'app.js'),'utf8')+fs.readFileSync(path.join(directory,'app-events.js'),'utf8');
+ const app=fs.readFileSync(path.join(directory,'app.js'),'utf8')+fs.readFileSync(path.join(directory,'app-ui.js'),'utf8')+fs.readFileSync(path.join(directory,'app-events.js'),'utf8');
  const flatApp=app.replace(/\s+/g,'');assert.ok(flatApp.includes('WMMStories.dialog(title,html)'));assert.ok(flatApp.includes('WMMAgentControl.submit'));
  const reports=fs.readFileSync(path.join(directory,'page-reporting.js'),'utf8');
  assert.ok(reports.includes('WMMStories.page(state.view)'));assert.ok(reports.includes('Report / Save PDF'));

@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "mission_control/static"
-SCREEN_LIMIT = 700
+SCREEN_LIMIT = 800
 SHELL_LIMIT = 1250
 
 

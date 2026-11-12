@@ -11,6 +11,7 @@ mission_control/static/app-install.js
 mission_control/static/app-production.js
 mission_control/static/app-research.js
 mission_control/static/app-results.js
+mission_control/static/app-ui.js
 mission_control/static/app-weekly.js
 mission_control/static/app.js
 mission_control/static/apple-analytics.js

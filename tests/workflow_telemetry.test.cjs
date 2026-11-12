@@ -19,7 +19,7 @@ test('waiting saved-result summary exposes only a validated source receipt hash'
  for(const source_hash of [null,{},'<img src=x>','PRIVATE_HASH','A'.repeat(64)]){const other=ui.waitingResultMarkup({...result,source_hash});assert.match(other,/Not supplied by this read/);assert.ok(!other.includes('PRIVATE_'));assert.ok(!other.includes('<img'));}
 });
 test('waiting result summary precedes resolution and Play dispatch without changing nonwaiting routing',()=>{
- const source=fs.readFileSync(require('node:path').join(__dirname,'../mission_control/static/app.js'),'utf8');
+ const source=fs.readFileSync(require('node:path').join(__dirname,'../mission_control/static/app-ui.js'),'utf8');
  const start=source.indexOf('function openJob(id) {'),end=source.indexOf('\nfunction prepareReview()',start);
  assert.ok(start>=0&&end>start);
  for(const operation of ['play_releases','play_subscriptions']){
