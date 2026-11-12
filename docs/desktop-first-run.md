@@ -12,15 +12,13 @@ for the desktop preview.
 
 ## Install
 
-1. Open the [WMM releases](https://github.com/zrk222/WMM/releases) and download
+1. Open the published [Desktop Preview 8](https://github.com/zrk222/WMM/releases/tag/v0.1.0-preview.8) and download
    **WMM-Setup.exe** (Windows) or **wize-marketing-machine_0.1.0_amd64.deb**
    (Ubuntu). Public downloads do not need a GitHub sign-in.
 2. Install it the normal way for your system, then open **Wize Marketing
    Machine** from the Start menu or Applications.
 3. Keep the WMM window open while you work. Closing it stops its local engine
    and any approved scheduled work.
-
-If no installer is listed, the desktop preview has not been published yet.
 
 **Windows note:** the preview installer is not publisher-signed. Windows may
 warn you. Do not disable OS security controls or install a root certificate to
@@ -94,7 +92,8 @@ to you.
 
 ## If something goes wrong
 
-- **No installer:** the desktop preview has not been published.
+- **No installer listed:** open **Assets** on the preview page. Choose the
+  installer for your system; the source archives are for developers.
 - **Windows warns about the publisher:** expected for this preview; do not
   weaken OS security.
 - **Ubuntu package tools missing:** use a graphical desktop with the normal

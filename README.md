@@ -1,10 +1,12 @@
 # Wize Marketing Machine
 
-**Give your AI a marketing goal. Keep the final say.**
+**Turn one app-growth question into an evidence-backed marketing experiment.**
 
-Wize Marketing Machine (WMM) is a local app marketing workspace designed for founders and their AI assistants. Choose a goal, authorize the work, and get back creative, dated measurements and receipts you can inspect.
+Wize Marketing Machine (WMM) is a local workspace for app founders and their AI assistants. Start with one growth question. Your assistant helps prepare the experiment, you approve what goes live, and WMM records what happened and what still needs evidence.
 
-[**Get the desktop preview**](https://github.com/zrk222/WMM/releases) · [Install and create your first packet](docs/desktop-first-run.md) · [Try the interactive sample](https://zrk222.github.io/WMM/demo.html)
+[**Install WMM and create your first packet**](docs/desktop-first-run.md) · [Try the interactive sample](https://zrk222.github.io/WMM/demo.html)
+
+Free for personal and internal business use under the [license](LICENSE). [Commercial terms](docs/pricing.md).
 
 ![WMM Start Here: choose a marketing goal, review what the agent can do, and inspect the result](docs/images/goal-to-proof.png)
 
@@ -49,5 +51,3 @@ Open http://127.0.0.1:8765/. Keep the server on loopback. Core use needs no mode
 </details>
 
 [Workspace guide](docs/workspace-guide.md) · [Contributing](CONTRIBUTING.md) · [Test profiles](docs/TESTING.md) · [Security](SECURITY.md)
-
-WMM is source available. Personal and internal business use are free under the [license](LICENSE). Hosting, resale, white-labeling and paid services for external clients require a [separate commercial agreement](docs/pricing.md).
