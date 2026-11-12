@@ -161,3 +161,18 @@ same fix PR. Cached examples and reproduction blobs supplement that assertion;
 they never replace it. Keep the readable negative cases and do not filter out a
 counterexample simply to pass. No real credentials, provider responses or customer
 records belong in the example database.
+
+## Danger-zone types
+
+The maintained Python registry is checked with Pyright standard. The wrapper
+passes the registry explicitly; the configuration does not auto-enroll the whole
+legacy repository. Five newly enrolled core modules cover common validators,
+request parsing, campaign contracts, grant authority and reviewer roles.
+Generated full-row mappings describe database bytes; decoded JSON and partial
+SELECT projections keep separate shapes. Unvalidated request values remain
+`object` until existing validation narrows them. Casts do not validate data.
+
+The danger-zone signature checker rejects removal of annotations from named
+security boundaries. Negative fixtures assign incorrect grant and role field
+types and must fail Pyright. Static type checks supplement the existing runtime
+invalid-input, exact authority, revocation and maker/checker tests.

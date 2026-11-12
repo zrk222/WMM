@@ -1,5 +1,6 @@
 """Type-check the growing maintained Python allowlist with pinned Pyright."""
 
+import importlib.util
 import shutil
 import subprocess
 import sys
@@ -23,6 +24,15 @@ def python_files():
 
 
 def check():
+    spec = importlib.util.spec_from_file_location("danger_zone_types", ROOT / "tools/danger_zone_types.py")
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Danger-zone annotation checker is unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    errors = module.check(ROOT)
+    if errors:
+        print("\n".join(errors), file=sys.stderr)
+        return 1
     if shutil.which("npx") is None or not (ROOT / "node_modules/pyright").exists():
         print("PYRIGHT_REQUIRED run npm ci", file=sys.stderr)
         return 2

@@ -1,22 +1,26 @@
 """Trusted-workstation bootstrap and version-bound, app-specific authenticated roles."""
 
-import json
-from .common import Invalid, canonical, now
+import sqlite3
+from typing import cast
+
+from .common import Invalid, now
 from .db import connection
+from .schema_types import OperatorRolesRow
 from .store import audit
 
 
-def member(db, app_id, principal, role=None):
+def member(db: sqlite3.Connection, app_id: str, principal: str, role: str | None = None) -> OperatorRolesRow:
     """Require the current active membership and exact app-scoped capability."""
     row = db.execute("SELECT * FROM operator_roles WHERE app_id=? AND principal=?", (app_id, principal)).fetchone()
+    row = cast(OperatorRolesRow | None, row)
     if not row or row["status"] != "ACTIVE":
         raise PermissionError("This GitHub account has no active role in this app")
     if role and row["role"] not in (role, "OWNER"):
         raise PermissionError("This action requires the app's " + role.lower() + " role")
-    return dict(row)
+    return cast(OperatorRolesRow, dict(row))
 
 
-def exact_role(db, app_id, principal, version, role):
+def exact_role(db: sqlite3.Connection, app_id: str, principal: str, version: int, role: str) -> OperatorRolesRow:
     """Prevent revoke/reactivate or role changes from resurrecting an old approval."""
     row = member(db, app_id, principal, role)
     if row["version"] != version:
@@ -24,15 +28,16 @@ def exact_role(db, app_id, principal, version, role):
     return row
 
 
-def member_body(body):
+def member_body(body: object) -> None:
     """Validate finite membership fields separately from transactional authorization."""
+    body = cast(dict[str, object], body)
     if (
         set(body) != {"login", "role", "status", "version"}
         or body["role"] not in ("MAKER", "CHECKER")
         or body["status"] not in ("ACTIVE", "REVOKED")
     ):
         raise Invalid("Choose a maker or checker role and active or revoked status")
-    if body["version"] is not None and (type(body["version"]) is not int or body["version"] < 1):
+    if body["version"] is not None and (type(body["version"]) is not int or cast(int, body["version"]) < 1):
         raise Invalid("Use the exact current member version")
 
 
@@ -45,7 +50,8 @@ class Access:
         self.store.app(app_id)
         with connection(self.store.path) as db:
             rows = [
-                dict(r) for r in db.execute("SELECT * FROM operator_roles WHERE app_id=? ORDER BY principal", (app_id,))
+                cast(OperatorRolesRow, dict(r))
+                for r in db.execute("SELECT * FROM operator_roles WHERE app_id=? ORDER BY principal", (app_id,))
             ]
         return {
             "configured": bool(rows),
@@ -101,6 +107,7 @@ class Access:
             old = db.execute(
                 "SELECT * FROM operator_roles WHERE app_id=? AND principal=?", (app_id, user["principal"])
             ).fetchone()
+            old = cast(OperatorRolesRow | None, old)
             if old and old["role"] == "OWNER":
                 raise Invalid("The established app owner cannot be replaced through member setup")
             expected = old["version"] if old else None
