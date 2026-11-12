@@ -1,12 +1,19 @@
 "use strict";
+function socialVerificationNote(row) {
+  const checked = Date.parse(row.data?.last_read_at);
+  return Number.isFinite(checked)
+    ? `Last provider check: ${new Date(checked).toISOString()}. Test saved access to verify this workstation now.`
+    : 'No dated provider check is recorded. Test saved access before relying on this account.';
+}
+
 function socialPanel() {
   const access=state.workspace.social_access;if(!access)return '';
   const configs=access.setup.configurations;
   const providers=Object.entries(access.setup.providers).map(([id,p])=>{
     const saved=configs.find(row=>row.provider===id);
-    return `<section class="panel"><h3>${esc(p.name)}</h3><p>${saved?'Setup saved. Confirm an account through official login.':'Prepare this app’s official setup, then connect your account.'}</p>${button(saved?'Connect an account':'Set up connection','social-setup',`data-provider="${id}"`)}${saved?button('Edit setup','social-edit',`data-provider="${id}"`):''}</section>`;
+    return `<section class="panel"><h3>${esc(p.name)}</h3><p>${saved?'Setup record saved. Confirm an account through official login. Use Edit setup to restore developer credentials on this workstation.':'Prepare this app’s official setup, then connect your account.'}</p>${button(saved?'Connect an account':'Set up connection','social-setup',`data-provider="${id}"`)}${saved?button('Edit setup','social-edit',`data-provider="${id}"`):''}</section>`;
   }).join('');
-  const accounts=access.accounts.filter(row=>row.status!=='DISCONNECTED').map(row=>`<section class="panel"><h3>${esc(row.data.destination.name)}</h3><p>${esc(label(row.provider))} · ${esc(label(row.status))}${row.reconnect_required?' · Access expired':''}</p><p>Selected destination: ${esc(row.data.destination.kind.toLowerCase())}. ${row.data.facts.renewal==='OFFICIAL_REAUTHORIZATION'?'The provider will sometimes require official login again.':'Provider-supported renewal keeps this account connected while valid.'}</p><div class="button-row">${button('Test saved access','social-test',`data-id="${row.id}"`)}${button('Reconnect','social-reconnect',`data-id="${row.id}"`)}${button('Disconnect locally','social-disconnect',`data-id="${row.id}"`)}</div></section>`).join('');
+  const accounts=access.accounts.filter(row=>row.status!=='DISCONNECTED').map(row=>`<section class="panel" data-social-account="${esc(row.id)}"><h3>${esc(row.data.destination.name)}</h3><p>${esc(label(row.provider))} · Recorded status: ${esc(label(row.status))}${row.reconnect_required?' · Access expired':''}</p><p>${esc(socialVerificationNote(row))}</p><p>Selected destination: ${esc(row.data.destination.kind.toLowerCase())}. ${row.data.facts.renewal==='OFFICIAL_REAUTHORIZATION'?'The provider will sometimes require official login again.':'Provider-supported renewal keeps this account connected while valid.'}</p><div class="button-row">${button('Test saved access','social-test',`data-id="${row.id}"`)}${button('Reconnect','social-reconnect',`data-id="${row.id}"`)}${button('Disconnect locally','social-disconnect',`data-id="${row.id}"`)}</div><p data-social-feedback role="alert"></p><div data-social-repair hidden><p>The saved record is still here, but its protected credentials need repair. Restore the developer setup, then reconnect this same account.</p>${button('Restore developer setup','social-edit',`data-provider="${esc(row.provider)}"`)}</div></section>`).join('');
   return `<section aria-labelledby="social-heading"><h2 id="social-heading">Social accounts</h2><p>Connect once for this app. Login is retained in protected storage, with supported renewal. Account access does not post, message or spend.</p><div class="connection-grid">${providers}</div>${accounts?`<h3>Saved accounts</h3><div class="connection-grid">${accounts}</div>`:''}${button('Recover old connection setup','social-cleanup')}</section>`;
 }
 
@@ -92,7 +99,21 @@ async function socialAction(node) {
   const row=state.workspace.social_access.accounts.find(r=>r.id===id);if(!row)return;
   if(action==='social-disconnect')return modal('Disconnect this local account?',`<div class="modal-content"><p>Remove this app’s retained access to ${esc(row.data.destination.name)}. Other apps and your provider login are unchanged. This does not revoke all provider sessions.</p>${button('Disconnect locally','social-confirm-disconnect',`data-id="${id}"`)}${button('Keep connected','close')}</div>`);
   if(action==='social-test'||action==='social-confirm-disconnect') {
-    const result=await api(`/api/apps/${app}/social-access/${id}/${action==='social-test'?'test':'disconnect'}`,{version:row.version});
+    const panel = node.closest?.('[data-social-account]');
+    const feedback = panel?.querySelector('[data-social-feedback]');
+    const repair = panel?.querySelector('[data-social-repair]');
+    if (feedback) feedback.textContent = '';
+    if (repair) repair.hidden = true;
+    let result;
+    try {
+      result=await api(`/api/apps/${app}/social-access/${id}/${action==='social-test'?'test':'disconnect'}`,{version:row.version});
+    } catch (error) {
+      if (app !== state.app || (panel && !panel.isConnected)) return;
+      if (action !== 'social-test' || !feedback) throw error;
+      feedback.textContent = error.message;
+      if (repair) repair.hidden = !/protected social credentials/i.test(error.message);
+      return;
+    }
     if(app!==state.app)return;$('#modal').close();await refresh();return toast(action==='social-test'?'Saved provider read succeeded. Posting remains disabled.':result.cleanup==='LOCAL_CLEANUP_REQUIRED'?'Disconnected; retry local cleanup to remove old protected access.':'Disconnected for this app.');
   }
 }
