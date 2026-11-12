@@ -366,6 +366,8 @@ class Handler(BaseHTTPRequestHandler):
             "/organic-policy.js",
             "/operation-feedback.js",
             "/app-production.js",
+            "/app-install.js",
+            "/app-campaign.js",
         )
         if path in scripts:
             return self.send_asset(STATIC / path[1:], "text/javascript; charset=utf-8")

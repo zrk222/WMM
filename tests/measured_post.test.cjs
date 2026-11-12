@@ -2,7 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const vm = require("node:vm");
 const fs = require("node:fs");
-const source = fs.readFileSync(require.resolve("../mission_control/static/app.js"), "utf8");
+const source = fs.readFileSync(require.resolve("../mission_control/static/app-campaign.js"), "utf8");
 const evidence = vm.runInNewContext(source.slice(source.indexOf("function measuredPostEvidence("),
   source.indexOf("function measuredPostContext(")) + "\nmeasuredPostEvidence");
 const link = {study: {source:"youtube"}, study_id:"study-a", url:"https://example.test/?utm_campaign=study-a"};
