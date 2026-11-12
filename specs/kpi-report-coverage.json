@@ -1,7 +1,7 @@
 {
   "schema": "wmm.kpi-report-coverage.v1",
   "report_sha256": "becf9365df3c299dba83944d421e3a39bd3ef297f3e0e11782a032ebcd51a5a1",
-  "review_type": "Source-reviewed scope/definition coverage; not collector implementation",
+  "review_type": "Required scope and actionable gap inventory; implementation and live acceptance remain separately evidenced",
   "source_hashes": {
     "mission_control/metrics.py": "5d795a979677a6fefb53fb28a1cc5c1d985d677fc54498237e1af3ff1836fa06",
     "mission_control/ledger.py": "b1e6146fe033cda35915713b2e228faa29009159a3215ac54fb22e3e20cd1da2",
@@ -58,7 +58,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Matched spend and attributed first installs",
+        "next_action": "Reconcile ad-source spend and install windows before deriving CPI.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "CPA",
@@ -95,14 +104,23 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Matched spend and deduplicated named action events",
+        "next_action": "Declare the acquisition action and import matching spend and event identities.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "CAC",
       "family": "acquisition",
       "title": "Cac",
       "definition": "matched acquisition cost / distinct acquired payers",
-      "current_coverage": "PARTIAL_SUPPLIED_COHORT",
+      "current_coverage": "PARTIAL_SUPPLIED_SCOPED_ECONOMICS",
       "required_status": "REQUIRED_NOT_COMPLETE",
       "required_scope": [
         "app",
@@ -132,14 +150,23 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Matching acquisition-cost receipts and distinct acquired positive purchasers",
+        "next_action": "Declare cohort economics and import complete matched cost, install and purchase evidence through maturity.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "ROAS_D7",
       "family": "acquisition",
       "title": "Roas D7",
       "definition": "attributed cohort revenue through day7 / matched cohort spend",
-      "current_coverage": "MISSING",
+      "current_coverage": "PARTIAL_SUPPLIED_SCOPED_ECONOMICS",
       "required_status": "REQUIRED_NOT_COMPLETE",
       "required_scope": [
         "app",
@@ -169,14 +196,23 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Matched media spend, attributed purchases and refund adjustments, mature install-relative seven-day coverage",
+        "next_action": "Declare revenue basis and import media spend and complete D7 purchase and adjustment evidence through report time.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "ROAS_D30",
       "family": "acquisition",
       "title": "Roas D30",
       "definition": "attributed cohort revenue through day30 / matched cohort spend",
-      "current_coverage": "MISSING",
+      "current_coverage": "PARTIAL_SUPPLIED_SCOPED_ECONOMICS",
       "required_status": "REQUIRED_NOT_COMPLETE",
       "required_scope": [
         "app",
@@ -206,7 +242,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Matched media spend, attributed purchases and refund adjustments, mature install-relative thirty-day coverage",
+        "next_action": "Declare revenue basis and import media spend and complete D30 purchase and adjustment evidence through report time.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "PAYBACK",
@@ -243,7 +288,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Cumulative same-cohort net contribution by mature horizon and acquisition cost",
+        "next_action": "Import contribution and cost observations for successive mature horizons; do not extrapolate an unobserved recovery.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "LTV_CAC",
@@ -280,7 +334,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Same-cohort observed or explicitly modeled lifetime value and compatible CAC",
+        "next_action": "Declare observed versus modeled value, horizon and uncertainty and reconcile cohort/currency with CAC.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "STORE_CVR",
@@ -317,7 +380,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Provider-defined unique impressions, downloads and pre-orders with overlap rules",
+        "next_action": "Collect compatible store numerator and denominator rows and retain provider privacy and pre-order deduplication rules.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "STORE_IMPRESSIONS",
@@ -354,7 +426,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Dated store discovery impression rows with total or unique grain",
+        "next_action": "Finish a numerical authorized report read and distinguish no report, suppressed rows and observed zero.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "KEYWORD_RANK",
@@ -391,7 +472,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Dated store, locale, country, device and query-position observations",
+        "next_action": "Connect a permitted rank source or import dated observations; ad keyword reports are not organic ranking evidence.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "LISTING_EXPERIMENT",
@@ -428,7 +518,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Provider variant assignment, views, installs and experiment dates",
+        "next_action": "Import provider listing-test observations and uncertainty with compatible variant denominators.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "AD_FUNNEL",
@@ -465,7 +564,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Same-source impressions, taps, installs and spend",
+        "next_action": "Import compatible campaign-grain ad funnel rows and distinguish reported attribution from organic acquisitions.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "TRIAL_PAID_BY_SOURCE",
@@ -502,7 +610,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Attributed trial starters, first paid events and mature trial horizons",
+        "next_action": "Resolve trial-to-first-payment identities and source attribution before comparing conversion.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "TIME_TO_VALUE",
@@ -539,7 +656,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Install or first-session timestamp and named qualifying useful-value event",
+        "next_action": "Define the useful-value event and import timestamped subject-linked events.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "PAYWALL_TRIAL_FUNNEL",
@@ -576,7 +702,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Deduplicated onboarding, paywall, trial and first paid events",
+        "next_action": "Instrument missing funnel steps and reconcile subject identity and eligibility.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "NRR",
@@ -613,7 +748,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Opening-customer recurring revenue, expansion, contraction and churn",
+        "next_action": "Import a fixed opening-customer population and exclude revenue from new customers.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "ARPPU",
@@ -650,7 +794,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Declared period revenue and distinct period paying users",
+        "next_action": "Reconcile revenue basis, period and unique payer identities before dividing.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "ARPU",
@@ -687,7 +840,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Declared period revenue and distinct eligible period users",
+        "next_action": "Import deduplicated eligible user coverage and matching revenue rather than substitute installs.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "MRR_ARR",
@@ -724,7 +886,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Provider-normalized subscription recurring run-rate and normalization definition",
+        "next_action": "Retain provider run-rate definition and source timestamps; do not label run-rate as cash receipts.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "REFUNDS_NET_CONTRIBUTION",
@@ -761,7 +932,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Purchase proceeds, linked refunds/reversals, delivery and acquisition costs",
+        "next_action": "Reconcile adjustment references and cost coverage without subtracting refunds twice.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "RENEWAL_CHURN",
@@ -798,7 +978,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Eligible subscriptions, renewal schedules, cancellation, expiration, billing recovery",
+        "next_action": "Import mature subscription lifecycle events with contract-specific renewal eligibility.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "RETENTION_D1",
@@ -835,7 +1024,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "First-install users and qualifying day-one return events",
+        "next_action": "Declare exact-day versus rolling-day convention and import mature identity-linked day-one events.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "RETENTION_D7",
@@ -872,7 +1070,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "First-install users and qualifying day-seven return events",
+        "next_action": "Declare exact-day versus rolling-day convention and import mature identity-linked day-seven events.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "RETENTION_D30",
@@ -909,7 +1116,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "First-install users and qualifying day-thirty return events",
+        "next_action": "Declare exact-day versus rolling-day convention and import mature identity-linked day-thirty events.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "VALUE_RETENTION",
@@ -946,7 +1162,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Eligible subjects and qualifying useful-value events at declared cadence",
+        "next_action": "Declare useful-value cadence and import complete mature subject-linked event coverage.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "UNINSTALL",
@@ -983,7 +1208,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Provider deletion events, opt-in coverage and compatible population",
+        "next_action": "Collect permitted deletion statistics and expose opt-in/device limits; do not infer same-cohort churn from unrelated installs.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "PUSH_OPTOUT",
@@ -1020,7 +1254,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Consent changes and eligible opted-in recipient population",
+        "next_action": "Import authorized subscription/consent observations with deduplicated recipients and matching windows.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "ACTIVE_USERS",
@@ -1057,7 +1300,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Subject or device active-event identities and explicit day/week/month windows",
+        "next_action": "Declare user versus device grain and aggregate deduplicated compatible activity windows.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "K_FACTOR",
@@ -1094,7 +1346,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Eligible inviters, deduplicated invitations and referred new-user conversions",
+        "next_action": "Instrument invitation-to-conversion identity links and eligibility; do not infer virality from shares.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "REFERRAL_CONVERSION",
@@ -1131,7 +1392,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Deduplicated referral recipients or clicks and successful new users",
+        "next_action": "Declare the denominator and reconcile referral conversion identity and observation windows.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "EXPERIMENT_EXPOSURE",
@@ -1168,7 +1438,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Assignment, actual exposure, variant sample counts and contamination evidence",
+        "next_action": "Instrument assignment/exposure, inspect sample-ratio mismatch and wait for mature populations.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "EXPERIMENT_OUTCOME",
@@ -1205,7 +1484,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Preregistered metric, control/treatment observations, uncertainty and guardrails",
+        "next_action": "Retain all assessments and decisions; repair missing tracking or guardrails before selecting a next test.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "VIDEO_ATTENTION",
@@ -1242,7 +1530,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Platform-native views, reach, watch-time and completion denominators",
+        "next_action": "Collect authorized post-level attention observations with platform definitions and observation dates.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "VIDEO_ENGAGEMENT",
@@ -1279,7 +1576,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Platform-native likes, comments, shares, saves and click observations",
+        "next_action": "Collect authorized engagement counters and preserve compatible reach/view denominators.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "CREATIVE_CONVERSIONS",
@@ -1316,7 +1622,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Creative/campaign IDs linked to attributed activation, trial, paid and revenue",
+        "next_action": "Instrument tagged links and consented conversion joins before assigning conversions to creative.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "RENDER_OPERATIONS",
@@ -1353,7 +1668,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Job timestamps, outcome, retry, artifact lineage and observed costs",
+        "next_action": "Retain render job receipts and measured resource costs, distinguishing failed from completed jobs.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "AGENT_USAGE",
@@ -1390,7 +1714,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Per-job model/provider token and cache usage receipts",
+        "next_action": "Import reported usage counters, including unknown cache fields rather than inferred token savings.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "AGENT_COST",
@@ -1427,7 +1760,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Actual billing receipts, currency, quota and rate-limit observations",
+        "next_action": "Connect permitted billing evidence and keep estimates separate from billed cost.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "AUTONOMY_OPERATIONS",
@@ -1464,7 +1806,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Tool/stage timestamps, approval waits, failures, recovery and scope stops",
+        "next_action": "Retain workflow telemetry and classify stage latency, owner wait and recovery independently.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "SOURCE_FRESHNESS",
@@ -1501,7 +1852,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Last successful observation/ingestion times and expected source cadence",
+        "next_action": "Record source-specific expected cadence and diagnose failed, stale or delayed reads separately.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "INGESTION_QUALITY",
@@ -1538,7 +1898,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Input totals, invalid/duplicate/corrected/late/unmatched rows and lineage",
+        "next_action": "Retain row-level ingestion outcomes and reconcile totals before accepting source coverage.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     },
     {
       "id": "EXPORT_QUALITY",
@@ -1575,7 +1944,16 @@
         "Durable raw observations and dedup/correction lineage reproduce the calculation.",
         "Collector access and authenticated readback are separate from fixture proof.",
         "Human UI agent API analytics and PDF/CSV/JSON exports agree on filters units freshness and coverage."
-      ]
+      ],
+      "data_gap": {
+        "required_inputs": "Report filters, totals, source hashes and export/print outcome receipts",
+        "next_action": "Compare owner UI and exported values at the same filters and retain download or print verification.",
+        "closure_evidence": [
+          "Authorized numerical source read or explicitly labeled supplied evidence",
+          "Reproducible scoped calculation with missing/zero/boundary tests",
+          "Matching owner UI and export with source hash and coverage"
+        ]
+      }
     }
   ],
   "official_source_checks": [

@@ -271,6 +271,137 @@
     });
   }
 
+  // Explicit scalar projection: never copy raw event rows, forms or arbitrary evidence.
+  function measurementSections(workspace) {
+    const scalar = (value) =>
+      typeof value === 'string' || (typeof value === 'number' && Number.isFinite(value))
+        ? text(value)
+        : 'Unavailable';
+    const samples = (value) =>
+      [
+        'installs',
+        'activated',
+        'paid',
+        'events',
+        'purchases',
+        'refunds',
+        'spend_receipts',
+        'acquired_payers',
+      ]
+        .filter((key) => Number.isFinite(value?.[key]))
+        .map((key) => `${key}: ${value[key]}`)
+        .join('; ') || 'Unavailable';
+    const gapText = (gaps) =>
+      (rows(gaps) || [])
+        .slice(0, MAX_ROWS)
+        .map((gap) => `${scalar(gap.code)}: ${scalar(gap.action)}`)
+        .join('; ');
+    const metrics = [
+      ['cac_minor', 'Customer acquisition cost'],
+      ['net_proceeds_roas_d7', 'D7 net proceeds ROAS'],
+      ['net_proceeds_roas_d30', 'D30 net proceeds ROAS'],
+      ['gross_revenue_roas_d7', 'D7 gross revenue ROAS'],
+      ['gross_revenue_roas_d30', 'D30 gross revenue ROAS'],
+    ];
+    const windowText = (window) =>
+      typeof window === 'string'
+        ? text(window)
+        : ['starts_at', 'acquisition_ends_at', 'ends_at', 'observed_through', 'rule']
+            .filter((key) => window?.[key] !== undefined)
+            .map((key) => `${key}: ${scalar(window[key])}`)
+            .join('; ') || 'Unavailable';
+    const economics = (rows(workspace.ledger) || []).map((report) => ({
+      title: `Cohort economics: ${scalar(report.cohort?.cohort_id)}`,
+      items: metrics.map(([key, title]) => {
+        const metric = report.economics?.metrics?.[key];
+        const available = metric?.status === 'SUPPLIED' && Number.isFinite(metric.value);
+        return {
+          title,
+          status: available ? 'Supplied — not provider verified' : 'Unavailable',
+          facts: [
+            [
+              'Value',
+              available
+                ? `${metric.value}${key === 'cac_minor' ? ' minor currency units' : '×'}`
+                : 'Unavailable',
+            ],
+            [
+              'Numerator / basis',
+              `${scalar(metric?.numerator_minor)} / ${scalar(metric?.numerator_basis)}`,
+            ],
+            [
+              'Denominator / basis',
+              `${scalar(metric?.denominator)} / ${scalar(metric?.denominator_basis)}`,
+            ],
+            ['Currency', scalar(metric?.currency ?? report.cohort?.currency)],
+            ['Evidence', scalar(metric?.evidence ?? report.economics?.evidence)],
+            ['Window', windowText(metric?.window)],
+            ['Sample counts', samples(metric?.sample_counts)],
+            ['Attribution', scalar(report.economics?.attribution_status)],
+            ['Spend source', scalar(report.cohort?.economics?.spend_source)],
+            ['Coverage through', scalar(report.cohort?.economics?.coverage_through)],
+            ['As of', scalar(report.economics?.as_of ?? report.as_of)],
+            ['Source hash', scalar(metric?.source_hash ?? report.economics?.source_hash)],
+            [
+              'Next evidence',
+              gapText(metric?.unavailable_data) ||
+                (available
+                  ? 'Review supplied inputs and coverage.'
+                  : 'Supply the economics contract, matching costs, outcomes and complete follow-up.'),
+            ],
+          ],
+        };
+      }),
+    }));
+    const experiments = (rows(workspace.experiments) || []).map((experiment) => ({
+      title: `Assessment history: ${scalar(experiment.data?.name)}`,
+      items: (rows(experiment.assessments) || []).map((record) => {
+        const assessment = record.data || {};
+        const effect = assessment.effect;
+        const interval = rows(effect?.interval);
+        const decisions = (rows(experiment.actions) || [])
+          .filter(
+            (action) =>
+              action.data?.operation === 'decide' && action.data?.assessment_hash === record.hash,
+          )
+          .map((action) => scalar(action.data.decision))
+          .join('; ');
+        return {
+          title: `Assessment ${scalar(record.version ?? record.created)}`,
+          status: scalar(assessment.status),
+          facts: [
+            ['Recorded', scalar(record.created)],
+            ['Analysis window', scalar(experiment.data?.analysis_at)],
+            ['Primary outcome', scalar(experiment.data?.primary_metric)],
+            ['Assignment evidence', scalar(experiment.data?.assignment_method)],
+            ['Control installs', scalar(assessment.reports?.control?.installs)],
+            ['Treatment installs', scalar(assessment.reports?.treatment?.installs)],
+            ...['control', 'treatment'].map((arm) => [
+              `${arm} cohort source / cutoff`,
+              `${scalar(assessment.reports?.[arm]?.cohort?.source)} / ${scalar(assessment.reports?.[arm]?.outcome_cutoff ?? experiment.data?.analysis_at)}`,
+            ]),
+            ['Observed difference', scalar(effect?.difference)],
+            [
+              'Control / treatment rates',
+              `${scalar(effect?.control_rate)} / ${scalar(effect?.treatment_rate)}`,
+            ],
+            [
+              '95% interval',
+              interval?.length === 2 ? interval.map(scalar).join(' to ') : 'Unavailable',
+            ],
+            ['Uncertainty / method', scalar(effect?.method)],
+            ['Issues', (rows(assessment.issues) || []).map(scalar).join('; ') || 'None recorded'],
+            ['Decision for this assessment', decisions || 'No decision recorded'],
+            ['Definition hash', scalar(assessment.definition_hash)],
+            ['Assessment hash', scalar(record.hash)],
+            ['Scope', scalar(assessment.scope)],
+          ],
+        };
+      }),
+    }));
+    return [...economics, ...experiments];
+  }
+
   /** Preserve only visible filter metadata, never draft or credential form inputs. */
   function reportFilters(state) {
     if (state.view === 'evidence')
@@ -344,6 +475,7 @@
       filters: reportFilters(state),
       metrics: pageMetrics(state.view, state),
       cohorts: state.view === 'results' ? cohortRows(state.workspace) : [],
+      sections: state.view === 'results' ? measurementSections(state.workspace) : [],
       notes: reportNotes(state),
     };
   }
@@ -474,6 +606,7 @@
     weeklyMetrics,
     visibleWeeklyExceptions,
     cohortRows,
+    measurementSections,
     metricTable,
     panel,
     sectionsHTML,

@@ -1,22 +1,28 @@
 """Real desktop/mobile page reports and PDFs using isolated synthetic app data."""
 
-from pathlib import Path
 import json
 import platform
 import sys
 import tempfile
 import threading
+from pathlib import Path
+from unittest.mock import patch
+
 import fitz
+from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from mission_control.server import Server
-from mission_control.store import Store
-from playwright.sync_api import sync_playwright, expect
-from tests.test_mission_control import evidence_data
 
 
 def seed(store):
+    from mission_control.experiments import Experiments
+    from mission_control.ledger import Ledger
+    from tests.test_experiments import ANALYZE, EXPOSE, REGISTER, observations, prepared
+    from tests.test_ledger import cohort
+    from tests.test_measurement_economics import definition, rows
+    from tests.test_mission_control import evidence_data
+
     for identity, name in (("sample-one", "Synthetic Café 東京"), ("sample-two", "Other synthetic workspace")):
         store.save_app(
             identity,
@@ -39,6 +45,48 @@ def seed(store):
             data=evidence_data("cohort"),
         ),
     )
+    ledger = Ledger(store.path)
+    ledger.define("sample-one", definition(coverage_through="2027-01-01T00:00:00+00:00"))
+    ledger.ingest("sample-one", {"cohort_id": "pilot-1", "events": rows()})
+    ledger.define("sample-one", cohort(cohort_id="legacy-no-economics"))
+    experiments = Experiments(store)
+    plan = prepared(store)
+    with patch("mission_control.experiments.now", return_value=REGISTER):
+        experiment = experiments.create("sample-one", plan)
+    with patch("mission_control.experiments.now", return_value=EXPOSE):
+        experiments.act(
+            "sample-one",
+            experiment["id"],
+            dict(
+                operation="observe",
+                version=experiment["version"],
+                source="Synthetic exposure receipt",
+                observed_at=EXPOSE,
+            ),
+        )
+    with patch("mission_control.experiments.now", return_value=ANALYZE):
+        # Preserve the first incomplete/null assessment before supplying observations.
+        experiments.evaluate("sample-one", experiment["id"])
+    for arm in ("control", "treatment"):
+        ledger.ingest(
+            "sample-one",
+            {"cohort_id": "experiment-" + arm, "events": observations(arm, activations=10 if arm == "control" else 2)},
+        )
+    with patch("mission_control.experiments.now", return_value=ANALYZE):
+        result = experiments.evaluate("sample-one", experiment["id"])
+        current = next(row for row in experiments.list("sample-one") if row["id"] == experiment["id"])
+        experiments.act(
+            "sample-one",
+            experiment["id"],
+            dict(
+                operation="decide",
+                version=current["version"],
+                assessment_hash=result["hash"],
+                decision="NEXT_TEST",
+                reason="Synthetic review of negative descriptive result",
+            ),
+        )
+    assert result["result"]["effect"]["difference"] < 0
 
 
 def snapshot_html(page, target, css):
@@ -48,22 +96,33 @@ def snapshot_html(page, target, css):
 
 def export_report(page, view, width, out):
     page.locator("[data-report-page]").focus()
-    with page.expect_popup() as waiting:
+    inline = page.evaluate(
+        "async () => {const {state}=await import('/app.mjs');return (await import('/feature-apis.mjs')).WMMPageReports.model(state).sections.length>0}"
+    )
+    if inline:
         page.keyboard.press("Enter")
-    popup = waiting.value
-    popup.locator("h1").wait_for()
-    popup.wait_for_load_state("load")
-    assert popup.evaluate("window.opener===null")
-    assert not popup.locator("input,textarea").count()
-    assert "PRIVATE_SENTINEL" not in popup.content()
+        popup = page
+        report = page.locator(".wmm-report-dialog[open]")
+        expect(report).to_be_visible()
+    else:
+        with page.expect_popup() as waiting:
+            page.keyboard.press("Enter")
+        popup = waiting.value
+        popup.wait_for_load_state("load")
+        report = popup.locator("body")
+        assert popup.evaluate("window.opener===null")
+    report.locator("h1").wait_for()
+    assert report.evaluate("element=>element.scrollWidth<=element.clientWidth+1")
+    assert not report.locator("input,textarea").count()
+    assert "PRIVATE_SENTINEL" not in report.inner_text()
     popup.evaluate("window.print=()=>{window.printRequested=true}")
-    popup.get_by_role("button", name="Print / Save as PDF", exact=True).focus()
+    report.get_by_role("button", name="Print / Save as PDF", exact=True).focus()
     popup.keyboard.press("Enter")
     assert popup.evaluate("window.printRequested===true")
     pdf_path = out / f"{view}-{width}.pdf"
     popup.pdf(path=str(pdf_path), format="A4", print_background=True)
     with fitz.open(pdf_path) as pdf:
-        text = "\n".join(p.get_text() for p in pdf)
+        text = "\n".join(str(p.get_text()) for p in pdf)
         assert "Evidence boundaries" in text
         assert "PRIVATE_SENTINEL" not in text
         assert "Print / Save as PDF" not in text
@@ -74,15 +133,46 @@ def export_report(page, view, width, out):
             assert "sample-one" in text and "Café" in text and "東京" in text
         pages = len(pdf)
     css = (ROOT / "mission_control/static/page-reporting.css").read_text(encoding="utf-8")
-    snapshot_html(popup, out / f"report-{view}-{width}.html", css)
+    if inline:
+        # Snapshot only the scoped report, never the underlying app or open controls.
+        (out / f"report-{view}-{width}.html").write_text(
+            '<!doctype html><html lang="en"><head><meta charset="utf-8"><style>'
+            + css
+            + '</style></head><body class="wmm-print-report">'
+            + report.evaluate("element=>element.outerHTML")
+            + "</body></html>",
+            encoding="utf-8",
+        )
+    else:
+        snapshot_html(popup, out / f"report-{view}-{width}.html", css)
     if view.startswith("results"):
         assert "USD" in text and "D30" in text and "100" in text
+        for phrase in (
+            "Customer acquisition cost",
+            "500 minor currency units",
+            "UNIQUE_ACQUIRED_PAYERS",
+            "D7 net proceeds ROAS",
+            "4×",
+            "MATCHED_SPEND_MISSING",
+            "Assessment history",
+            "INCONCLUSIVE",
+            "-0.4",
+            "95% interval",
+            "NEXT_TEST",
+        ):
+            assert phrase in text, (phrase, text[-1000:])
     if view == "results-long":
         assert pages > 2
         assert all(f"Long synthetic cohort {number}" in text for number in range(6))
     if view == "overview":
         popup.screenshot(path=str(out / f"report-{width}.png"), full_page=True)
-    popup.close()
+    if inline:
+        report.get_by_role("button", name="Close report", exact=True).focus()
+        popup.keyboard.press("Enter")
+        expect(report).to_have_count(0)
+        expect(page.locator("[data-report-page]")).to_be_focused()
+    else:
+        popup.close()
     return dict(
         view=view, viewport_width=width, pdf_pages=pages, text_verified=True, secret_excluded=True, keyboard=True
     )
@@ -125,6 +215,12 @@ def viewport_pass(browser, origin, width, height, out):
         if view == "evidence":
             page.locator("#evidence-search").fill("no matching record")
             expect(page.locator(".page-reporting .page-metric-grid>div").first).to_contain_text("0")
+        if view == "results":
+            expect(page.locator("#main")).to_contain_text("500 minor currency units")
+            expect(page.locator("#main")).to_contain_text("MATCHED_SPEND_MISSING")
+            expect(page.locator("#main")).to_contain_text("-0.4")
+            expect(page.locator("#main")).to_contain_text("INCONCLUSIVE")
+            page.screenshot(path=str(out / f"results-{width}.png"), full_page=True)
         assert page.evaluate("document.documentElement.scrollWidth<=innerWidth+1"), view
         observations.append(export_report(page, view, width, out))
         if view == "overview":
@@ -161,6 +257,9 @@ def viewport_pass(browser, origin, width, height, out):
 
 
 def main():
+    from mission_control.server import Server
+    from mission_control.store import Store
+
     out = ROOT / ".factory/page-reporting"
     out.mkdir(parents=True, exist_ok=True)
     observations = []
@@ -189,7 +288,7 @@ def main():
         browser=version,
         python=platform.python_version(),
         observations=observations,
-        scope="Ten top-level views only. Synthetic local data, no provider acceptance. PDFs generated by Chromium print engine and inspected with PyMuPDF; actual OS save-dialog completion remains user-controlled. Secondary dialogs are incomplete.",
+        scope="Ten top-level views, including real SQLite economics and complete experiment assessments on Results. Synthetic local data, no provider acceptance. PDFs generated by Chromium print engine and inspected with PyMuPDF; actual OS save-dialog completion remains user-controlled. Secondary dialogs are incomplete.",
     )
     (out / "browser.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps(result))

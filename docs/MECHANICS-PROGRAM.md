@@ -10,4 +10,11 @@ signing, independent human/security review and marketing outcomes are separate
 facts. A branch-count target cannot justify deleting unmerged or active work.
 No framework switch is authorized by a benchmark plan alone.
 
-Current item: auto-enrolling-ratchets (implementation under verification).
+Automatic source enrollment is merged in PR #253. SQLite serialization,
+shrinkable properties and danger-zone typing are in separate stacked PRs
+#254, #255 and #256; their combined-main acceptance is still required.
+
+The additional measurement-completeness work covers supplied-evidence CAC,
+install-relative D7/D30 ROAS, actionable data gaps and retained unsuccessful
+experiment reporting. It is a separate behavior change, not a mechanics-only
+refactor or proof of live marketing impact.

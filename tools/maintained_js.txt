@@ -78,3 +78,5 @@ mission_control/static/verified-review.mjs
 mission_control/static/video-editor.js
 mission_control/static/workflow-automation.mjs
 mission_control/static/workflow-telemetry.js
+tests/measurement_results_ui.test.cjs
+tests/page_reporting.test.cjs

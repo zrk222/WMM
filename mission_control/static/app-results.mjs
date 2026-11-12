@@ -143,7 +143,7 @@ function ledgerResults() {
         `<section class="panel ledger-panel"><div class="section-heading"><h3>${esc(r.cohort.cohort_id)}</h3>${status(r.status)}</div><p class="description">${esc(r.cohort.release)} Â· ${esc(r.cohort.locale)} Â· ${r.events} imported events</p>${!r.mature ? notice('Follow-up has not matured yet.', 'warning') : ''}${!r.costs_complete ? notice('Acquisition and delivery costs need explicit export rows, including zero-cost receipts.', 'warning') : ''}${r.observability !== 'OBSERVED' ? notice('Attribution is partial or unknown; conversion and contribution remain inconclusive.', 'warning') : ''}${r.issues.map((issue) => notice(issue, 'warning')).join('')}<div class="table-wrap"><table class="result-table"><thead><tr><th>Event-derived outcome</th><th>Supplied result</th></tr></thead><tbody><tr><td>Eligible installs / activations / paid</td><td>${r.installs} / ${r.activated} / ${r.paid}</td></tr><tr><td>Paid conversion</td><td>${percent(r.paid_conversion)}</td></tr><tr><td>Net proceeds after refunds</td><td>${money(r.net_proceeds_minor, r.cohort.currency)}</td></tr><tr><td>Contribution after costs</td><td>${money(r.contribution_after_acquisition_minor, r.cohort.currency)}</td></tr></tbody></table></div><div class="toolbar">${button('Import event export', 'import-events', `data-id="${esc(r.cohort.cohort_id)}"`)}${button('CSV template', 'event-template')}${button('Download as-of report', 'ledger-report', `data-id="${esc(r.cohort.cohort_id)}"`)}${button('Earlier report', 'ledger-history', `data-id="${esc(r.cohort.cohort_id)}"`)}</div><details><summary>Observation contract, source and reconciliation details</summary><pre>${json(r)}</pre></details></section>`,
     )
     .join('');
-  return `${paymentResultsPanel()}${outcomeLearningPanel()}${experimentResults()}<div class="section-heading"><h2>Reconciled event ledger</h2>${button('Define event cohort', 'define-cohort')}</div>${notice('Import permitted exports using opaque IDs only. Late refunds restate these cohorts. Imported files are not authenticated provider notifications.')}${rows.length ? panels : empty('Start with a declared observation window', 'Define the app build, acquisition dates, follow-up maturity and attribution coverage. Then import a CSV or JSON export.', button('Set up event cohort', 'define-cohort'))}`;
+  return `${paymentResultsPanel()}${outcomeLearningPanel()}${experimentResults()}<div class="section-heading"><h2>Reconciled event ledger</h2>${button('Define event cohort', 'define-cohort')}</div>${notice('Import permitted exports using opaque IDs only. Late refunds restate these cohorts. Imported files are not authenticated provider notifications.')}${rows.length ? panels + WMMPageReports.sectionsHTML(WMMPageReports.measurementSections({ ledger: rows }), 3) : empty('Start with a declared observation window', 'Define the app build, acquisition dates, follow-up maturity and attribution coverage. Then import a CSV or JSON export.', button('Set up event cohort', 'define-cohort'))}`;
 }
 
 function experimentIterationPanel(e) {
@@ -170,7 +170,7 @@ function experimentResults() {
     .map((e) => {
       const latest = e.assessments.at(-1),
         decision = e.actions.filter((a) => a.data.operation === 'decide').at(-1);
-      return `<section class="panel experiment-panel"><div class="section-heading"><h3>${esc(e.data.name)}</h3>${status(e.state)}</div><p>${esc(e.data.hypothesis)}</p><p class="description">${esc(label(e.data.primary_metric))} Â· ${esc(e.data.assignment_method)} Â· analysis ${esc(new Date(e.data.analysis_at).toLocaleString())}</p><p>Approximate sample: ${e.data.sample_plan.control} control / ${e.data.sample_plan.treatment} treatment installs</p>${latest ? `<p>Latest assessment: ${status(latest.data.status)} Â· decision ${status(e.decision_status)}</p>${latest.data.issues.map((i) => notice(i, 'warning')).join('')}` : notice('No assessment recorded. Exposure and the fixed analysis date are required.')}${decision ? `<p>Recorded decision: ${esc(label(decision.data.decision))}</p>` : ''}${experimentIterationPanel(e)}${button('Inspect experiment', 'experiment-open', `data-id="${esc(e.id)}"`)}</section>`;
+      return `<section class="panel experiment-panel"><div class="section-heading"><h3>${esc(e.data.name)}</h3>${status(e.state)}</div><p>${esc(e.data.hypothesis)}</p><p class="description">${esc(label(e.data.primary_metric))} Â· ${esc(e.data.assignment_method)} Â· analysis ${esc(new Date(e.data.analysis_at).toLocaleString())}</p><p>Approximate sample: ${e.data.sample_plan.control} control / ${e.data.sample_plan.treatment} treatment installs</p>${latest ? `<p>Latest assessment: ${status(latest.data.status)} Â· decision ${status(e.decision_status)}</p>${latest.data.issues.map((i) => notice(i, 'warning')).join('')}` : notice('No assessment recorded. Exposure and the fixed analysis date are required.')}${decision ? `<p>Recorded decision: ${esc(label(decision.data.decision))}</p>` : ''}${WMMPageReports.sectionsHTML(WMMPageReports.measurementSections({ experiments: [e] }), 3)}${experimentIterationPanel(e)}${button('Inspect experiment', 'experiment-open', `data-id="${esc(e.id)}"`)}</section>`;
     })
     .join('');
   const worker = state.workspace.worker || { status: 'NOT_STARTED' };
@@ -444,6 +444,29 @@ async function saveExperimentSchedule(form) {
   }
 }
 
+function cohortEconomicsFields() {
+  const choice = (name, title, choices) =>
+    `<label class="field" for="${name}">${esc(title)}<select id="${name}" name="${name}">${choices.map(([value, caption]) => `<option value="${value}">${esc(caption)}</option>`).join('')}</select></label>`;
+  return `<fieldset><legend>Optional acquisition economics</legend><p>Leave cost basis unselected to keep the original cohort definition. If selected, supply all six fields. These declarations are not provider verification.</p><div class="form-grid">${choice(
+    'economics_cost_basis',
+    'Cost basis (optional)',
+    [
+      ['', 'Not supplied'],
+      ['MEDIA_SPEND', 'Media spend'],
+      ['TOTAL_ACQUISITION_COST', 'Total acquisition cost'],
+    ],
+  )}${choice('economics_revenue_basis', 'Revenue basis', [
+    ['', 'Choose when supplying economics'],
+    ['NET_PROCEEDS', 'Net proceeds'],
+    ['GROSS_REVENUE', 'Gross revenue'],
+  ])}${choice('economics_attribution_status', 'Attribution coverage', [
+    ['', 'Choose when supplying economics'],
+    ['DECLARED_MATCHED', 'Declared matched'],
+    ['PARTIAL', 'Partial'],
+    ['UNAVAILABLE', 'Unavailable'],
+  ])}${field('economics_spend_source', '', 'text', 'Spend export / receipt reference; no credentials', false, 'Spend source')}${field('economics_currency', '', 'text', 'Must match the cohort and imported costs', false, 'Economics currency')}${field('economics_coverage_through', '', 'text', 'ISO timestamp with timezone through which coverage is complete', false, 'Coverage through')}</div></fieldset>`;
+}
+
 function cohortForm() {
   const app = state.workspace.app.data;
   const fields = [
@@ -461,7 +484,7 @@ function cohortForm() {
   const observable = `<label class="field" for="field-observability">Observation coverage<select id="field-observability" name="observability"><option value="UNKNOWN">Unknown</option><option value="PARTIAL">Partial or privacy suppressed</option><option value="OBSERVED">Observed under the documented contract</option></select></label>`;
   modal(
     'Define event cohort',
-    `<form id="cohort-form"><div class="modal-content">${notice('Definitions and imported events are immutable. Use a fresh cohort for corrected boundaries; snapshots preserve the originals.')}<div class="form-grid">${fields.join('')}${observable}</div><div class="field-error" id="form-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Save event cohort</button></div></form>`,
+    `<form id="cohort-form"><div class="modal-content">${notice('Definitions and imported events are immutable. Use a fresh cohort for corrected boundaries; snapshots preserve the originals.')}<div class="form-grid">${fields.join('')}${observable}</div>${cohortEconomicsFields()}<div class="field-error" id="form-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Save event cohort</button></div></form>`,
   );
 }
 
