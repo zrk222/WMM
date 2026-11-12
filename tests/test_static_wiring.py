@@ -6,14 +6,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "mission_control/static"
-SCREENS = (
-    "app-production.js",
-    "app-install.js",
-    "app-campaign.js",
-    "app-results.js",
-    "app-connections.js",
-    "app-research.js",
-)
+SCREEN_LIMIT = 700
+SHELL_LIMIT = 1250
 
 
 def scripts(html):
@@ -33,9 +27,16 @@ class StaticWiringTests(unittest.TestCase):
         order = scripts((STATIC / "index.html").read_text(encoding="utf-8"))
         self.assertIn("app.js", order)
         shell = order.index("app.js")
-        for name in SCREENS:
+        screens = sorted(path.name for path in STATIC.glob("app-*.js"))
+        self.assertGreaterEqual(len(screens), 8)
+        for name in screens:
             self.assertIn(name, order)
             self.assertLess(order.index(name), shell, name)
+
+    def test_shell_and_screen_sizes_stay_bounded(self):
+        self.assertLessEqual(len((STATIC / "app.js").read_text(encoding="utf-8").splitlines()), SHELL_LIMIT)
+        for name in sorted(path.name for path in STATIC.glob("app-*.js")):
+            self.assertLessEqual(len((STATIC / name).read_text(encoding="utf-8").splitlines()), SCREEN_LIMIT, name)
 
     def test_index_scripts_are_served_by_the_main_server(self):
         server = (ROOT / "mission_control/server.py").read_text(encoding="utf-8")
