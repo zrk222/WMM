@@ -797,6 +797,27 @@ async function handleAction(node) {
       `${state.app}-${id}-report.json`,
       state.workspace.ledger.find((r) => r.cohort.cohort_id === id),
     );
+  if (action === 'ledger-covered') {
+    const app = state.app;
+    const workspace = state.workspace;
+    const current = workspace.ledger.find((r) => r.cohort.cohort_id === id);
+    const cutoff = current?.cohort.economics?.coverage_through;
+    if (!cutoff || !Number.isFinite(Date.parse(cutoff)) || Date.parse(cutoff) > Date.now())
+      throw new Error(
+        'Supply a completed, past coverage timestamp before viewing its economics snapshot.',
+      );
+    const reports = await api(
+      `/api/apps/${encodeURIComponent(state.app)}/measurement?as_of=${encodeURIComponent(cutoff)}`,
+    );
+    if (state.app !== app || state.workspace !== workspace) return;
+    const covered = reports.find((r) => r.cohort.cohort_id === id);
+    if (!covered) throw new Error('The covered cohort report is unavailable. Refresh and retry.');
+    state.workspace.ledger = state.workspace.ledger.map((r) =>
+      r.cohort.cohort_id === id ? covered : r,
+    );
+    render();
+    return;
+  }
   if (action === 'ledger-history') return historicalForm(id);
   if (action === 'export')
     return serverDownload(

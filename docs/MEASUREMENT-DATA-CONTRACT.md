@@ -73,3 +73,9 @@ Local diagnostic tests are not a completed production experiment.
 The owner should see what happened, why a decision is supported or unavailable,
 and the next bounded test or data repair. New publication or spending still
 requires current authority; a recommendation grants none.
+
+When current report time is later than declared coverage, ROAS remains unavailable
+for that current view. **Use covered economics snapshot** loads the selected
+cohort at its completed coverage timestamp. Its visible Evidence as of date and
+exported report identify that historical cutoff; other cohorts remain unchanged.
+This read-only view neither advances coverage nor omits later ledger events.

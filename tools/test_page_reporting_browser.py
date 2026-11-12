@@ -46,7 +46,7 @@ def seed(store):
         ),
     )
     ledger = Ledger(store.path)
-    ledger.define("sample-one", definition(coverage_through="2027-01-01T00:00:00+00:00"))
+    ledger.define("sample-one", definition(coverage_through="2026-10-11T00:00:00+00:00"))
     ledger.ingest("sample-one", {"cohort_id": "pilot-1", "events": rows()})
     ledger.define("sample-one", cohort(cohort_id="legacy-no-economics"))
     experiments = Experiments(store)
@@ -216,6 +216,11 @@ def viewport_pass(browser, origin, width, height, out):
             page.locator("#evidence-search").fill("no matching record")
             expect(page.locator(".page-reporting .page-metric-grid>div").first).to_contain_text("0")
         if view == "results":
+            # Current views disclose stale adjustment coverage; the owner can inspect
+            # the last fully covered, explicitly dated snapshot without inventing future coverage.
+            expect(page.locator("#main")).to_contain_text("ADJUSTMENT_COVERAGE_INCOMPLETE")
+            page.get_by_role("button", name="Use covered economics snapshot", exact=True).click()
+            expect(page.locator("#main")).to_contain_text("Evidence as of 2026-10-11")
             expect(page.locator("#main")).to_contain_text("500 minor currency units")
             expect(page.locator("#main")).to_contain_text("MATCHED_SPEND_MISSING")
             expect(page.locator("#main")).to_contain_text("-0.4")

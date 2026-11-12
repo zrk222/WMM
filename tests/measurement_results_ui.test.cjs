@@ -67,3 +67,39 @@ test('optional cohort controls have labels, blank defaults, and no required lega
   assert.ok(html.includes('not provider verification'));
   assert.ok(html.includes('<legend>Optional acquisition economics</legend>'));
 });
+
+test('covered economics response cannot cross an app or refreshed workspace boundary', async () => {
+  const branch = source.slice(
+    source.indexOf("  if (action === 'ledger-covered')"),
+    source.indexOf("  if (action === 'ledger-history')"),
+  );
+  for (const switchApp of [true, false]) {
+    let finish;
+    const original = {
+      ledger: [
+        { cohort: { cohort_id: 'same', economics: { coverage_through: '2026-01-01T00:00:00Z' } } },
+      ],
+    };
+    const c = {
+      action: 'ledger-covered',
+      id: 'same',
+      state: { app: 'one', workspace: original },
+      api: () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+      render: () => {
+        throw new Error('stale render');
+      },
+    };
+    vm.createContext(c);
+    const pending = vm.runInContext('(async () => {' + branch + '})()', c);
+    const replacement = { ledger: [{ cohort: { cohort_id: 'same' }, private: 'other-app' }] };
+    c.state.workspace = replacement;
+    if (switchApp) c.state.app = 'two';
+    finish([{ cohort: { cohort_id: 'same' }, private: 'first-app' }]);
+    await pending;
+    assert.equal(c.state.workspace, replacement);
+    assert.equal(c.state.workspace.ledger[0].private, 'other-app');
+  }
+});
