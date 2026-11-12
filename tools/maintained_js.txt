@@ -29,11 +29,13 @@ mission_control/static/complete-automation.js
 mission_control/static/creative-ranking.mjs
 mission_control/static/creative-rendering.mjs
 mission_control/static/customer-workflow.js
+mission_control/static/dashboard.mjs
 mission_control/static/discovery-model.js
 mission_control/static/discovery-ui.js
 mission_control/static/drive-callback.js
 mission_control/static/drive-library.js
 mission_control/static/experiment-tracking.mjs
+mission_control/static/feature-apis.mjs
 mission_control/static/followup.mjs
 mission_control/static/funnel-model.js
 mission_control/static/funnel-ui.js
@@ -75,6 +77,3 @@ mission_control/static/verified-review.mjs
 mission_control/static/video-editor.js
 mission_control/static/workflow-automation.mjs
 mission_control/static/workflow-telemetry.js
-
-mission_control/static/dashboard.mjs
-mission_control/static/feature-apis.mjs

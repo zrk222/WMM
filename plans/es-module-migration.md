@@ -47,6 +47,14 @@ Move top-level app listener registration and initial load into startApplication;
 
 - [x] T34 | slice=tests | files=tests/test_play_http.py,tests/test_play_reports.py | verify=`python -m unittest tests.test_play_http tests.test_play_reports -q` | Preserve Android app.json data names while migrating JavaScript asset paths.
 
+- [x] T35 | slice=tests | files=tests/test_funnel_ui_http.py,tests/test_video_editor_http.py,tests/test_agent_control_ui.py | verify=`python -m unittest tests.test_funnel_ui_http tests.test_video_editor_http tests.test_agent_control_ui -q` | Preserve HTTP asset and catalog checks through the module entry and compatibility adapter.
+- [x] T36 | slice=tests | files=tests/test_customer_workflow_ui_http.py,tests/test_growth_review_ui_http.py,tests/test_subscription_authoring_http.py | verify=`python -m unittest tests.test_customer_workflow_ui_http tests.test_growth_review_ui_http tests.test_subscription_authoring_http -q` | Update remaining compatibility-library shell wiring assertions.
+- [x] T37 | slice=tests | files=tests/test_ui_stories_http.py,tests/test_workflow_telemetry.py,tests/test_packaging_ui_http.py | verify=`python -m unittest tests.test_ui_stories_http tests.test_workflow_telemetry tests.test_packaging_ui_http tests.test_format_ratchet -q` | Check dependency ordering in the adapter and keep maintained paths sorted.
+
+- [x] T38 | slice=tools | files=tools/maintained_js.txt | verify=`python -m unittest tests.test_format_ratchet -q` | Keep migrated maintained JavaScript paths sorted and unique.
+
+- [x] T39 | slice=mission_control | files=mission_control/server.py | verify=`python -m unittest tests.test_static_wiring -q` | Serve every allowlisted module with explicit JavaScript MIME independent of Windows registry or frozen-runtime mappings.
+
 ## Validation
 Run all Node logic tests, migrated Python source-contract tests, HTTP asset traversal and actual owner automation desktop/mobile browser journeys. Retain original failures and current source hashes. Pure feature CommonJS tests remain supported; callback pages are separate. No provider effects or publication. Record bounded DeepSeek audit and current limitations.
 

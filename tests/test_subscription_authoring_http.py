@@ -16,7 +16,14 @@ class SubscriptionAuthoringHTTPTests(unittest.TestCase):
         self.assertEqual(code, 200)
         self.assertIn("text/javascript", headers["Content-Type"])
         self.assertIn("WMMSubscriptionAuthoring", body.decode())
-        self.assertIn("/subscription-authoring.js", self.request("/")[1].decode())
+        html = self.request("/")[1].decode("utf-8")
+        self.assertEqual(re.findall(r'<script\b[^>]*src="([^"]+)"', html), ["/dashboard.mjs"])
+        self.assertIn('type="module" src="/dashboard.mjs"', html)
+        code, adapter, headers = self.request("/feature-apis.mjs")
+        self.assertEqual(code, 200)
+        self.assertIn("text/javascript", headers["Content-Type"])
+        imports = re.findall(r"^import ['\"]([^'\"]+)['\"];", adapter.decode(), re.M)
+        self.assertEqual(imports.count("./subscription-authoring.js"), 1)
         source = re.sub(
             r"\s+",
             "",

@@ -399,7 +399,8 @@ class Handler(BaseHTTPRequestHandler):
         if path not in files:
             raise KeyError(path)
         file = STATIC / files[path]
-        return self.send_asset(file, mimetypes.guess_type(file.name)[0] + "; charset=utf-8")
+        content_type = "text/javascript" if file.suffix in (".js", ".mjs") else mimetypes.guess_type(file.name)[0]
+        return self.send_asset(file, content_type + "; charset=utf-8")
 
     def get_weekly_review(self):
         """Parse only the closed portfolio offset before a bounded saved-evidence read."""

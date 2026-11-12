@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import json
+import re
 import tempfile
 import unittest
 from urllib.request import urlopen
@@ -222,4 +223,10 @@ class TelemetryHTTPTests(unittest.TestCase):
         with urlopen(self.origin + "/workflow-telemetry.js") as response:
             self.assertIn(b"WMMTelemetry", response.read())
         with urlopen(self.origin) as response:
-            self.assertIn(b"/workflow-telemetry.js", response.read())
+            html = response.read().decode()
+            self.assertEqual(re.findall(r'<script\b[^>]*src="([^"]+)"', html), ["/dashboard.mjs"])
+            self.assertIn('type="module" src="/dashboard.mjs"', html)
+        with urlopen(self.origin + "/feature-apis.mjs") as response:
+            self.assertEqual(response.headers.get_content_type(), "text/javascript")
+            imports = re.findall(r"^import ['\"]([^'\"]+)['\"];", response.read().decode(), re.M)
+            self.assertEqual(imports.count("./workflow-telemetry.js"), 1)

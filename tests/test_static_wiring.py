@@ -71,6 +71,7 @@ class StaticWiringTests(unittest.TestCase):
             self.assertIn(f'"/{name}"', server, name)
 
     def test_linked_assets_have_javascript_mime_and_exact_bytes(self):
+        from unittest.mock import patch
         from urllib.request import urlopen
 
         from tests.test_campaign_access import CampaignGatewayTests
@@ -80,13 +81,18 @@ class StaticWiringTests(unittest.TestCase):
         try:
             files = {p.name for p in STATIC.glob("*.mjs")}
             files.update(re.findall(r"import\s*['\"]\./([^'\"]+)['\"]", (STATIC / "feature-apis.mjs").read_text()))
-            for name in sorted(files):
-                with (
-                    self.subTest(asset=name),
-                    urlopen(cast(HasOrigin, host).origin + "/" + name, timeout=5) as response,
-                ):
-                    self.assertIn(response.headers.get_content_type(), ("text/javascript", "application/javascript"))
-                    self.assertEqual(response.read(), (STATIC / name).read_bytes())
+            # Frozen hosts must not depend on registry MIME mappings.
+            for mapping in (("application/octet-stream", None), (None, None)):
+                with patch("mission_control.server.mimetypes.guess_type", return_value=mapping):
+                    for name in sorted(files):
+                        with (
+                            self.subTest(asset=name),
+                            urlopen(cast(HasOrigin, host).origin + "/" + name, timeout=5) as response,
+                        ):
+                            self.assertIn(
+                                response.headers.get_content_type(), ("text/javascript", "application/javascript")
+                            )
+                            self.assertEqual(response.read(), (STATIC / name).read_bytes())
         finally:
             host.tearDown()
 

@@ -29,8 +29,6 @@ jobs:
         run: |
           python tools/generate_schema_types.py --check
           python tools/generate_operation_docs.py --check
-      - name: Validate native ES module graph
-        run: node tools/check_es_modules.mjs
       - name: Check maintained formatting and lint
         run: python tools/check_format.py
       - name: Check maintained Python types

@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from urllib.request import urlopen
+import re
 import unittest
 from tests import test_agent_grants as fixture
 
@@ -19,4 +20,9 @@ class UIStoryHTTPTests(unittest.TestCase):
             )
         with urlopen(self.origin, timeout=15) as response:
             html = response.read().decode()
-            self.assertLess(html.index("/ui-stories.js"), html.index("/page-reporting.js"))
+            self.assertEqual(re.findall(r'<script\b[^>]*src="([^"]+)"', html), ["/dashboard.mjs"])
+            self.assertIn('type="module" src="/dashboard.mjs"', html)
+        with urlopen(self.origin + "/feature-apis.mjs", timeout=15) as response:
+            self.assertEqual(response.headers.get_content_type(), "text/javascript")
+            imports = re.findall(r"^import ['\"]([^'\"]+)['\"];", response.read().decode(), re.M)
+            self.assertLess(imports.index("./ui-stories.js"), imports.index("./page-reporting.js"))
