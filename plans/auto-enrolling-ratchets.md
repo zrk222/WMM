@@ -8,3 +8,5 @@ Architect verdict: PASS
 - [ ] T3 | slice=tools | files=tools/maintained_files.txt,tools/maintained_js.txt | verify=`python tools/check_format.py` | Enroll this PR and retain sorted append-only paths.
 - [ ] T4 | slice=.github/workflows | files=.github/workflows/checks.yml | verify=`python -m unittest tests.test_ci_current_candidate -q` | Fetch the exact PR base and enforce the enrollment check before source tests.
 - [ ] T5 | slice=docs | files=docs/MAINTAINABILITY.md,docs/MECHANICS-PROGRAM.md | verify=`python -m unittest tests.test_source_ratchet -q` | Document the enrollment command and nine separately verified mechanics PRs.
+
+- [ ] T6 | slice=eslint.config.mjs | files=eslint.config.mjs | verify=`python tools/check_format.py` | Apply baseline syntax-safety lint to every enrolled JavaScript file, preserving stricter dashboard-module rules.
