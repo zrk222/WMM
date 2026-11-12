@@ -119,8 +119,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def asset_tag(self,file,raw):
         """Bind a static asset version to the server build and its exact bytes."""
-        build=getattr(self.server.service,"build_id","") or ""
-        return '"%s"' % digest(dict(build=build,path=file.name,bytes=hashlib.sha256(raw).hexdigest()))
+        build = getattr(self.server.service, "build_id", "") or ""
+        try:
+            relative = file.relative_to(STATIC).as_posix()
+        except ValueError:
+            relative = file.name
+        return '"%s"' % digest(dict(build=build, path=relative, bytes=hashlib.sha256(raw).hexdigest()))
 
     def matches_asset_tag(self,tag):
         """Honor exact, weak and wildcard If-None-Match forms without overclaiming."""

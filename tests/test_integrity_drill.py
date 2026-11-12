@@ -14,6 +14,7 @@ class IntegrityDrillTests(unittest.TestCase):
         self.assertEqual(receipt["backup"]["integrity_check"], ["ok"])
         self.assertTrue(receipt["backup"]["counts_match"])
         self.assertEqual(receipt["replay_after_backup"], [])
+        self.assertEqual(receipt["user_version"], 1)
         self.assertTrue(receipt["replay_digest_match"])
         self.assertGreater(receipt["table_count"], 100)
 

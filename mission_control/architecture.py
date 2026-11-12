@@ -44,10 +44,17 @@ def imports(path: Path) -> set[str]:
     return names
 
 
+def raw_graph() -> dict[str, set[str]]:
+    """Every top-level project and stdlib import for each analyzed module."""
+    return {name: imports(path) for name, path in modules().items()}
+
+
 def graph() -> dict[str, list[str]]:
+    """Project-internal edges only, used for cycle and layering checks."""
     known = modules()
     return {
-        name: sorted(dependency for dependency in imports(path) if dependency in known) for name, path in known.items()
+        name: sorted(dependency for dependency in dependencies if dependency in known)
+        for name, dependencies in raw_graph().items()
     }
 
 
@@ -73,12 +80,8 @@ def cycles(edges: dict[str, list[str]]) -> list[str]:
 
 
 def check(root: Path = ROOT) -> list[str]:
-    known = modules()
-    raw = {name: imports(path) for name, path in known.items()}
-    edges = {
-        name: sorted(dependency for dependency in dependencies if dependency in known)
-        for name, dependencies in raw.items()
-    }
+    raw = raw_graph()
+    edges = graph()
     findings = ["import cycle: " + cycle for cycle in cycles(edges)]
     for name, dependencies in raw.items():
         if name in STORAGE or name.endswith("_store"):
@@ -87,6 +90,8 @@ def check(root: Path = ROOT) -> list[str]:
                 for dependency in dependencies
                 if dependency in ("service", "server") or dependency.endswith("_http")
             )
+        if name.endswith("_http") and "server" in dependencies:
+            findings.append(f"http module {name} imports server")
         if name.endswith("_portable"):
             findings.extend(
                 f"portable module {name} imports {dependency}"

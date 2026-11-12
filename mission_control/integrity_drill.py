@@ -33,6 +33,7 @@ class DrillReceipt(TypedDict):
     schema_digest: str
     backup: BackupReceipt
     migrations: list[int]
+    user_version: int
     replay_after_backup: list[int]
     replay_digest_match: bool
 
@@ -80,6 +81,7 @@ def run(root: Path | None = None) -> DrillReceipt:
             primary_state = inspect(primary)
             digest = migrations.schema_digest(db)
             versions = [int(row["version"]) for row in migrations.applied(db)]
+            user_version = int(db.execute("PRAGMA user_version").fetchone()[0])
         copy(primary, backup)
         restored = inspect(backup)
         initialize(backup)
@@ -99,6 +101,7 @@ def run(root: Path | None = None) -> DrillReceipt:
             and replay == []
             and digest == restored_digest == fresh_digest
             and versions == list(range(len(versions)))
+            and user_version == (versions[-1] if versions else 0)
         )
         return DrillReceipt(
             schema="wmm.integrity-drill.v1",
@@ -114,6 +117,7 @@ def run(root: Path | None = None) -> DrillReceipt:
                 counts_match=primary_state["counts"] == restored["counts"],
             ),
             migrations=versions,
+            user_version=user_version,
             replay_after_backup=replay,
             replay_digest_match=digest == restored_digest == fresh_digest,
         )

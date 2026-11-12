@@ -1,6 +1,6 @@
 {
   "bootstrap.read": 4,
   "client_dashboard.read": 5,
-  "workspace.read": 180,
-  "workspace.read.five": 900
+  "workspace.read": 175,
+  "workspace.read.five": 875
 }

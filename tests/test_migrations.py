@@ -91,6 +91,44 @@ class MigrationLedgerTests(unittest.TestCase):
             self.assertTrue({"audit_app", "workflow_events_job"} <= indexes)
             self.assertEqual(migrations.apply(db), [])
 
+    def test_concurrent_initializers_apply_each_version_once(self):
+        import sqlite3
+        import threading
+
+        with connection(self.path) as db:
+            db.execute("DROP TABLE schema_migrations")
+            db.execute("DROP INDEX IF EXISTS audit_app")
+        errors = []
+        barrier = threading.Barrier(2)
+
+        def worker():
+            barrier.wait()
+            handle = sqlite3.connect(str(self.path), timeout=15)
+            try:
+                migrations.apply(handle)
+            except Exception as exc:  # noqa: BLE001 - the assertion reports the failure
+                errors.append(exc)
+            finally:
+                handle.close()
+
+        threads = [threading.Thread(target=worker) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        self.assertEqual(errors, [])
+        with connection(self.path) as db:
+            rows = [
+                tuple(row)
+                for row in db.execute(
+                    "SELECT version,count(*) FROM schema_migrations GROUP BY version ORDER BY version"
+                )
+            ]
+            self.assertEqual(rows, [(0, 1), (1, 1)])
+            self.assertIsNotNone(
+                db.execute("SELECT 1 FROM sqlite_master WHERE type='index' AND name='audit_app'").fetchone()
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

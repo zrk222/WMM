@@ -13,7 +13,7 @@ from collections.abc import Callable, Iterator
 from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 DIRECTORY = Path(__file__).resolve().parent
 BASELINE_VERSION = 0
@@ -75,19 +75,23 @@ def applied(db: sqlite3.Connection) -> list[dict[str, Any]]:
     return [dict(version=row[0], name=row[1], checksum=row[2], applied_at=row[3]) for row in rows]
 
 
-def _atomic(db: sqlite3.Connection, work: Callable[[], None]) -> None:
+T = TypeVar("T")
+
+
+def _atomic(db: sqlite3.Connection, work: Callable[[], T]) -> T:
     """Run one unit inside the caller's transaction or its own immediate one."""
     outer = db.in_transaction
     if not outer:
         db.execute("BEGIN IMMEDIATE")
     try:
-        work()
+        result = work()
     except BaseException:
         if not outer and db.in_transaction:
             db.execute("ROLLBACK")
         raise
     if not outer:
         db.execute("COMMIT")
+    return result
 
 
 def _record(db: sqlite3.Connection, version: int, name: str, checksum: str) -> None:
@@ -97,30 +101,42 @@ def _record(db: sqlite3.Connection, version: int, name: str, checksum: str) -> N
     )
 
 
+def _ensure_baseline(db: sqlite3.Connection, checksum: str) -> bool:
+    """Record the baseline once, including across concurrent initializers."""
+    if db.execute("SELECT 1 FROM schema_migrations WHERE version=?", (BASELINE_VERSION,)).fetchone() is not None:
+        return False
+    _record(db, BASELINE_VERSION, "baseline", checksum)
+    return True
+
+
+def _apply_migration(db: sqlite3.Connection, version: int, name: str, sql: str, checksum: str) -> bool:
+    """Apply one file exactly once, rechecking under the write lock."""
+    row = db.execute("SELECT checksum FROM schema_migrations WHERE version=?", (version,)).fetchone()
+    if row is not None:
+        if row[0] != checksum:
+            raise SchemaMigrationError(f"Applied migration {version:04d} was edited")
+        return False
+    for statement in statements(sql):
+        db.execute(statement)
+    _record(db, version, name, checksum)
+    return True
+
+
 def apply(db: sqlite3.Connection, *, baseline_checksum: str | None = None) -> list[int]:
     """Record the baseline, then apply every missing migration exactly once."""
     db.execute(LEDGER)
-    recorded = {row[0]: (row[1], row[2]) for row in db.execute("SELECT version,name,checksum FROM schema_migrations")}
-    if BASELINE_VERSION not in recorded:
-        checksum = baseline_checksum or schema_digest(db)
-        _atomic(db, lambda: _record(db, BASELINE_VERSION, "baseline", checksum))
+    baseline = baseline_checksum or schema_digest(db)
+    _atomic(db, lambda: _ensure_baseline(db, baseline))
     entries = discovered()
     pending = []
     for version, name, path in entries:
         sql = path.read_text(encoding="utf-8")
         checksum = sha256(path.read_bytes()).hexdigest()
-        existing = recorded.get(version)
-        if existing is not None:
-            if existing[1] != checksum:
-                raise SchemaMigrationError(f"Applied migration {version:04d} was edited")
-            continue
 
-        def work(sql=sql, version=version, name=name, checksum=checksum):
-            for statement in statements(sql):
-                db.execute(statement)
-            _record(db, version, name, checksum)
+        def work(version=version, name=name, sql=sql, checksum=checksum):
+            return _apply_migration(db, version, name, sql, checksum)
 
-        _atomic(db, work)
-        pending.append(version)
+        if _atomic(db, work):
+            pending.append(version)
     db.execute("PRAGMA user_version=%d" % (entries[-1][0] if entries else BASELINE_VERSION))
     return pending

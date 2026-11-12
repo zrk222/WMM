@@ -16,6 +16,16 @@ class FormatRatchetTests(unittest.TestCase):
         result = subprocess.run([sys.executable, "tools/check_format.py"], cwd=ROOT, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_maintained_list_is_sorted_and_unique(self):
+        lines = [
+            line.strip() for line in (ROOT / "tools/maintained_files.txt").read_text(encoding="utf-8").splitlines()
+        ]
+        paths = [line for line in lines if line and not line.startswith("#")]
+        self.assertEqual(paths, sorted(paths))
+        self.assertEqual(len(paths), len(set(paths)))
+        for path in paths:
+            self.assertTrue((ROOT / path).is_file(), path)
+
 
 if __name__ == "__main__":
     unittest.main()

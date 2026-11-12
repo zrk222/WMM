@@ -13,8 +13,8 @@ tests/test_repo_hygiene.py
 tests/test_sbom_reproducibility.py
 tests/test_schema_types.py
 tests/test_sqlite_tuning.py
-tests/test_type_ratchet.py
 tests/test_static_etag.py
+tests/test_type_ratchet.py
 tools/check_format.py
 tools/check_layering.py
 tools/check_types.py
