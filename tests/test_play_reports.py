@@ -44,7 +44,7 @@ class DiscoveryTests(unittest.TestCase):
             {"expo": {"android": {"package": TARGET["package_name"]}}},
             {"android": {"package": TARGET["package_name"]}},
         ):
-            value = package_candidates("app.mjson", json.dumps(data))
+            value = package_candidates("app.json", json.dumps(data))
             self.assertEqual(value["package_candidates"], [TARGET["package_name"]])
             self.assertFalse(value["executed_project_code"])
 
@@ -68,9 +68,9 @@ class DiscoveryTests(unittest.TestCase):
     def test_untrusted_metadata_and_duplicate_fields_fail(self):
         cases = [
             ("app.config.js", "export default {}"),
-            ("app.mjson", '{"android":{},"android":{}}'),
-            ("app.mjson", "["),
-            ("app.mjson", "x" * 131073),
+            ("app.json", '{"android":{},"android":{}}'),
+            ("app.json", "["),
+            ("app.json", "x" * 131073),
             ("AndroidManifest.xml", '<!DOCTYPE manifest [<!ENTITY x "unsafe">]><manifest/>'),
         ]
         for kind, text in cases:

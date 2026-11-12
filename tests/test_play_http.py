@@ -65,19 +65,19 @@ class PlayHTTPTests(PlayFixture):
         path = "/api/apps/sample-one/play/discover"
         old = self.store.app("sample-one")
         code, value, _ = self.request(
-            path, dict(kind="app.mjson", text='{"expo":{"android":{"package":"com.example.app"}}}')
+            path, dict(kind="app.json", text='{"expo":{"android":{"package":"com.example.app"}}}')
         )
         self.assertEqual(code, 200, value)
         self.assertEqual(value["package_candidates"], ["com.example.app"])
         self.assertEqual(self.store.app("sample-one"), old)
-        self.assertEqual(self.request(path, raw=b'{"kind":"app.mjson","kind":"other","text":"{}"}')[0], 400)
-        self.assertEqual(self.request(path, raw=b'{"kind":"app.mjson","text":NaN}')[0], 400)
-        self.assertEqual(self.request(path, dict(kind="app.mjson", text="{}", execute=True))[0], 400)
-        self.assertEqual(self.request(path, dict(kind="app.mjson", text="x" * 131073))[0], 400)
+        self.assertEqual(self.request(path, raw=b'{"kind":"app.json","kind":"other","text":"{}"}')[0], 400)
+        self.assertEqual(self.request(path, raw=b'{"kind":"app.json","text":NaN}')[0], 400)
+        self.assertEqual(self.request(path, dict(kind="app.json", text="{}", execute=True))[0], 400)
+        self.assertEqual(self.request(path, dict(kind="app.json", text="x" * 131073))[0], 400)
 
     def test_csrf_origin_host_and_framing_stop_before_consent(self):
         path = "/api/apps/sample-one/play/discover"
-        body = dict(kind="app.mjson", text="{}")
+        body = dict(kind="app.json", text="{}")
         for headers in ({"X-CSRF-Token": "wrong"}, {"Origin": "https://foreign.example"}, {"Host": "foreign.example"}):
             self.assertEqual(self.request(path, body, headers)[0], 403)
         for headers in ({"Content-Type": "text/plain"}, {"Transfer-Encoding": "chunked"}):

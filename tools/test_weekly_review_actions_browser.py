@@ -27,7 +27,7 @@ def run(browser, width, out):
         page.wait_for_function("(context) => {const state=context.state;return (() => state.workspace?.app?.id === 'sample-one')(context.original);}", arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': None})
 
         def login(token):
-            page.evaluate("async token => { await api('/api/identity/login', {token}); await refresh(); }", token)
+            page.evaluate("async token => { const {api,refresh}=await import('/app.mjs'); await api('/api/identity/login', {token}); await refresh(); }", token)
 
         def weekly():
             if not page.locator("#navigation details").evaluate("(node) => node.open"):

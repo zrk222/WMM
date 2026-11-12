@@ -42,6 +42,11 @@ Move top-level app listener registration and initial load into startApplication;
 - [x] T30 | slice=tests | files=tests/test_organic_policy_gui_browser.py | verify=`python -m unittest tests.test_organic_policy_gui_browser -q` | Poll module state explicitly in the remaining concatenated browser predicate.
 - [x] T31 | slice=tests | files=tests/agent-handoffs-ui.test.js,tests/agent-handoffs-ui.test.mjs,tests/hypit-interface.test.js,tests/hypit-interface.test.mjs | verify=`node --test tests/agent-handoffs-ui.test.mjs tests/hypit-interface.test.mjs` | Move dormant ESM tests into the active mjs CI discovery pattern and inject isolated module services.
 
+- [x] T32 | slice=tools | files=tools/test_hypit_preflight_browser.py,tools/test_play_browser.py,tools/test_setup_browser.py,tools/test_weekly_review_actions_browser.py | verify=`python tools/test_weekly_review_actions_browser.py` | Remove remaining integrated browser reliance on global helpers; late replies use fetch mocks rather than imported-binding assignment.
+- [x] T33 | slice=tests | files=tests/campaign_paid_schedule_browser.py | verify=`python tests/campaign_paid_schedule_browser.py` | Keep the isolated synthetic schedule harness explicit about stripping module linkage; runtime linkage remains separately verified.
+
+- [x] T34 | slice=tests | files=tests/test_play_http.py,tests/test_play_reports.py | verify=`python -m unittest tests.test_play_http tests.test_play_reports -q` | Preserve Android app.json data names while migrating JavaScript asset paths.
+
 ## Validation
 Run all Node logic tests, migrated Python source-contract tests, HTTP asset traversal and actual owner automation desktop/mobile browser journeys. Retain original failures and current source hashes. Pure feature CommonJS tests remain supported; callback pages are separate. No provider effects or publication. Record bounded DeepSeek audit and current limitations.
 

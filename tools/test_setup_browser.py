@@ -70,12 +70,12 @@ def journey(page, base, fixture, width, height):
     assert fixture.store.app("sample-one") == saved
     # A completed read cannot reclaim a dialog after the user closes it.
     page.evaluate(
-        "window.savedSetupApi=api;window.setupWait=new Promise(resolve=>window.finishSetupWait=resolve);api=()=>setupWait;window.setupSubmission=setupRead(document.querySelector('[data-action=setup-read]'));document.querySelector('#modal').close()"
+        "async () => {const {setupRead}=await import('/setup-discovery.mjs');window.savedSetupFetch=window.fetch;window.setupWait=new Promise(resolve=>window.finishSetupWait=resolve);window.fetch=()=>setupWait;window.setupSubmission=setupRead(document.querySelector('[data-action=setup-read]'));document.querySelector('#modal').close();}"
     )
-    page.evaluate("finishSetupWait({});")
+    page.evaluate("finishSetupWait(new Response('{}',{status:200,headers:{'Content-Type':'application/json'}}));")
     page.evaluate("window.setupSubmission")
     assert not page.locator("#modal").evaluate("(node)=>node.open")
-    page.evaluate("()=>{api=window.savedSetupApi;}")
+    page.evaluate("()=>{window.fetch=window.savedSetupFetch;}")
     # Render a real approved agent job result and follow its draft link.
     from mission_control.resolutions import Resolutions
     from mission_control.worker import run_once
@@ -96,8 +96,8 @@ def journey(page, base, fixture, width, height):
         ),
     )
     assert run_once(fixture.store)
-    page.evaluate("async()=>{await refresh();}")
-    page.evaluate("(id)=>{openResolutionRun(id);}", job["id"])
+    page.evaluate("async()=>{const {refresh}=await import('/app.mjs');await refresh();}")
+    page.evaluate("async(id)=>{const {openResolutionRun}=await import('/automatic-preparation.mjs');openResolutionRun(id);}", job["id"])
     page.get_by_role("button", name="Review collected app details", exact=True).click()
     expect(page.locator("#setup-review")).to_contain_text("PENDING")
     expect(page.get_by_role("link", name="Open inspected public page")).to_have_attribute("href", SITE + "/page")
