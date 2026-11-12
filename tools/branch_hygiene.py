@@ -35,25 +35,32 @@ class Receipt(TypedDict):
 
 class GitHub:
     def request(self, method: str, endpoint: str) -> object:
-        result = subprocess.run(
-            [
-                "gh",
-                "api",
-                "--hostname",
-                "github.com",
-                "--method",
-                method,
-                ("repos/" + REPOSITORY + "/" + endpoint).rstrip("/"),
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=30,
-        )
-        if result.returncode:
+        try:
+            result = subprocess.run(
+                [
+                    "gh",
+                    "api",
+                    "--hostname",
+                    "github.com",
+                    "--method",
+                    method,
+                    ("repos/" + REPOSITORY + "/" + endpoint).rstrip("/"),
+                ],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=False,
+                timeout=30,
+            )
+        except UnicodeError:
+            raise RuntimeError("GitHub request failed") from None
+        if result.returncode or not isinstance(result.stdout, str):
             # Never relay gh stderr: authentication/provider responses are private.
             raise RuntimeError("GitHub request failed")
-        return json.loads(result.stdout) if result.stdout.strip() else None
+        try:
+            return json.loads(result.stdout) if result.stdout.strip() else None
+        except (ValueError, UnicodeError):
+            raise RuntimeError("GitHub request failed") from None
 
 
 def obj(value: object) -> dict[str, object]:
@@ -86,7 +93,12 @@ def pages(api: API, endpoint: str) -> list[dict[str, object]]:
 
 def worktrees() -> set[str]:
     result = subprocess.run(
-        ["git", "worktree", "list", "--porcelain"], capture_output=True, text=True, check=True, timeout=30
+        ["git", "worktree", "list", "--porcelain"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+        timeout=30,
     )
     return {
         line.removeprefix("branch refs/heads/")

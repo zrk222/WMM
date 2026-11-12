@@ -4,6 +4,7 @@ import copy
 import importlib.util
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -344,7 +345,41 @@ class BranchHygieneTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "^GitHub request failed$"):
                 hygiene.GitHub().request("GET", "branches")
             self.assertEqual(run.call_args.kwargs["timeout"], 30)
+            self.assertEqual(run.call_args.kwargs["encoding"], "utf-8")
             self.assertEqual(run.call_args.args[0][2:4], ["--hostname", "github.com"])
+
+    def test_large_unicode_provider_json_is_decoded_as_utf8_using_a_real_child_process(self):
+        real_run = subprocess.run
+        suffix = "\u201d \u65e5\u672c\u8a9e \U0001f9ea"
+        script = (
+            "import json,sys;sys.stdout.buffer.write(json.dumps("
+            "{'body':'x'*754378+'\\u201d \\u65e5\\u672c\\u8a9e \\U0001f9ea'},"
+            "ensure_ascii=False).encode('utf-8'))"
+        )
+
+        def local_child(_argv, **kwargs):
+            self.assertEqual(kwargs["encoding"], "utf-8")
+            return real_run([sys.executable, "-c", script], **kwargs)
+
+        with patch.object(hygiene.subprocess, "run", side_effect=local_child):
+            value = hygiene.obj(hygiene.GitHub().request("GET", "pulls?state=closed"))
+        self.assertEqual(value["body"], "x" * 754378 + suffix)
+
+    def test_missing_malformed_or_undecodable_provider_output_fails_privately(self):
+        for output in (None, b"not text", "{private-response", "\ud800"):
+            with self.subTest(output=repr(output)):
+                result = subprocess.CompletedProcess([], 0, output, "private-provider-error")
+                with (
+                    patch.object(hygiene.subprocess, "run", return_value=result),
+                    self.assertRaisesRegex(RuntimeError, "^GitHub request failed$"),
+                ):
+                    hygiene.GitHub().request("GET", "branches")
+        error = UnicodeDecodeError("utf-8", b"\xff", 0, 1, "synthetic private error")
+        with (
+            patch.object(hygiene.subprocess, "run", side_effect=error),
+            self.assertRaisesRegex(RuntimeError, "^GitHub request failed$"),
+        ):
+            hygiene.GitHub().request("GET", "branches")
 
     def test_workflow_uploads_manifest_before_apply_and_scheduled_cleanup_is_enabled(self):
         source = (ROOT / ".github/workflows/hygiene.yml").read_text(encoding="utf-8")
