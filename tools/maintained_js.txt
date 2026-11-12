@@ -4,6 +4,7 @@ mission_control/static/aeo.js
 mission_control/static/agent-access.js
 mission_control/static/agent-control.js
 mission_control/static/analytics-inventory.js
+mission_control/static/app-production.js
 mission_control/static/app.js
 mission_control/static/apple-analytics.js
 mission_control/static/attribution.js

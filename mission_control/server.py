@@ -360,7 +360,13 @@ class Handler(BaseHTTPRequestHandler):
             "/funnel-model.js",
             "/funnel-ui.js",
         )
-        scripts += ("/publication.js", "/organic-research.js", "/organic-policy.js", "/operation-feedback.js")
+        scripts += (
+            "/publication.js",
+            "/organic-research.js",
+            "/organic-policy.js",
+            "/operation-feedback.js",
+            "/app-production.js",
+        )
         if path in scripts:
             return self.send_asset(STATIC / path[1:], "text/javascript; charset=utf-8")
         files = {

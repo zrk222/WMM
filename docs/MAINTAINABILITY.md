@@ -11,6 +11,16 @@ protocol. For current product boundaries, see [Release scope](../RELEASE-SCOPE.m
 | HTTP server | The loopback transport owns routing, sessions, request validation and write controls. Static assets revalidate by build-bound ETag while API responses stay `no-store`. | Compare a candidate adapter against the same route, origin, CSRF, session, OAuth and error tests before choosing a framework or moving traffic. |
 | Evidence and review | PRs record the exact candidate SHA and review status. New or enlarged tracked evidence over 512 KiB is rejected; generated `.factory` evidence is untracked. | Prove durable retrieval and hash replay before removing old tracked reports. Retire merged branches only after checking they are not referenced by open work or release evidence. A second human maintainer and independent review are still pending. |
 
+## JavaScript modules
+
+Static scripts stay classic, ordered `<script defer>` files so the app keeps its
+no-build-step constraint. The reference library, inspection and production-brief
+screens now live in `app-production.js`, loaded before `app.js`; `app.js`
+remains the core shell, bootstrap and shared helpers. New screen groups should
+follow the same pattern: load before `app.js`, reference only runtime globals,
+and join `tools/maintained_js.txt`. ES-module conversion waits for an explicit
+global-binding migration and the full browser matrix.
+
 ## Schema changes
 
 The baseline is the idempotent assembled schema in `mission_control/db.py` plus
