@@ -57,9 +57,10 @@ def check():
         print("ESLINT_REQUIRED run npm ci", file=sys.stderr)
         return 2
     eslint = subprocess.run(
-        ["npx", "--no-install", "eslint", "mission_control/static/app.js", "mission_control/static/app-*.js"],
+        ["npx", "--no-install", "eslint", "mission_control/static/app.mjs", "mission_control/static/*.mjs"],
         cwd=ROOT,
     )
+    module_graph = subprocess.run(["node", "tools/check_es_modules.mjs"], cwd=ROOT)
     return (
         0
         if formatted.returncode == 0
@@ -67,6 +68,7 @@ def check():
         and prettier.returncode == 0
         and syntax_ok
         and eslint.returncode == 0
+        and module_graph.returncode == 0
         else 1
     )
 

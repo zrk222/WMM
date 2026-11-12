@@ -54,7 +54,7 @@ class TrackingHTTPTests(unittest.TestCase):
         self.assertEqual(row["id"], run["id"])
         self.assertEqual(row["status"], "OBSERVED")
         self.assertNotIn("SYNTHETIC_PRIVATE_KEY", raw.decode())
-        self.assertEqual(self.request("/experiment-tracking.js")[0], 200)
+        self.assertEqual(self.request("/experiment-tracking.mjs")[0], 200)
 
     def test_tracking_csrf_origin_query_validation_and_generic_queue_denials(self):
         headers = self.protected()

@@ -93,7 +93,7 @@ class PlayHTTPTests(PlayFixture):
         code, html, headers = self.request(path)
         self.assertEqual(code, 200)
         self.assertIn(b"play-callback.js", html)
-        self.assertNotIn(b"/app.js", html)
+        self.assertNotIn(b"/app.mjs", html)
         self.assertNotIn(b"synthetic-code", html)
         self.assertEqual(headers["Referrer-Policy"], "no-referrer")
         self.exchange.assert_not_called()
@@ -108,7 +108,7 @@ class PlayHTTPTests(PlayFixture):
         self.assertEqual(flows[0]["result"]["connection_version"], record["version"])
         self.assertEqual(self.request("/api/play/callback", body)[0], 400)
         self.exchange.assert_called_once()
-        for asset in ("/google-play.js", "/play-callback.js"):
+        for asset in ("/google-play.mjs", "/play-callback.js"):
             self.assertEqual(self.request(asset)[0], 200)
         public = json.dumps(self.request("/api/apps/sample-one")[1])
         for secret in (CONFIG["client_secret"], GRANT["refresh_token"], state, "synthetic-code"):

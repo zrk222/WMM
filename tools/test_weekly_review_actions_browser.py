@@ -24,10 +24,10 @@ def run(browser, width, out):
         prepared = fixture.prepare()
         before = prepared["checkpoint"]
         page.goto(fixture.origin)
-        page.wait_for_function("() => state.workspace?.app?.id === 'sample-one'")
+        page.wait_for_function("(context) => {const state=context.state;return (() => state.workspace?.app?.id === 'sample-one')(context.original);}", arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': None})
 
         def login(token):
-            page.evaluate("async token => { await api('/api/identity/login', {token}); await refresh(); }", token)
+            page.evaluate("async token => { const {api,refresh}=await import('/app.mjs'); await api('/api/identity/login', {token}); await refresh(); }", token)
 
         def weekly():
             if not page.locator("#navigation details").evaluate("(node) => node.open"):
@@ -73,7 +73,7 @@ def run(browser, width, out):
         cancelled = fixture.human("cancel", dict(id="review-one", revision=before["revision"]), fixture.owner)
         assert cancelled["state"] == "CANCELLED"
         page.get_by_role("button", name="Refresh review", exact=True).click()
-        page.wait_for_function("() => !state.weeklyLoading")
+        page.wait_for_function('(context) => {const state=context.state;return (() => !state.weeklyLoading)(context.original);}', arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': None})
         expect(page.locator('[data-action="weekly-recover"][data-resource="review-one"]')).to_have_count(0)
         assert fixture.owner.call(fixture.envelope())["history"] == []
         page.locator('[data-view="evidence"]').click()

@@ -8,7 +8,7 @@ on:
       - 'ruff.toml'
       - 'tools/check_evidence_budget.py'
       - 'mission_control/automation_execution.py'
-      - 'mission_control/static/campaign-monitor.js'
+      - 'mission_control/static/campaign-monitor.mjs'
   push:
     branches: [main]
     paths:
@@ -18,7 +18,7 @@ on:
       - 'ruff.toml'
       - 'tools/check_evidence_budget.py'
       - 'mission_control/automation_execution.py'
-      - 'mission_control/static/campaign-monitor.js'
+      - 'mission_control/static/campaign-monitor.mjs'
 permissions:
   contents: read
 jobs:
@@ -48,4 +48,4 @@ jobs:
           python -m ruff format --check mission_control/automation_execution.py tools/check_evidence_budget.py
           python -m ruff check mission_control/automation_execution.py tools/check_evidence_budget.py
       - name: Check the maintained campaign monitor
-        run: npx --yes prettier@3.6.2 --check mission_control/static/campaign-monitor.js
+        run: npx --yes prettier@3.6.2 --check mission_control/static/campaign-monitor.mjs

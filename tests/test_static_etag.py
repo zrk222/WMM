@@ -50,7 +50,7 @@ class StaticAssetETagTests(unittest.TestCase):
 
     def test_distinct_assets_and_build_bound_tags(self):
         _, first, _ = self.get("/style.css")
-        _, second, _ = self.get("/app.js")
+        _, second, _ = self.get("/app.mjs")
         self.assertNotEqual(first["ETag"], second["ETag"])
         build = self.server.service.build_id or ""
         self.server.service.build_id = build + "-other"

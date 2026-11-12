@@ -1,5 +1,6 @@
 """The real loopback server delivers the packaging UI without widening file access."""
 
+import re
 import unittest
 from tests.test_http import HTTPTests
 
@@ -13,8 +14,13 @@ class PackagingStaticTests(unittest.TestCase):
         code, body, headers = self.request("/")
         self.assertEqual(code, 200)
         shell = body.decode("utf-8")
-        self.assertLess(shell.index("/packaging-model.js"), shell.index("/packaging-ui.js"))
-        self.assertLess(shell.index("/packaging-ui.js"), shell.index("/app.js"))
+        self.assertEqual(re.findall(r'<script\b[^>]*src="([^"]+)"', shell), ["/dashboard.mjs"])
+        self.assertIn('type="module" src="/dashboard.mjs"', shell)
+        code, adapter, response_headers = self.request("/feature-apis.mjs")
+        self.assertEqual(code, 200)
+        self.assertIn("text/javascript", response_headers["Content-Type"])
+        imports = re.findall(r"^import ['\"]([^'\"]+)['\"];", adapter.decode(), re.M)
+        self.assertLess(imports.index("./packaging-model.js"), imports.index("./packaging-ui.js"))
         self.assertIn("/packaging.css", shell)
         self.assertIn("default-src 'self'", headers["Content-Security-Policy"])
         for path, content_type in [

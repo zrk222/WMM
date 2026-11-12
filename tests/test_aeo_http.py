@@ -73,7 +73,7 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(code, 200)
         self.assertIn("attachment", h["Content-Disposition"])
         self.assertEqual(json.loads(raw)[0]["data"], saved["data"])
-        code, h, raw = self.request("/aeo.js")
+        code, h, raw = self.request("/aeo.mjs")
         self.assertEqual(code, 200)
         self.assertIn(b"aeoSubmit", raw)
         self.assertEqual(h["X-Content-Type-Options"], "nosniff")

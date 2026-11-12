@@ -46,7 +46,7 @@ class SequenceHTTPTests(unittest.TestCase):
         saved = json.loads(raw)["sequences"]["history"][0]
         self.assertEqual(saved["state"], "CANCELLED")
         self.assertEqual(saved["id"], run["id"])
-        self.assertEqual(self.request("/campaign-sequence.js")[0], 200)
+        self.assertEqual(self.request("/campaign-sequence.mjs")[0], 200)
 
     def test_csrf_origin_stale_and_arbitrary_commands_are_denied(self):
         headers = self.protected()

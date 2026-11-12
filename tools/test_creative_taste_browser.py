@@ -85,7 +85,7 @@ def exercise(browser, width):
             button(page, "Save owner-reviewed direction").click()
         assert pending.value.status == 200, pending.value.text()
         expect(page.locator("#modal-body")).to_contain_text("CURRENT_OWNER_REVIEW")
-        page.evaluate("state.workspace.privateDraft='UNRELATED_PRIVATE_SENTINEL'")
+        page.evaluate("async () => ((await import('/app.mjs')).state.workspace.privateDraft='UNRELATED_PRIVATE_SENTINEL')")
         button(page, "Revise video direction").click()
         page.locator("#packaging-visual").fill("Show real controls and one clear ending.")
         calls = []

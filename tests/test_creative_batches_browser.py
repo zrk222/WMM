@@ -240,7 +240,7 @@ class FirstAppBrowserTests(unittest.TestCase):
                             self.assertEqual(payload["classification"], "CURRENT_LOCAL_DRAFTS")
                             self.assertEqual(len(payload["outputs"]), 12)
                             self.assertEqual(
-                                payload["source_hash"], page.evaluate("state.workspace.preparation.source_hash")
+                                payload["source_hash"], page.evaluate("async () => ((await import('/app.mjs')).state.workspace.preparation.source_hash)")
                             )
                             page.keyboard.press("Escape")
                             if width == 390:

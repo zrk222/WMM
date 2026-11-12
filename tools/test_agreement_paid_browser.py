@@ -57,7 +57,7 @@ def run(browser, width):
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(origin)
-        page.wait_for_function("() => state.workspace?.app?.id === state.app")
+        page.wait_for_function('(state) => state.workspace?.app?.id === state.app', arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"))
         page.locator("#navigation > [data-view=activity]").click()
         page.get_by_role("button", name="Sign in for verified review", exact=True).click()
         page.get_by_label("GitHub identity token", exact=True).fill(OWNER_TOKEN)
@@ -217,8 +217,8 @@ def main():
     """Forbid inference, provider and vault access while running both viewports."""
     sources = [
         "tools/test_agreement_paid_browser.py",
-        "mission_control/static/guided-workflow.js",
-        "mission_control/static/app.js",
+        "mission_control/static/guided-workflow.mjs",
+        "mission_control/static/app.mjs",
         "mission_control/automation_agreement.py",
         "tests/test_automation_agreement.py",
     ]

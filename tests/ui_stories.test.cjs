@@ -1,5 +1,5 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
-const fs=require('node:fs'),path=require('node:path');
+const fs=require('./helpers/module-source.cjs'),path=require('node:path');
 const root=path.join(__dirname,'..'),directory=path.join(root,'mission_control/static');
 const loaded={exports:{}};new Function('module',fs.readFileSync(path.join(directory,'ui-stories.js'),'utf8'))(loaded);
 const stories=loaded.exports;
@@ -21,7 +21,7 @@ test('every actual navigation page has a distinct mission input output and next 
  }assert.equal(missions.size,10);assert.throws(()=>stories.page('unknown'));
 });
 test('every static task form has an explicit narrative and renders without controls or form values',()=>{
- const ids=new Set();for(const file of fs.readdirSync(directory).filter(p=>p.endsWith('.js')&&p!=='ui-stories.js')){
+ const ids=new Set();for(const file of fs.readdirSync(directory).filter(p=>/\.m?js$/.test(p)&&p!=='ui-stories.js')){
   const source=fs.readFileSync(path.join(directory,file),'utf8');
   for(const match of source.matchAll(/<form\b[^>]*\sid=["']([^"']+)["']/g))ids.add(match[1]);
  }
@@ -43,7 +43,7 @@ test('read-only and unknown dialogs escape hostile titles without inventing an e
  }
 });
 test('shared modal and page hooks add narrative alongside existing control and report paths',()=>{
- const app=fs.readFileSync(path.join(directory,'app.js'),'utf8')+fs.readFileSync(path.join(directory,'app-ui.js'),'utf8')+fs.readFileSync(path.join(directory,'app-events.js'),'utf8');
+ const app=fs.readFileSync(path.join(directory,'app.mjs'),'utf8')+fs.readFileSync(path.join(directory,'app-ui.mjs'),'utf8')+fs.readFileSync(path.join(directory,'app-events.mjs'),'utf8');
  const flatApp=app.replace(/\s+/g,'');assert.ok(flatApp.includes('WMMStories.dialog(title,html)'));assert.ok(flatApp.includes('WMMAgentControl.submit'));
  const reports=fs.readFileSync(path.join(directory,'page-reporting.js'),'utf8');
  assert.ok(reports.includes('WMMStories.page(state.view)'));assert.ok(reports.includes('Report / Save PDF'));

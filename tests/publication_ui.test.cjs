@@ -1,6 +1,6 @@
-const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
-const publicationSource=fs.readFileSync(path.join(__dirname,'../mission_control/static/publication.js'),'utf8');
-const socialSource=fs.readFileSync(path.join(__dirname,'../mission_control/static/social-access.js'),'utf8');
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('./helpers/module-source.cjs'),vm=require('node:vm'),path=require('node:path');
+const publicationSource=fs.readFileSync(path.join(__dirname,'../mission_control/static/publication.mjs'),'utf8');
+const socialSource=fs.readFileSync(path.join(__dirname,'../mission_control/static/social-access.mjs'),'utf8');
 const reportingModule={exports:{}};new Function('module',fs.readFileSync(path.join(__dirname,'../mission_control/static/page-reporting.js'),'utf8'))(reportingModule);
 const uuid='00000000-0000-4000-8000-000000000001';
 const account={id:uuid,version:3,provider:'linkedin',status:'CONNECTED_READ_TESTED',reconnect_required:false,data:{destination:{id:'member1',name:'<Member>'}}};

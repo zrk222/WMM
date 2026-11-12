@@ -124,10 +124,21 @@ def _apply_migration(db: sqlite3.Connection, version: int, name: str, sql: str, 
 
 def apply(db: sqlite3.Connection, *, baseline_checksum: str | None = None) -> list[int]:
     """Record the baseline, then apply every missing migration exactly once."""
-    db.execute(LEDGER)
-    baseline = baseline_checksum or schema_digest(db)
-    _atomic(db, lambda: _ensure_baseline(db, baseline))
     entries = discovered()
+    names = {BASELINE_VERSION: "baseline", **{version: name for version, name, _ in entries}}
+    db.execute(LEDGER)
+
+    def adopt():
+        # Validate under the same writer lock as adoption, before any ledger writes.
+        for version, name in db.execute("SELECT version,name FROM schema_migrations"):
+            if version not in names:
+                raise SchemaMigrationError(f"Unsupported recorded migration {version:04d}")
+            if name != names[version]:
+                raise SchemaMigrationError(f"Applied migration {version:04d} has an unexpected name")
+        baseline = baseline_checksum or schema_digest(db)
+        _ensure_baseline(db, baseline)
+
+    _atomic(db, adopt)
     pending = []
     for version, name, path in entries:
         sql = path.read_text(encoding="utf-8")

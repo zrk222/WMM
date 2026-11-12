@@ -1,11 +1,11 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const fs=require('node:fs');
+const fs=require('./helpers/module-source.cjs');
 const path=require('node:path');
 const vm=require('node:vm');
 
-const source=fs.readFileSync(path.join(__dirname,'../mission_control/static/app-campaign.js'),'utf8');
-const resultsSource=fs.readFileSync(path.join(__dirname,'../mission_control/static/app-results.js'),'utf8');
+const source=fs.readFileSync(path.join(__dirname,'../mission_control/static/app-campaign.mjs'),'utf8');
+const resultsSource=fs.readFileSync(path.join(__dirname,'../mission_control/static/app-results.mjs'),'utf8');
 const preview=source.slice(source.indexOf('function automationRulesResult('),source.indexOf('function resultsView('));
 const identity=resultsSource.slice(resultsSource.indexOf('function experimentScheduleIdentity('),resultsSource.indexOf('function experimentScheduleForm('));
 

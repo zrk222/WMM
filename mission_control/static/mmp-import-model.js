@@ -94,3 +94,5 @@ const WMMMmpImport = (() => {
 })();
 
 if (typeof module !== 'undefined') module.exports = WMMMmpImport;
+
+if (typeof module === 'undefined') globalThis.WMMMmpImport = WMMMmpImport;

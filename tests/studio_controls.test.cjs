@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict');
-const fs=require('node:fs'),path=require('node:path');
+const fs=require('./helpers/module-source.cjs'),path=require('node:path');
 const loaded={exports:{}};new Function('module',fs.readFileSync(path.join(__dirname,'../mission_control/static/studio-controls.js'),'utf8'))(loaded);
 const studio=loaded.exports;
 const field=(control,value,extra={})=>({id:control,label:control,control,value,writable:true,...extra});
@@ -73,9 +73,9 @@ test('network ambiguity is not a rejected edit and explicit stop shows durable c
  f.d.fetch=original;await studio.action(action('stop'),f.d);assert.match(f.nodes['#studio-error'].textContent,/CLOSED/);
 });
 test('workspace and submit hooks use the shared module and clear stale modal state',()=>{
- const dir=path.join(__dirname,'../mission_control/static'),app=fs.readFileSync(path.join(dir,'app.js'),'utf8')+fs.readFileSync(path.join(dir,'app-events.js'),'utf8'),index=fs.readFileSync(path.join(dir,'index.html'),'utf8');
+ const dir=path.join(__dirname,'../mission_control/static'),app=fs.readFileSync(path.join(dir,'app.mjs'),'utf8')+fs.readFileSync(path.join(dir,'app-events.mjs'),'utf8'),index=fs.readFileSync(path.join(dir,'index.html'),'utf8');
  const flat=app.replace(/\s+/g,'');for(const hook of ['WMMStudio.panel()','WMMStudio.invalidate(state)','WMMStudio.clear()','WMMStudio.submit(form,growthReviewServices())','WMMStudio.action(node,growthReviewServices())'])assert.ok(flat.includes(hook),hook);
- assert.ok(index.includes('src="/studio-controls.js"'));
+ assert.match(index,/<script type="module" src="\/dashboard\.mjs"><\/script>/);assert.equal((require('node:fs').readFileSync(require('node:path').join(__dirname,'../mission_control/static/feature-apis.mjs'),'utf8').match(/import ['"]\.\/studio-controls\.js['"];/g)||[]).length,1);
 });
 test('confirmed close rerenders truthful terminal state and removes stale fields even after uncertainty',async()=>{
  const f=fixture();await started(f);const original=f.d.fetch;

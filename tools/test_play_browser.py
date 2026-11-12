@@ -21,7 +21,10 @@ def review(page, base, fixture, width, height):
     page.goto(base)
     page.locator("#main h1").wait_for()
     page.locator("#app-select").select_option("sample-one")
-    page.locator('[data-view="connections"]').click()
+    nav = page.locator('[data-view="connections"]')
+    if not nav.is_visible():
+        page.locator("#navigation summary").click()
+    nav.click()
     panel = page.locator("#google-play-connector")
     expect(panel).to_contain_text("com.example.synthetic")
     panel.get_by_role("button", name="Reconnect", exact=True).focus()
@@ -58,7 +61,10 @@ def review(page, base, fixture, width, height):
     callback.close()
     page.locator("#close-modal").click()
     page.reload()
-    page.locator('[data-view="connections"]').click()
+    nav = page.locator('[data-view="connections"]')
+    if not nav.is_visible():
+        page.locator("#navigation summary").click()
+    nav.click()
     panel = page.locator("#google-play-connector")
     expect(panel).to_contain_text("Last verified")
     panel.get_by_role("button", name="Read releases", exact=True).click()
@@ -79,14 +85,14 @@ def review(page, base, fixture, width, height):
     # A delayed setup response cannot reopen a dialog the user closed.
     page.locator("#google-play-connector").get_by_role("button", name="Reconnect", exact=True).click()
     page.evaluate(
-        "window.originalPlayApi=api;window.pendingPlay=new Promise(resolve=>window.resolvePlay=resolve);api=()=>pendingPlay;window.submission=playSubmit(document.querySelector('#play-setup-form'));document.querySelector('#modal').close()"
+        "async () => {const {playSubmit}=await import('/google-play.mjs');window.originalPlayFetch=window.fetch;window.pendingPlay=new Promise(resolve=>window.resolvePlay=resolve);window.fetch=()=>pendingPlay;window.submission=playSubmit(document.querySelector('#play-setup-form'));document.querySelector('#modal').close();}"
     )
     page.evaluate(
-        "resolvePlay({authorization_url:'https://accounts.google.com/o/oauth2/v2/auth',flow_id:'synthetic-delayed',package_name:'com.example.synthetic',track:'production'})"
+        "resolvePlay(new Response(JSON.stringify({authorization_url:'https://accounts.google.com/o/oauth2/v2/auth',flow_id:'synthetic-delayed',package_name:'com.example.synthetic',track:'production'}),{status:200,headers:{'Content-Type':'application/json'}}))"
     )
     page.evaluate("window.submission")
     assert not page.locator("#modal").evaluate("(element)=>element.open")
-    page.evaluate("()=>{api=window.originalPlayApi;}")
+    page.evaluate("()=>{window.fetch=window.originalPlayFetch;}")
     assert page.evaluate("document.documentElement.scrollWidth<=innerWidth+1")
     assert not errors, errors
     out = ROOT / ".factory/android-platform"

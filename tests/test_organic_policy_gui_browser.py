@@ -52,7 +52,7 @@ class OrganicPolicyBrowserTests(unittest.TestCase):
 
         context.route("**/*", restrict)
         page.goto(self.fixture.origin)
-        page.wait_for_function("() => typeof state !== 'undefined' && state.workspace?.app?.id === " + json.dumps(APP))
+        page.wait_for_function("(state) => state.workspace?.app?.id === " + json.dumps(APP), arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"))
         nav = page.locator('[data-view="research"]')
         if not nav.is_visible():
             page.locator("details").filter(has=nav).locator("summary").first.click()

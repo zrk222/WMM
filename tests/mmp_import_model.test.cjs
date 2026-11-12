@@ -33,8 +33,8 @@ test("template uses the exact accepted columns and no customer identifiers", () 
 });
 
 test("column detection preserves edits and ignores replaced files", async () => {
-  const fs = require("node:fs"), vm = require("node:vm");
-  const source = fs.readFileSync(require.resolve("../mission_control/static/app-install.js"), "utf8");
+  const fs = require('./helpers/module-source.cjs'), vm = require("node:vm");
+  const source = fs.readFileSync(require.resolve("../mission_control/static/app-install.mjs"), "utf8");
   const snippet = source.slice(source.indexOf("async function installImportDetect("),
     source.indexOf("async function saveCloudConnection("));
   const state = {app: "demo"};

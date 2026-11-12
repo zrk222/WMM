@@ -65,10 +65,10 @@ def races(page):
     page.locator("#control-grant-form [data-task-advanced] summary").click()
     page.locator('input[name=operations][value="growth.read"]').check()
     # A changed loaded version is rejected locally before issuing credentials.
-    page.evaluate("state.workspace.app.version++")
+    page.evaluate("async () => ((await import('/app.mjs')).state.workspace.app.version++)")
     page.get_by_role("button", name="Issue scoped grant", exact=True).click()
     expect(page.locator("#control-form-error")).to_contain_text("App setup or review identity changed")
-    page.evaluate("state.workspace.app.version--")
+    page.evaluate("async () => ((await import('/app.mjs')).state.workspace.app.version--)")
     pending = []
     page.route("**/agent-grants/issue", lambda route: pending.append(route))
     page.get_by_role("button", name="Issue scoped grant", exact=True).click()
@@ -258,7 +258,7 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     paths = [
         "mission_control/static/agent-control.js",
-        "mission_control/static/app.js",
+        "mission_control/static/app.mjs",
         "mission_control/static/index.html",
         "mission_control/server.py",
         "mission_control/agent_operations.py",

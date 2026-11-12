@@ -1,6 +1,6 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const fs=require('node:fs'),vm=require('node:vm');
+const fs=require('./helpers/module-source.cjs'),vm=require('node:vm');
 const context={module:{exports:{}},setTimeout,clearTimeout};vm.createContext(context);
 vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../mission_control/static/workflow-telemetry.js'),'utf8'),context);
 const ui=context.module.exports;
@@ -19,7 +19,7 @@ test('waiting saved-result summary exposes only a validated source receipt hash'
  for(const source_hash of [null,{},'<img src=x>','PRIVATE_HASH','A'.repeat(64)]){const other=ui.waitingResultMarkup({...result,source_hash});assert.match(other,/Not supplied by this read/);assert.ok(!other.includes('PRIVATE_'));assert.ok(!other.includes('<img'));}
 });
 test('waiting result summary precedes resolution and Play dispatch without changing nonwaiting routing',()=>{
- const source=fs.readFileSync(require('node:path').join(__dirname,'../mission_control/static/app-ui.js'),'utf8');
+ const source=fs.readFileSync(require('node:path').join(__dirname,'../mission_control/static/app-ui.mjs'),'utf8');
  const start=source.indexOf('function openJob(id) {'),end=source.indexOf('\nfunction prepareReview()',start);
  assert.ok(start>=0&&end>start);
  for(const operation of ['play_releases','play_subscriptions']){
@@ -122,7 +122,7 @@ test('unmount or app change discards an in-flight progress response',async()=>{
 });
 
 test('actual workspace refresh returns an applied receipt and superseded reads return none',async()=>{
- const source=fs.readFileSync(require('node:path').join(__dirname,'../mission_control/static/app.js'),'utf8');const start=source.indexOf('async function refresh()'),end=source.indexOf('\nfunction currentWorkspace()',start);
+ const source=fs.readFileSync(require('node:path').join(__dirname,'../mission_control/static/app.mjs'),'utf8');const start=source.indexOf('async function refresh()'),end=source.indexOf('\nfunction currentWorkspace()',start);
  const pending=[],state={app:'one',refreshGeneration:0,workspace:{app:{id:'one'}}};
  const ctx={state,api:()=>new Promise(resolve=>pending.push(resolve)),currentWorkspace:()=>state.workspace?.app.id===state.app,render(){},localStorage:{setItem(){}},$:()=>({textContent:''})};vm.createContext(ctx);vm.runInContext(source.slice(start,end),ctx);
  const first=ctx.refresh(),second=ctx.refresh();const workspace={app:{id:'one',data:{name:'Synthetic'}}};pending[1](workspace);const applied=await second;

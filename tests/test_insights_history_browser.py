@@ -65,9 +65,7 @@ class InsightsHistoryBrowserTests(unittest.TestCase):
                         )
                         page = context.new_page()
                         page.goto(host.origin)
-                        page.wait_for_function(
-                            "() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one'"
-                        )
+                        page.wait_for_function("(context) => {const state=context.state;return (() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one')(context.original);}", arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': None})
                         nav = page.locator('[data-view="results"]')
                         if not nav.is_visible():
                             page.locator("details").filter(has=nav).locator("summary").first.click()
