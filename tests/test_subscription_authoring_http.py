@@ -1,6 +1,8 @@
 """Subscription authoring integration uses existing exact loopback routes."""
 
+import re
 import unittest
+
 from tests import test_http
 
 
@@ -15,7 +17,7 @@ class SubscriptionAuthoringHTTPTests(unittest.TestCase):
         self.assertIn("text/javascript", headers["Content-Type"])
         self.assertIn("WMMSubscriptionAuthoring", body.decode())
         self.assertIn("/subscription-authoring.js", self.request("/")[1].decode())
-        source = self.request("/app.js")[1].decode()
+        source = re.sub(r"\s+", "", self.request("/app.js")[1].decode())
         for value in (
             "WMMSubscriptionAuthoring.panel(state)",
             "WMMSubscriptionAuthoring.submit(form,growthReviewServices())",

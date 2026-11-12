@@ -95,7 +95,7 @@ test('explicit validation denial stays certain and server errors stay uncertain'
 });
 test('production entry points load the module and route actual actions, forms, invalidation and close',()=>{
  const app=fs.readFileSync(path.join(folder,'app.js'),'utf8'),index=fs.readFileSync(path.join(folder,'index.html'),'utf8');
- for(const text of ['WMMOrganicResearch.panel()','WMMOrganicResearch.invalidate(state)','WMMOrganicResearch.clear()','WMMOrganicResearch.action(node,growthReviewServices())','WMMOrganicResearch.submit(form,growthReviewServices())'])assert.ok(app.includes(text),text);
+ const flat=app.replace(/\s+/g,'');for(const text of ['WMMOrganicResearch.panel()','WMMOrganicResearch.invalidate(state)','WMMOrganicResearch.clear()','WMMOrganicResearch.action(node,growthReviewServices())','WMMOrganicResearch.submit(form,growthReviewServices())'])assert.ok(flat.includes(text),text);
  assert.ok(index.includes('src="/organic-research.js"'));assert.ok(ui.panel().includes('100,000 views AND 10×'));
 });
 

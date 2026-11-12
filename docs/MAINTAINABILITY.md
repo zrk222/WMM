@@ -5,7 +5,7 @@ protocol. For current product boundaries, see [Release scope](../RELEASE-SCOPE.m
 
 | Area | Current approach | Next acceptance gate |
 | --- | --- | --- |
-| Readable code | Ruff formats and lints the maintained Python set; the full tracked tree had one behavior-preserving format pass. Prettier checks the standing campaign monitor. | Expand Prettier coverage module by module; existing UI tests assert exact script text, so a static-JavaScript pass must update those tests and release pins together. |
+| Readable code | Ruff formats and lints the maintained Python set after one behavior-preserving pass over all tracked Python; Prettier formats and checks all static JavaScript. | Keep the ratchet green; when UI scripts change, keep source-text tests whitespace-normalized instead of asserting exact formatting. |
 | Typed boundaries | Generated TypedDict row shapes cover the core schema; Pyright checks the maintained Python allowlist. | Add request and storage boundary types one at a time. Static typing and runtime validation remain separate checks. |
 | SQLite schema | An ordered transactional ledger (`mission_control/migrations/NNNN_*.sql`) records immutable checksums; every foreign-key child now has a leading index. | Add a new ordered file for every schema change; exercise old, current and new workspaces, interrupted upgrades and backup restore. |
 | HTTP server | The loopback transport owns routing, sessions, request validation and write controls. Static assets revalidate by build-bound ETag while API responses stay `no-store`. | Compare a candidate adapter against the same route, origin, CSRF, session, OAuth and error tests before choosing a framework or moving traffic. |
@@ -50,7 +50,7 @@ The maintained set is `tools/maintained_files.txt`. It may only grow: add a file
 when you take ownership of its formatting and types.
 
 ```sh
-python tools/check_format.py   # Ruff format + lint on the maintained set
+python tools/check_format.py   # Ruff + Prettier checks on both maintained sets
 python tools/check_types.py    # Pyright basic on maintained Python + row types
 python tools/check_layering.py # import cycles, storage/portable/HTTP edges, docs rows
 python tools/query_budget.py   # SQL statement budgets; --update only lowers

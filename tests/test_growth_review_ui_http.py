@@ -1,6 +1,8 @@
 """Real script serving and existing workspace/static boundaries for growth review UI."""
 
+import re
 import unittest
+
 from tests import test_http
 
 
@@ -16,7 +18,7 @@ class GrowthReviewUIHTTPTests(unittest.TestCase):
         self.assertIn("WMMGrowthReview", script)
         self.assertIn("text/javascript", headers["Content-Type"])
         self.assertIn("/growth-review.js", self.request("/")[1].decode("utf-8"))
-        source = self.request("/app.js")[1].decode("utf-8")
+        source = re.sub(r"\s+", "", self.request("/app.js")[1].decode("utf-8"))
         self.assertIn("WMMGrowthReview.panel(state)", source)
         self.assertIn("measurementIntegrityPanel()", source)
         self.assertIn("WMMGrowthReview.submit(form,growthReviewServices())", source)

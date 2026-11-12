@@ -83,7 +83,7 @@ test('closed dialog or new app drops late library reads; owner is required for w
 });
 test('Research and modal hooks load one exact module and preserve scoped cleanup',()=>{
  const app=fs.readFileSync('mission_control/static/app.js','utf8'),index=fs.readFileSync('mission_control/static/index.html','utf8');
- for(const hook of ['WMMMedia.panel()','WMMMedia.invalidate(state)','WMMMedia.clear()','WMMMedia.submit(form,growthReviewServices())','WMMMedia.action(node,growthReviewServices())'])assert.ok(app.includes(hook),hook);
+ const flat=app.replace(/\s+/g,'');for(const hook of ['WMMMedia.panel()','WMMMedia.invalidate(state)','WMMMedia.clear()','WMMMedia.submit(form,growthReviewServices())','WMMMedia.action(node,growthReviewServices())'])assert.ok(flat.includes(hook),hook);
  assert.equal((index.match(/src="\/managed-media.js"/g)||[]).length,1);assert.match(media.panel(),/Optional Drive selection/);
 });
 

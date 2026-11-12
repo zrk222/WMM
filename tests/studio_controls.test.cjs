@@ -74,7 +74,7 @@ test('network ambiguity is not a rejected edit and explicit stop shows durable c
 });
 test('workspace and submit hooks use the shared module and clear stale modal state',()=>{
  const dir=path.join(__dirname,'../mission_control/static'),app=fs.readFileSync(path.join(dir,'app.js'),'utf8'),index=fs.readFileSync(path.join(dir,'index.html'),'utf8');
- for(const hook of ['WMMStudio.panel()','WMMStudio.invalidate(state)','WMMStudio.clear()','WMMStudio.submit(form,growthReviewServices())','WMMStudio.action(node,growthReviewServices())'])assert.ok(app.includes(hook),hook);
+ const flat=app.replace(/\s+/g,'');for(const hook of ['WMMStudio.panel()','WMMStudio.invalidate(state)','WMMStudio.clear()','WMMStudio.submit(form,growthReviewServices())','WMMStudio.action(node,growthReviewServices())'])assert.ok(flat.includes(hook),hook);
  assert.ok(index.includes('src="/studio-controls.js"'));
 });
 test('confirmed close rerenders truthful terminal state and removes stale fields even after uncertainty',async()=>{
