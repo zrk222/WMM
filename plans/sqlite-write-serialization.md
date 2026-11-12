@@ -13,3 +13,5 @@ Architect verdict: PASS
 - [ ] T8 | slice=mission_control | files=mission_control/social_renewal.py,mission_control/store.py,mission_control/storekit_ingestion.py | verify=`python -m unittest tests.test_sqlite_tuning tests.test_query_budgets -q` | Mark reviewed direct write scopes explicitly; preserve manual transaction boundaries.
 
 - [ ] T9 | slice=smoke | files=smoke/sqlite-write-serialization.json | verify=`forge smoke sqlite-write-serialization` | Prove the scoped SQLite writer API and reject generated stubs; broader regression evidence remains separate.
+
+- [ ] T10 | slice=tests | files=tests/test_analytics_read_indexes.py | verify=`python -m unittest tests.test_analytics_read_indexes -q` | Forward declared transaction keywords through the SQL tracing fixture.
