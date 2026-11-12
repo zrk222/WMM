@@ -79,6 +79,18 @@ class MigrationLedgerTests(unittest.TestCase):
                         missing.append((table, columns))
         self.assertEqual(missing, [], f"Unindexed foreign keys: {missing}")
 
+    def test_legacy_database_without_ledger_is_adopted_and_indexed(self):
+        with connection(self.path) as db:
+            db.execute("DROP TABLE schema_migrations")
+            db.execute("DROP INDEX IF EXISTS audit_app")
+            db.execute("DROP INDEX IF EXISTS workflow_events_job")
+        initialize(self.path)
+        with connection(self.path) as db:
+            self.assertEqual([row["version"] for row in migrations.applied(db)], [0, 1])
+            indexes = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='index'")}
+            self.assertTrue({"audit_app", "workflow_events_job"} <= indexes)
+            self.assertEqual(migrations.apply(db), [])
+
 
 if __name__ == "__main__":
     unittest.main()

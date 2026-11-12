@@ -1,5 +1,6 @@
 """Deterministic property-style tests for pure parsers used by security paths."""
 
+import base64
 import json
 import math
 import random
@@ -9,7 +10,9 @@ from datetime import datetime, timedelta, timezone
 from mission_control.agent_grants import token_digest
 from mission_control.authority_expiry import deadline
 from mission_control.common import Invalid, amount, canonical, fraction, identifier, iso_time
+from mission_control.payment_signature import strict_json
 from mission_control.server import media_range
+from mission_control.storekit_jws import certificate, url_decode
 
 RANDOM = random.Random(20261112)
 
@@ -177,6 +180,51 @@ class GrantTokenProperties(unittest.TestCase):
         for token in ("wmmg_" + "a" * 42, "wmmg_" + "a" * 44, "xmmg_" + "a" * 43, "wmmg_" + "a" * 42 + "!", "", None):
             with self.assertRaises(PermissionError):
                 token_digest(token)
+
+
+class Base64UrlProperties(unittest.TestCase):
+    def test_canonical_urlsafe_round_trip_and_cap(self):
+        for _ in range(200):
+            raw = bytes(RANDOM.randrange(256) for _ in range(RANDOM.randint(1, 128)))
+            value = base64.urlsafe_b64encode(raw).decode().rstrip("=")
+            self.assertEqual(url_decode(value, len(raw)), raw)
+            self.assertEqual(url_decode(value, len(raw) + 10), raw)
+            with self.assertRaises(Invalid):
+                url_decode(value, len(raw) - 1)
+        for value in ("", "YQ==", "Y Q", "a+b", "a/b", "=", "abcd!", "\u00e9"):
+            with self.assertRaises(Invalid, msg=value):
+                url_decode(value, 100)
+
+    def test_standard_base64_certificate_round_trip_and_bounds(self):
+        for _ in range(100):
+            raw = bytes(RANDOM.randrange(256) for _ in range(RANDOM.randint(1, 512)))
+            value = base64.b64encode(raw).decode()
+            self.assertEqual(certificate(value), raw)
+        for value in ("", "YQ", "YQ=", "YQ==\n", "a+/", "\u00e9", "A" * 10925):
+            with self.assertRaises(Invalid, msg=value[:16]):
+                certificate(value)
+
+
+class StrictJSONProperties(unittest.TestCase):
+    def test_random_objects_round_trip(self):
+        for _ in range(200):
+            item = {f"k{index}": value() for index in range(RANDOM.randint(1, 4))}
+            self.assertEqual(strict_json(json.dumps(item).encode()), item)
+
+    def test_ambiguous_unbounded_or_nonobject_payloads_are_rejected(self):
+        cases = [
+            b'{"a":1,"a":2}',
+            b"[1,2]",
+            b'{"a":NaN}',
+            b'{"a":Infinity}',
+            b"",
+            b" ",
+            b'"text"',
+            b'{"a":' + b"1" * 300000 + b"}",
+        ]
+        for raw in cases:
+            with self.assertRaises(Invalid):
+                strict_json(raw)
 
 
 if __name__ == "__main__":
