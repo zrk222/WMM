@@ -1175,7 +1175,7 @@ $('#event-file').addEventListener('change', async (event) => {
     if (file.size > 1048576)
       throw new Error('Use a smaller export under 1 MB and 500 rows per batch.');
     const text = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
-    let body = { cohort_id: cohort };
+    const body = { cohort_id: cohort };
     if (file.name.toLowerCase().endsWith('.csv')) body.csv = text;
     else {
       const decoded = JSON.parse(text);

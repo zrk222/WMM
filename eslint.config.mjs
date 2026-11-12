@@ -307,7 +307,14 @@ export default [
       },
     },
     rules: {
-      "no-undef": "error",
+      "eqeqeq": ["error", "always", { "null": "ignore" }],
+      "no-prototype-builtins": "error",
+      "no-self-assign": "error",
+      "no-unreachable": "error",
+      "no-useless-catch": "error",
+      "no-useless-escape": "error",
+      "no-var": "error",
+      "prefer-const": "error",
     },
   },
 ];
