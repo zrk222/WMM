@@ -33,8 +33,9 @@ class KeychainProbeTests(unittest.TestCase):
                 probe.subprocess, 'run', side_effect=run), patch.object(
                 probe.secrets, 'token_urlsafe', return_value='secret-password'):
             try:
-                with probe.temporary_native_keychain(Path('/synthetic'), environment):
+                with probe.temporary_native_keychain(Path('/synthetic'), environment) as vault_environment:
                     self.assertIsNone(fail)
+                    self.assertEqual(vault_environment, dict(environment, HOME=str(Path.home())))
                     if body_failure:
                         raise ValueError('probe failure')
             except (RuntimeError, ValueError) as error:
@@ -58,6 +59,9 @@ class KeychainProbeTests(unittest.TestCase):
         self.assertEqual([c[0] for c in calls[:6]], ['default-keychain', 'list-keychains',
                          'create-keychain', 'unlock-keychain', 'list-keychains', 'default-keychain'])
         self.assertEqual(calls[2][1:3], ['-p', 'secret-password'])
+        self.assertEqual(calls[4][0:4], ['list-keychains', '-d', 'user', '-s'])
+        self.assertEqual(len(calls[4]), 5)
+        self.assertEqual(calls[4][-1], calls[2][-1])
         self.assert_cleanup(calls)
 
     def test_probe_failure_restores_and_deletes(self):

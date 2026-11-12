@@ -34,8 +34,10 @@ bundle. Native CI artifacts remain separate from signed public distribution.
   Covers `package_check`: refuse execution unless darwin, GITHUB_ACTIONS=true,
   RUNNER_ENVIRONMENT=github-hosted and WMM_MAC_PACKAGE_TEST=1. Pass only the
   environment allowlist; use disposable HOME and Application Support directories.
-  Provision a disposable unlocked native test Keychain and restore previous
-  default/search-list settings and remove it on success or failure. Record actual
+  Provision a disposable unlocked native test Keychain as the only searched
+  Keychain. Use the runner's real home only for provisioning and the vault-only
+  check, which does not open a workspace. Restore previous default/search-list
+  settings and remove the fixture on success or failure. Record actual
   --check, --self-test and --vault-self-test output, asserting PASS and synthetic
   item removal. Verify the exact native pair starts and stops with zero queued
   jobs; a separately altered engine must fail before any rejected workspace exists.

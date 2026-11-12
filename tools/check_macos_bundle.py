@@ -51,9 +51,11 @@ def temporary_native_keychain(profile, environment):
     try:
         security('create-keychain', '-p', password, keychain)
         security('unlock-keychain', '-p', password, keychain)
-        security('list-keychains', '-d', 'user', '-s', *original_search, keychain)
+        # Scope lookups to the unlocked fixture. Searching the old login
+        # keychain for a missing item can trigger an interactive unlock.
+        security('list-keychains', '-d', 'user', '-s', keychain)
         security('default-keychain', '-d', 'user', '-s', keychain)
-        yield
+        yield security_environment
     finally:
         # Attempt every restoration even when an earlier cleanup operation fails.
         failures = []
@@ -68,6 +70,17 @@ def temporary_native_keychain(profile, environment):
             raise RuntimeError('Native test Keychain cleanup failed') from None
 
 
+def engine_check(binary, flag, profile, environment):
+    """Run an exact frozen executable with a bounded, synthetic-only diagnostic."""
+    result = subprocess.run([str(binary), flag], cwd=profile, env=environment,
+                            capture_output=True, text=True, timeout=90)
+    if result.returncode != 0:
+        print(json.dumps(dict(check=flag, exit_code=result.returncode,
+                              stdout=result.stdout[-4096:], stderr=result.stderr[-4096:])))
+        raise RuntimeError('Frozen Mac engine check failed')
+    return json.loads(result.stdout)
+
+
 def main() -> None:
     require_disposable_runner()
     app = ROOT / 'dist/macos/extracted/Wize Marketing Machine.app'
@@ -77,16 +90,13 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix='wmm-mac-package-') as temporary:
         profile = Path(temporary)
         environment = native['isolated_environment'](profile)
-        checks = {}
-        with temporary_native_keychain(profile, environment):
-            for flag in ('--check', '--self-test', '--vault-self-test'):
-                result = subprocess.run([str(binary), flag], cwd=profile, env=environment,
-                                        capture_output=True, text=True, timeout=90)
-                if result.returncode != 0:
-                    print(json.dumps(dict(check=flag, exit_code=result.returncode,
-                                          stdout=result.stdout[-4096:], stderr=result.stderr[-4096:])))
-                    raise RuntimeError('Frozen Mac engine check failed')
-                checks[flag] = json.loads(result.stdout)
+        checks = {flag: engine_check(binary, flag, profile, environment)
+                  for flag in ('--check', '--self-test')}
+        with temporary_native_keychain(profile, environment) as vault_environment:
+            # This flag accesses only a fresh synthetic item and never opens
+            # a workspace. Use the same Security context as provisioning.
+            checks['--vault-self-test'] = engine_check(
+                binary, '--vault-self-test', profile, vault_environment)
         expected = profile / 'Library/Application Support/Wize Marketing Machine'
         if Path(checks['--check']['data_directory']).resolve() != expected.resolve():
             raise AssertionError('Mac bundle did not isolate the workspace outside the app')
