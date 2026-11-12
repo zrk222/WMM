@@ -1,8 +1,30 @@
 (() => {
   'use strict';
   const $ = (selector) => document.querySelector(selector);
-  const state = { generation: 0, controllers: new Set(), clients: [], csrf: '', receipt: '', current: null, polling: null, busy: false, logoutWanted: false, signingOut: false, logoutCsrf: '' };
-  const countNames = ['queued', 'running', 'blocked', 'failed', 'succeeded', 'cancelled', 'unknown', 'interrupted', 'other'];
+  const state = {
+    generation: 0,
+    controllers: new Set(),
+    clients: [],
+    csrf: '',
+    receipt: '',
+    current: null,
+    polling: null,
+    busy: false,
+    logoutWanted: false,
+    signingOut: false,
+    logoutCsrf: '',
+  };
+  const countNames = [
+    'queued',
+    'running',
+    'blocked',
+    'failed',
+    'succeeded',
+    'cancelled',
+    'unknown',
+    'interrupted',
+    'other',
+  ];
 
   function abortAll() {
     for (const controller of state.controllers) controller.abort();
@@ -52,12 +74,20 @@
     state.controllers.add(controller);
     const headers = new Headers(options.headers || {});
     headers.set('Accept', 'application/json');
-    return fetch(url, { ...options, headers, credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
+    return fetch(url, {
+      ...options,
+      headers,
+      credentials: 'same-origin',
+      cache: 'no-store',
+      signal: controller.signal,
+    })
       .then(async (response) => {
         const data = await response.json().catch(() => null);
         if (generation !== state.generation) throw new DOMException('Stale response', 'AbortError');
         if (!response.ok) {
-          const error = new Error(response.status === 401 || response.status === 403 ? 'signed-out' : 'unavailable');
+          const error = new Error(
+            response.status === 401 || response.status === 403 ? 'signed-out' : 'unavailable',
+          );
           error.status = response.status;
           error.url = url;
           throw error;
@@ -69,16 +99,32 @@
   function showFailure(error) {
     invalidate();
     if (error && (error.status === 401 || error.status === 403 || error.message === 'signed-out')) {
-      status('Your sign-in has ended', 'Sign in again to see your currently assigned workspaces.', 'login');
+      status(
+        'Your sign-in has ended',
+        'Sign in again to see your currently assigned workspaces.',
+        'login',
+      );
     } else if (error && error.status === 404 && error.url === '/api/session') {
-      status('Workspace access changed', 'Sign in again, or ask your workspace owner to review your assignment.', 'login');
+      status(
+        'Workspace access changed',
+        'Sign in again, or ask your workspace owner to review your assignment.',
+        'login',
+      );
     } else {
-      status('Your workspace is unavailable', 'Your private summary was cleared. Check your connection and try again.', 'retry');
+      status(
+        'Your workspace is unavailable',
+        'Your private summary was cleared. Check your connection and try again.',
+        'retry',
+      );
     }
   }
-  function keyOf(client, app) { return `${client.tenant_id}\u0000${client.client_id}\u0000${app.id}`; }
+  function keyOf(client, app) {
+    return `${client.tenant_id}\u0000${client.client_id}\u0000${app.id}`;
+  }
   function selected() {
-    const client = state.clients.find((item) => keyOf(item, { id: '' }) === $('#client-select').value);
+    const client = state.clients.find(
+      (item) => keyOf(item, { id: '' }) === $('#client-select').value,
+    );
     const app = client?.apps.find((item) => item.id === $('#app-select').value);
     return client && app ? { client, app, key: keyOf(client, app) } : null;
   }
@@ -91,12 +137,16 @@
       option.textContent = client.label || client.client_id;
       select.append(option);
     });
-    const wanted = state.clients.find((item) => item.tenant_id === preferredTenant && item.client_id === preferredClient);
+    const wanted = state.clients.find(
+      (item) => item.tenant_id === preferredTenant && item.client_id === preferredClient,
+    );
     if (wanted) select.value = keyOf(wanted, { id: '' });
     renderApps(preferredApp);
   }
   function renderApps(preferredApp) {
-    const client = state.clients.find((item) => keyOf(item, { id: '' }) === $('#client-select').value);
+    const client = state.clients.find(
+      (item) => keyOf(item, { id: '' }) === $('#client-select').value,
+    );
     const select = $('#app-select');
     select.replaceChildren();
     (client?.apps || []).forEach((app) => {
@@ -165,25 +215,39 @@
     try {
       const context = await request('/auth/context', {}, generation);
       const ctx = context.data;
-      if (!ctx || typeof ctx.configured !== 'boolean' || typeof ctx.csrf !== 'string') throw new Error('unavailable');
+      if (!ctx || typeof ctx.configured !== 'boolean' || typeof ctx.csrf !== 'string')
+        throw new Error('unavailable');
       state.csrf = ctx.csrf;
       $('#start-csrf').value = ctx.csrf;
       $('#logout-csrf').value = '';
       if (!ctx.configured) {
-        status('Sign-in is not available yet', 'Workspace access has not been configured for this service.');
+        status(
+          'Sign-in is not available yet',
+          'Workspace access has not been configured for this service.',
+        );
         return;
       }
       const session = await request('/api/session', {}, generation);
       const data = session.data;
-      if (!data || !Array.isArray(data.clients) || typeof data.csrf !== 'string') throw new Error('unavailable');
+      if (!data || !Array.isArray(data.clients) || typeof data.csrf !== 'string')
+        throw new Error('unavailable');
       state.csrf = data.csrf;
       state.sessionMore = Boolean(data.more_available);
       $('#logout-csrf').value = data.csrf;
-      state.clients = data.clients.filter((client) => client && typeof client.tenant_id === 'string' && typeof client.client_id === 'string' && Array.isArray(client.apps));
+      state.clients = data.clients.filter(
+        (client) =>
+          client &&
+          typeof client.tenant_id === 'string' &&
+          typeof client.client_id === 'string' &&
+          Array.isArray(client.apps),
+      );
       if (!state.clients.length) {
         clearPrivate();
         $('#workspace').hidden = false;
-        status('No workspaces are assigned yet', 'Ask your Wize Marketing Machine administrator to review your workspace access.');
+        status(
+          'No workspaces are assigned yet',
+          'Ask your Wize Marketing Machine administrator to review your workspace access.',
+        );
         return;
       }
       renderClients();
@@ -191,7 +255,10 @@
       $('#more-note').hidden = !state.sessionMore;
       const chosen = selected();
       if (!chosen) {
-        status('No apps are available', 'There are no assigned apps to summarize for this workspace.');
+        status(
+          'No apps are available',
+          'There are no assigned apps to summarize for this workspace.',
+        );
         return;
       }
       status('', '', 'hide');
@@ -208,8 +275,17 @@
     const generation = state.generation;
     renderApps();
     const chosen = selected();
-    if (chosen) { state.csrf = $('#logout-csrf').value; $('#workspace').hidden = false; loadSummary(generation); }
-    else { clearPrivate(); status('No apps are available', 'There are no assigned apps to summarize for this workspace.'); }
+    if (chosen) {
+      state.csrf = $('#logout-csrf').value;
+      $('#workspace').hidden = false;
+      loadSummary(generation);
+    } else {
+      clearPrivate();
+      status(
+        'No apps are available',
+        'There are no assigned apps to summarize for this workspace.',
+      );
+    }
   });
   $('#app-select').addEventListener('change', () => {
     state.generation += 1;
@@ -229,7 +305,15 @@
   $('#export-button').addEventListener('click', () => {
     const choice = selected();
     if (!choice || !state.current) return;
-    const payload = { workspace: choice.client.label || choice.client.client_id, app: state.current.app.name, jobs: state.current.jobs, receipt: state.receipt, view_checked_at: $('#updated-value').dateTime, view_checked_at_local: $('#updated-value').textContent, access: 'Read only' };
+    const payload = {
+      workspace: choice.client.label || choice.client.client_id,
+      app: state.current.app.name,
+      jobs: state.current.jobs,
+      receipt: state.receipt,
+      view_checked_at: $('#updated-value').dateTime,
+      view_checked_at_local: $('#updated-value').textContent,
+      access: 'Read only',
+    };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -246,7 +330,11 @@
     }
     const csrf = state.logoutCsrf;
     if (!csrf) {
-      status('Sign-out could not start', 'Your workspace information remains cleared. Reload this page and try signing out again.', 'retry');
+      status(
+        'Sign-out could not start',
+        'Your workspace information remains cleared. Reload this page and try signing out again.',
+        'retry',
+      );
       return;
     }
     state.signingOut = true;
@@ -262,10 +350,11 @@
         credentials: 'same-origin',
         cache: 'no-store',
         redirect: 'follow',
-        signal: controller.signal
+        signal: controller.signal,
       });
       if (generation !== state.generation || !state.logoutWanted) return;
-      if (!response.ok || new URL(response.url).origin !== window.location.origin) throw new Error('logout-unavailable');
+      if (!response.ok || new URL(response.url).origin !== window.location.origin)
+        throw new Error('logout-unavailable');
       state.logoutWanted = false;
       state.signingOut = false;
       state.logoutCsrf = '';
@@ -275,7 +364,11 @@
         state.signingOut = false;
         clearPrivate();
         $('#logout-csrf').value = '';
-        status('Sign-out could not be confirmed', 'Your workspace information remains cleared. Retry sign-out to revoke this session.', 'retry');
+        status(
+          'Sign-out could not be confirmed',
+          'Your workspace information remains cleared. Retry sign-out to revoke this session.',
+          'retry',
+        );
       }
     } finally {
       state.controllers.delete(controller);
@@ -285,21 +378,36 @@
     event.preventDefault();
     attemptLogout();
   });
-  $('#sign-in-form').addEventListener('submit', () => { invalidate(); status('Opening sign-in', 'Your assigned workspace data has been cleared.'); });
+  $('#sign-in-form').addEventListener('submit', () => {
+    invalidate();
+    status('Opening sign-in', 'Your assigned workspace data has been cleared.');
+  });
   let refreshTimer = null;
   function scheduleRefresh() {
     if (refreshTimer) clearTimeout(refreshTimer);
-    refreshTimer = setTimeout(() => { refreshTimer = null; refresh(); }, 120);
+    refreshTimer = setTimeout(() => {
+      refreshTimer = null;
+      refresh();
+    }, 120);
   }
   window.addEventListener('pageshow', scheduleRefresh);
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { if (state.polling) clearInterval(state.polling); state.polling = null; }
-    else { scheduleRefresh(); startPolling(); }
+    if (document.hidden) {
+      if (state.polling) clearInterval(state.polling);
+      state.polling = null;
+    } else {
+      scheduleRefresh();
+      startPolling();
+    }
   });
-  window.addEventListener('focus', () => { if (!document.hidden) scheduleRefresh(); });
+  window.addEventListener('focus', () => {
+    if (!document.hidden) scheduleRefresh();
+  });
   function startPolling() {
     if (state.polling) clearInterval(state.polling);
-    state.polling = setInterval(() => { if (!document.hidden) loadSummary(); }, 30000);
+    state.polling = setInterval(() => {
+      if (!document.hidden) loadSummary();
+    }, 30000);
   }
   startPolling();
 })();
