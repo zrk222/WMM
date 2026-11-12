@@ -12,7 +12,8 @@ app, and hand approved work to your AI assistant. This guide is for the desktop 
 
 ## Install
 
-1. Open the published [Desktop Preview 8](https://github.com/zrk222/WMM/releases/tag/v0.1.0-preview.8) and download
+1. Open the [desktop releases](https://github.com/zrk222/WMM/releases) and choose
+   the newest published **Desktop Preview**. Under **Assets**, download
    **WMM-Setup.exe** (Windows) or **wize-marketing-machine_0.1.0_amd64.deb**
    (Ubuntu). Public downloads do not need a GitHub sign-in.
 2. Install it the normal way for your system, then open **Wize Marketing
@@ -22,7 +23,12 @@ app, and hand approved work to your AI assistant. This guide is for the desktop 
 
 **Windows note:** the preview installer is not publisher-signed. Windows may
 warn you. Do not disable OS security controls or install a root certificate to
-get past it.
+get past it. On a managed laptop, ask your IT administrator to review the release
+and its published checksums. A matching checksum verifies the download;
+it does not establish a trusted Windows publisher. If your policy prevents
+installation, you can explore the [interactive sample](https://zrk222.github.io/WMM/demo.html)
+without installing anything. The sample uses synthetic data; it does not run
+your campaigns or connect your accounts.
 
 ## Your first 15 minutes
 
