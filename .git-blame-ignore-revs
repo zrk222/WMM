@@ -1,0 +1,5 @@
+# Append the full commit SHA of each behavior-preserving reformat commit,
+# one per line, then run:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+# Empty lines and lines beginning with "#" are ignored by git blame.
+dd6e98130c3f258bdfa0e0316fe2d1fb002ad920

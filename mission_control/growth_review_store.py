@@ -1,4 +1,5 @@
 """App-owned listing/reference/editorial history with atomic immutable identity replay."""
+
 from datetime import datetime, timezone
 import json
 from .common import Invalid, canonical, digest, identifier
@@ -15,12 +16,17 @@ def decoded(row):
 
 def history(db, app_id):
     """Return deterministic immutable records for review and portable export."""
-    return [decoded(row) for row in db.execute("SELECT * FROM growth_review_entries WHERE app_id=? ORDER BY created,id", (app_id,))]
+    return [
+        decoded(row)
+        for row in db.execute("SELECT * FROM growth_review_entries WHERE app_id=? ORDER BY created,id", (app_id,))
+    ]
 
 
 def target_entry(db, app_id, value):
     """Bind notes to an exact same-app non-note source without granting approval."""
-    row = db.execute("SELECT * FROM growth_review_entries WHERE app_id=? AND id=?", (app_id, value["target_id"])).fetchone()
+    row = db.execute(
+        "SELECT * FROM growth_review_entries WHERE app_id=? AND id=?", (app_id, value["target_id"])
+    ).fetchone()
     if not row or row["hash"] != value["target_hash"] or row["kind"] == "EDITORIAL_NOTE":
         raise Invalid("Review note target must be this app's exact saved source entry")
     return decoded(row)
@@ -28,13 +34,17 @@ def target_entry(db, app_id, value):
 
 def freeze_comparison(db, app_id, value, context, stamp):
     """Freeze an exact same-app reference and derive actual saved account metrics."""
-    row = db.execute("SELECT * FROM growth_review_entries WHERE app_id=? AND id=?", (app_id, value["reference_id"])).fetchone()
+    row = db.execute(
+        "SELECT * FROM growth_review_entries WHERE app_id=? AND id=?", (app_id, value["reference_id"])
+    ).fetchone()
     if not row or row["kind"] != "BENCHMARK_REFERENCE" or row["hash"] != value["reference_hash"]:
         raise Invalid("Choose this app's exact benchmark reference")
     reference = decoded(row)
     if reference["context"] != context or reference["imported"]:
         raise Invalid("Benchmark reference needs a new current-app version before comparison")
-    projection = project_saved_ads(db, app_id, value["job_id"], value["report_hash"], value["metric"], value["segment"], stamp)
+    projection = project_saved_ads(
+        db, app_id, value["job_id"], value["report_hash"], value["metric"], value["segment"], stamp
+    )
     return dict(value, reference=reference["data"]["reference"], projection=projection)
 
 
@@ -45,12 +55,17 @@ def current_readout(db, row, context, stamp):
         return result
     data = row["data"]
     try:
-        current = project_saved_ads(db, row["app_id"], data["job_id"], data["report_hash"], data["metric"], data["segment"], stamp)
+        current = project_saved_ads(
+            db, row["app_id"], data["job_id"], data["report_hash"], data["metric"], data["segment"], stamp
+        )
         frozen = data["projection"]
         if any(current[key] != frozen[key] for key in ("binding", "observed", "unit_source_sha256", "numerator_exact")):
             raise Invalid("Saved account source or unit profile changed")
     except Invalid as exc:
-        result.update(availability="SOURCE_REVIEW_NEEDED", analysis=dict(status="SOURCE_REVIEW_NEEDED", difference=None, reasons=[str(exc)]))
+        result.update(
+            availability="SOURCE_REVIEW_NEEDED",
+            analysis=dict(status="SOURCE_REVIEW_NEEDED", difference=None, reasons=[str(exc)]),
+        )
     return result
 
 
@@ -88,8 +103,14 @@ class GrowthReviews:
             context = context_of(dict(dict(app), data=json.loads(app["data"])))
             rows = history(db, app_id)
             result = [dict(row, readout=current_readout(db, row, context, observed)) for row in rows]
-        return dict(app_id=app_id, history=result,
-                    source_hash=digest(rows), observed_at=observed, external_writes=False, execution_authority=False)
+        return dict(
+            app_id=app_id,
+            history=result,
+            source_hash=digest(rows),
+            observed_at=observed,
+            external_writes=False,
+            execution_authority=False,
+        )
 
     def save(self, app_id, body):
         """Freeze exact kind/data/context in the current manifest transaction."""
@@ -115,7 +136,9 @@ class GrowthReviews:
     def commit(self, db, app_id, identity, kind, value, context, stamp):
         """Never overwrite evidence or reinterpret a repeated identity as new authority."""
         hashed = entry_hash(kind, value, context)
-        previous = db.execute("SELECT * FROM growth_review_entries WHERE app_id=? AND id=?", (app_id, identity)).fetchone()
+        previous = db.execute(
+            "SELECT * FROM growth_review_entries WHERE app_id=? AND id=?", (app_id, identity)
+        ).fetchone()
         if previous:
             if previous["hash"] != hashed:
                 raise Invalid("Review identity is immutable; save a new version ID")
@@ -123,6 +146,11 @@ class GrowthReviews:
         count = db.execute("SELECT count(*) FROM growth_review_entries WHERE app_id=?", (app_id,)).fetchone()[0]
         if count >= MAX_ENTRIES:
             raise Invalid("Growth review history has reached its 1000 entry bound")
-        row = dict(app_id=app_id, id=identity, kind=kind, data=value, hash=hashed, context=context, created=stamp, imported=0)
-        db.execute("INSERT INTO growth_review_entries VALUES(?,?,?,?,?,?,?,?)", (app_id, identity, kind, canonical(value), hashed, canonical(context), stamp, 0))
+        row = dict(
+            app_id=app_id, id=identity, kind=kind, data=value, hash=hashed, context=context, created=stamp, imported=0
+        )
+        db.execute(
+            "INSERT INTO growth_review_entries VALUES(?,?,?,?,?,?,?,?)",
+            (app_id, identity, kind, canonical(value), hashed, canonical(context), stamp, 0),
+        )
         return row

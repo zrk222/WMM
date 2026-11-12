@@ -56,4 +56,4 @@ Open http://127.0.0.1:8765/. Keep the server on loopback. Core use needs no mode
 
 </details>
 
-[Workspace guide](docs/workspace-guide.md) · [Contributing](CONTRIBUTING.md) · [Test profiles](docs/TESTING.md) · [Security](SECURITY.md)
+[Workspace guide](docs/workspace-guide.md) · [Contributing](CONTRIBUTING.md) · [Maintainability contract](docs/MAINTAINABILITY.md) · [Test profiles](docs/TESTING.md) · [Security](SECURITY.md)

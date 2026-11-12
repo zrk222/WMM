@@ -1,0 +1,49 @@
+name: Repository hygiene
+on:
+  schedule:
+    - cron: '41 7 * * 1'
+  workflow_dispatch:
+    inputs:
+      delete_merged:
+        description: Delete eligible merged codex/* branches
+        required: false
+        default: false
+        type: boolean
+permissions:
+  contents: write
+jobs:
+  stale-branches:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Report or delete merged codex branches older than seven days
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DELETE: ${{ github.event.inputs.delete_merged || 'false' }}
+        run: |
+          set -euo pipefail
+          git fetch --prune origin '+refs/heads/*:refs/remotes/origin/*'
+          cutoff=$(( $(date +%s) - 7 * 24 * 60 * 60 ))
+          candidates=$(git for-each-ref --format='%(refname:lstrip=3) %(committerdate:unix)' refs/remotes/origin |
+            awk -v cutoff="$cutoff" '$1 ~ /^codex\/[A-Za-z0-9._-]+$/ && $2 < cutoff {print $1}')
+          if [ -z "$candidates" ]; then
+            echo 'No stale codex branches'
+            exit 0
+          fi
+          deleted=0
+          for branch in $candidates; do
+            if git merge-base --is-ancestor "origin/$branch" origin/main; then
+              echo "eligible $branch"
+              if [ "$DELETE" = "true" ]; then
+                gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/heads/${branch}"
+                deleted=$((deleted + 1))
+              fi
+            else
+              echo "skip unmerged $branch"
+            fi
+          done
+          echo "delete_requested=$DELETE deleted=$deleted"

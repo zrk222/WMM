@@ -1,4 +1,5 @@
 """Real desktop/mobile page reports and PDFs using isolated synthetic app data."""
+
 from pathlib import Path
 import json
 import platform
@@ -6,6 +7,7 @@ import sys
 import tempfile
 import threading
 import fitz
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from mission_control.server import Server
@@ -16,9 +18,27 @@ from tests.test_mission_control import evidence_data
 
 def seed(store):
     for identity, name in (("sample-one", "Synthetic Café 東京"), ("sample-two", "Other synthetic workspace")):
-        store.save_app(identity, dict(name=name, job="Synthetic task", audience="Test", activation="Saved step", release="build-1", locale="en-US"))
-    store.save_record("sample-one", dict(kind="cohort", title="Supplied pilot", source="Synthetic fixture only",
-        manifest_version=store.app("sample-one")["version"], data=evidence_data("cohort")))
+        store.save_app(
+            identity,
+            dict(
+                name=name,
+                job="Synthetic task",
+                audience="Test",
+                activation="Saved step",
+                release="build-1",
+                locale="en-US",
+            ),
+        )
+    store.save_record(
+        "sample-one",
+        dict(
+            kind="cohort",
+            title="Supplied pilot",
+            source="Synthetic fixture only",
+            manifest_version=store.app("sample-one")["version"],
+            data=evidence_data("cohort"),
+        ),
+    )
 
 
 def snapshot_html(page, target, css):
@@ -63,7 +83,9 @@ def export_report(page, view, width, out):
     if view == "overview":
         popup.screenshot(path=str(out / f"report-{width}.png"), full_page=True)
     popup.close()
-    return dict(view=view, viewport_width=width, pdf_pages=pages, text_verified=True, secret_excluded=True, keyboard=True)
+    return dict(
+        view=view, viewport_width=width, pdf_pages=pages, text_verified=True, secret_excluded=True, keyboard=True
+    )
 
 
 def viewport_pass(browser, origin, width, height, out):
@@ -74,7 +96,14 @@ def viewport_pass(browser, origin, width, height, out):
     page.locator(".page-reporting").wait_for()
     expect(page.locator("#main h1")).to_contain_text("Plan your app marketing")
     expect(page.locator(".wmm-story-steps li")).to_have_count(4)
-    for phrase in ("preparing and measuring app marketing", "Bring in the evidence", "usage, purchase and refund events", "six creative briefs", "twelve stage packets", "PDF reports"):
+    for phrase in (
+        "preparing and measuring app marketing",
+        "Bring in the evidence",
+        "usage, purchase and refund events",
+        "six creative briefs",
+        "twelve stage packets",
+        "PDF reports",
+    ):
         expect(page.locator(".wmm-overview-story")).to_contain_text(phrase)
     page.locator(".hero [data-view=workflow]").focus()
     page.keyboard.press("Enter")
@@ -99,7 +128,9 @@ def viewport_pass(browser, origin, width, height, out):
         if view == "overview":
             page.screenshot(path=str(out / f"overview-{width}.png"))
             page.locator(".page-reporting").screenshot(path=str(out / f"panel-{width}.png"))
-            css = (ROOT / "mission_control/static/style.css").read_text(encoding="utf-8") + (ROOT / "mission_control/static/page-reporting.css").read_text(encoding="utf-8")
+            css = (ROOT / "mission_control/static/style.css").read_text(encoding="utf-8") + (
+                ROOT / "mission_control/static/page-reporting.css"
+            ).read_text(encoding="utf-8")
             snapshot_html(page, out / f"overview-{width}.html", css)
     # The blocked-window path must preserve state and avoid a false export receipt.
     page.evaluate("window.savedOpen=window.open;window.open=()=>null")
@@ -108,7 +139,9 @@ def viewport_pass(browser, origin, width, height, out):
     page.evaluate("window.open=window.savedOpen")
     if width == 1440:
         page.locator('.nav-item[data-view="results"]').click()
-        page.evaluate("state.workspace.metrics.cohorts=Array.from({length:6},(_,i)=>({...state.workspace.metrics.cohorts[0],cohort_id:'Long synthetic cohort '+i}));render()")
+        page.evaluate(
+            "state.workspace.metrics.cohorts=Array.from({length:6},(_,i)=>({...state.workspace.metrics.cohorts[0],cohort_id:'Long synthetic cohort '+i}));render()"
+        )
         observations.append(export_report(page, "results-long", width, out))
     # App switching must immediately remove the prior app's report context.
     page.locator("#app-select").select_option("sample-two")
@@ -135,14 +168,21 @@ def main():
                 browser = runtime.chromium.launch()
                 version = browser.version
                 for width, height in ((1440, 900), (390, 844)):
-                    observations.extend(viewport_pass(browser, f"http://127.0.0.1:{server.server_port}/", width, height, out))
+                    observations.extend(
+                        viewport_pass(browser, f"http://127.0.0.1:{server.server_port}/", width, height, out)
+                    )
                 browser.close()
         finally:
             server.shutdown()
             server.server_close()
             thread.join()
-    result = dict(status="PASS", browser=version, python=platform.python_version(), observations=observations,
-        scope="Ten top-level views only. Synthetic local data, no provider acceptance. PDFs generated by Chromium print engine and inspected with PyMuPDF; actual OS save-dialog completion remains user-controlled. Secondary dialogs are incomplete.")
+    result = dict(
+        status="PASS",
+        browser=version,
+        python=platform.python_version(),
+        observations=observations,
+        scope="Ten top-level views only. Synthetic local data, no provider acceptance. PDFs generated by Chromium print engine and inspected with PyMuPDF; actual OS save-dialog completion remains user-controlled. Secondary dialogs are incomplete.",
+    )
     (out / "browser.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps(result))
 

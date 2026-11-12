@@ -1,4 +1,5 @@
 """Private app-scoped observational campaign attribution records and reports."""
+
 from collections import Counter
 import json
 import re
@@ -80,6 +81,7 @@ def _tables(db):
 
 def _context(app_id, action, body, store):
     from .operation_authority import PROTECTED, store_identity
+
     context = PROTECTED.get()
     if context is None or context.get("store") != store_identity(store):
         raise PermissionError("Current exact observational-campaign operation authority is required")
@@ -87,9 +89,13 @@ def _context(app_id, action, body, store):
         envelope = json.loads(context["envelope"])
     except (KeyError, TypeError, ValueError):
         raise PermissionError("Current exact observational-campaign operation authority is required")
-    if (not isinstance(envelope, dict) or envelope.get("app_id") != app_id
-            or envelope.get("operation") != OPS.get(action) or envelope.get("input") != body
-            or set(envelope) - {"app_id", "operation", "input", "resource_id"}):
+    if (
+        not isinstance(envelope, dict)
+        or envelope.get("app_id") != app_id
+        or envelope.get("operation") != OPS.get(action)
+        or envelope.get("input") != body
+        or set(envelope) - {"app_id", "operation", "input", "resource_id"}
+    ):
         raise PermissionError("Current exact observational-campaign operation authority is required")
     definition = body.get("definition") if isinstance(body, dict) else None
     definition_id = definition.get("id") if isinstance(definition, dict) else None
@@ -112,7 +118,9 @@ def _manifest(body, app):
 
 def _study(db, app_id, study_id, study_hash, app):
     contract.uuid_value(study_id, "study_id")
-    row = db.execute("SELECT * FROM observational_campaign_studies WHERE app_id=? AND study_id=?", (app_id, study_id)).fetchone()
+    row = db.execute(
+        "SELECT * FROM observational_campaign_studies WHERE app_id=? AND study_id=?", (app_id, study_id)
+    ).fetchone()
     if row is None:
         raise Invalid("Study is unavailable in this app")
     data = json.loads(row["data"])
@@ -127,16 +135,21 @@ def _study(db, app_id, study_id, study_hash, app):
 
 def _activity(db, app_id, study_id, kind, record_id, value, created):
     value_hash = digest(value)
-    db.execute("INSERT INTO observational_campaign_activity VALUES(?,?,?,?,?,?,?)",
-               (app_id, study_id, kind, record_id, canonical(value), value_hash, created))
+    db.execute(
+        "INSERT INTO observational_campaign_activity VALUES(?,?,?,?,?,?,?)",
+        (app_id, study_id, kind, record_id, canonical(value), value_hash, created),
+    )
     return value_hash
 
 
 def _effective_events(db, app_id, study_id):
-    rows = db.execute("""SELECT e.source_id,e.event_id,e.data,e.hash,c.replacement,c.replacement_hash
+    rows = db.execute(
+        """SELECT e.source_id,e.event_id,e.data,e.hash,c.replacement,c.replacement_hash
         FROM observational_campaign_events e LEFT JOIN observational_campaign_corrections c
         ON c.app_id=e.app_id AND c.source_id=e.source_id AND c.event_id=e.event_id
-        WHERE e.app_id=? AND e.study_id=? ORDER BY e.source_id,e.event_id""", (app_id, study_id)).fetchall()
+        WHERE e.app_id=? AND e.study_id=? ORDER BY e.source_id,e.event_id""",
+        (app_id, study_id),
+    ).fetchall()
     result = []
     for row in rows:
         data = json.loads(row["data"])
@@ -177,9 +190,10 @@ def _measurement_checkpoint(study, coverage, as_of):
         state = "NO_ELIGIBLE_LANDINGS"
     else:
         state = "DESCRIPTIVE_READY"
-    ratio_counts = {"linked_registrations": registration, "eligible_landings": landing} if state == "DESCRIPTIVE_READY" else None
-    return {"state": state, "collector_source_id": collector, "coverage_issues": issues,
-            "ratio_counts": ratio_counts}
+    ratio_counts = (
+        {"linked_registrations": registration, "eligible_landings": landing} if state == "DESCRIPTIVE_READY" else None
+    )
+    return {"state": state, "collector_source_id": collector, "coverage_issues": issues, "ratio_counts": ratio_counts}
 
 
 def report_in_snapshot(db, app_id, study, app, as_of):
@@ -190,7 +204,19 @@ def report_in_snapshot(db, app_id, study, app, as_of):
     collector = study["data"].get("collector_source_id")
     if collector and any(source_id != collector for source_id, _ in observed_counts):
         raise Invalid("Stored events do not match the declared study collector")
-    exclusions = {name: 0 for name in ("CONSENT_DENIED", "CONSENT_UNKNOWN", "BOT", "BOT_UNKNOWN", "INTERNAL_TEST", "TOKEN_MISSING", "TOKEN_INVALID", "UNMATCHED_REGISTRATION")}
+    exclusions = {
+        name: 0
+        for name in (
+            "CONSENT_DENIED",
+            "CONSENT_UNKNOWN",
+            "BOT",
+            "BOT_UNKNOWN",
+            "INTERNAL_TEST",
+            "TOKEN_MISSING",
+            "TOKEN_INVALID",
+            "UNMATCHED_REGISTRATION",
+        )
+    }
     eligible_landings = {}
     observed_by_type = {name: False for name in contract.EVENT_TYPES}
     eligible = []
@@ -226,7 +252,10 @@ def report_in_snapshot(db, app_id, study, app, as_of):
             exclusions["UNMATCHED_REGISTRATION"] += 1
     coverage = {}
     for event_type in contract.EVENT_TYPES:
-        sources = db.execute("SELECT source_id,complete,source_event_count,observed_at,receipt_hash FROM observational_campaign_coverage WHERE app_id=? AND study_id=? AND event_type=? ORDER BY observed_at DESC,created DESC,batch_id DESC", (app_id, study["id"], event_type))
+        sources = db.execute(
+            "SELECT source_id,complete,source_event_count,observed_at,receipt_hash FROM observational_campaign_coverage WHERE app_id=? AND study_id=? AND event_type=? ORDER BY observed_at DESC,created DESC,batch_id DESC",
+            (app_id, study["id"], event_type),
+        )
         latest = {}
         for row in sources:
             latest.setdefault(row["source_id"], row)
@@ -241,21 +270,63 @@ def report_in_snapshot(db, app_id, study, app, as_of):
             valid_complete = bool(row["complete"] and row["source_event_count"] == actual)
             complete_sources += int(valid_complete)
             mismatch = mismatch or bool(row["complete"] and not valid_complete)
-            source_rows.append({"source_id": source_id, "complete": valid_complete, "reported_count": row["source_event_count"], "stored_count": actual, "source_receipt_sha256": row["receipt_hash"], "observed_at": row["observed_at"]})
+            source_rows.append(
+                {
+                    "source_id": source_id,
+                    "complete": valid_complete,
+                    "reported_count": row["source_event_count"],
+                    "stored_count": actual,
+                    "source_receipt_sha256": row["receipt_hash"],
+                    "observed_at": row["observed_at"],
+                }
+            )
         complete = expected_sources > 0 and complete_sources == expected_sources and not mismatch
         if collector:
-            complete = complete and all(iso_time(row["observed_at"]) >= iso_time(study["data"]["ends_at"])
-                                        for row in source_rows)
+            complete = complete and all(
+                iso_time(row["observed_at"]) >= iso_time(study["data"]["ends_at"]) for row in source_rows
+            )
         n = len(counts[event_type])
         value = n if observed_by_type[event_type] or complete else None
-        coverage[event_type] = {"coverage_complete": complete, "source_count": expected_sources, "complete_source_count": complete_sources, "mismatch": mismatch, "sources": source_rows}
+        coverage[event_type] = {
+            "coverage_complete": complete,
+            "source_count": expected_sources,
+            "complete_source_count": complete_sources,
+            "mismatch": mismatch,
+            "sources": source_rows,
+        }
         coverage[event_type]["observed_count"] = value
     checkpoint = _measurement_checkpoint(study["data"], coverage, as_of)
-    return {"schema": "growth.observational-campaign-report.v1", "checkpoint": checkpoint, "study_id": study["id"], "study_hash": study["hash"], "app_id": app_id, "app_version": app["version"], "release": study["data"]["release"], "starts_at": study["data"]["starts_at"], "ends_at": study["data"]["ends_at"], "as_of": as_of, "landing_subjects": coverage["LANDING"]["observed_count"], "linked_registration_subjects": coverage["REGISTRATION"]["observed_count"], "coverage": coverage, "exclusions": exclusions, "status": "ATTRIBUTED_DESCRIPTIVE_ONLY", "provenance": "SOURCE_REPORTED_NOT_PROVIDER_VERIFIED", "source_hash": digest({"study_hash": study["hash"], "events": [(s, i, digest(e)) for s, i, e in events], "coverage": coverage}), "limits": ["No install, activation, revenue, lift, or causal decision is reported.", "bot=false is not proof of a human.", "First-touch attribution may reflect an earlier campaign."]}
+    return {
+        "schema": "growth.observational-campaign-report.v1",
+        "checkpoint": checkpoint,
+        "study_id": study["id"],
+        "study_hash": study["hash"],
+        "app_id": app_id,
+        "app_version": app["version"],
+        "release": study["data"]["release"],
+        "starts_at": study["data"]["starts_at"],
+        "ends_at": study["data"]["ends_at"],
+        "as_of": as_of,
+        "landing_subjects": coverage["LANDING"]["observed_count"],
+        "linked_registration_subjects": coverage["REGISTRATION"]["observed_count"],
+        "coverage": coverage,
+        "exclusions": exclusions,
+        "status": "ATTRIBUTED_DESCRIPTIVE_ONLY",
+        "provenance": "SOURCE_REPORTED_NOT_PROVIDER_VERIFIED",
+        "source_hash": digest(
+            {"study_hash": study["hash"], "events": [(s, i, digest(e)) for s, i, e in events], "coverage": coverage}
+        ),
+        "limits": [
+            "No install, activation, revenue, lift, or causal decision is reported.",
+            "bot=false is not proof of a human.",
+            "First-touch attribution may reflect an earlier campaign.",
+        ],
+    }
 
 
 class ObservationalCampaign:
     """Append-only one-study attribution with current exact operation authority."""
+
     def __init__(self, store):
         self.store = store
 
@@ -281,23 +352,60 @@ class ObservationalCampaign:
             _tables(db)
             db.execute("BEGIN IMMEDIATE")
             from .operation_authority import check
+
             actor = check(db, context)
             app = _app(db, app_id)
             _manifest(body, app)
-            old = db.execute("SELECT * FROM observational_campaign_studies WHERE app_id=? AND request_id=?", (app_id, request_id)).fetchone()
+            old = db.execute(
+                "SELECT * FROM observational_campaign_studies WHERE app_id=? AND request_id=?", (app_id, request_id)
+            ).fetchone()
             if old:
                 if old["request_hash"] != request_hash:
                     raise Invalid("request_id already identifies different registration content")
-                return {"study_id": old["study_id"], "study_hash": old["hash"], "app_version": old["app_version"], "status": "REGISTERED", "idempotent": True}
+                return {
+                    "study_id": old["study_id"],
+                    "study_hash": old["hash"],
+                    "app_version": old["app_version"],
+                    "status": "REGISTERED",
+                    "idempotent": True,
+                }
             created = now()
             definition = contract.definition_data(body["definition"], created)
             origin = contract.app_origin(app["data"].get("website"))
-            data = dict(definition, app_id=app_id, app_version=app["version"], release=app["data"].get("release", ""), origin=origin, registered_at=created)
+            data = dict(
+                definition,
+                app_id=app_id,
+                app_version=app["version"],
+                release=app["data"].get("release", ""),
+                origin=origin,
+                registered_at=created,
+            )
             value_hash = digest(data)
-            if db.execute("SELECT 1 FROM observational_campaign_studies WHERE app_id=? AND study_id=?", (app_id, definition["id"])).fetchone():
+            if db.execute(
+                "SELECT 1 FROM observational_campaign_studies WHERE app_id=? AND study_id=?", (app_id, definition["id"])
+            ).fetchone():
                 raise Invalid("Study ID is already registered")
-            db.execute("INSERT INTO observational_campaign_studies VALUES(?,?,?,?,?,?,?,?)", (app_id, definition["id"], request_id, request_hash, app["version"], canonical(data), value_hash, created))
-            receipt = {"study_id": definition["id"], "study_hash": value_hash, "app_version": app["version"], "status": "REGISTERED", "actor_scope": "CURRENT_AUTHORITY", "actor": actor}
+            db.execute(
+                "INSERT INTO observational_campaign_studies VALUES(?,?,?,?,?,?,?,?)",
+                (
+                    app_id,
+                    definition["id"],
+                    request_id,
+                    request_hash,
+                    app["version"],
+                    canonical(data),
+                    value_hash,
+                    created,
+                ),
+            )
+            receipt = {
+                "study_id": definition["id"],
+                "study_hash": value_hash,
+                "app_version": app["version"],
+                "status": "REGISTERED",
+                "actor_scope": "CURRENT_AUTHORITY",
+                "actor": actor,
+            }
             _activity(db, app_id, definition["id"], "REGISTERED", request_id, receipt, created)
         return receipt
 
@@ -308,15 +416,24 @@ class ObservationalCampaign:
         with connection(self.store.path) as db:
             _tables(db)
             from .operation_authority import check
+
             check(db, context)
             app = _app(db, app_id)
             _manifest(body, app)
             study = _study(db, app_id, body["study_id"], body["study_hash"], app)
             url = contract.tagged_url(app["data"].get("website"), study["data"])
-            return {"study_id": study["id"], "study_hash": study["hash"], "url": url, "url_sha256": __import__("hashlib").sha256(url.encode()).hexdigest(), "status": "LOCAL_LINK_PREPARED",
-                    "study": {key: study["data"][key] for key in
-                              ("name", "hypothesis", "source", "creative_id", "starts_at", "ends_at")}
-                              | {"collector_source_id": study["data"].get("collector_source_id")}}
+            return {
+                "study_id": study["id"],
+                "study_hash": study["hash"],
+                "url": url,
+                "url_sha256": __import__("hashlib").sha256(url.encode()).hexdigest(),
+                "status": "LOCAL_LINK_PREPARED",
+                "study": {
+                    key: study["data"][key]
+                    for key in ("name", "hypothesis", "source", "creative_id", "starts_at", "ends_at")
+                }
+                | {"collector_source_id": study["data"].get("collector_source_id")},
+            }
 
     def ingest(self, app_id, body):
         context = _context(app_id, "ingest", body, self.store)
@@ -327,13 +444,17 @@ class ObservationalCampaign:
             _tables(db)
             db.execute("BEGIN IMMEDIATE")
             from .operation_authority import check
+
             actor = check(db, context)
             app = _app(db, app_id)
             _manifest(body, app)
             study = _study(db, app_id, body["study_id"], body["study_hash"], app)
             batch = contract.batch_data(body["batch"], study, app["version"], created)
             batch_hash = digest(batch)
-            old = db.execute("SELECT * FROM observational_campaign_batches WHERE app_id=? AND batch_id=?", (app_id, batch["batch_id"])).fetchone()
+            old = db.execute(
+                "SELECT * FROM observational_campaign_batches WHERE app_id=? AND batch_id=?",
+                (app_id, batch["batch_id"]),
+            ).fetchone()
             if old:
                 if old["hash"] != batch_hash or old["study_id"] != study["id"]:
                     raise Invalid("Batch ID already exists with conflicting content")
@@ -350,7 +471,10 @@ class ObservationalCampaign:
                     duplicates += 1
                     continue
                 seen[event["event_id"]] = event_hash
-                existing = db.execute("SELECT study_id,data,hash FROM observational_campaign_events WHERE app_id=? AND source_id=? AND event_id=?", (app_id, batch["source_id"], event["event_id"])).fetchone()
+                existing = db.execute(
+                    "SELECT study_id,data,hash FROM observational_campaign_events WHERE app_id=? AND source_id=? AND event_id=?",
+                    (app_id, batch["source_id"], event["event_id"]),
+                ).fetchone()
                 if existing:
                     if existing["study_id"] != study["id"] or existing["hash"] != event_hash:
                         raise Invalid("Event ID conflicts with saved source evidence")
@@ -358,14 +482,68 @@ class ObservationalCampaign:
                     continue
                 staged.append((event, event_hash))
             for event, event_hash in staged:
-                db.execute("INSERT INTO observational_campaign_events VALUES(?,?,?,?,?,?,?,?)", (app_id, study["id"], batch["source_id"], event["event_id"], batch["batch_id"], canonical(event), event_hash, created))
+                db.execute(
+                    "INSERT INTO observational_campaign_events VALUES(?,?,?,?,?,?,?,?)",
+                    (
+                        app_id,
+                        study["id"],
+                        batch["source_id"],
+                        event["event_id"],
+                        batch["batch_id"],
+                        canonical(event),
+                        event_hash,
+                        created,
+                    ),
+                )
                 inserted += 1
             for event_type in contract.EVENT_TYPES:
                 cov = batch["coverage"][event_type]
                 complete = int(cov["complete"])
-                db.execute("INSERT INTO observational_campaign_coverage VALUES(?,?,?,?,?,?,?,?,?,?)", (app_id, study["id"], batch["source_id"], event_type, batch["batch_id"], complete, cov["source_event_count"], batch["observed_at"], batch["source_receipt_sha256"], created))
-            receipt = {"schema": "growth.observational-campaign-batch-receipt.v1", "study_id": study["id"], "study_hash": study["hash"], "batch_id": batch["batch_id"], "source_id": batch["source_id"], "batch_hash": batch_hash, "source_receipt_sha256": batch["source_receipt_sha256"], "inserted": inserted, "duplicates": duplicates, "coverage": {key: {"reported_complete": val["complete"], "source_event_count": val["source_event_count"]} for key, val in batch["coverage"].items()}, "status": "SOURCE_REPORTED", "received_at": created}
-            db.execute("INSERT INTO observational_campaign_batches VALUES(?,?,?,?,?,?,?,?)", (app_id, study["id"], batch["batch_id"], batch["source_id"], batch_hash, canonical(batch), canonical(receipt), created))
+                db.execute(
+                    "INSERT INTO observational_campaign_coverage VALUES(?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        app_id,
+                        study["id"],
+                        batch["source_id"],
+                        event_type,
+                        batch["batch_id"],
+                        complete,
+                        cov["source_event_count"],
+                        batch["observed_at"],
+                        batch["source_receipt_sha256"],
+                        created,
+                    ),
+                )
+            receipt = {
+                "schema": "growth.observational-campaign-batch-receipt.v1",
+                "study_id": study["id"],
+                "study_hash": study["hash"],
+                "batch_id": batch["batch_id"],
+                "source_id": batch["source_id"],
+                "batch_hash": batch_hash,
+                "source_receipt_sha256": batch["source_receipt_sha256"],
+                "inserted": inserted,
+                "duplicates": duplicates,
+                "coverage": {
+                    key: {"reported_complete": val["complete"], "source_event_count": val["source_event_count"]}
+                    for key, val in batch["coverage"].items()
+                },
+                "status": "SOURCE_REPORTED",
+                "received_at": created,
+            }
+            db.execute(
+                "INSERT INTO observational_campaign_batches VALUES(?,?,?,?,?,?,?,?)",
+                (
+                    app_id,
+                    study["id"],
+                    batch["batch_id"],
+                    batch["source_id"],
+                    batch_hash,
+                    canonical(batch),
+                    canonical(receipt),
+                    created,
+                ),
+            )
             _activity(db, app_id, study["id"], "INGESTED", batch["batch_id"], dict(receipt, actor=actor), created)
         return receipt
 
@@ -378,6 +556,7 @@ class ObservationalCampaign:
             _tables(db)
             db.execute("BEGIN")
             from .operation_authority import check
+
             check(db, context)
             app = _app(db, app_id)
             _manifest(body, app)
@@ -394,9 +573,27 @@ class ObservationalCampaign:
         with connection(self.store.path) as db:
             _tables(db)
             from .operation_authority import check
+
             check(db, context)
-            rows = db.execute("SELECT kind,record_id,data,hash,created FROM observational_campaign_activity WHERE app_id=? ORDER BY created DESC,kind,record_id LIMIT 100 OFFSET ?", (app_id, offset)).fetchall()
-            return {"schema": "growth.observational-campaign-history.v1", "records": [{"kind": r["kind"], "record_id": r["record_id"], "data": json.loads(r["data"]), "hash": r["hash"], "created_at": r["created"]} for r in rows], "limit": 100, "offset": offset}
+            rows = db.execute(
+                "SELECT kind,record_id,data,hash,created FROM observational_campaign_activity WHERE app_id=? ORDER BY created DESC,kind,record_id LIMIT 100 OFFSET ?",
+                (app_id, offset),
+            ).fetchall()
+            return {
+                "schema": "growth.observational-campaign-history.v1",
+                "records": [
+                    {
+                        "kind": r["kind"],
+                        "record_id": r["record_id"],
+                        "data": json.loads(r["data"]),
+                        "hash": r["hash"],
+                        "created_at": r["created"],
+                    }
+                    for r in rows
+                ],
+                "limit": 100,
+                "offset": offset,
+            }
 
     def correct(self, app_id, body):
         context = _context(app_id, "correct", body, self.store)
@@ -410,19 +607,56 @@ class ObservationalCampaign:
             _tables(db)
             db.execute("BEGIN IMMEDIATE")
             from .operation_authority import check
+
             actor = check(db, context)
             app = _app(db, app_id)
             _manifest(body, app)
             study = _study(db, app_id, body["study_id"], body["study_hash"], app)
             value = contract.correction_data(correction, study, app["version"], created)
-            row = db.execute("SELECT data,hash,study_id FROM observational_campaign_events WHERE app_id=? AND source_id=? AND event_id=?", (app_id, value["source_id"], value["event_id"])).fetchone()
-            if row is None or row["study_id"] != study["id"] or row["hash"] != value["original_hash"] or digest(json.loads(row["data"])) != row["hash"]:
+            row = db.execute(
+                "SELECT data,hash,study_id FROM observational_campaign_events WHERE app_id=? AND source_id=? AND event_id=?",
+                (app_id, value["source_id"], value["event_id"]),
+            ).fetchone()
+            if (
+                row is None
+                or row["study_id"] != study["id"]
+                or row["hash"] != value["original_hash"]
+                or digest(json.loads(row["data"])) != row["hash"]
+            ):
                 raise Invalid("Correction original event identity or hash differs")
-            if db.execute("SELECT 1 FROM observational_campaign_corrections WHERE app_id=? AND source_id=? AND event_id=?", (app_id, value["source_id"], value["event_id"])).fetchone():
+            if db.execute(
+                "SELECT 1 FROM observational_campaign_corrections WHERE app_id=? AND source_id=? AND event_id=?",
+                (app_id, value["source_id"], value["event_id"]),
+            ).fetchone():
                 raise Invalid("An event can have only one correction record")
             replacement_hash = digest(value["replacement"])
             correction_hash = digest(value)
-            db.execute("INSERT INTO observational_campaign_corrections VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", (app_id, study["id"], value["correction_id"], value["source_id"], value["event_id"], value["original_hash"], canonical(value["replacement"]), replacement_hash, value["reason"], actor, created, correction_hash))
-            receipt = {"schema": "growth.observational-campaign-correction-receipt.v1", "study_id": study["id"], "correction_id": value["correction_id"], "event_id": value["event_id"], "original_hash": value["original_hash"], "replacement_hash": replacement_hash, "correction_hash": correction_hash, "created_at": created}
+            db.execute(
+                "INSERT INTO observational_campaign_corrections VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    app_id,
+                    study["id"],
+                    value["correction_id"],
+                    value["source_id"],
+                    value["event_id"],
+                    value["original_hash"],
+                    canonical(value["replacement"]),
+                    replacement_hash,
+                    value["reason"],
+                    actor,
+                    created,
+                    correction_hash,
+                ),
+            )
+            receipt = {
+                "schema": "growth.observational-campaign-correction-receipt.v1",
+                "study_id": study["id"],
+                "correction_id": value["correction_id"],
+                "event_id": value["event_id"],
+                "original_hash": value["original_hash"],
+                "replacement_hash": replacement_hash,
+                "correction_hash": correction_hash,
+                "created_at": created,
+            }
             _activity(db, app_id, study["id"], "CORRECTED", value["correction_id"], dict(receipt, actor=actor), created)
         return receipt

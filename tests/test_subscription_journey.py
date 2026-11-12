@@ -1,27 +1,59 @@
 """Real isolated SQLite journey imports, financial adjustments and legacy recovery."""
+
 import copy
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 from mission_control.common import Invalid
-from mission_control.ledger import (Ledger, event_data, event_amount, cohort_data, write_cohort,
-    write_events, csv_rows, restore_ledger, validate_snapshot, finance, apply_adjustment,
-    eligible_events, funnel_counts, observed_rate)
+from mission_control.ledger import (
+    Ledger,
+    event_data,
+    event_amount,
+    cohort_data,
+    write_cohort,
+    write_events,
+    csv_rows,
+    restore_ledger,
+    validate_snapshot,
+    finance,
+    apply_adjustment,
+    eligible_events,
+    funnel_counts,
+    observed_rate,
+)
 from mission_control.db import connection
 from mission_control.common import iso_time
-from mission_control.subscription_journey import (binding_data, validate_event, chain_issues,
-    same_charge_scope, group_counts, group_report, journey_report, matches, duration_data,
-    stage_times, mature_conversion, payment_timing)
+from mission_control.subscription_journey import (
+    binding_data,
+    validate_event,
+    chain_issues,
+    same_charge_scope,
+    group_counts,
+    group_report,
+    journey_report,
+    matches,
+    duration_data,
+    stage_times,
+    mature_conversion,
+    payment_timing,
+)
 from mission_control.service import Service
 from mission_control.store import Store
 from tests.test_ledger import cohort, event
 
 
 def bound(eid, kind, day="2026-09-03", amount=0, **changes):
-    binding = dict(version=1, product_id="com.example.monthly", offer_id="STANDARD",
-                   storefront="US", variant_id="control", configuration_sha256="a" * 64,
-                   trial_days=3, billing_period_days=14)
+    binding = dict(
+        version=1,
+        product_id="com.example.monthly",
+        offer_id="STANDARD",
+        storefront="US",
+        variant_id="control",
+        configuration_sha256="a" * 64,
+        trial_days=3,
+        billing_period_days=14,
+    )
     binding.update(changes.pop("binding", {}))
     return dict(event(eid, kind, day=day, amount=amount, **changes), subscription=binding)
 
@@ -44,11 +76,16 @@ class SubscriptionJourneyTests(unittest.TestCase):
         return self.ledger.reports("sample-one", stamp)[0]
 
     def history(self):
-        return [event("install", "INSTALL"), bound("onboard", "ONBOARDING_COMPLETE"),
-                bound("wall", "PAYWALL_EXPOSURE"), bound("trial", "TRIAL_START"),
-                bound("paid", "PURCHASE", day="2026-09-05", amount=1000),
-                bound("renew", "RENEWAL", day="2026-09-20", amount=1000, related="paid"),
-                event("ad", "COST_ACQUISITION", amount=100), event("delivery", "COST_DELIVERY", amount=100)]
+        return [
+            event("install", "INSTALL"),
+            bound("onboard", "ONBOARDING_COMPLETE"),
+            bound("wall", "PAYWALL_EXPOSURE"),
+            bound("trial", "TRIAL_START"),
+            bound("paid", "PURCHASE", day="2026-09-05", amount=1000),
+            bound("renew", "RENEWAL", day="2026-09-20", amount=1000, related="paid"),
+            event("ad", "COST_ACQUISITION", amount=100),
+            event("delivery", "COST_DELIVERY", amount=100),
+        ]
 
     def test_trial_is_not_paid_and_zero_denominator_stays_unavailable(self):
         self.ingest(self.history()[:4])
@@ -61,8 +98,13 @@ class SubscriptionJourneyTests(unittest.TestCase):
         self.assertFalse(report["subscription_journey"]["entitlement_verified"])
 
     def test_renewal_money_refund_and_cancel_intent(self):
-        self.ingest(self.history() + [bound("cancel", "CANCEL_REQUEST", day="2026-09-21"),
-                                   event("refund", "REFUND", day="2026-09-25", amount=300, related="renew")])
+        self.ingest(
+            self.history()
+            + [
+                bound("cancel", "CANCEL_REQUEST", day="2026-09-21"),
+                event("refund", "REFUND", day="2026-09-25", amount=300, related="renew"),
+            ]
+        )
         result = self.report()
         self.assertEqual(result["paid"], 1)
         self.assertEqual(result["net_proceeds_minor"], 1700)
@@ -74,14 +116,18 @@ class SubscriptionJourneyTests(unittest.TestCase):
         self.assertEqual(self.report()["net_proceeds_minor"], 1800)
 
     def test_atomic_validation_rejects_private_or_missing_bindings(self):
-        bad = [bound("bad", "TRIAL_START", binding={"version": True}),
-               bound("bad", "TRIAL_START", binding={"version": 2}),
-               bound("bad", "TRIAL_START", binding={"product_id": "person@example.com"}),
-               bound("bad", "TRIAL_START", binding={"configuration_sha256": "invalid"}),
-               bound("bad", "TRIAL_START", binding={"offer_id": ""}),
-               bound("bad", "TRIAL_START", subject="private@example.com"),
-               bound("bad", "TRIAL_START", amount=100), bound("bad", "PURCHASE"),
-               event("bad", "PAYWALL_EXPOSURE"), bound("bad", "INSTALL")]
+        bad = [
+            bound("bad", "TRIAL_START", binding={"version": True}),
+            bound("bad", "TRIAL_START", binding={"version": 2}),
+            bound("bad", "TRIAL_START", binding={"product_id": "person@example.com"}),
+            bound("bad", "TRIAL_START", binding={"configuration_sha256": "invalid"}),
+            bound("bad", "TRIAL_START", binding={"offer_id": ""}),
+            bound("bad", "TRIAL_START", subject="private@example.com"),
+            bound("bad", "TRIAL_START", amount=100),
+            bound("bad", "PURCHASE"),
+            event("bad", "PAYWALL_EXPOSURE"),
+            bound("bad", "INSTALL"),
+        ]
         for row in bad:
             with self.subTest(row=row), self.assertRaises(Invalid):
                 self.ingest([event("new", "INSTALL"), row])
@@ -105,7 +151,18 @@ class SubscriptionJourneyTests(unittest.TestCase):
         self.assertIsNone(immature["trial_to_paid_rate"])
         with self.assertRaises(Invalid):
             self.service.events("sample-two", {"cohort_id": "pilot-1", "events": rows})
-        self.ingest([bound("foreign-renew", "RENEWAL", day="2026-09-21", amount=1000, related="paid", binding={"product_id": "different"})])
+        self.ingest(
+            [
+                bound(
+                    "foreign-renew",
+                    "RENEWAL",
+                    day="2026-09-21",
+                    amount=1000,
+                    related="paid",
+                    binding={"product_id": "different"},
+                )
+            ]
+        )
         self.assertIsNone(self.report()["net_proceeds_minor"])
 
     def test_legacy_bytes_and_snapshot_hashes_survive_restart_restore(self):
@@ -120,8 +177,13 @@ class SubscriptionJourneyTests(unittest.TestCase):
         self.assertEqual(Ledger(target.path).reports("sample-one", "2026-10-11T00:00:00+00:00"), [self.report()])
 
     def test_incompatible_variants_missing_installs_and_mixed_currency(self):
-        self.ingest([event("install", "INSTALL"), bound("trial", "TRIAL_START"),
-                     bound("paid-other", "PURCHASE", amount=1000, binding={"variant_id": "other"})])
+        self.ingest(
+            [
+                event("install", "INSTALL"),
+                bound("trial", "TRIAL_START"),
+                bound("paid-other", "PURCHASE", amount=1000, binding={"variant_id": "other"}),
+            ]
+        )
         groups = self.report()["subscription_journey"]["groups"]
         self.assertEqual(len(groups), 2)
         self.assertTrue(all(g["trial_to_paid_subjects"] == 0 for g in groups))

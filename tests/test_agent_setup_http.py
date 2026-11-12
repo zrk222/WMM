@@ -1,4 +1,5 @@
 """Owner-only offline host setup report over the exact running loopback origin."""
+
 import threading
 import unittest
 from unittest.mock import patch
@@ -35,9 +36,7 @@ class AgentSetupHttpTests(fixtures.AuthorityFixture, unittest.TestCase):
 
     def test_setup_is_current_owner_only_uses_server_origin_and_is_read_only(self):
         before = self.fixture.dump()
-        result = self.owner.request(
-            "POST", "/api/apps/sample-one/agent-grants/setup", {}
-        )
+        result = self.owner.request("POST", "/api/apps/sample-one/agent-grants/setup", {})
         self.assertEqual(result["origin"], self.origin)
         self.assertEqual(result["runtime_kind"], "SOURCE_PYTHON")
         self.assertEqual(result["authority"], "OWNER_ISSUED_SCOPED_GRANT_REQUIRED_FOR_GENERATED_CONFIG")
@@ -48,7 +47,9 @@ class AgentSetupHttpTests(fixtures.AuthorityFixture, unittest.TestCase):
 
     def test_setup_rejects_non_owner_client_origin_body_and_query(self):
         Access(self.store).save(
-            "sample-one", identities.OWNER, identities.CHECKER,
+            "sample-one",
+            identities.OWNER,
+            identities.CHECKER,
             dict(login=identities.CHECKER["login"], role="CHECKER", status="ACTIVE", version=None),
         )
         checker = OperatorClient(self.origin)
@@ -60,12 +61,11 @@ class AgentSetupHttpTests(fixtures.AuthorityFixture, unittest.TestCase):
 
         with self.assertRaises(ClientError) as rejected:
             self.owner.request(
-                "POST", "/api/apps/sample-one/agent-grants/setup",
+                "POST",
+                "/api/apps/sample-one/agent-grants/setup",
                 dict(origin="http://127.0.0.1:1"),
             )
         self.assertEqual(rejected.exception.status, 400)
         with self.assertRaises(ClientError) as rejected:
-            self.owner.request(
-                "POST", "/api/apps/sample-one/agent-grants/setup?origin=http://127.0.0.1:1", {}
-            )
+            self.owner.request("POST", "/api/apps/sample-one/agent-grants/setup?origin=http://127.0.0.1:1", {})
         self.assertEqual(rejected.exception.status, 400)

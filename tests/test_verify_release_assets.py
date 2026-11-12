@@ -1,4 +1,5 @@
 """Downloaded release verification is local, complete and source-bound."""
+
 import hashlib
 import json
 from shutil import copyfile
@@ -28,9 +29,10 @@ class VerifyReleaseTests(unittest.TestCase):
 
     def reseal(self):
         rows = sorted(path for path in self.folder.iterdir() if path.name != "SHA256SUMS.txt")
-        (self.folder / "SHA256SUMS.txt").write_text("".join(
-            hashlib.sha256(path.read_bytes()).hexdigest() + "  " + path.name + "\n" for path in rows),
-            encoding="ascii")
+        (self.folder / "SHA256SUMS.txt").write_text(
+            "".join(hashlib.sha256(path.read_bytes()).hexdigest() + "  " + path.name + "\n" for path in rows),
+            encoding="ascii",
+        )
 
     def test_complete_folder_passes_for_exact_source(self):
         value = verify_release.verify(self.folder, SHA)
@@ -41,6 +43,7 @@ class VerifyReleaseTests(unittest.TestCase):
         (self.folder / "WMM-Setup.exe").write_bytes(b"changed")
         with self.assertRaises(ValueError):
             verify_release.verify(self.folder, SHA)
+
     def test_resealed_incomplete_or_extra_bundle_is_rejected(self):
         path = self.folder / "Windows.json"
         receipt = json.loads(path.read_text())

@@ -1,4 +1,5 @@
 """Personal cloud is optional; local is the default and tokens never enter SQLite."""
+
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
@@ -49,8 +50,17 @@ class CloudConnectionTests(unittest.TestCase):
         self.addCleanup(self.folder.cleanup)
         self.path = Path(self.folder.name) / "state.sqlite"
         self.store = Store(self.path, seed=False)
-        self.store.save_app(APP, dict(name="Synthetic app", release="build-1", job="Synthetic job",
-                                     audience="Synthetic audience", activation="Synthetic value", locale="en-US"))
+        self.store.save_app(
+            APP,
+            dict(
+                name="Synthetic app",
+                release="build-1",
+                job="Synthetic job",
+                audience="Synthetic audience",
+                activation="Synthetic value",
+                locale="en-US",
+            ),
+        )
         self.vault = FakeVault()
         self.clouds = CloudConnections(self.store, self.vault)
 
@@ -77,7 +87,6 @@ class CloudConnectionTests(unittest.TestCase):
             self.clouds.test(APP)
         self.assertEqual(self.clouds.current(APP)["mode"], "LOCAL")
 
-
     def test_endpoint_change_requires_a_new_token(self):
         original = self.clouds.save(APP, OWNER, {"endpoint": self.endpoint, "token": TOKEN})
         with self.assertRaisesRegex(Invalid, "new token"):
@@ -89,8 +98,7 @@ class CloudConnectionTests(unittest.TestCase):
         self.clouds.save(APP, OWNER, {"endpoint": self.endpoint, "token": TOKEN})
 
         def replace_during_health():
-            self.clouds.save(APP, OWNER, {"endpoint": "https://replacement.example",
-                                          "token": "replacement-test-token"})
+            self.clouds.save(APP, OWNER, {"endpoint": "https://replacement.example", "token": "replacement-test-token"})
             return {"tenant": "old", "version": "1"}
 
         with patch("mission_control.cloud_connection.CloudIngest.health", side_effect=replace_during_health):

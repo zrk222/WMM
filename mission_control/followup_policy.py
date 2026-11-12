@@ -1,4 +1,5 @@
 """Typed local follow-up contracts, with no contact data or delivery permission."""
+
 import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from .common import Invalid, identifier, iso_time, required, safe_data
@@ -41,30 +42,44 @@ def validate(kind, data, observed):
 
 def policy(data, observed):
     """One-time enabled preparation never authorizes external delivery."""
-    return {"enabled": boolean(data.get("enabled"), "Automatic preparation"),
-            "cadence": required(data.get("cadence"), "Useful-value cadence", 2000),
-            "prompt": required(data.get("prompt"), "Checkpoint prompt", 500)}
+    return {
+        "enabled": boolean(data.get("enabled"), "Automatic preparation"),
+        "cadence": required(data.get("cadence"), "Useful-value cadence", 2000),
+        "prompt": required(data.get("prompt"), "Checkpoint prompt", 500),
+    }
 
 
 def subject(data, observed):
     """Validate supplied consent, zone and nonempty quiet-hour interval."""
-    granted = iso_time(data.get("granted_at")); expires = iso_time(data.get("expires_at"))
+    granted = iso_time(data.get("granted_at"))
+    expires = iso_time(data.get("expires_at"))
     if granted > observed or expires <= granted:
         raise Invalid("Consent must have a nonfuture grant and a later expiration")
-    start = clock(data.get("quiet_start")); end = clock(data.get("quiet_end"))
+    start = clock(data.get("quiet_start"))
+    end = clock(data.get("quiet_end"))
     if start == end:
         raise Invalid("Quiet-hour start and end must differ")
-    return {"confirmed": boolean(data.get("confirmed"), "Supplied consent confirmed"),
-            "source": required(data.get("source"), "Consent source", 2000),
-            "granted_at": granted.isoformat(), "expires_at": expires.isoformat(),
-            "timezone": zone(data.get("timezone")).key, "quiet_start": start, "quiet_end": end}
+    return {
+        "confirmed": boolean(data.get("confirmed"), "Supplied consent confirmed"),
+        "source": required(data.get("source"), "Consent source", 2000),
+        "granted_at": granted.isoformat(),
+        "expires_at": expires.isoformat(),
+        "timezone": zone(data.get("timezone")).key,
+        "quiet_start": start,
+        "quiet_end": end,
+    }
 
 
 def task(data, observed):
     """Explicit UTC-offset times avoid ambiguous/nonexistent DST input."""
-    due = iso_time(data.get("due_at")); expires = iso_time(data.get("expires_at"))
+    due = iso_time(data.get("due_at"))
+    expires = iso_time(data.get("expires_at"))
     if expires <= due or data.get("state") not in ("OPEN", "COMPLETED", "CANCELLED"):
         raise Invalid("Checkpoint needs a later expiration and OPEN, COMPLETED or CANCELLED state")
-    return {"subject_id": identifier(data.get("subject_id")),
-            "action": required(data.get("action"), "Useful checkpoint action", 500),
-            "due_at": due.isoformat(), "expires_at": expires.isoformat(), "state": data["state"]}
+    return {
+        "subject_id": identifier(data.get("subject_id")),
+        "action": required(data.get("action"), "Useful checkpoint action", 500),
+        "due_at": due.isoformat(),
+        "expires_at": expires.isoformat(),
+        "state": data["state"],
+    }

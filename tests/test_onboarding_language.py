@@ -1,4 +1,5 @@
 """Buyer onboarding stays plain and maintainer release steps stay out of it."""
+
 from pathlib import Path
 import unittest
 
@@ -6,8 +7,18 @@ ROOT = Path(__file__).resolve().parents[1]
 FIRST_RUN = (ROOT / "docs/desktop-first-run.md").read_text(encoding="utf-8")
 HANDOFF = (ROOT / "docs/release-handoff.md").read_text(encoding="utf-8")
 README_FRONT = "\n".join((ROOT / "README.md").read_text(encoding="utf-8").splitlines()[:40])
-JARGON = ("Hypit", "owner grant", "operation catalog", "Grok Bot", "Instinct", "Hark Pro",
-          "Meta Muse", "Codex/Dots", "Claude Duet", "MCP")
+JARGON = (
+    "Hypit",
+    "owner grant",
+    "operation catalog",
+    "Grok Bot",
+    "Instinct",
+    "Hark Pro",
+    "Meta Muse",
+    "Codex/Dots",
+    "Claude Duet",
+    "MCP",
+)
 
 
 class OnboardingLanguageTests(unittest.TestCase):

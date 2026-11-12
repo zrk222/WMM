@@ -1,4 +1,5 @@
 """Owned local REA worker with no automatic retries or scheduling authority."""
+
 import threading
 from .audit_runtime import Inspections
 
@@ -12,7 +13,8 @@ class AuditWorker:
 
     def start(self):
         """Interrupt only abandoned native runs before accepting explicitly queued work."""
-        if self.thread and self.thread.is_alive(): return
+        if self.thread and self.thread.is_alive():
+            return
         self.inspections.interrupt()
         self.event.clear()
         self.thread = threading.Thread(target=self.loop, daemon=True, name="owned-rea-worker")
@@ -26,10 +28,14 @@ class AuditWorker:
                 self.inspections.run_once(self.event.is_set)
                 self.event.wait(0.5)
         except Exception:
-            self.health = {"status": "BLOCKED", "repair": "Restart the worker; abandoned runs will be interrupted, never replayed"}
+            self.health = {
+                "status": "BLOCKED",
+                "repair": "Restart the worker; abandoned runs will be interrupted, never replayed",
+            }
 
     def stop(self):
         """Signal the owned process boundary and wait for its bounded tree cleanup."""
         self.event.set()
-        if self.thread: self.thread.join(timeout=20)
+        if self.thread:
+            self.thread.join(timeout=20)
         self.health = {"status": "STOPPED" if not self.thread or not self.thread.is_alive() else "STOPPING"}

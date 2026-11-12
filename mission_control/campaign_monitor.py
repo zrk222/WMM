@@ -68,18 +68,12 @@ def _targets(targets):
 
 
 def _conditions(conditions, attempts):
-    if not isinstance(conditions, list) or any(
-        not isinstance(c, str) for c in conditions
-    ):
+    if not isinstance(conditions, list) or any(not isinstance(c, str) for c in conditions):
         raise Invalid("Protective conditions must be named strings")
-    if len(set(conditions)) != len(conditions) or any(
-        c not in CONDITIONS for c in conditions
-    ):
+    if len(set(conditions)) != len(conditions) or any(c not in CONDITIONS for c in conditions):
         raise Invalid("Select only the displayed protective conditions")
     if bool(conditions) != bool(attempts):
-        raise Invalid(
-            "Approve protective conditions and finite pause attempts together"
-        )
+        raise Invalid("Approve protective conditions and finite pause attempts together")
 
 
 def actor(store, app_id):
@@ -87,9 +81,7 @@ def actor(store, app_id):
 
     context, principal = identity(store, app_id)
     if "principal" not in context:
-        raise PermissionError(
-            "Only a freshly authenticated owner may manage monitoring"
-        )
+        raise PermissionError("Only a freshly authenticated owner may manage monitoring")
     return principal
 
 
@@ -106,7 +98,8 @@ def source(db, app_id, principal, scope_id):
     if digest(scope) != row["summary_hash"]:
         raise Invalid("Campaign approval integrity changed")
     from .campaign_execution import scope_view
-    scope['permission_expires_at'] = scope_view(db, row)['permission_expires_at']
+
+    scope["permission_expires_at"] = scope_view(db, row)["permission_expires_at"]
     app = db.execute("SELECT * FROM apps WHERE id=?", (app_id,)).fetchone()
     if (
         scope["owner_principal"],
@@ -115,18 +108,13 @@ def source(db, app_id, principal, scope_id):
         scope["app_hash"],
     ) != (principal, role["version"], app["version"], digest(json.loads(app["data"]))):
         raise PermissionError("Campaign app or owner revision changed")
-    if (
-        row["status"] != "ACTIVE"
-        or iso_time(scope["permission_expires_at"]).timestamp() <= time.time()
-    ):
+    if row["status"] != "ACTIVE" or iso_time(scope["permission_expires_at"]).timestamp() <= time.time():
         raise PermissionError("Campaign approval is OFF or expired")
     connection_row = db.execute(
         "SELECT * FROM social_connections WHERE app_id=? AND id=?",
         (app_id, scope["connection_id"]),
     ).fetchone()
-    config = db.execute(
-        "SELECT * FROM social_configs WHERE app_id=? AND provider='facebook'", (app_id,)
-    ).fetchone()
+    config = db.execute("SELECT * FROM social_configs WHERE app_id=? AND provider='facebook'", (app_id,)).fetchone()
     check_connection(connection_row, config, scope)
     return dict(
         scope_id=scope_id,
@@ -167,16 +155,11 @@ def target_row(db, app_id, scope_id, target):
     """Never resolve a target outside its app, scope and immutable request hash."""
     for table in ("campaign_paid_intents", "campaign_intents"):
         row = db.execute(
-            "SELECT * FROM "
-            + table
-            + " WHERE app_id=? AND scope_id=? AND id=? AND request_hash=?",
+            "SELECT * FROM " + table + " WHERE app_id=? AND scope_id=? AND id=? AND request_hash=?",
             (app_id, scope_id, target["intent_id"], target["request_hash"]),
         ).fetchone()
         if row is not None:
-            if (
-                table == "campaign_paid_intents"
-                and digest(json.loads(row["data"])) != row["request_hash"]
-            ):
+            if table == "campaign_paid_intents" and digest(json.loads(row["data"])) != row["request_hash"]:
                 raise PermissionError("Paid request integrity changed")
             return row, table == "campaign_paid_intents"
     raise PermissionError("Monitor target changed or is outside its campaign scope")
@@ -191,14 +174,9 @@ def checked(db, row):
         raise PermissionError("Monitor summary ownership changed")
     if digest(summary) != row["summary_hash"]:
         raise PermissionError("Monitor approval integrity changed")
-    if (
-        row["status"] != "ACTIVE"
-        or iso_time(summary["proposal"]["expires_at"]).timestamp() <= time.time()
-    ):
+    if row["status"] != "ACTIVE" or iso_time(summary["proposal"]["expires_at"]).timestamp() <= time.time():
         raise PermissionError("Monitor is OFF or expired")
-    current, _ = source(
-        db, row["app_id"], row["owner"], summary["proposal"]["scope_id"]
-    )
+    current, _ = source(db, row["app_id"], row["owner"], summary["proposal"]["scope_id"])
     if current != summary["source"]:
         raise PermissionError("Monitor source revisions changed")
     for target in summary["proposal"]["targets"]:
@@ -250,11 +228,7 @@ def last_observation(db, row, summary):
     if not isinstance(observations, list) or len(observations) > 20:
         observations = []
     targets = {value["intent_id"] for value in summary["proposal"]["targets"]}
-    safe = [
-        value
-        for item in observations
-        if (value := _observation(item, targets)) is not None
-    ]
+    safe = [value for item in observations if (value := _observation(item, targets)) is not None]
     receipt = dict(
         job_id=job["id"],
         status=job["status"],
@@ -274,10 +248,7 @@ def _observation_job(job, row):
         row["summary_hash"],
     ):
         return False
-    if (
-        type(data["monitor_version"]) is not int
-        or not 1 <= data["monitor_version"] <= row["version"]
-    ):
+    if type(data["monitor_version"]) is not int or not 1 <= data["monitor_version"] <= row["version"]:
         return False
     if type(data["run"]) is not int or not 1 <= data["run"] <= row["runs"]:
         return False
@@ -377,9 +348,7 @@ class Monitors:
             binding, scope = source(db, app_id, principal, chosen["scope_id"])
             expiry = iso_time(chosen["expires_at"]).timestamp()
             if not time.time() < expiry <= iso_time(scope["permission_expires_at"]).timestamp():
-                raise Invalid(
-                    "Monitor expiry must be future and within campaign expiry"
-                )
+                raise Invalid("Monitor expiry must be future and within campaign expiry")
             for target in chosen["targets"]:
                 target_row(db, app_id, chosen["scope_id"], target)
             identity = uid()
@@ -389,8 +358,7 @@ class Monitors:
                 owner=principal,
                 source=binding,
                 proposal=chosen,
-                effects=["RECONCILE"]
-                + (["PROTECTIVE_PAUSE"] if chosen["protective_conditions"] else []),
+                effects=["RECONCILE"] + (["PROTECTIVE_PAUSE"] if chosen["protective_conditions"] else []),
                 limitations="Saved identity and fresh provider readback required. No spend-threshold conversion, causal lift, creation, publication or activation.",
             )
             stamp = now()
@@ -410,9 +378,7 @@ class Monitors:
             )
             return view(
                 db,
-                db.execute(
-                    "SELECT * FROM campaign_monitors WHERE id=?", (identity,)
-                ).fetchone(),
+                db.execute("SELECT * FROM campaign_monitors WHERE id=?", (identity,)).fetchone(),
             )
 
     def activate(self, app_id, identity, summary_hash):
@@ -505,10 +471,7 @@ def eligible(db, row):
     if not _previous_finished(db, row):
         return False
     limits = summary["proposal"]
-    if (
-        row["runs"] >= limits["max_runs"]
-        or row["units"] >= limits["max_provider_units"]
-    ):
+    if row["runs"] >= limits["max_runs"] or row["units"] >= limits["max_provider_units"]:
         block(db, row["id"])
         return False
     return True
@@ -517,9 +480,7 @@ def eligible(db, row):
 def _previous_finished(db, row):
     if not row["last_job"]:
         return True
-    old = db.execute(
-        "SELECT status,lease FROM jobs WHERE id=?", (row["last_job"],)
-    ).fetchone()
+    old = db.execute("SELECT status,lease FROM jobs WHERE id=?", (row["last_job"],)).fetchone()
     if old and old["status"] in ("QUEUED", "RUNNING"):
         if old["status"] == "RUNNING" and old["lease"] <= time.time():
             block(db, row["id"])
@@ -535,8 +496,11 @@ def _previous_finished(db, row):
 
 
 def interrupted_result():
-    return dict(status="BLOCKED", external_execution="MONITOR_INTERRUPTED_UNCONFIRMED",
-                next_action="Inspect the retained campaign intent and verify its provider state before taking another action.")
+    return dict(
+        status="BLOCKED",
+        external_execution="MONITOR_INTERRUPTED_UNCONFIRMED",
+        next_action="Inspect the retained campaign intent and verify its provider state before taking another action.",
+    )
 
 
 def block(db, identity):
@@ -588,9 +552,7 @@ def execute(store, job, transport=None):
 
     results = []
     with bound(store, job) as capability:
-        service = MonitorService(
-            store, policy_checker(store), BoundaryTransport(store, transport)
-        )
+        service = MonitorService(store, policy_checker(store), BoundaryTransport(store, transport))
         try:
             for target in capability["summary"]["proposal"]["targets"]:
                 capability.update(intent_id=target["intent_id"], action="RECONCILE")
@@ -642,9 +604,7 @@ def protect(store, job, service, capability, result):
         return
     with connection(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
-        row = db.execute(
-            "SELECT * FROM campaign_monitors WHERE id=?", (job["data"]["monitor_id"],)
-        ).fetchone()
+        row = db.execute("SELECT * FROM campaign_monitors WHERE id=?", (job["data"]["monitor_id"],)).fetchone()
         checked(db, row)
         if row["pauses"] >= capability["summary"]["proposal"]["max_pause_attempts"]:
             raise PermissionError("Monitor pause allowance exhausted")
@@ -658,9 +618,7 @@ def protect(store, job, service, capability, result):
         pause_reason=reason,
         pause_observation=json.loads(canonical(result)),
     )
-    paused = service.run_pause(
-        job["app_id"], "monitor:" + job["id"], capability["scope_id"], result["id"]
-    )
+    paused = service.run_pause(job["app_id"], "monitor:" + job["id"], capability["scope_id"], result["id"])
     if paused["status"] != "PAUSED_campaign":
         raise PermissionError("Protective pause was not verified")
     return paused
@@ -671,15 +629,9 @@ def pause_reason(result, conditions):
     if not _fresh_active_observation(result):
         return None
     data = result["result"]
-    if (
-        "configuration_drift" in conditions
-        and data.get("configuration") == "CHANGED_OR_UNCONFIRMED_PAUSE_RECOMMENDED"
-    ):
+    if "configuration_drift" in conditions and data.get("configuration") == "CHANGED_OR_UNCONFIRMED_PAUSE_RECOMMENDED":
         return "configuration_drift"
-    if (
-        "active_after_end" in conditions
-        and iso_time(result["data"]["end_time"]).timestamp() <= time.time()
-    ):
+    if "active_after_end" in conditions and iso_time(result["data"]["end_time"]).timestamp() <= time.time():
         return "active_after_end"
     return None
 
@@ -690,6 +642,5 @@ def _fresh_active_observation(result):
     if not observed or not 0 <= time.time() - iso_time(observed).timestamp() <= 30:
         return False
     return bool(
-        result.get("ids", {}).get("campaign")
-        and data.get("objects", {}).get("campaign", {}).get("status") == "ACTIVE"
+        result.get("ids", {}).get("campaign") and data.get("objects", {}).get("campaign", {}).get("status") == "ACTIVE"
     )

@@ -1,4 +1,5 @@
 """User-authored automation rules are deterministic proposals, never effects."""
+
 from contextlib import redirect_stderr, redirect_stdout
 from hashlib import sha256
 from io import StringIO
@@ -43,8 +44,11 @@ class AutomationRuleTests(unittest.TestCase):
         rule = document["rules"][0]
         document["rules"] = [rule]
         rule["when"] = {"fact": "metric", "op": "ne", "value": 1}
-        for facts, reason in (({"metric": None}, "missing"), ({"metric": True}, "incompatible"),
-                              ({"metric": "1"}, "incompatible")):
+        for facts, reason in (
+            ({"metric": None}, "missing"),
+            ({"metric": True}, "incompatible"),
+            ({"metric": "1"}, "incompatible"),
+        ):
             with self.subTest(facts=facts):
                 report = evaluate(document, facts, STAMP)
                 self.assertEqual(report["results"][0]["status"], "UNKNOWN")
@@ -56,27 +60,61 @@ class AutomationRuleTests(unittest.TestCase):
 
     def test_deterministic_report_pins_the_rule_set_and_fact_snapshot(self):
         from mission_control.common import digest
-        report = evaluate(EXAMPLE, {"jobs":{"queued":0}}, STAMP)
-        self.assertEqual(report, evaluate(EXAMPLE, {"jobs":{"queued":0}}, STAMP))
-        self.assertEqual(report["facts_sha256"], digest({"jobs":{"queued":0}}))
+
+        report = evaluate(EXAMPLE, {"jobs": {"queued": 0}}, STAMP)
+        self.assertEqual(report, evaluate(EXAMPLE, {"jobs": {"queued": 0}}, STAMP))
+        self.assertEqual(report["facts_sha256"], digest({"jobs": {"queued": 0}}))
         self.assertEqual(report["rules_sha256"], digest(validate(EXAMPLE)))
         fingerprint = report.pop("evaluation_sha256")
         self.assertEqual(fingerprint, digest(report))
 
     def test_complete_mature_result_proposes_review(self):
-        value = evaluate(EXAMPLE, {"study": {"window": {"state": "ENDED"}, "coverage": "COMPLETE"},
-                                   "retention": {"maturity": "MATURE"}}, STAMP)
+        value = evaluate(
+            EXAMPLE,
+            {"study": {"window": {"state": "ENDED"}, "coverage": "COMPLETE"}, "retention": {"maturity": "MATURE"}},
+            STAMP,
+        )
         self.assertEqual([row["rule_id"] for row in value["proposals"]], ["mature-result-review"])
 
     def test_priority_deduplication_and_expiry(self):
-        document = {"schema": "wmm.automation-rules.v1", "mode": "PROPOSE_ONLY", "timezone": "UTC", "rules": [
-            {"id": "a", "enabled": True, "priority": 1, "when": {"fact": "x", "op": "eq", "value": 1},
-             "then": {"propose": {"action": "review", "tool": "reports.read", "reason": "low"}, "requires": ["OWNER_REVIEW"]}},
-            {"id": "b", "enabled": True, "priority": 9, "when": {"fact": "x", "op": "eq", "value": 1},
-             "then": {"propose": {"action": "review", "tool": "reports.read", "reason": "high"}, "requires": ["OWNER_REVIEW"]}},
-            {"id": "c", "enabled": True, "priority": 5, "expires_at": "2026-01-01T00:00:00+00:00",
-             "when": {"fact": "x", "op": "eq", "value": 1},
-             "then": {"propose": {"action": "other", "tool": "reports.read", "reason": "old"}, "requires": ["OWNER_REVIEW"]}}]}
+        document = {
+            "schema": "wmm.automation-rules.v1",
+            "mode": "PROPOSE_ONLY",
+            "timezone": "UTC",
+            "rules": [
+                {
+                    "id": "a",
+                    "enabled": True,
+                    "priority": 1,
+                    "when": {"fact": "x", "op": "eq", "value": 1},
+                    "then": {
+                        "propose": {"action": "review", "tool": "reports.read", "reason": "low"},
+                        "requires": ["OWNER_REVIEW"],
+                    },
+                },
+                {
+                    "id": "b",
+                    "enabled": True,
+                    "priority": 9,
+                    "when": {"fact": "x", "op": "eq", "value": 1},
+                    "then": {
+                        "propose": {"action": "review", "tool": "reports.read", "reason": "high"},
+                        "requires": ["OWNER_REVIEW"],
+                    },
+                },
+                {
+                    "id": "c",
+                    "enabled": True,
+                    "priority": 5,
+                    "expires_at": "2026-01-01T00:00:00+00:00",
+                    "when": {"fact": "x", "op": "eq", "value": 1},
+                    "then": {
+                        "propose": {"action": "other", "tool": "reports.read", "reason": "old"},
+                        "requires": ["OWNER_REVIEW"],
+                    },
+                },
+            ],
+        }
         value = evaluate(document, {"x": 1}, STAMP)
         self.assertEqual(len(value["proposals"]), 1)
         self.assertEqual(value["proposals"][0]["reason"], "high")
@@ -84,13 +122,34 @@ class AutomationRuleTests(unittest.TestCase):
         self.assertEqual(expired["status"], "EXPIRED")
 
     def test_boolean_logic_and_comparisons(self):
-        document = {"schema": "wmm.automation-rules.v1", "mode": "PROPOSE_ONLY", "timezone": "UTC", "rules": [
-            {"id": "logic", "enabled": True, "priority": 1,
-             "when": {"all": [{"fact": "a", "op": "gte", "value": 2},
-                              {"any": [{"fact": "b", "op": "in", "value": ["x", "y"]},
-                                       {"not": {"fact": "c", "op": "exists"}}]},
-                              {"fact": "d", "op": "contains", "value": "ok"}]},
-             "then": {"propose": {"action": "review", "tool": "reports.read", "reason": "matched"}, "requires": ["OWNER_REVIEW"]}}]}
+        document = {
+            "schema": "wmm.automation-rules.v1",
+            "mode": "PROPOSE_ONLY",
+            "timezone": "UTC",
+            "rules": [
+                {
+                    "id": "logic",
+                    "enabled": True,
+                    "priority": 1,
+                    "when": {
+                        "all": [
+                            {"fact": "a", "op": "gte", "value": 2},
+                            {
+                                "any": [
+                                    {"fact": "b", "op": "in", "value": ["x", "y"]},
+                                    {"not": {"fact": "c", "op": "exists"}},
+                                ]
+                            },
+                            {"fact": "d", "op": "contains", "value": "ok"},
+                        ]
+                    },
+                    "then": {
+                        "propose": {"action": "review", "tool": "reports.read", "reason": "matched"},
+                        "requires": ["OWNER_REVIEW"],
+                    },
+                }
+            ],
+        }
         value = evaluate(document, {"a": 2, "b": "x", "d": ["ok"]}, STAMP)
         self.assertEqual(value["proposals"][0]["action"], "review")
         self.assertEqual(evaluate(document, {"a": 1, "b": "x", "d": ["ok"]}, STAMP)["proposals"], [])
@@ -98,11 +157,21 @@ class AutomationRuleTests(unittest.TestCase):
     def test_live_workspace_projection_has_no_invented_metrics(self):
         import tempfile
         from pathlib import Path as PathValue
+
         with tempfile.TemporaryDirectory() as folder:
             store = Store(PathValue(folder) / "state.sqlite", seed=False)
-            store.save_app("sample-one", dict(name="Synthetic app", release="build-1", job="Synthetic job",
-                                             audience="Synthetic audience", activation="Synthetic value",
-                                             locale="en-US", currency="USD"))
+            store.save_app(
+                "sample-one",
+                dict(
+                    name="Synthetic app",
+                    release="build-1",
+                    job="Synthetic job",
+                    audience="Synthetic audience",
+                    activation="Synthetic value",
+                    locale="en-US",
+                    currency="USD",
+                ),
+            )
             facts = project(Service(store).workspace("sample-one"))
         self.assertEqual(facts["app"]["release"], "build-1")
         self.assertEqual(facts["metrics"]["cohort_count"], 0)
@@ -116,13 +185,32 @@ class AutomationRuleTests(unittest.TestCase):
             store = Store(path, seed=False)
             store.save_app("facts-review", dict(name="Synthetic app", release="build-1"))
             other = store.save_app("separate-app", dict(name="Separate synthetic app", release="build-2"))
-            store.save_record("separate-app", dict(kind="cohort", title="Separate cohort",
-                source="Synthetic fixture", data={"installs": 3}, manifest_version=other["version"]))
+            store.save_record(
+                "separate-app",
+                dict(
+                    kind="cohort",
+                    title="Separate cohort",
+                    source="Synthetic fixture",
+                    data={"installs": 3},
+                    manifest_version=other["version"],
+                ),
+            )
             before = path.read_bytes()
             captured = StringIO()
             with redirect_stdout(captured):
-                self.assertEqual(main(["--rules", str(ROOT / "docs/automation-rules.example.json"),
-                                       "--database", str(path), "--app", "facts-review"]), 0)
+                self.assertEqual(
+                    main(
+                        [
+                            "--rules",
+                            str(ROOT / "docs/automation-rules.example.json"),
+                            "--database",
+                            str(path),
+                            "--app",
+                            "facts-review",
+                        ]
+                    ),
+                    0,
+                )
             self.assertEqual([app["id"] for app in store.apps()], ["facts-review", "separate-app"])
             self.assertEqual(path.read_bytes(), before)
         result = json.loads(captured.getvalue())
@@ -133,8 +221,16 @@ class AutomationRuleTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             path = Path(folder) / "not-created" / "missing.sqlite3"
             with redirect_stderr(StringIO()), self.assertRaises(SystemExit):
-                main(["--rules", str(ROOT / "docs/automation-rules.example.json"),
-                      "--database", str(path), "--app", "facts-review"])
+                main(
+                    [
+                        "--rules",
+                        str(ROOT / "docs/automation-rules.example.json"),
+                        "--database",
+                        str(path),
+                        "--app",
+                        "facts-review",
+                    ]
+                )
             self.assertFalse(path.parent.exists())
 
     def test_omitted_sections_do_not_project_zero_counts(self):
@@ -161,44 +257,65 @@ class AutomationSimulationHTTPTests(unittest.TestCase):
     route = "/api/apps/sample-one/automation/evaluate"
 
     def test_owner_preview_reads_saved_facts_without_vault_provider_or_database_write(self):
-        self.store.save_record("sample-one", {
-            "kind": "connection", "title": "Synthetic connection", "source": "Synthetic test",
-            "data": {"provider": "app_store", "auth_mode": "managed_key", "credential_ref": "fixture-only"},
-        })
+        self.store.save_record(
+            "sample-one",
+            {
+                "kind": "connection",
+                "title": "Synthetic connection",
+                "source": "Synthetic test",
+                "data": {"provider": "app_store", "auth_mode": "managed_key", "credential_ref": "fixture-only"},
+            },
+        )
         paths = (self.store.path, Path(f"{self.store.path}-wal"))
+
         # A read-only SQLite WAL session can create an empty coordination file.
         def hashes():
             return [sha256(path.read_bytes() if path.exists() else b"").hexdigest() for path in paths]
+
         before = hashes()
-        with (patch("mission_control.connection_setup.Connections.vault", side_effect=AssertionError("opened vault")),
-              patch("mission_control.operator_identity.github_read", side_effect=AssertionError("called provider"))):
+        with (
+            patch("mission_control.connection_setup.Connections.vault", side_effect=AssertionError("opened vault")),
+            patch("mission_control.operator_identity.github_read", side_effect=AssertionError("called provider")),
+        ):
             report = self.owner.request("POST", self.route, {"rules": EXAMPLE})
         self.assertEqual([row["rule_id"] for row in report["proposals"]], ["cohort-setup-review"])
         self.assertEqual(report["results"][0]["status"], "UNKNOWN")
         self.assertEqual(hashes(), before)
 
     def test_anonymous_checker_and_other_app_are_denied(self):
-        Access(self.store).save("sample-one", identities.OWNER, identities.CHECKER, {
-            "login": identities.CHECKER["login"], "role": "CHECKER", "status": "ACTIVE", "version": None,
-        })
+        Access(self.store).save(
+            "sample-one",
+            identities.OWNER,
+            identities.CHECKER,
+            {
+                "login": identities.CHECKER["login"],
+                "role": "CHECKER",
+                "status": "ACTIVE",
+                "version": None,
+            },
+        )
         anonymous = OperatorClient(self.origin)
         anonymous.bootstrap()
         checker = OperatorClient(self.origin)
         checker.bootstrap()
         checker.request("POST", "/api/identity/login", {"token": identities.CHECKER_TOKEN})
-        for client, route in ((anonymous, self.route), (checker, self.route),
-                              (self.owner, self.route.replace("sample-one", "sample-two"))):
+        for client, route in (
+            (anonymous, self.route),
+            (checker, self.route),
+            (self.owner, self.route.replace("sample-one", "sample-two")),
+        ):
             with self.subTest(route=route), self.assertRaises(ClientError) as error:
                 client.request("POST", route, {"rules": EXAMPLE})
             self.assertEqual(error.exception.status, 403)
-
 
     def test_saved_rule_http_is_local_and_owner_only(self):
         route = self.route.replace("/evaluate", "/rules")
         anonymous = OperatorClient(self.origin)
         anonymous.bootstrap()
-        with (patch("mission_control.connection_setup.Connections.vault", side_effect=AssertionError("opened vault")),
-              patch("mission_control.operator_identity.github_read", side_effect=AssertionError("called provider"))):
+        with (
+            patch("mission_control.connection_setup.Connections.vault", side_effect=AssertionError("opened vault")),
+            patch("mission_control.operator_identity.github_read", side_effect=AssertionError("called provider")),
+        ):
             self.assertIsNone(self.owner.request("GET", route))
             saved = self.owner.request("POST", route, {"document": EXAMPLE})
             self.assertEqual(self.owner.request("GET", route), saved)
@@ -210,6 +327,7 @@ class AutomationSimulationHTTPTests(unittest.TestCase):
 
     def test_preview_exact_older_version_reads_current_app_facts_without_writing(self):
         from mission_control.common import digest
+
         route = self.route.replace("/evaluate", "/rules")
         first = self.owner.request("POST", route, {"document": EXAMPLE})
         second_doc = json.loads(json.dumps(EXAMPLE))
@@ -222,8 +340,10 @@ class AutomationSimulationHTTPTests(unittest.TestCase):
         self.assertEqual(self.owner.request("GET", route), second)
         reference = {"version": first["version"], "hash": first["hash"]}
         snapshot = self.store.path.read_bytes()
-        with (patch("mission_control.connection_setup.Connections.vault", side_effect=AssertionError("opened vault")),
-              patch("mission_control.operator_identity.github_read", side_effect=AssertionError("called provider"))):
+        with (
+            patch("mission_control.connection_setup.Connections.vault", side_effect=AssertionError("opened vault")),
+            patch("mission_control.operator_identity.github_read", side_effect=AssertionError("called provider")),
+        ):
             saved = self.owner.request("POST", self.route, {"saved": reference})
             draft = self.owner.request("POST", self.route, {"rules": first["document"]})
         self.assertEqual(saved["rule_binding"], {"app_id": "sample-one", **reference})
@@ -234,15 +354,19 @@ class AutomationSimulationHTTPTests(unittest.TestCase):
         self.assertIn("jobs", saved["fact_snapshot"]["sources"])
         self.assertNotIn("retention_rate", str(saved["fact_snapshot"]))
         self.assertEqual(self.store.path.read_bytes(), snapshot)
-        for invalid in ({"saved": {**reference, "hash": second["hash"]}},
-                        {"saved": {**reference, "version": True}}, {"saved": None},
-                        {"saved": reference, "rules": EXAMPLE}):
+        for invalid in (
+            {"saved": {**reference, "hash": second["hash"]}},
+            {"saved": {**reference, "version": True}},
+            {"saved": None},
+            {"saved": reference, "rules": EXAMPLE},
+        ):
             with self.subTest(body=invalid), self.assertRaises(ClientError) as error:
                 self.owner.request("POST", self.route, invalid)
             self.assertEqual(error.exception.status, 400)
         for method, target, data in (
-                ("GET", route.replace("sample-one", "sample-two") + "/history", None),
-                ("POST", self.route.replace("sample-one", "sample-two"), {"saved": reference})):
+            ("GET", route.replace("sample-one", "sample-two") + "/history", None),
+            ("POST", self.route.replace("sample-one", "sample-two"), {"saved": reference}),
+        ):
             with self.assertRaises(ClientError) as error:
                 self.owner.request(method, target, data)
             self.assertEqual(error.exception.status, 403)

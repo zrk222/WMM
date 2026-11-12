@@ -1,4 +1,5 @@
 """Bounded credential-free public HTTPS reads, pinned against DNS rebinding."""
+
 import hashlib
 import http.client
 import ipaddress
@@ -20,6 +21,7 @@ TRACKING_FIELDS = frozenset(("utm_source", "utm_medium", "utm_campaign", "utm_co
 
 class ReadError(Invalid):
     """Closed error classification, never a raw network exception disclosure."""
+
     def __init__(self, code):
         """Carry only a closed operational code to callers."""
         self.code = code
@@ -45,7 +47,11 @@ def hostname(value):
     except (AttributeError, UnicodeError) as exc:
         raise ReadError("URL_INVALID") from exc
     labels = host.split(".")
-    if len(labels) < 2 or len(host) > 253 or not all(re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", p) for p in labels):
+    if (
+        len(labels) < 2
+        or len(host) > 253
+        or not all(re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", p) for p in labels)
+    ):
         raise ReadError("URL_INVALID")
     try:
         ipaddress.ip_address(host)
@@ -67,9 +73,13 @@ def tracking_query(query):
     seen = set()
     for field in query.split("&"):
         key, separator, value = field.partition("=")
-        if (key not in TRACKING_FIELDS or key in seen or not separator
-                or not re.fullmatch(r"(?:[A-Za-z0-9._~+-]|%[0-9A-Fa-f]{2})+", value)
-                or re.search(r"[\x00-\x1f\x7f\\]", unquote(value, errors="strict"))):
+        if (
+            key not in TRACKING_FIELDS
+            or key in seen
+            or not separator
+            or not re.fullmatch(r"(?:[A-Za-z0-9._~+-]|%[0-9A-Fa-f]{2})+", value)
+            or re.search(r"[\x00-\x1f\x7f\\]", unquote(value, errors="strict"))
+        ):
             raise ReadError("URL_INVALID")
         seen.add(key)
     return query
@@ -104,6 +114,7 @@ def dns_lookup(host, deadline):
     if not slots.acquire(blocking=False):
         raise ReadError("DNS_BUSY")
     result = queue.Queue(maxsize=1)
+
     def resolve():
         try:
             result.put(socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM))
@@ -111,6 +122,7 @@ def dns_lookup(host, deadline):
             result.put(None)
         finally:
             slots.release()
+
     threading.Thread(target=resolve, daemon=True).start()
     try:
         return result.get(timeout=remaining(deadline))
@@ -135,6 +147,7 @@ def address(host, deadline):
 
 class DeadlineFile:
     """Enforce the whole-run deadline inside HTTP header and chunk framing."""
+
     def __init__(self, fp, sock, deadline):
         """Wrap the buffered file without replacing socket ownership."""
         self.fp, self.sock, self.deadline = fp, sock, deadline
@@ -170,17 +183,20 @@ class DeadlineFile:
         limit = 1048577 if size < 0 else size
         if limit > 1048577:
             raise ReadError("BODY_TOO_LARGE")
-        chunks = []; total = 0
+        chunks = []
+        total = 0
         while total < limit:
-            chunk = self.read1(min(16384, limit-total))
+            chunk = self.read1(min(16384, limit - total))
             if not chunk:
                 break
-            chunks.append(chunk); total += len(chunk)
+            chunks.append(chunk)
+            total += len(chunk)
         return b"".join(chunks)
 
 
 class DeadlineResponse(http.client.HTTPResponse):
     """Use ordinary HTTP parsing with a deadline-aware underlying file."""
+
     def __init__(self, sock, deadline, **kwargs):
         """Keep the standard parser's framing checks and ownership semantics."""
         super().__init__(sock, **kwargs)
@@ -189,6 +205,7 @@ class DeadlineResponse(http.client.HTTPResponse):
 
 class PinnedHTTPS(http.client.HTTPConnection):
     """Connect only to a checked address, preserving original Host and TLS SNI."""
+
     def __init__(self, host, ip, context, deadline):
         """Bind the checked address, original hostname and shared deadline."""
         super().__init__(host, 443, timeout=remaining(deadline))
@@ -234,7 +251,8 @@ def body_length(headers, cap):
 def response_body(response, headers, cap, conn, deadline):
     """Reject compression and over-limit bodies without decompressing anything."""
     length = body_length(headers, cap)
-    chunks = []; size = 0
+    chunks = []
+    size = 0
     while True:
         conn.stream_socket.settimeout(remaining(deadline))
         chunk = response.read1(min(16384, cap + 1 - size))
@@ -251,24 +269,42 @@ def response_body(response, headers, cap, conn, deadline):
 
 class PublicReader:
     """One six-request/two-redirect, thirty-second public inspection budget."""
+
     def __init__(self, *, allow_tracking=False):
         """Allocate one bounded diagnostic run using existing CA trust."""
         self.deadline = time.monotonic() + 30
-        self.requests = 0; self.redirects = 0
+        self.requests = 0
+        self.redirects = 0
         self.context = trust_context()
         self.allow_tracking = allow_tracking
 
     def once(self, url, cap):
         target = urlsplit(url)
-        host = target.hostname; ip = address(host, self.deadline)
+        host = target.hostname
+        ip = address(host, self.deadline)
         conn = PinnedHTTPS(host, ip, self.context, self.deadline)
         try:
             request_target = urlunsplit(("", "", target.path or "/", target.query, ""))
-            conn.request("GET", request_target, headers={"User-Agent": AGENT+"/1.0", "Accept-Encoding": "identity", "Accept": "text/html,text/plain,application/xml;q=0.9"})
-            response = conn.getresponse(); headers = response_headers(response)
+            conn.request(
+                "GET",
+                request_target,
+                headers={
+                    "User-Agent": AGENT + "/1.0",
+                    "Accept-Encoding": "identity",
+                    "Accept": "text/html,text/plain,application/xml;q=0.9",
+                },
+            )
+            response = conn.getresponse()
+            headers = response_headers(response)
             raw = b"" if response.status in REDIRECTS else response_body(response, headers, cap, conn, self.deadline)
-            return {"url": url, "status": response.status, "headers": headers, "body": raw,
-                    "bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest()}
+            return {
+                "url": url,
+                "status": response.status,
+                "headers": headers,
+                "body": raw,
+                "bytes": len(raw),
+                "sha256": hashlib.sha256(raw).hexdigest(),
+            }
         finally:
             conn.close()
 
@@ -333,5 +369,5 @@ def evidence(resource):
     """No raw body, cookies or network exception text enters durable reports."""
     result = {key: resource[key] for key in ("url", "status", "bytes", "sha256")}
     allowed = {"content-type", "content-encoding", "content-length", "x-robots-tag"}
-    result["headers"] = {key:list(value) for key, value in resource["headers"].items() if key in allowed}
+    result["headers"] = {key: list(value) for key, value in resource["headers"].items() if key in allowed}
     return result

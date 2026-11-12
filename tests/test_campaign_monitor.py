@@ -39,9 +39,7 @@ class CampaignMonitorTests(unittest.TestCase):
         self.store = self.fixture.store
         self.wire = self.fixture.transport
         self.scope = self.fixture.paid_scope
-        self.intent = self.fixture.service.run_ad(
-            "sample", "owner", self.scope["scope_id"], self.fixture.adbody
-        )
+        self.intent = self.fixture.service.run_ad("sample", "owner", self.scope["scope_id"], self.fixture.adbody)
         with connection(self.store.path) as db:
             db.execute("UPDATE social_connections SET expires=?", (time.time() + 7200,))
         self.monitors = core.Monitors(self.store)
@@ -55,9 +53,7 @@ class CampaignMonitorTests(unittest.TestCase):
             return verify
 
         mocks = [
-            patch(
-                "mission_control.campaign_access.policy_checker", side_effect=checker
-            ),
+            patch("mission_control.campaign_access.policy_checker", side_effect=checker),
             patch.object(
                 CampaignExecutionService,
                 "_credentials",
@@ -79,12 +75,8 @@ class CampaignMonitorTests(unittest.TestCase):
 
     @contextmanager
     def owner(self):
-        envelope = dict(
-            app_id="sample", operation="campaign.monitor.owner.fixture", input={}
-        )
-        with bound_owner(
-            self.store, envelope, self.identities, "session", dict(principal="owner")
-        ):
+        envelope = dict(app_id="sample", operation="campaign.monitor.owner.fixture", input={})
+        with bound_owner(self.store, envelope, self.identities, "session", dict(principal="owner")):
             with protected(self.store, envelope):
                 yield
 
@@ -99,9 +91,7 @@ class CampaignMonitorTests(unittest.TestCase):
                     )
                 ],
                 cadence_seconds=30,
-                expires_at=(
-                    datetime.now(timezone.utc) + timedelta(minutes=10)
-                ).isoformat(),
+                expires_at=(datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(),
                 max_runs=3,
                 max_provider_units=40,
                 max_pause_attempts=1,
@@ -141,23 +131,15 @@ class CampaignMonitorTests(unittest.TestCase):
                 dict(max_provider_units=161),
                 dict(max_pause_attempts=0),
                 dict(protective_conditions=["spend_threshold"]),
-                dict(
-                    expires_at=(
-                        datetime.now(timezone.utc) + timedelta(hours=2)
-                    ).isoformat()
-                ),
-                dict(
-                    targets=[dict(intent_id=self.intent["id"], request_hash="a" * 64)]
-                ),
+                dict(expires_at=(datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()),
+                dict(targets=[dict(intent_id=self.intent["id"], request_hash="a" * 64)]),
             ):
                 with (
                     self.subTest(changes=changes),
                     self.assertRaises((Invalid, PermissionError)),
                 ):
                     self.monitors.prepare("sample", self.body(**changes))
-            active = self.monitors.activate(
-                "sample", saved["id"], saved["summary_hash"]
-            )
+            active = self.monitors.activate("sample", saved["id"], saved["summary_hash"])
             self.assertEqual(active["status"], "ACTIVE")
             self.assertEqual(len(self.monitors.history("sample")["monitors"]), 1)
         with connection(self.store.path) as db:
@@ -176,9 +158,7 @@ class CampaignMonitorTests(unittest.TestCase):
         self.assertEqual(core.tick(self.store), 0)
         with connection(self.store.path) as db:
             self.assertEqual(
-                db.execute(
-                    "SELECT count(*) FROM jobs WHERE action='campaign_monitor'"
-                ).fetchone()[0],
+                db.execute("SELECT count(*) FROM jobs WHERE action='campaign_monitor'").fetchone()[0],
                 21,
             )
         self.assertEqual(len(monitors), 21)
@@ -187,9 +167,7 @@ class CampaignMonitorTests(unittest.TestCase):
         monitor, job = self.job(protective_conditions=[], max_pause_attempts=0)
         before = len(self.wire.objects)
         with (
-            patch.object(
-                self.wire, "create_paid", side_effect=AssertionError("No creation")
-            ),
+            patch.object(self.wire, "create_paid", side_effect=AssertionError("No creation")),
             patch.object(
                 self.wire,
                 "set_paid_status",
@@ -202,9 +180,7 @@ class CampaignMonitorTests(unittest.TestCase):
         self.assertEqual(self.status(monitor)["pause_attempts"], 0)
         self.assertEqual(len(self.wire.objects), before)
         self.assertEqual(
-            self.fixture.service.list_intents("sample", self.scope["scope_id"])[0][
-                "commitment"
-            ],
+            self.fixture.service.list_intents("sample", self.scope["scope_id"])[0]["commitment"],
             80,
         )
 
@@ -223,9 +199,7 @@ class CampaignMonitorTests(unittest.TestCase):
             result = core.execute(self.store, job, self.wire)
         self.assertEqual(result["status"], "OBSERVED")
         self.assertEqual(statuses, [("campaign", "PAUSED")])
-        self.assertEqual(
-            result["observations"][0]["protective_pause"], "PAUSED_campaign"
-        )
+        self.assertEqual(result["observations"][0]["protective_pause"], "PAUSED_campaign")
         current = self.fixture.service.list_intents("sample", self.scope["scope_id"])[0]
         self.assertEqual(current["status"], "PAUSED_campaign")
         self.assertEqual(current["commitment"], 80)
@@ -240,9 +214,7 @@ class CampaignMonitorTests(unittest.TestCase):
                 (self.intent["id"],),
             ).fetchone()
             data = json.loads(row["data"])
-            data["end_time"] = (
-                datetime.now(timezone.utc) - timedelta(seconds=1)
-            ).isoformat()
+            data["end_time"] = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
             # The request hash is immutable; a changed approved request denies
             # admission instead of manufacturing an expired owner approval.
             db.execute(
@@ -254,16 +226,12 @@ class CampaignMonitorTests(unittest.TestCase):
         result = dict(
             self.intent,
             result=dict(
-                observed_at=(
-                    datetime.now(timezone.utc) - timedelta(seconds=1)
-                ).isoformat(),
+                observed_at=(datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat(),
                 objects=dict(campaign=dict(status="ACTIVE")),
             ),
             data=data,
         )
-        self.assertEqual(
-            core.pause_reason(result, ["active_after_end"]), "active_after_end"
-        )
+        self.assertEqual(core.pause_reason(result, ["active_after_end"]), "active_after_end")
         self.assertIsNone(core.pause_reason(result, ["configuration_drift"]))
 
     def test_off_and_lease_and_cross_target_are_rechecked_at_boundary(self):
@@ -280,9 +248,7 @@ class CampaignMonitorTests(unittest.TestCase):
                 )
             )
             with self.assertRaises(PermissionError):
-                authority.check(
-                    self.store, "sample", "owner", dict(self.scope), "RECONCILE"
-                )
+                authority.check(self.store, "sample", "owner", dict(self.scope), "RECONCILE")
             cap["intent_id"] = "99999999-9999-4999-8999-999999999999"
             with self.assertRaises(PermissionError):
                 authority.admit(self.store)
@@ -331,11 +297,7 @@ class CampaignMonitorTests(unittest.TestCase):
         self.assertEqual(result["status"], "BLOCKED")
         self.assertEqual(self.status(monitor)["provider_units"], 1)
         with connection(self.store.path) as db:
-            self.assertIsNone(
-                db.execute(
-                    "SELECT * FROM campaign_safety_calls WHERE category='PAUSE'"
-                ).fetchone()
-            )
+            self.assertIsNone(db.execute("SELECT * FROM campaign_safety_calls WHERE category='PAUSE'").fetchone())
 
     def test_lost_pause_reply_blocks_restart_and_retains_hold(self):
         monitor, job = self.job()
@@ -355,9 +317,7 @@ class CampaignMonitorTests(unittest.TestCase):
         self.assertEqual(self.status(monitor)["status"], "BLOCKED")
         self.assertEqual(core.tick(self.store), 0)
         self.assertEqual(
-            self.fixture.service.list_intents("sample", self.scope["scope_id"])[0][
-                "commitment"
-            ],
+            self.fixture.service.list_intents("sample", self.scope["scope_id"])[0]["commitment"],
             80,
         )
         with self.assertRaises(PermissionError):
@@ -367,16 +327,12 @@ class CampaignMonitorTests(unittest.TestCase):
         monitor, job = self.job()
         with connection(self.store.path) as db:
             db.execute("UPDATE jobs SET lease=0 WHERE id=?", (job["id"],))
-            db.execute(
-                "UPDATE campaign_monitors SET due=0 WHERE id=?", (monitor["id"],)
-            )
+            db.execute("UPDATE campaign_monitors SET due=0 WHERE id=?", (monitor["id"],))
         self.assertEqual(core.tick(self.store), 0)
         self.assertEqual(self.status(monitor)["status"], "BLOCKED")
         with connection(self.store.path) as db:
             self.assertEqual(
-                db.execute(
-                    "SELECT status FROM jobs WHERE id=?", (job["id"],)
-                ).fetchone()[0],
+                db.execute("SELECT status FROM jobs WHERE id=?", (job["id"],)).fetchone()[0],
                 "BLOCKED",
             )
 
@@ -387,9 +343,7 @@ class CampaignMonitorTests(unittest.TestCase):
                 "UPDATE campaign_paid_intents SET status='PENDING_ACTIVE_campaign' WHERE id=?",
                 (self.intent["id"],),
             )
-        with patch.object(
-            self.wire, "set_paid_status", side_effect=AssertionError("No replay")
-        ):
+        with patch.object(self.wire, "set_paid_status", side_effect=AssertionError("No replay")):
             result = core.execute(self.store, job, self.wire)
         self.assertEqual(result["status"], "BLOCKED")
         self.assertEqual(self.status(monitor)["provider_units"], 0)
@@ -399,9 +353,7 @@ class CampaignMonitorTests(unittest.TestCase):
         with authority.bound(self.store, job) as cap:
             cap.update(action="RECONCILE", intent_id=self.intent["id"])
             with self.assertRaises(PermissionError):
-                authority.check(
-                    self.store, "sample", "monitor:" + job["id"], self.scope, "RUN_AD"
-                )
+                authority.check(self.store, "sample", "monitor:" + job["id"], self.scope, "RUN_AD")
             with self.assertRaises(PermissionError):
                 authority.BoundaryTransport(self.store, self.wire).set_paid_status(
                     "campaign", "1", "ACTIVE", "token", "secret", lambda: None
@@ -415,16 +367,12 @@ class CampaignMonitorTests(unittest.TestCase):
         monitor, job = self.job(max_runs=1)
         with connection(self.store.path) as db:
             db.execute("UPDATE jobs SET status='SUCCEEDED' WHERE id=?", (job["id"],))
-            db.execute(
-                "UPDATE campaign_monitors SET due=0 WHERE id=?", (monitor["id"],)
-            )
+            db.execute("UPDATE campaign_monitors SET due=0 WHERE id=?", (monitor["id"],))
         self.assertEqual(core.tick(self.store), 0)
         self.assertEqual(self.status(monitor)["status"], "BLOCKED")
         another = self.activate()
         with connection(self.store.path) as db:
-            db.execute(
-                "UPDATE operator_roles SET version=version+1 WHERE app_id='sample'"
-            )
+            db.execute("UPDATE operator_roles SET version=version+1 WHERE app_id='sample'")
         self.assertEqual(core.tick(self.store), 0)
         self.assertEqual(self.status(another)["effective_status"], "BLOCKED")
 
@@ -445,21 +393,15 @@ class CampaignMonitorTests(unittest.TestCase):
                     now(),
                 ),
             )
-        with patch.object(
-            self.wire, "set_paid_status", side_effect=AssertionError("No status replay")
-        ):
+        with patch.object(self.wire, "set_paid_status", side_effect=AssertionError("No status replay")):
             result = core.execute(self.store, job, self.wire)
         self.assertEqual(result["status"], "BLOCKED")
         self.assertEqual(
-            self.fixture.service.list_intents("sample", self.scope["scope_id"])[0][
-                "status"
-            ],
+            self.fixture.service.list_intents("sample", self.scope["scope_id"])[0]["status"],
             "UNKNOWN",
         )
         self.assertEqual(
-            self.fixture.service.list_intents("sample", self.scope["scope_id"])[0][
-                "commitment"
-            ],
+            self.fixture.service.list_intents("sample", self.scope["scope_id"])[0]["commitment"],
             80,
         )
 
@@ -481,9 +423,7 @@ class CampaignMonitorTests(unittest.TestCase):
             result = core.execute(self.store, job, self.wire)
         self.assertEqual(result["status"], "OBSERVED")
         self.assertEqual(
-            self.fixture.service.list_intents("sample", self.scope["scope_id"])[0][
-                "status"
-            ],
+            self.fixture.service.list_intents("sample", self.scope["scope_id"])[0]["status"],
             "PAUSED_campaign",
         )
         with authority.bound(self.store, job) as cap:
@@ -502,15 +442,12 @@ class CampaignMonitorTests(unittest.TestCase):
                 authority.admit(self.store)
         with patch(
             "time.time",
-            return_value=datetime.fromisoformat(self.body()["expires_at"]).timestamp()
-            + 1,
+            return_value=datetime.fromisoformat(self.body()["expires_at"]).timestamp() + 1,
         ):
             with self.assertRaises(PermissionError):
                 core.execute(self.store, job, self.wire)
         with connection(self.store.path) as db:
-            db.execute(
-                "UPDATE campaign_monitors SET pauses=1 WHERE id=?", (monitor["id"],)
-            )
+            db.execute("UPDATE campaign_monitors SET pauses=1 WHERE id=?", (monitor["id"],))
         self.wire.objects[self.intent["ids"]["adset"]]["lifetime_budget"] = 999
         with patch.object(
             self.wire,
@@ -521,9 +458,7 @@ class CampaignMonitorTests(unittest.TestCase):
         self.assertEqual(result["status"], "BLOCKED")
         self.assertEqual(self.status(monitor)["pause_attempts"], 1)
         self.assertEqual(
-            self.fixture.service.list_intents("sample", self.scope["scope_id"])[0][
-                "commitment"
-            ],
+            self.fixture.service.list_intents("sample", self.scope["scope_id"])[0]["commitment"],
             80,
         )
 
@@ -588,9 +523,7 @@ class CampaignMonitorTests(unittest.TestCase):
         self.assertIsNone(self.status(monitor)["last_observation"])
 
     def test_organic_identity_preflight_and_post_read_each_charge_monitor_units(self):
-        post = self.fixture.service.list_intents(
-            "sample", self.fixture.scope["scope_id"]
-        )[0]
+        post = self.fixture.service.list_intents("sample", self.fixture.scope["scope_id"])[0]
         body = self.body(
             scope_id=self.fixture.scope["scope_id"],
             targets=[dict(intent_id=post["id"], request_hash=post["request_hash"])],
@@ -599,9 +532,7 @@ class CampaignMonitorTests(unittest.TestCase):
         )
         with self.owner():
             draft = self.monitors.prepare("sample", body)
-            active = self.monitors.activate(
-                "sample", draft["id"], draft["summary_hash"]
-            )
+            active = self.monitors.activate("sample", draft["id"], draft["summary_hash"])
         core.tick(self.store)
         job = claim(self.store)
 
@@ -660,18 +591,14 @@ class CampaignMonitorTests(unittest.TestCase):
                     "/api/identity/login",
                     dict(token="synthetic_identity_token"),
                 )
-                saved = client.request(
-                    "POST", base + "prepare", dict(proposal=self.body())
-                )
+                saved = client.request("POST", base + "prepare", dict(proposal=self.body()))
                 active = client.request(
                     "POST",
                     base + "activate",
                     dict(monitor_id=saved["id"], summary_hash=saved["summary_hash"]),
                 )
                 self.assertEqual(active["status"], "ACTIVE")
-                self.assertEqual(
-                    len(client.request("POST", base + "history", {})["monitors"]), 1
-                )
+                self.assertEqual(len(client.request("POST", base + "history", {})["monitors"]), 1)
                 with self.assertRaises(ClientError):
                     client.request(
                         "POST",

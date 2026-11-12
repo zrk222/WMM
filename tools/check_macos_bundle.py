@@ -28,17 +28,20 @@ def temporary_native_keychain(profile, environment):
     require_disposable_runner()
     keychain = str(profile / 'acceptance.keychain-db')
     password = secrets.token_urlsafe(32)
+    # Security preferences belong to the runner account. Only the WMM engine
+    # gets the synthetic application-data home; retain the sanitized environment.
+    security_environment = dict(environment, HOME=str(Path.home()))
 
     def security(*arguments):
         try:
-            result = subprocess.run(['/usr/bin/security', *arguments], env=environment,
+            result = subprocess.run(['/usr/bin/security', *arguments], env=security_environment,
                                     stdin=subprocess.DEVNULL, capture_output=True,
                                     text=True, timeout=15)
         except (OSError, subprocess.TimeoutExpired):
             # Never propagate argv-bearing exceptions: passwords occur in argv.
-            raise RuntimeError('Native test Keychain command unavailable or timed out') from None
+            raise RuntimeError(f'Native test Keychain {arguments[0]} unavailable or timed out') from None
         if result.returncode:
-            raise RuntimeError('Native test Keychain command failed')
+            raise RuntimeError(f'Native test Keychain {arguments[0]} failed (exit {result.returncode})')
         return result.stdout
 
     original_default = shlex.split(security('default-keychain', '-d', 'user'))

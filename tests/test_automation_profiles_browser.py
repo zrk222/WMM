@@ -1,4 +1,5 @@
 """Exercise goal presets and exact expiry consent through the owner UI."""
+
 from datetime import datetime, timedelta, timezone
 import os
 from pathlib import Path
@@ -28,7 +29,9 @@ class AutomationProfilesBrowserTests(unittest.TestCase):
         self.addCleanup(host.tearDown)
         stamp = datetime.now(timezone.utc).isoformat()
         agent = dict(
-            provider="codex", model="", label="Synthetic agent",
+            provider="codex",
+            model="",
+            label="Synthetic agent",
             capabilities=["campaign_plan", "original_copy"],
             tool=dict(executable="synthetic", fingerprint="synthetic-fingerprint"),
         )
@@ -43,17 +46,24 @@ class AutomationProfilesBrowserTests(unittest.TestCase):
             for width in (390, 1280):
                 with self.subTest(width=width):
                     with browser.new_context(viewport={"width": width, "height": 900}, timezone_id="UTC") as context:
-                        context.add_cookies([
-                            dict(name=c.name, value=c.value, domain="127.0.0.1", path=c.path or "/")
-                            for c in host.owner.cookies
-                        ])
+                        context.add_cookies(
+                            [
+                                dict(name=c.name, value=c.value, domain="127.0.0.1", path=c.path or "/")
+                                for c in host.owner.cookies
+                            ]
+                        )
                         context.add_init_script("localStorage.setItem('growth-app','sample-one')")
-                        context.route("**/*", lambda route: (
-                            route.continue_() if route.request.url.startswith(host.origin + "/") else route.abort()
-                        ))
+                        context.route(
+                            "**/*",
+                            lambda route: (
+                                route.continue_() if route.request.url.startswith(host.origin + "/") else route.abort()
+                            ),
+                        )
                         page = context.new_page()
                         page.goto(host.origin)
-                        page.wait_for_function("() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one'")
+                        page.wait_for_function(
+                            "() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one'"
+                        )
                         nav = page.locator('[data-view="agents"]')
                         if not nav.is_visible():
                             page.locator("details").filter(has=nav).locator("summary").first.click()
@@ -92,34 +102,52 @@ class AutomationProfilesBrowserTests(unittest.TestCase):
         self.addCleanup(host.tearDown)
         app = host.store.app(apple.APP)
         host.store.save_app(apple.APP, dict(app["data"], store_app_id=apple.STORE_APP), app["version"])
-        host.server.service.evidence(apple.APP, dict(
-            kind="connection", title="Apple analytics", source="Synthetic fixture",
-            data=dict(provider="app_store", store_app_id=apple.STORE_APP, env_ref=apple.REF, account_id="0"),
-        ))
+        host.server.service.evidence(
+            apple.APP,
+            dict(
+                kind="connection",
+                title="Apple analytics",
+                source="Synthetic fixture",
+                data=dict(provider="app_store", store_app_id=apple.STORE_APP, env_ref=apple.REF, account_id="0"),
+            ),
+        )
         schedules = AppleMetricsSchedules(host.store)
         schedules.save(apple.APP, dict(enabled=True, version=None, interval_hours=24, report_id=apple.REPORT))
         self.assertEqual(schedules.tick(), 1)
         read = apple.AppleMetricsScheduleTests().waiting_read
-        with patch.dict(os.environ, {apple.REF: "synthetic-private-key"}), patch(
-            "mission_control.provider_reports.read_analytics", side_effect=read,
+        with (
+            patch.dict(os.environ, {apple.REF: "synthetic-private-key"}),
+            patch(
+                "mission_control.provider_reports.read_analytics",
+                side_effect=read,
+            ),
         ):
             self.assertTrue(run_once(host.store))
         with connection(host.store.path) as db:
-            db.execute("UPDATE apple_metrics_schedules SET next_due=? WHERE app_id=?",
-                       (datetime.now(timezone.utc).timestamp() - 60, apple.APP))
+            db.execute(
+                "UPDATE apple_metrics_schedules SET next_due=? WHERE app_id=?",
+                (datetime.now(timezone.utc).timestamp() - 60, apple.APP),
+            )
         before = schedules.get(apple.APP)
         with sync_playwright() as runtime:
             browser = runtime.chromium.launch()
             for width in (390, 1280):
-                with self.subTest(width=width), browser.new_context(viewport={"width": width, "height": 900}) as context:
-                    context.add_cookies([
-                        dict(name=c.name, value=c.value, domain="127.0.0.1", path=c.path or "/")
-                        for c in host.owner.cookies
-                    ])
+                with (
+                    self.subTest(width=width),
+                    browser.new_context(viewport={"width": width, "height": 900}) as context,
+                ):
+                    context.add_cookies(
+                        [
+                            dict(name=c.name, value=c.value, domain="127.0.0.1", path=c.path or "/")
+                            for c in host.owner.cookies
+                        ]
+                    )
                     context.add_init_script("localStorage.setItem('growth-app','sample-one')")
                     page = context.new_page()
                     page.goto(host.origin)
-                    page.wait_for_function("() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one'")
+                    page.wait_for_function(
+                        "() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one'"
+                    )
                     requests = []
                     page.on("request", lambda req: requests.append((req.method, req.url)))
                     nav = page.get_by_role("button", name="Watch the work", exact=True)
@@ -133,8 +161,10 @@ class AutomationProfilesBrowserTests(unittest.TestCase):
                     self.save_render(page, f"waiting-{width}", '[aria-label="Workflow exceptions"]')
                     card.get_by_role("button", name="Review Apple analytics", exact=True).press("Enter")
                     expect(page.get_by_role("dialog")).to_contain_text("Inspect latest refresh")
-                    self.assertEqual([url for method, url in requests if method == "POST"],
-                                     [f"{host.origin}/api/apps/{apple.APP}/apple-analytics/view"])
+                    self.assertEqual(
+                        [url for method, url in requests if method == "POST"],
+                        [f"{host.origin}/api/apps/{apple.APP}/apple-analytics/view"],
+                    )
                     self.assertTrue(all(url.startswith(host.origin + "/") for _, url in requests))
                     page.keyboard.press("Escape")
                     page.locator("#app-select").select_option("sample-two")

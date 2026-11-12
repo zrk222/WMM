@@ -50,10 +50,7 @@ def validate(db, store, app_id, actor, scope, action):
     active = CURRENT.get()
     if active is None:
         return None
-    if (
-        active["store"] != store_identity(store)
-        or actor != "monitor:" + active["job_id"]
-    ):
+    if active["store"] != store_identity(store) or actor != "monitor:" + active["job_id"]:
         raise PermissionError("Monitor actor or host changed")
     if action not in ("RECONCILE", "PAUSE") or active["action"] != action:
         raise PermissionError("Monitor cannot authorize this campaign effect")
@@ -74,9 +71,7 @@ def _pause_evidence(active, summary):
     evidence = active.get("pause_observation")
     if not evidence or digest(evidence) != active.get("pause_evidence"):
         raise PermissionError("Protective observation changed")
-    if pause_reason(
-        evidence, summary["proposal"]["protective_conditions"]
-    ) != active.get("pause_reason"):
+    if pause_reason(evidence, summary["proposal"]["protective_conditions"]) != active.get("pause_reason"):
         raise PermissionError("Fresh approved protective evidence is unavailable")
 
 
@@ -84,9 +79,7 @@ def _job(db, active, app_id):
     job = db.execute("SELECT * FROM jobs WHERE id=?", (active["job_id"],)).fetchone()
     if job is None or (job["app_id"], job["action"]) != (app_id, "campaign_monitor"):
         raise PermissionError("Monitor job belongs to another app or operation")
-    if (job["status"], job["attempts"]) != ("RUNNING", active["attempt"]) or job[
-        "lease"
-    ] <= time.time():
+    if (job["status"], job["attempts"]) != ("RUNNING", active["attempt"]) or job["lease"] <= time.time():
         raise PermissionError("Monitor worker lease changed")
     data = json.loads(job["data"])
     if digest(data) != active["input_hash"]:
@@ -97,12 +90,10 @@ def _job(db, active, app_id):
 def _monitor(db, active, job, data, scope):
     from .campaign_monitor import checked
 
-    row = db.execute(
-        "SELECT * FROM campaign_monitors WHERE id=?", (data["monitor_id"],)
-    ).fetchone()
+    row = db.execute("SELECT * FROM campaign_monitors WHERE id=?", (data["monitor_id"],)).fetchone()
     summary = checked(db, row)
-    if iso_time(summary['proposal']['expires_at']).timestamp() <= time.time():
-        raise PermissionError('Monitor approval expired before provider admission')
+    if iso_time(summary["proposal"]["expires_at"]).timestamp() <= time.time():
+        raise PermissionError("Monitor approval expired before provider admission")
     actual = (row["version"], row["summary_hash"], row["last_job"], row["runs"])
     if actual != (
         data["monitor_version"],
@@ -137,9 +128,7 @@ def admit(store, remote=None):
 
     with connection(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
-        job = db.execute(
-            "SELECT app_id FROM jobs WHERE id=?", (active["job_id"],)
-        ).fetchone()
+        job = db.execute("SELECT app_id FROM jobs WHERE id=?", (active["job_id"],)).fetchone()
         if job is None:
             raise PermissionError("Monitor job is unavailable")
         scope = row_scope(
@@ -169,9 +158,7 @@ def admit(store, remote=None):
 def _remote(db, app_id, active, remote):
     from .campaign_monitor import target_row
 
-    targets = {
-        value["intent_id"]: value for value in active["summary"]["proposal"]["targets"]
-    }
+    targets = {value["intent_id"]: value for value in active["summary"]["proposal"]["targets"]}
     row, paid = target_row(db, app_id, active["scope_id"], targets[active["intent_id"]])
     kind, identity, page_hash = remote
     if paid:
@@ -199,9 +186,7 @@ def remote_check(store, remote):
     if active is None:
         raise PermissionError("Monitor target capability is unavailable")
     with connection(store.path) as db:
-        job = db.execute(
-            "SELECT app_id FROM jobs WHERE id=?", (active["job_id"],)
-        ).fetchone()
+        job = db.execute("SELECT app_id FROM jobs WHERE id=?", (active["job_id"],)).fetchone()
         if job is None:
             raise PermissionError("Monitor job is unavailable")
         _remote(db, job["app_id"], active, remote)
@@ -224,14 +209,10 @@ class BoundaryTransport:
         return guarded
 
     def read_paid(self, kind, identity, token, secret, alive):
-        return self.transport.read_paid(
-            kind, identity, token, secret, self.boundary(alive, kind, identity)
-        )
+        return self.transport.read_paid(kind, identity, token, secret, self.boundary(alive, kind, identity))
 
     def ad_insights(self, identity, token, secret, alive):
-        return self.transport.ad_insights(
-            identity, token, secret, self.boundary(alive, "ad", identity)
-        )
+        return self.transport.ad_insights(identity, token, secret, self.boundary(alive, "ad", identity))
 
     def read_post(self, page, identity, content_hash, token, secret, alive):
         return self.transport.read_post(
@@ -245,12 +226,7 @@ class BoundaryTransport:
 
     def set_paid_status(self, kind, identity, status, token, secret, alive):
         active = CURRENT.get()
-        if (
-            kind != "campaign"
-            or status != "PAUSED"
-            or not active
-            or active["action"] != "PAUSE"
-        ):
+        if kind != "campaign" or status != "PAUSED" or not active or active["action"] != "PAUSE":
             raise PermissionError("Monitor cannot activate or alter provider objects")
         return self.transport.set_paid_status(
             kind, identity, status, token, secret, self.boundary(alive, kind, identity)

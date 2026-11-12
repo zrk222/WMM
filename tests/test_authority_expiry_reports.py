@@ -26,9 +26,9 @@ class AuthorityExpiryReportTests(unittest.TestCase):
         transport = self.fixture.fixture.wire
         provider_state = (transport.posts, canonical(transport.objects))
         with connection(self.store.path) as db:
-            plan_before = db.execute(
-                "SELECT summary FROM campaign_report_plans WHERE id=?", (plan["id"],)
-            ).fetchone()["summary"]
+            plan_before = db.execute("SELECT summary FROM campaign_report_plans WHERE id=?", (plan["id"],)).fetchone()[
+                "summary"
+            ]
             monitor_before = db.execute(
                 "SELECT summary FROM campaign_monitors WHERE id=?",
                 (self.fixture.monitor["id"],),
@@ -70,9 +70,7 @@ class AuthorityExpiryReportTests(unittest.TestCase):
 
         with connection(self.store.path) as db:
             self.assertEqual(
-                db.execute(
-                    "SELECT summary FROM campaign_report_plans WHERE id=?", (plan["id"],)
-                ).fetchone()["summary"],
+                db.execute("SELECT summary FROM campaign_report_plans WHERE id=?", (plan["id"],)).fetchone()["summary"],
                 plan_before,
             )
             self.assertEqual(
@@ -92,7 +90,9 @@ class AuthorityExpiryReportTests(unittest.TestCase):
         self.assertIn("historical", expired["report"]["next_action"])
 
         with connection(self.store.path) as db:
-            db.execute("UPDATE campaign_scopes SET status='REVOKED' WHERE id=?", (self.fixture.fixture.scope["scope_id"],))
+            db.execute(
+                "UPDATE campaign_scopes SET status='REVOKED' WHERE id=?", (self.fixture.fixture.scope["scope_id"],)
+            )
         revoked = self.fixture.capture()
         self.assertEqual(revoked["report"]["campaign"]["status"], "REVOKED")
         self.assertIn("historical", revoked["report"]["next_action"])

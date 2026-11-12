@@ -18,7 +18,8 @@ class KeychainProbeTests(unittest.TestCase):
 
         def run(argv, **kwargs):
             calls.append(argv[1:])
-            self.assertEqual(kwargs['env'], environment)
+            self.assertEqual(kwargs['env'], dict(environment, HOME=str(Path.home())))
+            self.assertEqual(environment['HOME'], '/synthetic')
             self.assertEqual(kwargs['timeout'], 15)
             self.assertEqual(kwargs['stdin'], subprocess.DEVNULL)
             output = ''

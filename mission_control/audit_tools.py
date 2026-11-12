@@ -1,4 +1,5 @@
 """Detected installed REA and bounded shell-free native process execution."""
+
 import hashlib
 import json
 import os
@@ -61,23 +62,32 @@ def capability(home=None):
     try:
         home = Path(home) if home else Path.home()
         node, script, browser = installed(home)
-        result = {"status": "READY", "node": str(node), "script": str(script), "browser": str(browser),
-                  "version": "6.4.0", "skills": skills(home)}
+        result = {
+            "status": "READY",
+            "node": str(node),
+            "script": str(script),
+            "browser": str(browser),
+            "version": "6.4.0",
+            "skills": skills(home),
+        }
         result["hashes"] = {str(p): file_hash(p) for p in (node, script, browser)}
         result["package_sha256"] = package_hash(script.parent.parent)
         result["id"] = digest(result)
         return result
     except (OSError, KeyError, TypeError, ValueError, Invalid):
-        return {"status": "BLOCKED", "id": None,
-                "repair": "Use the existing REA 6.4.0 Codex registration, installed Playwright Chromium and ECC plugin. No installation or credentials are performed here."}
+        return {
+            "status": "BLOCKED",
+            "id": None,
+            "repair": "Use the existing REA 6.4.0 Codex registration, installed Playwright Chromium and ECC plugin. No installation or credentials are performed here.",
+        }
 
 
 def package_hash(package):
     """Bind REA entrypoint imports as well as the launch script, without acquiring code."""
-    files=[package/"package.json"]
-    for folder in ("dist","scripts"):
-        files.extend(p for p in (package/folder).rglob("*") if p.is_file())
-    return digest({str(p.relative_to(package)):file_hash(p) for p in sorted(files)})
+    files = [package / "package.json"]
+    for folder in ("dist", "scripts"):
+        files.extend(p for p in (package / folder).rglob("*") if p.is_file())
+    return digest({str(p.relative_to(package)): file_hash(p) for p in sorted(files)})
 
 
 def restricted_environment():
@@ -92,9 +102,15 @@ def stop_owned(process):
         return
     if os.name == "nt":
         taskkill = str(Path(os.environ["SYSTEMROOT"]) / "System32/taskkill.exe")
-        subprocess.run([taskkill, "/PID", str(process.pid), "/T", "/F"], stdin=subprocess.DEVNULL,
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15,
-                       creationflags=subprocess.CREATE_NO_WINDOW, shell=False)
+        subprocess.run(
+            [taskkill, "/PID", str(process.pid), "/T", "/F"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=15,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+            shell=False,
+        )
     else:
         os.killpg(process.pid, signal.SIGKILL)
     process.wait(timeout=15)
@@ -122,13 +138,28 @@ def invoke(tools, scenario, alive, timeout=90):
         request = folder / "scenario.json"
         request.write_text(json.dumps(scenario), encoding="utf-8")
         output, error = folder / "evidence.json", folder / "error.txt"
-        args = [tools["node"], tools["script"], "capture-browser-scenario", str(request),
-                "--format", "json", "--full-output"]
+        args = [
+            tools["node"],
+            tools["script"],
+            "capture-browser-scenario",
+            str(request),
+            "--format",
+            "json",
+            "--full-output",
+        ]
         flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         with output.open("wb") as stdout, error.open("wb") as stderr:
-            process = subprocess.Popen(args, cwd=folder, env=restricted_environment(), stdin=subprocess.DEVNULL,
-                                       stdout=stdout, stderr=stderr, shell=False, creationflags=flags,
-                                       start_new_session=os.name != "nt")
+            process = subprocess.Popen(
+                args,
+                cwd=folder,
+                env=restricted_environment(),
+                stdin=subprocess.DEVNULL,
+                stdout=stdout,
+                stderr=stderr,
+                shell=False,
+                creationflags=flags,
+                start_new_session=os.name != "nt",
+            )
             try:
                 await_process(process, output, error, alive, timeout)
                 code = process.returncode

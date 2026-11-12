@@ -1,16 +1,49 @@
 """Credential-free, source-bound browser integration artifacts; never an installer."""
+
 from pathlib import Path
 from io import BytesIO
-import hashlib,json,zipfile
-from .common import Invalid,canonical,digest
-from .aeo_transport import public_url,origin
+import hashlib, json, zipfile
+from .common import Invalid, canonical, digest
+from .aeo_transport import public_url, origin
 
-FIELDS={'schema','app_id','manifest_version','experiment_id','experiment_version','experiment_hash',
-        'source_id','source_version','source_hash','project_id','region','release','locale','starts_at',
-        'ends_at','flag_key','expected_flag','events','scope','spend_minor','provider_writes','proposal_hash','origin'}
-CONFIG=('app_id','release','locale','experiment_id','experiment_hash','flag_key','starts_at','ends_at','origin')
+FIELDS = {
+    "schema",
+    "app_id",
+    "manifest_version",
+    "experiment_id",
+    "experiment_version",
+    "experiment_hash",
+    "source_id",
+    "source_version",
+    "source_hash",
+    "project_id",
+    "region",
+    "release",
+    "locale",
+    "starts_at",
+    "ends_at",
+    "flag_key",
+    "expected_flag",
+    "events",
+    "scope",
+    "spend_minor",
+    "provider_writes",
+    "proposal_hash",
+    "origin",
+}
+CONFIG = (
+    "app_id",
+    "release",
+    "locale",
+    "experiment_id",
+    "experiment_hash",
+    "flag_key",
+    "starts_at",
+    "ends_at",
+    "origin",
+)
 
-GUIDE='''# Browser experiment integration
+GUIDE = """# Browser experiment integration
 
 This package is prepared, not installed. It does not launch an experiment.
 
@@ -49,9 +82,9 @@ genuine provider pilot remain separate work. Retain this distinction in UI.
 
 Reference: https://posthog.com/docs/feature-flags/creating-feature-flags
 Reference: https://posthog.com/docs/libraries/js/usage
-'''
+"""
 
-EXAMPLE='''import {createTracker} from './experiment-client.mjs';
+EXAMPLE = """import {createTracker} from './experiment-client.mjs';
 import config from './config.json' with {type: 'json'};
 
 // Bind these callbacks to the real app. This example does not initialize PostHog.
@@ -64,58 +97,94 @@ export async function renderMeasuredVariant({posthog, consent, context, render})
     return tracker; // Call stop() on unmount, logout or consent withdrawal.
   } catch(error) {tracker.stop();throw error;}
 }
-'''
+"""
 
 
 def configuration(plan):
     """Accept only the recomputable tracking contract plus an owned HTTPS origin."""
-    if not isinstance(plan,dict) or set(plan)!=FIELDS:raise Invalid('Use the exact current tracking proposal and app origin')
-    proposed={k:v for k,v in plan.items() if k not in ('origin','proposal_hash')}
-    if digest(proposed)!=plan['proposal_hash']:raise Invalid('Tracking proposal integrity differs')
-    if proposed['schema']!='growth.experiment-tracking-plan.v1' or proposed['provider_writes'] is not False or proposed['spend_minor']!=0:
-        raise Invalid('Instrumentation cannot grant provider writes or spending')
-    address=public_url(plan['origin'])
-    if origin(address)!=plan['origin']:raise Invalid('Use the app exact HTTPS origin')
-    return dict(schema='growth.browser-instrumentation.v1',**{key:plan[key] for key in CONFIG})
+    if not isinstance(plan, dict) or set(plan) != FIELDS:
+        raise Invalid("Use the exact current tracking proposal and app origin")
+    proposed = {k: v for k, v in plan.items() if k not in ("origin", "proposal_hash")}
+    if digest(proposed) != plan["proposal_hash"]:
+        raise Invalid("Tracking proposal integrity differs")
+    if (
+        proposed["schema"] != "growth.experiment-tracking-plan.v1"
+        or proposed["provider_writes"] is not False
+        or proposed["spend_minor"] != 0
+    ):
+        raise Invalid("Instrumentation cannot grant provider writes or spending")
+    address = public_url(plan["origin"])
+    if origin(address) != plan["origin"]:
+        raise Invalid("Use the app exact HTTPS origin")
+    return dict(schema="growth.browser-instrumentation.v1", **{key: plan[key] for key in CONFIG})
+
 
 def bundle(plan) -> object:
     """Return credential-free source-bound browser integration files and their hashes."""
-    config=configuration(plan)
-    source=Path(__file__).resolve().parent/'sdk/experiment-client.mjs'
-    values={'experiment-client.mjs':source.read_text(encoding='utf-8'),
-            'config.json':canonical(config)+'\n','example.mjs':EXAMPLE,'README.md':GUIDE}
-    files=[dict(name=name,sha256=hashlib.sha256(content.encode()).hexdigest(),content=content) for name,content in sorted(values.items())]
-    value=dict(schema='growth.instrumentation-bundle.v1',status='PREPARED_NOT_INSTALLED',app_id=config['app_id'],
-        experiment_id=config['experiment_id'],proposal_hash=plan['proposal_hash'],config_sha256=digest(config),
-        files=files,provider_writes=False,spend_minor=0,
-        next_actions=['Review and integrate these exact files through the app repository workflow',
-                      'Verify actual consent, identity, provider events and rendered variants before launch'])
-    return dict(value,bundle_hash=digest(value))
+    config = configuration(plan)
+    source = Path(__file__).resolve().parent / "sdk/experiment-client.mjs"
+    values = {
+        "experiment-client.mjs": source.read_text(encoding="utf-8"),
+        "config.json": canonical(config) + "\n",
+        "example.mjs": EXAMPLE,
+        "README.md": GUIDE,
+    }
+    files = [
+        dict(name=name, sha256=hashlib.sha256(content.encode()).hexdigest(), content=content)
+        for name, content in sorted(values.items())
+    ]
+    value = dict(
+        schema="growth.instrumentation-bundle.v1",
+        status="PREPARED_NOT_INSTALLED",
+        app_id=config["app_id"],
+        experiment_id=config["experiment_id"],
+        proposal_hash=plan["proposal_hash"],
+        config_sha256=digest(config),
+        files=files,
+        provider_writes=False,
+        spend_minor=0,
+        next_actions=[
+            "Review and integrate these exact files through the app repository workflow",
+            "Verify actual consent, identity, provider events and rendered variants before launch",
+        ],
+    )
+    return dict(value, bundle_hash=digest(value))
 
 
 def archive(value):
     """Produce only the fixed reviewed files and a content-hash manifest in memory."""
-    expected={k:v for k,v in value.items() if k!='bundle_hash'}
-    if digest(expected)!=value['bundle_hash']:raise Invalid('Instrumentation bundle changed before download')
-    if sorted(r['name'] for r in value['files'])!=['README.md','config.json','example.mjs','experiment-client.mjs']:
-        raise Invalid('Instrumentation archive accepts only the fixed integration files')
-    for row in value['files']:
-        if hashlib.sha256(row['content'].encode()).hexdigest()!=row['sha256']:raise Invalid('Integration file hash changed')
-    manifest={k:v for k,v in value.items() if k!='files'}
-    manifest['files']=[{k:v for k,v in row.items() if k!='content'} for row in value['files']]
-    files=[(r['name'],r['content']) for r in value['files']]+[('manifest.json',canonical(manifest)+'\n')]
-    output=BytesIO()
-    with zipfile.ZipFile(output,'w',compression=zipfile.ZIP_DEFLATED) as zipped:
-        for name,content in files:
-            info=zipfile.ZipInfo(name,date_time=(1980,1,1,0,0,0));info.external_attr=0o644<<16
-            zipped.writestr(info,content.encode(),compress_type=zipfile.ZIP_DEFLATED)
+    expected = {k: v for k, v in value.items() if k != "bundle_hash"}
+    if digest(expected) != value["bundle_hash"]:
+        raise Invalid("Instrumentation bundle changed before download")
+    if sorted(r["name"] for r in value["files"]) != [
+        "README.md",
+        "config.json",
+        "example.mjs",
+        "experiment-client.mjs",
+    ]:
+        raise Invalid("Instrumentation archive accepts only the fixed integration files")
+    for row in value["files"]:
+        if hashlib.sha256(row["content"].encode()).hexdigest() != row["sha256"]:
+            raise Invalid("Integration file hash changed")
+    manifest = {k: v for k, v in value.items() if k != "files"}
+    manifest["files"] = [{k: v for k, v in row.items() if k != "content"} for row in value["files"]]
+    files = [(r["name"], r["content"]) for r in value["files"]] + [("manifest.json", canonical(manifest) + "\n")]
+    output = BytesIO()
+    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as zipped:
+        for name, content in files:
+            info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+            info.external_attr = 0o644 << 16
+            zipped.writestr(info, content.encode(), compress_type=zipfile.ZIP_DEFLATED)
     return output.getvalue()
 
 
-def prepare(store,app_id,experiment_id,source_id,proposal_hash):
+def prepare(store, app_id, experiment_id, source_id, proposal_hash):
     """Recompute current app-owned inputs; downloads cannot smuggle an edited package."""
     from .experiment_tracking import Tracking
-    plan=Tracking(store).prepare(app_id,dict(experiment_id=experiment_id,source_id=source_id))
-    if plan['proposal_hash']!=proposal_hash:raise Invalid('Tracking setup changed; review it again before downloading')
-    app=store.app(app_id);address=origin(public_url(app['data'].get('website')))
-    return bundle(dict(plan,origin=address))
+
+    plan = Tracking(store).prepare(app_id, dict(experiment_id=experiment_id, source_id=source_id))
+    if plan["proposal_hash"] != proposal_hash:
+        raise Invalid("Tracking setup changed; review it again before downloading")
+    app = store.app(app_id)
+    address = origin(public_url(app["data"].get("website")))
+    return bundle(dict(plan, origin=address))

@@ -1,4 +1,5 @@
 """Closed operator scope for credential-free, bounded REA browser inspection."""
+
 from urllib.parse import urlsplit
 from .common import Invalid, required
 from .aeo_transport import public_url, origin
@@ -29,8 +30,13 @@ def fixture_url(value):
 
 def fixture_origin(value):
     """Restrict fixture authority independently from path validation."""
-    return (value.scheme == "http" and value.hostname == "127.0.0.1" and value.port is not None
-            and value.username is None and value.password is None)
+    return (
+        value.scheme == "http"
+        and value.hostname == "127.0.0.1"
+        and value.port is not None
+        and value.username is None
+        and value.password is None
+    )
 
 
 def target(value, mode, app):
@@ -90,23 +96,29 @@ def scope(body, app, tools):
     if tools["status"] != "READY" or body["tool_id"] != tools["id"]:
         raise Invalid("Native installation changed or is unavailable; refresh detected tools")
     mode = body["mode"]
-    shape(mode,body["viewport"])
+    shape(mode, body["viewport"])
     steps = body["steps"]
     if not isinstance(steps, list) or not 1 <= len(steps) <= 12:
         raise Invalid("Declare between 1 and 12 inspection steps")
     url = target(body["start_url"], mode, app)
     width, height = SHAPES[body["viewport"]]
-    scenario = {"browser": {"mode": "launch", "executable_path": tools["browser"], "headless": True},
-                "start_url": {"url": url, "query": []},
-                "environment": {"viewport": {"width": width, "height": height}},
-                "actions": [step(v, i, mode, url, app) for i, v in enumerate(steps)],
-                "storage": {"cookies": [], "local_storage": [], "session_storage": []}, "secrets": [],
-                "capture": {"after_each_step": ["url"], "at_end": ["url", "dom", "accessibility", "screenshot"],
-                            "events": ["page-errors", "network"]}}
+    scenario = {
+        "browser": {"mode": "launch", "executable_path": tools["browser"], "headless": True},
+        "start_url": {"url": url, "query": []},
+        "environment": {"viewport": {"width": width, "height": height}},
+        "actions": [step(v, i, mode, url, app) for i, v in enumerate(steps)],
+        "storage": {"cookies": [], "local_storage": [], "session_storage": []},
+        "secrets": [],
+        "capture": {
+            "after_each_step": ["url"],
+            "at_end": ["url", "dom", "accessibility", "screenshot"],
+            "events": ["page-errors", "network"],
+        },
+    }
     return {"mode": mode, "request": body, "scenario": scenario, "tool_id": tools["id"]}
 
 
-def shape(mode,viewport):
+def shape(mode, viewport):
     """Reject untyped or unknown viewport fields without leaking a server error."""
-    if mode not in MODES or not isinstance(viewport,str) or viewport not in SHAPES:
+    if mode not in MODES or not isinstance(viewport, str) or viewport not in SHAPES:
         raise Invalid("Choose scope mode and viewport")

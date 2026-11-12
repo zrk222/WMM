@@ -1,4 +1,5 @@
 """Unified provider health: login and publishing access stay separate from analytics permission."""
+
 from pathlib import Path
 import tempfile
 import unittest
@@ -10,19 +11,49 @@ from mission_control.store import Store
 
 def workspace():
     return dict(
-        records=[dict(kind="connection", id="store-1", data=dict(provider="app_store", store_app_id="123",
-                                                                  credential_ref="PRIVATE_CREDENTIAL")),
-                 dict(kind="connection", id="ads-1", data=dict(provider="apple_ads", store_app_id="123",
-                                                               account_id="456"))],
-        connections={"store-1": {"status": "RECONNECT_REQUIRED"},
-                     "ads-1": {"status": "PROTECTED_KEY_PRESENT"}},
-        insights={"sources": [dict(provider="posthog", status="CONNECTED", updated="2026-11-01T00:00:00+00:00",
-                                   data=dict(project_id="project-1"), last_error=None),
-                              dict(provider="clarity", status="DISCONNECTED", updated="2026-11-01T00:00:00+00:00",
-                                   data=dict(project_id="clarity-1"), last_error="PERMISSION_REQUIRED")]},
-        social_access={"accounts": [dict(provider="facebook", status="CONNECTED", reconnect_required=False,
-                                         expires=1900000000, updated="2026-11-01T00:00:00+00:00")]},
-        play={"flows": [dict(status="EXPIRED", config=dict(package_name="com.example.app"), updated="2026-11-01T00:00:00+00:00")]},
+        records=[
+            dict(
+                kind="connection",
+                id="store-1",
+                data=dict(provider="app_store", store_app_id="123", credential_ref="PRIVATE_CREDENTIAL"),
+            ),
+            dict(kind="connection", id="ads-1", data=dict(provider="apple_ads", store_app_id="123", account_id="456")),
+        ],
+        connections={"store-1": {"status": "RECONNECT_REQUIRED"}, "ads-1": {"status": "PROTECTED_KEY_PRESENT"}},
+        insights={
+            "sources": [
+                dict(
+                    provider="posthog",
+                    status="CONNECTED",
+                    updated="2026-11-01T00:00:00+00:00",
+                    data=dict(project_id="project-1"),
+                    last_error=None,
+                ),
+                dict(
+                    provider="clarity",
+                    status="DISCONNECTED",
+                    updated="2026-11-01T00:00:00+00:00",
+                    data=dict(project_id="clarity-1"),
+                    last_error="PERMISSION_REQUIRED",
+                ),
+            ]
+        },
+        social_access={
+            "accounts": [
+                dict(
+                    provider="facebook",
+                    status="CONNECTED",
+                    reconnect_required=False,
+                    expires=1900000000,
+                    updated="2026-11-01T00:00:00+00:00",
+                )
+            ]
+        },
+        play={
+            "flows": [
+                dict(status="EXPIRED", config=dict(package_name="com.example.app"), updated="2026-11-01T00:00:00+00:00")
+            ]
+        },
     )
 
 
@@ -81,8 +112,17 @@ class ProviderHealthTests(unittest.TestCase):
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         store = Store(Path(folder.name) / "state.sqlite", seed=False)
-        store.save_app("sample-one", dict(name="Synthetic app", release="build-1", job="Synthetic job",
-                                          audience="Synthetic audience", activation="Synthetic value", locale="en-US"))
+        store.save_app(
+            "sample-one",
+            dict(
+                name="Synthetic app",
+                release="build-1",
+                job="Synthetic job",
+                audience="Synthetic audience",
+                activation="Synthetic value",
+                locale="en-US",
+            ),
+        )
         value = Service(store).workspace("sample-one")
         self.assertEqual(value["provider_health"]["schema"], "growth.provider-health.v1")
         self.assertEqual(value["provider_health"], project(value))

@@ -1,4 +1,5 @@
 """Audit bundles are read-only, source-bound manifests, not audit opinions."""
+
 from pathlib import Path
 import json
 import tempfile
@@ -19,8 +20,17 @@ class AuditBundleTests(unittest.TestCase):
         self.addCleanup(self.folder.cleanup)
         self.path = Path(self.folder.name) / "state.sqlite"
         self.store = Store(self.path, seed=False)
-        self.store.save_app(APP, dict(name="Synthetic app", release="build-1", job="Synthetic job",
-                                     audience="Synthetic audience", activation="Synthetic value", locale="en-US"))
+        self.store.save_app(
+            APP,
+            dict(
+                name="Synthetic app",
+                release="build-1",
+                job="Synthetic job",
+                audience="Synthetic audience",
+                activation="Synthetic value",
+                locale="en-US",
+            ),
+        )
 
     def test_export_verifies_and_omits_raw_app_data(self):
         value = audit.build(self.path, APP)
@@ -37,6 +47,7 @@ class AuditBundleTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             audit.verify(self.path, APP, changed)
         from mission_control.db import connection
+
         with connection(self.path) as db:
             db.execute("UPDATE apps SET version=version+1 WHERE id=?", (APP,))
         with self.assertRaises(ValueError):

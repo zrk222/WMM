@@ -1,4 +1,5 @@
 """Keep existing CA trust while excluding expired default-store anchors."""
+
 from datetime import datetime, timezone
 import ssl
 from .common import Invalid
@@ -8,12 +9,14 @@ def item(raw, offset=0):
     """Read one bounded DER TLV, rejecting indefinite/nonminimal lengths."""
     if offset + 2 > len(raw):
         raise Invalid("Invalid trusted certificate encoding")
-    tag, size = raw[offset:offset+2]; start = offset + 2
+    tag, size = raw[offset : offset + 2]
+    start = offset + 2
     if size & 128:
         count = size & 127
         if not 1 <= count <= 3 or start + count > len(raw) or raw[start] == 0:
             raise Invalid("Invalid trusted certificate length")
-        size = int.from_bytes(raw[start:start+count], "big"); start += count
+        size = int.from_bytes(raw[start : start + count], "big")
+        start += count
         if size < 128:
             raise Invalid("Nonminimal trusted certificate length")
     end = start + size
@@ -51,7 +54,8 @@ def der_time(raw, offset):
     try:
         text = value.decode("ascii")
         if tag == 23 and len(text) == 13:
-            year = int(text[:2]); year += 2000 if year < 50 else 1900
+            year = int(text[:2])
+            year += 2000 if year < 50 else 1900
             text = str(year) + text[2:]
         elif tag != 24 or len(text) != 15:
             raise ValueError
@@ -63,7 +67,8 @@ def der_time(raw, offset):
 
 def trust_context():
     """Use only currently valid members of the existing OS/default trust set."""
-    defaults = ssl.create_default_context(); stamp = datetime.now(timezone.utc)
+    defaults = ssl.create_default_context()
+    stamp = datetime.now(timezone.utc)
     accepted = []
     for raw in defaults.get_ca_certs(binary_form=True):
         try:

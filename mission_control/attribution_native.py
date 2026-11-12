@@ -1,4 +1,5 @@
 """Ephemeral Windows BCrypt verification of exact named-curve attribution keys."""
+
 import ctypes as c
 from ctypes import wintypes as w
 import hashlib
@@ -22,10 +23,11 @@ def public_point(spki, curve):
     """Require exact DER EC algorithm, named curve and uncompressed point."""
     require(isinstance(curve, str) and curve in CURVES, "Attribution curve is unsupported")
     width, prefix, _ = CURVES[curve]
-    require(isinstance(spki, bytes) and len(spki) == len(prefix) + 2 * width,
-            "Attribution public key length is invalid")
+    require(
+        isinstance(spki, bytes) and len(spki) == len(prefix) + 2 * width, "Attribution public key length is invalid"
+    )
     require(spki.startswith(prefix), "Attribution public key must declare its exact named curve")
-    return spki[len(prefix):], width
+    return spki[len(prefix) :], width
 
 
 def signature_integer(raw, offset, width):
@@ -47,8 +49,7 @@ def der_signature(raw, curve):
     """Require canonical short DER with exactly two bounded positive integers."""
     require(isinstance(curve, str) and curve in CURVES, "Attribution curve is unsupported")
     width = CURVES[curve][0]
-    require(isinstance(raw, bytes) and 6 <= len(raw) <= 2 * width + 8,
-            "Attribution DER signature size is invalid")
+    require(isinstance(raw, bytes) and 6 <= len(raw) <= 2 * width + 8, "Attribution DER signature size is invalid")
     require(raw[0] == 48 and raw[1] == len(raw) - 2, "Attribution DER sequence is invalid")
     first, offset = signature_integer(raw, 2, width)
     second, offset = signature_integer(raw, offset, width)
@@ -77,33 +78,38 @@ def libraries():
 
 def open_curve(dll, handle, curve):
     """Require the named curve, including legacy P192, instead of guessing by width."""
-    require(dll.BCryptOpenAlgorithmProvider(c.byref(handle), "ECDSA", None, 0) == 0,
-            "Windows attribution ECDSA provider is unavailable")
+    require(
+        dll.BCryptOpenAlgorithmProvider(c.byref(handle), "ECDSA", None, 0) == 0,
+        "Windows attribution ECDSA provider is unavailable",
+    )
     name = c.create_unicode_buffer(CURVES[curve][2])
-    require(dll.BCryptSetProperty(handle, "ECCCurveName", name, c.sizeof(name), 0) == 0,
-            "Windows attribution named curve is unavailable")
+    require(
+        dll.BCryptSetProperty(handle, "ECCCurveName", name, c.sizeof(name), 0) == 0,
+        "Windows attribution named curve is unavailable",
+    )
 
 
-def verify(spki,curve,message,signature):
+def verify(spki, curve, message, signature):
     """Verify SHA256/P1363 with transient handles; never persist keys or alter trust."""
     point, width = public_point(spki, curve)
-    require(isinstance(message, bytes) and 0 < len(message) <= 262144,
-            "Attribution signed message size is invalid")
-    require(isinstance(signature, bytes) and len(signature) == 2 * width,
-            "Attribution raw signature size is invalid")
+    require(isinstance(message, bytes) and 0 < len(message) <= 262144, "Attribution signed message size is invalid")
+    require(isinstance(signature, bytes) and len(signature) == 2 * width, "Attribution raw signature size is invalid")
     require(any(signature[:width]) and any(signature[width:]), "Attribution signature has a zero integer")
     dll = libraries()
     algorithm, key = c.c_void_p(), c.c_void_p()
     try:
         open_curve(dll, algorithm, curve)
         blob = c.create_string_buffer(struct.pack("<II", 0x50444345, width) + point)
-        require(dll.BCryptImportKeyPair(algorithm, None, "ECCPUBLICBLOB", c.byref(key),
-                                       blob, 8 + 2 * width, 0) == 0,
-                "Attribution public key import failed")
+        require(
+            dll.BCryptImportKeyPair(algorithm, None, "ECCPUBLICBLOB", c.byref(key), blob, 8 + 2 * width, 0) == 0,
+            "Attribution public key import failed",
+        )
         hashed = c.create_string_buffer(hashlib.sha256(message).digest())
         signed = c.create_string_buffer(signature)
-        require(dll.BCryptVerifySignature(key, None, hashed, 32, signed, len(signature), 0) == 0,
-                "Attribution signature verification failed")
+        require(
+            dll.BCryptVerifySignature(key, None, hashed, 32, signed, len(signature), 0) == 0,
+            "Attribution signature verification failed",
+        )
     finally:
         if key.value:
             dll.BCryptDestroyKey(key)

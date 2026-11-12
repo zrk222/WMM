@@ -1,4 +1,5 @@
 """Opt-in local notices with durable deduplication; a terminal channel, not browser UI."""
+
 import argparse
 import json
 from datetime import datetime, timedelta, timezone
@@ -26,9 +27,11 @@ def configure(store, app_id, value):
         raise Invalid("Notice opt-in must be an explicit boolean")
     store.app(app_id)
     with connection(store.path) as db:
-        db.execute("INSERT INTO notice_settings(app_id,enabled,updated) VALUES(?,?,?) "
-                   "ON CONFLICT(app_id) DO UPDATE SET enabled=excluded.enabled,updated=excluded.updated",
-                   (app_id, int(value), now()))
+        db.execute(
+            "INSERT INTO notice_settings(app_id,enabled,updated) VALUES(?,?,?) "
+            "ON CONFLICT(app_id) DO UPDATE SET enabled=excluded.enabled,updated=excluded.updated",
+            (app_id, int(value), now()),
+        )
     return enabled(store, app_id)
 
 
@@ -42,29 +45,54 @@ def collect(store, app_id):
     current = datetime.now(timezone.utc)
     with connection(store.path) as db:
         items = []
-        for row in db.execute("SELECT id,action,status,updated FROM jobs WHERE app_id=? "
-                              "AND status IN ('FAILED','BLOCKED','INTERRUPTED') ORDER BY updated DESC,id DESC LIMIT 50",
-                              (app_id,)):
+        for row in db.execute(
+            "SELECT id,action,status,updated FROM jobs WHERE app_id=? "
+            "AND status IN ('FAILED','BLOCKED','INTERRUPTED') ORDER BY updated DESC,id DESC LIMIT 50",
+            (app_id,),
+        ):
             items.append(_candidate("JOB", row["id"], "Saved run needs attention", row["status"], row["updated"]))
-        for row in db.execute("SELECT id,expires,updated FROM agent_grants WHERE app_id=? "
-                              "AND status='ACTIVE' ORDER BY expires,id LIMIT 50", (app_id,)):
+        for row in db.execute(
+            "SELECT id,expires,updated FROM agent_grants WHERE app_id=? "
+            "AND status='ACTIVE' ORDER BY expires,id LIMIT 50",
+            (app_id,),
+        ):
             try:
                 expires = iso_time(row["expires"])
             except Invalid:
                 continue
             if current < expires <= current + HORIZON:
-                items.append(_candidate("AGENT_GRANT", row["id"], "Owner grant expires soon", "EXPIRING", row["updated"]))
-        for row in db.execute("SELECT id,status,updated FROM campaign_monitors WHERE app_id=? "
-                              "AND status='BLOCKED' ORDER BY updated DESC,id DESC LIMIT 50", (app_id,)):
-            items.append(_candidate("CAMPAIGN_MONITOR", row["id"], "Campaign monitor is blocked", row["status"], row["updated"]))
-        for row in db.execute("SELECT app_id,status,updated FROM apple_metrics_schedules WHERE app_id=? "
-                              "AND status='BLOCKED' LIMIT 5", (app_id,)):
-            items.append(_candidate("APPLE_SCHEDULE", row["app_id"], "Apple analytics schedule is blocked",
-                                    row["status"], row["updated"]))
-        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
-                      "AND name='observational_campaign_studies'").fetchone():
-            for row in db.execute("SELECT study_id,data,registered_at FROM observational_campaign_studies "
-                                  "WHERE app_id=? ORDER BY registered_at DESC,study_id LIMIT 50", (app_id,)):
+                items.append(
+                    _candidate("AGENT_GRANT", row["id"], "Owner grant expires soon", "EXPIRING", row["updated"])
+                )
+        for row in db.execute(
+            "SELECT id,status,updated FROM campaign_monitors WHERE app_id=? "
+            "AND status='BLOCKED' ORDER BY updated DESC,id DESC LIMIT 50",
+            (app_id,),
+        ):
+            items.append(
+                _candidate("CAMPAIGN_MONITOR", row["id"], "Campaign monitor is blocked", row["status"], row["updated"])
+            )
+        for row in db.execute(
+            "SELECT app_id,status,updated FROM apple_metrics_schedules WHERE app_id=? AND status='BLOCKED' LIMIT 5",
+            (app_id,),
+        ):
+            items.append(
+                _candidate(
+                    "APPLE_SCHEDULE",
+                    row["app_id"],
+                    "Apple analytics schedule is blocked",
+                    row["status"],
+                    row["updated"],
+                )
+            )
+        if db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='observational_campaign_studies'"
+        ).fetchone():
+            for row in db.execute(
+                "SELECT study_id,data,registered_at FROM observational_campaign_studies "
+                "WHERE app_id=? ORDER BY registered_at DESC,study_id LIMIT 50",
+                (app_id,),
+            ):
                 try:
                     ends = iso_time(json.loads(row["data"])["ends_at"])
                 except (Invalid, KeyError, TypeError, ValueError):
@@ -86,17 +114,24 @@ def sync(store, app_id):
     items = collect(store, app_id)
     with connection(store.path) as db:
         for item in items:
-            db.execute("INSERT OR IGNORE INTO notices(app_id,id,kind,title,state,created) VALUES(?,?,?,?,?,?)",
-                       (app_id, item["id"], item["kind"], item["title"], item["state"], now()))
+            db.execute(
+                "INSERT OR IGNORE INTO notices(app_id,id,kind,title,state,created) VALUES(?,?,?,?,?,?)",
+                (app_id, item["id"], item["kind"], item["title"], item["state"], now()),
+            )
     return pending(store, app_id)
 
 
 def pending(store, app_id):
     """Return undelivered notices only; the delivered history is retained."""
     with connection(store.path) as db:
-        rows = [dict(row) for row in db.execute(
-            "SELECT id,kind,title,state,created FROM notices WHERE app_id=? AND delivered_at IS NULL "
-            "ORDER BY created,id LIMIT 100", (app_id,))]
+        rows = [
+            dict(row)
+            for row in db.execute(
+                "SELECT id,kind,title,state,created FROM notices WHERE app_id=? AND delivered_at IS NULL "
+                "ORDER BY created,id LIMIT 100",
+                (app_id,),
+            )
+        ]
     return rows
 
 
@@ -109,8 +144,10 @@ def deliver(store, app_id, notifier):
         except Exception:
             outcome = "DELIVERY_FAILED"
         with connection(store.path) as db:
-            db.execute("UPDATE notices SET delivered_at=?,outcome=? WHERE app_id=? AND id=? AND delivered_at IS NULL",
-                       (now(), outcome, app_id, item["id"]))
+            db.execute(
+                "UPDATE notices SET delivered_at=?,outcome=? WHERE app_id=? AND id=? AND delivered_at IS NULL",
+                (now(), outcome, app_id, item["id"]),
+            )
         results.append(dict(item, outcome=outcome))
     return results
 
@@ -120,8 +157,10 @@ def dismiss(store, app_id, identity):
     if not isinstance(identity, str) or not identity:
         raise Invalid("Choose one saved notice")
     with connection(store.path) as db:
-        changed = db.execute("UPDATE notices SET delivered_at=?,outcome='DISMISSED' "
-                             "WHERE app_id=? AND id=? AND delivered_at IS NULL", (now(), app_id, identity)).rowcount
+        changed = db.execute(
+            "UPDATE notices SET delivered_at=?,outcome='DISMISSED' WHERE app_id=? AND id=? AND delivered_at IS NULL",
+            (now(), app_id, identity),
+        ).rowcount
     if changed != 1:
         raise Invalid("Notice is unknown or already handled")
     return status(store, app_id)
@@ -131,12 +170,22 @@ def status(store, app_id):
     """Report opt-in and outcome counts without any notice payload."""
     store.app(app_id)
     with connection(store.path) as db:
-        counts = {row["outcome"]: row["n"] for row in db.execute(
-            "SELECT outcome,count(*) AS n FROM notices WHERE app_id=? GROUP BY outcome", (app_id,))}
-    return dict(app_id=app_id, enabled=enabled(store, app_id), pending=counts.get(None, 0),
-                delivered=counts.get("DELIVERED", 0), failed=counts.get("DELIVERY_FAILED", 0),
-                dismissed=counts.get("DISMISSED", 0),
-                channel="LOCAL_TERMINAL", scope="Saved local operational state only; no provider read or browser dependency.")
+        counts = {
+            row["outcome"]: row["n"]
+            for row in db.execute(
+                "SELECT outcome,count(*) AS n FROM notices WHERE app_id=? GROUP BY outcome", (app_id,)
+            )
+        }
+    return dict(
+        app_id=app_id,
+        enabled=enabled(store, app_id),
+        pending=counts.get(None, 0),
+        delivered=counts.get("DELIVERED", 0),
+        failed=counts.get("DELIVERY_FAILED", 0),
+        dismissed=counts.get("DISMISSED", 0),
+        channel="LOCAL_TERMINAL",
+        scope="Saved local operational state only; no provider read or browser dependency.",
+    )
 
 
 def main(argv=None):
@@ -164,8 +213,9 @@ def main(argv=None):
             print("Notices are disabled for this app. Run with --enable to opt in.")
             return 0
         sync(store, args.app)
-        for item in deliver(store, args.app, lambda notice: print(
-                notice["kind"] + ": " + notice["title"] + " · " + notice["state"])):
+        for item in deliver(
+            store, args.app, lambda notice: print(notice["kind"] + ": " + notice["title"] + " · " + notice["state"])
+        ):
             print("delivered", item["id"], item["outcome"])
         return 0
     print(status(store, args.app))

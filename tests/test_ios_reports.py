@@ -1,4 +1,5 @@
 """Real app-scoped native report reads and pure projection boundaries."""
+
 import json
 import unittest
 from unittest.mock import patch
@@ -12,161 +13,306 @@ class NativeReportTests(unittest.TestCase):
     verify = host_fixture.NativeRuntimeTests.verify
     creation = host_fixture.NativeRuntimeTests.creation
 
-    def report(self):return json.loads(self.runtime.report(self.session,'new-app'))
+    def report(self):
+        return json.loads(self.runtime.report(self.session, "new-app"))
 
     def test_consolidated_report_is_available_to_exact_scoped_agent_without_owner_promotion(self):
-        from datetime import datetime,timedelta,timezone
+        from datetime import datetime, timedelta, timezone
         from mission_control.ios_agent_access import NativeAgentAccess
-        self.runtime.create_workspace(self.session,self.creation())
-        access=NativeAgentAccess(self.runtime.service,self.runtime.identities)
-        scope=dict(agent_id='report-agent',manifest_version=1,operations=['report.read'],
-            expires=(datetime.now(timezone.utc)+timedelta(hours=1)).isoformat(),max_calls=10)
-        issued=json.loads(access.manage(self.session,'new-app','issue',json.dumps({'confirm_scope':True,'grant':scope}).encode()))
-        payload=json.dumps(dict(app_id='new-app',operation='report.read',input={})).encode()
-        value=json.loads(access.call(self.session,issued['token'],payload))
-        owner=self.report()
-        self.assertEqual(value['sourceHash'],owner['sourceHash'])
-        self.assertEqual(value['rows'],owner['rows'])
-        self.assertEqual(value['appID'],'new-app')
-        self.assertNotIn(issued['token'],json.dumps(value))
+
+        self.runtime.create_workspace(self.session, self.creation())
+        access = NativeAgentAccess(self.runtime.service, self.runtime.identities)
+        scope = dict(
+            agent_id="report-agent",
+            manifest_version=1,
+            operations=["report.read"],
+            expires=(datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+            max_calls=10,
+        )
+        issued = json.loads(
+            access.manage(
+                self.session, "new-app", "issue", json.dumps({"confirm_scope": True, "grant": scope}).encode()
+            )
+        )
+        payload = json.dumps(dict(app_id="new-app", operation="report.read", input={})).encode()
+        value = json.loads(access.call(self.session, issued["token"], payload))
+        owner = self.report()
+        self.assertEqual(value["sourceHash"], owner["sourceHash"])
+        self.assertEqual(value["rows"], owner["rows"])
+        self.assertEqual(value["appID"], "new-app")
+        self.assertNotIn(issued["token"], json.dumps(value))
         with self.assertRaises(PermissionError):
-            access.call(self.session,issued['token'],json.dumps(dict(app_id='other',operation='report.read',input={})).encode())
+            access.call(
+                self.session,
+                issued["token"],
+                json.dumps(dict(app_id="other", operation="report.read", input={})).encode(),
+            )
         from mission_control import ios_reports
-        original=ios_reports.projection
-        def lock(*args,**kwargs):
-            result=original(*args,**kwargs);self.available=False;return result
-        with patch('mission_control.ios_reports.projection',side_effect=lock),self.assertRaises(PermissionError):
-            access.call(self.session,issued['token'],payload)
-        self.available=True
-        access.manage(self.session,'new-app','revoke',json.dumps({'id':issued['grant']['id'],'version':1,'confirm_revoke':True}).encode())
-        with self.assertRaises(PermissionError):access.call(self.session,issued['token'],payload)
+
+        original = ios_reports.projection
+
+        def lock(*args, **kwargs):
+            result = original(*args, **kwargs)
+            self.available = False
+            return result
+
+        with patch("mission_control.ios_reports.projection", side_effect=lock), self.assertRaises(PermissionError):
+            access.call(self.session, issued["token"], payload)
+        self.available = True
+        access.manage(
+            self.session,
+            "new-app",
+            "revoke",
+            json.dumps({"id": issued["grant"]["id"], "version": 1, "confirm_revoke": True}).encode(),
+        )
+        with self.assertRaises(PermissionError):
+            access.call(self.session, issued["token"], payload)
 
     def test_empty_report_keeps_unknown_and_exports_no_identity_or_connections(self):
-        self.runtime.create_workspace(self.session,self.creation())
-        value=self.report()
-        self.assertEqual(set(value),{'appID','appName','sourceHash','observedAt','rows'})
-        self.assertEqual(value['appID'],'new-app')
-        self.assertEqual(len(value['sourceHash']),64)
-        self.assertIsNone(next(r for r in value['rows'] if r['metric']=='App performance')['observed'])
-        encoded=json.dumps(value)
-        self.assertNotIn(self.principal,encoded)
-        self.assertNotIn(self.session,encoded)
+        self.runtime.create_workspace(self.session, self.creation())
+        value = self.report()
+        self.assertEqual(set(value), {"appID", "appName", "sourceHash", "observedAt", "rows"})
+        self.assertEqual(value["appID"], "new-app")
+        self.assertEqual(len(value["sourceHash"]), 64)
+        self.assertIsNone(next(r for r in value["rows"] if r["metric"] == "App performance")["observed"])
+        encoded = json.dumps(value)
+        self.assertNotIn(self.principal, encoded)
+        self.assertNotIn(self.session, encoded)
 
     def test_three_bounded_sections_are_source_bound_and_redacted(self):
         from mission_control.common import now
         from mission_control.db import connection
         from mission_control.ios_reports import snapshot
-        self.runtime.create_workspace(self.session,self.creation())
-        before=self.report();stamp=now()
+
+        self.runtime.create_workspace(self.session, self.creation())
+        before = self.report()
+        stamp = now()
         with connection(self.runtime.service.store.path) as db:
-            business_before=snapshot(db,self.runtime.service.store,'new-app',stamp,include_workflows=False)
+            business_before = snapshot(db, self.runtime.service.store, "new-app", stamp, include_workflows=False)
         with connection(self.runtime.service.store.path) as db:
-            db.execute('INSERT INTO experiments VALUES(?,?,?,?,?,?,?,?)',('new-app','private-experiment','{}','hash','OBSERVING',1,stamp,stamp))
-            db.execute('INSERT INTO experiment_schedules VALUES(?,?,?,?,?,?,?,?,?,?,?)',('new-app','private-experiment',1,24,1,stamp,None,None,0,'ENABLED',stamp))
-            db.execute('INSERT INTO experiment_schedule_limits VALUES(?,?,?,?,?,?,?,?,?,?)',('new-app','private-experiment',1,'PRIVATE_OWNER',1,1,'hash','2099-01-01T00:00:00+00:00',5,2))
+            db.execute(
+                "INSERT INTO experiments VALUES(?,?,?,?,?,?,?,?)",
+                ("new-app", "private-experiment", "{}", "hash", "OBSERVING", 1, stamp, stamp),
+            )
+            db.execute(
+                "INSERT INTO experiment_schedules VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                ("new-app", "private-experiment", 1, 24, 1, stamp, None, None, 0, "ENABLED", stamp),
+            )
+            db.execute(
+                "INSERT INTO experiment_schedule_limits VALUES(?,?,?,?,?,?,?,?,?,?)",
+                ("new-app", "private-experiment", 1, "PRIVATE_OWNER", 1, 1, "hash", "2099-01-01T00:00:00+00:00", 5, 2),
+            )
             for index in range(21):
-                db.execute('INSERT INTO creative_batches VALUES(?,?,?,?,?,?,?,?,?,?)',('new-app',str(index),'key-'+str(index),'hash','PRIVATE_PLAN','hash','ACTIVE',360,stamp,stamp))
-            db.execute('INSERT INTO agent_handoffs VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',('private-id','new-app',None,'PRIVATE_RECIPIENT','PRIVATE_PAYLOAD','hash',stamp,stamp,'READY',None,None,1))
-        value=self.report();rows={r['metric']:r for r in value['rows']};encoded=json.dumps(value)
+                db.execute(
+                    "INSERT INTO creative_batches VALUES(?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        "new-app",
+                        str(index),
+                        "key-" + str(index),
+                        "hash",
+                        "PRIVATE_PLAN",
+                        "hash",
+                        "ACTIVE",
+                        360,
+                        stamp,
+                        stamp,
+                    ),
+                )
+            db.execute(
+                "INSERT INTO agent_handoffs VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    "private-id",
+                    "new-app",
+                    None,
+                    "PRIVATE_RECIPIENT",
+                    "PRIVATE_PAYLOAD",
+                    "hash",
+                    stamp,
+                    stamp,
+                    "READY",
+                    None,
+                    None,
+                    1,
+                ),
+            )
+        value = self.report()
+        rows = {r["metric"]: r for r in value["rows"]}
+        encoded = json.dumps(value)
         with connection(self.runtime.service.store.path) as db:
-            business_after=snapshot(db,self.runtime.service.store,'new-app',stamp,include_workflows=False)
-        self.assertEqual(business_before['sourceHash'],business_after['sourceHash'])
-        self.assertEqual(business_before['rows'],business_after['rows'])
-        self.assertFalse(any(r['metric'] in ('Experiment monitoring','Creative batches','Agent handoffs') for r in business_after['rows']))
-        self.assertNotEqual(before['sourceHash'],value['sourceHash'])
-        self.assertEqual(rows['Experiment monitoring']['observed'],'1')
-        self.assertIn('Remaining=3',rows['Experiment schedule 1']['evidence'])
-        self.assertEqual(rows['Creative batches']['observed'],'21')
-        self.assertIn('Truncated=True',rows['Creative batches']['evidence'])
-        self.assertEqual(rows['Agent handoffs']['observed'],'1')
-        self.assertEqual(rows['Agent handoff 1']['observed'],'UNAVAILABLE')
-        for secret in ('PRIVATE_OWNER','PRIVATE_PLAN','PRIVATE_RECIPIENT','PRIVATE_PAYLOAD','private-experiment'):
-            self.assertNotIn(secret,encoded)
+            business_after = snapshot(db, self.runtime.service.store, "new-app", stamp, include_workflows=False)
+        self.assertEqual(business_before["sourceHash"], business_after["sourceHash"])
+        self.assertEqual(business_before["rows"], business_after["rows"])
+        self.assertFalse(
+            any(
+                r["metric"] in ("Experiment monitoring", "Creative batches", "Agent handoffs")
+                for r in business_after["rows"]
+            )
+        )
+        self.assertNotEqual(before["sourceHash"], value["sourceHash"])
+        self.assertEqual(rows["Experiment monitoring"]["observed"], "1")
+        self.assertIn("Remaining=3", rows["Experiment schedule 1"]["evidence"])
+        self.assertEqual(rows["Creative batches"]["observed"], "21")
+        self.assertIn("Truncated=True", rows["Creative batches"]["evidence"])
+        self.assertEqual(rows["Agent handoffs"]["observed"], "1")
+        self.assertEqual(rows["Agent handoff 1"]["observed"], "UNAVAILABLE")
+        for secret in ("PRIVATE_OWNER", "PRIVATE_PLAN", "PRIVATE_RECIPIENT", "PRIVATE_PAYLOAD", "private-experiment"):
+            self.assertNotIn(secret, encoded)
 
     def test_actual_cohort_arithmetic_and_source_hash_changes(self):
-        self.runtime.create_workspace(self.session,self.creation())
-        before=self.report()
-        body=dict(id='cohort-evidence',kind='cohort',title='Synthetic cohort',source='PRIVATE_SOURCE_LABEL',data=dict(
-            cohort_id='PRIVATE_COHORT_LABEL',currency='USD',installs=100,activated=40,paid=10,mature=True,
-            acquisition_cost_minor=5000,net_proceeds_minor=9000,delivery_cost_minor=1000,refunds_minor=0,horizon='30 days'))
-        self.runtime.service.evidence('new-app',body)
-        value=self.report()
-        self.assertNotEqual(before['sourceHash'],value['sourceHash'])
-        rows={r['metric']:r for r in value['rows']}
-        self.assertEqual(rows['Cohort 1: activation_rate']['observed'],'0.4')
-        self.assertEqual(rows['Cohort 1: paid_cac_minor']['observed'],'500.0')
-        self.assertIn('currency=USD',rows['Cohort 1: paid_cac_minor']['evidence'])
-        self.assertNotIn('PRIVATE_SOURCE_LABEL',json.dumps(value))
-        self.assertNotIn('PRIVATE_COHORT_LABEL',json.dumps(value))
+        self.runtime.create_workspace(self.session, self.creation())
+        before = self.report()
+        body = dict(
+            id="cohort-evidence",
+            kind="cohort",
+            title="Synthetic cohort",
+            source="PRIVATE_SOURCE_LABEL",
+            data=dict(
+                cohort_id="PRIVATE_COHORT_LABEL",
+                currency="USD",
+                installs=100,
+                activated=40,
+                paid=10,
+                mature=True,
+                acquisition_cost_minor=5000,
+                net_proceeds_minor=9000,
+                delivery_cost_minor=1000,
+                refunds_minor=0,
+                horizon="30 days",
+            ),
+        )
+        self.runtime.service.evidence("new-app", body)
+        value = self.report()
+        self.assertNotEqual(before["sourceHash"], value["sourceHash"])
+        rows = {r["metric"]: r for r in value["rows"]}
+        self.assertEqual(rows["Cohort 1: activation_rate"]["observed"], "0.4")
+        self.assertEqual(rows["Cohort 1: paid_cac_minor"]["observed"], "500.0")
+        self.assertIn("currency=USD", rows["Cohort 1: paid_cac_minor"]["evidence"])
+        self.assertNotIn("PRIVATE_SOURCE_LABEL", json.dumps(value))
+        self.assertNotIn("PRIVATE_COHORT_LABEL", json.dumps(value))
 
     def test_foreign_or_lost_native_session_denies_report(self):
-        self.runtime.create_workspace(self.session,self.creation())
-        with self.assertRaises(PermissionError):self.runtime.report(self.session,'other')
-        self.principal='00000000-0000-0000-0000-000000000001'
-        with self.assertRaises(PermissionError):self.report()
-        self.available=False
-        with self.assertRaises(PermissionError):self.report()
+        self.runtime.create_workspace(self.session, self.creation())
+        with self.assertRaises(PermissionError):
+            self.runtime.report(self.session, "other")
+        self.principal = "00000000-0000-0000-0000-000000000001"
+        with self.assertRaises(PermissionError):
+            self.report()
+        self.available = False
+        with self.assertRaises(PermissionError):
+            self.report()
 
     def test_real_event_report_preserves_denominators_costs_and_excludes_subjects(self):
         from tests.test_ledger import cohort, event
-        self.runtime.create_workspace(self.session,self.creation())
-        self.runtime.service.cohort('new-app',cohort())
-        self.runtime.service.events('new-app',dict(cohort_id='pilot-1',events=[
-            event('install','INSTALL',subject='PRIVATE_SUBJECT'),
-            event('activation','ACTIVATION',subject='PRIVATE_SUBJECT'),
-            event('purchase','PURCHASE',amount=2000,subject='PRIVATE_SUBJECT'),
-            event('value','VALUE',day='2026-09-20',subject='PRIVATE_SUBJECT'),
-            event('cost-a','COST_ACQUISITION',amount=300),event('cost-d','COST_DELIVERY',amount=100)]))
-        result=self.report()
-        rows={r['metric']:r for r in result['rows']}
-        self.assertEqual(rows['Event cohort 1: installs']['observed'],'1')
-        self.assertEqual(rows['Event cohort 1: paid_cac_minor']['observed'],'300.0')
-        self.assertEqual(rows['Event cohort 1: contribution_after_acquisition_minor']['observed'],'1600')
-        self.assertIn('status=SUPPLIED_RECONCILED',rows['Event cohort 1: installs']['evidence'])
-        self.assertNotIn('PRIVATE_SUBJECT',json.dumps(result))
+
+        self.runtime.create_workspace(self.session, self.creation())
+        self.runtime.service.cohort("new-app", cohort())
+        self.runtime.service.events(
+            "new-app",
+            dict(
+                cohort_id="pilot-1",
+                events=[
+                    event("install", "INSTALL", subject="PRIVATE_SUBJECT"),
+                    event("activation", "ACTIVATION", subject="PRIVATE_SUBJECT"),
+                    event("purchase", "PURCHASE", amount=2000, subject="PRIVATE_SUBJECT"),
+                    event("value", "VALUE", day="2026-09-20", subject="PRIVATE_SUBJECT"),
+                    event("cost-a", "COST_ACQUISITION", amount=300),
+                    event("cost-d", "COST_DELIVERY", amount=100),
+                ],
+            ),
+        )
+        result = self.report()
+        rows = {r["metric"]: r for r in result["rows"]}
+        self.assertEqual(rows["Event cohort 1: installs"]["observed"], "1")
+        self.assertEqual(rows["Event cohort 1: paid_cac_minor"]["observed"], "300.0")
+        self.assertEqual(rows["Event cohort 1: contribution_after_acquisition_minor"]["observed"], "1600")
+        self.assertIn("status=SUPPLIED_RECONCILED", rows["Event cohort 1: installs"]["evidence"])
+        self.assertNotIn("PRIVATE_SUBJECT", json.dumps(result))
 
     def test_subscription_report_includes_trial_renewal_and_maturity_denominators(self):
         from tests import test_subscription_journey as fixture
-        self.runtime.create_workspace(self.session,self.creation())
-        self.runtime.service.cohort('new-app',fixture.cohort())
-        self.runtime.service.events('new-app',dict(cohort_id='pilot-1',events=fixture.SubscriptionJourneyTests.history(None)))
-        result=self.report();rows={r['metric']:r for r in result['rows']}
-        self.assertEqual(rows['Event cohort 1, offer 1: trial_to_paid_rate']['observed'],'1.0')
-        self.assertEqual(rows['Event cohort 1, offer 1: first_renewal_rate']['observed'],'1.0')
-        self.assertEqual(rows['Event cohort 1, offer 1: mature_trial_subjects']['observed'],'1')
-        self.assertEqual(rows['Event cohort 1, offer 1: PAYWALL_EXPOSURE']['observed'],'1')
-        self.assertIn('coverage=SUPPLIED_NOT_VERIFIED',rows['Event cohort 1, offer 1: first_renewal_rate']['evidence'])
-        self.assertNotIn('com.example.monthly',json.dumps(result))
+
+        self.runtime.create_workspace(self.session, self.creation())
+        self.runtime.service.cohort("new-app", fixture.cohort())
+        self.runtime.service.events(
+            "new-app", dict(cohort_id="pilot-1", events=fixture.SubscriptionJourneyTests.history(None))
+        )
+        result = self.report()
+        rows = {r["metric"]: r for r in result["rows"]}
+        self.assertEqual(rows["Event cohort 1, offer 1: trial_to_paid_rate"]["observed"], "1.0")
+        self.assertEqual(rows["Event cohort 1, offer 1: first_renewal_rate"]["observed"], "1.0")
+        self.assertEqual(rows["Event cohort 1, offer 1: mature_trial_subjects"]["observed"], "1")
+        self.assertEqual(rows["Event cohort 1, offer 1: PAYWALL_EXPOSURE"]["observed"], "1")
+        self.assertIn("coverage=SUPPLIED_NOT_VERIFIED", rows["Event cohort 1, offer 1: first_renewal_rate"]["evidence"])
+        self.assertNotIn("com.example.monthly", json.dumps(result))
 
     def test_session_revoked_during_projection_prevents_export(self):
-        self.runtime.create_workspace(self.session,self.creation())
-        real=projection
+        self.runtime.create_workspace(self.session, self.creation())
+        real = projection
+
         def lost(*args):
-            value=real(*args);self.available=False;return value
-        with patch('mission_control.ios_reports.projection',lost):
-            with self.assertRaises(PermissionError):self.report()
+            value = real(*args)
+            self.available = False
+            return value
+
+        with patch("mission_control.ios_reports.projection", lost):
+            with self.assertRaises(PermissionError):
+                self.report()
 
     def test_incomplete_cohort_keeps_rates_unknown_and_overflow_is_not_truncated(self):
-        from mission_control.common import now,digest
-        self.runtime.create_workspace(self.session,self.creation())
-        app=self.runtime.service.store.app('new-app')
-        record=dict(kind='cohort',data=dict(installs=1,activated=0,paid=0,mature=False,acquisition_cost_minor=0,
-                    net_proceeds_minor=0,delivery_cost_minor=0,refunds_minor=0))
-        result=projection(app,[record],[],now())
-        self.assertEqual(result['sourceHash'],digest({'app':app,'records':[record],'ledger':[],'insights':(),'apple':()}))
-        self.assertTrue(all(r['observed'] is None for r in result['rows'] if r['metric'].endswith('activation_rate')))
-        with self.assertRaises(Invalid):projection(app,[record]*100,[],now())
+        from mission_control.common import now, digest
+
+        self.runtime.create_workspace(self.session, self.creation())
+        app = self.runtime.service.store.app("new-app")
+        record = dict(
+            kind="cohort",
+            data=dict(
+                installs=1,
+                activated=0,
+                paid=0,
+                mature=False,
+                acquisition_cost_minor=0,
+                net_proceeds_minor=0,
+                delivery_cost_minor=0,
+                refunds_minor=0,
+            ),
+        )
+        result = projection(app, [record], [], now())
+        self.assertEqual(
+            result["sourceHash"], digest({"app": app, "records": [record], "ledger": [], "insights": (), "apple": ()})
+        )
+        self.assertTrue(all(r["observed"] is None for r in result["rows"] if r["metric"].endswith("activation_rate")))
+        with self.assertRaises(Invalid):
+            projection(app, [record] * 100, [], now())
 
     def test_clarity_numeric_aggregates_export_without_assuming_posthog_shape(self):
-        from mission_control.common import now,digest
+        from mission_control.common import now, digest
         from mission_control.insights_contract import shape_clarity
-        self.runtime.create_workspace(self.session,self.creation())
-        data=dict(observed_at=now(),coverage='SELECTED_AGGREGATES_ONLY',project_id='PRIVATE_PROJECT',
-            rows=shape_clarity([dict(metricName='Traffic',information=[dict(totalSessionCount='12',privateUrl='https://private.invalid')])]))
-        saved=dict(app_id='new-app',id='clarity-proof',source_id='source-fixture',provider='clarity',data=data,hash=digest(data))
-        result=projection(self.runtime.service.store.app('new-app'),[],[],now(),[saved])
-        row=next(r for r in result['rows'] if r['metric'].endswith('totalSessionCount'))
-        self.assertEqual(row['observed'],'12.0')
-        self.assertIn('last_72_hours',row['evidence'])
-        self.assertNotIn('PRIVATE_PROJECT',json.dumps(result))
-        self.assertNotIn('private.invalid',json.dumps(result))
+
+        self.runtime.create_workspace(self.session, self.creation())
+        data = dict(
+            observed_at=now(),
+            coverage="SELECTED_AGGREGATES_ONLY",
+            project_id="PRIVATE_PROJECT",
+            rows=shape_clarity(
+                [
+                    dict(
+                        metricName="Traffic",
+                        information=[dict(totalSessionCount="12", privateUrl="https://private.invalid")],
+                    )
+                ]
+            ),
+        )
+        saved = dict(
+            app_id="new-app",
+            id="clarity-proof",
+            source_id="source-fixture",
+            provider="clarity",
+            data=data,
+            hash=digest(data),
+        )
+        result = projection(self.runtime.service.store.app("new-app"), [], [], now(), [saved])
+        row = next(r for r in result["rows"] if r["metric"].endswith("totalSessionCount"))
+        self.assertEqual(row["observed"], "12.0")
+        self.assertIn("last_72_hours", row["evidence"])
+        self.assertNotIn("PRIVATE_PROJECT", json.dumps(result))
+        self.assertNotIn("private.invalid", json.dumps(result))

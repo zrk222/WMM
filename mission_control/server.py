@@ -1,4 +1,5 @@
-﻿"""Loopback-only Mission Control server. Run: python -m mission_control.server."""
+"""Loopback-only Mission Control server. Run: python -m mission_control.server."""
+
 import argparse
 from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -20,127 +21,200 @@ from .worker import Runner
 from .operator_identity import Identities
 from .operation_outcome import EffectUncertain
 
-STATIC=Path(__file__).resolve().parent/"static"
+STATIC = Path(__file__).resolve().parent / "static"
 
 
-def media_range(value,size):
+def media_range(value, size):
     """Parse one bounded byte range; reject malformed, multipart or unsatisfiable input."""
-    match=re.fullmatch(r"bytes=(\d*)-(\d*)",value)
-    if not match or not any(match.groups()):raise Invalid("Invalid video byte range")
-    left,right=match.groups()
+    match = re.fullmatch(r"bytes=(\d*)-(\d*)", value)
+    if not match or not any(match.groups()):
+        raise Invalid("Invalid video byte range")
+    left, right = match.groups()
     if not left:
-        length=int(right)
-        if length<=0:raise Invalid("Invalid video suffix range")
-        return max(0,size-length),size-1
-    start=int(left);end=min(int(right),size-1) if right else size-1
-    if start>=size or start>end:raise Invalid("Video byte range is unavailable")
-    return start,end
+        length = int(right)
+        if length <= 0 or size <= 0:
+            raise Invalid("Invalid video suffix range")
+        return max(0, size - length), size - 1
+    start = int(left)
+    end = min(int(right), size - 1) if right else size - 1
+    if start >= size or start > end:
+        raise Invalid("Video byte range is unavailable")
+    return start, end
 
 
 def owner_domain_post(parts):
     """Resolve only fixed private domain modules, retaining lazy imports."""
-    if len(parts)<4 or parts[:2]!=['api','apps']:return None
-    module={'drive':'drive_http','media':'managed_media_http','funnels':'funnel_http',
-            'discovery':'discovery_http','organic-video':'organic_video_http','packaging':'packaging_http','campaigns':'campaign_http','campaign-monitor':'campaign_monitor_http','campaign-owner-reports':'campaign_owner_reports',
-            'apple-analytics':'apple_metrics_http','onesignal':'onesignal_setup_http',
-            'authority-expiry':'authority_expiry_http',
-            'observational-campaign':'observational_campaign_http'}.get(parts[3])
-    if module is None:return None
+    if len(parts) < 4 or parts[:2] != ["api", "apps"]:
+        return None
+    module = {
+        "drive": "drive_http",
+        "media": "managed_media_http",
+        "funnels": "funnel_http",
+        "discovery": "discovery_http",
+        "organic-video": "organic_video_http",
+        "packaging": "packaging_http",
+        "campaigns": "campaign_http",
+        "campaign-monitor": "campaign_monitor_http",
+        "campaign-owner-reports": "campaign_owner_reports",
+        "apple-analytics": "apple_metrics_http",
+        "onesignal": "onesignal_setup_http",
+        "authority-expiry": "authority_expiry_http",
+        "observational-campaign": "observational_campaign_http",
+    }.get(parts[3])
+    if module is None:
+        return None
     from importlib import import_module
-    return import_module('.'+module,__package__).post
+
+    return import_module("." + module, __package__).post
 
 
 class Server(ThreadingHTTPServer):
-    daemon_threads=True
-    allow_reuse_address=os.name!='nt'
+    daemon_threads = True
+    allow_reuse_address = os.name != "nt"
     # Browser startup can request dozens of local assets in a burst. The
     # stdlib default of five pending connections can refuse individual scripts.
-    request_queue_size=32
+    request_queue_size = 32
 
     def server_bind(self):
-        if os.name=='nt':
-            self.socket.setsockopt(socket.SOL_SOCKET,socket.SO_EXCLUSIVEADDRUSE,1)
+        if os.name == "nt":
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         super().server_bind()
 
-    def __init__(self,address,store,operator="local-operator",*,runtime_mode="SERVER"):
-        if address[0]!="127.0.0.1":
+    def __init__(self, address, store, operator="local-operator", *, runtime_mode="SERVER"):
+        if address[0] != "127.0.0.1":
             raise Invalid("Mission Control may bind only to 127.0.0.1")
-        super().__init__(address,Handler)
-        self.service=Service(store,operator)
-        source=Path(__file__).resolve().parent
-        files=sorted([*source.glob("*.py"),*source.glob("*.ps1"),*source.glob("static/*"),*source.glob("sdk/*.mjs")])
-        self.service.build_id=digest({str(path.relative_to(source)):hashlib.sha256(path.read_bytes()).hexdigest() for path in files if path.is_file()})
-        self.sessions={}
-        self.identities=Identities()
+        super().__init__(address, Handler)
+        self.service = Service(store, operator)
+        source = Path(__file__).resolve().parent
+        files = sorted(
+            [*source.glob("*.py"), *source.glob("*.ps1"), *source.glob("static/*"), *source.glob("sdk/*.mjs")]
+        )
+        self.service.build_id = digest(
+            {
+                str(path.relative_to(source)): hashlib.sha256(path.read_bytes()).hexdigest()
+                for path in files
+                if path.is_file()
+            }
+        )
+        self.sessions = {}
+        self.identities = Identities()
         from .device_signin import DeviceSignIns
-        self.device_signins=DeviceSignIns(self.identities)
-        self.runner=Runner(store)
+
+        self.device_signins = DeviceSignIns(self.identities)
+        self.runner = Runner(store)
         from .audit_worker import AuditWorker
-        self.audit_runner=AuditWorker(store)
-        self.runtime_mode=runtime_mode if runtime_mode in ("DESKTOP","HEADLESS","SERVER") else "UNKNOWN"
-        self.service.worker_health=lambda:dict(self.runner.health,runtime_mode=self.runtime_mode)
-        self.studio_shutdown_result=None
-        self.desktop_proof=None
+
+        self.audit_runner = AuditWorker(store)
+        self.runtime_mode = runtime_mode if runtime_mode in ("DESKTOP", "HEADLESS", "SERVER") else "UNKNOWN"
+        self.service.worker_health = lambda: dict(self.runner.health, runtime_mode=self.runtime_mode)
+        self.studio_shutdown_result = None
+        self.desktop_proof = None
 
     def server_close(self):
         """Retain native cleanup outcome separately from listening-socket closure."""
         try:
-            if hasattr(self,'service'):
-                self.studio_shutdown_result=self.service.studio.shutdown()
-        finally:super().server_close()
+            if hasattr(self, "service"):
+                self.studio_shutdown_result = self.service.studio.shutdown()
+        finally:
+            super().server_close()
 
 
 class Handler(BaseHTTPRequestHandler):
-    def log_message(self,format,*args):
+    def log_message(self, format, *args):
         """Avoid logging request paths or sensitive provider references to console."""
         return
 
-    def send(self,code,body,content_type="application/json; charset=utf-8",filename=None,headers=None):
+    def send(
+        self,
+        code,
+        body,
+        content_type="application/json; charset=utf-8",
+        filename=None,
+        headers=None,
+        cache_control="no-store",
+        etag=None,
+    ):
         """Return a bounded response with cache, content, framing and cookie protection."""
-        if code>=400 and self.command=='POST':
+        if code >= 400 and self.command == "POST":
             from .http_body import discard_rejected_body
+
             discard_rejected_body(self)
-        raw=body if isinstance(body,bytes) else canonical(body).encode()
+        raw = body if isinstance(body, bytes) else canonical(body).encode()
         self.send_response(code)
-        self.send_header("Content-Type",content_type)
-        self.send_header("Content-Length",str(len(raw)))
-        self.send_header("Cache-Control","no-store")
-        self.send_header("X-Content-Type-Options","nosniff")
-        self.send_header("Referrer-Policy","no-referrer")
-        self.send_header("Content-Security-Policy","default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
-        if getattr(self,"new_cookie",None):
-            self.send_header("Set-Cookie",f"growth_session={self.new_cookie}; HttpOnly; SameSite=Strict; Path=/")
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(raw)))
+        self.send_header("Cache-Control", cache_control)
+        if etag:
+            self.send_header("ETag", etag)
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+        )
+        if getattr(self, "new_cookie", None):
+            self.send_header("Set-Cookie", f"growth_session={self.new_cookie}; HttpOnly; SameSite=Strict; Path=/")
         if filename:
-            self.send_header("Content-Disposition",f'attachment; filename="{filename}"')
-        for key,value in (headers or {}).items():self.send_header(key,value)
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        for key, value in (headers or {}).items():
+            self.send_header(key, value)
         self.end_headers()
         self.wfile.write(raw)
 
+    def asset_tag(self, file, raw):
+        """Bind a static asset version to the server build and its exact bytes."""
+        build = getattr(self.server.service, "build_id", "") or ""
+        try:
+            relative = file.relative_to(STATIC).as_posix()
+        except ValueError:
+            relative = file.name
+        return '"%s"' % digest(dict(build=build, path=relative, bytes=hashlib.sha256(raw).hexdigest()))
+
+    def matches_asset_tag(self, tag):
+        """Honor exact, weak and wildcard If-None-Match forms without overclaiming."""
+        value = self.headers.get("If-None-Match", "")
+        if value.strip() == "*":
+            return True
+        return any(item.strip().removeprefix("W/") == tag for item in value.split(",") if item.strip())
+
+    def send_asset(self, file, content_type):
+        """Serve an immutable-per-build static asset with a cheap revalidation 304."""
+        raw = file.read_bytes()
+        tag = self.asset_tag(file, raw)
+        if self.matches_asset_tag(tag):
+            self.send_response(304)
+            self.send_header("ETag", tag)
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        self.send(200, raw, content_type, cache_control="no-cache", etag=tag)
+
     def session(self):
         """Establish a local HttpOnly session with its bound anti-CSRF token."""
-        jar=cookies.SimpleCookie()
-        jar.load(self.headers.get("Cookie",""))
-        session_id=jar["growth_session"].value if "growth_session" in jar else ""
+        jar = cookies.SimpleCookie()
+        jar.load(self.headers.get("Cookie", ""))
+        session_id = jar["growth_session"].value if "growth_session" in jar else ""
         if session_id not in self.server.sessions:
-            if len(self.server.sessions)>=256:
+            if len(self.server.sessions) >= 256:
                 raise Invalid("Session limit reached; restart the local server")
-            session_id=secrets.token_urlsafe(32)
-            self.server.sessions[session_id]=secrets.token_urlsafe(32)
-            self.new_cookie=session_id
+            session_id = secrets.token_urlsafe(32)
+            self.server.sessions[session_id] = secrets.token_urlsafe(32)
+            self.new_cookie = session_id
         return self.server.sessions[session_id]
 
-    def boundary(self,write=False):
+    def boundary(self, write=False):
         """Reject another host, cross-origin write or invalid session token."""
-        expected=f"127.0.0.1:{self.server.server_port}"
-        if self.headers.get("Host")!=expected:
+        expected = f"127.0.0.1:{self.server.server_port}"
+        if self.headers.get("Host") != expected:
             raise PermissionError("Use the exact local Mission Control address")
         if not write and self.callback_page(urlparse(self.path).path):
             return None
-        csrf=self.session()
+        csrf = self.session()
         if write:
-            if self.headers.get("Origin",f"http://{expected}")!=f"http://{expected}":
+            if self.headers.get("Origin", f"http://{expected}") != f"http://{expected}":
                 raise PermissionError("Cross-origin request rejected")
-            if not secrets.compare_digest(self.headers.get("X-CSRF-Token",""),csrf):
+            if not secrets.compare_digest(self.headers.get("X-CSRF-Token", ""), csrf):
                 raise PermissionError("Session expired; reload before saving")
         return csrf
 
@@ -152,1068 +226,1590 @@ class Handler(BaseHTTPRequestHandler):
         """Dispatch write requests only after host, session and CSRF validation."""
         self.dispatch(True)
 
-    def dispatch(self,write):
+    def dispatch(self, write):
         """Return clear input errors and preserve existing state on operational failure."""
         try:
-            path=urlparse(self.path).path
-            if path=='/api/desktop-proof':
-                proof=self.server.desktop_proof
-                if write or proof is None or self.path!=path:
+            path = urlparse(self.path).path
+            if path == "/api/desktop-proof":
+                proof = self.server.desktop_proof
+                if write or proof is None or self.path != path:
                     raise KeyError(path)
-                if self.headers.get_all('Host')!=[f'127.0.0.1:{self.server.server_port}'] or 'Origin' in self.headers:
-                    raise PermissionError('Desktop proof requires the exact local address')
-                challenges=self.headers.get_all('X-WMM-Desktop-Challenge', [])
-                if len(challenges)!=1 or not re.fullmatch(r'[a-f0-9]{64}', challenges[0]):
-                    raise Invalid('Desktop challenge is invalid')
-                return self.send(200,dict(proof=proof(challenges[0])))
-            if write and path.startswith('/api/agent-operations/reviews/'):
+                if self.headers.get_all("Host") != [f"127.0.0.1:{self.server.server_port}"] or "Origin" in self.headers:
+                    raise PermissionError("Desktop proof requires the exact local address")
+                challenges = self.headers.get_all("X-WMM-Desktop-Challenge", [])
+                if len(challenges) != 1 or not re.fullmatch(r"[a-f0-9]{64}", challenges[0]):
+                    raise Invalid("Desktop challenge is invalid")
+                return self.send(200, dict(proof=proof(challenges[0])))
+            if write and path.startswith("/api/agent-operations/reviews/"):
                 from .agent_review_http import agent
+
                 return agent(self)
-            if write and path=='/api/agent-operations/call':
+            if write and path == "/api/agent-operations/call":
                 from .agent_grant_http import call
+
                 return call(self)
-            webhook=self.webhook_handler(path) if write else None
+            webhook = self.webhook_handler(path) if write else None
             if webhook:
                 return webhook(path)
-            token=self.boundary(write)
+            token = self.boundary(write)
             if write:
                 return self.post(path)
-            return self.get(path,token)
+            return self.get(path, token)
         except EffectUncertain as exc:
-            self.send(409,dict(error=str(exc),outcome='UNKNOWN',reconciliation_required=True))
+            self.send(409, dict(error=str(exc), outcome="UNKNOWN", reconciliation_required=True))
         except PermissionError as exc:
-            self.send(403,{"error":str(exc)})
+            self.send(403, {"error": str(exc)})
         except KeyError:
-            self.send(404,{"error":"This app, record or route does not exist"})
-        except (Invalid,ValueError,TypeError) as exc:
-            self.send(400,{"error":str(exc)})
-        except (ConnectionAbortedError,BrokenPipeError,ConnectionResetError):
+            self.send(404, {"error": "This app, record or route does not exist"})
+        except (Invalid, ValueError, TypeError) as exc:
+            self.send(400, {"error": str(exc)})
+        except (ConnectionAbortedError, BrokenPipeError, ConnectionResetError):
             return
         except Exception:
-            self.send(500,{"error":"The local operation failed. Your existing records are preserved; retry after checking the server."})
+            self.send(
+                500,
+                {
+                    "error": "The local operation failed. Your existing records are preserved; retry after checking the server."
+                },
+            )
 
-    def webhook_handler(self,path):
+    def webhook_handler(self, path):
         """Recognize only the original exact signed-delivery routes before CSRF."""
-        routes=((r'/api/payments/[a-z0-9-]+/[a-f0-9-]{36}',self.payment_webhook),
-                (r'/api/storekit/[a-z0-9-]+/[a-f0-9-]{36}',self.storekit_webhook),
-                (r'/api/attribution/[a-z0-9-]+/[a-f0-9-]{36}/[a-f0-9-]{36}/[1-9][0-9]{0,6}',self.attribution_webhook))
-        return next((handler for pattern,handler in routes if re.fullmatch(pattern,path)),None)
+        routes = (
+            (r"/api/payments/[a-z0-9-]+/[a-f0-9-]{36}", self.payment_webhook),
+            (r"/api/storekit/[a-z0-9-]+/[a-f0-9-]{36}", self.storekit_webhook),
+            (r"/api/attribution/[a-z0-9-]+/[a-f0-9-]{36}/[a-f0-9-]{36}/[1-9][0-9]{0,6}", self.attribution_webhook),
+        )
+        return next((handler for pattern, handler in routes if re.fullmatch(pattern, path)), None)
 
-    def get(self,path,token):
+    def get(self, path, token):
         """Serve the fixed UI routes and app-scoped read endpoints."""
-        callback=self.callback_page(path)
+        callback = self.callback_page(path)
         if callback:
-            return self.send(200,(STATIC/callback).read_bytes(),'text/html; charset=utf-8')
-        if path=="/api/bootstrap":
-            return self.send(200,dict(self.server.service.bootstrap(),csrf=token,identity=self.server.identities.public(token)))
-        if path=="/api/weekly-review":
+            return self.send_asset(STATIC / callback, "text/html; charset=utf-8")
+        if path == "/api/bootstrap":
+            return self.send(
+                200, dict(self.server.service.bootstrap(), csrf=token, identity=self.server.identities.public(token))
+            )
+        if path == "/api/weekly-review":
             return self.get_weekly_review()
-        if path=="/api/research":
-            root=Path(__file__).resolve().parents[1]/"package"
-            return self.send(200,{"ledger":json.loads((root/"research-ledger.json").read_text(encoding="utf-8-sig")),"acquisition":json.loads((root/"acquisition-profiles.json").read_text(encoding="utf-8-sig"))})
+        if path == "/api/research":
+            root = Path(__file__).resolve().parents[1] / "package"
+            return self.send(
+                200,
+                {
+                    "ledger": json.loads((root / "research-ledger.json").read_text(encoding="utf-8-sig")),
+                    "acquisition": json.loads((root / "acquisition-profiles.json").read_text(encoding="utf-8-sig")),
+                },
+            )
         if path.startswith("/api/apps/"):
             return self.get_app(path)
-        scripts=('/agent-control.js','/authority-expiry.js','/subscription-authoring.js','/customer-workflow.js','/growth-review.js','/page-reporting.js','/setup-discovery.js','/google-play.js','/play-callback.js','/drive-callback.js','/social-access.js','/campaign-execution.js','/campaign-monitor.js','/campaign-owner-reports.js','/observational-campaign.js','/social-callback.js','/agent-access.js','/insights.js','/storekit.js','/attribution.js','/analytics-inventory.js','/campaign-plan.js','/mmp-import-model.js','/guided-workflow.js','/subscriptions.js',
-                 '/workflow-automation.js','/followup.js','/aeo.js','/public-store-readback.js','/apple-analytics.js','/onesignal-setup.js',
-                 '/pmf-workflow.js','/pmf-research.js','/audit-runtime.js','/automatic-preparation.js','/campaign-sequence.js','/experiment-tracking.js',
-                 '/spytok-workflow.js','/production-feasibility.js','/spira-workflow.js','/journey-readiness.js','/workflow-telemetry.js','/ui-stories.js','/complete-automation.js','/video-editor.js','/studio-controls.js','/managed-media.js','/drive-library.js','/discovery-model.js','/discovery-ui.js','/packaging-model.js','/packaging-ui.js','/funnel-model.js','/funnel-ui.js')
-        scripts += ('/publication.js','/organic-research.js','/organic-policy.js','/operation-feedback.js')
+        scripts = (
+            "/agent-control.js",
+            "/authority-expiry.js",
+            "/subscription-authoring.js",
+            "/customer-workflow.js",
+            "/growth-review.js",
+            "/page-reporting.js",
+            "/setup-discovery.js",
+            "/google-play.js",
+            "/play-callback.js",
+            "/drive-callback.js",
+            "/social-access.js",
+            "/campaign-execution.js",
+            "/campaign-monitor.js",
+            "/campaign-owner-reports.js",
+            "/observational-campaign.js",
+            "/social-callback.js",
+            "/agent-access.js",
+            "/insights.js",
+            "/storekit.js",
+            "/attribution.js",
+            "/analytics-inventory.js",
+            "/campaign-plan.js",
+            "/mmp-import-model.js",
+            "/guided-workflow.js",
+            "/subscriptions.js",
+            "/workflow-automation.js",
+            "/followup.js",
+            "/aeo.js",
+            "/public-store-readback.js",
+            "/apple-analytics.js",
+            "/onesignal-setup.js",
+            "/pmf-workflow.js",
+            "/pmf-research.js",
+            "/audit-runtime.js",
+            "/automatic-preparation.js",
+            "/campaign-sequence.js",
+            "/experiment-tracking.js",
+            "/spytok-workflow.js",
+            "/production-feasibility.js",
+            "/spira-workflow.js",
+            "/journey-readiness.js",
+            "/workflow-telemetry.js",
+            "/ui-stories.js",
+            "/complete-automation.js",
+            "/video-editor.js",
+            "/studio-controls.js",
+            "/managed-media.js",
+            "/drive-library.js",
+            "/discovery-model.js",
+            "/discovery-ui.js",
+            "/packaging-model.js",
+            "/packaging-ui.js",
+            "/funnel-model.js",
+            "/funnel-ui.js",
+        )
+        scripts += ("/publication.js", "/organic-research.js", "/organic-policy.js", "/operation-feedback.js")
         if path in scripts:
-            return self.send(200,(STATIC/path[1:]).read_bytes(),"text/javascript; charset=utf-8")
-        files={"/packaging.css":"packaging.css","/drive-callback.css":"drive-callback.css","/":"index.html","/index.html":"index.html","/style.css":"style.css","/page-reporting.css":"page-reporting.css","/video-editor.css":"video-editor.css","/app.js":"app.js","/creative-ranking.js":"creative-ranking.js","/acquisition.js":"acquisition.js","/creative-rendering.js":"creative-rendering.js","/verified-review.js":"verified-review.js","/provider-actions.js":"provider-actions.js","/outcome-learning.js":"outcome-learning.js","/signed-payments.js":"signed-payments.js"}
+            return self.send_asset(STATIC / path[1:], "text/javascript; charset=utf-8")
+        files = {
+            "/packaging.css": "packaging.css",
+            "/drive-callback.css": "drive-callback.css",
+            "/": "index.html",
+            "/index.html": "index.html",
+            "/style.css": "style.css",
+            "/page-reporting.css": "page-reporting.css",
+            "/video-editor.css": "video-editor.css",
+            "/app.js": "app.js",
+            "/creative-ranking.js": "creative-ranking.js",
+            "/acquisition.js": "acquisition.js",
+            "/creative-rendering.js": "creative-rendering.js",
+            "/verified-review.js": "verified-review.js",
+            "/provider-actions.js": "provider-actions.js",
+            "/outcome-learning.js": "outcome-learning.js",
+            "/signed-payments.js": "signed-payments.js",
+        }
         if path not in files:
             raise KeyError(path)
-        file=STATIC/files[path]
-        return self.send(200,file.read_bytes(),mimetypes.guess_type(file.name)[0]+"; charset=utf-8")
+        file = STATIC / files[path]
+        return self.send_asset(file, mimetypes.guess_type(file.name)[0] + "; charset=utf-8")
 
     def get_weekly_review(self):
         """Parse only the closed portfolio offset before a bounded saved-evidence read."""
         from .weekly_inbox import review
-        query=urlparse(self.path).query
-        if query and not re.fullmatch(r'offset=(0|[1-9][0-9]{0,8})',query):
-            raise Invalid('Use only the weekly review offset')
-        session=self.session()
-        public=self.server.identities.public(session)
-        user=self.server.identities.local(session,public['principal']) if public.get('status')=='AUTHENTICATED' else None
-        return self.send(200,review(self.server.service,int(query.split('=')[1]) if query else 0,user=user))
 
-    def callback_page(self,path):
+        query = urlparse(self.path).query
+        if query and not re.fullmatch(r"offset=(0|[1-9][0-9]{0,8})", query):
+            raise Invalid("Use only the weekly review offset")
+        session = self.session()
+        public = self.server.identities.public(session)
+        user = (
+            self.server.identities.local(session, public["principal"])
+            if public.get("status") == "AUTHENTICATED"
+            else None
+        )
+        return self.send(200, review(self.server.service, int(query.split("=")[1]) if query else 0, user=user))
+
+    def callback_page(self, path):
         """Serve local callback assets without processing provider codes in a GET."""
-        if re.fullmatch(r'/social/callback/(facebook|instagram|tiktok|linkedin)',path):
-            return 'social-callback.html'
-        if path not in ('/','/index.html'):return None
-        query=parse_qs(urlparse(self.path).query,keep_blank_values=True,max_num_fields=20)
-        if 'state' in query and ('code' in query or 'error' in query):
-            return 'drive-callback.html' if len(query['state'])==1 and query['state'][0].startswith('drive_') else 'play-callback.html'
+        if re.fullmatch(r"/social/callback/(facebook|instagram|tiktok|linkedin)", path):
+            return "social-callback.html"
+        if path not in ("/", "/index.html"):
+            return None
+        query = parse_qs(urlparse(self.path).query, keep_blank_values=True, max_num_fields=20)
+        if "state" in query and ("code" in query or "error" in query):
+            return (
+                "drive-callback.html"
+                if len(query["state"]) == 1 and query["state"][0].startswith("drive_")
+                else "play-callback.html"
+            )
         return None
 
-    def get_app(self,path):
+    def get_app(self, path):
         """Resolve only the selected workspace, snapshot or validated image identifier."""
-        parts=path.strip("/").split("/")
-        if len(parts)<3:raise KeyError(path)
-        app_id=parts[2]
-        store=self.server.service.store
-        if len(parts)>=4 and parts[3]=='publications':
+        parts = path.strip("/").split("/")
+        if len(parts) < 3:
+            raise KeyError(path)
+        app_id = parts[2]
+        store = self.server.service.store
+        if len(parts) >= 4 and parts[3] == "publications":
             from .publication_http import route
-            return route(self,parts)
-        if len(parts)>=4 and parts[3]=='drive':
+
+            return route(self, parts)
+        if len(parts) >= 4 and parts[3] == "drive":
             from .drive_http import get
-            return get(self,parts)
-        if len(parts)>=4 and parts[3]=='install-attribution':
+
+            return get(self, parts)
+        if len(parts) >= 4 and parts[3] == "install-attribution":
             from .install_attribution import report
-            if len(parts)!=6 or parts[4]!='reports' or path!='/'+ '/'.join(parts):
-                raise Invalid('Open the exact install report address')
-            query=urlparse(self.path).query
-            if query not in ('','day=1','day=3','day=7'):
-                raise Invalid('Choose a day of 1, 3 or 7')
-            user=self.server.identities.fresh(self.session())
-            day=int(query[-1]) if query else None
-            return self.send(200,report(store,app_id,user,parts[5],day))
-        if len(parts)>=4 and parts[3]=='funnels':
+
+            if len(parts) != 6 or parts[4] != "reports" or path != "/" + "/".join(parts):
+                raise Invalid("Open the exact install report address")
+            query = urlparse(self.path).query
+            if query not in ("", "day=1", "day=3", "day=7"):
+                raise Invalid("Choose a day of 1, 3 or 7")
+            user = self.server.identities.fresh(self.session())
+            day = int(query[-1]) if query else None
+            return self.send(200, report(store, app_id, user, parts[5], day))
+        if len(parts) >= 4 and parts[3] == "funnels":
             from .funnel_http import get
-            return get(self,parts)
-        if len(parts)>=4 and parts[3]=='media':
+
+            return get(self, parts)
+        if len(parts) >= 4 and parts[3] == "media":
             from .managed_media_http import get
-            return get(self,parts)
-        if len(parts)>=4 and parts[3]=='video-edit-renders':
-            if urlparse(self.path).query:raise Invalid('Use the exact edited video address')
+
+            return get(self, parts)
+        if len(parts) >= 4 and parts[3] == "video-edit-renders":
+            if urlparse(self.path).query:
+                raise Invalid("Use the exact edited video address")
             from .video_edit_jobs import EditRenders
-            if len(parts)==4:return self.send(200,EditRenders(store).list(app_id))
-            if len(parts)==6 and parts[5] in ('preview','download'):
-                return self.video(app_id,parts[4],parts[5]=='download',edited=True)
-            raise KeyError('Edited video route not found')
-        if len(parts)>=4 and parts[3]=='video-projects':
-            if urlparse(self.path).query:raise Invalid('Use the exact video project address')
+
+            if len(parts) == 4:
+                return self.send(200, EditRenders(store).list(app_id))
+            if len(parts) == 6 and parts[5] in ("preview", "download"):
+                return self.video(app_id, parts[4], parts[5] == "download", edited=True)
+            raise KeyError("Edited video route not found")
+        if len(parts) >= 4 and parts[3] == "video-projects":
+            if urlparse(self.path).query:
+                raise Invalid("Use the exact video project address")
             from .video_edit_projects import Projects
-            projects=Projects(store)
-            if len(parts)==4:return self.send(200,projects.list(app_id))
-            if len(parts)==5:return self.send(200,projects.read(app_id,parts[4]))
-            raise KeyError('Video project route not found')
-        if parts[3:]==['native-renders']:
-            if urlparse(self.path).query:raise Invalid('Use the exact native history address')
+
+            projects = Projects(store)
+            if len(parts) == 4:
+                return self.send(200, projects.list(app_id))
+            if len(parts) == 5:
+                return self.send(200, projects.read(app_id, parts[4]))
+            raise KeyError("Video project route not found")
+        if parts[3:] == ["native-renders"]:
+            if urlparse(self.path).query:
+                raise Invalid("Use the exact native history address")
             from .creative_rendering import Renders
-            return self.send(200,Renders(store).list(app_id))
-        if parts[3:]==['workflow-telemetry']:
-            if urlparse(self.path).query:raise Invalid('Use the exact workflow telemetry address')
+
+            return self.send(200, Renders(store).list(app_id))
+        if parts[3:] == ["workflow-telemetry"]:
+            if urlparse(self.path).query:
+                raise Invalid("Use the exact workflow telemetry address")
             from .workflow_telemetry import monitor
-            return self.send(200,monitor(store,app_id,self.server.service.worker_health()))
-        if parts[3:]==['reports','summary']:
-            if urlparse(self.path).query:raise Invalid('Use the exact app summary report address')
+
+            return self.send(200, monitor(store, app_id, self.server.service.worker_health()))
+        if parts[3:] == ["reports", "summary"]:
+            if urlparse(self.path).query:
+                raise Invalid("Use the exact app summary report address")
             from .ios_reports import read
-            from .operation_authority import bound_owner,protected
-            session=self.session();envelope=dict(app_id=app_id,operation='report.read',input={})
+            from .operation_authority import bound_owner, protected
+
+            session = self.session()
+            envelope = dict(app_id=app_id, operation="report.read", input={})
             try:
-                user=self.server.identities.fresh(session)
-                with bound_owner(store,envelope,self.server.identities,session,user),protected(store,envelope):
-                    return self.send(200,read(store,app_id))
+                user = self.server.identities.fresh(session)
+                with bound_owner(store, envelope, self.server.identities, session, user), protected(store, envelope):
+                    return self.send(200, read(store, app_id))
             except PermissionError:
-                return self.send(200,read(store,app_id,include_handoffs=False))
-        if parts[3:]==['subscription-growth']:
-            if urlparse(self.path).query:raise Invalid('Use the exact subscription review address')
-            return self.send(200,self.server.service.subscription_review(app_id))
-        if parts[3:]==['subscription-growth','history']:
-            if urlparse(self.path).query:raise Invalid('Use the exact growth review history address')
+                return self.send(200, read(store, app_id, include_handoffs=False))
+        if parts[3:] == ["subscription-growth"]:
+            if urlparse(self.path).query:
+                raise Invalid("Use the exact subscription review address")
+            return self.send(200, self.server.service.subscription_review(app_id))
+        if parts[3:] == ["subscription-growth", "history"]:
+            if urlparse(self.path).query:
+                raise Invalid("Use the exact growth review history address")
             from .growth_review_store import GrowthReviews
-            return self.send(200,GrowthReviews(store).list(app_id))
-        if parts[3:]==['customer-workflows']:
-            if urlparse(self.path).query:raise Invalid('Use the exact customer workflow history address')
+
+            return self.send(200, GrowthReviews(store).list(app_id))
+        if parts[3:] == ["customer-workflows"]:
+            if urlparse(self.path).query:
+                raise Invalid("Use the exact customer workflow history address")
             from .customer_workflow_store import CustomerWorkflows
-            return self.send(200,CustomerWorkflows(store).list(app_id))
-        if parts[3:]==['agent-operations']:
-            query=urlparse(self.path).query
-            if query not in ('','profile=meta_media_buyer'):
-                raise Invalid('Use the exact app operation discovery address and supported profile')
+
+            return self.send(200, CustomerWorkflows(store).list(app_id))
+        if parts[3:] == ["agent-operations"]:
+            query = urlparse(self.path).query
+            if query not in ("", "profile=meta_media_buyer"):
+                raise Invalid("Use the exact app operation discovery address and supported profile")
             from .agent_operations import discovery
-            return self.send(200,discovery(store.app(app_id),'meta_media_buyer' if query else None))
-        if parts[3:]==['cloud-connection']:
-            if urlparse(self.path).query:raise Invalid('Use the exact personal cloud connection address')
+
+            return self.send(200, discovery(store.app(app_id), "meta_media_buyer" if query else None))
+        if parts[3:] == ["cloud-connection"]:
+            if urlparse(self.path).query:
+                raise Invalid("Use the exact personal cloud connection address")
             from .cloud_connection import CloudConnections
             from .db import connection as db_connection
             from .review_access import member
-            session=self.session();user=self.server.identities.fresh(session)
+
+            session = self.session()
+            user = self.server.identities.fresh(session)
             with db_connection(store.path) as db:
-                member(db,app_id,user['principal'],'OWNER')
-            return self.send(200,CloudConnections(store).current(app_id))
-        if parts[3:]==['automation','rules','history']:
-            query=urlparse(self.path).query
-            if query and not re.fullmatch(r'before=[1-9][0-9]{0,18}',query):
-                raise Invalid('Use one exact rule history cursor')
+                member(db, app_id, user["principal"], "OWNER")
+            return self.send(200, CloudConnections(store).current(app_id))
+        if parts[3:] == ["automation", "rules", "history"]:
+            query = urlparse(self.path).query
+            if query and not re.fullmatch(r"before=[1-9][0-9]{0,18}", query):
+                raise Invalid("Use one exact rule history cursor")
             from .automation_store import version_index
-            user,recheck=self.automation_owner_session()
-            result=version_index(store,app_id,user['principal'],int(query[7:]) if query else None)
+
+            user, recheck = self.automation_owner_session()
+            result = version_index(store, app_id, user["principal"], int(query[7:]) if query else None)
             recheck()
-            return self.send(200,result)
-        if parts[3:]==['automation','rules']:
-            if urlparse(self.path).query:raise Invalid('Use the exact automation rules address')
+            return self.send(200, result)
+        if parts[3:] == ["automation", "rules"]:
+            if urlparse(self.path).query:
+                raise Invalid("Use the exact automation rules address")
             from .automation_store import current
-            user, recheck=self.automation_owner_session()
-            result=current(store,app_id,user['principal'])
+
+            user, recheck = self.automation_owner_session()
+            result = current(store, app_id, user["principal"])
             recheck()
-            return self.send(200,result)
-        if parts[3:]==['jobs']:
-            if urlparse(self.path).query:raise Invalid('Use the exact app job history address')
+            return self.send(200, result)
+        if parts[3:] == ["jobs"]:
+            if urlparse(self.path).query:
+                raise Invalid("Use the exact app job history address")
             from .worker import jobs
-            return self.send(200,jobs(store,app_id))
-        if parts[3:]==['activity','history']:
+
+            return self.send(200, jobs(store, app_id))
+        if parts[3:] == ["activity", "history"]:
             return self.get_activity(app_id)
-        if len(parts)==3:
-            return self.send(200,dict(self.server.service.workspace(app_id),identity=self.server.identities.public(self.session()),
-                                      device_signin_available=self.server.device_signins.available))
-        if len(parts)==6 and parts[3:5]==['social-access','flows']:
-            return self.get_social_progress(app_id,parts[5])
-        histories={('aeo','history'):'aeo',('attribution','history'):'attribution'}
+        if len(parts) == 3:
+            return self.send(
+                200,
+                dict(
+                    self.server.service.workspace(app_id),
+                    identity=self.server.identities.public(self.session()),
+                    device_signin_available=self.server.device_signins.available,
+                ),
+            )
+        if len(parts) == 6 and parts[3:5] == ["social-access", "flows"]:
+            return self.get_social_progress(app_id, parts[5])
+        histories = {("aeo", "history"): "aeo", ("attribution", "history"): "attribution"}
         if tuple(parts[3:]) in histories:
-            return self.get_history(app_id,histories[tuple(parts[3:])])
-        scoped={'renders':self.get_video,'hypit-renders':self.get_hypit_video,'experiment-tracking':self.get_instrumentation,'files':self.get_asset,'setup-discovery':self.get_setup_discovery}
-        if parts[3] in scoped:return scoped[parts[3]](parts)
-        ordinary={'export':lambda:self.send(200,store.export(app_id),filename=app_id+'-snapshot.json'),
-                  'measurement':lambda:self.get_measurement(app_id)}
-        if len(parts)==4 and parts[3] in ordinary:
+            return self.get_history(app_id, histories[tuple(parts[3:])])
+        scoped = {
+            "renders": self.get_video,
+            "hypit-renders": self.get_hypit_video,
+            "experiment-tracking": self.get_instrumentation,
+            "files": self.get_asset,
+            "setup-discovery": self.get_setup_discovery,
+        }
+        if parts[3] in scoped:
+            return scoped[parts[3]](parts)
+        ordinary = {
+            "export": lambda: self.send(200, store.export(app_id), filename=app_id + "-snapshot.json"),
+            "measurement": lambda: self.get_measurement(app_id),
+        }
+        if len(parts) == 4 and parts[3] in ordinary:
             return ordinary[parts[3]]()
         raise KeyError(path)
 
-    def get_setup_discovery(self,parts):
+    def get_setup_discovery(self, parts):
         """Expose local setup detail with no request target or network side effect."""
         from .setup_http import get
-        if urlparse(self.path).query:raise Invalid('Use the exact setup proposal address')
-        return self.send(200,get(self.server.service.store,parts[2],parts[4:]))
 
-    def get_instrumentation(self,parts):
+        if urlparse(self.path).query:
+            raise Invalid("Use the exact setup proposal address")
+        return self.send(200, get(self.server.service.store, parts[2], parts[4:]))
+
+    def get_instrumentation(self, parts):
         """Download the exact reviewed app-owned package without provider or install authority."""
-        from .instrumentation import prepare,archive
+        from .instrumentation import prepare, archive
         from .instrumentation_state import record_download
-        if urlparse(self.path).query or len(parts)!=8 or parts[5]!='instrumentation':
-            raise Invalid('Use the current exact integration package address')
-        value=prepare(self.server.service.store,parts[2],parts[4],parts[6],parts[7])
-        record_download(self.server.service.store,parts[2],value['experiment_id'],parts[7],value['bundle_hash'])
-        return self.send(200,archive(value),'application/zip',filename='wmm-'+value['experiment_id']+'-instrumentation.zip')
 
-    def get_social_progress(self,app_id,identity):
+        if urlparse(self.path).query or len(parts) != 8 or parts[5] != "instrumentation":
+            raise Invalid("Use the current exact integration package address")
+        value = prepare(self.server.service.store, parts[2], parts[4], parts[6], parts[7])
+        record_download(self.server.service.store, parts[2], value["experiment_id"], parts[7], value["bundle_hash"])
+        return self.send(
+            200, archive(value), "application/zip", filename="wmm-" + value["experiment_id"] + "-instrumentation.zip"
+        )
+
+    def get_social_progress(self, app_id, identity):
         """Keep exact social progress validation separate from general app routing."""
-        from .social_flows import Flows,public
-        if urlparse(self.path).query:raise Invalid('Use the exact social progress address')
-        return self.send(200,public(Flows(self.server.service.store,self.server.server_port).get(app_id,identity)))
+        from .social_flows import Flows, public
 
-    def get_asset(self,parts):
+        if urlparse(self.path).query:
+            raise Invalid("Use the exact social progress address")
+        return self.send(200, public(Flows(self.server.service.store, self.server.server_port).get(app_id, identity)))
+
+    def get_asset(self, parts):
         """Read only one validated image within the selected existing app."""
-        if len(parts)!=5:raise KeyError(self.path)
-        store=self.server.service.store;app_id=parts[2];store.app(app_id)
-        if not re.fullmatch(r"[a-f0-9-]+\.(?:png|jpg|jpeg)",parts[4]):raise Invalid('Invalid asset identifier')
-        file=store.path.parent/'files'/app_id/parts[4]
-        return self.send(200,file.read_bytes(),mimetypes.guess_type(file.name)[0])
+        if len(parts) != 5:
+            raise KeyError(self.path)
+        store = self.server.service.store
+        app_id = parts[2]
+        store.app(app_id)
+        if not re.fullmatch(r"[a-f0-9-]+\.(?:png|jpg|jpeg)", parts[4]):
+            raise Invalid("Invalid asset identifier")
+        file = store.path.parent / "files" / app_id / parts[4]
+        return self.send(200, file.read_bytes(), mimetypes.guess_type(file.name)[0])
 
-    def get_activity(self,app_id):
+    def get_activity(self, app_id):
         """Serve one bounded, filtered page of joined app-owned local records."""
         from .activity_timeline import read as activity_read
-        query=parse_qs(urlparse(self.path).query,keep_blank_values=True)
-        if any(key not in ('kind','status','cursor','limit') for key in query):
-            raise Invalid('Use only kind, status, cursor and limit')
-        if any(len(values)!=1 for values in query.values()):
-            raise Invalid('Use each activity filter once')
-        try:
-            limit=int(query.get('limit',['20'])[0])
-        except ValueError as exc:
-            raise Invalid('Activity limit must be an integer') from exc
-        value=activity_read(self.server.service.store,app_id,kind=query.get('kind',[None])[0],
-                            status=query.get('status',[None])[0],cursor=query.get('cursor',[None])[0],limit=limit)
-        return self.send(200,value,filename=app_id+'-activity-history.json')
 
-    def get_history(self,app_id,kind):
+        query = parse_qs(urlparse(self.path).query, keep_blank_values=True)
+        if any(key not in ("kind", "status", "cursor", "limit") for key in query):
+            raise Invalid("Use only kind, status, cursor and limit")
+        if any(len(values) != 1 for values in query.values()):
+            raise Invalid("Use each activity filter once")
+        try:
+            limit = int(query.get("limit", ["20"])[0])
+        except ValueError as exc:
+            raise Invalid("Activity limit must be an integer") from exc
+        value = activity_read(
+            self.server.service.store,
+            app_id,
+            kind=query.get("kind", [None])[0],
+            status=query.get("status", [None])[0],
+            cursor=query.get("cursor", [None])[0],
+            limit=limit,
+        )
+        return self.send(200, value, filename=app_id + "-activity-history.json")
+
+    def get_history(self, app_id, kind):
         """Export only registered app-scoped histories through exact addresses."""
         from .aeo_portable import export_aeo
         from .attribution_portable import export_attribution
-        exporters={'aeo':export_aeo,'attribution':export_attribution}
-        store=self.server.service.store
+
+        exporters = {"aeo": export_aeo, "attribution": export_attribution}
+        store = self.server.service.store
         store.app(app_id)
         if urlparse(self.path).query:
-            raise Invalid('Use the exact app '+kind+' history address')
+            raise Invalid("Use the exact app " + kind + " history address")
         with connection(store.path) as db:
-            value=exporters[kind](db,app_id)
-        return self.send(200,value,filename=app_id+'-'+kind+'-history.json')
+            value = exporters[kind](db, app_id)
+        return self.send(200, value, filename=app_id + "-" + kind + "-history.json")
 
-    def get_measurement(self,app_id):
+    def get_measurement(self, app_id):
         """Preserve the existing optional as-of measurement query."""
         from .ledger import Ledger
-        store=self.server.service.store
+
+        store = self.server.service.store
         store.app(app_id)
-        query=parse_qs(urlparse(self.path).query)
-        return self.send(200,Ledger(store.path).reports(app_id,query.get('as_of',[None])[0]))
+        query = parse_qs(urlparse(self.path).query)
+        return self.send(200, Ledger(store.path).reports(app_id, query.get("as_of", [None])[0]))
 
-    def get_video(self,parts):
+    def get_video(self, parts):
         """Require the finite app-owned video preview/download route shape."""
-        if len(parts)!=6 or parts[5] not in ("preview","download"):raise KeyError("Video route not found")
-        return self.video(parts[2],parts[4],parts[5]=="download")
+        if len(parts) != 6 or parts[5] not in ("preview", "download"):
+            raise KeyError("Video route not found")
+        return self.video(parts[2], parts[4], parts[5] == "download")
 
-    def get_hypit_video(self,parts):
+    def get_hypit_video(self, parts):
         """Expose app-owned history or the exact Hypit preview/download route."""
         from .hypit_jobs import HypitRenders
-        if urlparse(self.path).query:raise Invalid('Use the exact Hypit artifact address')
-        if len(parts)==4:return self.send(200,HypitRenders(self.server.service.store).list(parts[2]))
-        if len(parts)!=6 or parts[5] not in ('preview','download'):raise KeyError('Hypit video route not found')
-        return self.video(parts[2],parts[4],parts[5]=='download',hypit=True)
 
-    def video(self,app_id,render_id,download=False,hypit=False,edited=False):
+        if urlparse(self.path).query:
+            raise Invalid("Use the exact Hypit artifact address")
+        if len(parts) == 4:
+            return self.send(200, HypitRenders(self.server.service.store).list(parts[2]))
+        if len(parts) != 6 or parts[5] not in ("preview", "download"):
+            raise KeyError("Hypit video route not found")
+        return self.video(parts[2], parts[4], parts[5] == "download", hypit=True)
+
+    def video(self, app_id, render_id, download=False, hypit=False, edited=False):
         """Serve hash-validated app-owned video with actual seeking and download support."""
         from .creative_rendering import artifact_file
+
         if hypit:
             from .hypit_jobs import artifact_file
         if edited:
             from .video_edit_jobs import artifact_file
-        path,_=artifact_file(self.server.service.store,app_id,render_id);raw=path.read_bytes()
-        headers={"Accept-Ranges":"bytes"};filename=app_id+"-"+render_id+".mp4" if download else None
-        value=self.headers.get("Range")
-        if not value:return self.send(200,raw,"video/mp4",filename,headers)
-        try:start,end=media_range(value,len(raw))
-        except Invalid:return self.send(416,b"","video/mp4",headers=dict(headers,**{"Content-Range":f"bytes */{len(raw)}"}))
-        headers["Content-Range"]=f"bytes {start}-{end}/{len(raw)}"
-        return self.send(206,raw[start:end+1],"video/mp4",filename,headers)
+        path, _ = artifact_file(self.server.service.store, app_id, render_id)
+        raw = path.read_bytes()
+        headers = {"Accept-Ranges": "bytes"}
+        filename = app_id + "-" + render_id + ".mp4" if download else None
+        value = self.headers.get("Range")
+        if not value:
+            return self.send(200, raw, "video/mp4", filename, headers)
+        try:
+            start, end = media_range(value, len(raw))
+        except Invalid:
+            return self.send(416, b"", "video/mp4", headers=dict(headers, **{"Content-Range": f"bytes */{len(raw)}"}))
+        headers["Content-Range"] = f"bytes {start}-{end}/{len(raw)}"
+        return self.send(206, raw[start : end + 1], "video/mp4", filename, headers)
 
-    def payment_webhook(self,path):
+    def payment_webhook(self, path):
         """Authenticate finite loopback delivery via HMAC, never a browser CSRF exemption."""
         from .signed_payments import Payments
-        expected=f"127.0.0.1:{self.server.server_port}"
-        if self.headers.get_all("Host")!=[expected] or urlparse(self.path).query:
+
+        expected = f"127.0.0.1:{self.server.server_port}"
+        if self.headers.get_all("Host") != [expected] or urlparse(self.path).query:
             raise PermissionError("Use the exact loopback payment delivery address")
-        if self.headers.get("Transfer-Encoding") or len(self.headers.get_all("Content-Length",[]))!=1:
+        if self.headers.get("Transfer-Encoding") or len(self.headers.get_all("Content-Length", [])) != 1:
             raise Invalid("Payment delivery needs one bounded Content-Length")
-        signatures=self.headers.get_all("Stripe-Signature",[])
-        if len(signatures)!=1:raise PermissionError("Use one Stripe-Signature header")
-        if self.headers.get("Content-Type","").split(";")[0].strip()!="application/json":
+        signatures = self.headers.get_all("Stripe-Signature", [])
+        if len(signatures) != 1:
+            raise PermissionError("Use one Stripe-Signature header")
+        if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
             raise Invalid("Payment delivery must be application/json")
-        previous=self.connection.gettimeout()
+        previous = self.connection.gettimeout()
         try:
             self.connection.settimeout(5)
-            raw=self.body(262144)
-        finally:self.connection.settimeout(previous)
-        if len(raw)!=int(self.headers["Content-Length"]):raise Invalid("Payment body is truncated")
-        parts=path.strip("/").split("/")
-        return self.send(200,Payments(self.server.service.store).intake(parts[2],parts[3],raw,signatures[0]))
+            raw = self.body(262144)
+        finally:
+            self.connection.settimeout(previous)
+        if len(raw) != int(self.headers["Content-Length"]):
+            raise Invalid("Payment body is truncated")
+        parts = path.strip("/").split("/")
+        return self.send(200, Payments(self.server.service.store).intake(parts[2], parts[3], raw, signatures[0]))
 
-    def body(self,limit=1048576):
+    def body(self, limit=1048576):
         """Read an explicitly bounded request body and reject invalid size."""
-        length=int(self.headers.get("Content-Length","0"))
-        if not 0<length<=limit:
+        length = int(self.headers.get("Content-Length", "0"))
+        if not 0 < length <= limit:
             raise Invalid("Request is empty or exceeds the upload limit")
         return self.rfile.read(length)
 
-    def storekit_webhook(self,path):
+    def storekit_webhook(self, path):
         """Finite loopback deliveries authenticate with Apple JWS; they cannot create browser sessions."""
         from .storekit_ingestion import Notifications
-        expected=f"127.0.0.1:{self.server.server_port}"
-        if self.headers.get_all("Host")!=[expected] or urlparse(self.path).query:
+
+        expected = f"127.0.0.1:{self.server.server_port}"
+        if self.headers.get_all("Host") != [expected] or urlparse(self.path).query:
             raise PermissionError("Use the exact loopback StoreKit delivery address")
-        if self.headers.get("Transfer-Encoding") or len(self.headers.get_all("Content-Length",[]))!=1:
+        if self.headers.get("Transfer-Encoding") or len(self.headers.get_all("Content-Length", [])) != 1:
             raise Invalid("StoreKit delivery needs one bounded Content-Length")
-        if self.headers.get("Content-Type","").split(";")[0].strip()!="application/json":
+        if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
             raise Invalid("StoreKit delivery must be application/json")
-        previous=self.connection.gettimeout()
+        previous = self.connection.gettimeout()
         try:
             self.connection.settimeout(5)
-            raw=self.body(262144)
-        finally:self.connection.settimeout(previous)
-        if len(raw)!=int(self.headers["Content-Length"]):raise Invalid("StoreKit body is truncated")
-        parts=path.strip("/").split("/")
-        return self.send(200,Notifications(self.server.service.store).ingest(parts[2],parts[3],raw))
+            raw = self.body(262144)
+        finally:
+            self.connection.settimeout(previous)
+        if len(raw) != int(self.headers["Content-Length"]):
+            raise Invalid("StoreKit body is truncated")
+        parts = path.strip("/").split("/")
+        return self.send(200, Notifications(self.server.service.store).ingest(parts[2], parts[3], raw))
 
-    def post(self,path):
+    def post(self, path):
         """Parse finite object requests or process a bounded image upload."""
-        service=self.server.service
-        parts=path.strip("/").split("/")
-        if len(parts)==4 and parts[:2]==["api","apps"] and parts[3]=="files":
-            return self.send(201,service.upload(parts[2],unquote(self.headers.get("X-Filename","image.png")),self.body(8388608)))
-        if len(parts)>=4 and parts[:2]==['api','apps'] and parts[3]=='publications':
+        service = self.server.service
+        parts = path.strip("/").split("/")
+        if len(parts) == 4 and parts[:2] == ["api", "apps"] and parts[3] == "files":
+            return self.send(
+                201, service.upload(parts[2], unquote(self.headers.get("X-Filename", "image.png")), self.body(8388608))
+            )
+        if len(parts) >= 4 and parts[:2] == ["api", "apps"] and parts[3] == "publications":
             from .publication_http import route
-            return route(self,parts)
-        domain=owner_domain_post(parts)
-        if domain is not None:return domain(self,parts)
-        data=self.post_data(path,parts)
-        if path=='/api/social/callback':
+
+            return route(self, parts)
+        domain = owner_domain_post(parts)
+        if domain is not None:
+            return domain(self, parts)
+        data = self.post_data(path, parts)
+        if path == "/api/social/callback":
             from .social_callbacks import callback
-            return self.send(200,callback(service.store,data,self.server.server_port))
-        if parts[:2]==["api","identity"]:return self.post_identity(parts,data)
-        ordinary={'/api/worker/retry':lambda:self.retry_worker(data),
-                  '/api/play/callback':lambda:self.play_callback(data),
-                  '/api/apps':lambda:self.send(201,service.store.save_app(data.get('id'),data.get('data',{}),data.get('version'))),
-                  '/api/restore':lambda:self.send(201,service.store.restore(data))}
+
+            return self.send(200, callback(service.store, data, self.server.server_port))
+        if parts[:2] == ["api", "identity"]:
+            return self.post_identity(parts, data)
+        ordinary = {
+            "/api/worker/retry": lambda: self.retry_worker(data),
+            "/api/play/callback": lambda: self.play_callback(data),
+            "/api/apps": lambda: self.send(
+                201, service.store.save_app(data.get("id"), data.get("data", {}), data.get("version"))
+            ),
+            "/api/restore": lambda: self.send(201, service.store.restore(data)),
+        }
         if path in ordinary:
             return ordinary[path]()
-        if len(parts)<4 or parts[:2]!=["api","apps"]:
+        if len(parts) < 4 or parts[:2] != ["api", "apps"]:
             raise KeyError(path)
-        return self.post_app(parts,data)
+        return self.post_app(parts, data)
 
-    def post_data(self,path,parts):
+    def post_data(self, path, parts):
         """Keep original per-route byte limits and strict duplicate/nonfinite checks."""
-        if 'studio' in parts:
+        if "studio" in parts:
             from .hypit_studio_routes import read_body
-            raw=read_body(self)
+
+            raw = read_body(self)
         else:
-            raw=self.attribution_body(path,parts) if any(k in parts for k in ('setup-discovery','play','attribution','agent-access','social-access','social')) else self.body(self.post_limit(path,parts))
-        strict=any(kind in parts for kind in ('studio','production','references','workflow-evidence','video-projects','video-edit-renders','agent-reviews','agent-grants','agent-handoffs','subscription-growth','customer-workflows','setup-discovery','play','attribution','insights','aeo','release-selection','agent-access','social-access','social','experiments')) or path=='/api/restore'
+            raw = (
+                self.attribution_body(path, parts)
+                if any(
+                    k in parts
+                    for k in ("setup-discovery", "play", "attribution", "agent-access", "social-access", "social")
+                )
+                else self.body(self.post_limit(path, parts))
+            )
+        strict = (
+            any(
+                kind in parts
+                for kind in (
+                    "studio",
+                    "production",
+                    "references",
+                    "workflow-evidence",
+                    "video-projects",
+                    "video-edit-renders",
+                    "agent-reviews",
+                    "agent-grants",
+                    "agent-handoffs",
+                    "subscription-growth",
+                    "customer-workflows",
+                    "setup-discovery",
+                    "play",
+                    "attribution",
+                    "insights",
+                    "aeo",
+                    "release-selection",
+                    "agent-access",
+                    "social-access",
+                    "social",
+                    "experiments",
+                )
+            )
+            or path == "/api/restore"
+        )
         if strict:
-            from .payment_signature import unique_pairs,bounded_tree
-            data=json.loads(raw,object_pairs_hook=unique_pairs,parse_constant=lambda _:(_ for _ in ()).throw(Invalid('Nonfinite JSON is forbidden')))
+            from .payment_signature import unique_pairs, bounded_tree
+
+            data = json.loads(
+                raw,
+                object_pairs_hook=unique_pairs,
+                parse_constant=lambda _: (_ for _ in ()).throw(Invalid("Nonfinite JSON is forbidden")),
+            )
             bounded_tree(data)
         else:
-            data=json.loads(raw)
-        if not isinstance(data,dict):
-            raise Invalid('Request must be a JSON object')
+            data = json.loads(raw)
+        if not isinstance(data, dict):
+            raise Invalid("Request must be a JSON object")
         return data
 
-    def retry_worker(self,data):
+    def retry_worker(self, data):
         """Bind explicit shared-worker recovery to a current workspace session."""
-        if urlparse(self.path).query or set(data)!={"app_id","manifest_version"} or type(data["manifest_version"]) is not int or not isinstance(data["app_id"],str):
+        if (
+            urlparse(self.path).query
+            or set(data) != {"app_id", "manifest_version"}
+            or type(data["manifest_version"]) is not int
+            or not isinstance(data["app_id"], str)
+        ):
             raise Invalid("Reload the current workspace before retrying automation")
         with connection(self.server.service.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
-            row=db.execute("SELECT version FROM apps WHERE id=?",(data["app_id"],)).fetchone()
-            if row is None or row["version"]!=data["manifest_version"]:
+            row = db.execute("SELECT version FROM apps WHERE id=?", (data["app_id"],)).fetchone()
+            if row is None or row["version"] != data["manifest_version"]:
                 raise Invalid("App setup changed; refresh saved work before retrying automation")
-            result=self.server.runner.retry_failed()
-        return self.send(200,result)
+            result = self.server.runner.retry_failed()
+        return self.send(200, result)
 
-    def post_limit(self,path,parts):
+    def post_limit(self, path, parts):
         """Bound protected setup independently from snapshots and ordinary records."""
-        if "storekit" in parts:return 262144
-        if 'play' in parts:return 262144 if parts[-1]=='discover' else 24576
-        if "attribution" in parts:return 2097152
-        if any(kind in parts for kind in ('setup-discovery','connections','payments','insights','release-selection','agent-access','social-access','social')):
+        if "storekit" in parts:
+            return 262144
+        if "play" in parts:
+            return 262144 if parts[-1] == "discover" else 24576
+        if "attribution" in parts:
+            return 2097152
+        if any(
+            kind in parts
+            for kind in (
+                "setup-discovery",
+                "connections",
+                "payments",
+                "insights",
+                "release-selection",
+                "agent-access",
+                "social-access",
+                "social",
+            )
+        ):
             return 8192
-        if "identity" in parts:return 512
-        if path=="/api/worker/retry":return 512
-        if parts[-1:]==["public-listing"]:return 512
-        return 33554432 if path=="/api/restore" else 1048576
+        if "identity" in parts:
+            return 512
+        if path == "/api/worker/retry":
+            return 512
+        if parts[-1:] == ["public-listing"]:
+            return 512
+        return 33554432 if path == "/api/restore" else 1048576
 
-    def attribution_body(self,path,parts):
+    def attribution_body(self, path, parts):
         """Protected setup is finite and exact JSON, with no alternate HTTP framing."""
-        if urlparse(self.path).query or self.headers.get("Transfer-Encoding") or len(self.headers.get_all("Content-Length",[]))!=1:
+        if (
+            urlparse(self.path).query
+            or self.headers.get("Transfer-Encoding")
+            or len(self.headers.get_all("Content-Length", [])) != 1
+        ):
             raise Invalid("Use one bounded attribution JSON request without a query")
-        if self.headers.get("Content-Type","").split(";")[0].strip()!="application/json":
+        if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
             raise Invalid("Attribution requests must be application/json")
-        previous=self.connection.gettimeout()
+        previous = self.connection.gettimeout()
         try:
             self.connection.settimeout(5)
-            raw=self.body(self.post_limit(path,parts))
-        finally:self.connection.settimeout(previous)
-        if len(raw)!=int(self.headers["Content-Length"]):raise Invalid("Attribution request is truncated")
+            raw = self.body(self.post_limit(path, parts))
+        finally:
+            self.connection.settimeout(previous)
+        if len(raw) != int(self.headers["Content-Length"]):
+            raise Invalid("Attribution request is truncated")
         return raw
 
-    def agent_access(self,app_id,parts,body):
+    def agent_access(self, app_id, parts, body):
         """Finite app-owned access operations cannot accept arbitrary commands."""
-        from .agent_access import AgentAccess,detect
+        from .agent_access import AgentAccess, detect
         from .agent_contract import exact
-        from .agent_tasks import proposal,AgentWork
-        store=self.server.service.store;store.app(app_id);access=AgentAccess(store)
-        if len(parts)==2 and parts[1]=='disconnect':return access.disconnect(app_id,parts[0],body)
-        if len(parts)!=1:raise KeyError('Agent connection action not found')
-        if parts[0]=='cleanup':
-            exact(body,());return access.cleanup(app_id)
-        actions={'save':lambda:access.save(app_id,body),'routes':lambda:access.routes(app_id,body),
-                 'proposal':lambda:proposal(store,app_id,body),'approve':lambda:AgentWork(store).start(app_id,body)}
-        if parts[0]=='detect':
-            exact(body,('provider',));return detect(body['provider'])
-        if parts[0] not in actions:raise KeyError('Agent connection action not found')
+        from .agent_tasks import proposal, AgentWork
+
+        store = self.server.service.store
+        store.app(app_id)
+        access = AgentAccess(store)
+        if len(parts) == 2 and parts[1] == "disconnect":
+            return access.disconnect(app_id, parts[0], body)
+        if len(parts) != 1:
+            raise KeyError("Agent connection action not found")
+        if parts[0] == "cleanup":
+            exact(body, ())
+            return access.cleanup(app_id)
+        actions = {
+            "save": lambda: access.save(app_id, body),
+            "routes": lambda: access.routes(app_id, body),
+            "proposal": lambda: proposal(store, app_id, body),
+            "approve": lambda: AgentWork(store).start(app_id, body),
+        }
+        if parts[0] == "detect":
+            exact(body, ("provider",))
+            return detect(body["provider"])
+        if parts[0] not in actions:
+            raise KeyError("Agent connection action not found")
         return actions[parts[0]]()
 
-    def post_app(self,parts,data):
+    def post_app(self, parts, data):
         """Dispatch only registered app-scoped write actions."""
-        service=self.server.service
-        if parts[3]=='social-access':
+        service = self.server.service
+        if parts[3] == "social-access":
             from .social_http import post as social_post
-            return self.send(200,social_post(service.store,parts[2],parts[4:],data,self.server.server_port))
-        if parts[3]=='agent-access':
-            return self.send(200,self.agent_access(parts[2],parts[4:],data))
-        app_id,action=parts[2:4]
-        if action=='studio':
+
+            return self.send(200, social_post(service.store, parts[2], parts[4:], data, self.server.server_port))
+        if parts[3] == "agent-access":
+            return self.send(200, self.agent_access(parts[2], parts[4:], data))
+        app_id, action = parts[2:4]
+        if action == "studio":
             from .hypit_studio_routes import human
-            return self.send(200,human(self,parts,data))
-        if action=='video-edit-renders':
-            if len(parts)!=4 or urlparse(self.path).query:raise Invalid('Use the exact edited video queue address')
+
+            return self.send(200, human(self, parts, data))
+        if action == "video-edit-renders":
+            if len(parts) != 4 or urlparse(self.path).query:
+                raise Invalid("Use the exact edited video queue address")
             from .video_edit_jobs import EditRenders
-            return self.send(201,EditRenders(service.store).queue(app_id,data))
-        if action=='video-projects':
-            if urlparse(self.path).query:raise Invalid('Use the exact video project address')
-            from .video_edit_projects import Projects
-            projects=Projects(service.store)
-            if len(parts)==4:return self.send(201,projects.save(app_id,data))
-            if len(parts)==6 and parts[5] in ('edits','history','diff'):
-                operation='edit' if parts[5]=='edits' else parts[5]
-                return self.send(200,getattr(projects,operation)(app_id,parts[4],data))
-            raise KeyError('Video project route not found')
-        if action=='workflow-evidence':
-            if len(parts)!=4 or urlparse(self.path).query:raise Invalid('Use the exact workflow evidence address')
-            from .operation_runtime import save_evidence
-            if self.asset_rights_assertion(data):
-                return self.save_owner_asset(parts,app_id,data,lambda:save_evidence(service,app_id,data))
-            return self.send(201,save_evidence(service,app_id,data))
-        if action=='subscription-growth':
-            if parts[4:]!=['entries'] or urlparse(self.path).query:raise Invalid('Use the exact growth review entry address')
-            from .growth_review_store import GrowthReviews
-            return self.send(201,GrowthReviews(service.store).save(app_id,data))
-        if action=='customer-workflows':
-            if len(parts)!=4 or urlparse(self.path).query:raise Invalid('Use the exact customer workflow creation address')
-            from .customer_workflow_store import CustomerWorkflows
-            return self.send(201,CustomerWorkflows(service.store).save(app_id,data))
-        if action == 'campaign-inputs' and len(parts) == 4:
-            from .campaign_inputs import CampaignInputs
+
+            return self.send(201, EditRenders(service.store).queue(app_id, data))
+        if action == "video-projects":
             if urlparse(self.path).query:
-                raise Invalid('Use the exact campaign input collection address')
-            return self.send(201,CampaignInputs(service.store).start(app_id,data))
-        if action=='agent-handoffs':
-            if len(parts)!=4:raise PermissionError('Handoff resume requires a scoped agent admission')
-            if self.path!='/'+ '/'.join(parts):raise Invalid('Use the exact handoff address')
+                raise Invalid("Use the exact video project address")
+            from .video_edit_projects import Projects
+
+            projects = Projects(service.store)
+            if len(parts) == 4:
+                return self.send(201, projects.save(app_id, data))
+            if len(parts) == 6 and parts[5] in ("edits", "history", "diff"):
+                operation = "edit" if parts[5] == "edits" else parts[5]
+                return self.send(200, getattr(projects, operation)(app_id, parts[4], data))
+            raise KeyError("Video project route not found")
+        if action == "workflow-evidence":
+            if len(parts) != 4 or urlparse(self.path).query:
+                raise Invalid("Use the exact workflow evidence address")
+            from .operation_runtime import save_evidence
+
+            if self.asset_rights_assertion(data):
+                return self.save_owner_asset(parts, app_id, data, lambda: save_evidence(service, app_id, data))
+            return self.send(201, save_evidence(service, app_id, data))
+        if action == "subscription-growth":
+            if parts[4:] != ["entries"] or urlparse(self.path).query:
+                raise Invalid("Use the exact growth review entry address")
+            from .growth_review_store import GrowthReviews
+
+            return self.send(201, GrowthReviews(service.store).save(app_id, data))
+        if action == "customer-workflows":
+            if len(parts) != 4 or urlparse(self.path).query:
+                raise Invalid("Use the exact customer workflow creation address")
+            from .customer_workflow_store import CustomerWorkflows
+
+            return self.send(201, CustomerWorkflows(service.store).save(app_id, data))
+        if action == "campaign-inputs" and len(parts) == 4:
+            from .campaign_inputs import CampaignInputs
+
+            if urlparse(self.path).query:
+                raise Invalid("Use the exact campaign input collection address")
+            return self.send(201, CampaignInputs(service.store).start(app_id, data))
+        if action == "agent-handoffs":
+            if len(parts) != 4:
+                raise PermissionError("Handoff resume requires a scoped agent admission")
+            if self.path != "/" + "/".join(parts):
+                raise Invalid("Use the exact handoff address")
             from .agent_handoffs import Handoffs
-            from .operation_authority import bound_owner,protected
-            session=self.session();user=self.server.identities.fresh(session)
-            envelope=dict(app_id=app_id,operation='handoff.create',input=data)
-            with bound_owner(service.store,envelope,self.server.identities,session,user),protected(service.store,envelope):
-                return self.send(201,Handoffs(service.store).create(app_id,user,data))
-        if action=='records' and self.asset_rights_assertion(data):
-            return self.save_owner_asset(parts,app_id,data,lambda:service.evidence(app_id,data))
-        routes={"records":lambda:service.evidence(app_id,data),"jobs":lambda:service.queue(app_id,data),
-                "reviews":lambda:service.prepare_review(app_id,data),"cohorts":lambda:service.cohort(app_id,data),"events":lambda:service.events(app_id,data)}
-        handlers={"agent-reviews":self.post_agent_reviews,"agent-grants":self.post_agent_grants,"setup-discovery":self.post_setup_discovery,"play":self.post_play,"experiment-tracking":self.post_tracking,"sequences":self.post_sequence,"resolutions":self.post_resolution,"release-selection":self.post_release_selection,"inspections":self.post_inspection,
-                  "pmf-research":self.post_pmf_research,"followup":self.post_followup,"aeo":self.post_aeo,
-                  "insights":self.post_insights,"storekit":self.post_storekit,"attribution":self.post_attribution,"install-attribution":self.post_install_import,"automation":self.post_automation,"cloud-connection":self.post_cloud_connection,
-                  "connections":self.post_connection,"experiments":self.post_experiment,"references":self.post_reference,"production":self.post_production,"rankings":self.post_ranking,"acquisition":self.post_acquisition,"access":self.post_access,"verified-reviews":self.post_verified_review,"provider-actions":self.post_provider_action,"learning":self.post_learning,"payments":self.post_payments}
+            from .operation_authority import bound_owner, protected
+
+            session = self.session()
+            user = self.server.identities.fresh(session)
+            envelope = dict(app_id=app_id, operation="handoff.create", input=data)
+            with (
+                bound_owner(service.store, envelope, self.server.identities, session, user),
+                protected(service.store, envelope),
+            ):
+                return self.send(201, Handoffs(service.store).create(app_id, user, data))
+        if action == "records" and self.asset_rights_assertion(data):
+            return self.save_owner_asset(parts, app_id, data, lambda: service.evidence(app_id, data))
+        routes = {
+            "records": lambda: service.evidence(app_id, data),
+            "jobs": lambda: service.queue(app_id, data),
+            "reviews": lambda: service.prepare_review(app_id, data),
+            "cohorts": lambda: service.cohort(app_id, data),
+            "events": lambda: service.events(app_id, data),
+        }
+        handlers = {
+            "agent-reviews": self.post_agent_reviews,
+            "agent-grants": self.post_agent_grants,
+            "setup-discovery": self.post_setup_discovery,
+            "play": self.post_play,
+            "experiment-tracking": self.post_tracking,
+            "sequences": self.post_sequence,
+            "resolutions": self.post_resolution,
+            "release-selection": self.post_release_selection,
+            "inspections": self.post_inspection,
+            "pmf-research": self.post_pmf_research,
+            "followup": self.post_followup,
+            "aeo": self.post_aeo,
+            "insights": self.post_insights,
+            "storekit": self.post_storekit,
+            "attribution": self.post_attribution,
+            "install-attribution": self.post_install_import,
+            "automation": self.post_automation,
+            "cloud-connection": self.post_cloud_connection,
+            "connections": self.post_connection,
+            "experiments": self.post_experiment,
+            "references": self.post_reference,
+            "production": self.post_production,
+            "rankings": self.post_ranking,
+            "acquisition": self.post_acquisition,
+            "access": self.post_access,
+            "verified-reviews": self.post_verified_review,
+            "provider-actions": self.post_provider_action,
+            "learning": self.post_learning,
+            "payments": self.post_payments,
+        }
         if action in handlers:
-            return handlers[action](parts,data)
-        if len(parts)==4 and action in routes:
-            return self.send(201,routes[action]())
-        exact={('jobs',6,'cancel'):lambda:service.cancel(app_id,parts[4]),
-               ('reviews',6,'record'):lambda:service.review(app_id,parts[4],data)}
-        key=(action,len(parts),parts[-1])
+            return handlers[action](parts, data)
+        if len(parts) == 4 and action in routes:
+            return self.send(201, routes[action]())
+        exact = {
+            ("jobs", 6, "cancel"): lambda: service.cancel(app_id, parts[4]),
+            ("reviews", 6, "record"): lambda: service.review(app_id, parts[4], data),
+        }
+        key = (action, len(parts), parts[-1])
         if key in exact:
-            return self.send(200,exact[key]())
+            return self.send(200, exact[key]())
         raise KeyError("route")
 
-    def post_tracking(self,parts,data):
+    def post_tracking(self, parts, data):
         """Prepare exact tracking reads, approve their owned jobs or stop one saved run."""
         from .experiment_tracking import Tracking
-        if urlparse(self.path).query:raise Invalid('Use the exact tracking action address')
-        service=Tracking(self.server.service.store)
-        if len(parts)==5 and parts[4]=='prepare':return self.send(200,service.prepare(parts[2],data))
-        if len(parts)==5 and parts[4]=='approve':return self.send(201,service.approve(parts[2],data))
-        if len(parts)==6 and parts[5]=='cancel':return self.send(200,service.cancel(parts[2],parts[4],data))
-        if len(parts)==6 and parts[5]=='lifecycle':
-            from .instrumentation_state import record_installed,record_probe
-            if not isinstance(data,dict) or data.get('state') not in ('REPORTED_INSTALLED','PROBE_OBSERVED'):
-                raise Invalid('Use a supported instrumentation lifecycle state')
-            body={key:value for key,value in data.items() if key!='state'}
-            action=record_installed if data['state']=='REPORTED_INSTALLED' else record_probe
-            user=self.server.identities.fresh(self.session())
-            return self.send(201,action(self.server.service.store,parts[2],parts[4],body,user=user))
-        raise Invalid('Use a current tracking proposal, approval, lifecycle or cancellation address')
 
-    def post_install_import(self,parts,data):
+        if urlparse(self.path).query:
+            raise Invalid("Use the exact tracking action address")
+        service = Tracking(self.server.service.store)
+        if len(parts) == 5 and parts[4] == "prepare":
+            return self.send(200, service.prepare(parts[2], data))
+        if len(parts) == 5 and parts[4] == "approve":
+            return self.send(201, service.approve(parts[2], data))
+        if len(parts) == 6 and parts[5] == "cancel":
+            return self.send(200, service.cancel(parts[2], parts[4], data))
+        if len(parts) == 6 and parts[5] == "lifecycle":
+            from .instrumentation_state import record_installed, record_probe
+
+            if not isinstance(data, dict) or data.get("state") not in ("REPORTED_INSTALLED", "PROBE_OBSERVED"):
+                raise Invalid("Use a supported instrumentation lifecycle state")
+            body = {key: value for key, value in data.items() if key != "state"}
+            action = record_installed if data["state"] == "REPORTED_INSTALLED" else record_probe
+            user = self.server.identities.fresh(self.session())
+            return self.send(201, action(self.server.service.store, parts[2], parts[4], body, user=user))
+        raise Invalid("Use a current tracking proposal, approval, lifecycle or cancellation address")
+
+    def post_install_import(self, parts, data):
         """Preview or confirm one mapped MMP install export for the signed-in owner."""
         from .install_attribution import preview_batch, record_batch
-        from .install_import import map_rows,parse_text
-        if len(parts)!=6 or parts[4]!='imports' or parts[5] not in ('preview','confirm') or self.path!='/'+ '/'.join(parts):
-            raise Invalid('Use the exact install import preview or confirmation address')
-        confirm=parts[5]=='confirm'
-        required={'text','format','mapping','source','campaign_token','observed_at','window','coverage'}
+        from .install_import import map_rows, parse_text
+
+        if (
+            len(parts) != 6
+            or parts[4] != "imports"
+            or parts[5] not in ("preview", "confirm")
+            or self.path != "/" + "/".join(parts)
+        ):
+            raise Invalid("Use the exact install import preview or confirmation address")
+        confirm = parts[5] == "confirm"
+        required = {"text", "format", "mapping", "source", "campaign_token", "observed_at", "window", "coverage"}
         if confirm:
-            required.update(('request_id','preview_id'))
-        if not isinstance(data,dict) or not required<=set(data) or set(data)-required-{'request_id','source_receipt_sha256'}:
-            raise Invalid('Preview the exact install export before confirming it' if confirm else 'Use the exact install import fields')
-        if not isinstance(data['text'],str):
-            raise Invalid('Install export must be UTF-8 text up to 2 MB')
+            required.update(("request_id", "preview_id"))
+        if (
+            not isinstance(data, dict)
+            or not required <= set(data)
+            or set(data) - required - {"request_id", "source_receipt_sha256"}
+        ):
+            raise Invalid(
+                "Preview the exact install export before confirming it"
+                if confirm
+                else "Use the exact install import fields"
+            )
+        if not isinstance(data["text"], str):
+            raise Invalid("Install export must be UTF-8 text up to 2 MB")
         try:
-            file_bytes=data['text'].encode('utf-8')
+            file_bytes = data["text"].encode("utf-8")
         except UnicodeEncodeError as exc:
-            raise Invalid('Install export contains invalid UTF-8 text') from exc
-        if len(file_bytes)>2000000:
-            raise Invalid('Install export must be UTF-8 text up to 2 MB')
-        user=self.server.identities.fresh(self.session())
-        source_hash=hashlib.sha256(file_bytes).hexdigest()
-        if 'source_receipt_sha256' in data and data['source_receipt_sha256']!=source_hash:
-            raise Invalid('The upload bytes differ from the supplied source digest')
-        rows=parse_text(data['text'],data['format'])
-        _,checklist=map_rows(rows,data['mapping'],data['source'],data['campaign_token'],
-                             data['observed_at'],data['window'],data['coverage'],
-                             data.get('request_id'),source_hash)
-        normalized=checklist.pop('_batch',None)
-        if checklist['status']!='READY':
-            if not confirm:return self.send(200,dict(checklist=checklist,batch=None,preview_id=None))
-            raise Invalid('Install import is blocked: '+str(checklist.get('reason') or 'review the checklist'))
-        store=self.server.service.store
+            raise Invalid("Install export contains invalid UTF-8 text") from exc
+        if len(file_bytes) > 2000000:
+            raise Invalid("Install export must be UTF-8 text up to 2 MB")
+        user = self.server.identities.fresh(self.session())
+        source_hash = hashlib.sha256(file_bytes).hexdigest()
+        if "source_receipt_sha256" in data and data["source_receipt_sha256"] != source_hash:
+            raise Invalid("The upload bytes differ from the supplied source digest")
+        rows = parse_text(data["text"], data["format"])
+        _, checklist = map_rows(
+            rows,
+            data["mapping"],
+            data["source"],
+            data["campaign_token"],
+            data["observed_at"],
+            data["window"],
+            data["coverage"],
+            data.get("request_id"),
+            source_hash,
+        )
+        normalized = checklist.pop("_batch", None)
+        if checklist["status"] != "READY":
+            if not confirm:
+                return self.send(200, dict(checklist=checklist, batch=None, preview_id=None))
+            raise Invalid("Install import is blocked: " + str(checklist.get("reason") or "review the checklist"))
+        store = self.server.service.store
         if not confirm:
-            preview=preview_batch(store,parts[2],user,normalized)
-            metadata={key:value for key,value in normalized.items() if key!='installs'}
-            return self.send(200,dict(checklist=checklist,batch=metadata,preview_id=preview))
-        if not isinstance(data['preview_id'],str):
-            raise Invalid('Preview this exact install export again before confirming')
-        result=record_batch(store,parts[2],user,normalized,preview_id=data['preview_id'])
-        return self.send(201,dict(result=result,checklist=checklist))
+            preview = preview_batch(store, parts[2], user, normalized)
+            metadata = {key: value for key, value in normalized.items() if key != "installs"}
+            return self.send(200, dict(checklist=checklist, batch=metadata, preview_id=preview))
+        if not isinstance(data["preview_id"], str):
+            raise Invalid("Preview this exact install export again before confirming")
+        result = record_batch(store, parts[2], user, normalized, preview_id=data["preview_id"])
+        return self.send(201, dict(result=result, checklist=checklist))
 
     def automation_owner_session(self):
         """Pin the local session without touching a provider or the credential vault."""
-        session=self.session();identities=self.server.identities;public=identities.public(session)
-        if public.get('status')!='AUTHENTICATED':
+        session = self.session()
+        identities = self.server.identities
+        public = identities.public(session)
+        if public.get("status") != "AUTHENTICATED":
             raise PermissionError("Sign in as this app's owner to use automation rules")
-        user=identities.local(session,public['principal'])
-        return user, lambda: identities.local(session,user['principal'],user['session_generation'])
+        user = identities.local(session, public["principal"])
+        return user, lambda: identities.local(session, user["principal"], user["session_generation"])
 
-    def post_automation(self,parts,data):
+    def post_automation(self, parts, data):
         """Preview or save local owner-authored rules without granting action authority."""
-        if len(parts)!=5 or parts[4] not in ('evaluate','rules') or urlparse(self.path).query:
-            raise Invalid('Use the exact automation rule preview or save address')
-        user, recheck=self.automation_owner_session()
-        store=self.server.service.store
-        if parts[4]=='rules':
-            if not isinstance(data,dict) or set(data)!={'document'}:
-                raise Invalid('Submit the exact rules document')
+        if len(parts) != 5 or parts[4] not in ("evaluate", "rules") or urlparse(self.path).query:
+            raise Invalid("Use the exact automation rule preview or save address")
+        user, recheck = self.automation_owner_session()
+        store = self.server.service.store
+        if parts[4] == "rules":
+            if not isinstance(data, dict) or set(data) != {"document"}:
+                raise Invalid("Submit the exact rules document")
             from .automation_store import save
-            return self.send(201,save(store,parts[2],user,data['document'],commit_check=recheck))
-        if not isinstance(data,dict) or set(data)-{'study'} not in ({'rules'},{'saved'}):
-            raise Invalid('Submit a rules draft or an exact saved version')
-        if 'saved' in data and not isinstance(data['saved'],dict):
-            raise Invalid('Choose a saved version and its exact fingerprint')
-        if 'study' in data and not isinstance(data['study'],dict):
-            raise Invalid('Choose the exact study and its fingerprint')
-        from .automation_rules import simulate_database
-        result=simulate_database(store.path,parts[2],user['principal'],
-                                 rules=data.get('rules'),reference=data.get('saved'),study=data.get('study'))
-        recheck()
-        return self.send(200,result)
 
-    def post_cloud_connection(self,parts,data):
+            return self.send(201, save(store, parts[2], user, data["document"], commit_check=recheck))
+        if not isinstance(data, dict) or set(data) - {"study"} not in ({"rules"}, {"saved"}):
+            raise Invalid("Submit a rules draft or an exact saved version")
+        if "saved" in data and not isinstance(data["saved"], dict):
+            raise Invalid("Choose a saved version and its exact fingerprint")
+        if "study" in data and not isinstance(data["study"], dict):
+            raise Invalid("Choose the exact study and its fingerprint")
+        from .automation_rules import simulate_database
+
+        result = simulate_database(
+            store.path,
+            parts[2],
+            user["principal"],
+            rules=data.get("rules"),
+            reference=data.get("saved"),
+            study=data.get("study"),
+        )
+        recheck()
+        return self.send(200, result)
+
+    def post_cloud_connection(self, parts, data):
         """Owner-only optional personal cloud setup; local mode remains the default."""
-        if len(parts)!=5 or parts[4] not in ('save','test','remove') or urlparse(self.path).query:
-            raise Invalid('Use the exact personal cloud save, test or remove address')
+        if len(parts) != 5 or parts[4] not in ("save", "test", "remove") or urlparse(self.path).query:
+            raise Invalid("Use the exact personal cloud save, test or remove address")
         from .cloud_connection import CloudConnections
         from .db import connection
         from .review_access import member
-        session=self.session();user=self.server.identities.fresh(session);store=self.server.service.store
-        with connection(store.path) as db:
-            member(db,parts[2],user['principal'],'OWNER')
-        clouds=CloudConnections(store)
-        if parts[4]=='save':
-            return self.send(200,clouds.save(parts[2],user,data))
-        if parts[4]=='test':
-            if data!={}:raise Invalid('Testing sends no fields and no evidence')
-            return self.send(200,clouds.test(parts[2]))
-        if data!={}:raise Invalid('Removing the connection sends no fields')
-        return self.send(200,clouds.remove(parts[2]))
 
-    def post_sequence(self,parts,data):
+        session = self.session()
+        user = self.server.identities.fresh(session)
+        store = self.server.service.store
+        with connection(store.path) as db:
+            member(db, parts[2], user["principal"], "OWNER")
+        clouds = CloudConnections(store)
+        if parts[4] == "save":
+            return self.send(200, clouds.save(parts[2], user, data))
+        if parts[4] == "test":
+            if data != {}:
+                raise Invalid("Testing sends no fields and no evidence")
+            return self.send(200, clouds.test(parts[2]))
+        if data != {}:
+            raise Invalid("Removing the connection sends no fields")
+        return self.send(200, clouds.remove(parts[2]))
+
+    def post_sequence(self, parts, data):
         """Approve exact reviewed actions or stop owned work in the selected app only."""
         from .sequence_store import Sequences
-        if urlparse(self.path).query:raise Invalid('Use the exact sequence action address')
-        service=Sequences(self.server.service.store,self.server.service.operator)
-        if len(parts)==5 and parts[4]=='approve':return self.send(201,service.approve(parts[2],data))
-        if len(parts)==6 and parts[5]=='cancel':return self.send(200,service.cancel(parts[2],parts[4],data))
-        raise Invalid('Use a current sequence approval or cancellation address')
 
-    def post_resolution(self,parts,data):
+        if urlparse(self.path).query:
+            raise Invalid("Use the exact sequence action address")
+        service = Sequences(self.server.service.store, self.server.service.operator)
+        if len(parts) == 5 and parts[4] == "approve":
+            return self.send(201, service.approve(parts[2], data))
+        if len(parts) == 6 and parts[5] == "cancel":
+            return self.send(200, service.cancel(parts[2], parts[4], data))
+        raise Invalid("Use a current sequence approval or cancellation address")
+
+    def post_resolution(self, parts, data):
         """Approve one exact app-bound read proposal; no arbitrary agent commands."""
         from .resolutions import Resolutions
-        if len(parts)!=5 or parts[4]!='approve' or urlparse(self.path).query:
-            raise Invalid('Use the exact resolution approval address')
-        return self.send(201,Resolutions(self.server.service.store,self.server.service.operator).start(parts[2],data))
 
-    def post_pmf_research(self,parts,data):
+        if len(parts) != 5 or parts[4] != "approve" or urlparse(self.path).query:
+            raise Invalid("Use the exact resolution approval address")
+        return self.send(
+            201, Resolutions(self.server.service.store, self.server.service.operator).start(parts[2], data)
+        )
+
+    def post_pmf_research(self, parts, data):
         """Preserve the fixed research kinds and explicit preview behavior."""
         from .pmf_research import Research
-        if len(parts)!=5 or urlparse(self.path).query:
-            raise Invalid('Use the exact research action address')
-        kind=parts[4]
-        if kind not in ('study','snapshot','receipt','preview'):
-            raise Invalid('Unknown research action')
-        result=Research(self.server.service.store).save(parts[2],'snapshot' if kind=='preview' else kind,data,preview=kind=='preview')
-        return self.send(200 if kind=='preview' else 201,result)
 
-    def post_followup(self,parts,data):
+        if len(parts) != 5 or urlparse(self.path).query:
+            raise Invalid("Use the exact research action address")
+        kind = parts[4]
+        if kind not in ("study", "snapshot", "receipt", "preview"):
+            raise Invalid("Unknown research action")
+        result = Research(self.server.service.store).save(
+            parts[2], "snapshot" if kind == "preview" else kind, data, preview=kind == "preview"
+        )
+        return self.send(200 if kind == "preview" else 201, result)
+
+    def post_followup(self, parts, data):
         """Keep exact follow-up preparation/download/save routing and limits."""
         from .followup import Followup
-        if len(parts)!=5 or urlparse(self.path).query:
-            raise Invalid('Use the exact follow-up action address')
-        workflow=Followup(self.server.service.store)
-        if parts[4]=='prepare':
-            return self.send(201,workflow.prepare(parts[2],data))
-        if parts[4]=='download':
-            return self.send(200,workflow.download(parts[2],data.get('id')))
-        return self.send(201,workflow.save(parts[2],parts[4],data))
 
-    def post_aeo(self,parts,data):
+        if len(parts) != 5 or urlparse(self.path).query:
+            raise Invalid("Use the exact follow-up action address")
+        workflow = Followup(self.server.service.store)
+        if parts[4] == "prepare":
+            return self.send(201, workflow.prepare(parts[2], data))
+        if parts[4] == "download":
+            return self.send(200, workflow.download(parts[2], data.get("id")))
+        return self.send(201, workflow.save(parts[2], parts[4], data))
+
+    def post_aeo(self, parts, data):
         """Accept only the previously supported exact read-only AEO run action."""
         from .aeo_workflows import Checks
-        if len(parts)!=5 or parts[4]!='run' or urlparse(self.path).query:
-            raise Invalid('Use the exact app AEO run address')
-        return self.send(201,Checks(self.server.service.store).run(parts[2],data))
 
-    def post_insights(self,parts,data):
+        if len(parts) != 5 or parts[4] != "run" or urlparse(self.path).query:
+            raise Invalid("Use the exact app AEO run address")
+        return self.send(201, Checks(self.server.service.store).run(parts[2], data))
+
+    def post_insights(self, parts, data):
         """Local trusted operator consent and normal CSRF protect read-only analytics setup."""
         if urlparse(self.path).query:
             raise Invalid("Use the exact analytics action address without a query")
         from .insights import Insights
-        insights=Insights(self.server.service.store)
-        if len(parts)==5 and parts[4]=="setup":
-            return self.send(201,insights.setup(parts[2],data))
-        if len(parts)==6 and parts[5]=="read":
-            return self.send(200,insights.refresh(parts[2],parts[4],data))
-        if len(parts)==6 and parts[5]=="events":
-            return self.send(200,insights.update_events(parts[2],parts[4],data))
-        if len(parts)==6 and parts[5]=="disconnect":
-            return self.send(200,insights.disconnect(parts[2],parts[4],data))
+
+        insights = Insights(self.server.service.store)
+        if len(parts) == 5 and parts[4] == "setup":
+            return self.send(201, insights.setup(parts[2], data))
+        if len(parts) == 6 and parts[5] == "read":
+            return self.send(200, insights.refresh(parts[2], parts[4], data))
+        if len(parts) == 6 and parts[5] == "events":
+            return self.send(200, insights.update_events(parts[2], parts[4], data))
+        if len(parts) == 6 and parts[5] == "disconnect":
+            return self.send(200, insights.disconnect(parts[2], parts[4], data))
         raise KeyError("Analytics route not found")
 
-    def post_storekit(self,parts,data):
+    def post_storekit(self, parts, data):
         """Fresh app owner/maker identity protects source setup, manual verification and disconnect."""
         from .storekit_sources import Sources
         from .storekit_ingestion import Notifications
-        user=self.server.identities.fresh(self.session())
-        store=self.server.service.store
-        if len(parts)==5 and parts[4]=="sources":
-            return self.send(201,Sources(store).create(parts[2],user,data))
-        if len(parts)==7 and parts[4]=="sources" and parts[6]=="disconnect":
-            return self.send(200,Sources(store).disconnect(parts[2],parts[5],user,data))
-        if len(parts)==7 and parts[4]=="sources" and parts[6]=="notifications":
-            return self.send(201,Notifications(store).manual(parts[2],parts[5],user,data))
+
+        user = self.server.identities.fresh(self.session())
+        store = self.server.service.store
+        if len(parts) == 5 and parts[4] == "sources":
+            return self.send(201, Sources(store).create(parts[2], user, data))
+        if len(parts) == 7 and parts[4] == "sources" and parts[6] == "disconnect":
+            return self.send(200, Sources(store).disconnect(parts[2], parts[5], user, data))
+        if len(parts) == 7 and parts[4] == "sources" and parts[6] == "notifications":
+            return self.send(201, Notifications(store).manual(parts[2], parts[5], user, data))
         raise KeyError("StoreKit action route not found")
 
-    def attribution_webhook(self,path):
+    def attribution_webhook(self, path):
         """Finite loopback intake authenticates the original Apple signature and map hash."""
         from .attribution_ingestion import Observations
-        expected=f"127.0.0.1:{self.server.server_port}"
-        if self.headers.get_all("Host")!=[expected] or urlparse(self.path).query:
+
+        expected = f"127.0.0.1:{self.server.server_port}"
+        if self.headers.get_all("Host") != [expected] or urlparse(self.path).query:
             raise PermissionError("Use the exact loopback attribution address")
-        if self.headers.get("Transfer-Encoding") or len(self.headers.get_all("Content-Length",[]))!=1:
+        if self.headers.get("Transfer-Encoding") or len(self.headers.get_all("Content-Length", [])) != 1:
             raise Invalid("Attribution delivery needs one bounded Content-Length")
-        hashes=self.headers.get_all("X-Attribution-Map-SHA256",[])
-        if len(hashes)!=1 or not re.fullmatch(r"[a-f0-9]{64}",hashes[0]):
+        hashes = self.headers.get_all("X-Attribution-Map-SHA256", [])
+        if len(hashes) != 1 or not re.fullmatch(r"[a-f0-9]{64}", hashes[0]):
             raise Invalid("Use one exact conversion-map SHA256 header")
-        if self.headers.get("Content-Type","").split(";")[0].strip()!="application/json":
+        if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
             raise Invalid("Attribution delivery must be application/json")
-        previous=self.connection.gettimeout()
+        previous = self.connection.gettimeout()
         try:
             self.connection.settimeout(5)
-            raw=self.body(262144)
-        finally:self.connection.settimeout(previous)
-        if len(raw)!=int(self.headers["Content-Length"]):raise Invalid("Attribution body is truncated")
-        parts=path.strip("/").split("/")
-        result=Observations(self.server.service.store).ingest(parts[2],parts[3],raw,parts[4],int(parts[5]),hashes[0])
-        return self.send(200,result)
+            raw = self.body(262144)
+        finally:
+            self.connection.settimeout(previous)
+        if len(raw) != int(self.headers["Content-Length"]):
+            raise Invalid("Attribution body is truncated")
+        parts = path.strip("/").split("/")
+        result = Observations(self.server.service.store).ingest(
+            parts[2], parts[3], raw, parts[4], int(parts[5]), hashes[0]
+        )
+        return self.send(200, result)
 
-    def post_attribution(self,parts,data):
+    def post_attribution(self, parts, data):
         """Fresh app roles protect declarations, immutable maps and explicit one-shot reads."""
         from .attribution_sources import Sources
         from .attribution_maps import Maps
         from .attribution_ingestion import Observations
         from .attribution_adservices import AdServices
-        user=self.server.identities.fresh(self.session())
-        store=self.server.service.store
-        if len(parts)==5 and parts[4]=="sources":
-            return self.send(201,Sources(store).create(parts[2],user,data))
-        if len(parts)==5 and parts[4]=="maps":
-            return self.send(201,Maps(store).save(parts[2],user,data))
-        if len(parts)==7 and parts[4]=="sources":
-            action=parts[6]
-            if action=="disconnect":return self.send(200,Sources(store).disconnect(parts[2],parts[5],user,data))
-            if action=="postbacks":return self.send(201,Observations(store).manual(parts[2],parts[5],user,data))
-            if action=="adservices":return self.send(201,AdServices(store).read(parts[2],parts[5],user,data))
+
+        user = self.server.identities.fresh(self.session())
+        store = self.server.service.store
+        if len(parts) == 5 and parts[4] == "sources":
+            return self.send(201, Sources(store).create(parts[2], user, data))
+        if len(parts) == 5 and parts[4] == "maps":
+            return self.send(201, Maps(store).save(parts[2], user, data))
+        if len(parts) == 7 and parts[4] == "sources":
+            action = parts[6]
+            if action == "disconnect":
+                return self.send(200, Sources(store).disconnect(parts[2], parts[5], user, data))
+            if action == "postbacks":
+                return self.send(201, Observations(store).manual(parts[2], parts[5], user, data))
+            if action == "adservices":
+                return self.send(201, AdServices(store).read(parts[2], parts[5], user, data))
         raise KeyError("Attribution action route not found")
 
-    def post_identity(self,parts,data):
+    def post_identity(self, parts, data):
         """Bind identity credentials to this existing CSRF-protected local session."""
-        identities=self.server.identities;session=self.session()
-        device=self.server.device_signins
-        if parts==["api","identity","login"]:
+        identities = self.server.identities
+        session = self.session()
+        device = self.server.device_signins
+        if parts == ["api", "identity", "login"]:
             device.cancel(session)
-            return self.send(200,identities.login(session,data))
-        if parts==["api","identity","logout"] and not data:
+            return self.send(200, identities.login(session, data))
+        if parts == ["api", "identity", "logout"] and not data:
             with identities.lock:
                 device.cancel(session)
-                return self.send(200,identities.logout(session))
-        if len(parts)==4 and parts[2]=='device':
-            return self.post_device_signin(device,session,parts[3],data)
+                return self.send(200, identities.logout(session))
+        if len(parts) == 4 and parts[2] == "device":
+            return self.post_device_signin(device, session, parts[3], data)
         raise KeyError("Identity route not found")
 
-    def post_device_signin(self,device,session,action,data):
+    def post_device_signin(self, device, session, action, data):
         """Keep desktop browser sign-in bound to one current app revision."""
-        fields={'begin':set(),'open':{'flow_id'},'poll':{'flow_id'},
-                'cancel':{'flow_id'},'confirm':{'flow_id','principal'}}
-        if self.path!='/api/identity/device/'+action or action not in fields:
-            raise KeyError('Identity route not found')
-        if set(data)!={'app_id','app_version'}|fields[action] or not isinstance(data['app_id'],str) or type(data['app_version']) is not int:
-            raise Invalid('Choose the current app before signing in.')
-        app=self.server.service.store.app(data['app_id'])
-        if app['version']!=data['app_version']:
-            raise Invalid('This app changed. Start a fresh GitHub sign-in.')
-        binding=(app['id'],app['version'])
-        if action=='begin':
-            result=device.begin(session,binding)
-        elif action=='open':
-            result=device.open_browser(session,binding,data['flow_id'])
-        elif action=='poll':
-            result=device.poll(session,binding,data['flow_id'])
-        elif action=='confirm':
-            result=device.confirm(session,binding,data['flow_id'],data['principal'])
+        fields = {
+            "begin": set(),
+            "open": {"flow_id"},
+            "poll": {"flow_id"},
+            "cancel": {"flow_id"},
+            "confirm": {"flow_id", "principal"},
+        }
+        if self.path != "/api/identity/device/" + action or action not in fields:
+            raise KeyError("Identity route not found")
+        if (
+            set(data) != {"app_id", "app_version"} | fields[action]
+            or not isinstance(data["app_id"], str)
+            or type(data["app_version"]) is not int
+        ):
+            raise Invalid("Choose the current app before signing in.")
+        app = self.server.service.store.app(data["app_id"])
+        if app["version"] != data["app_version"]:
+            raise Invalid("This app changed. Start a fresh GitHub sign-in.")
+        binding = (app["id"], app["version"])
+        if action == "begin":
+            result = device.begin(session, binding)
+        elif action == "open":
+            result = device.open_browser(session, binding, data["flow_id"])
+        elif action == "poll":
+            result = device.poll(session, binding, data["flow_id"])
+        elif action == "confirm":
+            result = device.confirm(session, binding, data["flow_id"], data["principal"])
         else:
             with device.lock:
-                device._current(session,binding,data['flow_id'])
+                device._current(session, binding, data["flow_id"])
                 device.cancel(session)
-            result={'status':'CANCELLED'}
-        return self.send(200,result)
+            result = {"status": "CANCELLED"}
+        return self.send(200, result)
 
-    def post_agent_grants(self,parts,data):
+    def post_agent_grants(self, parts, data):
         """Bind delegation controls to a freshly verified app owner, never request names."""
-        if urlparse(self.path).query or self.path != '/'+'/'.join(parts):
-            raise Invalid('Use the exact agent grant action address')
+        if urlparse(self.path).query or self.path != "/" + "/".join(parts):
+            raise Invalid("Use the exact agent grant action address")
         from .agent_grant_http import owner
-        user=self.server.identities.fresh(self.session())
-        runtime_origin='http://127.0.0.1:'+str(self.server.server_port)
-        runtime_executable=sys.executable if getattr(sys,'frozen',False) else None
-        return self.send(200,owner(self.server.service.store,parts[2],parts[4:],user,data,
-                                   runtime_origin=runtime_origin,runtime_executable=runtime_executable))
 
-    def post_agent_reviews(self,parts,data):
+        user = self.server.identities.fresh(self.session())
+        runtime_origin = "http://127.0.0.1:" + str(self.server.server_port)
+        runtime_executable = sys.executable if getattr(sys, "frozen", False) else None
+        return self.send(
+            200,
+            owner(
+                self.server.service.store,
+                parts[2],
+                parts[4:],
+                user,
+                data,
+                runtime_origin=runtime_origin,
+                runtime_executable=runtime_executable,
+            ),
+        )
+
+    def post_agent_reviews(self, parts, data):
         """Keep human approval outside bearer tools with fresh verified session identity."""
         from .agent_review_http import human
-        if urlparse(self.path).query:raise Invalid('Use the exact human review address')
-        user=self.server.identities.fresh(self.session())
-        return self.send(200,human(self.server.service.store,parts[2],parts[4:],user,data))
 
-    def post_access(self,parts,data):
+        if urlparse(self.path).query:
+            raise Invalid("Use the exact human review address")
+        user = self.server.identities.fresh(self.session())
+        return self.send(200, human(self.server.service.store, parts[2], parts[4:], user, data))
+
+    def post_access(self, parts, data):
         """Require fresh authenticated identity before app-scoped owner/member changes."""
         from .review_access import Access
-        access=Access(self.server.service.store);identities=self.server.identities
-        if len(parts)!=5:raise KeyError("Access route not found")
-        user=identities.fresh(self.session())
-        if parts[4]=="bootstrap":return self.send(201,access.bootstrap_reviewed(parts[2],user,data))
-        if parts[4]=="members":
-            target=identities.lookup(self.session(),data.get("login"))
-            return self.send(200,access.save(parts[2],user,target,data))
+
+        access = Access(self.server.service.store)
+        identities = self.server.identities
+        if len(parts) != 5:
+            raise KeyError("Access route not found")
+        user = identities.fresh(self.session())
+        if parts[4] == "bootstrap":
+            return self.send(201, access.bootstrap_reviewed(parts[2], user, data))
+        if parts[4] == "members":
+            target = identities.lookup(self.session(), data.get("login"))
+            return self.send(200, access.save(parts[2], user, target, data))
         raise KeyError("Access route not found")
 
-    def post_verified_review(self,parts,data):
+    def post_verified_review(self, parts, data):
         """Pass verified session identity, never body-supplied maker/checker names."""
         from .verified_reviews import Reviews
-        reviews=Reviews(self.server.service.store)
-        user=self.server.identities.fresh(self.session())
-        if len(parts)==4:return self.send(201,reviews.prepare(parts[2],user,data))
-        if len(parts)==6 and parts[5]=="approve":return self.send(200,reviews.approve(parts[2],parts[4],user,data))
+
+        reviews = Reviews(self.server.service.store)
+        user = self.server.identities.fresh(self.session())
+        if len(parts) == 4:
+            return self.send(201, reviews.prepare(parts[2], user, data))
+        if len(parts) == 6 and parts[5] == "approve":
+            return self.send(200, reviews.approve(parts[2], parts[4], user, data))
         raise KeyError("Verified review route not found")
 
-    def post_release_selection(self,parts,data):
+    def post_release_selection(self, parts, data):
         """Dispatch one bounded app-owned local release selection action."""
         from .release_selection import choose
-        if len(parts)!=4 or urlparse(self.path).query:
-            raise Invalid('Use the exact selected-release action address')
-        return self.send(200,choose(self.server.service.store,parts[2],data))
 
-    def post_connection(self,parts,data):
+        if len(parts) != 4 or urlparse(self.path).query:
+            raise Invalid("Use the exact selected-release action address")
+        return self.send(200, choose(self.server.service.store, parts[2], data))
+
+    def post_connection(self, parts, data):
         """Handle only explicit protected setup and local disconnect operations."""
         from .connection_setup import Connections
-        connections=Connections(self.server.service.store)
-        if len(parts)==4:
-            return self.send(201,connections.setup(parts[2],data))
-        if len(parts)==6 and parts[5]=="disconnect":
-            return self.send(200,connections.disconnect(parts[2],parts[4],data.get("version")))
+
+        connections = Connections(self.server.service.store)
+        if len(parts) == 4:
+            return self.send(201, connections.setup(parts[2], data))
+        if len(parts) == 6 and parts[5] == "disconnect":
+            return self.send(200, connections.disconnect(parts[2], parts[4], data.get("version")))
         raise KeyError("Protected connection route not found")
 
-    def post_setup_discovery(self,parts,data):
+    def post_setup_discovery(self, parts, data):
         """Use strict app-owned discover/apply/delete actions behind normal CSRF checks."""
         from .setup_http import post
-        return self.send(200,post(self.server.service.store,parts[2],parts[4:],data))
 
-    def post_play(self,parts,data):
+        return self.send(200, post(self.server.service.store, parts[2], parts[4:], data))
+
+    def post_play(self, parts, data):
         """Keep Play setup and reads inside the normal app/session/CSRF boundary."""
         from .play_http import post
-        return self.send(200,post(self.server.service.store,parts[2],parts[4:],data,self.server.server_port))
 
-    def play_callback(self,data):
+        return self.send(200, post(self.server.service.store, parts[2], parts[4:], data, self.server.server_port))
+
+    def play_callback(self, data):
         """Consume an exact single-use consent proof without accepting a return URL."""
         from .play_http import finish
-        return self.send(200,finish(self.server.service.store,data,self.server.server_port))
 
-    def post_inspection(self,parts,data):
+        return self.send(200, finish(self.server.service.store, data, self.server.server_port))
+
+    def post_inspection(self, parts, data):
         """Closed CSRF-protected native actions; no client results or arbitrary commands."""
         from .audit_runtime import Inspections
         from .audit_tools import capability
-        if len(parts)!=5 or urlparse(self.path).query:raise Invalid("Use the exact inspection action address")
-        flow=Inspections(self.server.service.store)
-        flow.store.app(parts[2])
-        operation=parts[4]
-        if operation in ("view","detect"):
-            if data:raise Invalid("Inspection read action has no fields")
-            return self.send(200,dict(flow.view(parts[2]),worker=self.server.audit_runner.health) if operation=="view" else capability())
-        if operation=="detail":
-            from .audit_contract import exact
-            exact(data,("id",))
-            return self.send(200,flow.detail(parts[2],data["id"]))
-        if operation not in ("save","queue","cancel"):raise Invalid("Unknown inspection action")
-        return self.send(201,getattr(flow,operation)(parts[2],data))
 
-    def post_provider_action(self,parts,data):
+        if len(parts) != 5 or urlparse(self.path).query:
+            raise Invalid("Use the exact inspection action address")
+        flow = Inspections(self.server.service.store)
+        flow.store.app(parts[2])
+        operation = parts[4]
+        if operation in ("view", "detect"):
+            if data:
+                raise Invalid("Inspection read action has no fields")
+            return self.send(
+                200,
+                dict(flow.view(parts[2]), worker=self.server.audit_runner.health)
+                if operation == "view"
+                else capability(),
+            )
+        if operation == "detail":
+            from .audit_contract import exact
+
+            exact(data, ("id",))
+            return self.send(200, flow.detail(parts[2], data["id"]))
+        if operation not in ("save", "queue", "cancel"):
+            raise Invalid("Unknown inspection action")
+        return self.send(201, getattr(flow, operation)(parts[2], data))
+
+    def post_provider_action(self, parts, data):
         """Authenticate finite exact-change operations; ordinary reviews cannot authorize them."""
         from .provider_outbox import Outbox
-        if len(parts)==6 and parts[5]=="public-listing":
+
+        if len(parts) == 6 and parts[5] == "public-listing":
             from .public_store_readback import PublicStore
-            return self.send(200,PublicStore(self.server.service.store).run(parts[2],parts[4],data))
-        outbox=Outbox(self.server.service.store)
-        user=self.server.identities.fresh(self.session())
-        if len(parts)==5 and parts[4]=="destination":return self.send(200,outbox.destination(parts[2],user,data))
-        if len(parts)==4:return self.send(201,outbox.prepare(parts[2],user,data))
-        if len(parts)==6 and parts[5] in ("approve","execute","reconcile","cancel"):
-            return self.send(200,getattr(outbox,parts[5])(parts[2],parts[4],user,data))
+
+            return self.send(200, PublicStore(self.server.service.store).run(parts[2], parts[4], data))
+        outbox = Outbox(self.server.service.store)
+        user = self.server.identities.fresh(self.session())
+        if len(parts) == 5 and parts[4] == "destination":
+            return self.send(200, outbox.destination(parts[2], user, data))
+        if len(parts) == 4:
+            return self.send(201, outbox.prepare(parts[2], user, data))
+        if len(parts) == 6 and parts[5] in ("approve", "execute", "reconcile", "cancel"):
+            return self.send(200, getattr(outbox, parts[5])(parts[2], parts[4], user, data))
         raise KeyError("Provider action route not found")
 
-    def post_payments(self,parts,data):
+    def post_payments(self, parts, data):
         """Require fresh owner/maker identity on ordinary CSRF-protected setup/read actions."""
         from .payment_sources import Sources
         from .signed_payments import Payments
-        user=self.server.identities.fresh(self.session());store=self.server.service.store
-        if len(parts)==5 and parts[4]=="sources":
-            return self.send(201,Sources(store).create(parts[2],user,data))
-        if len(parts)==7 and parts[4]=="sources" and parts[6]=="disconnect":
-            return self.send(200,Sources(store).disconnect(parts[2],parts[5],user,data))
-        if len(parts)==7 and parts[4]=="receipts" and parts[6]=="reconcile":
-            return self.send(200,Payments(store).reconcile(parts[2],parts[5],user,data))
+
+        user = self.server.identities.fresh(self.session())
+        store = self.server.service.store
+        if len(parts) == 5 and parts[4] == "sources":
+            return self.send(201, Sources(store).create(parts[2], user, data))
+        if len(parts) == 7 and parts[4] == "sources" and parts[6] == "disconnect":
+            return self.send(200, Sources(store).disconnect(parts[2], parts[5], user, data))
+        if len(parts) == 7 and parts[4] == "receipts" and parts[6] == "reconcile":
+            return self.send(200, Payments(store).reconcile(parts[2], parts[5], user, data))
         raise KeyError("Payment action not found")
 
-    def post_learning(self,parts,data):
+    def post_learning(self, parts, data):
         """Separate operator joins from freshly authenticated local guidance actions."""
         from .outcome_learning import Learning
         from .outcome_links import Links
-        if len(parts)==5 and parts[4]=="links":return self.send(201,Links(self.server.service.store).save(parts[2],data))
-        learning=Learning(self.server.service.store);user=self.server.identities.fresh(self.session())
-        if len(parts)==4:return self.send(201,learning.propose(parts[2],user,data))
-        if len(parts)==6 and parts[5]=="briefs":return self.send(201,learning.use(parts[2],parts[4],user,data))
-        if len(parts)==6 and parts[5] in ("reserve","evaluate","approve","activate","rollback"):
-            return self.send(200,learning.act(parts[2],parts[4],user,parts[5],data))
+
+        if len(parts) == 5 and parts[4] == "links":
+            return self.send(201, Links(self.server.service.store).save(parts[2], data))
+        learning = Learning(self.server.service.store)
+        user = self.server.identities.fresh(self.session())
+        if len(parts) == 4:
+            return self.send(201, learning.propose(parts[2], user, data))
+        if len(parts) == 6 and parts[5] == "briefs":
+            return self.send(201, learning.use(parts[2], parts[4], user, data))
+        if len(parts) == 6 and parts[5] in ("reserve", "evaluate", "approve", "activate", "rollback"):
+            return self.send(200, learning.act(parts[2], parts[4], user, parts[5], data))
         raise KeyError("Local learning route not found")
 
-    def post_experiment(self,parts,data):
+    def post_experiment(self, parts, data):
         """Expose bounded local registration, evaluation and explicit lifecycle actions."""
         from .experiments import Experiments
-        experiments=Experiments(self.server.service.store)
-        if len(parts)==4:return self.send(201,experiments.create(parts[2],data))
-        if len(parts)==6 and parts[5]=="actions":return self.send(200,experiments.act(parts[2],parts[4],data))
-        if len(parts)==6 and parts[5]=="evaluate" and not data:return self.send(200,experiments.evaluate(parts[2],parts[4]))
-        if len(parts)==6 and parts[5]=="schedule":
+
+        experiments = Experiments(self.server.service.store)
+        if len(parts) == 4:
+            return self.send(201, experiments.create(parts[2], data))
+        if len(parts) == 6 and parts[5] == "actions":
+            return self.send(200, experiments.act(parts[2], parts[4], data))
+        if len(parts) == 6 and parts[5] == "evaluate" and not data:
+            return self.send(200, experiments.evaluate(parts[2], parts[4]))
+        if len(parts) == 6 and parts[5] == "schedule":
             from .experiment_schedules import Schedules
-            from .operation_authority import bound_owner,protected
-            if self.path!="/"+"/".join(parts):raise Invalid("Use the exact experiment schedule address")
-            session=self.session();user=self.server.identities.fresh(session);store=self.server.service.store
-            envelope=dict(app_id=parts[2],operation='experiment.schedule.owner',input={})
-            with bound_owner(store,envelope,self.server.identities,session,user),protected(store,envelope):
-                return self.send(200,Schedules(store).save(parts[2],parts[4],data,owner=user['principal']))
+            from .operation_authority import bound_owner, protected
+
+            if self.path != "/" + "/".join(parts):
+                raise Invalid("Use the exact experiment schedule address")
+            session = self.session()
+            user = self.server.identities.fresh(session)
+            store = self.server.service.store
+            envelope = dict(app_id=parts[2], operation="experiment.schedule.owner", input={})
+            with bound_owner(store, envelope, self.server.identities, session, user), protected(store, envelope):
+                return self.send(200, Schedules(store).save(parts[2], parts[4], data, owner=user["principal"]))
         raise KeyError("Experiment route not found")
 
-    def post_reference(self,parts,data):
+    def post_reference(self, parts, data):
         """Scope source save, preview and explicit import to the chosen workspace."""
         from .creative_library import Library
-        library=Library(self.server.service.store)
-        if len(parts)==4:return self.owner_creative_write(parts,data,'creative.source.save',lambda:library.save(parts[2],data))
-        if len(parts)==5 and parts[4]=="preview":return self.send(200,library.preview(parts[2],data))
-        if len(parts)==5 and parts[4]=="import":return self.owner_creative_write(parts,data,'creative.source.import',lambda:library.commit(parts[2],data))
+
+        library = Library(self.server.service.store)
+        if len(parts) == 4:
+            return self.owner_creative_write(parts, data, "creative.source.save", lambda: library.save(parts[2], data))
+        if len(parts) == 5 and parts[4] == "preview":
+            return self.send(200, library.preview(parts[2], data))
+        if len(parts) == 5 and parts[4] == "import":
+            return self.owner_creative_write(
+                parts, data, "creative.source.import", lambda: library.commit(parts[2], data)
+            )
         raise KeyError("Source library route not found")
 
-    def post_ranking(self,parts,data):
+    def post_ranking(self, parts, data):
         """Expose only explicit scoped relevance, policy and saved ranking actions."""
         from .creative_ranking import Rankings
-        ranking=Rankings(self.server.service.store)
-        if len(parts)==5 and parts[4] in ("policy","relevance"):return self.send(201,ranking.save(parts[2],parts[4],data))
-        if len(parts)==5 and parts[4]=="run":return self.send(201,ranking.run(parts[2],data))
+
+        ranking = Rankings(self.server.service.store)
+        if len(parts) == 5 and parts[4] in ("policy", "relevance"):
+            return self.send(201, ranking.save(parts[2], parts[4], data))
+        if len(parts) == 5 and parts[4] == "run":
+            return self.send(201, ranking.run(parts[2], data))
         raise KeyError("Ranking route not found")
 
     @staticmethod
     def asset_rights_assertion(data):
         """Recognize explicit claims that a human reviewed a creative still."""
-        fields=data.get('data') if isinstance(data,dict) else None
-        return isinstance(data,dict) and data.get('kind')=='asset' and isinstance(fields,dict) and (fields.get('authentic') is True or fields.get('rights_cleared') is True)
+        fields = data.get("data") if isinstance(data, dict) else None
+        return (
+            isinstance(data, dict)
+            and data.get("kind") == "asset"
+            and isinstance(fields, dict)
+            and (fields.get("authentic") is True or fields.get("rights_cleared") is True)
+        )
 
-    def save_owner_asset(self,parts,app_id,data,save):
+    def save_owner_asset(self, parts, app_id, data, save):
         """Bind direct local asset assertions to the current app owner's session."""
-        from .operation_authority import bound_owner,protected
-        if len(parts)!=4 or self.path!='/'+ '/'.join(parts):raise Invalid('Use the exact asset evidence address')
-        session=self.session();user=self.server.identities.fresh(session)
-        envelope=dict(app_id=app_id,operation='evidence.save',input=data)
-        with bound_owner(self.server.service.store,envelope,self.server.identities,session,user),protected(self.server.service.store,envelope):
-            return self.send(201,save())
+        from .operation_authority import bound_owner, protected
 
-    def owner_creative_write(self,parts,data,operation,save):
+        if len(parts) != 4 or self.path != "/" + "/".join(parts):
+            raise Invalid("Use the exact asset evidence address")
+        session = self.session()
+        user = self.server.identities.fresh(session)
+        envelope = dict(app_id=app_id, operation="evidence.save", input=data)
+        with (
+            bound_owner(self.server.service.store, envelope, self.server.identities, session, user),
+            protected(self.server.service.store, envelope),
+        ):
+            return self.send(201, save())
+
+    def owner_creative_write(self, parts, data, operation, save):
         """Protect legacy creative evidence writes with current owner authority."""
-        from .operation_authority import bound_owner,protected
-        if self.path!='/'+ '/'.join(parts):raise Invalid('Use the exact creative evidence address')
-        store=self.server.service.store;session=self.session();user=self.server.identities.fresh(session)
-        envelope=dict(app_id=parts[2],operation=operation,input=data)
-        with bound_owner(store,envelope,self.server.identities,session,user),protected(store,envelope):
-            return self.send(201,save())
+        from .operation_authority import bound_owner, protected
 
-    def post_production(self,parts,data):
+        if self.path != "/" + "/".join(parts):
+            raise Invalid("Use the exact creative evidence address")
+        store = self.server.service.store
+        session = self.session()
+        user = self.server.identities.fresh(session)
+        envelope = dict(app_id=parts[2], operation=operation, input=data)
+        with bound_owner(store, envelope, self.server.identities, session, user), protected(store, envelope):
+            return self.send(201, save())
+
+    def post_production(self, parts, data):
         """Accept only scoped inspection and original brief preparation actions."""
         from .creative_analysis import Analyses
         from .creative_briefs import Briefs
         from .creative_rendering import Renders
         from .hypit_jobs import HypitRenders
         from .production_feasibility import Capabilities
-        store=self.server.service.store
-        creative_saves={'sources':'source','analyses':'analysis','profile':'profile','requirement':'requirement','briefs':'brief'}
-        if len(parts)==6 and parts[4] in creative_saves and parts[5]=='save':
+
+        store = self.server.service.store
+        creative_saves = {
+            "sources": "source",
+            "analyses": "analysis",
+            "profile": "profile",
+            "requirement": "requirement",
+            "briefs": "brief",
+        }
+        if len(parts) == 6 and parts[4] in creative_saves and parts[5] == "save":
             from .operation_authority import bound_owner
             from .operation_runtime import execute
-            if self.path!='/'+ '/'.join(parts):raise Invalid('Use the exact creative evidence address')
-            session=self.session();user=self.server.identities.fresh(session)
-            envelope=dict(app_id=parts[2],operation='creative.'+creative_saves[parts[4]]+'.save',input=data)
-            with bound_owner(store,envelope,self.server.identities,session,user):
-                return self.send(200,execute(self.server.service,envelope,caller='LOCAL_SESSION'))
-        if len(parts)==6 and parts[4]=='batches' and parts[5] in ('plan','create','list','cancel'):
+
+            if self.path != "/" + "/".join(parts):
+                raise Invalid("Use the exact creative evidence address")
+            session = self.session()
+            user = self.server.identities.fresh(session)
+            envelope = dict(app_id=parts[2], operation="creative." + creative_saves[parts[4]] + ".save", input=data)
+            with bound_owner(store, envelope, self.server.identities, session, user):
+                return self.send(200, execute(self.server.service, envelope, caller="LOCAL_SESSION"))
+        if len(parts) == 6 and parts[4] == "batches" and parts[5] in ("plan", "create", "list", "cancel"):
             from .operation_authority import bound_owner
             from .operation_runtime import execute
-            if self.path!='/'+ '/'.join(parts):raise Invalid('Use the exact creative batch address')
-            session=self.session();user=self.server.identities.fresh(session)
-            envelope=dict(app_id=parts[2],operation='creative.batch.'+parts[5],input=data)
-            with bound_owner(store,envelope,self.server.identities,session,user):
-                return self.send(200,execute(self.server.service,envelope,caller='LOCAL_SESSION'))
-        if len(parts)==5 and parts[4] in ("profile","requirement"):
-            return self.owner_creative_write(parts,data,'creative.'+parts[4]+'.save',lambda:Capabilities(store).save(parts[2],parts[4],data))
-        if len(parts)==5 and parts[4]=="analyses":return self.owner_creative_write(parts,data,'creative.analysis.save',lambda:Analyses(store).save(parts[2],data))
-        if len(parts)==5 and parts[4]=="briefs":return self.owner_creative_write(parts,data,'creative.brief.save',lambda:Briefs(store).save(parts[2],data))
-        if len(parts)==5 and parts[4]=="renders":return self.send(201,Renders(store).queue(parts[2],data))
-        if len(parts)==5 and parts[4]=="hypit-renders":return self.send(201,HypitRenders(store).queue(parts[2],data))
-        if len(parts)==5 and parts[4] in ("hypit-plan","hypit-reuse") and self.path!="/"+"/".join(parts):
+
+            if self.path != "/" + "/".join(parts):
+                raise Invalid("Use the exact creative batch address")
+            session = self.session()
+            user = self.server.identities.fresh(session)
+            envelope = dict(app_id=parts[2], operation="creative.batch." + parts[5], input=data)
+            with bound_owner(store, envelope, self.server.identities, session, user):
+                return self.send(200, execute(self.server.service, envelope, caller="LOCAL_SESSION"))
+        if len(parts) == 5 and parts[4] in ("profile", "requirement"):
+            return self.owner_creative_write(
+                parts,
+                data,
+                "creative." + parts[4] + ".save",
+                lambda: Capabilities(store).save(parts[2], parts[4], data),
+            )
+        if len(parts) == 5 and parts[4] == "analyses":
+            return self.owner_creative_write(
+                parts, data, "creative.analysis.save", lambda: Analyses(store).save(parts[2], data)
+            )
+        if len(parts) == 5 and parts[4] == "briefs":
+            return self.owner_creative_write(
+                parts, data, "creative.brief.save", lambda: Briefs(store).save(parts[2], data)
+            )
+        if len(parts) == 5 and parts[4] == "renders":
+            return self.send(201, Renders(store).queue(parts[2], data))
+        if len(parts) == 5 and parts[4] == "hypit-renders":
+            return self.send(201, HypitRenders(store).queue(parts[2], data))
+        if len(parts) == 5 and parts[4] in ("hypit-plan", "hypit-reuse") and self.path != "/" + "/".join(parts):
             raise Invalid("Use the exact Hypit preflight or reuse address")
-        if len(parts)==5 and parts[4]=="hypit-plan":return self.send(200,HypitRenders(store).plan(parts[2],data))
-        if len(parts)==5 and parts[4]=="hypit-reuse":return self.send(200,HypitRenders(store).reuse(parts[2],data))
+        if len(parts) == 5 and parts[4] == "hypit-plan":
+            return self.send(200, HypitRenders(store).plan(parts[2], data))
+        if len(parts) == 5 and parts[4] == "hypit-reuse":
+            return self.send(200, HypitRenders(store).reuse(parts[2], data))
         raise KeyError("Creative production route not found")
 
-    def post_acquisition(self,parts,data):
+    def post_acquisition(self, parts, data):
         """Accept guided source-bound preparation and explicit evidence attachment only."""
         from .acquisition_workflows import Acquisition
-        acquisition=Acquisition(self.server.service.store)
-        if len(parts)!=5:raise KeyError("Acquisition route not found")
-        if parts[4] in ("intents","panels","observations"):return self.send(201,acquisition.save(parts[2],parts[4],data))
-        if parts[4]=="reports":return self.send(201,acquisition.report(parts[2],data))
-        if parts[4]=="attach":return self.send(201,acquisition.attach(parts[2],data))
+
+        acquisition = Acquisition(self.server.service.store)
+        if len(parts) != 5:
+            raise KeyError("Acquisition route not found")
+        if parts[4] in ("intents", "panels", "observations"):
+            return self.send(201, acquisition.save(parts[2], parts[4], data))
+        if parts[4] == "reports":
+            return self.send(201, acquisition.report(parts[2], data))
+        if parts[4] == "attach":
+            return self.send(201, acquisition.attach(parts[2], data))
         raise KeyError("Acquisition route not found")
 
 
 def check_timezone_support():
     """Fail before startup if Windows lacks the declared timezone prerequisite."""
     from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
     try:
-        ZoneInfo('America/Toronto')
+        ZoneInfo("America/Toronto")
     except ZoneInfoNotFoundError as exc:
-        raise Invalid('Timezone data is missing. Run python -m pip install --require-hashes -r requirements.txt, then restart WMM.') from exc
+        raise Invalid(
+            "Timezone data is missing. Run python -m pip install --require-hashes -r requirements.txt, then restart WMM."
+        ) from exc
 
 
 def main():
     """Start the loopback-only local service and close its worker cleanly."""
-    parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--port",type=int,default=8765)
-    parser.add_argument("--database",type=Path,default=Path(__file__).resolve().parent/"data/mission-control.sqlite3")
-    parser.add_argument("--operator",default="local-operator")
-    args=parser.parse_args()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument(
+        "--database", type=Path, default=Path(__file__).resolve().parent / "data/mission-control.sqlite3"
+    )
+    parser.add_argument("--operator", default="local-operator")
+    args = parser.parse_args()
     try:
         check_timezone_support()
     except Invalid as exc:
         parser.error(str(exc))
-    server=Server(("127.0.0.1",args.port),Store(args.database),args.operator)
+    server = Server(("127.0.0.1", args.port), Store(args.database), args.operator)
     server.runner.start()
     server.audit_runner.start()
-    print(f"Mission Control: http://127.0.0.1:{server.server_port}",flush=True)
+    print(f"Mission Control: http://127.0.0.1:{server.server_port}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -1224,6 +1820,5 @@ def main():
         server.server_close()
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()
-

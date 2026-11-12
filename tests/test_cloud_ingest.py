@@ -1,4 +1,5 @@
 """BYOC ingest SDK is HTTPS/token-bound and has no silent local fallback."""
+
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from threading import Thread
@@ -32,10 +33,13 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         length = int(self.headers.get("Content-Length") or 0)
         body = json.loads(self.rfile.read(length) or b"{}")
-        type(self).calls.append(("POST", self.path, self.headers.get("Authorization"),
-                                (self.headers.get("Idempotency-Key"), body)))
+        type(self).calls.append(
+            ("POST", self.path, self.headers.get("Authorization"), (self.headers.get("Idempotency-Key"), body))
+        )
         if self.path == "/v1/install-batches":
-            return self._send(201, {"schema": "wmm.cloud.v1", "status": "ACCEPTED", "receipt": "receipt-1", "tenant": "own"})
+            return self._send(
+                201, {"schema": "wmm.cloud.v1", "status": "ACCEPTED", "receipt": "receipt-1", "tenant": "own"}
+            )
         return self._send(404, {"error": "missing"})
 
 

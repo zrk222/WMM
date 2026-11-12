@@ -25,8 +25,7 @@ EXPERIMENT = "99999999-9999-4999-8999-999999999999"
 
 
 def positive_effect():
-    return dict(control_rate=0.2, treatment_rate=0.29, difference=0.09,
-                interval=[0.06, 0.12], method="synthetic")
+    return dict(control_rate=0.2, treatment_rate=0.29, difference=0.09, interval=[0.06, 0.12], method="synthetic")
 
 
 class CampaignOwnerReportsTests(unittest.TestCase):
@@ -60,9 +59,7 @@ class CampaignOwnerReportsTests(unittest.TestCase):
 
     @contextmanager
     def owner(self):
-        envelope = dict(
-            app_id="sample", operation="campaign.owner-report.fixture", input={}
-        )
+        envelope = dict(app_id="sample", operation="campaign.owner-report.fixture", input={})
         with bound_owner(
             self.store,
             envelope,
@@ -98,45 +95,61 @@ class CampaignOwnerReportsTests(unittest.TestCase):
             )
 
     def test_report_retains_pause_observation_and_rejects_rebound_receipts(self):
-        flow=self.fixture.fixture.service
-        intent=self.fixture.intent
-        self.fixture.wire.objects[intent['ids']['campaign']]['effective_status']='PAUSED'
-        paused=flow.run_pause('sample','owner',self.fixture.scope['scope_id'],intent['id'])
-        saved=self.capture()
-        ad=next(r for r in saved['report']['campaign']['receipts'] if r['kind']=='AD')
-        self.assertEqual(ad['pause_readback'],{key:paused['pause_readback'][key] for key in
-            ('configured_status','effective_status','observed_at','sha256')})
-        self.assertEqual(saved['report']['campaign']['retained_commitment_minor'],80)
-        self.assertEqual(saved['report']['campaign']['spend'],'UNKNOWN_PROVIDER_REPORTS_MAY_LAG')
+        flow = self.fixture.fixture.service
+        intent = self.fixture.intent
+        self.fixture.wire.objects[intent["ids"]["campaign"]]["effective_status"] = "PAUSED"
+        paused = flow.run_pause("sample", "owner", self.fixture.scope["scope_id"], intent["id"])
+        saved = self.capture()
+        ad = next(r for r in saved["report"]["campaign"]["receipts"] if r["kind"] == "AD")
+        self.assertEqual(
+            ad["pause_readback"],
+            {
+                key: paused["pause_readback"][key]
+                for key in ("configured_status", "effective_status", "observed_at", "sha256")
+            },
+        )
+        self.assertEqual(saved["report"]["campaign"]["retained_commitment_minor"], 80)
+        self.assertEqual(saved["report"]["campaign"]["spend"], "UNKNOWN_PROVIDER_REPORTS_MAY_LAG")
         with connection(self.store.path) as db:
-            row=db.execute('SELECT data FROM campaign_pause_receipts').fetchone()
+            row = db.execute("SELECT data FROM campaign_pause_receipts").fetchone()
             import json
-            damaged=json.loads(row['data'])
-            damaged['scope_id']='foreign-scope'
-            db.execute('UPDATE campaign_pause_receipts SET data=?,hash=?',(canonical(damaged),digest(damaged)))
+
+            damaged = json.loads(row["data"])
+            damaged["scope_id"] = "foreign-scope"
+            db.execute("UPDATE campaign_pause_receipts SET data=?,hash=?", (canonical(damaged), digest(damaged)))
         with self.assertRaises(Invalid):
             self.capture()
 
     def test_legacy_paused_state_has_no_invented_provider_receipt(self):
         with connection(self.store.path) as db:
             db.execute("UPDATE campaign_paid_intents SET status='PAUSED_campaign'")
-        ad=next(r for r in self.capture()['report']['campaign']['receipts'] if r['kind']=='AD')
-        self.assertNotIn('pause_readback',ad)
+        ad = next(r for r in self.capture()["report"]["campaign"]["receipts"] if r["kind"] == "AD")
+        self.assertNotIn("pause_readback", ad)
 
     def test_invalid_pause_receipt_hash_time_and_identity_stop_capture(self):
         import json
-        flow=self.fixture.fixture.service
-        flow.run_pause('sample','owner',self.fixture.scope['scope_id'],self.fixture.intent['id'])
+
+        flow = self.fixture.fixture.service
+        flow.run_pause("sample", "owner", self.fixture.scope["scope_id"], self.fixture.intent["id"])
         with connection(self.store.path) as db:
-            original=json.loads(db.execute('SELECT data FROM campaign_pause_receipts').fetchone()['data'])
-        for change in ({'observed_at':'not-a-date'},{'campaign_id':'999'},
-                       {'account_id':'999'},{'request_hash':'0'*64},{'app_id':'foreign'},{}):
+            original = json.loads(db.execute("SELECT data FROM campaign_pause_receipts").fetchone()["data"])
+        for change in (
+            {"observed_at": "not-a-date"},
+            {"campaign_id": "999"},
+            {"account_id": "999"},
+            {"request_hash": "0" * 64},
+            {"app_id": "foreign"},
+            {},
+        ):
             with self.subTest(change=change):
-                data={**original,**change}
+                data = {**original, **change}
                 with connection(self.store.path) as db:
-                    db.execute('UPDATE campaign_pause_receipts SET data=?,hash=?',
-                               (canonical(data),digest(data) if change else '0'*64))
-                with self.assertRaises(Invalid):self.capture()
+                    db.execute(
+                        "UPDATE campaign_pause_receipts SET data=?,hash=?",
+                        (canonical(data), digest(data) if change else "0" * 64),
+                    )
+                with self.assertRaises(Invalid):
+                    self.capture()
 
     def plan(self, chosen=None, **changes):
         value = dict(
@@ -153,8 +166,7 @@ class CampaignOwnerReportsTests(unittest.TestCase):
     def experiment(self, analysis_at=None, status=None, window=None, effect=None, assessed_at=None):
         definition = dict(
             primary_metric="activation_rate",
-            analysis_at=analysis_at
-            or (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
+            analysis_at=analysis_at or (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
             control={"cohort": window} if window else {},
             treatment={"cohort": window} if window else {},
             minimum_detectable_effect=0.05,
@@ -208,9 +220,7 @@ class CampaignOwnerReportsTests(unittest.TestCase):
             refunds_minor=0,
             horizon="30days",
         )
-        old = next(
-            (r for r in self.store.records("sample") if r["id"] == identity), None
-        )
+        old = next((r for r in self.store.records("sample") if r["id"] == identity), None)
         self.store.save_record(
             "sample",
             dict(
@@ -230,9 +240,7 @@ class CampaignOwnerReportsTests(unittest.TestCase):
                 0,
             )
         with self.assertRaises(PermissionError):
-            self.reports.capture(
-                "sample", dict(selection=self.chosen(), request_key=str(uuid.uuid4()))
-            )
+            self.reports.capture("sample", dict(selection=self.chosen(), request_key=str(uuid.uuid4())))
         result = self.capture()
         report = result["report"]
         self.assertEqual(result["hash"], digest(report))
@@ -244,9 +252,7 @@ class CampaignOwnerReportsTests(unittest.TestCase):
         self.assertEqual(report["campaign"]["outcome_attribution"], "NOT_ESTABLISHED")
         self.assertEqual(report["kpis"]["appID"], "sample")
         self.assertIsNone(report["experiment"])
-        self.assertEqual(
-            report["comparison"]["status"], "NO_COMPATIBLE_PREVIOUS_SNAPSHOT"
-        )
+        self.assertEqual(report["comparison"]["status"], "NO_COMPATIBLE_PREVIOUS_SNAPSHOT")
         self.assertEqual(len(report["source_hash"]), 64)
         for private in (
             "synthetic-secret",
@@ -264,13 +270,35 @@ class CampaignOwnerReportsTests(unittest.TestCase):
         with connection(self.store.path) as db:
             db.execute(
                 "INSERT INTO creative_batches VALUES(?,?,?,?,?,?,?,?,?,?)",
-                ("sample", "synthetic-batch", "synthetic-key", "hash",
-                 "PRIVATE_PLAN", "hash", "ACTIVE", 360, stamp, stamp),
+                (
+                    "sample",
+                    "synthetic-batch",
+                    "synthetic-key",
+                    "hash",
+                    "PRIVATE_PLAN",
+                    "hash",
+                    "ACTIVE",
+                    360,
+                    stamp,
+                    stamp,
+                ),
             )
             db.execute(
                 "INSERT INTO agent_handoffs VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-                ("synthetic-handoff", "sample", None, "PRIVATE_RECIPIENT",
-                 "PRIVATE_PAYLOAD", "hash", stamp, stamp, "READY", None, None, 1),
+                (
+                    "synthetic-handoff",
+                    "sample",
+                    None,
+                    "PRIVATE_RECIPIENT",
+                    "PRIVATE_PAYLOAD",
+                    "hash",
+                    stamp,
+                    stamp,
+                    "READY",
+                    None,
+                    None,
+                    1,
+                ),
             )
         after = self.capture()["report"]
         self.assertEqual(before["kpi_coverage"], after["kpi_coverage"])
@@ -282,17 +310,14 @@ class CampaignOwnerReportsTests(unittest.TestCase):
         self.cohort()
         with_kpis = self.capture()["report"]
         self.assertGreater(with_kpis["kpi_coverage"]["available_rows"], 0)
-        self.assertTrue(any(row["metric"].startswith("Cohort 1:")
-                            for row in with_kpis["kpis"]["rows"]))
+        self.assertTrue(any(row["metric"].startswith("Cohort 1:") for row in with_kpis["kpis"]["rows"]))
 
     def test_capture_idempotent_key_and_selection_race(self):
         key = str(uuid.uuid4())
         first = self.capture(key=key)
         second = self.capture(key=key)
         self.assertEqual(first, second)
-        window = dict(
-            starts_at="2026-09-01T00:00:00+00:00", ends_at="2026-10-01T00:00:00+00:00"
-        )
+        window = dict(starts_at="2026-09-01T00:00:00+00:00", ends_at="2026-10-01T00:00:00+00:00")
         with self.assertRaises(Invalid):
             self.capture(self.chosen(measurement_window=window), key)
         with self.owner():
@@ -319,9 +344,7 @@ class CampaignOwnerReportsTests(unittest.TestCase):
                 (self.monitor["id"],),
             )
         with connection(self.store.path) as db:
-            db.execute(
-                "UPDATE operator_roles SET status='REVOKED' WHERE app_id='sample'"
-            )
+            db.execute("UPDATE operator_roles SET status='REVOKED' WHERE app_id='sample'")
         with self.assertRaises(PermissionError):
             self.capture()
 
@@ -348,9 +371,7 @@ class CampaignOwnerReportsTests(unittest.TestCase):
                 "UPDATE jobs SET status='BLOCKED',result=? WHERE id=?",
                 (canonical(observation), job["id"]),
             )
-            db.execute(
-                "UPDATE campaign_paid_intents SET status='PENDING_ACTIVE_campaign'"
-            )
+            db.execute("UPDATE campaign_paid_intents SET status='PENDING_ACTIVE_campaign'")
         report = self.capture()["report"]
         self.assertEqual(report["monitor"]["last_observation"]["status"], "BLOCKED")
         self.assertEqual(
@@ -377,9 +398,11 @@ class CampaignOwnerReportsTests(unittest.TestCase):
             )
             before_jobs = db.execute("SELECT count(*) FROM jobs").fetchone()[0]
         before_effects = canonical(self.fixture.wire.objects)
-        with patch.object(self.fixture.wire, "publish", side_effect=AssertionError("No publication")), patch.object(
-            self.fixture.wire, "read_paid", side_effect=AssertionError("No provider read")
-        ), patch.object(self.fixture.wire, "set_paid_status", side_effect=AssertionError("No mutation")):
+        with (
+            patch.object(self.fixture.wire, "publish", side_effect=AssertionError("No publication")),
+            patch.object(self.fixture.wire, "read_paid", side_effect=AssertionError("No provider read")),
+            patch.object(self.fixture.wire, "set_paid_status", side_effect=AssertionError("No mutation")),
+        ):
             report = self.capture()["report"]
         self.assertTrue(report["campaign"]["receipts"])
         self.assertEqual([r["status"] for r in report["campaign"]["receipts"]], ["ACTIVE_campaign"])
@@ -400,7 +423,10 @@ class CampaignOwnerReportsTests(unittest.TestCase):
         core.tick(self.store)
         job = claim(self.store)
         with connection(self.store.path) as db:
-            db.execute("UPDATE jobs SET status='FAILED',result=? WHERE id=?", (canonical(dict(diagnostic="PRIVATE_PROVIDER_DIAGNOSTIC")), job["id"]))
+            db.execute(
+                "UPDATE jobs SET status='FAILED',result=? WHERE id=?",
+                (canonical(dict(diagnostic="PRIVATE_PROVIDER_DIAGNOSTIC")), job["id"]),
+            )
             db.execute("UPDATE campaign_report_plans SET status='BLOCKED' WHERE id=?", (plan["id"],))
         with self.owner():
             status = self.reports.status("sample", plan["id"])
@@ -425,23 +451,16 @@ class CampaignOwnerReportsTests(unittest.TestCase):
         row = next(
             r
             for r in comparison["changes"]
-            if r["metric"] == "Cohort1: activation_rate"
-            or r["metric"] == "Cohort 1: activation_rate"
+            if r["metric"] == "Cohort1: activation_rate" or r["metric"] == "Cohort 1: activation_rate"
         )
         self.assertEqual((row["previous"], row["current"]), ("0.4", "0.6"))
-        self.assertNotEqual(
-            first["report"]["source_hash"], second["report"]["source_hash"]
-        )
+        self.assertNotEqual(first["report"]["source_hash"], second["report"]["source_hash"])
         self.cohort(activated=60, currency="USD")
         incompatible = self.capture()["report"]["comparison"]
         self.assertEqual(incompatible["status"], "NO_COMPATIBLE_PREVIOUS_SNAPSHOT")
-        window = dict(
-            starts_at="2026-09-01T00:00:00+00:00", ends_at="2026-10-01T00:00:00+00:00"
-        )
+        window = dict(starts_at="2026-09-01T00:00:00+00:00", ends_at="2026-10-01T00:00:00+00:00")
         self.assertEqual(
-            self.capture(self.chosen(measurement_window=window))["report"][
-                "comparison"
-            ]["status"],
+            self.capture(self.chosen(measurement_window=window))["report"]["comparison"]["status"],
             "NO_COMPATIBLE_PREVIOUS_SNAPSHOT",
         )
 
@@ -475,7 +494,8 @@ class CampaignOwnerReportsTests(unittest.TestCase):
             effect=positive_effect(),
         )
         wrong_window = self.chosen(
-            experiment_id=EXPERIMENT, monitor_id=None,
+            experiment_id=EXPERIMENT,
+            monitor_id=None,
             measurement_window=dict(window, starts_at="2026-10-02T00:00:00+00:00"),
         )
         unmatched = self.capture(wrong_window)["report"]
@@ -490,7 +510,9 @@ class CampaignOwnerReportsTests(unittest.TestCase):
         self.experiment(
             analysis_at=(datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
             assessed_at=(datetime.now(timezone.utc) - timedelta(days=2)).isoformat(),
-            status="EVALUATED", window=chosen["measurement_window"], effect=positive_effect(),
+            status="EVALUATED",
+            window=chosen["measurement_window"],
+            effect=positive_effect(),
         )
         report = self.capture(chosen)["report"]
         self.assertFalse(report["experiment"]["assessment_in_window"])
@@ -513,9 +535,7 @@ class CampaignOwnerReportsTests(unittest.TestCase):
                 1,
             )
             db.execute("UPDATE jobs SET status='SUCCEEDED' WHERE id=?", (job["id"],))
-            db.execute(
-                "UPDATE campaign_report_plans SET due=0 WHERE id=?", (plan["id"],)
-            )
+            db.execute("UPDATE campaign_report_plans SET due=0 WHERE id=?", (plan["id"],))
         restarted = core.Reports(self.store)
         self.assertIsNotNone(restarted)
         self.assertEqual(core.tick(self.store), 1)
@@ -525,41 +545,29 @@ class CampaignOwnerReportsTests(unittest.TestCase):
             for change in (
                 dict(cadence_seconds=29),
                 dict(max_reports=True),
-                dict(
-                    expires_at=(
-                        datetime.now(timezone.utc) + timedelta(days=8)
-                    ).isoformat()
-                ),
+                dict(expires_at=(datetime.now(timezone.utc) + timedelta(days=8)).isoformat()),
             ):
                 with self.assertRaises(Invalid):
                     body = dict(
                         selection=self.chosen(),
                         cadence_seconds=30,
-                        expires_at=(
-                            datetime.now(timezone.utc) + timedelta(days=1)
-                        ).isoformat(),
+                        expires_at=(datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
                         max_reports=1,
                     )
                     body.update(change)
                     self.reports.prepare("sample", body)
         plan = self.plan(max_reports=1)
         with ThreadPoolExecutor(max_workers=2) as pool:
-            self.assertEqual(
-                sum(pool.map(lambda _: core.tick(self.store), range(2))), 1
-            )
+            self.assertEqual(sum(pool.map(lambda _: core.tick(self.store), range(2))), 1)
         job = claim(self.store)
         core.execute(self.store, job)
         with connection(self.store.path) as db:
             db.execute("UPDATE jobs SET status='SUCCEEDED' WHERE id=?", (job["id"],))
-            db.execute(
-                "UPDATE campaign_report_plans SET due=0 WHERE id=?", (plan["id"],)
-            )
+            db.execute("UPDATE campaign_report_plans SET due=0 WHERE id=?", (plan["id"],))
         self.assertEqual(core.tick(self.store), 0)
         with connection(self.store.path) as db:
             self.assertEqual(
-                db.execute(
-                    "SELECT status FROM campaign_report_plans WHERE id=?", (plan["id"],)
-                ).fetchone()[0],
+                db.execute("SELECT status FROM campaign_report_plans WHERE id=?", (plan["id"],)).fetchone()[0],
                 "BLOCKED",
             )
         with self.owner():
@@ -575,7 +583,9 @@ class CampaignOwnerReportsTests(unittest.TestCase):
             db.execute("UPDATE campaign_scopes SET summary_hash='changed' WHERE app_id='sample'")
         with self.owner():
             changed = self.reports.status("sample", plan["id"])
-        self.assertTrue(any(phrase in changed["next_action"] for phrase in ("binding changed", "could not be confirmed")))
+        self.assertTrue(
+            any(phrase in changed["next_action"] for phrase in ("binding changed", "could not be confirmed"))
+        )
 
     def test_blocked_expired_plan_recommends_review(self):
         plan = self.plan()
@@ -584,7 +594,10 @@ class CampaignOwnerReportsTests(unittest.TestCase):
             row = db.execute("SELECT summary FROM campaign_report_plans WHERE id=?", (plan["id"],)).fetchone()
             summary = core.object_data(row["summary"])
             summary["proposal"]["expires_at"] = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
-            db.execute("UPDATE campaign_report_plans SET summary=?,summary_hash=? WHERE id=?", (canonical(summary), digest(summary), plan["id"]))
+            db.execute(
+                "UPDATE campaign_report_plans SET summary=?,summary_hash=? WHERE id=?",
+                (canonical(summary), digest(summary), plan["id"]),
+            )
         with self.owner():
             expired = self.reports.status("sample", plan["id"])
         self.assertIn("expired", expired["next_action"])
@@ -613,9 +626,7 @@ class CampaignOwnerReportsTests(unittest.TestCase):
         with self.assertRaises(PermissionError):
             core.execute(self.store, job)
         with connection(self.store.path) as db:
-            db.execute(
-                "UPDATE jobs SET lease=? WHERE id=?", (time.time() + 60, job["id"])
-            )
+            db.execute("UPDATE jobs SET lease=? WHERE id=?", (time.time() + 60, job["id"]))
             db.execute("UPDATE apps SET version=version+1 WHERE id='sample'")
         with self.assertRaises(PermissionError):
             core.execute(self.store, job)
@@ -642,9 +653,7 @@ class CampaignOwnerReportsTests(unittest.TestCase):
 
         def revoke(db, store, app_id, observed, **kwargs):
             result = original(db, store, app_id, observed, **kwargs)
-            db.execute(
-                "UPDATE operator_roles SET version=version+1 WHERE app_id='sample'"
-            )
+            db.execute("UPDATE operator_roles SET version=version+1 WHERE app_id='sample'")
             return result
 
         with patch.object(core, "snapshot", side_effect=revoke):
@@ -667,9 +676,7 @@ class CampaignOwnerReportsTests(unittest.TestCase):
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
             db.execute("PRAGMA defer_foreign_keys=ON")
-            db.execute(
-                "UPDATE experiments SET id='appgrowth-trial' WHERE id=?", (EXPERIMENT,)
-            )
+            db.execute("UPDATE experiments SET id='appgrowth-trial' WHERE id=?", (EXPERIMENT,))
             db.execute(
                 "UPDATE experiment_assessments SET experiment_id='appgrowth-trial' WHERE experiment_id=?",
                 (EXPERIMENT,),
@@ -692,9 +699,7 @@ class CampaignOwnerReportsTests(unittest.TestCase):
             first["report"]["kpi_coverage"]["metric_definitions_hash"],
             second["report"]["kpi_coverage"]["metric_definitions_hash"],
         )
-        self.assertEqual(
-            second["report"]["comparison"]["status"], "COMPATIBLE_SAVED_OBSERVATIONS"
-        )
+        self.assertEqual(second["report"]["comparison"]["status"], "COMPATIBLE_SAVED_OBSERVATIONS")
 
     def test_exact_plan_approval_hash_and_twenty_due_job_bound(self):
         proposal = dict(
@@ -707,9 +712,7 @@ class CampaignOwnerReportsTests(unittest.TestCase):
             draft = self.reports.prepare("sample", proposal)
             with self.assertRaises(Invalid):
                 self.reports.activate("sample", draft["id"], "0" * 64)
-            self.assertEqual(
-                self.reports.status("sample", draft["id"])["status"], "DRAFT"
-            )
+            self.assertEqual(self.reports.status("sample", draft["id"])["status"], "DRAFT")
             self.reports.activate("sample", draft["id"], draft["summary_hash"])
         for unused in range(20):
             self.plan(max_reports=1)
@@ -718,9 +721,7 @@ class CampaignOwnerReportsTests(unittest.TestCase):
         self.assertEqual(core.tick(self.store), 0)
         with connection(self.store.path) as db:
             self.assertEqual(
-                db.execute(
-                    "SELECT count(*) FROM jobs WHERE action='campaign_owner_report'"
-                ).fetchone()[0],
+                db.execute("SELECT count(*) FROM jobs WHERE action='campaign_owner_report'").fetchone()[0],
                 21,
             )
 
@@ -731,9 +732,7 @@ class CampaignOwnerReportsTests(unittest.TestCase):
         core.tick(self.store)
         job = claim(self.store)
         with connection(self.store.path) as db:
-            db.execute(
-                "UPDATE operator_roles SET status='REVOKED',version=version+1 WHERE app_id='sample'"
-            )
+            db.execute("UPDATE operator_roles SET status='REVOKED',version=version+1 WHERE app_id='sample'")
         with self.assertRaises(PermissionError):
             core.execute(self.store, job)
         with connection(self.store.path) as db:
@@ -745,9 +744,7 @@ class CampaignOwnerReportsTests(unittest.TestCase):
 
     def test_scope_expiry_is_observation_not_report_authority_expiry(self):
         plan = self.plan()
-        future = (
-            datetime.fromisoformat(self.fixture.scope["expires_at"]).timestamp() + 1
-        )
+        future = datetime.fromisoformat(self.fixture.scope["expires_at"]).timestamp() + 1
         with (
             patch("time.time", return_value=future),
             patch.object(
@@ -785,22 +782,14 @@ class CampaignOwnerReportsTests(unittest.TestCase):
                 route + "capture",
                 dict(selection=self.chosen(), request_key=str(uuid.uuid4())),
             )
-            read = self.fixture.client.request(
-                "POST", route + "read", dict(report_id=saved["id"])
-            )
+            read = self.fixture.client.request("POST", route + "read", dict(report_id=saved["id"]))
             self.assertEqual(saved, read)
             self.assertEqual(
-                len(
-                    self.fixture.client.request("POST", route + "history", {})[
-                        "reports"
-                    ]
-                ),
+                len(self.fixture.client.request("POST", route + "history", {})["reports"]),
                 1,
             )
             with self.assertRaises(ClientError):
-                self.fixture.client.request(
-                    "POST", route + "read", dict(report_id=saved["id"], owner="forged")
-                )
+                self.fixture.client.request("POST", route + "read", dict(report_id=saved["id"], owner="forged"))
             self.assertFalse(saved["report"]["authority_issued"])
 
     def test_wrong_host_plan_tamper_expiry_and_foreign_job_fail_closed(self):
