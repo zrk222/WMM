@@ -10,6 +10,11 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
+// The frozen macOS engine's first workspace initialization can exceed the
+// warm-launch deadline on Intel. Keep one deadline over readiness and proof.
+#[cfg(target_os = "macos")]
+const STARTUP_TIMEOUT: Duration = Duration::from_secs(45);
+#[cfg(not(target_os = "macos"))]
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(15);
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(45);
 const PROTOCOL: &str = "wmm.desktop-sidecar.v1";

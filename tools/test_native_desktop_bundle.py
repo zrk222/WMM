@@ -52,7 +52,7 @@ def run(shell, profile):
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
-        timeout=75,
+        timeout=105 if sys.platform == "darwin" else 75,
     )
     if result.returncode == 0:
         return 0

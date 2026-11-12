@@ -124,6 +124,15 @@ class MacOSPackageTests(unittest.TestCase):
         self.assertNotIn('KEYCHAIN_PATH', env)
         self.assertNotIn('GITHUB_TOKEN', env)
 
+    def test_mac_probe_bounds_startup_and_shutdown_without_changing_other_platforms(self):
+        run = runpy.run_path(str(ROOT / 'tools/test_native_desktop_bundle.py'))['run']
+        from types import SimpleNamespace
+        for platform, deadline in (('darwin', 105), ('win32', 75), ('linux', 75)):
+            with self.subTest(platform=platform), patch('sys.platform', platform), patch(
+                    'subprocess.run', return_value=SimpleNamespace(returncode=0)) as process:
+                self.assertEqual(run(Path('synthetic-shell'), Path('synthetic-home')), 0)
+                self.assertEqual(process.call_args.kwargs['timeout'], deadline)
+
     def test_ci_declares_both_architectures_without_publishing(self):
         workflow = (ROOT / '.github/workflows/macos-desktop.yml').read_text()
         for value in ('macos-15-intel', 'macos-15', 'x86_64', 'arm64',

@@ -64,7 +64,10 @@ bundle. Native CI artifacts remain separate from signed public distribution.
 - [ ] T6 | slice=desktop | files=desktop/launcher/src/lib.rs,desktop/src-tauri/src/main.rs | verify=`rustfmt --check desktop/launcher/src/lib.rs desktop/src-tauri/src/main.rs` | Distinguish the typed pre-spawn digest refusal and emit bounded startup or shutdown failure diagnostics.
 
   Modify the launcher and native verification command only. Preserve readiness
-  authentication, worker activation, deadline and shutdown semantics. Run the
+  authentication, worker activation and shutdown semantics. The Mac cold-start
+  readiness/proof deadline is 45 seconds; other platforms retain 15 seconds.
+  The Mac outer test allows 105 seconds for startup and bounded shutdown.
+  This is a maximum, not a delay added to successful launches. Run the
   compiled launcher checks on both Mac architectures in T4 and Windows/Ubuntu
   native-package CI; rustfmt is a local syntax and formatting check.
 
