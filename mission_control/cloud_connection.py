@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
+
 from .cloud_ingest import CloudIngest, IngestError, validate_endpoint
 from .common import Invalid, now, uid
 from .credential_vault import Vault, namespace, target
@@ -94,16 +96,12 @@ class CloudConnections:
                 )
         except Exception:
             if token:
-                try:
+                with suppress(Invalid):
                     self.vault.delete(_name(self.store, app_id, reference))
-                except Invalid:
-                    pass
             raise
         if token and previous and previous != reference:
-            try:
+            with suppress(Invalid):
                 self.vault.delete(_name(self.store, app_id, previous))
-            except Invalid:
-                pass
         return self.current(app_id)
 
     def test(self, app_id):
@@ -126,7 +124,7 @@ class CloudConnections:
         return {"status": "TESTED", "tenant": value.get("tenant"), "version": value.get("version")}
 
     def _set_status(self, row, status, error):
-        with connection(self.store.path) as db:
+        with connection(self.store.path, write=True) as db:
             updated = db.execute(
                 "UPDATE cloud_connections SET status=?,last_test=?,last_error=?,updated=? "
                 "WHERE app_id=? AND version=? AND endpoint=? AND credential_ref=?",

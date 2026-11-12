@@ -1,23 +1,24 @@
 """App-scoped data access, version conflicts and portable snapshot validation."""
 
-import json
 import base64
 import hashlib
+import json
 import re
 from pathlib import Path
-from .common import Invalid, canonical, digest, identifier, now, required, safe_data, uid
-from .db import connection, initialize
+
+from .acquisition_portable import export_acquisition, restore_acquisition
+from .automation_policy import check_manifest_version, validate_manifest
 from .catalog import FIELDS
-from .ledger import Ledger, restore_ledger, validate_snapshot
-from .experiments import Experiments, restore_experiments, snapshot_data
-from .experiment_schedules import export_schedules, restore_schedules
+from .common import Invalid, canonical, digest, identifier, now, required, safe_data, uid
 from .creative_library import export_library, restore_library
 from .creative_portable import export_production, restore_production
-from .production_portable import export_capabilities, restore_capabilities
 from .creative_rank_portable import export_rankings, restore_rankings
-from .acquisition_portable import export_acquisition, restore_acquisition
+from .db import connection, initialize
+from .experiment_schedules import export_schedules, restore_schedules
+from .experiments import Experiments, restore_experiments, snapshot_data
+from .ledger import Ledger, restore_ledger, validate_snapshot
 from .media_portable import export_media, restore_media
-from .automation_policy import validate_manifest, check_manifest_version
+from .production_portable import export_capabilities, restore_capabilities
 
 
 def decode(row):
@@ -76,7 +77,7 @@ class Store:
         """Add unknown seed app manifests without replacing existing workspaces."""
         source = Path(__file__).resolve().parents[1] / "package/app-profiles.json"
         profiles = json.loads(source.read_text(encoding="utf-8-sig"))["apps"]
-        with connection(self.path) as db:
+        with connection(self.path, write=True) as db:
             for profile in profiles:
                 data = app_data(
                     dict(profile, job=profile["audience_hypothesis"], audience=profile["audience_hypothesis"])
@@ -204,16 +205,16 @@ class Store:
 
     def _export_observations(self, app_id):
         """Keep existing portable sections and independent read transactions in declared order."""
-        from .learning_portable import export_learning
-        from .payment_portable import export_payments
-        from .storekit_portable import export_storekit
-        from .attribution_portable import export_attribution
         from .aeo_portable import export_aeo
-        from .followup_portable import export_followup
-        from .pmf_portable import export_research
+        from .attribution_portable import export_attribution
         from .audit_portable import export_archives
         from .customer_workflow_store import history as export_customer_workflows
+        from .followup_portable import export_followup
         from .growth_review_store import history as export_growth_reviews
+        from .learning_portable import export_learning
+        from .payment_portable import export_payments
+        from .pmf_portable import export_research
+        from .storekit_portable import export_storekit
 
         readers = {
             "learning": export_learning,
@@ -326,16 +327,16 @@ class Store:
         finalize=None,
     ):
         """Commit records only after exclusive file writes, cleaning owned files on failure."""
-        from .learning_portable import restore_learning
-        from .payment_portable import restore_payments
-        from .storekit_portable import restore_storekit
-        from .attribution_portable import restore_attribution
         from .aeo_portable import restore_aeo
-        from .followup_portable import restore_followup
-        from .pmf_portable import restore_research
+        from .attribution_portable import restore_attribution
         from .audit_portable import restore_archives
         from .customer_workflow_store import restore as restore_customer_workflows
+        from .followup_portable import restore_followup
         from .growth_review_portable import restore as restore_growth_reviews
+        from .learning_portable import restore_learning
+        from .payment_portable import restore_payments
+        from .pmf_portable import restore_research
+        from .storekit_portable import restore_storekit
 
         folder = self.path.parent / "files" / app_id
         created = []

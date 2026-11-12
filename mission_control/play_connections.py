@@ -4,9 +4,12 @@ import hashlib
 import json
 import re
 import time
+from typing import cast
+
 from . import play_auth
 from .common import Invalid, canonical, digest, now, uid
-from .credential_vault import Vault, namespace, target as vault_target
+from .credential_vault import Vault, namespace
+from .credential_vault import target as vault_target
 from .db import connection
 from .play_contract import SCOPE, target
 from .play_reports import read
@@ -59,7 +62,7 @@ class PlayConnections:
         """Persist retirement before deleting; unavailable native storage remains recoverable."""
         if not reference:
             return "NO_KEY"
-        with connection(self.store.path) as db:
+        with connection(self.store.path, write=True) as db:
             db.execute(
                 "INSERT INTO play_retirements VALUES(?,?,0) ON CONFLICT(app_id,reference) DO UPDATE SET eligible=0",
                 (app, reference),
@@ -68,7 +71,7 @@ class PlayConnections:
             Vault().delete(self.name(app, reference))
         except Invalid:
             return "LOCAL_CLEANUP_PENDING"
-        with connection(self.store.path) as db:
+        with connection(self.store.path, write=True) as db:
             db.execute("DELETE FROM play_retirements WHERE app_id=? AND reference=?", (app, reference))
         return "LOCAL_KEY_REMOVED"
 
@@ -90,7 +93,7 @@ class PlayConnections:
 
     def stage_secret(self, app, reference, value):
         """A crashed native write remains discoverable without retiring a live in-flight candidate."""
-        with connection(self.store.path) as db:
+        with connection(self.store.path, write=True) as db:
             db.execute("INSERT INTO play_retirements VALUES(?,?,?)", (app, reference, time.time() + 900))
         try:
             Vault().put(self.name(app, reference), value)
@@ -129,7 +132,7 @@ class PlayConnections:
         if state not in ("CANCELLED", "EXPIRED", "UNCONFIRMED"):
             raise Invalid("Unsupported Google consent recovery")
         row = self.flow(app, identity)
-        with connection(self.store.path) as db:
+        with connection(self.store.path, write=True) as db:
             changed = db.execute(
                 "UPDATE play_flows SET status=?,updated=?,result=? WHERE app_id=? AND id=? AND status IN ('PENDING','EXCHANGING')",
                 (state, now(), canonical(dict(next_action="RECONNECT", prior_connection="PRESERVED")), app, identity),
@@ -325,7 +328,7 @@ class PlayConnections:
 
     def fail(self, row):
         """Never label a consumed or interrupted consent as a working connection."""
-        with connection(self.store.path) as db:
+        with connection(self.store.path, write=True) as db:
             db.execute(
                 "UPDATE play_flows SET status='FAILED',result=?,updated=? WHERE id=? AND status='EXCHANGING'",
                 (canonical(dict(next_action="RECONNECT", prior_connection="PRESERVED")), now(), row["id"]),
@@ -360,7 +363,7 @@ class PlayConnections:
             result = self.retire(app, old["data"].get("credential_ref")) if old else "NO_PRIOR_KEY"
             pending = self.retire(app, pending_ref)
             return "LOCAL_CLEANUP_PENDING" if pending == "LOCAL_CLEANUP_PENDING" else result
-        except Exception:
+        except Exception:  # noqa: BLE001 -- retain failure/cleanup boundary without leaking provider secrets.
             return "LOCAL_CLEANUP_PENDING"
 
     def adopt_target(self, db, row):
@@ -413,7 +416,7 @@ class PlayConnections:
                 row["app_id"],
                 identity,
                 "connection",
-                "Google Play · " + public["package_name"],
+                "Google Play · " + cast(str, public["package_name"]),
                 "Official Google consent and scoped release verification",
                 public,
                 "provider_read",

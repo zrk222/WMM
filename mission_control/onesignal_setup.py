@@ -9,17 +9,19 @@ import json
 import re
 import time
 from datetime import timedelta
+from typing import cast
+
 from .common import Invalid, canonical, digest, identifier, iso_time, now, required, uid
 from .credential_vault import Vault, namespace
 from .db import connection
-from .operation_authority import PROTECTED, check, store_identity
 from .onesignal_transport import CHANNEL_FIELDS, key_text, payload, request, safe_app, uuid_text
+from .operation_authority import PROTECTED, check, store_identity
 
-PRIVATE_FIELDS = frozenset(("apns_p8", "fcm_v1_service_account_json"))
-APNS_FIELDS = frozenset(("apns_p8", "apns_key_id", "apns_team_id", "apns_bundle_id"))
+PRIVATE_FIELDS: frozenset[str] = frozenset(("apns_p8", "fcm_v1_service_account_json"))
+APNS_FIELDS: frozenset[str] = frozenset(("apns_p8", "apns_key_id", "apns_team_id", "apns_bundle_id"))
 
 
-def encoded_update(values):
+def encoded_update(values) -> dict[str, str]:
     encoded = {
         k: (base64.b64encode(v.encode("utf-8")).decode("ascii") if k in PRIVATE_FIELDS else v)
         for k, v in values.items()
@@ -27,7 +29,7 @@ def encoded_update(values):
     checked = payload("update", encoded)
     if len(canonical(checked).encode("utf-8")) > 65536:
         raise Invalid("OneSignal setup body is too large")
-    return checked
+    return cast(dict[str, str], checked)
 
 
 SCHEMA = """
@@ -67,7 +69,7 @@ def owner(store, app_id):
 
 def entry(store, app_id, action, body):
     principal, role_version = owner(store, app_id)
-    envelope = json.loads(PROTECTED.get()["envelope"])
+    envelope = json.loads(cast(dict[str, str], PROTECTED.get())["envelope"])
     if envelope != {"app_id": app_id, "operation": "onesignal." + action, "input": body}:
         raise PermissionError("The exact OneSignal owner operation is required")
     return principal, role_version
@@ -101,7 +103,7 @@ class Secrets:
             for field, value in encoded.items()
         }
         vault = self.vault_factory()
-        with connection(self.store.path) as db:
+        with connection(self.store.path, write=True) as db:
             db.execute(
                 "INSERT INTO onesignal_retirements VALUES(?,?,?,?)", (app_id, principal, ref, time.time() + 1800)
             )
@@ -113,7 +115,7 @@ class Secrets:
                     vault.put(
                         target(self.store, app_id, principal, ref, name), {"value": value[offset : offset + 1200]}
                     )
-        except Exception:
+        except Exception:  # noqa: BLE001 -- retain failure/cleanup boundary without leaking provider secrets.
             # Keep the durable stage for recovery; no plaintext fallback.
             raise Invalid("Protected OneSignal staging failed; prior connection is unchanged") from None
         return ref
@@ -418,10 +420,10 @@ class OneSignalSetup:
             if (
                 not details
                 or set(details) - CHANNEL_FIELDS
-                or (set(details) & APNS_FIELDS and not APNS_FIELDS <= set(details))
+                or (set(details) & APNS_FIELDS and not set(details) >= APNS_FIELDS)
             ):
                 raise Invalid("Choose FCM or the complete APNs P8 configuration")
-            for field, value in details.items():
+            for _field, value in details.items():
                 if not isinstance(value, str) or not value or len(value.encode("utf-8")) > 16384:
                     raise Invalid("Channel field is invalid or too large")
             if "apns_env" in details and details["apns_env"] not in ("production", "development"):
@@ -600,7 +602,7 @@ class OneSignalSetup:
                 raw = self.secrets.load(app_id, principal, effect["secret_ref"])
                 update = encoded_update(raw)
                 sensitive = tuple(raw[k] for k in PRIVATE_FIELDS if k in raw) + tuple(
-                    update[k] for k in PRIVATE_FIELDS if k in update
+                    cast(dict[str, str], update)[k] for k in PRIVATE_FIELDS if k in cast(dict[str, str], update)
                 )
                 alive()
                 dispatch_started = True
@@ -611,7 +613,7 @@ class OneSignalSetup:
                 or response["name"] != expected_name
             ):
                 raise Invalid("OneSignal effect response identity does not match the reviewed app")
-            with connection(self.store.path) as db:
+            with connection(self.store.path, write=True) as db:
                 db.execute(
                     "UPDATE onesignal_setup_effects SET provider_app_id=?,updated=? WHERE id=? AND status='RESERVED'",
                     (identity, now(), effect_id),
@@ -659,15 +661,15 @@ class OneSignalSetup:
                     (canonical(result), now(), effect_id),
                 )
             return {"id": effect_id, "status": "SUCCEEDED", **result}
-        except Exception:
+        except Exception:  # noqa: BLE001 -- retain failure/cleanup boundary without leaking provider secrets.
             state = "UNKNOWN" if dispatch_started else "BLOCKED_NOT_SENT"
             try:
-                with connection(self.store.path) as db:
+                with connection(self.store.path, write=True) as db:
                     db.execute(
                         "UPDATE onesignal_setup_effects SET status=?,updated=? WHERE id=? AND status='RESERVED'",
                         (state, now(), effect_id),
                     )
-            except Exception:
+            except Exception:  # noqa: BLE001 -- retain failure/cleanup boundary without leaking provider secrets.
                 state = "RESERVED"
             return {
                 "id": effect_id,
@@ -808,11 +810,13 @@ class OneSignalSetup:
         values = self.secrets.load(app_id, principal, effect["secret_ref"])
         encoded = encoded_update(values)
         return tuple(values[k] for k in PRIVATE_FIELDS if k in values) + tuple(
-            encoded[k] for k in PRIVATE_FIELDS if k in encoded
+            cast(dict[str, str], encoded)[k] for k in PRIVATE_FIELDS if k in cast(dict[str, str], encoded)
         )
 
     def _recovery_read(self, app_id, principal, kind, key, provider_app_id, sensitive=()):
-        alive = lambda: owner(self.store, app_id)
+        def alive():
+            return owner(self.store, app_id)
+
         if kind == "app":
             rows = [self.transport("view", key, provider_app_id, alive=alive)]
         else:

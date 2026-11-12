@@ -3,12 +3,27 @@
 import hashlib
 import json
 import re
+from typing import NotRequired, TypedDict, cast
+
 from .common import Invalid, canonical, digest, now, uid
+from .creative_rendering import current_request, heartbeat, owned, render_request
 from .db import connection
-from .creative_rendering import render_request, current_request, owned, heartbeat
-from .hypit_authoring import FPS, FOOTAGE_SCHEMA, scene_contract
+from .hypit_authoring import FOOTAGE_SCHEMA, FPS, scene_contract
 from .hypit_media import MAX_BYTES
-from .hypit_runtime import identity, render, build_identity
+from .hypit_runtime import build_identity, identity, render
+
+
+class _SceneItem(TypedDict):
+    seconds: int
+    text: str
+    media: NotRequired[dict[str, object]]
+
+
+class _Scene(TypedDict):
+    title: str
+    shape: str
+    scenes: list[_SceneItem]
+    schema: NotRequired[str]
 
 
 def private_path(store, app_id, *parts):
@@ -44,7 +59,7 @@ def resolve_inputs(db, store, app_id, body, capture=False):
     ):
         raise Invalid("Use guided brief fields and optional managed footage")
     request = render_request(db, store, app_id, {k: body[k] for k in ("brief_id", "brief_hash", "shape")})
-    scene = brief_scene(request)
+    scene = cast(_Scene, brief_scene(request))
     if "footage" not in body:
         return dict(request=request, scene=scene), {}
     footage = body["footage"]
@@ -67,7 +82,7 @@ def resolve_inputs(db, store, app_id, body, capture=False):
         scene_contract(dict(scene, schema=FOOTAGE_SCHEMA))
         source, raw = derivative_snapshot(db, store, app_id, media["id"], media["sha256"], capture=capture)
         if media["in_frame"] + scene["scenes"][index]["seconds"] * FPS > int(
-            source["metadata"]["duration_seconds"] * FPS
+            cast(dict[str, float], source["metadata"])["duration_seconds"] * FPS
         ):
             raise Invalid("Scene exceeds the approved source duration")
         bindings.append(
@@ -168,8 +183,8 @@ class HypitRenders:
 
     def queue(self, app_id, body):
         """Freeze the current brief before creating an idempotent local render job."""
-        from .worker import enqueue_db
         from .organic_video_policy import reserved_job_guard
+        from .worker import enqueue_db
 
         self.store.app(app_id)
         if not isinstance(body, dict) or set(body) != {"data", "request_key"}:
@@ -322,8 +337,8 @@ class HypitRenders:
                 )
             alive()
             return self.commit(job, folder, result)
-        except Exception:
-            with connection(self.store.path) as db:
+        except Exception:  # noqa: BLE001 -- retain failure/cleanup boundary without leaking provider secrets.
+            with connection(self.store.path, write=True) as db:
                 db.execute(
                     "UPDATE hypit_attempts SET status=?,updated=? WHERE app_id=? AND job_id=? AND attempt=?",
                     ("NEEDS_INSPECTION", now(), job["app_id"], job["id"], job["attempts"]),

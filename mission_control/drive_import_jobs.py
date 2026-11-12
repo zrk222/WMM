@@ -1,14 +1,16 @@
 """Private owner-bound Drive original import jobs on the existing durable worker."""
 
-import time
 import sqlite3
+import time
+from typing import cast
+
 from .common import Invalid, canonical, digest, identifier, iso_time, now
-from .db import connection
+from .creative_rendering import owned
 from .credential_vault import namespace
-from .review_access import member
+from .db import connection
 from .drive_media import Importer
 from .managed_media_store import Media
-from .creative_rendering import owned
+from .review_access import member
 from .worker import json_job
 
 ACTION = "drive_import"
@@ -78,15 +80,13 @@ class Imports:
         """Check each phase/chunk while bounding durable lease writes to once per second."""
         self.guard(job, stop)
         current = time.monotonic()
-        if current - last[0] >= 1:
-            if self.renew(job):
-                last[0] = current
+        if current - last[0] >= 1 and self.renew(job):
+            last[0] = current
 
     def renew(self, job):
         """Do not deadlock a media commit's own writer; retain ownership checks on every pulse."""
         try:
-            with connection(self.store.path) as db:
-                db.execute("PRAGMA busy_timeout=0")
+            with connection(self.store.path, write=True, busy_timeout_ms=0) as db:
                 owned(db, job)
                 self.authority(db, job["app_id"], job["data"])
                 db.execute(
@@ -109,7 +109,7 @@ class Imports:
         if row is None:
             return None
         item, _ = self.media.original(job["app_id"], row["id"], job["data"]["owner"])
-        provenance = item["provenance"]
+        provenance = cast(dict[str, object], item["provenance"])
         expected = dict(
             kind="GOOGLE_DRIVE",
             connection_id=request["connection_id"],
@@ -165,6 +165,7 @@ class Imports:
             value = {key: job[key] for key in ("id", "app_id", "action", "status", "attempts", "created", "updated")}
             value = run_view(db, app_id, value)
         finished = now() if job["status"] in ("QUEUED", "RUNNING") else job["updated"]
+        value = cast(dict[str, object], value)
         value.update(
             selection=job["data"]["request"],
             result=job["result"],

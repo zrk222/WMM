@@ -1,14 +1,19 @@
 """Protected setup transaction; records carry only public metadata and references."""
 
 import re
+from collections.abc import Callable
 from contextlib import contextmanager
 from contextvars import ContextVar
+from typing import cast
+
 from .common import Invalid, required, uid
 from .credential_vault import Vault, namespace, target
-from .provider_auth import LOCK, forget, native, vault_for, NATIVE_CONTEXT
 from .db import connection
+from .provider_auth import LOCK, NATIVE_CONTEXT, forget, native, vault_for
 
-STATUS_SOURCE = ContextVar("wmm_connection_status_source", default=None)
+STATUS_SOURCE: ContextVar[Callable[..., dict[str, dict[str, str]]] | None] = ContextVar(
+    "wmm_connection_status_source", default=None
+)
 
 
 @contextmanager
@@ -16,7 +21,7 @@ def bound_status_source(source):
     """Bind a trusted host-specific status projection to synchronous work."""
     if not callable(source):
         raise TypeError("A trusted status source is required")
-    token = STATUS_SOURCE.set(source)
+    token = STATUS_SOURCE.set(cast(Callable[..., dict[str, dict[str, str]]], source))
     try:
         yield
     finally:
@@ -74,7 +79,7 @@ class Connections:
     def native_mark(self, app_id, data):
         if NATIVE_CONTEXT.get() is None or not data or not data.get("credential_ref"):
             return
-        with connection(self.store.path) as db:
+        with connection(self.store.path, write=True) as db:
             db.execute(
                 "INSERT OR IGNORE INTO native_store_key_cleanup VALUES(?,?,?)",
                 (app_id, data["provider"], data["credential_ref"]),
@@ -83,7 +88,7 @@ class Connections:
     def native_clear(self, app_id, data):
         if NATIVE_CONTEXT.get() is None or not data or not data.get("credential_ref"):
             return
-        with connection(self.store.path) as db:
+        with connection(self.store.path, write=True) as db:
             db.execute(
                 "DELETE FROM native_store_key_cleanup WHERE app_id=? AND provider=? AND credential_ref=?",
                 (app_id, data["provider"], data["credential_ref"]),

@@ -1,22 +1,26 @@
 """App-isolated native credentials, durable read leases and opt-in analytics refresh."""
 
-import hashlib
 import json
 import threading
 import time
+from collections.abc import Callable
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
+from typing import cast
+
 from .common import Invalid, canonical, digest, now, uid
 from .credential_vault import Vault, namespace
 from .db import connection, session, transaction
+from .event_mapping import DEFAULTS, ROLES, coverage, mapping
+from .insights_contract import PROVIDERS, config
+from .insights_transport import ProviderFailure, read
 from .store import audit
-from .insights_contract import config, PROVIDERS
-from .insights_transport import read, ProviderFailure
-from .event_mapping import mapping, coverage, ROLES, DEFAULTS
 
 LOCK = threading.RLock()
-VAULT_FACTORY = ContextVar("wmm_insights_vault_factory", default=None)
+VAULT_FACTORY: ContextVar[tuple[str, str, Callable[[], Vault]] | None] = ContextVar(
+    "wmm_insights_vault_factory", default=None
+)
 
 
 @contextmanager
@@ -24,7 +28,7 @@ def bound_vault(store, app, factory):
     """Inject a trusted, app-scoped protected store for synchronous native calls."""
     if not callable(factory):
         raise TypeError("A trusted vault factory is required")
-    token = VAULT_FACTORY.set((str(Path(store.path).resolve()), app, factory))
+    token = VAULT_FACTORY.set((str(Path(store.path).resolve()), app, cast(Callable[[], Vault], factory)))
     try:
         yield
     finally:
@@ -46,8 +50,9 @@ class Insights:
 
     def name(self, app, reference):
         """Compute credential targets only from owned database and opaque generated IDs."""
-        from .common import identifier
         from uuid import UUID
+
+        from .common import identifier
 
         identifier(app)
         if VAULT_FACTORY.get() is not None:
@@ -134,7 +139,7 @@ class Insights:
         value = {"api_key": body["api_key"], "binding": {"app_id": app, "id": sid, "hash": sha}}
         # Record the opaque candidate before touching protected storage so a lock,
         # callback failure, or process interruption cannot lose cleanup ownership.
-        with connection(self.store.path) as db:
+        with connection(self.store.path, write=True) as db:
             db.execute("INSERT OR IGNORE INTO insight_cleanup VALUES(?,?,?)", (app, sid, reference))
         self.vault(app).put(self.name(app, reference), value)
         return {"id": sid, "credential_ref": reference, "hash": sha, "scope": scope}, old
@@ -147,7 +152,7 @@ class Insights:
             ).fetchall()
         for (reference,) in stale_refs:
             self.vault(app).delete(self.name(app, reference))
-            with connection(self.store.path) as db:
+            with connection(self.store.path, write=True) as db:
                 db.execute(
                     "DELETE FROM insight_cleanup WHERE app_id=? AND source_id=? AND credential_ref=?",
                     (app, sid, reference),
@@ -263,7 +268,7 @@ class Insights:
             ).fetchall()
         for sid, reference in rows:
             self.vault(app).delete(self.name(app, reference))
-            with connection(self.store.path) as db:
+            with connection(self.store.path, write=True) as db:
                 db.execute(
                     "DELETE FROM insight_cleanup WHERE app_id=? AND source_id=? AND credential_ref=?",
                     (app, sid, reference),
@@ -275,14 +280,14 @@ class Insights:
             return False
         try:
             self.vault(app).delete(self.name(app, candidate["credential_ref"]))
-            with connection(self.store.path) as db:
+            with connection(self.store.path, write=True) as db:
                 db.execute(
                     "DELETE FROM insight_cleanup WHERE app_id=? AND source_id=? AND credential_ref=?",
                     (app, candidate["id"], candidate["credential_ref"]),
                 )
             return False
-        except Exception:
-            with connection(self.store.path) as db:
+        except Exception:  # noqa: BLE001 -- retain failure/cleanup boundary without leaking provider secrets.
+            with connection(self.store.path, write=True) as db:
                 db.execute(
                     "INSERT OR IGNORE INTO insight_cleanup VALUES(?,?,?)",
                     (app, candidate["id"], candidate["credential_ref"]),
@@ -305,8 +310,8 @@ class Insights:
         try:
             self.vault(app).delete(self.name(app, old["credential_ref"]))
             return "PRIOR_LOCAL_KEY_REMOVED"
-        except Exception:
-            with connection(self.store.path) as db:
+        except Exception:  # noqa: BLE001 -- retain failure/cleanup boundary without leaking provider secrets.
+            with connection(self.store.path, write=True) as db:
                 db.execute(
                     "INSERT OR IGNORE INTO insight_cleanup VALUES(?,?,?)", (app, old["id"], old["credential_ref"])
                 )
@@ -488,7 +493,7 @@ class Insights:
                     "status": "CLEANUP_REQUIRED",
                     "error": "Reads are disabled; retry disconnect to remove remaining protected keys",
                 }
-        with connection(self.store.path) as db:
+        with connection(self.store.path, write=True) as db:
             db.execute("DELETE FROM insight_cleanup WHERE app_id=? AND source_id=?", (app, sid))
             db.execute(
                 "UPDATE insight_sources SET status='DISCONNECTED',last_error=NULL,updated=? WHERE app_id=? AND id=?",
@@ -510,7 +515,7 @@ class Insights:
                 if result["status"] != "NOT_DUE":
                     return result
             except ProviderFailure as exc:
-                with connection(self.store.path) as db:
+                with connection(self.store.path, write=True) as db:
                     db.execute(
                         "UPDATE insight_sources SET status=?,last_error=?,next_due=? WHERE app_id=? AND id=?",
                         (exc.code, str(exc), time.time() + 21600, app, sid),

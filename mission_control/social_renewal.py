@@ -2,12 +2,13 @@
 
 import time
 from dataclasses import asdict
+
 from .common import Invalid, canonical, now, uid
 from .db import connection
-from .social_connections import Connections, public
-from .social_secrets import queue
 from .social_auth import refresh
-from .social_profiles import verify, selected_page
+from .social_connections import Connections, public
+from .social_profiles import verify
+from .social_secrets import queue
 
 
 class Renewal:
@@ -72,7 +73,10 @@ class Renewal:
             )
             credentials = self.accounts.secrets.load(app_id, row["provider"], row["secret_ref"])
             secret = settings.get("client_secret", "")
-            alive = lambda: self.alive(row, lease)
+
+            def alive():
+                return self.alive(row, lease)
+
             alive()
             grant = refresh(config["data"], secret, credentials, row["data"]["facts"], alive)
             found = verify(config["data"], secret, grant, alive)
@@ -84,7 +88,7 @@ class Renewal:
             alive()
             ref = self.accounts.secrets.stage(app_id, row["provider"], grant.credentials)
             self.commit(row, lease, ref, grant.facts, found, choices[0])
-        except Exception:
+        except Exception:  # noqa: BLE001 -- retain failure/cleanup boundary without leaking provider secrets.
             if ref:
                 self.accounts.secrets.retire(app_id, row["provider"], ref)
             self.failed(row, lease)
@@ -137,7 +141,7 @@ class Renewal:
 
     def failed(self, row, lease):
         """A failed owned attempt retains encrypted old access but disables auto renewal."""
-        with connection(self.store.path) as db:
+        with connection(self.store.path, write=True) as db:
             db.execute(
                 "UPDATE social_connections SET status='RECONNECT_REQUIRED',lease=NULL,lease_until=0,version=version+1,updated=? WHERE app_id=? AND id=? AND version=? AND lease=?",
                 (now(), row["app_id"], row["id"], row["version"], lease),
@@ -145,7 +149,7 @@ class Renewal:
 
     def recover(self):
         """A process restart never retries a possibly consumed rotating refresh grant."""
-        with connection(self.store.path) as db:
+        with connection(self.store.path, write=True) as db:
             changed = db.execute(
                 "UPDATE social_connections SET status='RECONNECT_REQUIRED',lease=NULL,lease_until=0,version=version+1,updated=? WHERE status='RENEWING' AND lease IS NOT NULL AND lease_until<=?",
                 (now(), time.time()),

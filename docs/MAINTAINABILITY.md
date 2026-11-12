@@ -128,3 +128,21 @@ CI compares the exact reviewed base and candidate, rejecting missing enrollment
 or registry shrinkage. Removed source remains as historical registry entries;
 format/type runners check existing files. The checker never changes source.
 Generated source receives no automatic exemption. Fix its generator when needed.
+
+## SQLite writer reservation
+
+Use `connection(path, write=True)` for a reviewed read/modify/write scope: it
+reserves the writer lock with `BEGIN IMMEDIATE` before authority guards and
+reads. Default read connections and existing manually declared transactions
+retain their behavior. `busy_timeout_ms=0` preserves nonblocking lease heartbeats.
+Nested declared writes are rejected before touching the caller's transaction.
+Guards still run at entry and before commit; failure rolls back the owned scope.
+SQLite `synchronous=FULL` (2) is deliberate and covered by connection tests.
+
+The initial conversion covers 39 reviewed direct-write scopes, alongside the
+existing manual transactions. Schema `executescript` and delegated transactions
+retain their separately reviewed boundaries. This is not a claim that static
+SQL classification proves the entire dynamic write call graph. Provider calls
+must occur outside write transactions. Keep legacy connection isolation until
+remaining callers have explicit, verified ownership; a global autocommit switch
+would silently alter unconverted transaction behavior.

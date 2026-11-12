@@ -5,13 +5,14 @@ import json
 import re
 import time
 import urllib.request
-from .common import Invalid, canonical, digest, iso_time, now, uid
-from .db import connection
-from .review_access import member
-from .payment_signature import unique_pairs, bounded_tree
+
 from . import attribution_contract as contract
-from .attribution_sources import source, current_authority
 from .attribution_ingestion import commit, failure, room
+from .attribution_sources import current_authority, source
+from .common import Invalid, canonical, digest, iso_time, now
+from .db import connection
+from .payment_signature import bounded_tree, unique_pairs
+from .review_access import member
 
 ENDPOINT = "https://api-adservices.apple.com/api/v1/"
 CAP = 2097152
@@ -38,7 +39,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def transport(token):
     """Post only to Apple's fixed HTTPS endpoint; never persist the token."""
-    request = urllib.request.Request(
+    request = urllib.request.Request(  # noqa: S310 -- constant HTTPS endpoint with redirects refused.
         ENDPOINT,
         data=token.encode("ascii"),
         method="POST",
@@ -50,7 +51,7 @@ def transport(token):
             if response.geturl() != ENDPOINT or response.status != 200:
                 raise Invalid("AdServices response status is unavailable")
             payload = response.read(CAP + 1)
-    except Exception:
+    except Exception:  # noqa: BLE001 -- retain failure/cleanup boundary without leaking provider secrets.
         raise Invalid(
             "AdServices read failed; obtain a fresh SDK token after checking app setup and network access"
         ) from None
@@ -131,9 +132,8 @@ def optional_strings(data, facts):
 def observation(data, config, token_hash):
     """No authenticated advertised-app ID exists in the response; SDK binding is declared."""
     facts = response_fields(data, config)
-    conversion = {"Download": "download", "Redownload": "redownload", "PreOrder": "preorder"}.get(
-        facts.get("conversionType")
-    )
+    conversion_labels: dict[object, str] = {"Download": "download", "Redownload": "redownload", "PreOrder": "preorder"}
+    conversion = conversion_labels.get(facts.get("conversionType"))
     return {
         "channel": "AdServices",
         "environment": config["environment"],
@@ -188,7 +188,7 @@ class AdServices:
 
     def finish_read(self, app, sid, token_hash, status):
         """Keep a sanitized terminal request state even if authority changed during transport."""
-        with connection(self.store.path) as db:
+        with connection(self.store.path, write=True) as db:
             row = db.execute("SELECT data FROM attribution_reads WHERE app_id=? AND id=?", (app, token_hash)).fetchone()
             data = json.loads(row["data"])
             data["status"] = status
@@ -211,7 +211,7 @@ class AdServices:
                 result = commit(db, app, current, None, normalized, token_hash, "API_RETRIEVED_DECLARED_SDK_SCOPE")
             self.finish_read(app, sid, token_hash, "SUCCEEDED")
             return result
-        except Exception:
+        except Exception:  # noqa: BLE001 -- retain failure/cleanup boundary without leaking provider secrets.
             self.finish_read(app, sid, token_hash, "FAILED")
             failure(self.store, app, sid, token_hash, "ADSERVICES_READ_FAILED")
             raise Invalid(

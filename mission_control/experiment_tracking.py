@@ -1,15 +1,19 @@
 """Durable exact-approved tracking reads with app/source authority and recovery."""
 
+import json
+import re
+import uuid
 from datetime import timedelta
-import json, re, uuid
+from typing import cast
+
+from . import tracking_posthog
 from .common import Invalid, canonical, digest, iso_time, now, uid
+from .credential_vault import Vault
 from .db import connection
 from .experiments import lookup
 from .insights import Insights
-from .credential_vault import Vault
 from .marketing_agent_manifest import operating_manifest
-from .tracking_contract import proposal, SCOPE
-from . import tracking_posthog
+from .tracking_contract import SCOPE, proposal
 
 ACTIVE = ("QUEUED", "READING")
 STATES = (*ACTIVE, "OBSERVED", "NO_OBSERVATIONS", "NEEDS_SETUP", "NEEDS_REVIEW", "CANCELLED")
@@ -232,10 +236,12 @@ class Tracking:
             ).fetchone()
             if old is not None:
                 saved = decode(old)
-                if saved["original_request"] != body:
+                if cast(dict[str, object], saved)["original_request"] != body:
                     raise Invalid("Tracking request key was reused for other input")
                 return self.get(app_id, old["id"])
-            proposed = self.prepare(app_id, {k: body[k] for k in ("experiment_id", "source_id")})
+            proposed = cast(
+                dict[str, object], self.prepare(app_id, {k: body[k] for k in ("experiment_id", "source_id")})
+            )
             if proposed["proposal_hash"] != body["proposal_hash"]:
                 raise Invalid("Tracking proposal changed; inspect current setup")
             stamp = now()
@@ -336,13 +342,19 @@ class Tracking:
             binding = dict(app_id=app_id, id=source["id"], hash=source["hash"])
             if not secret or secret.get("binding") != binding:
                 raise PermissionError("Protected source binding is unavailable")
-            with connection(self.store.path) as db:
+            with connection(self.store.path, write=True) as db:
                 db.execute(
                     "UPDATE experiment_tracking_runs SET status='READING',updated=? WHERE id=? AND status='QUEUED'",
                     (now(), identity),
                 )
-            guard = lambda: self.guard(app_id, identity)
-            result = tracking_posthog.read(saved["plan"]["proposal"], secret["api_key"], guard)
+
+            def guard():
+                return self.guard(app_id, identity)
+
+            result = cast(
+                dict[str, object],
+                tracking_posthog.read(cast(dict[str, object], saved["plan"])["proposal"], secret["api_key"], guard),
+            )
             guard()
             return self.save_result(app_id, identity, result, result["status"], require_current=True)
         except (Invalid, PermissionError, ValueError, TypeError, KeyError, OSError) as exc:

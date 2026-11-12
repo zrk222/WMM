@@ -1,18 +1,27 @@
 """Source-bound approved inference; draft text has no publication authority."""
 
-import time, uuid
+import time
+import uuid
 from datetime import timedelta
-from .common import Invalid, canonical, digest, now, iso_time, uid
-from .db import connection
+from typing import TypedDict, cast
+
 from .agent_access import AgentAccess
-from .agent_registry import REGISTRY, TASKS, NATIVE
-from .agent_contract import exact, prompt, bounded_text, draft, output_contract
-from .draft_recipes import recipe, validate as validate_recipe
-from .agent_native import run as native_run
 from .agent_api import request as api_run
-from .worker import json_job
 from .agent_context import snapshot
+from .agent_contract import bounded_text, draft, exact, output_contract, prompt
+from .agent_native import run as native_run
+from .agent_registry import NATIVE, REGISTRY, TASKS
 from .agent_usage import observation as usage_observation
+from .common import Invalid, canonical, digest, iso_time, now, uid
+from .db import connection
+from .draft_recipes import recipe
+from .draft_recipes import validate as validate_recipe
+from .worker import json_job
+
+
+class _SourceContext(TypedDict):
+    sources: list[dict[str, object]]
+
 
 SCHEMA = "growth.agent-draft-job.v2"
 
@@ -65,7 +74,7 @@ def proposal(store, app_id, body):
         request_key(body["connection_id"])
     app = store.app(app_id)
     row, routing = selected(store, app_id, task, body["connection_id"])
-    context = snapshot(store, app_id) if task != "connection_test" else None
+    context = cast(_SourceContext, snapshot(store, app_id)) if task != "connection_test" else None
     text = (
         prompt(app, task, body["focus"], context)
         if task != "connection_test"
@@ -80,7 +89,7 @@ def proposal(store, app_id, body):
             )
         )
     )
-    frozen = dict(
+    frozen: dict[str, object] = dict(
         schema=SCHEMA,
         app_id=app_id,
         app_version=app["version"],
@@ -103,7 +112,7 @@ def proposal(store, app_id, body):
 
         policy = verify(row["data"])
         frozen["billing_policy"] = policy
-        frozen["max_output_tokens"] = min(frozen["max_output_tokens"], policy["max_output_tokens"])
+        frozen["max_output_tokens"] = min(cast(int, frozen["max_output_tokens"]), policy["max_output_tokens"])
     frozen.update(output_contract_hash=digest(output_contract()), draft_recipe=recipe(task, body["focus"]))
     frozen.update(
         context=context,
@@ -136,7 +145,7 @@ class AgentWork:
         current = proposal(self.store, app_id, {k: body[k] for k in ("task", "focus", "connection_id")})
         if current["source_hash"] != body["source_hash"]:
             raise Invalid("App, route or connection changed; review a new proposal")
-        frozen = current["proposal"]
+        frozen = cast(dict[str, object], current["proposal"])
         frozen["expires_at"] = (iso_time(now()) + timedelta(seconds=1800)).isoformat()
         data = dict(envelope=frozen, envelope_hash=digest(frozen), original_request=body)
         with connection(self.store.path) as db:
@@ -214,7 +223,7 @@ def guard(store, app_id, frozen):
 
 def guard_context(store, app_id, frozen):
     """Rebuild bounded campaign sources without consulting protected credentials."""
-    current = snapshot(store, app_id) if frozen["task"] != "connection_test" else None
+    current = cast(_SourceContext, snapshot(store, app_id)) if frozen["task"] != "connection_test" else None
     if frozen.get("context") != current or frozen.get("context_hash") != digest(current):
         raise Invalid("Agent evidence changed or approved context is absent; review a new proposal")
     expected = [s["id"] for s in current["sources"]] if current else []
@@ -224,7 +233,7 @@ def guard_context(store, app_id, frozen):
 
 def live_guard(store, job, stop=None):
     """Maintain only the current owned lease and stop cancelled native work."""
-    last = [0]
+    last: list[float] = [0]
 
     def alive():
         if stop is not None and stop.is_set():
@@ -232,7 +241,7 @@ def live_guard(store, job, stop=None):
         if time.monotonic() - last[0] < 0.25:
             return
         last[0] = time.monotonic()
-        with connection(store.path) as db:
+        with connection(store.path, write=True) as db:
             row = db.execute(
                 "SELECT status,attempts FROM jobs WHERE app_id=? AND id=?", (job["app_id"], job["id"])
             ).fetchone()

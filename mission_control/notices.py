@@ -26,7 +26,7 @@ def configure(store, app_id, value):
     if type(value) is not bool:
         raise Invalid("Notice opt-in must be an explicit boolean")
     store.app(app_id)
-    with connection(store.path) as db:
+    with connection(store.path, write=True) as db:
         db.execute(
             "INSERT INTO notice_settings(app_id,enabled,updated) VALUES(?,?,?) "
             "ON CONFLICT(app_id) DO UPDATE SET enabled=excluded.enabled,updated=excluded.updated",
@@ -112,7 +112,7 @@ def sync(store, app_id):
     if not enabled(store, app_id):
         return []
     items = collect(store, app_id)
-    with connection(store.path) as db:
+    with connection(store.path, write=True) as db:
         for item in items:
             db.execute(
                 "INSERT OR IGNORE INTO notices(app_id,id,kind,title,state,created) VALUES(?,?,?,?,?,?)",
@@ -141,9 +141,9 @@ def deliver(store, app_id, notifier):
     for item in pending(store, app_id):
         try:
             outcome = "DELIVERED" if notifier(item) is not False else "DELIVERY_FAILED"
-        except Exception:
+        except Exception:  # noqa: BLE001 -- retain failure/cleanup boundary without leaking provider secrets.
             outcome = "DELIVERY_FAILED"
-        with connection(store.path) as db:
+        with connection(store.path, write=True) as db:
             db.execute(
                 "UPDATE notices SET delivered_at=?,outcome=? WHERE app_id=? AND id=? AND delivered_at IS NULL",
                 (now(), outcome, app_id, item["id"]),
@@ -156,7 +156,7 @@ def dismiss(store, app_id, identity):
     """An explicit dismissal marks the notice handled so it never repeats."""
     if not isinstance(identity, str) or not identity:
         raise Invalid("Choose one saved notice")
-    with connection(store.path) as db:
+    with connection(store.path, write=True) as db:
         changed = db.execute(
             "UPDATE notices SET delivered_at=?,outcome='DISMISSED' WHERE app_id=? AND id=? AND delivered_at IS NULL",
             (now(), app_id, identity),
