@@ -1,11 +1,18 @@
-"""Deterministic property-style tests for pure parsers used by security paths."""
+"""Shrinkable parser properties and permanent named security counterexamples."""
 
 import base64
+import hashlib
 import json
 import math
+import os
 import random
 import unittest
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+from hypothesis import example, given, settings
+from hypothesis import strategies as st
+from hypothesis.database import DirectoryBasedExampleDatabase
 
 from mission_control.agent_grants import token_digest
 from mission_control.authority_expiry import deadline
@@ -13,6 +20,45 @@ from mission_control.common import Invalid, amount, canonical, fraction, identif
 from mission_control.payment_signature import strict_json
 from mission_control.server import media_range
 from mission_control.storekit_jws import certificate, url_decode
+
+# Cache only synthetic examples; discovered bugs also require a committed named test.
+EXAMPLE_DATABASE = DirectoryBasedExampleDatabase(
+    Path(__file__).resolve().parents[1] / ".factory" / "hypothesis" / "examples"
+)
+for profile in ("wmm-local", "wmm-ci"):
+    settings.register_profile(
+        profile, max_examples=200, deadline=None, print_blob=True, derandomize=False, database=EXAMPLE_DATABASE
+    )
+settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "wmm-local"))
+
+JSON_VALUES = st.recursive(
+    st.none()
+    | st.booleans()
+    | st.integers(min_value=-(10**6), max_value=10**6)
+    | st.floats(allow_nan=False, allow_infinity=False)
+    | st.text(max_size=12),
+    lambda children: st.lists(children, max_size=3) | st.dictionaries(st.text(max_size=12), children, max_size=3),
+    max_leaves=25,
+)
+URLSAFE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
+OBSERVED = datetime(2026, 11, 12, tzinfo=timezone.utc)
+DAY_MICROSECONDS = 24 * 60 * 60 * 1_000_000
+
+
+@st.composite
+def byte_ranges(draw):
+    """Construct supported ranges directly so shrinking preserves satisfiability."""
+    size = draw(st.integers(min_value=1, max_value=10**6))
+    kind = draw(st.sampled_from(("closed", "open", "suffix")))
+    if kind == "suffix":
+        length = draw(st.integers(min_value=1, max_value=size + 50))
+        return f"bytes=-{length}", size, (max(0, size - length), size - 1)
+    start = draw(st.integers(min_value=0, max_value=size - 1))
+    if kind == "open":
+        return f"bytes={start}-", size, (start, size - 1)
+    end = draw(st.integers(min_value=start, max_value=size + 50))
+    return f"bytes={start}-{end}", size, (start, min(end, size - 1))
+
 
 RANDOM = random.Random(20261112)
 
@@ -36,24 +82,19 @@ def value(depth=0):
 
 
 class MediaRangeProperties(unittest.TestCase):
-    def test_parsed_range_is_always_bounded(self):
-        for _ in range(500):
-            size = RANDOM.randint(1, 10**6)
-            kind = RANDOM.randrange(3)
-            if kind == 0:
-                start = RANDOM.randint(0, size - 1)
-                end = RANDOM.randint(start, size + 50)
-                header = f"bytes={start}-{end}"
-            elif kind == 1:
-                start = RANDOM.randint(0, size - 1)
-                header = f"bytes={start}-"
-            else:
-                header = f"bytes=-{RANDOM.randint(1, size + 50)}"
-            begin, finish = media_range(header, size)
-            self.assertGreaterEqual(begin, 0, header)
-            self.assertLessEqual(begin, finish, header)
-            self.assertLess(finish, size, header)
-            self.assertLessEqual(finish - begin + 1, size, header)
+    @given(case=byte_ranges())
+    @example(case=("bytes=0-0", 1, (0, 0)))
+    @example(case=("bytes=-20", 10, (0, 9)))
+    @example(case=("bytes=3-99", 10, (3, 9)))
+    @example(case=("bytes=0-", 10, (0, 9)))
+    def test_parsed_range_is_always_bounded(self, case):
+        header, size, expected = case
+        begin, finish = media_range(header, size)
+        self.assertEqual((begin, finish), expected)
+        self.assertGreaterEqual(begin, 0, header)
+        self.assertLessEqual(begin, finish, header)
+        self.assertLess(finish, size, header)
+        self.assertLessEqual(finish - begin + 1, size, header)
 
     def test_invalid_and_unsatisfiable_headers_raise(self):
         cases = [
@@ -86,14 +127,14 @@ class MediaRangeProperties(unittest.TestCase):
 
 
 class CanonicalProperties(unittest.TestCase):
-    def test_round_trip_is_idempotent_and_key_order_independent(self):
-        for _ in range(300):
-            item = value()
-            text = canonical(item)
-            self.assertEqual(canonical(json.loads(text)), text)
-            if isinstance(item, dict):
-                shuffled = dict(reversed(list(item.items())))
-                self.assertEqual(canonical(shuffled), text)
+    @given(item=JSON_VALUES)
+    @example(item={"z": [None, -0.0], "a": {"unicode": "\u00e9"}})
+    def test_round_trip_is_idempotent_and_key_order_independent(self, item):
+        text = canonical(item)
+        self.assertEqual(canonical(json.loads(text)), text)
+        if isinstance(item, dict):
+            shuffled = dict(reversed(list(item.items())))
+            self.assertEqual(canonical(shuffled), text)
 
     def test_non_finite_numbers_and_unknown_values_are_rejected(self):
         for item in (math.nan, math.inf, -math.inf, object()):
@@ -135,25 +176,48 @@ class CommonInputProperties(unittest.TestCase):
         self.assertEqual(fraction(0, "Fraction"), 0)
         self.assertEqual(fraction(1, "Fraction"), 1)
 
-    def test_iso_time_requires_timezone_and_round_trips(self):
-        for _ in range(200):
-            stamp = datetime(2020, 1, 1, tzinfo=timezone.utc) + timedelta(
-                seconds=RANDOM.randint(0, 400_000_000), microseconds=RANDOM.randint(0, 999_999)
-            )
-            self.assertEqual(iso_time(stamp.isoformat()), stamp)
-            self.assertEqual(iso_time(stamp.isoformat().replace("+00:00", "Z")), stamp)
+    @given(
+        stamp=st.datetimes(
+            min_value=datetime(2020, 1, 1),
+            max_value=datetime(2033, 1, 1),
+            timezones=st.integers(min_value=-1439, max_value=1439).map(
+                lambda minutes: timezone(timedelta(minutes=minutes))
+            ),
+        )
+    )
+    @example(stamp=datetime(2020, 1, 1, tzinfo=timezone.utc))
+    @example(stamp=datetime(2032, 12, 31, 23, 59, 59, 999999, tzinfo=timezone(timedelta(minutes=330))))
+    def test_iso_time_requires_timezone_and_round_trips(self, stamp):
+        self.assertEqual(iso_time(stamp.isoformat()), stamp)
+        self.assertEqual(iso_time(stamp.isoformat().replace("+00:00", "Z")), stamp)
         for value in ("2026-01-01T00:00:00", "not-a-time", "", None):
             with self.assertRaises(Invalid):
                 iso_time(value)
 
 
 class AuthorityDeadlineProperties(unittest.TestCase):
-    def test_deadline_consent_boundary(self):
-        observed = datetime(2026, 11, 12, tzinfo=timezone.utc)
-        for _ in range(200):
-            seconds = RANDOM.randint(1, 24 * 60 * 60)
-            stamp = observed + timedelta(seconds=seconds)
-            self.assertEqual(deadline(stamp.isoformat(), observed), stamp)
+    @given(
+        observed=st.datetimes(
+            min_value=datetime(2000, 1, 1),
+            max_value=datetime(2090, 1, 1),
+            timezones=st.just(timezone.utc),
+        ),
+        microseconds=st.integers(min_value=-10_000_000, max_value=2 * DAY_MICROSECONDS),
+        consent=st.one_of(st.booleans(), st.none(), st.just(1), st.just("true")),
+    )
+    @example(observed=OBSERVED, microseconds=0, consent=True)
+    @example(observed=OBSERVED, microseconds=1, consent=False)
+    @example(observed=OBSERVED, microseconds=DAY_MICROSECONDS, consent=False)
+    @example(observed=OBSERVED, microseconds=DAY_MICROSECONDS + 1, consent=False)
+    @example(observed=OBSERVED, microseconds=DAY_MICROSECONDS + 1, consent=True)
+    @example(observed=OBSERVED, microseconds=DAY_MICROSECONDS + 1, consent=1)
+    def test_deadline_consent_boundary(self, observed, microseconds, consent):
+        stamp = observed + timedelta(microseconds=microseconds)
+        if microseconds <= 0 or (microseconds > DAY_MICROSECONDS and consent is not True):
+            with self.assertRaises(Invalid):
+                deadline(stamp.isoformat(), observed, consent=consent)
+        else:
+            self.assertEqual(deadline(stamp.isoformat(), observed, consent=consent), stamp)
         for seconds in (24 * 60 * 60 + 1, 25 * 60 * 60):
             stamp = observed + timedelta(seconds=seconds)
             with self.assertRaises(Invalid):
@@ -167,16 +231,14 @@ class AuthorityDeadlineProperties(unittest.TestCase):
 
 
 class GrantTokenProperties(unittest.TestCase):
-    def test_grant_token_digest_is_stable_and_format_bound(self):
-        alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
-        seen = set()
-        for _ in range(50):
-            token = "wmmg_" + "".join(RANDOM.choice(alphabet) for _ in range(43))
-            digest = token_digest(token)
-            self.assertRegex(digest, r"^[0-9a-f]{64}$")
-            self.assertEqual(token_digest(token), digest)
-            self.assertNotIn(digest, seen)
-            seen.add(digest)
+    @given(suffix=st.text(alphabet=URLSAFE_ALPHABET, min_size=43, max_size=43))
+    @example(suffix="a" * 43)
+    def test_grant_token_digest_is_stable_and_format_bound(self, suffix):
+        token = "wmmg_" + suffix
+        digest = token_digest(token)
+        self.assertRegex(digest, r"^[0-9a-f]{64}$")
+        self.assertEqual(token_digest(token), digest)
+        self.assertEqual(digest, hashlib.sha256(token.encode()).hexdigest())
         for token in ("wmmg_" + "a" * 42, "wmmg_" + "a" * 44, "xmmg_" + "a" * 43, "wmmg_" + "a" * 42 + "!", "", None):
             with self.assertRaises(PermissionError):
                 token_digest(token)

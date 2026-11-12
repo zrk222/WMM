@@ -146,3 +146,18 @@ SQL classification proves the entire dynamic write call graph. Provider calls
 must occur outside write transactions. Keep legacy connection isolation until
 remaining callers have explicit, verified ownership; a global autocommit switch
 would silently alter unconverted transaction behavior.
+
+## Shrinkable parser properties
+
+Install the test-only lock with `python -m pip install --require-hashes --only-binary :all: -r docs/requirements-properties.txt`.
+Run `python -m unittest tests.test_parser_properties tests.test_property_profiles -v`.
+The four parser property families use Hypothesis reuse/generate/shrink phases;
+synthetic replay examples live only in `.factory/hypothesis/examples`. CI caches
+are isolated by OS, Python, lock hash, PR/main namespace and shard. A missing
+cache never prevents the tracked tests from running.
+
+A discovered defect must receive a permanent named regression assertion in the
+same fix PR. Cached examples and reproduction blobs supplement that assertion;
+they never replace it. Keep the readable negative cases and do not filter out a
+counterexample simply to pass. No real credentials, provider responses or customer
+records belong in the example database.

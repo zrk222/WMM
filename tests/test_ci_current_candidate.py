@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # All eight backend shards and the native/package job definitions are retained.
 # One Ubuntu shard also runs the isolated native Secret Service acceptance.
 BASELINES = {
-    ".github/workflows/checks.yml": "3e4b2720c2a12c3a384617c98eab40c9811db707ad5c709943f3151034311ba6",
+    ".github/workflows/checks.yml": "96f38bcefd3bf4eb11840482c4503c5bc3b3ef96c4bc2495d35f3f90f0ae8b01",
     ".github/workflows/platform-checks.yml": "8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",
     ".github/workflows/desktop-packages.yml": "f0aac774bb6117a0f8a60ae2ad681282ee537fcfcc9b0919cbe7a0df6f854541",
 }
@@ -73,6 +73,22 @@ class CurrentCandidateCITests(unittest.TestCase):
         self.assertIn('python tools/source_ratchet.py --base "$RATCHET_BASE" --head HEAD', text)
         self.assertIn("github.event.pull_request.base.sha || github.event.before", text)
         self.assertNotIn("source_ratchet.py --write", text)
+
+    def test_property_profiles_and_replay_caches_stay_isolated(self):
+        text = (ROOT / ".github/workflows/checks.yml").read_text()
+        self.assertIn("HYPOTHESIS_PROFILE: wmm-ci", text)
+        self.assertEqual(text.count("-r docs/requirements-properties.txt"), 3)
+        self.assertEqual(text.count("actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25"), 2)
+        self.assertEqual(text.count("actions/cache/save@caa296126883cff596d87d8935842f9db880ef25"), 2)
+        self.assertEqual(text.count("path: .factory/hypothesis/examples"), 4)
+        self.assertEqual(text.count("restore-keys:"), 2)
+        for block in text.split("restore-keys: |\n")[1:]:
+            prefix = block.splitlines()[0]
+            self.assertIn("hashFiles('docs/requirements-properties.txt')", prefix)
+            self.assertIn("github.event.pull_request.number || 'main'", prefix)
+            self.assertIn("matrix.shard", prefix)
+            self.assertNotIn("github.run_id", prefix)
+        self.assertNotIn("pull_request_target", text)
 
     def test_full_job_definitions_and_test_matrices_are_preserved(self):
         for path, expected in BASELINES.items():
