@@ -7,6 +7,7 @@ body limits; the module graph separately checks their files and server routes.
 import re
 import unittest
 from pathlib import Path
+from typing import Protocol, cast
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "mission_control/static"
@@ -23,6 +24,10 @@ def behavior_lines(source):
     body = declarations.sub("", source)
     body = re.sub(r"^export\s*\{[^}]*\};?\s*$", "", body, flags=re.M)
     return len(body.splitlines())
+
+
+class HasOrigin(Protocol):
+    origin: str
 
 
 class StaticWiringTests(unittest.TestCase):
@@ -76,7 +81,10 @@ class StaticWiringTests(unittest.TestCase):
             files = {p.name for p in STATIC.glob("*.mjs")}
             files.update(re.findall(r"import\s*['\"]\./([^'\"]+)['\"]", (STATIC / "feature-apis.mjs").read_text()))
             for name in sorted(files):
-                with self.subTest(asset=name), urlopen(str(getattr(host, "origin")) + "/" + name, timeout=5) as response:
+                with (
+                    self.subTest(asset=name),
+                    urlopen(cast(HasOrigin, host).origin + "/" + name, timeout=5) as response,
+                ):
                     self.assertIn(response.headers.get_content_type(), ("text/javascript", "application/javascript"))
                     self.assertEqual(response.read(), (STATIC / name).read_bytes())
         finally:
