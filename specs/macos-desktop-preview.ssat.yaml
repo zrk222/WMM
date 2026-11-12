@@ -1,0 +1,16 @@
+{
+  "name": "macos-desktop-preview",
+  "language": "python",
+  "modules": [
+    {"name": "macos_vault", "path": "mission_control/macos_vault.py", "language": "python",
+     "functions": [
+       {"name": "address", "args": ["name"], "returns": "str"},
+       {"name": "encode", "args": ["value"], "returns": "str"},
+       {"name": "decode", "args": ["raw"], "returns": "object"}
+     ]},
+    {"name": "macos_package", "path": "tools/build_macos_package.py", "language": "python",
+     "functions": [{"name": "stage", "args": ["bundle", "destination"], "returns": "object"}]}
+  ],
+  "dependencies": [],
+  "invariants": []
+}

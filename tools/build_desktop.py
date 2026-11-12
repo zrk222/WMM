@@ -11,6 +11,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ("mission_control/static", "mission_control/sdk")
+MIGRATIONS = "mission_control/migrations"
 SEEDS = ("app-profiles.json", "research-ledger.json", "acquisition-profiles.json")
 
 
@@ -52,10 +53,13 @@ def command():
         argv += ["--collect-all", "secretstorage", "--collect-submodules", "jeepney"]
     if sys.platform == "win32":
         argv += ["--collect-all", "truststore"]
+    if sys.platform == "darwin":
+        argv += ["--collect-submodules", "keyring.backends.macOS", "--copy-metadata", "keyring"]
     # A console-enabled executable is needed for stdio MCP/CLI transport.
     # Windows users launch the terminal-free .vbs shortcut supplied alongside it.
     for path in DATA:
         argv += ["--add-data", str(ROOT / path) + ":" + path]
+    argv += ["--add-data", str(ROOT / MIGRATIONS / "*.sql") + ":" + MIGRATIONS]
     for name in SEEDS:
         argv += ["--add-data", str(ROOT / "package" / name) + ":package"]
     for name in ("LICENSE", "NOTICE"):
@@ -65,8 +69,8 @@ def command():
 
 def build_native_window(folder):
     """Build the window against the exact frozen engine staged in this folder."""
-    if sys.platform != "win32" and not sys.platform.startswith("linux"):
-        raise RuntimeError("Native Mission Control packaging supports Windows and Ubuntu")
+    if sys.platform not in ("win32", "darwin") and not sys.platform.startswith("linux"):
+        raise RuntimeError("Native Mission Control packaging requires Windows, Ubuntu or macOS")
     suffix = ".exe" if sys.platform == "win32" else ""
     engine = folder / ("WMM" + suffix)
     if not engine.is_file() or engine.is_symlink():

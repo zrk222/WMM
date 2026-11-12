@@ -314,8 +314,11 @@ class DesktopEntryTests(unittest.TestCase):
             environment = dict(__import__("os").environ)
             if sys.platform == "win32":
                 environment["LOCALAPPDATA"] = folder
+            elif sys.platform == "darwin":
+                environment["HOME"] = folder
             else:
                 environment["XDG_DATA_HOME"] = folder
+            data_root = Path(folder) / "Library/Application Support" if sys.platform == "darwin" else Path(folder)
             child = subprocess.Popen(
                 [sys.executable, "-u", "-m", "mission_control.desktop", "--headless"],
                 stdout=subprocess.PIPE,
@@ -333,8 +336,8 @@ class DesktopEntryTests(unittest.TestCase):
                 else:
                     child.send_signal(__import__("signal").SIGTERM)
                 child.wait(timeout=30)
-                self.assertTrue((Path(folder) / "Wize Marketing Machine" / "mission-control.sqlite3").exists())
-                runtime = DesktopRuntime(Path(folder) / "Wize Marketing Machine", 0, fixed_port=True)
+                self.assertTrue((data_root / "Wize Marketing Machine" / "mission-control.sqlite3").exists())
+                runtime = DesktopRuntime(data_root / "Wize Marketing Machine", 0, fixed_port=True)
                 runtime.close()
             finally:
                 if child.poll() is None:
@@ -349,8 +352,13 @@ class DesktopEntryTests(unittest.TestCase):
         command = runpy.run_path(str(Path(__file__).resolve().parents[1] / "tools/build_desktop.py"))["command"]
         argv = command()
         data = [argv[i + 1] for i, value in enumerate(argv) if value == "--add-data"]
-        self.assertEqual(len(data), 7)
+        self.assertEqual(len(data), 8)
         self.assertTrue(any("mission_control/static" in item.replace("\\", "/") for item in data))
+        self.assertIn(
+            str(Path(__file__).resolve().parents[1] / "mission_control/migrations/*.sql")
+            + ":mission_control/migrations",
+            data,
+        )
         self.assertFalse(any("mission_control/data" in item.replace("\\", "/") for item in data))
         self.assertIn("--onedir", argv)
         self.assertNotIn("--onefile", argv)

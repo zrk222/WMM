@@ -45,15 +45,26 @@ def isolated_environment(profile):
 
 
 def run(shell, profile):
-    return subprocess.run(
+    result = subprocess.run(
         [str(shell), "--verify-bundled-engine"],
         cwd=shell.parent,
         env=isolated_environment(profile),
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        timeout=75,
-    ).returncode
+        stderr=subprocess.PIPE,
+        timeout=105 if sys.platform == "darwin" else 75,
+    )
+    if result.returncode == 0:
+        return 0
+    for line in (result.stderr or b"").splitlines():
+        if re.fullmatch(
+            rb"WMM native verification: (start|shutdown) failed "
+            rb"\((timeout|invalid-data|not-found|permission-denied|connection-refused|broken-pipe|unexpected-eof|other)\)",
+            line,
+        ):
+            print(line.decode("ascii"), file=sys.stderr)
+            break
+    return result.returncode
 
 
 def verify_bundle(folder):
@@ -67,7 +78,8 @@ def verify_bundle(folder):
         profile = isolated / "accepted"
         if run(shell, profile) != 0:
             raise RuntimeError("Exact packaged engine verification failed")
-        database = profile / "Wize Marketing Machine" / "mission-control.sqlite3"
+        data_root = profile / "Library/Application Support" if sys.platform == "darwin" else profile
+        database = data_root / "Wize Marketing Machine" / "mission-control.sqlite3"
         if not database.is_file():
             raise RuntimeError("Packaged engine did not open its disposable workspace")
         conn = sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)
@@ -82,7 +94,7 @@ def verify_bundle(folder):
         shutil.copy2(shell, altered / shell.name)
         (altered / engine.name).write_bytes(b"disposable digest mismatch fixture")
         rejected = isolated / "rejected"
-        if run(altered / shell.name, rejected) == 0 or rejected.exists():
+        if run(altered / shell.name, rejected) != 3 or rejected.exists():
             raise RuntimeError("Native shell did not reject an altered engine before startup")
     return dict(
         status="PASS",

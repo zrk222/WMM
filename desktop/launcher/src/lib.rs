@@ -10,11 +10,28 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
+// The frozen macOS engine's first workspace initialization can exceed the
+// warm-launch deadline on Intel. Keep one deadline over readiness and proof.
+#[cfg(target_os = "macos")]
+const STARTUP_TIMEOUT: Duration = Duration::from_secs(45);
+#[cfg(not(target_os = "macos"))]
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(15);
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(45);
 const PROTOCOL: &str = "wmm.desktop-sidecar.v1";
 const MAX_FRAME: usize = 512;
 const MAX_PROOF_RESPONSE: usize = 4096;
+
+/// The package's engine bytes failed verification before any child was started.
+#[derive(Debug)]
+pub struct EngineDigestMismatch;
+
+impl std::fmt::Display for EngineDigestMismatch {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("The bundled WMM engine does not match its installed digest.")
+    }
+}
+
+impl std::error::Error for EngineDigestMismatch {}
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -60,8 +77,9 @@ impl Engine {
         let mut digest = Sha256::new();
         io::copy(&mut file, &mut digest)?;
         if <[u8; 32]>::from(digest.finalize()) != expected_sha256 {
-            return Err(invalid(
-                "The bundled WMM engine does not match its installed digest.",
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                EngineDigestMismatch,
             ));
         }
 
