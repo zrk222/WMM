@@ -32,6 +32,14 @@ workspace. They are not publicly downloadable; this is an owner-verifiable
 operations record, not an independent audit. No keys or private account identifiers are
 included.
 
+## Failures and unproven outcomes
+
+- E05: the first replacement schedule produced no post; its finite allowance stopped execution before a publish intent existed.
+- E12: the configured provider failover failed; the primary connection succeeded. Counts stay private and predate the campaign.
+- E13: the post used an untagged link. Registrations, conversations and retention events showed no recorded change, so campaign attribution is unavailable.
+- The full work cycle and a comparable manual run have not been timed.
+- **Measured growth and time savings remain unproven.** Delivery of one post is verified; notification delivery, ad spending and measured growth are not.
+
 **What we learned:** WMM can read the real Apple account, dispatch a scheduled
 read, preserve missing-data states and record scoped agent access. Changing the
 app configuration invalidated the old schedule; a fresh read and owner-confirmed

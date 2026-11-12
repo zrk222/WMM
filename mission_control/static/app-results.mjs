@@ -42,6 +42,12 @@ import {
 } from './feature-apis.mjs';
 ('use strict');
 
+function kpiGapPanel() {
+  const gaps = state.workspace?.metrics?.kpi_gaps || [];
+  if (!gaps.length) return '';
+  return `<section class="panel" aria-label="KPI gaps"><h2>KPI gaps remain explicit</h2><p class="description">These metrics are not collected; no value, zero or provider proxy is inferred.</p><div class="table-wrap"><table class="result-table"><thead><tr><th>Metric</th><th>Status</th><th>Reason</th></tr></thead><tbody>${gaps.map((gap) => `<tr><td>${esc(gap.metric)}</td><td>${status(gap.status)}</td><td>${esc(gap.reason)}</td></tr>`).join('')}</tbody></table></div></section>`;
+}
+
 function resultsView() {
   const study = ruleStudySelection();
   const decision = `<section class="panel" aria-labelledby="results-decision-heading"><h2 id="results-decision-heading" tabindex="-1">What should you do next?</h2>
@@ -49,6 +55,7 @@ function resultsView() {
     ${study ? button('Open study evidence', 'first-post-evidence') : ''}${button(study ? 'Change tracked study' : 'Choose a tracked study', 'first-post-open')}</section>`;
   return (
     decision +
+    kpiGapPanel() +
     analyticsOverviewPanel() +
     automationRulesPanel() +
     WMMFunnels.panel() +

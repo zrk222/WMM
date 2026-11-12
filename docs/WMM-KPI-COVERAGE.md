@@ -21,7 +21,7 @@ Keep provider-specific denominators and availability thresholds with each result
 |---|---|---|
 | CPI | PARTIAL_APPLE_ADS | spend / attributed installs |
 | CPA | MISSING | matched cost / deduplicated named actions |
-| CAC | PARTIAL_SUPPLIED_COHORT | matched acquisition cost / distinct acquired payers |
+| CAC | PARTIAL_SUPPLIED_COHORT; LIVE_GAP=MISSING | matched acquisition cost / distinct acquired payers |
 | ROAS_D7 | MISSING | attributed cohort revenue through day7 / matched cohort spend |
 | ROAS_D30 | MISSING | attributed cohort revenue through day30 / matched cohort spend |
 | PAYBACK | MISSING | first mature horizon cumulative net contribution recovers acquisition cost |
@@ -61,6 +61,19 @@ Keep provider-specific denominators and availability thresholds with each result
 | SOURCE_FRESHNESS | PARTIAL | last observed/ingested successful read age lag and expected update cadence |
 | INGESTION_QUALITY | PARTIAL_DOMAIN_STORES | invalid duplicate corrected late unmatched and backfilled observation coverage |
 | EXPORT_QUALITY | PARTIAL | report filters totals source coverage download/print outcome and retained audit lineage |
+
+## Explicit gaps
+
+The following gaps are deliberately MISSING and are surfaced as `KPI gap:` rows
+in reports and as `metrics.kpi_gaps` in the workspace. No report substitutes a
+zero, a supplied-cohort proxy or a provider metric for them.
+
+| Gap | Why it is missing |
+|---|---|
+| CAC (live observed) | No live matched acquisition cost / distinct acquired-payer join. Supplied-cohort CAC is separate partial evidence. |
+| ROAS_D7 | No attributed cohort revenue through day 7 divided by matched cohort spend. |
+| ROAS_D30 | No attributed cohort revenue through day 30 divided by matched cohort spend. |
+| PAYBACK | No mature cumulative net contribution that recovers acquisition cost. |
 
 ## Required proof for each metric
 

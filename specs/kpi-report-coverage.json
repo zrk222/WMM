@@ -103,6 +103,8 @@
       "title": "Cac",
       "definition": "matched acquisition cost / distinct acquired payers",
       "current_coverage": "PARTIAL_SUPPLIED_COHORT",
+      "gap": "MISSING",
+      "gap_reason": "No live matched acquisition cost / distinct acquired payers. Supplied-cohort CAC is separate and does not fill this gap.",
       "required_status": "REQUIRED_NOT_COMPLETE",
       "required_scope": [
         "app",
