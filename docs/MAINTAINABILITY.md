@@ -14,12 +14,15 @@ protocol. For current product boundaries, see [Release scope](../RELEASE-SCOPE.m
 ## JavaScript modules
 
 Static scripts stay classic, ordered `<script defer>` files so the app keeps its
-no-build-step constraint. The reference library, inspection and production-brief
-screens now live in `app-production.js`, loaded before `app.js`; `app.js`
-remains the core shell, bootstrap and shared helpers. New screen groups should
-follow the same pattern: load before `app.js`, reference only runtime globals,
-and join `tools/maintained_js.txt`. ES-module conversion waits for an explicit
-global-binding migration and the full browser matrix.
+no-build-step constraint. `app.js` is now the shell (state, shared helpers,
+render loop and bootstrap). Screen and support modules load before it:
+`app-ui.js` (views, modal/focus, fields, forms, job helpers),
+`app-production.js`, `app-install.js`, `app-campaign.js`, `app-results.js`,
+`app-connections.js`, `app-research.js`, `app-weekly.js` and `app-events.js`
+(form/action routing). New groups follow the same pattern: load before
+`app.js`, reference only runtime globals, and join `tools/maintained_js.txt`.
+ES-module conversion waits for an explicit global-binding migration and the
+full browser matrix.
 
 ## Schema changes
 
