@@ -51,7 +51,7 @@ class PublicationBrowserTests(unittest.TestCase):
 
         context.route("**/*", guard)
         page.goto(self.fixture.origin)
-        page.wait_for_function("() => typeof state !== 'undefined' && state.workspace?.app?.id === " + json.dumps(APP))
+        page.wait_for_function("(state) => state.workspace?.app?.id === " + json.dumps(APP), arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"))
         self.goal_connections(page, width)
         nav = page.locator('[data-view="connections"]')
         if not nav.is_visible():

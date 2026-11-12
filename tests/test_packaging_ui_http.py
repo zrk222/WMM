@@ -14,7 +14,7 @@ class PackagingStaticTests(unittest.TestCase):
         self.assertEqual(code, 200)
         shell = body.decode("utf-8")
         self.assertLess(shell.index("/packaging-model.js"), shell.index("/packaging-ui.js"))
-        self.assertLess(shell.index("/packaging-ui.js"), shell.index("/app.js"))
+        self.assertLess(shell.index("/packaging-ui.js"), shell.index("/app.mjs"))
         self.assertIn("/packaging.css", shell)
         self.assertIn("default-src 'self'", headers["Content-Security-Policy"])
         for path, content_type in [

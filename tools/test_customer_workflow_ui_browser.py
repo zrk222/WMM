@@ -168,7 +168,7 @@ def exercise(page, origin, store, width, out):
     assert original["data"]["prototype_result"]["duration_seconds"] == 42
     page.locator(f'[data-action="customer-detail"][data-id="{original["id"]}"]').click()
     expect(page.locator("#modal-body")).to_contain_text("Excluded: CRM")
-    page.evaluate("state.privateDraft='PRIVATE_SENTINEL';state.workspace.privateCredential='PRIVATE_SENTINEL'")
+    page.evaluate("async () => {const {state}=await import('/app.mjs');state.privateDraft='PRIVATE_SENTINEL';state.workspace.privateCredential='PRIVATE_SENTINEL';}")
     pages = export(
         page,
         out / f"workflow-{width}.pdf",

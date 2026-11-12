@@ -45,7 +45,7 @@ with sync_playwright() as playwright:
           document.addEventListener('submit',e=>{e.preventDefault();campaignScheduleSubmit(e.target)});
           document.addEventListener('click',e=>{const b=e.target.closest('[data-action]');if(b)campaignScheduleAction(b)});
         }""")
-        page.add_script_tag(path=str(ROOT / "mission_control/static/campaign-execution.js"))
+        page.add_script_tag(path=str(ROOT / "mission_control/static/campaign-execution.mjs"))
         page.evaluate("""async () => {
           const countries={countries:['CA']};const hash=await campaignHash(countries);
           const scope={scope_id:'scope',status:'ACTIVE',ad_account_id:'456',page_id:'123',currency:'CAD',expires_at:new Date(Date.now()+3600000).toISOString(),max_campaign_minor:100,max_total_minor:100,approved_targeting_hashes:[hash]};

@@ -103,7 +103,7 @@ class HTTPTests(unittest.TestCase):
                 return error.code, json.load(error)
 
         with f.context(), patch("mission_control.operator_identity.github_read", side_effect=synthetic_identity):
-            self.assertEqual(self.request("/signed-payments.js")[0], 200)
+            self.assertEqual(self.request("/signed-payments.mjs")[0], 200)
             base = f"/api/apps/{APP}/payments"
             self.assertEqual(self.request(base + "/sources", CONFIG)[0], 403)
             self.request("/api/identity/login", {"token": OWNER_TOKEN})
@@ -172,7 +172,7 @@ class HTTPTests(unittest.TestCase):
         row, _ = f.ready()
         base = f"/api/apps/{APP}/learning"
         path = base + "/" + row["id"]
-        self.assertEqual(self.request("/outcome-learning.js")[0], 200)
+        self.assertEqual(self.request("/outcome-learning.mjs")[0], 200)
         payload = {"version": row["version"], "hash": row["hash"], "confirm_local_guidance": True}
         self.assertEqual(self.request(path + "/approve", payload)[0], 403)
         with (
@@ -218,7 +218,7 @@ class HTTPTests(unittest.TestCase):
         data = outbox_fixture(self.server.service.store)
         remote = SyntheticApple()
         base = f"/api/apps/{APP}/provider-actions"
-        self.assertEqual(self.request("/provider-actions.js")[0], 200)
+        self.assertEqual(self.request("/provider-actions.mjs")[0], 200)
         self.assertEqual(
             self.request(f"/api/apps/{APP}")[1]["access"]["external_execution"],
             "EXPLICIT_APP_STORE_PROMOTIONAL_TEXT_ONLY",
@@ -265,7 +265,7 @@ class HTTPTests(unittest.TestCase):
         record = fixture(self.server.service.store)
         app = "review-test"
         base = f"/api/apps/{app}"
-        self.assertEqual(self.request("/verified-review.js")[0], 200)
+        self.assertEqual(self.request("/verified-review.mjs")[0], 200)
         self.assertEqual(self.request(base + "/verified-reviews", {"record_id": record["id"]})[0], 403)
         with patch("mission_control.operator_identity.github_read", side_effect=synthetic_identity) as provider:
             code, logged, _ = self.request("/api/identity/login", {"token": OWNER_TOKEN})
@@ -314,7 +314,7 @@ class HTTPTests(unittest.TestCase):
         code, job, _ = self.request(f"/api/apps/{APP}/production/renders", dict(data=data, request_key="http-video"))
         self.assertEqual(code, 201)
         self.assertEqual(job["status"], "QUEUED")
-        self.assertEqual(self.request("/creative-rendering.js")[0], 200)
+        self.assertEqual(self.request("/creative-rendering.mjs")[0], 200)
         self.assertTrue(run_once(self.server.service.store))
         _, workspace, _ = self.request(f"/api/apps/{APP}")
         row = workspace["renders"]["items"][0]
@@ -354,7 +354,7 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(code, 201)
         code, panel, _ = self.request(f"/api/apps/{APP}/acquisition/panels", {"data": panel_data(intent)})
         self.assertEqual(code, 201)
-        self.assertEqual(self.request("/acquisition.js")[0], 200)
+        self.assertEqual(self.request("/acquisition.mjs")[0], 200)
         body = {"data": answer(panel)}
         self.assertEqual(self.request(f"/api/apps/{APP}/acquisition/observations", body)[0], 201)
         code, report, _ = self.request(f"/api/apps/{APP}/acquisition/reports", {"panel_id": panel["id"]})
@@ -373,7 +373,7 @@ class HTTPTests(unittest.TestCase):
 
         sources = ready_ranking(self.server.service.store)
         ids = [s["id"] for s in sources]
-        self.assertEqual(self.request("/creative-ranking.js")[0], 200)
+        self.assertEqual(self.request("/creative-ranking.mjs")[0], 200)
         with patch("mission_control.creative_ranking.now", return_value=EVALUATED):
             code, report, _ = self.request(f"/api/apps/{APP}/rankings/run", {"reference_ids": ids})
         self.assertEqual(code, 201)
@@ -437,7 +437,7 @@ class HTTPTests(unittest.TestCase):
         self.assertIn(b"Mission Control", body)
         self.assertIn("frame-ancestors 'none'", headers["Content-Security-Policy"])
         self.assertEqual(self.request("/style.css")[0], 200)
-        self.assertEqual(self.request("/app.js")[0], 200)
+        self.assertEqual(self.request("/app.mjs")[0], 200)
         self.assertEqual(len(self.request("/api/apps/sample-one")[1]["stages"]), 12)
         self.assertEqual(self.request("/missing")[0], 404)
 

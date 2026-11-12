@@ -22,7 +22,7 @@ class GrowthReviewUIHTTPTests(unittest.TestCase):
             r"\s+",
             "",
             (
-                self.request("/app.js")[1] + self.request("/app-results.js")[1] + self.request("/app-events.js")[1]
+                self.request("/app.mjs")[1] + self.request("/app-results.mjs")[1] + self.request("/app-events.mjs")[1]
             ).decode("utf-8"),
         )
         self.assertIn("WMMGrowthReview.panel(state)", source)

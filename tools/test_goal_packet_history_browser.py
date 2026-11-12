@@ -32,7 +32,7 @@ def stop(server, thread):
 
 def choose(page, origin):
     page.goto(origin)
-    page.wait_for_function("() => state.workspace?.app?.id===state.app")
+    page.wait_for_function('(context) => {const state=context.state;return (() => state.workspace?.app?.id===state.app)(context.original);}', arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': None})
     page.locator("#app-select").select_option("sample-one")
     page.get_by_role("button", name="Find a useful marketing angle", exact=True).click()
     page.get_by_role("button", name="Open your first packet", exact=True).press("Enter")

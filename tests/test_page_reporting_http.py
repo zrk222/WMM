@@ -41,7 +41,7 @@ class PageReportingHTTPTests(unittest.TestCase):
                 self.assertIn("script-src 'self'", response.headers["Content-Security-Policy"])
                 self.assertNotIn("unsafe-inline", response.headers["Content-Security-Policy"])
                 self.assertIn("page-reporting", value)
-        with urlopen(self.origin + "/app.js") as response:
+        with urlopen(self.origin + "/app.mjs") as response:
             value = re.sub(r"\s+", "", response.read().decode("utf-8"))
             self.assertIn("WMMPageReports.decorate(state,document)", value)
             self.assertIn("workspaceObservedAt=newDate().toISOString()", value)

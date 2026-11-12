@@ -133,3 +133,5 @@ const WMMAnalyticsInventory = (() => {
 })();
 
 if (typeof module !== 'undefined') module.exports = WMMAnalyticsInventory;
+
+if (typeof module === 'undefined') globalThis.WMMAnalyticsInventory = WMMAnalyticsInventory;

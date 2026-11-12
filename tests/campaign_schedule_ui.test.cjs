@@ -1,5 +1,5 @@
-const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path'),{webcrypto}=require('node:crypto');
-const src=fs.readFileSync(path.join(__dirname,'../mission_control/static/campaign-execution.js'),'utf8');
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('./helpers/module-source.cjs'),vm=require('node:vm'),path=require('node:path'),{webcrypto}=require('node:crypto');
+const src=fs.readFileSync(path.join(__dirname,'../mission_control/static/campaign-execution.mjs'),'utf8');
 function fixture(){
  const calls=[],panels={},modals=[];
  const c={Date,TextEncoder,Uint8Array,crypto:webcrypto,FormData:class {constructor(form){return Object.entries(form.values||{})}},state:{app:'one',workspace:{app:{version:1},identity:{principal:'owner'}}},document:{},$:s=>panels[s]||null,esc:s=>String(s).replaceAll('<','&lt;'),button:(label,action)=>'<button data-action="'+action+'">'+label+'</button>',modal:(title,html)=>{modals.push({title,html});panels['#campaign-schedule-review']={dataset:{app:'one',version:'1',principal:'owner'},isConnected:true}},api:async(...a)=>calls.push(a),WMMPageReports:{model:()=>({}),openReport:x=>x},window:{}};

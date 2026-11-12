@@ -152,7 +152,7 @@ def main():
         "mission_control/agent_access.py",
         "mission_control/agent_api.py",
         "mission_control/agent_registry.py",
-        "mission_control/static/agent-access.js",
+        "mission_control/static/agent-access.mjs",
         "tools/test_local_agent_browser.py",
         "mission_control/draft_recipes.py",
     ]

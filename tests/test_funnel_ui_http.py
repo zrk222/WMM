@@ -13,7 +13,7 @@ class FunnelUIHTTPTests(unittest.TestCase):
         with self.owner.opener.open(self.origin + "/") as response:
             html = response.read().decode()
         self.assertLess(html.index("/funnel-model.js"), html.index("/funnel-ui.js"))
-        self.assertLess(html.index("/funnel-ui.js"), html.index("/app.js"))
+        self.assertLess(html.index("/funnel-ui.js"), html.index("/app.mjs"))
         for path in ("/funnel-model.js", "/funnel-ui.js"):
             with self.owner.opener.open(self.origin + path) as response:
                 self.assertEqual(response.status, 200)

@@ -1,8 +1,8 @@
-const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('./helpers/module-source.cjs'),vm=require('node:vm'),path=require('node:path');
 function fixture(){
  const state={app:'one',workspace:{app:{version:1,data:{name:'One'}},access:{configured:false,members:[]},identity:{status:'SIGNED_OUT'}}},dialog={open:true,close(){this.open=false;}},calls=[],modals=[];
  const c={state,button:(name,action)=>'<button data-action="'+action+'">'+name+'</button>',document:{addEventListener(){}},esc:String,notice:v=>v,modal:(title,body)=>{modals.push({title,body});dialog.open=true;},$:()=>dialog,api:async(url,body)=>{calls.push({url,body});state.workspace.identity={status:'AUTHENTICATED',login:'owner',principal:'github:1'};return {status:'AUTHENTICATED'};},refresh:async()=>{},toast(){},verifiedOpen(){},FormData:class{constructor(form){return Object.entries(form.values)[Symbol.iterator]();}}};
- vm.createContext(c);vm.runInContext(fs.readFileSync(path.join(__dirname,'../mission_control/static/verified-review.js'),'utf8'),c);
+ vm.createContext(c);vm.runInContext(fs.readFileSync(path.join(__dirname,'../mission_control/static/verified-review.mjs'),'utf8'),c);
  const form={id:'identity-form',dataset:{app:'one',appVersion:'1',next:'owner-bootstrap'},isConnected:true,values:{token:'synthetic-only'},reset(){this.values={token:''};},querySelector:()=>({disabled:false})};
  return {c,state,dialog,calls,modals,form};
 }

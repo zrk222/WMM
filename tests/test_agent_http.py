@@ -79,7 +79,7 @@ class AgentHTTPTests(unittest.TestCase):
             workspace = self.request("/api/apps/sample-one")[1]
             self.assertEqual(workspace["agent_access"]["profiles"][0]["status"], "TESTED")
             self.assertEqual(again["result"]["publication"], "NOT_RUN")
-            self.assertEqual(self.request("/agent-access.js")[0], 200)
+            self.assertEqual(self.request("/agent-access.mjs")[0], 200)
 
 
 if __name__ == "__main__":

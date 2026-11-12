@@ -28,7 +28,7 @@ def run(browser, width, out):
     try:
         page.goto("http://127.0.0.1:" + str(server.server_port))
         page.locator("#app-select").select_option(fixture.APP)
-        page.wait_for_function("expected => state.workspace?.app?.id===expected && currentWorkspace()", arg=fixture.APP)
+        page.wait_for_function('(context) => {const state=context.state;return (expected => state.workspace?.app?.id===expected && currentWorkspace())(context.original);}', arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': fixture.APP})
         page.locator("[data-view=research]").click()
         page.get_by_role("button", name="Render a video", exact=True).click()
         page.locator("#render-form [name=renderer]").select_option("HYPIT_LOCAL")

@@ -2,6 +2,7 @@
 
 import tempfile
 import unittest
+from contextlib import closing
 from hashlib import sha256
 from pathlib import Path
 
@@ -55,6 +56,41 @@ class MigrationLedgerTests(unittest.TestCase):
             for sql, args, index in checks:
                 details = [row["detail"] for row in db.execute("EXPLAIN QUERY PLAN " + sql, args)]
                 self.assertTrue(any(index in line for line in details), (sql, details))
+
+    def test_future_ledger_version_fails_without_changing_history_or_user_version(self):
+        import sqlite3
+
+        future = migrations.discovered()[-1][0] + 1
+        with closing(sqlite3.connect(self.path)) as db:
+            db.execute("INSERT INTO schema_migrations VALUES(?,?,?,?)", (future, "future", "f" * 64, "future"))
+            db.execute(f"PRAGMA user_version={future}")
+            db.commit()
+            before = migrations.applied(db)
+            schema = migrations.schema_digest(db)
+            with self.assertRaisesRegex(migrations.SchemaMigrationError, "Unsupported recorded migration"):
+                migrations.apply(db)
+            self.assertEqual(migrations.applied(db), before)
+            self.assertEqual(migrations.schema_digest(db), schema)
+            self.assertEqual(db.execute("PRAGMA user_version").fetchone()[0], future)
+            self.assertFalse(db.in_transaction)
+
+    def test_unexpected_ledger_names_fail_before_baseline_adoption(self):
+        import sqlite3
+
+        for version in (0, 1):
+            path = Path(self.tmp.name) / f"names-{version}.sqlite"
+            initialize(path)
+            with self.subTest(version=version), closing(sqlite3.connect(path)) as db:
+                db.execute("UPDATE schema_migrations SET name='unexpected' WHERE version=?", (version,))
+                if version:
+                    db.execute("DELETE FROM schema_migrations WHERE version=0")
+                db.commit()
+                before = migrations.applied(db)
+                user_version = db.execute("PRAGMA user_version").fetchone()[0]
+                with self.assertRaisesRegex(migrations.SchemaMigrationError, "unexpected name"):
+                    migrations.apply(db)
+                self.assertEqual(migrations.applied(db), before)
+                self.assertEqual(db.execute("PRAGMA user_version").fetchone()[0], user_version)
 
     def test_every_foreign_key_child_has_a_leading_index(self):
         with connection(self.path) as db:

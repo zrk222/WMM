@@ -114,16 +114,7 @@ def capture_packet_failure(page, out, width, exception, boundaries, page_errors)
         page_error_count=len(page_errors),
     )
     try:
-        snapshot = page.evaluate("""() => ({
-            document_ready:document.readyState,
-            boot_loaded:typeof state!=='undefined' && !!state.boot,
-            research_loaded:typeof state!=='undefined' && !!state.research,
-            workspace_loaded:typeof state!=='undefined' && !!state.workspace,
-            selected_app:typeof state!=='undefined' ? state.app : null,
-            workspace_app:typeof state!=='undefined' ? state.workspace?.app?.id : null,
-            workspace_error:typeof state!=='undefined' && !!state.workspaceError,
-            retry_visible:!!document.querySelector('#main [data-action="reload"]')
-        })""")
+        snapshot = page.evaluate('async () => ({\n            document_ready:document.readyState,\n            boot_loaded:typeof (await import(\'/app.mjs\')).state!==\'undefined\' && !!(await import(\'/app.mjs\')).state.boot,\n            research_loaded:typeof (await import(\'/app.mjs\')).state!==\'undefined\' && !!(await import(\'/app.mjs\')).state.research,\n            workspace_loaded:typeof (await import(\'/app.mjs\')).state!==\'undefined\' && !!(await import(\'/app.mjs\')).state.workspace,\n            selected_app:typeof (await import(\'/app.mjs\')).state!==\'undefined\' ? (await import(\'/app.mjs\')).state.app : null,\n            workspace_app:typeof (await import(\'/app.mjs\')).state!==\'undefined\' ? (await import(\'/app.mjs\')).state.workspace?.app?.id : null,\n            workspace_error:typeof (await import(\'/app.mjs\')).state!==\'undefined\' && !!(await import(\'/app.mjs\')).state.workspaceError,\n            retry_visible:!!document.querySelector(\'#main [data-action="reload"]\')\n        })')
         safe = {}
         for key in ("boot_loaded", "research_loaded", "workspace_loaded", "workspace_error", "retry_visible"):
             safe[key] = snapshot.get(key) is True
@@ -200,7 +191,7 @@ def verify_packet_browser(origin, output_dir, storage_dir=None, expected_initial
                 try:
                     page.goto(origin)
                     if fresh:
-                        page.wait_for_function("() => state.workspace?.app?.id==='sample-one'")
+                        page.wait_for_function("(context) => {const state=context.state;return (() => state.workspace?.app?.id==='sample-one')(context.original);}", arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': None})
                         add_app = page.locator('[data-action="add-app"]' if width == 390 else "#add-app")
                         add_app.press("Enter")
                         form = page.locator("#app-form")
@@ -212,15 +203,15 @@ def verify_packet_browser(origin, output_dir, storage_dir=None, expected_initial
                         ) as saved:
                             form.get_by_role("button", name="Save and choose a goal").press("Enter")
                         assert saved.value.status == 201, "Synthetic app was not created"
-                    page.wait_for_function("id => state.workspace?.app?.id===id", arg=app_id)
+                    page.wait_for_function('(context) => {const state=context.state;return (id => state.workspace?.app?.id===id)(context.original);}', arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': app_id})
                     expect(page.get_by_role("heading", name="Set your goal", exact=True)).to_be_visible()
-                    assert page.evaluate("() => state.workspace.app.data.name") == fields["name"]
+                    assert page.evaluate("async () => (await import('/app.mjs')).state.workspace.app.data.name") == fields["name"]
                     if expected_initial_goal:
                         expect(
                             page.locator('[data-action="goal-select"][data-goal="' + expected_initial_goal + '"]')
                         ).to_have_attribute("aria-pressed", "true")
                     expected = page.evaluate(
-                        "() => ({app_id:state.workspace.app.id,version:state.workspace.app.version,source_hash:state.workspace.preparation.source_hash})"
+                        "async () => ({app_id:(await import('/app.mjs')).state.workspace.app.id,version:(await import('/app.mjs')).state.workspace.app.version,source_hash:(await import('/app.mjs')).state.workspace.preparation.source_hash})"
                     )
                     for goal, title, stages in GOALS:
                         page.get_by_role("button", name=title, exact=True).press("Enter")
@@ -264,7 +255,7 @@ def verify_packet_browser(origin, output_dir, storage_dir=None, expected_initial
                     page.keyboard.press("Enter")
                     expect(advanced).to_have_attribute("open", "")
                     page.reload()
-                    page.wait_for_function("id => state.workspace?.app?.id===id", arg=app_id)
+                    page.wait_for_function('(context) => {const state=context.state;return (id => state.workspace?.app?.id===id)(context.original);}', arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': app_id})
                     expect(page.locator('[data-action="goal-select"][data-goal="measurement"]')).to_have_attribute(
                         "aria-pressed", "true"
                     )

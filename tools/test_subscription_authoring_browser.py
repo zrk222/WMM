@@ -110,7 +110,7 @@ def exercise(page, origin, store, stamp, width, out):
     treatment = billing(page, stamp, "treatment")
     page.locator(f'[data-action="subscription-plan-detail"][data-id="{control["id"]}"]').click()
     expect(page.locator("#modal-body")).to_contain_text("price_minor: 1000")
-    page.evaluate("state.workspace.privateDraft='PRIVATE_SENTINEL'")
+    page.evaluate("async () => ((await import('/app.mjs')).state.workspace.privateDraft='PRIVATE_SENTINEL')")
     with page.expect_popup() as waiting:
         page.locator('[data-action="subscription-plan-report"]').focus()
         page.keyboard.press("Enter")

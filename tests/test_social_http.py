@@ -86,7 +86,7 @@ class SocialHTTPTests(unittest.TestCase):
             self.assertNotIn("synthetic-client-secret", json.dumps(workspace))
             self.assertNotIn("secret_ref", json.dumps(workspace["social_access"]))
             self.assertEqual(self.request("/api/apps/sample-two")[1]["social_access"]["setup"]["configurations"], [])
-        for route in ("/social-access.js", "/social-callback.js", "/social/callback/tiktok"):
+        for route in ("/social-access.mjs", "/social-callback.js", "/social/callback/tiktok"):
             self.assertEqual(self.request(route)[0], 200)
         self.assertEqual(self.request("/social/callback/unknown")[0], 404)
 

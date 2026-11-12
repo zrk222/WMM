@@ -1,4 +1,4 @@
-const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),crypto=require('node:crypto');
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('./helpers/module-source.cjs'),crypto=require('node:crypto');
 const holder={exports:{}};new Function('module',fs.readFileSync('mission_control/static/managed-media.js','utf8'))(holder);const media=holder.exports;
 const digest=v=>crypto.createHash('sha256').update(v).digest('hex');let serial=0;
 function fixture(){
@@ -82,9 +82,9 @@ test('closed dialog or new app drops late library reads; owner is required for w
  const g=fixture();await media.open(g.d);g.d.state.workspace.access.members[0].role='CHECKER';await media.submit(upload([file('one.mp4')]),g.d);assert.equal(g.calls.length,1);
 });
 test('Research and modal hooks load one exact module and preserve scoped cleanup',()=>{
- const app=fs.readFileSync('mission_control/static/app.js','utf8')+fs.readFileSync('mission_control/static/app-events.js','utf8'),index=fs.readFileSync('mission_control/static/index.html','utf8');
+ const app=fs.readFileSync('mission_control/static/app.mjs','utf8')+fs.readFileSync('mission_control/static/app-events.mjs','utf8'),index=fs.readFileSync('mission_control/static/index.html','utf8');
  const flat=app.replace(/\s+/g,'');for(const hook of ['WMMMedia.panel()','WMMMedia.invalidate(state)','WMMMedia.clear()','WMMMedia.submit(form,growthReviewServices())','WMMMedia.action(node,growthReviewServices())'])assert.ok(flat.includes(hook),hook);
- assert.equal((index.match(/src="\/managed-media.js"/g)||[]).length,1);assert.match(media.panel(),/Optional Drive selection/);
+ assert.match(index,/<script type="module" src="\/dashboard\.mjs"><\/script>/);assert.equal((require('node:fs').readFileSync(require('node:path').join(__dirname,'../mission_control/static/feature-apis.mjs'),'utf8').match(/import ['"]\.\/managed-media\.js['"];/g)||[]).length,1);assert.match(media.panel(),/Optional Drive selection/);
 });
 
 test('saved revocation and permission basis remain selected when an original is reopened',async()=>{

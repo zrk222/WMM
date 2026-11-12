@@ -93,26 +93,28 @@ def viewport_pass(browser, origin, width, height, out):
     errors = []
     page.on("pageerror", lambda error: errors.append(str(error)))
     page.goto(origin)
+    expect(page.locator("#main h1").first).to_have_text("Set your goal")
+    expect(page.locator("#goal-advanced")).not_to_have_attribute("open", "")
+    page.locator("#goal-advanced > summary").click()
     page.locator(".page-reporting").wait_for()
-    expect(page.locator("#main h1")).to_contain_text("Plan your app marketing")
-    expect(page.locator(".wmm-story-steps li")).to_have_count(4)
+    expect(page.locator("#goal-advanced .hero h2")).to_contain_text("Plan your app marketing")
     for phrase in (
-        "preparing and measuring app marketing",
-        "Bring in the evidence",
-        "usage, purchase and refund events",
-        "six creative briefs",
-        "twelve stage packets",
-        "PDF reports",
+        "Your next marketing move, with evidence",
+        "Missing measurements stay unknown",
+        "You still approve what goes live",
     ):
-        expect(page.locator(".wmm-overview-story")).to_contain_text(phrase)
+        expect(page.locator("[aria-label='Start your first experiment']")).to_contain_text(phrase)
     page.locator(".hero [data-view=workflow]").focus()
     page.keyboard.press("Enter")
     expect(page.locator('[data-view="workflow"].nav-item')).to_have_attribute("aria-current", "page")
-    page.evaluate("state.workspace.private_test_data='PRIVATE_SENTINEL'")
+    page.evaluate("async () => ((await import('/app.mjs')).state.workspace.private_test_data='PRIVATE_SENTINEL')")
+    page.locator("#navigation details > summary").click()
     views = page.locator(".nav-item").evaluate_all("nodes=>nodes.map(n=>n.dataset.view)")
     observations = []
     for view in views:
         page.locator(f'.nav-item[data-view="{view}"]').click()
+        if view == "overview":
+            page.locator("#goal-advanced > summary").click()
         expect(page.locator(".page-reporting")).to_have_count(1)
         expect(page.locator(".page-reporting")).to_contain_text("Next:")
         if view == "weekly":
@@ -132,15 +134,21 @@ def viewport_pass(browser, origin, width, height, out):
                 ROOT / "mission_control/static/page-reporting.css"
             ).read_text(encoding="utf-8")
             snapshot_html(page, out / f"overview-{width}.html", css)
-    # The blocked-window path must preserve state and avoid a false export receipt.
+    # A blocked popup falls back to an in-page preview without saving a file.
     page.evaluate("window.savedOpen=window.open;window.open=()=>null")
     page.locator("[data-report-page]").click()
-    expect(page.locator("#toast")).to_contain_text("Allow a report window")
+    preview = page.locator(".wmm-report-dialog[open]")
+    expect(preview).to_be_visible()
+    expect(preview).to_contain_text("No file has been saved")
+    assert "PRIVATE_SENTINEL" not in preview.inner_text()
+    assert not preview.locator("input,textarea").count()
+    preview.get_by_role("button", name="Close report", exact=True).click()
+    expect(preview).to_have_count(0)
     page.evaluate("window.open=window.savedOpen")
     if width == 1440:
         page.locator('.nav-item[data-view="results"]').click()
         page.evaluate(
-            "state.workspace.metrics.cohorts=Array.from({length:6},(_,i)=>({...state.workspace.metrics.cohorts[0],cohort_id:'Long synthetic cohort '+i}));render()"
+            "async () => {const {state,render}=await import('/app.mjs');state.workspace.metrics.cohorts=Array.from({length:6},(_,i)=>({...state.workspace.metrics.cohorts[0],cohort_id:'Long synthetic cohort '+i}));render();}"
         )
         observations.append(export_report(page, "results-long", width, out))
     # App switching must immediately remove the prior app's report context.

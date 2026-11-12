@@ -32,7 +32,7 @@ def run(browser, width, packaged, output):
     try:
         with patch.object(agent_setup, "report", side_effect=projection):
             page.goto(fixture.origin)
-            page.wait_for_function("() => state.workspace?.app?.id===state.app")
+            page.wait_for_function('(state) => state.workspace?.app?.id===state.app', arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"))
             page.locator("#navigation > [data-view=activity]").click()
             expect(page.get_by_role("button", name="Review agent setup", exact=True)).to_have_count(0)
             page.get_by_role("button", name="Sign in for verified review", exact=True).click()

@@ -1,9 +1,9 @@
-const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('./helpers/module-source.cjs'),vm=require('node:vm');
 function fixture(goal='measurement'){
  const calls=[],state={app:'one',goalChoice:{app:'one',id:goal},workspace:{app:{id:'one',version:2,data:{}},workflow:{steps:Array.from({length:12},(_,i)=>({id:i+1}))},preparation:{source_hash:'source',ready_count:1,outputs:Array.from({length:12},(_,i)=>({stage:i+1,status:'BLOCKED',missing:['<unsafe>'],packet:{title:'<Title '+(i+1)+'>',operations:{tasks:['<task>']}}}))}}};
  const esc=v=>String(v).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
  const c={state,esc,json:v=>esc(JSON.stringify(v)),notice:esc,button:(s,a,d='')=>`<button data-action="${a}" ${d}>${esc(s)}</button>`,modal:(...a)=>calls.push(['modal',...a]),download:(...a)=>calls.push(['download',...a]),localStorage:{getItem:()=>null},document:{querySelector:()=>null,addEventListener:()=>{}}};
- vm.createContext(c);for(const f of ['guided-workflow.js','automatic-preparation.js'])vm.runInContext(fs.readFileSync('mission_control/static/'+f,'utf8'),c);
+ vm.createContext(c);for(const f of ['guided-workflow.mjs','automatic-preparation.mjs'])vm.runInContext(fs.readFileSync('mission_control/static/'+f,'utf8'),c);
  c.guidedNavigate=v=>calls.push(['navigate',v]);c.guidedOpenTool=v=>calls.push(['tool',v]);c.campaignOpen=()=>calls.push(['campaign']);
  const p=vm.runInContext('WMMGoalPacket',c);const node=action=>({dataset:{action,app:'one',version:'2',goal:p.model().goal,sourceHash:'source'}});return {p,c,state,calls,node};
 }

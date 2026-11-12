@@ -29,9 +29,9 @@ def run(browser, width):
         paused = f.fixture.fixture.service.run_pause("sample", "owner", f.fixture.scope["scope_id"], intent["id"])
         pause_hash = paused["pause_readback"]["sha256"]
         page.goto(f.fixture.client.origin)
-        page.wait_for_function("() => state.workspace?.app?.id===state.app")
+        page.wait_for_function('(state) => state.workspace?.app?.id===state.app', arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"))
         page.locator("#app-select").select_option("sample")
-        page.wait_for_function("() => state.app==='sample' && state.workspace?.app?.id==='sample'")
+        page.wait_for_function("(state) => state.app==='sample' && state.workspace?.app?.id==='sample'", arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"))
         page.locator("#navigation > [data-view=activity]").click()
         page.get_by_role("button", name="Sign in for verified review", exact=True).click()
         page.get_by_label("GitHub identity token", exact=True).fill("synthetic_owner_identity_token")

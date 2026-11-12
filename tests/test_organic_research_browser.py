@@ -61,7 +61,7 @@ class OrganicResearchBrowserTests(unittest.TestCase):
 
         context.route("**/*", boundary)
         page.goto(self.f.origin)
-        page.wait_for_function("() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one'")
+        page.wait_for_function("(context) => {const state=context.state;return (() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one')(context.original);}", arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': None})
         # Use the visible navigation and the actual product module, not a fixture UI.
         nav = page.locator('[data-view="research"]')
         if not nav.is_visible():
@@ -157,7 +157,7 @@ class OrganicResearchBrowserTests(unittest.TestCase):
         self.assertEqual(external, [])
         sources = [
             "mission_control/static/organic-research.js",
-            "mission_control/static/app.js",
+            "mission_control/static/app.mjs",
             "mission_control/static/index.html",
             "mission_control/static/style.css",
             "mission_control/organic_video_collector.py",
@@ -543,7 +543,7 @@ class OrganicResearchBrowserTests(unittest.TestCase):
         page.locator('[data-action="oresearch-open"]').click()
         page.wait_for_function('() => typeof releaseResearch === "function"')
         page.evaluate(
-            """() => {state.workspace.access.members.find(x=>x.principal===state.workspace.identity.principal).status='REVOKED'; WMMOrganicResearch.invalidate(state); releaseResearch();}"""
+            "async () => {const {state}=await import('/app.mjs');state.workspace.access.members.find(x=>x.principal===state.workspace.identity.principal).status='REVOKED'; WMMOrganicResearch.invalidate(state); releaseResearch();}"
         )
         page.wait_for_load_state("networkidle")
         self.assertFalse(page.locator("#modal").evaluate("(node)=>node.open"))

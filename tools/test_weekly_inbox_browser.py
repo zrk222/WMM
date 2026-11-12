@@ -43,7 +43,7 @@ def main():
                     advanced.press("Enter")
                     page.locator('[data-view="weekly"]').click()
                     page.get_by_role("button", name="Review apps", exact=True).click()
-                    expect(page.locator("#main")).to_contain_text("8 exceptions on this page")
+                    expect(page.locator("#main")).to_contain_text("8 exceptions and 0 active items on this page")
                     expect(page.locator("#main")).to_contain_text("Second synthetic app")
                     out = ROOT / ".factory"
                     out.mkdir(exist_ok=True)
@@ -54,7 +54,7 @@ def main():
                     page.locator('[data-action="weekly-recover"][data-app="sample-two"][data-tool="retention"]').focus()
                     page.keyboard.press("Enter")
                     expect(page.locator("#modal")).to_be_visible()
-                    assert page.evaluate("state.app") == "sample-two"
+                    assert page.evaluate("async () => ((await import('/app.mjs')).state.app)") == "sample-two"
                     page.keyboard.press("Escape")
                     page.locator('[data-view="weekly"]').click()
                     # A late response must not reopen the review after navigation away.
@@ -63,11 +63,11 @@ def main():
                         lambda route: route.fulfill(status=200, content_type="application/json", body="{}"),
                     )
                     page.evaluate(
-                        "state.view='weekly';window.delayed=new Promise(resolve=>window.resolveDelayed=resolve);window.savedApi=api;api=()=>delayed;window.pendingWeekly=weeklyAction({dataset:{action:'weekly-refresh'}});state.view='overview';state.weeklyGeneration++;resolveDelayed({exceptions:[],apps:[],coverage:{}})"
+                        "async () => {\n    const {state}=await import('/app.mjs');const {weeklyAction}=await import('/app-weekly.mjs');\n    state.view='weekly';window.delayed=new Promise(resolve=>window.resolveDelayed=resolve);\n    window.savedFetch=window.fetch;window.fetch=(url,options)=>String(url).includes('/api/weekly-review')?delayed:window.savedFetch(url,options);\n    window.pendingWeekly=weeklyAction({dataset:{action:'weekly-refresh'}});\n    state.view='overview';state.weeklyGeneration++;\n    resolveDelayed(new Response(JSON.stringify({exceptions:[],apps:[],coverage:{}}),{status:200,headers:{'Content-Type':'application/json'}}));\n   }"
                     )
                     page.evaluate("window.pendingWeekly")
-                    assert page.evaluate("state.view") == "overview"
-                    page.evaluate('api=window.savedApi;state.weeklyLoading=false;state.view="weekly";render()')
+                    assert page.evaluate("async () => ((await import('/app.mjs')).state.view)") == "overview"
+                    page.evaluate("async () => {const {state,render}=await import('/app.mjs');window.fetch=window.savedFetch;state.weeklyLoading=false;state.view='weekly';render();}")
                     page.unroute("**/api/weekly-review?offset=0")
                     page.route(
                         "**/api/weekly-review?offset=0",

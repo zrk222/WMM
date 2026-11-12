@@ -18,7 +18,7 @@ class VideoEditorHTTPTests(unittest.TestCase):
             )
         with urlopen(self.origin, timeout=15) as response:
             text = response.read().decode()
-            self.assertLess(text.index("/video-editor.js"), text.index("/app.js"))
+            self.assertLess(text.index("/video-editor.js"), text.index("/app.mjs"))
         with urlopen(self.origin + "/video-editor.css", timeout=15) as response:
             self.assertEqual(response.headers.get_content_type(), "text/css")
             self.assertEqual(

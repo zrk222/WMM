@@ -61,9 +61,7 @@ class AutomationProfilesBrowserTests(unittest.TestCase):
                         )
                         page = context.new_page()
                         page.goto(host.origin)
-                        page.wait_for_function(
-                            "() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one'"
-                        )
+                        page.wait_for_function("(context) => {const state=context.state;return (() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one')(context.original);}", arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': None})
                         nav = page.locator('[data-view="agents"]')
                         if not nav.is_visible():
                             page.locator("details").filter(has=nav).locator("summary").first.click()
@@ -145,9 +143,7 @@ class AutomationProfilesBrowserTests(unittest.TestCase):
                     context.add_init_script("localStorage.setItem('growth-app','sample-one')")
                     page = context.new_page()
                     page.goto(host.origin)
-                    page.wait_for_function(
-                        "() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one'"
-                    )
+                    page.wait_for_function("(context) => {const state=context.state;return (() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one')(context.original);}", arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': None})
                     requests = []
                     page.on("request", lambda req: requests.append((req.method, req.url)))
                     nav = page.get_by_role("button", name="Watch the work", exact=True)
@@ -168,7 +164,7 @@ class AutomationProfilesBrowserTests(unittest.TestCase):
                     self.assertTrue(all(url.startswith(host.origin + "/") for _, url in requests))
                     page.keyboard.press("Escape")
                     page.locator("#app-select").select_option("sample-two")
-                    page.wait_for_function("() => state.workspace?.app?.id === 'sample-two'")
+                    page.wait_for_function("(context) => {const state=context.state;return (() => state.workspace?.app?.id === 'sample-two')(context.original);}", arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': None})
                     nav.press("Enter")
                     expect(card).to_have_count(0)
                     self.assertTrue(page.evaluate("document.documentElement.scrollWidth <= innerWidth"))

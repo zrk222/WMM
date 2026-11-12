@@ -138,7 +138,7 @@ def exercise(page, origin, store, width, out):
     expect(page.locator("#toast")).to_contain_text("Allow a report window")
     expect(page.locator("#modal")).to_be_visible()
     page.evaluate("window.open=window.savedOpen; delete window.savedOpen")
-    page.evaluate("state.privateDraft='PRIVATE_SENTINEL'; state.workspace.credentials='PRIVATE_SENTINEL'")
+    page.evaluate("async () => {const {state}=await import('/app.mjs');state.privateDraft='PRIVATE_SENTINEL'; state.workspace.credentials='PRIVATE_SENTINEL';}")
     pdf_pages = export_pdf(page, out / f"listing-{width}.pdf")
     page.locator('#modal [data-action="growth-note"]').click()
     page.locator("#growth-decision").select_option("REVISE")

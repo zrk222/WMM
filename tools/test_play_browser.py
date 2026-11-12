@@ -29,7 +29,7 @@ def review(page, base, fixture, width, height):
     expect(page.locator("#modal-title")).to_have_text("Connect this Android app")
     page.locator("#play-metadata-file").set_input_files(
         dict(
-            name="app.json",
+            name="app.mjson",
             mimeType="application/json",
             buffer=b'{"expo":{"android":{"package":"com.example.synthetic"}}}',
         )

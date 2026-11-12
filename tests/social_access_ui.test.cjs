@@ -1,10 +1,10 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
+const fs = require('./helpers/module-source.cjs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const source = fs.readFileSync(path.join(__dirname, '../mission_control/static/social-access.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '../mission_control/static/social-access.mjs'), 'utf8');
 
 function fixture() {
   const account = {

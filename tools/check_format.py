@@ -57,7 +57,7 @@ def check():
         print("ESLINT_REQUIRED run npm ci", file=sys.stderr)
         return 2
     eslint = subprocess.run(
-        ["npx", "--no-install", "eslint", "mission_control/static/app.js", "mission_control/static/app-*.js"],
+        ["npx", "--no-install", "eslint", "mission_control/static/app.mjs", "mission_control/static/*.mjs"],
         cwd=ROOT,
     )
     return (

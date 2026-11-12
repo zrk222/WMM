@@ -30,7 +30,7 @@ def run(browser, width, out):
             "window.wmmStyleViolations=[];document.addEventListener('securitypolicyviolation',e=>{if(e.effectiveDirective==='style-src-attr')window.wmmStyleViolations.push(e.effectiveDirective)});"
         )
         page.goto(f.origin)
-        page.wait_for_function("() => state.workspace?.app?.id===state.app")
+        page.wait_for_function('(state) => state.workspace?.app?.id===state.app', arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"))
         channels = page.get_by_role("list", name="Video channels", exact=True)
         expect(channels.locator("svg")).to_have_count(4)
         expect(channels).to_have_css("list-style-type", "none")
@@ -71,7 +71,7 @@ def run(browser, width, out):
         expect(page.get_by_role("button", name="Sign out of review session")).to_be_visible()
         page.locator("#navigation > [data-view=overview]").click()
         page.get_by_role("button", name="Run an approved campaign", exact=True).click()
-        assert page.evaluate("state.workspace.agent_access.profiles.length") == 0
+        assert page.evaluate("async () => ((await import('/app.mjs')).state.workspace.agent_access.profiles.length)") == 0
         posts.clear()
         page.get_by_role("button", name="Check connections for this goal", exact=True).click()
         expect(page.locator("#goal-readiness-mode")).to_be_visible()
@@ -194,7 +194,7 @@ def run(browser, width, out):
         expect(page.locator("#campaign-schedule-progress")).to_contain_text("CANCELLED")
         page.locator("#close-modal").click()
         page.reload()
-        page.wait_for_function("() => state.workspace?.app?.id===state.app")
+        page.wait_for_function('(state) => state.workspace?.app?.id===state.app', arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"))
         page.locator("#navigation > details > summary").click()
         page.locator("#navigation [data-view=connections]").click()
         page.get_by_role("button", name="Review campaign automation", exact=True).click()

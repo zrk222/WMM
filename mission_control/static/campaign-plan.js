@@ -145,3 +145,5 @@ const WMMCampaignPlan = (() => {
 })();
 
 if (typeof module !== 'undefined') module.exports = WMMCampaignPlan;
+
+if (typeof module === 'undefined') globalThis.WMMCampaignPlan = WMMCampaignPlan;

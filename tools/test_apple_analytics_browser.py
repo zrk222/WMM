@@ -47,7 +47,7 @@ def journey(browser, width, height):
         page.locator("#identity-token").fill("synthetic_owner_identity_token")
         dialog.get_by_role("button", name="Verify my identity", exact=True).click()
         expect(dialog).not_to_be_visible()
-        page.wait_for_function("() => state.workspace?.identity?.status === 'AUTHENTICATED'")
+        page.wait_for_function("(state) => state.workspace?.identity?.status === 'AUTHENTICATED'", arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"))
         page.locator('[data-action="apple-analytics-open"]').click()
         root = page.locator("#apple-analytics-root")
         expect(root).to_contain_text("No saved refresh schedule")

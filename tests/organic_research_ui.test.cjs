@@ -1,4 +1,4 @@
-const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{webcrypto}=require('node:crypto');
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('./helpers/module-source.cjs'),path=require('node:path'),{webcrypto}=require('node:crypto');
 const folder=path.join(__dirname,'../mission_control/static');
 const modelHolder={exports:{}};
 new Function('module','globalThis',fs.readFileSync(path.join(folder,'discovery-model.js'),'utf8'))(modelHolder,{});
@@ -94,9 +94,9 @@ test('explicit validation denial stays certain and server errors stay uncertain'
  for(const code of [400,403,500]){const t={scope:{app:'one'},d:{state:s(),fetch:async()=>({ok:false,status:code,json:async()=>({error:'Safe failure'})})}};await assert.rejects(()=>ui.request(t,'task-list',{}),e=>e.message==='Safe failure'&&e.uncertain===(code>=500));}
 });
 test('production entry points load the module and route actual actions, forms, invalidation and close',()=>{
- const app=fs.readFileSync(path.join(folder,'app.js'),'utf8')+fs.readFileSync(path.join(folder,'app-events.js'),'utf8'),index=fs.readFileSync(path.join(folder,'index.html'),'utf8');
+ const app=fs.readFileSync(path.join(folder,'app.mjs'),'utf8')+fs.readFileSync(path.join(folder,'app-events.mjs'),'utf8'),index=fs.readFileSync(path.join(folder,'index.html'),'utf8');
  const flat=app.replace(/\s+/g,'');for(const text of ['WMMOrganicResearch.panel()','WMMOrganicResearch.invalidate(state)','WMMOrganicResearch.clear()','WMMOrganicResearch.action(node,growthReviewServices())','WMMOrganicResearch.submit(form,growthReviewServices())'])assert.ok(flat.includes(text),text);
- assert.ok(index.includes('src="/organic-research.js"'));assert.ok(ui.panel().includes('100,000 views AND 10×'));
+ assert.match(index,/<script type="module" src="\/dashboard\.mjs"><\/script>/);assert.equal((require('node:fs').readFileSync(require('node:path').join(__dirname,'../mission_control/static/feature-apis.mjs'),'utf8').match(/import ['"]\.\/organic-research\.js['"];/g)||[]).length,1);assert.ok(ui.panel().includes('100,000 views AND 10×'));
 });
 
 test('YouTube Shorts metadata task scope is explicit and links reject other YouTube surfaces',()=>{const b=ui.taskBody(fd({...values,platform:['youtube']}),[grant()],s(),()=>'short-task');assert.deepEqual(b.policy.hosts,['www.youtube.com','youtube.com']);assert.equal(ui.safeURL('https://www.youtube.com/shorts/QAshort0000'),'https://www.youtube.com/shorts/QAshort0000');for(const u of ['https://www.youtube.com/watch?v=QAshort0000','https://youtu.be/QAshort0000','https://www.youtube.com/shorts/QAshort0000?x=1'])assert.equal(ui.safeURL(u),null);});

@@ -13,16 +13,17 @@ protocol. For current product boundaries, see [Release scope](../RELEASE-SCOPE.m
 
 ## JavaScript modules
 
-Static scripts stay classic, ordered `<script defer>` files so the app keeps its
-no-build-step constraint. `app.js` is now the shell (state, shared helpers,
-render loop and bootstrap). Screen and support modules load before it:
-`app-ui.js` (views, modal/focus, fields, forms, job helpers),
-`app-production.js`, `app-install.js`, `app-campaign.js`, `app-results.js`,
-`app-connections.js`, `app-research.js`, `app-weekly.js` and `app-events.js`
-(form/action routing). New groups follow the same pattern: load before
-`app.js`, reference only runtime globals, and join `tools/maintained_js.txt`.
-ES-module conversion waits for an explicit global-binding migration and the
-full browser matrix.
+The dashboard uses one native module entry, `dashboard.mjs`, without a build step.
+Its 45 controller modules declare relative imports and exports. `app.mjs` owns
+shared state and starts once, after the import graph initializes; controllers
+never expose that state on `window`. Screen modules retain their existing duties.
+
+`feature-apis.mjs` is the compatibility boundary for 27 existing feature libraries.
+They retain CommonJS test exports and browser API objects; they are not claimed
+as a complete library rewrite. Standalone callback pages retain their own scripts.
+Add new dashboard dependencies explicitly, join `tools/maintained_js.txt`, and run
+`node tools/check_es_modules.mjs`, ESLint and the browser flows. The graph check
+is a static tripwire; actual Chromium linking and behavior are separate evidence.
 
 ## Schema changes
 
