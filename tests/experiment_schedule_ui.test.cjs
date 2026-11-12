@@ -2,7 +2,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
-const all=fs.readFileSync('mission_control/static/app.js','utf8');
+const all=fs.readFileSync('mission_control/static/app-results.js','utf8');
 const section=all.slice(all.indexOf('function experimentSchedulePanel('),all.indexOf('function cohortForm('));
 function fixture(){
  const state={app:'one',boot:{csrf:'csrf'},workspace:{app:{id:'one',version:3},identity:{status:'AUTHENTICATED',principal:'owner',expires_at_epoch:99999999},access:{members:[{principal:'owner',status:'ACTIVE',role:'OWNER',version:2}]},experiments:[{id:'e1',hash:'hash',state:'OBSERVING'}],schedules:[]}};
