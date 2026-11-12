@@ -1,4 +1,5 @@
 """Shared input contracts. No credentials or personal conversations in records."""
+
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -76,7 +77,7 @@ def safe_data(value):
     forbidden = r'"(?:password|secret|token|api_key|access_token|private_key|client_secret|key_pem|chat_history|conversation|email|phone)"\s*:'
     if re.search(forbidden, encoded, re.I):
         raise Invalid("Do not store secrets, contacts or personal conversations here")
-    if re.search(r"https?://[^\s/\"]+:[^\s/\"]+@",encoded,re.I):
+    if re.search(r"https?://[^\s/\"]+:[^\s/\"]+@", encoded, re.I):
         raise Invalid("Remove embedded credentials from source URLs")
     return value
 

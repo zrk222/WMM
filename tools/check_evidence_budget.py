@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import re
 import subprocess
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_EVIDENCE_BYTES = 512 * 1024
@@ -27,9 +27,7 @@ def tracked_sizes(commit: str) -> dict[str, int]:
 
 def oversized_additions(base: dict[str, int], candidate: dict[str, int]) -> dict[str, int]:
     return {
-        path: size
-        for path, size in sorted(candidate.items())
-        if size > MAX_EVIDENCE_BYTES and size > base.get(path, 0)
+        path: size for path, size in sorted(candidate.items()) if size > MAX_EVIDENCE_BYTES and size > base.get(path, 0)
     }
 
 

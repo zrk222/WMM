@@ -2,15 +2,22 @@
 
 MAX_TOKENS = 10000000
 FIELDS = {
-    'input_tokens': (('input_tokens',), ('prompt_tokens',)),
-    'output_tokens': (('output_tokens',), ('completion_tokens',)),
-    'total_tokens': (('total_tokens',),),
-    'cache_read_tokens': (('cached_input_tokens',), ('cache_read_input_tokens',),
-                          ('prompt_cache_hit_tokens',),
-                          ('input_tokens_details', 'cached_tokens'), ('prompt_tokens_details', 'cached_tokens')),
-    'cache_miss_tokens': (('prompt_cache_miss_tokens',),),
-    'cache_write_tokens': (('cache_creation_input_tokens',),),
-    'reasoning_tokens': (('output_tokens_details', 'reasoning_tokens'), ('completion_tokens_details', 'reasoning_tokens')),
+    "input_tokens": (("input_tokens",), ("prompt_tokens",)),
+    "output_tokens": (("output_tokens",), ("completion_tokens",)),
+    "total_tokens": (("total_tokens",),),
+    "cache_read_tokens": (
+        ("cached_input_tokens",),
+        ("cache_read_input_tokens",),
+        ("prompt_cache_hit_tokens",),
+        ("input_tokens_details", "cached_tokens"),
+        ("prompt_tokens_details", "cached_tokens"),
+    ),
+    "cache_miss_tokens": (("prompt_cache_miss_tokens",),),
+    "cache_write_tokens": (("cache_creation_input_tokens",),),
+    "reasoning_tokens": (
+        ("output_tokens_details", "reasoning_tokens"),
+        ("completion_tokens_details", "reasoning_tokens"),
+    ),
 }
 MISSING = object()
 
@@ -34,18 +41,18 @@ def field_observation(value, name, paths):
     if not supplied:
         return None, None
     if any(type(item) is not int or not 0 <= item <= MAX_TOKENS for item in supplied):
-        return None, 'INVALID_' + name.upper()
+        return None, "INVALID_" + name.upper()
     if len(set(supplied)) != 1:
-        return None, 'CONFLICT_' + name.upper()
+        return None, "CONFLICT_" + name.upper()
     return supplied[0], None
 
 
 def observation(value):
     """Return safe canonical counts and explicit completeness without raw telemetry."""
     if value is None:
-        return dict(usage={}, usage_status='UNAVAILABLE', usage_issues=[])
+        return dict(usage={}, usage_status="UNAVAILABLE", usage_issues=[])
     if not isinstance(value, dict):
-        return dict(usage={}, usage_status='INVALID', usage_issues=['INVALID_USAGE_OBJECT'])
+        return dict(usage={}, usage_status="INVALID", usage_issues=["INVALID_USAGE_OBJECT"])
     counts = {}
     issues = []
     for name, paths in FIELDS.items():
@@ -60,7 +67,7 @@ def observation(value):
 def completeness(counts, issues):
     """Absence is not zero; a provider's explicit total is never reconstructed."""
     if not counts:
-        return 'INVALID' if issues else 'UNAVAILABLE'
-    if issues or not {'input_tokens', 'output_tokens', 'total_tokens'} <= counts.keys():
-        return 'PARTIAL'
-    return 'REPORTED'
+        return "INVALID" if issues else "UNAVAILABLE"
+    if issues or not {"input_tokens", "output_tokens", "total_tokens"} <= counts.keys():
+        return "PARTIAL"
+    return "REPORTED"

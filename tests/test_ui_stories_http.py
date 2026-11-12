@@ -19,6 +19,4 @@ class UIStoryHTTPTests(unittest.TestCase):
             )
         with urlopen(self.origin, timeout=15) as response:
             html = response.read().decode()
-            self.assertLess(
-                html.index("/ui-stories.js"), html.index("/page-reporting.js")
-            )
+            self.assertLess(html.index("/ui-stories.js"), html.index("/page-reporting.js"))

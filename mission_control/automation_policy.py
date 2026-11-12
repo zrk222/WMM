@@ -1,9 +1,13 @@
 """Typed app-owned automation preferences; no execution authority is stored here."""
+
 from .common import Invalid
 
 MODES = {"AUTO", "SUGGEST", "OFF"}
-METRICS = {"activation_rate": "Useful activation", "paid_conversion": "Paid conversion",
-           "retention_rate": "Retained value"}
+METRICS = {
+    "activation_rate": "Useful activation",
+    "paid_conversion": "Paid conversion",
+    "retention_rate": "Retained value",
+}
 
 
 def bounded_text(value, name, maximum):

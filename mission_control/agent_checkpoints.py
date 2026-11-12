@@ -4,6 +4,7 @@ Principals passed here MUST come from a separately authenticated adapter. This
 internal interface cannot establish a human identity from a caller-supplied name.
 Approval records are intentionally absent from portable snapshot exports.
 """
+
 from datetime import datetime, timedelta, timezone
 import json
 from .common import Invalid, canonical, digest, identifier, iso_time
@@ -32,8 +33,13 @@ def packet_data(db, app_id, principal, body, observed):
     if not app or type(body["manifest_version"]) is not int or body["manifest_version"] != app["version"]:
         raise Invalid("Checkpoint manifest changed")
     role = member(db, app_id, principal, "MAKER")
-    return dict(body, app_id=app_id, app_hash=digest(json.loads(app["data"])),
-                maker=principal, maker_role_version=role["version"])
+    return dict(
+        body,
+        app_id=app_id,
+        app_hash=digest(json.loads(app["data"])),
+        maker=principal,
+        maker_role_version=role["version"],
+    )
 
 
 def hashed(value):
@@ -69,35 +75,51 @@ def read_row(db, app_id, identity, revision=_READ):
 
 def persist(db, row, state, actor, observed, evidence=None):
     """Append immutable transition evidence in the same transaction as state."""
-    event = dict(state=state, actor=actor, observed_at=observed.isoformat(), evidence_hash=evidence,
-                 previous_hash=row["history"][-1]["hash"] if row["history"] else None)
+    event = dict(
+        state=state,
+        actor=actor,
+        observed_at=observed.isoformat(),
+        evidence_hash=evidence,
+        previous_hash=row["history"][-1]["hash"] if row["history"] else None,
+    )
     row["history"].append(dict(event, hash=digest(event)))
     row.update(state=state, revision=row["revision"] + 1)
     packet = row["packet"]
-    db.execute("INSERT INTO agent_checkpoints VALUES(?,?,?,?) ON CONFLICT(app_id,id) DO UPDATE SET data=excluded.data,revision=excluded.revision",
-               (packet["app_id"], packet["id"], canonical(row), row["revision"]))
+    db.execute(
+        "INSERT INTO agent_checkpoints VALUES(?,?,?,?) ON CONFLICT(app_id,id) DO UPDATE SET data=excluded.data,revision=excluded.revision",
+        (packet["app_id"], packet["id"], canonical(row), row["revision"]),
+    )
     return row
 
 
-def prepare_in_db(db,app_id,principal,body,observed):
+def prepare_in_db(db, app_id, principal, body, observed):
     """Share immutable preparation with adapters that already hold a writer transaction."""
-    packet=packet_data(db,app_id,principal,body,observed)
-    old=db.execute('SELECT data FROM agent_checkpoints WHERE app_id=? AND id=?',(app_id,body['id'])).fetchone()
+    packet = packet_data(db, app_id, principal, body, observed)
+    old = db.execute("SELECT data FROM agent_checkpoints WHERE app_id=? AND id=?", (app_id, body["id"])).fetchone()
     if old:
-        row=json.loads(old['data'])
-        if row['hash']!=digest(packet):raise Invalid('Checkpoint identity is immutable')
+        row = json.loads(old["data"])
+        if row["hash"] != digest(packet):
+            raise Invalid("Checkpoint identity is immutable")
         return row
-    row=dict(packet=packet,hash=digest(packet),state='WAITING_REVIEW',revision=0,checker=None,checker_role_version=None,history=[])
-    return persist(db,row,'WAITING_REVIEW',principal,observed)
+    row = dict(
+        packet=packet,
+        hash=digest(packet),
+        state="WAITING_REVIEW",
+        revision=0,
+        checker=None,
+        checker_role_version=None,
+        history=[],
+    )
+    return persist(db, row, "WAITING_REVIEW", principal, observed)
 
 
-def claim_in_db(db,app_id,identity,agent_id,revision,packet_hash,observed):
+def claim_in_db(db, app_id, identity, agent_id, revision, packet_hash, observed):
     """Share exclusive current admission with a grant-bound effect dispatcher."""
-    row=read_row(db,app_id,identity,revision)
-    if row['state']!='APPROVED' or row['packet']['agent_id']!=agent_id or row['hash']!=packet_hash:
-        raise Invalid('Claim requires the approved agent, exact hash and current state')
-    current(db,row,observed)
-    return persist(db,row,'RUNNING',agent_id,observed)
+    row = read_row(db, app_id, identity, revision)
+    if row["state"] != "APPROVED" or row["packet"]["agent_id"] != agent_id or row["hash"] != packet_hash:
+        raise Invalid("Claim requires the approved agent, exact hash and current state")
+    current(db, row, observed)
+    return persist(db, row, "RUNNING", agent_id, observed)
 
 
 class Checkpoints:
@@ -111,7 +133,7 @@ class Checkpoints:
         """Create immutable intent; identical replay cannot resurrect authority."""
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
-            return prepare_in_db(db,app_id,principal,body,self.clock())
+            return prepare_in_db(db, app_id, principal, body, self.clock())
 
     def inspect(self, app_id, identity):
         """Return durable state and derived availability without granting permission."""
@@ -122,7 +144,11 @@ class Checkpoints:
                 available = row["state"] == "APPROVED"
             except (Invalid, PermissionError):
                 available = False
-        return dict(row, claim_available=available, reconciliation_required=row["state"] in ("RUNNING", "UNKNOWN", "CANCEL_REQUESTED"))
+        return dict(
+            row,
+            claim_available=available,
+            reconciliation_required=row["state"] in ("RUNNING", "UNKNOWN", "CANCEL_REQUESTED"),
+        )
 
     def approve(self, app_id, identity, principal, revision, packet_hash):
         """Require an authenticated adapter's distinct current checker identity."""
@@ -140,7 +166,7 @@ class Checkpoints:
         """Admit once; an effect adapter must separately validate input and grants."""
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
-            return claim_in_db(db,app_id,identity,agent_id,revision,packet_hash,self.clock())
+            return claim_in_db(db, app_id, identity, agent_id, revision, packet_hash, self.clock())
 
     def finish(self, app_id, identity, agent_id, revision, outcome, evidence_hash):
         """Record a receipt even after expiry; never authorize an automatic retry."""

@@ -1,4 +1,5 @@
 """Build a deterministic CycloneDX 1.5 inventory of installed build dependencies."""
+
 from __future__ import annotations
 
 import argparse
@@ -19,7 +20,7 @@ def license_name(metadata) -> str | None:
     for classifier in metadata.get_all("Classifier") or []:
         prefix = "License ::"
         if classifier.startswith(prefix):
-            return classifier[len(prefix):].strip()
+            return classifier[len(prefix) :].strip()
     return None
 
 

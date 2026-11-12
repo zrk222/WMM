@@ -64,11 +64,7 @@ def proposal(body):
     whole(body["cadence_seconds"], 30, 86400)
     whole(body["max_reports"], 1, 100)
     expiry = iso_time(body["expires_at"])
-    if (
-        not datetime.now(timezone.utc)
-        < expiry
-        <= datetime.now(timezone.utc) + timedelta(days=7)
-    ):
+    if not datetime.now(timezone.utc) < expiry <= datetime.now(timezone.utc) + timedelta(days=7):
         raise Invalid("Report plan expiry must be within the next 7 days")
     return dict(body, selection=chosen, expires_at=expiry.isoformat())
 
@@ -122,7 +118,8 @@ def binding(db, store, app_id, owner, chosen):
         if (monitor_data["app_id"], monitor_data["owner"]) != (app_id, owner):
             raise Invalid("Report summary ownership changed")
         if (monitor_data["source"]["scope_id"], monitor_data["source"]["scope_hash"]) != (
-            scope["id"], scope["summary_hash"]
+            scope["id"],
+            scope["summary_hash"],
         ):
             raise Invalid("Monitor and campaign scope do not match")
     experiment = experiment_source(db, app_id, chosen["experiment_id"])
@@ -161,9 +158,7 @@ def experiment_source(db, app_id, identity, *, review_window=None, observed_at=N
         primary_metric=data["primary_metric"],
         analysis_at=data["analysis_at"],
         state=row["state"],
-        maturity="ANALYSIS_WINDOW_REACHED"
-        if analysis_at <= observed
-        else "AWAITING_ANALYSIS",
+        maturity="ANALYSIS_WINDOW_REACHED" if analysis_at <= observed else "AWAITING_ANALYSIS",
         review_window_alignment="MATCHED" if aligned else "NOT_MATCHED",
         assessment_in_window=bool(latest and analysis_at <= iso_time(latest["created"]) <= observed),
         assessment=assessment,
@@ -190,6 +185,7 @@ def assessment_view(row, definition_hash, definition):
     if state not in ("BLOCKED", "INCONCLUSIVE", "EVALUATED"):
         raise Invalid("Unsupported saved experiment assessment state")
     from .experiment_iteration import iteration_plan
+
     matches = data.get("definition_hash") == definition_hash
     return dict(
         hash=row["hash"],
@@ -208,15 +204,9 @@ def effect_view(data):
     if data is None:
         return None
     exact(data, ("control_rate", "treatment_rate", "difference", "interval", "method"))
-    result = {
-        key: data[key]
-        for key in ("control_rate", "treatment_rate", "difference", "interval")
-    }
+    result = {key: data[key] for key in ("control_rate", "treatment_rate", "difference", "interval")}
     canonical(result)
-    if any(
-        type(result[key]) not in (float, int)
-        for key in ("control_rate", "treatment_rate", "difference")
-    ):
+    if any(type(result[key]) not in (float, int) for key in ("control_rate", "treatment_rate", "difference")):
         raise Invalid("Invalid saved assessment numeric effect")
     if (
         not isinstance(result["interval"], list)
@@ -247,13 +237,16 @@ def campaign_view(db, app_id, owner, scope_id):
         "SELECT * FROM campaign_paid_intents WHERE app_id=? AND scope_id=? ORDER BY id",
         (app_id, scope_id),
     ):
-        item = {key: row[key] for key in ('id', 'request_id', 'request_hash', 'status',
-                'ids', 'commitment', 'currency', 'updated')}
-        item['kind'] = 'AD'
+        item = {
+            key: row[key]
+            for key in ("id", "request_id", "request_hash", "status", "ids", "commitment", "currency", "updated")
+        }
+        item["kind"] = "AD"
         receipt = saved_pause_receipt(db, row)
         if receipt is not None:
-            item['pause_readback'] = {key: receipt[key] for key in
-                ('configured_status', 'effective_status', 'observed_at', 'sha256')}
+            item["pause_readback"] = {
+                key: receipt[key] for key in ("configured_status", "effective_status", "observed_at", "sha256")
+            }
         if item["currency"] != summary["currency"]:
             raise Invalid("Campaign receipt currency differs from approved scope")
         ids = object_data(item.pop("ids"))
@@ -285,9 +278,7 @@ def definitions(db, app_id, metrics):
     """Compare metric identities and units, never just similarly named totals."""
     cohorts = [
         _cohort_definition(object_data(row["data"]))
-        for row in db.execute(
-            "SELECT data FROM growth_cohorts WHERE app_id=? ORDER BY id", (app_id,)
-        )
+        for row in db.execute("SELECT data FROM growth_cohorts WHERE app_id=? ORDER BY id", (app_id,))
     ]
     records = []
     for row in db.execute(
@@ -364,9 +355,7 @@ def comparison(db, app_id, owner, key, current):
         (app_id, owner, key),
     ).fetchone()
     if previous is None:
-        return dict(
-            status="NO_COMPATIBLE_PREVIOUS_SNAPSHOT", previous_id=None, changes=[]
-        )
+        return dict(status="NO_COMPATIBLE_PREVIOUS_SNAPSHOT", previous_id=None, changes=[])
     old = object_data(previous["data"])
     if digest(old) != previous["hash"]:
         raise Invalid("Previous private report integrity changed")
@@ -396,14 +385,19 @@ def build(db, store, app_id, owner, chosen):
     if chosen["monitor_id"] is not None:
         monitor = owned_resource(db, "campaign_monitors", app_id, owner, chosen["monitor_id"])
         monitor_view = dict(
-            id=monitor["id"], status=monitor["status"], summary_hash=monitor["summary_hash"],
+            id=monitor["id"],
+            status=monitor["status"],
+            summary_hash=monitor["summary_hash"],
             last_observation=last_observation(db, monitor, object_data(monitor["summary"])),
         )
     metrics = snapshot(db, store, app_id, observed, include_workflows=False)
     campaign = campaign_view(db, app_id, owner, chosen["scope_id"])
     experiment = experiment_source(
-        db, app_id, chosen["experiment_id"],
-        review_window=chosen["measurement_window"], observed_at=observed,
+        db,
+        app_id,
+        chosen["experiment_id"],
+        review_window=chosen["measurement_window"],
+        observed_at=observed,
     )
     metric_hash = definitions(db, app_id, metrics)
     key = digest(
@@ -418,9 +412,7 @@ def build(db, store, app_id, owner, chosen):
     )
     coverage = dict(
         available_rows=sum(
-            r["observed"] is not None
-            for r in metrics["rows"]
-            if r["metric"] not in ("Report scope", "Units")
+            r["observed"] is not None for r in metrics["rows"] if r["metric"] not in ("Report scope", "Units")
         ),
         unknown_rows=sum(r["observed"] is None for r in metrics["rows"]),
         window_alignment="SOURCE_WINDOWS_RETAINED_REQUESTED_WINDOW_NOT_FILTERED",
@@ -459,31 +451,26 @@ def build(db, store, app_id, owner, chosen):
 
 def next_action(campaign, monitor, experiment):
     uncertain = ("UNKNOWN", "DISPATCHING", "ACKNOWLEDGED", "VERIFYING")
-    if any(
-        r["status"] in uncertain or r["status"].startswith("PENDING_")
-        for r in campaign["receipts"]
-    ):
+    if any(r["status"] in uncertain or r["status"].startswith("PENDING_") for r in campaign["receipts"]):
         return "Inspect and reconcile the exact uncertain campaign receipts; do not replay mutations."
     if _historical(campaign):
         return "Review historical campaign receipts; this report does not renew expired or OFF execution authority."
     observation = monitor["last_observation"]
     if monitor["id"] and not observation:
-        return (
-            "Inspect the selected monitor; no saved monitor observation is available."
-        )
+        return "Inspect the selected monitor; no saved monitor observation is available."
     if observation and observation.get("status") == "BLOCKED":
         return "Inspect the blocked monitor and reconcile its saved campaign receipts; do not replay mutations."
     if not experiment:
         return "Choose a primary outcome and a measured study for this campaign. App-wide KPI totals do not show what this campaign did."
     if experiment["review_window_alignment"] != "MATCHED":
-        return "Use the selected experiment’s exact acquisition dates as the report window before interpreting its result."
+        return (
+            "Use the selected experiment’s exact acquisition dates as the report window before interpreting its result."
+        )
     if experiment["maturity"] == "AWAITING_ANALYSIS":
         return "Wait for the declared experiment analysis window and mature evidence."
     assessment = experiment["assessment"]
     if not assessment or not experiment["assessment_in_window"] or not assessment["definition_matches"]:
-        return (
-            "Review current evidence and explicitly evaluate the existing experiment."
-        )
+        return "Review current evidence and explicitly evaluate the existing experiment."
     iteration = assessment["iteration"]
     draft = iteration["draft"]
     change = " Draft for review. " + draft["proposed_change"] if draft else ""
@@ -492,9 +479,7 @@ def next_action(campaign, monitor, experiment):
 
 def _historical(campaign):
     permission_expiry = campaign.get("permission_expires_at", campaign["expires_at"])
-    return campaign["status"] != "ACTIVE" or iso_time(
-        permission_expiry
-    ) <= iso_time(now())
+    return campaign["status"] != "ACTIVE" or iso_time(permission_expiry) <= iso_time(now())
 
 
 def report_view(row):
@@ -539,11 +524,7 @@ def save_report(db, store, app_id, owner, chosen, key, plan_id=None):
             stamp,
         ),
     )
-    return report_view(
-        db.execute(
-            "SELECT * FROM campaign_owner_reports WHERE id=?", (identity,)
-        ).fetchone()
-    )
+    return report_view(db.execute("SELECT * FROM campaign_owner_reports WHERE id=?", (identity,)).fetchone())
 
 
 class Reports:
@@ -559,9 +540,7 @@ class Reports:
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
             binding(db, self.store, app_id, owner, chosen)
-            return save_report(
-                db, self.store, app_id, owner, chosen, "owner:" + body["request_key"]
-            )
+            return save_report(db, self.store, app_id, owner, chosen, "owner:" + body["request_key"])
 
     def prepare(self, app_id, body):
         owner = actor(self.store, app_id)
@@ -591,11 +570,7 @@ class Reports:
                     stamp,
                 ),
             )
-            return plan_view(
-                db.execute(
-                    "SELECT * FROM campaign_report_plans WHERE id=?", (identity,)
-                ).fetchone()
-            )
+            return plan_view(db.execute("SELECT * FROM campaign_report_plans WHERE id=?", (identity,)).fetchone())
 
     def activate(self, app_id, identity, summary_hash):
         owner = actor(self.store, app_id)
@@ -641,9 +616,7 @@ class Reports:
         owner = actor(self.store, app_id)
         with connection(self.store.path) as db:
             member(db, app_id, owner, "OWNER")
-            return report_view(
-                owned_resource(db, "campaign_owner_reports", app_id, owner, identity)
-            )
+            return report_view(owned_resource(db, "campaign_owner_reports", app_id, owner, identity))
 
     def history(self, app_id):
         owner = actor(self.store, app_id)
@@ -683,9 +656,7 @@ def plan_view(row):
 def _current_plan_view(db, store, row):
     value = plan_view(row)
     value["effective_status"] = row["status"]
-    value["next_action"] = (
-        "Inspect the saved private report plan and current source evidence."
-    )
+    value["next_action"] = "Inspect the saved private report plan and current source evidence."
     if row["status"] == "ACTIVE":
         try:
             checked_plan(db, store, row)
@@ -720,9 +691,7 @@ def _current_plan_view(db, store, row):
             except (Invalid, ValueError, TypeError):
                 pass
         try:
-            current = binding(
-                db, store, row["app_id"], row["owner"], proposal["selection"]
-            )
+            current = binding(db, store, row["app_id"], row["owner"], proposal["selection"])
             if current != summary["source"]:
                 value["next_action"] = (
                     "The report plan source or owner binding changed. Review current sources and prepare a new plan."
@@ -765,9 +734,7 @@ def checked_plan(db, store, row):
         raise PermissionError("Private report plan is OFF or changed")
     if iso_time(summary["proposal"]["expires_at"]).timestamp() <= time.time():
         raise PermissionError("Private report plan expired")
-    current = binding(
-        db, store, row["app_id"], row["owner"], summary["proposal"]["selection"]
-    )
+    current = binding(db, store, row["app_id"], row["owner"], summary["proposal"]["selection"])
     if current != summary["source"]:
         raise PermissionError("Private report authority source changed")
     return summary
@@ -793,11 +760,7 @@ def report_due(db, store, row):
     except (Invalid, PermissionError, ValueError, KeyError):
         block(db, row["id"])
         return False
-    job = (
-        db.execute("SELECT status FROM jobs WHERE id=?", (row["last_job"],)).fetchone()
-        if row["last_job"]
-        else None
-    )
+    job = db.execute("SELECT status FROM jobs WHERE id=?", (row["last_job"],)).fetchone() if row["last_job"] else None
     if job and job["status"] in ("QUEUED", "RUNNING"):
         return False
     if row["last_job"] and (job is None or job["status"] != "SUCCEEDED"):
@@ -914,9 +877,7 @@ def dispatch(store, app, action, body):
     routes = {
         "capture": lambda: service.capture(app, body),
         "prepare": lambda: service.prepare(app, body["proposal"]),
-        "activate": lambda: service.activate(
-            app, body["plan_id"], body["summary_hash"]
-        ),
+        "activate": lambda: service.activate(app, body["plan_id"], body["summary_hash"]),
         "status": lambda: service.status(app, body["plan_id"]),
         "off": lambda: service.off(app, body["plan_id"], body["version"]),
         "read": lambda: service.read(app, body["report_id"]),
@@ -935,9 +896,7 @@ def post(handler, parts):
         raise PermissionError("Reload the private report session")
     owner = handler.server.identities.fresh(session)
     store = handler.server.service.store
-    envelope = dict(
-        app_id=parts[2], operation="campaign.owner-report." + parts[4], input={}
-    )
+    envelope = dict(app_id=parts[2], operation="campaign.owner-report." + parts[4], input={})
     from .discovery_http import json_body
 
     with (
@@ -946,9 +905,7 @@ def post(handler, parts):
     ):
         return handler.send(
             200,
-            dispatch(
-                store, parts[2], parts[4], json_body(handler, "Private owner report")
-            ),
+            dispatch(store, parts[2], parts[4], json_body(handler, "Private owner report")),
         )
 
 
@@ -964,7 +921,5 @@ def _http_request(handler, parts):
     origin = "http://127.0.0.1:" + str(handler.server.server_port)
     if handler.command != "POST" or handler.path != "/" + "/".join(parts):
         raise Invalid("Use an exact private report POST")
-    if handler.headers.get_all("Host") != [origin[7:]] or handler.headers.get_all(
-        "Origin"
-    ) != [origin]:
+    if handler.headers.get_all("Host") != [origin[7:]] or handler.headers.get_all("Origin") != [origin]:
         raise PermissionError("Use the exact private report origin")

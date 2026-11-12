@@ -1,4 +1,5 @@
 """Immutable customer research in the app-owned store; portable records grant no authority."""
+
 from datetime import datetime, timezone
 import json
 from .common import Invalid, canonical, digest, identifier, iso_time
@@ -43,7 +44,10 @@ def restore(db, app_id, rows):
         if row["id"] in identities:
             raise Invalid("Customer workflow snapshot has duplicate identities")
         identities.add(row["id"])
-        db.execute("INSERT INTO customer_workflows VALUES(?,?,?,?,?,?)", (app_id, row["id"], canonical(row["data"]), row["hash"], row["created"], 1))
+        db.execute(
+            "INSERT INTO customer_workflows VALUES(?,?,?,?,?,?)",
+            (app_id, row["id"], canonical(row["data"]), row["hash"], row["created"], 1),
+        )
 
 
 class CustomerWorkflows:
@@ -65,7 +69,9 @@ class CustomerWorkflows:
             if any(app["data"].get(key) != row["data"][key] for key in ("release", "locale", "currency")):
                 readout = dict(readout, status="STALE_APP_SCOPE")
             results.append(dict(row, readout=readout))
-        return dict(app_id=app_id, history=results, source_hash=digest(rows), external_writes=False, demand_verified=False)
+        return dict(
+            app_id=app_id, history=results, source_hash=digest(rows), external_writes=False, demand_verified=False
+        )
 
     def save(self, app_id, body):
         """Bind the optimistic manifest and immutable research identity atomically."""
@@ -94,5 +100,8 @@ class CustomerWorkflows:
         if len(rows) >= 1000:
             raise Invalid("Customer workflow history exceeds 1000 entries")
         created = stamp.isoformat()
-        db.execute("INSERT INTO customer_workflows VALUES(?,?,?,?,?,?)", (app_id, identity, canonical(value), hashed, created, 0))
+        db.execute(
+            "INSERT INTO customer_workflows VALUES(?,?,?,?,?,?)",
+            (app_id, identity, canonical(value), hashed, created, 0),
+        )
         return dict(app_id=app_id, id=identity, data=value, hash=hashed, created=created, imported=0)

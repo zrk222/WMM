@@ -1,4 +1,5 @@
 """Minimal BYOC ingest SDK: HTTPS token health/ingest, fail closed, no fallback."""
+
 from __future__ import annotations
 
 import json
@@ -76,8 +77,7 @@ class CloudIngest:
         """Send one already-validated batch; no retry and no local fallback."""
         if not isinstance(batch, dict) or not batch:
             raise ValueError("Use one validated install batch")
-        value = self._request("POST", "/v1/install-batches",
-                              {"batch": batch}, idempotency_key=idempotency_key)
+        value = self._request("POST", "/v1/install-batches", {"batch": batch}, idempotency_key=idempotency_key)
         if value.get("schema") != SCHEMA or value.get("status") not in ("ACCEPTED", "DUPLICATE"):
             raise IngestError("Cloud did not accept the install batch")
         receipt = value.get("receipt")

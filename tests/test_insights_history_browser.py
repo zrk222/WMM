@@ -1,4 +1,5 @@
 """Open saved analytics through the real Results page with synthetic provider reads."""
+
 import json
 import os
 from pathlib import Path
@@ -24,12 +25,17 @@ class InsightsHistoryBrowserTests(unittest.TestCase):
         host.setUp()
         self.addCleanup(host.tearDown)
         store = host.server.service.store
-        with patch("mission_control.insights.Vault", FakeVault), patch(
-            "mission_control.insights_transport.request",
-            side_effect=[
-                {"id": 123}, {"results": [["signup_completed", 0]]},
-                {"id": 123}, {"results": [["signup_completed", 7]]},
-            ],
+        with (
+            patch("mission_control.insights.Vault", FakeVault),
+            patch(
+                "mission_control.insights_transport.request",
+                side_effect=[
+                    {"id": 123},
+                    {"results": [["signup_completed", 0]]},
+                    {"id": 123},
+                    {"results": [["signup_completed", 7]]},
+                ],
+            ),
         ):
             source_id = Insights(store).setup("sample-one", setup_body())["source_id"]
             Insights(store).setup("sample-one", dict(setup_body(), version=1))
@@ -41,18 +47,27 @@ class InsightsHistoryBrowserTests(unittest.TestCase):
             browser = runtime.chromium.launch()
             for width in (390, 1280):
                 with self.subTest(width=width):
-                    with browser.new_context(viewport={"width": width, "height": 900}, accept_downloads=True) as context:
-                        context.add_cookies([
-                            dict(name=c.name, value=c.value, domain="127.0.0.1", path=c.path or "/")
-                            for c in host.owner.cookies
-                        ])
+                    with browser.new_context(
+                        viewport={"width": width, "height": 900}, accept_downloads=True
+                    ) as context:
+                        context.add_cookies(
+                            [
+                                dict(name=c.name, value=c.value, domain="127.0.0.1", path=c.path or "/")
+                                for c in host.owner.cookies
+                            ]
+                        )
                         context.add_init_script("localStorage.setItem('growth-app','sample-one')")
-                        context.route("**/*", lambda route: (
-                            route.continue_() if route.request.url.startswith(host.origin + "/") else route.abort()
-                        ))
+                        context.route(
+                            "**/*",
+                            lambda route: (
+                                route.continue_() if route.request.url.startswith(host.origin + "/") else route.abort()
+                            ),
+                        )
                         page = context.new_page()
                         page.goto(host.origin)
-                        page.wait_for_function("() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one'")
+                        page.wait_for_function(
+                            "() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one'"
+                        )
                         nav = page.locator('[data-view="results"]')
                         if not nav.is_visible():
                             page.locator("details").filter(has=nav).locator("summary").first.click()

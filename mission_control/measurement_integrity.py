@@ -1,11 +1,18 @@
 """Read-only financial correspondence; no inferred attribution or cash allocation."""
+
 import json
 import sqlite3
 from .common import Invalid, digest
 from .db import connection
 
-TABLES = ("growth_cohorts", "growth_events", "payment_sources", "payment_receipts",
-          "payment_attempts", "payment_effects")
+TABLES = (
+    "growth_cohorts",
+    "growth_events",
+    "payment_sources",
+    "payment_receipts",
+    "payment_attempts",
+    "payment_effects",
+)
 KINDS = {"PURCHASE": "charge", "REFUND": "refund", "REFUND_REVERSED": "refund_reversal"}
 LIMIT = 10000
 
@@ -30,7 +37,9 @@ def snapshot(store, app) -> object:
     with connection(store.path) as db:
         db.execute("BEGIN")
         for table in TABLES:
-            rows = db.execute(f"SELECT * FROM {table} WHERE app_id=? ORDER BY rowid LIMIT ?", (app, LIMIT + 1)).fetchall()
+            rows = db.execute(
+                f"SELECT * FROM {table} WHERE app_id=? ORDER BY rowid LIMIT ?", (app, LIMIT + 1)
+            ).fetchall()
             if len(rows) > LIMIT:
                 raise Invalid("Measurement comparison exceeds 10000 rows in a collection; inspect a bounded export")
             result[table] = [validated(row, table) for row in rows]
@@ -45,7 +54,10 @@ def lineage(receipt, attempt, sources):
     source = sources.get(data.get("source_id"))
     if not source or source["imported"] or source["status"] != "ACTIVE":
         return None
-    if receipt["status"] not in ("RECONCILED", "DUPLICATE_EFFECT") or data.get("status") not in ("RECONCILED", "DUPLICATE_EFFECT"):
+    if receipt["status"] not in ("RECONCILED", "DUPLICATE_EFFECT") or data.get("status") not in (
+        "RECONCILED",
+        "DUPLICATE_EFFECT",
+    ):
         return None
     if data.get("receipt_hash") != receipt["hash"] or data.get("source_version") != source["version"]:
         return None
@@ -55,12 +67,14 @@ def lineage(receipt, attempt, sources):
 def authorized_effect(effect, source, receipt):
     """Match immutable provider identity and account/mode with the signed receipt."""
     config, signed = source["data"], receipt["data"]
-    return (effect.get("account_id") == config.get("account_id")
-            and type(effect.get("livemode")) is bool
-            and effect["livemode"] is config.get("livemode")
-            and effect["livemode"] is signed.get("livemode")
-            and effect.get("object_id") == signed.get("object_id")
-            and effect.get("charge_id") == signed.get("charge_id"))
+    return (
+        effect.get("account_id") == config.get("account_id")
+        and type(effect.get("livemode")) is bool
+        and effect["livemode"] is config.get("livemode")
+        and effect["livemode"] is signed.get("livemode")
+        and effect.get("object_id") == signed.get("object_id")
+        and effect.get("charge_id") == signed.get("charge_id")
+    )
 
 
 def current_effects(data):
@@ -114,9 +128,12 @@ def correspondence(event, effect, available):
     if not effect:
         return "UNVERIFIED"
     expected = KINDS[event["type"]]
-    matched = (effect["kind"] == expected and effect["currency"] == event["currency"]
-               and amount_corresponds(event, effect)
-               and relationship(event, effect, available))
+    matched = (
+        effect["kind"] == expected
+        and effect["currency"] == event["currency"]
+        and amount_corresponds(event, effect)
+        and relationship(event, effect, available)
+    )
     if not matched:
         return "CONFLICT"
     return "CASH_MATCHED" if effect["livemode"] else "TEST_ONLY"
@@ -135,10 +152,17 @@ def row_result(row, available):
     """Return financial IDs and hashes, never subject IDs or arbitrary source prose."""
     event = row["data"]
     effect = available.get((event["provider"], event["event_id"]))
-    return {"cohort_id": row["cohort_id"], "event_id": event["event_id"], "provider": event["provider"],
-            "type": event["type"], "currency": event["currency"], "amount_minor": event["amount_minor"],
-            "state": correspondence(event, effect, available), "ledger_sha256": row["hash"],
-            "settlement_sha256": digest(effect) if effect else None}
+    return {
+        "cohort_id": row["cohort_id"],
+        "event_id": event["event_id"],
+        "provider": event["provider"],
+        "type": event["type"],
+        "currency": event["currency"],
+        "amount_minor": event["amount_minor"],
+        "state": correspondence(event, effect, available),
+        "ledger_sha256": row["hash"],
+        "settlement_sha256": digest(effect) if effect else None,
+    }
 
 
 def report_state(rows, unallocated, withheld=False):
@@ -159,18 +183,38 @@ def compare(data) -> object:
     financial = [row for row in data["growth_events"] if row["data"]["type"] in KINDS]
     rows = [row_result(row, available) for row in financial]
     used = {(row["provider"], row["event_id"]) for row in rows}
-    unallocated = [{"provider": provider, "balance_id": balance, "currency": effect["currency"],
-                    "kind": effect["kind"], "settlement_sha256": digest(effect), "state": "UNALLOCATED"}
-                   for (provider, balance), effect in sorted(available.items()) if (provider, balance) not in used]
-    counts = {state: sum(row["state"] == state for row in rows)
-              for state in ("CASH_MATCHED", "TEST_ONLY", "UNVERIFIED", "CONFLICT", "UNSUPPORTED_PROVIDER")}
+    unallocated = [
+        {
+            "provider": provider,
+            "balance_id": balance,
+            "currency": effect["currency"],
+            "kind": effect["kind"],
+            "settlement_sha256": digest(effect),
+            "state": "UNALLOCATED",
+        }
+        for (provider, balance), effect in sorted(available.items())
+        if (provider, balance) not in used
+    ]
+    counts = {
+        state: sum(row["state"] == state for row in rows)
+        for state in ("CASH_MATCHED", "TEST_ONLY", "UNVERIFIED", "CONFLICT", "UNSUPPORTED_PROVIDER")
+    }
     withheld = len(data["payment_effects"]) - len(available)
-    pending = sum(row["status"] not in ("RECONCILED", "DUPLICATE_EFFECT", "NO_EFFECT") for row in data["payment_receipts"])
-    result = {"app_id": data["app_id"], "state": report_state(rows, unallocated, withheld or pending), "counts": counts,
-              "withheld_settlements": withheld, "pending_receipts": pending,
-              "rows": rows, "unallocated": unallocated, "input_sha256": digest(data),
-              "scope": "DELIVERED_RECORDS_ONLY; imported ledger; financial correspondence does not verify consent, subject ownership, cohort attribution, account completeness or earned revenue",
-              "repair": "Use stripe_live or stripe_test with the exact balance transaction ID. Compare net settlement minor units, currency and related purchase/refund balance IDs. Connect and reconcile current payment evidence in Connections."}
+    pending = sum(
+        row["status"] not in ("RECONCILED", "DUPLICATE_EFFECT", "NO_EFFECT") for row in data["payment_receipts"]
+    )
+    result = {
+        "app_id": data["app_id"],
+        "state": report_state(rows, unallocated, withheld or pending),
+        "counts": counts,
+        "withheld_settlements": withheld,
+        "pending_receipts": pending,
+        "rows": rows,
+        "unallocated": unallocated,
+        "input_sha256": digest(data),
+        "scope": "DELIVERED_RECORDS_ONLY; imported ledger; financial correspondence does not verify consent, subject ownership, cohort attribution, account completeness or earned revenue",
+        "repair": "Use stripe_live or stripe_test with the exact balance transaction ID. Compare net settlement minor units, currency and related purchase/refund balance IDs. Connect and reconcile current payment evidence in Connections.",
+    }
     return dict(result, sha256=digest(result))
 
 
@@ -179,6 +223,12 @@ def view(store, app) -> object:
     try:
         return compare(snapshot(store, app))
     except (Invalid, ValueError, KeyError, TypeError, sqlite3.DatabaseError):
-        return {"app_id": app, "state": "UNAVAILABLE", "counts": None, "rows": [], "unallocated": [],
-                "scope": "Comparison unavailable; no previous success is reused.",
-                "repair": "Refresh and inspect payment and imported ledger source history. Evidence may be missing, corrupt or over capacity."}
+        return {
+            "app_id": app,
+            "state": "UNAVAILABLE",
+            "counts": None,
+            "rows": [],
+            "unallocated": [],
+            "scope": "Comparison unavailable; no previous success is reused.",
+            "repair": "Refresh and inspect payment and imported ledger source history. Evidence may be missing, corrupt or over capacity.",
+        }

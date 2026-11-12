@@ -54,10 +54,15 @@ def poll_monitor_process(path, provider_objects, mutations, interrupt_after_paus
 
     wire.set_paid_status = pause
     with (
-        patch.object(CampaignExecutionService, "_credentials",
-                     return_value=({}, "fixture-secret", {"access_token": "fixture-token"})),
-        patch("mission_control.campaign_transport.MetaTransport.request",
-              side_effect=AssertionError("Live provider forbidden")),
+        patch.object(
+            CampaignExecutionService,
+            "_credentials",
+            return_value=({}, "fixture-secret", {"access_token": "fixture-token"}),
+        ),
+        patch(
+            "mission_control.campaign_transport.MetaTransport.request",
+            side_effect=AssertionError("Live provider forbidden"),
+        ),
         patch("socket.getaddrinfo", side_effect=AssertionError("Network lookup forbidden")),
         patch("mission_control.campaign_transport.MetaTransport", return_value=wire),
     ):
@@ -72,9 +77,7 @@ class CampaignMonitorIntegrationTests(unittest.TestCase):
         self.store = self.fixture.store
         self.wire = self.fixture.transport
         self.scope = self.fixture.paid_scope
-        self.intent = self.fixture.service.run_ad(
-            "sample", "owner", self.scope["scope_id"], self.fixture.adbody
-        )
+        self.intent = self.fixture.service.run_ad("sample", "owner", self.scope["scope_id"], self.fixture.adbody)
         with connection(self.store.path) as db:
             db.execute("UPDATE social_connections SET expires=?", (time.time() + 7200,))
         self.mocks = [
@@ -114,9 +117,7 @@ class CampaignMonitorIntegrationTests(unittest.TestCase):
         self.addCleanup(self.stop_server)
         self.client = OperatorClient("http://127.0.0.1:" + str(self.server.server_port))
         self.client.bootstrap()
-        self.client.request(
-            "POST", "/api/identity/login", dict(token="synthetic_owner_identity_token")
-        )
+        self.client.request("POST", "/api/identity/login", dict(token="synthetic_owner_identity_token"))
         self.base = "/api/apps/sample/campaign-monitor/"
 
     def stop_server(self):
@@ -142,9 +143,7 @@ class CampaignMonitorIntegrationTests(unittest.TestCase):
         )
 
     def activate(self):
-        saved = self.client.request(
-            "POST", self.base + "prepare", dict(proposal=self.body())
-        )
+        saved = self.client.request("POST", self.base + "prepare", dict(proposal=self.body()))
         return self.client.request(
             "POST",
             self.base + "activate",
@@ -160,9 +159,7 @@ class CampaignMonitorIntegrationTests(unittest.TestCase):
 
     def test_real_owner_domain_post_and_protected_http_contract(self):
         self.assertEqual(
-            owner_domain_post(
-                ["api", "apps", "sample", "campaign-monitor", "history"]
-            ).__module__,
+            owner_domain_post(["api", "apps", "sample", "campaign-monitor", "history"]).__module__,
             "mission_control.campaign_monitor_http",
         )
         anonymous = OperatorClient(self.client.origin)
@@ -194,13 +191,9 @@ class CampaignMonitorIntegrationTests(unittest.TestCase):
                 self.client.opener.open(req, timeout=10)
             self.assertEqual(denied.exception.code, 403)
         active = self.activate()
-        status = self.client.request(
-            "POST", self.base + "status", dict(monitor_id=active["id"])
-        )
+        status = self.client.request("POST", self.base + "status", dict(monitor_id=active["id"]))
         self.assertEqual(status["effective_status"], "ACTIVE")
-        self.assertEqual(
-            len(self.client.request("POST", self.base + "history", {})["monitors"]), 1
-        )
+        self.assertEqual(len(self.client.request("POST", self.base + "history", {})["monitors"]), 1)
 
     def test_actual_runner_poll_after_owner_session_closed_verifies_protective_pause(
         self,
@@ -230,9 +223,7 @@ class CampaignMonitorIntegrationTests(unittest.TestCase):
         )
         self.assertTrue(actors)
         self.assertTrue(all(actor.startswith("monitor:") for actor, action in actors))
-        self.assertTrue(
-            all(action in ("RECONCILE", "PAUSE") for actor, action in actors)
-        )
+        self.assertTrue(all(action in ("RECONCILE", "PAUSE") for actor, action in actors))
         result = self.fixture.service.list_intents("sample", self.scope["scope_id"])[0]
         self.assertEqual(result["status"], "PAUSED_campaign")
         self.assertEqual(result["commitment"], 80)
@@ -241,9 +232,7 @@ class CampaignMonitorIntegrationTests(unittest.TestCase):
                 "SELECT pauses,units,status FROM campaign_monitors WHERE id=?",
                 (active["id"],),
             ).fetchone()
-            self.assertEqual(
-                (row["pauses"], row["units"], row["status"]), (1, 8, "ACTIVE")
-            )
+            self.assertEqual((row["pauses"], row["units"], row["status"]), (1, 8, "ACTIVE"))
         self.assertIn("campaign_monitor", self.server.runner.health["components"])
 
     def test_live_background_thread_operates_without_browser_or_owner_session(self):
@@ -259,9 +248,7 @@ class CampaignMonitorIntegrationTests(unittest.TestCase):
                     break
                 time.sleep(0.03)
             self.assertEqual(self.job()["status"], "SUCCEEDED")
-            self.assertEqual(
-                self.wire.objects[self.intent["ids"]["campaign"]]["status"], "ACTIVE"
-            )
+            self.assertEqual(self.wire.objects[self.intent["ids"]["campaign"]]["status"], "ACTIVE")
         finally:
             runner.stop()
         self.assertEqual(runner.health["status"], "STOPPED")
@@ -289,21 +276,19 @@ class CampaignMonitorIntegrationTests(unittest.TestCase):
         self.assertEqual(json.loads(job["result"])["status"], "BLOCKED")
         self.assertEqual(status_calls, ["PAUSED"])
         with connection(self.store.path) as db:
-            saved = db.execute("SELECT id,summary_hash,pauses,status FROM campaign_monitors WHERE id=?",
-                               (active["id"],)).fetchone()
-            self.assertEqual((saved["id"], saved["summary_hash"], saved["pauses"], saved["status"]),
-                             (active["id"], active["summary_hash"], 1, "BLOCKED"))
+            saved = db.execute(
+                "SELECT id,summary_hash,pauses,status FROM campaign_monitors WHERE id=?", (active["id"],)
+            ).fetchone()
+            self.assertEqual(
+                (saved["id"], saved["summary_hash"], saved["pauses"], saved["status"]),
+                (active["id"], active["summary_hash"], 1, "BLOCKED"),
+            )
             events = [
-                row["code"]
-                for row in db.execute(
-                    "SELECT code FROM workflow_events WHERE job_id=?", (job["id"],)
-                )
+                row["code"] for row in db.execute("SELECT code FROM workflow_events WHERE job_id=?", (job["id"],))
             ]
             self.assertEqual(events, ["STARTED", "BLOCKED"])
             self.assertEqual(
-                db.execute(
-                    "SELECT count(*) FROM jobs WHERE action='campaign_monitor'"
-                ).fetchone()[0],
+                db.execute("SELECT count(*) FROM jobs WHERE action='campaign_monitor'").fetchone()[0],
                 1,
             )
         current = self.fixture.service.list_intents("sample", self.scope["scope_id"])[0]
@@ -318,9 +303,7 @@ class CampaignMonitorIntegrationTests(unittest.TestCase):
         self.assertIsNone(claim(self.store))
         self.assertEqual(self.job()["status"], "BLOCKED")
         self.assertEqual(json.loads(self.job()["result"]), monitor.interrupted_result())
-        result, status, delay = failed_result(
-            job, TimeoutError("Synthetic uncertain operation")
-        )
+        result, status, delay = failed_result(job, TimeoutError("Synthetic uncertain operation"))
         self.assertEqual((status, delay), ("BLOCKED", 0))
         self.assertNotIn("Synthetic uncertain operation", canonical(result))
 
@@ -332,8 +315,9 @@ class CampaignMonitorIntegrationTests(unittest.TestCase):
         spawn = multiprocessing.get_context("spawn")
 
         def poll_in_fresh_process(interrupt, expected_exit):
-            process = spawn.Process(target=poll_monitor_process,
-                                    args=(self.store.path, self.wire.objects, mutations, interrupt))
+            process = spawn.Process(
+                target=poll_monitor_process, args=(self.store.path, self.wire.objects, mutations, interrupt)
+            )
             process.start()
             try:
                 process.join(timeout=30)
@@ -356,31 +340,35 @@ class CampaignMonitorIntegrationTests(unittest.TestCase):
 
         poll_in_fresh_process(False, 0)
         resumed = self.job()
-        self.assertEqual((resumed["id"], resumed["status"], resumed["attempts"]),
-                         (interrupted["id"], "BLOCKED", 1))
+        self.assertEqual((resumed["id"], resumed["status"], resumed["attempts"]), (interrupted["id"], "BLOCKED", 1))
         self.assertEqual(json.loads(resumed["result"]), monitor.interrupted_result())
-        self.assertEqual([json.loads(line) for line in mutations.read_text(encoding="utf-8").splitlines()],
-                         [dict(kind="campaign", identity=self.intent["ids"]["campaign"], status="PAUSED")])
+        self.assertEqual(
+            [json.loads(line) for line in mutations.read_text(encoding="utf-8").splitlines()],
+            [dict(kind="campaign", identity=self.intent["ids"]["campaign"], status="PAUSED")],
+        )
         with connection(self.store.path) as db:
-            saved = db.execute("SELECT summary_hash,pauses,status FROM campaign_monitors WHERE id=?",
-                               (active["id"],)).fetchone()
-            self.assertEqual((saved["summary_hash"], saved["pauses"], saved["status"]),
-                             (active["summary_hash"], 1, "BLOCKED"))
+            saved = db.execute(
+                "SELECT summary_hash,pauses,status FROM campaign_monitors WHERE id=?", (active["id"],)
+            ).fetchone()
+            self.assertEqual(
+                (saved["summary_hash"], saved["pauses"], saved["status"]), (active["summary_hash"], 1, "BLOCKED")
+            )
             self.assertEqual(db.execute("SELECT count(*) FROM jobs WHERE action='campaign_monitor'").fetchone()[0], 1)
         intent = self.fixture.service.list_intents("sample", self.scope["scope_id"])[0]
-        self.assertEqual((intent["id"], intent["status"], intent["commitment"]),
-                         (self.intent["id"], "PENDING_PAUSED_campaign", 80))
+        self.assertEqual(
+            (intent["id"], intent["status"], intent["commitment"]), (self.intent["id"], "PENDING_PAUSED_campaign", 80)
+        )
         self.client.request("POST", "/api/identity/login", dict(token="synthetic_owner_identity_token"))
         receipt = self.client.request("POST", self.base + "status", dict(monitor_id=active["id"]))
-        self.assertEqual((receipt["last_observation"]["job_id"], receipt["last_observation"]["external_execution"]),
-                         (interrupted["id"], "MONITOR_INTERRUPTED_UNCONFIRMED"))
+        self.assertEqual(
+            (receipt["last_observation"]["job_id"], receipt["last_observation"]["external_execution"]),
+            (interrupted["id"], "MONITOR_INTERRUPTED_UNCONFIRMED"),
+        )
 
     def test_only_exact_monitor_action_changes_normal_return_status_mapping(self):
         self.activate()
         monitor.tick(self.store)
-        with patch(
-            "mission_control.worker.process", return_value=dict(status="BLOCKED")
-        ):
+        with patch("mission_control.worker.process", return_value=dict(status="BLOCKED")):
             self.assertTrue(run_once(self.store))
         self.assertEqual(self.job()["status"], "BLOCKED")
         with connection(self.store.path) as db:
@@ -397,36 +385,26 @@ class CampaignMonitorIntegrationTests(unittest.TestCase):
                     "ordinary-blocked-value",
                 ),
             )
-        with patch(
-            "mission_control.worker.process", return_value=dict(status="BLOCKED")
-        ):
+        with patch("mission_control.worker.process", return_value=dict(status="BLOCKED")):
             self.assertTrue(run_once(self.store))
         with connection(self.store.path) as db:
             self.assertEqual(
-                db.execute(
-                    "SELECT status FROM jobs WHERE id='ordinary-blocked-value'"
-                ).fetchone()[0],
+                db.execute("SELECT status FROM jobs WHERE id='ordinary-blocked-value'").fetchone()[0],
                 "SUCCEEDED",
             )
 
     def test_original_organic_preflight_identity_boundaries_charge_exact_monitor_quota(
         self,
     ):
-        organic = self.fixture.service.list_intents(
-            "sample", self.fixture.scope["scope_id"]
-        )[0]
+        organic = self.fixture.service.list_intents("sample", self.fixture.scope["scope_id"])[0]
         proposal = dict(
             self.body(),
             scope_id=self.fixture.scope["scope_id"],
-            targets=[
-                dict(intent_id=organic["id"], request_hash=organic["request_hash"])
-            ],
+            targets=[dict(intent_id=organic["id"], request_hash=organic["request_hash"])],
             protective_conditions=[],
             max_pause_attempts=0,
         )
-        draft = self.client.request(
-            "POST", self.base + "prepare", dict(proposal=proposal)
-        )
+        draft = self.client.request("POST", self.base + "prepare", dict(proposal=proposal))
         active = self.client.request(
             "POST",
             self.base + "activate",
@@ -464,33 +442,31 @@ class CampaignMonitorIntegrationTests(unittest.TestCase):
                     )
                 ),
                 "identity": dict(id="subject", name="Synthetic owner"),
-                "permissions": dict(
-                    data=[
-                        dict(permission=value, status="granted")
-                        for value in permissions
-                    ]
-                ),
+                "permissions": dict(data=[dict(permission=value, status="granted") for value in permissions]),
                 "pages": dict(data=[page]),
                 "page_identity": dict(id="123", name="Synthetic Page"),
             }[operation]
 
-        config = configuration(dict(provider="facebook", client_id="12345",
-                                    client_secret="synthetic-secret", native_enabled=False,
-                                    redirect_uri="https://relay.example/cb/facebook", version=0,
-                                    campaign_access="publish"))
+        config = configuration(
+            dict(
+                provider="facebook",
+                client_id="12345",
+                client_secret="synthetic-secret",
+                native_enabled=False,
+                redirect_uri="https://relay.example/cb/facebook",
+                version=0,
+                campaign_access="publish",
+            )
+        )
         self.assertEqual(config["campaign_access"], "publish")
         self.assertIn("pages_manage_posts", config["scopes"])
         credentials = (
             config,
             "synthetic-secret",
-            dict(
-                access_token="synthetic-user-token", page_token="synthetic-page-token"
-            ),
+            dict(access_token="synthetic-user-token", page_token="synthetic-page-token"),
         )
         with (
-            patch.object(
-                CampaignExecutionService, "_credentials", return_value=credentials
-            ),
+            patch.object(CampaignExecutionService, "_credentials", return_value=credentials),
             patch("mission_control.social_profiles.request", side_effect=social),
         ):
             self.assertTrue(self.server.runner.poll())
@@ -509,9 +485,7 @@ class CampaignMonitorIntegrationTests(unittest.TestCase):
         self.assertEqual(self.job()["status"], "SUCCEEDED")
         with connection(self.store.path) as db:
             self.assertEqual(
-                db.execute(
-                    "SELECT units FROM campaign_monitors WHERE id=?", (active["id"],)
-                ).fetchone()[0],
+                db.execute("SELECT units FROM campaign_monitors WHERE id=?", (active["id"],)).fetchone()[0],
                 8,
             )
         self.assertEqual(self.wire.posts, 1)

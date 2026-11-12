@@ -1,4 +1,5 @@
 """Durable external-agent research task; never performs internet access itself."""
+
 from datetime import datetime, timedelta, timezone
 import json
 
@@ -15,242 +16,322 @@ RESEARCH_MAX_OFFSET = 100000
 
 
 def _schema(db):
-    db.execute('''CREATE TABLE IF NOT EXISTS organic_discovery_tasks (
+    db.execute("""CREATE TABLE IF NOT EXISTS organic_discovery_tasks (
         id TEXT PRIMARY KEY, app_id TEXT NOT NULL REFERENCES apps(id), request_id TEXT NOT NULL,
         request_hash TEXT NOT NULL, task TEXT NOT NULL, task_hash TEXT NOT NULL,
         owner TEXT NOT NULL, owner_version INTEGER NOT NULL, grant_id TEXT NOT NULL REFERENCES agent_grants(id),
         grant_version INTEGER NOT NULL, status TEXT NOT NULL, claim_id TEXT, claimed_at TEXT, claim_until TEXT,
         submission TEXT, submission_hash TEXT, result TEXT, result_hash TEXT, created TEXT NOT NULL, updated TEXT NOT NULL,
-        UNIQUE(app_id, request_id))''')
+        UNIQUE(app_id, request_id))""")
 
 
 def _authorized(db, store, app_id, actor, body, operation, agent):
     """Derive identity from the protected gateway context, never from request data."""
     context = PROTECTED.get()
-    if not context or context.get('store') != store_identity(store):
-        raise PermissionError('Current protected operation is required')
-    envelope = json.loads(context['envelope'])
-    if (envelope.get('app_id') != app_id or envelope.get('operation') != operation
-            or envelope.get('input') != body or ('grant_id' in context) != agent):
-        raise PermissionError('Discovery operation does not match its protected admission')
+    if not context or context.get("store") != store_identity(store):
+        raise PermissionError("Current protected operation is required")
+    envelope = json.loads(context["envelope"])
+    if (
+        envelope.get("app_id") != app_id
+        or envelope.get("operation") != operation
+        or envelope.get("input") != body
+        or ("grant_id" in context) != agent
+    ):
+        raise PermissionError("Discovery operation does not match its protected admission")
     identity = check(db, context)
     if identity != actor:
-        raise PermissionError('Caller identity differs from protected admission')
+        raise PermissionError("Caller identity differs from protected admission")
     return context
 
 
 def _row(db, app_id, identity):
-    row = db.execute('SELECT * FROM organic_discovery_tasks WHERE app_id=? AND id=?',
-                     (app_id, identity)).fetchone()
+    row = db.execute("SELECT * FROM organic_discovery_tasks WHERE app_id=? AND id=?", (app_id, identity)).fetchone()
     if not row:
-        raise Invalid('Discovery task is unavailable')
+        raise Invalid("Discovery task is unavailable")
     return row
 
 
 def _current(db, row, observed):
-    task = json.loads(row['task'])
-    if digest(task) != row['task_hash']:
-        raise Invalid('Discovery task integrity changed')
-    if iso_time(task['policy']['expires']) <= observed:
-        raise PermissionError('Discovery task expired')
-    if app_scope(db, row['app_id']) != (task['app']['version'], task['app']['hash']):
-        raise PermissionError('Discovery app context changed')
-    exact_role(db, row['app_id'], row['owner'], row['owner_version'], 'OWNER')
-    grant = db.execute('SELECT * FROM agent_grants WHERE id=?', (row['grant_id'],)).fetchone()
-    if not grant or grant['version'] != row['grant_version'] or grant['owner'] != row['owner']:
-        raise PermissionError('Discovery recipient authority changed')
-    for name in ('organic-video.claim', 'organic-video.submit'):
-        current(db, grant, {'app_id': row['app_id'], 'operation': name}, observed, check_quota=False)
+    task = json.loads(row["task"])
+    if digest(task) != row["task_hash"]:
+        raise Invalid("Discovery task integrity changed")
+    if iso_time(task["policy"]["expires"]) <= observed:
+        raise PermissionError("Discovery task expired")
+    if app_scope(db, row["app_id"]) != (task["app"]["version"], task["app"]["hash"]):
+        raise PermissionError("Discovery app context changed")
+    exact_role(db, row["app_id"], row["owner"], row["owner_version"], "OWNER")
+    grant = db.execute("SELECT * FROM agent_grants WHERE id=?", (row["grant_id"],)).fetchone()
+    if not grant or grant["version"] != row["grant_version"] or grant["owner"] != row["owner"]:
+        raise PermissionError("Discovery recipient authority changed")
+    for name in ("organic-video.claim", "organic-video.submit"):
+        current(db, grant, {"app_id": row["app_id"], "operation": name}, observed, check_quota=False)
     return task, grant
 
 
 def _view(row):
-    value = {'id': row['id'], 'app_id': row['app_id'], 'task_hash': row['task_hash'],
-             'task': json.loads(row['task']), 'status': row['status'],
-             'claim_id': row['claim_id'], 'claim_until': row['claim_until'],
-             'submission_hash': row['submission_hash'],
-             'result': json.loads(row['result']) if row['result'] else None,
-             'provider_access': 'EXTERNAL_AGENT_NOT_VERIFIED', 'publication': 'NOT_RUN'}
-    if digest(value['task']) != row['task_hash']:
-        raise Invalid('Discovery task integrity changed')
+    value = {
+        "id": row["id"],
+        "app_id": row["app_id"],
+        "task_hash": row["task_hash"],
+        "task": json.loads(row["task"]),
+        "status": row["status"],
+        "claim_id": row["claim_id"],
+        "claim_until": row["claim_until"],
+        "submission_hash": row["submission_hash"],
+        "result": json.loads(row["result"]) if row["result"] else None,
+        "provider_access": "EXTERNAL_AGENT_NOT_VERIFIED",
+        "publication": "NOT_RUN",
+    }
+    if digest(value["task"]) != row["task_hash"]:
+        raise Invalid("Discovery task integrity changed")
     submission = None
-    if row['submission_hash']:
-        submission = json.loads(row['submission']) if row['submission'] else None
-        if (submission is None or digest(submission) != row['submission_hash']
-                or value['result'] is None or digest(value['result']) != row['result_hash']):
-            raise Invalid('Discovery submission or result integrity changed')
-    value['channel_coverage'] = collection_coverage(value['task'], submission)
+    if row["submission_hash"]:
+        submission = json.loads(row["submission"]) if row["submission"] else None
+        if (
+            submission is None
+            or digest(submission) != row["submission_hash"]
+            or value["result"] is None
+            or digest(value["result"]) != row["result_hash"]
+        ):
+            raise Invalid("Discovery submission or result integrity changed")
+    value["channel_coverage"] = collection_coverage(value["task"], submission)
     return value
 
 
 def _intake_rows(db, app_id, task_ids):
     if not db.execute("SELECT 1 FROM sqlite_master WHERE name='organic_video_intakes'").fetchone():
         return []
-    return db.execute('''SELECT * FROM organic_video_intakes WHERE app_id=?
+    return db.execute(
+        """SELECT * FROM organic_video_intakes WHERE app_id=?
         AND json_extract(data,'$.provenance.task_id') IN (SELECT value FROM json_each(?))
-        ORDER BY created,id''', (app_id, canonical(task_ids))).fetchall()
+        ORDER BY created,id""",
+        (app_id, canonical(task_ids)),
+    ).fetchall()
 
 
 def owner_history(store, app_id, actor, body):
     """Bounded private GUI history; task ownership is distinct from app membership."""
-    exact(body, ('offset', 'request_id'))
-    if type(body['offset']) is not int or not 0 <= body['offset'] <= RESEARCH_MAX_OFFSET:
-        raise Invalid('Use a supported research history offset')
-    request_id = body['request_id']
+    exact(body, ("offset", "request_id"))
+    if type(body["offset"]) is not int or not 0 <= body["offset"] <= RESEARCH_MAX_OFFSET:
+        raise Invalid("Use a supported research history offset")
+    request_id = body["request_id"]
     if request_id is not None and (not isinstance(request_id, str) or not 1 <= len(request_id) <= 120):
-        raise Invalid('Use the exact bounded research request identity')
+        raise Invalid("Use the exact bounded research request identity")
     with connection(store.path) as db:
-        _authorized(db, store, app_id, actor, body, 'organic-video.task-list', False)
+        _authorized(db, store, app_id, actor, body, "organic-video.task-list", False)
         _schema(db)
-        rows = db.execute('''SELECT * FROM organic_discovery_tasks WHERE app_id=? AND owner=?
-            AND (? IS NULL OR request_id=?) ORDER BY created DESC,id DESC LIMIT ? OFFSET ?''',
-                          (app_id, actor, request_id, request_id, RESEARCH_PAGE_SIZE + 1, body['offset'])).fetchall()
+        rows = db.execute(
+            """SELECT * FROM organic_discovery_tasks WHERE app_id=? AND owner=?
+            AND (? IS NULL OR request_id=?) ORDER BY created DESC,id DESC LIMIT ? OFFSET ?""",
+            (app_id, actor, request_id, request_id, RESEARCH_PAGE_SIZE + 1, body["offset"]),
+        ).fetchall()
         items = []
         for row in rows[:RESEARCH_PAGE_SIZE]:
             saved = _view(row)
-            items.append(dict(id=row['id'], task_hash=row['task_hash'], request_id=row['request_id'],
-                              request_hash=row['request_hash'], status=row['status'], created=row['created'],
-                              updated=row['updated'], query=saved['task']['query'], intakes=[]))
+            items.append(
+                dict(
+                    id=row["id"],
+                    task_hash=row["task_hash"],
+                    request_id=row["request_id"],
+                    request_hash=row["request_hash"],
+                    status=row["status"],
+                    created=row["created"],
+                    updated=row["updated"],
+                    query=saved["task"]["query"],
+                    intakes=[],
+                )
+            )
         from .organic_video_intake import _view as intake_view
-        grouped = {item['id']: item for item in items}
+
+        grouped = {item["id"]: item for item in items}
         for row in _intake_rows(db, app_id, list(grouped)):
             saved = intake_view(row)
-            grouped[saved['data']['provenance']['task_id']]['intakes'].append(dict(
-                id=saved['id'], hash=saved['hash'], source_id=saved['data']['source']['id'],
-                collection_id=saved['data']['collection']['id']))
-        return dict(items=items, offset=body['offset'],
-                    next_offset=body['offset'] + RESEARCH_PAGE_SIZE if len(rows) > RESEARCH_PAGE_SIZE else None)
+            grouped[saved["data"]["provenance"]["task_id"]]["intakes"].append(
+                dict(
+                    id=saved["id"],
+                    hash=saved["hash"],
+                    source_id=saved["data"]["source"]["id"],
+                    collection_id=saved["data"]["collection"]["id"],
+                )
+            )
+        return dict(
+            items=items,
+            offset=body["offset"],
+            next_offset=body["offset"] + RESEARCH_PAGE_SIZE if len(rows) > RESEARCH_PAGE_SIZE else None,
+        )
 
 
 def owner_read(store, app_id, actor, body):
     """Inspect saved task and exact adoption readback without repeating a write."""
-    exact(body, ('task_id',))
-    required(body['task_id'], 'Research task identity', 120)
+    exact(body, ("task_id",))
+    required(body["task_id"], "Research task identity", 120)
     with connection(store.path) as db:
-        _authorized(db, store, app_id, actor, body, 'organic-video.task-read', False)
+        _authorized(db, store, app_id, actor, body, "organic-video.task-read", False)
         _schema(db)
-        row = _row(db, app_id, body['task_id'])
-        if row['owner'] != actor:
-            raise PermissionError('Video research belongs to another owner')
-        result = dict(_view(row), submission=json.loads(row['submission']) if row['submission'] else None,
-                      result_hash=row['result_hash'], request_id=row['request_id'], request_hash=row['request_hash'], intakes=[])
+        row = _row(db, app_id, body["task_id"])
+        if row["owner"] != actor:
+            raise PermissionError("Video research belongs to another owner")
+        result = dict(
+            _view(row),
+            submission=json.loads(row["submission"]) if row["submission"] else None,
+            result_hash=row["result_hash"],
+            request_id=row["request_id"],
+            request_hash=row["request_hash"],
+            intakes=[],
+        )
         from .organic_video_intake import _view as intake_view
-        result['intakes'] = [dict(intake_view(item), request_id=item['request_id'], request_hash=item['request_hash'])
-                            for item in _intake_rows(db, app_id, [row['id']])]
+
+        result["intakes"] = [
+            dict(intake_view(item), request_id=item["request_id"], request_hash=item["request_hash"])
+            for item in _intake_rows(db, app_id, [row["id"]])
+        ]
         return result
 
 
 def prepare(store, app_id, actor, body) -> object:
     """Owner prepares a task for an existing owner-issued external-agent grant."""
-    exact(body, ('request_id', 'query', 'policy'))
+    exact(body, ("request_id", "query", "policy"))
     safe_data(body)
-    if not isinstance(body['request_id'], str) or not 1 <= len(body['request_id']) <= 120:
-        raise Invalid('Use a bounded request identity')
+    if not isinstance(body["request_id"], str) or not 1 <= len(body["request_id"]) <= 120:
+        raise Invalid("Use a bounded request identity")
     observed = datetime.now(timezone.utc)
     with connection(store.path) as db:
-        db.execute('BEGIN IMMEDIATE')
-        context = _authorized(db, store, app_id, actor, body, 'organic-video.prepare', False)
+        db.execute("BEGIN IMMEDIATE")
+        context = _authorized(db, store, app_id, actor, body, "organic-video.prepare", False)
         version, app_hash = app_scope(db, app_id)
-        task = discovery_task({'id': app_id, 'version': version, 'hash': app_hash},
-                              body['policy'], body['query'])
-        grant = db.execute('SELECT * FROM agent_grants WHERE id=?',
-                           (task['policy']['recipient_grant_id'],)).fetchone()
-        if not grant or grant['owner'] != context['principal'] or grant['app_id'] != app_id:
-            raise PermissionError('Choose an existing owner-issued recipient grant')
-        for name in ('organic-video.claim', 'organic-video.submit'):
-            current(db, grant, {'app_id': app_id, 'operation': name}, observed, check_quota=False)
+        task = discovery_task({"id": app_id, "version": version, "hash": app_hash}, body["policy"], body["query"])
+        grant = db.execute("SELECT * FROM agent_grants WHERE id=?", (task["policy"]["recipient_grant_id"],)).fetchone()
+        if not grant or grant["owner"] != context["principal"] or grant["app_id"] != app_id:
+            raise PermissionError("Choose an existing owner-issued recipient grant")
+        for name in ("organic-video.claim", "organic-video.submit"):
+            current(db, grant, {"app_id": app_id, "operation": name}, observed, check_quota=False)
         from .authority_expiry import effective_expiry
-        grant_expires=effective_expiry(db,'AGENT_GRANT',grant,grant['expires'])['expires']
-        if iso_time(task['policy']['expires']) > iso_time(grant_expires):
-            raise PermissionError('Discovery task cannot outlast its recipient grant')
+
+        grant_expires = effective_expiry(db, "AGENT_GRANT", grant, grant["expires"])["expires"]
+        if iso_time(task["policy"]["expires"]) > iso_time(grant_expires):
+            raise PermissionError("Discovery task cannot outlast its recipient grant")
         _schema(db)
-        prior = db.execute('SELECT * FROM organic_discovery_tasks WHERE app_id=? AND request_id=?',
-                           (app_id, body['request_id'])).fetchone()
+        prior = db.execute(
+            "SELECT * FROM organic_discovery_tasks WHERE app_id=? AND request_id=?", (app_id, body["request_id"])
+        ).fetchone()
         if prior:
-            if prior['request_hash'] != digest(body):
-                raise Invalid('Discovery request identity was used for different input')
+            if prior["request_hash"] != digest(body):
+                raise Invalid("Discovery request identity was used for different input")
             _current(db, prior, observed)
             return _view(prior)
         identity = uid()
         stamp = now()
-        db.execute('''INSERT INTO organic_discovery_tasks
+        db.execute(
+            """INSERT INTO organic_discovery_tasks
             (id,app_id,request_id,request_hash,task,task_hash,owner,owner_version,grant_id,
-             grant_version,status,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)''',
-            (identity, app_id, body['request_id'], digest(body), canonical(task), digest(task),
-             context['principal'], context['role_version'], grant['id'], grant['version'],
-             'READY', stamp, stamp))
-        audit(db, app_id, 'organic_discovery.prepared', {'task_id': identity, 'task_hash': digest(task)})
+             grant_version,status,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                identity,
+                app_id,
+                body["request_id"],
+                digest(body),
+                canonical(task),
+                digest(task),
+                context["principal"],
+                context["role_version"],
+                grant["id"],
+                grant["version"],
+                "READY",
+                stamp,
+                stamp,
+            ),
+        )
+        audit(db, app_id, "organic_discovery.prepared", {"task_id": identity, "task_hash": digest(task)})
         return _view(_row(db, app_id, identity))
 
 
 def claim(store, app_id, actor, body) -> object:
     """Recipient claims exactly one task with a bounded, non-transferable lease."""
-    exact(body, ('task_id', 'task_hash'))
+    exact(body, ("task_id", "task_hash"))
     with connection(store.path) as db:
-        db.execute('BEGIN IMMEDIATE')
-        context = _authorized(db, store, app_id, actor, body, 'organic-video.claim', True)
+        db.execute("BEGIN IMMEDIATE")
+        context = _authorized(db, store, app_id, actor, body, "organic-video.claim", True)
         _schema(db)
-        row = _row(db, app_id, body['task_id'])
+        row = _row(db, app_id, body["task_id"])
         observed = datetime.now(timezone.utc)
         task, grant = _current(db, row, observed)
-        if row['task_hash'] != body['task_hash'] or context['grant_id'] != grant['id']:
-            raise PermissionError('Discovery task or recipient changed')
-        if row['status'] == 'CLAIMED':
-            if iso_time(row['claim_until']) <= observed:
-                raise PermissionError('Discovery claim expired; prepare a new task')
+        if row["task_hash"] != body["task_hash"] or context["grant_id"] != grant["id"]:
+            raise PermissionError("Discovery task or recipient changed")
+        if row["status"] == "CLAIMED":
+            if iso_time(row["claim_until"]) <= observed:
+                raise PermissionError("Discovery claim expired; prepare a new task")
             return _view(row)
-        if row['status'] != 'READY':
-            raise Invalid('Discovery task is no longer available to claim')
+        if row["status"] != "READY":
+            raise Invalid("Discovery task is no longer available to claim")
         from .authority_expiry import effective_expiry
-        grant_expires=effective_expiry(db,'AGENT_GRANT',grant,grant['expires'])['expires']
-        until = min(observed + timedelta(seconds=task['policy']['max_seconds']),
-                    iso_time(task['policy']['expires']), iso_time(grant_expires))
-        db.execute("UPDATE organic_discovery_tasks SET status='CLAIMED',claim_id=?,claimed_at=?,claim_until=?,updated=? WHERE id=? AND status='READY'",
-                   (uid(), observed.isoformat(), until.isoformat(), now(), row['id']))
-        audit(db, app_id, 'organic_discovery.claimed', {'task_id': row['id'], 'grant_id': grant['id']})
-        return _view(_row(db, app_id, row['id']))
+
+        grant_expires = effective_expiry(db, "AGENT_GRANT", grant, grant["expires"])["expires"]
+        until = min(
+            observed + timedelta(seconds=task["policy"]["max_seconds"]),
+            iso_time(task["policy"]["expires"]),
+            iso_time(grant_expires),
+        )
+        db.execute(
+            "UPDATE organic_discovery_tasks SET status='CLAIMED',claim_id=?,claimed_at=?,claim_until=?,updated=? WHERE id=? AND status='READY'",
+            (uid(), observed.isoformat(), until.isoformat(), now(), row["id"]),
+        )
+        audit(db, app_id, "organic_discovery.claimed", {"task_id": row["id"], "grant_id": grant["id"]})
+        return _view(_row(db, app_id, row["id"]))
 
 
 def submit(store, app_id, actor, body) -> object:
     """Save exact task-bound observations once; claims never prove independent verification."""
-    exact(body, ('task_id', 'result'))
+    exact(body, ("task_id", "result"))
     safe_data(body)
     with connection(store.path) as db:
-        db.execute('BEGIN IMMEDIATE')
-        context = _authorized(db, store, app_id, actor, body, 'organic-video.submit', True)
+        db.execute("BEGIN IMMEDIATE")
+        context = _authorized(db, store, app_id, actor, body, "organic-video.submit", True)
         _schema(db)
-        row = _row(db, app_id, body['task_id'])
+        row = _row(db, app_id, body["task_id"])
         observed = datetime.now(timezone.utc)
         task, grant = _current(db, row, observed)
-        if context['grant_id'] != grant['id']:
-            raise PermissionError('Discovery task belongs to another agent grant')
-        result = body['result']
-        if not isinstance(result, dict) or result.get('task_id') != row['id'] or result.get('claim_id') != row['claim_id']:
-            raise PermissionError('Submission does not match the active claim')
-        if row['submission_hash']:
-            if row['submission_hash'] != digest(result):
-                raise Invalid('Claim already has a different saved submission')
+        if context["grant_id"] != grant["id"]:
+            raise PermissionError("Discovery task belongs to another agent grant")
+        result = body["result"]
+        if (
+            not isinstance(result, dict)
+            or result.get("task_id") != row["id"]
+            or result.get("claim_id") != row["claim_id"]
+        ):
+            raise PermissionError("Submission does not match the active claim")
+        if row["submission_hash"]:
+            if row["submission_hash"] != digest(result):
+                raise Invalid("Claim already has a different saved submission")
             return _view(row)
-        if row['status'] != 'CLAIMED' or iso_time(row['claim_until']) <= observed:
-            raise PermissionError('Discovery claim is unavailable or expired')
-        if iso_time(result.get('collected_at')) < iso_time(row['claimed_at']):
-            raise Invalid('Collection must occur after the claim')
+        if row["status"] != "CLAIMED" or iso_time(row["claim_until"]) <= observed:
+            raise PermissionError("Discovery claim is unavailable or expired")
+        if iso_time(result.get("collected_at")) < iso_time(row["claimed_at"]):
+            raise Invalid("Collection must occur after the claim")
         qualified = qualify_submission(task, result)
-        for item in result['candidates']:
-            for observation in (item['candidate'], *item['history']):
-                if iso_time(observation['observed_at']) < iso_time(row['claimed_at']):
-                    raise Invalid('Each source observation must be made after the claim')
+        for item in result["candidates"]:
+            for observation in (item["candidate"], *item["history"]):
+                if iso_time(observation["observed_at"]) < iso_time(row["claimed_at"]):
+                    raise Invalid("Each source observation must be made after the claim")
         observed = datetime.now(timezone.utc)
         _current(db, row, observed)
-        if iso_time(row['claim_until']) <= observed:
-            raise PermissionError('Discovery claim expired before submission commit')
+        if iso_time(row["claim_until"]) <= observed:
+            raise PermissionError("Discovery claim expired before submission commit")
         coverage = collection_coverage(task, result)
-        incomplete = bool(result['failures']) or any(not counts['candidates'] for counts in coverage.values()) or any(
-            item['status'] == 'INSUFFICIENT_BASELINE' for item in qualified['items'])
-        status = 'INCOMPLETE' if incomplete else 'SUBMITTED'
-        db.execute('''UPDATE organic_discovery_tasks SET status=?,submission=?,submission_hash=?,result=?,result_hash=?,updated=?
-                      WHERE id=? AND status='CLAIMED' ''',
-                   (status, canonical(result), digest(result), canonical(qualified), digest(qualified), now(), row['id']))
-        audit(db, app_id, 'organic_discovery.submitted', {'task_id': row['id'],
-              'submission_hash': digest(result), 'status': status})
-        return _view(_row(db, app_id, row['id']))
+        incomplete = (
+            bool(result["failures"])
+            or any(not counts["candidates"] for counts in coverage.values())
+            or any(item["status"] == "INSUFFICIENT_BASELINE" for item in qualified["items"])
+        )
+        status = "INCOMPLETE" if incomplete else "SUBMITTED"
+        db.execute(
+            """UPDATE organic_discovery_tasks SET status=?,submission=?,submission_hash=?,result=?,result_hash=?,updated=?
+                      WHERE id=? AND status='CLAIMED' """,
+            (status, canonical(result), digest(result), canonical(qualified), digest(qualified), now(), row["id"]),
+        )
+        audit(
+            db,
+            app_id,
+            "organic_discovery.submitted",
+            {"task_id": row["id"], "submission_hash": digest(result), "status": status},
+        )
+        return _view(_row(db, app_id, row["id"]))

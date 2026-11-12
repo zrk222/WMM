@@ -1,4 +1,5 @@
 """Durable browser-instrumentation lifecycle; downloads and attestations are not delivery."""
+
 import json
 import re
 from datetime import datetime, timezone
@@ -49,12 +50,34 @@ def _time(value, name, *, after=None):
 
 def _insert(db, app_id, identity, experiment_id, proposal_hash, bundle_hash, state, data, previous_id, stamp):
     hashed = digest(data)
-    db.execute("INSERT INTO instrumentation_receipts VALUES(?,?,?,?,?,?,?,?,?,?)",
-               (app_id, identity, experiment_id, proposal_hash, bundle_hash, state,
-                previous_id, canonical(data), hashed, stamp))
-    return dict(app_id=app_id, id=identity, experiment_id=experiment_id, proposal_hash=proposal_hash,
-                bundle_hash=bundle_hash, state=state, previous_id=previous_id, data=data,
-                hash=hashed, created=stamp, schema="growth.instrumentation-receipt.v1")
+    db.execute(
+        "INSERT INTO instrumentation_receipts VALUES(?,?,?,?,?,?,?,?,?,?)",
+        (
+            app_id,
+            identity,
+            experiment_id,
+            proposal_hash,
+            bundle_hash,
+            state,
+            previous_id,
+            canonical(data),
+            hashed,
+            stamp,
+        ),
+    )
+    return dict(
+        app_id=app_id,
+        id=identity,
+        experiment_id=experiment_id,
+        proposal_hash=proposal_hash,
+        bundle_hash=bundle_hash,
+        state=state,
+        previous_id=previous_id,
+        data=data,
+        hash=hashed,
+        created=stamp,
+        schema="growth.instrumentation-receipt.v1",
+    )
 
 
 def _checked_receipt(row):
@@ -65,25 +88,30 @@ def _checked_receipt(row):
 
 
 def _current_download(db, app_id, experiment_id):
-    row = db.execute("SELECT * FROM instrumentation_receipts WHERE app_id=? AND experiment_id=? "
-                     "AND state='DOWNLOADED' ORDER BY created DESC,id DESC LIMIT 1",
-                     (app_id, experiment_id)).fetchone()
+    row = db.execute(
+        "SELECT * FROM instrumentation_receipts WHERE app_id=? AND experiment_id=? "
+        "AND state='DOWNLOADED' ORDER BY created DESC,id DESC LIMIT 1",
+        (app_id, experiment_id),
+    ).fetchone()
     return _checked_receipt(row) if row is not None else None
 
 
 def _latest_attestation(db, previous, state, release):
-    row = db.execute("SELECT * FROM instrumentation_receipts WHERE app_id=? AND experiment_id=? "
-                     "AND state=? AND previous_id=? AND json_extract(data,'$.previous_hash')=? "
-                     "AND json_type(data,'$.owner_attestation')='object' AND json_extract(data,'$.release')=? "
-                     "ORDER BY created DESC,id DESC LIMIT 1",
-                     (previous["app_id"], previous["experiment_id"], state, previous["id"],
-                      previous["hash"], release)).fetchone()
+    row = db.execute(
+        "SELECT * FROM instrumentation_receipts WHERE app_id=? AND experiment_id=? "
+        "AND state=? AND previous_id=? AND json_extract(data,'$.previous_hash')=? "
+        "AND json_type(data,'$.owner_attestation')='object' AND json_extract(data,'$.release')=? "
+        "ORDER BY created DESC,id DESC LIMIT 1",
+        (previous["app_id"], previous["experiment_id"], state, previous["id"], previous["hash"], release),
+    ).fetchone()
     return _checked_receipt(row) if row is not None else None
 
 
 def _prior(db, app_id, experiment_id, identity, value_hash, state):
-    row = db.execute("SELECT * FROM instrumentation_receipts WHERE app_id=? AND id=? AND experiment_id=?",
-                     (app_id, identity, experiment_id)).fetchone()
+    row = db.execute(
+        "SELECT * FROM instrumentation_receipts WHERE app_id=? AND id=? AND experiment_id=?",
+        (app_id, identity, experiment_id),
+    ).fetchone()
     if row is None or row["state"] != state or row["hash"] != value_hash:
         raise Invalid("Select this app's exact previous instrumentation receipt")
     return _checked_receipt(row)
@@ -107,17 +135,22 @@ def record_download(store, app_id, experiment_id, proposal_hash, bundle_hash):
         raise Invalid("Instrumentation bundle hash is invalid")
     identity = digest(["DOWNLOADED", app_id, experiment_id, proposal_hash, bundle_hash])
     stamp = now()
-    data = dict(state="DOWNLOADED", experiment_id=experiment_id, proposal_hash=proposal_hash,
-                bundle_hash=bundle_hash, report="BUNDLE_GENERATED_AND_DOWNLOADED",
-                scope="Downloading does not install code, launch variants or verify delivery.")
+    data = dict(
+        state="DOWNLOADED",
+        experiment_id=experiment_id,
+        proposal_hash=proposal_hash,
+        bundle_hash=bundle_hash,
+        report="BUNDLE_GENERATED_AND_DOWNLOADED",
+        scope="Downloading does not install code, launch variants or verify delivery.",
+    )
     with connection(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
-        saved = db.execute("SELECT * FROM instrumentation_receipts WHERE app_id=? AND id=?",
-                           (app_id, identity)).fetchone()
+        saved = db.execute(
+            "SELECT * FROM instrumentation_receipts WHERE app_id=? AND id=?", (app_id, identity)
+        ).fetchone()
         if saved:
             return decoded(saved)
-        return _insert(db, app_id, identity, experiment_id, proposal_hash, bundle_hash,
-                       "DOWNLOADED", data, None, stamp)
+        return _insert(db, app_id, identity, experiment_id, proposal_hash, bundle_hash, "DOWNLOADED", data, None, stamp)
 
 
 def record_installed(store, app_id, experiment_id, body, *, user):
@@ -136,25 +169,56 @@ def record_installed(store, app_id, experiment_id, body, *, user):
             raise Invalid("Report installation for the most recently downloaded bundle")
         if reported < iso_time(prior["created"]):
             raise Invalid("Reported time cannot precede the download")
-        identity = digest(["REPORTED_INSTALLED", prior["id"], owner["principal"], release, reference, reported.isoformat()])
-        saved = db.execute("SELECT * FROM instrumentation_receipts WHERE app_id=? AND id=?",
-                           (app_id, identity)).fetchone()
+        identity = digest(
+            ["REPORTED_INSTALLED", prior["id"], owner["principal"], release, reference, reported.isoformat()]
+        )
+        saved = db.execute(
+            "SELECT * FROM instrumentation_receipts WHERE app_id=? AND id=?", (app_id, identity)
+        ).fetchone()
         if saved:
             return decoded(saved)
-        data = dict(state="REPORTED_INSTALLED", experiment_id=experiment_id,
-                    proposal_hash=body["proposal_hash"], bundle_hash=prior["bundle_hash"],
-                    previous_id=prior["id"], previous_hash=prior["hash"], release=release,
-                    install_reference=reference, reported_at=reported.isoformat(),
-                    owner_attestation=dict(principal=owner["principal"], role_version=owner["version"]),
-                    report="OWNER_ATTESTED_NOT_VERIFIED_DELIVERY")
-        return _insert(db, app_id, identity, experiment_id, body["proposal_hash"],
-                       prior["bundle_hash"], "REPORTED_INSTALLED", data, prior["id"], now())
+        data = dict(
+            state="REPORTED_INSTALLED",
+            experiment_id=experiment_id,
+            proposal_hash=body["proposal_hash"],
+            bundle_hash=prior["bundle_hash"],
+            previous_id=prior["id"],
+            previous_hash=prior["hash"],
+            release=release,
+            install_reference=reference,
+            reported_at=reported.isoformat(),
+            owner_attestation=dict(principal=owner["principal"], role_version=owner["version"]),
+            report="OWNER_ATTESTED_NOT_VERIFIED_DELIVERY",
+        )
+        return _insert(
+            db,
+            app_id,
+            identity,
+            experiment_id,
+            body["proposal_hash"],
+            prior["bundle_hash"],
+            "REPORTED_INSTALLED",
+            data,
+            prior["id"],
+            now(),
+        )
 
 
 def record_probe(store, app_id, experiment_id, body, *, user):
     """Append one owner-reported live probe with exact identity, time and scope."""
-    _exact(body, {"previous_id", "previous_hash", "provider", "event_id", "observed_at",
-                  "scope", "source_receipt_sha256", "release"})
+    _exact(
+        body,
+        {
+            "previous_id",
+            "previous_hash",
+            "provider",
+            "event_id",
+            "observed_at",
+            "scope",
+            "source_receipt_sha256",
+            "release",
+        },
+    )
     release = _text(body["release"], "Release", 100)
     provider = body["provider"]
     if not isinstance(provider, str) or not PROVIDER.fullmatch(provider):
@@ -179,32 +243,68 @@ def record_probe(store, app_id, experiment_id, body, *, user):
             raise Invalid("Record a probe for the current bundle and installation receipt")
         if observed < iso_time(prior["data"]["reported_at"]):
             raise Invalid("Probe time cannot precede the installation report")
-        identity = digest(["PROBE_OBSERVED", prior["id"], owner["principal"], release, provider, event, observed.isoformat(), scope, source])
-        saved = db.execute("SELECT * FROM instrumentation_receipts WHERE app_id=? AND id=?",
-                           (app_id, identity)).fetchone()
+        identity = digest(
+            [
+                "PROBE_OBSERVED",
+                prior["id"],
+                owner["principal"],
+                release,
+                provider,
+                event,
+                observed.isoformat(),
+                scope,
+                source,
+            ]
+        )
+        saved = db.execute(
+            "SELECT * FROM instrumentation_receipts WHERE app_id=? AND id=?", (app_id, identity)
+        ).fetchone()
         if saved:
             return decoded(saved)
-        data = dict(state="PROBE_OBSERVED", experiment_id=experiment_id,
-                    proposal_hash=prior["data"]["proposal_hash"], bundle_hash=prior["bundle_hash"],
-                    previous_id=prior["id"], previous_hash=prior["hash"], provider=provider,
-                    event_id=event, observed_at=observed.isoformat(), scope=scope,
-                    source_receipt_sha256=source, release=release,
-                    owner_attestation=dict(principal=owner["principal"], role_version=owner["version"]),
-                    report="OWNER_REPORTED_LIVE_PROBE_NOT_INDEPENDENTLY_VERIFIED")
-        return _insert(db, app_id, identity, experiment_id, data["proposal_hash"],
-                       data["bundle_hash"], "PROBE_OBSERVED", data, prior["id"], now())
+        data = dict(
+            state="PROBE_OBSERVED",
+            experiment_id=experiment_id,
+            proposal_hash=prior["data"]["proposal_hash"],
+            bundle_hash=prior["bundle_hash"],
+            previous_id=prior["id"],
+            previous_hash=prior["hash"],
+            provider=provider,
+            event_id=event,
+            observed_at=observed.isoformat(),
+            scope=scope,
+            source_receipt_sha256=source,
+            release=release,
+            owner_attestation=dict(principal=owner["principal"], role_version=owner["version"]),
+            report="OWNER_REPORTED_LIVE_PROBE_NOT_INDEPENDENTLY_VERIFIED",
+        )
+        return _insert(
+            db,
+            app_id,
+            identity,
+            experiment_id,
+            data["proposal_hash"],
+            data["bundle_hash"],
+            "PROBE_OBSERVED",
+            data,
+            prior["id"],
+            now(),
+        )
 
 
 def _actions(state):
     if state is None:
         return ["Generate the browser integration package from the current tracking proposal"]
     if state == "DOWNLOADED":
-        return ["Integrate the exact files through your app repository workflow",
-                "Report installation with the current release and an exact reference",
-                "Then record a live provider probe"]
+        return [
+            "Integrate the exact files through your app repository workflow",
+            "Report installation with the current release and an exact reference",
+            "Then record a live provider probe",
+        ]
     if state == "REPORTED_INSTALLED":
-        return ["Verify consent, identity and provider events in your own app",
-                "Record a live probe identity, time and scope"]
+        return [
+            "Verify consent, identity and provider events in your own app",
+            "Record a live probe identity, time and scope",
+        ]
     return ["Keep the probe receipt; provider delivery and business outcomes remain separate"]
 
 
@@ -221,8 +321,10 @@ def readout(store, app_id, experiment_id=None):
         groups = db.execute(
             "SELECT experiment_id, sum(CASE WHEN state!='DOWNLOADED' "
             "AND json_type(data,'$.owner_attestation') IS NULL THEN 1 ELSE 0 END) AS legacy "
-            "FROM instrumentation_receipts WHERE " + scope
-            + " GROUP BY experiment_id ORDER BY max(created) DESC,experiment_id LIMIT 200", params
+            "FROM instrumentation_receipts WHERE "
+            + scope
+            + " GROUP BY experiment_id ORDER BY max(created) DESC,experiment_id LIMIT 200",
+            params,
         ).fetchall()
         chains = []
         for group in groups:
@@ -238,21 +340,49 @@ def readout(store, app_id, experiment_id=None):
         states = []
         for state in ("DOWNLOADED", "REPORTED_INSTALLED", "PROBE_OBSERVED"):
             item = by_state.get(state)
-            states.append(dict(state=state, observed=item is not None,
-                               at=item["created"] if item else None,
-                               receipt_id=item["id"] if item else None,
-                               receipt_hash=item["hash"] if item else None))
-        result.append(dict(experiment_id=identity, latest_state=latest["state"] if latest else None,
-                           proposal_hash=latest["proposal_hash"] if latest else None,
-                           bundle_hash=latest["bundle_hash"] if latest else None,
-                           states=states, receipts=[dict(state=item["state"], id=item["id"],
-                                                         hash=item["hash"], created=item["created"],
-                                                         **{key: value for key, value in item["data"].items()
-                                                            if key in ("release", "install_reference", "provider",
-                                                                       "event_id", "observed_at", "scope",
-                                                                       "source_receipt_sha256", "reported_at")})
-                                     for item in current],
-                           legacy_unverified_receipts=legacy,
-                           next_actions=_actions(latest["state"] if latest else None),
-                           boundary="Download is not installation; attestation is not verified delivery; a probe is owner-reported."))
+            states.append(
+                dict(
+                    state=state,
+                    observed=item is not None,
+                    at=item["created"] if item else None,
+                    receipt_id=item["id"] if item else None,
+                    receipt_hash=item["hash"] if item else None,
+                )
+            )
+        result.append(
+            dict(
+                experiment_id=identity,
+                latest_state=latest["state"] if latest else None,
+                proposal_hash=latest["proposal_hash"] if latest else None,
+                bundle_hash=latest["bundle_hash"] if latest else None,
+                states=states,
+                receipts=[
+                    dict(
+                        state=item["state"],
+                        id=item["id"],
+                        hash=item["hash"],
+                        created=item["created"],
+                        **{
+                            key: value
+                            for key, value in item["data"].items()
+                            if key
+                            in (
+                                "release",
+                                "install_reference",
+                                "provider",
+                                "event_id",
+                                "observed_at",
+                                "scope",
+                                "source_receipt_sha256",
+                                "reported_at",
+                            )
+                        },
+                    )
+                    for item in current
+                ],
+                legacy_unverified_receipts=legacy,
+                next_actions=_actions(latest["state"] if latest else None),
+                boundary="Download is not installation; attestation is not verified delivery; a probe is owner-reported.",
+            )
+        )
     return sorted(result, key=lambda item: item["experiment_id"])

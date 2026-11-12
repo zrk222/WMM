@@ -1,4 +1,5 @@
 """Windows SDK layouts and signatures for ephemeral certificate verification."""
+
 import ctypes as c
 from ctypes import wintypes as w
 
@@ -28,16 +29,24 @@ class Extension(c.Structure):
 
 
 class CertInfo(c.Structure):
-    _fields_ = [("version", D), ("serial", Blob), ("signature", Algorithm),
-                ("issuer", Blob), ("not_before", w.FILETIME), ("not_after", w.FILETIME),
-                ("subject", Blob), ("public_key", PublicKey), ("issuer_id", BitBlob),
-                ("subject_id", BitBlob), ("extensions_count", D),
-                ("extensions", c.POINTER(Extension))]
+    _fields_ = [
+        ("version", D),
+        ("serial", Blob),
+        ("signature", Algorithm),
+        ("issuer", Blob),
+        ("not_before", w.FILETIME),
+        ("not_after", w.FILETIME),
+        ("subject", Blob),
+        ("public_key", PublicKey),
+        ("issuer_id", BitBlob),
+        ("subject_id", BitBlob),
+        ("extensions_count", D),
+        ("extensions", c.POINTER(Extension)),
+    ]
 
 
 class Cert(c.Structure):
-    _fields_ = [("encoding", D), ("data", P), ("size", D),
-                ("info", c.POINTER(CertInfo)), ("store", P)]
+    _fields_ = [("encoding", D), ("data", P), ("size", D), ("info", c.POINTER(CertInfo)), ("store", P)]
 
 
 class Trust(c.Structure):
@@ -49,13 +58,11 @@ class Element(c.Structure):
 
 
 class SimpleChain(c.Structure):
-    _fields_ = [("size", D), ("trust", Trust), ("count", D),
-                ("elements", c.POINTER(c.POINTER(Element)))]
+    _fields_ = [("size", D), ("trust", Trust), ("count", D), ("elements", c.POINTER(c.POINTER(Element)))]
 
 
 class Chain(c.Structure):
-    _fields_ = [("size", D), ("trust", Trust), ("count", D),
-                ("chains", c.POINTER(c.POINTER(SimpleChain)))]
+    _fields_ = [("size", D), ("trust", Trust), ("count", D), ("chains", c.POINTER(c.POINTER(SimpleChain)))]
 
 
 class Usage(c.Structure):
@@ -67,17 +74,35 @@ class UsageMatch(c.Structure):
 
 
 class ChainPara(c.Structure):
-    _fields_ = [("size", D), ("requested_usage", UsageMatch),
-                ("requested_policy", UsageMatch), ("timeout", D),
-                ("check_freshness", w.BOOL), ("freshness", D),
-                ("resync", c.POINTER(w.FILETIME)), ("strong_sign", P), ("strong_flags", D)]
+    _fields_ = [
+        ("size", D),
+        ("requested_usage", UsageMatch),
+        ("requested_policy", UsageMatch),
+        ("timeout", D),
+        ("check_freshness", w.BOOL),
+        ("freshness", D),
+        ("resync", c.POINTER(w.FILETIME)),
+        ("strong_sign", P),
+        ("strong_flags", D),
+    ]
 
 
 class EngineConfig(c.Structure):
-    _fields_ = [("size", D), ("restricted_root", P), ("restricted_trust", P),
-                ("restricted_other", P), ("additional_count", D), ("additional", PP),
-                ("flags", D), ("timeout", D), ("cache_max", D), ("cycle_modulus", D),
-                ("exclusive_root", P), ("exclusive_people", P), ("exclusive_flags", D)]
+    _fields_ = [
+        ("size", D),
+        ("restricted_root", P),
+        ("restricted_trust", P),
+        ("restricted_other", P),
+        ("additional_count", D),
+        ("additional", PP),
+        ("flags", D),
+        ("timeout", D),
+        ("cache_max", D),
+        ("cycle_modulus", D),
+        ("exclusive_root", P),
+        ("exclusive_people", P),
+        ("exclusive_flags", D),
+    ]
 
 
 def libraries():
@@ -92,8 +117,10 @@ def libraries():
         "CertAddEncodedCertificateToStore": ([P, D, P, D, D, P], w.BOOL),
         "CertCreateCertificateChainEngine": ([c.POINTER(EngineConfig), PP], w.BOOL),
         "CertFreeCertificateChainEngine": ([P], None),
-        "CertGetCertificateChain": ([P, c.POINTER(Cert), c.POINTER(w.FILETIME),
-                                    P, c.POINTER(ChainPara), D, P, PP], w.BOOL),
+        "CertGetCertificateChain": (
+            [P, c.POINTER(Cert), c.POINTER(w.FILETIME), P, c.POINTER(ChainPara), D, P, PP],
+            w.BOOL,
+        ),
         "CertFreeCertificateChain": ([P], None),
         "CryptImportPublicKeyInfoEx2": ([D, c.POINTER(PublicKey), D, P, PP], w.BOOL),
     }

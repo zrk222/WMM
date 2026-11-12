@@ -19,9 +19,7 @@ from tests import test_agent_review_clients as clients
 from tests.test_creative_rendering import prepared_render
 
 APP = "sample-one"
-CONTENT = (
-    b"Synthetic private media transport fixture; decoded runtime tested separately"
-)
+CONTENT = b"Synthetic private media transport fixture; decoded runtime tested separately"
 KEY = "bld_20261024_HTTP1234"
 
 
@@ -55,12 +53,8 @@ class HypitInterfaceTests(unittest.IsolatedAsyncioTestCase):
         fixture.GrantTests.tearDown(self)
 
     def grant(self, operations):
-        body = dict(
-            self.body(operations, 100), manifest_version=self.store.app(APP)["version"]
-        )
-        issued = self.owner.request(
-            "POST", "/api/apps/" + APP + "/agent-grants/issue", body
-        )
+        body = dict(self.body(operations, 100), manifest_version=self.store.app(APP)["version"])
+        issued = self.owner.request("POST", "/api/apps/" + APP + "/agent-grants/issue", body)
         self.token = issued["token"]
         return OperatorClient(self.origin, grant_token=self.token)
 
@@ -70,9 +64,7 @@ class HypitInterfaceTests(unittest.IsolatedAsyncioTestCase):
         (folder / "video.mp4").write_bytes(CONTENT)
         return dict(
             build_id=KEY,
-            artifact=dict(
-                bytes=len(CONTENT), sha256=hashlib.sha256(CONTENT).hexdigest()
-            ),
+            artifact=dict(bytes=len(CONTENT), sha256=hashlib.sha256(CONTENT).hexdigest()),
             cleanup=dict(worker="STOPPED"),
             publication="NOT_RUN",
         )
@@ -81,16 +73,12 @@ class HypitInterfaceTests(unittest.IsolatedAsyncioTestCase):
         return dict(data=self.request, request_key=key)
 
     def test_owner_workspace_queue_and_history_use_the_durable_service(self):
-        with patch(
-            "mission_control.hypit_jobs.render", side_effect=self.adapter
-        ) as runtime:
+        with patch("mission_control.hypit_jobs.render", side_effect=self.adapter) as runtime:
             view = self.owner.request("GET", "/api/apps/" + APP)
             self.assertEqual(view["hypit_renders"]["items"], [])
             self.assertEqual(view["hypit_renders"]["capability"]["status"], "DETECTED")
             runtime.assert_not_called()
-            queued = self.owner.request(
-                "POST", "/api/apps/" + APP + "/production/hypit-renders", self.payload()
-            )
+            queued = self.owner.request("POST", "/api/apps/" + APP + "/production/hypit-renders", self.payload())
             self.assertEqual(
                 self.owner.request(
                     "POST",
@@ -105,25 +93,19 @@ class HypitInterfaceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(history["attempts"][0]["data"]["build_id"], KEY)
             self.assertEqual(runtime.call_count, 1)
             self.assertEqual(
-                self.owner.request("GET", "/api/apps/sample-two/hypit-renders")[
-                    "items"
-                ],
+                self.owner.request("GET", "/api/apps/sample-two/hypit-renders")["items"],
                 [],
             )
 
     def test_video_bytes_range_download_scope_and_checksum(self):
-        self.owner.request(
-            "POST", "/api/apps/" + APP + "/production/hypit-renders", self.payload()
-        )
+        self.owner.request("POST", "/api/apps/" + APP + "/production/hypit-renders", self.payload())
         with patch("mission_control.hypit_jobs.render", side_effect=self.adapter):
             run_once(self.store)
         identity = jobs(self.store, APP)[0]["result"]["render_id"]
         base = "/api/apps/" + APP + "/hypit-renders/" + identity
         for suffix in ("preview", "download"):
             with self.owner.opener.open(
-                Request(
-                    self.origin + base + "/" + suffix, headers={"Origin": self.origin}
-                )
+                Request(self.origin + base + "/" + suffix, headers={"Origin": self.origin})
             ) as response:
                 self.assertEqual(response.headers.get_content_type(), "video/mp4")
                 self.assertEqual(response.read(), CONTENT)
@@ -144,17 +126,11 @@ class HypitInterfaceTests(unittest.IsolatedAsyncioTestCase):
             base.replace("hypit-renders", "renders") + "/preview",
         ):
             with self.assertRaises(HTTPError):
-                self.owner.opener.open(
-                    Request(self.origin + path, headers={"Origin": self.origin})
-                )
+                self.owner.opener.open(Request(self.origin + path, headers={"Origin": self.origin}))
         path, _ = artifact_file(self.store, APP, identity)
         path.write_bytes(b"changed")
         with self.assertRaises(HTTPError):
-            self.owner.opener.open(
-                Request(
-                    self.origin + base + "/preview", headers={"Origin": self.origin}
-                )
-            )
+            self.owner.opener.open(Request(self.origin + base + "/preview", headers={"Origin": self.origin}))
 
     def test_agent_scope_schema_and_generic_job_bypass_are_enforced(self):
         agent = self.grant(["hypit.read", "pipeline.prepare"])
@@ -185,9 +161,7 @@ class HypitInterfaceTests(unittest.IsolatedAsyncioTestCase):
                 agent.call(self.envelope("hypit.queue", body))
         self.assertEqual(jobs(self.store, APP), [])
 
-    @unittest.skipUnless(
-        sdk.HAS_MCP, "Official MCP SDK required for two-client acceptance"
-    )
+    @unittest.skipUnless(sdk.HAS_MCP, "Official MCP SDK required for two-client acceptance")
     async def test_cli_queue_then_actual_mcp_history_uses_same_job_and_grant(self):
         self.grant(["hypit.queue", "hypit.read", "jobs.read"])
         envelope = self.envelope("hypit.queue", self.payload("cli-hypit"))
@@ -214,13 +188,9 @@ class HypitInterfaceTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue({"wmm_hypit_read", "wmm_hypit_queue"} <= tools)
             with patch("mission_control.hypit_jobs.render", side_effect=self.adapter):
                 self.assertTrue(run_once(self.store))
-            response = await client.call_tool(
-                "wmm_hypit_read", dict(app_id=APP, input={})
-            )
+            response = await client.call_tool("wmm_hypit_read", dict(app_id=APP, input={}))
             self.assertFalse(response.isError, response.content)
-            self.assertEqual(
-                response.structuredContent["data"]["items"][0]["job_id"], queued["id"]
-            )
+            self.assertEqual(response.structuredContent["data"]["items"][0]["job_id"], queued["id"])
             response = await client.call_tool(
                 "wmm_hypit_queue",
                 dict(app_id="sample-two", input=self.payload("foreign")),

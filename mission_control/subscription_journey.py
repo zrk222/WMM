@@ -1,12 +1,29 @@
 """Versioned, supplied subscription observations; no entitlement or causal claims."""
+
 import re
 from datetime import timedelta
 from statistics import median
 from .common import Invalid, digest, iso_time
 
-JOURNEY_TYPES = {"ONBOARDING_COMPLETE", "PAYWALL_EXPOSURE", "TRIAL_START", "RENEWAL",
-                 "CANCEL_REQUEST", "SUBSCRIPTION_END", "BILLING_FAILURE"}
-BINDING_FIELDS = {"version", "product_id", "offer_id", "storefront", "variant_id", "configuration_sha256", "trial_days", "billing_period_days"}
+JOURNEY_TYPES = {
+    "ONBOARDING_COMPLETE",
+    "PAYWALL_EXPOSURE",
+    "TRIAL_START",
+    "RENEWAL",
+    "CANCEL_REQUEST",
+    "SUBSCRIPTION_END",
+    "BILLING_FAILURE",
+}
+BINDING_FIELDS = {
+    "version",
+    "product_id",
+    "offer_id",
+    "storefront",
+    "variant_id",
+    "configuration_sha256",
+    "trial_days",
+    "billing_period_days",
+}
 IDENTITY_FIELDS = ("product_id", "offer_id", "variant_id")
 
 
@@ -26,7 +43,9 @@ def duration_data(value):
 def binding_data(value) -> dict:
     """Require explicit identities; use offer_id STANDARD when no offer applies."""
     if not isinstance(value, dict) or set(value) != BINDING_FIELDS:
-        raise Invalid("Subscription binding needs the version, product, offer, storefront, variant and configuration hash")
+        raise Invalid(
+            "Subscription binding needs the version, product, offer, storefront, variant and configuration hash"
+        )
     if type(value["version"]) is not int or value["version"] != 1:
         raise Invalid("Unsupported subscription binding version")
     for field in IDENTITY_FIELDS:
@@ -38,6 +57,7 @@ def binding_data(value) -> dict:
         raise Invalid("Subscription configuration hash must be SHA256")
     duration_data(value)
     return dict(value)
+
 
 def validate_event(event) -> dict:
     """Keep legacy bytes intact; new journey types always require a binding."""
@@ -70,10 +90,12 @@ def chain_issues(events):
 
 def same_charge_scope(parent, event):
     """Strict temporal lineage prevents cycles and cross-product renewals."""
-    return (parent.get("subscription") == event["subscription"]
-            and parent["subject_id"] == event["subject_id"]
-            and parent["currency"] == event["currency"]
-            and iso_time(parent["occurred_at"]) < iso_time(event["occurred_at"]))
+    return (
+        parent.get("subscription") == event["subscription"]
+        and parent["subject_id"] == event["subject_id"]
+        and parent["currency"] == event["currency"]
+        and iso_time(parent["occurred_at"]) < iso_time(event["occurred_at"])
+    )
 
 
 def group_counts(events):
@@ -87,8 +109,11 @@ def group_counts(events):
     trials, paid = stages["TRIAL_START"], stages["PURCHASE"]
     converted = {s for s, stamp in trials.items() if s in paid and paid[s] >= stamp}
     renewed = set(paid) & set(stages["RENEWAL"])
-    return {"counts": {kind: len(subjects) for kind, subjects in stages.items()},
-            "trial_to_paid_subjects": len(converted), "renewed_subjects": len(renewed)}
+    return {
+        "counts": {kind: len(subjects) for kind, subjects in stages.items()},
+        "trial_to_paid_subjects": len(converted),
+        "renewed_subjects": len(renewed),
+    }
 
 
 def stage_times(events, kind):
@@ -122,11 +147,16 @@ def group_report(binding, events, cohort, as_of, issues):
     available = cohort["observability"] == "OBSERVED" and as_of >= iso_time(cohort["matures_at"]) and not issues
     converted, trials = mature_conversion(events, "TRIAL_START", "PURCHASE", binding["trial_days"], as_of)
     renewed, paid = mature_conversion(events, "PURCHASE", "RENEWAL", binding["billing_period_days"], as_of)
-    data.update(binding=binding, mature_trial_subjects=trials, mature_paid_subjects=paid,
-                trial_to_paid_rate=converted / trials if available and trials else None,
-                first_renewal_rate=renewed / paid if available and paid else None,
-                rate_status="SUPPLIED_MATURE" if available else "INCONCLUSIVE")
+    data.update(
+        binding=binding,
+        mature_trial_subjects=trials,
+        mature_paid_subjects=paid,
+        trial_to_paid_rate=converted / trials if available and trials else None,
+        first_renewal_rate=renewed / paid if available and paid else None,
+        rate_status="SUPPLIED_MATURE" if available else "INCONCLUSIVE",
+    )
     return data
+
 
 def journey_report(cohort, events, as_of) -> dict:
     """Report one cohort's supplied journeys without pooling incompatible variants."""
@@ -145,6 +175,16 @@ def journey_report(cohort, events, as_of) -> dict:
             issues.append("Subscription event lacks an eligible install: " + event["event_id"])
             continue
         groups.setdefault(digest(event["subscription"]), []).append(event)
-    return {"groups": [dict(group_report(rows[0]["subscription"], rows, cohort, as_of, issues), median_seconds_to_first_payment=payment_timing(rows, installers)) for _, rows in sorted(groups.items())],
-            "issues": issues, "coverage": "SUPPLIED_NOT_VERIFIED", "entitlement_verified": False,
-            "scope": "Operator-supplied events and whole-day offer horizons; provider eligibility and delivery completeness are unverified. Cancellation intent does not end access. No causal lift."}
+    return {
+        "groups": [
+            dict(
+                group_report(rows[0]["subscription"], rows, cohort, as_of, issues),
+                median_seconds_to_first_payment=payment_timing(rows, installers),
+            )
+            for _, rows in sorted(groups.items())
+        ],
+        "issues": issues,
+        "coverage": "SUPPLIED_NOT_VERIFIED",
+        "entitlement_verified": False,
+        "scope": "Operator-supplied events and whole-day offer horizons; provider eligibility and delivery completeness are unverified. Cancellation intent does not end access. No causal lift.",
+    }

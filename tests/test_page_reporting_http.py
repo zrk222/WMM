@@ -1,4 +1,5 @@
 """Serve the actual page-reporting assets under existing loopback boundaries."""
+
 from pathlib import Path
 import tempfile
 import threading
@@ -26,7 +27,11 @@ class PageReportingHTTPTests(unittest.TestCase):
         cls.tmp.cleanup()
 
     def test_page_explainers_assets_and_shared_view_integration(self):
-        for route, mime in (("/", "text/html"), ("/page-reporting.js", "text/javascript"), ("/page-reporting.css", "text/css")):
+        for route, mime in (
+            ("/", "text/html"),
+            ("/page-reporting.js", "text/javascript"),
+            ("/page-reporting.css", "text/css"),
+        ):
             with urlopen(self.origin + route) as response:
                 value = response.read().decode("utf-8")
                 self.assertEqual(response.status, 200)
@@ -45,5 +50,5 @@ class PageReportingHTTPTests(unittest.TestCase):
                 urlopen(self.origin + route)
             self.assertEqual(error.exception.code, 404)
         with self.assertRaises(HTTPError) as error:
-            urlopen(Request(self.origin + "/page-reporting.js", headers={"Host":"external.example"}))
+            urlopen(Request(self.origin + "/page-reporting.js", headers={"Host": "external.example"}))
         self.assertEqual(error.exception.code, 403)

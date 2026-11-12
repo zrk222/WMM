@@ -23,32 +23,62 @@ class WeeklyOperationTests(unittest.TestCase):
         self.owner = dict(principal="owner")
 
     def cards(self, user=None):
-        return operation_exceptions(
-            self.store, self.store.app("sample"), self.owner if user is None else user
-        )
+        return operation_exceptions(self.store, self.store.app("sample"), self.owner if user is None else user)
 
     def active(self, user=()):
         from mission_control.weekly_inbox import active_work
-        return active_work(
-            self.store, self.store.app("sample"), self.owner if user == () else user
-        )
+
+        return active_work(self.store, self.store.app("sample"), self.owner if user == () else user)
 
     def test_active_work_lists_jobs_sequences_and_expiring_authority(self):
         from mission_control.worker import enqueue
+
         job = enqueue(self.store, "sample", "pipeline", dict(stage=1), "active-work-key")
         stamp = now()
         expires = (datetime.now(timezone.utc) + timedelta(days=2)).isoformat()
         with connection(self.store.path) as db:
-            db.execute("INSERT INTO campaign_sequences VALUES(?,?,?,?,?,?,?,?,?,?)",
-                       ("sequence-1", "sample", "{}", digest({}), "{}", "sequence-request",
-                        "WAITING", "{}", stamp, stamp))
-            db.execute("INSERT INTO agent_grants VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                       ("grant-soon", "sample", "agent", "owner", 1, 1, "a" * 64,
-                        '["workspace.read"]', "b" * 64, expires, 5, 0, "ACTIVE", 1, stamp, stamp))
+            db.execute(
+                "INSERT INTO campaign_sequences VALUES(?,?,?,?,?,?,?,?,?,?)",
+                ("sequence-1", "sample", "{}", digest({}), "{}", "sequence-request", "WAITING", "{}", stamp, stamp),
+            )
+            db.execute(
+                "INSERT INTO agent_grants VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    "grant-soon",
+                    "sample",
+                    "agent",
+                    "owner",
+                    1,
+                    1,
+                    "a" * 64,
+                    '["workspace.read"]',
+                    "b" * 64,
+                    expires,
+                    5,
+                    0,
+                    "ACTIVE",
+                    1,
+                    stamp,
+                    stamp,
+                ),
+            )
             summary = dict(stops_at=(datetime.now(timezone.utc) + timedelta(days=3)).isoformat())
-            db.execute("INSERT INTO automation_policies VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-                       ("policy-soon", "sample", "grant-soon", "owner", 1, "ACTIVE", "{}",
-                        canonical(summary), digest(summary), stamp, stamp))
+            db.execute(
+                "INSERT INTO automation_policies VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    "policy-soon",
+                    "sample",
+                    "grant-soon",
+                    "owner",
+                    1,
+                    "ACTIVE",
+                    "{}",
+                    canonical(summary),
+                    digest(summary),
+                    stamp,
+                    stamp,
+                ),
+            )
         items = self.active()
         job_id = digest(["sample", "JOB", job["id"]])
         queued = next(item for item in items if item["id"] == job_id)
@@ -64,22 +94,39 @@ class WeeklyOperationTests(unittest.TestCase):
         with connection(self.store.path) as db:
             db.execute("UPDATE jobs SET status='SUCCEEDED' WHERE id=?", (job["id"],))
             db.execute("UPDATE campaign_sequences SET state='CANCELLED'")
-            db.execute("UPDATE agent_grants SET expires=?",
-                       ((datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),))
+            db.execute(
+                "UPDATE agent_grants SET expires=?", ((datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),)
+            )
             db.execute("UPDATE automation_policies SET status='OFF'")
         remaining = {item["id"] for item in self.active()}
-        for kind, identity in (("JOB", job["id"]), ("SEQUENCE", "sequence-1"),
-                               ("AGENT_GRANT", "grant-soon"), ("AUTOMATION", "policy-soon")):
+        for kind, identity in (
+            ("JOB", job["id"]),
+            ("SEQUENCE", "sequence-1"),
+            ("AGENT_GRANT", "grant-soon"),
+            ("AUTOMATION", "policy-soon"),
+        ):
             self.assertNotIn(digest(["sample", kind, identity]), remaining)
 
     def test_active_work_is_owner_only_bounded_and_never_exports_results(self):
         stamp = now()
         with connection(self.store.path) as db:
             for ordinal in range(60):
-                db.execute("INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-                           ("active-%03d" % ordinal, "sample", "pipeline", "{}", "RUNNING",
-                            0, 0, canonical(dict(secret="PRIVATE_JOB_RESULT")), stamp, stamp,
-                            "active-request-%03d" % ordinal))
+                db.execute(
+                    "INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        "active-%03d" % ordinal,
+                        "sample",
+                        "pipeline",
+                        "{}",
+                        "RUNNING",
+                        0,
+                        0,
+                        canonical(dict(secret="PRIVATE_JOB_RESULT")),
+                        stamp,
+                        stamp,
+                        "active-request-%03d" % ordinal,
+                    ),
+                )
         items = self.active()
         self.assertLessEqual(sum(item["kind"] == "JOB" for item in items), 50)
         self.assertNotIn("PRIVATE_JOB_RESULT", canonical(items))
@@ -94,9 +141,16 @@ class WeeklyOperationTests(unittest.TestCase):
         from mission_control.worker import enqueue
 
         job = enqueue(self.store, "sample", "pipeline", dict(stage=1), "private-handoff-key")
-        handoff = Handoffs(self.store).create("sample", self.owner, dict(
-            job_id=job["id"], recipient="replacement", operations=["jobs.read"],
-            expires=(datetime.now(timezone.utc)+timedelta(minutes=20)).isoformat()))
+        handoff = Handoffs(self.store).create(
+            "sample",
+            self.owner,
+            dict(
+                job_id=job["id"],
+                recipient="replacement",
+                operations=["jobs.read"],
+                expires=(datetime.now(timezone.utc) + timedelta(minutes=20)).isoformat(),
+            ),
+        )
         return handoff, job
 
     def test_handoff_expiry_stale_resolution_and_revocation_are_read_only(self):
@@ -104,8 +158,10 @@ class WeeklyOperationTests(unittest.TestCase):
         self.assertEqual(self.cards(), [])
         with connection(self.store.path) as db:
             future = db.execute("SELECT expires FROM agent_handoffs WHERE id=?", (handoff["id"],)).fetchone()[0]
-            db.execute("UPDATE agent_handoffs SET expires=? WHERE id=?",
-                       ((datetime.now(timezone.utc)-timedelta(seconds=1)).isoformat(), handoff["id"]))
+            db.execute(
+                "UPDATE agent_handoffs SET expires=? WHERE id=?",
+                ((datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat(), handoff["id"]),
+            )
             jobs = canonical([dict(r) for r in db.execute("SELECT * FROM jobs")])
         effects = canonical(self.fixture.fixture.wire.objects)
         first, second = self.cards(), self.cards()
@@ -130,7 +186,10 @@ class WeeklyOperationTests(unittest.TestCase):
     def test_handoff_failed_job_surfaces_even_when_revoked_and_resolves_on_success(self):
         handoff, job = self.handoff()
         with connection(self.store.path) as db:
-            db.execute("UPDATE jobs SET status='FAILED',result=? WHERE id=?", (canonical(dict(secret="PRIVATE_ERROR")), job["id"]))
+            db.execute(
+                "UPDATE jobs SET status='FAILED',result=? WHERE id=?",
+                (canonical(dict(secret="PRIVATE_ERROR")), job["id"]),
+            )
         card = self.cards()[0]
         self.assertEqual(card["state"], "JOB_FAILED")
         self.assertEqual(card["evidence"]["job_id"], job["id"])
@@ -149,8 +208,10 @@ class WeeklyOperationTests(unittest.TestCase):
         handoff, job = self.handoff()
         with connection(self.store.path) as db:
             db.execute("UPDATE jobs SET status='BLOCKED' WHERE id=?", (job["id"],))
-            db.execute("INSERT INTO operator_roles VALUES(?,?,?,?,?,?,?,?)",
-                       ("sample", "other", "other", "OWNER", "ACTIVE", 1, now(), "owner"))
+            db.execute(
+                "INSERT INTO operator_roles VALUES(?,?,?,?,?,?,?,?)",
+                ("sample", "other", "other", "OWNER", "ACTIVE", 1, now(), "owner"),
+            )
         self.assertEqual(self.cards(dict(principal="other")), [])
         self.assertEqual(len(self.cards()), 1)
 
@@ -158,13 +219,26 @@ class WeeklyOperationTests(unittest.TestCase):
         from mission_control.operator_client import OperatorClient
 
         handoff, job = self.handoff()
-        issued = self.fixture.fixture.client.request("POST", "/api/apps/sample/agent-grants/issue", dict(
-            agent_id="replacement", manifest_version=self.store.app("sample")["version"],
-            operations=["handoff.resume", "jobs.read"], max_calls=5,
-            expires=(datetime.now(timezone.utc)+timedelta(minutes=30)).isoformat()))
+        issued = self.fixture.fixture.client.request(
+            "POST",
+            "/api/apps/sample/agent-grants/issue",
+            dict(
+                agent_id="replacement",
+                manifest_version=self.store.app("sample")["version"],
+                operations=["handoff.resume", "jobs.read"],
+                max_calls=5,
+                expires=(datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat(),
+            ),
+        )
         client = OperatorClient(self.fixture.fixture.client.origin, grant_token=issued["token"])
-        resumed = client.call(dict(app_id="sample", operation="handoff.resume", resource_id=handoff["id"],
-                                   input=dict(version=handoff["version"], payload_hash=handoff["payload_hash"])))
+        resumed = client.call(
+            dict(
+                app_id="sample",
+                operation="handoff.resume",
+                resource_id=handoff["id"],
+                input=dict(version=handoff["version"], payload_hash=handoff["payload_hash"]),
+            )
+        )
         self.assertEqual(resumed["effective_status"], "CLAIMED")
         self.assertEqual(resumed["job_id"], job["id"])
         self.assertEqual(self.cards(), [])
@@ -173,19 +247,27 @@ class WeeklyOperationTests(unittest.TestCase):
         handoff, _ = self.handoff()
         with connection(self.store.path) as db:
             original = dict(db.execute("SELECT * FROM agent_handoffs WHERE id=?", (handoff["id"],)).fetchone())
-            expired = (datetime.now(timezone.utc)-timedelta(seconds=1)).isoformat()
+            expired = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
             db.execute("UPDATE agent_handoffs SET expires=?", (expired,))
             for ordinal in range(105):
                 clone = dict(original, id="bounded-handoff-%03d" % ordinal, expires=expired)
                 columns = tuple(clone)
-                db.execute("INSERT INTO agent_handoffs ("+",".join(columns)+") VALUES ("+
-                           ",".join("?" for _ in columns)+")", tuple(clone.values()))
+                db.execute(
+                    "INSERT INTO agent_handoffs ("
+                    + ",".join(columns)
+                    + ") VALUES ("
+                    + ",".join("?" for _ in columns)
+                    + ")",
+                    tuple(clone.values()),
+                )
         first, second = self.cards(), self.cards()
         self.assertEqual(len(first), 100)
         self.assertTrue(all(card["category"] == "handoff" and card["state"] == "EXPIRED" for card in first))
         self.assertEqual([card["id"] for card in first], [card["id"] for card in second])
-        self.assertEqual([card["source_receipt"]["source_hash"] for card in first],
-                         [card["source_receipt"]["source_hash"] for card in second])
+        self.assertEqual(
+            [card["source_receipt"]["source_hash"] for card in first],
+            [card["source_receipt"]["source_hash"] for card in second],
+        )
         with connection(self.store.path) as db:
             # Corrupt a row inside the selected bound while another domain needs action.
             selected = db.execute("SELECT id FROM agent_handoffs ORDER BY created DESC,id LIMIT 1").fetchone()[0]
@@ -203,25 +285,19 @@ class WeeklyOperationTests(unittest.TestCase):
             db.execute("UPDATE campaign_paid_intents SET status='UNKNOWN'")
         app = self.store.app("sample")
         self.assertEqual(operation_exceptions(self.store, app, None), [])
-        self.assertEqual(
-            operation_exceptions(self.store, app, dict(principal="maker")), []
-        )
+        self.assertEqual(operation_exceptions(self.store, app, dict(principal="maker")), [])
         with connection(self.store.path) as db:
             db.execute(
                 "INSERT INTO operator_roles VALUES(?,?,?,?,?,?,?,?)",
                 ("sample", "maker", "maker", "MAKER", "ACTIVE", 1, now(), "owner"),
             )
-        self.assertEqual(
-            operation_exceptions(self.store, app, dict(principal="maker")), []
-        )
+        self.assertEqual(operation_exceptions(self.store, app, dict(principal="maker")), [])
         cards = self.cards()
         self.assertEqual(len(cards), 1)
         self.assertTrue(cards[0]["owner_only"])
         self.assertEqual(cards[0]["owner_principal"], "owner")
         with connection(self.store.path) as db:
-            db.execute(
-                "UPDATE operator_roles SET status='REVOKED' WHERE app_id='sample' AND principal='owner'"
-            )
+            db.execute("UPDATE operator_roles SET status='REVOKED' WHERE app_id='sample' AND principal='owner'")
         self.assertEqual(self.cards(), [])
 
     def test_unknown_pending_deduped_stable_ids_safe_receipts_and_no_provider(self):
@@ -277,9 +353,7 @@ class WeeklyOperationTests(unittest.TestCase):
             db.execute("UPDATE campaign_monitors SET status='BLOCKED'")
             db.execute("UPDATE campaign_report_plans SET status='BLOCKED'")
         cards = self.cards()
-        self.assertEqual(
-            {c["resolution_route"] for c in cards}, {"monitor", "owner_reports"}
-        )
+        self.assertEqual({c["resolution_route"] for c in cards}, {"monitor", "owner_reports"})
         self.assertTrue(all(c["state"] == "BLOCKED" for c in cards))
         with connection(self.store.path) as db:
             db.execute("UPDATE campaign_monitors SET status='ACTIVE'")
@@ -330,14 +404,10 @@ class WeeklyOperationTests(unittest.TestCase):
         self.assertEqual(cards[0]["state"], "BLOCKED")
         self.assertNotIn("PRIVATE_FAILURE", canonical(cards))
         with connection(self.store.path) as db:
-            db.execute(
-                "UPDATE jobs SET status='PRIVATE_JOB_STATUS' WHERE id='failed-private'"
-            )
+            db.execute("UPDATE jobs SET status='PRIVATE_JOB_STATUS' WHERE id='failed-private'")
         self.assertEqual(self.cards(), [])
         with connection(self.store.path) as db:
-            db.execute(
-                "UPDATE jobs SET status='FAILED',data='{}' WHERE id='failed-private'"
-            )
+            db.execute("UPDATE jobs SET status='FAILED',data='{}' WHERE id='failed-private'")
         self.assertEqual(self.cards(), [])
 
     def test_operation_source_failure_retains_legacy_gates_without_raw_errors(self):
@@ -346,14 +416,13 @@ class WeeklyOperationTests(unittest.TestCase):
             side_effect=RuntimeError("PRIVATE_SQL_ERROR"),
         ):
             value = review(self.server.service, user=self.owner)
-        self.assertTrue(
-            any(c["category"] == "operation_source" for c in value["exceptions"])
-        )
+        self.assertTrue(any(c["category"] == "operation_source" for c in value["exceptions"]))
         self.assertTrue(any(not c.get("owner_only") for c in value["exceptions"]))
         self.assertNotIn("PRIVATE_SQL_ERROR", canonical(value))
 
     def test_portfolio_status_projects_stage_gaps_and_active_sequences(self):
         from mission_control.weekly_inbox import project
+
         workspace = self.server.service.workspace("sample")
         workspace["sequences"] = {"history": [dict(state="WAITING"), dict(state="QUEUED"), dict(state="CANCELLED")]}
         workspace["workflow"] = dict(

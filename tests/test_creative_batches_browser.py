@@ -1,4 +1,5 @@
 """Real browser exercise run by the separately provisioned browser CI profile."""
+
 import os
 import json
 from pathlib import Path
@@ -26,18 +27,34 @@ class CreativeBatchBrowserTests(unittest.TestCase):
             try:
                 for width in (1440, 390):
                     with self.subTest(width=width):
-                        fixture = grants.GrantTests("test_owner_issues_once_hash_only_persistence_and_snapshot_no_authority")
+                        fixture = grants.GrantTests(
+                            "test_owner_issues_once_hash_only_persistence_and_snapshot_no_authority"
+                        )
                         fixture.setUp()
                         context = None
                         try:
                             app = fixture.store.app("sample-one")
-                            fixture.store.save_app("sample-one", dict(app["data"], job="Synthetic job",
-                                audience="Synthetic audience", activation="Synthetic next step"), app["version"])
+                            fixture.store.save_app(
+                                "sample-one",
+                                dict(
+                                    app["data"],
+                                    job="Synthetic job",
+                                    audience="Synthetic audience",
+                                    activation="Synthetic next step",
+                                ),
+                                app["version"],
+                            )
                             prepared_render(fixture.store, "sample-one")
                             context = browser.new_context(viewport=dict(width=width, height=900))
-                            context.add_cookies([dict(name=c.name, value=c.value, url=fixture.origin, sameSite="Lax")
-                                                 for c in fixture.owner.cookies])
-                            page = context.new_page(); page.set_default_timeout(10000); errors = []
+                            context.add_cookies(
+                                [
+                                    dict(name=c.name, value=c.value, url=fixture.origin, sameSite="Lax")
+                                    for c in fixture.owner.cookies
+                                ]
+                            )
+                            page = context.new_page()
+                            page.set_default_timeout(10000)
+                            errors = []
                             page.on("pageerror", lambda error: errors.append(str(error)))
                             page.goto(fixture.origin)
                             page.locator("#navigation summary").click()
@@ -67,7 +84,10 @@ class CreativeBatchBrowserTests(unittest.TestCase):
                                     return response;
                                 };
                             }""")
-                            with page.expect_response(lambda response: response.url.endswith("/production/batches/cancel") and response.request.method == "POST") as cancelled:
+                            with page.expect_response(
+                                lambda response: response.url.endswith("/production/batches/cancel")
+                                and response.request.method == "POST"
+                            ) as cancelled:
                                 page.locator("#modal").get_by_role("button", name="Cancel batch", exact=True).click()
                             self.assertEqual(cancelled.value.status, 200, cancelled.value.text())
                             with connection(fixture.store.path) as db:
@@ -80,7 +100,9 @@ class CreativeBatchBrowserTests(unittest.TestCase):
                             page.locator("#modal").get_by_role("button", name="Refresh", exact=True).focus()
                             page.keyboard.press("Tab")
                             self.assertTrue(page.evaluate("document.activeElement.matches('button,input,select,a')"))
-                            expect(page.locator("#modal").get_by_role("button", name="Close", exact=True)).to_be_focused()
+                            expect(
+                                page.locator("#modal").get_by_role("button", name="Close", exact=True)
+                            ).to_be_focused()
                             self.assertEqual(errors, [])
                         finally:
                             if context:
@@ -98,37 +120,53 @@ class FirstAppBrowserTests(unittest.TestCase):
             try:
                 for width in (1440, 390):
                     with self.subTest(width=width), tempfile.TemporaryDirectory() as directory:
-                        store = Store(Path(directory) / 'blank.sqlite', seed=False)
-                        server = Server(('127.0.0.1', 0), store)
+                        store = Store(Path(directory) / "blank.sqlite", seed=False)
+                        server = Server(("127.0.0.1", 0), store)
                         server.daemon_threads = False
-                        thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
-                        origin = 'http://127.0.0.1:' + str(server.server_port)
+                        thread = threading.Thread(target=server.serve_forever, daemon=True)
+                        thread.start()
+                        origin = "http://127.0.0.1:" + str(server.server_port)
                         context = browser.new_context(viewport=dict(width=width, height=900), accept_downloads=True)
-                        unexpected = []; errors = []
+                        unexpected = []
+                        errors = []
+
                         def only_loopback(route):
-                            if route.request.url.startswith(origin + '/'): route.continue_()
-                            else: unexpected.append(route.request.url); route.abort()
-                        context.route('**/*', only_loopback)
+                            if route.request.url.startswith(origin + "/"):
+                                route.continue_()
+                            else:
+                                unexpected.append(route.request.url)
+                                route.abort()
+
+                        context.route("**/*", only_loopback)
                         try:
-                            page = context.new_page(); page.set_default_timeout(10000)
-                            page.on('pageerror', lambda error: errors.append(str(error)))
+                            page = context.new_page()
+                            page.set_default_timeout(10000)
+                            page.on("pageerror", lambda error: errors.append(str(error)))
                             page.goto(origin)
                             self.assertEqual(store.apps(), [])
-                            if width == 390: page.locator('[data-action="add-app"]').click()
-                            else: page.locator('#add-app').click()
-                            form = page.locator('#app-form'); expect(form).to_be_visible()
-                            values = dict(name='Synthetic first app', job='Help users rehearse decisions',
-                                audience='Synthetic test users', activation='Save a practice decision', release='test-build',
-                                locale='en-US')
-                            expect(form.get_by_text('Optional settings', exact=True)).to_be_visible()
+                            if width == 390:
+                                page.locator('[data-action="add-app"]').click()
+                            else:
+                                page.locator("#add-app").click()
+                            form = page.locator("#app-form")
+                            expect(form).to_be_visible()
+                            values = dict(
+                                name="Synthetic first app",
+                                job="Help users rehearse decisions",
+                                audience="Synthetic test users",
+                                activation="Save a practice decision",
+                                release="test-build",
+                                locale="en-US",
+                            )
+                            expect(form.get_by_text("Optional settings", exact=True)).to_be_visible()
                             expect(form.locator('[name="id"]')).to_be_hidden()
                             expect(form.locator('[name="website"]')).to_be_hidden()
-                            save = form.get_by_role('button', name='Save and choose a goal', exact=True)
-                            capture = os.environ.get('WMM_FIRST_APP_CAPTURE')
+                            save = form.get_by_role("button", name="Save and choose a goal", exact=True)
+                            capture = os.environ.get("WMM_FIRST_APP_CAPTURE")
                             if capture:
                                 target = Path(capture)
                                 target.mkdir(parents=True, exist_ok=True)
-                                page.locator('#modal').screenshot(path=str(target / f'app-setup-{width}.png'))
+                                page.locator("#modal").screenshot(path=str(target / f"app-setup-{width}.png"))
                                 if width == 1440:
                                     html = page.evaluate(r"""() => {
                                         const body = document.body.cloneNode(true);
@@ -140,72 +178,99 @@ class FirstAppBrowserTests(unittest.TestCase):
                                           '<title>Add your app</title><style>' + css + '</style></head>' +
                                           body.outerHTML + '</html>';
                                     }""")
-                                    (target / 'app-setup.html').write_text(html, encoding='utf-8')
-                            save.press('Enter')
+                                    (target / "app-setup.html").write_text(html, encoding="utf-8")
+                            save.press("Enter")
                             expect(form.locator('[name="name"]')).to_be_focused()
                             self.assertEqual(store.apps(), [])
-                            for key, value in values.items(): form.locator('[name="' + key + '"]').fill(value)
-                            self.assertEqual(form.evaluate("f => [...f.elements].filter(e => !e.checkValidity()).map(e => e.name)"), [])
-                            with page.expect_response(lambda r: r.url.endswith('/api/apps') and r.request.method == 'POST') as saved:
-                                save.press('Enter')
+                            for key, value in values.items():
+                                form.locator('[name="' + key + '"]').fill(value)
+                            self.assertEqual(
+                                form.evaluate("f => [...f.elements].filter(e => !e.checkValidity()).map(e => e.name)"),
+                                [],
+                            )
+                            with page.expect_response(
+                                lambda r: r.url.endswith("/api/apps") and r.request.method == "POST"
+                            ) as saved:
+                                save.press("Enter")
                             self.assertEqual(saved.value.status, 201, saved.value.text())
-                            expect(page.get_by_role('heading', name='Set your goal', exact=True)).to_be_visible()
+                            expect(page.get_by_role("heading", name="Set your goal", exact=True)).to_be_visible()
                             if capture:
-                                page.screenshot(path=str(target / f'goal-home-{width}.png'), full_page=True)
-                                (target / f'goal-home-{width}.html').write_text(page.content(), encoding='utf-8')
-                            page.get_by_role('button', name='Find a useful marketing angle', exact=True).click()
-                            expect(page.get_by_role('region', name='Your selected goal')).to_contain_text('Find a useful marketing angle')
-                            self.assertEqual(page.evaluate("localStorage.getItem('wmm-goal-choice:synthetic-first-app')"), 'research')
-                            page.get_by_role('button', name='Open your first packet', exact=True).press('Enter')
-                            expect(page.locator('#modal')).to_contain_text('Find a useful marketing angle — evidence packet')
+                                page.screenshot(path=str(target / f"goal-home-{width}.png"), full_page=True)
+                                (target / f"goal-home-{width}.html").write_text(page.content(), encoding="utf-8")
+                            page.get_by_role("button", name="Find a useful marketing angle", exact=True).click()
+                            expect(page.get_by_role("region", name="Your selected goal")).to_contain_text(
+                                "Find a useful marketing angle"
+                            )
+                            self.assertEqual(
+                                page.evaluate("localStorage.getItem('wmm-goal-choice:synthetic-first-app')"), "research"
+                            )
+                            page.get_by_role("button", name="Open your first packet", exact=True).press("Enter")
+                            expect(page.locator("#modal")).to_contain_text(
+                                "Find a useful marketing angle — evidence packet"
+                            )
                             with page.expect_download() as received:
-                                page.get_by_role('button', name='Download goal packet', exact=True).press('Enter')
-                            payload = json.loads(Path(received.value.path()).read_text(encoding='utf-8'))
-                            self.assertEqual(payload['app_id'], 'synthetic-first-app')
-                            self.assertEqual(payload['classification'], 'LOCAL_DRAFT_NO_AUTHORITY')
-                            self.assertEqual([row['stage'] for row in payload['outputs']], [5, 6])
+                                page.get_by_role("button", name="Download goal packet", exact=True).press("Enter")
+                            payload = json.loads(Path(received.value.path()).read_text(encoding="utf-8"))
+                            self.assertEqual(payload["app_id"], "synthetic-first-app")
+                            self.assertEqual(payload["classification"], "LOCAL_DRAFT_NO_AUTHORITY")
+                            self.assertEqual([row["stage"] for row in payload["outputs"]], [5, 6])
                             page.reload()
-                            expect(page.get_by_role('region', name='Your selected goal')).to_contain_text('Find a useful marketing angle')
-                            if page.locator('#navigation details').get_attribute('open') is None:
-                                page.locator('#navigation summary').click()
+                            expect(page.get_by_role("region", name="Your selected goal")).to_contain_text(
+                                "Find a useful marketing angle"
+                            )
+                            if page.locator("#navigation details").get_attribute("open") is None:
+                                page.locator("#navigation summary").click()
                             page.locator('#navigation [data-view="workflow"]').click()
-                            expect(page.get_by_role('heading', name='Your guided workflow', exact=True)).to_be_visible()
+                            expect(page.get_by_role("heading", name="Your guided workflow", exact=True)).to_be_visible()
                             with page.expect_popup() as opened:
-                                page.get_by_role('button', name='Report / Save PDF', exact=True).click()
+                                page.get_by_role("button", name="Report / Save PDF", exact=True).click()
                             report = opened.value
-                            expect(report.locator('body')).to_contain_text('Synthetic first app')
-                            expect(report.locator('body')).to_contain_text('No file has been saved')
+                            expect(report.locator("body")).to_contain_text("Synthetic first app")
+                            expect(report.locator("body")).to_contain_text("No file has been saved")
                             report.close()
-                            page.get_by_role('button', name='Inspect current packets', exact=True).click()
-                            expect(page.locator('#modal')).to_contain_text('Your prepared workflow')
-                            expect(page.locator('#modal')).to_contain_text('not completed campaigns')
+                            page.get_by_role("button", name="Inspect current packets", exact=True).click()
+                            expect(page.locator("#modal")).to_contain_text("Your prepared workflow")
+                            expect(page.locator("#modal")).to_contain_text("not completed campaigns")
                             with page.expect_download() as received:
-                                page.get_by_role('button', name='Download all packets', exact=True).click()
+                                page.get_by_role("button", name="Download all packets", exact=True).click()
                             download = received.value
-                            self.assertEqual(download.suggested_filename, 'synthetic-first-app-current-work.json')
-                            payload = json.loads(Path(download.path()).read_text(encoding='utf-8'))
-                            self.assertEqual(payload['app_id'], 'synthetic-first-app')
-                            self.assertEqual(payload['classification'], 'CURRENT_LOCAL_DRAFTS')
-                            self.assertEqual(len(payload['outputs']), 12)
-                            self.assertEqual(payload['source_hash'], page.evaluate('state.workspace.preparation.source_hash'))
-                            page.keyboard.press('Escape')
-                            if width == 390: page.locator('[data-action="add-app"]').click()
-                            else: page.locator('#add-app').click()
-                            for key, value in values.items(): form.locator('[name="' + key + '"]').fill(value)
-                            form.locator('[name="job"]').fill('Different app with the same name')
-                            save.press('Enter')
-                            expect(page.locator('#app-select')).to_have_value('synthetic-first-app-2')
-                            expect(page.get_by_role('heading', name='Set your goal', exact=True)).to_be_visible()
+                            self.assertEqual(download.suggested_filename, "synthetic-first-app-current-work.json")
+                            payload = json.loads(Path(download.path()).read_text(encoding="utf-8"))
+                            self.assertEqual(payload["app_id"], "synthetic-first-app")
+                            self.assertEqual(payload["classification"], "CURRENT_LOCAL_DRAFTS")
+                            self.assertEqual(len(payload["outputs"]), 12)
+                            self.assertEqual(
+                                payload["source_hash"], page.evaluate("state.workspace.preparation.source_hash")
+                            )
+                            page.keyboard.press("Escape")
+                            if width == 390:
+                                page.locator('[data-action="add-app"]').click()
+                            else:
+                                page.locator("#add-app").click()
+                            for key, value in values.items():
+                                form.locator('[name="' + key + '"]').fill(value)
+                            form.locator('[name="job"]').fill("Different app with the same name")
+                            save.press("Enter")
+                            expect(page.locator("#app-select")).to_have_value("synthetic-first-app-2")
+                            expect(page.get_by_role("heading", name="Set your goal", exact=True)).to_be_visible()
                             expect(form).to_be_hidden()
-                            self.assertEqual(store.app('synthetic-first-app')['data']['job'], values['job'])
-                            self.assertEqual(store.app('synthetic-first-app-2')['data']['job'], 'Different app with the same name')
+                            self.assertEqual(store.app("synthetic-first-app")["data"]["job"], values["job"])
+                            self.assertEqual(
+                                store.app("synthetic-first-app-2")["data"]["job"], "Different app with the same name"
+                            )
                             with connection(store.path) as db:
-                                for table in ('jobs', 'operator_roles', 'agent_grants'):
-                                    self.assertEqual(db.execute('SELECT count(*) FROM ' + table).fetchone()[0], 0, table)
-                            self.assertFalse(page.evaluate('document.documentElement.scrollWidth > innerWidth'))
-                            self.assertEqual(unexpected, []); self.assertEqual(errors, [])
+                                for table in ("jobs", "operator_roles", "agent_grants"):
+                                    self.assertEqual(
+                                        db.execute("SELECT count(*) FROM " + table).fetchone()[0], 0, table
+                                    )
+                            self.assertFalse(page.evaluate("document.documentElement.scrollWidth > innerWidth"))
+                            self.assertEqual(unexpected, [])
+                            self.assertEqual(errors, [])
                         finally:
-                            context.close(); server.shutdown(); server.server_close(); thread.join(timeout=10)
+                            context.close()
+                            server.shutdown()
+                            server.server_close()
+                            thread.join(timeout=10)
             finally:
                 browser.close()
 

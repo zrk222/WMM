@@ -1,4 +1,5 @@
 """Actual local HTTP, CSRF, restart and hash-bound workspace portability."""
+
 import copy
 from pathlib import Path
 import unittest
@@ -16,35 +17,53 @@ class CustomerWorkflowIntegrationTests(unittest.TestCase):
     request = test_http.HTTPTests.request
 
     def test_prototype_result_cli_http_restart_and_portable_readback(self):
-        import json,subprocess,sys
-        legacy=self.body()
-        original=self.request('/api/apps/sample-one/customer-workflows',legacy)[1]
-        body=dict(legacy,id='tested-workflow',data=dict(legacy['data'],prototype_result=prototype()))
-        envelope=dict(app_id='sample-one',operation='customer.save',input=body)
-        call=subprocess.run([sys.executable,'-m','mission_control.agent_cli','call','--origin',
-            'http://127.0.0.1:'+str(self.server.server_port)],input=json.dumps(envelope).encode(),capture_output=True,timeout=30)
-        self.assertEqual(call.returncode,0,call.stderr)
-        saved=json.loads(call.stdout)
-        self.assertEqual(saved['data']['prototype_result'],prototype())
-        rows=self.request('/api/apps/sample-one/customer-workflows')[1]['history']
-        self.assertEqual(next(r for r in rows if r['id']==original['id'])['hash'],original['hash'])
-        self.assertEqual(self.request('/api/apps/sample-one/customer-workflows',body)[1]['hash'],saved['hash'])
-        changed=dict(body,id='denied-result',data=dict(body['data'],prototype_result=dict(prototype(),consent=False)))
-        self.assertEqual(self.request('/api/apps/sample-one/customer-workflows',changed)[0],400)
-        self.assertEqual(len(self.request('/api/apps/sample-one/customer-workflows')[1]['history']),2)
-        reopened=Store(self.server.service.store.path,seed=False)
-        self.assertEqual(CustomerWorkflows(reopened).list('sample-one')['history'],rows)
-        snapshot=reopened.export('sample-one')
-        restored=Store(Path(self.tmp.name)/'prototype-restored.sqlite',seed=False);restored.restore(snapshot)
-        result=next(r for r in CustomerWorkflows(restored).list('sample-one')['history'] if r['id']==saved['id'])
-        self.assertEqual(result['hash'],saved['hash']);self.assertEqual(result['data']['prototype_result'],prototype())
-        self.assertFalse(result['readout']['demand_verified'])
+        import json, subprocess, sys
+
+        legacy = self.body()
+        original = self.request("/api/apps/sample-one/customer-workflows", legacy)[1]
+        body = dict(legacy, id="tested-workflow", data=dict(legacy["data"], prototype_result=prototype()))
+        envelope = dict(app_id="sample-one", operation="customer.save", input=body)
+        call = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "mission_control.agent_cli",
+                "call",
+                "--origin",
+                "http://127.0.0.1:" + str(self.server.server_port),
+            ],
+            input=json.dumps(envelope).encode(),
+            capture_output=True,
+            timeout=30,
+        )
+        self.assertEqual(call.returncode, 0, call.stderr)
+        saved = json.loads(call.stdout)
+        self.assertEqual(saved["data"]["prototype_result"], prototype())
+        rows = self.request("/api/apps/sample-one/customer-workflows")[1]["history"]
+        self.assertEqual(next(r for r in rows if r["id"] == original["id"])["hash"], original["hash"])
+        self.assertEqual(self.request("/api/apps/sample-one/customer-workflows", body)[1]["hash"], saved["hash"])
+        changed = dict(
+            body, id="denied-result", data=dict(body["data"], prototype_result=dict(prototype(), consent=False))
+        )
+        self.assertEqual(self.request("/api/apps/sample-one/customer-workflows", changed)[0], 400)
+        self.assertEqual(len(self.request("/api/apps/sample-one/customer-workflows")[1]["history"]), 2)
+        reopened = Store(self.server.service.store.path, seed=False)
+        self.assertEqual(CustomerWorkflows(reopened).list("sample-one")["history"], rows)
+        snapshot = reopened.export("sample-one")
+        restored = Store(Path(self.tmp.name) / "prototype-restored.sqlite", seed=False)
+        restored.restore(snapshot)
+        result = next(r for r in CustomerWorkflows(restored).list("sample-one")["history"] if r["id"] == saved["id"])
+        self.assertEqual(result["hash"], saved["hash"])
+        self.assertEqual(result["data"]["prototype_result"], prototype())
+        self.assertFalse(result["readout"]["demand_verified"])
 
     def body(self):
         store = self.server.service.store
         app = store.app("sample-one")
         if app["data"].get("release") != "build-1":
-            store.save_app("sample-one", dict(app["data"], release="build-1", locale="en-US", currency="USD"), app["version"])
+            store.save_app(
+                "sample-one", dict(app["data"], release="build-1", locale="en-US", currency="USD"), app["version"]
+            )
         return dict(id="workflow-one", manifest_version=store.app("sample-one")["version"], data=proposal())
 
     def test_http_create_read_replay_scope_and_csrf(self):
@@ -93,24 +112,24 @@ class CustomerWorkflowIntegrationTests(unittest.TestCase):
         self.assertEqual(CustomerWorkflows(restored).list("sample-one")["history"], [])
 
 
-@unittest.skipUnless(mcp_fixture.HAS_MCP,'Optional MCP SDK is not installed')
+@unittest.skipUnless(mcp_fixture.HAS_MCP, "Optional MCP SDK is not installed")
 class PrototypeMCPTests(unittest.IsolatedAsyncioTestCase):
-    setUp=mcp_fixture.MCPSubprocessTests.setUp
-    tearDown=mcp_fixture.MCPSubprocessTests.tearDown
-    session=mcp_fixture.MCPSubprocessTests.session
-    tool=mcp_fixture.MCPSubprocessTests.tool
-    data=mcp_fixture.MCPSubprocessTests.data
-    call=mcp_fixture.MCPSubprocessTests.call
-    cli=mcp_fixture.MCPSubprocessTests.cli
+    setUp = mcp_fixture.MCPSubprocessTests.setUp
+    tearDown = mcp_fixture.MCPSubprocessTests.tearDown
+    session = mcp_fixture.MCPSubprocessTests.session
+    tool = mcp_fixture.MCPSubprocessTests.tool
+    data = mcp_fixture.MCPSubprocessTests.data
+    call = mcp_fixture.MCPSubprocessTests.call
+    cli = mcp_fixture.MCPSubprocessTests.cli
 
     async def test_mcp_prototype_save_cli_history_and_scoped_denial(self):
-        body=dict(id='mcp-prototype',manifest_version=1,data=dict(proposal(),prototype_result=prototype()))
+        body = dict(id="mcp-prototype", manifest_version=1, data=dict(proposal(), prototype_result=prototype()))
         async with self.session() as client:
-            saved=self.data(await self.tool(client,'customer.save',body))
-            process,rows=self.call('customer.history')
-            self.assertEqual(process.returncode,0)
-            self.assertEqual(rows['history'][0]['hash'],saved['hash'])
-            self.assertEqual(rows['history'][0]['data']['prototype_result'],prototype())
-            denied=await self.tool(client,'customer.save',dict(body,id='denied',manifest_version=99))
+            saved = self.data(await self.tool(client, "customer.save", body))
+            process, rows = self.call("customer.history")
+            self.assertEqual(process.returncode, 0)
+            self.assertEqual(rows["history"][0]["hash"], saved["hash"])
+            self.assertEqual(rows["history"][0]["data"]["prototype_result"], prototype())
+            denied = await self.tool(client, "customer.save", dict(body, id="denied", manifest_version=99))
             self.assertTrue(denied.isError)
-            self.assertEqual(self.data(await self.tool(client,'customer.history',app='sample-two'))['history'],[])
+            self.assertEqual(self.data(await self.tool(client, "customer.history", app="sample-two"))["history"], [])

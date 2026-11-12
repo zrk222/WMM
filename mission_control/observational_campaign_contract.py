@@ -1,4 +1,5 @@
 """Closed validation contracts for observational campaign attribution."""
+
 from datetime import timezone
 import re
 import uuid
@@ -8,8 +9,13 @@ from .common import Invalid, canonical, digest, iso_time, required
 
 SOURCES = ("facebook", "instagram", "tiktok", "youtube")
 EVENT_TYPES = ("LANDING", "REGISTRATION")
-CHECKPOINT_STATES = ("COLLECTING", "SOURCE_NOT_DECLARED", "COVERAGE_INCOMPLETE",
-                     "NO_ELIGIBLE_LANDINGS", "DESCRIPTIVE_READY")
+CHECKPOINT_STATES = (
+    "COLLECTING",
+    "SOURCE_NOT_DECLARED",
+    "COVERAGE_INCOMPLETE",
+    "NO_ELIGIBLE_LANDINGS",
+    "DESCRIPTIVE_READY",
+)
 OPTIONAL_DEFINITION_FIELDS = {"collector_source_id"}
 ID_RE = re.compile(r"[A-Za-z0-9_-]{1,128}\Z", re.ASCII)
 SOURCE_ID_RE = re.compile(r"[A-Za-z0-9_-]{1,64}\Z", re.ASCII)
@@ -17,17 +23,39 @@ SHA256_RE = re.compile(r"[a-f0-9]{64}\Z", re.ASCII)
 UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\Z", re.ASCII)
 
 DEFINITION_FIELDS = {
-    "id", "name", "hypothesis", "source", "creative_id", "landing_path",
-    "starts_at", "ends_at", "landing_event", "registration_event", "attribution_model",
+    "id",
+    "name",
+    "hypothesis",
+    "source",
+    "creative_id",
+    "landing_path",
+    "starts_at",
+    "ends_at",
+    "landing_event",
+    "registration_event",
+    "attribution_model",
 }
 EVENT_FIELDS = {
-    "event_id", "subject_id", "type", "occurred_at", "campaign_token",
-    "consent", "bot", "internal_test",
+    "event_id",
+    "subject_id",
+    "type",
+    "occurred_at",
+    "campaign_token",
+    "consent",
+    "bot",
+    "internal_test",
 }
 COVERAGE_FIELDS = {"complete", "source_event_count"}
 BATCH_FIELDS = {
-    "batch_id", "study_id", "study_hash", "app_version", "source_id",
-    "source_receipt_sha256", "observed_at", "coverage", "events",
+    "batch_id",
+    "study_id",
+    "study_hash",
+    "app_version",
+    "source_id",
+    "source_receipt_sha256",
+    "observed_at",
+    "coverage",
+    "events",
 }
 ACTION_FIELDS = {
     "register": {"required": ("request_id", "manifest_version", "definition"), "optional": ()},
@@ -63,8 +91,11 @@ def aware_utc(value, label):
 
 
 def definition_data(value, registered_at):
-    if (not isinstance(value, dict) or not DEFINITION_FIELDS <= set(value)
-            or set(value) - DEFINITION_FIELDS - OPTIONAL_DEFINITION_FIELDS):
+    if (
+        not isinstance(value, dict)
+        or not DEFINITION_FIELDS <= set(value)
+        or set(value) - DEFINITION_FIELDS - OPTIONAL_DEFINITION_FIELDS
+    ):
         raise Invalid("Study definition fields must match the registered schema")
     result = dict(value)
     if "collector_source_id" in result:
@@ -95,8 +126,16 @@ def definition_data(value, registered_at):
 def landing_path(value):
     value = required(value, "landing_path", 1024)
     parsed = urlsplit(value)
-    if (not value.startswith("/") or value.startswith("//") or parsed.scheme or parsed.netloc
-            or parsed.query or parsed.fragment or "\\" in value or "\x00" in value):
+    if (
+        not value.startswith("/")
+        or value.startswith("//")
+        or parsed.scheme
+        or parsed.netloc
+        or parsed.query
+        or parsed.fragment
+        or "\\" in value
+        or "\x00" in value
+    ):
         raise Invalid("landing_path must be a path on the registered app origin")
     if any(part in (".", "..") for part in parsed.path.split("/")):
         raise Invalid("landing_path cannot contain traversal segments")
@@ -121,12 +160,14 @@ def app_origin(value):
 
 def tagged_url(app_website, definition):
     origin = app_origin(app_website)
-    query = urlencode([
-        ("utm_source", definition["source"]),
-        ("utm_medium", "organic"),
-        ("utm_campaign", definition["id"]),
-        ("utm_content", definition["creative_id"]),
-    ])
+    query = urlencode(
+        [
+            ("utm_source", definition["source"]),
+            ("utm_medium", "organic"),
+            ("utm_campaign", definition["id"]),
+            ("utm_content", definition["creative_id"]),
+        ]
+    )
     parsed = urlsplit(origin)
     return urlunsplit((parsed.scheme, parsed.netloc, definition["landing_path"], query, ""))
 
@@ -203,7 +244,10 @@ def batch_data(value, study, app_version, current_time):
     events = result["events"]
     if not isinstance(events, list) or len(events) > 500:
         raise Invalid("events must contain between 0 and 500 rows")
-    normalized = [event_data(row, study["id"], study["data"]["starts_at"], study["data"]["ends_at"], result["observed_at"]) for row in events]
+    normalized = [
+        event_data(row, study["id"], study["data"]["starts_at"], study["data"]["ends_at"], result["observed_at"])
+        for row in events
+    ]
     return dict(result, coverage=coverage, events=normalized)
 
 
@@ -216,7 +260,9 @@ def correction_data(value, study, app_version, current_time):
     if not isinstance(result["original_hash"], str) or not SHA256_RE.fullmatch(result["original_hash"]):
         raise Invalid("original_hash must be 64 lowercase hex characters")
     result["reason"] = required(result["reason"], "reason", 500)
-    result["replacement"] = event_data(result["replacement"], study["id"], study["data"]["starts_at"], study["data"]["ends_at"], current_time)
+    result["replacement"] = event_data(
+        result["replacement"], study["id"], study["data"]["starts_at"], study["data"]["ends_at"], current_time
+    )
     if result["replacement"]["event_id"] != result["event_id"]:
         raise Invalid("Replacement must retain the original event_id")
     return result
@@ -224,32 +270,68 @@ def correction_data(value, study, app_version, current_time):
 
 def schema_contract():
     """Return the closed JSON-safe domain contract for transport catalogs."""
-    return {"schema": "growth.observational-campaign-operations.v1",
-            "actions": {name: {"required": list(fields["required"]), "optional": list(fields["optional"]), "effect": "PRIVATE_APP_LOCAL_EVIDENCE"}
-                        for name, fields in ACTION_FIELDS.items()},
-            "study_fields": sorted(DEFINITION_FIELDS),
-            "optional_study_fields": sorted(OPTIONAL_DEFINITION_FIELDS),
-            "study_constraints": {"starts_at": "at least 1 second after registered_at", "window_max_seconds": 2592000,
-                                  "source_allowlist": list(SOURCES), "attribution_model": "FIRST_TOUCH",
-                                  "origin": "registered app HTTPS origin", "query_parameter_count": 4},
-            "batch_fields": sorted(BATCH_FIELDS),
-            "event_fields": sorted(EVENT_FIELDS), "event_types": list(EVENT_TYPES),
-            "event_constraints": {"opaque_ascii_pattern": "[A-Za-z0-9_-]{1,128}", "timestamp": "timezone-aware ISO-8601 normalized to UTC",
-                                  "consent": ["GRANTED", "DENIED", "UNKNOWN"], "bot": [True, False, None],
-                                  "internal_test": "boolean", "raw_personal_identifiers": "rejected"},
-            "coverage_fields": sorted(COVERAGE_FIELDS),
-            "coverage_semantics": {"source_event_count": "nonnegative integer or null", "unknown": "null", "complete_empty": 0,
-                                   "mismatch": "incomplete and explicit"},
-            "correction_fields": ["correction_id", "source_id", "event_id", "original_hash", "replacement", "reason"],
-            "max_batch_events": 500, "history_limit": 100,
-            "report_schema": "growth.observational-campaign-report.v1",
-            "measurement_checkpoint": {"states": list(CHECKPOINT_STATES),
-                "fields": ["state", "collector_source_id", "coverage_issues", "ratio_counts"],
-                "ratio_counts": "null or linked_registrations and eligible_landings; positive denominator and reconciled declared collector receipts at or after close",
-                "legacy": "undeclared collector is never descriptive-ready"},
-            "report_scope": "ATTRIBUTED_DESCRIPTIVE_ONLY; no installs, activation, paid conversion, revenue, lift, or causal decision",
-            "exclusions": ["consent_denied", "consent_unknown", "bot_true", "bot_unknown", "internal_test",
-                           "token_missing", "token_invalid", "unmatched_registration", "duplicate", "source_coverage_unknown"]}
+    return {
+        "schema": "growth.observational-campaign-operations.v1",
+        "actions": {
+            name: {
+                "required": list(fields["required"]),
+                "optional": list(fields["optional"]),
+                "effect": "PRIVATE_APP_LOCAL_EVIDENCE",
+            }
+            for name, fields in ACTION_FIELDS.items()
+        },
+        "study_fields": sorted(DEFINITION_FIELDS),
+        "optional_study_fields": sorted(OPTIONAL_DEFINITION_FIELDS),
+        "study_constraints": {
+            "starts_at": "at least 1 second after registered_at",
+            "window_max_seconds": 2592000,
+            "source_allowlist": list(SOURCES),
+            "attribution_model": "FIRST_TOUCH",
+            "origin": "registered app HTTPS origin",
+            "query_parameter_count": 4,
+        },
+        "batch_fields": sorted(BATCH_FIELDS),
+        "event_fields": sorted(EVENT_FIELDS),
+        "event_types": list(EVENT_TYPES),
+        "event_constraints": {
+            "opaque_ascii_pattern": "[A-Za-z0-9_-]{1,128}",
+            "timestamp": "timezone-aware ISO-8601 normalized to UTC",
+            "consent": ["GRANTED", "DENIED", "UNKNOWN"],
+            "bot": [True, False, None],
+            "internal_test": "boolean",
+            "raw_personal_identifiers": "rejected",
+        },
+        "coverage_fields": sorted(COVERAGE_FIELDS),
+        "coverage_semantics": {
+            "source_event_count": "nonnegative integer or null",
+            "unknown": "null",
+            "complete_empty": 0,
+            "mismatch": "incomplete and explicit",
+        },
+        "correction_fields": ["correction_id", "source_id", "event_id", "original_hash", "replacement", "reason"],
+        "max_batch_events": 500,
+        "history_limit": 100,
+        "report_schema": "growth.observational-campaign-report.v1",
+        "measurement_checkpoint": {
+            "states": list(CHECKPOINT_STATES),
+            "fields": ["state", "collector_source_id", "coverage_issues", "ratio_counts"],
+            "ratio_counts": "null or linked_registrations and eligible_landings; positive denominator and reconciled declared collector receipts at or after close",
+            "legacy": "undeclared collector is never descriptive-ready",
+        },
+        "report_scope": "ATTRIBUTED_DESCRIPTIVE_ONLY; no installs, activation, paid conversion, revenue, lift, or causal decision",
+        "exclusions": [
+            "consent_denied",
+            "consent_unknown",
+            "bot_true",
+            "bot_unknown",
+            "internal_test",
+            "token_missing",
+            "token_invalid",
+            "unmatched_registration",
+            "duplicate",
+            "source_coverage_unknown",
+        ],
+    }
 
 
 catalog_contract = schema_contract

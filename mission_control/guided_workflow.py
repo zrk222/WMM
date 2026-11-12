@@ -1,4 +1,5 @@
 """Read-only operator guidance over the existing authoritative readiness checks."""
+
 from .common import Invalid, digest
 from .pipeline import evaluate, missing_evidence, critical_findings
 from .automatic_preparation import check_scope
@@ -41,25 +42,33 @@ TOOLS = {
     "findings": ("Resolve critical findings", "findings"),
 }
 STEP_TOOLS = {
-    1: ("app", "pmf"), 2: ("readiness",),
+    1: ("app", "pmf"),
+    2: ("readiness",),
     3: ("measurement", "connections", "events"),
     4: ("cohort", "results"),
     5: ("claim", "release", "upload", "store", "aeo", "public_store"),
     6: ("experiment", "sources", "inspection", "ranking", "capability", "brief", "render"),
     7: ("distribution", "intent", "activity"),
-    8: ("route",), 9: ("billing", "subscriptions"), 10: ("retention", "followup", "pmf"),
+    8: ("route",),
+    9: ("billing", "subscriptions"),
+    10: ("retention", "followup", "pmf"),
     11: ("evaluation", "experiments", "results"),
     12: ("learning", "adoption"),
 }
 
 
 EVIDENCE_STATES = (
-    {"id": "INPUTS_READY", "title": "Inputs ready",
-     "detail": "The saved facts pass this stage's local checks."},
-    {"id": "EXECUTION_APPROVED", "title": "Execution approved",
-     "detail": "You approved an exact action. Its execution receipt tells you whether it ran."},
-    {"id": "OUTCOME_OBSERVED", "title": "Outcome observed",
-     "detail": "A source records what happened. Missing results stay unknown; counts alone do not prove growth."},
+    {"id": "INPUTS_READY", "title": "Inputs ready", "detail": "The saved facts pass this stage's local checks."},
+    {
+        "id": "EXECUTION_APPROVED",
+        "title": "Execution approved",
+        "detail": "You approved an exact action. Its execution receipt tells you whether it ran.",
+    },
+    {
+        "id": "OUTCOME_OBSERVED",
+        "title": "Outcome observed",
+        "detail": "A source records what happened. Missing results stay unknown; counts alone do not prove growth.",
+    },
 )
 
 
@@ -73,10 +82,10 @@ def primary(stage, direct, critical):
     """Resolve a real missing input before unrelated advanced tools."""
     if critical:
         return tool("findings")
-    if any(message.startswith('Verify selected App Store release:') for message in direct):
-        return tool('release')
-    if any(message.startswith('Verify App Store subscription catalog:') for message in direct):
-        return tool('subscriptions')
+    if any(message.startswith("Verify selected App Store release:") for message in direct):
+        return tool("release")
+    if any(message.startswith("Verify App Store subscription catalog:") for message in direct):
+        return tool("subscriptions")
     if direct and direct[0].startswith("Reconcile "):
         return tool("results")
     for kind in stage["inputs"]:
@@ -89,14 +98,20 @@ def step(stage, app, records, reports, catalog=None, release=None):
     """Keep direct gaps, dependent stages and critical findings distinct."""
     direct = missing_evidence(stage, app, records, reports, catalog, release)
     critical = critical_findings(records) if stage["id"] in (5, 6, 7, 11) else []
-    return {"id": stage["id"], "title": stage["title"], "description": stage["description"],
-            "local_status": "LOCAL_INPUTS_READY" if stage["status"] == "READY" else "NEEDS_INPUT",
-            "direct_needs": direct, "dependency_needs": [r for r in stage["missing"] if r.startswith("Finish stage ")],
-            "critical_findings": critical, "primary": primary(stage, direct, critical),
-            "tools": [tool(identity) for identity in STEP_TOOLS[stage["id"]]],
-            "record_ids": [r["id"] for r in records if r["kind"] in stage["inputs"]],
-            "deliverable": stage["operations"]["deliverable"],
-            "verify": stage["operations"]["verify"]}
+    return {
+        "id": stage["id"],
+        "title": stage["title"],
+        "description": stage["description"],
+        "local_status": "LOCAL_INPUTS_READY" if stage["status"] == "READY" else "NEEDS_INPUT",
+        "direct_needs": direct,
+        "dependency_needs": [r for r in stage["missing"] if r.startswith("Finish stage ")],
+        "critical_findings": critical,
+        "primary": primary(stage, direct, critical),
+        "tools": [tool(identity) for identity in STEP_TOOLS[stage["id"]]],
+        "record_ids": [r["id"] for r in records if r["kind"] in stage["inputs"]],
+        "deliverable": stage["operations"]["deliverable"],
+        "verify": stage["operations"]["verify"],
+    }
 
 
 def guide(app, records, evaluations, reports=(), catalog=None, release=None):
@@ -108,14 +123,28 @@ def guide(app, records, evaluations, reports=(), catalog=None, release=None):
     steps = [step(stage, app, records, reports, catalog, release) for stage in evaluations]
     unresolved = next((r for r in steps if r["direct_needs"] or r["critical_findings"]), None)
     next_action = unresolved["primary"] if unresolved else tool("activity")
-    source = {"app": app, "records": sorted((r["id"], r["version"], r["hash"]) for r in records),
-              "cohorts": sorted(r["source_hash"] for r in reports), "steps": steps, "subscription_catalog":catalog, "release_inventory":release}
-    return {"schema": "growth.guided-workflow.v1", "app_id": app["id"], "app_version": app["version"],
-            "source_hash": digest(source), "steps": steps, "next_action": next_action,
-            "next_step": unresolved["id"] if unresolved else None,
-            "local_ready_count": sum(r["local_status"] == "LOCAL_INPUTS_READY" for r in steps),
-            "checklist_storage": "DERIVED_FROM_SAVED_APP_EVIDENCE",
-            "evidence_states": [dict(state) for state in EVIDENCE_STATES],
-            "classification": "LOCAL_GUIDANCE_NOT_RELEASE_APPROVAL",
-            "execution": "INSPECT_EXACT_ACTION_RECORDS", "outcomes": "INSPECT_MATURE_SOURCE_REPORTS",
-            "automatic_external_writes": False, "authorized_spend_minor": 0}
+    source = {
+        "app": app,
+        "records": sorted((r["id"], r["version"], r["hash"]) for r in records),
+        "cohorts": sorted(r["source_hash"] for r in reports),
+        "steps": steps,
+        "subscription_catalog": catalog,
+        "release_inventory": release,
+    }
+    return {
+        "schema": "growth.guided-workflow.v1",
+        "app_id": app["id"],
+        "app_version": app["version"],
+        "source_hash": digest(source),
+        "steps": steps,
+        "next_action": next_action,
+        "next_step": unresolved["id"] if unresolved else None,
+        "local_ready_count": sum(r["local_status"] == "LOCAL_INPUTS_READY" for r in steps),
+        "checklist_storage": "DERIVED_FROM_SAVED_APP_EVIDENCE",
+        "evidence_states": [dict(state) for state in EVIDENCE_STATES],
+        "classification": "LOCAL_GUIDANCE_NOT_RELEASE_APPROVAL",
+        "execution": "INSPECT_EXACT_ACTION_RECORDS",
+        "outcomes": "INSPECT_MATURE_SOURCE_REPORTS",
+        "automatic_external_writes": False,
+        "authorized_spend_minor": 0,
+    }

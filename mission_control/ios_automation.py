@@ -1,4 +1,5 @@
 """Fixed native owner standing controls; execution acceptance remains separate."""
+
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -9,39 +10,91 @@ from .ios_bridge import decode_document, encode_response
 # These are the only workflow operations inspected for this bounded adapter.
 # A catalog change fails closed until the native compatibility review is updated.
 NATIVE_WORKFLOWS = {
-    'native_video_authoring': frozenset({
-        'media.sources','editor.list','editor.read','editor.save','editor.edit','editor.history','editor.diff','editor.renders',
-        'ios.scene.projects','ios.scene.read','ios.scene.save','ios.scene.plan','ios.scene.start','ios.scene.inspect','ios.scene.cancel',
-        'ios.timeline.queue','ios.timeline.inspect','ios.timeline.cancel',
-    }),
-    'pipeline_preparation': frozenset({'pipeline.prepare', 'jobs.read', 'job.cancel'}),
-    'experiment_preparation': frozenset({
-        'experiment.register', 'experiment.evaluate', 'experiment.action',
-    }),
-    'local_evidence': frozenset({
-        'workspace.read', 'evidence.save', 'operations.read', 'activity.history', 'growth.read',
-        'growth.history', 'growth.save', 'customer.history', 'customer.save',
-        'measurement.read', 'report.read', 'snapshot.export', 'cohort.define', 'events.import',
-        'billing.save', 'funnel.list', 'funnel.review', 'funnel.read', 'funnel.save',
-        'funnel.observations', 'funnel.import', 'funnel.report', 'packaging.history',
-        'packaging.read', 'packaging.save', 'packaging.reconcile', 'packaging.checklist',
-        'packaging.taste-read', 'packaging.taste-history', 'discovery.history',
-        'discovery.read', 'discovery.review', 'discovery.collect', 'discovery.watch',
-        'discovery.attempt', 'discovery.handoff',
-    }),
+    "native_video_authoring": frozenset(
+        {
+            "media.sources",
+            "editor.list",
+            "editor.read",
+            "editor.save",
+            "editor.edit",
+            "editor.history",
+            "editor.diff",
+            "editor.renders",
+            "ios.scene.projects",
+            "ios.scene.read",
+            "ios.scene.save",
+            "ios.scene.plan",
+            "ios.scene.start",
+            "ios.scene.inspect",
+            "ios.scene.cancel",
+            "ios.timeline.queue",
+            "ios.timeline.inspect",
+            "ios.timeline.cancel",
+        }
+    ),
+    "pipeline_preparation": frozenset({"pipeline.prepare", "jobs.read", "job.cancel"}),
+    "experiment_preparation": frozenset(
+        {
+            "experiment.register",
+            "experiment.evaluate",
+            "experiment.action",
+        }
+    ),
+    "local_evidence": frozenset(
+        {
+            "workspace.read",
+            "evidence.save",
+            "operations.read",
+            "activity.history",
+            "growth.read",
+            "growth.history",
+            "growth.save",
+            "customer.history",
+            "customer.save",
+            "measurement.read",
+            "report.read",
+            "snapshot.export",
+            "cohort.define",
+            "events.import",
+            "billing.save",
+            "funnel.list",
+            "funnel.review",
+            "funnel.read",
+            "funnel.save",
+            "funnel.observations",
+            "funnel.import",
+            "funnel.report",
+            "packaging.history",
+            "packaging.read",
+            "packaging.save",
+            "packaging.reconcile",
+            "packaging.checklist",
+            "packaging.taste-read",
+            "packaging.taste-history",
+            "discovery.history",
+            "discovery.read",
+            "discovery.review",
+            "discovery.collect",
+            "discovery.watch",
+            "discovery.attempt",
+            "discovery.handoff",
+        }
+    ),
 }
 
 
 def native_blockers(selection):
     from .automation_requirements import WORKFLOWS
+
     blockers = []
-    for name in selection['workflows']:
+    for name in selection["workflows"]:
         approved = NATIVE_WORKFLOWS.get(name)
-        actual = WORKFLOWS.get(name, {}).get('operations', [])
+        actual = WORKFLOWS.get(name, {}).get("operations", [])
         if approved is None or len(actual) != len(approved) or set(actual) != approved:
-            reason = {'pipeline_preparation': 'NATIVE_STANDING_JOB_BINDING_REQUIRED',
-                      'native_screen_render': 'NATIVE_SCREEN_RENDER_ADAPTER_REQUIRED'}.get(
-                          name, 'NATIVE_WORKFLOW_ADAPTER_REQUIRED')
+            reason = {
+                "pipeline_preparation": "NATIVE_STANDING_JOB_BINDING_REQUIRED",
+                "native_screen_render": "NATIVE_SCREEN_RENDER_ADAPTER_REQUIRED",
+            }.get(name, "NATIVE_WORKFLOW_ADAPTER_REQUIRED")
             blockers.append(dict(workflow=name, reason=reason))
     return blockers
 
@@ -57,53 +110,62 @@ def native_access(service, identities, session, vault_callback):
     from .complete_automation import bound_access_verifier, stored_object
     from .db import connection
     from .ios_provider_access import NativeProviderAccess, NativeVault
+
     user = identities.fresh(session)
     expected_store = Path(service.store.path).resolve()
 
     def verify(store, app_id, identity):
-        identities.local(session, user['principal'], user['session_generation'])
+        identities.local(session, user["principal"], user["session_generation"])
         if Path(store.path).resolve() != expected_store:
-            raise PermissionError('Native automation cannot cross its local datastore')
+            raise PermissionError("Native automation cannot cross its local datastore")
         with connection(store.path) as db:
-            rows = db.execute("SELECT owner,proposal,summary,summary_hash FROM automation_policies WHERE app_id=? AND status='ACTIVE'", (app_id,)).fetchall()
+            rows = db.execute(
+                "SELECT owner,proposal,summary,summary_hash FROM automation_policies WHERE app_id=? AND status='ACTIVE'",
+                (app_id,),
+            ).fetchall()
             for row in rows:
-                proposal, summary = stored_object(row['proposal']), stored_object(row['summary'])
-                if (row['owner'] != user['principal'] or digest(summary) != row['summary_hash']
-                        or proposal['selection']['agent_connection_id'] != identity
-                        or native_blockers(proposal['selection'])):
-                    raise PermissionError('Standing scope is not approved for native execution')
-        prefix = target(store, app_id, 'placeholder').rsplit('/', 1)[0] + '/'
+                proposal, summary = stored_object(row["proposal"]), stored_object(row["summary"])
+                if (
+                    row["owner"] != user["principal"]
+                    or digest(summary) != row["summary_hash"]
+                    or proposal["selection"]["agent_connection_id"] != identity
+                    or native_blockers(proposal["selection"])
+                ):
+                    raise PermissionError("Standing scope is not approved for native execution")
+        prefix = target(store, app_id, "placeholder").rsplit("/", 1)[0] + "/"
         access = AgentAccess(store, vault_factory=lambda: NativeVault(vault_callback, prefix))
         row = access.get(app_id, identity)
-        if row['data'].get('provider') not in NativeProviderAccess.SUPPORTED:
-            raise Invalid('Native standing controls require a supported protected HTTPS provider')
+        if row["data"].get("provider") not in NativeProviderAccess.SUPPORTED:
+            raise Invalid("Native standing controls require a supported protected HTTPS provider")
         if not access.secret(app_id, row):
-            raise Invalid('Reconnect the protected key before activation')
-        identities.local(session, user['principal'], user['session_generation'])
+            raise Invalid("Reconnect the protected key before activation")
+        identities.local(session, user["principal"], user["session_generation"])
 
     from .ios_execution_context import native_device_context
-    with native_device_context(service,identities,session),bound_access_verifier(verify, service.store):
+
+    with native_device_context(service, identities, session), bound_access_verifier(verify, service.store):
         yield
 
 
-EXPIRY_ACTIONS = ('extension-preview', 'extension-confirm', 'extension-history')
+EXPIRY_ACTIONS = ("extension-preview", "extension-confirm", "extension-history")
 
 
 def validate_status(action, body):
-    if action == 'status' and body:
-        raise Invalid('Standing status accepts no body fields')
+    if action == "status" and body:
+        raise Invalid("Standing status accepts no body fields")
 
 
 def expiry_kind(body, action):
     if not isinstance(body, dict):
-        raise Invalid('Use an exact native expiry request')
-    value = body.get('preview') if action == 'extension-confirm' else body
-    if not isinstance(value, dict) or value.get('kind') != 'AUTOMATION':
-        raise Invalid('Choose the supported native authority kind')
+        raise Invalid("Use an exact native expiry request")
+    value = body.get("preview") if action == "extension-confirm" else body
+    if not isinstance(value, dict) or value.get("kind") != "AUTOMATION":
+        raise Invalid("Choose the supported native authority kind")
 
 
 def manage_expiry(adapter, session, app_id, action, body):
     from .ios_execution_context import native_device_context
+
     with native_device_context(adapter.service, adapter.identities, session):
         return manage_expiry_bound(adapter, session, app_id, action, body)
 
@@ -111,20 +173,21 @@ def manage_expiry(adapter, session, app_id, action, body):
 def manage_expiry_bound(adapter, session, app_id, action, body):
     from .authority_expiry import AuthorityExpiry
     from .operation_authority import bound_owner, protected
+
     expiry_kind(body, action)
     user = adapter.identities.fresh(session)
-    envelope = dict(app_id=app_id, operation='native.expiry.' + action, input=body)
+    envelope = dict(app_id=app_id, operation="native.expiry." + action, input=body)
     with bound_owner(adapter.service.store, envelope, adapter.identities, session, user):
         with protected(adapter.service.store, envelope):
             expiry = AuthorityExpiry(adapter.service.store)
-            if action == 'extension-preview':
+            if action == "extension-preview":
                 result = expiry.preview(app_id, user, body)
-            elif action == 'extension-confirm':
+            elif action == "extension-confirm":
                 result = expiry.confirm(app_id, user, body)
             else:
-                if set(body) != {'kind', 'id'}:
-                    raise Invalid('Use an exact native expiry history request')
-                result = expiry.history(app_id, user, body['kind'], body['id'])
+                if set(body) != {"kind", "id"}:
+                    raise Invalid("Use an exact native expiry history request")
+                result = expiry.history(app_id, user, body["kind"], body["id"])
     return encode_response(result)
 
 
@@ -138,44 +201,62 @@ class NativeAutomation:
         from .complete_automation import Automation, proposal_data, utc
         from .operation_authority import bound_owner, protected
         from .ios_execution_context import native_device_context
+
         body = decode_document(payload)
         if action in EXPIRY_ACTIONS:
             return manage_expiry(self, session, app_id, action, body)
-        if not isinstance(body, dict) or action not in ('preview', 'activate', 'status', 'off'):
-            raise Invalid('Choose a fixed native standing authority action')
+        if not isinstance(body, dict) or action not in ("preview", "activate", "status", "off"):
+            raise Invalid("Choose a fixed native standing authority action")
         validate_status(action, body)
-        if action == 'activate' and (set(body) != {'proposal', 'summary_hash', 'confirm_scope'} or body['confirm_scope'] is not True):
-            raise Invalid('Confirm the exact standing scope')
-        if action == 'off' and (set(body) != {'id', 'version', 'confirm_off'} or body['confirm_off'] is not True):
-            raise Invalid('Confirm the exact standing approval revision to switch OFF')
+        if action == "activate" and (
+            set(body) != {"proposal", "summary_hash", "confirm_scope"} or body["confirm_scope"] is not True
+        ):
+            raise Invalid("Confirm the exact standing scope")
+        if action == "off" and (set(body) != {"id", "version", "confirm_off"} or body["confirm_off"] is not True):
+            raise Invalid("Confirm the exact standing approval revision to switch OFF")
         user = self.identities.fresh(session)
-        envelope = dict(app_id=app_id, operation='native.automation.' + action, input=body)
-        with native_device_context(self.service,self.identities,session),bound_owner(self.service.store, envelope, self.identities, session, user):
+        envelope = dict(app_id=app_id, operation="native.automation." + action, input=body)
+        with (
+            native_device_context(self.service, self.identities, session),
+            bound_owner(self.service.store, envelope, self.identities, session, user),
+        ):
             with protected(self.service.store, envelope):
                 automation = Automation(self.service.store)
-                if action in ('preview', 'activate'):
-                    proposal = proposal_data(body if action == 'preview' else body['proposal'], utc())
-                    blockers = native_blockers(proposal['selection'])
+                if action in ("preview", "activate"):
+                    proposal = proposal_data(body if action == "preview" else body["proposal"], utc())
+                    blockers = native_blockers(proposal["selection"])
                     if blockers:
-                        if action == 'activate':
-                            raise Invalid('Selected workflow requires a native implementation and compatibility review')
-                        return encode_response(dict(proposal=proposal, authority_issued=False,
-                                                    native_readiness='BLOCKED', blockers=blockers))
-                    if action == 'preview':
+                        if action == "activate":
+                            raise Invalid("Selected workflow requires a native implementation and compatibility review")
+                        return encode_response(
+                            dict(
+                                proposal=proposal, authority_issued=False, native_readiness="BLOCKED", blockers=blockers
+                            )
+                        )
+                    if action == "preview":
                         result = automation.preview(app_id, user, proposal)
-                        result.update(native_readiness='READY_FOR_SCOPE_REVIEW', blockers=[], native_execution_acceptance='INCOMPLETE')
-                        if 'pipeline_preparation' in proposal['selection']['workflows']:
-                            result['native_conditions'] = ['NATIVE_PROVIDER_ONBOARDING_REQUIRED_FOR_CONNECTION_READINESS']
+                        result.update(
+                            native_readiness="READY_FOR_SCOPE_REVIEW",
+                            blockers=[],
+                            native_execution_acceptance="INCOMPLETE",
+                        )
+                        if "pipeline_preparation" in proposal["selection"]["workflows"]:
+                            result["native_conditions"] = [
+                                "NATIVE_PROVIDER_ONBOARDING_REQUIRED_FOR_CONNECTION_READINESS"
+                            ]
                     else:
                         with native_access(self.service, self.identities, session, self.vault_callback):
-                            result = automation.activate(app_id, user, dict(proposal=proposal, summary_hash=body['summary_hash']))
-                        result['native_execution_acceptance'] = 'INCOMPLETE'
-                elif action == 'off':
-                    result = automation.off(app_id, user, dict(id=body['id'], version=body['version']))
+                            result = automation.activate(
+                                app_id, user, dict(proposal=proposal, summary_hash=body["summary_hash"])
+                            )
+                        result["native_execution_acceptance"] = "INCOMPLETE"
+                elif action == "off":
+                    result = automation.off(app_id, user, dict(id=body["id"], version=body["version"]))
                 else:
                     result = automation.status(app_id, user)
-                    result['native_blockers'] = native_blockers(
-                        {'workflows': list(result['catalog']['workflows'])})
-                    result['native_conditions'] = {'pipeline_preparation': ['NATIVE_PROVIDER_ONBOARDING_REQUIRED_FOR_CONNECTION_READINESS']}
-                    result['native_execution_acceptance'] = 'INCOMPLETE'
+                    result["native_blockers"] = native_blockers({"workflows": list(result["catalog"]["workflows"])})
+                    result["native_conditions"] = {
+                        "pipeline_preparation": ["NATIVE_PROVIDER_ONBOARDING_REQUIRED_FOR_CONNECTION_READINESS"]
+                    }
+                    result["native_execution_acceptance"] = "INCOMPLETE"
                 return encode_response(result)

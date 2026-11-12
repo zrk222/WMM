@@ -44,9 +44,7 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
             link=None,
             rights_hash="b" * 64,
         )
-        self.post["content_hash"] = digest(
-            dict(message=self.post["message"], link=None)
-        )
+        self.post["content_hash"] = digest(dict(message=self.post["message"], link=None))
         self.campaign_fixture()
 
     def campaign_fixture(self):
@@ -178,9 +176,7 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
         )
 
     def preview(self, **changes):
-        return self.agreement.preview(
-            "sample-one", identities.OWNER, self.body(**changes)
-        )
+        return self.agreement.preview("sample-one", identities.OWNER, self.body(**changes))
 
     def test_combined_review_snapshot_independent_scopes_and_read_only(self):
         before = self.fixture.dump()
@@ -220,9 +216,7 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
         for body in (
             self.body(principal="forged"),
             self.body(manifest_version=True),
-            self.body(
-                workflow_policy_id=None, campaign_scope_id=None, schedule_batch_id=None
-            ),
+            self.body(workflow_policy_id=None, campaign_scope_id=None, schedule_batch_id=None),
             self.body(manifest_version=2),
             self.body(campaign_scope_id="malformed"),
         ):
@@ -277,16 +271,14 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
         changed = self.preview()
         self.assertNotEqual(changed["summary_hash"], original)
         self.assertEqual(changed["status"], "warning")
-        self.assertIn(
-            "CAMPAIGN_CONNECTION_CHANGED", changed["summary"]["campaign"]["blockers"]
-        )
+        self.assertIn("CAMPAIGN_CONNECTION_CHANGED", changed["summary"]["campaign"]["blockers"])
         self.assertIn(
             "CAMPAIGN_ACCOUNT_EXPIRY_UNKNOWN",
             changed["summary"]["campaign"]["blockers"],
         )
-        late = Agreement(
-            self.store, clock=lambda: self.observed + timedelta(hours=2)
-        ).preview("sample-one", identities.OWNER, self.body())
+        late = Agreement(self.store, clock=lambda: self.observed + timedelta(hours=2)).preview(
+            "sample-one", identities.OWNER, self.body()
+        )
         self.assertIn("CAMPAIGN_SCOPE_EXPIRED", late["summary"]["campaign"]["blockers"])
 
     def test_tampered_due_post_or_scope_binding_rejects(self):
@@ -320,15 +312,11 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
                     "agreement-request",
                 ),
             )
-            db.execute(
-                "UPDATE campaign_schedule_items SET job_id='agreement-job',status='QUEUED'"
-            )
+            db.execute("UPDATE campaign_schedule_items SET job_id='agreement-job',status='QUEUED'")
         result = self.preview()
         self.assertTrue(result["summary"]["dispatch_uncertain"])
         self.assertEqual(result["status"], "warning")
-        self.assertEqual(
-            result["summary"]["schedule"]["items"][0]["job_status"], "UNKNOWN"
-        )
+        self.assertEqual(result["summary"]["schedule"]["items"][0]["job_status"], "UNKNOWN")
         with connection(self.store.path) as db:
             db.execute("UPDATE jobs SET app_id='sample-two' WHERE id='agreement-job'")
         with self.assertRaises(Invalid):
@@ -343,9 +331,7 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
         summary = result["summary"]
         self.assertEqual(result["status"], "warning")
         self.assertEqual(summary["local_work"]["effective_status"], "OFF")
-        self.assertIn(
-            "CAMPAIGN_CALL_ALLOWANCE_EXHAUSTED", summary["campaign"]["blockers"]
-        )
+        self.assertIn("CAMPAIGN_CALL_ALLOWANCE_EXHAUSTED", summary["campaign"]["blockers"])
         self.assertIn("CAMPAIGN_OWNER_CHANGED", summary["campaign"]["blockers"])
         self.assertIn("SCHEDULE_ITEM_NEEDS_REVIEW", summary["schedule"]["blockers"])
         self.assertEqual(len(summary["schedule"]["items"]), 1)
@@ -357,17 +343,13 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
 
         def change_after_snapshot(db, app, owner, identity, observed):
             with connection(self.store.path) as writer:
-                writer.execute(
-                    "UPDATE apps SET version=version+1 WHERE id='sample-one'"
-                )
+                writer.execute("UPDATE apps SET version=version+1 WHERE id='sample-one'")
             return original(db, app, owner, identity, observed)
 
         with patch.object(core, "campaign_scope", side_effect=change_after_snapshot):
             result = self.preview()
         self.assertEqual(result["summary"]["app"]["version"], 1)
-        self.assertNotIn(
-            "CAMPAIGN_APP_CHANGED", result["summary"]["campaign"]["blockers"]
-        )
+        self.assertNotIn("CAMPAIGN_APP_CHANGED", result["summary"]["campaign"]["blockers"])
         with self.assertRaises(Invalid):
             self.preview()
 
@@ -469,9 +451,7 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
                     "CAD",
                     80,
                     canonical(request),
-                    canonical(
-                        dict(campaign="101", adset="102", creative="103", ad="104")
-                    ),
+                    canonical(dict(campaign="101", adset="102", creative="103", ad="104")),
                     "ACTIVE_campaign",
                     None,
                     stamp,
@@ -489,13 +469,9 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
             result["summary"]["campaign"]["approval"]["approved_targeting_hashes"],
             [digest(target)],
         )
-        self.assertEqual(
-            result["summary"]["campaign"]["receipts"][1]["ids"]["campaign"], "101"
-        )
+        self.assertEqual(result["summary"]["campaign"]["receipts"][1]["ids"]["campaign"], "101")
         with connection(self.store.path) as db:
-            db.execute(
-                "UPDATE campaign_paid_intents SET status='PENDING_ACTIVATE_campaign'"
-            )
+            db.execute("UPDATE campaign_paid_intents SET status='PENDING_ACTIVATE_campaign'")
         uncertain = self.preview()
         self.assertEqual(uncertain["status"], "warning")
         self.assertTrue(uncertain["summary"]["dispatch_uncertain"])
@@ -534,9 +510,7 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
                 route = "/api/apps/sample-one/agent-grants/agreement-preview"
                 with self.assertRaises(ClientError):
                     owner.request("POST", route, self.body())
-                owner.request(
-                    "POST", "/api/identity/login", dict(token=identities.OWNER_TOKEN)
-                )
+                owner.request("POST", "/api/identity/login", dict(token=identities.OWNER_TOKEN))
                 before = self.fixture.dump()
                 result = owner.request("POST", route, self.body())
                 self.assertFalse(result["authority_issued"])
@@ -550,11 +524,15 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
                     owner.request("POST", route, body)
                 scope = dict(self.scope, approved_content_hashes=[post["content_hash"]])
                 with connection(self.store.path) as db:
-                    db.execute("UPDATE campaign_scopes SET status='DRAFT',summary=?,summary_hash=? WHERE id=?",
-                               (canonical(scope), digest(scope), SCOPE))
+                    db.execute(
+                        "UPDATE campaign_scopes SET status='DRAFT',summary=?,summary_hash=? WHERE id=?",
+                        (canonical(scope), digest(scope), SCOPE),
+                    )
                 before = self.fixture.dump()
-                with patch("mission_control.campaign_transport.MetaTransport.request",
-                           side_effect=AssertionError("No Meta request during review")):
+                with patch(
+                    "mission_control.campaign_transport.MetaTransport.request",
+                    side_effect=AssertionError("No Meta request during review"),
+                ):
                     draft = owner.request("POST", route, body)
                 self.assertEqual(draft["summary"]["campaign"]["draft_posts"], [post])
                 self.assertEqual(draft["summary_hash"], digest(draft["summary"]))

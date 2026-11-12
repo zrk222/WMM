@@ -1,4 +1,5 @@
-﻿"""Map an MMP CSV/JSON export into a validated install-attribution batch plus checklist."""
+"""Map an MMP CSV/JSON export into a validated install-attribution batch plus checklist."""
+
 import argparse
 import csv
 from datetime import timezone
@@ -17,7 +18,11 @@ MAPPING_FIELDS = {"install_id", "state", "occurred_at"}
 
 
 def _mapping(value):
-    if not isinstance(value, dict) or not MAPPING_FIELDS <= set(value) or set(value) - MAPPING_FIELDS - {"state_values"}:
+    if (
+        not isinstance(value, dict)
+        or not MAPPING_FIELDS <= set(value)
+        or set(value) - MAPPING_FIELDS - {"state_values"}
+    ):
         raise Invalid("Mapping must name install_id, state and occurred_at columns")
     for key in MAPPING_FIELDS:
         if not isinstance(value[key], str) or not value[key]:
@@ -25,9 +30,14 @@ def _mapping(value):
     states = value.get("state_values", {})
     if len({value[key] for key in MAPPING_FIELDS}) != len(MAPPING_FIELDS):
         raise Invalid("Map each required field to a different source column")
-    if not isinstance(states, dict) or len(states) > 40 or any(
+    if (
+        not isinstance(states, dict)
+        or len(states) > 40
+        or any(
             not isinstance(key, str) or not 1 <= len(key) <= 100 or mapped not in STATES
-            for key, mapped in states.items()):
+            for key, mapped in states.items()
+        )
+    ):
         raise Invalid("state_values must map raw values to state names")
     return value
 
@@ -67,8 +77,18 @@ def load_rows(path, fmt):
     return parse_text(Path(path).read_text(encoding="utf-8"), fmt)
 
 
-def map_rows(rows, mapping, source, campaign_token, observed_at, window, coverage, request_id=None,
-             source_receipt_sha256=None, columns=None):
+def map_rows(
+    rows,
+    mapping,
+    source,
+    campaign_token,
+    observed_at,
+    window,
+    coverage,
+    request_id=None,
+    source_receipt_sha256=None,
+    columns=None,
+):
     """Produce one batch and a coverage checklist; never write or infer missing values."""
     mapping = _mapping(mapping)
     coverage = _coverage(coverage)
@@ -121,14 +141,29 @@ def map_rows(rows, mapping, source, campaign_token, observed_at, window, coverag
     coverage = dict(coverage, excluded=dict(coverage.get("excluded", {})))
     if duplicates:
         coverage["excluded"]["DUPLICATE"] = len(duplicates)
-    batch = dict(source=source, campaign_token=campaign_token, request_id=request_id,
-                 source_receipt_sha256=source_receipt_sha256, observed_at=observed_at,
-                 window=window, coverage=coverage, installs=installed)
-    checklist = dict(schema="wmm.install-import-checklist.v1", status="READY",
-                     rows_read=len(rows), rows_emitted=len(installed),
-                     counts=counts, duplicates=duplicates[:50], conflicts=conflicts[:50],
-                     rejected=rejected[:50], unmapped_column_count=len(unmapped),
-                     request_id=request_id, source_receipt_sha256=source_receipt_sha256)
+    batch = dict(
+        source=source,
+        campaign_token=campaign_token,
+        request_id=request_id,
+        source_receipt_sha256=source_receipt_sha256,
+        observed_at=observed_at,
+        window=window,
+        coverage=coverage,
+        installs=installed,
+    )
+    checklist = dict(
+        schema="wmm.install-import-checklist.v1",
+        status="READY",
+        rows_read=len(rows),
+        rows_emitted=len(installed),
+        counts=counts,
+        duplicates=duplicates[:50],
+        conflicts=conflicts[:50],
+        rejected=rejected[:50],
+        unmapped_column_count=len(unmapped),
+        request_id=request_id,
+        source_receipt_sha256=source_receipt_sha256,
+    )
     if rejected:
         checklist["status"] = "BLOCKED"
         checklist["reason"] = "Some rows have missing or invalid install fields"
@@ -139,7 +174,9 @@ def map_rows(rows, mapping, source, campaign_token, observed_at, window, coverag
         checklist["status"] = "BLOCKED"
         checklist["reason"] = "An empty export needs explicit complete coverage and a source event count of zero"
     if derived_receipt:
-        checklist.setdefault("warnings", []).append("Source receipt hash was derived from input rows; supply the original receipt for audit.")
+        checklist.setdefault("warnings", []).append(
+            "Source receipt hash was derived from input rows; supply the original receipt for audit."
+        )
     if not coverage.get("complete"):
         checklist.setdefault("warnings", []).append("Coverage is incomplete; counts may be null or partial")
     if checklist["status"] == "READY":
@@ -171,25 +208,39 @@ def main(argv=None):
     args = parser.parse_args(argv)
     mapping = json.loads(Path(args.mapping).read_text(encoding="utf-8"))
     rows = load_rows(args.input, args.input_format)
-    digest_value = args.source_receipt_sha256 or hashlib.sha256(
-        Path(args.source_receipt_file or args.input).read_bytes()).hexdigest()
+    digest_value = (
+        args.source_receipt_sha256
+        or hashlib.sha256(Path(args.source_receipt_file or args.input).read_bytes()).hexdigest()
+    )
     coverage = dict(complete=args.coverage_complete, source_event_count=args.source_event_count)
-    batch, checklist = map_rows(rows, mapping, args.source, args.campaign_token, args.observed_at,
-                                dict(starts_at=args.window_start, ends_at=args.window_end), coverage, args.request_id, digest_value,
-                                columns=list(rows[0].keys()) if rows else [])
-    payload = (json.dumps(checklist.pop("_batch", batch), indent=2) if checklist["status"] == "READY" else json.dumps({"status": "BLOCKED", "reason": checklist.get("reason")}, indent=2)) + "\n"
+    batch, checklist = map_rows(
+        rows,
+        mapping,
+        args.source,
+        args.campaign_token,
+        args.observed_at,
+        dict(starts_at=args.window_start, ends_at=args.window_end),
+        coverage,
+        args.request_id,
+        digest_value,
+        columns=list(rows[0].keys()) if rows else [],
+    )
+    payload = (
+        json.dumps(checklist.pop("_batch", batch), indent=2)
+        if checklist["status"] == "READY"
+        else json.dumps({"status": "BLOCKED", "reason": checklist.get("reason")}, indent=2)
+    ) + "\n"
     if args.out == "-":
         sys.stdout.write(payload)
     else:
         Path(args.out).write_text(payload, encoding="utf-8")
     if args.checklist:
         Path(args.checklist).write_text(json.dumps(checklist, indent=2) + "\n", encoding="utf-8")
-    sys.stderr.write(json.dumps({key: checklist[key] for key in ("status", "rows_read", "rows_emitted", "counts")}) + "\n")
+    sys.stderr.write(
+        json.dumps({key: checklist[key] for key in ("status", "rows_read", "rows_emitted", "counts")}) + "\n"
+    )
     return 0 if checklist["status"] == "READY" else 1
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
-

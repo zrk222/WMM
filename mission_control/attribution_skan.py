@@ -1,4 +1,5 @@
 """Version-specific SKAdNetwork verification; conversion observations stay unsigned."""
+
 from . import attribution_contract as contract
 from . import attribution_keys as keys
 from . import attribution_native as native
@@ -27,8 +28,10 @@ def layout(version):
 def optional_source(data, version, environment):
     """Privacy-suppressed publisher values stay unavailable instead of guessed zero."""
     source, domain = data.get("source-app-id"), data.get("source-domain")
-    contract.require(not ("source-app-id" in data and "source-domain" in data),
-                     "SKAdNetwork publisher app and domain are mutually exclusive")
+    contract.require(
+        not ("source-app-id" in data and "source-domain" in data),
+        "SKAdNetwork publisher app and domain are mutually exclusive",
+    )
     if source is not None:
         contract.integer(source, 0 if environment == "Development" else 1, 9223372036854775807)
     if domain is not None:
@@ -58,8 +61,7 @@ def validate(data, version, app_id, environment):
 
 def signed_fields(data, version):
     """Recreate Apple's exact version-specific order, excluding conversion values."""
-    names = ["ad-network-id", "source-identifier" if version == "4.0" else "campaign-id",
-             "app-id", "transaction-id"]
+    names = ["ad-network-id", "source-identifier" if version == "4.0" else "campaign-id", "app-id", "transaction-id"]
     if version != "1.0":
         names.insert(0, "version")
         names.append("redownload")
@@ -75,7 +77,7 @@ def message(signed):
     return "\u2063".join(values).encode("utf-8")
 
 
-def verified(raw,app_id,environment):
+def verified(raw, app_id, environment):
     """Return sanitized claims only after verification with a pinned Apple public key."""
     contract.environment_name(environment)
     data = contract.body(raw)
@@ -89,5 +91,15 @@ def verified(raw,app_id,environment):
     signature = native.der_signature(contract.base64_bytes(data["attribution-signature"], 80), curve)
     native.verify(spki, curve, message(signed), signature)
     conversion = "unavailable" if version == "1.0" else "redownload" if data["redownload"] else "download"
-    return contract.result("SKAdNetwork", version, signed, unsigned, app_id, environment,
-                           data["transaction-id"], conversion, sequence, data.get("did-win", True))
+    return contract.result(
+        "SKAdNetwork",
+        version,
+        signed,
+        unsigned,
+        app_id,
+        environment,
+        data["transaction-id"],
+        conversion,
+        sequence,
+        data.get("did-win", True),
+    )

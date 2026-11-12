@@ -1,4 +1,5 @@
 """Optional personal-cloud connection; local mode is the default and never requires it."""
+
 from __future__ import annotations
 
 from .cloud_ingest import CloudIngest, IngestError, validate_endpoint
@@ -16,10 +17,22 @@ def _name(store, app_id, reference):
 
 def _public(row):
     if row is None:
-        return {"mode": "LOCAL", "status": "LOCAL", "endpoint": None, "last_test": None,
-                "last_error": None, "version": None}
-    return {"mode": "PERSONAL_CLOUD", "status": row["status"], "endpoint": row["endpoint"],
-            "last_test": row["last_test"], "last_error": row["last_error"], "version": row["version"]}
+        return {
+            "mode": "LOCAL",
+            "status": "LOCAL",
+            "endpoint": None,
+            "last_test": None,
+            "last_error": None,
+            "version": None,
+        }
+    return {
+        "mode": "PERSONAL_CLOUD",
+        "status": row["status"],
+        "endpoint": row["endpoint"],
+        "last_test": row["last_test"],
+        "last_error": row["last_error"],
+        "version": row["version"],
+    }
 
 
 class CloudConnections:
@@ -48,8 +61,9 @@ class CloudConnections:
             raise Invalid("Use the exact cloud connection fields")
         endpoint = validate_endpoint(body["endpoint"])
         token = body.get("token", "")
-        if token != "" and (not isinstance(token, str) or not 8 <= len(token) <= 4096
-                            or "\n" in token or "\r" in token):
+        if token != "" and (
+            not isinstance(token, str) or not 8 <= len(token) <= 4096 or "\n" in token or "\r" in token
+        ):
             raise Invalid("Enter a valid cloud token")
         with connection(self.store.path) as db:
             row = db.execute("SELECT * FROM cloud_connections WHERE app_id=?", (app_id,)).fetchone()
@@ -66,15 +80,18 @@ class CloudConnections:
         try:
             with connection(self.store.path) as db:
                 db.execute("BEGIN IMMEDIATE")
-                latest = db.execute("SELECT version,credential_ref FROM cloud_connections WHERE app_id=?",
-                                    (app_id,)).fetchone()
+                latest = db.execute(
+                    "SELECT version,credential_ref FROM cloud_connections WHERE app_id=?", (app_id,)
+                ).fetchone()
                 if (tuple(latest) if latest else None) != ((row["version"], previous) if row else None):
                     raise Invalid("Cloud settings changed; reload and try again")
                 version = (row["version"] + 1) if row else 1
-                db.execute("INSERT INTO cloud_connections VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(app_id) DO UPDATE SET "
-                           "endpoint=excluded.endpoint,credential_ref=excluded.credential_ref,status=excluded.status,"
-                           "last_test=excluded.last_test,last_error=excluded.last_error,version=excluded.version,updated=excluded.updated",
-                           (app_id, endpoint, reference, "CONFIGURED_UNTESTED", None, None, version, now(), now()))
+                db.execute(
+                    "INSERT INTO cloud_connections VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(app_id) DO UPDATE SET "
+                    "endpoint=excluded.endpoint,credential_ref=excluded.credential_ref,status=excluded.status,"
+                    "last_test=excluded.last_test,last_error=excluded.last_error,version=excluded.version,updated=excluded.updated",
+                    (app_id, endpoint, reference, "CONFIGURED_UNTESTED", None, None, version, now(), now()),
+                )
         except Exception:
             if token:
                 try:
@@ -113,8 +130,17 @@ class CloudConnections:
             updated = db.execute(
                 "UPDATE cloud_connections SET status=?,last_test=?,last_error=?,updated=? "
                 "WHERE app_id=? AND version=? AND endpoint=? AND credential_ref=?",
-                (status, now() if status == "TESTED" else None, error, now(), row["app_id"],
-                 row["version"], row["endpoint"], row["credential_ref"]))
+                (
+                    status,
+                    now() if status == "TESTED" else None,
+                    error,
+                    now(),
+                    row["app_id"],
+                    row["version"],
+                    row["endpoint"],
+                    row["credential_ref"],
+                ),
+            )
             if updated.rowcount != 1:
                 raise Invalid("Cloud settings changed during the test; test the saved connection again")
 

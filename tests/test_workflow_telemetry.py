@@ -19,9 +19,7 @@ class TelemetryTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.store = Store(Path(self.tmp.name) / "state.sqlite", seed=False)
         for name in ("sample-one", "sample-two"):
-            self.store.save_app(
-                name, dict(name="Synthetic telemetry", release="1", locale="en-US")
-            )
+            self.store.save_app(name, dict(name="Synthetic telemetry", release="1", locale="en-US"))
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -40,9 +38,7 @@ class TelemetryTests(unittest.TestCase):
             list(range(1, 13)),
         )
         self.assertEqual(len(run["events"]), 26)
-        self.assertEqual(
-            monitor(Store(self.store.path, seed=False), "sample-one")["runs"][0], run
-        )
+        self.assertEqual(monitor(Store(self.store.path, seed=False), "sample-one")["runs"][0], run)
 
     def test_emit_rejects_cancelled_replaced_foreign_and_invalid_events(self):
         enqueue(self.store, "sample-one", "pipeline", dict(stage=1), "attempt-test")
@@ -66,16 +62,21 @@ class TelemetryTests(unittest.TestCase):
     def test_monitor_times_only_retained_current_attempt_events(self):
         job = enqueue(self.store, "sample-one", "pipeline", {}, "timed-attempt")
         with connection(self.store.path) as db:
-            db.execute("UPDATE jobs SET created=?,status='SUCCEEDED',attempts=1 WHERE id=?",
-                       ("2026-11-11T14:00:00+00:00", job["id"]))
+            db.execute(
+                "UPDATE jobs SET created=?,status='SUCCEEDED',attempts=1 WHERE id=?",
+                ("2026-11-11T14:00:00+00:00", job["id"]),
+            )
             for attempt, code, at in (
                 (1, "STARTED", "2026-11-11T14:00:03+00:00"),
                 (1, "SUCCEEDED", "2026-11-11T14:00:08+00:00"),
             ):
-                db.execute("INSERT INTO workflow_events(app_id,job_id,attempt,code,observed_at) VALUES(?,?,?,?,?)",
-                           ("sample-one", job["id"], attempt, code, at))
-        self.assertEqual(monitor(self.store, "sample-one")["runs"][0]["timing"],
-                         {"initial_queue_ms": 3000, "attempt_ms": 5000})
+                db.execute(
+                    "INSERT INTO workflow_events(app_id,job_id,attempt,code,observed_at) VALUES(?,?,?,?,?)",
+                    ("sample-one", job["id"], attempt, code, at),
+                )
+        self.assertEqual(
+            monitor(self.store, "sample-one")["runs"][0]["timing"], {"initial_queue_ms": 3000, "attempt_ms": 5000}
+        )
         with connection(self.store.path) as db:
             db.execute("UPDATE jobs SET attempts=2,status='RUNNING' WHERE id=?", (job["id"],))
         self.assertEqual(monitor(self.store, "sample-one")["runs"][0]["timing"], {})
@@ -84,12 +85,17 @@ class TelemetryTests(unittest.TestCase):
                 ("STARTED", "2026-11-11T14:01:00+00:00"),
                 ("RETRY_WAIT", "2026-11-11T14:01:01.500+00:00"),
             ):
-                db.execute("INSERT INTO workflow_events(app_id,job_id,attempt,code,observed_at) VALUES(?,?,?,?,?)",
-                           ("sample-one", job["id"], 2, code, at))
+                db.execute(
+                    "INSERT INTO workflow_events(app_id,job_id,attempt,code,observed_at) VALUES(?,?,?,?,?)",
+                    ("sample-one", job["id"], 2, code, at),
+                )
         self.assertEqual(monitor(self.store, "sample-one")["runs"][0]["timing"], {"attempt_ms": 1500})
         with connection(self.store.path) as db:
-            db.execute("UPDATE workflow_events SET observed_at='2026-11-11T13:59:59+00:00' "
-                       "WHERE job_id=? AND code='RETRY_WAIT'", (job["id"],))
+            db.execute(
+                "UPDATE workflow_events SET observed_at='2026-11-11T13:59:59+00:00' "
+                "WHERE job_id=? AND code='RETRY_WAIT'",
+                (job["id"],),
+            )
         self.assertEqual(monitor(self.store, "sample-one")["runs"][0]["timing"], {})
 
     def test_monitor_excludes_payloads_and_old_attempt_counts(self):
@@ -119,8 +125,13 @@ class TelemetryTests(unittest.TestCase):
         job = enqueue(self.store, "sample-one", "pipeline", {"secret": "PRIVATE_INPUT"}, "waiting")
         enqueue(self.store, "sample-two", "pipeline", {}, "foreign")
         with connection(self.store.path) as db:
-            db.execute("UPDATE jobs SET action='sync',status='SUCCEEDED',result=? WHERE id=?",
-                       (json.dumps({"status": "WAITING_FOR_REPORTS", "error": "PRIVATE_ERROR", "token": "PRIVATE_TOKEN"}), job["id"]))
+            db.execute(
+                "UPDATE jobs SET action='sync',status='SUCCEEDED',result=? WHERE id=?",
+                (
+                    json.dumps({"status": "WAITING_FOR_REPORTS", "error": "PRIVATE_ERROR", "token": "PRIVATE_TOKEN"}),
+                    job["id"],
+                ),
+            )
         run = monitor(self.store, "sample-one")["runs"][0]
         self.assertEqual(run["outcome_code"], "WAITING_FOR_REPORTS")
         self.assertEqual(run["status"], "SUCCEEDED")
@@ -137,7 +148,7 @@ class TelemetryTests(unittest.TestCase):
         cases = [
             ("sync", "SUCCEEDED", None),
             ("sync", "SUCCEEDED", "{PRIVATE_MALFORMED"),
-            ("sync", "SUCCEEDED", '[' * 2000 + '0' + ']' * 2000),
+            ("sync", "SUCCEEDED", "[" * 2000 + "0" + "]" * 2000),
             ("sync", "SUCCEEDED", json.dumps([{"status": "WAITING_FOR_REPORTS"}])),
             ("sync", "SUCCEEDED", json.dumps("WAITING_FOR_REPORTS")),
             ("sync", "SUCCEEDED", json.dumps({"status": "PRIVATE_UNKNOWN", "error": "PRIVATE_ERROR"})),
@@ -148,7 +159,9 @@ class TelemetryTests(unittest.TestCase):
         for action, status, result in cases:
             with self.subTest(action=action, status=status, result=result):
                 with connection(self.store.path) as db:
-                    db.execute("UPDATE jobs SET action=?,status=?,result=? WHERE id=?", (action, status, result, job["id"]))
+                    db.execute(
+                        "UPDATE jobs SET action=?,status=?,result=? WHERE id=?", (action, status, result, job["id"])
+                    )
                 run = monitor(self.store, "sample-one")["runs"][0]
                 self.assertEqual(run["status"], status)
                 self.assertNotIn("outcome_code", run)
@@ -170,19 +183,35 @@ class TelemetryHTTPTests(unittest.TestCase):
         worker.attempt("queue", lambda: 1 / 0)
         worker.finish()
         with urlopen(base) as response:
-            self.assertEqual(json.load(response)["worker"], {"status": "RECOVERING", "last_success": None, "runtime_mode": "SERVER"})
+            self.assertEqual(
+                json.load(response)["worker"], {"status": "RECOVERING", "last_success": None, "runtime_mode": "SERVER"}
+            )
         worker.stopped()
         with urlopen(base) as response:
-            self.assertEqual(json.load(response)["worker"], {"status": "STOPPED", "last_success": None, "runtime_mode": "SERVER"})
-        self.assertEqual(worker_observation({"status": "PRIVATE_STATUS", "last_success": "PRIVATE_DATE",
-            "last_error": "PRIVATE_ERROR", "runtime_mode": "PRIVATE_MODE"}),
-            {"status": "UNKNOWN", "last_success": None, "runtime_mode": "UNKNOWN"})
-        self.assertEqual(worker_observation({"status": "RUNNING", "last_success": "2026-11-06T00:00:00Z"}),
-            {"status": "RUNNING", "last_success": "2026-11-06T00:00:00+00:00", "runtime_mode": "UNKNOWN"})
+            self.assertEqual(
+                json.load(response)["worker"], {"status": "STOPPED", "last_success": None, "runtime_mode": "SERVER"}
+            )
+        self.assertEqual(
+            worker_observation(
+                {
+                    "status": "PRIVATE_STATUS",
+                    "last_success": "PRIVATE_DATE",
+                    "last_error": "PRIVATE_ERROR",
+                    "runtime_mode": "PRIVATE_MODE",
+                }
+            ),
+            {"status": "UNKNOWN", "last_success": None, "runtime_mode": "UNKNOWN"},
+        )
+        self.assertEqual(
+            worker_observation({"status": "RUNNING", "last_success": "2026-11-06T00:00:00Z"}),
+            {"status": "RUNNING", "last_success": "2026-11-06T00:00:00+00:00", "runtime_mode": "UNKNOWN"},
+        )
         job = enqueue(self.store, "sample-one", "sync", {}, "http-waiting")
         with connection(self.store.path) as db:
-            db.execute("UPDATE jobs SET status='SUCCEEDED',result=? WHERE id=?",
-                       (json.dumps({"status": "WAITING_FOR_REPORTS", "token": "PRIVATE_HTTP_TOKEN"}), job["id"]))
+            db.execute(
+                "UPDATE jobs SET status='SUCCEEDED',result=? WHERE id=?",
+                (json.dumps({"status": "WAITING_FOR_REPORTS", "token": "PRIVATE_HTTP_TOKEN"}), job["id"]),
+            )
         with urlopen(base) as response:
             body = response.read().decode()
             self.assertEqual(json.loads(body)["runs"][0]["outcome_code"], "WAITING_FOR_REPORTS")

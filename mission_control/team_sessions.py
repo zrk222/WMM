@@ -1,4 +1,5 @@
 """Durable team sessions bound to a verified GitHub identity; no passwords or raw tokens stored."""
+
 import hashlib
 import re
 import secrets
@@ -35,8 +36,13 @@ def _ttl(hours):
 def open_session(store, app_id, user, hours=8):
     """Create one app-scoped session for an already verified identity."""
     store.app(app_id)
-    if (not isinstance(user, dict) or not isinstance(user.get("principal"), str)
-            or not user["principal"] or not isinstance(user.get("login"), str) or not user["login"]):
+    if (
+        not isinstance(user, dict)
+        or not isinstance(user.get("principal"), str)
+        or not user["principal"]
+        or not isinstance(user.get("login"), str)
+        or not user["login"]
+    ):
         raise PermissionError("A verified teammate identity is required")
     hours = _ttl(hours)
     observed = datetime.now(timezone.utc)
@@ -45,11 +51,22 @@ def open_session(store, app_id, user, hours=8):
     with connection(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
         member(db, app_id, user["principal"])
-        db.execute("INSERT INTO team_sessions VALUES(?,?,?,?,?,?,?,?,?,?)",
-                   (app_id, identity, token_hash(token), user["principal"], user["login"], "GITHUB",
-                    observed.isoformat(), (observed + timedelta(hours=hours)).isoformat(), 0, 1))
-        row = dict(db.execute("SELECT * FROM team_sessions WHERE app_id=? AND id=?",
-                              (app_id, identity)).fetchone())
+        db.execute(
+            "INSERT INTO team_sessions VALUES(?,?,?,?,?,?,?,?,?,?)",
+            (
+                app_id,
+                identity,
+                token_hash(token),
+                user["principal"],
+                user["login"],
+                "GITHUB",
+                observed.isoformat(),
+                (observed + timedelta(hours=hours)).isoformat(),
+                0,
+                1,
+            ),
+        )
+        row = dict(db.execute("SELECT * FROM team_sessions WHERE app_id=? AND id=?", (app_id, identity)).fetchone())
     return dict(session=_public(row), token=token, token_delivery="ONCE_ONLY")
 
 
@@ -74,9 +91,16 @@ def verify(store, token):
             raise PermissionError("Team session expired")
         current = member(db, row["app_id"], row["principal"])
     store.app(row["app_id"])
-    return dict(app_id=row["app_id"], session_id=row["id"], principal=row["principal"],
-                login=row["login"], provider=row["provider"], expires=row["expires"],
-                role=current["role"], role_version=current["version"])
+    return dict(
+        app_id=row["app_id"],
+        session_id=row["id"],
+        principal=row["principal"],
+        login=row["login"],
+        provider=row["provider"],
+        expires=row["expires"],
+        role=current["role"],
+        role_version=current["version"],
+    )
 
 
 def revoke(store, app_id, owner, identity, version):
@@ -87,9 +111,10 @@ def revoke(store, app_id, owner, identity, version):
     with connection(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
         member(db, app_id, owner["principal"], "OWNER")
-        changed = db.execute("UPDATE team_sessions SET revoked=1,version=version+1 "
-                             "WHERE app_id=? AND id=? AND revoked=0 AND version=?",
-                             (app_id, identity, version)).rowcount
+        changed = db.execute(
+            "UPDATE team_sessions SET revoked=1,version=version+1 WHERE app_id=? AND id=? AND revoked=0 AND version=?",
+            (app_id, identity, version),
+        ).rowcount
         if changed != 1:
             raise Invalid("Session is unknown, already revoked or changed")
     return list_sessions(store, app_id, owner)
@@ -100,7 +125,14 @@ def list_sessions(store, app_id, owner):
     store.app(app_id)
     with connection(store.path) as db:
         member(db, app_id, owner["principal"], "OWNER")
-        rows = [dict(row) for row in db.execute(
-            "SELECT * FROM team_sessions WHERE app_id=? ORDER BY created DESC,id LIMIT 100", (app_id,))]
-    return dict(app_id=app_id, sessions=[_public(row) for row in rows],
-                scope="App-scoped GitHub identity sessions; no hosted tenant or password storage.")
+        rows = [
+            dict(row)
+            for row in db.execute(
+                "SELECT * FROM team_sessions WHERE app_id=? ORDER BY created DESC,id LIMIT 100", (app_id,)
+            )
+        ]
+    return dict(
+        app_id=app_id,
+        sessions=[_public(row) for row in rows],
+        scope="App-scoped GitHub identity sessions; no hosted tenant or password storage.",
+    )
