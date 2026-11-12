@@ -45,7 +45,8 @@ def verify_bundle(folder):
         profile = isolated / 'accepted'
         if run(shell, profile) != 0:
             raise RuntimeError('Exact packaged engine verification failed')
-        database = profile / 'Wize Marketing Machine' / 'mission-control.sqlite3'
+        data_root = profile / 'Library/Application Support' if sys.platform == 'darwin' else profile
+        database = data_root / 'Wize Marketing Machine' / 'mission-control.sqlite3'
         if not database.is_file():
             raise RuntimeError('Packaged engine did not open its disposable workspace')
         conn = sqlite3.connect(database.as_uri() + '?mode=ro', uri=True)

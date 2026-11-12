@@ -318,8 +318,11 @@ class DesktopEntryTests(unittest.TestCase):
             environment = dict(__import__("os").environ)
             if sys.platform == "win32":
                 environment["LOCALAPPDATA"] = folder
+            elif sys.platform == "darwin":
+                environment["HOME"] = folder
             else:
                 environment["XDG_DATA_HOME"] = folder
+            data_root = Path(folder) / "Library/Application Support" if sys.platform == "darwin" else Path(folder)
             child = subprocess.Popen(
                 [sys.executable, "-u", "-m", "mission_control.desktop", "--headless"],
                 stdout=subprocess.PIPE,
@@ -339,13 +342,13 @@ class DesktopEntryTests(unittest.TestCase):
                 child.wait(timeout=30)
                 self.assertTrue(
                     (
-                        Path(folder)
+                        data_root
                         / "Wize Marketing Machine"
                         / "mission-control.sqlite3"
                     ).exists()
                 )
                 runtime = DesktopRuntime(
-                    Path(folder) / "Wize Marketing Machine", 0, fixed_port=True
+                    data_root / "Wize Marketing Machine", 0, fixed_port=True
                 )
                 runtime.close()
             finally:

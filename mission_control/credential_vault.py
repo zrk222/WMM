@@ -89,6 +89,9 @@ class Vault:
         elif sys.platform.startswith('linux'):
             from .linux_vault import LinuxVault
             self.backend = LinuxVault()
+        elif sys.platform == 'darwin':
+            from .macos_vault import MacOSVault
+            self.backend = MacOSVault()
         else:raise Invalid('Protected credentials are unavailable on this platform; no plaintext fallback is used')
 
     def put(self, name, value):

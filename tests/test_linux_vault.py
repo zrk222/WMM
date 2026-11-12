@@ -102,7 +102,7 @@ class LinuxVaultTests(unittest.TestCase):
     def test_platform_selection_has_no_backend_fallback(self):
         with patch.object(vault.os,'name','posix'),patch.object(vault.sys,'platform','linux'):
             self.assertIsInstance(vault.Vault().backend,native.LinuxVault)
-        with patch.object(vault.os,'name','posix'),patch.object(vault.sys,'platform','darwin'):
+        with patch.object(vault.os,'name','posix'),patch.object(vault.sys,'platform','freebsd'):
             with self.assertRaises(Invalid):vault.Vault()
         with patch.object(vault.os,'name','nt'),patch.object(vault,'WindowsVault')as windows:
             v=vault.Vault();v.put('one',{});windows.return_value.put.assert_called_once_with('one',{})
