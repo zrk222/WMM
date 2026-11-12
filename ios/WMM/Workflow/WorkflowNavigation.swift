@@ -20,6 +20,30 @@ private struct WorkspaceBrandHeader: View {
     }
 }
 
+private struct WorkspaceExpectations: View {
+    var body: some View {
+        DisclosureGroup("Your first day and first month") {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Built for founders and marketing teams promoting one app or a portfolio. Each app keeps its own evidence and permissions.")
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Day 1 — a clearer next marketing move").font(.headline)
+                    Text("Choose one app-growth question. Add your app facts and research, then review the next preparation step and its missing evidence.")
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Around Day 30, with regular use").font(.headline)
+                    Text("Build a dated record of research, approved work and available results. Decide what to continue, revise or stop.")
+                }
+                Text("The potential payoff: less repeated research and clearer campaign decisions. Missing measurements stay unknown. Growth and time savings are not guaranteed; you still approve what goes live.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            .font(.body)
+            .frame(maxWidth: 680, alignment: .leading)
+            .padding(.vertical, 8)
+        }
+    }
+}
+
 @MainActor
 struct WorkflowNavigation: View {
     @StateObject private var model = NativeWorkspaceModel()
@@ -52,7 +76,7 @@ struct WorkflowNavigation: View {
                     ContentUnavailableView {
                         Label("Your app marketing workspace", systemImage: "lock.shield")
                     } description: {
-                        Text("Bring your app facts, research and results together. You and your agent use the same evidence, permissions and next steps.")
+                        Text("Built for founders and marketing teams promoting one app or a portfolio. Start with one question; keep its evidence and permissions together.")
                     } actions: {
                         Button("Unlock workspace") { Task { await model.unlock() } }
                             .buttonStyle(.borderedProminent).disabled(model.busy)
@@ -60,6 +84,7 @@ struct WorkflowNavigation: View {
                     }
                 } else if let snapshot = model.snapshot {
                     List {
+                        Section("About WMM") { WorkspaceExpectations() }
                         Section("Your next steps") {
                             Text("Follow these stages to turn app facts into reviewed marketing work. Readiness shows current evidence; it does not mean a campaign has run.")
                             Button("Refresh stages and activity", systemImage: "arrow.clockwise") {
@@ -90,6 +115,7 @@ struct WorkflowNavigation: View {
                     }
                 } else {
                     List {
+                        Section("About WMM") { WorkspaceExpectations() }
                         Section { Text("Choose an app to review its marketing work, or add your first app. Each app keeps its own evidence and owner permissions.") }
                         Section("Your apps") {
                             if model.apps.isEmpty { Text("No owned apps yet. Add your app to start its local workspace.") }

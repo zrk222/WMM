@@ -31,8 +31,10 @@ test("page_explainers covers exactly every top-level navigation view", () => {
 test("overview_story names purpose, inputs, operations and delivered artifacts directly", () => {
   const html = reports.overviewStory();
   for (const phrase of ["preparing and measuring app marketing","Tell WMM about your app","Bring in the evidence","usage, purchase and refund events","account connections","Prepare and check the work","six creative briefs","conversion, acquisition cost and contribution","Take the deliverables","twelve stage packets","experiment plans","PDF reports","Start here"]) assert.ok(html.includes(phrase));
+  for (const phrase of ["founders and marketing teams", "one app or a portfolio", "Day 1", "Around Day 30, with regular use", "not guaranteed", "You still approve what goes live"]) assert.ok(html.includes(phrase));
   assert.equal((html.match(/<li>/g)||[]).length,4);
-  assert.ok(!/\b(?:may|might|could|helps|can)\b/i.test(html));
+  const mechanics = html.split('<div class="wmm-story-outcomes">')[0];
+  assert.ok(!/\b(?:may|might|could|helps|can)\b/i.test(mechanics));
   assert.ok(!html.includes("guaranteed growth"));
   assert.ok(!html.includes("OAuth") && !html.includes("schema") && !html.includes("cohort"));
 });

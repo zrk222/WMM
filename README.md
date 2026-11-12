@@ -2,11 +2,17 @@
 
 **Turn one app-growth question into an evidence-backed marketing experiment.**
 
-Wize Marketing Machine (WMM) is a local workspace for app founders and their AI assistants. Start with one growth question. Your assistant helps prepare the experiment, you approve what goes live, and WMM records what happened and what still needs evidence.
+Wize Marketing Machine (WMM) is built for founders and marketing teams to promote and manage one app—or a portfolio—with their AI assistants. Start with one growth question per app. Your assistant helps prepare the experiment, you approve what goes live, and WMM records what happened and what still needs evidence. Each app keeps its own permissions and evidence.
 
 [**Install WMM and create your first packet**](docs/desktop-first-run.md) · [Try the interactive sample](https://zrk222.github.io/WMM/demo.html)
 
 Free for personal and internal business use under the [license](LICENSE). [Commercial terms](docs/pricing.md).
+
+**Day 1 — a clearer next marketing move.** Choose one app-growth question and prepare your first evidence packet: a plan, its sources and what is still missing.
+
+**Around Day 30, with regular use — a record you can build on.** Bring research, approved work and available results into a dated record, then decide what to continue, revise or stop.
+
+The potential payoff: less repeated research, clearer campaign decisions and fewer unsupported bets. What you can measure depends on completed work and connected sources. Growth and time savings are not guaranteed.
 
 ![WMM Start Here: choose a marketing goal, review what the agent can do, and inspect the result](docs/images/goal-to-proof.png)
 
