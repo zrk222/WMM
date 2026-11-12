@@ -28,7 +28,7 @@ bundle. Native CI artifacts remain separate from signed public distribution.
   absolute/external/dangling links. Preserve contained relative framework links
   and Unix modes in the archive; refuse archive replacement. Fixture checks verify
   staging and ZIP metadata; T4 verifies the actual re-extracted runtime.
-- [ ] T3 | slice=tools | files=tools/check_macos_bundle.py,tools/test_native_desktop_bundle.py,tests/test_desktop_entry.py | verify=`python -m unittest tests.test_macos_package tests.test_native_desktop_package tests.test_desktop_entry -v` | Record packaged lifecycle, native vault cleanup and rejected engine tampering on Mac. Isolate Mac test homes using their Application Support path.
+- [ ] T3 | slice=tools | files=tools/check_macos_bundle.py,tools/test_native_desktop_bundle.py,tests/test_native_desktop_package.py,tests/test_desktop_entry.py | verify=`python -m unittest tests.test_macos_package tests.test_native_desktop_package tests.test_desktop_entry -v` | Record packaged lifecycle, native vault cleanup and rejected engine tampering on Mac. Isolate Mac test homes using their Application Support path.
 
   Create the Mac acceptance probe; modify existing isolation and entry tests.
   Covers `package_check`: refuse execution unless darwin, GITHUB_ACTIONS=true,
@@ -40,7 +40,11 @@ bundle. Native CI artifacts remain separate from signed public distribution.
   settings and remove the fixture on success or failure. Record actual
   --check, --self-test and --vault-self-test output, asserting PASS and synthetic
   item removal. Verify the exact native pair starts and stops with zero queued
-  jobs; a separately altered engine must fail before any rejected workspace exists.
+  jobs; an altered engine must exit 3 for digest mismatch before any workspace
+  exists. Other failures cannot satisfy this assertion. The verifier emits only
+  a startup/shutdown phase and a fixed reason token; the probe prints at most
+  one matching failure line and never raw subprocess output. Retain failed Mac
+  native-pair checks with run, attempt, source, architecture and both hashes.
   Run the existing synthetic first-packet/agent-setup smoke. No provider credentials.
 - [ ] T4 | slice=.github | files=.github/workflows/macos-desktop.yml,tests/test_macos_package.py | verify=`python -m unittest tests.test_macos_package -v` | Build declared Mac architectures with pinned native Keychain dependency and retain receipts.
 
@@ -56,6 +60,13 @@ bundle. Native CI artifacts remain separate from signed public distribution.
   Create acceptance guidance and native dependency lock. Covers `release_boundary`:
   label artifacts unsigned, not notarized and not a human setup or live-account
   result. Never suggest bypassing Gatekeeper. No deletions or credential migration.
+
+- [ ] T6 | slice=desktop | files=desktop/launcher/src/lib.rs,desktop/src-tauri/src/main.rs | verify=`rustfmt --check desktop/launcher/src/lib.rs desktop/src-tauri/src/main.rs` | Distinguish the typed pre-spawn digest refusal and emit bounded startup or shutdown failure diagnostics.
+
+  Modify the launcher and native verification command only. Preserve readiness
+  authentication, worker activation, deadline and shutdown semantics. Run the
+  compiled launcher checks on both Mac architectures in T4 and Windows/Ubuntu
+  native-package CI; rustfmt is a local syntax and formatting check.
 
 ## Gates
 Save exact command output under `.factory/macos-desktop-preview/`; advancing a

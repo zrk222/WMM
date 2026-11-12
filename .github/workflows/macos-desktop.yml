@@ -9,6 +9,8 @@ on:
       - 'tools/build_macos_package.py'
       - 'tools/check_macos_bundle.py'
       - 'tools/test_native_desktop_bundle.py'
+      - 'desktop/src-tauri/src/main.rs'
+      - 'desktop/launcher/src/lib.rs'
       - 'tests/test_macos_*.py'
       - 'docs/requirements-macos.txt'
       - '.github/workflows/macos-desktop.yml'
@@ -66,5 +68,12 @@ jobs:
             dist/macos/*.zip
             dist/macos/build.json
             dist/macos/acceptance.json
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ failure() && hashFiles('dist/macos/failure.json') != '' }}
+        with:
+          name: WMM-macOS-failure-${{ matrix.architecture }}-${{ github.sha }}
+          path: dist/macos/failure.json
           if-no-files-found: error
           retention-days: 7

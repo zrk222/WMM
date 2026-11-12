@@ -72,13 +72,17 @@ def temporary_native_keychain(profile, environment):
 
 def engine_check(binary, flag, profile, environment):
     """Run an exact frozen executable with a bounded, synthetic-only diagnostic."""
-    result = subprocess.run([str(binary), flag], cwd=profile, env=environment,
-                            capture_output=True, text=True, timeout=90)
+    try:
+        result = subprocess.run([str(binary), flag], cwd=profile, env=environment,
+                                capture_output=True, text=True, timeout=90)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f'Frozen Mac engine check timed out: {flag}') from None
     if result.returncode != 0:
-        print(json.dumps(dict(check=flag, exit_code=result.returncode,
-                              stdout=result.stdout[-4096:], stderr=result.stderr[-4096:])))
-        raise RuntimeError('Frozen Mac engine check failed')
-    return json.loads(result.stdout)
+        raise RuntimeError(f'Frozen Mac engine check failed: {flag}, exit {result.returncode}')
+    try:
+        return json.loads(result.stdout)
+    except ValueError:
+        raise RuntimeError(f'Frozen Mac engine returned invalid JSON: {flag}') from None
 
 
 def main() -> None:
@@ -107,9 +111,20 @@ def main() -> None:
             raise AssertionError('Mac native Keychain fixture was not removed')
         adapters = runpy.run_path(str(ROOT / 'tools/smoke_desktop_bundle.py'))
         adapters['setup_smoke'](binary, profile, environment, label='macos-' + platform.machine())
-    pair = native['verify_bundle'](bundle)
     with binary.open('rb') as stream:
         engine_sha256 = hashlib.file_digest(stream, 'sha256').hexdigest()
+    try:
+        pair = native['verify_bundle'](bundle)
+    except (OSError, RuntimeError, ValueError, subprocess.TimeoutExpired):
+        failure = dict(schema='wmm.macos-native-pair-failure.v1',
+                       source_sha=os.environ['GITHUB_SHA'], architecture=platform.machine(),
+                       run=os.environ['GITHUB_RUN_ID'], attempt=os.environ['GITHUB_RUN_ATTEMPT'],
+                       engine_sha256=engine_sha256, shell_sha256=native['digest'](bundle / 'WMM-Mission-Control'),
+                       keychain='SYNTHETIC_REMOVED', packaged_agent_setup='PASS',
+                       native_pair='FAIL')
+        print(json.dumps(failure))
+        (ROOT / 'dist/macos/failure.json').write_text(json.dumps(failure) + '\n', encoding='utf-8')
+        raise
     receipt = dict(schema='wmm.macos-package-check.v1', status='PASS',
                    source_sha=os.environ['GITHUB_SHA'], architecture=platform.machine(),
                    native_pair=pair, checks=checks, engine_sha256=engine_sha256,

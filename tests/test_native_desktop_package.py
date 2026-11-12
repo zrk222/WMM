@@ -97,6 +97,22 @@ class NativeDesktopPackageTests(unittest.TestCase):
             self.assertEqual(env[key], str(profile))
         self.assertNotIn("GITHUB_TOKEN", env)
 
+    def test_native_probe_exposes_only_approved_failure_diagnostics(self):
+        from contextlib import redirect_stderr
+        from io import StringIO
+
+        run = runpy.run_path(str(ROOT / "tools/test_native_desktop_bundle.py"))["run"]
+        output = StringIO()
+        with patch("subprocess.run") as process, redirect_stderr(output):
+            process.return_value.returncode = 1
+            process.return_value.stderr = (
+                b"private command output\n"
+                b"WMM native verification: start failed (timeout)\n"
+                b"WMM native verification: shutdown failed (PrivateToken)\n"
+            )
+            self.assertEqual(run(Path("bundle/WMM-Mission-Control"), Path("synthetic")), 1)
+        self.assertEqual(output.getvalue(), "WMM native verification: start failed (timeout)\n")
+
     def test_installer_acceptance_refuses_missing_or_failed_native_shell(self):
         from types import SimpleNamespace
 
@@ -202,8 +218,8 @@ class NativeDesktopPackageTests(unittest.TestCase):
             for name in ("WMM.exe", "WMM-Mission-Control.exe"):
                 (bundle / name).write_bytes(b"synthetic")
             with patch("sys.platform", "win32"), patch.dict(verify.__globals__, {"run": fixture_run}):
-                failure_code = 1
+                failure_code = 3
                 self.assertEqual(verify(bundle)["status"], "PASS")
-                failure_code = 0
-                with self.assertRaisesRegex(RuntimeError, "did not reject an altered engine"):
-                    verify(bundle)
+                for failure_code in (0, 1):
+                    with self.assertRaisesRegex(RuntimeError, "did not reject an altered engine"):
+                        verify(bundle)

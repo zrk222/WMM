@@ -45,15 +45,26 @@ def isolated_environment(profile):
 
 
 def run(shell, profile):
-    return subprocess.run(
+    result = subprocess.run(
         [str(shell), "--verify-bundled-engine"],
         cwd=shell.parent,
         env=isolated_environment(profile),
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
         timeout=75,
-    ).returncode
+    )
+    if result.returncode == 0:
+        return 0
+    for line in (result.stderr or b"").splitlines():
+        if re.fullmatch(
+            rb"WMM native verification: (start|shutdown) failed "
+            rb"\((timeout|invalid-data|not-found|permission-denied|connection-refused|broken-pipe|unexpected-eof|other)\)",
+            line,
+        ):
+            print(line.decode("ascii"), file=sys.stderr)
+            break
+    return result.returncode
 
 
 def verify_bundle(folder):
@@ -83,7 +94,7 @@ def verify_bundle(folder):
         shutil.copy2(shell, altered / shell.name)
         (altered / engine.name).write_bytes(b"disposable digest mismatch fixture")
         rejected = isolated / "rejected"
-        if run(altered / shell.name, rejected) == 0 or rejected.exists():
+        if run(altered / shell.name, rejected) != 3 or rejected.exists():
             raise RuntimeError("Native shell did not reject an altered engine before startup")
     return dict(
         status="PASS",
