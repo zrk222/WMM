@@ -12,12 +12,16 @@ mission_control/common.py
 mission_control/connection_setup.py
 mission_control/creative_rendering.py
 mission_control/db.py
+mission_control/discovery_http.py
 mission_control/drive_import_jobs.py
 mission_control/experiment_tracking.py
+mission_control/funnel_http.py
+mission_control/http_body.py
 mission_control/hypit_jobs.py
 mission_control/insights.py
 mission_control/integrity_drill.py
 mission_control/ledger.py
+mission_control/managed_media_http.py
 mission_control/measurement_economics.py
 mission_control/migrations/__init__.py
 mission_control/notices.py
