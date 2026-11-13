@@ -27,7 +27,7 @@ the steps below. You can report a blocked install, too.
    **Quit WMM** in the desktop window. To keep approved work running while your
    computer sleeps, see [run WMM on your own always-on host](always-on-runtime.md).
 
-**Windows note:** Desktop Preview 9 and earlier Windows installers are unsigned.
+**Windows note:** The Windows installer for [Desktop Preview 10](https://github.com/zrk222/WMM/releases/tag/v0.1.0-preview.10) is unsigned. SmartScreen or your device policy may block it.
 For a release advertised as signed, check that Windows reports a valid signature
 and the publisher matches the release's verification instructions. A matching
 checksum alone does not identify the publisher. Do not weaken OS security to
