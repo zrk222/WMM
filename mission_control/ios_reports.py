@@ -198,6 +198,8 @@ def projection(
         "Rates are fractions from 0 to 1; money fields marked minor use the stated currency minor unit.",
         source_hash,
     )
+    for gap in metrics.get("kpi_gaps", ()):
+        add("KPI gap: " + gap["metric"], gap["status"], gap["reason"])
     if apple_health is not None:
         add(
             "Apple schedule",
