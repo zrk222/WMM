@@ -46,6 +46,7 @@ tests/test_page_reporting_http.py
 tests/test_parser_properties.py
 tests/test_property_profiles.py
 tests/test_query_budgets.py
+tests/test_release_provenance.py
 tests/test_repo_hygiene.py
 tests/test_sbom_reproducibility.py
 tests/test_schema_types.py
@@ -66,3 +67,4 @@ tools/integrity_drill.py
 tools/query_budget.py
 tools/source_ratchet.py
 tools/test_page_reporting_browser.py
+tools/verify_release_provenance.py
