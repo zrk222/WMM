@@ -19,6 +19,8 @@ expected behavior for each material change.
 
 ## Review and handoff
 
+Reviewing a pull request? Start with the [short human review guide](docs/HUMAN-REVIEW.md).
+
 **Agent review is not independent review.** CI, an agent, or the owner's self-review are implementation checks; none establishes independent human review.
 
 WMM currently has one repository maintainer. Follow the existing
