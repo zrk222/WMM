@@ -1,4 +1,5 @@
 # Automatically enrolled source; entries only grow.
+ios/Build/run_simulators.py
 mission_control/agent_grants.py
 mission_control/agent_tasks.py
 mission_control/architecture.py
@@ -46,6 +47,7 @@ tests/test_http_benchmark.py
 tests/test_integrity_drill.py
 tests/test_kpi_data_gaps.py
 tests/test_kpi_gaps.py
+tests/test_ledger_grouping.py
 tests/test_measurement_economics.py
 tests/test_migrations.py
 tests/test_operation_docs.py
