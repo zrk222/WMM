@@ -39,6 +39,9 @@ class KPIGapTests(unittest.TestCase):
             (Path(__file__).resolve().parents[1] / "specs/kpi-report-coverage.json").read_text(encoding="utf-8")
         )
         rows = {row["id"]: row for row in matrix["requirements"]}
-        for name in ("ROAS_D7", "ROAS_D30", "PAYBACK"):
-            self.assertEqual(rows[name]["current_coverage"], "MISSING")
-        self.assertEqual(rows["CAC"]["gap"], "MISSING")
+        self.assertEqual(rows["PAYBACK"]["current_coverage"], "MISSING")
+        for name in ("CAC", "ROAS_D7", "ROAS_D30"):
+            self.assertEqual(rows[name]["current_coverage"], "PARTIAL_SUPPLIED_SCOPED_ECONOMICS")
+            self.assertEqual(rows[name]["gap"], "MISSING")
+            self.assertIn("live", rows[name]["gap_reason"])
+            self.assertEqual(rows[name]["required_status"], "REQUIRED_NOT_COMPLETE")
