@@ -6,7 +6,7 @@
     "overview.png": "0fb17f90a63428de868e213de93f1dd271219ee2e8ace918f522799c26f9e7d8",
     "pipeline.png": "384e65c306ca65fabe0f7ae6fca478124067b38342f91bc49596d47237d3717e",
     "results.png": "e46e440b18c33d91fe1ce4cd2795ab50434cf896fd4217f7de956253bed72d58",
-    "sample-workflow.png": "78be07a47083dae0e3b9fee86ccfeec1ed0c612822208b9c715f47ba3c343f1e",
+    "sample-workflow.png": "b7fd55b0d4b167ebe86f28c4dca8d2d60ce8f437c8433f5720e6046d266a7242",
     "agent-task-setup.png": "cad3721275d32a646ddd460ed9f5c7dc7da0f32d2e97d3053c711d212d20b8c3",
     "goal-to-proof.png": "9d528775572d39aaa3582aff363e83480bd77f0e9bf7c8bf39bb5e3d5f916c51"
   },
@@ -27,11 +27,12 @@
       "verification_command": "python tools/test_agent_task_presets_browser.py"
     },
     "sample-workflow.png": {
-      "source": "Actual Chromium render of the branded four-channel sample; fictional Trail Timer with YouTube Shorts selected; no account, model call, publication or spending",
-      "captured_at": "2026-11-05T17:00:49.943349+00:00",
+      "source": "Actual Chromium render of the updated branded synthetic demo; fictional Trail Timer with YouTube Shorts selected; no connected accounts, AI generation, publication or spending",
+      "captured_at": "2026-11-13T04:35:04.479417+00:00",
       "viewport_width": 1440,
       "synthetic": true,
-      "verification_command": "python tools/test_preview_browser.py"
+      "verification_command": "python -X utf8 tools/test_preview_browser.py",
+      "source_demo_sha256": "42450629dd93ce8f11b5560dd9614ce72df613802bdf5189f6f6309c03728207"
     },
     "overview.png": {
       "source": "Actual Chromium capture of the candidate WMM overview; isolated synthetic app; no accounts, approvals, publication or spending",
