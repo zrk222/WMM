@@ -1,8 +1,9 @@
 """Exact viral-only qualification over supplied observations; no discovery authority."""
 
-from fractions import Fraction
 import re
+from fractions import Fraction
 from urllib.parse import urlsplit
+
 from .common import Invalid, digest, iso_time, required
 from .creative_library import source_url
 
@@ -13,7 +14,7 @@ MAX_BASELINE = 20
 MAX_OBSERVATIONS = 1000
 MAX_VIEWS = 1000000000000
 FIELDS = {"platform", "post_id", "creator_id", "format", "url", "views", "published_at", "observed_at"}
-PLATFORMS = ("tiktok", "facebook", "instagram", "youtube")
+PLATFORMS = ("tiktok", "facebook", "instagram", "youtube", "linkedin")
 
 
 def youtube_short_url(value, post_id=None):
@@ -44,7 +45,7 @@ def observation(value, as_of):
     if not isinstance(value, dict) or set(value) != FIELDS:
         raise Invalid("Complete exactly the viral observation fields")
     if value["platform"] not in PLATFORMS:
-        raise Invalid("Choose TikTok, Facebook, Instagram or YouTube Shorts")
+        raise Invalid("Choose TikTok, Facebook, Instagram, YouTube Shorts or LinkedIn")
     result = {key: required(value[key], key, 120) for key in ("platform", "post_id", "creator_id", "format")}
     if value["platform"] == "youtube":
         youtube_short_url(value["url"], value["post_id"])

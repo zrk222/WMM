@@ -134,3 +134,15 @@
   display: grid; place-items: center; min-width: 26px; min-height: 26px;
   border: 1px solid currentColor; border-radius: 50%;
 }
+
+/* Five-channel planning stays compact without permitting inline styles. */
+.publication-channel-checks { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.publication-chooser .publication-channel-check { min-height: 44px; margin: 0; }
+.publication-chooser button { min-height: 44px; }
+.publication-channel-rows { display: grid; gap: 4px; }
+.publication-channel-row {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 4px 8px; padding: 4px 0;
+}
+.publication-channel-label { min-width: 7rem; flex: 1; }
+.publication-channel-actions { display: flex; flex-wrap: wrap; gap: 4px; }

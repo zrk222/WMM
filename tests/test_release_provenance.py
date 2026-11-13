@@ -232,7 +232,63 @@ class ReleaseProvenanceTests(unittest.TestCase):
         )
         self.assertIn('--folder release-assets --sha "$CANDIDATE"', source)
         self.assertIn("path: .factory/release-provenance.json", source)
+        self.assertIn("id: provenance", source)
+        self.assertIn("ATTESTATION_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}", source)
+        self.assertIn('--bundle "$ATTESTATION_BUNDLE"', source)
         self.assertNotIn("continue-on-error", source)
+
+    def test_action_bundle_is_verified_for_every_payload_and_staged_byte_for_byte(self):
+        bundle = self.root / "official-action-bundle.json"
+        original = b'{"synthetic": "bundle bytes, not cryptographic proof"}\n'
+        bundle.write_bytes(original)
+        with patch.object(provenance.subprocess, "run", side_effect=self.successful_verifier):
+            receipt = provenance.verify(self.folder, SHA, self.receipt, bundle)
+        self.assertEqual(len(self.calls), 6)
+        for args in self.calls:
+            self.assertEqual(args[-2:], ["--bundle", str(bundle.resolve())])
+            self.assertIn("--deny-self-hosted-runners", args)
+            self.assertEqual(args[args.index("--source-digest") + 1], SHA)
+        self.assertEqual((self.folder / provenance.BUNDLE_NAME).read_bytes(), original)
+        self.assertEqual(json.loads((self.folder / provenance.RECEIPT_NAME).read_text()), receipt)
+        self.assertEqual(receipt["schema"], "wmm.release-provenance.v2")
+        self.assertEqual(
+            receipt["bundle"],
+            {
+                "name": provenance.BUNDLE_NAME,
+                "sha256": hashlib.sha256(original).hexdigest(),
+            },
+        )
+        self.assertTrue(receipt["deny_self_hosted_runners"])
+        for asset in receipt["assets"]:
+            self.assertEqual(asset["verification_output"], self.output(self.folder / asset["name"]))
+            self.assertEqual(
+                asset["verification_output_sha256"],
+                hashlib.sha256(asset["verification_output"].encode("utf-8")).hexdigest(),
+            )
+        self.assertFalse((self.folder / "SHA256SUMS.txt").exists())
+
+    def test_changed_bundle_or_failed_verifier_never_stages_provenance(self):
+        bundle = self.root / "official-action-bundle.json"
+        for cause in ("changed", "failed"):
+            with self.subTest(cause=cause):
+                bundle.write_text("synthetic bundle")
+                self.calls.clear()
+
+                def verifier(args, _cause=cause, **kwargs):
+                    result = self.successful_verifier(args, **kwargs)
+                    if _cause == "changed":
+                        bundle.write_text("changed bundle")
+                        return result
+                    return subprocess.CompletedProcess(args, 1, "private failure", "")
+
+                with (
+                    patch.object(provenance.subprocess, "run", side_effect=verifier),
+                    self.assertRaises((ValueError, RuntimeError)),
+                ):
+                    provenance.verify(self.folder, SHA, self.receipt, bundle)
+                self.assertFalse((self.folder / provenance.BUNDLE_NAME).exists())
+                self.assertFalse((self.folder / provenance.RECEIPT_NAME).exists())
+                self.assertFalse(self.receipt.exists())
 
     def test_buyer_commands_preserve_source_signer_constraints_and_unsigned_limits(self):
         guide = (ROOT / "docs/VERIFY-RELEASE.md").read_text(encoding="utf-8")

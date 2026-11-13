@@ -1,28 +1,39 @@
 """Actual desktop/mobile owner setup and scheduled batch review; synthetic providers."""
 
-from pathlib import Path
-import json, sys
+import json
+import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 from unittest.mock import patch
+
+from playwright.sync_api import Browser, expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from playwright.sync_api import sync_playwright, expect
-from tests.test_campaign_access import CampaignGatewayTests
-from tests.test_verified_review import OWNER_TOKEN
-from mission_control.worker import jobs
-from mission_control.db import connection
-from mission_control.operator_client import OperatorClient, ClientError
 
 
-def run(browser, width, out):
-    f = CampaignGatewayTests()
+def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
+    from mission_control.db import connection
+    from mission_control.operator_client import ClientError, OperatorClient
+    from mission_control.server import Server
+    from mission_control.store import Store
+    from mission_control.worker import jobs
+    from tests.test_campaign_access import CampaignGatewayTests
+    from tests.test_verified_review import OWNER_TOKEN
+
+    class BrowserCampaignFixture(CampaignGatewayTests):
+        # GrantTests.setUp supplies these concrete attributes through setUp_base.
+        origin: str
+        server: Server
+        store: Store
+
+    f = BrowserCampaignFixture()
     f.setUp()
     link = "https://example.test/app?utm_source=facebook&utm_campaign=" + ("sample-" * 45)
     context = browser.new_context(viewport={"width": width, "height": 900})
     page = context.new_page()
-    errors = []
-    posts = []
+    errors: list[str] = []
+    posts: list[str] = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.on("request", lambda r: posts.append(r.url) if r.method == "POST" else None)
     try:
@@ -30,9 +41,14 @@ def run(browser, width, out):
             "window.wmmStyleViolations=[];document.addEventListener('securitypolicyviolation',e=>{if(e.effectiveDirective==='style-src-attr')window.wmmStyleViolations.push(e.effectiveDirective)});"
         )
         page.goto(f.origin)
-        page.wait_for_function('(state) => state.workspace?.app?.id===state.app', arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"))
+        page.wait_for_function(
+            "(state) => state.workspace?.app?.id===state.app",
+            arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"),
+        )
         channels = page.get_by_role("list", name="Video channels", exact=True)
-        expect(channels.locator("svg")).to_have_count(4)
+        expect(channels.locator("svg")).to_have_count(5)
+        for name in ("Facebook Page", "Instagram Reels", "TikTok", "YouTube Shorts", "LinkedIn"):
+            expect(channels).to_contain_text(name)
         expect(channels).to_have_css("list-style-type", "none")
         expect(channels.locator("svg").first).to_have_css("margin-right", "6px")
         assert page.evaluate("window.wmmStyleViolations") == []
@@ -71,7 +87,9 @@ def run(browser, width, out):
         expect(page.get_by_role("button", name="Sign out of review session")).to_be_visible()
         page.locator("#navigation > [data-view=overview]").click()
         page.get_by_role("button", name="Run an approved campaign", exact=True).click()
-        assert page.evaluate("async () => ((await import('/app.mjs')).state.workspace.agent_access.profiles.length)") == 0
+        assert (
+            page.evaluate("async () => ((await import('/app.mjs')).state.workspace.agent_access.profiles.length)") == 0
+        )
         posts.clear()
         page.get_by_role("button", name="Check connections for this goal", exact=True).click()
         expect(page.locator("#goal-readiness-mode")).to_be_visible()
@@ -194,7 +212,10 @@ def run(browser, width, out):
         expect(page.locator("#campaign-schedule-progress")).to_contain_text("CANCELLED")
         page.locator("#close-modal").click()
         page.reload()
-        page.wait_for_function('(state) => state.workspace?.app?.id===state.app', arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"))
+        page.wait_for_function(
+            "(state) => state.workspace?.app?.id===state.app",
+            arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"),
+        )
         page.locator("#navigation > details > summary").click()
         page.locator("#navigation [data-view=connections]").click()
         page.get_by_role("button", name="Review campaign automation", exact=True).click()
@@ -254,7 +275,7 @@ def run(browser, width, out):
         f.doCleanups()
 
 
-def main():
+def main() -> None:
     out = ROOT / ".factory/agent-mode-browser"
     out.mkdir(parents=True, exist_ok=True)
     with (

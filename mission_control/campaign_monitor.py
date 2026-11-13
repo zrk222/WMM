@@ -2,6 +2,8 @@
 
 import json
 import time
+from typing import NotRequired, TypedDict
+
 from .common import Invalid, canonical, digest, iso_time, now, uid
 from .db import connection
 from .review_access import member
@@ -15,6 +17,16 @@ CREATE TABLE IF NOT EXISTS campaign_monitors (
  units INTEGER NOT NULL DEFAULT 0, pauses INTEGER NOT NULL DEFAULT 0,
  last_job TEXT, created TEXT NOT NULL, updated TEXT NOT NULL);
 """
+
+
+class ObservationReceipt(TypedDict):
+    job_id: str
+    status: str
+    updated: str
+    observations: list[dict[str, str | int]]
+    external_execution: NotRequired[str]
+
+
 CONDITIONS = ("configuration_drift", "active_after_end")
 FIELDS = (
     "scope_id",
@@ -155,7 +167,7 @@ def target_row(db, app_id, scope_id, target):
     """Never resolve a target outside its app, scope and immutable request hash."""
     for table in ("campaign_paid_intents", "campaign_intents"):
         row = db.execute(
-            "SELECT * FROM " + table + " WHERE app_id=? AND scope_id=? AND id=? AND request_hash=?",
+            "SELECT * FROM " + table + " WHERE app_id=? AND scope_id=? AND id=? AND request_hash=?",  # noqa: S608 - closed local table tuple
             (app_id, scope_id, target["intent_id"], target["request_hash"]),
         ).fetchone()
         if row is not None:
@@ -165,15 +177,27 @@ def target_row(db, app_id, scope_id, target):
     raise PermissionError("Monitor target changed or is outside its campaign scope")
 
 
+def retained_summary(row):
+    """Reject unreadable or changed approval evidence before using any fields."""
+    try:
+        summary = json.loads(row["summary"])
+        if not isinstance(summary, dict) or digest(summary) != row["summary_hash"]:
+            raise Invalid("Monitor approval integrity changed")
+        if (summary["app_id"], summary["owner"]) != (row["app_id"], row["owner"]):
+            raise Invalid("Monitor summary ownership changed")
+        if not isinstance(summary["source"], dict):
+            raise Invalid("Monitor source evidence changed")
+        proposal(summary["proposal"])
+        return summary
+    except (TypeError, ValueError, KeyError) as error:
+        raise Invalid("Saved monitor evidence needs repair") from error
+
+
 def checked(db, row):
     """Recheck retained owner authority without taking the owner's actor identity."""
     if row is None:
         raise PermissionError("Monitor is unavailable")
-    summary = json.loads(row["summary"])
-    if (summary["app_id"], summary["owner"]) != (row["app_id"], row["owner"]):
-        raise PermissionError("Monitor summary ownership changed")
-    if digest(summary) != row["summary_hash"]:
-        raise PermissionError("Monitor approval integrity changed")
+    summary = retained_summary(row)
     if row["status"] != "ACTIVE" or iso_time(summary["proposal"]["expires_at"]).timestamp() <= time.time():
         raise PermissionError("Monitor is OFF or expired")
     current, _ = source(db, row["app_id"], row["owner"], summary["proposal"]["scope_id"])
@@ -185,7 +209,25 @@ def checked(db, row):
 
 
 def view(db, row):
-    summary = json.loads(row["summary"])
+    try:
+        summary = retained_summary(row)
+    except (Invalid, PermissionError):
+        return dict(
+            id=row["id"],
+            version=row["version"],
+            status=row["status"],
+            effective_status="OFF" if row["status"] == "OFF" else "NEEDS_REPAIR",
+            summary=None,
+            summary_hash=None,
+            runs=row["runs"],
+            provider_units=row["units"],
+            pause_attempts=row["pauses"],
+            last_job=row["last_job"],
+            last_observation=None,
+            next_due=None,
+            evidence_unavailable=True,
+            repair="Saved monitor evidence is unreadable. Check campaign receipts before retrying.",
+        )
     effective = row["status"]
     if effective == "ACTIVE":
         try:
@@ -229,12 +271,12 @@ def last_observation(db, row, summary):
         observations = []
     targets = {value["intent_id"] for value in summary["proposal"]["targets"]}
     safe = [value for item in observations if (value := _observation(item, targets)) is not None]
-    receipt = dict(
-        job_id=job["id"],
-        status=job["status"],
-        updated=job["updated"],
-        observations=safe,
-    )
+    receipt: ObservationReceipt = {
+        "job_id": job["id"],
+        "status": job["status"],
+        "updated": job["updated"],
+        "observations": safe,
+    }
     if job["status"] == "BLOCKED" and raw.get("external_execution") == "MONITOR_INTERRUPTED_UNCONFIRMED":
         receipt["external_execution"] = "MONITOR_INTERRUPTED_UNCONFIRMED"
     return receipt
@@ -261,9 +303,7 @@ def _observation_job(job, row):
         "CANCELLED",
         "UNKNOWN",
     )
-    if job["status"] not in states:
-        return False
-    return True
+    return job["status"] in states
 
 
 def _small_object(raw):
@@ -451,14 +491,22 @@ def tick(store):
     count = 0
     with connection(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
-        rows = db.execute(
-            "SELECT * FROM campaign_monitors WHERE status='ACTIVE' AND due<=? ORDER BY due,id LIMIT 20",
-            (time.time(),),
-        ).fetchall()
-        for row in rows:
-            if not eligible(db, row):
-                continue
-            count += queue(db, row)
+        cutoff, after_due, after_id = time.time(), -float("inf"), ""
+        while count < 20:
+            rows = db.execute(
+                """SELECT * FROM campaign_monitors
+                WHERE status='ACTIVE' AND due<=? AND (due>? OR (due=? AND id>?))
+                ORDER BY due,id LIMIT 20""",
+                (cutoff, after_due, after_due, after_id),
+            ).fetchall()
+            if not rows:
+                break
+            for row in rows:
+                after_due, after_id = row["due"], row["id"]
+                if eligible(db, row):
+                    count += queue(db, row)
+                if count == 20:
+                    break
     return count
 
 
@@ -547,14 +595,22 @@ def queue(db, row):
 
 def execute(store, job, transport=None):
     """Only reconcile and specifically approved pause; never resume an uncertain mutation."""
-    from .campaign_monitor_authority import bound, BoundaryTransport, MonitorService
     from .campaign_access import policy_checker
+    from .campaign_monitor_authority import BoundaryTransport, MonitorService, bound
 
     results = []
     with bound(store, job) as capability:
         service = MonitorService(store, policy_checker(store), BoundaryTransport(store, transport))
         try:
-            for target in capability["summary"]["proposal"]["targets"]:
+            summary = capability["summary"]
+            if not isinstance(summary, dict):
+                raise PermissionError("Monitor approval evidence is unavailable")
+            plan = summary.get("proposal")
+            if not isinstance(plan, dict) or not isinstance(plan.get("targets"), list):
+                raise PermissionError("Monitor target evidence is unavailable")
+            for target in plan["targets"]:
+                if not isinstance(target, dict) or not isinstance(target.get("intent_id"), str):
+                    raise PermissionError("Monitor target identity is unavailable")
                 capability.update(intent_id=target["intent_id"], action="RECONCILE")
                 result = service.reconcile(
                     job["app_id"],
@@ -578,7 +634,7 @@ def execute(store, job, transport=None):
                 observations=results,
                 authority="EXACT_RETAINED_MONITOR_ONLY",
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 - any provider failure blocks unattended mutation replay
             with connection(store.path) as db:
                 block(db, job["data"]["monitor_id"])
             return dict(

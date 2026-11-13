@@ -1,11 +1,10 @@
 """Check tracked distribution files without reading ignored operational state."""
 
+import hashlib
+import json
 import pathlib
 import re
 import subprocess
-import sys
-import json
-import hashlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
@@ -17,6 +16,31 @@ NATIVE_ICONS = {
     "desktop/src-tauri/icons/icon.ico": "bf5c20b5d2c88871e312a1605176daad830da56b0f3f7eb5136716e3458ede0e",
     "desktop/src-tauri/icons/icon.png": "3dede082892ba0532c3228f7e78134ea6b7e596b2925ac492bd4dc37f9d36a06",
 }
+
+
+PREVIEW_MEDIA = {"docs/media/video-production.mp4", "docs/media/video-production.webp"}
+
+
+def preview_media_valid(path):
+    """Allow only hash-bound synthetic UI demo media, never arbitrary uploads."""
+    try:
+        proof = json.loads((ROOT / "docs/media/provenance.json").read_text(encoding="utf-8"))
+        data = path.read_bytes()
+        header_valid = (
+            data[4:8] == b"ftyp" if path.suffix == ".mp4" else data.startswith(b"RIFF") and data[8:12] == b"WEBP"
+        )
+        return (
+            proof.get("schema") == "wmm.preview-video-provenance.v1"
+            and proof.get("synthetic") is True
+            and proof.get("classification") == "ACTUAL_WMM_UI_SYNTHETIC_WORKSPACE"
+            and proof.get("social_publication") == "NOT_RUN"
+            and proof.get("marketing_result") == "NOT_ESTABLISHED"
+            and header_valid
+            and len(data) <= 4000000
+            and proof["assets"][path.name] == hashlib.sha256(data).hexdigest()
+        )
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
 
 
 def decode_text(data):
@@ -55,6 +79,10 @@ def check():
             continue
         if path.is_symlink() or not path.resolve().is_relative_to(ROOT.resolve()):
             issues.append(str(rel) + ": escaping path")
+            continue
+        if rel.as_posix() in PREVIEW_MEDIA:
+            if not preview_media_valid(path):
+                issues.append(str(rel) + ": missing or mismatched synthetic UI video provenance")
             continue
         expected_icon = NATIVE_ICONS.get(rel.as_posix())
         if expected_icon is not None:

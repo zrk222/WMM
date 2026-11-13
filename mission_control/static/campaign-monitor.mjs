@@ -191,7 +191,11 @@ const WMMCampaignMonitor = (() => {
       configuration_drift: 'Pause after verified configuration drift',
       active_after_end: 'Pause if still active after the approved end',
     })[name] || name;
+  const needsRepair = (data) => data.evidence_unavailable || !data.summary?.proposal;
+  const repairNotice =
+    'Saved monitor approval evidence is unavailable. Check campaign receipts before approving further monitoring.';
   function summary(data) {
+    if (needsRepair(data)) return '<p role="alert">' + esc(repairNotice) + '</p>';
     const p = data.summary.proposal;
     return (
       '<p>Scope ' +
@@ -254,7 +258,8 @@ const WMMCampaignMonitor = (() => {
     }
   }
   function progress(data) {
-    const last = data.last_observation;
+    const repair = needsRepair(data);
+    const last = repair ? null : data.last_observation;
     return (
       '<h3>' +
       esc(
@@ -266,7 +271,7 @@ const WMMCampaignMonitor = (() => {
       ) +
       '</h3><p>' +
       esc(
-        data.effective_status === 'BLOCKED'
+        data.effective_status === 'BLOCKED' || (repair && data.effective_status !== 'OFF')
           ? 'Inspect the saved receipt and resolve uncertainty before approving further monitoring.'
           : data.effective_status === 'OFF'
             ? 'Future monitoring is stopped. Existing campaign effects keep their own status.'
@@ -313,7 +318,9 @@ const WMMCampaignMonitor = (() => {
                 '</p></details></article>',
             )
             .join('')
-        : '<p>No completed monitoring observation is recorded yet.</p>') +
+        : repair
+          ? '<p>Saved observations cannot be projected until the approval evidence is repaired.</p>'
+          : '<p>No completed monitoring observation is recorded yet.</p>') +
       '<p>WMM must stay running. Inspect uncertainty before any retry; OFF stops future monitoring and does not pause ' +
       'an already running ad. Campaign pause has its own control and readback.</p><p id="monitor-error" role="alert"></p>' +
       button(
@@ -351,7 +358,8 @@ const WMMCampaignMonitor = (() => {
     }
   }
   function report(data, base) {
-    const p = data.summary.proposal;
+    const repair = needsRepair(data);
+    const p = data.summary?.proposal;
     return {
       ...base,
       title: 'Campaign monitoring',
@@ -383,20 +391,28 @@ const WMMCampaignMonitor = (() => {
           source: 'Saved monitor allowance',
         },
       ],
-      notes: [
-        'Monitor ' + data.id + '; summary ' + data.summary_hash,
-        'Scope ' + p.scope_id + '; expires ' + p.expires_at,
-        'Exact target IDs: ' + p.targets.map((t) => t.intent_id).join(', '),
-        'Last job ' +
-          (data.last_observation?.job_id || 'None') +
-          ' · ' +
-          (data.last_observation?.status || 'Not recorded') +
-          (data.last_observation?.external_execution === 'MONITOR_INTERRUPTED_UNCONFIRMED'
-            ? ' - provider result unconfirmed after worker interruption. Inspect the saved campaign before taking another action.'
-            : ''),
-        'Saved observations are not real-time spend enforcement, app installs or causal growth.',
-        'Private copy, raw provider payloads, rights prose and credentials are excluded.',
-      ],
+      notes: repair
+        ? [
+            'Monitor ' + data.id,
+            repairNotice,
+            'Approved scope, targets and saved observations cannot be projected from unavailable evidence.',
+            'OFF stops future monitoring; existing campaign effects keep their own status. Verify campaign receipts before another action.',
+            'Private copy, raw provider payloads, rights prose and credentials are excluded.',
+          ]
+        : [
+            'Monitor ' + data.id + '; summary ' + data.summary_hash,
+            'Scope ' + p.scope_id + '; expires ' + p.expires_at,
+            'Exact target IDs: ' + p.targets.map((t) => t.intent_id).join(', '),
+            'Last job ' +
+              (data.last_observation?.job_id || 'None') +
+              ' · ' +
+              (data.last_observation?.status || 'Not recorded') +
+              (data.last_observation?.external_execution === 'MONITOR_INTERRUPTED_UNCONFIRMED'
+                ? ' - provider result unconfirmed after worker interruption. Inspect the saved campaign before taking another action.'
+                : ''),
+            'Saved observations are not real-time spend enforcement, app installs or causal growth.',
+            'Private copy, raw provider payloads, rights prose and credentials are excluded.',
+          ],
     };
   }
   async function action(node) {

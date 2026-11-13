@@ -43,7 +43,7 @@ jobs:
               output.write('sha=' + sha + '\n')
           PY
       - name: Release protocol unit checks
-        run: python -m unittest tests.test_desktop_release -v
+        run: python -m unittest tests.test_desktop_release tests.test_release_provenance tests.test_verify_release_assets tests.test_release_attestation_assets -v
   packages:
     needs: validate
     uses: ./.github/workflows/desktop-packages.yml
@@ -67,6 +67,7 @@ jobs:
           path: release-assets
           merge-multiple: true
       - name: Attest release asset provenance
+        id: provenance
         uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f
         with:
           subject-path: 'release-assets/*'
@@ -74,7 +75,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE: ${{ needs.validate.outputs.sha }}
-        run: python tools/verify_release_provenance.py --folder release-assets --sha "$CANDIDATE"
+          ATTESTATION_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
+        run: python tools/verify_release_provenance.py --folder release-assets --sha "$CANDIDATE" --bundle "$ATTESTATION_BUNDLE"
       - name: Retain verified provenance receipt before publication
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

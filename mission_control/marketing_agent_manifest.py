@@ -96,6 +96,34 @@ def operating_manifest(app):
                 "publication.execute",
             ],
             "supported_channels": ["instagram", "tiktok", "youtube", "linkedin"],
+            "channel_selection": {
+                "available": ["facebook", "instagram", "tiktok", "youtube", "linkedin"],
+                "default": [],
+                "rule": "Ask the owner to choose one, a subset or all five; never force all channels. Selection is planning only, not approval. Recheck app/owner/version and each current connection; report repair steps for missing access. Prepare and approve each exact destination separately. Isolate failures and unknown responses by destination; never blindly replay another channel.",
+                "routes": {
+                    "facebook": {
+                        "workflow": "FACEBOOK_CAMPAIGN",
+                        "operations": ["campaign.publish"],
+                        "video_workflow": "organic-video.workflow-prepare",
+                    },
+                    "instagram": {
+                        "workflow": "ORGANIC_PUBLICATION",
+                        "operations": ["publication.draft", "publication.prepare", "publication.execute"],
+                    },
+                    "tiktok": {
+                        "workflow": "ORGANIC_PUBLICATION",
+                        "operations": ["publication.draft", "publication.prepare", "publication.execute"],
+                    },
+                    "youtube": {
+                        "workflow": "ORGANIC_PUBLICATION",
+                        "operations": ["publication.draft", "publication.prepare", "publication.execute"],
+                    },
+                    "linkedin": {
+                        "workflow": "ORGANIC_PUBLICATION",
+                        "operations": ["publication.draft", "publication.prepare", "publication.execute"],
+                    },
+                },
+            },
             "workflow": "Agents may inspect, draft, and prepare. An agent may enqueue only an exact, currently approved owner publication; the existing worker performs scheduled effects.",
             "owner_only": [
                 "publication.preflight",

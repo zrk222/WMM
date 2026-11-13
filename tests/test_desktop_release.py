@@ -1,22 +1,59 @@
 """Synthetic release protocol tests. No builds, credentials or network calls."""
 
-import json
 import importlib.util
 import io
+import json
 import os
-from pathlib import Path
+import runpy
+import shutil
+import subprocess
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location(
     "wmm_release", Path(__file__).resolve().parents[1] / "tools/publish_desktop_release.py"
 )
+assert spec is not None and spec.loader is not None
 release = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release)
 
 SHA = "a" * 40
 TAG = "v0.1.0-preview.1"
+
+
+def add_provenance(folder, sha=SHA):
+    """Create fixture-only downloadable evidence through the actual staging path."""
+    verifier = runpy.run_path(str(Path(__file__).resolve().parents[1] / "tools/verify_release_provenance.py"))
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        stage = root / "stage"
+        stage.mkdir()
+        for name in verifier["payload_names"]():
+            shutil.copyfile(folder / name, stage / name)
+        bundle = root / "action-bundle.json"
+        bundle.write_text('{"synthetic":"not cryptographic evidence"}')
+
+        def fake_verify(args, **kwargs):
+            path = Path(args[3])
+            output = [
+                {
+                    "attestation": {"bundle": "synthetic fixture"},
+                    "verificationResult": {
+                        "statement": {
+                            "predicateType": verifier["PREDICATE"],
+                            "subject": [{"name": path.name, "digest": {"sha256": release.digest(path)}}],
+                        }
+                    },
+                }
+            ]
+            return subprocess.CompletedProcess(args, 0, json.dumps(output), "")
+
+        with patch("subprocess.run", side_effect=fake_verify):
+            verifier["verify"](stage, sha, root / "receipt.json", bundle)
+        for name in (verifier["BUNDLE_NAME"], verifier["RECEIPT_NAME"]):
+            shutil.copyfile(stage / name, folder / name)
 
 
 class ReleaseTests(unittest.TestCase):
@@ -183,16 +220,18 @@ class ReleaseTests(unittest.TestCase):
         return ""
 
     def test_existing_tag_refused_before_any_mutation(self):
+        add_provenance(self.folder)
         self.calls, self.refs = [], [dict(ref="refs/tags/" + TAG)]
         with (
             patch.dict(os.environ, GITHUB_REF="refs/heads/main", GITHUB_REPOSITORY=release.REPOSITORY),
             patch.object(release, "gh", self.fake_gh),
+            self.assertRaises(ValueError),
         ):
-            with self.assertRaises(ValueError):
-                release.publish(self.folder, SHA, TAG)
+            release.publish(self.folder, SHA, TAG)
         self.assertFalse(any(c[0] == "release" for c in self.calls))
 
     def test_upload_failure_preserves_draft_and_never_clobbers(self):
+        add_provenance(self.folder)
         self.calls, self.refs = [], []
 
         def failed_upload(*args):
@@ -204,9 +243,9 @@ class ReleaseTests(unittest.TestCase):
         with (
             patch.dict(os.environ, GITHUB_REF="refs/heads/main", GITHUB_REPOSITORY=release.REPOSITORY),
             patch.object(release, "gh", failed_upload),
+            self.assertRaises(RuntimeError),
         ):
-            with self.assertRaises(RuntimeError):
-                release.publish(self.folder, SHA, TAG)
+            release.publish(self.folder, SHA, TAG)
         self.assertTrue(any(c[:2] == ("release", "create") and "--draft" in c for c in self.calls))
         self.assertFalse(any(c[:2] == ("release", "edit") for c in self.calls))
         self.assertNotIn("--clobber", str(self.calls))
@@ -215,11 +254,12 @@ class ReleaseTests(unittest.TestCase):
         with (
             patch.object(release, "gh", side_effect=[json.dumps(dict(private=True)), SHA]),
             patch.dict(os.environ, GITHUB_REF="refs/heads/main", GITHUB_REPOSITORY=release.REPOSITORY),
+            self.assertRaises(ValueError),
         ):
-            with self.assertRaises(ValueError):
-                release.publish(self.folder, SHA, TAG)
+            release.publish(self.folder, SHA, TAG)
 
     def test_publication_requires_full_anonymous_download_hashes(self):
+        add_provenance(self.folder)
         self.calls, self.refs = [], []
         urls = []
 
@@ -233,7 +273,7 @@ class ReleaseTests(unittest.TestCase):
             patch.object(release, "urlopen", download),
         ):
             release.publish(self.folder, SHA, TAG)
-        self.assertEqual(len(urls), 7)
+        self.assertEqual(len(urls), 9)
         self.assertTrue(all(url.startswith("https://github.com/zrk222/WMM/releases/download/") for url in urls))
         self.assertTrue(any(c[:2] == ("release", "edit") for c in self.calls))
 

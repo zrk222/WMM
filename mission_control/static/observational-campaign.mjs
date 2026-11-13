@@ -118,7 +118,7 @@ const WMMObservationalCampaign = (() => {
           '<details><summary>Register a study</summary><form id="observational-campaign-register">' +
           field('name', 'Study name', 'text', 'maxlength="120"') +
           field('hypothesis', 'What will you learn?', 'text', 'maxlength="1000"') +
-          '<label class="field">Channel<select name="source"><option value="facebook">Facebook</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option></select></label>' +
+          '<label class="field">Channel<select name="source"><option value="facebook">Facebook</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option><option value="linkedin">LinkedIn</option></select></label>' +
           field(
             'creative_id',
             'Creative reference',

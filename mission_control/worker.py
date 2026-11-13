@@ -5,17 +5,18 @@ import threading
 import time
 from contextlib import nullcontext
 from urllib.error import HTTPError, URLError
+
+from .automation_health import Supervision
 from .common import Invalid, canonical, digest, now, required, uid
 from .db import connection
-from .pipeline import execute
-from .providers import sync
-from .ledger import Ledger
-from .provider_reports import PreparedAppleMetrics, read_report
-from .experiments import Experiments
 from .experiment_schedules import Schedules
-from .insights import Insights
+from .experiments import Experiments
 from .followup import Followup
-from .automation_health import Supervision
+from .insights import Insights
+from .ledger import Ledger
+from .pipeline import execute
+from .provider_reports import PreparedAppleMetrics, read_report
+from .providers import sync
 
 
 def enqueue(store, app_id, action, data, request_key, *, commit_check=None):
@@ -175,8 +176,8 @@ def claim(store):
                 (candidate["app_id"], candidate["id"]),
             ).fetchone()
             if batch:
-                from .creative_batch_authority import bound_plan
                 from .agent_grants import batch_authority_pending
+                from .creative_batch_authority import bound_plan
 
                 try:
                     pending = batch_authority_pending(db, bound_plan(batch)["authority"])
@@ -217,8 +218,8 @@ def process(store, job, stop=None):
     if job["action"] in ("resolution", "experiment_tracking"):
         return process_evidence_job(store, job)
     if job["action"] == "pipeline":
-        from .subscription_readiness import readiness
         from .connection_setup import Connections
+        from .subscription_readiness import readiness
 
         catalog = readiness(app, records, jobs(store, app["id"]), Connections(store).statuses(app["id"]))
         from .release_readiness import readiness as release_readiness
@@ -368,7 +369,7 @@ def _persist_prepared_apple_metrics(db, store, job, prepared):
             next_action="Refresh the report selection or connection, then retry the read",
             external_execution="READ_COMPLETED_NO_METRIC_PARTITIONS_WRITTEN",
         ), "BLOCKED"
-    except Exception:
+    except Exception:  # noqa: BLE001 - retain a blocked result when persistence cannot be confirmed
         return dict(
             error="Apple analytics observations could not be saved.",
             next_action="Review local storage and the worker status before retrying",
@@ -378,10 +379,10 @@ def _persist_prepared_apple_metrics(db, store, job, prepared):
 
 def process_media(store, job, stop):
     """Keep local media worker dispatch explicit without widening generic queue authority."""
+    from .creative_rendering import Renders
     from .drive_import_jobs import Imports
     from .hypit_jobs import HypitRenders
     from .video_edit_jobs import EditRenders
-    from .creative_rendering import Renders
 
     handlers = {"drive_import": Imports, "hypit_render": HypitRenders, "edit_render": EditRenders, "render": Renders}
     return handlers[job["action"]](store).execute(job, stop)
@@ -432,6 +433,20 @@ def current_connection(store, app_id, data):
 
 def failed_result(job, error):
     """Only already-permitted transient source reads get the existing bounded retry."""
+    if job["action"] == "agent_run":
+        from .agent_tasks import ApprovalContextChanged
+
+        if isinstance(error, ApprovalContextChanged):
+            return (
+                dict(
+                    error=str(error),
+                    next_action="Review the changed task or approval; the saved connection does not need retesting.",
+                    connection_health="UNCHANGED",
+                    external_execution="INFERENCE_RESULT_NOT_ACCEPTED",
+                ),
+                "BLOCKED",
+                0,
+            )
     if job["action"] in ("campaign_post", "campaign_ad", "campaign_monitor", "drive_import", "social_publication"):
         return failed_special(job)
     if job["action"] == "sync" and "analytics_schedule_id" in job["data"]:
@@ -516,8 +531,8 @@ def failed_special(job):
 
 def run_once(store, stop=None):
     """Complete one leased job without overwriting cancellation or hiding failure."""
-    from .sequence_runtime import advance
     from .sequence_jobs import guard_owned
+    from .sequence_runtime import advance
 
     progressed = advance(store)
     job = claim(store)
@@ -548,7 +563,7 @@ def run_once(store, stop=None):
                 and result.get("status") == "BLOCKED"
                 else "SUCCEEDED"
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - worker failures must persist a non-replayed recovery result
             result, status, retry_delay = failed_result(job, exc)
     persist_job_result(store, job, result, status, retry_delay)
     if children is not None and children["active"] == 0 and not children["uncertain"]:

@@ -1,9 +1,12 @@
-import hashlib, unittest
+import hashlib
+import unittest
 from dataclasses import replace
-from unittest.mock import Mock, patch
-from mission_control.common import Invalid
+from unittest.mock import patch
+
+from mission_control import publication_linkedin as li
+from mission_control import publication_meta as ig
 from mission_control import publication_transport
-from mission_control import publication_meta as ig, publication_linkedin as li
+from mission_control.common import Invalid
 
 
 class Response:
@@ -80,11 +83,13 @@ class AdapterTests(unittest.TestCase):
             ig.create({**self.ig, "link": "https://example.com"}, self.artifact, self.igctx)
 
     def test_instagram_rejects_forged_session_and_unknown_effect(self):
-        with patch.object(
-            ig.http, "request", return_value=Response({"id": "456", "uri": "https://evil.example/upload"})
+        with (
+            patch.object(
+                ig.http, "request", return_value=Response({"id": "456", "uri": "https://evil.example/upload"})
+            ),
+            self.assertRaises(Invalid),
         ):
-            with self.assertRaises(Invalid):
-                ig.create(self.ig, self.artifact, self.igctx)
+            ig.create(self.ig, self.artifact, self.igctx)
         state = {"status": "READY_TO_PUBLISH", "asset_id": "456"}
         with patch.object(ig.http, "request", side_effect=TimeoutError()) as req:
             with self.assertRaises(TimeoutError):
@@ -138,6 +143,44 @@ class AdapterTests(unittest.TestCase):
             self.assertEqual(s["observation"]["public_visibility"], "NOT_VERIFIED")
             self.assertEqual(request.call_count, 5)
 
+    def test_linkedin_acknowledged_post_processing_never_returns_to_asset_publish(self):
+        state = {"status": "READY_TO_PUBLISH", "asset_id": "urn:li:video:V1"}
+        mutations = []
+
+        def response(context, method, path, **kwargs):
+            if method == "POST":
+                mutations.append(path)
+                return Response(headers={"x-restli-id": "urn:li:share:7"})
+            if path.startswith("/rest/videos/"):
+                return Response({"id": "urn:li:video:V1", "status": "AVAILABLE"})
+            return Response({"id": "urn:li:share:7", "author": "urn:li:person:abc123", "lifecycleState": "PROCESSING"})
+
+        with patch.object(li.http, "request", side_effect=response) as request:
+            state = li.publish(self.li, state, self.lictx)
+            for _ in range(3):
+                state = li.read(self.li, state, self.lictx)
+                self.assertEqual(state["remote_id"], "urn:li:share:7")
+                self.assertEqual(state["status"], "PROCESSING")
+            self.assertEqual(mutations, ["/rest/posts"])
+            self.assertTrue(all(call.args[2].startswith("/rest/posts/") for call in request.call_args_list[1:]))
+            with self.assertRaises(Invalid):
+                li.publish(self.li, {**state, "status": "READY_TO_PUBLISH"}, self.lictx)
+            self.assertEqual(mutations, ["/rest/posts"])
+
+    def test_linkedin_unknown_existing_post_uses_post_reconciliation(self):
+        state = {"status": "UNKNOWN", "remote_id": "urn:li:share:7", "asset_id": "urn:li:video:V1"}
+        with patch.object(
+            li.http,
+            "request",
+            return_value=Response(
+                {"id": "urn:li:share:7", "author": "urn:li:person:abc123", "lifecycleState": "PUBLISHED"}
+            ),
+        ) as request:
+            result = li.read(self.li, state, self.lictx)
+        self.assertEqual(result["remote_id"], state["remote_id"])
+        self.assertEqual(result["status"], "PUBLISHED")
+        self.assertIn("/rest/posts/", request.call_args.args[2])
+
     def test_real_transport_constructs_fixed_facebook_host_and_oauth_upload(self):
         uri = "https://rupload.facebook.com/ig-api-upload/v26.0/456"
         responses = [
@@ -170,15 +213,17 @@ class AdapterTests(unittest.TestCase):
             with self.assertRaises(TimeoutError):
                 li.publish(self.li, s, self.lictx)
             self.assertEqual(req.call_count, 1)
-        with patch.object(
-            li.http,
-            "request",
-            return_value=Response(
-                {"id": "urn:li:share:7", "author": "urn:li:person:someone", "lifecycleState": "PUBLISHED"}
+        with (
+            patch.object(
+                li.http,
+                "request",
+                return_value=Response(
+                    {"id": "urn:li:share:7", "author": "urn:li:person:someone", "lifecycleState": "PUBLISHED"}
+                ),
             ),
+            self.assertRaises(Invalid),
         ):
-            with self.assertRaises(Invalid):
-                li.read(self.li, {"status": "PUBLISH_ACKNOWLEDGED", "remote_id": "urn:li:share:7"}, self.lictx)
+            li.read(self.li, {"status": "PUBLISH_ACKNOWLEDGED", "remote_id": "urn:li:share:7"}, self.lictx)
         with self.assertRaises(Invalid):
             li.create(self.li, {**self.artifact, "raw": b"evil"}, self.lictx)
 

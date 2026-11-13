@@ -26,6 +26,10 @@ class _SourceContext(TypedDict):
 SCHEMA = "growth.agent-draft-job.v2"
 
 
+class ApprovalContextChanged(Invalid):
+    """The task needs review without asserting that its connection is broken."""
+
+
 def request_key(value):
     """Require canonical identities, never command fragments."""
     try:
@@ -190,13 +194,13 @@ def guard(store, app_id, frozen):
         or frozen["app_version"] != app["version"]
         or frozen["app_hash"] != digest(app["data"])
     ):
-        raise Invalid("Agent app facts changed; approve the current task")
+        raise ApprovalContextChanged("Agent app facts changed; approve the current task")
     if iso_time(now()) > iso_time(frozen["expires_at"]):
-        raise Invalid("Agent task approval expired")
+        raise ApprovalContextChanged("Agent task approval expired")
     if frozen.get("output_contract_hash") != digest(output_contract()) or frozen.get("draft_recipe") != recipe(
         frozen["task"], frozen["focus"]
     ):
-        raise Invalid("Agent output contract or recipe changed; review the current task")
+        raise ApprovalContextChanged("Agent output contract or recipe changed; review the current task")
     guard_context(store, app_id, frozen)
     row, routing = selected(store, app_id, frozen["task"], frozen["connection_id"])
     if (
@@ -225,10 +229,10 @@ def guard_context(store, app_id, frozen):
     """Rebuild bounded campaign sources without consulting protected credentials."""
     current = cast(_SourceContext, snapshot(store, app_id)) if frozen["task"] != "connection_test" else None
     if frozen.get("context") != current or frozen.get("context_hash") != digest(current):
-        raise Invalid("Agent evidence changed or approved context is absent; review a new proposal")
+        raise ApprovalContextChanged("Agent evidence changed or approved context is absent; review a new proposal")
     expected = [s["id"] for s in current["sources"]] if current else []
     if frozen.get("source_ids") != expected:
-        raise Invalid("Approved agent source index changed")
+        raise ApprovalContextChanged("Approved agent source index changed")
 
 
 def live_guard(store, job, stop=None):
@@ -237,7 +241,7 @@ def live_guard(store, job, stop=None):
 
     def alive():
         if stop is not None and stop.is_set():
-            raise Invalid("Agent worker is stopping; review before another inference")
+            raise ApprovalContextChanged("Agent worker is stopping; review before another inference")
         if time.monotonic() - last[0] < 0.25:
             return
         last[0] = time.monotonic()
@@ -246,7 +250,7 @@ def live_guard(store, job, stop=None):
                 "SELECT status,attempts FROM jobs WHERE app_id=? AND id=?", (job["app_id"], job["id"])
             ).fetchone()
             if row is None or row["status"] != "RUNNING" or row["attempts"] != job["attempts"]:
-                raise Invalid("Agent job was cancelled or its lease changed")
+                raise ApprovalContextChanged("Agent job was cancelled or its lease changed")
             db.execute(
                 "UPDATE jobs SET lease=? WHERE id=? AND attempts=?", (time.time() + 60, job["id"], job["attempts"])
             )
@@ -258,7 +262,9 @@ def live_guard(store, job, stop=None):
 def execute(store, job, stop=None, access=None, transport=None):
     """Interrupted inference is not replayed because allowance may already be consumed."""
     if job["attempts"] != 1:
-        raise Invalid("Interrupted inference may have consumed allowance; approve a new request instead of replay")
+        raise ApprovalContextChanged(
+            "Interrupted inference may have consumed allowance; approve a new request instead of replay"
+        )
     data = job["data"]
     if (
         set(data) != {"envelope", "envelope_hash", "original_request"}
@@ -321,7 +327,7 @@ def complete(db, job, result, status):
             "UPDATE agent_connections SET status='TESTED',last_test=?,updated=? WHERE app_id=? AND id=? AND version=? AND status!='DISCONNECTED'",
             (now(), now(), job["app_id"], frozen["connection_id"], frozen["connection_version"]),
         )
-    if status == "BLOCKED":
+    if status == "BLOCKED" and result.get("connection_health") != "UNCHANGED":
         db.execute(
             "UPDATE agent_connections SET status='NEEDS_ATTENTION',updated=? WHERE app_id=? AND id=? AND version=? AND status!='DISCONNECTED'",
             (now(), job["app_id"], frozen["connection_id"], frozen["connection_version"]),

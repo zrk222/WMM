@@ -4,10 +4,10 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import runpy
 import subprocess
+from pathlib import Path
 from urllib.request import urlopen
 
 ASSETS = {"Windows": "WMM-Setup.exe", "Linux": "wize-marketing-machine_0.1.0_amd64.deb"}
@@ -83,11 +83,16 @@ def receipt(platform, sha, asset, lifecycle, destination, evidence_root=None):
     )
 
 
-def validate_assets(folder, sha):
+def validate_assets(folder, sha, require_provenance=False):
     folder = Path(folder)
     paths = [folder / name for name in ASSETS.values()]
     paths += [folder / ("sbom-" + platform + ".json") for platform in ASSETS]
     paths += [folder / (platform + ".json") for platform in ASSETS]
+    evidence = [folder / name for name in ("release-attestation.sigstore.json", "release-provenance.json")]
+    if require_provenance or any(path.exists() or path.is_symlink() for path in evidence):
+        if not all(path.is_file() and not path.is_symlink() for path in evidence):
+            raise ValueError("New releases require the complete downloadable provenance bundle and receipt")
+        paths += evidence
     for path in paths:
         if path.is_symlink() or not path.is_file() or path.stat().st_size == 0:
             raise ValueError("Release asset must be a nonempty regular file: " + path.name)
@@ -114,7 +119,7 @@ def publish(folder, sha, tag):
     validate_target(sha, main, os.environ.get("GITHUB_REF"), os.environ.get("GITHUB_REPOSITORY"), tag)
     if repo.get("private") is not False:
         raise ValueError("Anonymous installer downloads require a public repository")
-    paths = validate_assets(folder, sha)
+    paths = validate_assets(folder, sha, require_provenance=True)
     # A successful list proves absence. API/network errors abort rather than looking like 404.
     refs = json.loads(gh("api", "repos/" + REPOSITORY + "/git/matching-refs/tags/" + tag))
     releases = json.loads(gh("api", "--paginate", "--slurp", "repos/" + REPOSITORY + "/releases"))
@@ -124,8 +129,11 @@ def publish(folder, sha, tag):
         raise ValueError("Existing release/tag is immutable; choose a new version")
     notes = (
         "Windows and Ubuntu amd64 preview installers. No system Python required. "
-        "SHA256SUMS.txt covers every uploaded file. sbom-Windows.json and sbom-Linux.json list the "
+        "SHA256SUMS.txt covers the eight other release assets. sbom-Windows.json and sbom-Linux.json list the "
         "build-environment packages; this is not a runtime file inventory. "
+        "release-attestation.sigstore.json contains the GitHub provenance bundle for the six payloads; "
+        "release-provenance.json retains the source-bound verification results. "
+        "Neither the checksum manifest nor the provenance receipt is itself attested. "
         "Windows publisher signature is not provided; OS trust prompts can appear. "
         "See docs/desktop-first-run.md at source commit " + sha + ". "
         "Automated synthetic installer checks are not human first-use acceptance."
@@ -165,7 +173,7 @@ def publish(folder, sha, tag):
     # Native HTTPS validation, anonymous full-byte download: no token, custom CA or TLS bypass.
     for path in paths:
         url = f"https://github.com/{REPOSITORY}/releases/download/{tag}/{path.name}"
-        with urlopen(url, timeout=120) as response:
+        with urlopen(url, timeout=120) as response:  # noqa: S310 - fixed HTTPS origin; validated tag and asset names
             downloaded = hashlib.file_digest(response, "sha256").hexdigest()
         if downloaded != digest(path):
             raise ValueError("Public download hash mismatch: " + url)
