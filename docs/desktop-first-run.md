@@ -4,6 +4,10 @@ Built for founders and marketing teams, WMM helps you promote and manage one
 app or a portfolio. Keep a separate question, evidence and permissions for each
 app, and hand approved work to your AI assistant. This guide is for the desktop preview.
 
+**First time here?** If you want to help test setup without coaching, read the
+[first-run trial guide](founder-trial.md) before trying the demo or following
+the steps below. You can report a blocked install, too.
+
 ## What you need
 
 - Windows 10/11, or Ubuntu 24.04 on a graphical desktop.
