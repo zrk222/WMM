@@ -115,5 +115,6 @@ tools/test_goal_automation_browser.py
 tools/test_page_reporting_browser.py
 tools/test_preview_browser.py
 tools/test_retention_inventory_browser.py
+tools/test_windows_installer.py
 tools/verify_release_assets.py
 tools/verify_release_provenance.py

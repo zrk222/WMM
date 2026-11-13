@@ -49,6 +49,7 @@ jobs:
     uses: ./.github/workflows/desktop-packages.yml
     with:
       candidate_sha: ${{ needs.validate.outputs.sha }}
+      require_signed_windows: true
   publish:
     needs: [validate, packages]
     runs-on: ubuntu-24.04
@@ -90,4 +91,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE: ${{ needs.validate.outputs.sha }}
           TAG: ${{ inputs.tag }}
+          WMM_WINDOWS_SIGNER_THUMBPRINT: ${{ vars.WMM_WINDOWS_SIGNER_THUMBPRINT }}
         run: python tools/publish_desktop_release.py publish --folder release-assets --sha "$CANDIDATE" --tag "$TAG"

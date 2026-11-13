@@ -25,9 +25,13 @@ are not installer distribution proof.
 Existing tags/releases/assets are never overwritten. An interrupted upload leaves
 a draft for inspection; choose a new tag after resolving the cause. A
 public-download verification failure may occur after publication: inspect that
-release and its logs explicitly before claiming successful distribution. This
-workflow does not sign Windows binaries, install trust roots, bypass TLS, or prove
-human first-use acceptance. The SBOM is a build-environment package inventory, not
+release and its logs explicitly before claiming successful distribution. The public workflow requires a trusted Windows signing provider available to the
+Windows runner. Configure the public certificate thumbprint (uppercase) as
+`WMM_WINDOWS_SIGNER_THUMBPRINT` and its HTTPS timestamp endpoint as
+`WMM_WINDOWS_TIMESTAMP_URL`. These settings do not provision a key or certificate.
+The installer and installed uninstaller must pass Windows signature verification
+under that identity before the release can publish. Build-only runs stay unsigned.
+Signing does not install trust roots, bypass TLS, or prove human first-use acceptance. The SBOM is a build-environment package inventory, not
 a file-level runtime inventory or a provenance attestation. SHA256SUMS.txt covers
 the eight other release assets.
 
@@ -45,8 +49,7 @@ runs. After all six payload verifications pass, the exact action-generated bundl
 The receipt records payload hashes, bundle hash, verifier result counts, full verifier outputs and their hashes;
 it is execution evidence, not a substitute for independently verifying downloaded
 payloads with the [buyer verification commands](VERIFY-RELEASE.md). The checksum
-manifest is created later, covers all eight other assets and is not itself attested. Provenance verification
-does not change the unsigned Windows preview or reproducibility limits above.
+manifest is created later, covers all eight other assets and is not itself attested. Provenance verification does not substitute for Windows publisher verification.
 
 ## Installer checks
 
@@ -56,8 +59,7 @@ does not change the unsigned Windows preview or reproducibility limits above.
 - Both: keep the desktop window open for its local engine; workspace data stays
   outside the installed program.
 
-Unsigned Windows publisher verification and nontechnical first-use acceptance
-remain separate evidence.
+Publisher verification and nontechnical first-use acceptance remain separate evidence.
 
 ## Related
 
