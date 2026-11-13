@@ -113,6 +113,14 @@ def gh(*args):
     return result.stdout
 
 
+def validate_signing_config(thumbprint, timestamp_url):
+    """Reject missing or malformed release settings before provisioning runners."""
+    if not re.fullmatch("[0-9A-F]{40}", thumbprint or ""):
+        raise ValueError("Configure WMM_WINDOWS_SIGNER_THUMBPRINT with the uppercase publisher thumbprint")
+    if not re.fullmatch(r"https://[A-Za-z0-9.-]+(?::[0-9]+)?(?:/[A-Za-z0-9._/-]*)?", timestamp_url or ""):
+        raise ValueError("Configure WMM_WINDOWS_TIMESTAMP_URL with the signer's HTTPS timestamp endpoint")
+
+
 def require_windows_signature(folder, expected_thumbprint):
     """Require attested lifecycle evidence for the exact Windows release bytes."""
     if not re.fullmatch("[0-9A-F]{40}", expected_thumbprint or ""):
