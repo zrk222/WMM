@@ -20,6 +20,11 @@
       "kind": "source"
     },
     {
+      "path": "docs/agent-multichannel.md",
+      "sha256": "0eaef032812284a93b60cc0a26b4f35b48a275de4b2f10974580bf8659d184dc",
+      "kind": "source"
+    },
+    {
       "path": "docs/demo.html",
       "sha256": "7654a288eb6a5660576fc66659b323271da30f21cafeb84c444cb911e2592f77",
       "kind": "source"
@@ -90,6 +95,11 @@
       "kind": "source"
     },
     {
+      "path": "mission_control/observational_campaign_contract.py",
+      "sha256": "26cabc74cc8773809b357fd893fee3a6ae1a30c542dbe2502f67277dc7b6fe8f",
+      "kind": "source"
+    },
+    {
       "path": "mission_control/organic_video_discovery.py",
       "sha256": "65e9c1064975eb4e595013f32b58b0c5987ba57680353bca96d2cec479891a6d",
       "kind": "source"
@@ -117,6 +127,11 @@
     {
       "path": "mission_control/static/managed-media.js",
       "sha256": "ade8258e59f7bd44050c8aa4e67922ad8395fd6345e5d7f3d60bd7f64f40e2dd",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/static/observational-campaign.mjs",
+      "sha256": "e42ed2e5fe0e38898c0f71836b7fcd84b79dfc10e2f9ff424ebe5e9b8a727b69",
       "kind": "source"
     },
     {
@@ -200,6 +215,11 @@
       "kind": "source"
     },
     {
+      "path": "tests/test_observational_campaign_contract.py",
+      "sha256": "ab11a89b13d0ef65f2cd834d7c0633b3b43191b1499cb51b8cb9ffcaed7a69b4",
+      "kind": "source"
+    },
+    {
       "path": "tests/test_organic_video_collector.py",
       "sha256": "721ff6c4c9bb06f972adef0fc8990992f6f3e676695ade07625e4b35d4ace9b0",
       "kind": "source"
@@ -251,7 +271,7 @@
     },
     {
       "path": "tools/maintained_files.txt",
-      "sha256": "d882cd56e9b38ccad7dbbf2e7037640fce09b5bc54835ce32dfd510798fe6b09",
+      "sha256": "afdfb24b50709a143bc4f6b20dee2156c6b53fd719ab53b7f75efc942f6c08b0",
       "kind": "source"
     },
     {
@@ -277,6 +297,11 @@
     {
       "path": "tools/publish_desktop_release.py",
       "sha256": "cfdddc34399aa1a2293dfb720102df6bee8975a52d20c87b94449e5715370676",
+      "kind": "source"
+    },
+    {
+      "path": "tools/test_goal_automation_browser.py",
+      "sha256": "d7e3555c2bb6825d262b765765bddb5dbe733e80d70e1ad550fb26ac1f0d4fed",
       "kind": "source"
     },
     {
@@ -432,5 +457,20 @@
       "channel-chooser/browser-green.log": "97d0ea7e121dca16bfbc93fe72aba02b9b4bd172806be9fe1298af55c109c5c8",
       "publication-focus-node.log": "50a837e887c3a92ad5b1989c065e3620c137756ee19643cb90aaad3ee99c2965"
     }
+  },
+  "additional_validation": {
+    "reason": "Hosted late journey expected four logos; now asserts five exact channel names. LinkedIn tracked studies use existing provider-neutral attribution pipeline.",
+    "observational_tests": 19,
+    "owner_automation_browser_widths": [
+      1440,
+      390
+    ],
+    "paid_agreement_synthetic_browser_widths": [
+      1440,
+      390
+    ],
+    "maintained_types": "0 errors, 0 warnings",
+    "format": "113 files plus maintained JS pass",
+    "source_changes": "No provider permissions, paid execution or actual publication introduced"
   }
 }

@@ -29,6 +29,7 @@ mission_control/marketing_agent_manifest.py
 mission_control/measurement_economics.py
 mission_control/migrations/__init__.py
 mission_control/notices.py
+mission_control/observational_campaign_contract.py
 mission_control/onesignal_setup.py
 mission_control/operation_catalog.py
 mission_control/organic_video_discovery.py
@@ -65,6 +66,7 @@ tests/test_licensing_plain.py
 tests/test_linkedin_render_contract.py
 tests/test_measurement_economics.py
 tests/test_migrations.py
+tests/test_observational_campaign_contract.py
 tests/test_operation_docs.py
 tests/test_organic_video_collector.py
 tests/test_organic_video_discovery.py
@@ -105,6 +107,7 @@ tools/publish_desktop_release.py
 tools/query_budget.py
 tools/source_ratchet.py
 tools/test_client_dashboard_browser.py
+tools/test_goal_automation_browser.py
 tools/test_page_reporting_browser.py
 tools/test_preview_browser.py
 tools/verify_release_assets.py
