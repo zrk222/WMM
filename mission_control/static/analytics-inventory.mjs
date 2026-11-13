@@ -44,6 +44,7 @@ export const WMMAnalyticsInventory = (() => {
     );
     const retentionCount = retention.length + ledgerRetention.length;
     const retentionAvailable = availableLedger.length + availableWorksheets.length;
+    /** @param {number|null|undefined} value */
     const percent = (value) =>
       typeof value === 'number' && Number.isFinite(value)
         ? `${Number((value * 100).toFixed(2))}%`
@@ -51,7 +52,7 @@ export const WMMAnalyticsInventory = (() => {
     const retentionText = [
       ...ledgerRetention.map(
         (r) =>
-          `Event ledger ${r.cohort.cohort_id}: ${availableLedger.includes(r) ? `${r.retained}/${r.installs} (${percent(r.retention_rate)})` : 'unavailable'}; follow-up ${r.cohort.ends_at || 'unknown'} to ${r.cohort.matures_at || 'unknown'}; ${r.mature ? 'mature' : 'not mature'}`,
+          `Event ledger ${r.cohort?.cohort_id}: ${availableLedger.includes(r) ? `${r.retained}/${r.installs} (${percent(r.retention_rate)})` : 'unavailable'}; follow-up ${r.cohort?.ends_at || 'unknown'} to ${r.cohort?.matures_at || 'unknown'}; ${r.mature ? 'mature' : 'not mature'}`,
       ),
       ...retention.map(
         (r) =>
@@ -86,7 +87,7 @@ export const WMMAnalyticsInventory = (() => {
           ...ledgerRetention.map((r) => r.as_of),
         ]),
         next: ledgerRetention.length
-          ? `Inspect event cohort ${ledgerRetention[0].cohort.cohort_id} below${retentionAvailable ? '' : '; repair maturity, coverage or eligible population'}`
+          ? `Inspect event cohort ${ledgerRetention[0].cohort?.cohort_id} below${retentionAvailable ? '' : '; repair maturity, coverage or eligible population'}`
           : retention.length
             ? 'Inspect worksheet maturity and eligible population below'
             : 'Add retention evidence',

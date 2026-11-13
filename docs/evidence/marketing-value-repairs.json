@@ -32,7 +32,7 @@
     },
     {
       "path": "mission_control/static/analytics-inventory.mjs",
-      "sha256": "4650b016884664da7de04dc1d5df1d6103ecc5b84dcaa2b5ed68b19a58955ee5",
+      "sha256": "03997b95afa996bd0b1b9bdfded864f96f18c9c511adc5f738525d298492cc6c",
       "kind": "source"
     },
     {
@@ -111,7 +111,8 @@
     "format": "118 maintainedPythonfiles andmaintainedJS PASS",
     "browser": "Actual syntheticcurrency/retention/overview desktop1440/mobile390 PASS; no provider effects",
     "effect_tripwire": "PASS",
-    "distribution": "PASS"
+    "distribution": "PASS",
+    "maintained_javascript_types": "Required checkJs gate PASS; no ignores or non-null assertions"
   },
   "egm": {
     "currency": "Two consecutive fresh-context scoped clean rounds after tiny-fraction repair",
@@ -129,5 +130,6 @@
     "No signing,publicrelease,paidaction orcredentialchange",
     "Retention UI preserves existing backend financial-completeness prerequisites",
     "Affected historical learning may require explicit reevaluation; stored rows remain immutable"
-  ]
+  ],
+  "follow_up": "Hosted JS type gate caught five missing parameter/optional-cohort annotations; fixed and rerun Node13, actualretentionbrowser1440/390 and required JS types, preserving source calculation."
 }
