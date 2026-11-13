@@ -6,12 +6,12 @@ Forge name routing is supplemented by executable assertions, not claimed as
 behavioral coverage.
 """
 
-from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
 import json
 import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from mission_control import campaign_monitor as core
@@ -76,9 +76,11 @@ class CampaignMonitorTests(unittest.TestCase):
     @contextmanager
     def owner(self):
         envelope = dict(app_id="sample", operation="campaign.monitor.owner.fixture", input={})
-        with bound_owner(self.store, envelope, self.identities, "session", dict(principal="owner")):
-            with protected(self.store, envelope):
-                yield
+        with (
+            bound_owner(self.store, envelope, self.identities, "session", dict(principal="owner")),
+            protected(self.store, envelope),
+        ):
+            yield
 
     def body(self, **changes):
         return dict(
@@ -440,12 +442,14 @@ class CampaignMonitorTests(unittest.TestCase):
             cap["store"] = "another-host-datastore"
             with self.assertRaises(PermissionError):
                 authority.admit(self.store)
-        with patch(
-            "time.time",
-            return_value=datetime.fromisoformat(self.body()["expires_at"]).timestamp() + 1,
+        with (
+            patch(
+                "time.time",
+                return_value=datetime.fromisoformat(self.body()["expires_at"]).timestamp() + 1,
+            ),
+            self.assertRaises(PermissionError),
         ):
-            with self.assertRaises(PermissionError):
-                core.execute(self.store, job, self.wire)
+            core.execute(self.store, job, self.wire)
         with connection(self.store.path) as db:
             db.execute("UPDATE campaign_monitors SET pauses=1 WHERE id=?", (monitor["id"],))
         self.wire.objects[self.intent["ids"]["adset"]]["lifetime_budget"] = 999
@@ -493,7 +497,7 @@ class CampaignMonitorTests(unittest.TestCase):
         result = dict(
             status="BLOCKED",
             error="PRIVATE_RAW_ERROR",
-            token="PRIVATE_TOKEN",
+            token="PRIVATE_TOKEN",  # noqa: S106 - synthetic redaction sentinel
             observations=[
                 dict(
                     intent_id=self.intent["id"],
@@ -575,12 +579,13 @@ class CampaignMonitorTests(unittest.TestCase):
 
     def test_actual_http_adapter_requires_fresh_owner_origin_csrf_and_closed_body(self):
         import threading
-        from urllib.request import Request
         from urllib.error import HTTPError
-        from mission_control.server import Server
-        from mission_control.operator_client import OperatorClient, ClientError
-        from mission_control import server as http_server
+        from urllib.request import Request
+
         from mission_control import campaign_monitor_http as http
+        from mission_control import server as http_server
+        from mission_control.operator_client import ClientError, OperatorClient
+        from mission_control.server import Server
 
         original = http_server.owner_domain_post
 
@@ -613,7 +618,7 @@ class CampaignMonitorTests(unittest.TestCase):
                 client.request(
                     "POST",
                     "/api/identity/login",
-                    dict(token="synthetic_identity_token"),
+                    dict(token="synthetic_identity_token"),  # noqa: S106 - fake identity adapter
                 )
                 saved = client.request("POST", base + "prepare", dict(proposal=self.body()))
                 active = client.request(

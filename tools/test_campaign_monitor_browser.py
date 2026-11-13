@@ -1,15 +1,18 @@
 """Real owner monitor UI, protected HTTP and synthetic worker pause acceptance."""
 
-from pathlib import Path
-from datetime import datetime, timedelta
 import json
 import sys
+from datetime import datetime, timedelta
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from playwright.sync_api import sync_playwright, expect
-from tests.test_campaign_monitor_integration import CampaignMonitorIntegrationTests
-from mission_control.db import connection
+from playwright.sync_api import expect, sync_playwright  # noqa: E402 - repository root configured above
+
+from mission_control.db import connection  # noqa: E402 - repository root configured above
+from tests.test_campaign_monitor_integration import (  # noqa: E402 - repository root configured above
+    CampaignMonitorIntegrationTests,
+)
 
 OUT = ROOT / ".factory/goal-first-automation"
 
@@ -23,9 +26,15 @@ def run(browser, width):
     page.on("pageerror", lambda error: errors.append(str(error)))
     try:
         page.goto(f.client.origin)
-        page.wait_for_function('(state) => state.workspace?.app?.id===state.app', arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"))
+        page.wait_for_function(
+            "(state) => state.workspace?.app?.id===state.app",
+            arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"),
+        )
         page.locator("#app-select").select_option("sample")
-        page.wait_for_function("(state) => state.app==='sample' && state.workspace?.app?.id==='sample'", arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"))
+        page.wait_for_function(
+            "(state) => state.app==='sample' && state.workspace?.app?.id==='sample'",
+            arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"),
+        )
         page.locator("#navigation > [data-view=activity]").click()
         page.get_by_role("button", name="Sign in for verified review", exact=True).click()
         page.get_by_label("GitHub identity token", exact=True).fill("synthetic_owner_identity_token")
