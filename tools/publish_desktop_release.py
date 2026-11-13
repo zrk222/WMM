@@ -174,7 +174,9 @@ def publish(folder, sha, tag):
         "release-provenance.json retains the source-bound verification results. "
         "Neither the checksum manifest nor the provenance receipt is itself attested. "
         + windows_notice
-        + "See docs/desktop-first-run.md at source commit " + sha + ". "
+        + "See docs/desktop-first-run.md at source commit "
+        + sha
+        + ". "
         "Automated synthetic installer checks are not human first-use acceptance."
     )
     gh(
