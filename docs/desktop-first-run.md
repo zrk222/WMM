@@ -22,8 +22,10 @@ the steps below. You can report a blocked install, too.
    (Ubuntu). Public downloads do not need a GitHub sign-in.
 2. Install it the normal way for your system, then open **Wize Marketing
    Machine** from the Start menu or Applications.
-3. Keep the WMM window open while you work. Closing it stops its local engine
-   and any approved scheduled work.
+3. You can close the browser tab. Approved scheduled work continues while WMM
+   is running and your computer is awake. To stop the local worker, choose
+   **Quit WMM** in the desktop window. To keep approved work running while your
+   computer sleeps, see [run WMM on your own always-on host](always-on-runtime.md).
 
 **Windows note:** Desktop Preview 9 and earlier Windows installers are unsigned.
 For a release advertised as signed, check that Windows reports a valid signature
