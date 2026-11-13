@@ -40,3 +40,23 @@ Scenario: regression
 - Add campaign-monitor to the closed owner domain map, narrow retained policy check, supervision components, special worker dispatch and no-reclaim/no-auto-retry paths.
 - Only action campaign_monitor with dictionary result status BLOCKED changes the generic normal-return success mapping.
 - Existing monitor expiry and existing-intent-only limitations remain; no implicit enrollment or live provider acceptance.
+
+
+## Retained authority and bounded execution
+Before unattended work, check current owner membership/version, app revision/hash, ACTIVE unexpired campaign permission, connection/configuration revisions, connection renewal/expiry, summary integrity and exact target request hashes. Changed authority blocks work; a stored approval flag alone is insufficient.
+Queue at most 20 due monitors per tick. Finite run/provider-unit exhaustion becomes BLOCKED. Protective pause uses observations no older than 30 seconds. OFF cancels queued work; it cannot cancel an already dispatched provider mutation or release its held commitment.
+
+## Recovery and confirmation
+Expired RUNNING work becomes BLOCKED with MONITOR_INTERRUPTED_UNCONFIRMED and an instruction to inspect saved receipts. Consume the pause attempt before calling the provider. Only PAUSED_campaign is accepted as confirmed success. A lost reply leaves UNKNOWN with commitment held; process death immediately after mutation can retain PENDING_PAUSED_campaign and the same hold. Neither a mutation journal nor BLOCKED job proves provider pause. Reconcile the existing intent through current owner controls; never automatically issue another mutation.
+
+## Acceptance infrastructure and proof boundary
+The integration fixture runs a real loopback server and Runner with synthetic owner identity, credentials and FakePaidTransport. The abrupt-exit child writes a synthetic mutation journal and exits with code 73 directly after pause mutation. Its network resolution is denied; a replacement mutation raises instead of succeeding. The restart assertions require one mutation, retained commitment 80, pending/unconfirmed pause state and a blocked interruption. The separate lost-reply case requires UNKNOWN and the same hold. These are reproducible synthetic acceptance tests, not live Meta, paid campaign, or owner-host acceptance.
+
+## Alternatives
+Reuse retained narrow authority rather than require an interactive session for every poll: an interactive session would defeat approved unattended work. Retain current checks instead of trusting activation-time facts alone: later revocation must stop work. Block interrupted mutations instead of retrying them: retry could duplicate an external effect. Reconcile exact existing intents rather than releasing holds when a worker stops: a stopped process does not undo remote activity or incurred spend.
+
+
+### Recovery classification and protected receipt projection
+IN_FLIGHT skips protective mutation and can return OBSERVED while future scheduled reconciliation continues. OWNER_UNVERIFIED or LEASE_STATE_CONFLICT raises and blocks the monitor; UNKNOWN without an eligible protective-pause reason also blocks. These differ from expired RUNNING work.
+A protective pause requires a saved campaign ID, provider campaign status exactly ACTIVE and observation age from zero through 30 seconds. The configuration_drift rule requires configuration exactly CHANGED_OR_UNCONFIRMED_PAUSE_RECOMMENDED; active_after_end requires the intent end time already passed.
+Owner-visible recovery receipts validate the last job app/action, exact monitor ID/hash, bounded version/run and recognized status. Parsed result objects are bounded to 65,536 characters and observations to 20; observations are restricted to retained target IDs and allowlisted status/recovery values. Project only selected fields rather than private provider response or credential payloads.
