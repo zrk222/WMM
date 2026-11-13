@@ -21,7 +21,7 @@ Potential benefits: less repeated research and clearer decisions. Measurements d
 ## From goal to decision
 
 1. **Set your goal.** Pick research, creative, a campaign or measurement. Readiness shows missing setup and repairs.
-2. **Approve the boundaries.** Review the app, agent, accounts, content, destinations, schedule, expiry, quotas, budget and stop rules. Existing effect-specific approvals still apply.
+2. **Approve the boundaries.** Review one revocable permission slip: app, agent, accounts, content, destinations, schedule, expiry, quotas, budget and stop rules. By default, nothing publishes or spends on its own; effect-specific approvals still apply.
 3. **Watch the work.** Follow approved jobs, receipts and recovery. Unknown delivery stays unresolved for review, never blindly replayed.
 4. **Review results.** Inspect source-backed observations, export a report and choose Continue / Stop / Revise. Advanced tools remain available.
 
@@ -30,7 +30,7 @@ Potential benefits: less repeated research and clearer decisions. Measurements d
 | Goal | WMM tools |
 | --- | --- |
 | Find a creative angle | Research Facebook, Instagram Reels, TikTok and YouTube Shorts. Viral qualification requires **100,000 observed views and 10× the creator’s documented baseline**. |
-| Make or revise creative | Build an evidence-linked brief; upload or select Drive media; edit, stitch and review a captioned Hypit render. |
+| Make or revise creative | Build an evidence-linked brief; upload or select Drive media; edit, stitch and review a captioned video. |
 | Run an approved campaign | Schedule approved Facebook batches with recovery, monitoring and reports. Reviewed organic paths cover Instagram, TikTok, YouTube Shorts and LinkedIn; paid work remains bounded Meta engagement campaigns. [Channels and account requirements](docs/agent-multichannel.md). |
 | Measure app growth | Retain observations, failed experiments and CAC/ROAS where inputs support them. Missing metrics stay explicit; engagement is not installs, revenue or lift. |
 
