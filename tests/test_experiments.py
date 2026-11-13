@@ -3,36 +3,38 @@
 import base64
 import copy
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
+from typing import TypedDict
 from unittest.mock import patch
+
 from mission_control.common import Invalid, digest
 from mission_control.db import connection
+from mission_control.experiment_analysis import (
+    guardrail_data,
+    guardrail_findings,
+    sample_diagnostics,
+    sample_plan,
+    wilson,
+)
 from mission_control.experiments import (
     Experiments,
-    definition_data,
-    bind_variant,
-    bind_definition,
-    decoded,
-    lookup,
-    evidence_reports,
-    quality_findings,
     asset_intact,
+    bind_definition,
+    bind_variant,
+    decoded,
+    definition_data,
+    evidence_reports,
+    lookup,
+    quality_findings,
     snapshot_data,
     validate_frozen,
     validate_frozen_variant,
     validate_frozen_windows,
 )
-from mission_control.experiment_analysis import (
-    sample_plan,
-    wilson,
-    guardrail_data,
-    sample_diagnostics,
-    guardrail_findings,
-)
-from mission_control.store import Store
 from mission_control.service import Service
+from mission_control.store import Store
 from tests.test_ledger import cohort, event
 
 PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jmrkAAAAASUVORK5CYII=")
@@ -42,7 +44,25 @@ ANALYZE = "2026-10-02T00:00:00+00:00"
 LATER = "2026-10-07T00:00:00+00:00"
 
 
-def prepared(store, app_id="sample-one", release="build-1"):
+class PreparedPlan(TypedDict):
+    name: str
+    hypothesis: str
+    owner: str
+    primary_metric: str
+    baseline_rate: float
+    minimum_detectable_effect: float
+    treatment_allocation: float
+    analysis_at: str
+    assignment_method: str
+    assignment_source: str
+    guardrails: dict[str, float | int]
+    stop_rule: str
+    rollback_plan: str
+    control: dict[str, str]
+    treatment: dict[str, str]
+
+
+def prepared(store, app_id="sample-one", release="build-1") -> PreparedPlan:
     service = Service(store)
     app = store.app(app_id)
     store.save_app(app_id, dict(app["data"], release=release, currency="USD", locale="en-US"), app["version"])
@@ -59,7 +79,7 @@ def prepared(store, app_id="sample-one", release="build-1"):
             ),
         )
         variants[arm] = {"cohort_id": "experiment-" + arm, "asset_id": record["id"]}
-    return dict(
+    return PreparedPlan(
         name="Synthetic bounded test",
         hypothesis="A clearer rehearsal may improve activation",
         owner="Synthetic operator",
@@ -78,7 +98,8 @@ def prepared(store, app_id="sample-one", release="build-1"):
         },
         stop_rule="Stop for unresolved P0",
         rollback_plan="Return to original synthetic creative",
-        **variants,
+        control=variants["control"],
+        treatment=variants["treatment"],
     )
 
 
@@ -175,7 +196,9 @@ class ExperimentTests(unittest.TestCase):
 
     def test_definition_and_source_boundary_validators(self):
         normalized = definition_data(self.plan)
-        self.assertEqual(normalized["sample_plan"]["control"], 15)
+        normalized_sample = normalized["sample_plan"]
+        assert isinstance(normalized_sample, dict)
+        self.assertEqual(normalized_sample["control"], 15)
         with connection(self.store.path) as db:
             variant = bind_variant(db, "sample-one", self.plan["control"])
             bound = bind_definition(db, "sample-one", self.plan, REGISTER)
@@ -214,6 +237,197 @@ class ExperimentTests(unittest.TestCase):
         for bad in ({}, dict(limited, max_refund_fraction=1.01), dict(limited, max_acquisition_minor=-1)):
             with self.assertRaises(Invalid):
                 guardrail_data(bad)
+
+    def test_mixed_guardrails_keep_known_breach_and_unknown_refund_in_sqlite(self):
+        from mission_control.campaign_owner_reports import experiment_source
+
+        self.plan["guardrails"].update(max_acquisition_minor=400, min_contribution_minor=-1000)
+        experiment = self.create()
+        self.observe(experiment)
+        for arm in ("control", "treatment"):
+            rows = [row for row in observations(arm) if arm == "control" or row["type"] != "PURCHASE"]
+            self.service.events("sample-one", {"cohort_id": "experiment-" + arm, "events": rows})
+        with patch("mission_control.experiments.now", return_value=ANALYZE):
+            before = self.experiments.evaluate("sample-one", experiment["id"])
+        self.assertEqual(before["iteration"]["decision"], "COLLECT")
+        with connection(self.store.path) as db:
+            saved = dict(db.execute("SELECT * FROM experiment_assessments").fetchone())
+        # The cap is a total per-arm USD-minor-unit ceiling, inclusive at 400.
+        self.service.events(
+            "sample-one",
+            {
+                "cohort_id": "experiment-treatment",
+                "events": [
+                    event("extra-cost", "COST_ACQUISITION", amount=100),
+                ],
+            },
+        )
+        with patch("mission_control.experiments.now", return_value=ANALYZE):
+            equality = self.experiments.evaluate("sample-one", experiment["id"])
+        self.assertEqual(equality["iteration"]["decision"], "COLLECT")
+        self.service.events(
+            "sample-one",
+            {
+                "cohort_id": "experiment-treatment",
+                "events": [
+                    event("over-cap", "COST_ACQUISITION", amount=50),
+                ],
+            },
+        )
+        # Persist the previous evaluator's output; reading it must not rerun analysis.
+        with (
+            patch("mission_control.experiments.now", return_value=ANALYZE),
+            patch(
+                "mission_control.experiment_analysis.guardrail_findings",
+                return_value=[
+                    "treatment guardrail denominator or costs unavailable",
+                ],
+            ),
+        ):
+            legacy = self.experiments.evaluate("sample-one", experiment["id"])
+        self.assertEqual(legacy["iteration"]["decision"], "COLLECT")
+        self.assertNotIn("guardrail_evaluator", legacy["result"])
+        with connection(self.store.path) as db:
+            legacy_row = dict(
+                db.execute("SELECT * FROM experiment_assessments WHERE hash=?", (legacy["hash"],)).fetchone()
+            )
+            old_source = experiment_source(db, "sample-one", experiment["id"])
+        assert old_source is not None
+        old_assessment = old_source["assessment"]
+        assert isinstance(old_assessment, dict)
+        self.assertEqual(old_assessment["iteration"], legacy["iteration"])
+        with patch("mission_control.experiments.now", return_value=ANALYZE):
+            answer = self.experiments.evaluate("sample-one", experiment["id"])
+        result, iteration = answer["result"], answer["iteration"]
+        self.assertEqual(result["status"], "INCONCLUSIVE")
+        self.assertEqual(
+            result["guardrail_findings"],
+            [
+                "treatment guardrail denominator or costs unavailable",
+                "treatment breached a predeclared retention/refund/contribution/cost guardrail",
+            ],
+        )
+        self.assertEqual(iteration["decision"], "STOP")
+        self.assertEqual(result["guardrail_evaluator"], "independent-available-reconciled-v2")
+        self.assertNotEqual(answer["hash"], legacy["hash"])
+        self.assertIsNone(result["effect"])
+        self.assertIsNone(iteration["draft"])
+        self.assertEqual(iteration["external_execution"], "NOT_RUN")
+        self.assertFalse(iteration["authority_issued"])
+        treatment = result["reports"]["treatment"]
+        self.assertEqual(treatment["acquisition_cost_minor"], 450)
+        self.assertEqual(treatment["net_proceeds_minor"] + treatment["refunds_minor"], 0)
+        self.assertEqual(treatment["cohort"]["currency"], "USD")
+        self.assertEqual(answer["hash"], digest(result))
+        with connection(self.store.path) as db:
+            self.assertEqual(
+                dict(db.execute("SELECT * FROM experiment_assessments WHERE hash=?", (saved["hash"],)).fetchone()),
+                saved,
+            )
+            self.assertEqual(
+                dict(db.execute("SELECT * FROM experiment_assessments WHERE hash=?", (legacy["hash"],)).fetchone()),
+                legacy_row,
+            )
+            source = experiment_source(db, "sample-one", experiment["id"])
+        assert source is not None
+        source_assessment = source["assessment"]
+        assert isinstance(source_assessment, dict)
+        self.assertEqual(source_assessment["iteration"], iteration)
+        current = self.current(experiment)
+        self.assertEqual(current["assessments"][-1]["hash"], answer["hash"])
+        self.assertEqual(current["data"]["stop_rule"], self.plan["stop_rule"])
+        self.assertEqual(result["definition_hash"], current["hash"])
+        self.assertEqual(len(treatment["source_hash"]), 64)
+        with patch("mission_control.experiments.now", return_value=ANALYZE):
+            repeated = self.experiments.evaluate("sample-one", experiment["id"])
+        self.assertFalse(repeated["new_assessment"])
+        self.assertEqual(repeated["hash"], answer["hash"])
+        self.assertEqual(repeated["iteration"], iteration)
+        workspace = self.service.workspace("sample-one")
+        projected = next(row for row in workspace["experiments"] if row["id"] == experiment["id"])
+        self.assertEqual(projected["assessments"][-1]["hash"], answer["hash"])
+
+    def test_guardrail_matrix_checks_only_available_reconciled_inputs(self):
+        _, answer = self.evaluated()
+        baseline = answer["result"]["reports"]
+        bounds = dict(self.plan["guardrails"], max_acquisition_minor=400)
+        cases = (
+            ("retention", {"retention_rate": 0.4, "net_proceeds_minor": 0, "refunds_minor": 0}, True, True),
+            (
+                "contribution",
+                {"contribution_after_acquisition_minor": -1, "net_proceeds_minor": 0, "refunds_minor": 0},
+                True,
+                True,
+            ),
+            ("refund", {"retention_rate": None, "net_proceeds_minor": 80, "refunds_minor": 20}, True, True),
+            (
+                "inclusive bounds",
+                {
+                    "retention_rate": 0.5,
+                    "contribution_after_acquisition_minor": 0,
+                    "acquisition_cost_minor": 400,
+                    "net_proceeds_minor": 90,
+                    "refunds_minor": 10,
+                },
+                False,
+                False,
+            ),
+            ("unknown only", {"net_proceeds_minor": 0, "refunds_minor": 0}, False, True),
+            ("unreconciled placeholder", {"status": "INCONCLUSIVE", "acquisition_cost_minor": 9999}, False, True),
+        )
+        for label, changes, breach, unknown in cases:
+            with self.subTest(case=label):
+                reports = copy.deepcopy(baseline)
+                reports["treatment"].update(changes)
+                findings = guardrail_findings(reports, bounds)
+                self.assertEqual(any("treatment breached" in row for row in findings), breach)
+                self.assertEqual(any("treatment guardrail denominator" in row for row in findings), unknown)
+                self.assertFalse(any(row.startswith("control") for row in findings))
+
+    def test_partial_immature_and_incomplete_ledger_rows_are_not_known_breaches(self):
+        from mission_control.common import iso_time
+        from mission_control.ledger import report
+
+        _, answer = self.evaluated()
+        control = answer["result"]["reports"]["control"]
+        bounds = dict(self.plan["guardrails"], max_acquisition_minor=400)
+        rows = observations("treatment")
+        next(row for row in rows if row["type"] == "COST_ACQUISITION")["amount_minor"] = 9999
+        for label in ("partial", "immature", "incomplete"):
+            with self.subTest(case=label):
+                data = cohort(cohort_id="experiment-treatment")
+                if label == "partial":
+                    data["observability"] = "PARTIAL"
+                events = [row for row in rows if label != "incomplete" or row["type"] != "COST_DELIVERY"]
+                treatment = report(data, events, iso_time(EXPOSE if label == "immature" else ANALYZE))
+                self.assertEqual(treatment["status"], "INCONCLUSIVE")
+                self.assertGreater(treatment["acquisition_cost_minor"], bounds["max_acquisition_minor"])
+                findings = guardrail_findings({"control": control, "treatment": treatment}, bounds)
+                self.assertFalse(any("breached" in row for row in findings))
+                # A trustworthy other arm still triggers its own stop recommendation.
+                accepted = dict(control, acquisition_cost_minor=450)
+                findings = guardrail_findings({"control": accepted, "treatment": treatment}, bounds)
+                self.assertTrue(any("control breached" in row for row in findings))
+
+    def test_mixed_currency_cost_placeholder_cannot_create_false_stop(self):
+        self.plan["guardrails"].update(max_acquisition_minor=400)
+        experiment = self.create()
+        self.observe(experiment)
+        self.ingest()
+        self.service.events(
+            "sample-one",
+            {
+                "cohort_id": "experiment-treatment",
+                "events": [
+                    event("other-unit", "COST_ACQUISITION", amount=9999, currency="CAD"),
+                ],
+            },
+        )
+        with patch("mission_control.experiments.now", return_value=ANALYZE):
+            answer = self.experiments.evaluate("sample-one", experiment["id"])
+        self.assertEqual(answer["result"]["reports"]["treatment"]["status"], "INCONCLUSIVE")
+        self.assertEqual(answer["iteration"]["decision"], "COLLECT")
+        self.assertFalse(answer["iteration"]["reported_guardrail_breach"])
 
     def test_frozen_snapshot_schema_and_window_validators(self):
         e = self.create()
@@ -344,9 +558,9 @@ class ExperimentTests(unittest.TestCase):
                 self.experiments.act("sample-one", e["id"], bad)
 
     def test_iteration_decisions_are_bound_and_never_grant_effects(self):
-        from mission_control.experiment_iteration import iteration_plan
+        from mission_control.experiment_iteration import classify, iteration_plan
 
-        definition = dict(self.plan, minimum_detectable_effect=0.1)
+        definition: PreparedPlan = {**self.plan, "minimum_detectable_effect": 0.1}
         definition["control"] = dict(definition["control"], creative_sha256="a" * 64)
         assessment = dict(status="EVALUATED", definition_hash=digest(definition), guardrail_findings=[])
         for bounds, expected in (
@@ -370,8 +584,10 @@ class ExperimentTests(unittest.TestCase):
                 payload = {k: v for k, v in plan.items() if k != "iteration_hash"}
                 self.assertEqual(plan["iteration_hash"], digest(payload))
                 if expected == "REVISE":
-                    self.assertEqual(plan["draft"]["variable"], "opening_hook")
-                    self.assertEqual(plan["draft"]["control_asset_sha256"], "a" * 64)
+                    draft = plan["draft"]
+                    assert isinstance(draft, dict)
+                    self.assertEqual(draft["variable"], "opening_hook")
+                    self.assertEqual(draft["control_asset_sha256"], "a" * 64)
                 else:
                     self.assertIsNone(plan["draft"])
 
@@ -380,6 +596,10 @@ class ExperimentTests(unittest.TestCase):
         for nonfinite in (float("nan"), float("inf")):
             corrupt = dict(assessment, effect={"interval": [0.1, nonfinite]})
             self.assertEqual(iteration_plan(definition, corrupt, "0" * 64)["decision"], "REPAIR")
+            # Exercise interval validation directly; a bogus fingerprint fails earlier.
+            action, reason = classify(corrupt, 0.1)
+            self.assertEqual(action, "REPAIR")
+            self.assertEqual(reason, "The saved comparison interval is invalid. Evaluate current evidence.")
         self.assertEqual(
             iteration_plan(dict(definition, primary_metric="retention_rate"), invalid, digest(invalid))["decision"],
             "REPAIR",
@@ -402,7 +622,9 @@ class ExperimentTests(unittest.TestCase):
         )
         stop = iteration_plan(definition, breach_and_mismatch, digest(breach_and_mismatch))
         self.assertEqual(stop["decision"], "STOP")
-        self.assertIn("assignment issue", stop["reason"])
+        reason = stop["reason"]
+        assert isinstance(reason, str)
+        self.assertIn("assignment issue", reason)
         self.assertIsNone(stop["draft"])
         malformed_control = dict(definition, control="bad")
         malformed_evidence = dict(
@@ -439,7 +661,10 @@ class ExperimentTests(unittest.TestCase):
         self.assertNotIn("iteration", first["result"])
         with connection(self.store.path) as db:
             source = experiment_source(db, "sample-one", experiment["id"])
-        self.assertEqual(source["assessment"]["iteration"], first["iteration"])
+        assert source is not None
+        source_assessment = source["assessment"]
+        assert isinstance(source_assessment, dict)
+        self.assertEqual(source_assessment["iteration"], first["iteration"])
 
     def test_missing_sample_and_guardrails_prevent_next_test(self):
         e = self.create()

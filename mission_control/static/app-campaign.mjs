@@ -328,9 +328,20 @@ function analyticsOverviewPanel() {
       ? ''
       : button('Add cohort evidence', 'add-evidence', 'data-kind="cohort"'),
     ledger: '',
-    retention: counts.retention
-      ? ''
-      : button('Add retention evidence', 'add-evidence', 'data-kind="retention"'),
+    retention:
+      (state.workspace.metrics?.event_ledger || [])
+        .filter((row) => row.cohort?.cohort_id)
+        .map((row) =>
+          button(
+            'Download retention report: ' + row.cohort.cohort_id,
+            'ledger-report',
+            'data-id="' + esc(row.cohort.cohort_id) + '"',
+          ),
+        )
+        .join('') ||
+      (counts.retention
+        ? ''
+        : button('Add retention evidence', 'add-evidence', 'data-kind="retention"')),
     installs: button('Import install export', 'install-import-open'),
     payments:
       state.workspace?.measurement_integrity?.state === 'UNAVAILABLE'
@@ -343,6 +354,7 @@ function analyticsOverviewPanel() {
     repair_cohort: button('Add corrected cohort evidence', 'add-evidence', 'data-kind="cohort"'),
     import_installs: button('Import install export', 'install-import-open'),
     repair_payments: button('Review connections', 'measurement-connections'),
+    repair_retention: '',
     add_retention: button('Add retention evidence', 'add-evidence', 'data-kind="retention"'),
     inspect_result: button('Inspect payment comparison', 'measurement-inspect'),
   };

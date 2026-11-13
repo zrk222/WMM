@@ -1,0 +1,133 @@
+{
+  "schema": "wmm.marketing-value-repair-evidence.v1",
+  "base_commit": "a333d382e1a34ad51d2f98aa50603db4f907d22a",
+  "observed_at": "2026-11-13T07:29:10.682311+00:00",
+  "status": "LOCAL_SCOPED_CHECKS_PASS",
+  "changes": [
+    "Known reconciled guardrail breaches remain visible despite unrelated unknown denominators; new STOP recommendation issues no authority.",
+    "Correct frozen currency exponents; unknown currencies retain raw units; tiny nonzero estimates do not display as zero.",
+    "Retention inventory recognizes eligible ledger windows without pooling worksheet sources or asking for duplicate inputs.",
+    "Public overview names implemented integration groups and credits Code Factory as integral to security-focused development and as a real-product experiment."
+  ],
+  "candidate": [
+    {
+      "path": "README.md",
+      "sha256": "79e6b9f0de9721b6799c7d76239c67d88838eee37fd6e3c2560b504c4d41bee0",
+      "kind": "source"
+    },
+    {
+      "path": "docs/index.html",
+      "sha256": "b8fa81688cd16ae360bcbf9a02da7ddcbe605287fa66c01f83877a1f52e81910",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/experiment_analysis.py",
+      "sha256": "169f84779ab33247f84beb21e0eea872ad43c63d9b271c189742b4714b187acd",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/server.py",
+      "sha256": "b7a919072c76da95e459829ca7f7b244a2abc9b1f9cd3f40be0675c80c0bb2a3",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/static/analytics-inventory.mjs",
+      "sha256": "4650b016884664da7de04dc1d5df1d6103ecc5b84dcaa2b5ed68b19a58955ee5",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/static/app-campaign.mjs",
+      "sha256": "46ea48b10bc4110fc94d230d6f4391ab55190b7d43b09e41ee373db4d6c57248",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/static/app-money.mjs",
+      "sha256": "aadbde7b64f626a8c7bbf2ab06890f997abdf5574f6932f62f144629531479bd",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/static/app-ui.mjs",
+      "sha256": "d3b5cf47abcb19810939b90a1e24e590883c943001326e16cd40e7825547520f",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/static/currency-profile.mjs",
+      "sha256": "a2e79654fa8b8e4bbcacd725ff793d6b4328f7193f231efb42962ac53794cb31",
+      "kind": "source"
+    },
+    {
+      "path": "tests/analytics_inventory.test.mjs",
+      "sha256": "ea38c2e1efafbc53d90930fc290e392a1b4092e2ebae7f79c9a74e500f694404",
+      "kind": "source"
+    },
+    {
+      "path": "tests/currency_display.test.cjs",
+      "sha256": "23c6901822da5d878ac3aa8b6fffb7d3c78e5cc04d9434f8ff47cf978831c4be",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_experiments.py",
+      "sha256": "c8516ecf0a6f5dac15fef2641554c540b9c81d2da6d891eb285c43d34a962194",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_page_reporting_http.py",
+      "sha256": "a3d8da355a9431ede822d1f9bd49c095a0035c7c6d9eb250e4aa20ced2f1bb7f",
+      "kind": "source"
+    },
+    {
+      "path": "tools/generate_currency_profile.py",
+      "sha256": "bce75865c9d63fe4adcb59840a10823196fc363a73b716cb264e2ea4e86dabf7",
+      "kind": "source"
+    },
+    {
+      "path": "tools/maintained_files.txt",
+      "sha256": "3c5398998ebf712b63982b52f3f1d630dc831797c6031694dab15ada105b295b",
+      "kind": "source"
+    },
+    {
+      "path": "tools/maintained_js.txt",
+      "sha256": "a75f530e432f7b057bb97112480b9f027c53e35dca616f3a4ca4aaff87dfb6c8",
+      "kind": "source"
+    },
+    {
+      "path": "tools/test_currency_results_browser.py",
+      "sha256": "2475d3bf5dc08c3cdc268e33aa91e7e6b7a23cbfb7bf829f1995f9b260f7beac",
+      "kind": "source"
+    },
+    {
+      "path": "tools/test_retention_inventory_browser.py",
+      "sha256": "27deb6b7120efb3d0b9a1c2e92fe4b7cb5df8df1b707c2c14afbc13755a658b0",
+      "kind": "source"
+    }
+  ],
+  "checks": {
+    "combined_python": "95 tests PASS",
+    "combined_node": "34 tests PASS",
+    "guardrail_expanded": "114 tests and88subtests PASS",
+    "currency_focused": "25Node and24Python tests PASS",
+    "retention_focused": "13Node and10ledger tests PASS",
+    "maintained_types": "0 errors,0warnings",
+    "format": "118 maintainedPythonfiles andmaintainedJS PASS",
+    "browser": "Actual syntheticcurrency/retention/overview desktop1440/mobile390 PASS; no provider effects",
+    "effect_tripwire": "PASS",
+    "distribution": "PASS"
+  },
+  "egm": {
+    "currency": "Two consecutive fresh-context scoped clean rounds after tiny-fraction repair",
+    "guardrails": "No production defect found in two scoped reviews; unrelated nonfinite-test quality nit corrected and retested",
+    "scope": "Static bounded source reviews, not fullsystemcertification"
+  },
+  "code_factory": {
+    "role": "Mandatory structured development and hash-bound workflow evidence gates",
+    "experiment": "WMM is a real-product Code Factory experiment",
+    "independent_security_certification": false
+  },
+  "limitations": [
+    "No real growth/time-savings claim",
+    "No current provider-account entitlement or delivery established by synthetic tests",
+    "No signing,publicrelease,paidaction orcredentialchange",
+    "Retention UI preserves existing backend financial-completeness prerequisites",
+    "Affected historical learning may require explicit reevaluation; stored rows remain immutable"
+  ]
+}

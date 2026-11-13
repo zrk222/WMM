@@ -1,8 +1,10 @@
 /* Read-only analytics availability. No collector, estimate, comparison or causal inference. */
 /**
  * @typedef {{kind?: string, created?: string|null}} SavedRecord
- * @typedef {{records?: SavedRecord[], metrics?: {cohorts?: {status?: string}[], retention?: {mature?: boolean}[], event_ledger?: {as_of?: string|null}[]}, install_attribution?: {campaigns?: {last_observed_at?: string|null}[]}, experiments?: {updated?: string|null, created?: string|null}[], measurement_integrity?: {state: string, rows?: unknown[]}}} AnalyticsWorkspace
+ * @typedef {{records?: SavedRecord[], metrics?: {cohorts?: {status?: string}[], retention?: WorksheetRetention[], event_ledger?: LedgerRetention[]}, install_attribution?: {campaigns?: {last_observed_at?: string|null}[]}, experiments?: {updated?: string|null, created?: string|null}[], measurement_integrity?: {state: string, rows?: unknown[]}}} AnalyticsWorkspace
  */
+/** @typedef {{cohort?: {cohort_id?:string, ends_at?:string, matures_at?:string}, as_of?:string|null, mature?:boolean, status?:string, observability?:string, costs_complete?:boolean, installs?:number, retained?:number, retention_rate?:number|null}} LedgerRetention */
+/** @typedef {{mature?:boolean, rate?:number|null, eligible?:number, retained?:number, window?:string}} WorksheetRetention */
 export const WMMAnalyticsInventory = (() => {
   /** @param {(string|null|undefined)[]} values */
   function latestSaved(values) {
@@ -22,6 +24,40 @@ export const WMMAnalyticsInventory = (() => {
     const cohorts = metrics.cohorts || [];
     const retention = metrics.retention || [];
     const ledger = metrics.event_ledger || [];
+    const ledgerRetention = ledger.filter((r) => r.cohort?.cohort_id);
+    const availableLedger = ledgerRetention.filter(
+      (r) =>
+        r.mature === true &&
+        r.status === 'SUPPLIED_RECONCILED' &&
+        r.observability === 'OBSERVED' &&
+        r.costs_complete === true &&
+        typeof r.retention_rate === 'number' &&
+        Number.isFinite(r.retention_rate) &&
+        (r.installs || 0) > 0,
+    );
+    const availableWorksheets = retention.filter(
+      (r) =>
+        r.mature === true &&
+        typeof r.rate === 'number' &&
+        Number.isFinite(r.rate) &&
+        (r.eligible || 0) > 0,
+    );
+    const retentionCount = retention.length + ledgerRetention.length;
+    const retentionAvailable = availableLedger.length + availableWorksheets.length;
+    const percent = (value) =>
+      typeof value === 'number' && Number.isFinite(value)
+        ? `${Number((value * 100).toFixed(2))}%`
+        : 'unavailable';
+    const retentionText = [
+      ...ledgerRetention.map(
+        (r) =>
+          `Event ledger ${r.cohort.cohort_id}: ${availableLedger.includes(r) ? `${r.retained}/${r.installs} (${percent(r.retention_rate)})` : 'unavailable'}; follow-up ${r.cohort.ends_at || 'unknown'} to ${r.cohort.matures_at || 'unknown'}; ${r.mature ? 'mature' : 'not mature'}`,
+      ),
+      ...retention.map(
+        (r) =>
+          `Worksheet ${r.window || 'window not supplied'}: ${availableWorksheets.includes(r) ? `${r.retained}/${r.eligible} (${percent(r.rate)})` : 'unavailable'}; ${r.mature ? 'mature' : 'not mature'}`,
+      ),
+    ].join(' � ');
     const campaigns = workspace.install_attribution?.campaigns || [];
     const experiments = workspace.experiments || [];
     const integrity = workspace.measurement_integrity || { state: 'UNAVAILABLE' };
@@ -44,9 +80,16 @@ export const WMMAnalyticsInventory = (() => {
       {
         id: 'retention',
         name: 'Value retention',
-        saved: retention.length ? `${retention.length} window(s)` : 'None',
-        latest: latestRecord(workspace, 'retention'),
-        next: retention.length ? 'Review below' : 'Add retention evidence',
+        saved: retentionCount ? retentionText : 'None',
+        latest: latestSaved([
+          latestRecord(workspace, 'retention'),
+          ...ledgerRetention.map((r) => r.as_of),
+        ]),
+        next: ledgerRetention.length
+          ? `Inspect event cohort ${ledgerRetention[0].cohort.cohort_id} below${retentionAvailable ? '' : '; repair maturity, coverage or eligible population'}`
+          : retention.length
+            ? 'Inspect worksheet maturity and eligible population below'
+            : 'Add retention evidence',
       },
       {
         id: 'installs',
@@ -105,7 +148,14 @@ export const WMMAnalyticsInventory = (() => {
         detail:
           'Connect or refresh the payment and imported-ledger sources. An unavailable comparison is not a zero.',
       };
-    } else if (!retention.length) {
+    } else if (retentionCount && !retentionAvailable) {
+      step = {
+        id: 'repair_retention',
+        title: 'Inspect the saved retention evidence',
+        detail:
+          'Review the source window, maturity, coverage and nonzero eligible population below. Unavailable retention stays unknown; do not import a duplicate worksheet.',
+      };
+    } else if (!retentionCount) {
       step = {
         id: 'add_retention',
         title: 'Add a value-retention window',
@@ -128,7 +178,7 @@ export const WMMAnalyticsInventory = (() => {
       counts: {
         cohorts: cohorts.length,
         measured,
-        retention: retention.length,
+        retention: retentionCount,
         ledger: ledger.length,
         campaigns: campaigns.length,
         experiments: experiments.length,

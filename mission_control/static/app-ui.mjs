@@ -1,4 +1,5 @@
 import { status } from './app.mjs';
+import { money } from './app-money.mjs';
 import {
   $,
   api,
@@ -80,17 +81,6 @@ function recordRow(record) {
   return `<button class="record-row" data-action="record" data-id="${esc(record.id)}"><span class="record-icon" aria-hidden="true">${record.kind === 'asset' ? 'â–§' : 'â–±'}</span><span class="record-main"><strong>${esc(record.title)}</strong><small>${esc(state.boot.labels[record.kind] || record.kind)} Â· ${esc(record.provenance)} Â· v${record.version}</small></span><span class="record-meta">${esc(new Date(record.updated).toLocaleDateString())}<br>Open â†—</span></button>`;
 }
 
-function money(value, currency) {
-  if (value === null || value === undefined) return 'Unavailable';
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: currency || 'USD',
-    }).format(value / 100);
-  } catch {
-    return `${value} minor units`;
-  }
-}
 function percent(value) {
   return value === null || value === undefined ? 'Unavailable' : `${(value * 100).toFixed(1)}%`;
 }

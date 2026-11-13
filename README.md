@@ -29,7 +29,7 @@ Potential benefits: less repeated research and clearer decisions. Measurements d
 
 | Goal | WMM tools |
 | --- | --- |
-| Find a creative angle | Research Facebook, Instagram Reels, TikTok and YouTube Shorts. Viral qualification requires **100,000 observed views and 10× the creator’s documented baseline**. |
+| Find a creative angle | Research Facebook, Instagram Reels, TikTok, YouTube Shorts and LinkedIn. Viral qualification requires **100,000 observed views and 10× the creator’s documented baseline**. |
 | Make or revise creative | Build an evidence-linked brief; upload or select Drive media; edit, stitch and review a captioned video. |
 | Run an approved campaign | Schedule approved Facebook batches with recovery, monitoring and reports. Reviewed organic paths cover Instagram, TikTok, YouTube Shorts and LinkedIn; paid work remains bounded Meta engagement campaigns. [Channels and account requirements](docs/agent-multichannel.md). |
 | Measure app growth | Retain observations, failed experiments and CAC/ROAS where inputs support them. Missing metrics stay explicit; engagement is not installs, revenue or lift. |
@@ -41,6 +41,19 @@ Potential benefits: less repeated research and clearer decisions. Measurements d
 The [desktop preview](docs/desktop-first-run.md) includes the runtime on Windows and Ubuntu. The Windows preview is unsigned. Current source updates can precede the published installer; check its release notes. For scheduled work while your computer is off, use an [optional private host you control](docs/always-on-runtime.md). The [native iPhone/iPad app](ios/) has separate acceptance limits.
 
 Connect a [local CLI or MCP assistant](docs/agent-quickstart.md). Use [operating profiles](docs/personal-agent-operations.md) for Grok Bot, Meta Muse, Codex/Dots, Claude and other assistants. Remote access needs an authorized workspace connection.
+
+**Built with [Code Factory](https://github.com/zrk222/code-factory).** Code Factory is integral to WMM’s security-focused development: structured changes, adversarial checks, regression gates and source-bound evidence. WMM also serves as a real-product experiment for Code Factory; these checks support security engineering, not independent certification.
+
+## Connections and platforms
+
+- **Analytics:** PostHog, Microsoft Clarity and RevenueCat aggregate reads; App Store Connect analytics reports and Apple Ads campaign/keyword/search-term reads; Google Play release and subscription-catalog reads.
+- **Revenue and attribution:** Stripe payment evidence, verified Apple StoreKit transactions, SKAdNetwork, AdAttributionKit and AdServices evidence; structured MMP install exports, tagged landing/registration studies and answer-engine/public-site evidence.
+- **Publishing:** Facebook, Instagram Reels, TikTok, YouTube Shorts and LinkedIn. Choose one, several or all; each destination needs its own connection and exact approval.
+- **Media and automation:** local uploads, selected Google Drive files, Hypit and native FFmpeg workflows; OneSignal app and APNs/FCM setup; optional Cloudflare Workers AI and an owner-hosted relay.
+- **Agents:** CLI/MCP for personal agents; configured Codex, Claude Code, GLM, OpenAI, Anthropic and compatible/local model routes. Kimi setup is listed; execution remains unavailable pending isolation checks.
+- **Devices:** packaged Windows and Ubuntu desktop; separate native iPhone/iPad app. See [platform evidence](docs/desktop-first-run.md) for current acceptance limits.
+
+Use your own accounts and permissions. Some sources are imported evidence, not live APIs; provider quotas, SDK installation, message sending and paid subscriptions are not included. Missing or delayed data stays explicit.
 
 <details>
 <summary>Run from source with Python 3.11+</summary>
