@@ -529,7 +529,7 @@ const WMMPublicationUI = (() => {
       : '';
   }
   function panel(state) {
-    return `<section class="panel publication-panel" aria-labelledby="publication-heading"><h2 id="publication-heading" tabindex="-1">Organic publishing</h2><p>Choose Facebook, Instagram, TikTok, YouTube Shorts or LinkedIn. Ad spend stays at $0. Account access alone never posts.</p><div id="publication-panel-content">${chooser(state)}<p>Load saved channel, video and approval details when you are ready.</p><button type="button" class="button outline" data-action="publication-load">Load publishing options</button>${instagramLinks(state)}</div></section>`;
+    return `<section class="panel publication-panel" aria-labelledby="publication-heading"><h2 id="publication-heading" tabindex="-1">Organic publishing</h2><p>Choose Facebook, Instagram, TikTok, YouTube Shorts or LinkedIn. Ad spend stays at $0. Account access alone never posts.</p><div id="publication-panel-content"><p>Load saved channel, video and approval details when you are ready.</p><button type="button" class="button outline" data-action="publication-load">Load publishing options</button>${chooser(state)}${instagramLinks(state)}</div></section>`;
   }
   function panelContent(state, model) {
     return `<p>Options loaded for ${escText(state.workspace.app.data.name)}. No post has been sent.</p>${chooser(state, model)}${instagramLinks(state)}${formHtml(state, model, model.form_values || {})}${recordsMarkup(state, model)}`;
@@ -549,7 +549,7 @@ const WMMPublicationUI = (() => {
     }
     if (!cached) return panel(state);
     return panel(state).replace(
-      `${chooser(state)}<p>Load saved channel, video and approval details when you are ready.</p><button type="button" class="button outline" data-action="publication-load">Load publishing options</button>`,
+      `<p>Load saved channel, video and approval details when you are ready.</p><button type="button" class="button outline" data-action="publication-load">Load publishing options</button>${chooser(state)}`,
       panelContent(state, cached),
     );
   }

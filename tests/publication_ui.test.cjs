@@ -169,6 +169,9 @@ test('connections panel is safe and makes no request until its explicit load act
     html = h.c.WMMPublicationUI.panel(h.state);
   assert.match(html, /Organic publishing/);
   assert.match(html, /data-action="publication-load"/);
+  assert.ok(
+    html.indexOf('data-action="publication-load"') < html.indexOf('class="publication-chooser"'),
+  );
   assert.doesNotMatch(html, /<App>/);
   assert.equal(h.calls.length, 0);
 });

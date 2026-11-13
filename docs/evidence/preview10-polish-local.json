@@ -126,7 +126,7 @@
     },
     {
       "path": "mission_control/static/publication.mjs",
-      "sha256": "0f2aa179afbd7d6c0a4d30ec9b7d81c8abee9b49fbe1f45397a8c6f98a7cf57d",
+      "sha256": "ea58abc13cea218eaa3194b540db6b246fb31052e0135700b91da0062acef63d",
       "kind": "source"
     },
     {
@@ -166,7 +166,7 @@
     },
     {
       "path": "tests/publication_ui.test.cjs",
-      "sha256": "fcc3f8ce495ffd8d9b7c246a07de660b06e55a173adc305403c612321e25b54f",
+      "sha256": "fabc591373ee866adb197356d8ad2ba913fa1c6f2803b7c5df23703053775df7",
       "kind": "source"
     },
     {
@@ -416,5 +416,21 @@
     "Five-network live account publication and analytics acceptance not established",
     "Tagged attributable campaign result not established",
     "Preview10 release remains held; these are code-integration checks, not release or growth approval"
-  ]
+  ],
+  "follow_up": {
+    "trigger": "Hosted browser revealed first-tab focus regression after adding chooser",
+    "fix": "Keep initial Load publishing options before optional channel chooser; preserve cached replacement",
+    "unchanged_tests": "Original desktop/mobile focus assertions preserved",
+    "verification": {
+      "actual_browser_tests": 2,
+      "node_tests": 25,
+      "format": "PASS"
+    },
+    "observed_at": "2026-11-13T06:42:29.644322+00:00",
+    "logs": {
+      "channel-chooser/browser-red.log": "292e9d679e6307a22d42ba29c5357ed639e8db9959f8cf93150ad019b0357988",
+      "channel-chooser/browser-green.log": "97d0ea7e121dca16bfbc93fe72aba02b9b4bd172806be9fe1298af55c109c5c8",
+      "publication-focus-node.log": "50a837e887c3a92ad5b1989c065e3620c137756ee19643cb90aaad3ee99c2965"
+    }
+  }
 }
