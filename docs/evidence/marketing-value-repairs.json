@@ -99,6 +99,16 @@
       "path": "tools/test_retention_inventory_browser.py",
       "sha256": "27deb6b7120efb3d0b9a1c2e92fe4b7cb5df8df1b707c2c14afbc13755a658b0",
       "kind": "source"
+    },
+    {
+      "path": "mission_control/static/dashboard.mjs",
+      "sha256": "d100654abfb40958a3210e4baf6c921693ba3fc2c2501bdb02ccbc55991eed96",
+      "kind": "source"
+    },
+    {
+      "path": "tools/test_client_dashboard_browser.py",
+      "sha256": "69a7d70e61a7573172feaac2ff9740eb7c85aa6a04e4a6cd5dc222ccb7a4f8dd",
+      "kind": "source"
     }
   ],
   "checks": {
@@ -112,7 +122,8 @@
     "browser": "Actual syntheticcurrency/retention/overview desktop1440/mobile390 PASS; no provider effects",
     "effect_tripwire": "PASS",
     "distribution": "PASS",
-    "maintained_javascript_types": "Required checkJs gate PASS; no ignores or non-null assertions"
+    "maintained_javascript_types": "Required checkJs gate PASS; no ignores or non-null assertions",
+    "static_wiring": "5tests PASS; currency helper explicitly registered in dashboard entry; ESgraph52modules24compatibilitylibraries"
   },
   "egm": {
     "currency": "Two consecutive fresh-context scoped clean rounds after tiny-fraction repair",
@@ -131,5 +142,11 @@
     "Retention UI preserves existing backend financial-completeness prerequisites",
     "Affected historical learning may require explicit reevaluation; stored rows remain immutable"
   ],
-  "follow_up": "Hosted JS type gate caught five missing parameter/optional-cohort annotations; fixed and rerun Node13, actualretentionbrowser1440/390 and required JS types, preserving source calculation."
+  "follow_up": "Hosted JS type gate caught five missing parameter/optional-cohort annotations; fixed and rerun Node13, actualretentionbrowser1440/390 and required JS types, preserving source calculation.",
+  "browser_fixture_follow_up": {
+    "reason": "Hosted synthetic identity navigation raced a detached DevTools session",
+    "fix": "Fetch and validate real protected POST/303 once, fulfill a fresh synthetic provider navigation, then use real callback. No production authentication change, retry or swallowed exception.",
+    "checks": "Two actual desktop/mobile journeys,27auth tests,format andPyright PASS",
+    "limits": "Synthetic identity provider; not real vendor login proof"
+  }
 }
