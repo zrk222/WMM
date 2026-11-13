@@ -1,23 +1,18 @@
 """Fresh-owner local media transport; original inspection is separate from reuse."""
 
-from contextlib import contextmanager
 import re
-from urllib.parse import unquote
 import secrets
+from contextlib import contextmanager
+from typing import cast
+from urllib.parse import unquote
+
 from .common import Invalid
 from .http_body import read_exact
+from .http_body import singleton as singleton
 from .operation_authority import bound_owner, protected
 from .operator_client import strict_json
 
 MAX_BYTES = 67108864
-
-
-def singleton(handler, name):
-    """Duplicate values cannot alter an upload or owner-bound request identity."""
-    values = handler.headers.get_all(name)
-    if not values or len(values) != 1:
-        raise Invalid("Use exactly one " + name + " header")
-    return values[0]
 
 
 def route(handler, parts):
@@ -46,9 +41,8 @@ def owner(handler, parts):
         raise PermissionError("Reload the current media session")
     store = handler.server.service.store
     envelope = dict(app_id=parts[2], operation="media.owner", input=dict(method=handler.command, path=handler.path))
-    with bound_owner(store, envelope, handler.server.identities, session, user):
-        with protected(store, envelope):
-            yield store, user
+    with bound_owner(store, envelope, handler.server.identities, session, user), protected(store, envelope):
+        yield store, user
 
 
 def body(handler, content_type, limit):
@@ -103,7 +97,7 @@ def get(handler, parts):
         item, raw = media.original(parts[2], parts[4], user["principal"])
         from pathlib import Path
 
-        return serve(handler, parts, item, raw, Path(item["filename"]).suffix.lower())
+        return serve(handler, parts, item, raw, Path(cast(str, item["filename"])).suffix.lower())
 
 
 def serve(handler, parts, item, raw, suffix):
