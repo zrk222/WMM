@@ -462,6 +462,30 @@ class CampaignMonitorTests(unittest.TestCase):
             80,
         )
 
+    def test_stopped_monitor_next_step_keeps_uncertainty_ahead_of_allowance_and_expiry(self):
+        monitor, job = self.job()
+        with connection(self.store.path) as db:
+            db.execute("UPDATE campaign_monitors SET status='BLOCKED',units=160 WHERE id=?", (monitor["id"],))
+            db.execute(
+                "UPDATE jobs SET status='SUCCEEDED',result=? WHERE id=?",
+                (
+                    canonical({"observations": [{"intent_id": self.intent["id"], "status": "PAUSED_campaign"}]}),
+                    job["id"],
+                ),
+            )
+        self.assertEqual(self.status(monitor)["attention"], "REVIEW_ALLOWANCE")
+        with patch("time.time", return_value=datetime.fromisoformat(self.body()["expires_at"]).timestamp() + 1):
+            self.assertEqual(self.status(monitor)["attention"], "REVIEW_EXPIRY")
+        with connection(self.store.path) as db:
+            db.execute(
+                "UPDATE jobs SET result=? WHERE id=?",
+                (
+                    canonical({"observations": [{"intent_id": self.intent["id"], "status": "ACK_PAUSED_campaign"}]}),
+                    job["id"],
+                ),
+            )
+        self.assertEqual(self.status(monitor)["attention"], "VERIFY_PROVIDER")
+
     def test_last_observation_projects_exact_historical_owned_job_and_omits_raw_secrets(
         self,
     ):

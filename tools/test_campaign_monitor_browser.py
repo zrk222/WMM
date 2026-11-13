@@ -57,10 +57,18 @@ def run(browser, width):
         assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
         page.screenshot(path=str(OUT / f"monitor-{width}.png"), full_page=True)
         (OUT / f"monitor-{width}.html").write_text(page.content(), encoding="utf-8")
+        with connection(f.store.path) as db:
+            db.execute("UPDATE campaign_monitors SET status='BLOCKED',units=160")
+        progress.get_by_role("button", name="Refresh monitor receipts", exact=True).press("Enter")
+        expect(progress).to_contain_text("WMM used the approved number of checks or requests.")
+        expect(progress).to_contain_text("Protective pause verified")
+        assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
+        (OUT / f"monitor-next-step-{width}.html").write_text(page.content(), encoding="utf-8")
         with page.expect_popup() as info:
             progress.get_by_role("button", name="Monitor report / Save PDF", exact=True).click()
         report = info.value
         expect(report.locator("body")).to_contain_text("Campaign monitoring")
+        expect(report.locator("body")).to_contain_text("WMM used the approved number of checks or requests.")
         assert "synthetic-token" not in report.locator("body").inner_text()
         assert "synthetic-secret" not in report.locator("body").inner_text()
         report.close()
@@ -94,6 +102,7 @@ def run(browser, width):
             no_job_before_approval=True,
             worker_pause="SYNTHETIC_PAUSED_VERIFIED",
             private_report=True,
+            allowance_next_step=True,
             owner_exception_recovery=True,
             signed_out_private_cache_hidden=True,
             off=True,
