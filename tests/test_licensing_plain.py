@@ -1,7 +1,7 @@
 """Licensing and commercial path stay plain, linkable and free of invented prices."""
 
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PRICING = " ".join((ROOT / "docs/pricing.md").read_text(encoding="utf-8").split())
@@ -17,7 +17,9 @@ class LicensingLanguageTests(unittest.TestCase):
             "paid written agreement",
             "Do not post credentials",
             "no automatic checkout",
-            "no published list price yet",
+            "US$900 per year for one agency",
+            "quoted separately",
+            "paying on its own does not grant permission",
             "Nothing here is legal advice",
         ):
             with self.subTest(phrase=phrase):
