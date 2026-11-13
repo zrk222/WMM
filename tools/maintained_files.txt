@@ -15,6 +15,7 @@ mission_control/common.py
 mission_control/connection_setup.py
 mission_control/creative_rendering.py
 mission_control/db.py
+mission_control/desktop.py
 mission_control/discovery_http.py
 mission_control/drive_import_jobs.py
 mission_control/experiment_analysis.py
