@@ -15,3 +15,4 @@ Architect verdict: PASS
 - [ ] T10 | slice=docs | files=docs/requirements-report-types.txt | verify=`python tools/check_types.py` | Pin optional report packages for static CI analysis without browser binaries.
 - [ ] T11 | slice=.github | files=.github/workflows/checks.yml | verify=`python tools/check_types.py` | Provision declared report imports in the maintained type job.
 - [ ] T12 | slice=tests | files=tests/test_ci_current_candidate.py | verify=`python -m unittest tests.test_ci_current_candidate -q` | Pin the reviewed static-only dependency step and retain existing job matrices.
+- [ ] T13 | slice=tests | files=tests/test_kpi_gaps.py | verify=`python -m unittest tests.test_kpi_gaps -q` | Keep live gaps missing while distinguishing supplied scoped economics coverage.
