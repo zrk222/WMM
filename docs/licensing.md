@@ -24,4 +24,8 @@ The change applies prospectively to newly licensed material and new licensor-own
 
 Before issuing commercial licenses, verify ownership and commercial-relicensing permissions for included contributions and dependencies. Repository administration alone does not establish all copyrights. New contributors keep copyright; obtain separate rights where commercial sublicensing requires them. This change is a software permission policy, not a technical paywall or a completed legal ownership audit. Have qualified counsel review the terms and intended sales agreement before selling licenses.
 
+For a commercial license, acquisition, or change of license, use the
+[IP diligence checklist](IP-DILIGENCE.md). It records the actual Git boundary
+and the evidence required to clear material for the proposed transaction.
+
 The Apache grant is perpetual, royalty-free and irrevocable subject to its terms: [Apache 2.0 sections 2–4](https://apache.org/licenses/LICENSE-2.0.html). Commercial restrictions mean the new terms are [source-available rather than OSI open source](https://opensource.org/osd).

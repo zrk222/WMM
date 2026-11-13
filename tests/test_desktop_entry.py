@@ -1,12 +1,12 @@
 """Private packaged entry and actual loopback server, without GUI or provider access."""
 
 import json
-from pathlib import Path
 import socket
 import subprocess
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 from urllib.request import urlopen
 
@@ -137,6 +137,7 @@ class DesktopEntryTests(unittest.TestCase):
                     self.assertIn(b"Set your goal", response.read())
             finally:
                 runtime.close()
+            assert runtime.thread is not None
             self.assertFalse(runtime.thread.is_alive())
             self.assertTrue((Path(folder) / "mission-control.sqlite3").is_file())
             self.assertEqual(runtime.server.fileno(), -1)
@@ -155,9 +156,8 @@ class DesktopEntryTests(unittest.TestCase):
         self.assertIs(sys.argv, before)
         adapter.main.side_effect = None
         adapter.main.return_value = 2
-        with patch("importlib.import_module", return_value=adapter):
-            with self.assertRaises(SystemExit) as error:
-                dispatch(["--mcp", "--origin", "http://127.0.0.1:8765"])
+        with patch("importlib.import_module", return_value=adapter), self.assertRaises(SystemExit) as error:
+            dispatch(["--mcp", "--origin", "http://127.0.0.1:8765"])
         self.assertEqual(error.exception.code, 2)
         self.assertIs(sys.argv, before)
         adapter.main.return_value = 0
@@ -225,9 +225,11 @@ class DesktopEntryTests(unittest.TestCase):
     def test_worker_start_failure_releases_workspace(self):
         with tempfile.TemporaryDirectory() as folder:
             runtime = DesktopRuntime(Path(folder), 0)
-            with patch.object(runtime.server.runner, "start", side_effect=RuntimeError("synthetic")):
-                with self.assertRaises(RuntimeError):
-                    runtime.start()
+            with (
+                patch.object(runtime.server.runner, "start", side_effect=RuntimeError("synthetic")),
+                self.assertRaises(RuntimeError),
+            ):
+                runtime.start()
             resumed = DesktopRuntime(Path(folder), 0)
             resumed.close()
 
@@ -235,9 +237,11 @@ class DesktopEntryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             runtime = DesktopRuntime(Path(folder), 0)
             runtime.start()
-            with patch.object(runtime.server.runner, "stop", side_effect=RuntimeError("synthetic")):
-                with self.assertRaises(RuntimeError):
-                    runtime.close()
+            with (
+                patch.object(runtime.server.runner, "stop", side_effect=RuntimeError("synthetic")),
+                self.assertRaises(RuntimeError),
+            ):
+                runtime.close()
             with self.assertRaises(WorkspaceBusy):
                 DesktopRuntime(Path(folder), 0)
             runtime.server.runner.stop()
@@ -290,8 +294,8 @@ class DesktopEntryTests(unittest.TestCase):
         self.assertTrue(all(value == "previous" for value in handlers.values()))
 
     def test_locked_native_vault_remains_failure_without_fallback(self):
-        from mission_control.linux_vault import LinuxVault
         from mission_control.common import Invalid
+        from mission_control.linux_vault import LinuxVault
 
         vault = LinuxVault.__new__(LinuxVault)
         vault.library = Mock()
@@ -326,6 +330,7 @@ class DesktopEntryTests(unittest.TestCase):
                 text=True,
                 env=environment,
             )
+            assert child.stdout is not None and child.stderr is not None
             try:
                 line = child.stdout.readline()
                 data = json.loads(line)
@@ -352,7 +357,11 @@ class DesktopEntryTests(unittest.TestCase):
         command = runpy.run_path(str(Path(__file__).resolve().parents[1] / "tools/build_desktop.py"))["command"]
         argv = command()
         data = [argv[i + 1] for i, value in enumerate(argv) if value == "--add-data"]
-        self.assertEqual(len(data), 8)
+        self.assertEqual(len(data), 9)
+        self.assertIn(
+            str(Path(__file__).resolve().parents[1] / "licenses/Apache-2.0.txt") + ":licenses",
+            data,
+        )
         self.assertTrue(any("mission_control/static" in item.replace("\\", "/") for item in data))
         self.assertIn(
             str(Path(__file__).resolve().parents[1] / "mission_control/migrations/*.sql")
@@ -367,6 +376,7 @@ class DesktopEntryTests(unittest.TestCase):
     def test_disposable_vault_probe_verifies_cleanup_without_secret_output(self):
         from contextlib import redirect_stdout
         from io import StringIO
+
         from mission_control.desktop import vault_self_test
 
         saved = {}
@@ -387,14 +397,18 @@ class DesktopEntryTests(unittest.TestCase):
     def test_disposable_vault_probe_cleans_up_failed_readback(self):
         from contextlib import redirect_stdout
         from io import StringIO
+
         from mission_control.desktop import vault_self_test
 
         vault = Mock()
         vault.get.side_effect = [None, {"wrong": "value"}]
         output = StringIO()
-        with patch("mission_control.credential_vault.Vault", return_value=vault), redirect_stdout(output):
-            with self.assertRaises(RuntimeError):
-                vault_self_test()
+        with (
+            patch("mission_control.credential_vault.Vault", return_value=vault),
+            redirect_stdout(output),
+            self.assertRaises(RuntimeError),
+        ):
+            vault_self_test()
         vault.delete.assert_called_once()
         self.assertEqual(output.getvalue(), "")
 
@@ -420,6 +434,7 @@ class DesktopEntryTests(unittest.TestCase):
     def test_self_test_constructs_verified_identity_context_without_provider_access(self):
         from contextlib import redirect_stdout
         from io import StringIO
+
         from mission_control.desktop import self_test
 
         output = StringIO()
@@ -451,6 +466,7 @@ class DesktopEntryTests(unittest.TestCase):
     def test_self_test_native_context_failure_stops_before_runtime_and_pass_output(self):
         from contextlib import redirect_stdout
         from io import StringIO
+
         from mission_control.desktop import self_test
 
         output = StringIO()
@@ -461,9 +477,9 @@ class DesktopEntryTests(unittest.TestCase):
             ),
             patch("mission_control.desktop.DesktopRuntime") as runtime,
             redirect_stdout(output),
+            self.assertRaisesRegex(RuntimeError, "native provider missing"),
         ):
-            with self.assertRaisesRegex(RuntimeError, "native provider missing"):
-                self_test()
+            self_test()
         runtime.assert_not_called()
         self.assertEqual(output.getvalue(), "")
 
@@ -471,6 +487,7 @@ class DesktopEntryTests(unittest.TestCase):
         import ssl
         from contextlib import redirect_stdout
         from io import StringIO
+
         from mission_control.desktop import self_test
 
         for mode in ("certificate", "hostname", "minimum_tls"):
@@ -487,9 +504,9 @@ class DesktopEntryTests(unittest.TestCase):
                 patch("mission_control.operator_identity._identity_trust_context", return_value=context),
                 patch("mission_control.desktop.DesktopRuntime") as runtime,
                 redirect_stdout(output),
+                self.assertRaises(AssertionError),
             ):
-                with self.assertRaises(AssertionError):
-                    self_test()
+                self_test()
             runtime.assert_not_called()
             self.assertEqual(output.getvalue(), "")
 
@@ -506,7 +523,7 @@ class DesktopEntryTests(unittest.TestCase):
             check_hostname=True,
             minimum_tls_version="TLSv1_2",
         )
-        invalid = [dict(status="PASS")]
+        invalid: list[dict[str, object]] = [dict(status="PASS")]
         for key, value in (
             ("profile", "WRONG_PROVIDER"),
             ("context_constructed", False),
@@ -523,9 +540,9 @@ class DesktopEntryTests(unittest.TestCase):
                     side_effect=[Mock(stdout="{}", returncode=0), Mock(stdout=json.dumps(value), returncode=0)],
                 ) as execute,
                 redirect_stdout(StringIO()),
+                self.assertRaises((AssertionError, KeyError)),
             ):
-                with self.assertRaises((AssertionError, KeyError)):
-                    main()
+                main()
             self.assertEqual(execute.call_count, 2)
 
 

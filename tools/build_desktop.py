@@ -4,10 +4,10 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ("mission_control/static", "mission_control/sdk")
@@ -64,6 +64,7 @@ def command():
         argv += ["--add-data", str(ROOT / "package" / name) + ":package"]
     for name in ("LICENSE", "NOTICE"):
         argv += ["--add-data", str(ROOT / name) + ":."]
+    argv += ["--add-data", str(ROOT / "licenses/Apache-2.0.txt") + ":licenses"]
     return argv + [str(ROOT / "mission_control/desktop.py")]
 
 
