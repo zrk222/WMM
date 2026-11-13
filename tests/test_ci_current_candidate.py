@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # All eight backend shards and the native/package job definitions are retained.
 # One Ubuntu shard also runs the isolated native Secret Service acceptance.
 BASELINES = {
-    ".github/workflows/checks.yml": "aa6112b0c1af64996be3af504741c61f993ada07658eec31eee62a9866cedc66",
+    ".github/workflows/checks.yml": "5fae5e38833c7ed5a6314f74c0e8b1be961b8fbe399cce2887ebc2f55368d7a8",
     ".github/workflows/platform-checks.yml": "8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",
     ".github/workflows/desktop-packages.yml": "f0aac774bb6117a0f8a60ae2ad681282ee537fcfcc9b0919cbe7a0df6f854541",
 }
@@ -117,7 +117,25 @@ class CurrentCandidateCITests(unittest.TestCase):
     def test_feature_pr_and_main_push_remain_canonical_events(self):
         text = (ROOT / ".github/workflows/checks.yml").read_text(encoding="utf-8")
         events = text.split("on:\n", 1)[1].split("concurrency:", 1)[0]
-        self.assertEqual(events.strip(), "push:\n    branches: [main]\n  pull_request:")
+        self.assertEqual(
+            events.strip(),
+            "push:\n    branches: [main]\n  pull_request:\n  workflow_dispatch:\n    inputs:\n      base_sha:\n        description: Exact reviewed main base SHA for a bot-created update branch\n        required: true\n        type: string",
+        )
+
+    def test_bot_dispatch_requires_an_exact_checked_base_without_waiving_ratchets(self):
+        text = (ROOT / ".github/workflows/checks.yml").read_text(encoding="utf-8")
+        self.assertIn("github.event.pull_request.base.sha || github.event.before || inputs.base_sha", text)
+        self.assertIn('if [[ ! "$RATCHET_BASE" =~ ^[0-9a-f]{40}$ ]]; then exit 2; fi', text)
+        self.assertIn('python tools/source_ratchet.py --base "$RATCHET_BASE" --head HEAD', text)
+
+    def test_ffmpeg_download_uses_closed_validated_pin_data_and_fixed_official_origin(self):
+        text = (ROOT / ".github/workflows/checks.yml").read_text(encoding="utf-8")
+        self.assertIn("$pinJson = python tools/dependency_freshness.py validate-pin", text)
+        self.assertLess(text.index("if ($LASTEXITCODE -ne 0)"), text.index("$pin = $pinJson | ConvertFrom-Json"))
+        self.assertIn(
+            "https://github.com/GyanD/codexffmpeg/releases/download/$version/ffmpeg-$version-full_build.zip", text
+        )
+        self.assertIn(".Hash.ToLowerInvariant() -ne $pin.sha256", text)
 
     def test_each_workflow_cancels_only_its_own_superseded_candidate(self):
         for path in BASELINES:
