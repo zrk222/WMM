@@ -26,6 +26,7 @@ import './production-feasibility.mjs';
 import './spira-workflow.mjs';
 import './google-play.mjs';
 import './setup-discovery.mjs';
+import './app-money.mjs';
 import './app-ui.mjs';
 import './app-production.mjs';
 import './app-install.mjs';

@@ -10,6 +10,7 @@ mission_control/static/app-campaign.mjs
 mission_control/static/app-connections.mjs
 mission_control/static/app-events.mjs
 mission_control/static/app-install.mjs
+mission_control/static/app-money.mjs
 mission_control/static/app-production.mjs
 mission_control/static/app-research.mjs
 mission_control/static/app-results.mjs
@@ -31,6 +32,7 @@ mission_control/static/client-dashboard.js
 mission_control/static/complete-automation.js
 mission_control/static/creative-ranking.mjs
 mission_control/static/creative-rendering.mjs
+mission_control/static/currency-profile.mjs
 mission_control/static/customer-workflow.js
 mission_control/static/dashboard.mjs
 mission_control/static/discovery-model.js
@@ -84,6 +86,7 @@ mission_control/static/workflow-telemetry.js
 tests/analytics_inventory.test.mjs
 tests/campaign_monitor_ui.test.cjs
 tests/campaign_plan.test.mjs
+tests/currency_display.test.cjs
 tests/feature_library_types.test.mjs
 tests/goal_readiness_ui.test.cjs
 tests/managed_media.test.cjs

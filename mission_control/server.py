@@ -379,6 +379,8 @@ class Handler(BaseHTTPRequestHandler):
             "/organic-policy.js",
             "/operation-feedback.js",
             "/app-ui.mjs",
+            "/app-money.mjs",
+            "/currency-profile.mjs",
             "/app-production.mjs",
             "/app-install.mjs",
             "/app-campaign.mjs",

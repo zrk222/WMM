@@ -51,6 +51,7 @@ class PageReportingHTTPTests(unittest.TestCase):
             ("analytics-inventory", "WMMAnalyticsInventory"),
             ("campaign-plan", "WMMCampaignPlan"),
             ("mmp-import-model", "WMMMmpImport"),
+            ("currency-profile", "CURRENCY_DIGITS"),
         ):
             with self.subTest(name=name):
                 with urlopen(self.origin + "/" + name + ".mjs") as response:
@@ -65,6 +66,20 @@ class PageReportingHTTPTests(unittest.TestCase):
                 with self.assertRaises(HTTPError) as error:
                     urlopen(Request(self.origin + "/" + name + ".mjs", headers={"Host": "external.example"}))
                 self.assertEqual(error.exception.code, 403)
+
+    def test_currency_formatter_exact_route_preserves_script_boundaries(self):
+        with urlopen(self.origin + "/app-money.mjs") as response:
+            self.assertEqual(response.status, 200)
+            self.assertIn("text/javascript", response.headers["Content-Type"])
+            self.assertIn("script-src 'self'", response.headers["Content-Security-Policy"])
+            self.assertIn("export function money", response.read().decode("utf-8"))
+        for route in ("/app-money.js", "/app-money.mjs/extra", "/currency-profile.mjs/extra"):
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.origin + route)
+            self.assertEqual(error.exception.code, 404)
+        with self.assertRaises(HTTPError) as error:
+            urlopen(Request(self.origin + "/app-money.mjs", headers={"Host": "external.example"}))
+        self.assertEqual(error.exception.code, 403)
 
     def test_report_privacy_preserves_static_allowlist_and_host_boundary(self):
         for route in ("/page-reporting.js/extra", "/page-reporting.css/extra", "/agent-checkpoints.json"):

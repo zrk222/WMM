@@ -1,11 +1,13 @@
 """Fixed-window descriptive comparison and transparent normal-approximation planning."""
 
 import math
+
 from .common import Invalid, amount, fraction
 
 METRICS = {"activation_rate": "activated", "paid_conversion": "paid", "retention_rate": "retained"}
 ASSIGNMENT_MISMATCH = "Sample ratio mismatch; investigate assignment and logging"
 GUARDRAIL_BREACH = "breached a predeclared retention/refund/contribution/cost guardrail"
+GUARDRAIL_EVALUATOR = "independent-available-reconciled-v2"
 
 
 def sample_plan(baseline, effect, allocation):
@@ -104,16 +106,19 @@ def guardrail_findings(reports, guardrails):
             else None
         )
         refund_fraction = r["refunds_minor"] / gross if gross else None
-        if any(value is None for value in values.values()) or refund_fraction is None:
+        if r["status"] != "SUPPLIED_RECONCILED":
+            # Incomplete reports can contain numeric cost placeholders or mixed units.
             failures.append(arm + " guardrail denominator or costs unavailable")
             continue
+        if any(value is None for value in values.values()) or refund_fraction is None:
+            failures.append(arm + " guardrail denominator or costs unavailable")
         checks = (
-            values["retention"] >= guardrails["min_retention_rate"],
-            values["contribution"] >= guardrails["min_contribution_minor"],
-            values["cost"] <= guardrails["max_acquisition_minor"],
-            refund_fraction <= guardrails["max_refund_fraction"],
+            values["retention"] is not None and values["retention"] < guardrails["min_retention_rate"],
+            values["contribution"] is not None and values["contribution"] < guardrails["min_contribution_minor"],
+            values["cost"] is not None and values["cost"] > guardrails["max_acquisition_minor"],
+            refund_fraction is not None and refund_fraction > guardrails["max_refund_fraction"],
         )
-        if not all(checks):
+        if any(checks):
             failures.append(f"{arm} {GUARDRAIL_BREACH}")
     return failures
 
@@ -130,7 +135,7 @@ def analyze(definition, reports, overlap, quality):
     guardrails = guardrail_findings(reports, definition["guardrails"])
     issues += guardrails + quality
     effect = comparison(reports["control"], reports["treatment"], definition["primary_metric"]) if not issues else None
-    return {
+    result = {
         "status": "BLOCKED" if quality or overlap else "INCONCLUSIVE" if issues else "EVALUATED",
         "issues": issues,
         "diagnostics": diagnostic,
@@ -142,3 +147,11 @@ def analyze(definition, reports, overlap, quality):
         else "Review this descriptive result before proposing another bounded test",
         "scope": "Imported cohort comparison; no verified randomization, incremental revenue, automatic winner, campaign launch or budget authority",
     }
+    if any(
+        f"{arm} {GUARDRAIL_BREACH}" in guardrails and arm + " guardrail denominator or costs unavailable" in guardrails
+        for arm in reports
+    ):
+        # Only changed mixed-evidence semantics gain a marker; unaffected saved
+        # learning retains its byte-identical assessment contract.
+        result["guardrail_evaluator"] = GUARDRAIL_EVALUATOR
+    return result
