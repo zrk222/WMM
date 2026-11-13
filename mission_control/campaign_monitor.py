@@ -208,6 +208,39 @@ def checked(db, row):
     return summary
 
 
+def monitor_attention(row, proposal, effective, observation):
+    """Give the owner a safe next step from exact, sanitized evidence."""
+    if effective != "BLOCKED":
+        return None
+    if observation:
+        states = observation["observations"]
+        if (
+            observation.get("external_execution") == "MONITOR_INTERRUPTED_UNCONFIRMED"
+            or observation["status"] in {"RUNNING", "UNKNOWN", "FAILED", "BLOCKED"}
+            or (observation["status"] == "SUCCEEDED" and not states)
+            or any(
+                item["status"] == "UNKNOWN"
+                or item["status"].startswith(("ACK_", "PENDING_"))
+                or item.get("recovery")
+                in {"OWNER_UNVERIFIED", "LEASE_STATE_CONFLICT", "ABANDONED_UNKNOWN", "IN_FLIGHT"}
+                for item in states
+            )
+        ):
+            return "VERIFY_PROVIDER"
+    elif row["last_job"]:
+        return "VERIFY_PROVIDER"
+    if iso_time(proposal["expires_at"]).timestamp() <= time.time():
+        return "REVIEW_EXPIRY"
+    # A quota message must not imply that an incomplete or missing job succeeded.
+    if (
+        observation
+        and observation["status"] == "SUCCEEDED"
+        and (row["runs"] >= proposal["max_runs"] or row["units"] >= proposal["max_provider_units"])
+    ):
+        return "REVIEW_ALLOWANCE"
+    return "CHECK_APPROVAL"
+
+
 def view(db, row):
     try:
         summary = retained_summary(row)
@@ -234,6 +267,7 @@ def view(db, row):
             checked(db, row)
         except (Invalid, PermissionError, ValueError, KeyError):
             effective = "BLOCKED"
+    observation = last_observation(db, row, summary)
     return dict(
         id=row["id"],
         version=row["version"],
@@ -245,7 +279,8 @@ def view(db, row):
         provider_units=row["units"],
         pause_attempts=row["pauses"],
         last_job=row["last_job"],
-        last_observation=last_observation(db, row, summary),
+        last_observation=observation,
+        attention=monitor_attention(row, summary["proposal"], effective, observation),
         next_due=row["due"],
     )
 

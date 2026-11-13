@@ -51,6 +51,7 @@ tests/test_agent_context_tasks.py
 tests/test_agent_review_dispatch.py
 tests/test_analytics_read_indexes.py
 tests/test_architecture_gates.py
+tests/test_campaign_monitor.py
 tests/test_campaign_monitor_polish.py
 tests/test_check_distribution.py
 tests/test_ci_current_candidate.py
@@ -112,6 +113,7 @@ tools/publish_desktop_release.py
 tools/query_budget.py
 tools/run_ci_tests.py
 tools/source_ratchet.py
+tools/test_campaign_monitor_browser.py
 tools/test_client_dashboard_browser.py
 tools/test_currency_results_browser.py
 tools/test_goal_automation_browser.py

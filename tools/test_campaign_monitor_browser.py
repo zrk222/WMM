@@ -1,15 +1,18 @@
 """Real owner monitor UI, protected HTTP and synthetic worker pause acceptance."""
 
-from pathlib import Path
-from datetime import datetime, timedelta
 import json
 import sys
+from datetime import datetime, timedelta
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from playwright.sync_api import sync_playwright, expect
-from tests.test_campaign_monitor_integration import CampaignMonitorIntegrationTests
-from mission_control.db import connection
+from playwright.sync_api import expect, sync_playwright  # noqa: E402 - repository root configured above
+
+from mission_control.db import connection  # noqa: E402 - repository root configured above
+from tests.test_campaign_monitor_integration import (  # noqa: E402 - repository root configured above
+    CampaignMonitorIntegrationTests,
+)
 
 OUT = ROOT / ".factory/goal-first-automation"
 
@@ -23,9 +26,15 @@ def run(browser, width):
     page.on("pageerror", lambda error: errors.append(str(error)))
     try:
         page.goto(f.client.origin)
-        page.wait_for_function('(state) => state.workspace?.app?.id===state.app', arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"))
+        page.wait_for_function(
+            "(state) => state.workspace?.app?.id===state.app",
+            arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"),
+        )
         page.locator("#app-select").select_option("sample")
-        page.wait_for_function("(state) => state.app==='sample' && state.workspace?.app?.id==='sample'", arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"))
+        page.wait_for_function(
+            "(state) => state.app==='sample' && state.workspace?.app?.id==='sample'",
+            arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"),
+        )
         page.locator("#navigation > [data-view=activity]").click()
         page.get_by_role("button", name="Sign in for verified review", exact=True).click()
         page.get_by_label("GitHub identity token", exact=True).fill("synthetic_owner_identity_token")
@@ -57,16 +66,25 @@ def run(browser, width):
         assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
         page.screenshot(path=str(OUT / f"monitor-{width}.png"), full_page=True)
         (OUT / f"monitor-{width}.html").write_text(page.content(), encoding="utf-8")
+        with connection(f.store.path) as db:
+            db.execute("UPDATE campaign_monitors SET status='BLOCKED',units=160")
+        progress.get_by_role("button", name="Refresh monitor receipts", exact=True).press("Enter")
+        expect(progress).to_contain_text("WMM used the approved number of checks or requests.")
+        expect(progress).to_contain_text("Protective pause verified")
+        assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
+        (OUT / f"monitor-next-step-{width}.html").write_text(page.content(), encoding="utf-8")
         with page.expect_popup() as info:
             progress.get_by_role("button", name="Monitor report / Save PDF", exact=True).click()
         report = info.value
         expect(report.locator("body")).to_contain_text("Campaign monitoring")
+        expect(report.locator("body")).to_contain_text("WMM used the approved number of checks or requests.")
         assert "synthetic-token" not in report.locator("body").inner_text()
         assert "synthetic-secret" not in report.locator("body").inner_text()
         report.close()
         progress.get_by_role("button", name="Turn monitor OFF", exact=True).click()
         expect(page.locator("#monitor-progress")).to_contain_text("Monitoring off")
-        assert f.job()["status"] == "SUCCEEDED"
+        job = f.job()
+        assert job is not None and job["status"] == "SUCCEEDED"
         with connection(f.store.path) as db:
             db.execute("UPDATE campaign_paid_intents SET status='UNKNOWN' WHERE id=?", (f.intent["id"],))
         page.locator("#close-modal").click()
@@ -94,6 +112,7 @@ def run(browser, width):
             no_job_before_approval=True,
             worker_pause="SYNTHETIC_PAUSED_VERIFIED",
             private_report=True,
+            allowance_next_step=True,
             owner_exception_recovery=True,
             signed_out_private_cache_hidden=True,
             off=True,

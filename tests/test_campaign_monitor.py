@@ -6,12 +6,13 @@ Forge name routing is supplemented by executable assertions, not claimed as
 behavioral coverage.
 """
 
-from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
 import json
 import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
+from typing import Any
 from unittest.mock import patch
 
 from mission_control import campaign_monitor as core
@@ -33,7 +34,8 @@ class LocalIdentity:
 
 class CampaignMonitorTests(unittest.TestCase):
     def setUp(self):
-        self.fixture = fixtures.PaidTests("test_paid_lifecycle_and_pause")
+        # PaidTests populates shared fixture fields through a delegated setUp.
+        self.fixture: Any = fixtures.PaidTests("test_paid_lifecycle_and_pause")
         self.fixture.setUp()
         self.addCleanup(self.fixture.doCleanups)
         self.store = self.fixture.store
@@ -76,11 +78,13 @@ class CampaignMonitorTests(unittest.TestCase):
     @contextmanager
     def owner(self):
         envelope = dict(app_id="sample", operation="campaign.monitor.owner.fixture", input={})
-        with bound_owner(self.store, envelope, self.identities, "session", dict(principal="owner")):
-            with protected(self.store, envelope):
-                yield
+        with (
+            bound_owner(self.store, envelope, self.identities, "session", dict(principal="owner")),
+            protected(self.store, envelope),
+        ):
+            yield
 
-    def body(self, **changes):
+    def body(self, **changes) -> dict[str, Any]:
         return dict(
             dict(
                 scope_id=self.scope["scope_id"],
@@ -109,10 +113,11 @@ class CampaignMonitorTests(unittest.TestCase):
         monitor = self.activate(**changes)
         self.assertEqual(core.tick(self.store), 1)
         job = claim(self.store)
+        assert job is not None
         self.assertEqual(job["action"], "campaign_monitor")
         return monitor, job
 
-    def status(self, monitor):
+    def status(self, monitor) -> dict[str, Any]:
         with self.owner():
             return self.monitors.status("sample", monitor["id"])
 
@@ -147,6 +152,7 @@ class CampaignMonitorTests(unittest.TestCase):
                 "SELECT status FROM campaign_paid_intents WHERE id=?",
                 (self.intent["id"],),
             ).fetchone()
+        assert row is not None
         self.assertEqual(row["status"], "ACTIVE_campaign")
 
     def test_tick_atomic_unique_pending_and_twenty_limit(self):
@@ -157,10 +163,9 @@ class CampaignMonitorTests(unittest.TestCase):
         self.assertTrue(all(value <= 20 for value in queued))
         self.assertEqual(core.tick(self.store), 0)
         with connection(self.store.path) as db:
-            self.assertEqual(
-                db.execute("SELECT count(*) FROM jobs WHERE action='campaign_monitor'").fetchone()[0],
-                21,
-            )
+            row = db.execute("SELECT count(*) FROM jobs WHERE action='campaign_monitor'").fetchone()
+            assert row is not None
+            self.assertEqual(row[0], 21)
         self.assertEqual(len(monitors), 21)
 
     def test_read_reconcile_keeps_hold_and_never_creates_or_activates(self):
@@ -331,10 +336,9 @@ class CampaignMonitorTests(unittest.TestCase):
         self.assertEqual(core.tick(self.store), 0)
         self.assertEqual(self.status(monitor)["status"], "BLOCKED")
         with connection(self.store.path) as db:
-            self.assertEqual(
-                db.execute("SELECT status FROM jobs WHERE id=?", (job["id"],)).fetchone()[0],
-                "BLOCKED",
-            )
+            row = db.execute("SELECT status FROM jobs WHERE id=?", (job["id"],)).fetchone()
+            assert row is not None
+            self.assertEqual(row[0], "BLOCKED")
 
     def test_pending_with_unknown_owner_does_not_pause_or_replay(self):
         monitor, job = self.job()
@@ -440,12 +444,14 @@ class CampaignMonitorTests(unittest.TestCase):
             cap["store"] = "another-host-datastore"
             with self.assertRaises(PermissionError):
                 authority.admit(self.store)
-        with patch(
-            "time.time",
-            return_value=datetime.fromisoformat(self.body()["expires_at"]).timestamp() + 1,
+        with (
+            patch(
+                "time.time",
+                return_value=datetime.fromisoformat(self.body()["expires_at"]).timestamp() + 1,
+            ),
+            self.assertRaises(PermissionError),
         ):
-            with self.assertRaises(PermissionError):
-                core.execute(self.store, job, self.wire)
+            core.execute(self.store, job, self.wire)
         with connection(self.store.path) as db:
             db.execute("UPDATE campaign_monitors SET pauses=1 WHERE id=?", (monitor["id"],))
         self.wire.objects[self.intent["ids"]["adset"]]["lifetime_budget"] = 999
@@ -462,6 +468,30 @@ class CampaignMonitorTests(unittest.TestCase):
             80,
         )
 
+    def test_stopped_monitor_next_step_keeps_uncertainty_ahead_of_allowance_and_expiry(self):
+        monitor, job = self.job()
+        with connection(self.store.path) as db:
+            db.execute("UPDATE campaign_monitors SET status='BLOCKED',units=160 WHERE id=?", (monitor["id"],))
+            db.execute(
+                "UPDATE jobs SET status='SUCCEEDED',result=? WHERE id=?",
+                (
+                    canonical({"observations": [{"intent_id": self.intent["id"], "status": "PAUSED_campaign"}]}),
+                    job["id"],
+                ),
+            )
+        self.assertEqual(self.status(monitor)["attention"], "REVIEW_ALLOWANCE")
+        with patch("time.time", return_value=datetime.fromisoformat(self.body()["expires_at"]).timestamp() + 1):
+            self.assertEqual(self.status(monitor)["attention"], "REVIEW_EXPIRY")
+        with connection(self.store.path) as db:
+            db.execute(
+                "UPDATE jobs SET result=? WHERE id=?",
+                (
+                    canonical({"observations": [{"intent_id": self.intent["id"], "status": "ACK_PAUSED_campaign"}]}),
+                    job["id"],
+                ),
+            )
+        self.assertEqual(self.status(monitor)["attention"], "VERIFY_PROVIDER")
+
     def test_last_observation_projects_exact_historical_owned_job_and_omits_raw_secrets(
         self,
     ):
@@ -469,7 +499,7 @@ class CampaignMonitorTests(unittest.TestCase):
         result = dict(
             status="BLOCKED",
             error="PRIVATE_RAW_ERROR",
-            token="PRIVATE_TOKEN",
+            token="PRIVATE_TOKEN",  # noqa: S106 - synthetic redaction sentinel
             observations=[
                 dict(
                     intent_id=self.intent["id"],
@@ -494,6 +524,7 @@ class CampaignMonitorTests(unittest.TestCase):
                 (canonical(result), job["id"]),
             )
         shown = self.status(monitor)["last_observation"]
+        assert shown is not None
         self.assertEqual(shown["status"], "BLOCKED")
         self.assertEqual(
             shown["observations"],
@@ -551,12 +582,13 @@ class CampaignMonitorTests(unittest.TestCase):
 
     def test_actual_http_adapter_requires_fresh_owner_origin_csrf_and_closed_body(self):
         import threading
-        from urllib.request import Request
         from urllib.error import HTTPError
-        from mission_control.server import Server
-        from mission_control.operator_client import OperatorClient, ClientError
-        from mission_control import server as http_server
+        from urllib.request import Request
+
         from mission_control import campaign_monitor_http as http
+        from mission_control import server as http_server
+        from mission_control.operator_client import ClientError, OperatorClient
+        from mission_control.server import Server
 
         original = http_server.owner_domain_post
 
@@ -589,22 +621,27 @@ class CampaignMonitorTests(unittest.TestCase):
                 client.request(
                     "POST",
                     "/api/identity/login",
-                    dict(token="synthetic_identity_token"),
+                    dict(token="synthetic_identity_token"),  # noqa: S106 - fake identity adapter
                 )
                 saved = client.request("POST", base + "prepare", dict(proposal=self.body()))
+                assert saved is not None
                 active = client.request(
                     "POST",
                     base + "activate",
                     dict(monitor_id=saved["id"], summary_hash=saved["summary_hash"]),
                 )
+                assert active is not None
                 self.assertEqual(active["status"], "ACTIVE")
-                self.assertEqual(len(client.request("POST", base + "history", {})["monitors"]), 1)
+                history = client.request("POST", base + "history", {})
+                assert history is not None
+                self.assertEqual(len(history["monitors"]), 1)
                 with self.assertRaises(ClientError):
                     client.request(
                         "POST",
                         base + "status",
                         dict(monitor_id=saved["id"], owner="forged"),
                     )
+                assert client.csrf is not None
                 for headers in (
                     {"Origin": "http://foreign.invalid"},
                     {"X-CSRF-Token": "wrong"},
@@ -628,6 +665,7 @@ class CampaignMonitorTests(unittest.TestCase):
                     base + "off",
                     dict(monitor_id=saved["id"], version=active["version"]),
                 )
+                assert off is not None
                 self.assertEqual(off["status"], "OFF")
         finally:
             server.shutdown()

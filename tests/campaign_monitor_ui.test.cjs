@@ -171,6 +171,26 @@ test('saved progress exposes unknown delivery and does not equate OFF with pause
   );
 });
 
+test('next step is consistent across the monitor and printable report', () => {
+  const h = fixture();
+  const base = {
+    id: 'monitor',
+    effective_status: 'BLOCKED',
+    summary: { proposal: { scope_id: 's', targets: [], protective_conditions: [] } },
+  };
+  for (const [attention, message] of [
+    ['REVIEW_EXPIRY', /monitoring approval expired/],
+    ['REVIEW_ALLOWANCE', /used the approved number of checks or requests/],
+    ['VERIFY_PROVIDER', /Check the campaign in Meta/],
+    ['UNKNOWN_CODE', /Check the connected account and campaign approval/],
+  ]) {
+    const data = { ...base, attention };
+    assert.match(h.a.progress(data), message);
+    assert.match(JSON.stringify(h.a.report(data, {})), message);
+    assert.doesNotMatch(h.a.progress({ ...data, effective_status: 'OFF' }), message);
+  }
+});
+
 test('late monitor inspection is single flight and cannot reopen a closed dialog', async () => {
   const h = fixture();
   await h.a.open();

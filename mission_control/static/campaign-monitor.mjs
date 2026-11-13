@@ -257,6 +257,21 @@ const WMMCampaignMonitor = (() => {
       submit.disabled = false;
     }
   }
+  function nextStep(data) {
+    if (data.effective_status === 'OFF') return null;
+    if (needsRepair(data)) return repairNotice;
+    if (data.effective_status !== 'BLOCKED') return null;
+    switch (data.attention) {
+      case 'VERIFY_PROVIDER':
+        return 'Check the campaign in Meta and compare it with the saved receipt before trying again. WMM will not retry an uncertain action.';
+      case 'REVIEW_EXPIRY':
+        return 'This monitoring approval expired. Review a new plan if you want WMM to keep watching this campaign.';
+      case 'REVIEW_ALLOWANCE':
+        return 'WMM used the approved number of checks or requests. Review the saved result before approving more monitoring.';
+      default:
+        return 'Check the connected account and campaign approval, then review the saved receipt before approving another monitor.';
+    }
+  }
   function progress(data) {
     const repair = needsRepair(data);
     const last = repair ? null : data.last_observation;
@@ -271,11 +286,10 @@ const WMMCampaignMonitor = (() => {
       ) +
       '</h3><p>' +
       esc(
-        data.effective_status === 'BLOCKED' || (repair && data.effective_status !== 'OFF')
-          ? 'Inspect the saved receipt and resolve uncertainty before approving further monitoring.'
-          : data.effective_status === 'OFF'
+        nextStep(data) ||
+          (data.effective_status === 'OFF'
             ? 'Future monitoring is stopped. Existing campaign effects keep their own status.'
-            : 'The approved worker checks these exact targets within the limits below.',
+            : 'The approved worker checks these exact targets within the limits below.'),
       ) +
       '</p>' +
       summary(data) +
@@ -410,6 +424,7 @@ const WMMCampaignMonitor = (() => {
               (data.last_observation?.external_execution === 'MONITOR_INTERRUPTED_UNCONFIRMED'
                 ? ' - provider result unconfirmed after worker interruption. Inspect the saved campaign before taking another action.'
                 : ''),
+            ...(nextStep(data) ? [nextStep(data)] : []),
             'Saved observations are not real-time spend enforcement, app installs or causal growth.',
             'Private copy, raw provider payloads, rights prose and credentials are excluded.',
           ],
