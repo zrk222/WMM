@@ -6,7 +6,7 @@ evidence, make one approved change, then measure what happened.
 
 ## Current acceptance status
 
-The retained tagged visit is an internal tracking check, not a published tagged campaign or a verified registration. A tagged acquisition experiment with a measured decision is still incomplete; no new live campaign result is added by this documentation update. Keep the original null and inconclusive observations below.
+WMM verified delivery of one owner-approved, zero-spend Facebook post with the exact E14 campaign link on November 7. Its separate 48-hour observation found no tagged traffic or confirmed registrations. This establishes delivery and a decision to repair tracking. Signup attribution and campaign lift remain unverified.
 
 On November 13, the automated Windows and Ubuntu package run at source `4ac6587c1edd60019706053cd67d677a840aa0e4` passed install, upgrade, removal and isolated first-packet/restart checks. This is engineering acceptance, not an outside-founder session, publisher signing or marketing impact. [Package run](https://github.com/zrk222/WMM/actions/runs/43371264849).
 
@@ -31,6 +31,8 @@ On November 13, the automated Windows and Ubuntu package run at source `4ac6587c
 | Nov 5, 01:15 | Inspected the private workspace's saved schedule and its two successive due Apple downloads reads. | Jobs queued on Nov 3 and Nov 4 at 13:28 UTC, 24 hours and 0.434 seconds apart. Both completed with `WAITING_FOR_REPORTS`. The latest job matches the enabled 24-hour schedule. Numerical observations remain unavailable. This inspection made no provider request. | E11 |
 | Nov 5, 02:25 | Read aggregate activity from WizeMe's production database using the existing connection in its local source checkout. | An explicit read-only transaction returned external-classified user, registration, conversation and retention-event counts for a 30-day window. The primary connection succeeded after the configured failover failed. Counts stay private. Latest observed activity predates the Facebook trial, leaving campaign impact inconclusive. | E12 |
 | Nov 6, 04:12–04:14 | Re-read the fixed 24-hour before and after windows in production and checked whether web traffic was present. | Registrations, conversations and retention events showed no recorded change. The post used an untagged link, so campaign attribution remains unavailable. | E13 |
+| Nov 7, 13:48 | Verified one owner-approved organic Facebook post and its exact E14 destination. | The private receipt binds the post to the approved content and link and to one saved owner report. No ad spend was authorized. | [V03](evidence/wizeme-e14-readback-2026-11-13.json) |
+| Nov 10, 13:23 | Read the 48 hours after E14 delivery. | The source recorded 29 eligible page views overall, zero E14-tagged page views and zero confirmed registrations. The source cannot establish actual clicks, causation or a conversion rate. | [V03](evidence/wizeme-e14-readback-2026-11-13.json) |
 | Nov 11, 11:58 | Matched an internal tagged landing visit against its prior readback receipt. | The landing tag was observed. The internal visit is excluded from campaign measurement. Registration linkage and campaign impact remain unverified. | V01 |
 | Nov 11, 15:57 | Checked the installed workspace's saved schedule, delivery and private owner report. | One successful scheduled job matched one verified post and one hash-verified owner report. The report establishes no attribution. No fresh provider read occurred. | V02 |
 
@@ -80,13 +82,13 @@ observations were 1 minute 57 seconds apart. That interval measures two
 recorded system events. The full work cycle and a comparable manual run still
 need timing.
 
-**Next proof:** verify that the tagged visit reaches a consented test registration.
+**E14 decision — repair tracking before repeating the post.** A November 13 read found one internal tagged landing and no server-confirmed new registration under the internal tag. Verify a consented test registration links to its tagged visit before repeating the campaign.
 The [follow-up worksheet](WIZEME-PREREGISTRATION-20261108.md) remains a draft.
 Freeze the measurement window, sample requirements and decision rule before
 any separately approved launch. Then collect the follow-up and record a
 continue, stop or revise decision.
 
-The verified publication proves delivery. Notification delivery, ad spending,
+The verified publications prove delivery. Notification delivery, ad spending,
 measured growth and time savings remain unproven. OneSignal auto-setup code and
 offline tests are engineering evidence, separate from these live operations.
 
