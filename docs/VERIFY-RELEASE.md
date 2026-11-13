@@ -58,3 +58,19 @@ bytes under the declared constraints. It does not provide a Windows publisher
 signature, remove unsigned-installer trust prompts, prove reproducible builds,
 or establish human first-use acceptance. Earlier previews without these
 attestations retain their existing checksum and unsigned-preview limits.
+
+For a Windows release advertised as publisher-signed, independently check the
+downloaded installer in PowerShell:
+
+```powershell
+$signature = Get-AuthenticodeSignature -LiteralPath .\WMM-Setup.exe
+$signature.Status
+$signature.SignerCertificate.Subject
+$signature.SignerCertificate.Thumbprint
+$signature.TimeStamperCertificate
+```
+
+Require `Valid`, a timestamp certificate, and the expected publisher identity
+and certificate thumbprint from the release's provenance-verified `Windows.json`
+(`lifecycle.publisher_signature.thumbprint`). Preview 9 and earlier do not
+provide this publisher evidence.

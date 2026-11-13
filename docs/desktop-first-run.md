@@ -25,18 +25,17 @@ the steps below. You can report a blocked install, too.
 3. Keep the WMM window open while you work. Closing it stops its local engine
    and any approved scheduled work.
 
-**Windows note:** the preview installer is not publisher-signed. Windows may
-warn you. Do not disable OS security controls or install a root certificate to
-get past it. On a managed laptop, ask your IT administrator to review the release
-and its published checksums. A matching checksum verifies the download;
-it does not establish a trusted Windows publisher. If your policy prevents
-installation, you can explore the [interactive sample](https://zrk222.github.io/WMM/demo.html)
-without installing anything. The sample uses synthetic data; it does not run
-your campaigns or connect your accounts.
+**Windows note:** Desktop Preview 9 and earlier Windows installers are unsigned.
+For a release advertised as signed, check that Windows reports a valid signature
+and the publisher matches the release's verification instructions. A matching
+checksum alone does not identify the publisher. Do not weaken OS security to
+install. If your device policy blocks installation, ask IT or try the
+[interactive sample](https://zrk222.github.io/WMM/demo.html), which uses synthetic
+data and does not connect accounts.
 
 ## Your first 15 minutes
 
-**Day 1 — a clearer next marketing move.** Choose one app-growth question and
+**Day 1 â€” a clearer next marketing move.** Choose one app-growth question and
 prepare your first evidence packet: a plan, its sources and what is still missing.
 
 You do not need an account, a paid model or a provider connection for these
@@ -55,7 +54,7 @@ steps.
    a JSON copy if you need one. These steps do not publish or spend.
 5. **Add one reference.** Choose **Add a research reference** and save a source
    you want to study. To qualify as viral, a source also needs 100,000 views and
-   10× a documented creator baseline. That is evidence, not a promise.
+   10Ã— a documented creator baseline. That is evidence, not a promise.
 
 ## Around Day 30, with regular use
 
@@ -119,8 +118,8 @@ to you.
 
 - **No installer listed:** open **Assets** on the preview page. Choose the
   installer for your system; the source archives are for developers.
-- **Windows warns about the publisher:** expected for this preview; do not
-  weaken OS security.
+- **Windows warns about the publisher:** check the release notes and [verification guide](VERIFY-RELEASE.md).
+  Do not weaken OS security.
 - **Ubuntu package tools missing:** use a graphical desktop with the normal
   Debian package installer, or wait for a later build.
 - **Your workspace will not open:** keep a copy of the data folder and open an
