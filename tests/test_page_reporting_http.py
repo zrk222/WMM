@@ -46,6 +46,26 @@ class PageReportingHTTPTests(unittest.TestCase):
             self.assertIn("WMMPageReports.decorate(state,document)", value)
             self.assertIn("workspaceObservedAt=newDate().toISOString()", value)
 
+    def test_native_feature_libraries_use_exact_routes_without_legacy_aliases(self):
+        for name, export in (
+            ("analytics-inventory", "WMMAnalyticsInventory"),
+            ("campaign-plan", "WMMCampaignPlan"),
+            ("mmp-import-model", "WMMMmpImport"),
+        ):
+            with self.subTest(name=name):
+                with urlopen(self.origin + "/" + name + ".mjs") as response:
+                    self.assertEqual(response.status, 200)
+                    self.assertIn("text/javascript", response.headers["Content-Type"])
+                    self.assertIn("script-src 'self'", response.headers["Content-Security-Policy"])
+                    self.assertIn("export const " + export, response.read().decode("utf-8"))
+                for suffix in (".js", ".mjs/extra"):
+                    with self.assertRaises(HTTPError) as error:
+                        urlopen(self.origin + "/" + name + suffix)
+                    self.assertEqual(error.exception.code, 404)
+                with self.assertRaises(HTTPError) as error:
+                    urlopen(Request(self.origin + "/" + name + ".mjs", headers={"Host": "external.example"}))
+                self.assertEqual(error.exception.code, 403)
+
     def test_report_privacy_preserves_static_allowlist_and_host_boundary(self):
         for route in ("/page-reporting.js/extra", "/page-reporting.css/extra", "/agent-checkpoints.json"):
             with self.assertRaises(HTTPError) as error:

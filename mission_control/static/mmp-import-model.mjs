@@ -1,11 +1,12 @@
 /* Client-side header suggestions for an owner-supplied MMP export; no provider access. */
-const WMMMmpImport = (() => {
+export const WMMMmpImport = (() => {
   const aliases = {
     install_id: ['install_id', 'customer_user_id', 'app_user_id', 'user_id'],
     state: ['state', 'attribution_status', 'attribution', 'status'],
     occurred_at: ['occurred_at', 'install_time', 'install_date', 'event_time', 'timestamp'],
   };
 
+  /** @param {string} line */
   function csvLine(line) {
     const values = [];
     let value = '',
@@ -25,6 +26,7 @@ const WMMMmpImport = (() => {
     return values.filter((item, position, list) => item !== '' || position < list.length - 1);
   }
 
+  /** @param {string} text @param {'csv'|'json'} format */
   function parseHeaders(text, format) {
     if (typeof text !== 'string' || !text.trim())
       throw new Error('Choose a non-empty export file.');
@@ -57,6 +59,7 @@ const WMMMmpImport = (() => {
     return csvLine(text.replace(/^\uFEFF/, '').split(/\r?\n/, 1)[0]);
   }
 
+  /** @param {string[]} headers */
   function suggest(headers) {
     const normalized = headers.map((header) => ({
       header,
@@ -65,6 +68,7 @@ const WMMMmpImport = (() => {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '_'),
     }));
+    /** @type {Record<string, string>} */
     const value = {},
       used = new Set();
     for (const [target, names] of Object.entries(aliases)) {
@@ -92,7 +96,3 @@ const WMMMmpImport = (() => {
 
   return { parseHeaders, suggest, templateCsv, aliases };
 })();
-
-if (typeof module !== 'undefined') module.exports = WMMMmpImport;
-
-if (typeof module === 'undefined') globalThis.WMMMmpImport = WMMMmpImport;

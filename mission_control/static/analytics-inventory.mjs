@@ -1,15 +1,22 @@
 /* Read-only analytics availability. No collector, estimate, comparison or causal inference. */
-const WMMAnalyticsInventory = (() => {
+/**
+ * @typedef {{kind?: string, created?: string|null}} SavedRecord
+ * @typedef {{records?: SavedRecord[], metrics?: {cohorts?: {status?: string}[], retention?: {mature?: boolean}[], event_ledger?: {as_of?: string|null}[]}, install_attribution?: {campaigns?: {last_observed_at?: string|null}[]}, experiments?: {updated?: string|null, created?: string|null}[], measurement_integrity?: {state: string, rows?: unknown[]}}} AnalyticsWorkspace
+ */
+export const WMMAnalyticsInventory = (() => {
+  /** @param {(string|null|undefined)[]} values */
   function latestSaved(values) {
     return values.filter(Boolean).sort().pop() || null;
   }
 
+  /** @param {AnalyticsWorkspace} workspace @param {string} kind */
   function latestRecord(workspace, kind) {
     return latestSaved(
       (workspace.records || []).filter((row) => row.kind === kind).map((row) => row.created),
     );
   }
 
+  /** @param {AnalyticsWorkspace} workspace */
   function summary(workspace = {}) {
     const metrics = workspace.metrics || {};
     const cohorts = metrics.cohorts || [];
@@ -131,7 +138,3 @@ const WMMAnalyticsInventory = (() => {
 
   return { summary, latestSaved };
 })();
-
-if (typeof module !== 'undefined') module.exports = WMMAnalyticsInventory;
-
-if (typeof module === 'undefined') globalThis.WMMAnalyticsInventory = WMMAnalyticsInventory;
