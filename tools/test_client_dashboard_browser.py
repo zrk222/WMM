@@ -1,11 +1,14 @@
 """Actual Chromium journey over synthetic RSA OIDC and isolated client databases."""
 
+# Bootstrap the repo before local imports; callbacks run within each synchronous viewport case.
+# ruff: noqa: E402, B023
+
 import json
-from pathlib import Path
 import sys
 import tempfile
 import threading
 import time
+from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,7 +16,9 @@ sys.path.insert(0, str(ROOT))
 
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
+from jwt.algorithms import RSAAlgorithm
 from playwright.sync_api import sync_playwright
+
 from mission_control.hosted_browser_http import BrowserServer
 from mission_control.hosted_login_flow import LoginFlow
 from mission_control.hosted_oidc import OIDCClient, ProviderConfig
@@ -28,7 +33,7 @@ class Provider:
 
     def __init__(self):
         self.key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-        self.nonce = None
+        self.nonce: str | None = None
         self.subject = "reader"
         self.config = ProviderConfig(
             "https://identity.example/",
@@ -51,7 +56,7 @@ class Provider:
             return json.dumps(
                 dict(id_token=jwt.encode(claims, self.key, algorithm="RS256", headers={"kid": "fixture"}))
             ).encode()
-        key = json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(self.key.public_key()))
+        key = json.loads(RSAAlgorithm.to_jwk(self.key.public_key()))
         return json.dumps(dict(keys=[dict(key, kid="fixture", use="sig", alg="RS256")])).encode()
 
 
@@ -97,8 +102,13 @@ def run():
                     location = (
                         query["redirect_uri"][0] + "?" + urlencode(dict(code="fixture-code", state=query["state"][0]))
                     )
-                    # Provider consent is a fixture: observe the real top-level
-                    # authorization navigation, then return its matching callback.
+                    # Cancel pending synthetic-provider navigation before returning
+                    # the real callback; its DNS error must not replace that page.
+                    protocol = context.new_cdp_session(page)
+                    try:
+                        protocol.send("Page.stopLoading")
+                    finally:
+                        protocol.detach()
                     page.goto(location)
 
                 page.goto(origin)

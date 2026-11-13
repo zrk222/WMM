@@ -77,7 +77,7 @@
 .goal-proof-layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:clamp(16px,3vw,36px);align-items:center}
 .goal-proof{margin:0;min-width:0;padding:12px 10px 16px;border-radius:var(--radius);background:var(--soft);color:var(--forest)}
 .goal-proof svg{display:block;width:100%;height:auto}
-.goal-proof ol{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0;padding:0;list-style:none;text-align:center;color:var(--ink);font-size:.875rem;font-weight:650;line-height:1.35}
+.goal-proof ol{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0;padding:0;list-style:none;text-align:center;color:var(--ink);font-size:.875rem;font-weight:650;line-height:1.5}
 @media(max-width:960px){.goal-proof-layout{grid-template-columns:minmax(0,1fr)}.goal-proof{width:100%;max-width:396px;justify-self:start}}
 #onesignal-root{--setup-gap:16px}
 #modal:has(#onesignal-root) .notice[aria-label="Task guide"]{background:transparent;border:0;border-radius:0;margin:0;padding:0 28px}
@@ -125,7 +125,7 @@
 }
 .campaign-review-steps li {
   display: grid; justify-items: center; gap: 5px; padding: 8px 4px;
-  border: 1px solid var(--line); border-radius: 12px; text-align: center; line-height: 1.25;
+  border: 1px solid var(--line); border-radius: 12px; text-align: center; line-height: 1.5;
 }
 .campaign-review-steps li[aria-current="step"] {
   background: var(--forest); color: white; border-color: var(--forest);

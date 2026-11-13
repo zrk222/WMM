@@ -78,5 +78,6 @@ tools/generate_schema_types.py
 tools/integrity_drill.py
 tools/query_budget.py
 tools/source_ratchet.py
+tools/test_client_dashboard_browser.py
 tools/test_page_reporting_browser.py
 tools/verify_release_provenance.py
