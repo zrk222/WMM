@@ -5,6 +5,7 @@ mission_control/static/aeo.mjs
 mission_control/static/agent-access.mjs
 mission_control/static/agent-control.js
 mission_control/static/analytics-inventory.js
+mission_control/static/analytics-inventory.mjs
 mission_control/static/app-campaign.mjs
 mission_control/static/app-connections.mjs
 mission_control/static/app-events.mjs
@@ -24,6 +25,7 @@ mission_control/static/campaign-execution.mjs
 mission_control/static/campaign-monitor.mjs
 mission_control/static/campaign-owner-reports.mjs
 mission_control/static/campaign-plan.js
+mission_control/static/campaign-plan.mjs
 mission_control/static/campaign-sequence.mjs
 mission_control/static/client-dashboard.js
 mission_control/static/complete-automation.js
@@ -47,6 +49,7 @@ mission_control/static/insights.mjs
 mission_control/static/journey-readiness.mjs
 mission_control/static/managed-media.js
 mission_control/static/mmp-import-model.js
+mission_control/static/mmp-import-model.mjs
 mission_control/static/observational-campaign.mjs
 mission_control/static/onesignal-setup.js
 mission_control/static/operation-feedback.js
@@ -78,3 +81,11 @@ mission_control/static/verified-review.mjs
 mission_control/static/video-editor.js
 mission_control/static/workflow-automation.mjs
 mission_control/static/workflow-telemetry.js
+tests/analytics_inventory.test.mjs
+tests/campaign_plan.test.mjs
+tests/feature_library_types.test.mjs
+tests/measurement_results_ui.test.cjs
+tests/mmp_import_model.test.mjs
+tests/page_reporting.test.cjs
+tools/check_es_modules.mjs
+tools/check_js_types.mjs

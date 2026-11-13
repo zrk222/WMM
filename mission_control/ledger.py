@@ -1,13 +1,15 @@
 """Immutable export ingestion and deterministic app/cohort/as-of reconciliation."""
 
 import csv
-from datetime import datetime, timezone
 import io
 import json
 import re
+from datetime import datetime, timezone
+from typing import cast
+
 from .common import Invalid, amount, canonical, digest, iso_time, now, required, safe_data
 from .db import connection
-from .subscription_journey import JOURNEY_TYPES, validate_event, journey_report
+from .subscription_journey import JOURNEY_TYPES, journey_report, validate_event
 
 TYPES = {
     "INSTALL",
@@ -64,7 +66,7 @@ def cohort_data(data):
         "observability",
         "source",
     )
-    if set(data) != set(names):
+    if set(data) not in (set(names), set(names) | {"economics"}):
         raise Invalid("Cohort needs exactly: " + ", ".join(names))
     result = {key: required(data.get(key), key, 2000) for key in names}
     result["cohort_id"] = opaque(result["cohort_id"], "cohort_id")
@@ -74,6 +76,10 @@ def cohort_data(data):
         raise Invalid("Acquisition start must precede end; maturity cannot precede end")
     if result["observability"] not in ("OBSERVED", "PARTIAL", "UNKNOWN"):
         raise Invalid("Choose OBSERVED, PARTIAL or UNKNOWN observability")
+    if "economics" in data:
+        from .measurement_economics import validate_contract
+
+        cast(dict[str, object], result)["economics"] = validate_contract(data["economics"])
     return result
 
 
@@ -91,7 +97,7 @@ def event_data(row, csv_mode=False):
     if not isinstance(row, dict) or set(row) - (FIELDS | {"subscription"}):
         raise Invalid("Event contains unsupported columns; use the provided template")
     safe_data(row)
-    result = {key: opaque(row.get(key), key) for key in ("provider", "event_id")}
+    result: dict[str, object] = {key: opaque(row.get(key), key) for key in ("provider", "event_id")}
     result["type"] = required(row.get("type"), "type", 120)
     if result["type"] not in TYPES:
         raise Invalid("Unsupported event type")
@@ -315,6 +321,9 @@ def report(cohort, events, as_of):
     costs_complete = {"COST_ACQUISITION", "COST_DELIVERY"} <= set(e["type"] for e in events)
     complete = observable and as_of >= maturity and not money["issues"] and costs_complete
     count = counts["installs"]
+    from .measurement_economics import build_economics
+
+    economics = build_economics(cohort, events, as_of, finance)
     return {
         "cohort": cohort,
         "as_of": as_of.isoformat(),
@@ -322,6 +331,7 @@ def report(cohort, events, as_of):
         "events": len(events),
         **counts,
         "subscription_journey": journey,
+        "economics": economics,
         "activation_rate": observed_rate(counts["activated"], count, observable),
         "paid_conversion": observed_rate(counts["paid"], count, complete),
         "retention_rate": observed_rate(counts["retained"], count, complete),
@@ -330,7 +340,7 @@ def report(cohort, events, as_of):
         "acquisition_cost_minor": acquisition,
         "delivery_cost_minor": delivery,
         "paid_cac_minor": observed_rate(acquisition, counts["paid"], complete),
-        "contribution_after_acquisition_minor": money["net_proceeds_minor"] - delivery - acquisition
+        "contribution_after_acquisition_minor": cast(int, money["net_proceeds_minor"]) - delivery - acquisition
         if complete
         else None,
         "issues": money["issues"],

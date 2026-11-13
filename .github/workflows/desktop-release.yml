@@ -70,6 +70,19 @@ jobs:
         uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f
         with:
           subject-path: 'release-assets/*'
+      - name: Verify official source-bound provenance for all six payloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE: ${{ needs.validate.outputs.sha }}
+        run: python tools/verify_release_provenance.py --folder release-assets --sha "$CANDIDATE"
+      - name: Retain verified provenance receipt before publication
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: verified-release-provenance-${{ needs.validate.outputs.sha }}
+          path: .factory/release-provenance.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
       - name: Verify both receipts, publish prerelease, verify anonymous downloads
         env:
           GH_TOKEN: ${{ github.token }}

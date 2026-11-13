@@ -1,9 +1,15 @@
 /* Deterministic campaign plan from saved app facts and planning choices; no external action. */
-const WMMCampaignPlan = (() => {
+/**
+ * @typedef {{name?: string, job?: string, audience?: string, activation?: string, currency?: string, release?: string, locale?: string, cadence?: string}} AppFacts
+ * @typedef {{app?: {id?: string, version?: number, data?: AppFacts}, records?: {kind?: string}[], automation?: {drafts?: {experiment?: {hypothesis?: string, stop_rule?: string}, distribution?: {channel?: string, destination?: string, currency?: string}, registered_experiment?: {rollback_plan?: string}}, learning?: {change?: string}, metric?: {label?: string, value?: string}, baseline?: {status?: string, reason?: string}, channel?: {value?: string, alternatives?: string[], basis?: string}, cadence?: string}, workflow?: {next_action?: {title?: string}}}} CampaignWorkspace
+ */
+export const WMMCampaignPlan = (() => {
+  /** @param {{kind?: string}[]} records @param {string} kind */
   function count(records, kind) {
     return records.filter((row) => row.kind === kind).length;
   }
 
+  /** @param {CampaignWorkspace} workspace @param {{now?: string, goal?: string}} options */
   function build(workspace = {}, options = {}) {
     const app = workspace.app?.data || {};
     const automation = workspace.automation || {};
@@ -84,6 +90,7 @@ const WMMCampaignPlan = (() => {
     };
   }
 
+  /** @param {ReturnType<typeof build>} plan */
   function markdown(plan) {
     const missing = plan.missing.length
       ? plan.missing.map((item) => `- ${item}`).join('\n')
@@ -143,7 +150,3 @@ const WMMCampaignPlan = (() => {
 
   return { build, markdown };
 })();
-
-if (typeof module !== 'undefined') module.exports = WMMCampaignPlan;
-
-if (typeof module === 'undefined') globalThis.WMMCampaignPlan = WMMCampaignPlan;

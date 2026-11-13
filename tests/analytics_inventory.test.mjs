@@ -1,6 +1,6 @@
-const assert = require('node:assert/strict');
-const test = require('node:test');
-const inventory = require('../mission_control/static/analytics-inventory.js');
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { WMMAnalyticsInventory as inventory } from '../mission_control/static/analytics-inventory.mjs';
 
 const cohort = { kind: 'cohort', created: '2026-11-09T10:00:00+00:00' };
 const retention = { kind: 'retention', created: '2026-11-08T10:00:00+00:00' };
@@ -11,8 +11,8 @@ test('empty analytics stays unavailable and points to one acquisition step', () 
   assert.equal(view.total, 6);
   assert.equal(view.step.id, 'add_acquisition');
   assert.equal(view.counts.cohorts, 0);
-  assert.equal(view.areas.find(row => row.id === 'payments').saved, 'Unavailable');
-  assert.equal(view.areas.find(row => row.id === 'payments').next, 'Review connections');
+  assert.equal(view.areas.find((row) => row.id === 'payments').saved, 'Unavailable');
+  assert.equal(view.areas.find((row) => row.id === 'payments').next, 'Review connections');
 });
 
 test('measured cohort with no install export points to the MMP export', () => {
@@ -23,8 +23,8 @@ test('measured cohort with no install export points to the MMP export', () => {
   });
   assert.equal(view.savedCount, 2);
   assert.equal(view.step.id, 'import_installs');
-  assert.equal(view.areas.find(row => row.id === 'cohorts').saved, '1 saved · 1 measured');
-  assert.equal(view.areas.find(row => row.id === 'cohorts').latest, cohort.created);
+  assert.equal(view.areas.find((row) => row.id === 'cohorts').saved, '1 saved · 1 measured');
+  assert.equal(view.areas.find((row) => row.id === 'cohorts').latest, cohort.created);
 });
 
 test('unmeasured cohort is repaired before installs are requested', () => {
@@ -33,7 +33,7 @@ test('unmeasured cohort is repaired before installs are requested', () => {
     metrics: { cohorts: [{ status: 'UNAVAILABLE' }], retention: [], event_ledger: [] },
   });
   assert.equal(view.step.id, 'repair_cohort');
-  assert.equal(view.areas.find(row => row.id === 'cohorts').saved, '1 saved · 0 measured');
+  assert.equal(view.areas.find((row) => row.id === 'cohorts').saved, '1 saved · 0 measured');
 });
 
 test('payment repair precedes retention advice', () => {
@@ -58,6 +58,9 @@ test('retention is the last missing prerequisite before inspection', () => {
 });
 
 test('latest saved picks the newest non-empty timestamp and ignores blanks', () => {
-  assert.equal(inventory.latestSaved([null, '2026-11-01T00:00:00Z', '', '2026-11-09T00:00:00Z']), '2026-11-09T00:00:00Z');
+  assert.equal(
+    inventory.latestSaved([null, '2026-11-01T00:00:00Z', '', '2026-11-09T00:00:00Z']),
+    '2026-11-09T00:00:00Z',
+  );
   assert.equal(inventory.latestSaved([null, '']), null);
 });

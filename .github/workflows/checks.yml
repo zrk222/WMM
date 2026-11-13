@@ -3,6 +3,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      base_sha:
+        description: Exact reviewed main base SHA for a bot-created update branch
+        required: true
+        type: string
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -23,7 +29,7 @@ jobs:
           python-version: '3.11'
       - name: Enforce automatically enrolled source ratchets
         env:
-          RATCHET_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          RATCHET_BASE: ${{ github.event.pull_request.base.sha || github.event.before || inputs.base_sha }}
         run: |
           if [[ ! "$RATCHET_BASE" =~ ^[0-9a-f]{40}$ ]]; then exit 2; fi
           git fetch --no-tags --depth=1 origin "$RATCHET_BASE"
@@ -45,6 +51,14 @@ jobs:
           python tools/generate_operation_docs.py --check
       - name: Check maintained formatting and lint
         run: python tools/check_format.py
+      - name: Install hash-pinned optional report imports for static analysis
+        run: 'python -m pip install --require-hashes --no-deps --only-binary :all: -r docs/requirements-report-types.txt'
+      - name: Check maintained native JavaScript library types
+        env:
+          WMM_CHECK_JS_TYPES_REQUIRED: '1'
+        run: |
+          node tools/check_js_types.mjs
+          node --test tests/feature_library_types.test.mjs
       - name: Check maintained Python types
         run: python tools/check_types.py
       - name: Check SQL statement budgets
@@ -169,10 +183,14 @@ jobs:
           python -m pip install --only-binary :all: -r docs/requirements-auth.txt
       - name: Install optional native integration-test tools
         run: |
-          $archive = Join-Path $env:RUNNER_TEMP 'ffmpeg-9.0.2-full_build.zip'
-          Invoke-WebRequest -Uri 'https://github.com/GyanD/codexffmpeg/releases/download/9.0.2/ffmpeg-9.0.2-full_build.zip' -OutFile $archive -MaximumRetryCount 3 -RetryIntervalSec 10
-          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne '759d0a9831c436a0eb331ad36f236c06cb04aaa0005da46571f0e9d3d9206f6b') { throw 'FFmpeg archive digest mismatch' }
-          $destination = Join-Path $env:RUNNER_TEMP 'wmm-ffmpeg-9.0.2'
+          $pinJson = python tools/dependency_freshness.py validate-pin
+          if ($LASTEXITCODE -ne 0) { throw 'Invalid FFmpeg pin data' }
+          $pin = $pinJson | ConvertFrom-Json
+          $version = $pin.version
+          $archive = Join-Path $env:RUNNER_TEMP "ffmpeg-$version-full_build.zip"
+          Invoke-WebRequest -Uri "https://github.com/GyanD/codexffmpeg/releases/download/$version/ffmpeg-$version-full_build.zip" -OutFile $archive -MaximumRetryCount 3 -RetryIntervalSec 10
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pin.sha256) { throw 'FFmpeg archive digest mismatch' }
+          $destination = Join-Path $env:RUNNER_TEMP "wmm-ffmpeg-$version"
           Expand-Archive -LiteralPath $archive -DestinationPath $destination
           $binary = @(Get-ChildItem -LiteralPath $destination -Filter ffmpeg.exe -File -Recurse)
           if ($binary.Count -ne 1) { throw 'Expected one pinned FFmpeg executable' }

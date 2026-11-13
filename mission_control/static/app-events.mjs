@@ -131,6 +131,30 @@ import {
 } from './feature-apis.mjs';
 ('use strict');
 
+function cohortPayload(values) {
+  const data = { ...values };
+  const keys = [
+    'cost_basis',
+    'revenue_basis',
+    'attribution_status',
+    'spend_source',
+    'currency',
+    'coverage_through',
+  ];
+  const economics = Object.fromEntries(
+    keys.map((key) => [key, String(data[`economics_${key}`] ?? '').trim()]),
+  );
+  for (const key of keys) delete data[`economics_${key}`];
+  if (economics.cost_basis) {
+    if (keys.some((key) => !economics[key]))
+      throw new Error(
+        'Complete all six acquisition economics fields, or leave cost basis unselected.',
+      );
+    data.economics = economics;
+  }
+  return data;
+}
+
 async function formSubmit(event) {
   const form = event.target;
   const formId = form.getAttribute('id');
@@ -385,7 +409,7 @@ async function formSubmit(event) {
     if (formId === 'app-form') await saveApp(data, form.dataset.new === 'true', form);
     if (formId === 'evidence-form') await saveEvidence(data, form);
     if (formId === 'review-form') await api(`/api/apps/${state.app}/reviews`, data);
-    if (formId === 'cohort-form') await api(`/api/apps/${state.app}/cohorts`, data);
+    if (formId === 'cohort-form') await api(`/api/apps/${state.app}/cohorts`, cohortPayload(data));
     if (formId === 'experiment-form') await saveExperiment(form);
     if (formId === 'experiment-action-form') await saveExperimentAction(form);
     if (formId === 'experiment-schedule-form') await saveExperimentSchedule(form);
@@ -773,6 +797,27 @@ async function handleAction(node) {
       `${state.app}-${id}-report.json`,
       state.workspace.ledger.find((r) => r.cohort.cohort_id === id),
     );
+  if (action === 'ledger-covered') {
+    const app = state.app;
+    const workspace = state.workspace;
+    const current = workspace.ledger.find((r) => r.cohort.cohort_id === id);
+    const cutoff = current?.cohort.economics?.coverage_through;
+    if (!cutoff || !Number.isFinite(Date.parse(cutoff)) || Date.parse(cutoff) > Date.now())
+      throw new Error(
+        'Supply a completed, past coverage timestamp before viewing its economics snapshot.',
+      );
+    const reports = await api(
+      `/api/apps/${encodeURIComponent(state.app)}/measurement?as_of=${encodeURIComponent(cutoff)}`,
+    );
+    if (state.app !== app || state.workspace !== workspace) return;
+    const covered = reports.find((r) => r.cohort.cohort_id === id);
+    if (!covered) throw new Error('The covered cohort report is unavailable. Refresh and retry.');
+    state.workspace.ledger = state.workspace.ledger.map((r) =>
+      r.cohort.cohort_id === id ? covered : r,
+    );
+    render();
+    return;
+  }
   if (action === 'ledger-history') return historicalForm(id);
   if (action === 'export')
     return serverDownload(

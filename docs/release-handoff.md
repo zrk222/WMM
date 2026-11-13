@@ -31,6 +31,23 @@ human first-use acceptance. The SBOM is a build-environment package inventory, n
 a file-level runtime inventory or a provenance attestation. SHA256SUMS.txt covers
 every uploaded asset.
 
+Before the publisher creates SHA256SUMS.txt, the pinned GitHub attestation action
+attests the exact six staged payloads. `tools/verify_release_provenance.py` then
+requires the official `gh attestation verify` result for each payload, constrained
+to repository `zrk222/WMM`, signer workflow
+`zrk222/WMM/.github/workflows/desktop-release.yml`, the exact admitted source SHA,
+and GitHub-hosted runners. Missing or failed results stop publication. The helper
+rejects missing, empty, linked or extra stage entries and changed bytes during
+verification, then writes `.factory/release-provenance.json` outside the release
+folder. That receipt must upload successfully before the immutable publisher
+runs. No extra receipt or checksum file is added to the six attestation subjects.
+
+The receipt records payload hashes, verifier result counts and output hashes;
+it is execution evidence, not a substitute for independently verifying downloaded
+payloads with the [buyer verification commands](VERIFY-RELEASE.md). The checksum
+manifest is created later and is not itself attested. Provenance verification
+does not change the unsigned Windows preview or reproducibility limits above.
+
 ## Installer checks
 
 - Windows: per-user installer, no terminal or separate Python required.
