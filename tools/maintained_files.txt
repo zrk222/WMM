@@ -47,6 +47,7 @@ mission_control/store.py
 mission_control/storekit_ingestion.py
 mission_control/viral_policy.py
 mission_control/worker.py
+tests/campaign_paid_schedule_browser.py
 tests/test_agent_context_tasks.py
 tests/test_agent_review_dispatch.py
 tests/test_analytics_read_indexes.py

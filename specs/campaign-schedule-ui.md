@@ -9,6 +9,7 @@ Expose existing owner campaign schedule services in protected campaign HTTP and 
 - The system shall reject a scheduled batch mutation without fresh authenticated owner session, exact local origin and CSRF through `owner_http`.
 - The system shall display exact post content and due times before owner activation through `exact_batch_review`.
 - The system shall display saved batch status and job or intent identities without automatic replay through `durable_status`.
+- Saved progress and reports shall distinguish verified delivery, blocked work and uncertain provider effects. For an uncertain effect, direct the owner to check the provider receipt before retrying.
 - When the owner selects OFF, the system shall cancel undispatched batch items and display dispatched uncertainty through `stop_control`.
 - The system shall reject paid schedule selection until paid scheduled execution is implemented through `no_paid_claim`.
 

@@ -971,6 +971,24 @@ function campaignScheduleWatch(panel) {
   };
 }
 
+function campaignScheduleNextStep(item) {
+  switch (item.effective_status) {
+    case 'VERIFIED':
+      return 'Post verified. Review the provider receipt and collect results.';
+    case 'ACTIVE_VERIFIED':
+      return 'Campaign verified active. Review monitoring and results.';
+    case 'PAUSED_VERIFIED':
+      return 'Campaign verified paused. Review the saved receipt.';
+    case 'NEEDS_RECONCILIATION':
+      return 'Check the provider receipt before retrying. The original action may have gone through.';
+    case 'BLOCKED':
+      return 'Review the campaign approval and saved receipts before scheduling again.';
+    case 'CANCELLED':
+      return 'This item is cancelled. Review a new schedule if you still want to run it.';
+    default:
+      return '';
+  }
+}
 function campaignScheduleProgressItem(item, data) {
   const request = data.summary?.items?.find((r) => r.item_id === item.item_id)?.request || {},
     intent = item.intent || {},
@@ -990,6 +1008,7 @@ function campaignScheduleProgressItem(item, data) {
         esc(intent.commitment ?? 'Not reserved') +
         '</p>'
       : '';
+  const nextStep = campaignScheduleNextStep(item);
   return (
     '<section class="panel"><h3>' +
     esc(item.operation || 'campaign.publish') +
@@ -1005,6 +1024,7 @@ function campaignScheduleProgressItem(item, data) {
     esc(ids) +
     '</p>' +
     budget +
+    (nextStep ? '<p>' + esc(nextStep) + '</p>' : '') +
     '</section>'
   );
 }
@@ -1032,7 +1052,10 @@ function campaignScheduleReport(data) {
     'Schedule report uses saved local receipts; provider status may have changed.',
     'No post text, credentials or rights prose in this report. Saved receipts do not establish app growth.',
     ...(data.repair ? [data.repair] : []),
-    ...data.items.map((i) => campaignScheduleReportLine(i, data)),
+    ...data.items.map((item) => {
+      const nextStep = campaignScheduleNextStep(item);
+      return campaignScheduleReportLine(item, data) + (nextStep ? '. ' + nextStep : '');
+    }),
   ];
   return report;
 }
