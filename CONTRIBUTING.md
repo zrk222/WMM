@@ -19,6 +19,8 @@ expected behavior for each material change.
 
 ## Review and handoff
 
+**Agent review is not independent review.** CI, an agent, or the owner's self-review are implementation checks; none establishes independent human review.
+
 WMM currently has one repository maintainer. Follow the existing
 [owner review policy](docs/REVIEW-POLICY.md) for the local preview. A separate
 agent, green CI, or the owner's own review cannot establish independent human
@@ -36,6 +38,16 @@ security review is required for the expansion cases listed in the owner policy.
 Keep the handoff in the PR: what changed, how to reproduce it, outstanding
 risks, and the next action. Never put operational credentials or private
 provider evidence in the handoff.
+
+## Review types
+
+Record the review type for every candidate:
+
+- **Implementation checks** — agent review, CI, or owner self-review. Useful, but not independent.
+- **Independent human review** — a human who did not author or direct the change reviewed the exact head and recorded scope, checks, findings and disposition.
+- **Independent review pending** — no independent human review exists for the current head.
+
+Never label implementation checks as independent review.
 
 ## Evidence and repository size
 

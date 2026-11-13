@@ -65,6 +65,30 @@ def acquisition_metrics(data, app_id):
     return analyze(data)
 
 
+KPI_GAPS = (
+    dict(
+        metric="CAC",
+        status="MISSING",
+        reason="No matched live acquisition cost / distinct acquired payers. Supplied-cohort CAC, when present, is separate and does not fill this gap.",
+    ),
+    dict(
+        metric="ROAS_D7",
+        status="MISSING",
+        reason="No attributed cohort revenue through day 7 divided by matched cohort spend.",
+    ),
+    dict(
+        metric="ROAS_D30",
+        status="MISSING",
+        reason="No attributed cohort revenue through day 30 divided by matched cohort spend.",
+    ),
+    dict(
+        metric="PAYBACK",
+        status="MISSING",
+        reason="No mature cumulative net contribution that recovers acquisition cost.",
+    ),
+)
+
+
 def summarize(records, app_id, ledger_reports=()):
     """Keep economics, retention and acquisition evidence in separate app-scoped views."""
     cohorts = [cohort_metrics(r["data"]) for r in records if r["kind"] == "cohort"]
@@ -77,4 +101,5 @@ def summarize(records, app_id, ledger_reports=()):
         "event_ledger": list(ledger_reports),
         "status": "MEASURED" if cohorts else "UNAVAILABLE",
         "generated_from": "app-scoped supplied evidence",
+        "kpi_gaps": [dict(gap) for gap in KPI_GAPS],
     }

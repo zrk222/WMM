@@ -249,6 +249,11 @@ class CampaignOwnerReportsTests(unittest.TestCase):
         self.assertEqual(report["campaign"]["retained_commitment_minor"], 80)
         self.assertEqual(report["kpi_coverage"]["available_rows"], 0)
         self.assertGreater(report["kpi_coverage"]["unknown_rows"], 0)
+        self.assertEqual(report["kpi_coverage"]["missing_metrics"], ["CAC", "ROAS_D7", "ROAS_D30", "PAYBACK"])
+        self.assertEqual(
+            {gap["metric"]: gap["status"] for gap in report["kpi_gaps"]},
+            {name: "MISSING" for name in ("CAC", "ROAS_D7", "ROAS_D30", "PAYBACK")},
+        )
         self.assertEqual(report["campaign"]["outcome_attribution"], "NOT_ESTABLISHED")
         self.assertEqual(report["kpis"]["appID"], "sample")
         self.assertIsNone(report["experiment"])
