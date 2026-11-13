@@ -98,7 +98,7 @@ class CurrentCandidateCITests(unittest.TestCase):
         )
         self.assertNotIn("playwright install", maintained)
         requirements = (ROOT / "docs/requirements-report-types.txt").read_text(encoding="utf-8")
-        for dependency in ("playwright==1.57.0", "PyMuPDF==1.27.2.2"):
+        for dependency in ("playwright==1.57.0", "PyMuPDF==1.27.2.2", "PyJWT==2.15.1", "cryptography==49.0.0"):
             self.assertIn(dependency + " --hash=sha256:", requirements)
 
     def test_native_library_types_run_with_pinned_local_tooling(self):
