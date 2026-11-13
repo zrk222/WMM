@@ -54,6 +54,7 @@ tests/test_sqlite_tuning.py
 tests/test_static_etag.py
 tests/test_static_wiring.py
 tests/test_type_ratchet.py
+tools/branch_hygiene.py
 tools/check_evidence_budget.py
 tools/check_format.py
 tools/check_layering.py
