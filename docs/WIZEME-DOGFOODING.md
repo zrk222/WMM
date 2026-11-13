@@ -10,7 +10,7 @@ The retained tagged visit is an internal tracking check, not a published tagged 
 
 On November 13, the automated Windows and Ubuntu package run at source `4ac6587c1edd60019706053cd67d677a840aa0e4` passed install, upgrade, removal and isolated first-packet/restart checks. This is engineering acceptance, not an outside-founder session, publisher signing or marketing impact. [Package run](https://github.com/zrk222/WMM/actions/runs/43371264849).
 
-Preview 10 is held pending trusted publisher signing, the outside-founder installation trial and the tagged campaign result. The owner will first test actual agent hosts against the exact fresh installed candidate; that is separate from outside-founder acceptance. Any later fixes need fresh candidate checks before download or publication.
+[Desktop Preview 10](https://github.com/zrk222/WMM/releases/tag/v0.1.0-preview.10) shipped on November 13 from commit f80234b. Both installer lifecycles and all six artifact attestations passed the [release checks](https://github.com/zrk222/WMM/actions/runs/43455759453). The Windows installer is unsigned. Independent first-use, agent-host operation on the released installer and a measured tagged-campaign result are still awaiting verification.
 
 ## Retained operations
 
