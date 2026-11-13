@@ -211,10 +211,10 @@ class Ledger:
         if as_of > datetime.now(timezone.utc):
             raise Invalid("An observed report cannot use a future as-of time")
         snapshot = self.export(app_id)
-        return [
-            report(cohort, [r["data"] for r in snapshot["events"] if r["cohort_id"] == cohort["cohort_id"]], as_of)
-            for cohort in snapshot["cohorts"]
-        ]
+        events_by_cohort = {}
+        for record in snapshot["events"]:
+            events_by_cohort.setdefault(record["cohort_id"], []).append(record["data"])
+        return [report(cohort, events_by_cohort.get(cohort["cohort_id"], []), as_of) for cohort in snapshot["cohorts"]]
 
 
 def csv_rows(text):
