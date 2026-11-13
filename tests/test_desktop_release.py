@@ -208,6 +208,18 @@ class ReleaseTests(unittest.TestCase):
         }
         path.write_text(json.dumps(data))
 
+    def test_early_signing_config_requires_publisher_and_https_timestamp(self):
+        release.validate_signing_config(THUMBPRINT, "https://timestamp.example.com")
+        for thumbprint, timestamp in (
+            ("", "https://timestamp.example.com"),
+            (THUMBPRINT.lower(), "https://timestamp.example.com"),
+            (THUMBPRINT, ""),
+            (THUMBPRINT, "http://timestamp.example.com"),
+            (THUMBPRINT, "https://timestamp.example.com/path?option=x"),
+        ):
+            with self.subTest(thumbprint=thumbprint, timestamp=timestamp), self.assertRaises(ValueError):
+                release.validate_signing_config(thumbprint, timestamp)
+
     def test_signed_release_requires_exact_publisher_and_bytes(self):
         with self.assertRaisesRegex(ValueError, "Configure"):
             release.require_windows_signature(self.folder, "")

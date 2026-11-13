@@ -42,6 +42,16 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write('sha=' + sha + '\n')
           PY
+      - name: Check Windows signing settings before building packages
+        env:
+          WMM_WINDOWS_SIGNER_THUMBPRINT: ${{ vars.WMM_WINDOWS_SIGNER_THUMBPRINT }}
+          WMM_WINDOWS_TIMESTAMP_URL: ${{ vars.WMM_WINDOWS_TIMESTAMP_URL }}
+        run: |
+          python - <<'PY'
+          import os, runpy
+          validate = runpy.run_path('tools/publish_desktop_release.py')['validate_signing_config']
+          validate(os.environ.get('WMM_WINDOWS_SIGNER_THUMBPRINT'), os.environ.get('WMM_WINDOWS_TIMESTAMP_URL'))
+          PY
       - name: Release protocol unit checks
         run: python -m unittest tests.test_desktop_release tests.test_release_provenance tests.test_verify_release_assets tests.test_release_attestation_assets -v
   packages:
