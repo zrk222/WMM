@@ -139,6 +139,18 @@ def require_windows_signature(folder, expected_thumbprint):
         raise ValueError("Missing verified Windows installer and uninstaller publisher signatures")
 
 
+def windows_release_notice(folder, tag):
+    if os.environ.get("WMM_UNSIGNED_WINDOWS_PREVIEW10") == "true":
+        if tag != "v0.1.0-preview.10":
+            raise ValueError("Unsigned Windows publication is limited to Preview 10")
+        lifecycle = json.loads((Path(folder) / "Windows.json").read_text(encoding="utf-8"))["lifecycle"]
+        if lifecycle.get("publisher_signature") is not None:
+            raise ValueError("Expected an unsigned Windows lifecycle receipt")
+        return "The Windows installer is unsigned. SmartScreen may warn or block installation. "
+    require_windows_signature(folder, os.environ.get("WMM_WINDOWS_SIGNER_THUMBPRINT"))
+    return "Windows installer and uninstaller publisher signatures were verified during lifecycle testing. "
+
+
 def publish(folder, sha, tag):
     repo = json.loads(gh("api", "repos/" + REPOSITORY))
     main = gh("api", "repos/" + REPOSITORY + "/git/ref/heads/main", "--jq", ".object.sha").strip()
@@ -146,7 +158,7 @@ def publish(folder, sha, tag):
     if repo.get("private") is not False:
         raise ValueError("Anonymous installer downloads require a public repository")
     paths = validate_assets(folder, sha, require_provenance=True)
-    require_windows_signature(folder, os.environ.get("WMM_WINDOWS_SIGNER_THUMBPRINT"))
+    windows_notice = windows_release_notice(folder, tag)
     # A successful list proves absence. API/network errors abort rather than looking like 404.
     refs = json.loads(gh("api", "repos/" + REPOSITORY + "/git/matching-refs/tags/" + tag))
     releases = json.loads(gh("api", "--paginate", "--slurp", "repos/" + REPOSITORY + "/releases"))
@@ -161,8 +173,10 @@ def publish(folder, sha, tag):
         "release-attestation.sigstore.json contains the GitHub provenance bundle for the six payloads; "
         "release-provenance.json retains the source-bound verification results. "
         "Neither the checksum manifest nor the provenance receipt is itself attested. "
-        "Windows installer and uninstaller publisher signatures were verified during lifecycle testing. "
-        "See docs/desktop-first-run.md at source commit " + sha + ". "
+        + windows_notice
+        + "See docs/desktop-first-run.md at source commit "
+        + sha
+        + ". "
         "Automated synthetic installer checks are not human first-use acceptance."
     )
     gh(
