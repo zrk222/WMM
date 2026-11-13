@@ -1,7 +1,29 @@
 """Exact local HTTP payload reads with a cumulative wall-clock budget."""
 
 import time
+
 from .common import Invalid
+from .operator_client import strict_json
+
+
+def singleton(handler, name):
+    """Duplicate values cannot alter an upload or owner-bound request identity."""
+    values = handler.headers.get_all(name)
+    if not values or len(values) != 1:
+        raise Invalid("Use exactly one " + name + " header")
+    return values[0]
+
+
+def json_body(handler, label="Research"):
+    """One strict bounded JSON body; duplicate keys and alternate framing are rejected."""
+    if singleton(handler, "Content-Type") != "application/json":
+        raise Invalid("Use application/json for " + label.lower() + " input")
+    if handler.headers.get_all("Transfer-Encoding") is not None:
+        raise Invalid(label + " input cannot use transfer encoding")
+    length = singleton(handler, "Content-Length")
+    if not length.isascii() or not length.isdecimal() or not 1 <= int(length) <= 1048576:
+        raise Invalid(label + " input exceeds its bounded byte limit")
+    return strict_json(read_exact(handler, 1048576, label))
 
 
 def read_exact(handler, limit, label):

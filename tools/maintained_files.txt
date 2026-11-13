@@ -1,4 +1,5 @@
 # Automatically enrolled source; entries only grow.
+ios/Build/run_simulators.py
 mission_control/agent_grants.py
 mission_control/agent_tasks.py
 mission_control/architecture.py
@@ -12,12 +13,16 @@ mission_control/common.py
 mission_control/connection_setup.py
 mission_control/creative_rendering.py
 mission_control/db.py
+mission_control/discovery_http.py
 mission_control/drive_import_jobs.py
 mission_control/experiment_tracking.py
+mission_control/funnel_http.py
+mission_control/http_body.py
 mission_control/hypit_jobs.py
 mission_control/insights.py
 mission_control/integrity_drill.py
 mission_control/ledger.py
+mission_control/managed_media_http.py
 mission_control/measurement_economics.py
 mission_control/migrations/__init__.py
 mission_control/notices.py
@@ -36,11 +41,13 @@ tests/test_architecture_gates.py
 tests/test_ci_current_candidate.py
 tests/test_danger_zone_types.py
 tests/test_dependency_freshness.py
+tests/test_desktop_entry.py
 tests/test_format_ratchet.py
 tests/test_http_benchmark.py
 tests/test_integrity_drill.py
 tests/test_kpi_data_gaps.py
 tests/test_kpi_gaps.py
+tests/test_ledger_grouping.py
 tests/test_licensing_plain.py
 tests/test_measurement_economics.py
 tests/test_migrations.py
@@ -60,6 +67,7 @@ tests/test_static_wiring.py
 tests/test_type_ratchet.py
 tools/benchmark_http.py
 tools/branch_hygiene.py
+tools/build_desktop.py
 tools/check_evidence_budget.py
 tools/check_format.py
 tools/check_layering.py
