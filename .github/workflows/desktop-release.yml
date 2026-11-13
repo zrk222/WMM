@@ -2,6 +2,10 @@ name: Desktop public prerelease
 on:
   workflow_dispatch:
     inputs:
+      unsigned_windows_preview10:
+        description: Explicitly allow unsigned Windows for Preview 10 only
+        type: boolean
+        default: false
       candidate_sha:
         description: Exact current main commit SHA (40 lowercase hex)
         required: true
@@ -42,7 +46,13 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write('sha=' + sha + '\n')
           PY
+      - name: Check unsigned preview scope
+        if: ${{ inputs.unsigned_windows_preview10 }}
+        env:
+          TAG: ${{ inputs.tag }}
+        run: test "$TAG" = v0.1.0-preview.10
       - name: Check Windows signing settings before building packages
+        if: ${{ !inputs.unsigned_windows_preview10 }}
         env:
           WMM_WINDOWS_SIGNER_THUMBPRINT: ${{ vars.WMM_WINDOWS_SIGNER_THUMBPRINT }}
           WMM_WINDOWS_TIMESTAMP_URL: ${{ vars.WMM_WINDOWS_TIMESTAMP_URL }}
@@ -59,7 +69,7 @@ jobs:
     uses: ./.github/workflows/desktop-packages.yml
     with:
       candidate_sha: ${{ needs.validate.outputs.sha }}
-      require_signed_windows: true
+      require_signed_windows: ${{ !inputs.unsigned_windows_preview10 }}
   publish:
     needs: [validate, packages]
     runs-on: ubuntu-24.04
@@ -102,4 +112,5 @@ jobs:
           CANDIDATE: ${{ needs.validate.outputs.sha }}
           TAG: ${{ inputs.tag }}
           WMM_WINDOWS_SIGNER_THUMBPRINT: ${{ vars.WMM_WINDOWS_SIGNER_THUMBPRINT }}
+          WMM_UNSIGNED_WINDOWS_PREVIEW10: ${{ inputs.unsigned_windows_preview10 }}
         run: python tools/publish_desktop_release.py publish --folder release-assets --sha "$CANDIDATE" --tag "$TAG"
