@@ -15,6 +15,7 @@ from .operation_authority import store_identity, bound_owner, protected
 from .campaign_monitor import actor, whole, last_observation
 from .campaign_execution import scope_view, saved_pause_receipt
 from .ios_reports import snapshot
+from .metrics import KPI_GAPS
 
 SELECTION = ("scope_id", "monitor_id", "experiment_id", "measurement_window")
 SCHEMA = """
@@ -410,11 +411,16 @@ def build(db, store, app_id, owner, chosen):
             window=chosen["measurement_window"],
         )
     )
+    business = [
+        row
+        for row in metrics["rows"]
+        if row["metric"] not in ("Report scope", "Units") and not row["metric"].startswith("KPI gap:")
+    ]
+    gaps = [dict(gap) for gap in KPI_GAPS]
     coverage = dict(
-        available_rows=sum(
-            r["observed"] is not None for r in metrics["rows"] if r["metric"] not in ("Report scope", "Units")
-        ),
-        unknown_rows=sum(r["observed"] is None for r in metrics["rows"]),
+        available_rows=sum(row["observed"] is not None for row in business),
+        unknown_rows=sum(row["observed"] is None for row in business),
+        missing_metrics=[gap["metric"] for gap in gaps],
         window_alignment="SOURCE_WINDOWS_RETAINED_REQUESTED_WINDOW_NOT_FILTERED",
         attribution="NOT_ESTABLISHED",
         metric_definitions_hash=metric_hash,
@@ -431,6 +437,7 @@ def build(db, store, app_id, owner, chosen):
         monitor=monitor_view,
         kpis=metrics,
         kpi_coverage=coverage,
+        kpi_gaps=gaps,
         experiment=experiment,
         comparison=comparison(db, app_id, owner, key, metrics),
         next_action=next_action(campaign, monitor_view, experiment),

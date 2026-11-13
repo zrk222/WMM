@@ -20,6 +20,8 @@ WMM is a local, single-owner workspace. This document states what its boundaries
 | Provider-side token abuse | Credentials stay in platform-protected storage; no plaintext fallback; scopes should be least-privilege. | A provider compromise or over-broad token remains the provider's and owner's responsibility. Rotate and revoke at the provider. |
 | Another local OS user | Local files inherit OS permissions; protected credentials use the platform keyring. | WMM does not harden the OS account, file ACLs or disk encryption. Use full-disk encryption and separate accounts. |
 | Remote network attacker | No public listener by default; optional always-on hosting is owner-managed and not a hosted tenant service. | Exposing the loopback server through a tunnel without authentication is unsupported and unsafe. |
+| Agent review mistaken for independent review | CONTRIBUTING and the review policy require independent human review; agent, CI and owner self-review are implementation checks. | A PR may still merge without independent review. Record the review type and "Independent review pending" explicitly. |
+| Measurement gap or false confidence | KPI rows keep unavailable values null and list CAC, ROAS_D7, ROAS_D30 and PAYBACK as MISSING; reports state supplied evidence is not causal. | A reader may still treat supplied cohort or provider figures as verified growth. Independent measurement and provider reconciliation remain required. |
 | Data loss or corruption | SQLite WAL, foreign keys, immutable histories, source hashes and app-scoped records. | Backups, disk failure and migration defects remain the owner's responsibility; test restore before relying on it. |
 
 ## Not in scope

@@ -159,7 +159,9 @@
           "Reproducible scoped calculation with missing/zero/boundary tests",
           "Matching owner UI and export with source hash and coverage"
         ]
-      }
+      },
+      "gap": "MISSING",
+      "gap_reason": "No live matched acquisition cost / distinct acquired payers. Supplied-cohort CAC is separate and does not fill this gap."
     },
     {
       "id": "ROAS_D7",
