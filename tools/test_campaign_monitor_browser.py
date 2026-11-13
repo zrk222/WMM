@@ -83,7 +83,8 @@ def run(browser, width):
         report.close()
         progress.get_by_role("button", name="Turn monitor OFF", exact=True).click()
         expect(page.locator("#monitor-progress")).to_contain_text("Monitoring off")
-        assert f.job()["status"] == "SUCCEEDED"
+        job = f.job()
+        assert job is not None and job["status"] == "SUCCEEDED"
         with connection(f.store.path) as db:
             db.execute("UPDATE campaign_paid_intents SET status='UNKNOWN' WHERE id=?", (f.intent["id"],))
         page.locator("#close-modal").click()
