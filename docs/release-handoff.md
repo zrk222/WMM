@@ -42,6 +42,35 @@ every uploaded asset.
 Unsigned Windows publisher verification and nontechnical first-use acceptance
 remain separate evidence.
 
+## Build a Windows installer with your own signing key
+
+Use a trusted Windows workstation and a clean checkout of the reviewed commit.
+The signing certificate must already be available in the Windows Personal store
+with a usable code-signing key, including a hardware or remote provider that
+exposes its key through that store. No key export, PFX password, GitHub secret or
+provider token is needed by this script. Use the timestamp URL from your signing
+provider and the installed Windows SDK SignTool.
+
+~~~powershell
+python tools/build_desktop.py --native-window
+pwsh -NoProfile -File packaging/windows/build-signed.ps1 -Thumbprint '<40 hex characters>' -TimestampUrl '<HTTPS RFC 3161 endpoint>' -SignTool '<full path to signtool.exe>'
+~~~
+
+Add `-MachineStore` only for a certificate in Local Machine. Start without an
+existing `dist/installer/WMM-Setup.exe`. Inno Setup signs setup and its embedded
+uninstaller during compilation; the script verifies the installer's signer,
+timestamp and hash. The launcher and engine stay byte-identical so the
+launcher's embedded engine hash remains valid. This does not independently
+sign the bundled executables, install, publish, or attest the artifact. A build
+that exits with an error must not be distributed.
+
+Before distribution, run the [Windows installer lifecycle check](../tools/test_windows_installer.py)
+against that exact installer in a disposable Windows environment, and verify
+the installed uninstaller with `signtool verify /pa /all /tw`, checking its
+signer against the expected certificate. Retain those results with the exact
+artifact hash. The hosted preview workflow remains unsigned; a valid signature
+does not establish SmartScreen reputation or independent first-use acceptance.
+
 ## Related
 
 - [First-run guide](desktop-first-run.md)
