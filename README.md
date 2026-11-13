@@ -2,17 +2,17 @@
 
 **Turn one app-growth question into an evidence-backed marketing experiment.**
 
-Wize Marketing Machine (WMM) is built for founders and marketing teams to promote and manage one app—or a portfolio—with their AI assistants. Start with one growth question per app. Your assistant helps prepare the experiment, you approve what goes live, and WMM records what happened and what still needs evidence. Each app keeps its own permissions and evidence.
+Built for founders and marketing teams to promote and manage one app or a portfolio with personal AI agents. Set a goal, repair missing connections and review one Automation agreement. Your agents work within approved limits; each app keeps its own permissions, evidence and reports.
 
 [**Install WMM and create your first packet**](docs/desktop-first-run.md) · [Try the interactive sample](https://zrk222.github.io/WMM/demo.html)
 
 Free for personal and internal business use under the [license](LICENSE). [Commercial terms](docs/pricing.md).
 
-**Day 1 — a clearer next marketing move.** Choose one app-growth question and prepare your first evidence packet: a plan, its sources and what is still missing.
+**Day 1 — a clearer next marketing move.** Prepare a first evidence packet: one app-growth question, a plan, sources and missing evidence.
 
-**Around Day 30, with regular use — a record you can build on.** Bring research, approved work and available results into a dated record, then decide what to continue, revise or stop.
+**Around Day 30, with regular use — a record you can build on.** Review dated research, approved work and available results; decide what to continue, revise or stop.
 
-The potential payoff: less repeated research, clearer campaign decisions and fewer unsupported bets. What you can measure depends on completed work and connected sources. Growth and time savings are not guaranteed.
+Potential benefits: less repeated research and clearer decisions. Measurements depend on available data; growth and time savings are not guaranteed.
 
 ![WMM Start Here: choose a marketing goal, review what the agent can do, and inspect the result](docs/images/goal-to-proof.png)
 
@@ -20,27 +20,27 @@ The potential payoff: less repeated research, clearer campaign decisions and few
 
 ## From goal to decision
 
-1. **Set your goal.** Describe your app, audience and outcome. Start with research, creative, an approved campaign, or results.
-2. **Set the limits.** Give your assistant a revocable permission slip for one app. By default, nothing publishes or spends on its own. Approve the exact content and destination before publication; paid Meta work also needs its own approved budget and targeting.
-3. **Watch the work.** Follow recorded steps as your assistant prepares assets or runs approved work. WMM keeps provider receipts and pauses if it can’t confirm whether an action went through.
-4. **Decide what’s next.** Open the evidence, see what was measured or is still missing, and choose what to continue, revise, or stop.
+1. **Set your goal.** Pick research, creative, a campaign or measurement. Readiness shows missing setup and repairs.
+2. **Approve the boundaries.** Review the app, agent, accounts, content, destinations, schedule, expiry, quotas, budget and stop rules. Existing effect-specific approvals still apply.
+3. **Watch the work.** Follow approved jobs, receipts and recovery. Unknown delivery stays unresolved for review, never blindly replayed.
+4. **Review results.** Inspect source-backed observations, export a report and choose Continue / Stop / Revise. Advanced tools remain available.
 
 ## What you can do
 
 | Goal | WMM tools |
 | --- | --- |
 | Find a creative angle | Research Facebook, Instagram Reels, TikTok and YouTube Shorts. Viral qualification requires **100,000 observed views and 10× the creator’s documented baseline**. |
-| Make or revise creative | Turn evidence into a brief, use your own UGC or approved source clips, edit and stitch video, and review a local captioned render. |
-| Run an approved campaign | Queue supported organic posts and inspect provider status and receipts. Paid execution is limited to bounded Meta engagement campaigns. [Channels and account requirements](docs/agent-multichannel.md). |
-| Measure app growth | Work on store listings and acquisition experiments. Review source dates, denominators and missing data. Social engagement does not establish installs, revenue, or lift. |
+| Make or revise creative | Build an evidence-linked brief; upload or select Drive media; edit, stitch and review a captioned Hypit render. |
+| Run an approved campaign | Schedule approved Facebook batches with recovery, monitoring and reports. Reviewed organic paths cover Instagram, TikTok, YouTube Shorts and LinkedIn; paid work remains bounded Meta engagement campaigns. [Channels and account requirements](docs/agent-multichannel.md). |
+| Measure app growth | Retain observations, failed experiments and CAC/ROAS where inputs support them. Missing metrics stay explicit; engagement is not installs, revenue or lift. |
 
 [WizeMe dogfooding: dated operations and evidence](docs/WIZEME-DOGFOODING.md) · [Current release scope](RELEASE-SCOPE.md). Measured growth and time savings are not yet established.
 
 ## Run WMM
 
-The [desktop preview](docs/desktop-first-run.md) includes the runtime on Windows and Ubuntu. The Windows preview is unsigned. For scheduled work while your computer is off, use an [optional private host you control](docs/always-on-runtime.md). The [native iPhone/iPad app](ios/) has separate acceptance limits.
+The [desktop preview](docs/desktop-first-run.md) includes the runtime on Windows and Ubuntu. The Windows preview is unsigned. Current source updates can precede the published installer; check its release notes. For scheduled work while your computer is off, use an [optional private host you control](docs/always-on-runtime.md). The [native iPhone/iPad app](ios/) has separate acceptance limits.
 
-Connect a [local CLI or MCP assistant](docs/agent-quickstart.md). WMM includes [operating profiles](docs/personal-agent-operations.md) for Grok Bot, Meta Muse, Codex/Dots, Claude and other personal assistants. A remote assistant needs an authorized connection to your workspace.
+Connect a [local CLI or MCP assistant](docs/agent-quickstart.md). Use [operating profiles](docs/personal-agent-operations.md) for Grok Bot, Meta Muse, Codex/Dots, Claude and other assistants. Remote access needs an authorized workspace connection.
 
 <details>
 <summary>Run from source with Python 3.11+</summary>
