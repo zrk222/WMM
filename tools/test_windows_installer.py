@@ -33,7 +33,7 @@ def verify_publisher(path, thumbprint, cwd, env):
         "-not $s.TimeStamperCertificate) { throw 'Publisher or timestamp verification failed' }"
     )
     run(
-        ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command],
+        ["pwsh.exe", "-NoProfile", "-NonInteractive", "-Command", command],
         cwd,
         dict(env, WMM_CHECK_BINARY=str(path), WMM_WINDOWS_SIGNER_THUMBPRINT=thumbprint),
         30,
