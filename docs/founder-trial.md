@@ -6,7 +6,7 @@ Own or market an app? Help us learn whether you can use WMM to prepare one usefu
 
 You can take part in the outside-founder trial if you own or market an app and have never used WMM or seen its demo. The project owner, contributors, and demo viewers are excluded. The owner will review eligibility and arrange an uncoached session. A GitHub issue is a public self-report pending review; it does not qualify you or count as a trial result.
 
-Use the [official releases page](https://github.com/zrk222/WMM/releases) for the desktop preview agreed for your session. Windows previews are unsigned and SmartScreen may block installation. Do not bypass a warning for this trial; report where you stopped.
+Use the [official releases page](https://github.com/zrk222/WMM/releases) for the desktop preview agreed for your session. Preview 10 offers Windows and Ubuntu 24.04 installers without a GitHub sign-in. Its Windows installer is unsigned, so SmartScreen or your device policy may block it. If you normally use Ubuntu, you can start your trial there. If Windows blocks your first attempt, report where you stopped and leave that attempt recorded. Do not bypass the warning.
 
 ## The 45-minute session
 
