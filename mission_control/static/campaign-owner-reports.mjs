@@ -241,6 +241,11 @@ const WMMOwnerReports = (() => {
     const { available_rows: available, unknown_rows: unknown } = coverage;
     return `Saved values for ${available} of ${available + unknown} evidence rows. ${unknown} unknown.`;
   }
+  function measurementNextStep(report) {
+    // Keep measurement guidance visible when the saved next action is an authority reminder.
+    if (report.experiment) return '';
+    return 'Campaign outcome is unknown. Choose a primary outcome and connect a study with matching dates before judging this campaign. App-wide measurements do not show what this campaign did.';
+  }
   function model(saved, base) {
     const r = saved.report;
     return {
@@ -284,6 +289,7 @@ const WMMOwnerReports = (() => {
           r.selection.measurement_window.ends_at,
         'Source windows retained; app-wide source observations are not filtered to the requested window.',
         coverageText(r.kpi_coverage),
+        ...(measurementNextStep(r) ? [measurementNextStep(r)] : []),
         'Saved provider readback: ' +
           r.campaign.provider_readback +
           '. Reported spend is unavailable in this snapshot.',
@@ -316,7 +322,9 @@ const WMMOwnerReports = (() => {
     return (
       '<h3>Your next useful decision</h3><p>' +
       esc(r.next_action) +
-      '</p><p>Saved ' +
+      '</p>' +
+      (measurementNextStep(r) ? '<p>' + esc(measurementNextStep(r)) + '</p>' : '') +
+      '<p>Saved ' +
       esc(r.observed_at) +
       ' · ' +
       esc(r.campaign.status) +
