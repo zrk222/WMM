@@ -1,8 +1,18 @@
 # WizeMe dogfooding: operations with receipts
 
-**Snapshot: November 11, 2026 (UTC).** We are using Wize Marketing Machine on
+**Evidence review: November 13, 2026 (UTC).** We are using Wize Marketing Machine on
 WizeMe.APP to prove the working marketing loop: connect a real app, collect
 evidence, make one approved change, then measure what happened.
+
+## Current acceptance status
+
+The retained tagged visit is an internal tracking check, not a published tagged campaign or a verified registration. A tagged acquisition experiment with a measured decision is still incomplete; no new live campaign result is added by this documentation update. Keep the original null and inconclusive observations below.
+
+On November 13, the automated Windows and Ubuntu package run at source `4ac6587c1edd60019706053cd67d677a840aa0e4` passed install, upgrade, removal and isolated first-packet/restart checks. This is engineering acceptance, not an outside-founder session, publisher signing or marketing impact. [Package run](https://github.com/zrk222/WMM/actions/runs/43371264849).
+
+Preview 10 is held pending trusted publisher signing, the outside-founder installation trial and the tagged campaign result. The owner will first test actual agent hosts against the exact fresh installed candidate; that is separate from outside-founder acceptance. Any later fixes need fresh candidate checks before download or publication.
+
+## Retained operations
 
 | When (UTC) | What we operated | Verified result | Receipt |
 | --- | --- | --- | --- |

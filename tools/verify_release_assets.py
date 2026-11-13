@@ -5,13 +5,15 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import re
+import runpy
+from pathlib import Path
 
 EXPECTED = {"Windows": "WMM-Setup.exe", "Linux": "wize-marketing-machine_0.1.0_amd64.deb"}
 RECEIPTS = {platform + ".json" for platform in EXPECTED}
 SBOMS = {"sbom-" + platform + ".json" for platform in EXPECTED}
 PAYLOADS = set(EXPECTED.values()) | RECEIPTS | SBOMS
+PROVENANCE = {"release-attestation.sigstore.json", "release-provenance.json"}
 LINE = re.compile(r"([0-9a-f]{64})  ([A-Za-z0-9._-]+)")
 
 
@@ -42,20 +44,55 @@ def object_json(path: Path) -> dict:
     return value
 
 
+def verify_provenance(entries: dict[str, Path], listed: dict[str, str], source_sha: str) -> None:
+    """Check retained proof bindings; cryptographic trust still requires gh attestation verify."""
+    proof = object_json(entries["release-provenance.json"])
+    verifier = runpy.run_path(str(Path(__file__).with_name("verify_release_provenance.py")))
+    if (
+        proof.get("schema") != "wmm.release-provenance.v2"
+        or proof.get("repository") != verifier["REPOSITORY"]
+        or proof.get("signer_workflow") != verifier["SIGNER_WORKFLOW"]
+        or proof.get("source_sha") != source_sha
+        or proof.get("deny_self_hosted_runners") is not True
+        or proof.get("bundle")
+        != {"name": "release-attestation.sigstore.json", "sha256": listed["release-attestation.sigstore.json"]}
+    ):
+        raise ValueError("Release provenance source, policy or bundle binding mismatch")
+    assets = proof.get("assets")
+    if (
+        not isinstance(assets, list)
+        or len(assets) != len(PAYLOADS)
+        or any(not isinstance(row, dict) or not isinstance(row.get("name"), str) for row in assets)
+        or {row["name"] for row in assets} != PAYLOADS
+    ):
+        raise ValueError("Release provenance must bind exactly six payloads")
+    for row in assets:
+        output = row.get("verification_output")
+        if (
+            row.get("sha256") != listed[row["name"]]
+            or not isinstance(output, str)
+            or row.get("verification_output_sha256") != hashlib.sha256(output.encode("utf-8")).hexdigest()
+            or type(row.get("verification_count")) is not int
+            or row["verification_count"] != verifier["verification_count"](output, row["sha256"])
+        ):
+            raise ValueError("Release provenance payload verification mismatch")
+
+
 def verify_files(paths, source_sha: str | None) -> dict:
     """Validate the exact file set used by both the publisher and offline verifier."""
     if not isinstance(source_sha, str) or not re.fullmatch(r"[0-9a-f]{40}", source_sha):
         raise ValueError("Use a lowercase 40-character source SHA")
-    expected_files = PAYLOADS | {"SHA256SUMS.txt"}
     entries = {path.name: path for path in paths}
-    if len(entries) != len(paths) or set(entries) != expected_files:
+    included_provenance = bool(set(entries) & PROVENANCE)
+    payloads = PAYLOADS | PROVENANCE if included_provenance else PAYLOADS
+    if len(entries) != len(paths) or set(entries) != payloads | {"SHA256SUMS.txt"}:
         raise ValueError("Release folder must contain exactly the installers, receipts, SBOMs and checksum manifest")
     for path in entries.values():
         if path.is_symlink() or not path.is_file() or path.stat().st_size == 0:
             raise ValueError("Release asset must be a nonempty regular file: " + path.name)
     listed = checksums(entries["SHA256SUMS.txt"])
-    if set(listed) != PAYLOADS:
-        raise ValueError("Checksum manifest must cover exactly the six payload files")
+    if set(listed) != payloads:
+        raise ValueError("Checksum manifest must cover exactly the allowed payload and provenance files")
     for name, expected in listed.items():
         path = entries[name]
         if path.is_symlink() or digest(path) != expected:
@@ -99,8 +136,10 @@ def verify_files(paths, source_sha: str | None) -> dict:
         metadata = sbom.get("metadata")
         component = metadata.get("component") if isinstance(metadata, dict) else None
         raw_properties = component.get("properties") if isinstance(component, dict) else None
-        if not isinstance(raw_properties, list) or any(
-            not isinstance(row, dict) or not isinstance(row.get("name"), str) for row in raw_properties
+        if (
+            not isinstance(component, dict)
+            or not isinstance(raw_properties, list)
+            or any(not isinstance(row, dict) or not isinstance(row.get("name"), str) for row in raw_properties)
         ):
             raise ValueError("SBOM component properties are invalid: " + platform)
         properties = {row["name"]: row.get("value") for row in raw_properties}
@@ -116,7 +155,15 @@ def verify_files(paths, source_sha: str | None) -> dict:
             raise ValueError("SBOM mismatch: " + platform)
         if component.get("version") != source_sha:
             raise ValueError("SBOM source SHA mismatch: " + platform)
-    return {"status": "PASS", "files": len(listed), "source_sha": source_sha, "platforms": sorted(EXPECTED)}
+    if included_provenance:
+        verify_provenance(entries, listed, source_sha)
+    return {
+        "status": "PASS",
+        "files": len(listed),
+        "source_sha": source_sha,
+        "platforms": sorted(EXPECTED),
+        "provenance": "BINDINGS_CHECKED_CRYPTOGRAPHIC_VERIFICATION_NOT_RUN" if included_provenance else "NOT_INCLUDED",
+    }
 
 
 def verify(folder: Path, source_sha: str | None = None) -> dict:

@@ -1,20 +1,29 @@
 """Exact local reviewed effects with separate synthetic owner/checker and durable receipts."""
 
+import unittest
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
-import unittest
 from unittest.mock import patch
+
 from mission_control.agent_checkpoints import Checkpoints
+from mission_control.agent_grants import Grants
 from mission_control.agent_review_dispatch import ReviewedDispatch
 from mission_control.common import Invalid
-from mission_control.operation_outcome import EffectUncertain
 from mission_control.db import connection
+from mission_control.operation_outcome import EffectUncertain
+from mission_control.operator_client import OperatorClient
 from mission_control.review_access import Access
+from mission_control.server import Server
+from mission_control.store import Store
 from tests import test_agent_review_policy as fixture
 from tests import test_verified_review as identities
 
 
 class ReviewedDispatchTests(unittest.TestCase):
+    store: Store
+    server: Server
+    owner: OperatorClient
+    grants: Grants
     setUp_base = fixture.ReviewPolicyTests.setUp
     tearDown = fixture.ReviewPolicyTests.tearDown
     body = fixture.ReviewPolicyTests.body
@@ -35,6 +44,11 @@ class ReviewedDispatchTests(unittest.TestCase):
         self.dispatch = ReviewedDispatch(self.server.service)
         self.checkpoints = Checkpoints(self.store)
         self.input = self.envelope("growth.save", self.listing_body())
+
+    def history(self):
+        value = self.owner.call(self.envelope())
+        assert isinstance(value, dict)
+        return value["history"]
 
     def prepare(self):
         return self.dispatch.prepare(self.token, "review-one", self.input)
@@ -61,11 +75,11 @@ class ReviewedDispatchTests(unittest.TestCase):
         done = self.resume(approved)
         self.assertEqual(done["checkpoint"]["state"], "SUCCEEDED")
         self.assertEqual(done["result"]["outcome"], "SUCCEEDED")
-        saved = self.owner.call(self.envelope())["history"][0]
+        saved = self.history()[0]
         self.assertEqual(saved["hash"], done["result"]["data"]["hash"])
         with self.assertRaises(Invalid):
             self.resume(approved)
-        self.assertEqual(len(self.owner.call(self.envelope())["history"]), 1)
+        self.assertEqual(len(self.history()), 1)
         self.assertEqual(
             ReviewedDispatch(self.server.service).inspect(self.token, "sample-one", "review-one")["result"],
             done["result"],
@@ -100,7 +114,7 @@ class ReviewedDispatchTests(unittest.TestCase):
         self.grants.revoke("sample-one", identities.OWNER, dict(id=self.issued["grant"]["id"], version=1))
         with self.assertRaises(PermissionError):
             self.resume(approved)
-        self.assertEqual(self.owner.call(self.envelope())["history"], [])
+        self.assertEqual(self.history(), [])
 
     def test_cancelled_request_never_dispatches_and_snapshot_carries_no_authority(self):
         waiting = self.prepare()
@@ -127,7 +141,7 @@ class ReviewedDispatchTests(unittest.TestCase):
             states = list(pool.map(attempt, range(4)))
         self.assertEqual(states.count("SUCCEEDED"), 1)
         self.assertEqual(states.count("DENIED"), 3)
-        self.assertEqual(len(self.owner.call(self.envelope())["history"]), 1)
+        self.assertEqual(len(self.history()), 1)
 
     def test_unknown_result_and_cancel_during_execution_keep_receipt_no_replay(self):
         approved = self.approve(self.prepare())
@@ -151,7 +165,7 @@ class ReviewedDispatchTests(unittest.TestCase):
         done = self.resume(self.approve(self.prepare()))
         self.assertEqual(done["checkpoint"]["state"], "FAILED")
         self.assertEqual(done["result"]["error"], "LOCAL_VALIDATION_REJECTED")
-        self.assertEqual(self.owner.call(self.envelope())["history"], [])
+        self.assertEqual(self.history(), [])
 
     def test_explicit_uncertain_effect_requires_reconciliation_and_cannot_replay(self):
         approved = self.approve(self.prepare())
@@ -163,7 +177,7 @@ class ReviewedDispatchTests(unittest.TestCase):
         self.assertTrue(done["reconciliation_required"])
         with self.assertRaises(Invalid):
             self.resume(done["checkpoint"])
-        self.assertEqual(self.owner.call(self.envelope())["history"], [])
+        self.assertEqual(self.history(), [])
 
     def test_committed_write_with_unserializable_response_stays_unknown(self):
         approved = self.approve(self.prepare())
@@ -176,10 +190,31 @@ class ReviewedDispatchTests(unittest.TestCase):
         with patch("mission_control.agent_review_dispatch.execute", side_effect=write_then_bad_response):
             done = self.resume(approved)
         self.assertEqual(done["checkpoint"]["state"], "UNKNOWN")
-        self.assertEqual(len(self.owner.call(self.envelope())["history"]), 1)
+        self.assertEqual(len(self.history()), 1)
         self.assertTrue(done["reconciliation_required"])
         with self.assertRaises(Invalid):
             self.resume(done["checkpoint"])
+
+    def test_committed_write_then_missing_receipt_key_requires_reconciliation(self):
+        approved = self.approve(self.prepare())
+        from mission_control.operation_runtime import execute
+
+        def write_then_missing_receipt(service, envelope):
+            execute(service, envelope)
+            raise KeyError("PRIVATE_SYNTHETIC_RECEIPT_KEY")
+
+        with patch(
+            "mission_control.agent_review_dispatch.execute", side_effect=write_then_missing_receipt
+        ) as operation:
+            done = self.resume(approved)
+        self.assertEqual(operation.call_count, 1)
+        self.assertEqual(len(self.history()), 1)
+        self.assertEqual(done["checkpoint"]["state"], "UNKNOWN")
+        self.assertTrue(done["reconciliation_required"])
+        self.assertNotIn("PRIVATE_SYNTHETIC_RECEIPT_KEY", str(done))
+        with self.assertRaises(Invalid):
+            self.resume(done["checkpoint"])
+        self.assertEqual(len(self.history()), 1)
 
     def test_saved_input_tamper_and_changed_app_are_rejected_before_claim(self):
         approved = self.approve(self.prepare())

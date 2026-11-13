@@ -11,6 +11,45 @@ const WMMPublicationUI = (() => {
       .replaceAll('_', ' ')
       .replace(/\b\w/g, (c) => c.toUpperCase());
   const providers = ['instagram', 'tiktok', 'youtube', 'linkedin'];
+  const channelNames = {
+    facebook: 'Facebook',
+    instagram: 'Instagram',
+    tiktok: 'TikTok',
+    youtube: 'YouTube Shorts',
+    linkedin: 'LinkedIn',
+  };
+  const selections = new Map();
+  function selection(state) {
+    const key = `${state.app}:${owner(state)}`;
+    let value = selections.get(key);
+    if (!value || !valid(state, value.context)) {
+      value = { context: ticket(state), channels: [], revision: 0 };
+      selections.set(key, value);
+    }
+    return value;
+  }
+  function chooser(state, model = {}) {
+    const selected = selection(state).channels,
+      ctx = ticket(state);
+    const context = `data-app="${escText(ctx.app)}" data-version="${escText(ctx.version)}" data-principal="${escText(ctx.principal)}"`;
+    const missing = selected.some((provider) => !connectionOptions(provider, state, model).length);
+    return `<fieldset class="publication-chooser"><legend>Choose publishing channels</legend><p>Choose one, several or all five. Selection does not approve or send any post. Each destination keeps its own review.</p><div class="publication-channel-checks">${Object.entries(
+      channelNames,
+    )
+      .map(
+        ([provider, name]) =>
+          `<label class="check-row publication-channel-check"><input type="checkbox" data-action="publication-channel-toggle" data-provider="${provider}" ${context} ${selected.includes(provider) ? 'checked' : ''}>${name}</label>`,
+      )
+      .join(
+        '',
+      )}</div><div class="button-row"><button type="button" class="button outline" data-action="publication-channel-all" ${context}>Select all</button><button type="button" class="button outline" data-action="publication-channel-clear" ${context}>Clear</button></div>${missing ? '<p>Connection needed: connect and verify each selected destination before preparing its post.</p>' : ''}<div class="publication-channel-rows">${selected
+      .map((provider) => {
+        const ready = connectionOptions(provider, state, model).length > 0;
+        const route = provider === 'facebook' ? 'campaign-open' : 'publication-channel-compose';
+        return `<div class="publication-channel-row"><span class="publication-channel-label"><strong>${channelNames[provider]}</strong><br><small>${ready ? 'Connected' : 'Connection needed'}</small></span><span class="publication-channel-actions"><button type="button" class="button outline" aria-label="${provider === 'facebook' ? 'Open Facebook campaign' : `Prepare ${channelNames[provider]} post`}" data-action="${route}" data-provider="${provider}" ${context}>${provider === 'facebook' ? 'Campaign' : 'Prepare'}</button>${!ready ? `<button type="button" class="button outline" aria-label="Set up ${channelNames[provider]} connection" data-action="social-setup" data-provider="${provider === 'instagram' ? 'facebook' : provider}">Connect</button>` : ''}</span></div>`;
+      })
+      .join('')}</div></fieldset>`;
+  }
   const stateCache = new Map();
   const pendingForms = new WeakSet();
   const pollState = {
@@ -490,10 +529,10 @@ const WMMPublicationUI = (() => {
       : '';
   }
   function panel(state) {
-    return `<section class="panel publication-panel" aria-labelledby="publication-heading"><h2 id="publication-heading" tabindex="-1">Organic publishing</h2><p>Review and approve one exact post for Instagram, TikTok, YouTube Shorts or LinkedIn. Ad spend stays at $0. Account access alone never posts.</p><div id="publication-panel-content"><p>Load saved channel, video and approval details when you are ready.</p><button type="button" class="button outline" data-action="publication-load">Load publishing options</button>${instagramLinks(state)}</div></section>`;
+    return `<section class="panel publication-panel" aria-labelledby="publication-heading"><h2 id="publication-heading" tabindex="-1">Organic publishing</h2><p>Choose Facebook, Instagram, TikTok, YouTube Shorts or LinkedIn. Ad spend stays at $0. Account access alone never posts.</p><div id="publication-panel-content">${chooser(state)}<p>Load saved channel, video and approval details when you are ready.</p><button type="button" class="button outline" data-action="publication-load">Load publishing options</button>${instagramLinks(state)}</div></section>`;
   }
   function panelContent(state, model) {
-    return `<p>Options loaded for ${escText(state.workspace.app.data.name)}. No post has been sent.</p>${instagramLinks(state)}${formHtml(state, model, model.form_values || {})}${recordsMarkup(state, model)}`;
+    return `<p>Options loaded for ${escText(state.workspace.app.data.name)}. No post has been sent.</p>${chooser(state, model)}${instagramLinks(state)}${formHtml(state, model, model.form_values || {})}${recordsMarkup(state, model)}`;
   }
   function recordsMarkup(state, model) {
     const attention =
@@ -510,7 +549,7 @@ const WMMPublicationUI = (() => {
     }
     if (!cached) return panel(state);
     return panel(state).replace(
-      '<p>Load saved channel, video and approval details when you are ready.</p><button type="button" class="button outline" data-action="publication-load">Load publishing options</button>',
+      `${chooser(state)}<p>Load saved channel, video and approval details when you are ready.</p><button type="button" class="button outline" data-action="publication-load">Load publishing options</button>`,
       panelContent(state, cached),
     );
   }
@@ -968,6 +1007,55 @@ const WMMPublicationUI = (() => {
     const actionName = node.dataset.action,
       ctx = currentContext(deps.state),
       panel = panelNode(deps);
+    if (actionName.startsWith('publication-channel-')) {
+      requireContext(deps, node);
+      const chosen = selection(deps.state),
+        provider = node.dataset.provider;
+      if (actionName === 'publication-channel-compose') {
+        if (!providers.includes(provider) || !chosen.channels.includes(provider))
+          throw new Error('Select this channel before preparing its post.');
+        const revision = chosen.revision;
+        let model = stateCache.get(`${ctx.app}:${ctx.principal}`);
+        if (!model || !valid(deps.state, model._context))
+          model = await deps.api(`/api/apps/${encodeURIComponent(ctx.app)}/publications`);
+        if (
+          !valid(deps.state, ctx, panel) ||
+          selection(deps.state) !== chosen ||
+          chosen.revision !== revision
+        )
+          return;
+        if (!channels(model).some((row) => row.provider === provider))
+          throw new Error('Reload publishing options; this channel composer is unavailable.');
+        if (!connectionOptions(provider, deps.state, model).length)
+          throw new Error(
+            'Connect and verify this channel first. Your channel selection is preserved.',
+          );
+        model.form_values = { provider };
+        setCache(deps.state, model);
+        panel.innerHTML = panelContent(deps.state, model);
+        return;
+      }
+      if (actionName === 'publication-channel-all') chosen.channels = Object.keys(channelNames);
+      else if (actionName === 'publication-channel-clear') chosen.channels = [];
+      else if (actionName === 'publication-channel-toggle' && Object.hasOwn(channelNames, provider))
+        chosen.channels = chosen.channels.includes(provider)
+          ? chosen.channels.filter((p) => p !== provider)
+          : [...chosen.channels, provider];
+      else throw new Error('Choose a supported channel selection.');
+      chosen.revision++;
+      const model = stateCache.get(`${ctx.app}:${ctx.principal}`);
+      const existingChooser = panel?.querySelector?.('.publication-chooser');
+      if (existingChooser) {
+        existingChooser.outerHTML = chooser(deps.state, model || {});
+        const focusSelector = `[data-action="${actionName}"]${provider ? `[data-provider="${provider}"]` : ''}`;
+        panel.querySelector?.(focusSelector)?.focus?.();
+      } else if (panel)
+        panel.innerHTML =
+          model && valid(deps.state, model._context)
+            ? panelContent(deps.state, model)
+            : chooser(deps.state);
+      return;
+    }
     if (actionName === 'publication-load')
       return loadOptions(
         deps,
@@ -1047,6 +1135,8 @@ const WMMPublicationUI = (() => {
       onChange(deps, form);
   }
   function invalidate(state) {
+    for (const [key, value] of selections.entries())
+      if (!valid(state, value.context)) selections.delete(key);
     for (const [key, value] of stateCache.entries())
       if (!key.startsWith(`${state.app}:${owner(state)}`) || !valid(state, value._context))
         stateCache.delete(key);
@@ -1077,6 +1167,8 @@ const WMMPublicationUI = (() => {
       authorityMarkup,
       needsRefresh,
       reportModel,
+      chooser,
+      selection,
     },
   };
 })();

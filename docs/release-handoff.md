@@ -29,7 +29,7 @@ release and its logs explicitly before claiming successful distribution. This
 workflow does not sign Windows binaries, install trust roots, bypass TLS, or prove
 human first-use acceptance. The SBOM is a build-environment package inventory, not
 a file-level runtime inventory or a provenance attestation. SHA256SUMS.txt covers
-every uploaded asset.
+the eight other release assets.
 
 Before the publisher creates SHA256SUMS.txt, the pinned GitHub attestation action
 attests the exact six staged payloads. `tools/verify_release_provenance.py` then
@@ -40,12 +40,12 @@ and GitHub-hosted runners. Missing or failed results stop publication. The helpe
 rejects missing, empty, linked or extra stage entries and changed bytes during
 verification, then writes `.factory/release-provenance.json` outside the release
 folder. That receipt must upload successfully before the immutable publisher
-runs. No extra receipt or checksum file is added to the six attestation subjects.
+runs. After all six payload verifications pass, the exact action-generated bundle is copied as `release-attestation.sigstore.json`, and the complete source-bound verification receipt as `release-provenance.json`. Both are explicit public release assets covered by the checksum manifest. They are not added to the six attestation subjects, and no recursive checksum or receipt attestation is claimed.
 
-The receipt records payload hashes, verifier result counts and output hashes;
+The receipt records payload hashes, bundle hash, verifier result counts, full verifier outputs and their hashes;
 it is execution evidence, not a substitute for independently verifying downloaded
 payloads with the [buyer verification commands](VERIFY-RELEASE.md). The checksum
-manifest is created later and is not itself attested. Provenance verification
+manifest is created later, covers all eight other assets and is not itself attested. Provenance verification
 does not change the unsigned Windows preview or reproducibility limits above.
 
 ## Installer checks

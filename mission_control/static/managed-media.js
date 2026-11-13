@@ -112,14 +112,13 @@
     return Array.from(new Uint8Array(result), (b) => b.toString(16).padStart(2, '0')).join('');
   }
   function validateFile(file) {
-    if (
-      !file ||
-      !Number.isSafeInteger(file.size) ||
-      file.size < 1 ||
-      file.size > MAX_BYTES ||
-      !/\.(mp4|mov|webm)$/i.test(file.name)
-    )
-      throw new Error('Choose a nonempty MP4, MOV or WebM file up to 64 MiB.');
+    const name = typeof file?.name === 'string' ? file.name.split(/[\\/]/).at(-1) : 'Selected clip';
+    if (!file || !Number.isSafeInteger(file.size))
+      throw new Error(`${name}: file size is unavailable. Choose a local video again.`);
+    if (file.size < 1) throw new Error(`${name}: file is empty. Choose a nonempty video.`);
+    if (file.size > MAX_BYTES) throw new Error(`${name}: exceeds 64 MiB. Maximum is 64 MiB each.`);
+    if (!/\.(mp4|mov|webm)$/i.test(file.name))
+      throw new Error(`${name}: unsupported file type. Choose MP4, MOV or WebM.`);
   }
   function pending(t) {
     return Array.from(uploads.values()).filter((u) => same(u.scope, t.scope));
@@ -163,7 +162,7 @@
           `<article class="next-step"><div><h3>${esc(r.filename)}</h3><p>${esc(rights(r))} / ${esc(r.metadata?.duration_seconds ?? 'Duration unavailable')} seconds / ${r.metadata?.audio === true ? 'Audio present' : r.metadata?.audio === false ? 'No audio' : 'Audio unavailable'}</p>${button('Inspect original clip', 'inspect', `data-id="${esc(r.id)}"`)}</div></article>`,
       )
       .join('');
-    const html = `<p>Your originals stay preserved. Choose clips, inspect what was decoded, then decide whether this app may reuse them.</p>${waiting.length ? `<p role="status">${waiting.length} upload outcome(s) pending or unknown. Reload saved clips to check exact request receipts. Uploads stay paused until confirmed.</p>` : ''}<form id="media-upload-form"><label class="field" for="media-files">Choose local videos<input id="media-files" name="files" type="file" accept=".mp4,.mov,.webm,video/mp4,video/quicktime,video/webm" multiple required ${locked ? 'disabled' : ''}></label><p>Each file is sent once and validated locally by WMM. A failed or uncertain clip stops the batch; remaining files are not sent. No reuse permission is inferred.</p><button type="submit" class="button" data-media-write data-locked="${locked}" ${locked ? 'disabled' : ''}>Upload selected clips</button></form>${!owned(d) ? '<p>To upload or review reuse, sign in under Activity &amp; reviews as this app OWNER, then reopen the library.</p>' : ''}<div class="button-row">${button('Reload saved clips', 'open')}${button('Report / Save PDF', 'report')}${button('Download report JSON', 'json')}</div><p>${data.items.length} saved original clips observed.</p>${rows || '<p>No original clips yet. Choose a local file to begin.</p>'}`;
+    const html = `<p>Your originals stay preserved. Choose clips, inspect what was decoded, then decide whether this app may reuse them.</p>${waiting.length ? `<p role="status">${waiting.length} upload outcome(s) pending or unknown. Reload saved clips to check exact request receipts. Uploads stay paused until confirmed.</p>` : ''}<form id="media-upload-form"><label class="field" for="media-files">Choose local videos<input id="media-files" name="files" type="file" accept=".mp4,.mov,.webm,video/mp4,video/quicktime,video/webm" aria-describedby="media-file-limits" multiple required ${locked ? 'disabled' : ''}></label><p id="media-file-limits">MP4, MOV or WebM · maximum 64 MiB each.</p><p>Each file is sent once and validated locally by WMM. A failed or uncertain clip stops the batch; remaining files are not sent. No reuse permission is inferred.</p><button type="submit" class="button" data-media-write data-locked="${locked}" ${locked ? 'disabled' : ''}>Upload selected clips</button></form>${!owned(d) ? '<p>To upload or review reuse, sign in under Activity &amp; reviews as this app OWNER, then reopen the library.</p>' : ''}<div class="button-row">${button('Reload saved clips', 'open')}${button('Report / Save PDF', 'report')}${button('Download report JSON', 'json')}</div><p>${data.items.length} saved original clips observed.</p>${rows || '<p>No original clips yet. Choose a local file to begin.</p>'}`;
     return show(d, 'Your original video library', 'library', data, html, t.scope);
   }
   async function open(d) {
@@ -226,7 +225,7 @@
           busy(
             t,
             true,
-            `Sending clip ${completed + 1} of ${files.length}; WMM then validates picture and sound. No percentage is inferred.`,
+            `Sending clip ${completed + 1} of ${files.length}: ${filename} (${file.size} bytes); WMM then validates picture and sound. No percentage is inferred.`,
           );
           try {
             const row = await request(d, t, '/uploads', 'POST', file, {

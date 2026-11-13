@@ -82,10 +82,17 @@ mission_control/static/video-editor.js
 mission_control/static/workflow-automation.mjs
 mission_control/static/workflow-telemetry.js
 tests/analytics_inventory.test.mjs
+tests/campaign_monitor_ui.test.cjs
 tests/campaign_plan.test.mjs
 tests/feature_library_types.test.mjs
+tests/goal_readiness_ui.test.cjs
+tests/managed_media.test.cjs
 tests/measurement_results_ui.test.cjs
 tests/mmp_import_model.test.mjs
+tests/organic_research_ui.test.cjs
 tests/page_reporting.test.cjs
+tests/publication_ui.test.cjs
 tools/check_es_modules.mjs
 tools/check_js_types.mjs
+tools/preview_video/composition.mjs
+tools/preview_video/render.cjs

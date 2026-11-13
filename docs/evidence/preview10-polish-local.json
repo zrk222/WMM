@@ -1,0 +1,420 @@
+{
+  "schema": "wmm.local-polish-evidence.v1",
+  "status": "SCOPED_LOCAL_CHECKS_PASS",
+  "base": "4ac6587c1edd60019706053cd67d677a840aa0e4",
+  "observed_at": "2026-11-13T06:30:42.127400+00:00",
+  "candidate": [
+    {
+      "path": ".github/workflows/desktop-release.yml",
+      "sha256": "356c5b949e6951a125e4b59d46e25261f60200cddf1a501da35e43d2cb18fcaa",
+      "kind": "source"
+    },
+    {
+      "path": "docs/VERIFY-RELEASE.md",
+      "sha256": "15937964c62715532eadbeaa3d59ab5db56646cfd8dbfbee6ef0ff91c6c19321",
+      "kind": "source"
+    },
+    {
+      "path": "docs/WIZEME-DOGFOODING.md",
+      "sha256": "a670746306ab0f0b4e7df1a1f1eba2785f73e709a2b00d23d5cbba7b034a3882",
+      "kind": "source"
+    },
+    {
+      "path": "docs/demo.html",
+      "sha256": "7654a288eb6a5660576fc66659b323271da30f21cafeb84c444cb911e2592f77",
+      "kind": "source"
+    },
+    {
+      "path": "docs/images/provenance.json",
+      "sha256": "883ff8512c77bfca0f1021b44cd277277e824edfbeaf824894c37b55b45194bb",
+      "kind": "source"
+    },
+    {
+      "path": "docs/images/sample-workflow.png",
+      "sha256": "e3fe342f7d901e4782b976d5d9566b9b5f732832a7d46f832eabbc43940b9b60",
+      "kind": "source"
+    },
+    {
+      "path": "docs/index.html",
+      "sha256": "0192712f4a2cc8e40ae6591b32dffafac021427effcd4a85e04a0e55059f3750",
+      "kind": "source"
+    },
+    {
+      "path": "docs/media/provenance.json",
+      "sha256": "e26305e9105dde706850e62165b24b9635969fa53ac2a17cf3631dfb56a9b6a5",
+      "kind": "source"
+    },
+    {
+      "path": "docs/media/video-production.mp4",
+      "sha256": "7cbcd03c0e3c819d0cfb93b8aa44194ecbf9a3ef6a49530278b4481d52c8c8a6",
+      "kind": "source"
+    },
+    {
+      "path": "docs/media/video-production.vtt",
+      "sha256": "119e9c574bdcf9aca165b4d179e871dabd7a9539e4ba005568ee38ac8eaf208b",
+      "kind": "source"
+    },
+    {
+      "path": "docs/media/video-production.webp",
+      "sha256": "2bbebd3cab71efd309f3667c46e7ee69b2199e21604e4a54192d250f53c1878a",
+      "kind": "source"
+    },
+    {
+      "path": "docs/release-handoff.md",
+      "sha256": "cf98223b96ab6412aed390f6efdc85e3d73cf97c5cf6845253f153b9de7bb3b7",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/agent_review_dispatch.py",
+      "sha256": "c37856daf4e1d7d84f89c42d0cc74221f63b8cde48219d818e0f658e4773bffe",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/agent_tasks.py",
+      "sha256": "5b8556e7d37571475d664ff447a42b186830e526a610396b956362f92453a948",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/campaign_monitor.py",
+      "sha256": "b3dcb16ed971743ea5166184036aba5f40b4ccbffb1a2eb2693e568d0513fc3f",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/creative_rendering.py",
+      "sha256": "a2250b7f7ab9866b559f0c25f0a3dc54b58a6aef61ade61699a97e7bfd0c14d5",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/marketing_agent_manifest.py",
+      "sha256": "181e7f637ea88dc88adf3a5d5791142da463021e46d3deeff5c64b34bdac77e2",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/organic_video_discovery.py",
+      "sha256": "65e9c1064975eb4e595013f32b58b0c5987ba57680353bca96d2cec479891a6d",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/publication_linkedin.py",
+      "sha256": "6977ebcc2c30601182a195d699ea6a1faef95bc7cdb8ca4b7ad11454558ad3a6",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/publication_reports.py",
+      "sha256": "a9cb493c0f804705901643097febecb8912892ffd17ccb4b50c3d0f7d0c3c652",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/static/campaign-monitor.mjs",
+      "sha256": "78d50381522a0ff390d67345e27ca922565f9d15397ba9ae61ccddbbe3c64388",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/static/guided-workflow.mjs",
+      "sha256": "476a6832f326310c1482224a89c7bc155cc8c10a133a65c2b4daeab5adceda78",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/static/managed-media.js",
+      "sha256": "ade8258e59f7bd44050c8aa4e67922ad8395fd6345e5d7f3d60bd7f64f40e2dd",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/static/organic-research.js",
+      "sha256": "b086aba76b2c6aa5a7ae0278ba4c0ece156250f1e9193e583c2152eefa39122f",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/static/publication.mjs",
+      "sha256": "0f2aa179afbd7d6c0a4d30ec9b7d81c8abee9b49fbe1f45397a8c6f98a7cf57d",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/static/style.css",
+      "sha256": "749d9a5fb2fcb067c3a24c0622c5efe2bdb336d0ff47d6f6fb281eb13e5afeb0",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/viral_policy.py",
+      "sha256": "8a694342714cb6350a1ff043f53290e3cab2babe1a15b830f3dc730f0fb8cd1b",
+      "kind": "source"
+    },
+    {
+      "path": "mission_control/worker.py",
+      "sha256": "c49f964359d167efe6b9346a1de0e90bfdbb420dcb8c82f1706b6da0cfa74b58",
+      "kind": "source"
+    },
+    {
+      "path": "tests/campaign_monitor_ui.test.cjs",
+      "sha256": "65edbc1bbe71374a13fdc7c7a6b306aee53cbae5801dd8518a79c0691e8dee5c",
+      "kind": "source"
+    },
+    {
+      "path": "tests/goal_readiness_ui.test.cjs",
+      "sha256": "98e5d096ddd5c3eb854b928e6aea35426fd19dd04c5f9c878a77cfc26504939e",
+      "kind": "source"
+    },
+    {
+      "path": "tests/managed_media.test.cjs",
+      "sha256": "62b1533dede0dbf9a88e6aa50aaf5ce7b8dbcd3b9481df8e3946372f70105ca3",
+      "kind": "source"
+    },
+    {
+      "path": "tests/organic_research_ui.test.cjs",
+      "sha256": "eb7d8cdd929bd6a6c20ff9061e81ec312304d843a644b0a224e8abcc01e2cf93",
+      "kind": "source"
+    },
+    {
+      "path": "tests/publication_ui.test.cjs",
+      "sha256": "fcc3f8ce495ffd8d9b7c246a07de660b06e55a173adc305403c612321e25b54f",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_agent_context_tasks.py",
+      "sha256": "0964901bee1e5483b5a8d7182e121f0049f55723e9b93ee1b984493c2e487420",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_agent_review_dispatch.py",
+      "sha256": "4d0a262bc812a09e4ad76f9bad8dc90b871cee4a5b92aceb8a33705e82b7add9",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_campaign_monitor_polish.py",
+      "sha256": "faeb02e614c12041c4ad30869e9d0a3576d471e24869a106f0c480755c24c800",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_check_distribution.py",
+      "sha256": "cdd31da1e286193041e13925d982108c58ba2da4a6f6ac19aa202be63308a38d",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_desktop_release.py",
+      "sha256": "0a325ee1037993a121aecf535ea63dba97c80767a23a5b5a61084db1281c2b0b",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_linkedin_render_contract.py",
+      "sha256": "664543a1ffe885215621a6009061c045f94e1340e25cd4508c41d2a10b021176",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_organic_video_collector.py",
+      "sha256": "721ff6c4c9bb06f972adef0fc8990992f6f3e676695ade07625e4b35d4ace9b0",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_organic_video_discovery.py",
+      "sha256": "e632355492cc70f83ed59142239dfc2519e66781b267ec855474d42dd6679b7c",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_publication_channel_selection.py",
+      "sha256": "e0d41e60d404547dc4f0144be9f2be3e69aca489ec30a0edbe9155d0d81e4c4f",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_publication_meta_linkedin.py",
+      "sha256": "4af2adfcc0eabf68e6690bad8a4575dee0e35e07b4752f671684d317059fd2d5",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_publication_metrics.py",
+      "sha256": "0cc2b6b12c1a8e7671db8fc9c871224d1e97cd4b8b1a9c13575be052ff5d2e5c",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_publication_reports.py",
+      "sha256": "96a54a459c0de4490c7e96c6d06e8668b25eebc4e7756368029dea08b3a1c44d",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_release_attestation_assets.py",
+      "sha256": "adf49fcae224878f36fc5a79503a66cb6ccad989ed79a6c806cc3f22501646dd",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_release_provenance.py",
+      "sha256": "12041a48830d429532b68e54cc4a5b3695b7e55fc8e64a7f2b1d4e82e66264a2",
+      "kind": "source"
+    },
+    {
+      "path": "tests/test_verify_release_assets.py",
+      "sha256": "981ca001a9d906f0ce65454acec209a37838a60d7f7b0946b44c6eb9b52fe347",
+      "kind": "source"
+    },
+    {
+      "path": "tools/check_distribution.py",
+      "sha256": "0b28b35a21efb67ac7228a578268ae31beab6afad5a9859d832b2b516bf53941",
+      "kind": "source"
+    },
+    {
+      "path": "tools/maintained_files.txt",
+      "sha256": "d882cd56e9b38ccad7dbbf2e7037640fce09b5bc54835ce32dfd510798fe6b09",
+      "kind": "source"
+    },
+    {
+      "path": "tools/maintained_js.txt",
+      "sha256": "7a0221367a963c8f90bc49bcacfd77e7f332af1dc18949e460c6844897905c21",
+      "kind": "source"
+    },
+    {
+      "path": "tools/preview_video/capture.py",
+      "sha256": "03bca169fb53f0aad087ba8928d60a00dcb99cda18c0f0a628c883d295293d3f",
+      "kind": "source"
+    },
+    {
+      "path": "tools/preview_video/composition.mjs",
+      "sha256": "a1edab0c5c7cdf501ef239fc63e1adecd51067c245397196a6955912df0e6012",
+      "kind": "source"
+    },
+    {
+      "path": "tools/preview_video/render.cjs",
+      "sha256": "8e540aa4989d0c953062c8089c2a9204c2e5e4df2e4126b5dcbd8a8d69247c98",
+      "kind": "source"
+    },
+    {
+      "path": "tools/publish_desktop_release.py",
+      "sha256": "cfdddc34399aa1a2293dfb720102df6bee8975a52d20c87b94449e5715370676",
+      "kind": "source"
+    },
+    {
+      "path": "tools/test_preview_browser.py",
+      "sha256": "80a7cfcdfd8b7d6404836ddccab824158d5a6b15edab714fa1ca03c40f7ff9f6",
+      "kind": "source"
+    },
+    {
+      "path": "tools/verify_release_assets.py",
+      "sha256": "89a7e461bb2b284d6577bbe11047aea0455e1139808c3b3e8518aac11a5ea7e6",
+      "kind": "source"
+    },
+    {
+      "path": "tools/verify_release_provenance.py",
+      "sha256": "3888e18f1e4f5ad87dfd8ae38b1aa06a7f73305ae833e4dab55df480cb828043",
+      "kind": "source"
+    }
+  ],
+  "checks": {
+    "python": {
+      "status": "PASS",
+      "command": [
+        "python",
+        "-m",
+        "unittest",
+        "tests.test_agent_context_tasks",
+        "tests.test_agent_tasks",
+        "tests.test_agent_review_dispatch",
+        "tests.test_campaign_monitor",
+        "tests.test_campaign_monitor_polish",
+        "tests.test_campaign_schedule",
+        "tests.test_organic_video_discovery",
+        "tests.test_viral_policy",
+        "tests.test_organic_video_collector",
+        "tests.test_publication_meta_linkedin",
+        "tests.test_linkedin_render_contract",
+        "tests.test_hypit_jobs",
+        "tests.test_creative_briefs",
+        "tests.test_check_distribution",
+        "tests.test_release_attestation_assets",
+        "tests.test_desktop_release",
+        "tests.test_release_provenance",
+        "tests.test_verify_release_assets",
+        "tests.test_publication_channel_selection",
+        "tests.test_publication_metrics",
+        "tests.test_publication_reports"
+      ],
+      "elapsed_seconds": 109.515,
+      "log_sha256": "39023645f655ab332941113bb16ed5ada7e479bfda04e8c69b226a84ff14394d"
+    },
+    "node": {
+      "status": "PASS",
+      "command": [
+        "node",
+        "--test",
+        "tests/campaign_monitor_ui.test.cjs",
+        "tests/goal_readiness_ui.test.cjs",
+        "tests/organic_research_ui.test.cjs",
+        "tests/managed_media.test.cjs",
+        "tests/publication_ui.test.cjs"
+      ],
+      "elapsed_seconds": 4.172,
+      "log_sha256": "37bd354c2626d301d1f69682d5b454c7a88df3d2fc6747dc6014e8ec365e2809"
+    },
+    "format": {
+      "status": "PASS",
+      "command": [
+        "python",
+        "tools/check_format.py"
+      ],
+      "elapsed_seconds": 24.157,
+      "log_sha256": "b3bf9e02ed6d523eb4b06e317497faa440cbd22a7b94e9477fd72b43e21e0c99"
+    },
+    "types": {
+      "status": "PASS",
+      "command": [
+        "python",
+        "tools/check_types.py"
+      ],
+      "elapsed_seconds": 16.109,
+      "log_sha256": "6d88a1b220adb7a3d62092b6e38431f0b3fe8babe9864fab90e5849766260332"
+    },
+    "effects": {
+      "status": "PASS",
+      "command": [
+        "python",
+        "tools/audit_operation_effects.py"
+      ],
+      "elapsed_seconds": 7.0,
+      "log_sha256": "8dec229aa5a4532bb01060990caccee4f27a2c28d2756494143967f676d6cf95"
+    },
+    "distribution": {
+      "status": "PASS",
+      "command": [
+        "python",
+        "tools/check_distribution.py"
+      ],
+      "elapsed_seconds": 2.062,
+      "log_sha256": "db9da2412bc2c53bf5d9f2034531a73f927342988c9b403eca5495aec05ff51d"
+    }
+  },
+  "test_counts": {
+    "python": 213,
+    "node": 81
+  },
+  "browser": {
+    "preview_widths": [
+      1440,
+      390
+    ],
+    "actual_chooser_widths": [
+      1440,
+      768,
+      390
+    ],
+    "keyboard": "PASS",
+    "horizontal_overflow": false,
+    "external_requests": 0
+  },
+  "demo": {
+    "renderer": "Remotion4.0.448",
+    "actual_ui": true,
+    "synthetic_workspace": true,
+    "publication": "NOT_RUN",
+    "video_bytes": 917715
+  },
+  "egm": {
+    "review_rounds": 5,
+    "final_scoped_static_review": "CLEAN",
+    "two_consecutive_clean_rounds": false,
+    "loop_status": "CAP_REACHED_NOT_CONVERGED",
+    "scope": "viral_policy,organic_video_discovery and their assigned tests; not a full repository audit"
+  },
+  "remaining_acceptance": [
+    "Publisher-trusted Windows signing NOT_RUN",
+    "Independent first-time founder acceptance NOT_RUN",
+    "Five-network live account publication and analytics acceptance not established",
+    "Tagged attributable campaign result not established",
+    "Preview10 release remains held; these are code-integration checks, not release or growth approval"
+  ]
+}

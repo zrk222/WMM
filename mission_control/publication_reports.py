@@ -1,13 +1,20 @@
 """Private, integrity-checked publication report over the existing read authority."""
 
-import json, re
+import json
+import re
+
 from .common import Invalid, canonical, digest, safe_data
 from .db import connection
 from .operation_authority import check
-from .publication_authority import Publications, _admit, _row as authority_row
+from .publication_authority import Publications, _admit
+from .publication_authority import _row as authority_row
 from .publication_contract import channel_descriptor
-from .publication_execution import initialize as initialize_intents, _row as intent_row, _view as intent_view, _public
-from .publication_schedule import initialize as initialize_schedules, _summary
+from .publication_execution import _public
+from .publication_execution import _row as intent_row
+from .publication_execution import _view as intent_view
+from .publication_execution import initialize as initialize_intents
+from .publication_schedule import _summary
+from .publication_schedule import initialize as initialize_schedules
 
 
 def _schedule_binding(summary, authority, draft):
@@ -102,6 +109,7 @@ def _events(db, intent, view):
         raise Invalid("Publication event chain is unavailable or too large")
     prior = ""
     events = []
+    data = {}
     for seq, row in enumerate(rows, 1):
         data = _event_data(row, prior, seq, intent)
         events.append(
@@ -171,6 +179,10 @@ def report(store, app_id, identity):
             "observed_at": None,
             "metrics": None,
             "reason": "NO_PROVIDER_READ_RECORDED",
+            "next_action": "Obtain a read receipt for the existing publication before assessing performance.",
+            "missing_reasons": {},
+            "remote_id": None,
+            "asset_id": None,
         }
     )
     proof = binding.get("proof", {})
@@ -216,8 +228,28 @@ def _metric_history(events):
         if event["action"] != "read" or not event.get("state"):
             continue
         metrics = event["state"]["observation"].get("metrics")
+        counts = metrics.get("counts", {}) if isinstance(metrics, dict) else {}
+        missing = (
+            {
+                name: metrics.get(name + "_reason") or metrics.get("missing") or "NOT_RETURNED"
+                for name, value in counts.items()
+                if value is None
+            }
+            if isinstance(counts, dict)
+            else {}
+        )
         result.append(
             {
+                "remote_id": event["state"].get("remote_id"),
+                "asset_id": event["state"].get("asset_id"),
+                "missing_reasons": missing,
+                "next_action": (
+                    "This saved read contains no engagement metrics. Inspect analytics for the existing post in the provider; do not republish to obtain metrics."
+                    if metrics is None
+                    else "Inspect analytics for the existing post in the provider for the unavailable counts; retain unknown values until evidenced."
+                    if missing
+                    else None
+                ),
                 "receipt_hash": event["hash"],
                 "observed_at": event["observed_at"],
                 "metrics": metrics,

@@ -1,14 +1,21 @@
-import unittest
-from pathlib import Path
+import hashlib
+import json
 import sys
 import tempfile
-import json
-import hashlib
+import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from check_distribution import decode_text
-import check_distribution as distribution
+import importlib.util
+
+spec = importlib.util.spec_from_file_location(
+    "check_distribution", Path(__file__).resolve().parents[1] / "tools/check_distribution.py"
+)
+assert spec is not None and spec.loader is not None
+distribution = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(distribution)
+decode_text = distribution.decode_text
 
 
 class DistributionTextEncodingTests(unittest.TestCase):
@@ -30,9 +37,9 @@ class DistributionTextEncodingTests(unittest.TestCase):
             with (
                 patch.object(distribution, "ROOT", root),
                 patch.object(distribution, "files", return_value=[root / ".." / "outside.txt"]),
+                self.assertRaisesRegex(SystemExit, "escaping path"),
             ):
-                with self.assertRaisesRegex(SystemExit, "escaping path"):
-                    distribution.check()
+                distribution.check()
 
     def test_synthetic_screenshots_require_current_manifest_and_known_path(self):
         for name in ("overview.png", "sample-workflow.png", "agent-task-setup.png", "goal-to-proof.png"):
@@ -58,8 +65,43 @@ class DistributionTextEncodingTests(unittest.TestCase):
                     distribution.check()
             private = root / "private.png"
             private.write_bytes(data)
-            with patch.object(distribution, "ROOT", root), patch.object(distribution, "files", return_value=[private]):
-                with self.assertRaisesRegex(SystemExit, "operational/binary"):
+            with (
+                patch.object(distribution, "ROOT", root),
+                patch.object(distribution, "files", return_value=[private]),
+                self.assertRaisesRegex(SystemExit, "operational/binary"),
+            ):
+                distribution.check()
+
+    def test_preview_video_requires_exact_path_hash_and_synthetic_provenance(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            media = root / "docs/media"
+            media.mkdir(parents=True)
+            video = media / "video-production.mp4"
+            data = b"\x00\x00\x00\x18ftypisom-synthetic"
+            video.write_bytes(data)
+            proof = {
+                "schema": "wmm.preview-video-provenance.v1",
+                "synthetic": True,
+                "classification": "ACTUAL_WMM_UI_SYNTHETIC_WORKSPACE",
+                "social_publication": "NOT_RUN",
+                "marketing_result": "NOT_ESTABLISHED",
+                "assets": {video.name: hashlib.sha256(data).hexdigest()},
+            }
+            manifest = media / "provenance.json"
+            manifest.write_text(json.dumps(proof), encoding="utf-8")
+            with patch.object(distribution, "ROOT", root), patch.object(distribution, "files", return_value=[video]):
+                distribution.check()
+                video.write_bytes(data + b"changed")
+                with self.assertRaisesRegex(SystemExit, "provenance"):
+                    distribution.check()
+                video.write_bytes(data)
+                proof["synthetic"] = False
+                manifest.write_text(json.dumps(proof), encoding="utf-8")
+                with self.assertRaisesRegex(SystemExit, "provenance"):
+                    distribution.check()
+                manifest.unlink()
+                with self.assertRaisesRegex(SystemExit, "provenance"):
                     distribution.check()
 
     def test_decodes_utf8_utf8_bom_and_bom_marked_utf16(self):

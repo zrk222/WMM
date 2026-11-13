@@ -1,16 +1,17 @@
 """Trusted-service bridge from scoped delegation to exact independently reviewed writes."""
 
-from datetime import datetime, timezone
 import json
-from .common import Invalid, canonical, digest, iso_time
-from .db import connection
+from datetime import datetime, timezone
+
+from .agent_checkpoints import claim_in_db, persist, prepare_in_db, read_row
 from .agent_grants import authenticated, consume, token_digest
 from .agent_review_policy import operations
-from .agent_checkpoints import prepare_in_db, claim_in_db, read_row, persist
+from .common import Invalid, canonical, digest, iso_time
+from .db import connection
 from .operation_catalog import path_segment
+from .operation_outcome import EffectUncertain
 from .operation_runtime import execute
 from .operator_client import encode_body
-from .operation_outcome import EffectUncertain
 
 
 def saved_request(db, app_id, identity):
@@ -66,9 +67,9 @@ def run_operation(service, envelope, executor=None):
         value = (executor or execute)(service, envelope)
     except EffectUncertain:
         return dict(outcome="UNKNOWN", error="LOCAL_RESULT_UNCONFIRMED")
-    except (Invalid, PermissionError, KeyError):
+    except (Invalid, PermissionError):
         return dict(outcome="FAILED", error="LOCAL_VALIDATION_REJECTED")
-    except Exception:
+    except Exception:  # noqa: BLE001 - an unexpected post-dispatch error cannot prove no effect
         return dict(outcome="UNKNOWN", error="LOCAL_RESULT_UNCONFIRMED")
     return result_receipt(value)
 
@@ -78,7 +79,7 @@ def result_receipt(value):
     try:
         encode_body(value)
         return dict(outcome="SUCCEEDED", data=value)
-    except Exception:
+    except Exception:  # noqa: BLE001 - an unexpected post-dispatch error cannot prove no effect
         return dict(outcome="UNKNOWN", error="LOCAL_RESULT_UNCONFIRMED")
 
 
@@ -103,6 +104,7 @@ class ReviewedDispatch:
                 raise Invalid("This grant operation does not require a reviewed request")
             input_hash = digest(dict(grant_id=grant["id"], envelope=envelope))
             from datetime import timedelta
+
             from .authority_expiry import effective_expiry
 
             expiry = iso_time(effective_expiry(db, "AGENT_GRANT", grant, grant["expires"])["expires"])
@@ -147,8 +149,8 @@ class ReviewedDispatch:
                 raise Invalid("Reviewed request already has a receipt")
             claimed = claim_in_db(db, app_id, identity, grant["agent_id"], revision, packet_hash, self.clock())
             admission = consume(db, grant, request["envelope"], self.clock())
-        from .video_edit_projects import admitted_caller
         from .operation_authority import bound_agent
+        from .video_edit_projects import admitted_caller
 
         review = dict(
             id=identity, input_hash=request["input_hash"], packet_hash=claimed["hash"], revision=claimed["revision"]

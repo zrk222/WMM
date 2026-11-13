@@ -1,18 +1,24 @@
 """Receipt-backed private reports using real SQLite and synthetic provider state."""
 
-import json, unittest
-from unittest.mock import patch
+import json
+import unittest
 from types import SimpleNamespace
+from typing import Any, cast
+from unittest.mock import patch
+
+from mission_control import publication_reports as reports
 from mission_control.common import Invalid, canonical, uid
 from mission_control.db import connection
-from mission_control import publication_reports as reports
-from tests import test_publication_execution as execution
+from mission_control.store import Store
 from tests import test_publication_authority as authority
+from tests import test_publication_execution as execution
 
 APP = authority.APP
 
 
 class PublicationReportTests(unittest.TestCase):
+    store: Store
+    draft: dict[str, Any]
     setUp = authority.PublicationAuthorityTests.setUp
     call = authority.PublicationAuthorityTests.call
     prepare = authority.PublicationAuthorityTests.prepare
@@ -38,7 +44,16 @@ class PublicationReportTests(unittest.TestCase):
         self.assertEqual(r["events"], [])
         self.assertEqual(
             r["latest_metric_sample"],
-            {"receipt_hash": None, "observed_at": None, "metrics": None, "reason": "NO_PROVIDER_READ_RECORDED"},
+            {
+                "receipt_hash": None,
+                "observed_at": None,
+                "metrics": None,
+                "reason": "NO_PROVIDER_READ_RECORDED",
+                "next_action": "Obtain a read receipt for the existing publication before assessing performance.",
+                "missing_reasons": {},
+                "remote_id": None,
+                "asset_id": None,
+            },
         )
         self.assertNotIn("fixture-secret", canonical(result))
         self.assertEqual(r["public_visibility"], "NOT_INDEPENDENTLY_VERIFIED")
@@ -47,7 +62,7 @@ class PublicationReportTests(unittest.TestCase):
         item, job = self.leased()
         vault = execution.Vault()
         with patch("mission_control.publication_sessions.Vault", return_value=vault):
-            observed = self.state("READY_TO_PUBLISH")
+            observed = cast(dict[str, Any], self.state("READY_TO_PUBLISH"))
             observed["observation"]["metrics"] = {"source": "fixture", "counts": {"views": None}}
             self.run_step(job, SimpleNamespace(create=lambda *a: observed))
             result = self.read(item)
@@ -91,13 +106,13 @@ class PublicationReportTests(unittest.TestCase):
                 job, SimpleNamespace(publish=lambda *a: self.state("PUBLISH_ACKNOWLEDGED", "urn:li:share:123"))
             )
             for count in (10, 20):
-                state = self.state("PUBLISHED", "urn:li:share:123")
+                state = cast(dict[str, Any], self.state("PUBLISHED", "urn:li:share:123"))
                 state["observation"]["metrics"] = {
                     "source": "fixture.provider.read",
                     "observed_at": str(count),
                     "counts": {"views": count, "likes": None},
                 }
-                self.run_step(job, SimpleNamespace(read=lambda *a: state))
+                self.run_step(job, SimpleNamespace(read=lambda *a, state=state: state))
             report = self.read(item)["report"]
             history = report["metric_history"]
             self.assertEqual([sample["metrics"]["counts"]["views"] for sample in history], [10, 20])
@@ -119,6 +134,10 @@ class PublicationReportTests(unittest.TestCase):
                     "observed_at": event["observed_at"],
                     "metrics": None,
                     "reason": "PROVIDER_READ_RETURNED_NO_METRICS",
+                    "missing_reasons": {},
+                    "remote_id": "urn:li:share:123",
+                    "asset_id": None,
+                    "next_action": "This saved read contains no engagement metrics. Inspect analytics for the existing post in the provider; do not republish to obtain metrics.",
                 },
             )
             self.assertTrue(event["observed_at"])
