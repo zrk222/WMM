@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 from urllib.request import urlopen
 
-from mission_control.desktop import DesktopRuntime, data_directory, dispatch, main
+from mission_control.desktop import DesktopRuntime, LoopbackUnavailable, data_directory, dispatch, main
 from mission_control.workspace_lock import WorkspaceBusy
 
 
@@ -87,7 +87,7 @@ class DesktopEntryTests(unittest.TestCase):
                 owner.start(workers=False)
                 unexpected = None
                 try:
-                    with self.assertRaises(OSError):
+                    with self.assertRaisesRegex(LoopbackUnavailable, f"127.0.0.1:{port}"):
                         unexpected = DesktopRuntime(root / "fixed", port, fixed_port=True)
                 finally:
                     if unexpected is not None:
@@ -313,7 +313,26 @@ class DesktopEntryTests(unittest.TestCase):
             run.assert_called_once()
             browser.assert_not_called()
 
+    def test_headless_port_conflict_exits_with_repair_instead_of_success(self):
+        with (
+            patch(
+                "mission_control.desktop.DesktopRuntime",
+                side_effect=LoopbackUnavailable(10048, "Free local port 8765, then restart the worker."),
+            ),
+            patch("builtins.print") as output,
+            self.assertRaisesRegex(SystemExit, "Free local port 8765"),
+        ):
+            main(["--headless"])
+        output.assert_not_called()
+
     def test_headless_runtime_uses_user_path_and_process_exit_releases_lock(self):
+        with socket.socket() as probe:
+            try:
+                if sys.platform != "win32":
+                    probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                probe.bind(("127.0.0.1", 8765))
+            except OSError as error:
+                self.skipTest(f"Fixed loopback port is unavailable: {error}")
         with tempfile.TemporaryDirectory() as folder:
             environment = dict(__import__("os").environ)
             if sys.platform == "win32":
