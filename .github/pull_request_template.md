@@ -1,30 +1,30 @@
-## What changed
+## Start here
 
-<!-- One or two sentences. Link the issue or ADR if there is one. -->
+**User impact:** <!-- Before → after, in one or two sentences. -->
+**Review first:** <!-- Link the most important file, test, or screen. -->
+**Decision needed:** <!-- Name the tradeoff or concern, or write "None". -->
 
-## Verification
+## Reproduce one important check
 
-- [ ] I ran the relevant tests locally or in CI (list them).
-- [ ] I did not add secrets, real customer data, tokens or private receipts.
-- [ ] If this touches authority, credentials, budgets, attribution or release
-      paths, I ran the owner security review checklist below.
+| | Author fills in before requesting review |
+| --- | --- |
+| Exact commit | <!-- Full PR head SHA --> |
+| Run | <!-- One copyable command or short UI path, plus prerequisites --> |
+| Expect | <!-- Observable result and what would count as failure --> |
+| Evidence | <!-- CI run or receipt for that SHA, with environment --> |
+| Untested | <!-- Skips, live checks not run, and known limits --> |
 
-## Security-sensitive owner review (required for listed paths)
+**Independent review:** Pending <!-- Replace only with a link to a human review of this exact SHA. -->
 
-Paths: `mission_control/**`, `.github/**`, `packaging/**`, `ios/**`,
-`tools/*installer*`, `tools/*release*`, `LICENSE`, `SECURITY.md`,
-`docs/SERVER-ENFORCEMENT-AUDIT.md`, `docs/REVIEW-POLICY.md`.
+Reviewers: [review steps and copyable response](https://github.com/zrk222/WMM/blob/main/docs/HUMAN-REVIEW.md).
 
-- [ ] I reviewed this change as the repository owner.
-- [ ] I checked server-side authority, secret handling, exact-field validation,
-      expiry/quota/budget enforcement and denial tests.
-- [ ] I applied the owner review policy and its expansion gate.
+<details>
+<summary>Author and owner checks</summary>
 
-## Boundary
+- [ ] Relevant checks ran; results and limits are above.
+- [ ] No secrets, customer data, or private receipts are included.
+- [ ] Claims about delivery, growth, or lift have supporting receipts.
+- [ ] For a sensitive change, the owner recorded the applicable checks and
+      expansion decision from the [review policy](https://github.com/zrk222/WMM/blob/main/docs/REVIEW-POLICY.md).
 
-- [ ] This change does not claim measured growth, provider delivery or causal
-      lift without receipts.
-
-## Notes for the reviewer
-
-<!-- Record the head SHA, environment, reproduction steps, and any limits. Link an independent review of this head or state 'Independent review pending'. See ../CONTRIBUTING.md for the protocol. -->
+</details>
