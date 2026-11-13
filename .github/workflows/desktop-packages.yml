@@ -129,10 +129,12 @@ jobs:
         shell: pwsh
         env:
           WMM_WINDOWS_SIGNER_THUMBPRINT: ${{ inputs.require_signed_windows && vars.WMM_WINDOWS_SIGNER_THUMBPRINT || '' }}
+          WMM_SIGNING_CANDIDATE: ${{ inputs.candidate_sha }}
           WMM_WINDOWS_TIMESTAMP_URL: ${{ inputs.require_signed_windows && vars.WMM_WINDOWS_TIMESTAMP_URL || '' }}
         run: |
           if ('${{ inputs.require_signed_windows }}' -eq 'true') {
             if ($env:GITHUB_REF -ne 'refs/heads/main' -or $env:GITHUB_REPOSITORY -ne 'zrk222/WMM' -or $env:GITHUB_EVENT_NAME -ne 'workflow_dispatch') { throw 'Signing requires official main release dispatch' }
+            if ($env:WMM_SIGNING_CANDIDATE -cne $env:GITHUB_SHA -or (git rev-parse HEAD) -cne $env:GITHUB_SHA -or $LASTEXITCODE -ne 0) { throw 'Signing requires the exact dispatched commit' }
             if (!$env:WMM_WINDOWS_SIGNER_THUMBPRINT -or !$env:WMM_WINDOWS_TIMESTAMP_URL) { throw 'Configure the trusted Windows signing identity first' }
             $sdk = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/bin'
             $tool = Get-ChildItem -LiteralPath $sdk -Directory | Sort-Object Name -Descending | ForEach-Object { Join-Path $_.FullName 'x64/signtool.exe' } | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
