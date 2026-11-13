@@ -1,5 +1,6 @@
 """Opt-in isolated Windows CI installer lifecycle; never installs prerequisites."""
 
+import asyncio
 import hashlib
 import importlib.util
 import json
@@ -76,9 +77,7 @@ def verify_binary(binary, folder, env, label):
         raise RuntimeError("Packaged smoke verifier unavailable")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    import anyio
-
-    anyio.run(module.mcp_smoke, binary, str(folder))
+    asyncio.run(module.mcp_smoke(binary, str(folder)))
     module.setup_smoke(binary, folder, env, label=label)
     module.first_packet_smoke(binary, folder, env, label=label, profile_dir=env["LOCALAPPDATA"])
 
