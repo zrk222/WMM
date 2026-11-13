@@ -207,7 +207,9 @@
           "Reproducible scoped calculation with missing/zero/boundary tests",
           "Matching owner UI and export with source hash and coverage"
         ]
-      }
+      },
+      "gap": "MISSING",
+      "gap_reason": "No live attributed cohort revenue / matched media spend join. Supplied scoped economics is separate partial evidence."
     },
     {
       "id": "ROAS_D30",
@@ -253,7 +255,9 @@
           "Reproducible scoped calculation with missing/zero/boundary tests",
           "Matching owner UI and export with source hash and coverage"
         ]
-      }
+      },
+      "gap": "MISSING",
+      "gap_reason": "No live attributed cohort revenue / matched media spend join. Supplied scoped economics is separate partial evidence."
     },
     {
       "id": "PAYBACK",
