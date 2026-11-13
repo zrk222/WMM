@@ -12,3 +12,4 @@ Architect verdict: PASS
 - [ ] T7 | slice=tsconfig.maintained-js.json | files=tsconfig.maintained-js.json | verify=`node tools/check_js_types.mjs` | Type-check three native libraries only.
 - [ ] T8 | slice=.github | files=.github/workflows/checks.yml,tests/test_ci_current_candidate.py | verify=`python -m unittest tests.test_ci_current_candidate -q` | Run maintained library type check in CI.
 - [ ] T9 | slice=tests | files=tests/test_page_reporting_http.py | verify=`python -m unittest tests.test_page_reporting_http -q` | Verify native library route MIME and obsolete or unknown route rejection.
+- [ ] T10 | slice=tests | files=tests/test_format_ratchet.py | verify=`python -m unittest tests.test_format_ratchet -q` | Preserve historical registry paths while checking only existing maintained sources.
