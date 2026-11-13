@@ -6,6 +6,9 @@ on:
       candidate_sha:
         required: true
         type: string
+      require_signed_windows:
+        type: boolean
+        default: false
   pull_request:
     paths:
       - 'mission_control/desktop.py'
@@ -124,7 +127,19 @@ jobs:
       - name: Compile per-user Windows installer
         if: runner.os == 'Windows'
         shell: pwsh
+        env:
+          WMM_WINDOWS_SIGNER_THUMBPRINT: ${{ inputs.require_signed_windows && vars.WMM_WINDOWS_SIGNER_THUMBPRINT || '' }}
+          WMM_WINDOWS_TIMESTAMP_URL: ${{ inputs.require_signed_windows && vars.WMM_WINDOWS_TIMESTAMP_URL || '' }}
         run: |
+          if ('${{ inputs.require_signed_windows }}' -eq 'true') {
+            if ($env:GITHUB_REF -ne 'refs/heads/main' -or $env:GITHUB_REPOSITORY -ne 'zrk222/WMM' -or $env:GITHUB_EVENT_NAME -ne 'workflow_dispatch') { throw 'Signing requires official main release dispatch' }
+            if (!$env:WMM_WINDOWS_SIGNER_THUMBPRINT -or !$env:WMM_WINDOWS_TIMESTAMP_URL) { throw 'Configure the trusted Windows signing identity first' }
+            $sdk = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/bin'
+            $tool = Get-ChildItem -LiteralPath $sdk -Directory | Sort-Object Name -Descending | ForEach-Object { Join-Path $_.FullName 'x64/signtool.exe' } | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+            if (!$tool) { throw 'Windows SDK SignTool missing on runner' }
+            & ./packaging/windows/build-signed.ps1 -Thumbprint $env:WMM_WINDOWS_SIGNER_THUMBPRINT -TimestampUrl $env:WMM_WINDOWS_TIMESTAMP_URL -SignTool $tool
+            return
+          }
           $compiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
           if (!(Test-Path -LiteralPath $compiler)) { throw 'Inno Setup compiler missing on runner' }
           & $compiler 'packaging\windows\WMM.iss'
@@ -133,6 +148,7 @@ jobs:
         if: runner.os == 'Windows'
         env:
           WMM_INSTALLER_TEST: '1'
+          WMM_WINDOWS_SIGNER_THUMBPRINT: ${{ inputs.require_signed_windows && vars.WMM_WINDOWS_SIGNER_THUMBPRINT || '' }}
           WMM_RELEASE_INSTALLER: ${{ github.workspace }}/dist/installer/WMM-Setup.exe
         run: |
           python tools/test_windows_installer.py > windows-lifecycle.json

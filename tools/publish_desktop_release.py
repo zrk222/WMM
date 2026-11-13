@@ -113,6 +113,24 @@ def gh(*args):
     return result.stdout
 
 
+def require_windows_signature(folder, expected_thumbprint):
+    """Require attested lifecycle evidence for the exact Windows release bytes."""
+    if not re.fullmatch("[0-9A-F]{40}", expected_thumbprint or ""):
+        raise ValueError("Configure the expected Windows publisher certificate thumbprint")
+    folder = Path(folder)
+    observation = json.loads((folder / "Windows.json").read_text(encoding="utf-8"))["lifecycle"].get(
+        "publisher_signature"
+    )
+    installer_hash = digest(folder / ASSETS["Windows"])
+    if observation != {
+        "thumbprint": expected_thumbprint,
+        "installer_sha256": installer_hash,
+        "installer": "VALID_TIMESTAMPED",
+        "uninstaller": "VALID_TIMESTAMPED",
+    }:
+        raise ValueError("Missing verified Windows installer and uninstaller publisher signatures")
+
+
 def publish(folder, sha, tag):
     repo = json.loads(gh("api", "repos/" + REPOSITORY))
     main = gh("api", "repos/" + REPOSITORY + "/git/ref/heads/main", "--jq", ".object.sha").strip()
@@ -120,6 +138,7 @@ def publish(folder, sha, tag):
     if repo.get("private") is not False:
         raise ValueError("Anonymous installer downloads require a public repository")
     paths = validate_assets(folder, sha, require_provenance=True)
+    require_windows_signature(folder, os.environ.get("WMM_WINDOWS_SIGNER_THUMBPRINT"))
     # A successful list proves absence. API/network errors abort rather than looking like 404.
     refs = json.loads(gh("api", "repos/" + REPOSITORY + "/git/matching-refs/tags/" + tag))
     releases = json.loads(gh("api", "--paginate", "--slurp", "repos/" + REPOSITORY + "/releases"))
@@ -134,7 +153,7 @@ def publish(folder, sha, tag):
         "release-attestation.sigstore.json contains the GitHub provenance bundle for the six payloads; "
         "release-provenance.json retains the source-bound verification results. "
         "Neither the checksum manifest nor the provenance receipt is itself attested. "
-        "Windows publisher signature is not provided; OS trust prompts can appear. "
+        "Windows installer and uninstaller publisher signatures were verified during lifecycle testing. "
         "See docs/desktop-first-run.md at source commit " + sha + ". "
         "Automated synthetic installer checks are not human first-use acceptance."
     )

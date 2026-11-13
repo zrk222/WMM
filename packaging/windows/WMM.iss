@@ -27,6 +27,10 @@ SolidCompression=yes
 CloseApplications=no
 RestartApplications=no
 SetupLogging=yes
+#ifdef WmmByok
+SignTool=wmm_byok
+SignedUninstaller=yes
+#endif
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked

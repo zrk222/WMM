@@ -21,6 +21,7 @@ spec.loader.exec_module(release)
 
 SHA = "a" * 40
 TAG = "v0.1.0-preview.1"
+THUMBPRINT = "A" * 40
 
 
 def add_provenance(folder, sha=SHA):
@@ -196,6 +197,30 @@ class ReleaseTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 release.validate_target(*bad)
 
+    def mark_signed_fixture(self):
+        path = self.folder / "Windows.json"
+        data = json.loads(path.read_text())
+        data["lifecycle"]["publisher_signature"] = {
+            "thumbprint": THUMBPRINT,
+            "installer_sha256": release.digest(self.folder / "WMM-Setup.exe"),
+            "installer": "VALID_TIMESTAMPED",
+            "uninstaller": "VALID_TIMESTAMPED",
+        }
+        path.write_text(json.dumps(data))
+
+    def test_signed_release_requires_exact_publisher_and_bytes(self):
+        with self.assertRaisesRegex(ValueError, "Configure"):
+            release.require_windows_signature(self.folder, "")
+        with self.assertRaisesRegex(ValueError, "Missing verified"):
+            release.require_windows_signature(self.folder, THUMBPRINT)
+        self.mark_signed_fixture()
+        release.require_windows_signature(self.folder, THUMBPRINT)
+        with self.assertRaisesRegex(ValueError, "Missing verified"):
+            release.require_windows_signature(self.folder, "B" * 40)
+        (self.folder / "WMM-Setup.exe").write_bytes(b"changed")
+        with self.assertRaisesRegex(ValueError, "Missing verified"):
+            release.require_windows_signature(self.folder, THUMBPRINT)
+
     def fake_gh(self, *args):
         self.calls.append(args)
         if args[:2] == ("api", "repos/" + release.REPOSITORY):
@@ -220,10 +245,16 @@ class ReleaseTests(unittest.TestCase):
         return ""
 
     def test_existing_tag_refused_before_any_mutation(self):
+        self.mark_signed_fixture()
         add_provenance(self.folder)
         self.calls, self.refs = [], [dict(ref="refs/tags/" + TAG)]
         with (
-            patch.dict(os.environ, GITHUB_REF="refs/heads/main", GITHUB_REPOSITORY=release.REPOSITORY),
+            patch.dict(
+                os.environ,
+                GITHUB_REF="refs/heads/main",
+                GITHUB_REPOSITORY=release.REPOSITORY,
+                WMM_WINDOWS_SIGNER_THUMBPRINT=THUMBPRINT,
+            ),
             patch.object(release, "gh", self.fake_gh),
             self.assertRaises(ValueError),
         ):
@@ -231,6 +262,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertFalse(any(c[0] == "release" for c in self.calls))
 
     def test_upload_failure_preserves_draft_and_never_clobbers(self):
+        self.mark_signed_fixture()
         add_provenance(self.folder)
         self.calls, self.refs = [], []
 
@@ -241,7 +273,12 @@ class ReleaseTests(unittest.TestCase):
             return self.fake_gh(*args)
 
         with (
-            patch.dict(os.environ, GITHUB_REF="refs/heads/main", GITHUB_REPOSITORY=release.REPOSITORY),
+            patch.dict(
+                os.environ,
+                GITHUB_REF="refs/heads/main",
+                GITHUB_REPOSITORY=release.REPOSITORY,
+                WMM_WINDOWS_SIGNER_THUMBPRINT=THUMBPRINT,
+            ),
             patch.object(release, "gh", failed_upload),
             self.assertRaises(RuntimeError),
         ):
@@ -253,12 +290,18 @@ class ReleaseTests(unittest.TestCase):
     def test_private_repository_refused(self):
         with (
             patch.object(release, "gh", side_effect=[json.dumps(dict(private=True)), SHA]),
-            patch.dict(os.environ, GITHUB_REF="refs/heads/main", GITHUB_REPOSITORY=release.REPOSITORY),
+            patch.dict(
+                os.environ,
+                GITHUB_REF="refs/heads/main",
+                GITHUB_REPOSITORY=release.REPOSITORY,
+                WMM_WINDOWS_SIGNER_THUMBPRINT=THUMBPRINT,
+            ),
             self.assertRaises(ValueError),
         ):
             release.publish(self.folder, SHA, TAG)
 
     def test_publication_requires_full_anonymous_download_hashes(self):
+        self.mark_signed_fixture()
         add_provenance(self.folder)
         self.calls, self.refs = [], []
         urls = []
@@ -268,7 +311,12 @@ class ReleaseTests(unittest.TestCase):
             return io.BytesIO((self.folder / url.rsplit("/", 1)[-1]).read_bytes())
 
         with (
-            patch.dict(os.environ, GITHUB_REF="refs/heads/main", GITHUB_REPOSITORY=release.REPOSITORY),
+            patch.dict(
+                os.environ,
+                GITHUB_REF="refs/heads/main",
+                GITHUB_REPOSITORY=release.REPOSITORY,
+                WMM_WINDOWS_SIGNER_THUMBPRINT=THUMBPRINT,
+            ),
             patch.object(release, "gh", self.fake_gh),
             patch.object(release, "urlopen", download),
         ):
