@@ -21,6 +21,24 @@ class DangerZoneTypesTests(unittest.TestCase):
         self.assertEqual(len(checker.check_source("def read(value): return value", {"read"})), 2)
         self.assertEqual(len(checker.check_source("", {"read"})), 1)
 
+    def test_new_public_access_methods_require_annotations(self):
+        source = """class Access:
+    def __init__(self, store: object) -> None: pass
+    def verified(self, item: int) -> int: return item
+    def new(self, item): return item
+    @staticmethod
+    def static(self) -> None: pass
+    def _internal(self, item): return item
+"""
+        self.assertEqual(
+            checker.check_source(source, set(), {"Access"}),
+            [
+                "Missing parameter annotation: Access.new.item",
+                "Missing return annotation: Access.new",
+                "Missing parameter annotation: Access.static.self",
+            ],
+        )
+
     def test_generated_rows_reject_wrong_grant_and_role_fields(self):
         if not (ROOT / "node_modules/pyright").is_dir():
             self.skipTest("Pinned Pyright is installed by maintainability CI")

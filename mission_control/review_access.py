@@ -1,12 +1,22 @@
 """Trusted-workstation bootstrap and version-bound, app-specific authenticated roles."""
 
 import sqlite3
-from typing import cast
+from collections.abc import Callable, Mapping
+from typing import TypedDict, cast
 
 from .common import Invalid, now
 from .db import connection
 from .schema_types import OperatorRolesRow
-from .store import audit
+from .store import Store, audit
+
+
+class AccessView(TypedDict):
+    configured: bool
+    members: list[OperatorRolesRow]
+    bootstrap: str
+    identity_provider: str
+    external_execution: str
+    snapshot_authority: str
 
 
 def member(db: sqlite3.Connection, app_id: str, principal: str, role: str | None = None) -> OperatorRolesRow:
@@ -42,10 +52,10 @@ def member_body(body: object) -> None:
 
 
 class Access:
-    def __init__(self, store):
+    def __init__(self, store: Store) -> None:
         self.store = store
 
-    def list(self, app_id):
+    def list(self, app_id: str) -> AccessView:
         """Expose local access policy and history without impersonation or secrets."""
         self.store.app(app_id)
         with connection(self.store.path) as db:
@@ -62,7 +72,7 @@ class Access:
             "snapshot_authority": "NOT_EXPORTED",
         }
 
-    def bootstrap_reviewed(self, app_id, user, body):
+    def bootstrap_reviewed(self, app_id: str, user: Mapping[str, str], body: Mapping[str, object]) -> AccessView:
         """Bind a desktop confirmation to the reviewed identity and manifest."""
         if (
             set(body) != {"confirm_owner", "expected_principal", "manifest_version"}
@@ -72,9 +82,19 @@ class Access:
             raise Invalid("Reopen owner setup and confirm the displayed account and app")
         if body["expected_principal"] != user["principal"]:
             raise Invalid("The signed-in account changed. Reopen owner setup before confirming")
-        return self.bootstrap(app_id, user, {"confirm_owner": True}, manifest_version=body["manifest_version"])
+        return self.bootstrap(
+            app_id, user, {"confirm_owner": True}, manifest_version=cast(int, body["manifest_version"])
+        )
 
-    def bootstrap(self, app_id, user, body, *, commit_check=None, manifest_version=None):
+    def bootstrap(
+        self,
+        app_id: str,
+        user: Mapping[str, str],
+        body: Mapping[str, object],
+        *,
+        commit_check: Callable[[], object] | None = None,
+        manifest_version: int | None = None,
+    ) -> AccessView:
         """Establish exactly one verified owner on an unconfigured local workspace."""
         self.store.app(app_id)
         if body != {"confirm_owner": True}:
@@ -97,7 +117,9 @@ class Access:
                 commit_check()
         return self.list(app_id)
 
-    def save(self, app_id, owner, user, body):
+    def save(
+        self, app_id: str, owner: Mapping[str, str], user: Mapping[str, str], body: Mapping[str, object]
+    ) -> AccessView:
         """Update only maker/checker membership under current authenticated owner."""
         self.store.app(app_id)
         member_body(body)
@@ -114,7 +136,9 @@ class Access:
             if body["version"] != expected:
                 raise Invalid("Member access changed; reload before saving")
             version = (expected or 0) + 1
-            self.write(db, app_id, user, body["role"], body["status"], version, owner["principal"])
+            self.write(
+                db, app_id, user, cast(str, body["role"]), cast(str, body["status"]), version, owner["principal"]
+            )
             audit(
                 db,
                 app_id,
@@ -129,7 +153,16 @@ class Access:
             )
         return self.list(app_id)
 
-    def write(self, db, app_id, user, role, status, version, owner):
+    def write(
+        self,
+        db: sqlite3.Connection,
+        app_id: str,
+        user: Mapping[str, str],
+        role: str,
+        status: str,
+        version: int,
+        owner: str,
+    ) -> None:
         """Persist public immutable principal binding and audited current role version."""
         db.execute(
             "INSERT INTO operator_roles(app_id,principal,login,role,status,version,updated,changed_by) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(app_id,principal) DO UPDATE SET login=excluded.login,role=excluded.role,status=excluded.status,version=excluded.version,updated=excluded.updated,changed_by=excluded.changed_by",
