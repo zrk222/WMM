@@ -2,6 +2,7 @@
 
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -12,6 +13,8 @@ from .common import Invalid, canonical, digest, iso_time, now
 from .db import connection
 
 ACTION = "app.launch_status.observed"
+DECLARATION = "app.launch_status.declared"
+DECLARABLE = ("NOT_SUBMITTED", "IN_REVIEW", "LIVE", "REMOVED", "UNKNOWN")
 
 
 @dataclass(frozen=True)
@@ -22,11 +25,11 @@ class Sources:
     source_hashes: tuple[str, ...] = ()
 
 
-def _history(db: Any, app_id: str, version: int | None, limit: int) -> list[dict[str, Any]]:
+def _history(db: Any, app_id: str, version: int | None, limit: int, action: str = ACTION) -> list[dict[str, Any]]:
     rows = db.execute(
         "SELECT detail FROM audit WHERE app_id=? AND action=? AND "
         "(? IS NULL OR json_extract(detail,'$.app_version')=?) ORDER BY id DESC LIMIT ?",
-        (app_id, ACTION, version, version, limit),
+        (app_id, action, version, version, limit),
     )
     result = []
     for row in rows:
@@ -141,6 +144,48 @@ def retain_job_result(db: Any, job: dict[str, Any], report: dict[str, Any]) -> d
     return retain_in_snapshot(db, app_id, version, Sources(connect, storefronts, store_id, fingerprints))
 
 
+def declare(path: Path, app_id: str, principal: str, body: Any, *, commit_check: Callable[[], Any]) -> dict[str, Any]:
+    """Retain a local declaration without changing any verified eligibility."""
+    from .review_access import member
+
+    if (
+        not isinstance(body, dict)
+        or set(body) != {"app_version", "status"}
+        or type(body["app_version"]) is not int
+        or body["status"] not in DECLARABLE
+    ):
+        raise Invalid("Select a launch status for the current app")
+    version = body["app_version"]
+    status = body["status"]
+    with connection(path, write=True) as db:
+        member(db, app_id, principal, "OWNER")
+        app = db.execute("SELECT version FROM apps WHERE id=?", (app_id,)).fetchone()
+        if app is None or app["version"] != version:
+            raise Invalid("The app changed. Reopen it before saving launch status.")
+        previous = _history(db, app_id, version, 1, DECLARATION)
+        commit_check()
+        if previous and previous[0]["status"] == status and previous[0]["declared_by"] == principal:
+            return previous[0]
+        stamp = now()
+        payload = dict(
+            app_id=app_id,
+            app_version=version,
+            status=status,
+            source="OWNER_DECLARED",
+            observed_at=stamp,
+            declared_by=principal,
+            verified=False,
+            storefronts=[],
+            previous_status=previous[0]["status"] if previous else "UNKNOWN",
+        )
+        record = dict(payload, evidence_hash=digest(payload))
+        db.execute(
+            "INSERT INTO audit(app_id,action,detail,created) VALUES(?,?,?,?)",
+            (app_id, DECLARATION, canonical(record), stamp),
+        )
+        return record
+
+
 def current(path: Path, app_id: str, app_version: int, clock: datetime) -> dict[str, Any]:
     """Project current status without deleting historical observations."""
     with connection(path) as db:
@@ -148,8 +193,12 @@ def current(path: Path, app_id: str, app_version: int, clock: datetime) -> dict[
         if app is None or app["version"] != app_version:
             raise Invalid("Launch status requires the current app version")
         latest = _history(db, app_id, app_version, 1)
+        declarations = _history(db, app_id, app_version, 1, DECLARATION)
+    declaration = (
+        {key: value for key, value in declarations[0].items() if key != "declared_by"} if declarations else None
+    )
     if not latest:
-        return resolve(None, [], clock)
+        return dict(resolve(None, [], clock), owner_declaration=declaration)
     record = latest[0]
     readings = record["readings"]
     current_status = resolve(
@@ -161,6 +210,7 @@ def current(path: Path, app_id: str, app_version: int, clock: datetime) -> dict[
     return dict(
         current_status,
         last_observation=record,
+        owner_declaration=declaration,
         stale=(
             not fresh(record["observed_at"], clock)
             or record["status"] != current_status["status"]

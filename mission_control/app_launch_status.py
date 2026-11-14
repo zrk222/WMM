@@ -66,8 +66,16 @@ def resolve(
             status, reason = "NOT_SUBMITTED", "CONNECT_PREPARING_FIRST_RELEASE"
         else:
             reason = "CONNECT_STATUS_INCONCLUSIVE"
+    eligibility = {
+        "NOT_SUBMITTED": "NOT_APPLICABLE_YET",
+        "IN_REVIEW": "NOT_APPLICABLE_YET",
+        "LIVE": "SOURCE_REQUIRED",
+        "REMOVED": "NOT_CURRENTLY_AVAILABLE",
+    }.get(status, "UNKNOWN")
     return {
         "status": status,
+        "store_metric_applicability": eligibility,
+        "store_metrics": ["installs", "retention", "cac", "roas", "revenue"],
         "reason": reason,
         "verified_storefronts": available if status == "LIVE" else [],
         "observed_at": now.isoformat(),

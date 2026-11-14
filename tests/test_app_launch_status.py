@@ -6,7 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from mission_control.app_launch_history import Sources, current, history, retain
+from mission_control.app_launch_history import Sources, current, declare, history, retain
 from mission_control.app_launch_status import ConnectRead, StorefrontRead, resolve
 from mission_control.apple_storefront import lookup
 from mission_control.common import Invalid, iso_time
@@ -64,6 +64,51 @@ class AppLaunchStatusTests(unittest.TestCase):
             self.assertEqual(receipt["previous_status"], "LIVE")
             self.assertEqual(history(path, "sample-one", version), [receipt, live])
 
+    def test_owner_note_never_becomes_verified_or_crosses_roles(self) -> None:
+        from mission_control.db import connection
+
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "launch.sqlite"
+            version = Store(path).app("sample-one")["version"]
+            with connection(path, write=True) as db:
+                db.executemany(
+                    "INSERT INTO operator_roles(app_id,principal,login,role,status,version,updated,changed_by) "
+                    "VALUES('sample-one',?,?,?,'ACTIVE',1,?,?)",
+                    [
+                        ("owner", "owner", "OWNER", NOW.isoformat(), "owner"),
+                        ("maker", "maker", "MAKER", NOW.isoformat(), "owner"),
+                    ],
+                )
+            body = {"app_version": version, "status": "LIVE"}
+            with self.assertRaises(PermissionError):
+                declare(path, "sample-one", "maker", body, commit_check=lambda: None)
+            with self.assertRaises(PermissionError):
+                declare(path, "sample-two", "owner", body, commit_check=lambda: None)
+            with self.assertRaises(Invalid):
+                declare(path, "sample-one", "owner", dict(body, app_version=version + 1), commit_check=lambda: None)
+
+            def revoked() -> None:
+                raise PermissionError("Session expired")
+
+            with self.assertRaises(PermissionError):
+                declare(path, "sample-one", "owner", body, commit_check=revoked)
+            self.assertIsNone(current(path, "sample-one", version, NOW)["owner_declaration"])
+            saved = declare(path, "sample-one", "owner", body, commit_check=lambda: None)
+            self.assertEqual(saved, declare(path, "sample-one", "owner", body, commit_check=lambda: None))
+            view = current(path, "sample-one", version, NOW)
+            self.assertEqual(view["status"], "UNKNOWN")
+            self.assertFalse(view["authority_issued"])
+            self.assertFalse(view["owner_declaration"]["verified"])
+            self.assertNotIn("declared_by", view["owner_declaration"])
+            corrected = declare(path, "sample-one", "owner", dict(body, status="IN_REVIEW"), commit_check=lambda: None)
+            self.assertEqual(corrected["previous_status"], "LIVE")
+            with connection(path) as db:
+                rows = db.execute(
+                    "SELECT COUNT(*) FROM audit WHERE app_id=? AND action=?",
+                    ("sample-one", "app.launch_status.declared"),
+                ).fetchone()
+            self.assertEqual(rows[0], 2)
+
     def test_live_version_stays_live_during_update_review(self) -> None:
         connect: ConnectRead = {
             "observed_at": NOW.isoformat(),
@@ -82,7 +127,10 @@ class AppLaunchStatusTests(unittest.TestCase):
             "complete": True,
             "states": ["WAITING_FOR_REVIEW"],
         }
-        self.assertEqual(resolve(connect, [], NOW)["status"], "IN_REVIEW")
+        pending = resolve(connect, [], NOW)
+        self.assertEqual(pending["status"], "IN_REVIEW")
+        self.assertEqual(pending["store_metric_applicability"], "NOT_APPLICABLE_YET")
+        self.assertIn("installs", pending["store_metrics"])
         public: StorefrontRead = {"observed_at": NOW.isoformat(), "storefront": "US", "state": "AVAILABLE"}
         self.assertEqual(resolve(connect, [public], NOW)["reason"], "SOURCE_CONFLICT")
         connect["complete"] = False

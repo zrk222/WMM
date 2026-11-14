@@ -493,7 +493,7 @@ function startHerePanel() {
 function launchStatusPanel(workspace) {
   const launch = workspace?.app_launch_status;
   const app = workspace?.app;
-  if (!launch || !app?.data?.store_app_id) return '';
+  if (!launch || (!app?.data?.store_app_id && !app?.data?.bundle_id)) return '';
   const copy = {
     LIVE: 'Live in a verified storefront. Outcome data still needs a matching source.',
     IN_REVIEW: 'In App Review. Store installs and retention are not applicable yet.',
@@ -501,6 +501,38 @@ function launchStatusPanel(workspace) {
     REMOVED: 'Removed from sale. Review store-directed work before scheduling anything new.',
     UNKNOWN: 'Availability is unknown. Check Apple before interpreting store-dependent metrics.',
   };
+  const choices = {
+    UNKNOWN: 'Unknown',
+    NOT_SUBMITTED: 'Preparing for submission',
+    IN_REVIEW: 'In App Review',
+    LIVE: 'Live',
+    REMOVED: 'Removed from sale',
+  };
+  const declared = launch.owner_declaration?.status;
+  const note = declared
+    ? `<p>Owner declaration: ${esc(choices[declared] || choices.UNKNOWN)} (unverified).</p>`
+    : '';
+  const conflict =
+    launch.reason === 'SOURCE_CONFLICT'
+      ? '<p>Apple’s version and storefront readings disagree. Check the app and storefront before using install metrics.</p>'
+      : '';
+  const form = workspace.access?.members?.some(
+    (member) =>
+      member.principal === workspace.identity?.principal &&
+      member.role === 'OWNER' &&
+      member.status === 'ACTIVE',
+  )
+    ? `<details><summary>Record your own status</summary><p>Your note does not verify availability or approve a campaign.</p><form id="goal-launch-declare" data-app="${esc(app.id)}" data-version="${app.version}"><label class="field">App Store status<select name="status">${Object.entries(
+        choices,
+      )
+        .map(
+          ([key, value]) =>
+            `<option value="${key}"${key === (declared || 'UNKNOWN') ? ' selected' : ''}>${value}</option>`,
+        )
+        .join(
+          '',
+        )}</select></label><button type="submit" class="button outline">Save declaration</button><p role="alert"></p></form></details>`
+    : '';
   const countries = (launch.verified_storefronts || []).map(esc).join(', ');
   const bindings = (workspace.records || []).filter(
     (row) =>
@@ -509,7 +541,27 @@ function launchStatusPanel(workspace) {
       String(row.data.store_app_id) === String(app.data.store_app_id) &&
       row.data.auth_mode !== 'disconnected',
   );
-  return `<section class="panel" aria-label="App Store launch status"><h2>App Store launch status</h2><p>${esc(copy[launch.status] || copy.UNKNOWN)}</p>${countries ? `<p>Verified storefronts: ${countries}</p>` : ''}${bindings.length === 1 ? `<form id="goal-launch-check" data-app="${esc(app.id)}" data-version="${app.version}" data-connection="${esc(bindings[0].id)}" data-connection-version="${bindings[0].version}"><label class="field">Storefront country code<input name="storefront" required maxlength="2" pattern="[A-Za-z]{2}" placeholder="CA"></label><button type="submit" class="button outline">Check App Store status</button><p id="goal-launch-error" role="alert"></p></form>` : '<p>Keep one App Store Connect connection for this app to check launch status.</p><button type="button" class="button outline" data-view="connections">Review connections</button>'}</section>`;
+  return `<section class="panel" aria-label="App Store launch status"><h2>App Store launch status</h2><p>${esc(copy[launch.status] || copy.UNKNOWN)}</p>${conflict}${note}${form}${countries ? `<p>Verified storefronts: ${countries}</p>` : ''}${bindings.length === 1 ? `<form id="goal-launch-check" data-app="${esc(app.id)}" data-version="${app.version}" data-connection="${esc(bindings[0].id)}" data-connection-version="${bindings[0].version}"><label class="field">Storefront country code<input name="storefront" required maxlength="2" pattern="[A-Za-z]{2}" placeholder="CA"></label><button type="submit" class="button outline">Check App Store status</button><p id="goal-launch-error" role="alert"></p></form>` : '<p>Keep one App Store Connect connection for this app to check launch status.</p><button type="button" class="button outline" data-view="connections">Review connections</button>'}</section>`;
+}
+
+async function submitLaunchDeclaration(form) {
+  const { app, version } = form.dataset;
+  if (app !== state.app || Number(version) !== state.workspace?.app.version) return;
+  const submit = form.querySelector('[type=submit]');
+  submit.disabled = true;
+  try {
+    await api(`/api/apps/${encodeURIComponent(app)}/launch-status/declare`, {
+      app_version: Number(version),
+      status: new FormData(form).get('status'),
+    });
+    if (app === state.app) await refresh();
+  } catch {
+    if (form.isConnected)
+      form.querySelector('[role=alert]').textContent =
+        'Could not save. Sign in as the app owner and reopen this app before trying again.';
+  } finally {
+    submit.disabled = false;
+  }
 }
 
 async function submitLaunchCheck(form) {
@@ -1452,6 +1504,7 @@ export {
   startHerePanel,
   goalOverview,
   submitLaunchCheck,
+  submitLaunchDeclaration,
   goalAction,
   WMMGoalReadiness,
   WMMAgreement,
