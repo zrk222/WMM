@@ -493,8 +493,17 @@ class WeeklyOperationTests(unittest.TestCase):
                 ("new-batch", later),
                 ("legacy-batch", None),
                 ("tampered-batch", later),
+                ("stale-binding", later),
             ):
-                batch = {"permission_expires_at": deadline} if deadline else {}
+                batch = dict(
+                    batch_id=name,
+                    app_id="sample",
+                    owner="owner",
+                    scope_id=scope_id,
+                    scope_hash=digest({}) if name == "stale-binding" else scope["summary_hash"],
+                )
+                if deadline:
+                    batch["permission_expires_at"] = deadline
                 pinned = digest({}) if name == "tampered-batch" else digest(batch)
                 db.execute(
                     "INSERT INTO campaign_schedule_batches VALUES(?,?,?,?,?,?,?,?,?,?)",
@@ -511,8 +520,14 @@ class WeeklyOperationTests(unittest.TestCase):
                 "old-batch": "EXPIRED_PENDING_WORK",
                 "legacy-batch": "EXPIRED_PENDING_WORK",
                 "tampered-batch": "NEEDS_REPAIR",
+                "stale-binding": "NEEDS_REPAIR",
             },
         )
+
+        with connection(self.store.path) as db:
+            db.execute("UPDATE campaign_scopes SET status='REVOKED' WHERE id=?", (scope_id,))
+        by_batch = {c["action"]["batch_id"]: c["state"] for c in self.cards()}
+        self.assertEqual(by_batch["new-batch"], "NEEDS_REPAIR")
 
     def test_expired_pending_schedule_owned_refs_and_uncertainty_dedup(self):
         from mission_control.campaign_schedule import initialize
@@ -533,6 +548,13 @@ class WeeklyOperationTests(unittest.TestCase):
                 "UPDATE campaign_scopes SET summary=?,summary_hash=? WHERE id=?",
                 (canonical(summary), digest(summary), scope["id"]),
             )
+            batch = dict(
+                batch_id="saved-batch",
+                app_id="sample",
+                owner="owner",
+                scope_id=scope["id"],
+                scope_hash=digest(summary),
+            )
             db.execute(
                 "INSERT INTO campaign_schedule_batches VALUES(?,?,?,?,?,?,?,?,?,?)",
                 (
@@ -540,8 +562,8 @@ class WeeklyOperationTests(unittest.TestCase):
                     "sample",
                     "owner",
                     scope["id"],
-                    "{}",
-                    digest({}),
+                    canonical(batch),
+                    digest(batch),
                     "ACTIVE",
                     2,
                     stamp,

@@ -761,6 +761,15 @@ def _schedule_deadline_state(db, scope, batch, observed):
     try:
         summary = retained_object(batch["summary"], batch["summary_hash"])
         base = retained_object(scope["summary"], scope["summary_hash"])
+        expected = {
+            "batch_id": batch["id"],
+            "app_id": scope["app_id"],
+            "owner": scope["owner"],
+            "scope_id": scope["id"],
+            "scope_hash": scope["summary_hash"],
+        }
+        if scope["status"] != "ACTIVE" or any(summary.get(key) != value for key, value in expected.items()):
+            return "NEEDS_REPAIR"
         permission = scope_view(db, scope)["permission_expires_at"]
         saved_deadline = summary.get("permission_expires_at", base["expires_at"])
         if min(iso_time(permission), iso_time(saved_deadline)) <= observed:
