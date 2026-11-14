@@ -56,3 +56,5 @@ max_total_minor = 100
 max_posts = 1
 max_campaigns = 1
 max_calls = 50
+
+When a selected schedule or campaign needs review, its primary recovery button opens the exact saved record. An uncertain scheduled item takes priority over unrelated blockers. The button reads local state only and does not retry, renew, or dispatch work.

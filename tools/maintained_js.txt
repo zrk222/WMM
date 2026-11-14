@@ -84,6 +84,7 @@ mission_control/static/video-editor.js
 mission_control/static/workflow-automation.mjs
 mission_control/static/workflow-telemetry.js
 tests/analytics_inventory.test.mjs
+tests/automation_agreement_ui.test.cjs
 tests/campaign_monitor_ui.test.cjs
 tests/campaign_plan.test.mjs
 tests/campaign_schedule_ui.test.cjs
