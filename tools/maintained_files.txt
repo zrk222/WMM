@@ -11,6 +11,7 @@ mission_control/automation_execution.py
 mission_control/campaign_contract.py
 mission_control/campaign_execution.py
 mission_control/campaign_monitor.py
+mission_control/campaign_schedule.py
 mission_control/campaign_schedule_authority.py
 mission_control/cloud_connection.py
 mission_control/common.py
@@ -112,6 +113,7 @@ tests/test_release_provenance.py
 tests/test_repo_hygiene.py
 tests/test_sbom_reproducibility.py
 tests/test_schedule_authority_boundary.py
+tests/test_schedule_pause_evidence.py
 tests/test_schema_types.py
 tests/test_source_ratchet.py
 tests/test_sqlite_tuning.py
