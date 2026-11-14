@@ -7,12 +7,13 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+
 from mission_control.common import Invalid
-from mission_control.release_inventory import read_inventory, Inventory, resource_id, dict_query, screenshot
 from mission_control.provider_reports import read_report, report_options
 from mission_control.providers import report_destination
-from mission_control.store import Store
+from mission_control.release_inventory import Inventory, dict_query, read_inventory, screenshot
 from mission_control.service import Service
+from mission_control.store import Store
 from mission_control.worker import run_once
 
 BINDING = {"provider": "app_store", "store_app_id": "123", "account_id": "0", "env_ref": "GROWTH_SAMPLE_ONE_SYNTHETIC"}
@@ -85,6 +86,12 @@ class FakeReader:
 
 
 class ReleaseInventory(unittest.TestCase):
+    def test_current_apple_version_state_takes_precedence_over_deprecated_value(self):
+        pages = fixtures()
+        pages[0]["data"]["attributes"]["appVersionState"] = "READY_FOR_DISTRIBUTION"
+        result = read_inventory(FakeReader(pages), "123", "version-1")
+        self.assertEqual(result["review_state"], "READY_FOR_DISTRIBUTION")
+
     def test_owned_release_projection_and_order(self):
         pages = fixtures()
         second = copy.deepcopy(pages[-1]["data"][0])
@@ -250,7 +257,7 @@ class ReleaseInventory(unittest.TestCase):
                 },
                 "request_key": "fixture-fail",
             }
-            first = service.queue("sample-one", body)
+            service.queue("sample-one", body)
             with patch(
                 "mission_control.provider_reports.report_request", side_effect=Invalid("Synthetic read timeout")
             ):

@@ -1,7 +1,9 @@
 """Bounded app-owned release facts; inventory never certifies Apple readiness."""
 
 import re
+from typing import Any
 from urllib.parse import urlencode, urlsplit
+
 from .common import Invalid
 
 BASE = "https://api.appstoreconnect.apple.com"
@@ -124,6 +126,12 @@ def text(data, key):
     return value
 
 
+def version_review_state(data):
+    """Prefer Apple's current enum while preserving compatibility with legacy responses."""
+    state = text(data, "appVersionState")
+    return state if state is not None else text(data, "appStoreState")
+
+
 def screenshot(row):
     """Retain order-relevant file facts without URLs, tokens or upload operations."""
     identity, data = entity(row, "appScreenshots")
@@ -198,13 +206,15 @@ def selected_build(payload, version):
     return dict(id=identity, number=text(data, "version"), processing_state=text(data, "processingState"))
 
 
-def read_inventory(reader, store_id, version_id):
+def read_inventory(reader, store_id, version_id) -> dict[str, Any]:
     """Verify app ownership before inspecting a selected release's child resources."""
     version_id = resource_id(version_id)
     inventory = Inventory(reader)
     payload = inventory.fetch(
         "/v1/appStoreVersions/" + version_id, {"include": "app,build", "fields[builds]": "version,processingState"}
     )
+    if payload is None:
+        raise Invalid("Apple release details are unavailable")
     version = payload.get("data")
     identity, data = entity(version, "appStoreVersions")
     if identity != version_id:
@@ -224,7 +234,7 @@ def read_inventory(reader, store_id, version_id):
         version_id=identity,
         version=text(data, "versionString"),
         platform=text(data, "platform"),
-        review_state=text(data, "appStoreState"),
+        review_state=version_review_state(data),
         build=build,
         locales=locales,
         coverage="COMPLETE" if complete else "PARTIAL",
