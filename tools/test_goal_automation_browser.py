@@ -275,6 +275,27 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         agreement.close()
         assert f.wire.posts == 0
         assert not jobs(f.store, "sample-one")
+        saved_runs = (
+            ("campaign_post", "Publish approved Facebook post", "BLOCKED"),
+            ("campaign_ad", "Launch approved Meta ad", "BLOCKED"),
+            ("campaign_monitor", "Check approved campaign delivery", "SUCCEEDED"),
+            ("campaign_owner_report", "Save private campaign report", "SUCCEEDED"),
+            ("sync", "Provider synchronization", "SUCCEEDED"),
+            ("unknown_fixture", "Saved workflow run", "BLOCKED"),
+        )
+        with connection(f.store.path) as db:
+            for action, _, job_status in saved_runs:
+                db.execute(
+                    "INSERT INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)",
+                    (action, "sample-one", action, "{}", job_status, "2026-11-13", "2026-11-13", action),
+                )
+        page.reload()
+        page.locator("#navigation > [data-view=activity]").click()
+        for action, title, _ in saved_runs:
+            row = page.locator(f'button[data-action="job"][data-id="{action}"]')
+            expect(row).to_contain_text(title, timeout=5000)
+        expect(page.locator('button[data-action="job"][data-id="campaign_post"]')).to_contain_text("BLOCKED")
+        (out / f"saved-runs-{width}.html").write_text(page.content(), encoding="utf-8")
         assert not errors, errors
         assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
         return dict(
@@ -294,6 +315,7 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
             off=True,
             durable_reload=True,
             report_privacy=True,
+            saved_campaign_runs_have_distinct_labels=True,
             campaign_does_not_select_agent=True,
             javascript_errors=errors,
             provider="SYNTHETIC_ONLY",
