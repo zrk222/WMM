@@ -4,6 +4,7 @@ import json
 import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
+from math import isfinite
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -55,22 +56,43 @@ def provider_set(store: Any, app_id: str) -> set[str]:
     """Use saved successful reads for the current source revisions, never connection labels."""
     from .db import connection
 
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=7)
     with connection(store.path) as db:
-        return {
-            row[0]
-            for row in db.execute(
-                """SELECT DISTINCT s.provider FROM insight_sources s
-                JOIN insight_reports r ON r.app_id=s.app_id AND r.source_id=s.id AND r.provider=s.provider
-                WHERE s.app_id=? AND s.status='CONNECTED'
-                  AND r.created >= ?
-                  AND CASE WHEN json_valid(r.data)
-                  THEN json_extract(r.data,'$.source_version')=s.version
-                       AND json_extract(r.data,'$.configuration_hash')=s.hash
-                       AND json_type(r.data,'$.rows')='array'
-                       AND json_array_length(r.data,'$.rows') > 0 ELSE 0 END""",
-                (app_id, (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()),
-            )
-        }
+        rows = db.execute(
+            """SELECT s.provider,r.data FROM insight_sources s
+            JOIN insight_reports r ON r.app_id=s.app_id AND r.source_id=s.id AND r.provider=s.provider
+            WHERE s.app_id=? AND s.status='CONNECTED'
+              AND r.created >= ?
+              AND CASE WHEN json_valid(r.data)
+              THEN json_extract(r.data,'$.source_version')=s.version
+                   AND json_extract(r.data,'$.configuration_hash')=s.hash
+                   AND json_type(r.data,'$.rows')='array'
+                   AND json_array_length(r.data,'$.rows') > 0 ELSE 0 END""",
+            (app_id, cutoff.isoformat()),
+        )
+        providers = set()
+        for provider, raw in rows:
+            data = json.loads(raw)
+            try:
+                observed = iso_time(data.get("observed_at"))
+            except (Invalid, TypeError, ValueError):
+                continue
+            if cutoff <= observed <= now and any(usable_aggregate(item) for item in data["rows"]):
+                providers.add(provider)
+        return providers
+
+
+def usable_aggregate(item: Any) -> bool:
+    """Require a named finite aggregate with a declared unit and period."""
+    return (
+        isinstance(item, dict)
+        and bool(item.get("id") or item.get("name"))
+        and bool(item.get("unit"))
+        and bool(item.get("period"))
+        and type(item.get("value")) in (int, float)
+        and isfinite(item["value"])
+    )
 
 
 def check_promotion_link(post: Any, plan: Any) -> None:
@@ -132,15 +154,18 @@ def evaluate(
             "PASS" if outcome else "MISSING",
             "Connected outcome or cash source: " + (", ".join(outcome) or "none") + ".",
         )
+        paid = isinstance(request, dict) and "end_time" in request and "post_id" in request
         link = request.get("link") if isinstance(request, dict) else None
         check(
             "TAGGED_LINK",
-            "PASS" if plan["link"] and (request is None or link == plan["link"]) else "MISMATCH",
+            "PASS" if plan["link"] and (request is None or paid or link == plan["link"]) else "MISMATCH",
             "Approved tagged link is present." if link is None else "Request link must equal the approved tagged link.",
         )
+        stamp = observed or datetime.now(timezone.utc)
+        starts, ends = iso_time(plan["starts_at"]), iso_time(plan["ends_at"])
         check(
             "WINDOW",
-            "PASS" if (observed or datetime.now(timezone.utc)) < iso_time(plan["ends_at"]) else "EXPIRED",
+            "NOT_STARTED" if stamp < starts else ("EXPIRED" if stamp >= ends else "PASS"),
             f"{plan['starts_at']} to {plan['ends_at']}.",
         )
     check(
@@ -158,13 +183,21 @@ def evaluate(
         providers=sorted(providers),
         authority_issued=False,
         external_writes=False,
-        scope="Preflight only. A READY gate does not publish, spend, approve provider terms or prove an outcome.",
+        scope="Preflight only. READY confirms aggregate availability, not the selected metric, denominator, attribution or an outcome. It grants no publication or spending authority.",
     )
 
 
 def assert_ready(store: Any, app_id: str, scope: dict[str, Any], request: Any = None) -> dict[str, Any]:
     """Enforce an explicitly approved measurement plan at the campaign effect boundary."""
     gate = evaluate(scope, provider_set(store, app_id), request=request, scope_status=scope.get("status", "ACTIVE"))
+    plan = gate.get("measurement_plan")
+    if (
+        plan
+        and isinstance(request, dict)
+        and "end_time" in request
+        and iso_time(request["end_time"]) > iso_time(plan["ends_at"])
+    ):
+        raise Invalid("Paid delivery must end inside the approved measurement window")
     if gate["status"] != "READY":
         details = "; ".join(f"{b['name']}: {b['status']}" for b in gate["blockers"])
         raise Invalid("Measurement evidence is incomplete: " + details)

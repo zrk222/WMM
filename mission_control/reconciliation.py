@@ -6,7 +6,17 @@ from .common import digest
 
 
 def row(
-    source, metric, period, value, unit, *, denominator=None, definition=None, coverage="UNKNOWN", source_hash=None
+    source,
+    metric,
+    period,
+    value,
+    unit,
+    *,
+    denominator=None,
+    definition=None,
+    coverage="UNKNOWN",
+    source_hash=None,
+    observed_at=None,
 ):
     """Keep one source observation addressable without normalizing away its meaning."""
     return dict(
@@ -19,6 +29,7 @@ def row(
         definition=definition or source,
         coverage=coverage,
         source_hash=source_hash,
+        observed_at=observed_at,
     )
 
 
@@ -41,6 +52,7 @@ def matrix(rows: list[dict[str, Any]]) -> dict[str, Any]:
             and len(definitions) == 1
             and all(item["denominator"] == values[0]["denominator"] for item in values)
             and period not in {"UNSPECIFIED", "CURRENT"}
+            and not period.lower().startswith("last_")
             and len(observed_sources) == len(values)
         )
         numeric = values and all(type(item["value"]) in (int, float) for item in values)
@@ -154,9 +166,11 @@ def summary(workspace: Any) -> dict[str, Any]:
                     str(item.get("period") or "UNSPECIFIED"),
                     value,
                     str(item.get("unit") or "unknown"),
-                    definition=str(report.get("provider") or "provider") + " aggregate",
-                    coverage="PARTIAL",
-                    source_hash=report.get("hash"),
+                    denominator=item.get("denominator"),
+                    definition=item.get("definition") or (str(report.get("provider") or "provider") + " aggregate"),
+                    coverage=item.get("coverage") or data.get("coverage") or "PARTIAL",
+                    source_hash=item.get("source_hash") or report.get("hash"),
+                    observed_at=item.get("observed_at") or data.get("observed_at"),
                 )
             )
     storekit = (workspace.get("storekit") or {}).get("report") or {}

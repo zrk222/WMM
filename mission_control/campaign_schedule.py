@@ -92,8 +92,11 @@ def check_measurement_schedule(db, app_id, scope, operation, post, due):
         parsed = measurement_plan(plan, retained=True)
         if operation == "campaign.publish" and post.get("link") != parsed["link"]:
             raise Invalid("The scheduled post must use the approved tagged link.")
-        if due >= iso_time(parsed["ends_at"]):
-            raise Invalid("The scheduled work must run before the measurement window closes.")
+        starts, ends = iso_time(parsed["starts_at"]), iso_time(parsed["ends_at"])
+        if not starts <= due < ends:
+            raise Invalid("Schedule work inside the approved measurement window.")
+        if operation == "campaign.ad-launch" and iso_time(post["end_time"]) > ends:
+            raise Invalid("Paid delivery must end inside the approved measurement window.")
 
 
 def check_paid_review(db, app_id, scope, body, due):

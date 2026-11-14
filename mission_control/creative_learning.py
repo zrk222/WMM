@@ -58,7 +58,7 @@ def summary(workspace: Any) -> dict[str, Any]:
     elif not measured:
         status = "PUBLICATION_OBSERVED"
     else:
-        status = "LEARNING_ACTIVE" if active else "OUTCOME_RECORDED"
+        status = "UNLINKED_ACTIVITY"
     gaps = []
     if not workspace.get("references"):
         gaps.append("Add or discover a creative reference")
@@ -74,6 +74,8 @@ def summary(workspace: Any) -> dict[str, Any]:
         gaps.append("Collect mature outcome evidence")
     if not active:
         gaps.append("Propose a learning program from observed outcomes")
+    if published and measured:
+        gaps.append("Link the exact creative and publication to its measured experiment before applying its results.")
     top = rankings[0] if rankings else None
     pattern = None
     if active:
