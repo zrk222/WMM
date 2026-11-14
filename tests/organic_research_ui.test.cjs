@@ -466,6 +466,22 @@ test('every research card explains its selection and baseline gaps', async () =>
   assert.match(html, /not enough comparable posts to verify the creator baseline/);
 });
 
+test('numerical qualification stays distinct from uncertain or mismatched app fit', async () => {
+  const data = await saved();
+  const entry = data.submission.candidates[0];
+  data.result.items[0].status = 'RELEVANCE_REVIEW_REQUIRED';
+  for (const [relevance, message] of [
+    ['UNKNOWN', 'The collector could not confirm the app fit.'],
+    ['MISMATCH', 'The collector did not find a clear app fit.'],
+  ]) {
+    entry.relevance = relevance;
+    const html = ui.taskHTML(data, s());
+    assert.ok(html.includes(message));
+    assert.ok(html.includes('Reported views met both viral thresholds.'));
+    assert.ok(ui.report(data, s()).cohorts[0].selection_summary.includes(message));
+  }
+});
+
 test('suggested search uses the selected app and remains within the input contract', () => {
   const defaults = ui.suggestedSearch({
     job: 'Practice difficult conversations',

@@ -219,7 +219,7 @@
     const found = row.candidate_count || 0;
     const toReview = row.reviewable_count || 0;
     const summary = found
-      ? `${found} clip${found === 1 ? '' : 's'} found · ${toReview} meet reported thresholds`
+      ? `${found} clip${found === 1 ? '' : 's'} found · ${toReview} ready for review`
       : 'No clips returned yet';
     return `<section class="next-step"><div><h4>${m.esc(row.query.genre)}</h4><p>${m.esc(row.query.search_terms)}</p><p>${m.esc(label(row.status))} · saved ${m.esc(row.created)}</p><p><strong>${summary}</strong></p><p>${row.intakes.length} approved research cards</p>${button(found ? 'Review found videos' : 'Inspect search', 'read', row.id)}</div></section>`;
   }
@@ -419,8 +419,8 @@
     const fit =
       {
         MATCH: 'The collector marked it relevant to the app search.',
-        UNCERTAIN: 'The collector could not confirm the app fit.',
-        NO_MATCH: 'The collector did not find a clear app fit.',
+        UNKNOWN: 'The collector could not confirm the app fit.',
+        MISMATCH: 'The collector did not find a clear app fit.',
       }[entry.relevance] || 'App fit needs review.';
     if (q.qualification === 'UGC_EXEMPT')
       return 'Included as UGC, which is exempt from viral thresholds. ' + fit;
