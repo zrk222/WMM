@@ -109,6 +109,25 @@ def run(browser, width, out):
         with page.expect_request("**/api/apps/sample-one/campaigns/schedule-status") as request:
             page.get_by_role("button", name="Open schedule", exact=True).press("Enter")
         expect(page.get_by_role("dialog")).to_contain_text("Batch e873d2ea-0feb-4ca4-95a0-6b820d448a51")
+        dialog = page.get_by_role("dialog")
+        expect(dialog.get_by_role("heading", name="Approval expired")).to_be_visible()
+        expect(dialog.get_by_role("status")).to_contain_text("Unfinished items cannot start")
+        schedule_html = page.evaluate(
+            r"""() => {
+                const clone = document.documentElement.cloneNode(true);
+                const styles = clone.querySelectorAll('link[rel="stylesheet"]');
+                styles.forEach(node => node.remove());
+                const css = [...document.styleSheets].map(
+                    sheet => [...sheet.cssRules].map(rule => rule.cssText).join('\n')
+                ).join('\n');
+                const style = document.createElement('style');
+                style.textContent = css;
+                clone.querySelector('head').append(style);
+                clone.querySelectorAll('script').forEach(node => node.remove());
+                return '<!doctype html>' + clone.outerHTML;
+            }"""
+        )
+        (out / f"schedule-{width}.html").write_text(schedule_html, encoding="utf-8")
         assert request.value.post_data_json == {"batch_id": "e873d2ea-0feb-4ca4-95a0-6b820d448a51"}
         with connection(fixture.store.path) as db:
             saved = db.execute("SELECT status,job_id FROM campaign_schedule_items WHERE id='saved-item'").fetchone()

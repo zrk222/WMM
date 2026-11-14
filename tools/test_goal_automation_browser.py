@@ -226,7 +226,8 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         assert f.wire.posts == 0
         assert not jobs(f.store, "sample-one")
         page.get_by_role("button", name="Approve exact batch and schedule", exact=True).click()
-        expect(page.locator("#campaign-schedule-progress")).to_contain_text("ACTIVE")
+        expect(page.locator("#schedule-batch-state")).to_have_text("Scheduled")
+        expect(page.locator("#schedule-live-stage")).to_contain_text("WMM must remain running")
         page.screenshot(path=str(out / f"schedule-{width}.png"))
         (out / f"schedule-{width}.html").write_text(page.content(), encoding="utf-8")
         with page.expect_popup() as report_info:
@@ -248,7 +249,8 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         page.locator("#navigation [data-view=connections]").click()
         page.get_by_role("button", name="Review campaign automation", exact=True).click()
         page.get_by_role("button", name="Inspect scheduled batch", exact=True).click()
-        expect(page.locator("#campaign-schedule-progress")).to_contain_text("OFF")
+        expect(page.locator("#schedule-batch-state")).to_have_text("Schedule off")
+        expect(page.locator("#schedule-live-stage")).to_contain_text("No new items will start")
         page.locator("#close-modal").click()
         page.locator("#navigation > [data-view=overview]").click()
         page.locator("#goal-advanced > summary").click()
