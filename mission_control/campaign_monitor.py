@@ -400,7 +400,7 @@ def _observation(item, targets):
         "ABANDONED_UNKNOWN",
     ):
         result["recovery"] = recovery
-    if item.get("protective_pause") == "PAUSED_campaign":
+    if item.get("protective_pause") == "PAUSED_campaign" and item.get("pause_effective_status") == "PAUSED":
         result["protective_pause"] = "PAUSED_campaign"
     commitment = item.get("commitment_held_minor")
     if type(commitment) is int and 0 <= commitment <= 100000000:
@@ -663,6 +663,7 @@ def execute(store, job, transport=None):
                 paused = protect(store, job, service, capability, result)
                 if paused is not None:
                     results[-1]["protective_pause"] = paused["status"]
+                    results[-1]["pause_effective_status"] = paused["pause_readback"]["effective_status"]
                     results[-1]["commitment_held_minor"] = paused["commitment"]
             return dict(
                 status="OBSERVED",
@@ -711,8 +712,10 @@ def protect(store, job, service, capability, result):
     )
     paused = service.run_pause(job["app_id"], "monitor:" + job["id"], capability["scope_id"], result["id"])
     readback = paused.get("pause_readback")
-    if paused["status"] != "PAUSED_campaign" or (
-        isinstance(readback, dict) and readback.get("effective_status") == "ACTIVE"
+    if (
+        paused["status"] != "PAUSED_campaign"
+        or not isinstance(readback, dict)
+        or readback.get("effective_status") != "PAUSED"
     ):
         raise PermissionError("Protective pause was not verified")
     return paused
