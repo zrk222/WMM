@@ -296,15 +296,6 @@ def owner_operating_protocol():
             "reuse": "Discovery qualification never grants reuse rights. Require current rights and exact source hashes before production.",
             "direction": "Use current app-bound creative taste, audience, hook, beat, treatment and owner edits; preview and inspect the actual render.",
             "draft_editing_recipe": editing_recipe(),
-            "toolchain_guidance": {
-                "authority": "ADVISORY_ONLY",
-                "discover": "Check the current operation catalog before promising any tool or provider. If unavailable, report the reason and preserve draft progress.",
-                "hypit": "Keep the selected acquisition workflow. Compare creative variants with the same audience, offer, real app proof, destination and declared metric.",
-                "rea_video": "Use permitted local footage to extract time-aligned observations. Separate detected cuts from interpretations; use the original frame or timestamp as evidence.",
-                "genjutsu": "Use only for a testable variant when the owner selects metered generation and approves the exact cost and media disclosure. Reconcile an uncertain provider request before retrying.",
-                "evaluation": "Change one meaningful creative variable. Check hook clarity, caption legibility, authentic app proof and the call to action before proposing publication.",
-                "learning": "Log failed tests as well as wins. Show sample sizes, missing tracking and attribution limits. Recommend Continue, Revise, Stop or Collect more data without inventing lift.",
-            },
             "viral_repurpose_order": [
                 "discover_social_source",
                 "verify_100000_views_and_10x_documented_creator_baseline",
