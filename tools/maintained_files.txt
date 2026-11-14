@@ -9,6 +9,7 @@ mission_control/attribution_ingestion.py
 mission_control/audit_runtime.py
 mission_control/automation_execution.py
 mission_control/campaign_contract.py
+mission_control/campaign_execution.py
 mission_control/campaign_monitor.py
 mission_control/campaign_schedule_authority.py
 mission_control/cloud_connection.py
