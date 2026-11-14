@@ -1,0 +1,36 @@
+name: Schedule authority coverage
+on:
+  pull_request:
+  push:
+    branches: [main]
+concurrency:
+  group: authority-coverage-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  schedule-authority:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - name: Install pinned coverage and runtime
+        run: 'python -m pip install --require-hashes --only-binary :all: -r requirements.txt -r docs/requirements-coverage.txt'
+      - name: Measure schedule authority with synthetic provider tests
+        run: |
+          python -m coverage run --branch --include='*/campaign_schedule_authority.py' -m unittest -q tests.test_campaign_schedule tests.test_campaign_schedule_http tests.test_organic_video_schedule tests.test_authority_expiry_children tests.test_schedule_authority_boundary
+          python -m coverage json -o authority-coverage.json
+          python tools/check_authority_coverage.py authority-coverage.json
+      - name: Retain line and branch counts for review
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: schedule-authority-coverage
+          path: authority-coverage.json
+          if-no-files-found: ignore
+          retention-days: 7
