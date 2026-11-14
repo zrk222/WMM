@@ -2,6 +2,7 @@
 
 import json
 from datetime import timedelta
+from typing import Any
 
 from .common import Invalid, digest, iso_time, now
 from .weekly_controls import decision_controls
@@ -16,7 +17,7 @@ ROUTES = {
 }
 
 
-def project(workspace):
+def project(workspace) -> dict[str, Any]:
     """Project only the selected app's evidence, not its credentials or conversations."""
     app = workspace["app"]
     controls = decision_controls(app, workspace["records"], workspace["stages"])
@@ -45,7 +46,10 @@ def project(workspace):
                     resolution_route="findings",
                 )
             )
-    for gate in controls["gates"]:
+    gates = controls["gates"]
+    if not isinstance(gates, list):
+        raise Invalid("Weekly decision gates are malformed")
+    for gate in gates:
         if gate["state"] != "LOCAL_INPUTS_READY":
             stage = next((s for s in workspace["stages"] if s["id"] == gate["stage"]), {})
             cards.append(
@@ -78,7 +82,7 @@ def project(workspace):
         app_name=app["data"]["name"],
         source_receipt=receipt,
         exceptions=cards,
-        local_ready=[g["id"] for g in controls["gates"] if g["state"] == "LOCAL_INPUTS_READY"],
+        local_ready=[g["id"] for g in gates if g["state"] == "LOCAL_INPUTS_READY"],
         current_stage=dict(
             id=current,
             title=stage["title"] if stage else None,
@@ -89,7 +93,7 @@ def project(workspace):
     )
 
 
-def review(service, offset=0, user=None):
+def review(service, offset=0, user=None) -> dict[str, Any]:
     """Read at most five workspaces; retain every failed source and explicit coverage."""
     if type(offset) is not int or offset < 0:
         raise Invalid("Use a nonnegative portfolio offset")
@@ -102,7 +106,7 @@ def review(service, offset=0, user=None):
             row = project(service.workspace(app["id"]))
             row["active_work"] = active_work(service.store, app, user)
             row["exceptions"].extend(operation_exceptions(service.store, app, user))
-        except Exception:
+        except Exception:  # noqa: BLE001 - one damaged workspace cannot hide the other apps
             row = dict(
                 app_id=app["id"],
                 app_name=app["data"]["name"],
@@ -167,7 +171,7 @@ def _soon(value, current):
     """Return a future expiry inside the review horizon; anything else stays absent."""
     try:
         at = iso_time(value)
-    except Exception:
+    except (Invalid, OverflowError):
         return None
     return at if current < at <= current + EXPIRY_HORIZON else None
 
@@ -348,7 +352,7 @@ def operation_exceptions(store, app, user):
             return cards
         try:
             return cards + _operation_rows(db, app, principal, tables)
-        except Exception:
+        except Exception:  # noqa: BLE001 - preserve source-health card for unexpected failures
             return cards + [
                 _card(
                     app,
@@ -378,7 +382,7 @@ def _authoritative_review_grant(db, app_id, item, cache):
         ).fetchone()
         if source is None:
             raise Invalid("Grant source unavailable")
-        grant = dict(source)
+        grant = source
         cache[grant_id] = grant
     if (
         grant["id"] != item["g_id"]
@@ -410,7 +414,9 @@ def _authoritative_review_grant(db, app_id, item, cache):
 def _agent_review_cards(db, app, principal, role, tables):
     """Read bounded metadata only; inspection and decisions remain in Agent Control."""
     from datetime import datetime, timezone
-    from .agent_checkpoints import OPERATIONS, current as checkpoint_current, hashed
+
+    from .agent_checkpoints import OPERATIONS, hashed
+    from .agent_checkpoints import current as checkpoint_current
     from .agent_grants import current as grant_current
     from .authority_expiry import effective_expiry
     from .common import iso_time
@@ -431,7 +437,7 @@ def _agent_review_cards(db, app, principal, role, tables):
             "LEFT JOIN agent_grants g ON g.id=r.grant_id WHERE r.app_id=? ORDER BY r.id LIMIT 100",
             (app["id"],),
         ).fetchall()
-    except Exception:
+    except Exception:  # noqa: BLE001 - preserve the source-health fallback
         return [_review_source_card(app, principal, role, "review-source")]
     observed = datetime.now(timezone.utc)
     cards = []
@@ -440,7 +446,9 @@ def _agent_review_cards(db, app, principal, role, tables):
     for item in rows:
         identity = item["id"]
         row = _saved(item["checkpoint"])
-        packet = row.get("packet") if isinstance(row.get("packet"), dict) else {}
+        packet = row.get("packet")
+        if not isinstance(packet, dict):
+            packet = {}
         # Never disclose another maker's request, including corrupt sources.
         # ReviewedDispatch creates the checkpoint as the grant owner; do not
         # trust a damaged packet to identify the maker for a private read.
@@ -643,7 +651,7 @@ def _operation_rows(db, app, principal, tables):
         if table not in tables:
             continue
         sql = (
-            "SELECT i.* FROM " + table + " i JOIN campaign_scopes s ON s.app_id=i.app_id AND s.id=i.scope_id "
+            "SELECT i.* FROM " + table + " i JOIN campaign_scopes s ON s.app_id=i.app_id AND s.id=i.scope_id "  # noqa: S608 - closed local table tuple
             "WHERE i.app_id=? AND s.owner=? ORDER BY i.updated DESC,i.id LIMIT 100"
         )
         for row in db.execute(sql, (app["id"], principal)):
@@ -684,7 +692,7 @@ def _operation_rows(db, app, principal, tables):
 
 def _handoff_cards(db, app, principal):
     """Reuse current handoff admission state without resuming or issuing authority."""
-    from .agent_handoffs import _read, _job, _view, _utc
+    from .agent_handoffs import _job, _read, _utc, _view
 
     cards = []
     observed = _utc()

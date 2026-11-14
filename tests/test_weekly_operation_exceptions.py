@@ -1,14 +1,14 @@
 """Owner-private bounded weekly operational exceptions over real saved SQLite state."""
 
-from datetime import datetime, timedelta, timezone
 import json
 import time
 import unittest
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
-from mission_control.weekly_inbox import review, operation_exceptions, trusted_principal
 from mission_control.common import canonical, digest, now
 from mission_control.db import connection
+from mission_control.weekly_inbox import operation_exceptions, review, trusted_principal
 from tests import test_campaign_owner_reports as report_fixture
 
 
@@ -122,7 +122,7 @@ class WeeklyOperationTests(unittest.TestCase):
                         "RUNNING",
                         0,
                         0,
-                        canonical(dict(secret="PRIVATE_JOB_RESULT")),
+                        canonical(dict(secret="PRIVATE_JOB_RESULT")),  # noqa: S106 - synthetic redaction fixture
                         stamp,
                         stamp,
                         "active-request-%03d" % ordinal,
@@ -158,7 +158,9 @@ class WeeklyOperationTests(unittest.TestCase):
         handoff, job = self.handoff()
         self.assertEqual(self.cards(), [])
         with connection(self.store.path) as db:
-            future = db.execute("SELECT expires FROM agent_handoffs WHERE id=?", (handoff["id"],)).fetchone()[0]
+            row = db.execute("SELECT expires FROM agent_handoffs WHERE id=?", (handoff["id"],)).fetchone()
+            assert row is not None
+            future = row[0]
             db.execute(
                 "UPDATE agent_handoffs SET expires=? WHERE id=?",
                 ((datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat(), handoff["id"]),
@@ -189,7 +191,7 @@ class WeeklyOperationTests(unittest.TestCase):
         with connection(self.store.path) as db:
             db.execute(
                 "UPDATE jobs SET status='FAILED',result=? WHERE id=?",
-                (canonical(dict(secret="PRIVATE_ERROR")), job["id"]),
+                (canonical({"secret": "PRIVATE_ERROR"}), job["id"]),
             )
         card = self.cards()[0]
         self.assertEqual(card["state"], "JOB_FAILED")
@@ -231,6 +233,7 @@ class WeeklyOperationTests(unittest.TestCase):
                 expires=(datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat(),
             ),
         )
+        assert isinstance(issued, dict)
         client = OperatorClient(self.fixture.fixture.client.origin, grant_token=issued["token"])
         resumed = client.call(
             dict(
@@ -240,6 +243,7 @@ class WeeklyOperationTests(unittest.TestCase):
                 input=dict(version=handoff["version"], payload_hash=handoff["payload_hash"]),
             )
         )
+        assert isinstance(resumed, dict)
         self.assertEqual(resumed["effective_status"], "CLAIMED")
         self.assertEqual(resumed["job_id"], job["id"])
         self.assertEqual(self.cards(), [])
@@ -247,14 +251,16 @@ class WeeklyOperationTests(unittest.TestCase):
     def test_handoff_projection_is_bounded_deterministic_and_corruption_is_visible(self):
         handoff, _ = self.handoff()
         with connection(self.store.path) as db:
-            original = dict(db.execute("SELECT * FROM agent_handoffs WHERE id=?", (handoff["id"],)).fetchone())
+            row = db.execute("SELECT * FROM agent_handoffs WHERE id=?", (handoff["id"],)).fetchone()
+            assert row is not None
+            original = dict(row)
             expired = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
             db.execute("UPDATE agent_handoffs SET expires=?", (expired,))
             for ordinal in range(105):
                 clone = dict(original, id="bounded-handoff-%03d" % ordinal, expires=expired)
                 columns = tuple(clone)
                 db.execute(
-                    "INSERT INTO agent_handoffs ("
+                    "INSERT INTO agent_handoffs ("  # noqa: S608 - columns come from the fixture table
                     + ",".join(columns)
                     + ") VALUES ("
                     + ",".join("?" for _ in columns)
@@ -271,7 +277,9 @@ class WeeklyOperationTests(unittest.TestCase):
         )
         with connection(self.store.path) as db:
             # Corrupt a row inside the selected bound while another domain needs action.
-            selected = db.execute("SELECT id FROM agent_handoffs ORDER BY created DESC,id LIMIT 1").fetchone()[0]
+            row = db.execute("SELECT id FROM agent_handoffs ORDER BY created DESC,id LIMIT 1").fetchone()
+            assert row is not None
+            selected = row[0]
             db.execute("UPDATE agent_handoffs SET payload=? WHERE id=?", ("PRIVATE_CORRUPTED_PAYLOAD", selected))
             db.execute("UPDATE campaign_paid_intents SET status='UNKNOWN'")
         unavailable = self.cards()
@@ -305,7 +313,7 @@ class WeeklyOperationTests(unittest.TestCase):
         with connection(self.store.path) as db:
             db.execute(
                 "UPDATE campaign_paid_intents SET status='PENDING_ACTIVE_campaign',result=?",
-                (canonical(dict(secret="PRIVATE_RAW", error="PRIVATE_ERROR")),),
+                (canonical({"secret": "PRIVATE_RAW", "error": "PRIVATE_ERROR"}),),
             )
             db.execute("UPDATE campaign_monitors SET status='BLOCKED'")
         first = self.cards()
@@ -378,6 +386,7 @@ class WeeklyOperationTests(unittest.TestCase):
 
     def test_failed_job_projection_checks_exact_owner_plan_binding(self):
         monitor = self.fixture.monitor
+        assert monitor is not None
         stamp = now()
         data = dict(
             monitor_id=monitor["id"],
@@ -428,12 +437,13 @@ class WeeklyOperationTests(unittest.TestCase):
         workspace["sequences"] = {"history": [dict(state="WAITING"), dict(state="QUEUED"), dict(state="CANCELLED")]}
         workspace["workflow"] = dict(
             workspace["workflow"],
+            next_action={"title": "Review the next stage"},
             steps=[dict(critical_findings=["One confirmed P0"]), dict(critical_findings=[])],
         )
         value = project(workspace)
         self.assertEqual(value["active_sequences"], 2)
         self.assertEqual(value["high_priority_gaps"], 1)
-        self.assertEqual(value["current_stage"]["next_action"], workspace["workflow"]["next_action"]["title"])
+        self.assertEqual(value["current_stage"]["next_action"], "Review the next stage")
         with patch("mission_control.weekly_inbox.project", side_effect=RuntimeError("PRIVATE_SQL_ERROR")):
             broken = review(self.server.service, user=self.owner)
         for row in broken["apps"]:
