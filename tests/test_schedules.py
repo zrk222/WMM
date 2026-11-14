@@ -161,6 +161,7 @@ class ScheduleTests(unittest.TestCase):
         self.save(max_observations=1)
         self.tick()
         first = claim(self.store)
+        assert first is not None, "The worker did not claim the due job"
         with connection(self.store.path) as db:
             db.execute("UPDATE jobs SET lease=0 WHERE id=?", (first["id"],))
         self.assertTrue(self.execute())
@@ -425,12 +426,14 @@ class ScheduleTests(unittest.TestCase):
         runner.start()
         try:
             deadline = time.monotonic() + 5
-            while time.monotonic() < deadline:
-                saved = jobs(self.store, "sample-one")
-                health = runner.health
-                if saved and saved[0]["status"] == "SUCCEEDED" and health["status"] == "RUNNING":
+            saved = jobs(self.store, "sample-one")
+            health = runner.health
+            while not (saved and saved[0]["status"] == "SUCCEEDED" and health["status"] == "RUNNING"):
+                if time.monotonic() >= deadline:
                     break
                 time.sleep(0.05)
+                saved = jobs(self.store, "sample-one")
+                health = runner.health
             self.assertTrue(saved, "The worker did not record a due job")
             self.assertEqual(saved[0]["status"], "SUCCEEDED")
             self.assertEqual(health["status"], "RUNNING", health["last_error"])
