@@ -22,6 +22,26 @@ STAGE = HARNESS["STAGE"]
 
 
 class HostServiceContractTests(unittest.TestCase):
+    def test_keyring_readiness_uses_exact_bus_and_requires_a_default_collection(self):
+        open_keyring = HARNESS["open_disposable_keyring"]
+        bus = "unix:path=/run/user/1002/bus"
+        env = {"DBUS_SESSION_BUS_ADDRESS": bus}
+        calls = []
+        replies = [(0, ""), (0, 'o "/"'), (0, 'o "/org/freedesktop/secrets/collection/login"')]
+
+        def command(actual_env, *args, **options):
+            self.assertEqual(actual_env, env)
+            calls.append((args, options))
+            code, stdout = replies.pop(0)
+            return subprocess.CompletedProcess(args, code, stdout, "")
+
+        with patch.dict(open_keyring.__globals__, {"command": command, "systemctl": lambda *_: None}):
+            open_keyring(env)
+        self.assertEqual(len(calls), 3)
+        self.assertTrue(calls[0][1]["stdin"])
+        self.assertNotIn(calls[0][1]["stdin"], calls[0][0])
+        self.assertTrue(all(args[1] == f"--address={bus}" and args[-1] == "default" for args, _ in calls[1:]))
+
     def test_log_privacy_requires_both_invocations_and_rejects_canary(self):
         verify = HARNESS["assert_service_output_private"]
         with tempfile.TemporaryDirectory() as directory:

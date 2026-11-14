@@ -158,16 +158,44 @@ def assert_secret_absent(value, canary):
         raise AssertionError("Protected test material escaped the native keyring")
 
 
-def register_protected_connection(env, client, csrf):
-    # Open only this disposable user's keyring. Neither password nor temporary
-    # private key is recorded in arguments, output, the environment or a file.
-    systemctl(env, "start", "gnome-keyring-daemon.service")
+def open_disposable_keyring(env):
+    # This account has its own fresh home and user bus. Remove the packaged socket
+    # activation path so only the daemon launched on the explicit bus can serve it.
+    systemctl(env, "stop", "gnome-keyring-daemon.socket", "gnome-keyring-daemon.service")
     unlock = command(
         env, "gnome-keyring-daemon", "--unlock", "--components=secrets", stdin=uuid4().hex, timeout=20, check=False
     )
     if unlock.returncode:
         raise RuntimeError("Disposable Secret Service did not initialize")
-    command(env, "busctl", "--user", "status", "org.freedesktop.secrets", timeout=10)
+    deadline = time.monotonic() + 12
+    while time.monotonic() < deadline:
+        reply = command(
+            env,
+            "busctl",
+            "--address=" + env["DBUS_SESSION_BUS_ADDRESS"],
+            "--timeout=2",
+            "call",
+            "org.freedesktop.secrets",
+            "/org/freedesktop/secrets",
+            "org.freedesktop.Secret.Service",
+            "ReadAlias",
+            "s",
+            "default",
+            timeout=4,
+            check=False,
+        )
+        if reply.returncode == 0 and re.fullmatch(
+            r'o "/org/freedesktop/secrets/collection/[A-Za-z0-9_]+"', reply.stdout.strip()
+        ):
+            return
+        time.sleep(0.25)
+    raise RuntimeError("Disposable Secret Service did not expose a default collection on the worker bus")
+
+
+def register_protected_connection(env, client, csrf):
+    # The generated key is held in process memory until the existing local setup
+    # route hands it to Secret Service.
+    open_disposable_keyring(env)
     empty = request_json(client, ORIGIN, f"/api/apps/{APP}")
     if empty["connections"]:
         raise AssertionError("Disposable app unexpectedly has an existing connection")
@@ -384,6 +412,7 @@ def main():
         unit.write_text(
             UNIT.read_text(encoding="utf-8")
             + f"\n[Service]\nEnvironment=XDG_DATA_HOME={directory}/data\n"
+            + f"Environment=DBUS_SESSION_BUS_ADDRESS={env['DBUS_SESSION_BUS_ADDRESS']}\n"
             + f"StandardOutput=append:{output}\nStandardError=inherit\n",
             encoding="utf-8",
         )
