@@ -530,6 +530,8 @@ class FakePaidTransport(FakeTransport):
     def set_paid_status(self, kind, identity, status, token, secret, alive):
         alive()
         self.objects[identity]["status"] = status
+        if kind == "campaign" and status == "PAUSED":
+            self.objects[identity].setdefault("effective_status", "PAUSED")
         return True
 
     def ad_insights(self, identity, token, secret, alive):

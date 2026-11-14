@@ -206,6 +206,11 @@ class CampaignMonitorTests(unittest.TestCase):
         self.assertEqual(result["status"], "OBSERVED")
         self.assertEqual(statuses, [("campaign", "PAUSED")])
         self.assertEqual(result["observations"][0]["protective_pause"], "PAUSED_campaign")
+        self.assertEqual(result["observations"][0]["pause_effective_status"], "PAUSED")
+        persist_job_result(self.store, job, result, "SUCCEEDED", 0)
+        shown = self.status(monitor)["last_observation"]
+        assert shown is not None
+        self.assertEqual(shown["observations"][0]["protective_pause"], "PAUSED_campaign")
         current = self.fixture.service.list_intents("sample", self.scope["scope_id"])[0]
         self.assertEqual(current["status"], "PAUSED_campaign")
         self.assertEqual(current["commitment"], 80)
@@ -213,10 +218,25 @@ class CampaignMonitorTests(unittest.TestCase):
         self.assertEqual(self.status(monitor)["provider_units"], 8)
 
     def test_configured_pause_with_effective_active_requires_reconciliation(self) -> None:
+        self.assert_unverified_effective_pause("ACTIVE")
+
+    def test_configured_pause_without_effective_status_requires_reconciliation(self) -> None:
+        self.assert_unverified_effective_pause(None)
+
+    def assert_unverified_effective_pause(self, effective: str | None) -> None:
         monitor, job = self.job()
         self.wire.objects[self.intent["ids"]["adset"]]["lifetime_budget"] = 999
-        self.wire.objects[self.intent["ids"]["campaign"]]["effective_status"] = "ACTIVE"
-        with patch.object(self.wire, "set_paid_status", wraps=self.wire.set_paid_status) as write:
+        original = self.wire.set_paid_status
+
+        def status(kind, identity, value, token, secret, alive):
+            result = original(kind, identity, value, token, secret, alive)
+            if effective is None:
+                self.wire.objects[identity].pop("effective_status", None)
+            else:
+                self.wire.objects[identity]["effective_status"] = effective
+            return result
+
+        with patch.object(self.wire, "set_paid_status", side_effect=status) as write:
             result = core.execute(self.store, job, self.wire)
             write.assert_called_once()
             self.assertEqual(result["status"], "BLOCKED")
@@ -228,7 +248,7 @@ class CampaignMonitorTests(unittest.TestCase):
             write.assert_called_once()
         retained = self.fixture.service.list_intents("sample", self.scope["scope_id"])[0]
         self.assertEqual(retained["pause_readback"]["configured_status"], "PAUSED")
-        self.assertEqual(retained["pause_readback"]["effective_status"], "ACTIVE")
+        self.assertEqual(retained["pause_readback"]["effective_status"], effective)
         self.assertEqual(retained["commitment"], 80)
         shown = self.status(monitor)
         self.assertEqual(shown["attention"], "VERIFY_PROVIDER")
@@ -557,7 +577,6 @@ class CampaignMonitorTests(unittest.TestCase):
                     intent_id=self.intent["id"],
                     status="UNKNOWN",
                     recovery="ABANDONED_UNKNOWN",
-                    protective_pause="PAUSED_campaign",
                     commitment_held_minor=80,
                 )
             ],
