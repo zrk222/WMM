@@ -7,7 +7,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 from .campaign_execution import saved_pause_receipt, scope_view
-from .campaign_metric_definitions import definitions, object_data
+from .campaign_metric_definitions import definitions, historical_measurement, object_data
 from .campaign_monitor import actor, last_observation, whole
 from .common import Invalid, canonical, digest, identifier, iso_time, now, uid
 from .db import connection
@@ -364,7 +364,6 @@ def build(db, store, app_id, owner, chosen):
         kpi_gaps=gaps,
         experiment=experiment,
         comparison=comparison(db, app_id, owner, key, metrics),
-        next_action=next_action(campaign, monitor_view, experiment),
         authority_issued=False,
         limits="Saved local evidence only; no fresh provider reads, messages, publication or verified business lift.",
     )
@@ -384,6 +383,9 @@ def build(db, store, app_id, owner, chosen):
         value["delivery_evidence"] = matched_post(
             db, app_id, chosen["scope_id"], approved, value["first_party_outcomes"]
         )
+    value["next_action"] = next_action(
+        campaign, monitor_view, experiment, value.get("delivery_evidence"), value.get("primary_outcome")
+    )
     value["source_hash"] = digest(
         dict(
             binding=source,
@@ -474,17 +476,28 @@ def has_campaign_tag(url: object, campaign: str) -> bool:
         return False
 
 
-def next_action(campaign, monitor, experiment):
+def _pause_showed_active_delivery(receipt):
+    readback = receipt.get("pause_readback")
+    return readback is not None and readback.get("effective_status") == "ACTIVE"
+
+
+def next_action(campaign, monitor, experiment, delivery=None, outcome=None):
+    if any(_pause_showed_active_delivery(r) for r in campaign["receipts"]):
+        return (
+            "The saved pause read showed Meta reporting active delivery. Verify current status for the exact campaign "
+            "before interpreting results; do not retry the pause from this report."
+        )
     uncertain = ("UNKNOWN", "DISPATCHING", "ACKNOWLEDGED", "VERIFYING")
-    if any(r["status"] in uncertain or r["status"].startswith("PENDING_") for r in campaign["receipts"]):
+    if any(r["status"] in uncertain or r["status"].startswith(("PENDING_", "ACK_")) for r in campaign["receipts"]):
         return "Inspect and reconcile the exact uncertain campaign receipts; do not replay mutations."
-    if _historical(campaign):
-        return "Review historical campaign receipts; this report does not renew expired or OFF execution authority."
     observation = monitor["last_observation"]
-    if monitor["id"] and not observation:
-        return "Inspect the selected monitor; no saved monitor observation is available."
     if observation and observation.get("status") == "BLOCKED":
         return "Inspect the blocked monitor and reconcile its saved campaign receipts; do not replay mutations."
+    if _historical(campaign):
+        guidance = historical_measurement(campaign, delivery, outcome)
+        return guidance + " This historical report does not renew expired or OFF execution authority."
+    if monitor["id"] and not observation:
+        return "Inspect the selected monitor; no saved monitor observation is available."
     if not experiment:
         return "Choose a primary outcome and a measured study for this campaign. App-wide KPI totals do not show what this campaign did."
     if experiment["review_window_alignment"] != "MATCHED":

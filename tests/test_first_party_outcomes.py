@@ -76,6 +76,54 @@ class OutcomeTests(unittest.TestCase):
             self.assertEqual(result["status"], state)
             self.assertIsNone(result["value"])
 
+    def test_historical_owner_guidance_preserves_reconciliation_and_attribution_limits(self) -> None:
+        advice = test_campaign_owner_reports.core.next_action
+        campaign = {"status": "OFF", "expires_at": WINDOW[2], "receipts": [{"status": "VERIFIED"}]}
+        monitor = {"last_observation": None, "id": None}
+        self.assertIn("match the approved tag", advice(campaign, monitor, None).lower())
+        delivery = {"status": "EXACT_TAGGED_POST_READBACK"}
+        for outcome, expected in (
+            ("OBSERVED_DESCRIPTIVE", "does not establish lift"),
+            ("NO_ELIGIBLE_FIRST_OPENS", "conversion rate unknown"),
+            ("PARTIAL_COVERAGE", "Complete evidence"),
+            ("UNSUPPORTED_DEFINITION", "Choose a supported metric"),
+            ("DEFINITION_UNVERIFIED", "source counts first opens"),
+            ("COUNTS_UNVERIFIED", "Reconcile the source counts"),
+        ):
+            text = advice(campaign, monitor, None, delivery, {"status": outcome})
+            self.assertIn(expected, text)
+            self.assertIn("does not renew", text)
+        ambiguous = {"status": "MULTIPLE_POSTS_SHARE_TAG"}
+        self.assertIn("cannot identify one delivery", advice(campaign, monitor, None, ambiguous))
+        for effectiveness in ("ACTIVE", "PAUSED", None):
+            with self.subTest(effective_status=effectiveness):
+                campaign["receipts"] = [
+                    {"status": "VERIFIED"},
+                    {"status": "PAUSED_campaign", "pause_readback": {"effective_status": effectiveness}},
+                ]
+                guidance = advice(campaign, monitor, None, delivery, {"status": "OBSERVED_DESCRIPTIVE"})
+                if effectiveness == "ACTIVE":
+                    self.assertIn("Verify current status for the exact campaign", guidance)
+                    self.assertIn("do not retry the pause", guidance)
+                    self.assertNotIn("matched outcome", guidance)
+                else:
+                    self.assertIn("matched outcome", guidance)
+        for state in ("UNKNOWN", "ACK_ACTIVE_adset", "ACK_ACTIVE_ad", "ACK_ACTIVE_campaign", "ACK_PAUSED_campaign"):
+            with self.subTest(receipt_state=state):
+                campaign["receipts"] = [{"status": "VERIFIED"}, {"status": state}]
+                guidance = advice(campaign, monitor, None, delivery, {"status": "OBSERVED_DESCRIPTIVE"})
+                self.assertIn("do not replay", guidance)
+                self.assertNotIn("matched outcome", guidance)
+        self.assertIn(
+            "blocked monitor",
+            advice(
+                {**campaign, "receipts": []},
+                {"id": "saved", "last_observation": {"status": "BLOCKED"}},
+                None,
+                delivery,
+            ),
+        )
+
     def test_capture_attaches_only_exact_campaign_receipt(self) -> None:
         fixture: Any = test_campaign_owner_reports.CampaignOwnerReportsTests()
         fixture.setUp()
