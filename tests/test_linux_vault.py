@@ -1,14 +1,13 @@
 """Explicit Secret Service adapter contracts with synthetic native seams."""
 
 import copy
-import json
 import sys
-import time
 import types
 import unittest
-from unittest.mock import patch, Mock
-from mission_control import linux_vault as native
+from unittest.mock import Mock, patch
+
 from mission_control import credential_vault as vault
+from mission_control import linux_vault as native
 from mission_control.common import Invalid
 
 
@@ -58,8 +57,7 @@ class LinuxVaultTests(unittest.TestCase):
         self.library = types.SimpleNamespace(
             dbus_init=Mock(return_value=self.bus), Collection=Mock(return_value=self.collection)
         )
-        self.util = types.ModuleType("secretstorage.util")
-        self.util.open_session = Mock(return_value=self.session)
+        self.util = types.SimpleNamespace(open_session=Mock(return_value=self.session))
         module = patch.dict(sys.modules, {"secretstorage": self.library, "secretstorage.util": self.util})
         module.start()
         self.addCleanup(module.stop)
@@ -68,12 +66,12 @@ class LinuxVaultTests(unittest.TestCase):
     def test_roundtrip_scope_replace_delete_and_metadata_are_exact(self):
         one = "DriveMedia/database-one/app/ref/access_token"
         two = "DriveMedia/database-two/app/ref/access_token"
-        self.native.put(one, dict(token="SYNTHETIC_SECRET"))
-        self.native.put(two, dict(token="SECOND"))
-        self.assertEqual(self.native.get(one), dict(token="SYNTHETIC_SECRET"))
-        self.native.put(one, dict(token="REPLACED"))
-        self.assertEqual(self.native.get(one), dict(token="REPLACED"))
-        self.assertEqual(self.native.get(two), dict(token="SECOND"))
+        self.native.put(one, {"token": "SYNTHETIC_SECRET"})
+        self.native.put(two, {"token": "SECOND"})
+        self.assertEqual(self.native.get(one), {"token": "SYNTHETIC_SECRET"})
+        self.native.put(one, {"token": "REPLACED"})
+        self.assertEqual(self.native.get(one), {"token": "REPLACED"})
+        self.assertEqual(self.native.get(two), {"token": "SECOND"})
         label, attributes, raw, options = self.collection.calls[0]
         self.assertNotIn("SYNTHETIC_SECRET", str(attributes))
         self.assertNotIn(one, str(attributes))
@@ -82,18 +80,18 @@ class LinuxVaultTests(unittest.TestCase):
         self.native.delete(one)
         self.native.delete(one)
         self.assertIsNone(self.native.get(one))
-        self.assertEqual(self.native.get(two), dict(token="SECOND"))
+        self.assertEqual(self.native.get(two), {"token": "SECOND"})
         self.assertEqual(self.bus.close.call_count, self.library.dbus_init.call_count)
 
     def test_locked_collection_item_and_plain_transport_preserve_secret(self):
-        self.native.put("synthetic", dict(token="before"))
+        self.native.put("synthetic", {"token": "before"})
         item = self.collection.items[0]
         for mode in ("collection", "item", "transport"):
             self.collection.locked = mode == "collection"
             item.locked = mode == "item"
             self.session.encrypted = mode != "transport"
             for action in (
-                lambda: self.native.put("synthetic", dict(token="after")),
+                lambda: self.native.put("synthetic", {"token": "after"}),
                 lambda: self.native.get("synthetic"),
                 lambda: self.native.delete("synthetic"),
             ):
@@ -103,7 +101,7 @@ class LinuxVaultTests(unittest.TestCase):
         self.assertEqual(len(self.collection.items), 1)
 
     def test_duplicate_wrong_attributes_and_corruption_fail_closed(self):
-        self.native.put("synthetic", dict(token="before"))
+        self.native.put("synthetic", {"token": "before"})
         item = self.collection.items[0]
         self.collection.items.append(copy.copy(item))
         with self.assertRaises(Invalid):
@@ -117,12 +115,12 @@ class LinuxVaultTests(unittest.TestCase):
                 native.decode(raw)
 
     def test_item_accepts_only_exact_optional_generic_service_schema(self):
-        self.native.put("synthetic", dict(token="before"))
+        self.native.put("synthetic", {"token": "before"})
         item = self.collection.items[0]
         expected = dict(item.attributes)
         item.attributes = expected | {"xdg:schema": "org.freedesktop.Secret.Generic"}
         with patch.object(self.collection, "search_items", side_effect=lambda attrs: iter([item])):
-            self.assertEqual(self.native.get("synthetic"), dict(token="before"))
+            self.assertEqual(self.native.get("synthetic"), {"token": "before"})
             for changed in (
                 expected | {"xdg:schema": "foreign.schema"},
                 expected | {"extra": "untrusted"},
@@ -150,13 +148,15 @@ class LinuxVaultTests(unittest.TestCase):
             with self.assertRaises(Invalid):
                 native.address(name)
         self.assertNotEqual(native.address("Case"), native.address("case"))
-        bus = native.BoundedBus(self.bus)
-        bus.send_and_get_reply("synthetic-message")
-        self.assertGreater(self.bus.send_and_get_reply.call_args.kwargs["timeout"], 0)
-        self.assertLessEqual(self.bus.send_and_get_reply.call_args.kwargs["timeout"], 15)
-        bus.deadline = time.monotonic() - 1
-        with self.assertRaises(TimeoutError):
+        with patch.object(native.time, "monotonic", side_effect=(497.17, 497.17, 498.17, 513.17)):
+            bus = native.BoundedBus(self.bus)
             bus.send_and_get_reply("synthetic-message")
+            self.bus.send_and_get_reply.assert_called_once_with("synthetic-message", timeout=15)
+            bus.send_and_get_reply("synthetic-message")
+            self.assertAlmostEqual(self.bus.send_and_get_reply.call_args.kwargs["timeout"], 14)
+            with self.assertRaises(TimeoutError):
+                bus.send_and_get_reply("synthetic-message")
+        self.assertEqual(self.bus.send_and_get_reply.call_count, 2)
 
     def test_unavailable_service_and_dependency_redact_native_errors(self):
         self.library.Collection.side_effect = RuntimeError("PRIVATE_NATIVE_ERROR")
@@ -164,17 +164,22 @@ class LinuxVaultTests(unittest.TestCase):
             self.native.get("synthetic")
         self.assertNotIn("PRIVATE_NATIVE_ERROR", str(error.exception))
         self.bus.close.assert_called_once()
-        with patch.object(native.importlib, "import_module", side_effect=ImportError("private-path")):
-            with self.assertRaises(Invalid) as error:
-                native.LinuxVault()
+        with (
+            patch.object(native.importlib, "import_module", side_effect=ImportError("private-path")),
+            self.assertRaises(Invalid) as error,
+        ):
+            native.LinuxVault()
         self.assertNotIn("private-path", str(error.exception))
 
     def test_platform_selection_has_no_backend_fallback(self):
         with patch.object(vault.os, "name", "posix"), patch.object(vault.sys, "platform", "linux"):
             self.assertIsInstance(vault.Vault().backend, native.LinuxVault)
-        with patch.object(vault.os, "name", "posix"), patch.object(vault.sys, "platform", "freebsd"):
-            with self.assertRaises(Invalid):
-                vault.Vault()
+        with (
+            patch.object(vault.os, "name", "posix"),
+            patch.object(vault.sys, "platform", "freebsd"),
+            self.assertRaises(Invalid),
+        ):
+            vault.Vault()
         with patch.object(vault.os, "name", "nt"), patch.object(vault, "WindowsVault") as windows:
             v = vault.Vault()
             v.put("one", {})

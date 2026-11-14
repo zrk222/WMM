@@ -33,6 +33,7 @@ mission_control/hypit_jobs.py
 mission_control/insights.py
 mission_control/integrity_drill.py
 mission_control/ledger.py
+mission_control/linux_vault.py
 mission_control/managed_media_http.py
 mission_control/market_research.py
 mission_control/marketing_agent_manifest.py
@@ -90,6 +91,7 @@ tests/test_kpi_gaps.py
 tests/test_ledger_grouping.py
 tests/test_licensing_plain.py
 tests/test_linkedin_render_contract.py
+tests/test_linux_vault.py
 tests/test_measurement_economics.py
 tests/test_migrations.py
 tests/test_observational_campaign_contract.py
