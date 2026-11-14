@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from mission_control.app_launch_history import Sources, current, history, retain
 from mission_control.app_launch_status import ConnectRead, StorefrontRead, resolve
+from mission_control.apple_storefront import lookup
 from mission_control.common import Invalid, iso_time
 from mission_control.store import Store
 
@@ -15,6 +16,21 @@ NOW = iso_time("2026-11-14T12:00:00Z")
 
 
 class AppLaunchStatusTests(unittest.TestCase):
+    def test_public_listing_needs_exact_app_and_country_and_no_credentials(self) -> None:
+        row = {"trackId": 123, "kind": "software", "trackViewUrl": "https://apps.apple.com/ca/app/example/id123"}
+        with patch("mission_control.apple_storefront.read_json") as request:
+            request.return_value = {"resultCount": 1, "results": [row]}
+            result, fingerprint = lookup("123", "CA")
+            self.assertEqual(result["state"], "AVAILABLE")
+            self.assertEqual(len(fingerprint), 64)
+            request.assert_called_once_with("https://itunes.apple.com/lookup?id=123&country=ca", {}, timeout=8)
+            with self.assertRaisesRegex(Invalid, "storefront"):
+                lookup("123", "US")
+            with self.assertRaisesRegex(Invalid, "different app"):
+                lookup("124", "CA")
+            request.return_value = {"resultCount": 0, "results": []}
+            self.assertEqual(lookup("123", "CA")[0]["state"], "NOT_LISTED")
+
     def test_history_preserves_exact_retry_and_previous_verified_status(self) -> None:
         with TemporaryDirectory() as folder:
             path = Path(folder) / "launch.sqlite"

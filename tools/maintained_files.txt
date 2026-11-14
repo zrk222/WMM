@@ -5,6 +5,7 @@ mission_control/agent_review_dispatch.py
 mission_control/agent_tasks.py
 mission_control/app_launch_history.py
 mission_control/app_launch_status.py
+mission_control/apple_storefront.py
 mission_control/architecture.py
 mission_control/attribution_adservices.py
 mission_control/attribution_ingestion.py

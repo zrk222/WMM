@@ -135,6 +135,11 @@ def report_options(provider, options):
         return google_options(options)
     if operation == "release_inventory":
         return release_options(provider, options)
+    if provider == "app_store" and operation == "launch_versions" and set(options) == {"operation", "storefront"}:
+        from .apple_storefront import storefront_code
+
+        storefront_code(options["storefront"])
+        return options
     if (
         operation in ("reviews", "subscription_catalog", "analytics_reports", "launch_versions")
         and provider == "app_store"
@@ -246,6 +251,11 @@ def read_report(binding, app_id, options, connection_id=None, connection_version
         report = read_inventory(reader, store_id, options["version_id"])
     elif options["operation"] == "launch_versions":
         report = read_launch_versions(reader, store_id)
+        if "storefront" in options:
+            from .apple_storefront import lookup
+
+            observation, fingerprint = lookup(store_id, options["storefront"])
+            report.update(storefront_read=observation, storefront_source_hash=fingerprint)
     elif options["operation"] == "analytics_reports":
         report = read_analytics(reader, store_id)
     elif options["operation"] == "campaign_report":
