@@ -86,25 +86,35 @@ async function campaignOpen(source = null, study = null) {
     scopeForm.elements.connection_id.value = selected.id;
   }
   const draftPlan = state.workspace?.pre_registration?.measurement_plan;
-  if (draftPlan) {
-    const assign = (name, value) => {
-      const input = scopeForm.elements[name];
-      if (input && !input.value && value) input.value = value;
-    };
-    const local = (value) => {
-      const date = new Date(value);
-      return Number.isNaN(date.getTime())
-        ? ''
-        : new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-    };
-    assign('measurement_metric', draftPlan.primary_metric);
-    assign('measurement_denominator', draftPlan.denominator);
-    assign('measurement_tag', draftPlan.campaign_tag);
-    assign('measurement_starts', local(draftPlan.starts_at));
-    assign('measurement_ends', local(draftPlan.ends_at));
-    assign('measurement_hypothesis', draftPlan.hypothesis);
-    assign('measurement_rule', draftPlan.decision_rule);
-    if (!scopeForm.elements.link.value) scopeForm.elements.link.value = draftPlan.link;
+  if (draftPlan && !study) {
+    const useDraft = document.createElement('button');
+    useDraft.type = 'button';
+    useDraft.className = 'button outline';
+    useDraft.textContent = 'Fill in the suggested measurement draft';
+    scopeForm.elements.measurement_metric
+      .closest('details')
+      .querySelector('summary')
+      .after(useDraft);
+    useDraft.addEventListener('click', () => {
+      const assign = (name, value) => {
+        const input = scopeForm.elements[name];
+        if (input && !input.value && value) input.value = value;
+      };
+      const local = (value) => {
+        const date = new Date(value);
+        return Number.isNaN(date.getTime())
+          ? ''
+          : new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      };
+      assign('measurement_metric', draftPlan.primary_metric);
+      assign('measurement_denominator', draftPlan.denominator);
+      assign('measurement_tag', draftPlan.campaign_tag);
+      assign('measurement_starts', local(draftPlan.starts_at));
+      assign('measurement_ends', local(draftPlan.ends_at));
+      assign('measurement_hypothesis', draftPlan.hypothesis);
+      assign('measurement_rule', draftPlan.decision_rule);
+      if (!scopeForm.elements.link.value) scopeForm.elements.link.value = draftPlan.link;
+    });
   }
   scopeForm
     .querySelector('[type=submit]')
@@ -237,7 +247,11 @@ async function campaignSubmit(form) {
       hypothesis: values.measurement_hypothesis,
       rule: values.measurement_rule,
     };
-    const anyPlan = Object.values(planValues).some((value) => String(value || '').trim());
+    const anyPlan = [
+      values.measurement_starts,
+      values.measurement_ends,
+      ...Object.values(planValues),
+    ].some((value) => String(value || '').trim());
     let measurementPlan = null;
     if (anyPlan) {
       if (

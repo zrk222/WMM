@@ -3,6 +3,7 @@
 import json
 import time
 from datetime import datetime, timezone
+from typing import Any
 
 from .campaign_contract import ad_data, post_data
 from .campaign_execution import CampaignExecutionService, scope_view
@@ -76,9 +77,22 @@ def prepare_item(item, scope, db, app_id):
         or post["rights_hash"] not in scope["approved_rights_hashes"]
     ):
         raise PermissionError("Scheduled post is outside campaign approval")
+    check_measurement_schedule(db, app_id, scope, operation, post, due)
+    return due, operation, post
+
+
+def check_measurement_schedule(db, app_id, scope, operation, post, due):
     if operation == "campaign.ad-launch":
         check_paid_review(db, app_id, scope, post, due)
-    return due, operation, post
+    plan = scope.get("measurement_plan")
+    if plan:
+        from .evidence_gate import measurement_plan
+
+        parsed = measurement_plan(plan, retained=True)
+        if operation == "campaign.publish" and post.get("link") != parsed["link"]:
+            raise Invalid("The scheduled post must use the approved tagged link.")
+        if due >= iso_time(parsed["ends_at"]):
+            raise Invalid("The scheduled work must run before the measurement window closes.")
 
 
 def check_paid_review(db, app_id, scope, body, due):
@@ -91,12 +105,16 @@ def check_paid_review(db, app_id, scope, body, due):
     ):
         raise PermissionError("Paid promotion exceeds the approved scope")
     post = db.execute(
-        """SELECT 1 FROM campaign_intents WHERE app_id=? AND page_id=? AND remote_id=?
+        """SELECT result FROM campaign_intents WHERE app_id=? AND page_id=? AND remote_id=?
         AND status='VERIFIED' AND content_hash=? AND rights_hash=?""",
         (app_id, scope["page_id"], body["post_id"], body["content_hash"], body["rights_hash"]),
     ).fetchone()
     if post is None:
         raise PermissionError("Schedule only a verified saved Page post")
+    if scope.get("measurement_plan"):
+        from .evidence_gate import check_promotion_link
+
+        check_promotion_link(post, scope["measurement_plan"])
 
 
 def validate_items(rows, summary, *, require_future=True):
@@ -204,6 +222,16 @@ class CampaignSchedules:
             check_deadline(summary, scope["expires_at"])
             rows = db.execute("SELECT * FROM campaign_schedule_items WHERE batch_id=?", (batch_id,)).fetchall()
             validate_items(rows, summary)
+            if scope.get("measurement_plan"):
+                for item in summary["items"]:
+                    check_measurement_schedule(
+                        db,
+                        app_id,
+                        scope,
+                        item.get("operation", "campaign.publish"),
+                        item["request"],
+                        iso_time(item["due_at"]),
+                    )
             db.execute(
                 "UPDATE campaign_schedule_batches SET status='ACTIVE',version=version+1,updated=? WHERE id=?",
                 (now(), batch_id),
@@ -397,7 +425,9 @@ def due_payload(row):
         or row["due"] != iso_time(body["due_at"]).timestamp()
     ):
         raise Invalid("Retained schedule inputs changed")
-    data = dict(batch_id=row["batch_id"], item_id=row["id"], scope_id=row["scope_id"], request=body["request"])
+    data: dict[str, Any] = dict(
+        batch_id=row["batch_id"], item_id=row["id"], scope_id=row["scope_id"], request=body["request"]
+    )
     if "operation" in body:
         data["operation"] = operation
     action = "campaign_ad" if operation == "campaign.ad-launch" else "campaign_post"
@@ -407,8 +437,9 @@ def due_payload(row):
 def tick(store):
     """Atomically enqueue each due item once; no provider calls occur here."""
     initialize(store)
-    from .publication_schedule import initialize as publication_initialize, advance as advance_publications
     from .publication_execution import initialize as execution_initialize
+    from .publication_schedule import advance as advance_publications
+    from .publication_schedule import initialize as publication_initialize
 
     publication_initialize(store)
     execution_initialize(store)

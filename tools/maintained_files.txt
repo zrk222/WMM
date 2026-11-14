@@ -7,10 +7,13 @@ mission_control/architecture.py
 mission_control/attribution_adservices.py
 mission_control/attribution_ingestion.py
 mission_control/audit_runtime.py
+mission_control/automation_agreement.py
 mission_control/automation_execution.py
+mission_control/campaign_access.py
 mission_control/campaign_contract.py
 mission_control/campaign_execution.py
 mission_control/campaign_monitor.py
+mission_control/campaign_schedule.py
 mission_control/campaign_schedule_authority.py
 mission_control/cloud_connection.py
 mission_control/common.py

@@ -1,24 +1,18 @@
 """Draft a tagged, frozen measurement plan from existing app and evidence facts."""
 
-import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import urlencode, urlsplit, urlunsplit
 
 from .common import digest
 
-ACQUISITION_SOURCES = {"posthog", "app_store", "google_play", "apple_ads"}
-OUTCOME_SOURCES = {"revenuecat", "storekit", "stripe_live", "stripe_test"}
+ACQUISITION_SOURCES = {"posthog"}
+OUTCOME_SOURCES = {"revenuecat"}
 GOAL_METRICS = (
     (("retain", "retention", "return"), ("retention_rate", "installs")),
     (("paid", "revenue", "subscri", "purchase", "convert"), ("paid_conversion", "installs")),
     (("activat", "onboard", "first"), ("activation_rate", "installs")),
 )
-
-
-def slug(value: Any) -> str:
-    text = re.sub(r"[^a-z0-9]+", "-", str(value or "").lower()).strip("-")
-    return text or "app"
 
 
 def metric_for(goal: str) -> tuple[str, str]:
@@ -33,23 +27,25 @@ def tagged_link(link: Any, tag: str) -> str | None:
     """Preserve the owner's URL and add only explicit public campaign parameters."""
     if not isinstance(link, str) or len(link) > 2048:
         return None
-    parts = urlsplit(link)
+    try:
+        parts = urlsplit(link)
+        _ = parts.port
+    except ValueError:
+        return None
     if parts.scheme != "https" or not parts.hostname or parts.username or parts.password:
         return None
-    query = [
-        (key, value)
-        for key, value in parse_qsl(parts.query, keep_blank_values=True)
-        if key not in ("utm_campaign", "utm_source", "utm_medium")
-    ]
-    query += [("utm_campaign", tag), ("utm_source", "wmm"), ("utm_medium", "launch")]
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+    query = urlencode({"utm_campaign": tag, "utm_source": "wmm", "utm_medium": "launch"})
+    result = urlunsplit((parts.scheme, parts.netloc, parts.path, query, ""))
+    return result if len(result) <= 2048 else None
 
 
 def providers(records: list[dict[str, Any]]) -> set[str]:
     return {
-        record["data"].get("provider")
+        record["data"]["provider"]
         for record in records
-        if record.get("kind") == "connection" and isinstance(record.get("data"), dict)
+        if record.get("kind") == "connection"
+        and isinstance(record.get("data"), dict)
+        and isinstance(record["data"].get("provider"), str)
     }
 
 
@@ -65,7 +61,8 @@ def draft(
     data = data if isinstance(data, dict) else {}
     goal = goal or data.get("goal") or data.get("activation") or data.get("job") or ""
     link = link or data.get("website") or data.get("store_url")
-    tag = ("launch-" + slug(app.get("id")) + "-" + slug(goal))[:64].rstrip("-")
+    goal = goal if isinstance(goal, str) else ""
+    tag = "launch-" + digest([app.get("id"), data.get("release"), metric_for(goal)[0]])[:20]
     tagged = tagged_link(link, tag)
     metric, denominator = metric_for(goal)
     start = observed or datetime.now(timezone.utc)
@@ -83,9 +80,9 @@ def draft(
     if not tagged:
         missing.append("Add a bounded HTTPS landing link that can carry utm_campaign")
     if not connected & ACQUISITION_SOURCES:
-        missing.append("Connect an acquisition source such as PostHog, App Store or Google Play")
+        missing.append("Connect PostHog for an acquisition report")
     if not connected & OUTCOME_SOURCES:
-        missing.append("Connect an outcome or cash source such as RevenueCat, StoreKit or Stripe")
+        missing.append("Connect RevenueCat for an outcome report")
     if not data.get("release"):
         missing.append("Set the current app release")
     plan = None

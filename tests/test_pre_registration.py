@@ -36,7 +36,18 @@ class PreRegistrationTests(unittest.TestCase):
         self.assertTrue(any("HTTPS landing link" in item for item in no_link["missing"]))
         no_outcome = draft(app(), records("posthog"), goal="paid conversion")
         self.assertEqual(no_outcome["status"], "DRAFT")
-        self.assertTrue(any("outcome or cash source" in item for item in no_outcome["missing"]))
+        self.assertTrue(any("RevenueCat" in item for item in no_outcome["missing"]))
+
+    def test_draft_does_not_copy_private_query_or_goal_into_link(self):
+        result = draft(
+            app("https://example.test/app?invite=private#private"),
+            records("posthog", "stripe_test"),
+            goal="Private goal",
+        )
+        self.assertEqual(result["status"], "DRAFT")
+        for private in ("invite", "#", "private"):
+            self.assertNotIn(private, result["tagged_link"])
+        self.assertIsNone(draft(app("https://[bad"), records())["measurement_plan"])
 
     def test_workspace_exposes_a_pre_registration_draft(self):
         with tempfile.TemporaryDirectory() as folder:
