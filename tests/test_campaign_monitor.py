@@ -17,7 +17,9 @@ from unittest.mock import patch
 
 from mission_control import campaign_monitor as core
 from mission_control import campaign_monitor_authority as authority
+from mission_control.automation_agreement import monitor_scope
 from mission_control.campaign_execution import CampaignExecutionService
+from mission_control.campaign_schedule import CampaignSchedules, schedule_table_exists
 from mission_control.common import Invalid, canonical, digest, now
 from mission_control.db import connection
 from mission_control.operation_authority import bound_owner, protected
@@ -121,6 +123,23 @@ class CampaignMonitorTests(unittest.TestCase):
     def status(self, monitor) -> dict[str, Any]:
         with self.owner():
             return self.monitors.status("sample", monitor["id"])
+
+    def test_fresh_agreement_pickers_and_missing_status_do_not_initialize_storage(self):
+        schedule = CampaignSchedules(self.store)
+        nonexistent = "88888888-8888-4888-8888-888888888888"
+        with connection(self.store.path) as db:
+            before = "\n".join(db.iterdump())
+            self.assertFalse(core.monitor_table_exists(db))
+            self.assertFalse(schedule_table_exists(db))
+        with self.owner():
+            self.assertEqual(self.monitors.history("sample"), {"monitors": []})
+            self.assertEqual(schedule.history("sample"), {"batches": []})
+            with self.assertRaisesRegex(Invalid, "Monitor is unavailable"):
+                self.monitors.status("sample", nonexistent)
+            with self.assertRaisesRegex(Invalid, "Scheduled batch is unavailable"):
+                schedule.status("sample", nonexistent)
+        with connection(self.store.path) as db:
+            self.assertEqual(before, "\n".join(db.iterdump()))
 
     def test_prepare_activate_exact_hash_owner_selection_and_finite_plan(self):
         with self.assertRaises(PermissionError):
@@ -423,6 +442,27 @@ class CampaignMonitorTests(unittest.TestCase):
             db.execute("UPDATE operator_roles SET version=version+1 WHERE app_id='sample'")
         self.assertEqual(core.tick(self.store), 0)
         self.assertEqual(self.status(another)["effective_status"], "BLOCKED")
+
+    def test_agreement_separates_last_inflight_check_from_exhausted_monitor(self):
+        monitor, job = self.job(max_runs=1, protective_conditions=[], max_pause_attempts=0)
+        with connection(self.store.path) as db:
+            pending = monitor_scope(db, "sample", "owner", monitor["id"])
+        assert pending is not None
+        self.assertTrue(pending["check_in_progress"])
+        self.assertTrue(pending["check_allowance_exhausted"])
+        self.assertIsNone(pending["next_due_at"])
+        self.assertEqual(pending["effective_status"], "ACTIVE")
+
+        result = core.execute(self.store, job, self.wire)
+        persist_job_result(self.store, job, result, "SUCCEEDED", 0)
+        with connection(self.store.path) as db:
+            exhausted = monitor_scope(db, "sample", "owner", monitor["id"])
+        assert exhausted is not None
+        self.assertEqual(exhausted["status"], "ACTIVE")  # Projection did not mutate the scheduler record.
+        self.assertEqual(exhausted["effective_status"], "BLOCKED")
+        self.assertFalse(exhausted["check_in_progress"])
+        self.assertEqual(exhausted["attention"], "REVIEW_ALLOWANCE")
+        self.assertIsNone(exhausted["next_due_at"])
 
     def test_unknown_pending_recovery_reads_only_and_retains_hold(self):
         monitor, job = self.job(protective_conditions=[], max_pause_attempts=0)

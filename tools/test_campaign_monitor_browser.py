@@ -49,7 +49,10 @@ def run(browser, width):
         form.locator("[name=max_pause_attempts]").fill("1")
         form.get_by_role("button", name="Review exact monitoring plan", exact=True).click()
         review = page.locator("#monitor-review")
-        expect(review).to_contain_text("Pause after verified configuration drift")
+        expect(review).to_contain_text(
+            "Pause an active campaign when its configuration changed or could not be confirmed"
+        )
+        expect(review).to_contain_text("matching provider observation no more than 30 seconds old")
         expect(review).to_contain_text("80")
         expect(review).to_contain_text("cannot publish, create, activate")
         assert f.job() is None

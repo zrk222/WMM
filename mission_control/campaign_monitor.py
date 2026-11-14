@@ -45,6 +45,12 @@ def initialize(store):
         db.executescript(SCHEMA)
 
 
+def monitor_table_exists(db):
+    return (
+        db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='campaign_monitors'").fetchone() is not None
+    )
+
+
 def whole(value, low, high):
     if type(value) is not int or not low <= value <= high:
         raise Invalid("Monitor resource allowance is outside its supported bounds")
@@ -232,13 +238,13 @@ def monitor_attention(row, proposal, effective, observation):
     if iso_time(proposal["expires_at"]).timestamp() <= time.time():
         return "REVIEW_EXPIRY"
     # A quota message must not imply that an incomplete or missing job succeeded.
-    if (
-        observation
-        and observation["status"] == "SUCCEEDED"
-        and (row["runs"] >= proposal["max_runs"] or row["units"] >= proposal["max_provider_units"])
-    ):
+    if observation and observation["status"] == "SUCCEEDED" and allowance_exhausted(row, proposal):
         return "REVIEW_ALLOWANCE"
     return "CHECK_APPROVAL"
+
+
+def allowance_exhausted(row, limits):
+    return row["runs"] >= limits["max_runs"] or row["units"] >= limits["max_provider_units"]
 
 
 def view(db, row):
@@ -413,11 +419,11 @@ class Monitors:
 
     def __init__(self, store):
         self.store = store
-        initialize(store)
 
     def prepare(self, app_id, body):
         principal = actor(self.store, app_id)
         chosen = proposal(body)
+        initialize(self.store)
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
             binding, scope = source(db, app_id, principal, chosen["scope_id"])
@@ -480,6 +486,8 @@ class Monitors:
         principal = actor(self.store, app_id)
         with connection(self.store.path) as db:
             member(db, app_id, principal, "OWNER")
+            if not monitor_table_exists(db):
+                return dict(monitors=[])
             return dict(
                 monitors=[
                     view(db, row)
@@ -511,6 +519,8 @@ class Monitors:
 def owned(db, app_id, principal, identity):
     reference(identity)
     member(db, app_id, principal, "OWNER")
+    if not monitor_table_exists(db):
+        raise Invalid("Monitor is unavailable for this owner")
     row = db.execute(
         "SELECT * FROM campaign_monitors WHERE app_id=? AND owner=? AND id=?",
         (app_id, principal, identity),
@@ -554,7 +564,7 @@ def eligible(db, row):
     if not _previous_finished(db, row):
         return False
     limits = summary["proposal"]
-    if row["runs"] >= limits["max_runs"] or row["units"] >= limits["max_provider_units"]:
+    if allowance_exhausted(row, limits):
         block(db, row["id"])
         return False
     return True

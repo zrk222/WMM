@@ -6,33 +6,39 @@ item_view against persisted resources. Static names aid scoped QA routing;
 the HTTP/SQLite assertions supply behavioral evidence.
 """
 
-from datetime import datetime, timedelta
 import threading
 import unittest
+from datetime import datetime, timedelta
+from typing import Any
 from unittest.mock import patch
 
 from mission_control.automation_agreement import (
     Agreement,
-    selection,
-    saved_object,
     owned,
+    saved_object,
+    selection,
 )
 from mission_control.campaign_execution import SCHEMA
+from mission_control.campaign_monitor import SCHEMA as MONITOR_SCHEMA
 from mission_control.campaign_schedule import SCHEMA as SCHEDULE_SCHEMA
 from mission_control.common import Invalid, canonical, digest
 from mission_control.db import connection
-from mission_control.operator_client import OperatorClient, ClientError
+from mission_control.operator_client import ClientError, OperatorClient
 from mission_control.server import Server
-from tests.test_complete_automation import AuthorityFixture
 from tests import test_verified_review as identities
+from tests.test_complete_automation import AuthorityFixture
 
 SCOPE = "44444444-4444-4444-8444-444444444444"
 BATCH = "55555555-5555-4555-8555-555555555555"
 ITEM = "66666666-6666-4666-8666-666666666666"
 REQUEST = "77777777-7777-4777-8777-777777777777"
+MONITOR = "88888888-8888-4888-8888-888888888888"
 
 
 class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
+    scope: dict[str, Any]
+    batch: dict[str, Any]
+
     def setUp(self):
         self.setup_authority()
         self.addCleanup(self.cleanup_authority)
@@ -77,9 +83,10 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
             billing_notice="Media excludes fees and taxes; reports may lag.",
             rights_notice="Owner attestations only.",
         )
+        due = self.observed + timedelta(minutes=5)
         item = dict(
             item_id=ITEM,
-            due_at=(self.observed + timedelta(minutes=5)).isoformat(),
+            due_at=due.isoformat(),
             request=self.post,
         )
         batch = dict(
@@ -113,7 +120,7 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
                     renewal="OFFICIAL_REAUTHORIZATION",
                 ),
                 last_read_at=self.observed.isoformat(),
-                access_token="PRIVATE-TOKEN",
+                access_token="PRIVATE-TOKEN",  # noqa: S106 - synthetic anti-disclosure marker
             )
             db.execute(
                 "UPDATE social_connections SET provider='facebook',data=?,expires=? WHERE id=?",
@@ -154,7 +161,7 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
                 (
                     ITEM,
                     BATCH,
-                    datetime.fromisoformat(item["due_at"]).timestamp(),
+                    due.timestamp(),
                     canonical(item),
                     digest(item),
                     "READY",
@@ -177,6 +184,85 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
 
     def preview(self, **changes):
         return self.agreement.preview("sample-one", identities.OWNER, self.body(**changes))
+
+    def save_monitor(self, scope_id=SCOPE, owner=identities.OWNER["principal"]):
+        stamp = self.observed.isoformat()
+        plan = dict(
+            scope_id=scope_id,
+            targets=[dict(intent_id=ITEM, request_hash="a" * 64)],
+            cadence_seconds=90,
+            expires_at=(self.observed + timedelta(minutes=20)).isoformat(),
+            max_runs=4,
+            max_provider_units=20,
+            max_pause_attempts=1,
+            protective_conditions=["active_after_end"],
+        )
+        summary = dict(app_id="sample-one", owner=owner, source={"private": "MONITOR-PRIVATE"}, proposal=plan)
+        with connection(self.store.path) as db:
+            db.executescript(MONITOR_SCHEMA)
+            db.execute(
+                "INSERT INTO campaign_monitors VALUES(?,?,?,?,?,'DRAFT',1,?,0,0,0,NULL,?,?)",
+                (
+                    MONITOR,
+                    "sample-one",
+                    owner,
+                    canonical(summary),
+                    digest(summary),
+                    self.observed.timestamp(),
+                    stamp,
+                    stamp,
+                ),
+            )
+        return plan
+
+    def test_selected_monitor_is_owner_bound_and_read_only(self):
+        plan = self.save_monitor()
+        before = self.fixture.dump()
+        with patch(
+            "mission_control.campaign_transport.MetaTransport.request", side_effect=AssertionError("No network")
+        ):
+            result = self.preview(
+                workflow_policy_id=None, campaign_scope_id=None, schedule_batch_id=None, campaign_monitor_id=MONITOR
+            )
+        summary = result["summary"]
+        monitor = summary["monitor"]
+        self.assertEqual(result["summary_hash"], digest(summary))
+        self.assertEqual(summary["campaign"]["id"], SCOPE)
+        self.assertEqual(summary["selection"]["campaign_monitor_id"], MONITOR)
+        self.assertEqual(monitor["conditions"], plan["protective_conditions"])
+        self.assertEqual(monitor["targets"], plan["targets"])
+        self.assertEqual(monitor["expires_at"], plan["expires_at"])
+        self.assertEqual(
+            (
+                monitor["cadence_seconds"],
+                monitor["max_runs"],
+                monitor["max_provider_units"],
+                monitor["max_pause_attempts"],
+            ),
+            (90, 4, 20, 1),
+        )
+        self.assertEqual(monitor["effective_status"], "DRAFT")
+        self.assertIsNone(monitor["next_due_at"])
+        self.assertTrue(summary["blocked"])
+        self.assertFalse(result["authority_issued"])
+        self.assertNotIn("MONITOR-PRIVATE", canonical(result))
+        self.assertEqual(before, self.fixture.dump())
+
+    def test_monitor_rejects_missing_foreign_mismatched_or_tampered_evidence(self):
+        with self.assertRaisesRegex(Invalid, "Monitor is unavailable"):
+            self.preview(campaign_monitor_id=MONITOR)
+        self.save_monitor(owner=identities.STRANGER["principal"])
+        with self.assertRaisesRegex(Invalid, "Monitor is unavailable"):
+            self.preview(campaign_monitor_id=MONITOR)
+        with connection(self.store.path) as db:
+            db.execute("DELETE FROM campaign_monitors WHERE id=?", (MONITOR,))
+        self.save_monitor(scope_id=ITEM)
+        with self.assertRaisesRegex(Invalid, "Selected monitor and campaign scope differ"):
+            self.preview(campaign_scope_id=None, campaign_monitor_id=MONITOR)
+        with connection(self.store.path) as db:
+            db.execute("UPDATE campaign_monitors SET summary='{}' WHERE id=?", (MONITOR,))
+        with self.assertRaisesRegex(Invalid, "Saved monitor evidence needs repair"):
+            self.preview(campaign_monitor_id=MONITOR)
 
     def test_combined_review_snapshot_independent_scopes_and_read_only(self):
         before = self.fixture.dump()
@@ -241,14 +327,14 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
             with self.subTest(table=table):
                 with connection(self.store.path) as db:
                     db.execute(
-                        "UPDATE " + table + " SET owner=?",
+                        "UPDATE " + table + " SET owner=?",  # noqa: S608 - fixed fixture table tuple
                         (identities.STRANGER["principal"],),
                     )
                 with self.assertRaises(Invalid):
                     self.preview()
                 with connection(self.store.path) as db:
                     db.execute(
-                        "UPDATE " + table + " SET owner=?",
+                        "UPDATE " + table + " SET owner=?",  # noqa: S608 - fixed fixture table tuple
                         (identities.OWNER["principal"],),
                     )
         with self.assertRaises(Invalid):
@@ -377,9 +463,10 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
             billing_acknowledged=True,
             ordinary_ad_attestation=True,
         )
+        due = self.observed - timedelta(minutes=10)
         item = dict(
             item_id=ITEM,
-            due_at=(self.observed - timedelta(minutes=10)).isoformat(),
+            due_at=due.isoformat(),
             operation="campaign.ad-launch",
             request=request,
         )
@@ -405,7 +492,7 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
                 (
                     canonical(item),
                     digest(item),
-                    datetime.fromisoformat(item["due_at"]).timestamp(),
+                    due.timestamp(),
                 ),
             )
             db.execute(
@@ -484,15 +571,14 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
         for raw in ("[]", "{broken"):
             with self.assertRaises(Invalid):
                 saved_object(raw)
-        with connection(self.store.path) as db:
-            with self.assertRaises(Invalid):
-                owned(
-                    db,
-                    "secret-table",
-                    "sample-one",
-                    SCOPE,
-                    identities.OWNER["principal"],
-                )
+        with connection(self.store.path) as db, self.assertRaises(Invalid):
+            owned(
+                db,
+                "secret-table",
+                "sample-one",
+                SCOPE,
+                identities.OWNER["principal"],
+            )
         with self.assertRaises(Invalid):
             selection({})
 
@@ -513,6 +599,7 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
                 owner.request("POST", "/api/identity/login", dict(token=identities.OWNER_TOKEN))
                 before = self.fixture.dump()
                 result = owner.request("POST", route, self.body())
+                assert isinstance(result, dict)
                 self.assertFalse(result["authority_issued"])
                 self.assertEqual(result["summary_hash"], digest(result["summary"]))
                 self.assertEqual(before, self.fixture.dump())
@@ -534,6 +621,7 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
                     side_effect=AssertionError("No Meta request during review"),
                 ):
                     draft = owner.request("POST", route, body)
+                assert isinstance(draft, dict)
                 self.assertEqual(draft["summary"]["campaign"]["draft_posts"], [post])
                 self.assertEqual(draft["summary_hash"], digest(draft["summary"]))
                 self.assertNotIn("draft_posts", draft["summary"]["selection"])
