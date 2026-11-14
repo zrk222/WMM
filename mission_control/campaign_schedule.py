@@ -426,7 +426,7 @@ def item_status(db, app_id, scope_id, item):
     if intent is not None and operation == "campaign.ad-launch":
         if intent["status"] == "PAUSED_campaign":
             receipt = saved_pause_receipt(db, intent)
-            pause_confirmed = receipt is not None and receipt["effective_status"] != "ACTIVE"
+            pause_confirmed = receipt is not None and receipt["effective_status"] == "PAUSED"
         intent = {key: intent[key] for key in ("id", "status", "ids", "commitment", "currency")}
     else:
         intent = dict(intent) if intent else None
