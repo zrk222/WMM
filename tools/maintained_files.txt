@@ -108,6 +108,7 @@ tests/test_evidence_gate.py
 tests/test_experiments.py
 tests/test_feedback_reuse.py
 tests/test_first_party_outcomes.py
+tests/test_http.py
 tests/test_format_ratchet.py
 tests/test_http_benchmark.py
 tests/test_integrity_drill.py
