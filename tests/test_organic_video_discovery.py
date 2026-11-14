@@ -82,6 +82,83 @@ def bundle(task_value, count=10, collected=None):
 
 
 class DiscoveryContractTests(unittest.TestCase):
+    def test_market_search_and_manifests_share_exact_ontology(self):
+        from mission_control.marketing_ontology import filter_term, ontology
+
+        result = catalog()
+        contracts = result["domain_contracts"]
+        assert isinstance(contracts, dict)
+        current = ontology()
+        self.assertEqual(contracts["marketing_ontology"], current)
+        self.assertEqual(contracts["discovery_research"]["marketing_ontology_sha256"], current["ontology_sha256"])
+        self.assertEqual(filter_term("narratives", "app demo"), "APP_DEMO")
+        self.assertEqual(filter_term("treatments", "app demo"), "app demo")
+        self.assertEqual(contracts["market_research"]["marketing_ontology_sha256"], current["ontology_sha256"])
+        self.assertEqual(
+            digest({key: value for key, value in current.items() if key != "ontology_sha256"}),
+            current["ontology_sha256"],
+        )
+        axes = current["axes"]
+        assert isinstance(axes, dict)
+        self.assertIn("APP_DEMO", axes["narrative"])
+        self.assertIn("TALKING_HEAD", axes["treatment"])
+        self.assertNotIn("APP_DEMO", axes["treatment"])
+        from typing import Any, cast
+
+        from mission_control.agent_operations import discovery
+
+        guide = cast(dict[str, Any], discovery({"id": "sample-one", "version": 1, "data": {}})["personal_agent_guide"])
+        assert isinstance(guide, dict)
+        self.assertEqual(guide["marketing_ontology"], current)
+        profiles = guide["profiles"]
+        assert isinstance(profiles, list)
+        for profile in profiles:
+            assert isinstance(profile, dict)
+            self.assertEqual(profile["marketing_ontology_ref"], current["ontology_sha256"])
+
+    def test_discovery_search_normalizes_only_known_aliases_in_their_axis(self):
+        from mission_control.discovery_contract import query
+
+        filters = {
+            "outcome": "demo installs",
+            "audience": "founders",
+            "industries": [],
+            "narratives": ["app demo", "APP_DEMO"],
+            "treatments": ["Talking Head"],
+            "published_after": "2026-10-01T00:00:00Z",
+            "published_before": "2026-11-01T00:00:00Z",
+            "freshness_seconds": 86400,
+            "minimum_views": 100000,
+            "baseline_required": True,
+            "viral_only": True,
+            "ranking": "CREATOR_OUTLIER",
+        }
+        current = query(filters)
+        self.assertEqual(current["narratives"], ["APP_DEMO"])
+        self.assertEqual(current["treatments"], ["TALKING_HEAD"])
+        self.assertEqual(filters["narratives"], ["app demo", "APP_DEMO"])
+        with self.assertRaises(Invalid):
+            query({**filters, "treatments": ["app demo"]})
+
+    def test_five_channel_first_pass_allocates_reads_with_selected_hosts_only(self):
+        from mission_control.organic_video_discovery import HOSTS, channel_search_plan
+
+        value = task()
+        value["policy"].update(
+            platforms=sorted(HOSTS),
+            hosts=["www." + name + ".com" for name in sorted(HOSTS)],
+            max_reads=13,
+        )
+        value = discovery_task(value["app"], value["policy"], value["query"])
+        rows = channel_search_plan(value)
+        self.assertEqual({row["platform"] for row in rows}, set(HOSTS))
+        self.assertEqual(sum(row["initial_read_allowance"] for row in rows), 13)
+        self.assertEqual({row["initial_read_allowance"] for row in rows}, {2, 3})
+        self.assertEqual(len({row["surface"] for row in rows}), 5)
+        for row in rows:
+            self.assertEqual(row["hosts"], ["www." + row["platform"] + ".com"])
+            self.assertEqual(row["app_type"], value["query"]["app_type"])
+
     def test_agent_catalog_describes_the_five_channel_submission(self):
         catalog_value = catalog()
         assert isinstance(catalog_value, dict)

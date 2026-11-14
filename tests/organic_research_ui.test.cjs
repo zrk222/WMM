@@ -452,3 +452,58 @@ test('unreported selected channels cannot be reported as successful empty search
     ui.report(data, s()).notes.some((x) => x.includes('ask your agent to finish this channel')),
   );
 });
+
+test('every research card explains its selection and baseline gaps', async () => {
+  const data = await saved();
+  const q = data.result.items[0].qualification;
+  q.median = { numerator: 10000, denominator: 1 };
+  let html = ui.taskHTML(data, s());
+  assert.match(html, /Why it was selected/);
+  assert.match(html, /10\.00× the reported creator median/);
+  q.qualification = 'INSUFFICIENT_BASELINE';
+  q.median = null;
+  html = ui.taskHTML(data, s());
+  assert.match(html, /not enough comparable posts to verify the creator baseline/);
+});
+
+test('numerical qualification stays distinct from uncertain or mismatched app fit', async () => {
+  const data = await saved();
+  const entry = data.submission.candidates[0];
+  data.result.items[0].status = 'RELEVANCE_REVIEW_REQUIRED';
+  for (const [relevance, message] of [
+    ['UNKNOWN', 'The collector could not confirm the app fit.'],
+    ['MISMATCH', 'The collector did not find a clear app fit.'],
+  ]) {
+    entry.relevance = relevance;
+    const html = ui.taskHTML(data, s());
+    assert.ok(html.includes(message));
+    assert.ok(html.includes('Reported views met both viral thresholds.'));
+    assert.ok(ui.report(data, s()).cohorts[0].selection_summary.includes(message));
+  }
+});
+
+test('suggested search uses the selected app and remains within the input contract', () => {
+  const defaults = ui.suggestedSearch({
+    job: 'Practice difficult conversations',
+    category: 'Coaching',
+  });
+  const body = ui.taskBody(fd({ ...values, ...defaults }), [grant()], s(), () => 'default-search');
+  assert.match(body.query.search_terms, /Practice difficult conversations/);
+  assert.equal(body.query.app_type, 'Coaching');
+  assert.equal(ui.suggestedSearch({ job: 'x'.repeat(150) }).genre.length, 120);
+  const custom = ui.taskBody(
+    fd({
+      ...values,
+      ...defaults,
+      search_terms: 'manager feedback roleplay',
+      platform: ['linkedin'],
+      max_reads: '30',
+    }),
+    [grant()],
+    s(),
+    () => 'custom-search',
+  );
+  assert.equal(custom.query.search_terms, 'manager feedback roleplay');
+  assert.deepEqual(custom.policy.platforms, ['linkedin']);
+  assert.equal(custom.policy.max_reads, 30);
+});

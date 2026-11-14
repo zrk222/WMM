@@ -1,46 +1,10 @@
 """Closed discovery evidence shapes; source observations never imply production rights."""
 
 from copy import deepcopy
-from .common import Invalid, required, iso_time
-from .pmf_contract import exact, count, hashed, one
 
-INDUSTRIES = {
-    "BUSINESS",
-    "EDUCATION",
-    "FINANCE",
-    "HEALTH_FITNESS",
-    "GAMING",
-    "LIFESTYLE",
-    "ENTERTAINMENT",
-    "ECOMMERCE",
-    "OTHER",
-    "UNKNOWN",
-}
-NARRATIVES = {
-    "APP_DEMO",
-    "TUTORIAL",
-    "PROBLEM_SOLUTION",
-    "TESTIMONIAL",
-    "STORY",
-    "BEFORE_AFTER",
-    "MEME_TREND",
-    "LISTICLE",
-    "EDUCATIONAL",
-    "ENTERTAINMENT",
-    "OTHER",
-    "UNKNOWN",
-}
-TREATMENTS = {
-    "TALKING_HEAD",
-    "SCREEN_RECORDING",
-    "SLIDESHOW",
-    "ANIMATION",
-    "TEXT_HEAVY",
-    "LIVE_ACTION",
-    "MIXED",
-    "OTHER",
-    "UNKNOWN",
-}
+from .common import Invalid, iso_time, required
+from .marketing_ontology import INDUSTRIES, NARRATIVES, TREATMENTS, filter_term, ontology
+from .pmf_contract import count, exact, one
 
 
 def items(value, maximum, name):
@@ -186,10 +150,13 @@ def query(value):
     )
     for field in ("outcome", "audience"):
         required(value[field], field, 2000)
+    result = deepcopy(value)
     for field, choices in [("industries", INDUSTRIES), ("narratives", NARRATIVES), ("treatments", TREATMENTS)]:
-        texts(value[field], 24, 120, field)
-        for option in value[field]:
+        raw = texts(value[field], 24, 120, field)
+        resolved = [filter_term(field, term) for term in raw]
+        for option in resolved:
             one(option, choices, field)
+        result[field] = list(dict.fromkeys(resolved))
     start, end = iso_time(value["published_after"]), iso_time(value["published_before"])
     if start >= end:
         raise Invalid("Publication window must have an increasing range")
@@ -199,7 +166,7 @@ def query(value):
         if type(value[flag]) is not bool:
             raise Invalid("Choose explicit discovery eligibility flags")
     one(value["ranking"], {"REACH", "ENGAGEMENT", "VELOCITY", "CREATOR_OUTLIER"}, "Ranking view")
-    return deepcopy(value)
+    return result
 
 
 def watch(value):
@@ -216,12 +183,13 @@ def watch(value):
 
 def agent_contract():
     """Expose closed nested inputs and acceptance boundaries to generic clients."""
-    from .viral_policy import FIELDS, MIN_VIEWS, MULTIPLIER, MIN_BASELINE, MAX_BASELINE
     from .organic_video_discovery import collector_contract
+    from .viral_policy import FIELDS, MAX_BASELINE, MIN_BASELINE, MIN_VIEWS, MULTIPLIER
 
     return dict(
         schema="wmm.discovery-contract.v1",
         review_fields=["taxonomy", "duration_ms", "transcript", "card", "baseline", "metrics"],
+        marketing_ontology_sha256=ontology()["ontology_sha256"],
         taxonomy_fields=["original_labels", "industry", "narrative", "treatment", "classified_by", "rationale"],
         industries=sorted(INDUSTRIES),
         narratives=sorted(NARRATIVES),

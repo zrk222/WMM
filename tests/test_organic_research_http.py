@@ -1,16 +1,16 @@
 """Real owner-session history and adoption readback; isolated synthetic workspace."""
 
 import json
-from pathlib import Path
 import threading
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from mission_control.common import digest
 from mission_control.db import connection
-from mission_control.operator_client import OperatorClient, ClientError
+from mission_control.operator_client import ClientError, OperatorClient
 from mission_control.server import Server
 from tests import test_organic_video_intake as intake
 from tests import test_verified_review as identities
@@ -45,11 +45,15 @@ class ResearchHTTPTests(unittest.TestCase):
         self.thread.join()
 
     def call(self, action, body):
-        return self.client.request("POST", self.base + action, body)
+        result = self.client.request("POST", self.base + action, body)
+        assert isinstance(result, dict)
+        return result
 
     def test_owner_history_request_identity_and_exact_adoption_readback(self):
         page = self.call("task-list", dict(offset=0, request_id=None))
         self.assertEqual(len(page["items"]), 1)
+        self.assertEqual(page["items"][0]["candidate_count"], 1)
+        self.assertEqual(page["items"][0]["reviewable_count"], 1)
         row = page["items"][0]
         self.assertEqual(row["id"], self.f.body["task_id"])
         self.assertEqual(row["request_hash"], digest(self.f.fixture.body))
@@ -92,7 +96,7 @@ class ResearchHTTPTests(unittest.TestCase):
             for index in range(22):
                 values = dict(original, id="history-" + str(index).zfill(2), request_id="page-" + str(index))
                 db.execute(
-                    "INSERT INTO organic_discovery_tasks ("
+                    "INSERT INTO organic_discovery_tasks ("  # noqa: S608 - columns come from the fixture table.
                     + ",".join(values)
                     + ") VALUES ("
                     + ",".join("?" for _ in values)
@@ -110,12 +114,14 @@ class ResearchHTTPTests(unittest.TestCase):
         anonymous.bootstrap()
         with self.assertRaises(ClientError):
             anonymous.request("POST", self.base + "task-list", dict(offset=0, request_id=None))
+        csrf = self.client.csrf
+        assert isinstance(csrf, str)
         for extra in ({"X-CSRF-Token": "wrong"}, {"Authorization": "Bearer not-a-browser-owner"}):
             headers = {
                 "Origin": self.origin,
                 "Content-Type": "application/json",
-                "X-CSRF-Token": self.client.csrf,
-                "Cookie": "; ".join(c.name + "=" + c.value for c in self.client.cookies),
+                "X-CSRF-Token": csrf,
+                "Cookie": "; ".join(c.name + "=" + (c.value or "") for c in self.client.cookies),
                 **extra,
             }
             req = Request(

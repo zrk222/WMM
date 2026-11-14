@@ -1,27 +1,28 @@
 """Actual product controls with real owner HTTP and synthetic agent submissions."""
 
-import json
 import hashlib
+import json
 import os
 import platform
 import subprocess
+import unittest
 from datetime import datetime, timezone
 from pathlib import Path
-import unittest
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
-from mission_control.db import connection
 from mission_control.creative_briefs import Briefs
 from mission_control.creative_library import Library
+from mission_control.db import connection
 from mission_control.media_native import capability
 from tests import test_organic_research_http as fixture
 from tests import test_organic_video_workflow as workflow_fixture
 from tests.production_fixtures import ready_capabilities
 
 BROWSER_PROFILE = os.environ.get("WMM_BROWSER_TEST_PROFILE") == "1"
-if BROWSER_PROFILE:
-    from playwright.sync_api import sync_playwright, expect
+if TYPE_CHECKING or BROWSER_PROFILE:
+    from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).parents[1]
 ARTIFACTS = ROOT / ".factory/organic-video-automation/hypit/t15-browser"
@@ -35,15 +36,22 @@ class OrganicResearchBrowserTests(unittest.TestCase):
         self.addCleanup(self.f.doCleanups)
         self.playwright = sync_playwright().start()
         self.addCleanup(self.playwright.stop)
-        self.browser = self.playwright.chromium.launch()
+        self.browser = self.playwright.chromium.launch(channel=os.environ.get("WMM_BROWSER_CHANNEL") or None)
         self.addCleanup(self.browser.close)
 
     def page(self, width):
-        context = self.browser.new_context(viewport=dict(width=width, height=1000), accept_downloads=True)
+        context = self.browser.new_context(viewport={"width": width, "height": 1000}, accept_downloads=True)
         self.addCleanup(context.close)
         context.add_cookies(
             [
-                dict(name=c.name, value=c.value, domain="127.0.0.1", path=c.path or "/", httpOnly=True, sameSite="Lax")
+                {
+                    "name": c.name,
+                    "value": c.value or "",
+                    "domain": "127.0.0.1",
+                    "path": c.path or "/",
+                    "httpOnly": True,
+                    "sameSite": "Lax",
+                }
                 for c in self.f.client.cookies
             ]
         )
@@ -61,7 +69,10 @@ class OrganicResearchBrowserTests(unittest.TestCase):
 
         context.route("**/*", boundary)
         page.goto(self.f.origin)
-        page.wait_for_function("(context) => {const state=context.state;return (() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one')(context.original);}", arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': None})
+        page.wait_for_function(
+            "(context) => {const state=context.state;return (() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one')(context.original);}",
+            arg={"state": page.evaluate_handle("async () => (await import('/app.mjs')).state"), "original": None},
+        )
         # Use the visible navigation and the actual product module, not a fixture UI.
         nav = page.locator('[data-view="research"]')
         if not nav.is_visible():
@@ -215,7 +226,7 @@ class OrganicResearchBrowserTests(unittest.TestCase):
         expect(form.locator('[name="objective"]')).to_have_value(self.f.f.body["review"]["card"]["next_experiment"])
         for kind in ("claim", "readiness", "store", "route"):
             name = "claim_ids" if kind == "claim" else kind + "_id"
-            form.locator(f'[name="{name}"]').select_option(proof[kind]["id"])
+            form.locator(f'[name="{name}"]').select_option(str(proof[kind]["id"]))
         form.locator('[name="owner"]').fill("Synthetic editor")
         self.snapshot(page, width, "research-brief")
         form.get_by_role("button", name="Prepare evidence-bound brief").click()
@@ -256,8 +267,11 @@ class OrganicResearchBrowserTests(unittest.TestCase):
 
     def approved_render(self, width, lose_responses):
         workflow = workflow_fixture.VerticalWorkflowTests()
-        ffmpeg = capability()["tools"]["ffmpeg"]
-        workflow.RAW = subprocess.run(
+        caps = capability()
+        assert isinstance(caps["tools"], dict)
+        ffmpeg = caps["tools"]["ffmpeg"]
+        assert isinstance(ffmpeg, str)
+        raw = subprocess.run(
             [
                 ffmpeg,
                 "-v",
@@ -282,6 +296,7 @@ class OrganicResearchBrowserTests(unittest.TestCase):
             capture_output=True,
             timeout=20,
         ).stdout
+        self.enterContext(patch.object(workflow, "RAW", raw))
         workflow.setUp()
         self.addCleanup(workflow.doCleanups)
         readiness = dict(remediation=[] if lose_responses else ["Install the optional Hypit CLI."])
@@ -301,7 +316,7 @@ class OrganicResearchBrowserTests(unittest.TestCase):
             expect(modal.get_by_role("heading", name="Place your approved clips")).to_be_visible()
             modal.get_by_role("button", name="Review this local render").click()
             expect(modal.get_by_role("alert")).to_contain_text("Add at least one approved clip")
-            modal.get_by_label("Approved clip for scene 1").select_option(workflow.source["id"])
+            modal.get_by_label("Approved clip for scene 1").select_option(str(workflow.source["id"]))
             if not lose_responses:
                 modal.get_by_role("button", name="Review this local render").click()
                 expect(modal.get_by_role("alert")).to_contain_text("Install the optional Hypit CLI.")
@@ -470,6 +485,24 @@ class OrganicResearchBrowserTests(unittest.TestCase):
     def test_mobile_lost_render_responses_recover_after_reload(self):
         self.approved_render(390, True)
 
+    def test_suggested_search_reviews_exact_defaults_without_saving(self):
+        _, page, errors, external = self.page(390)
+        page.locator('[data-action="oresearch-new"]').click()
+        form = page.locator("#oresearch-task-form")
+        expect(form.get_by_text("Customize search", exact=True)).to_be_visible()
+        expect(form.locator('[name="search_terms"]')).to_be_hidden()
+        terms = form.locator('[name="search_terms"]').input_value()
+        form.get_by_role("button", name="Review search assignment").press("Enter")
+        review = page.locator("#modal")
+        expect(review.locator('[data-action="oresearch-confirm"]')).to_be_visible()
+        expect(review).to_contain_text(terms)
+        expect(review).to_contain_text("facebook, instagram, tiktok, youtube, linkedin")
+        expect(review).to_contain_text("5 candidates, 100 reads and 600 seconds")
+        self.snapshot(page, 390, "suggested-search-review")
+        self.assertEqual(len(self.f.call("task-list", {"offset": 0, "request_id": None})["items"]), 1)
+        self.assertEqual(errors, [])
+        self.assertEqual(external, [])
+
     def assignment_with_lost_response(self, mode):
         context, page, errors, external = self.page(390)
         calls = []
@@ -501,11 +534,15 @@ class OrganicResearchBrowserTests(unittest.TestCase):
         context.route(original_prepare, lose_once)
         page.locator('[data-action="oresearch-new"]').click()
         page.wait_for_selector("#oresearch-task-form")
+        self.assertEqual(page.locator('#oresearch-task-form [name="platform"]:checked').count(), 5)
+        page.get_by_text("Customize search", exact=True).click()
         for name, value in dict(
             genre="Conversation practice", app_type="Coaching app", search_terms="conversation opening"
         ).items():
             page.locator(f'#oresearch-task-form [name="{name}"]').fill(value)
-        page.locator('[name="platform"][value="tiktok"]').check()
+        for checkbox in page.locator('#oresearch-task-form [name="platform"]').all():
+            if checkbox.get_attribute("value") != "tiktok":
+                checkbox.uncheck()
         page.locator('#oresearch-task-form button[type="submit"]').click()
         page.wait_for_selector('[data-action="oresearch-confirm"]')
         page.locator('[data-action="oresearch-confirm"]').click()

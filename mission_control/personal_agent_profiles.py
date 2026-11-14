@@ -1,12 +1,13 @@
 """Public, offline host guidance; documentation is neither connectivity nor authority."""
 
 from copy import deepcopy
+from typing import Any
+
+from .agent_workflow_protocol import build as workflow_protocol
 from .common import digest
 from .creative_taste import guidance
-from .agent_workflow_protocol import build as workflow_protocol
 
-
-PROFILES = (
+PROFILES: tuple[dict[str, Any], ...] = (
     dict(
         id="grok-bot",
         name="Grok Bot",
@@ -216,7 +217,7 @@ def team_operating_contract():
 
 def creative_handoff(app):
     """Deliver actual advisory taste policy with this app's public preference bindings."""
-    policy = guidance()
+    policy: dict[str, Any] = guidance()
     preferences = {field: deepcopy(app["data"].get(field)) for field in policy["preferences"]["fields"]}
     return dict(
         source_id="creative_taste",
@@ -237,6 +238,9 @@ def creative_handoff(app):
 
 def operating_guide(app, policy, local_catalog):
     """Derive one current app-bound guide without I/O, host access or agent invocation."""
+    from .marketing_ontology import ontology
+
+    vocabulary = ontology()
     protocol = workflow_protocol(local_catalog)
     value = dict(
         schema="growth.personal-agent-operations.v1",
@@ -247,12 +251,14 @@ def operating_guide(app, policy, local_catalog):
             policy_sha256=digest(policy),
             catalog_sha256=digest(local_catalog),
         ),
+        marketing_ontology=vocabulary,
         profiles=[
             dict(
                 deepcopy(p),
                 documentation_reviewed="2026-10-28",
                 wmm_runbook=deepcopy(HOST_RUNBOOKS[p["id"]]),
                 workflow_protocol_ref=protocol["protocol_sha256"],
+                marketing_ontology_ref=vocabulary["ontology_sha256"],
                 upgrade_rule="Use the shared current operation/workflow protocol through this host verified route; unsupported access never becomes authority.",
             )
             for p in PROFILES
