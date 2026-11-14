@@ -14,7 +14,7 @@ from .campaign_contract import (
     whole,
 )
 from .campaign_execution import scope_view
-from .campaign_monitor import ObservationReceipt, allowance_exhausted, monitor_attention
+from .campaign_monitor import ObservationReceipt, allowance_exhausted, monitor_attention, monitor_table_exists
 from .campaign_monitor import view as monitor_view
 from .campaign_schedule import check_paid_review, item_status
 from .common import Invalid, digest, iso_time
@@ -464,7 +464,7 @@ def monitor_scope(db, app_id, principal, identity):
     """Project one exact saved monitor without resolving secrets or dispatching work."""
     if identity is None:
         return None
-    if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='campaign_monitors'").fetchone() is None:
+    if not monitor_table_exists(db):
         raise Invalid("Monitor is unavailable for this owner")
     row = db.execute(
         "SELECT * FROM campaign_monitors WHERE app_id=? AND owner=? AND id=?", (app_id, principal, identity)

@@ -123,6 +123,17 @@ class CampaignMonitorTests(unittest.TestCase):
         with self.owner():
             return self.monitors.status("sample", monitor["id"])
 
+    def test_fresh_history_and_missing_status_do_not_initialize_monitor_storage(self):
+        with connection(self.store.path) as db:
+            before = "\n".join(db.iterdump())
+            self.assertFalse(core.monitor_table_exists(db))
+        with self.owner():
+            self.assertEqual(self.monitors.history("sample"), {"monitors": []})
+            with self.assertRaisesRegex(Invalid, "Monitor is unavailable"):
+                self.monitors.status("sample", "88888888-8888-4888-8888-888888888888")
+        with connection(self.store.path) as db:
+            self.assertEqual(before, "\n".join(db.iterdump()))
+
     def test_prepare_activate_exact_hash_owner_selection_and_finite_plan(self):
         with self.assertRaises(PermissionError):
             self.monitors.prepare("sample", self.body())

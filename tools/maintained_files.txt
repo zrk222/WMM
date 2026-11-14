@@ -186,6 +186,7 @@ tools/publish_desktop_release.py
 tools/query_budget.py
 tools/run_ci_tests.py
 tools/source_ratchet.py
+tools/test_agreement_paid_browser.py
 tools/test_campaign_monitor_browser.py
 tools/test_client_dashboard_browser.py
 tools/test_currency_results_browser.py

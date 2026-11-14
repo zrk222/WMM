@@ -50,6 +50,7 @@ Scenario: read_only
 - The combined response includes stop rules for OFF/revocation, expiry/source or resource changes, exhausted allowances/ceilings, and uncertain dispatch requiring reconciliation. Each underlying scope keeps its own OFF control. Dispatched effects and incurred charges remain recorded.
 - A matching review digest is neither execution authority nor fresh provider verification. New creative variants need their own exact content/rights approval and current downstream authority; this read model cannot approve them.
 - An optional `campaign_monitor_id` selects an existing monitor owned by the same app owner. It implies its saved campaign, like a batch does. Conflicting monitor, campaign or batch selections and unreadable monitor evidence fail closed. The review shows saved protective conditions, exact intent IDs and request hashes, cadence, expiry, next check, and independent usage limits. Missing monitor selection does not assert that no monitor exists. The snapshot does not change, run or activate monitoring.
+- Opening the monitor picker in a workspace without saved monitor storage lists no monitors. History and status reads must not create a table, save an approval or modify any workspace state.
 
 ### Additional acceptance
 Given an exact saved draft organic scope, reviewing matching draft posts returns their text/link privately without activation, jobs or writes; a changed link or rights hash rejects.
