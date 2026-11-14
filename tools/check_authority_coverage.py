@@ -5,8 +5,8 @@ import sys
 from pathlib import Path
 
 MODULE = "mission_control/campaign_schedule_authority.py"
-LINE_FLOOR = 85
-BRANCH_FLOOR = 70
+LINE_FLOOR = 95
+BRANCH_FLOOR = 90
 
 
 def main(path: Path) -> int:
