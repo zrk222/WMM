@@ -10,7 +10,11 @@ a measurement receipt. Previously retained report bodies are not rewritten.
 
 `campaign_owner_reports.next_action` prioritizes unresolved post and paid
 acknowledgments, pending dispatches and blocked monitors over historical
-measurement. An acknowledgement is not provider confirmation.
+measurement. Even without a selected monitor, a saved pause observation that
+showed effective delivery as ACTIVE directs the owner to verify the current
+status of that exact campaign before interpreting results. The notice describes
+what the retained observation showed, not the current provider state. An
+acknowledgement is not provider confirmation.
 `campaign_metric_definitions.historical_measurement` distinguishes incomplete
 coverage, an unsupported metric, an unverified first-open definition and
 inconsistent counts. None supplies a conversion rate. The outcome must match
