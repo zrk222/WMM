@@ -824,8 +824,8 @@ const WMMGoalReadiness = (() => {
       (i.accounts.length ? i.accounts.map(destination).join('; ') : 'None') +
       '</p><p>Readiness permits scope review only. Campaign publishing and paid work need their own exact owner scope; editor/runtime blockers remain visible.</p><div class="toolbar">' +
       button('Repair agent connection', 'goal-repair', 'data-tool="agents"') +
-      button('Repair account connection', 'goal-repair', 'data-tool="connections"') +
-      button('Review automation agreement', 'goal-repair', 'data-tool="agreement"') +
+      button('Open social account setup', 'goal-repair', 'data-tool="social-accounts"') +
+      button('Review automation agreement', 'goal-repair', 'data-tool="combined-agreement"') +
       (i.workflows.some((w) => w.id === 'organic_publication')
         ? button('Review organic publication', 'goal-repair', 'data-tool="organic-publication"')
         : '') +
@@ -921,6 +921,10 @@ const WMMGoalReadiness = (() => {
               '</label>',
           )
           .join('') +
+        (accounts.length === 0 && saved.goal === 'campaign'
+          ? '<p>No social destination is connected for this app. Connect the account you want to publish to, then return here to check it. Connecting an account gives no permission to publish or spend.</p>' +
+            button('Connect a social account', 'goal-repair', 'data-tool="social-accounts"')
+          : '') +
         '</fieldset><p>Analytics imports and provider-specific connection tests remain in Connections and Results; this inventory checks the selected agent/workflow scope, not every KPI collector.</p><p id="goal-readiness-error" role="alert"></p><button type="submit" class="button">Check selected connections</button>' +
         button('Cancel', 'close') +
         '</form>',
@@ -973,6 +977,8 @@ const WMMGoalReadiness = (() => {
     }
     active = null;
     if (tool === 'campaign') return campaignOpen();
+    if (tool === 'social-accounts') return guidedNavigate('connections', '#social-heading');
+    if (tool === 'combined-agreement') return WMMAgreement.open();
     if (tool === 'agreement')
       return WMMCompleteAutomation.action(
         { dataset: { action: 'standing-open' } },
