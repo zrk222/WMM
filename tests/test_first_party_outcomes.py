@@ -9,6 +9,7 @@ from mission_control.common import Invalid, canonical, digest
 from mission_control.db import connection
 from mission_control.first_party_outcomes import OutcomeBatch, OutcomeEvent, join
 from mission_control.first_party_receipts import ACTION, for_campaign, read, retain
+from mission_control.operator_client import ClientError, OperatorClient
 from mission_control.store import Store
 from tests import test_campaign_owner_reports
 
@@ -68,19 +69,21 @@ class OutcomeTests(unittest.TestCase):
                 "UPDATE campaign_scopes SET summary=?,summary_hash=? WHERE id=?",
                 (canonical(summary), digest(summary), chosen["scope_id"]),
             )
-        receipt = retain(
-            fixture.store.path,
-            app_id="sample",
-            app_version=fixture.store.app("sample")["version"],
-            environment="production",
-            campaign="organic",
-            starts_at=WINDOW[0],
-            ends_at=WINDOW[1],
-            matures_at=WINDOW[2],
+        body = dict(
+            scope_id=chosen["scope_id"],
+            acquisition_ends_at=WINDOW[1],
             as_of=WINDOW[2],
             product=batch("posthog", event("TOUCH", 2), event("INSTALL", 3), app_id="sample"),
             billing=batch("revenuecat", app_id="sample"),
         )
+        client = fixture.fixture.client
+        endpoint = "/api/apps/sample/campaign-owner-reports/import-outcomes"
+        with self.assertRaises(ClientError):
+            OperatorClient(client.origin).request("POST", endpoint, body)
+        with connection(fixture.store.path) as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM audit WHERE action=?", (ACTION,)).fetchone()[0], 0)
+        receipt = client.request("POST", endpoint, body)
+        self.assertEqual(client.request("POST", endpoint, body), receipt)
         without = fixture.capture(chosen)["report"]
         with_receipt = fixture.capture(dict(chosen, outcome_receipt_sha256=receipt["receipt_sha256"]))["report"]
         self.assertEqual(with_receipt["first_party_outcomes"], receipt)

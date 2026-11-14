@@ -12,7 +12,8 @@ from .campaign_monitor import actor, last_observation, whole
 from .common import Invalid, canonical, digest, identifier, iso_time, now, uid
 from .db import connection
 from .experiments import lookup as lookup_experiment
-from .first_party_receipts import HASH, for_campaign
+from .first_party_outcomes import normalized_batch
+from .first_party_receipts import HASH, for_campaign, retain
 from .ios_reports import snapshot
 from .metrics import KPI_GAPS
 from .operation_authority import bound_owner, protected, store_identity
@@ -568,6 +569,37 @@ class Reports:
             binding(db, self.store, app_id, owner, chosen)
             return save_report(db, self.store, app_id, owner, chosen, "owner:" + body["request_key"])
 
+    def import_outcomes(self, app_id, body):
+        """Use the approved campaign window to retain supplied, consented outcome evidence."""
+        exact(body, HTTP_FIELDS["import-outcomes"])
+        owner = actor(self.store, app_id)
+        reference(body["scope_id"])
+        with connection(self.store.path) as db:
+            scope = owned_resource(db, "campaign_scopes", app_id, owner, body["scope_id"])
+            summary = object_data(scope["summary"])
+            if digest(summary) != scope["summary_hash"]:
+                raise Invalid("Report source summary integrity changed")
+            if (summary.get("app_id"), summary.get("owner_principal")) != (app_id, owner):
+                raise Invalid("Report summary ownership changed")
+            if scope["status"] != "ACTIVE":
+                raise Invalid("Approve a measurement plan before importing campaign outcomes")
+            plan = summary.get("measurement_plan")
+            if not isinstance(plan, dict):
+                raise Invalid("Approve a measurement plan before importing campaign outcomes")
+        return retain(
+            self.store.path,
+            app_id=app_id,
+            app_version=summary["app_version"],
+            environment="production",
+            campaign=plan["campaign_tag"],
+            starts_at=plan["starts_at"],
+            ends_at=body["acquisition_ends_at"],
+            matures_at=plan["ends_at"],
+            as_of=body["as_of"],
+            product=normalized_batch(body["product"]),
+            billing=normalized_batch(body["billing"]),
+        )
+
     def prepare(self, app_id, body):
         owner = actor(self.store, app_id)
         value = proposal(body)
@@ -885,6 +917,7 @@ def job_authority(db, store, job):
 
 
 HTTP_FIELDS = {
+    "import-outcomes": {"scope_id", "acquisition_ends_at", "as_of", "product", "billing"},
     "capture": {"selection", "request_key"},
     "prepare": {"proposal"},
     "activate": {"plan_id", "summary_hash"},
@@ -901,6 +934,7 @@ def dispatch(store, app, action, body):
     exact(body, HTTP_FIELDS[action])
     service = Reports(store)
     routes = {
+        "import-outcomes": lambda: service.import_outcomes(app, body),
         "capture": lambda: service.capture(app, body),
         "prepare": lambda: service.prepare(app, body["proposal"]),
         "activate": lambda: service.activate(app, body["plan_id"], body["summary_hash"]),
