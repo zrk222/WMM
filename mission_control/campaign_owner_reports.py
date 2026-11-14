@@ -487,6 +487,15 @@ def next_action(campaign, monitor, experiment, delivery=None, outcome=None):
             "The saved pause read showed Meta reporting active delivery. Verify current status for the exact campaign "
             "before interpreting results; do not retry the pause from this report."
         )
+    if any(
+        receipt["status"] == "PAUSED_campaign"
+        and (receipt.get("pause_readback") or {}).get("effective_status") != "PAUSED"
+        for receipt in campaign["receipts"]
+    ):
+        return (
+            "The saved records do not confirm an effective Meta pause. Check the exact campaign in Meta "
+            "before interpreting results; do not retry the pause from this report."
+        )
     uncertain = ("UNKNOWN", "DISPATCHING", "ACKNOWLEDGED", "VERIFYING")
     if any(r["status"] in uncertain or r["status"].startswith(("PENDING_", "ACK_")) for r in campaign["receipts"]):
         return "Inspect and reconcile the exact uncertain campaign receipts; do not replay mutations."
