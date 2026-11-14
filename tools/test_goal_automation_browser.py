@@ -277,7 +277,9 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         agreement.close()
         with page.expect_request("**/api/apps/sample-one/campaigns/schedule-status") as exact_schedule:
             page.get_by_role("button", name="Open this schedule", exact=True).press("Enter")
-        batch_id = exact_schedule.value.post_data_json["batch_id"]
+        selected_payload = exact_schedule.value.post_data_json
+        assert isinstance(selected_payload, dict)
+        batch_id = selected_payload["batch_id"]
         assert batch_id == selected_batch
         expect(page.locator("#schedule-batch-state")).to_have_text("Schedule off")
         expect(page.locator("#campaign-schedule-progress")).to_contain_text(batch_id)
