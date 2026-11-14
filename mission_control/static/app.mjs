@@ -120,7 +120,7 @@ function showActionError(error) {
   }
   const node = inline || $('#toast');
   clearTimeout(toast.timer);
-  node.innerHTML = WMMFeedback.view(issue);
+  node.innerHTML = WMMFeedback.view(issue, { allowSignIn: !inline });
   node.setAttribute('role', 'alert');
   node.setAttribute('tabindex', '-1');
   node.hidden = false;

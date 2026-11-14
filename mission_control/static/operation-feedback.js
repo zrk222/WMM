@@ -6,9 +6,41 @@
 })(typeof globalThis === 'object' ? globalThis : this, function () {
   'use strict';
   const reasons = new Map();
-  function define(messages, code, title, next) {
-    for (const message of messages) reasons.set(message, Object.freeze({ code, title, next }));
+  function define(messages, code, title, next, action) {
+    for (const message of messages)
+      reasons.set(message, Object.freeze({ code, title, next, action }));
   }
+  define(
+    [
+      'Sign in with GitHub before changing verified access or reviews',
+      'Authenticated operator session changed; sign in again',
+      'Authenticated operator session was replaced; sign in again',
+      'Authenticated identity changed; sign in again',
+    ],
+    'SIGN_IN_REQUIRED',
+    'Sign in to continue with this app.',
+    'Use the GitHub account that owns this app. Your saved work will still be here after you sign in.',
+    'identity-login',
+  );
+  define(
+    [
+      "This action requires the app's owner role",
+      'This GitHub account has no active role in this app',
+    ],
+    'APP_ACCESS_REQUIRED',
+    'This account does not have access to this app.',
+    'Switch to the app owner’s account or ask the owner to review your access.',
+  );
+  define(
+    [
+      'Reload the current research session',
+      'Reload the current campaign session',
+      'Session expired; reload before saving',
+    ],
+    'SESSION_REFRESH_REQUIRED',
+    'Your WMM session needs a refresh.',
+    'Keep a copy of any unsaved edits, then reopen WMM and review your request.',
+  );
   define(
     [
       'Protected batch admission is required',
@@ -181,6 +213,12 @@
         next: 'Check that WMM is running, then reload this view. The displayed information may be out of date.',
       };
     else explanation = reasons.get(raw);
+    if (!explanation && context.status === 403)
+      explanation = {
+        code: 'ACCESS_DENIED',
+        title: 'WMM could not grant access to this action.',
+        next: 'Check that you selected the right app and account. Ask the app owner to review your access if this continues.',
+      };
     if (!explanation) return original; // Keep ordinary field-validation messages intact.
     original.technicalMessage = raw;
     original.feedback = Object.freeze({
@@ -195,7 +233,7 @@
       /[&<>"']/g,
       (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
     );
-  function view(value) {
+  function view(value, { allowSignIn = false } = {}) {
     const issue = value.feedback;
     if (!issue) return '<p>' + esc(value.message || value) + '</p>';
     // Details use fixed reason codes and allowlisted text. Unknown provider text
@@ -208,7 +246,11 @@
       esc(issue.title) +
       '</strong></p><p>' +
       esc(issue.next) +
-      '</p><details><summary>Technical details</summary><p>Reason: ' +
+      '</p>' +
+      (allowSignIn && issue.action === 'identity-login'
+        ? '<button type="button" class="button" data-action="identity-login">Sign in with GitHub</button>'
+        : '') +
+      '<details><summary>Technical details</summary><p>Reason: ' +
       esc(issue.code) +
       (issue.status ? ' · HTTP ' + esc(issue.status) : '') +
       '</p>' +
