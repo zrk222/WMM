@@ -48,6 +48,31 @@ function kpiGapPanel() {
   return `<section class="panel" aria-label="KPI gaps"><h2>KPI gaps remain explicit</h2><p class="description">These metrics are not collected; no value, zero or provider proxy is inferred.</p><div class="table-wrap"><table class="result-table"><thead><tr><th>Metric</th><th>Status</th><th>Reason</th></tr></thead><tbody>${gaps.map((gap) => `<tr><td>${esc(gap.metric)}</td><td>${status(gap.status)}</td><td>${esc(gap.reason)}</td></tr>`).join('')}</tbody></table></div></section>`;
 }
 
+function launchGatePanel() {
+  const gate = state.workspace?.launch_gate;
+  if (!gate || gate.status === 'NOT_CONFIGURED') return '';
+  const blockers = gate.blockers || [];
+  return `<section class="panel" aria-label="Launch measurement gate"><h2>Launch measurement gate</h2><p>Status: ${status(gate.status)}</p>${blockers.length ? `<ul>${blockers.map((item) => `<li>${esc(item.name)}: ${esc(item.detail)}</li>`).join('')}</ul>` : '<p>All measurement checks passed for the newest saved campaign scope.</p>'}<p class="description">A READY gate does not publish, spend or prove an outcome.</p></section>`;
+}
+
+function reconciliationPanel() {
+  const groups = state.workspace?.reconciliation?.groups || [];
+  if (!groups.length) return '';
+  return `<section class="panel" aria-label="Cross-source reconciliation"><h2>Cross-source reconciliation</h2><p class="description">Source values stay separate. No average is computed.</p><div class="table-wrap"><table class="result-table"><thead><tr><th>Metric</th><th>Period</th><th>Status</th><th>Sources</th><th>Values</th></tr></thead><tbody>${groups
+    .slice(0, 50)
+    .map(
+      (group) =>
+        `<tr><td>${esc(group.metric)}</td><td>${esc(group.period)}</td><td>${status(group.status)}</td><td>${esc(group.sources.join(', '))}</td><td>${group.values.map((item) => `${esc(item.source)}: ${esc(String(item.value))}`).join('; ')}</td></tr>`,
+    )
+    .join('')}</tbody></table></div></section>`;
+}
+
+function creativeLearningPanel() {
+  const cycle = state.workspace?.creative_learning;
+  if (!cycle) return '';
+  return `<section class="panel" aria-label="Creative learning loop"><h2>Creative learning loop</h2><p>Status: ${status(cycle.status)}</p><p>${esc(cycle.next_brief?.seed || '')}</p>${cycle.gaps?.length ? `<ul>${cycle.gaps.map((gap) => `<li>${esc(gap)}</li>`).join('')}</ul>` : '<p>No stage gaps detected in saved evidence.</p>'}<p class="description">Read-only composition; no new authority or publication.</p></section>`;
+}
+
 function resultsView() {
   const study = ruleStudySelection();
   const decision = `<section class="panel" aria-labelledby="results-decision-heading"><h2 id="results-decision-heading" tabindex="-1">What should you do next?</h2>
@@ -56,6 +81,9 @@ function resultsView() {
   return (
     decision +
     kpiGapPanel() +
+    launchGatePanel() +
+    reconciliationPanel() +
+    creativeLearningPanel() +
     analyticsOverviewPanel() +
     automationRulesPanel() +
     WMMFunnels.panel() +

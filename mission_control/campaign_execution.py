@@ -629,6 +629,10 @@ class CampaignExecutionService:
     def run_post(self, app_id, actor, scope_id, body):
         post = post_data(body)
         scope, secret, token = self._preflight(app_id, actor, scope_id, "RUN_POST")
+        if scope.get("measurement_plan"):
+            from .evidence_gate import assert_ready
+
+            assert_ready(self.store, app_id, scope, request=post)
         with connection(self.store.path) as db:
             self._check(db, app_id, actor, scope, "RUN_POST")
             if (
@@ -1129,6 +1133,10 @@ class CampaignExecutionService:
         body = ad_data(body)
         scope, secret, page_token = self._preflight(app_id, actor, scope_id, "RUN_AD")
         scope, secret, token = self._account_preflight(app_id, actor, scope_id, "RUN_AD")
+        if scope.get("measurement_plan"):
+            from .evidence_gate import assert_ready
+
+            assert_ready(self.store, app_id, scope)
         intent, fresh = self._reserve_ad(app_id, actor, scope_id, body)
         if not fresh:
             return intent
