@@ -77,7 +77,7 @@ async function campaignOpen(source = null, study = null) {
     );
   modal(
     'Campaign automation',
-    `<form id="campaign-scope-form" class="modal-content" data-app="${esc(app)}" data-version="${state.workspace.app.version}" data-principal="${esc(principal || '')}"><p>Choose the work once, review its exact limits, then let your agent operate within them. Account permissions are checked separately before execution.</p><label class="field">Facebook Page connection<select name="connection_id" required><option value="">Choose a connected Page</option>${accounts.map((r) => `<option value="${esc(r.id)}">${esc(r.data.destination.name)} · ${esc(r.data.destination.id)}</option>`).join('')}</select></label>${accounts.length ? '' : notice('Connect a Facebook Page first. Select publishing or ad access during setup, complete official login, then return here.', 'warning')}<label class="field">Approved post copy<textarea name="posts" rows="6" maxlength="50000" required placeholder="Write one post. Separate additional posts with a line containing ---"></textarea></label><p>Up to 20 exact posts per review. The workflow uses your approved words; it does not invent product claims.</p><label class="field">App or landing-page link<input name="link" type="url" placeholder="https://your-app.example" maxlength="2048"></label><label class="field">Rights and claims evidence<textarea name="rights" maxlength="2000" required placeholder="Explain your authority to use this copy and media, and where its app claims are substantiated."></textarea></label><label class="field">Maximum Meta requests<input name="max_calls" type="number" min="1" max="500" value="500" required></label><p>Includes account checks, publication and verification. Your agent has a separate WMM call limit.</p><label class="field">Authority expires in hours<input name="hours" type="number" min="1" max="24" value="1" required></label><details><summary>Optional paid Meta campaign</summary><p>Leave the ad account empty for free organic publishing. Media limits exclude taxes, fees and currency conversion; provider reports may lag. A campaign's maximum approved media budget is reserved before activation.</p><label class="field">Numeric ad-account ID<input name="ad_account_id" inputmode="numeric" pattern="[0-9]+" maxlength="40"></label><label class="field">Currency<input name="currency" pattern="[A-Z]{3}" maxlength="3" value="${esc(state.workspace.app.data.currency || 'USD')}" required></label><label class="field">Maximum media budget in minor units<input name="budget" type="number" min="0" max="100000000" value="0" step="1"></label><label class="field">Audience country codes<input name="countries" value="CA" maxlength="100" placeholder="CA, US"></label><label class="check-row"><input name="billing" type="checkbox"> I approve this media commitment and understand separate provider taxes, fees and billing delays.</label><label class="check-row"><input name="ordinary" type="checkbox"> I confirm this is outside Meta special ad categories (including housing, employment, financial products and political or social-issue advertising).</label></details><details><summary>Optional measurement plan (enforced before launch)</summary><p>Complete this plan to require connected acquisition and outcome sources, a tagged link and a frozen measurement window before any post or paid campaign dispatches. Leave it empty only for an unscoped legacy workflow.</p><label class="field">Primary metric<input name="measurement_metric" maxlength="2000" placeholder="paid_conversion"></label><label class="field">Denominator<input name="measurement_denominator" maxlength="2000" placeholder="installs"></label><label class="field">Campaign tag<input name="measurement_tag" maxlength="64" placeholder="launch-a"></label><label class="field">Measurement starts<input name="measurement_starts" type="datetime-local"></label><label class="field">Measurement ends<input name="measurement_ends" type="datetime-local"></label><label class="field">Frozen hypothesis<textarea name="measurement_hypothesis" maxlength="2000"></textarea></label><label class="field">Decision rule<textarea name="measurement_rule" maxlength="2000"></textarea></label></details><p id="campaign-error" role="alert"></p><div class="modal-actions"><button class="button primary" type="submit">Review exact automation scope</button>${button('Cancel', 'close')}</div></form><section class="modal-content"><h3>Saved scopes</h3>${history.scopes.length ? history.scopes.map((s) => `<p>${esc(s.page_id)} · ${esc(s.status)} · expires ${esc(s.permission_expires_at || s.expires_at)} ${button('Inspect saved scope', 'campaign-status', `data-id="${esc(s.scope_id)}"`)}</p>`).join('') : '<p>No saved scopes for this owner and app yet.</p>'}<h3>Saved schedules</h3>${(schedules.batches || []).map((b) => `<p>${esc(b.status)} · ${esc(b.items.length)} posts ${button('Inspect scheduled batch', 'campaign-schedule-status', `data-batch="${esc(b.id)}"`)}</p>`).join('') || '<p>No saved scheduled batch yet.</p>'}</section>`,
+    `<form id="campaign-scope-form" class="modal-content" data-app="${esc(app)}" data-version="${state.workspace.app.version}" data-principal="${esc(principal || '')}"><p>Choose the work once, review its exact limits, then let your agent operate within them. Account permissions are checked separately before execution.</p><label class="field">Facebook Page connection<select name="connection_id" required><option value="">Choose a connected Page</option>${accounts.map((r) => `<option value="${esc(r.id)}">${esc(r.data.destination.name)} · ${esc(r.data.destination.id)}</option>`).join('')}</select></label>${accounts.length ? '' : notice('Connect a Facebook Page first. Select publishing or ad access during setup, complete official login, then return here.', 'warning')}<label class="field">Approved post copy<textarea name="posts" rows="6" maxlength="50000" required placeholder="Write one post. Separate additional posts with a line containing ---"></textarea></label><p>Up to 20 exact posts per review. The workflow uses your approved words; it does not invent product claims.</p><label class="field">App or landing-page link<input name="link" type="url" placeholder="https://your-app.example" maxlength="2048"></label><label class="field">Rights and claims evidence<textarea name="rights" maxlength="2000" required placeholder="Explain your authority to use this copy and media, and where its app claims are substantiated."></textarea></label><label class="field">Maximum Meta requests<input name="max_calls" type="number" min="1" max="500" value="500" required></label><p>Includes account checks, publication and verification. Your agent has a separate WMM call limit.</p><label class="field">Authority expires in hours<input name="hours" type="number" min="1" max="24" value="1" required></label><details><summary>Optional paid Meta campaign</summary><p>Leave the ad account empty for free organic publishing. Media limits exclude taxes, fees and currency conversion; provider reports may lag. A campaign's maximum approved media budget is reserved before activation.</p><label class="field">Numeric ad-account ID<input name="ad_account_id" inputmode="numeric" pattern="[0-9]+" maxlength="40"></label><label class="field">Currency<input name="currency" pattern="[A-Z]{3}" maxlength="3" value="${esc(state.workspace.app.data.currency || 'USD')}" required></label><label class="field">Maximum media budget in minor units<input name="budget" type="number" min="0" max="100000000" value="0" step="1"></label><label class="field">Audience country codes<input name="countries" value="CA" maxlength="100" placeholder="CA, US"></label><label class="check-row"><input name="billing" type="checkbox"> I approve this media commitment and understand separate provider taxes, fees and billing delays.</label><label class="check-row"><input name="ordinary" type="checkbox"> I confirm this is outside Meta special ad categories (including housing, employment, financial products and political or social-issue advertising).</label></details><details><summary>Optional measurement plan (enforced before launch)</summary><p>Complete this plan to require connected acquisition and outcome sources, a tagged link and a frozen measurement window before any post or paid campaign dispatches. Leave it empty only for an unscoped legacy workflow.</p><label class="field">Primary metric<input name="measurement_metric" maxlength="2000" placeholder="paid_conversion"></label><label class="field">Denominator<input name="measurement_denominator" maxlength="2000" placeholder="installs"></label><label class="field">Campaign tag<input name="measurement_tag" maxlength="64" placeholder="launch-a"></label><label class="field">Measurement starts<input name="measurement_starts" type="datetime-local"></label><label class="field">Measurement ends<input name="measurement_ends" type="datetime-local"></label><label class="field">Frozen hypothesis<textarea name="measurement_hypothesis" maxlength="2000"></textarea></label><label class="field">Decision rule<textarea name="measurement_rule" maxlength="2000"></textarea></label></details><p id="campaign-error" role="alert"></p><div class="modal-actions"><button class="button primary" type="submit">Review exact automation scope</button>${button('Cancel', 'close')}</div></form><section class="modal-content"><h3>Saved scopes</h3>${history.scopes.length ? history.scopes.map((s) => `<p>${esc(s.page_id)} · ${esc(s.status)} · expires ${esc(s.permission_expires_at || s.expires_at)} ${button('Inspect saved scope', 'campaign-status', `data-id="${esc(s.scope_id)}"`)}</p>`).join('') : '<p>No saved scopes for this owner and app yet.</p>'}<h3>Saved schedules</h3>${(schedules.batches || []).map((b) => `<p>${esc(campaignScheduleCopy(b)[0])} · ${esc(b.items.length)} scheduled items ${button('Inspect scheduled batch', 'campaign-schedule-status', `data-batch="${esc(b.id)}"`)}</p>`).join('') || '<p>No saved scheduled batch yet.</p>'}</section>`,
   );
   $('#campaign-scope-form').dataset.principal = principal || '';
   const scopeForm = $('#campaign-scope-form');
@@ -937,6 +937,50 @@ function campaignScheduleReviewItem(item, scope) {
     '</p></section>'
   );
 }
+function campaignScheduleCopy(data) {
+  const copy = {
+    DELIVERY_VERIFIED: [
+      'Delivery verified',
+      'All scheduled deliveries have saved provider confirmation. Review results separately.',
+    ],
+    APPROVAL_EXPIRED: [
+      'Approval expired',
+      'Unfinished items cannot start. Check any in-flight delivery before approving a new schedule.',
+    ],
+    APPROVAL_INACTIVE: [
+      'Approval turned off',
+      'Unfinished items cannot start under this approval. Check any in-flight delivery in the saved receipts.',
+    ],
+    NEEDS_RECONCILIATION: [
+      'Check delivery before retrying',
+      'An action may already have gone through. Check its receipt before scheduling it again.',
+    ],
+    NEEDS_REPAIR: [
+      'Check saved schedule',
+      'Review the saved receipts before scheduling this work again.',
+    ],
+    BLOCKED: ['Schedule needs attention', 'Open the affected item below to see what needs review.'],
+    RUNNING: ['Work in progress', 'Review each item below for its latest saved stage.'],
+    SCHEDULED: ['Scheduled', 'WMM must remain running to start approved work when it is due.'],
+    OFF: [
+      'Schedule off',
+      'No new items will start. Previously dispatched actions can still have receipts.',
+    ],
+    DRAFT: ['Awaiting approval', 'This draft will not start until you approve it.'],
+  };
+  return (
+    (data.status === 'OFF' && data.progress === 'DELIVERY_VERIFIED'
+      ? [
+          'Delivery verified',
+          'Saved receipts confirm delivery. The schedule is off. Review results separately.',
+        ]
+      : copy[data.progress || data.status]) || [
+      data.status,
+      'Provider status and app outcomes remain separate.',
+    ]
+  );
+}
+
 async function campaignScheduleStatus(batch, source = null, isCurrent = () => true) {
   const app = state.app,
     version = state.workspace.app.version,
@@ -950,6 +994,7 @@ async function campaignScheduleStatus(batch, source = null, isCurrent = () => tr
     (source && !source.isConnected)
   )
     return;
+  const [title, explanation] = campaignScheduleCopy(data);
   modal(
     'Scheduled campaign progress',
     '<div id="campaign-schedule-progress" class="modal-content" data-app="' +
@@ -959,7 +1004,7 @@ async function campaignScheduleStatus(batch, source = null, isCurrent = () => tr
       '" data-principal="' +
       esc(principal || '') +
       '"><h3 id="schedule-batch-state">' +
-      esc(data.status) +
+      esc(title) +
       '</h3><p>Batch ' +
       esc(data.id) +
       ' · ' +
@@ -968,11 +1013,8 @@ async function campaignScheduleStatus(batch, source = null, isCurrent = () => tr
           ? 'Saved item details unavailable.'
           : data.items.length + ' scheduled items.',
       ) +
-      ' WMM must remain running. Saved provider state does not establish app sales.</p><p id="schedule-live-stage" role="status">' +
-      esc(
-        data.repair ||
-          'Saved stages refresh while this dialog is visible. Provider observation times may lag.',
-      ) +
+      '</p><p id="schedule-live-stage" role="status">' +
+      esc(data.repair || explanation) +
       '</p><div id="schedule-live-items">' +
       data.items.map((i) => campaignScheduleProgressItem(i, data)).join('') +
       '</div><p id="campaign-error" role="alert"></p>' +
@@ -1028,25 +1070,21 @@ function campaignScheduleWatch(panel) {
         return;
       const changed = campaignStable(data) !== campaignStable(panel.campaign);
       panel.campaign = data;
+      const recovered = failures > 0;
       failures = 0;
-      if (changed) {
-        panel.querySelector('#schedule-batch-state').textContent = data.status;
+      if (changed || recovered) {
+        const [title, explanation] = campaignScheduleCopy(data);
+        panel.querySelector('#schedule-batch-state').textContent = title;
         panel.querySelector('#schedule-live-items').innerHTML = data.items
           .map((i) => campaignScheduleProgressItem(i, data))
           .join('');
-        panel.querySelector('#schedule-live-stage').textContent =
-          data.repair ||
-          'Saved stage: ' +
-            data.status +
-            '. ' +
-            data.items.map((i) => i.effective_status || i.status).join(', ') +
-            '. Provider status and app outcomes remain separate.';
+        panel.querySelector('#schedule-live-stage').textContent = data.repair || explanation;
       }
     } catch {
       failures++;
       if (valid())
         panel.querySelector('#schedule-live-stage').textContent =
-          'Saved stage refresh failed. Existing work continues; refresh receipts before any retry.';
+          'Could not refresh the saved status. Check receipts before retrying any action.';
     } finally {
       inflight = false;
       again(Math.min(60000, 5000 * 2 ** Math.min(failures, 4)));
@@ -1137,6 +1175,7 @@ function campaignScheduleReport(data) {
     },
   ];
   report.notes = [
+    campaignScheduleCopy(data).join('. '),
     'Schedule report uses saved local receipts; provider status may have changed.',
     'No post text, credentials or rights prose in this report. Saved receipts do not establish app growth.',
     ...(data.repair ? [data.repair] : []),
