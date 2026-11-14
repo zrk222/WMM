@@ -30,6 +30,17 @@ FUNCTIONS = {
         "target_countries",
         "ad_data",
     },
+    "campaign_schedule_authority.py": {
+        "bound",
+        "check",
+        "check_lease",
+        "check_content",
+        "check_scope",
+        "check_deadline",
+        "video_context",
+        "video_content",
+        "video_deadline",
+    },
     "agent_grants.py": {"token_digest", "issue_data", "public", "app_scope", "current", "authenticated", "consume"},
     "review_access.py": {"member", "exact_role", "member_body"},
 }

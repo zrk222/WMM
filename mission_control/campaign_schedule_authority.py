@@ -80,7 +80,8 @@ def check(store: "Store", app_id: str, actor: str, scope: Packet, action: str) -
     return True
 
 
-def check_lease(row: SavedRow, app_id: str, active: ActiveLease) -> None:
+def check_lease(row: SavedRow, app_id: str, active: ActiveLease | tuple[str, str, int]) -> None:
+    """Check the lease identity; payload proof is checked separately."""
     if (
         row["app_id"] != app_id
         or row["action"] not in ("campaign_post", "campaign_ad")
