@@ -88,7 +88,7 @@ def join(
     """Project first observed touches in the declared coverage; never infer identities."""
     product, billing = normalized_batch(product), normalized_batch(billing)
     start, end, maturity, cutoff = map(iso_time, (starts_at, ends_at, matures_at, as_of))
-    if not campaign or not start < end <= maturity:
+    if not OPAQUE.fullmatch(campaign) or not start < end <= maturity:
         raise Invalid("Outcome join needs a campaign and ordered acquisition and maturity windows")
     namespace = product["identity_namespace_sha256"]
     if not HASH.fullmatch(namespace):

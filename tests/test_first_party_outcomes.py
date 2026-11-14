@@ -1,10 +1,15 @@
 """First-party outcome matching never turns aggregate or missing data into lift."""
 
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import cast
 
 from mission_control.common import Invalid
+from mission_control.db import connection
 from mission_control.first_party_outcomes import OutcomeBatch, OutcomeEvent, join
+from mission_control.first_party_receipts import ACTION, read, retain
+from mission_control.store import Store
 
 WINDOW = ("2026-10-01T00:00:00Z", "2026-10-05T00:00:00Z", "2026-10-20T00:00:00Z")
 
@@ -48,6 +53,42 @@ def batch(provider: str, *events: OutcomeEvent, **changes: object) -> OutcomeBat
 
 
 class OutcomeTests(unittest.TestCase):
+    def test_receipt_survives_reopen_and_omits_subjects(self) -> None:
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "outcomes.sqlite"
+            store = Store(path)
+            product = batch("posthog", event("TOUCH", 2), event("INSTALL", 3), app_id="sample-one")
+            billing = batch("revenuecat", app_id="sample-one")
+
+            def capture(version: int) -> dict[str, object]:
+                return retain(
+                    path,
+                    app_id="sample-one",
+                    app_version=version,
+                    environment="production",
+                    campaign="organic",
+                    starts_at=WINDOW[0],
+                    ends_at=WINDOW[1],
+                    matures_at=WINDOW[2],
+                    as_of=WINDOW[2],
+                    product=product,
+                    billing=billing,
+                )
+
+            version = store.app("sample-one")["version"]
+            saved = capture(version)
+            self.assertEqual(capture(version), saved)
+            receipt_hash = cast(str, saved["receipt_sha256"])
+            self.assertEqual(read(Store(path).path, "sample-one", receipt_hash), saved)
+            with connection(path) as db:
+                rows = db.execute("SELECT detail FROM audit WHERE action=?", (ACTION,)).fetchall()
+            self.assertEqual(len(rows), 1)
+            self.assertNotIn("a" * 64, rows[0]["detail"])
+            with self.assertRaises(Invalid):
+                read(path, "sample-two", receipt_hash)
+            with self.assertRaisesRegex(Invalid, "current app version"):
+                capture(version + 1)
+
     def run_join(self, product: OutcomeBatch, billing: OutcomeBatch) -> dict[str, object]:
         return join("demo", "production", "organic", *WINDOW, WINDOW[2], product, billing)
 
