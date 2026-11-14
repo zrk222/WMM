@@ -1,18 +1,20 @@
 """Synthetic Page execution, durable uncertainty and fixed HTTP boundary tests."""
 
-import tempfile
 import json
-import sqlite3
 import os
+import sqlite3
 import subprocess
 import sys
+import tempfile
 import time
-import threading
 import unittest
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import ContextVar
 from datetime import datetime, timedelta, timezone
+from typing import cast
 from unittest.mock import patch
-from mission_control.campaign_contract import post_data
+
 from mission_control.campaign_execution import CampaignExecutionService
 from mission_control.campaign_transport import MetaTransport, Unconfirmed
 from mission_control.common import Invalid, canonical, digest, now
@@ -24,7 +26,7 @@ class FakeTransport:
     def __init__(self):
         self.posts = 0
         self.fail = False
-        self.before_return = None
+        self.before_return: Callable[[], object] | None = None
 
     def publish(self, page, message, link, token, secret, alive):
         alive()
@@ -40,7 +42,7 @@ class FakeTransport:
         return {"id": identity, "permalink_url": "https://www.facebook.com/post"}
 
 
-class CampaignTests(unittest.TestCase):
+class CampaignFixture(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -136,6 +138,8 @@ class CampaignTests(unittest.TestCase):
         draft = self.service.prepare_scope("sample", "owner", self.body)
         self.scope = self.service.activate_scope("sample", "owner", draft["scope_id"], draft["approval_hash"])
 
+
+class CampaignTests(CampaignFixture):
     def test_publish_is_exact_durable_and_not_replayed(self):
         result = self.service.run_post("sample", "grant:example", self.scope["scope_id"], self.post)
         self.assertEqual(result["status"], "VERIFIED")
@@ -184,12 +188,13 @@ class CampaignTests(unittest.TestCase):
             return "grant:example"
 
         self.transport.before_return = lambda: invalidated.update(value=True)
-        token = PROTECTED.set({"store": str(self.store.path.resolve())})
+        protected = cast(ContextVar[dict[str, str] | None], PROTECTED)
+        token = protected.set({"store": str(self.store.path.resolve())})
         try:
             with patch("mission_control.operation_authority.check", side_effect=check):
                 result = self.service.run_post("sample", "grant:example", self.scope["scope_id"], self.post)
         finally:
-            PROTECTED.reset(token)
+            protected.reset(token)
         self.assertEqual(result["status"], "VERIFYING")
         self.assertEqual(result["remote_id"], "123_777")
         self.assertEqual(self.service.list_intents("sample", self.scope["scope_id"])[0]["remote_id"], "123_777")
@@ -205,9 +210,11 @@ class CampaignTests(unittest.TestCase):
                 raise PermissionError("scope owner mismatch")
 
         self.service.policy_checker = policy
-        with patch.object(self.service, "_preflight", side_effect=AssertionError("provider access")):
-            with self.assertRaises(PermissionError):
-                self.service.reconcile("sample", "grant:other-owner", self.scope["scope_id"], intent["id"])
+        with (
+            patch.object(self.service, "_preflight", side_effect=AssertionError("provider access")),
+            self.assertRaises(PermissionError),
+        ):
+            self.service.reconcile("sample", "grant:other-owner", self.scope["scope_id"], intent["id"])
 
     def test_history_is_owner_scoped(self):
         self.assertEqual(len(self.service.list_scopes("sample", "owner")), 1)
@@ -293,6 +300,7 @@ class TransportTests(unittest.TestCase):
     def test_paid_lock_rejects_linked_storage_if_supported(self):
         from pathlib import Path
         from types import SimpleNamespace
+
         from mission_control.campaign_locks import paid_lock
 
         with tempfile.TemporaryDirectory() as folder:
@@ -303,13 +311,13 @@ class TransportTests(unittest.TestCase):
                 (base / ".campaign-locks").symlink_to(target, target_is_directory=True)
             except OSError:
                 self.skipTest("Directory symlink creation unavailable")
-            with self.assertRaises(Invalid):
-                with paid_lock(SimpleNamespace(path=base / "state.sqlite"), "sample", "intent"):
-                    pass
+            with self.assertRaises(Invalid), paid_lock(SimpleNamespace(path=base / "state.sqlite"), "sample", "intent"):
+                pass
 
     def test_paid_lock_rejects_linked_file_if_supported(self):
         from pathlib import Path
         from types import SimpleNamespace
+
         from mission_control.campaign_locks import _lock_file, paid_lock
 
         with tempfile.TemporaryDirectory() as folder:
@@ -322,9 +330,8 @@ class TransportTests(unittest.TestCase):
                 path.symlink_to(target)
             except OSError:
                 self.skipTest("File symlink creation unavailable")
-            with self.assertRaises(Invalid):
-                with paid_lock(store, "sample", "intent"):
-                    pass
+            with self.assertRaises(Invalid), paid_lock(store, "sample", "intent"):
+                pass
 
     def test_readback_requires_exact_page_and_content(self):
         transport = MetaTransport()
@@ -505,7 +512,7 @@ class FakePaidTransport(FakeTransport):
         super().__init__()
         self.objects = {}
         self.counter = 1000
-        self.fail_kind = None
+        self.fail_kind: str | None = None
 
     def ad_account(self, account, token, secret, alive):
         alive()
@@ -539,9 +546,9 @@ class FakePaidTransport(FakeTransport):
         return {"reported_spend": "1.23", "reporting": "PROVIDER_REPORTED_MAY_LAG"}
 
 
-class PaidTests(unittest.TestCase):
+class PaidTests(CampaignFixture):
     def setUp(self):
-        CampaignTests.setUp(self)
+        super().setUp()
         self.transport = FakePaidTransport()
         self.service.transport = self.transport
         self.service.run_post("sample", "owner", self.scope["scope_id"], self.post)
@@ -618,9 +625,11 @@ class PaidTests(unittest.TestCase):
                     value["is_adset_budget_sharing_enabled"] = True
             return value
 
-        with patch.object(self.transport, "read_paid", side_effect=drift):
-            with self.assertRaisesRegex(Unconfirmed, "budget sharing"):
-                self.service.run_ad("sample", "owner", self.paid_scope["scope_id"], self.adbody)
+        with (
+            patch.object(self.transport, "read_paid", side_effect=drift),
+            self.assertRaisesRegex(Unconfirmed, "budget sharing"),
+        ):
+            self.service.run_ad("sample", "owner", self.paid_scope["scope_id"], self.adbody)
         intent = self.service.list_intents("sample", self.paid_scope["scope_id"])[-1]
         campaign = self.transport.objects[intent["ids"]["campaign"]]
         self.assertEqual(campaign["status"], "PAUSED")
@@ -632,7 +641,8 @@ class PaidTests(unittest.TestCase):
     def test_pause_readback_survives_restart_and_later_reconciliation(self):
         intent = self.service.run_ad("sample", "owner", self.paid_scope["scope_id"], self.adbody)
         campaign = self.transport.objects[intent["ids"]["campaign"]]
-        campaign.update(effective_status="ACTIVE", access_token="PRIVATE_PROVIDER_VALUE", name="PRIVATE_CAMPAIGN_COPY")
+        campaign.update(effective_status="ACTIVE", name="PRIVATE_CAMPAIGN_COPY")
+        campaign["access_token"] = "PRIVATE_PROVIDER_VALUE"  # noqa: S105 - synthetic redaction sentinel
         with (
             patch.object(self.transport, "read_paid", wraps=self.transport.read_paid) as reads,
             patch.object(self.transport, "set_paid_status", wraps=self.transport.set_paid_status) as writes,
@@ -759,10 +769,12 @@ class PaidTests(unittest.TestCase):
 
     def test_currency_mismatch_blocks_account_preflight(self):
         self.account_patch.stop()
-        with patch.object(self.service, "_credentials", return_value=({}, "secret", {"access_token": "user-token"})):
-            with patch.object(self.transport, "ad_account", return_value={"currency": "USD"}):
-                with self.assertRaises(PermissionError):
-                    self.service._account_preflight("sample", "owner", self.paid_scope["scope_id"], "RUN_AD")
+        with (
+            patch.object(self.service, "_credentials", return_value=({}, "secret", {"access_token": "user-token"})),
+            patch.object(self.transport, "ad_account", return_value={"currency": "USD"}),
+            self.assertRaises(PermissionError),
+        ):
+            self.service._account_preflight("sample", "owner", self.paid_scope["scope_id"], "RUN_AD")
         self.assertEqual(len(self.transport.objects), 0)
 
     def test_revoke_pauses_saved_campaign_and_retains_commitment(self):
@@ -909,6 +921,7 @@ class PaidTests(unittest.TestCase):
             live = self.service.reconcile("sample", "owner", self.paid_scope["scope_id"], result["id"])
             self.assertEqual(live["recovery"], "IN_FLIGHT")
             self.assertEqual(live["status"], "PENDING_ACTIVE_campaign")
+            assert child.stdin is not None
             child.stdin.write(b"x")
             child.stdin.flush()
             self.assertEqual(child.wait(timeout=10), 23)
@@ -939,9 +952,8 @@ class PaidTests(unittest.TestCase):
                 raise SystemExit("synthetic crash before ID receipt")
             return original(app, identity, step, owner_token, status, *args, **kwargs)
 
-        with patch.object(self.service, "_receipt_paid", side_effect=crash):
-            with self.assertRaises(SystemExit):
-                self.service.run_ad("sample", "owner", self.paid_scope["scope_id"], self.adbody)
+        with patch.object(self.service, "_receipt_paid", side_effect=crash), self.assertRaises(SystemExit):
+            self.service.run_ad("sample", "owner", self.paid_scope["scope_id"], self.adbody)
         intent = self.service.list_intents("sample", self.paid_scope["scope_id"])[0]
         self.assertEqual(intent["status"], "PENDING_CREATE_campaign")
         self.assertEqual(intent["ids"], {})
@@ -1000,9 +1012,11 @@ class PaidTests(unittest.TestCase):
                 "UPDATE campaign_safety_calls SET used=? WHERE app_id=? AND scope_id=? AND category='PAUSE'",
                 (SAFETY_CALL_LIMIT, "sample", self.paid_scope["scope_id"]),
             )
-        with patch.object(self.service, "_credentials", return_value=({}, "secret", {"access_token": "user-token"})):
-            with self.assertRaises(PermissionError):
-                self.service.run_pause("sample", "owner", self.paid_scope["scope_id"], result["id"])
+        with (
+            patch.object(self.service, "_credentials", return_value=({}, "secret", {"access_token": "user-token"})),
+            self.assertRaises(PermissionError),
+        ):
+            self.service.run_pause("sample", "owner", self.paid_scope["scope_id"], result["id"])
 
     def test_exhausted_routine_reconciliation_preserves_emergency_recovery(self):
         from mission_control.campaign_execution import SAFETY_CALL_LIMIT
@@ -1045,9 +1059,11 @@ class PaidTests(unittest.TestCase):
                 raise PermissionError("scope owner mismatch")
 
         self.service.policy_checker = policy
-        with patch.object(self.service, "_account_preflight", side_effect=AssertionError("provider access")):
-            with self.assertRaises(PermissionError):
-                self.service.reconcile("sample", "grant:other-owner", self.paid_scope["scope_id"], saved["id"])
+        with (
+            patch.object(self.service, "_account_preflight", side_effect=AssertionError("provider access")),
+            self.assertRaises(PermissionError),
+        ):
+            self.service.reconcile("sample", "grant:other-owner", self.paid_scope["scope_id"], saved["id"])
 
     def test_recovery_cas_refuses_changed_owner_token(self):
         from mission_control.campaign_locks import paid_lock
