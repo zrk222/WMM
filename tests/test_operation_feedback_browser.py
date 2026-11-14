@@ -5,6 +5,9 @@ import os
 import re
 import unittest
 from pathlib import Path
+from typing import cast
+
+from mission_control.server import Handler
 from tests import test_agent_grants as fixtures
 
 
@@ -13,13 +16,15 @@ class OperationFeedbackBrowserTests(unittest.TestCase):
     def test_packaged_startup_timeout_retains_research_boundary_without_secrets(self):
         import tempfile
         from unittest.mock import patch
+
         from playwright.sync_api import TimeoutError as BrowserTimeout
+
         from tests.test_packaged_first_packet_contract import harness
 
         host = fixtures.GrantTests()
         host.setUp()
         self.addCleanup(host.tearDown)
-        handler = host.server.RequestHandlerClass
+        handler = cast(type[Handler], host.server.RequestHandlerClass)
         original = handler.do_GET
 
         def unavailable(request):
@@ -42,8 +47,70 @@ class OperationFeedbackBrowserTests(unittest.TestCase):
         self.assertIn("Packaged startup diagnostics:", caught.exception.__notes__[0])
         self.assertEqual(host.owner.request("GET", "/api/apps/sample-one/jobs"), [])
 
+    def test_signed_out_campaign_history_offers_sign_in_without_replaying(self):
+        from playwright.sync_api import expect, sync_playwright
+
+        host = fixtures.GrantTests()
+        host.setUp()
+        self.addCleanup(host.tearDown)
+        history = host.origin + "/api/apps/sample-one/campaigns/history"
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(channel=os.environ.get("WMM_BROWSER_CHANNEL") or None)
+            for width in (1440, 390):
+                with (
+                    self.subTest(width=width),
+                    browser.new_context(viewport={"width": width, "height": 900}) as context,
+                ):
+                    context.add_init_script("localStorage.setItem('growth-app','sample-one')")
+                    context.route(
+                        "**/*",
+                        lambda route: route.continue_()
+                        if route.request.url.startswith(host.origin + "/")
+                        else route.abort(),
+                    )
+                    page = context.new_page()
+                    requests = []
+                    page.on(
+                        "request",
+                        lambda request, requests=requests: requests.append(request.method)
+                        if request.url == history
+                        else None,
+                    )
+                    page.goto(host.origin)
+                    expect(page.get_by_role("button", name="Find a useful marketing angle", exact=True)).to_be_visible()
+                    with page.expect_response(history) as refused:
+                        page.evaluate(
+                            """async () => {
+                                const { api, showActionError } = await import('/app.mjs');
+                                try { await api('/api/apps/sample-one/campaigns/history', {}); }
+                                catch (error) { showActionError(error); }
+                            }"""
+                        )
+                    self.assertEqual(refused.value.status, 403)
+                    panel = page.locator("#toast")
+                    expect(panel).to_be_focused()
+                    expect(panel).to_contain_text("Your saved work will still be here")
+                    expect(panel.get_by_text("HTTP 403", exact=False)).not_to_be_visible()
+                    self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), width)
+                    artifacts = os.environ.get("WMM_FEEDBACK_ARTIFACTS")
+                    if artifacts and width == 1440:
+                        target = Path(artifacts)
+                        target.mkdir(parents=True, exist_ok=True)
+                        page.screenshot(path=str(target / "sign-in-1440.png"))
+                        markup = re.sub(r"<script\b[^>]*>.*?</script>", "", page.content(), flags=re.S)
+                        styles = Path("mission_control/static/style.css").read_text(encoding="utf-8")
+                        (target / "sign-in.html").write_text(
+                            markup.replace("</head>", "<style>" + styles + "</style></head>"), encoding="utf-8"
+                        )
+                    button = panel.get_by_role("button", name="Sign in with GitHub", exact=True)
+                    button.focus()
+                    page.keyboard.press("Enter")
+                    expect(page.get_by_role("dialog", name="Sign in for verified review")).to_be_visible()
+                    self.assertEqual(requests, ["POST"])
+
     def test_failed_packet_save_keeps_safe_guidance_and_never_retries(self):
-        from playwright.sync_api import sync_playwright, expect
+        from playwright.sync_api import TimeoutError as BrowserTimeout
+        from playwright.sync_api import expect, sync_playwright
 
         host = fixtures.GrantTests()
         host.setUp()
@@ -55,7 +122,7 @@ class OperationFeedbackBrowserTests(unittest.TestCase):
         for width in (1440, 390):
             for case in ("admission", "unknown", "interrupted", "unreadable"):
                 with self.subTest(width=width, case=case):
-                    context = browser.new_context(viewport=dict(width=width, height=900))
+                    context = browser.new_context(viewport={"width": width, "height": 900})
                     self.addCleanup(context.close)
                     context.add_init_script("localStorage.setItem('growth-app','sample-one')")
                     context.route(
@@ -66,14 +133,14 @@ class OperationFeedbackBrowserTests(unittest.TestCase):
                     )
                     calls = []
 
-                    def reject(route):
+                    def reject(route, _request, *, calls=calls, case=case):
                         calls.append(route.request.method)
                         if case == "interrupted":
                             route.abort("failed")
                         elif case == "unreadable":
                             route.fulfill(status=403, content_type="text/html", body="<h1>Request rejected</h1>")
                         else:
-                            body = dict(error="Protected batch admission is required")
+                            body: dict[str, str | bool] = dict(error="Protected batch admission is required")
                             if case == "unknown":
                                 body.update(outcome="UNKNOWN", reconciliation_required=True)
                             route.fulfill(
@@ -87,21 +154,28 @@ class OperationFeedbackBrowserTests(unittest.TestCase):
                     page.set_default_timeout(8000)
                     errors = []
                     failed = []
-                    page.on("pageerror", lambda error: errors.append(str(error)))
+                    page.on("pageerror", lambda error, errors=errors: errors.append(str(error)))
                     page.on(
-                        "requestfailed", lambda request: failed.append(dict(url=request.url, failure=request.failure))
+                        "requestfailed",
+                        lambda request, failed=failed: failed.append(dict(url=request.url, failure=request.failure)),
                     )
                     page.goto(host.origin)
                     try:
-                        page.wait_for_function("(context) => {const state=context.state;return (() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one')(context.original);}", arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': None})
-                    except Exception:
+                        page.wait_for_function(
+                            "(context) => {const state=context.state;return (() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one')(context.original);}",
+                            arg={
+                                "state": page.evaluate_handle("async () => (await import('/app.mjs')).state"),
+                                "original": None,
+                            },
+                        )
+                    except BrowserTimeout:
                         self.fail(
                             json.dumps(dict(page_errors=errors, displayed=page.locator("#main").inner_text()[:1600]))
                         )
                     goal = page.get_by_role("button", name="Find a useful marketing angle", exact=True)
                     try:
                         goal.wait_for(state="visible", timeout=3000)
-                    except Exception:
+                    except BrowserTimeout:
                         self.fail(
                             json.dumps(
                                 dict(

@@ -92,6 +92,7 @@ tests/goal_readiness_ui.test.cjs
 tests/managed_media.test.cjs
 tests/measurement_results_ui.test.cjs
 tests/mmp_import_model.test.mjs
+tests/operation_feedback.test.cjs
 tests/organic_research_ui.test.cjs
 tests/page_reporting.test.cjs
 tests/publication_ui.test.cjs
