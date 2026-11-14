@@ -384,6 +384,7 @@ test('live saved progress refreshes states in place with no effect request', asy
       id: 'batch',
       version: 2,
       status: 'ACTIVE',
+      progress: 'DELIVERY_VERIFIED',
       items: [
         {
           item_id: 'i',
@@ -400,7 +401,7 @@ test('live saved progress refreshes states in place with no effect request', asy
   await h.timers.shift().fn();
   assert.equal(h.calls[0].path, '/api/apps/one/campaigns/schedule-status');
   assert.match(h.elements['#schedule-live-items'].innerHTML, /VERIFIED/);
-  assert.match(h.elements['#schedule-live-stage'].textContent, /Saved stage/);
+  assert.match(h.elements['#schedule-live-stage'].textContent, /saved provider confirmation/);
   assert.equal(h.panel.campaign.items.length, 1);
   stop();
   await h.timers.shift().fn();
@@ -448,7 +449,10 @@ test('hidden progress avoids reads and failures back off while preserving prior 
   assert.equal(calls, 1);
   assert.equal(h.panel.campaign.status, 'ACTIVE');
   assert.equal(h.timers[0].delay, 10000);
-  assert.match(h.elements['#schedule-live-stage'].textContent, /refresh failed/);
+  assert.match(h.elements['#schedule-live-stage'].textContent, /Could not refresh/);
+  h.c.api = async () => ({ ...h.panel.campaign });
+  await h.timers.shift().fn();
+  assert.doesNotMatch(h.elements['#schedule-live-stage'].textContent, /Could not refresh/);
 });
 
 test('unreadable batch report keeps missing counts unknown and gives the repair action', () => {
@@ -465,4 +469,45 @@ test('unreadable batch report keeps missing counts unknown and gives the repair 
     [null, null],
   );
   assert.ok(report.notes.includes(repair));
+});
+
+test('saved schedule progress distinguishes delivery, expired permission and uncertainty', () => {
+  const { c } = fixture();
+  const data = { status: 'ACTIVE', progress: 'DELIVERY_VERIFIED', items: [] };
+  assert.equal(c.campaignScheduleCopy(data)[0], 'Delivery verified');
+  assert.match(c.campaignScheduleReport(data).notes[0], /Review results separately/);
+  assert.match(
+    c.campaignScheduleCopy({ ...data, progress: 'APPROVAL_EXPIRED' })[1],
+    /cannot start/,
+  );
+  assert.match(
+    c.campaignScheduleCopy({ ...data, status: 'OFF', progress: 'NEEDS_RECONCILIATION' })[1],
+    /may already/,
+  );
+});
+
+test('campaign status refresh recovers without obscuring a delivery error or requesting another effect', async () => {
+  const h = fixture(),
+    timers = [],
+    elements = {
+      '#campaign-activity': { textContent: 'Publishing approved post' },
+      '#campaign-error': { textContent: 'Delivery needs reconciliation' },
+    },
+    panel = { isConnected: true, querySelector: (selector) => elements[selector] };
+  h.c.setTimeout = (fn) => timers.push(fn);
+  h.c.clearTimeout = () => {};
+  h.c.api = async (path, body) => {
+    h.calls.push([path, body.scope_id]);
+    if (h.calls.length === 1) throw new Error('temporary outage');
+    return { intents: [] };
+  };
+  const stop = h.c.campaignWatch(panel, 'scope');
+  await timers.shift()();
+  assert.match(elements['#campaign-activity'].textContent, /Could not refresh/);
+  assert.equal(elements['#campaign-error'].textContent, 'Delivery needs reconciliation');
+  await timers.shift()();
+  assert.match(elements['#campaign-activity'].textContent, /No delivery is confirmed/);
+  stop();
+  await timers.shift()();
+  assert.deepEqual(h.calls, Array(2).fill(['/api/apps/one/campaigns/status', 'scope']));
 });

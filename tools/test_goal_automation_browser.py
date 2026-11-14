@@ -226,7 +226,8 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         assert f.wire.posts == 0
         assert not jobs(f.store, "sample-one")
         page.get_by_role("button", name="Approve exact batch and schedule", exact=True).click()
-        expect(page.locator("#campaign-schedule-progress")).to_contain_text("ACTIVE")
+        expect(page.locator("#schedule-batch-state")).to_have_text("Scheduled")
+        expect(page.locator("#schedule-live-stage")).to_contain_text("WMM must remain running")
         page.screenshot(path=str(out / f"schedule-{width}.png"))
         (out / f"schedule-{width}.html").write_text(page.content(), encoding="utf-8")
         with page.expect_popup() as report_info:
@@ -248,13 +249,14 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         page.locator("#navigation [data-view=connections]").click()
         page.get_by_role("button", name="Review campaign automation", exact=True).click()
         page.get_by_role("button", name="Inspect scheduled batch", exact=True).click()
-        expect(page.locator("#campaign-schedule-progress")).to_contain_text("OFF")
+        expect(page.locator("#schedule-batch-state")).to_have_text("Schedule off")
+        expect(page.locator("#schedule-live-stage")).to_contain_text("No new items will start")
         page.locator("#close-modal").click()
         page.locator("#navigation > [data-view=overview]").click()
         page.locator("#goal-advanced > summary").click()
         page.get_by_role("button", name="Review combined automation agreement", exact=True).click()
         form = page.locator("#agreement-form")
-        form.locator("[name=schedule_batch_id]").select_option(index=1)
+        selected_batch = form.locator("[name=schedule_batch_id]").select_option(index=1)[0]
         form.get_by_role("button", name="Review combined agreement", exact=True).click()
         expect(page.locator("#agreement-summary")).to_contain_text("No execution authority is issued")
         expect(page.locator("#agreement-summary")).to_contain_text(f.message)
@@ -273,6 +275,14 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         exported = agreement.locator("body").inner_text()
         assert f.message not in exported and link not in exported and OWNER_TOKEN not in exported
         agreement.close()
+        with page.expect_request("**/api/apps/sample-one/campaigns/schedule-status") as exact_schedule:
+            page.get_by_role("button", name="Open this schedule", exact=True).press("Enter")
+        selected_payload = exact_schedule.value.post_data_json
+        assert isinstance(selected_payload, dict)
+        batch_id = selected_payload["batch_id"]
+        assert batch_id == selected_batch
+        expect(page.locator("#schedule-batch-state")).to_have_text("Schedule off")
+        expect(page.locator("#campaign-schedule-progress")).to_contain_text(batch_id)
         assert f.wire.posts == 0
         assert not jobs(f.store, "sample-one")
         saved_runs = (
@@ -310,6 +320,7 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
             exact_draft_link_before_activation=True,
             exact_meta_request_ceiling=70,
             exact_schedule_review=True,
+            exact_schedule_recovery_link=True,
             exact_post_link_visible_in_private_review=True,
             no_effect_before_due=True,
             off=True,

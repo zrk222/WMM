@@ -1072,19 +1072,37 @@ const WMMAgreement = (() => {
     }
   }
   function guidance(s) {
+    const schedule = s.schedule;
+    const campaign = s.campaign;
     if (s.dispatch_uncertain)
       return {
         label: 'Delivery needs reconciliation',
         next: 'Inspect saved campaign receipts before any retry. Unknown delivery keeps its existing budget commitment.',
-        tool: 'campaign',
+        tool: schedule?.items?.some((item) => item.effective_status === 'NEEDS_RECONCILIATION')
+          ? 'schedule'
+          : campaign
+            ? 'campaign'
+            : 'agreement',
       };
-    if (s.campaign?.effective_status !== 'ACTIVE' && s.campaign)
+    if (schedule?.blockers?.includes('SCHEDULE_PERMISSION_EXPIRED'))
+      return {
+        label: 'Schedule approval expired',
+        next: 'Open this schedule to see what finished and what still needs approval.',
+        tool: 'schedule',
+      };
+    if (schedule && schedule.effective_status !== 'ACTIVE')
+      return {
+        label: 'Schedule needs attention',
+        next: 'Inspect the saved batch. OFF or blocked work does not resume through this review.',
+        tool: 'schedule',
+      };
+    if (campaign && campaign.effective_status !== 'ACTIVE')
       return {
         label: 'Campaign needs attention',
-        next: 'Open campaign controls to inspect expiry, account access and the exact approved limits.',
+        next: 'Open this campaign to inspect expiry, account access and the exact approved limits.',
         tool: 'campaign',
       };
-    if (s.local_work?.effective_status !== 'ACTIVE' && s.local_work)
+    if (s.local_work && s.local_work.effective_status !== 'ACTIVE')
       return {
         label: 'Local work needs attention',
         next:
@@ -1092,17 +1110,30 @@ const WMMAgreement = (() => {
           'Open local scope controls to inspect its current status and approval.',
         tool: 'agreement',
       };
-    if (s.schedule?.effective_status !== 'ACTIVE' && s.schedule)
-      return {
-        label: 'Schedule needs attention',
-        next: 'Inspect the saved batch. OFF or blocked work does not resume through this review.',
-        tool: 'campaign',
-      };
     return {
       label: 'Selected scopes reviewed',
       next: 'Watch saved work and delivery receipts. This review starts no execution.',
       tool: null,
     };
+  }
+  function recoveryButton(guide, summary) {
+    if (guide.tool === 'schedule' && summary.schedule?.id)
+      return button(
+        'Open this schedule',
+        'campaign-schedule-status',
+        'data-batch="' + esc(summary.schedule.id) + '"',
+        'primary',
+      );
+    if (guide.tool === 'campaign' && summary.campaign?.id)
+      return button(
+        'Open this campaign',
+        'campaign-status',
+        'data-id="' + esc(summary.campaign.id) + '"',
+        'primary',
+      );
+    return guide.tool === 'agreement'
+      ? button('Inspect local scope', 'goal-repair', 'data-tool="agreement"', 'primary')
+      : '';
   }
   function overview(s) {
     const guide = guidance(s),
@@ -1123,14 +1154,7 @@ const WMMAgreement = (() => {
           : 'No campaign selected',
       ) +
       '</dd></div></dl>' +
-      (guide.tool
-        ? button(
-            'Inspect ' + (guide.tool === 'campaign' ? 'campaign receipts' : 'local scope'),
-            'goal-repair',
-            'data-tool="' + guide.tool + '"',
-            'primary',
-          )
-        : '') +
+      recoveryButton(guide, s) +
       '</section>'
     );
   }

@@ -15,8 +15,9 @@ from tests import test_campaign_schedule
 class SchedulePauseEvidenceTests(unittest.TestCase):
     def test_pause_label_requires_an_intact_provider_receipt(self) -> None:
         fixture: Any = test_campaign_schedule.ScheduleTests()
-        fixture.setUp()
         self.addCleanup(fixture.doCleanups)
+        fixture.setUp()
+        self.addCleanup(fixture.tearDown)
         scope, due, request = fixture.paid_fixture()
         service, batch = fixture.paid_batch(scope, due, [request])
         with patch("time.time", return_value=due.timestamp() + 1):

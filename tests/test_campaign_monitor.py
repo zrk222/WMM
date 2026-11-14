@@ -21,7 +21,8 @@ from mission_control.campaign_execution import CampaignExecutionService
 from mission_control.common import Invalid, canonical, digest, now
 from mission_control.db import connection
 from mission_control.operation_authority import bound_owner, protected
-from mission_control.worker import claim
+from mission_control.store import Store
+from mission_control.worker import claim, persist_job_result
 from tests import test_campaign_execution as fixtures
 
 
@@ -210,6 +211,29 @@ class CampaignMonitorTests(unittest.TestCase):
         self.assertEqual(current["commitment"], 80)
         self.assertEqual(self.status(monitor)["pause_attempts"], 1)
         self.assertEqual(self.status(monitor)["provider_units"], 8)
+
+    def test_configured_pause_with_effective_active_requires_reconciliation(self) -> None:
+        monitor, job = self.job()
+        self.wire.objects[self.intent["ids"]["adset"]]["lifetime_budget"] = 999
+        self.wire.objects[self.intent["ids"]["campaign"]]["effective_status"] = "ACTIVE"
+        with patch.object(self.wire, "set_paid_status", wraps=self.wire.set_paid_status) as write:
+            result = core.execute(self.store, job, self.wire)
+            write.assert_called_once()
+            self.assertEqual(result["status"], "BLOCKED")
+            self.assertNotIn("protective_pause", result["observations"][0])
+            persist_job_result(self.store, job, result, "BLOCKED", 0)
+            reopened = Store(self.store.path, seed=False)
+            self.assertEqual(core.tick(reopened), 0)
+            self.assertIsNone(claim(reopened))
+            write.assert_called_once()
+        retained = self.fixture.service.list_intents("sample", self.scope["scope_id"])[0]
+        self.assertEqual(retained["pause_readback"]["configured_status"], "PAUSED")
+        self.assertEqual(retained["pause_readback"]["effective_status"], "ACTIVE")
+        self.assertEqual(retained["commitment"], 80)
+        shown = self.status(monitor)
+        self.assertEqual(shown["attention"], "VERIFY_PROVIDER")
+        self.assertEqual(shown["last_observation"]["status"], "BLOCKED")
+        self.assertNotIn("protective_pause", shown["last_observation"]["observations"][0])
 
     def test_active_after_end_requires_selected_condition(self):
         monitor, job = self.job(protective_conditions=["active_after_end"])
