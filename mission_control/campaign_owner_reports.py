@@ -478,7 +478,7 @@ def has_campaign_tag(url: object, campaign: str) -> bool:
 
 def next_action(campaign, monitor, experiment, delivery=None, outcome=None):
     uncertain = ("UNKNOWN", "DISPATCHING", "ACKNOWLEDGED", "VERIFYING")
-    if any(r["status"] in uncertain or r["status"].startswith("PENDING_") for r in campaign["receipts"]):
+    if any(r["status"] in uncertain or r["status"].startswith(("PENDING_", "ACK_")) for r in campaign["receipts"]):
         return "Inspect and reconcile the exact uncertain campaign receipts; do not replay mutations."
     observation = monitor["last_observation"]
     if observation and observation.get("status") == "BLOCKED":

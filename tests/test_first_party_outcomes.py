@@ -86,14 +86,21 @@ class OutcomeTests(unittest.TestCase):
             ("OBSERVED_DESCRIPTIVE", "does not establish lift"),
             ("NO_ELIGIBLE_FIRST_OPENS", "conversion rate unknown"),
             ("PARTIAL_COVERAGE", "Complete evidence"),
+            ("UNSUPPORTED_DEFINITION", "Choose a supported metric"),
+            ("DEFINITION_UNVERIFIED", "source counts first opens"),
+            ("COUNTS_UNVERIFIED", "Reconcile the source counts"),
         ):
             text = advice(campaign, monitor, None, delivery, {"status": outcome})
             self.assertIn(expected, text)
             self.assertIn("does not renew", text)
         ambiguous = {"status": "MULTIPLE_POSTS_SHARE_TAG"}
         self.assertIn("cannot identify one delivery", advice(campaign, monitor, None, ambiguous))
-        campaign["receipts"] = [{"status": "UNKNOWN"}]
-        self.assertIn("do not replay", advice(campaign, monitor, None, delivery))
+        for state in ("UNKNOWN", "ACK_ACTIVE_adset", "ACK_ACTIVE_ad", "ACK_ACTIVE_campaign", "ACK_PAUSED_campaign"):
+            with self.subTest(receipt_state=state):
+                campaign["receipts"] = [{"status": "VERIFIED"}, {"status": state}]
+                guidance = advice(campaign, monitor, None, delivery, {"status": "OBSERVED_DESCRIPTIVE"})
+                self.assertIn("do not replay", guidance)
+                self.assertNotIn("matched outcome", guidance)
         self.assertIn(
             "blocked monitor",
             advice(

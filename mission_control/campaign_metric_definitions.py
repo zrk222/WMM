@@ -103,6 +103,12 @@ def historical_measurement(campaign: Mapping[str, object], delivery: object, out
             return "Review the matched outcome and sample size. A descriptive rate does not establish lift."
         if state == "NO_ELIGIBLE_FIRST_OPENS":
             return "Record the empty eligible cohort; leave the conversion rate unknown and check the acquisition path."
+        if state == "UNSUPPORTED_DEFINITION":
+            return "Choose a supported metric and denominator for the next study. This outcome cannot be interpreted."
+        if state == "DEFINITION_UNVERIFIED":
+            return "Verify that the source counts first opens before interpreting conversion."
+        if state == "COUNTS_UNVERIFIED":
+            return "Reconcile the source counts before interpreting conversion."
         return "Complete evidence for the approved measurement window before interpreting the outcome."
     receipts = campaign.get("receipts")
     if isinstance(receipts, list) and any(
