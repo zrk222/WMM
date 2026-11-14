@@ -134,6 +134,42 @@ class OutcomeTests(unittest.TestCase):
             self.assertEqual(evidence["content_sha256"], content)
             self.assertEqual(evidence["outcome_sha256"], receipt["receipt_sha256"])
             self.assertNotIn(link, canonical(evidence))
+            second_link = link + "&utm_content=second"
+            second_summary = dict(summary, measurement_plan=dict(summary["measurement_plan"], link=second_link))
+            db.execute(
+                """INSERT INTO campaign_scopes
+                SELECT app_id,'second-approval',owner,owner_version,?,?,'OFF',0,created,updated
+                FROM campaign_scopes WHERE app_id='sample' AND id=?""",
+                (canonical(second_summary), digest(second_summary), chosen["scope_id"]),
+            )
+            second_result = dict(id=f"{page}_456", destination_check=dict(approved_link_sha256=digest(second_link)))
+            db.execute(
+                "INSERT INTO campaign_intents VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    "sample",
+                    "second-intent",
+                    "second-approval",
+                    "second-request",
+                    digest("second-request"),
+                    digest("second-content"),
+                    rights,
+                    page,
+                    "VERIFIED",
+                    second_result["id"],
+                    canonical(second_result),
+                    WINDOW[0],
+                    WINDOW[0],
+                ),
+            )
+            self.assertEqual(
+                test_campaign_owner_reports.core.matched_post(db, "sample", chosen["scope_id"], summary, receipt),
+                {"status": "MULTIPLE_POSTS_SHARE_TAG"},
+            )
+            db.execute("UPDATE campaign_intents SET status='BLOCKED' WHERE id='second-intent'")
+            self.assertEqual(
+                test_campaign_owner_reports.core.matched_post(db, "sample", chosen["scope_id"], summary, receipt),
+                evidence,
+            )
             db.execute(
                 "UPDATE campaign_intents SET updated=? WHERE app_id=? AND scope_id=?",
                 (WINDOW[1], "sample", chosen["scope_id"]),

@@ -519,6 +519,22 @@ def matched_post(db, app_id, scope_id, approved, outcome):
         < iso_time(report["ends_at"])
     ):
         return {"status": "DELIVERY_OUTSIDE_ACQUISITION_WINDOW"}
+    # Another approved post can send traffic into the same tagged cohort.
+    # Check within this app without including the other scope's data in the report.
+    shared_link = db.execute(
+        """SELECT 1 FROM campaign_intents i LEFT JOIN campaign_scopes s
+        ON s.app_id=i.app_id AND s.id=i.scope_id
+        WHERE i.app_id=? AND i.scope_id<>? AND i.status='VERIFIED' AND i.remote_id IS NOT NULL
+        AND CASE WHEN json_valid(i.result) THEN
+            json_extract(i.result,'$.destination_check.approved_link_sha256')=? OR
+            (json_extract(i.result,'$.destination_check.approved_link_sha256') IS NOT NULL AND
+             CASE WHEN json_valid(s.summary) THEN json_extract(s.summary,'$.measurement_plan.campaign_tag')=? ELSE 0 END)
+        ELSE 0 END
+        LIMIT 1""",
+        (app_id, scope_id, link_hash, report["campaign"]),
+    ).fetchone()
+    if shared_link is not None:
+        return {"status": "MULTIPLE_POSTS_SHARE_TAG"}
     return dict(
         status="EXACT_TAGGED_POST_READBACK",
         intent_id=row["id"],
