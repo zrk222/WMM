@@ -4,7 +4,13 @@ import http.client
 import json
 import re
 import time
+from collections.abc import Callable
+from datetime import date, datetime, timedelta
+from datetime import time as wall_time
+from datetime import timezone as utc_timezone
+from typing import Literal, TypedDict
 from urllib.parse import parse_qs, urlencode, urlsplit
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .aeo_tls import trust_context
 from .aeo_transport import PinnedHTTPS, address, response_body, response_headers
@@ -18,6 +24,84 @@ from .social_registry import META_VERSION
 
 class Unconfirmed(Invalid):
     """A provider operation may have happened; never retry a mutation blindly."""
+
+
+class CampaignSpendWindow(TypedDict):
+    campaign_id: str
+    account_id: str
+    currency: str
+    timezone: str
+    since: str
+    until: str
+    reported_spend: str | None
+    reporting: Literal["NO_ROWS", "PROVIDER_REPORTED_MAY_LAG"]
+
+
+def reporting_zone(timezone: str) -> ZoneInfo:
+    """Use an explicit account timezone rather than a fixed UTC offset."""
+    if not isinstance(timezone, str) or not re.fullmatch(r"[A-Za-z0-9_+/-]{1,100}", timezone):
+        raise Invalid("Choose the approved ad account's IANA timezone")
+    try:
+        return ZoneInfo(timezone)
+    except (ValueError, ZoneInfoNotFoundError):
+        raise Invalid("Choose the approved ad account's IANA timezone") from None
+
+
+def account_reporting_dates(start: datetime, end: datetime, timezone: str) -> tuple[date, date]:
+    """Map an exact half-open cohort interval onto inclusive provider days."""
+    if start.utcoffset() is None or end.utcoffset() is None or start.timestamp() >= end.timestamp():
+        raise Invalid("Spend matching requires ordered timestamps with timezone offsets")
+    zone = reporting_zone(timezone)
+    local_start = start.astimezone(utc_timezone.utc).astimezone(zone)
+    local_end = end.astimezone(utc_timezone.utc).astimezone(zone)
+    if (
+        local_start.time() != wall_time.min
+        or local_end.time() != wall_time.min
+        or local_start.replace(fold=0).utcoffset() != local_start.replace(fold=1).utcoffset()
+        or local_end.replace(fold=0).utcoffset() != local_end.replace(fold=1).utcoffset()
+        or not 1 <= (local_end.date() - local_start.date()).days <= 31
+    ):
+        raise Invalid("Cohort window must span 1 to 31 whole, unambiguous account-local days")
+    return local_start.date(), local_end.date() - timedelta(days=1)
+
+
+def checked_spend_window(
+    payload: dict[str, object], identity: str, account_id: str, currency: str, timezone: str, since: str, until: str
+) -> CampaignSpendWindow:
+    """Accept only one complete campaign total for the exact account-local dates."""
+    rows, paging = payload.get("data"), payload.get("paging")
+    if (
+        not isinstance(rows, list)
+        or len(rows) > 1
+        or (paging is not None and (not isinstance(paging, dict) or paging.get("next")))
+    ):
+        raise Unconfirmed("Advertising spend window readback was incomplete")
+    result: CampaignSpendWindow = {
+        "campaign_id": identity,
+        "account_id": account_id,
+        "currency": currency,
+        "timezone": timezone,
+        "since": since,
+        "until": until,
+        "reported_spend": None,
+        "reporting": "NO_ROWS",
+    }
+    if not rows:
+        return result
+    row = rows[0]
+    if not isinstance(row, dict) or (
+        row.get("campaign_id"),
+        row.get("account_id"),
+        row.get("account_currency"),
+        row.get("date_start"),
+        row.get("date_stop"),
+    ) != (identity, account_id, currency, since, until):
+        raise Unconfirmed("Advertising spend window does not match the requested scope")
+    spend = row.get("spend")
+    if not isinstance(spend, str) or not re.fullmatch(r"[0-9]{1,15}(?:\.[0-9]{1,6})?", spend):
+        raise Unconfirmed("Advertising spend window readback was invalid")
+    result.update(reported_spend=spend, reporting="PROVIDER_REPORTED_MAY_LAG")
+    return result
 
 
 def post_id(value, page_id):
@@ -270,3 +354,46 @@ class MetaTransport:
         if not isinstance(value, str) or not re.fullmatch(r"[0-9]{1,15}(?:\.[0-9]{1,6})?", value):
             raise Unconfirmed("Advertising spend readback was invalid")
         return {"reported_spend": value, "reporting": "PROVIDER_REPORTED_MAY_LAG"}
+
+    def campaign_spend_window(
+        self,
+        identity: str,
+        account_id: str,
+        currency: str,
+        start_at: datetime,
+        end_at: datetime,
+        token: str,
+        secret: str,
+        alive: Callable[[], object],
+        *,
+        timezone: str,
+    ) -> CampaignSpendWindow:
+        """Read one exact campaign's spend for a half-open cohort window."""
+        numeric(identity)
+        numeric(account_id)
+        if not isinstance(currency, str) or not re.fullmatch(r"[A-Z]{3}", currency):
+            raise Invalid("Choose the approved ad account's currency")
+        since, until = account_reporting_dates(start_at, end_at, timezone)
+        proof = app_secret_proof(token, secret)
+        account = self.request(
+            "GET",
+            "/" + META_VERSION + "/act_" + account_id,
+            {"fields": "id,currency,timezone_name", "appsecret_proof": proof},
+            token,
+            alive,
+        )
+        if (account.get("id"), account.get("currency"), account.get("timezone_name")) != (
+            "act_" + account_id,
+            currency,
+            timezone,
+        ):
+            raise Unconfirmed("Advertising account or reporting timezone changed")
+        start, end = since.isoformat(), until.isoformat()
+        fields = {
+            "fields": "campaign_id,account_id,account_currency,date_start,date_stop,spend",
+            "level": "campaign",
+            "time_range": json.dumps({"since": start, "until": end}, separators=(",", ":")),
+            "appsecret_proof": proof,
+        }
+        data = self.request("GET", "/" + META_VERSION + "/" + identity + "/insights", fields, token, alive)
+        return checked_spend_window(data, identity, account_id, currency, timezone, start, end)

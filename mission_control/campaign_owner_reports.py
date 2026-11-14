@@ -1,13 +1,13 @@
 """Private source-bound owner reports; no provider reads or outbound delivery."""
 
-import json
-import re
 import secrets
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from urllib.parse import parse_qs, urlsplit
 
 from .campaign_execution import saved_pause_receipt, scope_view
+from .campaign_metric_definitions import definitions, object_data
 from .campaign_monitor import actor, last_observation, whole
 from .common import Invalid, canonical, digest, identifier, iso_time, now, uid
 from .db import connection
@@ -77,16 +77,6 @@ def proposal(body):
     if not datetime.now(timezone.utc) < expiry <= datetime.now(timezone.utc) + timedelta(days=7):
         raise Invalid("Report plan expiry must be within the next 7 days")
     return dict(body, selection=chosen, expires_at=expiry.isoformat())
-
-
-def object_data(raw):
-    try:
-        value = json.loads(raw)
-    except (TypeError, ValueError):
-        raise Invalid("Saved owner report source needs repair") from None
-    if not isinstance(value, dict):
-        raise Invalid("Saved owner report source needs repair")
-    return value
 
 
 def owned_resource(db, table, app, owner, identity):
@@ -284,81 +274,6 @@ def campaign_view(db, app_id, owner, scope_id):
     )
 
 
-def definitions(db, app_id, metrics):
-    """Compare metric identities and units, never just similarly named totals."""
-    cohorts = [
-        _cohort_definition(object_data(row["data"]))
-        for row in db.execute("SELECT data FROM growth_cohorts WHERE app_id=? ORDER BY id", (app_id,))
-    ]
-    records = []
-    for row in db.execute(
-        "SELECT data,kind FROM records WHERE app_id=? AND kind IN ('cohort','retention','acquisition') ORDER BY id",
-        (app_id,),
-    ):
-        value = object_data(row["data"])
-        records.append(
-            dict(
-                kind=row["kind"],
-                scope={
-                    k: value.get(k)
-                    for k in (
-                        "cohort_id",
-                        "currency",
-                        "horizon",
-                        "window",
-                        "release",
-                        "platform",
-                        "locale",
-                        "starts_at",
-                        "ends_at",
-                        "matures_at",
-                    )
-                },
-            )
-        )
-    sources = [
-        dict(row)
-        for row in db.execute(
-            "SELECT id,provider,version,hash FROM insight_sources WHERE app_id=? ORDER BY id",
-            (app_id,),
-        )
-    ]
-    return digest(
-        dict(
-            projection_schema="ios_reports.v1",
-            metric_names=[r["metric"] for r in metrics["rows"]],
-            metric_units_and_dimensions=[
-                re.findall(
-                    r"(?:currency|horizon|period|unit|type|source_type|dimensions|subscription binding)=([^;]+)",
-                    r["evidence"],
-                )
-                for r in metrics["rows"]
-            ],
-            cohorts=cohorts,
-            record_scopes=records,
-            sources=sources,
-        )
-    )
-
-
-def _cohort_definition(value):
-    fields = (
-        "cohort_id",
-        "release",
-        "platform",
-        "locale",
-        "currency",
-        "starts_at",
-        "ends_at",
-        "matures_at",
-        "attribution_method",
-        "observability",
-        "source",
-        "subscription_map",
-    )
-    return {key: value.get(key) for key in fields}
-
-
 def comparison(db, app_id, owner, key, current):
     previous = db.execute(
         "SELECT id,data,hash FROM campaign_owner_reports WHERE app_id=? AND owner=? AND comparison_key=? ORDER BY rowid DESC LIMIT 1",
@@ -519,6 +434,24 @@ def matched_post(db, app_id, scope_id, approved, outcome):
         < iso_time(report["ends_at"])
     ):
         return {"status": "DELIVERY_OUTSIDE_ACQUISITION_WINDOW"}
+    # Another approved post can send traffic into the same tagged cohort.
+    # Check within this app without including the other scope's data in the report.
+    candidates = db.execute(
+        """SELECT json_extract(i.result,'$.destination_check.final_url') AS url,
+        json_extract(i.result,'$.destination_check.approved_link_sha256') AS link_hash,
+        CASE WHEN json_valid(s.summary) THEN json_extract(s.summary,'$.measurement_plan.campaign_tag') END AS plan_tag
+        FROM campaign_intents i LEFT JOIN campaign_scopes s
+        ON s.app_id=i.app_id AND s.id=i.scope_id
+        WHERE i.app_id=? AND i.id<>? AND i.status='VERIFIED' AND i.remote_id IS NOT NULL
+        AND json_valid(i.result)""",
+        (app_id, row["id"]),
+    )
+    for candidate in candidates:
+        if candidate["link_hash"] == link_hash or (
+            candidate["link_hash"] is not None
+            and (has_campaign_tag(candidate["url"], report["campaign"]) or candidate["plan_tag"] == report["campaign"])
+        ):
+            return {"status": "MULTIPLE_POSTS_SHARE_TAG"}
     return dict(
         status="EXACT_TAGGED_POST_READBACK",
         intent_id=row["id"],
@@ -529,6 +462,16 @@ def matched_post(db, app_id, scope_id, approved, outcome):
         delivery_sha256=digest(result),
         outcome_sha256=outcome["receipt_sha256"],
     )
+
+
+def has_campaign_tag(url: object, campaign: str) -> bool:
+    """Read retained destination evidence without fetching or exposing its URL."""
+    if not isinstance(url, str) or len(url) > 4096:
+        return False
+    try:
+        return campaign in parse_qs(urlsplit(url).query, max_num_fields=256).get("utm_campaign", [])
+    except ValueError:
+        return False
 
 
 def next_action(campaign, monitor, experiment):

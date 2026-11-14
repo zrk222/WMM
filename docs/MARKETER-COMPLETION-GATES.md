@@ -212,6 +212,37 @@ or immature values unavailable. Use preregistered thresholds to recommend
 continue, pause, or revise; attributed counts alone do not establish lift.
 This backlog item authorizes no spend and leaves the WizeMe trial free-only.
 
+### Paid attribution acceptance
+
+WMM can promote an existing Facebook Page post. The post's approved
+`utm_campaign` can appear in organic and promoted traffic, so the shared tag
+alone cannot identify paid installs or revenue. Report that cohort as mixed
+until there is separate, verified paid attribution.
+
+1. Bind a paid-only tracking identifier to the exact app, ad account,
+   campaign, ad and destination before activation. Verify the effective
+   destination and paid identifier by provider readback and a consented test
+   visit. The unchanged organic post must not yield that identifier. Any new
+   tracking parameter or destination belongs in the exact approval. If Meta
+   cannot deliver distinct tracking for the existing-post format, leave paid
+   attribution unavailable for that format.
+2. Use an app-scoped identity link to join eligible first opens to paid
+   transactions and corrections. Exclude internal tests and ambiguous or
+   competing claims. Request spend for the same acquisition window in the
+   verified ad account's timezone and currency. Use spend at the same
+   attribution grain: an ad-specific cohort cannot use a campaign-wide
+   denominator unless the campaign contains only that ad for the entire window.
+3. Keep CPI, paid CAC and D7/D30 ROAS unavailable for shared tags, incomplete
+   sources, unmatched scope or zero spend. Report D7 and D30 separately as
+   each cohort window matures; do not convert missing or immature data to
+   zero. Save the spend, attribution and revenue receipt hashes with the
+   decision and identify the outcome as attributed, not incremental.
+
+Acceptance must include an organic click and a paid click on the same post,
+show that only the paid click can enter the paid cohort, and verify one
+matching live spend read. A local fixture or a provider totals report does
+not establish this chain.
+
 ## Next owner-run WizeMe trial handoff
 
 Use the [first evidence packet](../README.md#your-first-evidence-packet) to start.

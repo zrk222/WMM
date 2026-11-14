@@ -45,5 +45,6 @@ Use object for unvalidated input and narrowed shapes after existing validation. 
 - The existing CI guard rejects new untyped public methods on `Access`,
   including asynchronous and static methods. Existing runtime checks still
   decide whether membership or owner setup may change state.
-- This slice remains in the standard Pyright profile. Strict enrollment waits
-  for the database connection, store and policy dependency signatures.
+- Pyright uses strict mode for `review_access.py`. Its database connection,
+  store and manifest-version dependencies expose typed public signatures.
+  Other maintained modules keep their existing profile.
