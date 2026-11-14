@@ -2,6 +2,7 @@
 
 import re
 from urllib.parse import urlencode, urlsplit
+
 from .common import Invalid
 
 BASE = "https://api.appstoreconnect.apple.com"
@@ -142,7 +143,7 @@ def screenshot(row):
     )
 
 
-def screenshot_set(inventory, row, locale_id):
+def screenshot_set(inventory, row):
     """Inspect one display set and preserve incomplete screenshot coverage."""
     identity, data = entity(row, "appScreenshotSets")
     rows, complete = inventory.collection(
@@ -165,7 +166,7 @@ def localization(inventory, row, version_id):
         "appStoreVersionLocalization",
         identity,
     )
-    sets = [screenshot_set(inventory, item, identity) for item in rows]
+    sets = [screenshot_set(inventory, item) for item in rows]
     metadata = {
         key: text(data, key)
         for key in ("description", "keywords", "supportUrl", "marketingUrl", "whatsNew", "promotionalText")
@@ -205,6 +206,8 @@ def read_inventory(reader, store_id, version_id):
     payload = inventory.fetch(
         "/v1/appStoreVersions/" + version_id, {"include": "app,build", "fields[builds]": "version,processingState"}
     )
+    if payload is None:
+        raise Invalid("Selected release details are unavailable")
     version = payload.get("data")
     identity, data = entity(version, "appStoreVersions")
     if identity != version_id:

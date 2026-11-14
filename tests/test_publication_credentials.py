@@ -1,8 +1,9 @@
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
-from mission_control.common import Invalid
+
 from mission_control import publication_credentials as pc
+from mission_control.common import Invalid
 from mission_control.publication_transport import Context
 from mission_control.social_profiles import Identity
 
@@ -135,15 +136,17 @@ class CredentialsTests(unittest.TestCase):
         with self.assertRaises(Invalid):
             pc.context(self.store, "app", self.draft, self.charge, self.beat)
         self.row["data"]["facts"]["reported_scopes"] = ["openid", "profile", self.required]
-        with patch.object(
-            pc,
-            "verify",
-            return_value=SimpleNamespace(
-                subject_id="foreign", destinations=[{"id": "person"}], permissions=[self.required]
+        with (
+            patch.object(
+                pc,
+                "verify",
+                return_value=SimpleNamespace(
+                    subject_id="foreign", destinations=[{"id": "person"}], permissions=[self.required]
+                ),
             ),
+            self.assertRaises(Invalid),
         ):
-            with self.assertRaises(Invalid):
-                pc.context(self.store, "app", self.draft, self.charge, self.beat)
+            pc.context(self.store, "app", self.draft, self.charge, self.beat)
         self.assertEqual(self.charges, 0)
 
     def test_instagram_link_and_public_inspect(self):
@@ -190,15 +193,15 @@ class CredentialsTests(unittest.TestCase):
         with self.assertRaises(Invalid):
             pc.context(self.store, "app", d, self.charge, self.beat)
         self.row["data"]["identity"]["permissions"] = ["instagram_basic", "instagram_content_publish"]
-        with patch.object(
-            pc, "request", return_value={"id": "123", "instagram_business_account": {"id": "999", "username": "x"}}
+        with (
+            patch.object(
+                pc, "request", return_value={"id": "123", "instagram_business_account": {"id": "999", "username": "x"}}
+            ),
+            self.assertRaises(Invalid),
         ):
-            with self.assertRaises(Invalid):
-                pc.context(self.store, "app", d, self.charge, self.beat)
+            pc.context(self.store, "app", d, self.charge, self.beat)
 
     def test_two_provider_reads_charge_twice_but_heartbeats_do_not(self):
-        from mission_control import social_transport
-
         def verify_two_reads(config, secret, grant, alive):
             first = pc.request("linkedin", "identity", bearer="synthetic-access", alive=alive)
             alive()
