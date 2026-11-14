@@ -14,6 +14,8 @@ from .campaign_contract import (
     whole,
 )
 from .campaign_execution import scope_view
+from .campaign_monitor import allowance_exhausted, monitor_attention
+from .campaign_monitor import view as monitor_view
 from .campaign_schedule import check_paid_review, item_status
 from .common import Invalid, digest, iso_time
 from .complete_automation import policy_view
@@ -43,10 +45,12 @@ UNCERTAIN = (
 
 def selection(body):
     """Accept exact existing resource references, never new authority choices."""
-    exact_keys(body, FIELDS, ("draft_posts",))
+    exact_keys(body, FIELDS, ("draft_posts", "campaign_monitor_id"))
     if type(body["manifest_version"]) is not int or body["manifest_version"] < 1:
         raise Invalid("Use the current app manifest version")
     selected = [body[name] for name in FIELDS[1:] if body[name] is not None]
+    if body.get("campaign_monitor_id") is not None:
+        selected.append(body["campaign_monitor_id"])
     if not selected:
         raise Invalid("Select at least one existing automation resource")
     for identity in selected:
@@ -56,6 +60,7 @@ def selection(body):
         if (
             body["campaign_scope_id"] is None
             or body["schedule_batch_id"] is not None
+            or body.get("campaign_monitor_id") is not None
             or not isinstance(posts, list)
             or not 1 <= len(posts) <= 20
         ):
@@ -417,6 +422,59 @@ class Agreement:
         )
 
 
+def monitor_scope(db, app_id, principal, identity):
+    """Project one exact saved monitor without resolving secrets or dispatching work."""
+    if identity is None:
+        return None
+    if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='campaign_monitors'").fetchone() is None:
+        raise Invalid("Monitor is unavailable for this owner")
+    row = db.execute(
+        "SELECT * FROM campaign_monitors WHERE app_id=? AND owner=? AND id=?", (app_id, principal, identity)
+    ).fetchone()
+    if row is None:
+        raise Invalid("Monitor is unavailable for this owner")
+    reviewed = monitor_view(db, row)
+    if reviewed["summary"] is None:
+        raise Invalid("Saved monitor evidence needs repair")
+    plan = reviewed["summary"]["proposal"]
+    observation = reviewed["last_observation"]
+    previous = observation["status"] if observation else None
+    in_flight = previous in ("QUEUED", "RUNNING")
+    exhausted = allowance_exhausted(row, plan)
+    effective = reviewed["effective_status"]
+    if effective == "ACTIVE" and not in_flight and (exhausted or (row["last_job"] and previous != "SUCCEEDED")):
+        effective = "BLOCKED"
+    try:
+        next_due = (
+            datetime.fromtimestamp(reviewed["next_due"], timezone.utc).isoformat()
+            if effective == "ACTIVE" and not in_flight
+            else None
+        )
+    except (ArithmeticError, OSError, TypeError, ValueError):
+        raise Invalid("Saved monitor schedule needs repair") from None
+    return dict(
+        id=reviewed["id"],
+        scope_id=plan["scope_id"],
+        summary_hash=reviewed["summary_hash"],
+        status=reviewed["status"],
+        effective_status=effective,
+        attention=monitor_attention(row, plan, effective, observation),
+        targets=plan["targets"],
+        conditions=plan["protective_conditions"],
+        cadence_seconds=plan["cadence_seconds"],
+        expires_at=plan["expires_at"],
+        next_due_at=next_due,
+        check_in_progress=in_flight,
+        check_allowance_exhausted=exhausted,
+        runs=reviewed["runs"],
+        max_runs=plan["max_runs"],
+        provider_units=reviewed["provider_units"],
+        max_provider_units=plan["max_provider_units"],
+        pause_attempts=reviewed["pause_attempts"],
+        max_pause_attempts=plan["max_pause_attempts"],
+    )
+
+
 def build_summary(db, app, owner, chosen, observed):
     """Keep every selected family visible and independent in a hash-bound owner review."""
     row, saved = batch_row(db, app["id"], owner["principal"], chosen["schedule_batch_id"])
@@ -425,6 +483,12 @@ def build_summary(db, app, owner, chosen, observed):
         if campaign_id is not None and campaign_id != row["scope_id"]:
             raise Invalid("Selected schedule and campaign scope differ")
         campaign_id = row["scope_id"]
+    monitor_id = chosen.get("campaign_monitor_id")
+    monitor = monitor_scope(db, app["id"], owner["principal"], monitor_id)
+    if monitor is not None:
+        if campaign_id is not None and campaign_id != monitor["scope_id"]:
+            raise Invalid("Selected monitor and campaign scope differ")
+        campaign_id = monitor["scope_id"]
     local = local_scope(db, app["id"], owner["principal"], chosen["workflow_policy_id"], observed)
     campaign = campaign_scope(db, app, owner, campaign_id, observed)
     draft_posts = chosen.get("draft_posts")
@@ -446,11 +510,13 @@ def build_summary(db, app, owner, chosen, observed):
             raise Invalid("Draft post differs from the saved campaign scope")
         campaign["draft_posts"] = draft_posts
     batch = batch_scope(db, app["id"], row, saved, campaign, observed)
-    uncertain = uncertainty(local, campaign, batch)
-    blocked = uncertain or any(value and value["effective_status"] != "ACTIVE" for value in (local, campaign, batch))
+    uncertain = uncertainty(local, campaign, batch) or bool(monitor and monitor["attention"] == "VERIFY_PROVIDER")
+    blocked = uncertain or any(
+        value and value["effective_status"] != "ACTIVE" for value in (local, campaign, batch, monitor)
+    )
     return dict(
         schema="wmm.automation-agreement.v1",
-        selection={name: chosen[name] for name in FIELDS},
+        selection={name: chosen[name] for name in FIELDS + (("campaign_monitor_id",) if monitor_id else ())},
         app=dict(id=app["id"], version=app["version"], hash=digest(app["data"])),
         owner=dict(principal=owner["principal"], role_version=owner["version"]),
         policy_sha256=digest(operating_manifest(app)),
@@ -458,6 +524,7 @@ def build_summary(db, app, owner, chosen, observed):
         local_work=local,
         campaign=campaign,
         schedule=batch,
+        monitor=monitor,
         blocked=bool(blocked),
         dispatch_uncertain=uncertain,
         execution_authority=False,

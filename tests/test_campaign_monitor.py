@@ -17,6 +17,7 @@ from unittest.mock import patch
 
 from mission_control import campaign_monitor as core
 from mission_control import campaign_monitor_authority as authority
+from mission_control.automation_agreement import monitor_scope
 from mission_control.campaign_execution import CampaignExecutionService
 from mission_control.common import Invalid, canonical, digest, now
 from mission_control.db import connection
@@ -423,6 +424,25 @@ class CampaignMonitorTests(unittest.TestCase):
             db.execute("UPDATE operator_roles SET version=version+1 WHERE app_id='sample'")
         self.assertEqual(core.tick(self.store), 0)
         self.assertEqual(self.status(another)["effective_status"], "BLOCKED")
+
+    def test_agreement_separates_last_inflight_check_from_exhausted_monitor(self):
+        monitor, job = self.job(max_runs=1, protective_conditions=[], max_pause_attempts=0)
+        with connection(self.store.path) as db:
+            pending = monitor_scope(db, "sample", "owner", monitor["id"])
+        self.assertTrue(pending["check_in_progress"])
+        self.assertTrue(pending["check_allowance_exhausted"])
+        self.assertIsNone(pending["next_due_at"])
+        self.assertEqual(pending["effective_status"], "ACTIVE")
+
+        result = core.execute(self.store, job, self.wire)
+        persist_job_result(self.store, job, result, "SUCCEEDED", 0)
+        with connection(self.store.path) as db:
+            exhausted = monitor_scope(db, "sample", "owner", monitor["id"])
+        self.assertEqual(exhausted["status"], "ACTIVE")  # Projection did not mutate the scheduler record.
+        self.assertEqual(exhausted["effective_status"], "BLOCKED")
+        self.assertFalse(exhausted["check_in_progress"])
+        self.assertEqual(exhausted["attention"], "REVIEW_ALLOWANCE")
+        self.assertIsNone(exhausted["next_due_at"])
 
     def test_unknown_pending_recovery_reads_only_and_retains_hold(self):
         monitor, job = self.job(protective_conditions=[], max_pause_attempts=0)

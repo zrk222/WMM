@@ -14,6 +14,10 @@ function fixture() {
   };
   vm.createContext(c);
   vm.runInContext(
+    fs.readFileSync(path.join(__dirname, '../mission_control/static/campaign-monitor.mjs'), 'utf8'),
+    c,
+  );
+  vm.runInContext(
     fs.readFileSync(path.join(__dirname, '../mission_control/static/guided-workflow.mjs'), 'utf8'),
     c,
   );
@@ -34,6 +38,57 @@ test('selection includes exact existing resource IDs, never new authority fields
   assert.equal(s.schedule_batch_id, 'batch');
   assert.equal(s.manifest_version, 3);
   assert.throws(() => a.selection({}, { version: 3 }));
+  assert.equal(
+    a.selection({ campaign_monitor_id: 'monitor' }, { version: 3 }).campaign_monitor_id,
+    'monitor',
+  );
+});
+
+test('exact monitor rules and allowances are visible in the agreement and private report', () => {
+  const a = fixture();
+  const summary = {
+    local_work: null,
+    campaign: null,
+    schedule: null,
+    app: { id: 'one', version: 1 },
+    owner: { principal: 'owner' },
+    stop_rules: [],
+    monitor: {
+      id: 'monitor-1',
+      scope_id: 'scope-1',
+      effective_status: 'BLOCKED',
+      attention: 'VERIFY_PROVIDER',
+      conditions: ['configuration_drift', 'active_after_end'],
+      cadence_seconds: 90,
+      next_due_at: null,
+      expires_at: '2026-11-14T23:45:00Z',
+      runs: 1,
+      max_runs: 4,
+      provider_units: 3,
+      max_provider_units: 20,
+      pause_attempts: 0,
+      max_pause_attempts: 1,
+      targets: [{ intent_id: 'intent-1', request_hash: 'a'.repeat(64), private: 'SENSITIVE' }],
+    },
+  };
+  const data = { status: 'warning', summary, summary_hash: 'hash', observed_at: 'now' };
+  const html = a.markup(data);
+  const report = JSON.stringify(a.reportModel(data, {}));
+  assert.match(html, /Monitoring needs reconciliation/);
+  for (const value of [html, report]) {
+    assert.match(
+      value,
+      /Pause an active campaign when its configuration changed or could not be confirmed/,
+    );
+    assert.match(value, /Pause if the campaign is still active after its approved end/);
+    assert.match(value, /provider observation no more than 30 seconds old/);
+    assert.match(value, /provider units 3\/20/);
+    assert.match(value, /pause attempts 0\/1/);
+    assert.match(value, /Exact intent intent-1/);
+    assert.doesNotMatch(value, /SENSITIVE/);
+  }
+  summary.monitor.conditions = [];
+  assert.match(a.markup(data), /None approved; read and reconcile only/);
 });
 test('combined review escapes source content and explicitly issues no authority', () => {
   const a = fixture(),
@@ -312,6 +367,7 @@ function interactive() {
     requests = [],
     c = {
       esc: String,
+      AbortSignal,
       button: () => '',
       state: { app: 'one', workspace: { app: { version: 1 }, identity: { principal: 'owner' } } },
       FormData: class {
@@ -504,6 +560,21 @@ test('an unreadable batch cannot be selected while healthy schedules remain avai
   const { html } = h.requests.at(-1);
   assert.match(html, /<option value="damaged" disabled>damaged · Review saved campaign receipts/);
   assert.match(html, /<option value="healthy">healthy · ACTIVE/);
+});
+
+test('unavailable monitor history keeps the other agreement selections usable', async () => {
+  const h = interactive();
+  h.c.api = async (url, _, options) => {
+    if (url.endsWith('/campaign-monitor/history')) {
+      assert.ok(options.signal instanceof AbortSignal);
+      throw new Error('fixture history unavailable');
+    }
+    return { policies: [{ id: 'policy', status: 'ACTIVE' }], scopes: [], batches: [] };
+  };
+  await h.a.open();
+  const { html } = h.requests.at(-1);
+  assert.match(html, /Saved monitors could not be read/);
+  assert.match(html, /<option value="policy">policy · ACTIVE/);
 });
 
 test('agreement distinguishes exact recovery routes for expired, uncertain and standalone campaign scope', () => {

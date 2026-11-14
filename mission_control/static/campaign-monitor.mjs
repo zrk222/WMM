@@ -3,6 +3,15 @@ import { modal } from './app-ui.mjs';
 import { WMMPageReports } from './feature-apis.mjs';
 ('use strict');
 /* Exact owner monitoring preferences; domain services retain effect authority. */
+const monitorRuleName = (name) =>
+  ({
+    configuration_drift:
+      'Pause an active campaign when its configuration changed or could not be confirmed',
+    active_after_end: 'Pause if the campaign is still active after its approved end',
+  })[name] || 'Unavailable condition';
+const monitorPauseEvidence =
+  'Every pause needs a matching provider observation no more than 30 seconds old and current permission.';
+
 const WMMCampaignMonitor = (() => {
   let active = null;
   const current = () => ({
@@ -168,10 +177,14 @@ const WMMCampaignMonitor = (() => {
           '<p>Must expire by ' +
           esc(snapshot.scope.expires_at) +
           '. Provider read allowances are independent of emergency pause allowances.</p><fieldset><legend>Optional ' +
-          'protective pause</legend><label class="check-row"><input name="configuration_drift" type="checkbox">Pause an ' +
-          'identity-matched active campaign after fresh configuration drift is observed.</label><label class="check-row">' +
-          '<input name="active_after_end" type="checkbox">Pause an owned campaign observed active after its approved end, ' +
-          'before this monitor and scope expire.</label><label class="field">Maximum protective pause attempts<input ' +
+          'protective pause</legend><label class="check-row"><input name="configuration_drift" type="checkbox">' +
+          esc(monitorRuleName('configuration_drift')) +
+          '.</label><label class="check-row">' +
+          '<input name="active_after_end" type="checkbox">' +
+          esc(monitorRuleName('active_after_end')) +
+          '.</label><p>' +
+          esc(monitorPauseEvidence) +
+          '</p><label class="field">Maximum protective pause attempts<input ' +
           'name="max_pause_attempts" type="number" min="0" max="20" value="0" required></label></fieldset><p>Media ' +
           'commitments stay held after pause. Reported spend may lag; this monitor does not enforce a real-time spend ' +
           'threshold.</p><p id="monitor-error" role="alert"></p><button type="submit" class="button primary">Review exact ' +
@@ -186,11 +199,6 @@ const WMMCampaignMonitor = (() => {
       previous.pending = false;
     }
   }
-  const ruleName = (name) =>
-    ({
-      configuration_drift: 'Pause after verified configuration drift',
-      active_after_end: 'Pause if still active after the approved end',
-    })[name] || name;
   const needsRepair = (data) => data.evidence_unavailable || !data.summary?.proposal;
   const repairNotice =
     'Saved monitor approval evidence is unavailable. Check campaign receipts before approving further monitoring.';
@@ -213,7 +221,8 @@ const WMMCampaignMonitor = (() => {
       ' · pause attempts ' +
       esc(p.max_pause_attempts) +
       '.</p><p>Protective rules: ' +
-      esc(p.protective_conditions.map(ruleName).join('; ') || 'None; read-only monitoring') +
+      esc(p.protective_conditions.map(monitorRuleName).join('; ') || 'None; read-only monitoring') +
+      (p.protective_conditions.length ? '. ' + esc(monitorPauseEvidence) : '') +
       '</p><details><summary>Exact target IDs and approval binding</summary><ul>' +
       p.targets
         .map((t) => '<li>' + esc(t.intent_id) + ' · ' + esc(t.request_hash) + '</li>')
@@ -467,4 +476,4 @@ const WMMCampaignMonitor = (() => {
   return { open, choose, submit, proposal, options, summary, progress, inspect, report, action };
 })();
 
-export { WMMCampaignMonitor };
+export { WMMCampaignMonitor, monitorPauseEvidence, monitorRuleName };

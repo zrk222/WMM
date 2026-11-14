@@ -232,13 +232,13 @@ def monitor_attention(row, proposal, effective, observation):
     if iso_time(proposal["expires_at"]).timestamp() <= time.time():
         return "REVIEW_EXPIRY"
     # A quota message must not imply that an incomplete or missing job succeeded.
-    if (
-        observation
-        and observation["status"] == "SUCCEEDED"
-        and (row["runs"] >= proposal["max_runs"] or row["units"] >= proposal["max_provider_units"])
-    ):
+    if observation and observation["status"] == "SUCCEEDED" and allowance_exhausted(row, proposal):
         return "REVIEW_ALLOWANCE"
     return "CHECK_APPROVAL"
+
+
+def allowance_exhausted(row, limits):
+    return row["runs"] >= limits["max_runs"] or row["units"] >= limits["max_provider_units"]
 
 
 def view(db, row):
@@ -554,7 +554,7 @@ def eligible(db, row):
     if not _previous_finished(db, row):
         return False
     limits = summary["proposal"]
-    if row["runs"] >= limits["max_runs"] or row["units"] >= limits["max_provider_units"]:
+    if allowance_exhausted(row, limits):
         block(db, row["id"])
         return False
     return True

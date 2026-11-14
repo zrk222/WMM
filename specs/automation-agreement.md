@@ -37,7 +37,7 @@ Scenario: read_only
 ```
 
 ## SHOULD - Technical
-- Required selection fields: manifest_version, workflow_policy_id, campaign_scope_id and schedule_batch_id; at least one of the three resource IDs is non-null.
+- Required selection fields: manifest_version, workflow_policy_id, campaign_scope_id and schedule_batch_id; at least one of the resource IDs, including optional campaign_monitor_id, is non-null.
 - The owner is supplied by the existing fresh session adapter, never by body fields.
 - Scheduled batches implicitly include their linked campaign as a dependency; an explicitly selected different campaign is rejected.
 - Unknown credential price, fees, provider lag, unverified freshness and dispatched uncertainty remain explicit; no provider readback is performed.
@@ -49,6 +49,7 @@ Scenario: read_only
 - Batch review uses captured admission expiry and current campaign permission. Selected manifest mismatch, foreign ownership identity, invalid resource summary integrity or mismatched selected campaign rejects the review. Saved app or owner revision changes instead appear as current blockers, as do inactive permission or uncertain dispatch; callers must distinguish a rejected selection from a valid blocked review.
 - The combined response includes stop rules for OFF/revocation, expiry/source or resource changes, exhausted allowances/ceilings, and uncertain dispatch requiring reconciliation. Each underlying scope keeps its own OFF control. Dispatched effects and incurred charges remain recorded.
 - A matching review digest is neither execution authority nor fresh provider verification. New creative variants need their own exact content/rights approval and current downstream authority; this read model cannot approve them.
+- An optional `campaign_monitor_id` selects an existing monitor owned by the same app owner. It implies its saved campaign, like a batch does. Conflicting monitor, campaign or batch selections and unreadable monitor evidence fail closed. The review shows saved protective conditions, exact intent IDs and request hashes, cadence, expiry, next check, and independent usage limits. Missing monitor selection does not assert that no monitor exists. The snapshot does not change, run or activate monitoring.
 
 ### Additional acceptance
 Given an exact saved draft organic scope, reviewing matching draft posts returns their text/link privately without activation, jobs or writes; a changed link or rights hash rejects.
