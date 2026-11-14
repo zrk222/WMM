@@ -429,6 +429,7 @@ class CampaignMonitorTests(unittest.TestCase):
         monitor, job = self.job(max_runs=1, protective_conditions=[], max_pause_attempts=0)
         with connection(self.store.path) as db:
             pending = monitor_scope(db, "sample", "owner", monitor["id"])
+        assert pending is not None
         self.assertTrue(pending["check_in_progress"])
         self.assertTrue(pending["check_allowance_exhausted"])
         self.assertIsNone(pending["next_due_at"])
@@ -438,6 +439,7 @@ class CampaignMonitorTests(unittest.TestCase):
         persist_job_result(self.store, job, result, "SUCCEEDED", 0)
         with connection(self.store.path) as db:
             exhausted = monitor_scope(db, "sample", "owner", monitor["id"])
+        assert exhausted is not None
         self.assertEqual(exhausted["status"], "ACTIVE")  # Projection did not mutate the scheduler record.
         self.assertEqual(exhausted["effective_status"], "BLOCKED")
         self.assertFalse(exhausted["check_in_progress"])

@@ -2,7 +2,7 @@
 
 import json
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, TypedDict, cast
 
 from .automation_requirements import social_account, workflow_catalog
 from .campaign_contract import (
@@ -14,7 +14,7 @@ from .campaign_contract import (
     whole,
 )
 from .campaign_execution import scope_view
-from .campaign_monitor import allowance_exhausted, monitor_attention
+from .campaign_monitor import ObservationReceipt, allowance_exhausted, monitor_attention
 from .campaign_monitor import view as monitor_view
 from .campaign_schedule import check_paid_review, item_status
 from .common import Invalid, digest, iso_time
@@ -41,6 +41,44 @@ UNCERTAIN = (
     "ACKNOWLEDGED",
     "NEEDS_RECONCILIATION",
 )
+
+
+class AgreementPreview(TypedDict):
+    status: str
+    summary: dict[str, Any]
+    summary_hash: str
+    observed_at: str
+    authority_issued: bool
+    next_actions: list[str]
+    artifacts: list[object]
+
+
+class MonitorProposal(TypedDict):
+    scope_id: str
+    targets: list[dict[str, str]]
+    protective_conditions: list[str]
+    cadence_seconds: int
+    expires_at: str
+    max_runs: int
+    max_provider_units: int
+    max_pause_attempts: int
+
+
+class SavedMonitorSummary(TypedDict):
+    proposal: MonitorProposal
+
+
+class MonitorRead(TypedDict):
+    id: str
+    summary: SavedMonitorSummary | None
+    summary_hash: str | None
+    status: str
+    effective_status: str
+    last_observation: ObservationReceipt | None
+    next_due: float | None
+    runs: int
+    provider_units: int
+    pause_attempts: int
 
 
 def selection(body):
@@ -397,7 +435,7 @@ class Agreement:
         self.store = store
         self.clock = clock or (lambda: datetime.now(timezone.utc))
 
-    def preview(self, app_id, user, body):
+    def preview(self, app_id, user, body) -> AgreementPreview:
         """Return an exact combined review without approving any selected scope."""
         path_segment(app_id)
         chosen = selection(body)
@@ -411,7 +449,7 @@ class Agreement:
             app = dict(id=app_id, version=row["version"], data=saved_object(row["data"]))
             summary = build_summary(db, app, owner, chosen, observed)
         blocked = summary["blocked"]
-        return dict(
+        return AgreementPreview(
             status="warning" if blocked else "success",
             summary=summary,
             summary_hash=digest(summary),
@@ -433,7 +471,8 @@ def monitor_scope(db, app_id, principal, identity):
     ).fetchone()
     if row is None:
         raise Invalid("Monitor is unavailable for this owner")
-    reviewed = monitor_view(db, row)
+    # The monitor's saved summary path validates these proposal fields before returning them.
+    reviewed = cast(MonitorRead, monitor_view(db, row))
     if reviewed["summary"] is None:
         raise Invalid("Saved monitor evidence needs repair")
     plan = reviewed["summary"]["proposal"]
@@ -444,14 +483,15 @@ def monitor_scope(db, app_id, principal, identity):
     effective = reviewed["effective_status"]
     if effective == "ACTIVE" and not in_flight and (exhausted or (row["last_job"] and previous != "SUCCEEDED")):
         effective = "BLOCKED"
-    try:
-        next_due = (
-            datetime.fromtimestamp(reviewed["next_due"], timezone.utc).isoformat()
-            if effective == "ACTIVE" and not in_flight
-            else None
-        )
-    except (ArithmeticError, OSError, TypeError, ValueError):
-        raise Invalid("Saved monitor schedule needs repair") from None
+    next_due = None
+    if effective == "ACTIVE" and not in_flight:
+        stored_due = reviewed["next_due"]
+        if stored_due is None:
+            raise Invalid("Saved monitor schedule needs repair")
+        try:
+            next_due = datetime.fromtimestamp(stored_due, timezone.utc).isoformat()
+        except (ArithmeticError, OSError, TypeError, ValueError):
+            raise Invalid("Saved monitor schedule needs repair") from None
     return dict(
         id=reviewed["id"],
         scope_id=plan["scope_id"],

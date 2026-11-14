@@ -9,6 +9,7 @@ the HTTP/SQLite assertions supply behavioral evidence.
 import threading
 import unittest
 from datetime import datetime, timedelta
+from typing import Any
 from unittest.mock import patch
 
 from mission_control.automation_agreement import (
@@ -35,6 +36,9 @@ MONITOR = "88888888-8888-4888-8888-888888888888"
 
 
 class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
+    scope: dict[str, Any]
+    batch: dict[str, Any]
+
     def setUp(self):
         self.setup_authority()
         self.addCleanup(self.cleanup_authority)
@@ -79,9 +83,10 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
             billing_notice="Media excludes fees and taxes; reports may lag.",
             rights_notice="Owner attestations only.",
         )
+        due = self.observed + timedelta(minutes=5)
         item = dict(
             item_id=ITEM,
-            due_at=(self.observed + timedelta(minutes=5)).isoformat(),
+            due_at=due.isoformat(),
             request=self.post,
         )
         batch = dict(
@@ -156,7 +161,7 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
                 (
                     ITEM,
                     BATCH,
-                    datetime.fromisoformat(item["due_at"]).timestamp(),
+                    due.timestamp(),
                     canonical(item),
                     digest(item),
                     "READY",
@@ -458,9 +463,10 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
             billing_acknowledged=True,
             ordinary_ad_attestation=True,
         )
+        due = self.observed - timedelta(minutes=10)
         item = dict(
             item_id=ITEM,
-            due_at=(self.observed - timedelta(minutes=10)).isoformat(),
+            due_at=due.isoformat(),
             operation="campaign.ad-launch",
             request=request,
         )
@@ -486,7 +492,7 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
                 (
                     canonical(item),
                     digest(item),
-                    datetime.fromisoformat(item["due_at"]).timestamp(),
+                    due.timestamp(),
                 ),
             )
             db.execute(
@@ -593,6 +599,7 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
                 owner.request("POST", "/api/identity/login", dict(token=identities.OWNER_TOKEN))
                 before = self.fixture.dump()
                 result = owner.request("POST", route, self.body())
+                assert isinstance(result, dict)
                 self.assertFalse(result["authority_issued"])
                 self.assertEqual(result["summary_hash"], digest(result["summary"]))
                 self.assertEqual(before, self.fixture.dump())
@@ -614,6 +621,7 @@ class AutomationAgreementTests(AuthorityFixture, unittest.TestCase):
                     side_effect=AssertionError("No Meta request during review"),
                 ):
                     draft = owner.request("POST", route, body)
+                assert isinstance(draft, dict)
                 self.assertEqual(draft["summary"]["campaign"]["draft_posts"], [post])
                 self.assertEqual(draft["summary_hash"], digest(draft["summary"]))
                 self.assertNotIn("draft_posts", draft["summary"]["selection"])
