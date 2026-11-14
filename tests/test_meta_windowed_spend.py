@@ -2,16 +2,16 @@
 
 import json
 import unittest
-from datetime import date
+from datetime import date, datetime
 from unittest.mock import patch
 
-from mission_control.campaign_transport import META_VERSION, MetaTransport, Unconfirmed
+from mission_control.campaign_transport import META_VERSION, MetaTransport, Unconfirmed, account_reporting_dates
 from mission_control.common import Invalid
 
 
 class MetaWindowedSpendTests(unittest.TestCase):
-    since = date(2026, 10, 1)
-    until = date(2026, 10, 31)
+    since = datetime.fromisoformat("2026-10-01T04:00:00+00:00")
+    until = datetime.fromisoformat("2026-11-01T04:00:00+00:00")
 
     account = {"id": "act_456", "currency": "CAD", "timezone_name": "America/Toronto"}
 
@@ -104,7 +104,12 @@ class MetaWindowedSpendTests(unittest.TestCase):
 
     def test_oversize_and_inverted_windows_never_call_provider(self):
         with patch.object(MetaTransport, "request") as request:
-            for since, until in ((self.until, self.since), (self.since, date(2026, 11, 1))):
+            for since, until in (
+                (self.until, self.since),
+                (self.since, datetime.fromisoformat("2026-11-02T05:00:00+00:00")),
+                (datetime(2026, 10, 1), self.until),
+                (datetime.fromisoformat("2026-10-01T00:00:00+00:00"), self.until),
+            ):
                 with self.assertRaises(Invalid):
                     MetaTransport().campaign_spend_window(
                         "123",
@@ -118,3 +123,16 @@ class MetaWindowedSpendTests(unittest.TestCase):
                         timezone="America/Toronto",
                     )
             request.assert_not_called()
+
+    def test_reporting_dates_follow_daylight_saving_changes(self):
+        for starts, ends, day in (
+            ("2026-03-08T05:00:00+00:00", "2026-03-09T04:00:00+00:00", date(2026, 3, 8)),
+            ("2026-11-01T04:00:00+00:00", "2026-11-02T05:00:00+00:00", date(2026, 11, 1)),
+        ):
+            with self.subTest(day=day):
+                self.assertEqual(
+                    account_reporting_dates(
+                        datetime.fromisoformat(starts), datetime.fromisoformat(ends), "America/Toronto"
+                    ),
+                    (day, day),
+                )

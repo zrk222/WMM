@@ -5,7 +5,9 @@ import json
 import re
 import time
 from collections.abc import Callable
-from datetime import date
+from datetime import date, datetime, timedelta
+from datetime import time as wall_time
+from datetime import timezone as utc_timezone
 from typing import Literal, TypedDict
 from urllib.parse import parse_qs, urlencode, urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -33,6 +35,34 @@ class CampaignSpendWindow(TypedDict):
     until: str
     reported_spend: str | None
     reporting: Literal["NO_ROWS", "PROVIDER_REPORTED_MAY_LAG"]
+
+
+def reporting_zone(timezone: str) -> ZoneInfo:
+    """Use an explicit account timezone rather than a fixed UTC offset."""
+    if not isinstance(timezone, str) or not re.fullmatch(r"[A-Za-z0-9_+/-]{1,100}", timezone):
+        raise Invalid("Choose the approved ad account's IANA timezone")
+    try:
+        return ZoneInfo(timezone)
+    except (ValueError, ZoneInfoNotFoundError):
+        raise Invalid("Choose the approved ad account's IANA timezone") from None
+
+
+def account_reporting_dates(start: datetime, end: datetime, timezone: str) -> tuple[date, date]:
+    """Map an exact half-open cohort interval onto inclusive provider days."""
+    if start.utcoffset() is None or end.utcoffset() is None or start.timestamp() >= end.timestamp():
+        raise Invalid("Spend matching requires ordered timestamps with timezone offsets")
+    zone = reporting_zone(timezone)
+    local_start = start.astimezone(utc_timezone.utc).astimezone(zone)
+    local_end = end.astimezone(utc_timezone.utc).astimezone(zone)
+    if (
+        local_start.time() != wall_time.min
+        or local_end.time() != wall_time.min
+        or local_start.replace(fold=0).utcoffset() != local_start.replace(fold=1).utcoffset()
+        or local_end.replace(fold=0).utcoffset() != local_end.replace(fold=1).utcoffset()
+        or not 1 <= (local_end.date() - local_start.date()).days <= 31
+    ):
+        raise Invalid("Cohort window must span 1 to 31 whole, unambiguous account-local days")
+    return local_start.date(), local_end.date() - timedelta(days=1)
 
 
 def checked_spend_window(
@@ -330,30 +360,20 @@ class MetaTransport:
         identity: str,
         account_id: str,
         currency: str,
-        since: date,
-        until: date,
+        start_at: datetime,
+        end_at: datetime,
         token: str,
         secret: str,
         alive: Callable[[], object],
         *,
         timezone: str,
     ) -> CampaignSpendWindow:
-        """Read one exact campaign's spend for inclusive dates in its ad account's timezone."""
+        """Read one exact campaign's spend for a half-open cohort window."""
         numeric(identity)
         numeric(account_id)
-        if (
-            not re.fullmatch(r"[A-Z]{3}", currency)
-            or type(since) is not date
-            or type(until) is not date
-            or not 0 <= (until - since).days < 31
-        ):
-            raise Invalid("Choose one currency and a window of up to 31 account-local days")
-        if not isinstance(timezone, str) or not re.fullmatch(r"[A-Za-z0-9_+/-]{1,100}", timezone):
-            raise Invalid("Choose the approved ad account's IANA timezone")
-        try:
-            ZoneInfo(timezone)
-        except (ValueError, ZoneInfoNotFoundError):
-            raise Invalid("Choose the approved ad account's IANA timezone") from None
+        if not isinstance(currency, str) or not re.fullmatch(r"[A-Z]{3}", currency):
+            raise Invalid("Choose the approved ad account's currency")
+        since, until = account_reporting_dates(start_at, end_at, timezone)
         proof = app_secret_proof(token, secret)
         account = self.request(
             "GET",
