@@ -104,6 +104,7 @@ tests/test_release_attestation_assets.py
 tests/test_release_provenance.py
 tests/test_repo_hygiene.py
 tests/test_sbom_reproducibility.py
+tests/test_schedule_authority_boundary.py
 tests/test_schema_types.py
 tests/test_source_ratchet.py
 tests/test_sqlite_tuning.py
@@ -115,6 +116,7 @@ tests/test_weekly_operation_exceptions.py
 tools/benchmark_http.py
 tools/branch_hygiene.py
 tools/build_desktop.py
+tools/check_authority_coverage.py
 tools/check_distribution.py
 tools/check_evidence_budget.py
 tools/check_format.py
