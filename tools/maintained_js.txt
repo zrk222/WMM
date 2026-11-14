@@ -100,6 +100,7 @@ tests/organic_research_ui.test.cjs
 tests/page_reporting.test.cjs
 tests/publication_ui.test.cjs
 tests/weekly_operation_ui.test.cjs
+tests/workflow_telemetry.test.cjs
 tools/check_es_modules.mjs
 tools/check_js_types.mjs
 tools/preview_video/composition.mjs

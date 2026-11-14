@@ -2,7 +2,7 @@
 
 import json
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -82,6 +82,25 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         assert not posts
         page.locator("#navigation > [data-view=activity]").click()
         expect(page.locator("[data-live-worker]")).to_contain_text("Worker starting")
+        supervision = f.server.runner.supervision
+        refresh = page.get_by_role("button", name="Refresh progress", exact=True)
+        with supervision.lock:
+            supervision.status = "RUNNING"
+            supervision.last_success = None
+        refresh.press("Enter")
+        expect(page.locator("[data-live-worker]")).to_contain_text("activity is unconfirmed")
+        with supervision.lock:
+            supervision.last_success = (datetime.now(timezone.utc) - timedelta(minutes=3)).isoformat()
+        refresh.press("Enter")
+        expect(page.locator("[data-live-worker]")).to_contain_text("has not confirmed a healthy check")
+        expect(refresh).to_be_focused()
+        stale_html = page.locator("#main .page-heading, #workflow-monitor").evaluate_all(
+            "(nodes) => nodes.map(node => node.outerHTML).join('')"
+        )
+        with supervision.lock:
+            supervision.last_success = datetime.now(timezone.utc).isoformat()
+        refresh.press("Enter")
+        expect(page.locator("[data-live-worker]")).to_contain_text("Worker reported healthy")
         f.server.runner.supervision.attempt("queue", lambda: 1 / 0)
         f.server.runner.supervision.finish()
         page.get_by_role("button", name="Refresh progress", exact=True).click()
@@ -104,6 +123,12 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
             + "</style><main>"
             + html
             + "</main></html>",
+            encoding="utf-8",
+        )
+        (out / f"worker-stale-{width}.html").write_text(
+            '<!doctype html><html lang="en"><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width, initial-scale=1">'
+            "<title>Watch the work</title><style>" + styles + "</style><main>" + stale_html + "</main></html>",
             encoding="utf-8",
         )
         host.press("Enter")
@@ -312,6 +337,7 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
             width=width,
             campaign_plan_and_both_exports_without_writes=True,
             live_worker_and_private_host_guidance=True,
+            stale_and_missing_worker_health_recovers=True,
             personal_agent_without_profile=True,
             explicit_grant_and_revocation=True,
             managed_readiness_guards=True,
