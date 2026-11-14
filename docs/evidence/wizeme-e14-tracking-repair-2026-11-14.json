@@ -1,0 +1,25 @@
+{
+  "schema": "wmm.dogfood.e14-tracking-repair.v1",
+  "observed_at": "2026-11-14T12:21:58.372Z",
+  "source_commit": "e0b9b32dbf607e9183e83ba70f8753b1ef0a92ae",
+  "source_review": "https://github.com/zrk222/zoria/pull/36",
+  "source_ci": "https://github.com/zrk222/zoria/actions/runs/43592755935",
+  "verification": {
+    "classification": "INTERNAL_ONLY_NOT_MARKETING_OUTCOME",
+    "baseline_landings": 0,
+    "baseline_registrations": 0,
+    "tagged_landings": 1,
+    "tagged_registrations": 1,
+    "both_classified_internal": true,
+    "registration_http_status": 201,
+    "first_landing_at": "2026-11-14T12:21:30.214Z",
+    "first_registration_at": "2026-11-14T12:21:32.540Z",
+    "onboarding_verified": false
+  },
+  "original_campaign": {
+    "reposted": false,
+    "conversion_rate": null,
+    "incremental_lift": null
+  },
+  "private_readback_sha256": "6639bc5101a93be14e4a431805270c794fe461ebc09f2bc9f0b86812dc50142a"
+}
