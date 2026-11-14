@@ -36,7 +36,11 @@ class CreativeLearningTests(unittest.TestCase):
         result = summary(
             workspace(
                 briefs=[brief],
-                rankings=dict(report=[dict(input_status="CURRENT", current=dict(data=dict(slate=["top"])))]),
+                rankings=dict(
+                    report=[
+                        dict(input_status="CURRENT", current=dict(data=dict(slate=dict(selected=["top"], excluded=[]))))
+                    ]
+                ),
                 renders=dict(items=[render]),
                 jobs=[action],
                 experiments=[dict(id="e", state="DECIDED", assessments=[dict(id="a", data=dict(status="EVALUATED"))])],
@@ -53,7 +57,11 @@ class CreativeLearningTests(unittest.TestCase):
     def test_unfinished_and_unrelated_work_does_not_count(self):
         result = summary(
             workspace(
-                rankings=dict(report=[dict(input_status="CURRENT", current=dict(data=dict(slate=["top"])))]),
+                rankings=dict(
+                    report=[
+                        dict(input_status="CURRENT", current=dict(data=dict(slate=dict(selected=["top"], excluded=[]))))
+                    ]
+                ),
                 renders=dict(items=[dict(id="render", status="STALE_OR_UNAVAILABLE")]),
                 provider_actions=[dict(id="metadata", status="VERIFIED_APPLIED")],
                 experiments=[dict(id="experiment", state="OBSERVING", assessments=[])],
@@ -68,7 +76,11 @@ class CreativeLearningTests(unittest.TestCase):
         result = summary(
             workspace(
                 briefs=[dict(id="brief")],
-                rankings=dict(report=[dict(input_status="CURRENT", current=dict(data=dict(slate=["top"])))]),
+                rankings=dict(
+                    report=[
+                        dict(input_status="CURRENT", current=dict(data=dict(slate=dict(selected=["top"], excluded=[]))))
+                    ]
+                ),
                 learning=dict(
                     programs=[
                         dict(id="p", state="ACTIVE", active=True, data=dict(definition=dict(pattern="proof-first")))

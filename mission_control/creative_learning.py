@@ -23,9 +23,10 @@ def summary(workspace: Any) -> dict[str, Any]:
         if report.get("input_status") != "CURRENT":
             continue
         data = (report.get("current") or {}).get("data") or {}
-        slate = data.get("slate") or []
-        if slate:
-            rankings.append({"reference_id": slate[0]})
+        slate = data.get("slate")
+        selected = slate.get("selected") if isinstance(slate, dict) else None
+        if isinstance(selected, list) and selected and isinstance(selected[0], str) and selected[0]:
+            rankings.append({"reference_id": selected[0]})
     renders = _items(workspace.get("renders"))
     hypit = _items(workspace.get("hypit_renders"))
     actions = [
