@@ -145,11 +145,12 @@ def start_login_probe(name, home, unit, description):
     command(
         "systemd-run",
         "--quiet",
+        "--no-block",
         f"--unit={unit}",
         f"--description={description}",
         f"--property=User={name}",
         "--property=PAMName=login",
-        "--property=Type=exec",
+        "--property=Type=simple",
         "--property=RuntimeMaxSec=130",
         "--setenv=XDG_SESSION_CLASS=user",
         SYSTEM_PYTHON,
@@ -220,7 +221,11 @@ def run_host_service(env):
         wait_user_manager(uid)
         probe_attempted = True
         start_login_probe(name, home, login_unit, login_description)
-        session_id = wait_login_session(uid)
+        try:
+            session_id = wait_login_session(uid)
+        except RuntimeError as exc:
+            detail = command("systemctl", "status", login_unit, "--no-pager", "--lines=8", check=False, timeout=10)
+            raise RuntimeError(f"{exc}\n{detail.stdout}{detail.stderr}") from exc
         try:
             result = command(*child_command(name, home, runtime, parent, staged, session_id), timeout=240)
         except subprocess.CalledProcessError as exc:

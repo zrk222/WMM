@@ -321,6 +321,16 @@ class HostServiceContractTests(unittest.TestCase):
             ):
                 self.assertTrue(stop("wmm-ci-example", "probe.service", "current run"))
 
+    def test_login_probe_does_not_wait_for_its_own_start_job(self):
+        start = WRAPPER["start_login_probe"]
+        with patch.dict(start.__globals__, {"command": lambda *args: calls.append(args)}):
+            calls = []
+            start("wmm-ci-example", Path("home"), "probe.service", "current run")
+        self.assertEqual(len(calls), 1)
+        self.assertIn("--no-block", calls[0])
+        self.assertIn("--property=PAMName=login", calls[0])
+        self.assertIn("--property=Type=simple", calls[0])
+
 
 if __name__ == "__main__":
     unittest.main()
