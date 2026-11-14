@@ -27,6 +27,7 @@ mission_control/drive_import_jobs.py
 mission_control/evidence_gate.py
 mission_control/experiment_analysis.py
 mission_control/experiment_tracking.py
+mission_control/first_party_outcomes.py
 mission_control/funnel_http.py
 mission_control/http_body.py
 mission_control/hypit_jobs.py
@@ -82,6 +83,7 @@ tests/test_desktop_entry.py
 tests/test_desktop_release.py
 tests/test_evidence_gate.py
 tests/test_experiments.py
+tests/test_first_party_outcomes.py
 tests/test_format_ratchet.py
 tests/test_http_benchmark.py
 tests/test_integrity_drill.py
