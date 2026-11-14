@@ -6,6 +6,8 @@ Built for founders and marketing teams to promote and manage one app or a portfo
 
 [**Install WMM and create your first packet**](docs/desktop-first-run.md) · [Try the interactive sample](https://zrk222.github.io/WMM/demo.html)
 
+New to WMM and want to help test setup? Start with the [first-run founder trial](docs/founder-trial.md) before opening the sample.
+
 Free for personal and internal business use under the [license](LICENSE). [Commercial terms](docs/pricing.md).
 
 **Day 1 — a clearer next marketing move.** Prepare a first evidence packet: one app-growth question, a plan, sources and missing evidence.
