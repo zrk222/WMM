@@ -1,5 +1,7 @@
 """Typed app-owned automation preferences; no execution authority is stored here."""
 
+import sqlite3
+
 from .common import Invalid
 
 MODES = {"AUTO", "SUGGEST", "OFF"}
@@ -54,7 +56,7 @@ def validate_manifest(data):
     preferences(data)
 
 
-def check_manifest_version(db, app_id, version):
+def check_manifest_version(db: sqlite3.Connection, app_id: str, version: object) -> None:
     """Optional UI binding is checked inside the same transaction as its local write."""
     if version is None:
         return
