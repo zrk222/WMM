@@ -29,6 +29,20 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
 
     f = BrowserCampaignFixture()
     f.setUp()
+    app = f.store.app("sample-one")
+    f.store.save_app(
+        app["id"],
+        dict(
+            app["data"],
+            currency="CAD",
+            job="Compare onboarding",
+            audience="Test founders",
+            activation="Complete a test step",
+            release="test",
+            locale="en-US",
+        ),
+        app["version"],
+    )
     link = "https://example.test/app?utm_source=facebook&utm_campaign=" + ("sample-" * 45)
     context = browser.new_context(viewport={"width": width, "height": 900})
     page = context.new_page()
@@ -52,6 +66,18 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         expect(channels).to_have_css("list-style-type", "none")
         expect(channels.locator("svg").first).to_have_css("margin-right", "6px")
         assert page.evaluate("window.wmmStyleViolations") == []
+        page.get_by_role("button", name="Build your campaign plan", exact=True).press("Enter")
+        plan = page.get_by_role("dialog", name="Campaign plan")
+        expect(plan).to_contain_text("this plan does not publish or spend")
+        expect(plan).to_contain_text("Proof to verify")
+        for label, suffix in (("Download Markdown", ".md"), ("Download JSON", ".json")):
+            with page.expect_download() as event:
+                plan.get_by_role("button", name=label, exact=True).press("Enter")
+            assert event.value.suggested_filename.endswith(suffix)
+            assert event.value.path().stat().st_size > 0
+        page.keyboard.press("Escape")
+        expect(plan).to_be_hidden()
+        assert not posts
         page.locator("#navigation > [data-view=activity]").click()
         expect(page.locator("[data-live-worker]")).to_contain_text("Worker starting")
         f.server.runner.supervision.attempt("queue", lambda: 1 / 0)
@@ -251,6 +277,7 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
         return dict(
             width=width,
+            campaign_plan_and_both_exports_without_writes=True,
             live_worker_and_private_host_guidance=True,
             personal_agent_without_profile=True,
             explicit_grant_and_revocation=True,
