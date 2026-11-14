@@ -1,18 +1,49 @@
 """Exact retained campaign capability for one leased scheduled post."""
 
-from contextlib import contextmanager
-from contextvars import ContextVar
 import json
 import time
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
+from sqlite3 import Connection, Row
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from .common import digest, iso_time
 from .db import connection
 
-CURRENT = ContextVar("wmm_scheduled_campaign", default=None)
+if TYPE_CHECKING:
+    from .store import Store
+
+
+class ScheduledJob(TypedDict):
+    """Fields captured when the worker takes a lease."""
+
+    id: str
+    attempts: int
+    data: object
+
+
+ActiveLease = tuple[str, str, int, str]
+SavedRow = Row | Mapping[str, Any]
+Packet = Mapping[str, Any]
+
+CURRENT: ContextVar[ActiveLease | None] = ContextVar("wmm_scheduled_campaign", default=None)
+
+
+def _leased_row(db: Connection, job_id: str) -> Row | None:
+    """Read the same retained job, item and batch for both dispatch paths."""
+    return db.execute(
+        """SELECT b.id AS batch_id,b.summary,b.summary_hash,b.status AS batch_status,
+        i.body,i.body_hash,i.due,i.status AS item_status,i.job_id,j.status AS job_status,
+        j.attempts,j.lease,j.data,j.app_id,j.action
+        FROM campaign_schedule_items i JOIN campaign_schedule_batches b ON b.id=i.batch_id
+        JOIN jobs j ON j.id=i.job_id WHERE i.job_id=?""",
+        (job_id,),
+    ).fetchone()
 
 
 @contextmanager
-def bound(store, job):
+def bound(store: "Store", job: ScheduledJob) -> Iterator[None]:
     """Bind only a worker-owned job; validation happens at every effect boundary."""
     token = CURRENT.set((str(store.path.resolve()), job["id"], job["attempts"], digest(job["data"])))
     try:
@@ -21,7 +52,7 @@ def bound(store, job):
         CURRENT.reset(token)
 
 
-def check(store, app_id, actor, scope, action):
+def check(store: "Store", app_id: str, actor: str, scope: Packet, action: str) -> bool:
     """Fail closed unless this exact due job remains owned and approved."""
     active = CURRENT.get()
     if active is None:
@@ -33,14 +64,7 @@ def check(store, app_id, actor, scope, action):
     ):
         raise PermissionError("Scheduled capability cannot authorize this operation")
     with connection(store.path) as db:
-        row = db.execute(
-            """SELECT b.id AS batch_id,b.summary,b.summary_hash,b.status AS batch_status,
-            i.body,i.body_hash,i.due,i.status AS item_status,i.job_id,j.status AS job_status,
-            j.attempts,j.lease,j.data,j.app_id,j.action
-            FROM campaign_schedule_items i JOIN campaign_schedule_batches b ON b.id=i.batch_id
-            JOIN jobs j ON j.id=i.job_id WHERE i.job_id=?""",
-            (active[1],),
-        ).fetchone()
+        row = _leased_row(db, active[1])
         if row is None:
             raise PermissionError("Scheduled campaign job is unavailable")
         summary = json.loads(row["summary"])
@@ -56,7 +80,7 @@ def check(store, app_id, actor, scope, action):
     return True
 
 
-def check_lease(row, app_id, active):
+def check_lease(row: SavedRow, app_id: str, active: ActiveLease) -> None:
     if (
         row["app_id"] != app_id
         or row["action"] not in ("campaign_post", "campaign_ad")
@@ -70,7 +94,7 @@ def check_lease(row, app_id, active):
         raise PermissionError("Scheduled campaign worker lease changed")
 
 
-def check_content(row, data, body, summary, app_id, scope):
+def check_content(row: SavedRow, data: Packet, body: Packet, summary: Packet, app_id: str, scope: Packet) -> None:
     expected = {
         "batch_id": summary["batch_id"],
         "item_id": body["item_id"],
@@ -94,7 +118,7 @@ def check_content(row, data, body, summary, app_id, scope):
     check_scope(row, summary, app_id, scope)
 
 
-def check_scope(row, summary, app_id, scope):
+def check_scope(row: SavedRow, summary: Packet, app_id: str, scope: Packet) -> None:
     if summary["batch_id"] != row["batch_id"]:
         raise PermissionError("Scheduled campaign batch changed")
     if (
@@ -107,28 +131,23 @@ def check_scope(row, summary, app_id, scope):
     check_deadline(summary, scope.get("expires_at"))
 
 
-def check_deadline(summary, legacy_expiry):
+def check_deadline(summary: Packet, legacy_expiry: object) -> None:
     """Parent renewal never changes a child's reviewed execution deadline."""
     expiry = summary.get("permission_expires_at", legacy_expiry)
     if iso_time(expiry).timestamp() <= time.time():
         raise PermissionError("Scheduled campaign approval expired")
 
 
-def video_context(db, store, app_id, actor, operation, body):
+def video_context(
+    db: Connection, store: "Store", app_id: str, actor: str, operation: str, body: Packet
+) -> dict[str, str]:
     """Only the exact currently leased schedule may execute its retained intent."""
     active = CURRENT.get()
     if active is None or operation != "organic-video.intent-execute":
         raise PermissionError("Current scheduled Reel execution authority is required")
     if actor != "schedule:" + active[1] or active[0] != str(store.path.resolve()):
         raise PermissionError("Scheduled Reel actor or datastore changed")
-    row = db.execute(
-        """SELECT b.id AS batch_id,b.summary,b.summary_hash,b.status AS batch_status,
-        i.body,i.body_hash,i.due,i.status AS item_status,i.job_id,j.status AS job_status,
-        j.attempts,j.lease,j.data,j.app_id,j.action
-        FROM campaign_schedule_items i JOIN campaign_schedule_batches b ON b.id=i.batch_id
-        JOIN jobs j ON j.id=i.job_id WHERE i.job_id=?""",
-        (active[1],),
-    ).fetchone()
+    row = _leased_row(db, active[1])
     if row is None or row["action"] != "campaign_post":
         raise PermissionError("Scheduled Reel job is unavailable")
     check_lease(row, app_id, active)
@@ -140,9 +159,11 @@ def video_context(db, store, app_id, actor, operation, body):
     return context
 
 
-def video_content(db, row, active, app_id, operation, body):
-    from .organic_video_schedule import KIND
+def video_content(
+    db: Connection, row: SavedRow, active: ActiveLease, app_id: str, operation: str, body: Packet
+) -> dict[str, str]:
     from .campaign_video_execution import _row
+    from .organic_video_schedule import KIND
 
     summary, item, data = [json.loads(row[key]) for key in ("summary", "body", "data")]
     expected = dict(
@@ -177,7 +198,7 @@ def video_content(db, row, active, app_id, operation, body):
     return dict(principal=summary["owner"], scheduled_job=row["job_id"])
 
 
-def video_deadline(db, app_id, request, item):
+def video_deadline(db: Connection, app_id: str, request: Packet, item: Packet) -> None:
     """Use the scheduled item's captured deadline or its legacy policy bound."""
     policy = db.execute(
         "SELECT data FROM organic_video_policies WHERE app_id=? AND id=?", (app_id, request["policy_id"])
