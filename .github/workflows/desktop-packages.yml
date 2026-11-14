@@ -203,5 +203,7 @@ jobs:
             .factory/packaged-native-window/
             native-package-receipt.json
             ubuntu-native-window-receipt.json
+            # Includes the disposable owner-host restart and replay receipt.
+            linux-lifecycle.json
           if-no-files-found: error
           retention-days: 7
