@@ -34,7 +34,7 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         app["id"],
         dict(
             app["data"],
-            currency="CAD",
+            currency="",
             job="Compare onboarding",
             audience="Test founders",
             activation="Complete a test step",
@@ -70,6 +70,8 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         plan = page.get_by_role("dialog", name="Campaign plan")
         expect(plan).to_contain_text("this plan does not publish or spend")
         expect(plan).to_contain_text("Proof to verify")
+        expect(plan).to_contain_text("no spend authorized")
+        (out / f"campaign-plan-{width}.html").write_text(page.content(), encoding="utf-8")
         for label, suffix in (("Download Markdown", ".md"), ("Download JSON", ".json")):
             with page.expect_download() as event:
                 plan.get_by_role("button", name=label, exact=True).press("Enter")

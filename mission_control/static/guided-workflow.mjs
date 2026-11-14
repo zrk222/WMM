@@ -23,6 +23,7 @@ import { aeoForm } from './aeo.mjs';
 import { appForm, detailedOverview, download, evidenceForm, modal } from './app-ui.mjs';
 import { briefForm, referenceForm } from './app-production.mjs';
 import { campaignOpen } from './campaign-execution.mjs';
+import { WMMCampaignPlan } from './campaign-plan.mjs';
 import { capabilitySetup } from './production-feasibility.mjs';
 import { cohortForm, experimentForm, growthReviewServices } from './app-results.mjs';
 import { followupOpen } from './followup.mjs';
@@ -448,17 +449,7 @@ function goalProofIllustration() {
 }
 
 function startHerePanel() {
-  const data = state.workspace?.app?.data || {};
-  const missing = [
-    ['job', 'user job'],
-    ['audience', 'audience'],
-    ['activation', 'useful activation'],
-    ['currency', 'currency'],
-    ['release', 'release'],
-    ['locale', 'locale'],
-  ]
-    .filter(([key]) => !data[key])
-    .map(([, text]) => text);
+  const missing = WMMCampaignPlan.missingInputs(state.workspace?.app?.data);
   const exceptions = state.workspace?.workflow?.exceptions || [];
   const primary = missing.length
     ? button('Finish app setup', 'edit-app')

@@ -9,6 +9,17 @@ export const WMMCampaignPlan = (() => {
     return records.filter((row) => row.kind === kind).length;
   }
 
+  /** @param {AppFacts} app */
+  function missingInputs(app = {}) {
+    const missing = [];
+    if (!app.job) missing.push('user job');
+    if (!app.audience) missing.push('audience');
+    if (!app.activation) missing.push('useful activation');
+    if (!app.release) missing.push('release');
+    if (!app.locale) missing.push('locale');
+    return missing;
+  }
+
   /** @param {CampaignWorkspace} workspace @param {{now?: string, goal?: string}} options */
   function build(workspace = {}, options = {}) {
     const app = workspace.app?.data || {};
@@ -18,13 +29,7 @@ export const WMMCampaignPlan = (() => {
     const distribution = drafts.distribution || {};
     const records = workspace.records || [];
     const generatedAt = options.now || new Date().toISOString();
-    const missing = [];
-    if (!app.job) missing.push('user job');
-    if (!app.audience) missing.push('audience');
-    if (!app.activation) missing.push('useful activation');
-    if (!app.currency) missing.push('currency');
-    if (!app.release) missing.push('release');
-    if (!app.locale) missing.push('locale');
+    const missing = missingInputs(app);
     const proof = {
       claims: count(records, 'claim'),
       assets: count(records, 'asset'),
@@ -130,7 +135,7 @@ export const WMMCampaignPlan = (() => {
       '## Distribution',
       `Channel: ${plan.distribution.channel || 'Not selected'}`,
       `Destination: ${plan.distribution.destination || 'Not supplied'}`,
-      `Budget: ${plan.distribution.budget_minor} ${plan.distribution.currency || ''} (no spend authorized)`,
+      `Budget: ${[plan.distribution.budget_minor, plan.distribution.currency].filter((part) => part !== '').join(' ')} (no spend authorized)`,
       `Mode: ${plan.distribution.mode}`,
       '',
       '## Measurement',
@@ -148,5 +153,5 @@ export const WMMCampaignPlan = (() => {
     ].join('\n');
   }
 
-  return { build, markdown };
+  return { build, markdown, missingInputs };
 })();
