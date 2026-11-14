@@ -574,24 +574,33 @@ function campaignWatch(panel, scopeID) {
   const app = state.app;
   let stopped = false,
     timer = null,
-    attempts = 0;
+    attempts = 0,
+    refreshed = true;
+  const valid = () => !stopped && panel.isConnected && state.app === app;
   const poll = async () => {
-    if (stopped || !panel.isConnected || state.app !== app || attempts++ >= 120) return;
+    if (!valid() || attempts++ >= 120) return;
     try {
       if (!document.hidden) {
         const saved = await api(`/api/apps/${app}/campaigns/status`, { scope_id: scopeID });
-        if (stopped || !panel.isConnected || state.app !== app) return;
+        if (!valid()) return;
         const latest = saved.intents.at(-1),
           activity = panel.querySelector('#campaign-activity');
         if (latest && activity)
           activity.textContent = `Live saved stage: ${latest.status}. ${saved.intents.length} delivery intents recorded. ${latest.remote_id ? 'Provider ID: ' + latest.remote_id : latest.ids ? 'Saved provider objects: ' + Object.keys(latest.ids).join(', ') : 'Provider ID not yet confirmed.'}`;
+        else if (activity && !refreshed)
+          activity.textContent = 'Saved receipts refreshed. No delivery is confirmed yet.';
+        refreshed = true;
       }
-    } catch (error) {
-      if (panel.isConnected && !stopped)
-        panel.querySelector('#campaign-error').textContent =
-          'Progress refresh failed. Existing work continues; inspect saved receipts before any retry.';
+    } catch {
+      if (valid()) {
+        refreshed = false;
+        const activity = panel.querySelector('#campaign-activity');
+        if (activity)
+          activity.textContent =
+            'Could not refresh the saved status. Check receipts before retrying any action.';
+      }
     }
-    if (!stopped) timer = setTimeout(poll, 5000);
+    if (valid()) timer = setTimeout(poll, 5000);
   };
   timer = setTimeout(poll, 1500);
   return () => {

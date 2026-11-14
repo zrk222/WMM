@@ -485,3 +485,29 @@ test('saved schedule progress distinguishes delivery, expired permission and unc
     /may already/,
   );
 });
+
+test('campaign status refresh recovers without obscuring a delivery error or requesting another effect', async () => {
+  const h = fixture(),
+    timers = [],
+    elements = {
+      '#campaign-activity': { textContent: 'Publishing approved post' },
+      '#campaign-error': { textContent: 'Delivery needs reconciliation' },
+    },
+    panel = { isConnected: true, querySelector: (selector) => elements[selector] };
+  h.c.setTimeout = (fn) => timers.push(fn);
+  h.c.clearTimeout = () => {};
+  h.c.api = async (path, body) => {
+    h.calls.push([path, body.scope_id]);
+    if (h.calls.length === 1) throw new Error('temporary outage');
+    return { intents: [] };
+  };
+  const stop = h.c.campaignWatch(panel, 'scope');
+  await timers.shift()();
+  assert.match(elements['#campaign-activity'].textContent, /Could not refresh/);
+  assert.equal(elements['#campaign-error'].textContent, 'Delivery needs reconciliation');
+  await timers.shift()();
+  assert.match(elements['#campaign-activity'].textContent, /No delivery is confirmed/);
+  stop();
+  await timers.shift()();
+  assert.deepEqual(h.calls, Array(2).fill(['/api/apps/one/campaigns/status', 'scope']));
+});
