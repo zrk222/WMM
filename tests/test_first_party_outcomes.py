@@ -3,13 +3,14 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import cast
+from typing import Any, cast
 
-from mission_control.common import Invalid
+from mission_control.common import Invalid, canonical, digest
 from mission_control.db import connection
 from mission_control.first_party_outcomes import OutcomeBatch, OutcomeEvent, join
-from mission_control.first_party_receipts import ACTION, read, retain
+from mission_control.first_party_receipts import ACTION, for_campaign, read, retain
 from mission_control.store import Store
+from tests import test_campaign_owner_reports
 
 WINDOW = ("2026-10-01T00:00:00Z", "2026-10-05T00:00:00Z", "2026-10-20T00:00:00Z")
 
@@ -53,6 +54,44 @@ def batch(provider: str, *events: OutcomeEvent, **changes: object) -> OutcomeBat
 
 
 class OutcomeTests(unittest.TestCase):
+    def test_capture_attaches_only_exact_campaign_receipt(self) -> None:
+        fixture: Any = test_campaign_owner_reports.CampaignOwnerReportsTests()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        window = {"starts_at": WINDOW[0], "ends_at": WINDOW[2]}
+        chosen = fixture.chosen(monitor_id=None, measurement_window=window)
+        with connection(fixture.store.path, write=True) as db:
+            scope = db.execute("SELECT summary FROM campaign_scopes WHERE id=?", (chosen["scope_id"],)).fetchone()
+            summary = test_campaign_owner_reports.core.object_data(scope["summary"])
+            summary["measurement_plan"] = dict(window, campaign_tag="organic")
+            db.execute(
+                "UPDATE campaign_scopes SET summary=?,summary_hash=? WHERE id=?",
+                (canonical(summary), digest(summary), chosen["scope_id"]),
+            )
+        receipt = retain(
+            fixture.store.path,
+            app_id="sample",
+            app_version=fixture.store.app("sample")["version"],
+            environment="production",
+            campaign="organic",
+            starts_at=WINDOW[0],
+            ends_at=WINDOW[1],
+            matures_at=WINDOW[2],
+            as_of=WINDOW[2],
+            product=batch("posthog", event("TOUCH", 2), event("INSTALL", 3), app_id="sample"),
+            billing=batch("revenuecat", app_id="sample"),
+        )
+        without = fixture.capture(chosen)["report"]
+        with_receipt = fixture.capture(dict(chosen, outcome_receipt_sha256=receipt["receipt_sha256"]))["report"]
+        self.assertEqual(with_receipt["first_party_outcomes"], receipt)
+        self.assertNotEqual(with_receipt["source_hash"], without["source_hash"])
+        self.assertNotIn("first_party_outcomes", without)
+        wrong_window = dict(window, ends_at=WINDOW[1])
+        with self.assertRaisesRegex(Invalid, "does not match"):
+            fixture.capture(
+                dict(chosen, outcome_receipt_sha256=receipt["receipt_sha256"], measurement_window=wrong_window)
+            )
+
     def test_receipt_survives_reopen_and_omits_subjects(self) -> None:
         with TemporaryDirectory() as folder:
             path = Path(folder) / "outcomes.sqlite"
@@ -80,7 +119,13 @@ class OutcomeTests(unittest.TestCase):
             self.assertEqual(capture(version), saved)
             receipt_hash = cast(str, saved["receipt_sha256"])
             self.assertEqual(read(Store(path).path, "sample-one", receipt_hash), saved)
+            window = {"starts_at": WINDOW[0], "ends_at": WINDOW[2]}
+            approved = dict(window, campaign_tag="organic")
             with connection(path) as db:
+                self.assertEqual(for_campaign(db, "sample-one", version, approved, window, receipt_hash), saved)
+                for invalid in (None, dict(approved, campaign_tag="other"), dict(approved, ends_at=WINDOW[1])):
+                    with self.subTest(approved=invalid), self.assertRaises(Invalid):
+                        for_campaign(db, "sample-one", version, invalid, window, receipt_hash)
                 rows = db.execute("SELECT detail FROM audit WHERE action=?", (ACTION,)).fetchall()
             self.assertEqual(len(rows), 1)
             self.assertNotIn("a" * 64, rows[0]["detail"])

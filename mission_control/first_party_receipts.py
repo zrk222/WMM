@@ -3,6 +3,7 @@
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from sqlite3 import Connection
 
 from .common import Invalid, canonical, digest, iso_time, now
 from .db import connection
@@ -47,14 +48,19 @@ def retain(
 
 def read(path: Path, app_id: str, receipt_hash: str) -> dict[str, object]:
     """Read a receipt by app and fingerprint; callers must enforce current owner authority."""
+    with connection(path) as db:
+        return read_in_snapshot(db, app_id, receipt_hash)
+
+
+def read_in_snapshot(db: Connection, app_id: str, receipt_hash: str) -> dict[str, object]:
+    """Read verified aggregate evidence within the caller's existing transaction."""
     if not HASH.fullmatch(receipt_hash):
         raise Invalid("A valid outcome receipt fingerprint is required")
-    with connection(path) as db:
-        row = db.execute(
-            """SELECT detail FROM audit WHERE app_id=? AND action=?
+    row = db.execute(
+        """SELECT detail FROM audit WHERE app_id=? AND action=?
                AND json_extract(detail, '$.receipt_sha256')=? ORDER BY id DESC LIMIT 1""",
-            (app_id, ACTION, receipt_hash),
-        ).fetchone()
+        (app_id, ACTION, receipt_hash),
+    ).fetchone()
     if row is None:
         raise Invalid("Outcome receipt is unavailable for the selected app")
     try:
@@ -68,3 +74,28 @@ def read(path: Path, app_id: str, receipt_hash: str) -> dict[str, object]:
     if not isinstance(report, dict) or report.get("app_id") != app_id or digest(payload) != receipt_hash:
         raise Invalid("Stored outcome receipt integrity differs")
     return result
+
+
+def for_campaign(
+    db: Connection,
+    app_id: str,
+    app_version: int,
+    approved_plan: object,
+    window: dict[str, str],
+    receipt_hash: str,
+) -> dict[str, object]:
+    """Attach only the explicitly selected receipt for the frozen tag and observation window."""
+    receipt = read_in_snapshot(db, app_id, receipt_hash)
+    report = receipt["report"]
+    if (
+        not isinstance(approved_plan, dict)
+        or not isinstance(report, dict)
+        or receipt["app_version"] != app_version
+        or report.get("environment") != "production"
+        or report.get("campaign") != approved_plan.get("campaign_tag")
+        or iso_time(report.get("starts_at")) != iso_time(window["starts_at"])
+        or iso_time(report.get("matures_at")) != iso_time(window["ends_at"])
+        or any(iso_time(window[key]) != iso_time(approved_plan.get(key)) for key in ("starts_at", "ends_at"))
+    ):
+        raise Invalid("Outcome receipt does not match the approved campaign and measurement window")
+    return receipt
