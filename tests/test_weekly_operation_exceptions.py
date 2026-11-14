@@ -1,13 +1,14 @@
 """Owner-private bounded weekly operational exceptions over real saved SQLite state."""
 
-from datetime import datetime, timedelta, timezone
+import json
 import time
 import unittest
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
-from mission_control.weekly_inbox import review, operation_exceptions, trusted_principal
 from mission_control.common import canonical, digest, now
 from mission_control.db import connection
+from mission_control.weekly_inbox import operation_exceptions, review, trusted_principal
 from tests import test_campaign_owner_reports as report_fixture
 
 
@@ -121,7 +122,7 @@ class WeeklyOperationTests(unittest.TestCase):
                         "RUNNING",
                         0,
                         0,
-                        canonical(dict(secret="PRIVATE_JOB_RESULT")),
+                        canonical(dict(secret="PRIVATE_JOB_RESULT")),  # noqa: S106 - synthetic redaction fixture
                         stamp,
                         stamp,
                         "active-request-%03d" % ordinal,
@@ -157,7 +158,9 @@ class WeeklyOperationTests(unittest.TestCase):
         handoff, job = self.handoff()
         self.assertEqual(self.cards(), [])
         with connection(self.store.path) as db:
-            future = db.execute("SELECT expires FROM agent_handoffs WHERE id=?", (handoff["id"],)).fetchone()[0]
+            row = db.execute("SELECT expires FROM agent_handoffs WHERE id=?", (handoff["id"],)).fetchone()
+            assert row is not None
+            future = row[0]
             db.execute(
                 "UPDATE agent_handoffs SET expires=? WHERE id=?",
                 ((datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat(), handoff["id"]),
@@ -188,7 +191,7 @@ class WeeklyOperationTests(unittest.TestCase):
         with connection(self.store.path) as db:
             db.execute(
                 "UPDATE jobs SET status='FAILED',result=? WHERE id=?",
-                (canonical(dict(secret="PRIVATE_ERROR")), job["id"]),
+                (canonical({"secret": "PRIVATE_ERROR"}), job["id"]),
             )
         card = self.cards()[0]
         self.assertEqual(card["state"], "JOB_FAILED")
@@ -230,6 +233,7 @@ class WeeklyOperationTests(unittest.TestCase):
                 expires=(datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat(),
             ),
         )
+        assert isinstance(issued, dict)
         client = OperatorClient(self.fixture.fixture.client.origin, grant_token=issued["token"])
         resumed = client.call(
             dict(
@@ -239,6 +243,7 @@ class WeeklyOperationTests(unittest.TestCase):
                 input=dict(version=handoff["version"], payload_hash=handoff["payload_hash"]),
             )
         )
+        assert isinstance(resumed, dict)
         self.assertEqual(resumed["effective_status"], "CLAIMED")
         self.assertEqual(resumed["job_id"], job["id"])
         self.assertEqual(self.cards(), [])
@@ -246,14 +251,16 @@ class WeeklyOperationTests(unittest.TestCase):
     def test_handoff_projection_is_bounded_deterministic_and_corruption_is_visible(self):
         handoff, _ = self.handoff()
         with connection(self.store.path) as db:
-            original = dict(db.execute("SELECT * FROM agent_handoffs WHERE id=?", (handoff["id"],)).fetchone())
+            row = db.execute("SELECT * FROM agent_handoffs WHERE id=?", (handoff["id"],)).fetchone()
+            assert row is not None
+            original = dict(row)
             expired = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
             db.execute("UPDATE agent_handoffs SET expires=?", (expired,))
             for ordinal in range(105):
                 clone = dict(original, id="bounded-handoff-%03d" % ordinal, expires=expired)
                 columns = tuple(clone)
                 db.execute(
-                    "INSERT INTO agent_handoffs ("
+                    "INSERT INTO agent_handoffs ("  # noqa: S608 - columns come from the fixture table
                     + ",".join(columns)
                     + ") VALUES ("
                     + ",".join("?" for _ in columns)
@@ -270,7 +277,9 @@ class WeeklyOperationTests(unittest.TestCase):
         )
         with connection(self.store.path) as db:
             # Corrupt a row inside the selected bound while another domain needs action.
-            selected = db.execute("SELECT id FROM agent_handoffs ORDER BY created DESC,id LIMIT 1").fetchone()[0]
+            row = db.execute("SELECT id FROM agent_handoffs ORDER BY created DESC,id LIMIT 1").fetchone()
+            assert row is not None
+            selected = row[0]
             db.execute("UPDATE agent_handoffs SET payload=? WHERE id=?", ("PRIVATE_CORRUPTED_PAYLOAD", selected))
             db.execute("UPDATE campaign_paid_intents SET status='UNKNOWN'")
         unavailable = self.cards()
@@ -304,7 +313,7 @@ class WeeklyOperationTests(unittest.TestCase):
         with connection(self.store.path) as db:
             db.execute(
                 "UPDATE campaign_paid_intents SET status='PENDING_ACTIVE_campaign',result=?",
-                (canonical(dict(secret="PRIVATE_RAW", error="PRIVATE_ERROR")),),
+                (canonical({"secret": "PRIVATE_RAW", "error": "PRIVATE_ERROR"}),),
             )
             db.execute("UPDATE campaign_monitors SET status='BLOCKED'")
         first = self.cards()
@@ -377,6 +386,7 @@ class WeeklyOperationTests(unittest.TestCase):
 
     def test_failed_job_projection_checks_exact_owner_plan_binding(self):
         monitor = self.fixture.monitor
+        assert monitor is not None
         stamp = now()
         data = dict(
             monitor_id=monitor["id"],
@@ -427,12 +437,13 @@ class WeeklyOperationTests(unittest.TestCase):
         workspace["sequences"] = {"history": [dict(state="WAITING"), dict(state="QUEUED"), dict(state="CANCELLED")]}
         workspace["workflow"] = dict(
             workspace["workflow"],
+            next_action={"title": "Review the next stage"},
             steps=[dict(critical_findings=["One confirmed P0"]), dict(critical_findings=[])],
         )
         value = project(workspace)
         self.assertEqual(value["active_sequences"], 2)
         self.assertEqual(value["high_priority_gaps"], 1)
-        self.assertEqual(value["current_stage"]["next_action"], workspace["workflow"]["next_action"]["title"])
+        self.assertEqual(value["current_stage"]["next_action"], "Review the next stage")
         with patch("mission_control.weekly_inbox.project", side_effect=RuntimeError("PRIVATE_SQL_ERROR")):
             broken = review(self.server.service, user=self.owner)
         for row in broken["apps"]:
@@ -455,6 +466,69 @@ class WeeklyOperationTests(unittest.TestCase):
             self.assertIsNone(trusted_principal(value))
         self.assertEqual(trusted_principal(self.owner), "owner")
 
+    def test_schedule_deadline_uses_renewal_without_extending_saved_batch(self):
+        from mission_control.authority_expiry import record_initial
+        from mission_control.campaign_schedule import initialize
+
+        initialize(self.store)
+        observed = datetime.now(timezone.utc)
+        past = (observed - timedelta(minutes=20)).isoformat()
+        first = (observed - timedelta(minutes=5)).isoformat()
+        later = (observed + timedelta(hours=1)).isoformat()
+        stamp = observed.isoformat()
+        scope_id = self.fixture.fixture.scope["scope_id"]
+        with connection(self.store.path) as db:
+            db.execute("UPDATE campaign_monitors SET status='OFF'")
+            scope = db.execute("SELECT * FROM campaign_scopes WHERE id=?", (scope_id,)).fetchone()
+            summary = json.loads(scope["summary"])
+            summary["expires_at"] = past
+            db.execute(
+                "UPDATE campaign_scopes SET summary=?,summary_hash=? WHERE id=?",
+                (canonical(summary), digest(summary), scope_id),
+            )
+            scope = db.execute("SELECT * FROM campaign_scopes WHERE id=?", (scope_id,)).fetchone()
+            record_initial(db, "CAMPAIGN", scope, past, later, "owner", scope["owner_version"], {}, observed)
+            for name, deadline in (
+                ("old-batch", first),
+                ("new-batch", later),
+                ("legacy-batch", None),
+                ("tampered-batch", later),
+                ("stale-binding", later),
+            ):
+                batch = dict(
+                    batch_id=name,
+                    app_id="sample",
+                    owner="owner",
+                    scope_id=scope_id,
+                    scope_hash=digest({}) if name == "stale-binding" else scope["summary_hash"],
+                )
+                if deadline:
+                    batch["permission_expires_at"] = deadline
+                pinned = digest({}) if name == "tampered-batch" else digest(batch)
+                db.execute(
+                    "INSERT INTO campaign_schedule_batches VALUES(?,?,?,?,?,?,?,?,?,?)",
+                    (name, "sample", "owner", scope_id, canonical(batch), pinned, "ACTIVE", 2, stamp, stamp),
+                )
+                db.execute(
+                    "INSERT INTO campaign_schedule_items VALUES(?,?,?,?,?,?,?,?,?)",
+                    (name + "-item", name, observed.timestamp(), "{}", digest({}), "READY", None, stamp, stamp),
+                )
+        by_batch = {c["action"]["batch_id"]: c["state"] for c in self.cards()}
+        self.assertEqual(
+            by_batch,
+            {
+                "old-batch": "EXPIRED_PENDING_WORK",
+                "legacy-batch": "EXPIRED_PENDING_WORK",
+                "tampered-batch": "NEEDS_REPAIR",
+                "stale-binding": "NEEDS_REPAIR",
+            },
+        )
+
+        with connection(self.store.path) as db:
+            db.execute("UPDATE campaign_scopes SET status='REVOKED' WHERE id=?", (scope_id,))
+        by_batch = {c["action"]["batch_id"]: c["state"] for c in self.cards()}
+        self.assertEqual(by_batch["new-batch"], "NEEDS_REPAIR")
+
     def test_expired_pending_schedule_owned_refs_and_uncertainty_dedup(self):
         from mission_control.campaign_schedule import initialize
 
@@ -474,6 +548,13 @@ class WeeklyOperationTests(unittest.TestCase):
                 "UPDATE campaign_scopes SET summary=?,summary_hash=? WHERE id=?",
                 (canonical(summary), digest(summary), scope["id"]),
             )
+            batch = dict(
+                batch_id="saved-batch",
+                app_id="sample",
+                owner="owner",
+                scope_id=scope["id"],
+                scope_hash=digest(summary),
+            )
             db.execute(
                 "INSERT INTO campaign_schedule_batches VALUES(?,?,?,?,?,?,?,?,?,?)",
                 (
@@ -481,8 +562,8 @@ class WeeklyOperationTests(unittest.TestCase):
                     "sample",
                     "owner",
                     scope["id"],
-                    "{}",
-                    digest({}),
+                    canonical(batch),
+                    digest(batch),
                     "ACTIVE",
                     2,
                     stamp,

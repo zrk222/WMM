@@ -54,6 +54,7 @@ mission_control/social_renewal.py
 mission_control/store.py
 mission_control/storekit_ingestion.py
 mission_control/viral_policy.py
+mission_control/weekly_inbox.py
 mission_control/worker.py
 tests/campaign_paid_schedule_browser.py
 tests/test_agent_context_tasks.py
@@ -109,6 +110,7 @@ tests/test_static_etag.py
 tests/test_static_wiring.py
 tests/test_type_ratchet.py
 tests/test_verify_release_assets.py
+tests/test_weekly_operation_exceptions.py
 tools/benchmark_http.py
 tools/branch_hygiene.py
 tools/build_desktop.py
