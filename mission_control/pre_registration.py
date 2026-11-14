@@ -4,13 +4,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlencode, urlsplit, urlunsplit
 
-from .common import Invalid, digest, iso_time
-from .evidence_gate import ACQUISITION_SOURCES, OUTCOME_SOURCES
+from .common import digest
+from .evidence_gate import ACQUISITION_SOURCES, OUTCOME_SOURCES, REPORT_SCOPES, current_report
 
-REPORT_SCOPES = {
-    "posthog": "PROJECT_ID_CHECKED",
-    "revenuecat": "PROJECT_PATH_CHECKED_PROJECT_WIDE_METRICS",
-}
 GOAL_METRICS = (
     (("retain", "retention", "return"), ("retention_rate", "installs")),
     (("paid", "revenue", "subscri", "purchase", "convert"), ("paid_conversion", "installs")),
@@ -67,26 +63,6 @@ def source_readiness(app_id: str, insights: dict[str, Any], observed: datetime) 
             report_hash=report_hash,
         )
     return result
-
-
-def current_report(source: dict[str, Any], report: dict[str, Any], observed: datetime) -> bool:
-    data = report["data"]
-    provider = source["provider"]
-    try:
-        age = observed - iso_time(data["observed_at"])
-    except (Invalid, KeyError, TypeError):
-        return False
-    return (
-        report["provider"] == data.get("provider") == provider
-        and report["hash"] == digest(data)
-        and data.get("scope") == REPORT_SCOPES[provider]
-        and data.get("project_id") == source["data"]["project_id"]
-        and data.get("source_version") == source["version"]
-        and data.get("configuration_hash") == digest(source["data"])
-        and isinstance(data.get("rows"), list)
-        and bool(data["rows"])
-        and timedelta(0) <= age <= timedelta(days=7)
-    )
 
 
 def source_action(name: str, state: dict[str, Any] | None) -> str:
@@ -166,10 +142,12 @@ def draft(
         experiment_draft=experiment,
         tagged_link=tagged,
         providers=sorted(connected),
+        outcome_tracking_verified=False,
+        tracking_next_step="Verify a consented test from the tagged link through the planned outcome and denominator.",
         missing=missing,
         source_hash=digest(dict(app=app.get("data"), source_readiness=readiness, goal=goal, link=link)),
         authority_issued=False,
         external_writes=False,
-        limits="Draft only. Provider readiness means a recent project aggregate report; it does not verify the planned metric, denominator or campaign attribution. Review the tagged link, claims, release, baseline, cohorts and sample plan; no scope, experiment, publication or spend authority is created.",
+        limits="Draft only. Recent project reports show that analytics can be read. Before relying on the result, verify a consented test from the tagged link through the planned outcome and denominator. No scope, experiment, publication or spend authority is created.",
     )
     return result

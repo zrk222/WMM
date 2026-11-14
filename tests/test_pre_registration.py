@@ -58,6 +58,8 @@ class PreRegistrationTests(unittest.TestCase):
         result = draft(app(), snapshot("posthog", "revenuecat"), goal="paid conversion", observed=NOW)
         self.assertEqual(result["status"], "READY_FOR_OWNER_REVIEW")
         self.assertEqual(result["missing"], [])
+        self.assertFalse(result["outcome_tracking_verified"])
+        self.assertIn("consented test", result["tracking_next_step"])
         plan = result["measurement_plan"]
         self.assertEqual(plan["primary_metric"], "paid_conversion")
         self.assertIn("utm_campaign=" + plan["campaign_tag"], result["tagged_link"])
@@ -122,7 +124,8 @@ class PreRegistrationTests(unittest.TestCase):
                 result = service.workspace("sample-one")["pre_registration"]
             listing.assert_called_once_with("sample-one")
             self.assertEqual(result["providers"], ["posthog", "revenuecat"])
-            self.assertIn("does not verify the planned metric", result["limits"])
+            self.assertFalse(result["outcome_tracking_verified"])
+            self.assertIn("verify a consented test from the tagged link", result["limits"])
             self.assertFalse(result["authority_issued"])
             self.assertFalse(result["external_writes"])
 
