@@ -148,11 +148,20 @@ def exercise(browser, origin, width):
             assert (OUT / "sample-report.pdf").read_bytes().startswith(b"%PDF")
         context.set_offline(False)
         page.goto(origin + "/index.html")
-        expect(page.get_by_role("heading", name="Your AI employees need a boss you can audit.")).to_be_visible()
+        expect(
+            page.get_by_role("heading", level=1, name="Give your personal agent a marketing workspace.")
+        ).to_be_visible()
         expect(page.locator("#channels .channel-logo")).to_have_count(5)
         for name in channels.values():
             expect(page.locator("#channels").get_by_role("heading", name=name, exact=True)).to_be_visible()
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), "Overview overflow"
+        studio = page.get_by_role("region", name="Turn a promising idea into a video you can test.")
+        expect(studio.get_by_text("What it does:")).to_be_visible()
+        expect(studio.get_by_text("What you get:")).to_be_visible()
+        studio.get_by_role("link", name="Watch the Studio workflow").click()
+        expect(page).to_have_url(origin + "/demo.html#video-process")
+        expect(page.locator("#video-process")).to_be_visible()
+        page.go_back()
         page.get_by_text("See the pipeline and analytics screens", exact=True).click()
         for image in page.locator("img").all():
             image.scroll_into_view_if_needed()
@@ -169,6 +178,7 @@ def exercise(browser, origin, width):
             real_export_hashes="PASS",
             offline="PASS",
             video_process="PASS",
+            studio_overview_to_demo="PASS",
             captioned_video_controls="PASS",
             overflow=False,
             javascript_errors=errors,
