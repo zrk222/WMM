@@ -10,6 +10,7 @@ import tempfile
 import time
 from http.cookiejar import CookieJar
 from pathlib import Path
+from urllib.error import HTTPError
 from urllib.request import HTTPCookieProcessor, HTTPRedirectHandler, ProxyHandler, Request, build_opener
 from uuid import uuid4
 
@@ -81,8 +82,10 @@ def preflight(env):
     return runtime
 
 
-def command(env, *args, check=True, timeout=75):
-    return subprocess.run([str(x) for x in args], env=env, check=check, capture_output=True, text=True, timeout=timeout)
+def command(env, *args, check=True, timeout=75, stdin=None):
+    return subprocess.run(
+        [str(x) for x in args], env=env, check=check, capture_output=True, text=True, timeout=timeout, input=stdin
+    )
 
 
 def systemctl(env, *args, check=True):
@@ -112,7 +115,7 @@ def session(origin=ORIGIN, timeout=45):
     raise RuntimeError("Service did not serve bootstrap before timeout")
 
 
-def request_json(client, origin, path, body=None, csrf=None):
+def request_json(client, origin, path, body=None, csrf=None, *, canary=None):
     headers = {"Origin": origin}
     data = None
     if body is not None:
@@ -120,8 +123,21 @@ def request_json(client, origin, path, body=None, csrf=None):
         headers.update({"Content-Type": "application/json", "X-CSRF-Token": csrf})
     if not re.fullmatch(r"http://127\.0\.0\.1:[1-9][0-9]{0,4}", origin) or not path.startswith("/api/"):
         raise ValueError("Expected an API path on the exact loopback origin")
-    with client.open(Request(origin + path, data=data, headers=headers), timeout=2) as response:  # noqa: S310
-        return json.load(response)
+    try:
+        response = client.open(Request(origin + path, data=data, headers=headers), timeout=2)  # noqa: S310
+    except HTTPError as exc:
+        if canary is None:
+            raise
+        with exc:
+            assert_secret_absent(exc.headers.as_bytes(), canary)
+            assert_secret_absent(exc.read(), canary)
+        raise AssertionError(f"Protected fixture request returned HTTP {exc.code}") from None
+    with response:
+        raw = response.read()
+        if canary is not None:
+            assert_secret_absent(response.headers.as_bytes(), canary)
+            assert_secret_absent(raw, canary)
+        return json.loads(raw)
 
 
 def register_app(client, origin, csrf):
@@ -135,6 +151,118 @@ def register_app(client, origin, csrf):
     ):
         raise AssertionError("Synthetic app was not registered as a fresh workspace")
     return facts
+
+
+def assert_secret_absent(value, canary):
+    if canary.encode() in value or b"BEGIN PRIVATE KEY" in value:
+        raise AssertionError("Protected test material escaped the native keyring")
+
+
+def open_disposable_keyring(env):
+    # This account has its own fresh home and user bus. Remove the packaged socket
+    # activation path so only the daemon launched on the explicit bus can serve it.
+    systemctl(env, "stop", "gnome-keyring-daemon.socket", "gnome-keyring-daemon.service")
+    unlock = command(
+        env, "gnome-keyring-daemon", "--unlock", "--components=secrets", stdin=uuid4().hex, timeout=20, check=False
+    )
+    if unlock.returncode:
+        raise RuntimeError("Disposable Secret Service did not initialize")
+    deadline = time.monotonic() + 12
+    while time.monotonic() < deadline:
+        reply = command(
+            env,
+            "busctl",
+            "--address=" + env["DBUS_SESSION_BUS_ADDRESS"],
+            "--timeout=2",
+            "call",
+            "org.freedesktop.secrets",
+            "/org/freedesktop/secrets",
+            "org.freedesktop.Secret.Service",
+            "ReadAlias",
+            "s",
+            "default",
+            timeout=4,
+            check=False,
+        )
+        if reply.returncode == 0 and re.fullmatch(
+            r'o "/org/freedesktop/secrets/collection/[A-Za-z0-9_]+"', reply.stdout.strip()
+        ):
+            return
+        time.sleep(0.25)
+    raise RuntimeError("Disposable Secret Service did not expose a default collection on the worker bus")
+
+
+def register_protected_connection(env, client, csrf):
+    # The generated key is held in process memory until the existing local setup
+    # route hands it to Secret Service.
+    open_disposable_keyring(env)
+    empty = request_json(client, ORIGIN, f"/api/apps/{APP}")
+    if empty["connections"]:
+        raise AssertionError("Disposable app unexpectedly has an existing connection")
+    generated = command(
+        env, "openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256", timeout=10
+    )
+    key = generated.stdout.strip()
+    canary = key.splitlines()[1][-32:]
+    response = request_json(
+        client,
+        ORIGIN,
+        f"/api/apps/{APP}/connections",
+        {
+            "provider": "app_store",
+            "store_app_id": "123",
+            "issuer_id": "fixture",
+            "key_id": "fixture",
+            "private_key": key,
+        },
+        csrf,
+        canary=canary,
+    )
+    record = response["record"]
+    if response["status"] != "CONFIGURED_UNTESTED" or record["kind"] != "connection":
+        raise AssertionError("Local protected setup did not retain the synthetic binding")
+    return record, canary
+
+
+def assert_connection_status(client, record, canary, status, cleanup=None):
+    workspace = request_json(client, ORIGIN, f"/api/apps/{APP}", canary=canary)
+    expected = {"status": status}
+    if cleanup is not None:
+        expected["cleanup"] = cleanup
+    if workspace["connections"].get(record["id"]) != expected:
+        raise AssertionError("Saved connection does not match its expected protected state")
+
+
+def remove_protected_connection(client, csrf, record, canary):
+    reply = request_json(
+        client,
+        ORIGIN,
+        f"/api/apps/{APP}/connections/{record['id']}/disconnect",
+        {"version": record["version"]},
+        csrf,
+        canary=canary,
+    )
+    if reply != {
+        "status": "DISCONNECTED",
+        "provider_revocation": "NOT_PERFORMED",
+        "cleanup": "PRIOR_LOCAL_KEY_REMOVED",
+    }:
+        raise AssertionError("Disposable protected item was not removed locally")
+    assert_connection_status(client, record, canary, "DISCONNECTED", "NOT_PRESENT")
+
+
+def assert_workspace_private(workspace, canary):
+    for filename in ("mission-control.sqlite3", "mission-control.sqlite3-wal", "mission-control.sqlite3-journal"):
+        path = workspace / filename
+        if filename == "mission-control.sqlite3" or path.exists():
+            assert_secret_absent(path.read_bytes(), canary)
+
+
+def assert_service_output_private(output, canary):
+    raw = output.read_bytes()
+    assert_secret_absent(raw, canary)
+    if raw.count(b'"status": "RUNNING"') != 2:
+        raise AssertionError("Expected private output from both service invocations")
 
 
 def submit(client, origin, csrf, key):
@@ -280,8 +408,12 @@ def main():
         if not re.fullmatch(r"/[A-Za-z0-9_./-]+", str(directory)):
             raise RuntimeError("Disposable home path is not safe for a systemd assignment")
         unit = directory / name
+        output = directory / "service-output.log"
         unit.write_text(
-            UNIT.read_text(encoding="utf-8") + f"\n[Service]\nEnvironment=XDG_DATA_HOME={directory}/data\n",
+            UNIT.read_text(encoding="utf-8")
+            + f"\n[Service]\nEnvironment=XDG_DATA_HOME={directory}/data\n"
+            + f"Environment=DBUS_SESSION_BUS_ADDRESS={env['DBUS_SESSION_BUS_ADDRESS']}\n"
+            + f"StandardOutput=append:{output}\nStandardError=inherit\n",
             encoding="utf-8",
         )
         child_env = dict(env, XDG_DATA_HOME=str(directory / "data"))
@@ -304,25 +436,35 @@ def main():
             ):
                 raise AssertionError("A competing runtime was not excluded")
             facts = register_app(client, ORIGIN, csrf)
+            protected, canary = register_protected_connection(env, client, csrf)
+            assert_connection_status(client, protected, canary, "PROTECTED_KEY_PRESENT")
             invocation = close_login_session(env, name)
             client, csrf = session()
+            assert_connection_status(client, protected, canary, "PROTECTED_KEY_PRESENT")
             key = "host-service-" + uuid4().hex
             queued = submit(client, ORIGIN, csrf, key)
             initial = completed_job(client, ORIGIN, queued["id"], key, facts)
             if login_sessions(env) or service_invocation(env, name) != invocation:
                 raise AssertionError("WMM job did not complete in the original service with no OS login")
+            assert_workspace_private(workspace, canary)
             systemctl(env, "stop", name)
             assert_stopped(env, name)
             systemctl(env, "start", name)
             client, csrf = session()
+            if login_sessions(env) or service_invocation(env, name) == invocation:
+                raise AssertionError("Expected a new WMM invocation and no OS login")
+            assert_connection_status(client, protected, canary, "PROTECTED_KEY_PRESENT")
             persisted = completed_job(client, ORIGIN, queued["id"], key, facts)
             if persisted != initial:
                 raise AssertionError("Prepared job changed before replay")
             replay = submit(client, ORIGIN, csrf, key)
             durable = completed_job(client, ORIGIN, queued["id"], key, facts)
             verify_replay(initial, replay, durable)
+            remove_protected_connection(client, csrf, protected, canary)
+            assert_workspace_private(workspace, canary)
             systemctl(env, "stop", name)
             assert_stopped(env, name)
+            assert_service_output_private(output, canary)
         finally:
             if linked or link.is_symlink():
                 if not link.is_symlink() or link.resolve() != unit.resolve():
@@ -345,6 +487,9 @@ def main():
                 "stop_restart": "VERIFIED",
                 "worker_result": "VERIFIED",
                 "disposable_os_logout": "VERIFIED_SAME_SERVICE_JOB_COMPLETED_NO_SESSIONS",
+                "protected_storage": "VERIFIED_AFTER_LOGOUT_AND_RESTART_WITH_DISPOSABLE_UNLOCKED_KEYRING",
+                "protected_storage_cleanup": "VERIFIED_LOCAL_REMOVAL",
+                "protected_storage_privacy": "VERIFIED_HTTP_SQLITE_AND_SERVICE_OUTPUT",
                 "durable_replay": "VERIFIED",
                 "job_id": initial["id"],
                 "attempts": initial["attempts"],
