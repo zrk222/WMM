@@ -710,7 +710,10 @@ def protect(store, job, service, capability, result):
         pause_observation=json.loads(canonical(result)),
     )
     paused = service.run_pause(job["app_id"], "monitor:" + job["id"], capability["scope_id"], result["id"])
-    if paused["status"] != "PAUSED_campaign":
+    readback = paused.get("pause_readback")
+    if paused["status"] != "PAUSED_campaign" or (
+        isinstance(readback, dict) and readback.get("effective_status") == "ACTIVE"
+    ):
         raise PermissionError("Protective pause was not verified")
     return paused
 
