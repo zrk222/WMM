@@ -21,6 +21,7 @@ mission_control/campaign_metric_definitions.py
 mission_control/campaign_monitor.py
 mission_control/campaign_owner_reports.py
 mission_control/campaign_pause_receipts.py
+mission_control/campaign_report_pause.py
 mission_control/campaign_schedule.py
 mission_control/campaign_schedule_authority.py
 mission_control/campaign_transport.py
