@@ -320,6 +320,13 @@ class Service:
         from .activity_timeline import read as activity_read
 
         workspace["activity_timeline"] = activity_read(self.store, app_id)
+        from .creative_learning import summary as creative_summary
+        from .evidence_gate import latest as launch_gate
+        from .reconciliation import summary as reconciliation_summary
+
+        workspace["reconciliation"] = reconciliation_summary(workspace)
+        workspace["creative_learning"] = creative_summary(workspace)
+        workspace["launch_gate"] = launch_gate(self.store, app_id)
         return workspace
 
     def subscription_review(self, app_id, expected=None):
