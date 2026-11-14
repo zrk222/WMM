@@ -1,7 +1,5 @@
 """Private source-bound owner reports; no provider reads or outbound delivery."""
 
-import json
-import re
 import secrets
 import time
 from datetime import datetime, timedelta, timezone
@@ -9,6 +7,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 from .campaign_execution import saved_pause_receipt, scope_view
+from .campaign_metric_definitions import definitions, object_data
 from .campaign_monitor import actor, last_observation, whole
 from .common import Invalid, canonical, digest, identifier, iso_time, now, uid
 from .db import connection
@@ -78,16 +77,6 @@ def proposal(body):
     if not datetime.now(timezone.utc) < expiry <= datetime.now(timezone.utc) + timedelta(days=7):
         raise Invalid("Report plan expiry must be within the next 7 days")
     return dict(body, selection=chosen, expires_at=expiry.isoformat())
-
-
-def object_data(raw):
-    try:
-        value = json.loads(raw)
-    except (TypeError, ValueError):
-        raise Invalid("Saved owner report source needs repair") from None
-    if not isinstance(value, dict):
-        raise Invalid("Saved owner report source needs repair")
-    return value
 
 
 def owned_resource(db, table, app, owner, identity):
@@ -283,81 +272,6 @@ def campaign_view(db, app_id, owner, scope_id):
         fees="EXCLUDED_FROM_MEDIA_CEILING",
         outcome_attribution="NOT_ESTABLISHED",
     )
-
-
-def definitions(db, app_id, metrics):
-    """Compare metric identities and units, never just similarly named totals."""
-    cohorts = [
-        _cohort_definition(object_data(row["data"]))
-        for row in db.execute("SELECT data FROM growth_cohorts WHERE app_id=? ORDER BY id", (app_id,))
-    ]
-    records = []
-    for row in db.execute(
-        "SELECT data,kind FROM records WHERE app_id=? AND kind IN ('cohort','retention','acquisition') ORDER BY id",
-        (app_id,),
-    ):
-        value = object_data(row["data"])
-        records.append(
-            dict(
-                kind=row["kind"],
-                scope={
-                    k: value.get(k)
-                    for k in (
-                        "cohort_id",
-                        "currency",
-                        "horizon",
-                        "window",
-                        "release",
-                        "platform",
-                        "locale",
-                        "starts_at",
-                        "ends_at",
-                        "matures_at",
-                    )
-                },
-            )
-        )
-    sources = [
-        dict(row)
-        for row in db.execute(
-            "SELECT id,provider,version,hash FROM insight_sources WHERE app_id=? ORDER BY id",
-            (app_id,),
-        )
-    ]
-    return digest(
-        dict(
-            projection_schema="ios_reports.v1",
-            metric_names=[r["metric"] for r in metrics["rows"]],
-            metric_units_and_dimensions=[
-                re.findall(
-                    r"(?:currency|horizon|period|unit|type|source_type|dimensions|subscription binding)=([^;]+)",
-                    r["evidence"],
-                )
-                for r in metrics["rows"]
-            ],
-            cohorts=cohorts,
-            record_scopes=records,
-            sources=sources,
-        )
-    )
-
-
-def _cohort_definition(value):
-    fields = (
-        "cohort_id",
-        "release",
-        "platform",
-        "locale",
-        "currency",
-        "starts_at",
-        "ends_at",
-        "matures_at",
-        "attribution_method",
-        "observability",
-        "source",
-        "subscription_map",
-    )
-    return {key: value.get(key) for key in fields}
 
 
 def comparison(db, app_id, owner, key, current):
