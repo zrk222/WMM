@@ -95,6 +95,12 @@
     'Complete the paid-campaign verification checks before approving a launch. Connecting an ad account does not complete those checks.',
   );
   define(
+    ['Advertising account funding is not confirmed'],
+    'META_FUNDING_UNCONFIRMED',
+    'Meta did not confirm billing for the selected ad account.',
+    'If you intended a paid launch, check the selected account in Meta’s billing settings before trying again. For a free campaign, leave billing unchanged and use organic posting. For a zero-spend sandbox trial, leave billing unchanged and stop at verification.',
+  );
+  define(
     [
       'Facebook connection expired',
       'Facebook connection changed or became unavailable',
