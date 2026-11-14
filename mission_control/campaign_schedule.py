@@ -3,9 +3,10 @@
 import json
 import time
 from datetime import datetime, timezone
+from typing import Any
 
 from .campaign_contract import ad_data, post_data
-from .campaign_execution import CampaignExecutionService, scope_view
+from .campaign_execution import CampaignExecutionService, saved_pause_receipt, scope_view
 from .common import Invalid, canonical, digest, iso_time, now, uid
 from .db import connection
 from .review_access import member
@@ -332,9 +333,10 @@ def item_status(db, app_id, scope_id, item):
     ):
         raise Invalid("Retained schedule evidence needs repair")
     operation = body.get("operation", "campaign.publish")
+    pause_confirmed = False
     if operation == "campaign.ad-launch":
         intent = db.execute(
-            "SELECT id,status,ids,commitment,currency FROM campaign_paid_intents WHERE app_id=? AND scope_id=? AND request_id=? AND request_hash=?",
+            "SELECT id,status,ids,commitment,currency,app_id,scope_id,request_hash,account_id FROM campaign_paid_intents WHERE app_id=? AND scope_id=? AND request_id=? AND request_hash=?",
             (app_id, scope_id, request["request_id"], digest(request)),
         ).fetchone()
     else:
@@ -342,7 +344,13 @@ def item_status(db, app_id, scope_id, item):
             "SELECT id,status,remote_id FROM campaign_intents WHERE app_id=? AND scope_id=? AND request_id=? AND request_hash=?",
             (app_id, scope_id, request["request_id"], digest(request)),
         ).fetchone()
-    intent = dict(intent) if intent else None
+    if intent is not None and operation == "campaign.ad-launch":
+        if intent["status"] == "PAUSED_campaign":
+            receipt = saved_pause_receipt(db, intent)
+            pause_confirmed = receipt is not None and receipt["effective_status"] != "ACTIVE"
+        intent = {key: intent[key] for key in ("id", "status", "ids", "commitment", "currency")}
+    else:
+        intent = dict(intent) if intent else None
     if intent and "ids" in intent:
         intent["ids"] = json.loads(intent["ids"])
     return dict(
@@ -350,22 +358,22 @@ def item_status(db, app_id, scope_id, item):
         due_at=body["due_at"],
         status=item["status"],
         operation=operation,
-        effective_status=effective_status(item["status"], job, intent, operation),
+        effective_status=effective_status(item["status"], job, intent, operation, pause_confirmed),
         job_id=item["job_id"],
         job_status=job["status"] if job else None,
         intent=intent,
     )
 
 
-def effective_status(item_status, job, intent, operation):
+def effective_status(item_status, job, intent, operation, pause_confirmed=False):
     if intent:
         state = intent["status"]
         if state == "VERIFIED" and operation == "campaign.publish":
             return "VERIFIED"
         if state == "ACTIVE_campaign" and operation == "campaign.ad-launch":
             return "ACTIVE_VERIFIED"
-        if state == "PAUSED_campaign":
-            return "PAUSED_VERIFIED"
+        if state == "PAUSED_campaign" and operation == "campaign.ad-launch":
+            return "PAUSED_VERIFIED" if pause_confirmed else "NEEDS_RECONCILIATION"
         if job and job["status"] == "RUNNING":
             return "RUNNING"
         return "NEEDS_RECONCILIATION"
@@ -397,7 +405,9 @@ def due_payload(row):
         or row["due"] != iso_time(body["due_at"]).timestamp()
     ):
         raise Invalid("Retained schedule inputs changed")
-    data = dict(batch_id=row["batch_id"], item_id=row["id"], scope_id=row["scope_id"], request=body["request"])
+    data: dict[str, Any] = dict(
+        batch_id=row["batch_id"], item_id=row["id"], scope_id=row["scope_id"], request=body["request"]
+    )
     if "operation" in body:
         data["operation"] = operation
     action = "campaign_ad" if operation == "campaign.ad-launch" else "campaign_post"
@@ -407,8 +417,9 @@ def due_payload(row):
 def tick(store):
     """Atomically enqueue each due item once; no provider calls occur here."""
     initialize(store)
-    from .publication_schedule import initialize as publication_initialize, advance as advance_publications
     from .publication_execution import initialize as execution_initialize
+    from .publication_schedule import advance as advance_publications
+    from .publication_schedule import initialize as publication_initialize
 
     publication_initialize(store)
     execution_initialize(store)
