@@ -1,17 +1,33 @@
 """Owner-reviewed expiry amendments for existing fixed-scope authority."""
 
-from datetime import datetime, timedelta, timezone
 import json
+import sqlite3
+from collections.abc import Mapping
+from datetime import datetime, timedelta, timezone
+from typing import TypedDict, cast
 
-from .common import Invalid, canonical, digest, iso_time
+from .common import Invalid, digest, iso_time
 from .db import connection
 from .operation_catalog import exact_keys, path_segment
 from .review_access import exact_role, member
+from .schema_types import AuthorityExpiryConsentsRow
 
 KINDS = ("AGENT_GRANT", "AUTOMATION", "CAMPAIGN", "ORGANIC_POLICY")
 
 
-def deadline(value, observed, consent=False):
+class ExpiryProof(TypedDict):
+    """Validated head of one unchanged authority's consent chain."""
+
+    expires: str
+    revision: int
+    receipt_hash: str
+    base_hash: str
+
+
+AuthorityRow = sqlite3.Row | Mapping[str, object]
+
+
+def deadline(value: object, observed: datetime, consent: bool = False) -> datetime:
     """Parse a finite timezone-bearing deadline and require consent past 24h."""
     try:
         result = iso_time(value).astimezone(timezone.utc)
@@ -24,7 +40,7 @@ def deadline(value, observed, consent=False):
     return result
 
 
-def _binding(kind, row):
+def _binding(kind: str, row: AuthorityRow) -> dict[str, object]:
     if kind == "AGENT_GRANT":
         keys = (
             "id",
@@ -51,8 +67,9 @@ def _binding(kind, row):
     return {key: row[key] for key in keys}
 
 
-def _valid_proof(proof, revision, binding, prior, current):
-    fields = {key: proof[key] for key in proof.keys() if key != "receipt_hash"}
+def _valid_proof(proof: AuthorityExpiryConsentsRow, revision: int, binding: str, prior: str, current: str) -> bool:
+    fields = dict(proof)
+    fields.pop("receipt_hash")
     if not fields.get("stable_hash"):
         fields.pop("stable_hash", None)
     return all(
@@ -67,7 +84,7 @@ def _valid_proof(proof, revision, binding, prior, current):
     )
 
 
-def effective_expiry(db, kind, row, base_expiry):
+def effective_expiry(db: sqlite3.Connection, kind: str, row: AuthorityRow, base_expiry: object) -> ExpiryProof:
     """Validate the entire contiguous chain against the unchanged base record."""
     binding_value = _binding(kind, row)
     if kind == "AGENT_GRANT":
@@ -79,16 +96,17 @@ def effective_expiry(db, kind, row, base_expiry):
     prior = ""
     current = iso_time(base_expiry).astimezone(timezone.utc).isoformat()
     revision = 0
-    for proof in db.execute(
+    for saved in db.execute(
         "SELECT * FROM authority_expiry_consents WHERE app_id=? AND kind=? AND authority_id=? ORDER BY revision",
         (row["app_id"], kind, row["id"]),
     ):
+        proof = cast(AuthorityExpiryConsentsRow, dict(saved))
         if not _valid_proof(proof, revision, binding, prior, current):
             raise PermissionError("Expiry consent chain is invalid or authority changed")
         revision = proof["revision"]
         prior = proof["receipt_hash"]
         current = proof["new_expiry"]
-    return dict(expires=current, revision=revision, receipt_hash=prior, base_hash=binding)
+    return ExpiryProof(expires=current, revision=revision, receipt_hash=prior, base_hash=binding)
 
 
 def _row(db, app_id, kind, identity):
@@ -101,7 +119,10 @@ def _row(db, app_id, kind, identity):
     if not isinstance(kind, str) or kind not in tables:
         raise Invalid("Unknown expiry authority kind")
     try:
-        row = db.execute("SELECT * FROM " + tables[kind] + " WHERE app_id=? AND id=?", (app_id, identity)).fetchone()
+        row = db.execute(
+            "SELECT * FROM " + tables[kind] + " WHERE app_id=? AND id=?",  # noqa: S608 - closed table map
+            (app_id, identity),
+        ).fetchone()
     except Exception as exc:
         import sqlite3
 
@@ -229,7 +250,7 @@ def _connected_page(page):
 def _current_facts(db, store, app_id, kind, row, observed):
     """Recheck bound facts without treating verification age as permission."""
     if kind == "AUTOMATION":
-        from .complete_automation import scope_summary, same_scope_after_verification
+        from .complete_automation import same_scope_after_verification, scope_summary
 
         saved = json.loads(row["summary"])
         actual = scope_summary(db, app_id, dict(principal=row["owner"]), json.loads(row["proposal"]), observed)
@@ -296,7 +317,7 @@ def _usage(db, app_id, kind, identity, row):
         ]
         for table in ("campaign_intents", "campaign_paid_intents"):
             if db.execute(
-                "SELECT 1 FROM "
+                "SELECT 1 FROM "  # noqa: S608 - closed table tuple
                 + table
                 + " WHERE app_id=? AND scope_id=? AND (status IN ('UNKNOWN','DISPATCHING') OR status LIKE 'PENDING_%')",
                 (app_id, identity),
@@ -371,7 +392,10 @@ def _organic_deadlines(db, identity, row):
         ("organic_video_generation_reservations", "GENERATION"),
         ("organic_video_admissions", "ADMISSION"),
     ):
-        for child in db.execute("SELECT id,data FROM " + table + " WHERE policy_id=?", (identity,)):
+        for child in db.execute(
+            "SELECT id,data FROM " + table + " WHERE policy_id=?",  # noqa: S608 - closed table tuple
+            (identity,),
+        ):
             child_data = json.loads(child["data"])
             result.append(
                 dict(
@@ -547,7 +571,7 @@ def _append(
     fields["receipt_hash"] = digest(fields)
     fields.setdefault("stable_hash", "")
     db.execute(
-        "INSERT INTO authority_expiry_consents ("
+        "INSERT INTO authority_expiry_consents ("  # noqa: S608 - fields are fixed local keys
         + ",".join(fields)
         + ") VALUES ("
         + ",".join("?" for _ in fields)
