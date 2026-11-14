@@ -26,6 +26,8 @@ jobs:
           python -m coverage run --branch --include='*/campaign_schedule_authority.py' -m unittest -q tests.test_campaign_schedule tests.test_campaign_schedule_http tests.test_organic_video_schedule tests.test_authority_expiry_children tests.test_schedule_authority_boundary
           python -m coverage json -o authority-coverage.json
           python tools/check_authority_coverage.py authority-coverage.json
+      - name: Challenge exact schedule authority decisions
+        run: python tools/check_schedule_mutations.py
       - name: Retain line and branch counts for review
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
