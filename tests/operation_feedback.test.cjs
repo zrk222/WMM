@@ -50,6 +50,17 @@ test('uncertain metadata overrides known rejection text and cannot be downgraded
     assert.ok(!error.message.includes('new approval'));
   }
 });
+test('Meta billing guidance preserves the free path and never overrides uncertain delivery', () => {
+  const raw = 'Advertising account funding is not confirmed';
+  const rejected = feedback.error(new Error(raw), { method: 'POST', status: 400 });
+  assert.equal(rejected.feedback.code, 'META_FUNDING_UNCONFIRMED');
+  assert.match(rejected.feedback.next, /billing settings/);
+  assert.match(rejected.feedback.next, /leave billing unchanged and use organic posting/);
+  assert.match(rejected.feedback.next, /zero-spend sandbox trial.*stop at verification/);
+  const uncertain = feedback.error(new Error(raw), { method: 'POST', status: 500 });
+  assert.equal(uncertain.feedback.code, 'RESULT_NOT_CONFIRMED');
+  assert.match(uncertain.message, /do not create a duplicate/);
+});
 test('read interruption permits reloading the view; validation errors keep their exact field guidance', () => {
   assert.equal(
     feedback.error(new Error('Failed to fetch'), { interrupted: true, method: 'GET' }).feedback
