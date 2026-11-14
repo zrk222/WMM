@@ -101,3 +101,13 @@ class OutcomeTests(unittest.TestCase):
                 self.run_join(batch("posthog"), batch("revenuecat", **change))
         with self.assertRaisesRegex(Invalid, "Conflicting"):
             self.run_join(batch("posthog", event("INSTALL", 3), event("INSTALL", 4)), batch("revenuecat"))
+
+    def test_untrusted_interchange_rejects_unknown_fields_and_implicit_consent(self) -> None:
+        for row in (
+            event("INSTALL", 3, address="private@example.test"),
+            event("INSTALL", 3, event_id="private@example.test"),
+            event("INSTALL", 3, consented=1),
+            event("INSTALL", 3, internal_test=None),
+        ):
+            with self.subTest(row=row), self.assertRaises(Invalid):
+                self.run_join(batch("posthog", row), batch("revenuecat"))

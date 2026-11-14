@@ -2,13 +2,15 @@
 
 import re
 from datetime import datetime
-from typing import TypedDict
+from typing import TypedDict, cast
 
 from .common import Invalid, digest, iso_time
 
 STAGES = ("TOUCH", "INSTALL", "ACTIVATION", "TRIAL_START", "PURCHASE", "RENEWAL")
 PRODUCT_STAGES = STAGES[:3]
 HASH = re.compile(r"[a-f0-9]{64}")
+OPAQUE = re.compile(r"[A-Za-z0-9_-]{1,128}")
+MAX_EVENTS = 25_000
 
 
 class OutcomeEvent(TypedDict):
@@ -33,6 +35,45 @@ class OutcomeBatch(TypedDict):
     events: list[OutcomeEvent]
 
 
+def normalized_batch(value: object) -> OutcomeBatch:
+    """Validate the private normalized interchange format before matching subjects."""
+    if not isinstance(value, dict) or set(value) != OutcomeBatch.__required_keys__:
+        raise Invalid("Outcome batch has unsupported or missing fields")
+    for field in ("app_id", "environment", "provider", "coverage_from", "coverage_through"):
+        if not isinstance(value[field], str) or not 1 <= len(value[field]) <= 128:
+            raise Invalid("Outcome batch scope and dates must be bounded text")
+    for field in ("source_sha256", "identity_namespace_sha256"):
+        if not isinstance(value[field], str) or not HASH.fullmatch(value[field]):
+            raise Invalid("Outcome batch needs valid provenance and identity fingerprints")
+    if (
+        type(value["complete"]) is not bool
+        or not isinstance(value["events"], list)
+        or len(value["events"]) > MAX_EVENTS
+    ):
+        raise Invalid("Outcome batch needs explicit coverage and a bounded event list")
+    for event in value["events"]:
+        if not isinstance(event, dict) or set(event) != OutcomeEvent.__required_keys__:
+            raise Invalid("Outcome event has unsupported or missing fields")
+        if any(
+            not isinstance(event[field], str) or not OPAQUE.fullmatch(event[field]) for field in ("event_id", "kind")
+        ):
+            raise Invalid("Outcome event IDs and types must be opaque tokens")
+        if not isinstance(event["subject_sha256"], str) or not HASH.fullmatch(event["subject_sha256"]):
+            raise Invalid("Outcome events need app-scoped pseudonymous fingerprints")
+        if event["campaign"] is not None and (
+            not isinstance(event["campaign"], str) or not OPAQUE.fullmatch(event["campaign"])
+        ):
+            raise Invalid("Outcome campaign must be an opaque token")
+        if (
+            not isinstance(event["occurred_at"], str)
+            or not 1 <= len(event["occurred_at"]) <= 128
+            or type(event["consented"]) is not bool
+            or type(event["internal_test"]) is not bool
+        ):
+            raise Invalid("Outcome events need explicit consent, internal-test status and a bounded timestamp")
+    return cast(OutcomeBatch, value)
+
+
 def join(
     app_id: str,
     environment: str,
@@ -45,6 +86,7 @@ def join(
     billing: OutcomeBatch,
 ) -> dict[str, object]:
     """Project first observed touches in the declared coverage; never infer identities."""
+    product, billing = normalized_batch(product), normalized_batch(billing)
     start, end, maturity, cutoff = map(iso_time, (starts_at, ends_at, matures_at, as_of))
     if not campaign or not start < end <= maturity:
         raise Invalid("Outcome join needs a campaign and ordered acquisition and maturity windows")
