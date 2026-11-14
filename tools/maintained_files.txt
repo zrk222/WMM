@@ -48,6 +48,7 @@ mission_control/play_connections.py
 mission_control/publication_linkedin.py
 mission_control/publication_reports.py
 mission_control/rea_video_analysis.py
+mission_control/release_inventory.py
 mission_control/review_access.py
 mission_control/server.py
 mission_control/service.py
@@ -96,6 +97,7 @@ tests/test_page_reporting_http.py
 tests/test_parser_properties.py
 tests/test_property_profiles.py
 tests/test_publication_channel_selection.py
+tests/test_publication_credentials.py
 tests/test_publication_meta_linkedin.py
 tests/test_publication_metrics.py
 tests/test_publication_reports.py
