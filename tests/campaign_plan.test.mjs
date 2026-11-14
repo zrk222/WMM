@@ -59,12 +59,23 @@ test('missing app facts stay explicit instead of being invented', () => {
     'user job',
     'audience',
     'useful activation',
-    'currency',
     'release',
     'locale',
   ]);
   assert.equal(value.distribution.budget_minor, 0);
   assert.equal(value.objective.baseline, 'UNAVAILABLE');
+});
+
+test('first-run planning leaves an unspecified currency blank and authorizes zero spend', () => {
+  const value = plan.build({
+    app: { ...workspace.app, data: { ...workspace.app.data, currency: '' } },
+  });
+  assert.equal(value.status, 'READY_FOR_REVIEW');
+  assert.deepEqual(value.missing, []);
+  assert.equal(value.distribution.currency, '');
+  assert.equal(value.distribution.budget_minor, 0);
+  assert.equal(value.distribution.daily_cap_minor, 0);
+  assert.match(plan.markdown(value), /^Budget: 0 \(no spend authorized\)$/m);
 });
 
 test('saved proof is counted, not called approved or current', () => {
