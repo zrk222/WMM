@@ -52,7 +52,7 @@ function launchGatePanel() {
   const gate = state.workspace?.launch_gate;
   if (!gate || gate.status === 'NOT_CONFIGURED') return '';
   const blockers = gate.blockers || [];
-  return `<section class="panel" aria-label="Launch measurement gate"><h2>Launch measurement gate</h2><p>Status: ${status(gate.status)}</p>${blockers.length ? `<ul>${blockers.map((item) => `<li>${esc(item.name)}: ${esc(item.detail)}</li>`).join('')}</ul>` : '<p>All measurement checks passed for the newest saved campaign scope.</p>'}<p class="description">A READY gate does not publish, spend or prove an outcome.</p></section>`;
+  return `<section class="panel" aria-label="Launch measurement gate"><h2>Launch measurement gate</h2><p>Status: ${status(gate.status)}</p>${blockers.length ? `<ul>${blockers.map((item) => `<li>${esc(item.name.replaceAll('_', ' '))}: ${status(item.status)}</li>`).join('')}</ul>` : '<p>The saved plan passed these local checks. Verify your tracking and approvals before launching.</p>'}<p class="description">A READY gate does not publish, spend or prove an outcome.</p></section>`;
 }
 
 function reconciliationPanel() {
@@ -62,7 +62,7 @@ function reconciliationPanel() {
     .slice(0, 50)
     .map(
       (group) =>
-        `<tr><td>${esc(group.metric)}</td><td>${esc(group.period)}</td><td>${status(group.status)}</td><td>${esc(group.sources.join(', '))}</td><td>${group.values.map((item) => `${esc(item.source)}: ${esc(String(item.value))}`).join('; ')}</td></tr>`,
+        `<tr><td>${esc(group.metric)}</td><td>${esc(group.period)}</td><td>${status(group.status)}</td><td>${esc(group.sources.join(', '))}</td><td>${group.values.map((item) => `${esc(item.source)}: ${item.value == null ? 'Not observed' : esc(String(item.value))}`).join('; ')}</td></tr>`,
     )
     .join('')}</tbody></table></div></section>`;
 }

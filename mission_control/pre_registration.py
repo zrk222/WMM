@@ -1,24 +1,21 @@
 """Draft a tagged, frozen measurement plan from existing app and evidence facts."""
 
-import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import urlencode, urlsplit, urlunsplit
 
-from .common import digest
+from .common import Invalid, digest, iso_time
+from .evidence_gate import ACQUISITION_SOURCES, OUTCOME_SOURCES
 
-ACQUISITION_SOURCES = {"posthog", "app_store", "google_play", "apple_ads"}
-OUTCOME_SOURCES = {"revenuecat", "storekit", "stripe_live", "stripe_test"}
+REPORT_SCOPES = {
+    "posthog": "PROJECT_ID_CHECKED",
+    "revenuecat": "PROJECT_PATH_CHECKED_PROJECT_WIDE_METRICS",
+}
 GOAL_METRICS = (
     (("retain", "retention", "return"), ("retention_rate", "installs")),
     (("paid", "revenue", "subscri", "purchase", "convert"), ("paid_conversion", "installs")),
     (("activat", "onboard", "first"), ("activation_rate", "installs")),
 )
-
-
-def slug(value: Any) -> str:
-    text = re.sub(r"[^a-z0-9]+", "-", str(value or "").lower()).strip("-")
-    return text or "app"
 
 
 def metric_for(goal: str) -> tuple[str, str]:
@@ -33,29 +30,76 @@ def tagged_link(link: Any, tag: str) -> str | None:
     """Preserve the owner's URL and add only explicit public campaign parameters."""
     if not isinstance(link, str) or len(link) > 2048:
         return None
-    parts = urlsplit(link)
+    try:
+        parts = urlsplit(link)
+        _ = parts.port
+    except ValueError:
+        return None
     if parts.scheme != "https" or not parts.hostname or parts.username or parts.password:
         return None
-    query = [
-        (key, value)
-        for key, value in parse_qsl(parts.query, keep_blank_values=True)
-        if key not in ("utm_campaign", "utm_source", "utm_medium")
-    ]
-    query += [("utm_campaign", tag), ("utm_source", "wmm"), ("utm_medium", "launch")]
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+    query = urlencode({"utm_campaign": tag, "utm_source": "wmm", "utm_medium": "launch"})
+    result = urlunsplit((parts.scheme, parts.netloc, parts.path, query, ""))
+    return result if len(result) <= 2048 else None
 
 
-def providers(records: list[dict[str, Any]]) -> set[str]:
-    return {
-        record["data"].get("provider")
-        for record in records
-        if record.get("kind") == "connection" and isinstance(record.get("data"), dict)
-    }
+def source_readiness(app_id: str, insights: dict[str, Any], observed: datetime) -> dict[str, Any]:
+    """Project current source health from the existing app-scoped Insights snapshot."""
+    sources = {source["id"]: source for source in insights.get("sources", [])}
+    latest = {}
+    for report in insights.get("reports", []):
+        if report["app_id"] == app_id and report["source_id"] in sources:
+            latest.setdefault(report["source_id"], report)
+    result = {}
+    for source_id, source in sources.items():
+        provider = source["provider"]
+        if provider not in REPORT_SCOPES:
+            continue
+        status = source["status"]
+        report = latest.get(source_id)
+        report_hash = (
+            report["hash"]
+            if status == "CONNECTED" and report is not None and current_report(source, report, observed)
+            else None
+        )
+        result[provider] = dict(
+            status=status,
+            version=source["version"],
+            report_hash=report_hash,
+        )
+    return result
+
+
+def current_report(source: dict[str, Any], report: dict[str, Any], observed: datetime) -> bool:
+    data = report["data"]
+    provider = source["provider"]
+    try:
+        age = observed - iso_time(data["observed_at"])
+    except (Invalid, KeyError, TypeError):
+        return False
+    return (
+        report["provider"] == data.get("provider") == provider
+        and report["hash"] == digest(data)
+        and data.get("scope") == REPORT_SCOPES[provider]
+        and data.get("project_id") == source["data"]["project_id"]
+        and data.get("source_version") == source["version"]
+        and data.get("configuration_hash") == digest(source["data"])
+        and isinstance(data.get("rows"), list)
+        and bool(data["rows"])
+        and timedelta(0) <= age <= timedelta(days=7)
+    )
+
+
+def source_action(name: str, state: dict[str, Any] | None) -> str:
+    if state is None:
+        return f"Connect {name} in Insights"
+    if state["status"] != "CONNECTED":
+        return f"Restore the {name} connection in Insights"
+    return f"Read a current {name} report in Insights"
 
 
 def draft(
     app: dict[str, Any],
-    records: list[dict[str, Any]],
+    insights: dict[str, Any],
     goal: str | None = None,
     link: str | None = None,
     observed: Any = None,
@@ -65,7 +109,8 @@ def draft(
     data = data if isinstance(data, dict) else {}
     goal = goal or data.get("goal") or data.get("activation") or data.get("job") or ""
     link = link or data.get("website") or data.get("store_url")
-    tag = ("launch-" + slug(app.get("id")) + "-" + slug(goal))[:64].rstrip("-")
+    goal = goal if isinstance(goal, str) else ""
+    tag = "launch-" + digest([app.get("id"), data.get("release"), metric_for(goal)[0]])[:20]
     tagged = tagged_link(link, tag)
     metric, denominator = metric_for(goal)
     start = observed or datetime.now(timezone.utc)
@@ -73,19 +118,19 @@ def draft(
         start = datetime.fromisoformat(start.replace("Z", "+00:00"))
     if start.tzinfo is None:
         start = start.replace(tzinfo=timezone.utc)
-    start = start.replace(microsecond=0)
-    starts_at = (start + timedelta(days=1)).isoformat()
-    ends_at = (start + timedelta(days=8)).isoformat()
-    connected = providers(records)
+    starts_at = (start + timedelta(days=1)).isoformat(timespec="seconds")
+    ends_at = (start + timedelta(days=8)).isoformat(timespec="seconds")
+    readiness = source_readiness(app["id"], insights, start)
+    connected = {provider for provider, state in readiness.items() if state["report_hash"]}
     missing = []
     if not goal:
         missing.append("Set the app's first useful action or goal")
     if not tagged:
         missing.append("Add a bounded HTTPS landing link that can carry utm_campaign")
     if not connected & ACQUISITION_SOURCES:
-        missing.append("Connect an acquisition source such as PostHog, App Store or Google Play")
+        missing.append(source_action("PostHog", readiness.get("posthog")))
     if not connected & OUTCOME_SOURCES:
-        missing.append("Connect an outcome or cash source such as RevenueCat, StoreKit or Stripe")
+        missing.append(source_action("RevenueCat", readiness.get("revenuecat")))
     if not data.get("release"):
         missing.append("Set the current app release")
     plan = None
@@ -120,11 +165,11 @@ def draft(
         measurement_plan=plan,
         experiment_draft=experiment,
         tagged_link=tagged,
-        providers=sorted(value for value in connected if isinstance(value, str)),
+        providers=sorted(connected),
         missing=missing,
-        source_hash=digest(dict(app=app.get("data"), records=records, goal=goal, link=link)),
+        source_hash=digest(dict(app=app.get("data"), source_readiness=readiness, goal=goal, link=link)),
         authority_issued=False,
         external_writes=False,
-        limits="Draft only. Review the tagged link, claims, release, baseline, cohorts and sample plan; no scope, experiment, publication or spend authority is created.",
+        limits="Draft only. Provider readiness means a recent project aggregate report; it does not verify the planned metric, denominator or campaign attribution. Review the tagged link, claims, release, baseline, cohorts and sample plan; no scope, experiment, publication or spend authority is created.",
     )
     return result

@@ -7,8 +7,8 @@ from .common import digest
 
 def _items(value: Any) -> list[Any]:
     if isinstance(value, dict):
-        return value.get("items") or value.get("report") or value.get("programs") or []
-    return value if isinstance(value, list) else []
+        value = value.get("items") or value.get("report") or value.get("programs") or []
+    return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
 
 
 def _status(item: Any) -> str:
@@ -18,31 +18,47 @@ def _status(item: Any) -> str:
 def summary(workspace: Any) -> dict[str, Any]:
     """Read the existing loop state without creating, rendering or publishing anything."""
     briefs = _items(workspace.get("briefs"))
-    rankings = _items(workspace.get("rankings"))
+    rankings = []
+    for report in _items(workspace.get("rankings")):
+        if report.get("input_status") != "CURRENT":
+            continue
+        data = (report.get("current") or {}).get("data") or {}
+        slate = data.get("slate")
+        selected = slate.get("selected") if isinstance(slate, dict) else None
+        if isinstance(selected, list) and selected and isinstance(selected[0], str) and selected[0]:
+            rankings.append({"reference_id": selected[0]})
     renders = _items(workspace.get("renders"))
     hypit = _items(workspace.get("hypit_renders"))
-    actions = _items(workspace.get("provider_actions"))
+    actions = [
+        job["result"]
+        for job in _items(workspace.get("jobs"))
+        if job.get("action") == "social_publication"
+        and isinstance(job.get("result"), dict)
+        and job["result"].get("status") == "PUBLISHED"
+        and job["result"].get("receipt_hash")
+    ]
     experiments = _items(workspace.get("experiments"))
     learning = workspace.get("learning") or {}
     programs = _items(learning.get("programs"))
     active = next((item for item in programs if item.get("active")), None)
-    published = [item for item in actions if _status(item) in ("PUBLISHED", "VERIFIED", "SUCCEEDED", "DELIVERED")]
-    render_items = renders + hypit
-    measured = [
-        item for item in experiments if item.get("assessments") or item.get("state") in ("DECIDED", "OBSERVING")
-    ]
+    published = list({item["id"]: item for item in actions if item.get("id")}.values())
+    render_items = [item for item in renders + hypit if _status(item) == "CURRENT"]
+    measured = []
+    for item in experiments:
+        assessments = _items(item.get("assessments"))
+        latest = (assessments[-1].get("data") or {}) if assessments else {}
+        if item.get("state") in ("EVALUATED", "DECIDED") and latest.get("status") == "EVALUATED":
+            measured.append(item)
     if not briefs and not rankings and not render_items:
         status = "NO_INPUT"
-    elif briefs and not render_items:
-        status = "BRIEF_READY"
-    elif render_items and not published:
+    elif not render_items:
+        status = "BRIEF_READY" if briefs else "RESEARCH_READY"
+    elif not published:
         status = "RENDER_READY"
-    elif published and not measured:
+    elif not measured:
         status = "PUBLICATION_OBSERVED"
-    elif measured and not active:
-        status = "OUTCOME_RECORDED"
     else:
-        status = "LEARNING_ACTIVE"
+        status = "LEARNING_ACTIVE" if active else "OUTCOME_RECORDED"
     gaps = []
     if not workspace.get("references"):
         gaps.append("Add or discover a creative reference")
@@ -105,5 +121,5 @@ def summary(workspace: Any) -> dict[str, Any]:
                 programs=[item.get("id") for item in programs],
             )
         ),
-        scope="Read-only composition of saved local evidence; no new authority, provider read, render or publication.",
+        scope="Saved stages are app-level signals. They do not establish a linked creative experiment or any new authority.",
     )
