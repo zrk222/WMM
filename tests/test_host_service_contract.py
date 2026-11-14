@@ -22,6 +22,21 @@ STAGE = HARNESS["STAGE"]
 
 
 class HostServiceContractTests(unittest.TestCase):
+    def test_log_privacy_requires_both_invocations_and_rejects_canary(self):
+        verify = HARNESS["assert_service_output_private"]
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "service-output.log"
+            marker = b'{"status": "RUNNING"}\n'
+            log.write_bytes(marker)
+            with self.assertRaisesRegex(AssertionError, "both service invocations"):
+                verify(log, "fixture-secret")
+            log.write_bytes(marker * 2 + b"fixture-secret")
+            with self.assertRaisesRegex(AssertionError, "escaped the native keyring") as error:
+                verify(log, "fixture-secret")
+            self.assertNotIn("fixture-secret", str(error.exception))
+            log.write_bytes(marker * 2)
+            verify(log, "fixture-secret")
+
     def test_real_http_worker_and_fresh_session_replay_with_temporary_store(self):
         from mission_control.server import Server
         from mission_control.store import Store
