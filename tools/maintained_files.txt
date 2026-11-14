@@ -3,6 +3,7 @@ ios/Build/run_simulators.py
 mission_control/agent_grants.py
 mission_control/agent_review_dispatch.py
 mission_control/agent_tasks.py
+mission_control/app_launch_status.py
 mission_control/architecture.py
 mission_control/attribution_adservices.py
 mission_control/attribution_ingestion.py
@@ -70,6 +71,7 @@ tests/campaign_paid_schedule_browser.py
 tests/test_agent_context_tasks.py
 tests/test_agent_review_dispatch.py
 tests/test_analytics_read_indexes.py
+tests/test_app_launch_status.py
 tests/test_architecture_gates.py
 tests/test_campaign_monitor.py
 tests/test_campaign_monitor_polish.py
