@@ -15,6 +15,7 @@ mission_control/campaign_execution.py
 mission_control/campaign_monitor.py
 mission_control/campaign_schedule.py
 mission_control/campaign_schedule_authority.py
+mission_control/campaign_transport.py
 mission_control/cloud_connection.py
 mission_control/common.py
 mission_control/connection_setup.py

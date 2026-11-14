@@ -404,6 +404,15 @@ class CampaignExecutionService:
                 )
         return scope
 
+    def _dispatch_alive(self, app_id, actor, scope_id, action, request=None):
+        """Recheck the reviewed evidence whenever an effect is about to be sent."""
+        scope = self._alive(app_id, actor, scope_id, action)
+        if scope.get("measurement_plan"):
+            from .evidence_gate import assert_ready
+
+            assert_ready(self.store, app_id, scope, request=request)
+        return scope
+
     def _safety_admit(self, db, app_id, scope_id, category):
         """Reserve a separate finite no-spend safety check inside the same transaction."""
         row = db.execute(
@@ -668,7 +677,7 @@ class CampaignExecutionService:
                 post["link"],
                 token,
                 secret,
-                lambda: self._alive(app_id, actor, scope_id, "RUN_POST"),
+                lambda: self._dispatch_alive(app_id, actor, scope_id, "RUN_POST", post),
             )
         except Exception:  # noqa: BLE001 - provider effect boundary
             self._save_intent(app_id, intent["id"], "UNKNOWN")
@@ -1066,7 +1075,7 @@ class CampaignExecutionService:
                     fields,
                     token,
                     secret,
-                    lambda: self._alive(app_id, actor, scope["scope_id"], "RUN_AD"),
+                    lambda: self._dispatch_alive(app_id, actor, scope["scope_id"], "RUN_AD"),
                 )
             except Exception:  # noqa: BLE001 - provider effect boundary
                 self._receipt_paid(app_id, identity, step, owner_token, "UNKNOWN")
@@ -1131,7 +1140,11 @@ class CampaignExecutionService:
                     status,
                     token,
                     secret,
-                    lambda: self._alive(app_id, actor, scope["scope_id"], action, active),
+                    lambda: (
+                        self._dispatch_alive(app_id, actor, scope["scope_id"], action)
+                        if action == "RUN_AD" and status == "ACTIVE"
+                        else self._alive(app_id, actor, scope["scope_id"], action, active)
+                    ),
                 )
             except Exception:  # noqa: BLE001 - provider effect boundary
                 self._receipt_paid(app_id, identity, step, owner_token, "UNKNOWN")

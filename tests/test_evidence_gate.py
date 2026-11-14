@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from mission_control.campaign_contract import scope_data
 from mission_control.campaign_execution import SCHEMA
+from mission_control.campaign_transport import MetaTransport, Unconfirmed
 from mission_control.common import Invalid, canonical, digest, now
 from mission_control.db import connection
 from mission_control.evidence_gate import (
@@ -40,6 +41,51 @@ def plan():
 
 
 class EvidenceGateTests(unittest.TestCase):
+    def test_transport_checks_write_permission_after_resolution_and_before_request(self):
+        events = []
+
+        def deny():
+            events.append("validate")
+            raise Invalid("Evidence changed")
+
+        def resolve(*_):
+            events.append("resolve")
+            return "192.0.2.1"
+
+        with (
+            patch("mission_control.campaign_transport.address", side_effect=resolve),
+            patch("mission_control.campaign_transport.trust_context"),
+            patch("mission_control.campaign_transport.PinnedHTTPS") as connection_factory,
+        ):
+            conn = connection_factory.return_value
+            with self.assertRaises(Unconfirmed):
+                MetaTransport().publish("123", "synthetic", None, "token", "secret", deny)
+            self.assertEqual(events, ["resolve", "validate"])
+            conn.request.assert_not_called()
+            conn.close.assert_called_once()
+
+    def test_organic_source_drift_at_dispatch_never_sends_post(self):
+        fixture: Any = test_campaign_execution.CampaignTests()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        approved = plan()
+        post = dict(
+            fixture.post,
+            link=approved["link"],
+            content_hash=digest(dict(message=fixture.post["message"], link=approved["link"])),
+        )
+        body = dict(fixture.body, measurement_plan=approved, approved_content_hashes=[post["content_hash"]])
+        proposal = fixture.service.prepare_scope("sample", "owner", body)
+        scope_id = proposal["scope_id"]
+        fixture.service.activate_scope("sample", "owner", scope_id, proposal["approval_hash"])
+        with (
+            patch("mission_control.evidence_gate.provider_set", side_effect=[{"posthog", "revenuecat"}] * 2 + [set()]),
+            patch("mission_control.campaign_execution.check_destination", return_value={"status": "REACHABLE"}),
+            self.assertRaises(Unconfirmed),
+        ):
+            fixture.service.run_post("sample", "owner", scope_id, post)
+        self.assertEqual(fixture.transport.posts, 0)
+
     def test_plan_binds_tagged_link_and_window(self):
         base = plan()
         value = measurement_plan(base)
