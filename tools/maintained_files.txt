@@ -61,6 +61,7 @@ mission_control/provider_reports.py
 mission_control/providers.py
 mission_control/publication_linkedin.py
 mission_control/publication_reports.py
+mission_control/publication_schedule.py
 mission_control/rea_video_analysis.py
 mission_control/reconciliation.py
 mission_control/release_inventory.py

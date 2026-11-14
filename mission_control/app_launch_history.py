@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
+from urllib.parse import urlsplit
 
 from .app_launch_status import ConnectRead, StorefrontRead, fresh, resolve
 from .common import Invalid, canonical, digest, iso_time, now
@@ -84,8 +85,12 @@ def retain_in_snapshot(db: Any, app_id: str, app_version: int, sources: Sources)
         clock,
         previous_verified_live=verified_live,
     )
+    first_presence = previous[0].get("first_verified_presence_at") if previous else None
+    if status["status"] == "LIVE" and first_presence is None:
+        first_presence = clock.isoformat()
     payload = dict(
         status,
+        first_verified_presence_at=first_presence,
         app_id=app_id,
         app_version=app_version,
         readings=readings,
@@ -209,6 +214,7 @@ def current(path: Path, app_id: str, app_version: int, clock: datetime) -> dict[
     )
     return dict(
         current_status,
+        first_verified_presence_at=record.get("first_verified_presence_at"),
         last_observation=record,
         owner_declaration=declaration,
         stale=(
@@ -216,6 +222,29 @@ def current(path: Path, app_id: str, app_version: int, clock: datetime) -> dict[
             or record["status"] != current_status["status"]
             or record["verified_storefronts"] != current_status["verified_storefronts"]
         ),
+    )
+
+
+def removed_listing(db: Any, app_id: str, link: object) -> bool:
+    """Match only the selected app's explicit Apple listing and verified removal."""
+    if not isinstance(link, str) or not link.startswith("https://apps.apple.com/"):
+        return False
+    try:
+        url = urlsplit(link)
+    except ValueError:
+        return False
+    match = re.fullmatch(r"/(?:[a-z]{2}/)?app/(?:[^/]+/)?id([0-9]+)/?", url.path)
+    if not match or url.netloc != "apps.apple.com":
+        return False
+    app = db.execute("SELECT data,version FROM apps WHERE id=?", (app_id,)).fetchone()
+    if app is None or str(json.loads(app["data"]).get("store_app_id")) != match[1]:
+        return False
+    latest = _history(db, app_id, app["version"], 1)
+    return bool(
+        latest
+        and latest[0]["status"] == "REMOVED"
+        and latest[0]["reason"] == "CONNECT_REMOVAL_AFTER_VERIFIED_LIVE"
+        and latest[0]["readings"]["store_app_id"] == match[1]
     )
 
 

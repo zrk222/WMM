@@ -4,9 +4,10 @@ import unittest
 from datetime import timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 from unittest.mock import patch
 
-from mission_control.app_launch_history import Sources, current, declare, history, retain
+from mission_control.app_launch_history import Sources, current, declare, history, removed_listing, retain
 from mission_control.app_launch_status import ConnectRead, StorefrontRead, resolve
 from mission_control.apple_storefront import lookup
 from mission_control.common import Invalid, iso_time
@@ -63,6 +64,71 @@ class AppLaunchStatusTests(unittest.TestCase):
             self.assertEqual(receipt["status"], "REMOVED")
             self.assertEqual(receipt["previous_status"], "LIVE")
             self.assertEqual(history(path, "sample-one", version), [receipt, live])
+
+    def test_removed_listing_fence_matches_only_the_apps_exact_store_url(self) -> None:
+        from mission_control.db import connection
+
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "launch.sqlite"
+            store = Store(path)
+            app = store.app("sample-one")
+            version = store.save_app("sample-one", dict(app["data"], store_app_id="123"), app["version"])["version"]
+            connect: ConnectRead = {
+                "observed_at": NOW.isoformat(),
+                "states": ["READY_FOR_DISTRIBUTION"],
+                "complete": True,
+            }
+            listed: StorefrontRead = {"observed_at": NOW.isoformat(), "storefront": "CA", "state": "AVAILABLE"}
+            link = "https://apps.apple.com/ca/app/example/id123?ct=campaign"
+            with patch("mission_control.app_launch_history.now", return_value=NOW.isoformat()):
+                original = retain(path, "sample-one", version, Sources(connect, [listed], "123"))
+                with connection(path) as db:
+                    self.assertFalse(removed_listing(db, "sample-one", link))
+            later = NOW + timedelta(hours=1)
+            removed: ConnectRead = {
+                "observed_at": later.isoformat(),
+                "states": ["REMOVED_FROM_SALE"],
+                "complete": True,
+            }
+            with patch("mission_control.app_launch_history.now", return_value=later.isoformat()):
+                current_record = retain(path, "sample-one", version, Sources(removed, [], "123"))
+            self.assertEqual(current_record["first_verified_presence_at"], original["first_verified_presence_at"])
+            with connection(path) as db:
+                self.assertTrue(removed_listing(db, "sample-one", link))
+                for value in [
+                    None,
+                    link.replace("id123", "id124"),
+                    "https://wizeme.app/",
+                    link.replace("apple.com", "apple.com.example.org"),
+                ]:
+                    self.assertFalse(removed_listing(db, "sample-one", value))
+                self.assertFalse(removed_listing(db, "sample-two", link))
+
+    def test_schedule_removal_blocks_before_queue_and_at_dispatch(self) -> None:
+        from mission_control.campaign_schedule import tick
+        from mission_control.worker import run_once
+        from tests.test_campaign_schedule import ScheduleTests
+
+        for at_dispatch in (False, True):
+            with self.subTest(at_dispatch=at_dispatch):
+                fixture: Any = ScheduleTests()
+                fixture.setUp()
+                try:
+                    _, _, _, due = fixture.prepare_batch()
+                    with patch("time.time", return_value=due + 1):
+                        if at_dispatch:
+                            self.assertEqual(tick(fixture.store), 1)
+                            with patch(
+                                "mission_control.campaign_schedule_authority.removed_listing", return_value=True
+                            ):
+                                self.assertTrue(run_once(fixture.store))
+                        else:
+                            with patch("mission_control.campaign_schedule.removed_listing", return_value=True):
+                                self.assertEqual(tick(fixture.store), 0)
+                    self.assertEqual(fixture.wire.posts, 0)
+                finally:
+                    fixture.tearDown()
+                    fixture.doCleanups()
 
     def test_owner_note_never_becomes_verified_or_crosses_roles(self) -> None:
         from mission_control.db import connection
@@ -130,7 +196,7 @@ class AppLaunchStatusTests(unittest.TestCase):
         pending = resolve(connect, [], NOW)
         self.assertEqual(pending["status"], "IN_REVIEW")
         self.assertEqual(pending["store_metric_applicability"], "NOT_APPLICABLE_YET")
-        self.assertIn("installs", pending["store_metrics"])
+        self.assertEqual(pending["store_metrics"], ["installs", "retention", "cac", "roas", "revenue"])
         public: StorefrontRead = {"observed_at": NOW.isoformat(), "storefront": "US", "state": "AVAILABLE"}
         self.assertEqual(resolve(connect, [public], NOW)["reason"], "SOURCE_CONFLICT")
         connect["complete"] = False

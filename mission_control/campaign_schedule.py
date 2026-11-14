@@ -5,6 +5,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
+from .app_launch_history import removed_listing
 from .campaign_contract import ad_data, post_data
 from .campaign_execution import CampaignExecutionService, saved_pause_receipt, scope_view
 from .common import Invalid, canonical, digest, iso_time, now, uid
@@ -388,6 +389,12 @@ def item_status(db, app_id, scope_id, item):
         effective_status=effective_status(item["status"], job, intent, operation, pause_confirmed),
         job_id=item["job_id"],
         job_status=job["status"] if job else None,
+        **(
+            {"attention": "This post points to an app removed from the App Store. Review the link before rescheduling."}
+            if (item["status"] == "BLOCKED" or (job and job["status"] == "FAILED"))
+            and removed_listing(db, app_id, request.get("link"))
+            else {}
+        ),
         intent=intent,
     )
 
@@ -467,6 +474,13 @@ def tick(store):
         for row in rows:
             try:
                 action, data = due_payload(row)
+                if removed_listing(db, row["app_id"], data["request"].get("link")):
+                    db.execute(
+                        "UPDATE campaign_schedule_items SET status='BLOCKED',updated=? WHERE id=?",
+                        (now(), row["id"]),
+                    )
+                    audit(db, row["app_id"], "blocked", dict(item_id=row["id"], reason="APP_STORE_LISTING_REMOVED"))
+                    continue
             except (ValueError, TypeError, KeyError, OverflowError, OSError):
                 db.execute(
                     "UPDATE campaign_schedule_items SET status='BLOCKED',updated=? WHERE id=?", (now(), row["id"])
