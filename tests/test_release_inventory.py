@@ -116,7 +116,9 @@ class ReleaseInventory(unittest.TestCase):
             rows = history(store.path, "sample-one", store.app("sample-one")["version"])
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["status"], "IN_REVIEW")
-            job = service.workspace("sample-one")["jobs"][0]
+            workspace = service.workspace("sample-one")
+            self.assertEqual(workspace["app_launch_status"]["status"], "IN_REVIEW")
+            job = workspace["jobs"][0]
             self.assertEqual(job["status"], "SUCCEEDED")
             self.assertEqual(job["result"]["launch_evidence_hash"], rows[0]["evidence_hash"])
             service.queue(
