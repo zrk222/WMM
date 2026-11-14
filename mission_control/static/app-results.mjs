@@ -73,6 +73,13 @@ function creativeLearningPanel() {
   return `<section class="panel" aria-label="Creative learning loop"><h2>Creative learning loop</h2><p>Status: ${status(cycle.status)}</p><p>${esc(cycle.next_brief?.seed || '')}</p>${cycle.gaps?.length ? `<ul>${cycle.gaps.map((gap) => `<li>${esc(gap)}</li>`).join('')}</ul>` : '<p>No stage gaps detected in saved evidence.</p>'}<p class="description">Read-only composition; no new authority or publication.</p></section>`;
 }
 
+function preRegistrationPanel() {
+  const draft = state.workspace?.pre_registration;
+  if (!draft) return '';
+  const plan = draft.measurement_plan;
+  return `<section class="panel" aria-label="Pre-registration draft"><h2>Pre-registration draft</h2><p>Status: ${status(draft.status)}</p>${plan ? `<p>${esc(plan.primary_metric)} / ${esc(plan.denominator)} · tag ${esc(plan.campaign_tag)}</p>` : ''}${draft.missing?.length ? `<ul>${draft.missing.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>` : '<p>Draft inputs are complete enough for owner review.</p>'}<p class="description">${esc(draft.limits)}</p></section>`;
+}
+
 function resultsView() {
   const study = ruleStudySelection();
   const decision = `<section class="panel" aria-labelledby="results-decision-heading"><h2 id="results-decision-heading" tabindex="-1">What should you do next?</h2>
@@ -82,6 +89,7 @@ function resultsView() {
     decision +
     kpiGapPanel() +
     launchGatePanel() +
+    preRegistrationPanel() +
     reconciliationPanel() +
     creativeLearningPanel() +
     analyticsOverviewPanel() +
