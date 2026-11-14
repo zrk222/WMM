@@ -8,6 +8,7 @@ from collections.abc import Callable
 from datetime import date
 from typing import Literal, TypedDict
 from urllib.parse import parse_qs, urlencode, urlsplit
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .aeo_tls import trust_context
 from .aeo_transport import PinnedHTTPS, address, response_body, response_headers
@@ -27,6 +28,7 @@ class CampaignSpendWindow(TypedDict):
     campaign_id: str
     account_id: str
     currency: str
+    timezone: str
     since: str
     until: str
     reported_spend: str | None
@@ -34,7 +36,7 @@ class CampaignSpendWindow(TypedDict):
 
 
 def checked_spend_window(
-    payload: dict[str, object], identity: str, account_id: str, currency: str, since: str, until: str
+    payload: dict[str, object], identity: str, account_id: str, currency: str, timezone: str, since: str, until: str
 ) -> CampaignSpendWindow:
     """Accept only one complete campaign total for the exact account-local dates."""
     rows, paging = payload.get("data"), payload.get("paging")
@@ -48,6 +50,7 @@ def checked_spend_window(
         "campaign_id": identity,
         "account_id": account_id,
         "currency": currency,
+        "timezone": timezone,
         "since": since,
         "until": until,
         "reported_spend": None,
@@ -332,6 +335,8 @@ class MetaTransport:
         token: str,
         secret: str,
         alive: Callable[[], object],
+        *,
+        timezone: str,
     ) -> CampaignSpendWindow:
         """Read one exact campaign's spend for inclusive dates in its ad account's timezone."""
         numeric(identity)
@@ -343,12 +348,32 @@ class MetaTransport:
             or not 0 <= (until - since).days < 31
         ):
             raise Invalid("Choose one currency and a window of up to 31 account-local days")
+        if not isinstance(timezone, str) or not re.fullmatch(r"[A-Za-z0-9_+/-]{1,100}", timezone):
+            raise Invalid("Choose the approved ad account's IANA timezone")
+        try:
+            ZoneInfo(timezone)
+        except (ValueError, ZoneInfoNotFoundError):
+            raise Invalid("Choose the approved ad account's IANA timezone") from None
+        proof = app_secret_proof(token, secret)
+        account = self.request(
+            "GET",
+            "/" + META_VERSION + "/act_" + account_id,
+            {"fields": "id,currency,timezone_name", "appsecret_proof": proof},
+            token,
+            alive,
+        )
+        if (account.get("id"), account.get("currency"), account.get("timezone_name")) != (
+            "act_" + account_id,
+            currency,
+            timezone,
+        ):
+            raise Unconfirmed("Advertising account or reporting timezone changed")
         start, end = since.isoformat(), until.isoformat()
         fields = {
             "fields": "campaign_id,account_id,account_currency,date_start,date_stop,spend",
             "level": "campaign",
             "time_range": json.dumps({"since": start, "until": end}, separators=(",", ":")),
-            "appsecret_proof": app_secret_proof(token, secret),
+            "appsecret_proof": proof,
         }
         data = self.request("GET", "/" + META_VERSION + "/" + identity + "/insights", fields, token, alive)
-        return checked_spend_window(data, identity, account_id, currency, start, end)
+        return checked_spend_window(data, identity, account_id, currency, timezone, start, end)
