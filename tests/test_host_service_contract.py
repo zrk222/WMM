@@ -279,12 +279,57 @@ class HostServiceContractTests(unittest.TestCase):
         home = parent / "home"
         runtime = Path("/run/user/12345")
         staged = parent / "test_host_service.py"
-        argv = WRAPPER["child_command"]("wmm-ci-example", home, runtime, parent, staged)
+        argv = WRAPPER["child_command"]("wmm-ci-example", home, runtime, parent, staged, "c42")
         self.assertEqual(argv[:6], ["runuser", "-u", "wmm-ci-example", "--", "/usr/bin/env", "-i"])
         self.assertIn(f"RUNNER_TEMP={parent}", argv)
         self.assertIn(f"HOME={home}", argv)
+        self.assertIn("WMM_TEST_LOGIN_SESSION=c42", argv)
         self.assertEqual(argv[-2:], [str(WRAPPER["SYSTEM_PYTHON"]), str(staged)])
         self.assertFalse(any("GITHUB_TOKEN=" in item or "WMM_ISOLATED_NATIVE_KEYRING=" in item for item in argv))
+
+    def test_logout_requires_the_original_invocation_and_last_login(self):
+        check = HARNESS["close_login_session"]
+        with tempfile.TemporaryDirectory() as folder:
+            env = {"HOME": folder, "WMM_TEST_LOGIN_SESSION": "c42"}
+            marker = Path(folder) / ".wmm-ci-close-session"
+            with patch.dict(check.__globals__, {"login_sessions": lambda _: ["c42", "c43"]}):
+                with self.assertRaisesRegex(AssertionError, "only open OS session"):
+                    check(env, "worker.service")
+                self.assertFalse(marker.exists())
+            sessions = iter((["c42"], []))
+            invocations = iter((("151", "before"), ("152", "after")))
+            with patch.dict(
+                check.__globals__,
+                {
+                    "login_sessions": lambda _: next(sessions),
+                    "service_invocation": lambda *_: next(invocations),
+                },
+            ):
+                with self.assertRaisesRegex(AssertionError, "restarted during logout"):
+                    check(env, "worker.service")
+                self.assertTrue(marker.is_file())
+
+    def test_login_cleanup_never_stops_a_foreign_unit(self):
+        stop = WRAPPER["stop_login_probe"]
+        for properties in ({"LoadState": "not-found"}, {"User": "wmm-ci-example", "Description": "other run"}):
+            with patch.dict(
+                stop.__globals__,
+                {
+                    "login_unit_properties": lambda _, fixture=properties: fixture,
+                    "command": lambda *_a, **_kw: self.fail("attempted to stop an unowned unit"),
+                },
+            ):
+                self.assertTrue(stop("wmm-ci-example", "probe.service", "current run"))
+
+    def test_login_probe_does_not_wait_for_its_own_start_job(self):
+        start = WRAPPER["start_login_probe"]
+        with patch.dict(start.__globals__, {"command": lambda *args: calls.append(args)}):
+            calls = []
+            start("wmm-ci-example", Path("home"), "probe.service", "current run")
+        self.assertEqual(len(calls), 1)
+        self.assertIn("--no-block", calls[0])
+        self.assertIn("--property=PAMName=login", calls[0])
+        self.assertIn("--property=Type=simple", calls[0])
 
 
 if __name__ == "__main__":
