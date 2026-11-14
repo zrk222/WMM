@@ -556,7 +556,6 @@ async function handleAction(node) {
   if (node.dataset.action.startsWith('observational-campaign-'))
     return WMMObservationalCampaign.action(node);
   if (node.dataset.action.startsWith('campaign-monitor-')) return WMMCampaignMonitor.action(node);
-  if (node.dataset.action.startsWith('campaign-')) return campaignAction(node);
   if (node.dataset.action.startsWith('social-')) return socialAction(node);
   if (node.dataset.action.startsWith('play-')) return playAction(node);
   if (node.dataset.action.startsWith('setup-')) return setupAction(node);
@@ -640,6 +639,7 @@ async function handleAction(node) {
     if (!state.campaignPlan) throw new Error('Open the campaign plan first.');
     return download(`${state.app}-campaign-plan.json`, state.campaignPlan);
   }
+  if (action.startsWith('campaign-')) return campaignAction(node);
   if (action === 'next-answer-workflow') {
     $('#modal').close();
     state.view = 'workflow';
