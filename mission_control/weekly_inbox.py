@@ -780,7 +780,7 @@ def _schedule_deadline_state(db, scope, batch, observed):
 
 
 def _schedule_cards(db, app, principal, scopes, unresolved_scopes):
-    from .common import iso_time
+    from .campaign_schedule import MAX_ITEMS, item_status, retained_object
 
     cards = []
     observed = iso_time(now())
@@ -794,20 +794,61 @@ def _schedule_cards(db, app, principal, scopes, unresolved_scopes):
             continue
         if scope["id"] in unresolved_scopes:
             continue
-        deadline_state = _schedule_deadline_state(db, scope, row, observed)
-        if deadline_state is None:
-            failed = db.execute(
-                "SELECT 1 FROM campaign_schedule_items i LEFT JOIN jobs j ON j.id=i.job_id AND j.app_id=? WHERE i.batch_id=? AND (i.status='BLOCKED' OR j.status IN ('BLOCKED','FAILED','UNKNOWN')) LIMIT 1",
-                (app["id"], row["id"]),
-            ).fetchone()
-            if not failed:
-                continue
+        items = db.execute(
+            """SELECT i.*, j.id AS owned_job_id FROM campaign_schedule_items i
+            LEFT JOIN jobs j ON j.id=i.job_id AND j.app_id=?
+            WHERE i.batch_id=? AND i.status IN ('READY','QUEUED','BLOCKED')
+            ORDER BY i.due,i.id LIMIT ?""",
+            (app["id"], row["id"], MAX_ITEMS + 1),
+        ).fetchall()
+        states = set()
+        pending = 0
+        try:
+            reviewed = retained_object(row["summary"], row["summary_hash"]).get("items")
+        except (Invalid, OverflowError, RecursionError):
+            reviewed = None
+        for item in items:
+            state = item["status"]
+            if item["job_id"]:
+                if not item["owned_job_id"]:
+                    state = "NEEDS_REPAIR"
+                else:
+                    try:
+                        body = retained_object(item["body"], item["body_hash"])
+                        if (
+                            not isinstance(reviewed, list)
+                            or body not in reviewed
+                            or body.get("item_id") != item["id"]
+                            or iso_time(body.get("due_at")).timestamp() != item["due"]
+                        ):
+                            raise Invalid("Saved scheduled item does not match the review")
+                        state = item_status(db, app["id"], row["scope_id"], item)["effective_status"]
+                    except (Invalid, KeyError, TypeError, ValueError, OverflowError, RecursionError):
+                        state = "NEEDS_REPAIR"
+            if state not in ("VERIFIED", "ACTIVE_VERIFIED", "PAUSED_VERIFIED", "CANCELLED"):
+                pending += 1
+                states.add(state)
+        if row["pending"] > MAX_ITEMS:
+            pending += row["pending"] - len(items)
+            states.add("NEEDS_REPAIR")
+        if not pending:
+            continue
+        if "NEEDS_RECONCILIATION" in states:
+            status = "NEEDS_RECONCILIATION"
+        elif "NEEDS_REPAIR" in states:
+            status = "NEEDS_REPAIR"
+        else:
+            status = _schedule_deadline_state(db, scope, row, observed)
+            if status is None and "BLOCKED" in states:
+                status = "BLOCKED"
+        if status is None:
+            continue
         source = dict(
             id=row["id"],
             scope_id=row["scope_id"],
-            status=deadline_state or "BLOCKED",
+            status=status,
             summary_hash=row["summary_hash"],
-            pending_items=row["pending"],
+            pending_items=pending,
             updated=row["updated"],
         )
         cards.append(
@@ -816,13 +857,14 @@ def _schedule_cards(db, app, principal, scopes, unresolved_scopes):
                 principal,
                 "scheduled_campaign",
                 row["id"],
-                source["status"],
+                status,
                 "Review unfinished scheduled campaign work",
                 {
                     "EXPIRED_PENDING_WORK": "The reviewed deadline expired with pending work.",
-                    "NEEDS_REPAIR": "WMM could not verify the saved approval or batch deadline.",
+                    "NEEDS_REPAIR": "WMM could not verify the saved approval or schedule records.",
+                    "NEEDS_RECONCILIATION": "A scheduled job has no verified delivery receipt.",
                     "BLOCKED": "A saved scheduled campaign job needs review.",
-                }[source["status"]],
+                }[status],
                 "Inspect the exact batch and delivery receipts; reconcile uncertainty before approving replacement work.",
                 "campaign",
                 dict(scope_id=row["scope_id"], batch_id=row["id"]),
