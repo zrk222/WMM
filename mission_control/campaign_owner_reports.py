@@ -13,7 +13,7 @@ from .common import Invalid, canonical, digest, identifier, iso_time, now, uid
 from .db import connection
 from .experiments import lookup as lookup_experiment
 from .first_party_outcomes import normalized_batch
-from .first_party_receipts import HASH, for_campaign, retain
+from .first_party_receipts import HASH, for_campaign, primary_outcome, retain
 from .ios_reports import snapshot
 from .metrics import KPI_GAPS
 from .operation_authority import bound_owner, protected, store_identity
@@ -455,14 +455,16 @@ def build(db, store, app_id, owner, chosen):
     )
     if "outcome_receipt_sha256" in chosen:
         scope = owned_resource(db, "campaign_scopes", app_id, owner, chosen["scope_id"])
+        plan = object_data(scope["summary"]).get("measurement_plan")
         value["first_party_outcomes"] = for_campaign(
             db,
             app_id,
             source["app_version"],
-            object_data(scope["summary"]).get("measurement_plan"),
+            plan,
             chosen["measurement_window"],
             chosen["outcome_receipt_sha256"],
         )
+        value["primary_outcome"] = primary_outcome(plan, value["first_party_outcomes"]["report"])
     value["source_hash"] = digest(
         dict(
             binding=source,

@@ -8,7 +8,7 @@ from typing import Any, cast
 from mission_control.common import Invalid, canonical, digest
 from mission_control.db import connection
 from mission_control.first_party_outcomes import OutcomeBatch, OutcomeEvent, join
-from mission_control.first_party_receipts import ACTION, for_campaign, read, retain
+from mission_control.first_party_receipts import ACTION, for_campaign, primary_outcome, read, retain
 from mission_control.operator_client import ClientError, OperatorClient
 from mission_control.store import Store
 from tests import test_campaign_owner_reports
@@ -55,6 +55,27 @@ def batch(provider: str, *events: OutcomeEvent, **changes: object) -> OutcomeBat
 
 
 class OutcomeTests(unittest.TestCase):
+    def test_primary_outcome_requires_exact_definition_and_full_window(self) -> None:
+        plan = dict(primary_metric="paid_conversion", denominator="installs")
+        report = dict(
+            install_definition="SOURCE_REPORTED_FIRST_OPEN",
+            coverage="DECLARED_COMPLETE",
+            counts=dict(INSTALL=5, PURCHASE=0, ACTIVATION=3),
+        )
+        self.assertEqual(primary_outcome(plan, report)["value"], 0)
+        observed = primary_outcome(dict(plan, primary_metric="activation_rate"), report)
+        self.assertEqual((observed["numerator"], observed["denominator_count"], observed["value"]), (3, 5, 0.6))
+        for changed_plan, changed_report, state in (
+            (plan, dict(report, coverage="PARTIAL"), "PARTIAL_COVERAGE"),
+            (dict(plan, denominator="visits"), report, "UNSUPPORTED_DEFINITION"),
+            (dict(plan, primary_metric="retention_rate"), report, "UNSUPPORTED_DEFINITION"),
+            (plan, dict(report, counts=dict(INSTALL=0, PURCHASE=0)), "NO_ELIGIBLE_FIRST_OPENS"),
+            (plan, dict(report, counts=dict(INSTALL=2, PURCHASE=3)), "COUNTS_UNVERIFIED"),
+        ):
+            result = primary_outcome(changed_plan, changed_report)
+            self.assertEqual(result["status"], state)
+            self.assertIsNone(result["value"])
+
     def test_capture_attaches_only_exact_campaign_receipt(self) -> None:
         fixture: Any = test_campaign_owner_reports.CampaignOwnerReportsTests()
         fixture.setUp()
@@ -64,7 +85,9 @@ class OutcomeTests(unittest.TestCase):
         with connection(fixture.store.path, write=True) as db:
             scope = db.execute("SELECT summary FROM campaign_scopes WHERE id=?", (chosen["scope_id"],)).fetchone()
             summary = test_campaign_owner_reports.core.object_data(scope["summary"])
-            summary["measurement_plan"] = dict(window, campaign_tag="organic")
+            summary["measurement_plan"] = dict(
+                window, campaign_tag="organic", primary_metric="paid_conversion", denominator="installs"
+            )
             db.execute(
                 "UPDATE campaign_scopes SET summary=?,summary_hash=? WHERE id=?",
                 (canonical(summary), digest(summary), chosen["scope_id"]),
@@ -87,6 +110,8 @@ class OutcomeTests(unittest.TestCase):
         without = fixture.capture(chosen)["report"]
         with_receipt = fixture.capture(dict(chosen, outcome_receipt_sha256=receipt["receipt_sha256"]))["report"]
         self.assertEqual(with_receipt["first_party_outcomes"], receipt)
+        self.assertEqual(with_receipt["primary_outcome"]["value"], 0)
+        self.assertEqual(with_receipt["primary_outcome"]["denominator_count"], 1)
         self.assertNotEqual(with_receipt["source_hash"], without["source_hash"])
         self.assertNotIn("first_party_outcomes", without)
         wrong_window = dict(window, ends_at=WINDOW[1])
