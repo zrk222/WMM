@@ -12,6 +12,7 @@ mission_control/attribution_ingestion.py
 mission_control/audit_runtime.py
 mission_control/automation_agreement.py
 mission_control/automation_execution.py
+mission_control/automation_policy.py
 mission_control/campaign_access.py
 mission_control/campaign_contract.py
 mission_control/campaign_execution.py

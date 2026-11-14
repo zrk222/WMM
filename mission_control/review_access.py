@@ -47,7 +47,7 @@ def member_body(body: object) -> None:
         or body["status"] not in ("ACTIVE", "REVOKED")
     ):
         raise Invalid("Choose a maker or checker role and active or revoked status")
-    if body["version"] is not None and (type(body["version"]) is not int or cast(int, body["version"]) < 1):
+    if body["version"] is not None and (type(body["version"]) is not int or body["version"] < 1):
         raise Invalid("Use the exact current member version")
 
 
@@ -82,9 +82,7 @@ class Access:
             raise Invalid("Reopen owner setup and confirm the displayed account and app")
         if body["expected_principal"] != user["principal"]:
             raise Invalid("The signed-in account changed. Reopen owner setup before confirming")
-        return self.bootstrap(
-            app_id, user, {"confirm_owner": True}, manifest_version=cast(int, body["manifest_version"])
-        )
+        return self.bootstrap(app_id, user, {"confirm_owner": True}, manifest_version=body["manifest_version"])
 
     def bootstrap(
         self,
