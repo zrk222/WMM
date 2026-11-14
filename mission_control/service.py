@@ -419,8 +419,14 @@ class Service:
             data = self.play_sync_data(app_id, binding, data)
         if "options" in data:
             report_options(binding["data"]["provider"], data["options"])
-            if cast(dict[str, object], data["options"])["operation"] == "subscription_catalog":
-                validate_catalog_scope(self.store.app(app_id), binding["data"])
+            operation = cast(dict[str, object], data["options"])["operation"]
+            if operation in ("subscription_catalog", "launch_versions"):
+                app = self.store.app(app_id)
+                validate_catalog_scope(app, binding["data"])
+                if operation == "launch_versions":
+                    if data.get("manifest_version", app["version"]) != app["version"]:
+                        raise Invalid("App changed; reopen the launch status read")
+                    data = dict(data, manifest_version=app["version"])
         return {**data, "connection_version": version}
 
     def play_sync_data(self, app_id, binding, data):

@@ -1,10 +1,11 @@
 """Retain app-scoped launch observations in the existing audit ledger."""
 
 import json
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .app_launch_status import ConnectRead, StorefrontRead, fresh, resolve
 from .common import Invalid, canonical, digest, iso_time, now
@@ -17,6 +18,8 @@ ACTION = "app.launch_status.observed"
 class Sources:
     connect: ConnectRead | None
     storefronts: list[StorefrontRead]
+    store_app_id: str | None = None
+    source_hashes: tuple[str, ...] = ()
 
 
 def _history(db: Any, app_id: str, version: int | None, limit: int) -> list[dict[str, Any]]:
@@ -42,6 +45,12 @@ def _history(db: Any, app_id: str, version: int | None, limit: int) -> list[dict
 
 def retain(path: Path, app_id: str, app_version: int, sources: Sources) -> dict[str, Any]:
     """Append identity-checked source facts, with current app-version protection."""
+    with connection(path, write=True) as db:
+        return retain_in_snapshot(db, app_id, app_version, sources)
+
+
+def retain_in_snapshot(db: Any, app_id: str, app_version: int, sources: Sources) -> dict[str, Any]:
+    """Append in an existing writer transaction so a job and its evidence commit together."""
     observed_at = now()
     clock = iso_time(observed_at)
     stamps = [row["observed_at"] for row in sources.storefronts]
@@ -51,38 +60,85 @@ def retain(path: Path, app_id: str, app_version: int, sources: Sources) -> dict[
         raise Invalid("Launch status needs source observations dated no later than now")
     readings = dict(
         connect=sources.connect,
+        store_app_id=sources.store_app_id,
+        source_hashes=list(sources.source_hashes),
         storefronts=sorted(
             sources.storefronts, key=lambda row: (row["storefront"], iso_time(row["observed_at"]), row["state"])
         ),
     )
-    with connection(path, write=True) as db:
-        app = db.execute("SELECT version FROM apps WHERE id=?", (app_id,)).fetchone()
-        if app is None or type(app_version) is not int or app["version"] != app_version:
-            raise Invalid("Launch observations require the current app version")
-        previous = _history(db, app_id, None, 1)
-        if previous and previous[0]["app_version"] == app_version and previous[0]["readings"] == readings:
-            return previous[0]
-        verified_live = bool(previous and (previous[0]["status"] == "LIVE" or previous[0]["previous_verified_live"]))
-        status = resolve(
-            sources.connect,
-            sources.storefronts,
-            clock,
-            previous_verified_live=verified_live,
-        )
-        payload = dict(
-            status,
-            app_id=app_id,
-            app_version=app_version,
-            readings=readings,
-            previous_status=previous[0]["status"] if previous else "UNKNOWN",
-            previous_verified_live=verified_live,
-        )
-        receipt = dict(payload, evidence_hash=digest(payload))
-        db.execute(
-            "INSERT INTO audit(app_id,action,detail,created) VALUES(?,?,?,?)",
-            (app_id, ACTION, canonical(receipt), observed_at),
-        )
-        return receipt
+    app = db.execute("SELECT version FROM apps WHERE id=?", (app_id,)).fetchone()
+    if app is None or type(app_version) is not int or app["version"] != app_version:
+        raise Invalid("Launch observations require the current app version")
+    previous = _history(db, app_id, None, 1)
+    if previous and previous[0]["readings"].get("store_app_id") != sources.store_app_id:
+        previous = []
+    if previous and previous[0]["app_version"] == app_version and previous[0]["readings"] == readings:
+        return previous[0]
+    verified_live = bool(previous and (previous[0]["status"] == "LIVE" or previous[0]["previous_verified_live"]))
+    status = resolve(
+        sources.connect,
+        sources.storefronts,
+        clock,
+        previous_verified_live=verified_live,
+    )
+    payload = dict(
+        status,
+        app_id=app_id,
+        app_version=app_version,
+        readings=readings,
+        previous_status=previous[0]["status"] if previous else "UNKNOWN",
+        previous_verified_live=verified_live,
+    )
+    receipt = dict(payload, evidence_hash=digest(payload))
+    db.execute(
+        "INSERT INTO audit(app_id,action,detail,created) VALUES(?,?,?,?)",
+        (app_id, ACTION, canonical(receipt), observed_at),
+    )
+    return receipt
+
+
+def retain_job_result(db: Any, job: dict[str, Any], report: dict[str, Any]) -> dict[str, Any]:
+    """Validate the leased Apple read against the current saved provider binding."""
+    app_id = job["app_id"]
+    request = job["data"]
+    version = request["manifest_version"]
+    app = db.execute("SELECT data,version FROM apps WHERE id=?", (app_id,)).fetchone()
+    record = db.execute(
+        "SELECT data,version FROM records WHERE app_id=? AND id=? AND kind='connection'",
+        (app_id, request.get("connection_id")),
+    ).fetchone()
+    store_id = report.get("store_app_id")
+    if (
+        app is None
+        or type(version) is not int
+        or version != app["version"]
+        or record is None
+        or type(request.get("connection_version")) is not int
+        or record["version"] != request.get("connection_version")
+        or report.get("app_id") != app_id
+        or report.get("provider") != "app_store"
+        or report.get("request") != request["options"]
+        or str(json.loads(app["data"]).get("store_app_id")) != store_id
+        or json.loads(record["data"]).get("store_app_id") != store_id
+        or json.loads(record["data"]).get("provider") != "app_store"
+    ):
+        raise Invalid("The Apple launch read no longer matches this app or connection")
+    public = report.get("storefront_read")
+    hashes = [report.get("source_hash")]
+    if public is not None:
+        if not isinstance(public, dict) or public.get("storefront") != request["options"].get("storefront"):
+            raise Invalid("The Apple launch read did not confirm the selected storefront")
+        hashes.append(report.get("storefront_source_hash"))
+    if any(not isinstance(value, str) or not re.fullmatch(r"[a-f0-9]{64}", value) for value in hashes):
+        raise Invalid("Apple launch source evidence fingerprint is missing")
+    connect: ConnectRead = {
+        "observed_at": report["observed_at"],
+        "complete": report["complete"],
+        "states": report["states"],
+    }
+    storefronts = [cast(StorefrontRead, public)] if public is not None else []
+    fingerprints = tuple(value for value in hashes if isinstance(value, str))
+    return retain_in_snapshot(db, app_id, version, Sources(connect, storefronts, store_id, fingerprints))
 
 
 def current(path: Path, app_id: str, app_version: int, clock: datetime) -> dict[str, Any]:
