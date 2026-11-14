@@ -1,19 +1,19 @@
 """Root-only, disposable GitHub Ubuntu CI wrapper for the host-service test."""
 
 import os
-from pathlib import Path
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+from pathlib import Path
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
 BINARY = Path("/usr/lib/wize-marketing-machine/WMM")
 UNIT = Path("/usr/share/wize-marketing-machine/wmm-worker.service")
-TEMP_ROOT = Path("/tmp")
+TEMP_ROOT = Path("/tmp")  # noqa: S108 (preflight requires root-owned sticky directory; mkdtemp creates the private path)
 SYSTEM_PYTHON = Path("/usr/bin/python3")
 
 
@@ -47,7 +47,7 @@ def preflight(env):
         or not TEMP_ROOT.stat().st_mode & 0o1000
     ):
         raise RuntimeError("CI temporary path, installed WMM, unit or systemd is unavailable")
-    for executable in ("useradd", "userdel", "runuser", "systemctl", "loginctl"):
+    for executable in ("useradd", "userdel", "runuser", "systemctl", "systemd-run", "loginctl"):
         if not shutil.which(executable):
             raise RuntimeError(f"Missing required CI executable: {executable}")
     if command("systemctl", "is-active", "systemd-logind.service", check=False).returncode != 0:
@@ -82,7 +82,7 @@ def stage_harness(parent):
     return staged
 
 
-def child_command(name, home, runtime, parent, staged):
+def child_command(name, home, runtime, parent, staged, session_id):
     child_env = [
         f"HOME={home}",
         f"USER={name}",
@@ -95,8 +95,69 @@ def child_command(name, home, runtime, parent, staged):
         "GITHUB_ACTIONS=true",
         "WMM_HOST_SERVICE_CI=1",
         "WMM_ISOLATED_USER_MANAGER=1",
+        f"WMM_TEST_LOGIN_SESSION={session_id}",
     ]
     return ["runuser", "-u", name, "--", "/usr/bin/env", "-i", *child_env, str(SYSTEM_PYTHON), str(staged)]
+
+
+def wait_login_session(uid, timeout=20):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        sessions = command("loginctl", "show-user", uid, "-p", "Sessions", "--value").stdout.split()
+        if sessions:
+            if len(sessions) != 1 or not re.fullmatch(r"[A-Za-z0-9]+", sessions[0]):
+                raise RuntimeError("Expected exactly one disposable login session")
+            session_id = sessions[0]
+            properties = command("loginctl", "show-session", session_id, "-p", "User", "-p", "Service", "-p", "Class")
+            fields = dict(line.split("=", 1) for line in properties.stdout.splitlines())
+            if fields != {"User": str(uid), "Service": "login", "Class": "user"}:
+                raise RuntimeError("Logind did not register the expected PAM user login")
+            return session_id
+        time.sleep(0.25)
+    raise RuntimeError("Disposable PAM login session did not appear")
+
+
+def login_unit_properties(unit):
+    result = command("systemctl", "show", unit, "-p", "LoadState", "-p", "Description", "-p", "User", check=False)
+    return dict(line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)
+
+
+def stop_login_probe(name, unit, description):
+    properties = login_unit_properties(unit)
+    if properties.get("Description") != description or properties.get("User") != name:
+        # A failed start may leave no unit or a unit we did not create.
+        return True
+    command("systemctl", "stop", unit, check=False)
+    return command("systemctl", "is-active", unit, check=False).returncode != 0
+
+
+def start_login_probe(name, home, unit, description):
+    # This helper never authenticates a real user. It opens a real PAM session for
+    # the disposable CI user and exits normally when the test requests logout.
+    probe = (
+        "import pathlib,sys,time\n"
+        "path=pathlib.Path(sys.argv[1])\n"
+        "until=time.monotonic()+120\n"
+        "while not path.is_file():\n"
+        " if time.monotonic()>=until: sys.exit(1)\n"
+        " time.sleep(.2)\n"
+    )
+    command(
+        "systemd-run",
+        "--quiet",
+        f"--unit={unit}",
+        f"--description={description}",
+        f"--property=User={name}",
+        "--property=PAMName=login",
+        "--property=Type=exec",
+        "--property=RuntimeMaxSec=130",
+        "--setenv=XDG_SESSION_CLASS=user",
+        SYSTEM_PYTHON,
+        "-I",
+        "-c",
+        probe,
+        home / ".wmm-ci-close-session",
+    )
 
 
 def run_host_service(env):
@@ -114,10 +175,15 @@ def run_host_service(env):
         raise RuntimeError("Generated CI user already exists")
     if linger.exists() or linger.is_symlink():
         raise RuntimeError("Generated CI user has pre-existing lingering state")
+    login_unit = f"{name}-login-probe.service"
+    login_description = "WMM disposable login " + uuid4().hex
+    if login_unit_properties(login_unit).get("LoadState") != "not-found":
+        raise RuntimeError("Cannot establish that the generated probe unit is unused")
     parent = Path(tempfile.mkdtemp(prefix="wmm-host-user-", dir=temp))
     home = parent / "home"
     created = False
     manager_attempted = False
+    probe_attempted = False
     uid = None
     try:
         parent.chmod(0o711)
@@ -152,8 +218,11 @@ def run_host_service(env):
         command("loginctl", "enable-linger", name)
         command("systemctl", "start", f"user@{uid}.service")
         wait_user_manager(uid)
+        probe_attempted = True
+        start_login_probe(name, home, login_unit, login_description)
+        session_id = wait_login_session(uid)
         try:
-            result = command(*child_command(name, home, runtime, parent, staged), timeout=240)
+            result = command(*child_command(name, home, runtime, parent, staged, session_id), timeout=240)
         except subprocess.CalledProcessError as exc:
             raise RuntimeError(f"Disposable host lifecycle failed: {exc.stdout}\n{exc.stderr}") from exc
         print(result.stdout, end="")
@@ -163,13 +232,18 @@ def run_host_service(env):
             if uid is None or current.pw_uid != uid or Path(current.pw_dir) != home:
                 raise RuntimeError("Refusing cleanup because CI account identity changed")
             if manager_attempted:
-                command("loginctl", "disable-linger", name)
-                command("systemctl", "stop", f"user@{uid}.service")
-                command("systemctl", "stop", f"user-runtime-dir@{uid}.service")
+                probe_clean = True
+                if probe_attempted:
+                    probe_clean = stop_login_probe(name, login_unit, login_description)
+                    command("loginctl", "terminate-user", uid, check=False)
+                command("loginctl", "disable-linger", name, check=False)
+                command("systemctl", "stop", f"user@{uid}.service", check=False)
+                command("systemctl", "stop", f"user-runtime-dir@{uid}.service", check=False)
                 if (
                     Path("/run/user", str(uid)).exists()
                     or linger.exists()
                     or command("systemctl", "is-active", f"user@{uid}.service", check=False).returncode == 0
+                    or not probe_clean
                 ):
                     raise RuntimeError("Disposable user manager cleanup is incomplete")
             command("userdel", name)  # Deliberately no -r: only our checked parent is removed below.

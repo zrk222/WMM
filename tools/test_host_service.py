@@ -225,6 +225,45 @@ def assert_stopped(env, name):
         raise AssertionError(f"Service did not stop cleanly: {state}, pid={pid}, result={result}")
 
 
+def login_sessions(env):
+    return command(env, "loginctl", "show-user", os.geteuid(), "-p", "Sessions", "--value").stdout.split()
+
+
+def service_invocation(env, name):
+    result = systemctl(env, "show", name, "-p", "ActiveState", "-p", "MainPID", "-p", "InvocationID")
+    fields = dict(line.split("=", 1) for line in result.stdout.splitlines())
+    invocation = fields.get("InvocationID", "")
+    pid = fields.get("MainPID", "")
+    if (
+        fields.get("ActiveState") != "active"
+        or not pid.isdigit()
+        or int(pid) < 2
+        or not re.fullmatch(r"[0-9a-f]{32}", invocation)
+        or invocation == "0" * 32
+    ):
+        raise AssertionError("Cannot identify the active WMM service invocation")
+    return pid, invocation
+
+
+def close_login_session(env, name, timeout=30):
+    session_id = env.get("WMM_TEST_LOGIN_SESSION", "")
+    if not re.fullmatch(r"[A-Za-z0-9]+", session_id) or login_sessions(env) != [session_id]:
+        raise AssertionError("The disposable login must be the only open OS session")
+    before = service_invocation(env, name)
+    (Path(env["HOME"]) / ".wmm-ci-close-session").touch(exist_ok=False)
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        remaining = login_sessions(env)
+        if not remaining:
+            if service_invocation(env, name) != before:
+                raise AssertionError("WMM service restarted during logout")
+            return before
+        if remaining != [session_id]:
+            raise AssertionError("Unexpected OS session appeared during logout")
+        time.sleep(0.25)
+    raise RuntimeError("The disposable OS login did not close")
+
+
 def main():
     env = dict(os.environ)
     runtime = preflight(env)
@@ -265,9 +304,13 @@ def main():
             ):
                 raise AssertionError("A competing runtime was not excluded")
             facts = register_app(client, ORIGIN, csrf)
+            invocation = close_login_session(env, name)
+            client, csrf = session()
             key = "host-service-" + uuid4().hex
             queued = submit(client, ORIGIN, csrf, key)
             initial = completed_job(client, ORIGIN, queued["id"], key, facts)
+            if login_sessions(env) or service_invocation(env, name) != invocation:
+                raise AssertionError("WMM job did not complete in the original service with no OS login")
             systemctl(env, "stop", name)
             assert_stopped(env, name)
             systemctl(env, "start", name)
@@ -301,6 +344,7 @@ def main():
                 "workspace_exclusion": "VERIFIED",
                 "stop_restart": "VERIFIED",
                 "worker_result": "VERIFIED",
+                "disposable_os_logout": "VERIFIED_SAME_SERVICE_JOB_COMPLETED_NO_SESSIONS",
                 "durable_replay": "VERIFIED",
                 "job_id": initial["id"],
                 "attempts": initial["attempts"],
