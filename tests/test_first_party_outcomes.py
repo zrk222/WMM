@@ -106,6 +106,10 @@ class OutcomeTests(unittest.TestCase):
                     self.assertIn("Verify current status for the exact campaign", guidance)
                     self.assertIn("do not retry the pause", guidance)
                     self.assertNotIn("matched outcome", guidance)
+                elif effectiveness is None:
+                    self.assertIn("Check the exact campaign in Meta", guidance)
+                    self.assertIn("do not retry the pause", guidance)
+                    self.assertNotIn("matched outcome", guidance)
                 else:
                     self.assertIn("matched outcome", guidance)
         for state in ("UNKNOWN", "ACK_ACTIVE_adset", "ACK_ACTIVE_ad", "ACK_ACTIVE_campaign", "ACK_PAUSED_campaign"):

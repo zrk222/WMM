@@ -6,6 +6,7 @@ Status: draft
 Save private source-bound owner reports from existing campaign receipts, optional monitor observations, app KPI projection and optional existing experiment assessment. Owner capture and finite report plans authorize local report storage only.
 
 ### Requirements (EARS)
+- If the saved local campaign state says paused but effective PAUSED is unconfirmed, the report shall ask the owner to verify the exact campaign in Meta before interpreting results. Report generation does not retry the pause or change the retained receipt.
 - The system shall reject foreign app, owner, monitor, scope, experiment and changed approval hashes through `source_boundary`.
 - With an owned campaign scope and no monitor selected, the system shall save the existing campaign receipts and identify monitoring as unavailable without creating a monitor or reading a provider.
 - The system shall store an immutable current report with source hashes, observation dates, retained commitments, missing KPI states, experiment maturity and one next action through `private_report`.
