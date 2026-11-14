@@ -1,0 +1,19 @@
+{
+  "functions": {
+    "mission_control/creative_portable.py:_validate_research": 28,
+    "mission_control/ios_human_review.py:call": 35,
+    "mission_control/ios_reports.py:projection": 37,
+    "mission_control/ios_studio.py:_dispatch": 30,
+    "mission_control/market_research.py:validate_snapshot": 29,
+    "mission_control/operation_runtime.py:execute": 29,
+    "mission_control/server.py:get_app": 46,
+    "mission_control/server.py:post_app": 26,
+    "mission_control/weekly_inbox.py:_agent_review_cards": 26
+  },
+  "modules": {
+    "mission_control/campaign_execution.py": 1274,
+    "mission_control/onesignal_setup.py": 1003,
+    "mission_control/server.py": 1865,
+    "mission_control/weekly_inbox.py": 1088
+  }
+}

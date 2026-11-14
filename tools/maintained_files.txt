@@ -149,6 +149,7 @@ tools/benchmark_http.py
 tools/branch_hygiene.py
 tools/build_desktop.py
 tools/check_authority_coverage.py
+tools/check_complexity.py
 tools/check_distribution.py
 tools/check_evidence_budget.py
 tools/check_format.py
