@@ -5,11 +5,12 @@ import json
 import os
 import re
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, build_opener, HTTPRedirectHandler
 from urllib.parse import unquote, urlsplit
-from .apple_analytics_parser import MAX_COMPRESSED
-from .common import Invalid, required, now, digest
+from urllib.request import HTTPRedirectHandler, Request, build_opener
+
 from .apple_ads_preflight import ENDPOINT, inventory_request, shape_inventory
+from .apple_analytics_parser import MAX_COMPRESSED
+from .common import Invalid, digest, now, required
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -18,14 +19,17 @@ class NoRedirect(HTTPRedirectHandler):
         raise Invalid("Provider redirect blocked; verify the documented endpoint")
 
 
-def credential(binding, app_id):
+def credential(binding, app_id) -> str:
     """Resolve only a credential environment reference scoped to this app."""
     if binding.get("auth_mode") == "disconnected":
         raise Invalid("Connection is disconnected; open provider setup to reconnect")
     if binding.get("credential_ref"):
         from .provider_auth import credential as protected_credential
 
-        return protected_credential(binding, app_id)
+        token = protected_credential(binding, app_id)
+        if not isinstance(token, str) or not token:
+            raise Invalid("Provider read requires one bearer credential")
+        return token
     name = required(binding.get("env_ref"), "Environment reference", 120)
     prefix = "GROWTH_" + app_id.upper().replace("-", "_") + "_"
     if not re.fullmatch(r"[A-Z][A-Z0-9_]+", name) or not name.startswith(prefix):
@@ -38,7 +42,9 @@ def credential(binding, app_id):
 
 def read_json(url, headers, timeout=15):
     """Read a fixed provider endpoint with bounded time and response size."""
-    request = Request(url, headers=dict(headers, Accept="application/json"), method="GET")
+    request = Request(  # noqa: S310 - fixed provider caller or validated destination; redirects disabled
+        url, headers=dict(headers, Accept="application/json"), method="GET"
+    )
     try:
         with build_opener(NoRedirect()).open(request, timeout=min(15, timeout)) as response:
             raw = response.read(2097153)
@@ -66,6 +72,12 @@ def report_destination(url, body):
     )
     allowed = False
     if parsed.hostname == "api.appstoreconnect.apple.com":
+        if re.fullmatch(r"/v1/apps/[0-9]{1,30}/appStoreVersions", parsed.path):
+            from urllib.parse import parse_qsl
+
+            query = parse_qsl(parsed.query, keep_blank_values=True)
+            if body is None and [v for k, v in query if k == "filter[platform]"] == ["IOS"]:
+                return
         apple_paths = r"/v1/(?:apps/\d+(?:/customerReviews|/subscriptionGroups|/analyticsReportRequests)?|subscriptionGroups/\d+/subscriptions|appStoreVersions/[A-Za-z0-9-]{1,80}(?:/appStoreVersionLocalizations)?|appStoreVersionLocalizations/[A-Za-z0-9-]{1,80}/appScreenshotSets|appScreenshotSets/[A-Za-z0-9-]{1,80}/appScreenshots|analyticsReportRequests/[A-Za-z0-9-]{1,200}/reports|analyticsReports/[A-Za-z0-9-]{1,200}/instances|analyticsReportInstances/[A-Za-z0-9-]{1,200}/segments)"
         allowed = body is None and re.fullmatch(apple_paths, parsed.path)
     if parsed.hostname == "api.ads.apple.com":
@@ -116,7 +128,7 @@ def download_analytics_segment(url, size_in_bytes, checksum):
         or not re.fullmatch(r"[0-9a-fA-F]{32}", checksum)
     ):
         raise Invalid("Invalid Apple analytics segment metadata")
-    request = Request(
+    request = Request(  # noqa: S310 - fixed provider caller or validated destination; redirects disabled
         url,
         headers={"Accept": "application/octet-stream, application/gzip, */*", "Accept-Encoding": "identity"},
         method="GET",
@@ -161,11 +173,11 @@ def report_bytes(request, timeout):
     return raw
 
 
-def report_request(url, headers, body=None, timeout=15):
+def report_request(url, headers, body=None, timeout: float = 15):
     """Read approved report endpoints only; query POST cannot mutate a campaign."""
     report_destination(url, body)
     data = json.dumps(body, allow_nan=False).encode() if body is not None else None
-    request = Request(
+    request = Request(  # noqa: S310 - fixed provider caller or validated destination; redirects disabled
         url,
         data=data,
         headers=dict(headers, Accept="application/json", **{"Content-Type": "application/json"}),

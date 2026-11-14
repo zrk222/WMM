@@ -60,12 +60,31 @@ def json_job(row):
     return result
 
 
+def campaign_job_preview(job):
+    """Keep exact campaign inputs in the owner-reviewed schedule, not generic job reads."""
+    if job["action"] in ("campaign_post", "campaign_ad"):
+        data = job["data"]
+        request = data.get("request") or {}
+        link = request.get("link")
+        job["data"] = {key: data[key] for key in ("batch_id", "item_id", "scope_id", "operation") if key in data}
+        if isinstance(link, str):
+            job["data"]["approved_link_sha256"] = digest(link)
+        result = job.get("result")
+        if isinstance(result, dict):
+            job["result"] = {
+                key: result[key]
+                for key in ("id", "status", "remote_id", "page_id", "next_action", "external_execution")
+                if key in result
+            }
+    return job
+
+
 def jobs(store, app_id):
     """Return bounded recent runs for one workspace."""
     store.app(app_id)
     with connection(store.path) as db:
         return [
-            json_job(r)
+            campaign_job_preview(json_job(r))
             for r in db.execute(
                 "SELECT * FROM jobs WHERE app_id=? AND action!='drive_import' ORDER BY created DESC LIMIT 100",
                 (app_id,),
@@ -251,10 +270,13 @@ def process(store, job, stop=None):
 
     binding = {**binding, "_vault_namespace": namespace(store.path)}
     if "options" in job["data"]:
-        if job["data"]["options"].get("operation") == "subscription_catalog":
+        operation = job["data"]["options"].get("operation")
+        if operation in ("subscription_catalog", "launch_versions"):
             from .subscription_readiness import validate_catalog_scope
 
             validate_catalog_scope(app, binding)
+        if operation == "launch_versions" and job["data"].get("manifest_version") != app["version"]:
+            raise Invalid("App changed; queue a launch status read for the current app version")
         result = read_report(
             binding,
             app["id"],
@@ -600,6 +622,26 @@ def persist_job_result(store, job, result, status, retry_delay):
             result, status = _persist_prepared_apple_metrics(db, store, job, result)
             if status is None:
                 return
+        if (
+            status == "SUCCEEDED"
+            and job["action"] == "sync"
+            and job["data"].get("options", {}).get("operation") == "launch_versions"
+        ):
+            from .app_launch_history import retain_job_result
+
+            db.execute("BEGIN IMMEDIATE")
+            leased = db.execute(
+                "SELECT 1 FROM jobs WHERE id=? AND app_id=? AND status='RUNNING' AND attempts=? AND lease>=?",
+                (job["id"], job["app_id"], job["attempts"], time.time()),
+            ).fetchone()
+            if not leased:
+                return
+            try:
+                receipt = retain_job_result(db, job, result)
+            except Invalid as error:
+                result, status, retry_delay = failed_result(job, error)
+            else:
+                result = dict(result, launch_status=receipt["status"], launch_evidence_hash=receipt["evidence_hash"])
         changed = db.execute(
             "UPDATE jobs SET status=?,result=?,lease=?,updated=? WHERE id=? AND status='RUNNING' AND attempts=?",
             (

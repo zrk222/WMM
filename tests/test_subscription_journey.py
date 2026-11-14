@@ -1,45 +1,44 @@
 """Real isolated SQLite journey imports, financial adjustments and legacy recovery."""
 
-import copy
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
-from mission_control.common import Invalid
+
+from mission_control.common import Invalid, iso_time
+from mission_control.db import connection
 from mission_control.ledger import (
     Ledger,
-    event_data,
-    event_amount,
-    cohort_data,
-    write_cohort,
-    write_events,
-    csv_rows,
-    restore_ledger,
-    validate_snapshot,
-    finance,
     apply_adjustment,
+    cohort_data,
+    csv_rows,
     eligible_events,
+    event_amount,
+    event_data,
+    finance,
     funnel_counts,
     observed_rate,
+    restore_ledger,
+    validate_snapshot,
+    write_cohort,
+    write_events,
 )
-from mission_control.db import connection
-from mission_control.common import iso_time
+from mission_control.service import Service
+from mission_control.store import Store
 from mission_control.subscription_journey import (
     binding_data,
-    validate_event,
     chain_issues,
-    same_charge_scope,
+    duration_data,
     group_counts,
     group_report,
     journey_report,
     matches,
-    duration_data,
-    stage_times,
     mature_conversion,
     payment_timing,
+    same_charge_scope,
+    stage_times,
+    validate_event,
 )
-from mission_control.service import Service
-from mission_control.store import Store
 from tests.test_ledger import cohort, event
 
 
@@ -59,6 +58,24 @@ def bound(eid, kind, day="2026-09-03", amount=0, **changes):
 
 
 class SubscriptionJourneyTests(unittest.TestCase):
+    def test_late_purchase_does_not_change_fixed_trial_conversion(self):
+        self.ingest(
+            self.history()[:4]
+            + [
+                bound("paid-late", "PURCHASE", day="2026-09-07", amount=1000),
+            ]
+        )
+        report = self.report("2026-10-11T00:00:00+00:00")
+        group = report["subscription_journey"]["groups"][0]
+        self.assertEqual(group["trial_to_paid_subjects"], 1)
+        self.assertEqual(group["mature_trial_subjects"], 1)
+        self.assertEqual(group["trial_to_paid_rate"], 0)
+
+    def test_payment_at_trial_deadline_is_included(self):
+        self.ingest(self.history()[:4] + [bound("paid-at-deadline", "PURCHASE", day="2026-09-06", amount=1000)])
+        group = self.report()["subscription_journey"]["groups"][0]
+        self.assertEqual(group["trial_to_paid_rate"], 1)
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.store = Store(Path(self.tmp.name) / "source/state.sqlite")

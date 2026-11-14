@@ -402,7 +402,7 @@
       "family": "acquisition",
       "title": "Store Impressions",
       "definition": "provider count at declared unique or total grain",
-      "current_coverage": "MISSING_STORE_ANALYTICS",
+      "current_coverage": "PARTIAL_APPLE_STANDARD_ROWS",
       "required_status": "REQUIRED_NOT_COMPLETE",
       "required_scope": [
         "app",

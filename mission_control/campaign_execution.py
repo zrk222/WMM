@@ -404,6 +404,15 @@ class CampaignExecutionService:
                 )
         return scope
 
+    def _dispatch_alive(self, app_id, actor, scope_id, action, request=None):
+        """Recheck the reviewed evidence whenever an effect is about to be sent."""
+        scope = self._alive(app_id, actor, scope_id, action)
+        if scope.get("measurement_plan"):
+            from .evidence_gate import assert_ready
+
+            assert_ready(self.store, app_id, scope, request=request)
+        return scope
+
     def _safety_admit(self, db, app_id, scope_id, category):
         """Reserve a separate finite no-spend safety check inside the same transaction."""
         row = db.execute(
@@ -632,11 +641,14 @@ class CampaignExecutionService:
 
     def run_post(self, app_id, actor, scope_id, body):
         post = post_data(body)
-        scope, secret, token = self._preflight(app_id, actor, scope_id, "RUN_POST")
-        if scope.get("measurement_plan"):
-            from .evidence_gate import assert_ready
+        from .evidence_gate import assert_ready
 
+        scope = self.get_scope(app_id, scope_id)
+        with connection(self.store.path) as db:
+            self._check(db, app_id, actor, scope, "RUN_POST")
+        if scope.get("measurement_plan"):
             assert_ready(self.store, app_id, scope, request=post)
+        scope, secret, token = self._preflight(app_id, actor, scope_id, "RUN_POST")
         with connection(self.store.path) as db:
             self._check(db, app_id, actor, scope, "RUN_POST")
             if (
@@ -655,6 +667,8 @@ class CampaignExecutionService:
             intent, _ = self._reserve_post(app_id, actor, scope_id, post)
             return intent
         destination = check_destination(post["link"])
+        if scope.get("measurement_plan"):
+            assert_ready(self.store, app_id, scope, request=post)
         intent, fresh = self._reserve_post(app_id, actor, scope_id, post, destination)
         if not fresh:
             return intent
@@ -665,7 +679,7 @@ class CampaignExecutionService:
                 post["link"],
                 token,
                 secret,
-                lambda: self._alive(app_id, actor, scope_id, "RUN_POST"),
+                lambda: self._dispatch_alive(app_id, actor, scope_id, "RUN_POST", post),
             )
         except Exception:  # noqa: BLE001 - provider effect boundary
             self._save_intent(app_id, intent["id"], "UNKNOWN")
@@ -852,6 +866,10 @@ class CampaignExecutionService:
             ).fetchone()
             if post is None:
                 raise PermissionError("Promote only a verified saved Page post with approved content and rights")
+            if scope.get("measurement_plan"):
+                from .evidence_gate import check_promotion_link
+
+                check_promotion_link(post, scope["measurement_plan"])
             previous = db.execute(
                 "SELECT * FROM campaign_paid_intents WHERE app_id=? AND request_id=?", (app_id, body["request_id"])
             ).fetchone()
@@ -1059,7 +1077,7 @@ class CampaignExecutionService:
                     fields,
                     token,
                     secret,
-                    lambda: self._alive(app_id, actor, scope["scope_id"], "RUN_AD"),
+                    lambda: self._dispatch_alive(app_id, actor, scope["scope_id"], "RUN_AD"),
                 )
             except Exception:  # noqa: BLE001 - provider effect boundary
                 self._receipt_paid(app_id, identity, step, owner_token, "UNKNOWN")
@@ -1124,7 +1142,11 @@ class CampaignExecutionService:
                     status,
                     token,
                     secret,
-                    lambda: self._alive(app_id, actor, scope["scope_id"], action, active),
+                    lambda: (
+                        self._dispatch_alive(app_id, actor, scope["scope_id"], action)
+                        if action == "RUN_AD" and status == "ACTIVE"
+                        else self._alive(app_id, actor, scope["scope_id"], action, active)
+                    ),
                 )
             except Exception:  # noqa: BLE001 - provider effect boundary
                 self._receipt_paid(app_id, identity, step, owner_token, "UNKNOWN")
@@ -1135,12 +1157,15 @@ class CampaignExecutionService:
         if not PAID_EXECUTION_READY:
             raise Invalid("Paid lifecycle verification is incomplete")
         body = ad_data(body)
+        from .evidence_gate import assert_ready
+
+        scope = self.get_scope(app_id, scope_id)
+        with connection(self.store.path) as db:
+            self._check(db, app_id, actor, scope, "RUN_AD")
+        if scope.get("measurement_plan"):
+            assert_ready(self.store, app_id, scope, request=body)
         scope, secret, page_token = self._preflight(app_id, actor, scope_id, "RUN_AD")
         scope, secret, token = self._account_preflight(app_id, actor, scope_id, "RUN_AD")
-        if scope.get("measurement_plan"):
-            from .evidence_gate import assert_ready
-
-            assert_ready(self.store, app_id, scope)
         intent, fresh = self._reserve_ad(app_id, actor, scope_id, body)
         if not fresh:
             return intent
@@ -1230,6 +1255,16 @@ class CampaignExecutionService:
                         current_objects[k].get("status") != "ACTIVE" for k in ("adset", "ad")
                     ):
                         raise Unconfirmed("Advertising objects changed before final activation")
+                    if scope.get("measurement_plan"):
+                        assert_ready(self.store, app_id, scope, request=body)
+                        self.transport.read_post(
+                            scope["page_id"],
+                            body["post_id"],
+                            body["content_hash"],
+                            page_token,
+                            secret,
+                            lambda: self._alive(app_id, actor, scope_id, "RUN_AD"),
+                        )
                 intent = self._paid_status(app_id, actor, scope, intent, kind, "ACTIVE", token, secret)
                 current = self._paid_read(app_id, actor, scope, kind, intent["ids"][kind], token, secret)
                 if current.get("status") != "ACTIVE":

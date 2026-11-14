@@ -1,20 +1,30 @@
 """Browser proof for weekly review recovery with synthetic isolated identities."""
 
+# ruff: noqa: E402
+# Direct script execution imports repository fixtures after adding the repository root.
+
 import gc
 import hashlib
 import json
-from pathlib import Path
 import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from playwright.sync_api import sync_playwright, expect
+from playwright.sync_api import expect, sync_playwright
+
+from mission_control.campaign_execution import SCHEMA as CAMPAIGN_SCHEMA
+from mission_control.campaign_schedule import initialize as initialize_schedule
+from mission_control.common import canonical, digest
+from mission_control.db import connection
 from tests.test_agent_review_http import ReviewHTTPTests
-from tests.test_verified_review import OWNER_TOKEN, CHECKER_TOKEN
+from tests.test_verified_review import CHECKER_TOKEN, OWNER, OWNER_TOKEN
 
 
 def run(browser, width, out):
-    fixture = ReviewHTTPTests(methodName="test_exact_human_approval_and_agent_resume_use_separate_sessions")
+    fixture: Any = ReviewHTTPTests(methodName="test_exact_human_approval_and_agent_resume_use_separate_sessions")
     fixture.setUp()
     context = browser.new_context(viewport={"width": width, "height": 1000})
     page = context.new_page()
@@ -24,10 +34,16 @@ def run(browser, width, out):
         prepared = fixture.prepare()
         before = prepared["checkpoint"]
         page.goto(fixture.origin)
-        page.wait_for_function("(context) => {const state=context.state;return (() => state.workspace?.app?.id === 'sample-one')(context.original);}", arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': None})
+        page.wait_for_function(
+            "(context) => {const state=context.state;return (() => state.workspace?.app?.id === 'sample-one')(context.original);}",
+            arg={"state": page.evaluate_handle("async () => (await import('/app.mjs')).state"), "original": None},
+        )
 
         def login(token):
-            page.evaluate("async token => { const {api,refresh}=await import('/app.mjs'); await api('/api/identity/login', {token}); await refresh(); }", token)
+            page.evaluate(
+                "async token => { const {api,refresh}=await import('/app.mjs'); await api('/api/identity/login', {token}); await refresh(); }",
+                token,
+            )
 
         def weekly():
             if not page.locator("#navigation details").evaluate("(node) => node.open"):
@@ -36,8 +52,69 @@ def run(browser, width, out):
             page.get_by_role("button", name="Refresh review", exact=True).click()
             expect(page.locator('[data-action="weekly-recover"][data-resource="review-one"]')).to_have_count(1)
 
+        initialize_schedule(fixture.store)
+        stamp = datetime.now(timezone.utc)
+        created = (stamp - timedelta(hours=2)).isoformat()
+        expiry = (stamp - timedelta(hours=1)).isoformat()
+        due = stamp - timedelta(minutes=90)
+        owner = OWNER["principal"]
+        scope = {"expires_at": expiry}
+        body = {"item_id": "saved-item", "due_at": due.isoformat(), "request": {"request_id": "saved-request"}}
+        batch = {
+            "batch_id": "e873d2ea-0feb-4ca4-95a0-6b820d448a51",
+            "app_id": "sample-one",
+            "owner": owner,
+            "scope_id": "old-scope",
+            "scope_hash": digest(scope),
+            "items": [body],
+        }
+        with connection(fixture.store.path) as db:
+            db.executescript(CAMPAIGN_SCHEMA)
+            db.execute(
+                "INSERT INTO campaign_scopes VALUES(?,?,?,?,?,?,?,?,?,?)",
+                ("sample-one", "old-scope", owner, 1, canonical(scope), digest(scope), "ACTIVE", 0, created, created),
+            )
+            db.execute(
+                "INSERT INTO campaign_schedule_batches VALUES(?,?,?,?,?,?,?,?,?,?)",
+                (
+                    "e873d2ea-0feb-4ca4-95a0-6b820d448a51",
+                    "sample-one",
+                    owner,
+                    "old-scope",
+                    canonical(batch),
+                    digest(batch),
+                    "ACTIVE",
+                    1,
+                    created,
+                    created,
+                ),
+            )
+            db.execute(
+                "INSERT INTO campaign_schedule_items VALUES(?,?,?,?,?,?,?,?,?)",
+                (
+                    "saved-item",
+                    "e873d2ea-0feb-4ca4-95a0-6b820d448a51",
+                    due.timestamp(),
+                    canonical(body),
+                    digest(body),
+                    "READY",
+                    None,
+                    created,
+                    created,
+                ),
+            )
         login(OWNER_TOKEN)
         weekly()
+        expect(page.get_by_text("Your approval expired before all scheduled work finished.")).to_be_visible()
+        with page.expect_request("**/api/apps/sample-one/campaigns/schedule-status") as request:
+            page.get_by_role("button", name="Open schedule", exact=True).press("Enter")
+        expect(page.get_by_role("dialog")).to_contain_text("Batch e873d2ea-0feb-4ca4-95a0-6b820d448a51")
+        assert request.value.post_data_json == {"batch_id": "e873d2ea-0feb-4ca4-95a0-6b820d448a51"}
+        with connection(fixture.store.path) as db:
+            saved = db.execute("SELECT status,job_id FROM campaign_schedule_items WHERE id='saved-item'").fetchone()
+            assert saved is not None
+            assert tuple(saved) == ("READY", None)
+        page.locator("#modal").evaluate("(node) => node.close()")
         card = page.locator('[data-action="weekly-recover"][data-resource="review-one"]')
         card.press("Enter")
         dialog = page.get_by_role("dialog")
@@ -73,7 +150,10 @@ def run(browser, width, out):
         cancelled = fixture.human("cancel", dict(id="review-one", revision=before["revision"]), fixture.owner)
         assert cancelled["state"] == "CANCELLED"
         page.get_by_role("button", name="Refresh review", exact=True).click()
-        page.wait_for_function('(context) => {const state=context.state;return (() => !state.weeklyLoading)(context.original);}', arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': None})
+        page.wait_for_function(
+            "(context) => {const state=context.state;return (() => !state.weeklyLoading)(context.original);}",
+            arg={"state": page.evaluate_handle("async () => (await import('/app.mjs')).state"), "original": None},
+        )
         expect(page.locator('[data-action="weekly-recover"][data-resource="review-one"]')).to_have_count(0)
         assert fixture.owner.call(fixture.envelope())["history"] == []
         page.locator('[data-view="evidence"]').click()
@@ -87,6 +167,7 @@ def run(browser, width, out):
             "browser": browser.version,
             "owner_maker_cannot_approve": True,
             "checker_inspected": True,
+            "keyboard_opens_exact_schedule": True,
             "checkpoint_unchanged_on_open": True,
             "cancel_removed_after_refresh": True,
             "json_export": True,

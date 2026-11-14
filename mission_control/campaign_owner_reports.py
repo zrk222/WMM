@@ -1,21 +1,25 @@
 """Private source-bound owner reports; no provider reads or outbound delivery."""
 
-from datetime import datetime, timezone, timedelta
 import json
-import secrets
 import re
+import secrets
 import time
-from .common import Invalid, canonical, digest, iso_time, now, uid, identifier
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
+from .campaign_execution import saved_pause_receipt, scope_view
+from .campaign_monitor import actor, last_observation, whole
+from .common import Invalid, canonical, digest, identifier, iso_time, now, uid
 from .db import connection
-from .review_access import member
-from .operation_catalog import path_segment
 from .experiments import lookup as lookup_experiment
-from .social_contract import reference
-from .operation_authority import store_identity, bound_owner, protected
-from .campaign_monitor import actor, whole, last_observation
-from .campaign_execution import scope_view, saved_pause_receipt
+from .first_party_outcomes import normalized_batch
+from .first_party_receipts import HASH, for_campaign, primary_outcome, retain
 from .ios_reports import snapshot
 from .metrics import KPI_GAPS
+from .operation_authority import bound_owner, protected, store_identity
+from .operation_catalog import path_segment
+from .review_access import member
+from .social_contract import reference
 
 SELECTION = ("scope_id", "monitor_id", "experiment_id", "measurement_window")
 SCHEMA = """
@@ -37,7 +41,12 @@ def initialize(store):
 
 def selection(body):
     """Existing exact resources and an explicit review window, no implicit attribution."""
-    exact(body, SELECTION)
+    if not isinstance(body, dict) or set(body) not in (set(SELECTION), set(SELECTION) | {"outcome_receipt_sha256"}):
+        raise Invalid("Use the exact private owner report fields")
+    if "outcome_receipt_sha256" in body and (
+        not isinstance(body["outcome_receipt_sha256"], str) or not HASH.fullmatch(body["outcome_receipt_sha256"])
+    ):
+        raise Invalid("A valid outcome receipt fingerprint is required")
     reference(body["scope_id"])
     if body["monitor_id"] is not None:
         reference(body["monitor_id"])
@@ -89,7 +98,7 @@ def owned_resource(db, table, app, owner, identity):
     ):
         raise Invalid("Unsupported owner report resource")
     row = db.execute(
-        "SELECT * FROM " + table + " WHERE id=? AND app_id=? AND owner=?",
+        "SELECT * FROM " + table + " WHERE id=? AND app_id=? AND owner=?",  # noqa: S608 - table allowlist above
         (identity, app, owner),
     ).fetchone()
     if row is None:
@@ -97,7 +106,7 @@ def owned_resource(db, table, app, owner, identity):
     return row
 
 
-def binding(db, store, app_id, owner, chosen):
+def binding(db, store, app_id, owner, chosen) -> dict[str, Any]:
     """Current role/app and exact existing resource summaries bind local storage authority."""
     role = member(db, app_id, owner, "OWNER")
     app = db.execute("SELECT * FROM apps WHERE id=?", (app_id,)).fetchone()
@@ -391,7 +400,7 @@ def build(db, store, app_id, owner, chosen):
             summary_hash=monitor["summary_hash"],
             last_observation=last_observation(db, monitor, object_data(monitor["summary"])),
         )
-    metrics = snapshot(db, store, app_id, observed, include_workflows=False)
+    metrics: dict[str, Any] = snapshot(db, store, app_id, observed, include_workflows=False)
     campaign = campaign_view(db, app_id, owner, chosen["scope_id"])
     experiment = experiment_source(
         db,
@@ -425,7 +434,7 @@ def build(db, store, app_id, owner, chosen):
         attribution="NOT_ESTABLISHED",
         metric_definitions_hash=metric_hash,
     )
-    value = dict(
+    value: dict[str, Any] = dict(
         schema="wmm.private-campaign-owner-report.v1",
         visibility="PRIVATE_OWNER_ONLY",
         app_id=app_id,
@@ -444,6 +453,22 @@ def build(db, store, app_id, owner, chosen):
         authority_issued=False,
         limits="Saved local evidence only; no fresh provider reads, messages, publication or verified business lift.",
     )
+    if "outcome_receipt_sha256" in chosen:
+        scope = owned_resource(db, "campaign_scopes", app_id, owner, chosen["scope_id"])
+        approved = object_data(scope["summary"])
+        plan = approved.get("measurement_plan")
+        value["first_party_outcomes"] = for_campaign(
+            db,
+            app_id,
+            source["app_version"],
+            plan,
+            chosen["measurement_window"],
+            chosen["outcome_receipt_sha256"],
+        )
+        value["primary_outcome"] = primary_outcome(plan, value["first_party_outcomes"]["report"])
+        value["delivery_evidence"] = matched_post(
+            db, app_id, chosen["scope_id"], approved, value["first_party_outcomes"]
+        )
     value["source_hash"] = digest(
         dict(
             binding=source,
@@ -451,9 +476,59 @@ def build(db, store, app_id, owner, chosen):
             monitor=value["monitor"],
             kpis=metrics["sourceHash"],
             experiment=experiment,
+            **({"outcome_receipt_sha256": chosen["outcome_receipt_sha256"]} if "first_party_outcomes" in value else {}),
+            **({"delivery_evidence": value["delivery_evidence"]} if "delivery_evidence" in value else {}),
         )
     )
     return value, key
+
+
+def matched_post(db, app_id, scope_id, approved, outcome):
+    """Trace one exact tagged Page post to a window-bound outcome receipt."""
+    unknown = {"status": "NO_EXACT_DELIVERY_RECEIPT"}
+    plan = approved.get("measurement_plan")
+    if not isinstance(plan, dict) or not isinstance(plan.get("link"), str):
+        return unknown
+    link_hash = digest(plan["link"])
+    rows = db.execute(
+        """SELECT id, content_hash, rights_hash, page_id, status, remote_id, result, created, updated FROM campaign_intents
+        WHERE app_id=? AND scope_id=? AND CASE WHEN json_valid(result)
+        THEN json_extract(result,'$.destination_check.approved_link_sha256')=? ELSE 0 END
+        ORDER BY id LIMIT 2""",
+        (app_id, scope_id, link_hash),
+    ).fetchall()
+    if len(rows) != 1:
+        return {"status": "MULTIPLE_POSTS_SHARE_TAG"} if rows else unknown
+    row = rows[0]
+    if (
+        row["status"] != "VERIFIED"
+        or not row["remote_id"]
+        or row["page_id"] != approved["page_id"]
+        or row["content_hash"] not in approved["approved_content_hashes"]
+        or row["rights_hash"] not in approved["approved_rights_hashes"]
+    ):
+        return unknown
+    result = object_data(row["result"])
+    if result.get("id") != row["remote_id"]:
+        return unknown
+    report = outcome["report"]
+    if (
+        not iso_time(report["starts_at"])
+        <= iso_time(row["created"])
+        <= iso_time(row["updated"])
+        < iso_time(report["ends_at"])
+    ):
+        return {"status": "DELIVERY_OUTSIDE_ACQUISITION_WINDOW"}
+    return dict(
+        status="EXACT_TAGGED_POST_READBACK",
+        intent_id=row["id"],
+        content_sha256=row["content_hash"],
+        rights_sha256=row["rights_hash"],
+        destination_sha256=link_hash,
+        provider_readback_at=row["updated"],
+        delivery_sha256=digest(result),
+        outcome_sha256=outcome["receipt_sha256"],
+    )
 
 
 def next_action(campaign, monitor, experiment):
@@ -548,6 +623,37 @@ class Reports:
             db.execute("BEGIN IMMEDIATE")
             binding(db, self.store, app_id, owner, chosen)
             return save_report(db, self.store, app_id, owner, chosen, "owner:" + body["request_key"])
+
+    def import_outcomes(self, app_id, body):
+        """Use the approved campaign window to retain supplied, consented outcome evidence."""
+        exact(body, HTTP_FIELDS["import-outcomes"])
+        owner = actor(self.store, app_id)
+        reference(body["scope_id"])
+        with connection(self.store.path) as db:
+            scope = owned_resource(db, "campaign_scopes", app_id, owner, body["scope_id"])
+            summary = object_data(scope["summary"])
+            if digest(summary) != scope["summary_hash"]:
+                raise Invalid("Report source summary integrity changed")
+            if (summary.get("app_id"), summary.get("owner_principal")) != (app_id, owner):
+                raise Invalid("Report summary ownership changed")
+            if scope["status"] != "ACTIVE":
+                raise Invalid("Approve a measurement plan before importing campaign outcomes")
+            plan = summary.get("measurement_plan")
+            if not isinstance(plan, dict):
+                raise Invalid("Approve a measurement plan before importing campaign outcomes")
+        return retain(
+            self.store.path,
+            app_id=app_id,
+            app_version=summary["app_version"],
+            environment="production",
+            campaign=plan["campaign_tag"],
+            starts_at=plan["starts_at"],
+            ends_at=body["acquisition_ends_at"],
+            matures_at=plan["ends_at"],
+            as_of=body["as_of"],
+            product=normalized_batch(body["product"]),
+            billing=normalized_batch(body["billing"]),
+        )
 
     def prepare(self, app_id, body):
         owner = actor(self.store, app_id)
@@ -647,7 +753,7 @@ class Reports:
             )
 
 
-def plan_view(row):
+def plan_view(row) -> dict[str, Any]:
     return dict(
         id=row["id"],
         version=row["version"],
@@ -866,6 +972,7 @@ def job_authority(db, store, job):
 
 
 HTTP_FIELDS = {
+    "import-outcomes": {"scope_id", "acquisition_ends_at", "as_of", "product", "billing"},
     "capture": {"selection", "request_key"},
     "prepare": {"proposal"},
     "activate": {"plan_id", "summary_hash"},
@@ -882,6 +989,7 @@ def dispatch(store, app, action, body):
     exact(body, HTTP_FIELDS[action])
     service = Reports(store)
     routes = {
+        "import-outcomes": lambda: service.import_outcomes(app, body),
         "capture": lambda: service.capture(app, body),
         "prepare": lambda: service.prepare(app, body["proposal"]),
         "activate": lambda: service.activate(app, body["plan_id"], body["summary_hash"]),

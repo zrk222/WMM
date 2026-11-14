@@ -4,15 +4,16 @@ import http.client
 import json
 import re
 import time
-from urllib.parse import urlencode, urlsplit, parse_qs
-from .aeo_transport import address, PinnedHTTPS, response_headers, response_body
+from urllib.parse import parse_qs, urlencode, urlsplit
+
 from .aeo_tls import trust_context
+from .aeo_transport import PinnedHTTPS, address, response_body, response_headers
+from .campaign_contract import numeric
 from .common import Invalid, digest
 from .payment_signature import strict_json
 from .social_auth import app_secret_proof
 from .social_contract import opaque
 from .social_registry import META_VERSION
-from .campaign_contract import numeric
 
 
 class Unconfirmed(Invalid):
@@ -155,9 +156,12 @@ class MetaTransport:
         if body and len(body) > 32768:
             raise Invalid("Campaign request exceeds the supported size")
         conn = None
-        alive()
+        if method == "GET":
+            alive()
         try:
             conn = PinnedHTTPS("graph.facebook.com", address("graph.facebook.com", deadline), trust_context(), deadline)
+            if method != "GET":
+                alive()
             conn.request(method, route, body=body, headers=headers)
             response = conn.getresponse()
             if response.status not in (200, 201):

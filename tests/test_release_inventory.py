@@ -7,12 +7,14 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+
 from mission_control.common import Invalid
-from mission_control.release_inventory import read_inventory, Inventory, resource_id, dict_query, screenshot
+from mission_control.db import connection
 from mission_control.provider_reports import read_report, report_options
 from mission_control.providers import report_destination
-from mission_control.store import Store
+from mission_control.release_inventory import Inventory, dict_query, read_inventory, screenshot
 from mission_control.service import Service
+from mission_control.store import Store
 from mission_control.worker import run_once
 
 BINDING = {"provider": "app_store", "store_app_id": "123", "account_id": "0", "env_ref": "GROWTH_SAMPLE_ONE_SYNTHETIC"}
@@ -85,6 +87,100 @@ class FakeReader:
 
 
 class ReleaseInventory(unittest.TestCase):
+    def test_launch_read_retains_evidence_in_the_same_completed_worker_job(self):
+        from mission_control.app_launch_history import history
+
+        with tempfile.TemporaryDirectory() as folder:
+            store = Store(Path(folder) / "launch.sqlite")
+            app = store.app("sample-one")
+            store.save_app("sample-one", dict(app["data"], store_app_id="123"), app["version"])
+            binding = store.save_record(
+                "sample-one",
+                {"kind": "connection", "title": "Apple", "source": "Fixture", "data": BINDING},
+            )
+            service = Service(store)
+            service.queue(
+                "sample-one",
+                dict(
+                    action="sync",
+                    data=dict(connection_id=binding["id"], options=dict(operation="launch_versions")),
+                    request_key="launch-observation",
+                ),
+            )
+            version = fixtures()[0]["data"]
+            with (
+                patch("mission_control.provider_reports.credential", return_value="synthetic"),
+                patch("mission_control.provider_reports.report_request", return_value={"data": [version], "links": {}}),
+            ):
+                run_once(store)
+            rows = history(store.path, "sample-one", store.app("sample-one")["version"])
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["status"], "IN_REVIEW")
+            workspace = service.workspace("sample-one")
+            self.assertEqual(workspace["app_launch_status"]["status"], "IN_REVIEW")
+            job = workspace["jobs"][0]
+            self.assertEqual(job["status"], "SUCCEEDED")
+            self.assertEqual(job["result"]["launch_evidence_hash"], rows[0]["evidence_hash"])
+            service.queue(
+                "sample-one",
+                dict(
+                    action="sync",
+                    data=dict(connection_id=binding["id"], options=dict(operation="launch_versions")),
+                    request_key="stale-launch-observation",
+                ),
+            )
+            from mission_control.worker import persist_job_result
+
+            def change_binding_before_commit(store_arg, job_arg, result, status, delay):
+                with connection(store.path, write=True) as db:
+                    db.execute("UPDATE records SET version=version+1 WHERE id=?", (binding["id"],))
+                return persist_job_result(store_arg, job_arg, result, status, delay)
+
+            with (
+                patch("mission_control.provider_reports.credential", return_value="synthetic"),
+                patch("mission_control.provider_reports.report_request", return_value={"data": [version], "links": {}}),
+                patch("mission_control.worker.persist_job_result", side_effect=change_binding_before_commit),
+            ):
+                run_once(store)
+            jobs = service.workspace("sample-one")["jobs"]
+            self.assertEqual(jobs[0]["status"], "BLOCKED")
+            self.assertEqual(history(store.path, "sample-one", store.app("sample-one")["version"]), rows)
+
+    def test_launch_version_read_scans_all_ios_versions_under_the_app(self):
+        first, second = (copy.deepcopy(fixtures()[0]["data"]) for _ in range(2))
+        second["id"] = "older"
+        second["attributes"]["appVersionState"] = "READY_FOR_DISTRIBUTION"
+        link = "https://api.appstoreconnect.apple.com/v1/apps/123/appStoreVersions?filter%5Bplatform%5D=IOS&cursor=next"
+        with (
+            patch("mission_control.provider_reports.credential", return_value="synthetic"),
+            patch(
+                "mission_control.provider_reports.report_request",
+                side_effect=[
+                    {"data": [first], "links": {"next": link}},
+                    {"data": [second], "links": {}},
+                ],
+            ) as transport,
+        ):
+            report = read_report(BINDING, "sample-one", {"operation": "launch_versions"})
+        assert isinstance(report, dict)
+        self.assertTrue(report["complete"])
+        self.assertEqual(report["states"], ["READY_FOR_DISTRIBUTION", "WAITING_FOR_REVIEW"])
+        hashes = report["page_source_hashes"]
+        assert isinstance(hashes, list)
+        self.assertEqual(len(hashes), 2)
+        self.assertEqual(transport.call_args.args[0], link)
+        report_destination(link, None)
+        with self.assertRaises(Invalid):
+            report_destination(link.replace("=IOS", "=MAC_OS"), None)
+        with self.assertRaises(Invalid):
+            report_destination(link, {})
+
+    def test_current_apple_version_state_takes_precedence_over_deprecated_value(self):
+        pages = fixtures()
+        pages[0]["data"]["attributes"]["appVersionState"] = "READY_FOR_DISTRIBUTION"
+        result = read_inventory(FakeReader(pages), "123", "version-1")
+        self.assertEqual(result["review_state"], "READY_FOR_DISTRIBUTION")
+
     def test_owned_release_projection_and_order(self):
         pages = fixtures()
         second = copy.deepcopy(pages[-1]["data"][0])
@@ -250,7 +346,7 @@ class ReleaseInventory(unittest.TestCase):
                 },
                 "request_key": "fixture-fail",
             }
-            first = service.queue("sample-one", body)
+            service.queue("sample-one", body)
             with patch(
                 "mission_control.provider_reports.report_request", side_effect=Invalid("Synthetic read timeout")
             ):

@@ -20,7 +20,7 @@ import {
 } from './automatic-preparation.mjs';
 import { acqIntentForm } from './acquisition.mjs';
 import { aeoForm } from './aeo.mjs';
-import { appForm, detailedOverview, download, evidenceForm, modal } from './app-ui.mjs';
+import { appForm, detailedOverview, download, evidenceForm, modal, queue } from './app-ui.mjs';
 import { briefForm, referenceForm } from './app-production.mjs';
 import { campaignOpen } from './campaign-execution.mjs';
 import { WMMCampaignPlan } from './campaign-plan.mjs';
@@ -380,6 +380,21 @@ const WMMGoalJourney = (() => {
       return false;
     }
   }
+  const channels = Object.freeze({
+    facebook: 'Facebook',
+    instagram: 'Instagram',
+    tiktok: 'TikTok',
+    youtube: 'YouTube Shorts',
+    linkedin: 'LinkedIn',
+  });
+  function savedConnectionStatus(account) {
+    if (account.status === 'DISCONNECTED') return 'Disconnected';
+    if (account.reconnect_required || account.status === 'RECONNECT_REQUIRED')
+      return 'Sign in again';
+    if (account.status === 'RENEWING') return 'Refreshing sign-in';
+    if (account.status === 'CONNECTED_READ_TESTED') return 'Read check recorded';
+    return 'Check connection';
+  }
   function model(workspace, id) {
     const goal = choices[fixed(id)];
     return {
@@ -388,12 +403,11 @@ const WMMGoalJourney = (() => {
       objective: workspace.app.data.job || '',
       goal: goal ? { id, ...goal } : null,
       accounts: (workspace.social_access?.accounts || [])
-        .filter((a) =>
-          ['facebook', 'instagram', 'tiktok', 'youtube', 'linkedin'].includes(a.provider),
-        )
+        .filter((a) => Object.hasOwn(channels, a.provider))
         .map((a) => ({
-          status: a.status,
-          destination: (a.data?.destination?.name || a.provider) + ' (' + a.provider + ')',
+          status: savedConnectionStatus(a),
+          destination: a.data?.destination?.name,
+          channel: channels[a.provider],
         })),
       classification: 'PRESENTATION_ONLY_NO_AUTHORITY',
     };
@@ -401,16 +415,35 @@ const WMMGoalJourney = (() => {
   function view(workspace, id, html) {
     const m = model(workspace, id),
       g = m.goal;
+    const icons = {
+      research: '<circle cx="10" cy="10" r="5"/><path d="m14 14 5 5"/>',
+      creative: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/>',
+      campaign: '<path d="m3 10 17-6-5 16-4-7-8-3zm8 3 5-5"/>',
+      measurement: '<path d="M4 4v16h16M8 15l4-4 3 2 5-6"/>',
+    };
     const cards = Object.entries(choices)
       .map(
         ([name, c]) =>
-          `<button type="button" class="button outline" data-action="goal-select" data-goal="${name}" data-app="${html(m.app_id)}" data-version="${m.version}" aria-pressed="${name === id}">${html(c.title)}</button>`,
+          `<button type="button" class="button outline goal-choice" data-action="goal-select" data-goal="${name}" data-app="${html(m.app_id)}" data-version="${m.version}" aria-pressed="${name === id}"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${icons[name]}</svg><span>${html(c.title)}</span></button>`,
       )
       .join('');
+    const accounts =
+      g?.id !== 'campaign'
+        ? '<p>Use saved evidence or configure a supported connection. Missing measurements remain unknown.</p>'
+        : m.accounts.length
+          ? '<h3>Saved channel connections</h3><ul>' +
+            m.accounts
+              .map(
+                (a) =>
+                  `<li><strong>${html(a.channel)}</strong>${a.destination ? ` · ${html(a.destination)}` : ''}: ${html(a.status)}</li>`,
+              )
+              .join('') +
+            '</ul>'
+          : '<p>No channel connection is saved for this app.</p>';
     const next = g
-      ? `<section class="panel" aria-label="Your selected goal"><h2>${html(g.title)}</h2><p>${html(g.description)}</p><p><strong>Bring:</strong> ${html(g.need)}.</p><p>${g.id === 'campaign' ? (m.accounts.length ? m.accounts.map((a) => html(a.destination) + ': ' + html(a.status)).join(' A� ') : 'No channel connection is saved for this app.') : 'Use saved evidence or configure your own supported connection. Missing measurements remain unknown.'}</p><p>Account setup is not execution approval. Existing workflow and campaign checks still apply.</p><div class="toolbar"><button type="button" class="button" data-action="goal-next" data-goal="${g.id}" data-app="${html(m.app_id)}" data-version="${m.version}">${html(g.next)}</button><button type="button" class="button outline" data-action="goal-readiness">Check connections for this goal</button><button type="button" class="button outline" data-view="agents">Connect your agent</button></div></section>`
+      ? `<section class="panel" aria-label="Your selected goal"><h2>${html(g.title)}</h2><p>${html(g.description)}</p><p><strong>Bring:</strong> ${html(g.need)}.</p>${accounts}<p>Account setup is not execution approval. Existing workflow and campaign checks still apply.</p><div class="toolbar"><button type="button" class="button" data-action="goal-next" data-goal="${g.id}" data-app="${html(m.app_id)}" data-version="${m.version}">${html(g.next)}</button><button type="button" class="button outline" data-action="goal-readiness">Check connections for this goal</button><button type="button" class="button outline" data-view="agents">Connect your agent</button></div></section>`
       : '<p>Choose one goal to see the relevant tools. This selection starts no work and grants no permission.</p>';
-    return `<section class="panel" aria-label="Choose your marketing goal" id="goal-journey"><h2>What would you like to accomplish?</h2><p>Start with one useful result. Your agent and you use the same saved app facts, tools and approval checks.</p><p><strong>Your app purpose:</strong> ${html(m.objective || 'Add the problem your app solves in App setup.')}</p><div class="toolbar" role="group" aria-label="Marketing goals">${cards}</div><p id="goal-message" role="status" aria-live="polite"></p></section>${next}`;
+    return `<section class="panel" aria-label="Choose your marketing goal" id="goal-journey"><h2>What would you like to accomplish?</h2><p>Start with one useful result. Your agent and you use the same saved app facts, tools and approval checks.</p><p><strong>Your app purpose:</strong> ${html(m.objective || 'Add the problem your app solves in App setup.')}</p><div class="goal-choice-grid" role="group" aria-label="Marketing goals">${cards}</div><p id="goal-message" role="status" aria-live="polite"></p></section>${next}`;
   }
   function browserStorage() {
     try {
@@ -457,6 +490,105 @@ function startHerePanel() {
   return `<section class="panel goal-proof-layout" aria-label="Start your first experiment"><div><p class="eyebrow">START HERE</p><h2>Your next marketing move, with evidence</h2><p>Built for founders and marketing teams promoting one app or a portfolio. Keep each app’s work and permissions separate.</p><p><strong>Day 1 — a clearer next marketing move.</strong> Choose one app-growth question and prepare your first evidence packet: a plan, its sources and what is still missing.</p><p><strong>Around Day 30, with regular use — a record you can build on.</strong> Review dated research, approved work and available results, then decide what to continue, revise or stop.</p><p class="description">The potential payoff: less repeated research and clearer campaign decisions. Missing measurements stay unknown; growth and time savings are not guaranteed. You still approve what goes live.</p><p>${missing.length ? `Add ${esc(missing.join(', '))} to turn your app facts into a reviewable campaign plan.` : 'Build a campaign plan from your saved facts, channel and outcome. Review it before anything runs.'}</p><div class="toolbar">${primary}${button('Start the guided path', 'first-post-open')}${button('Open your first packet', 'automatic-goal-open', WMMGoalPacket.attributes(WMMGoalPacket.model()))}</div>${exceptions.length ? `<p class="description">${exceptions.length} saved item${exceptions.length === 1 ? '' : 's'} need attention. <button type="button" class="button outline" data-view="workflow">Review workflow</button></p>` : ''}<details><summary>More options</summary><div class="toolbar">${button('What should I do next?', 'next-answer')}${button('Measure one organic post', 'observational-campaign-open')}</div><p class="description">Each path keeps its own approval. Nothing publishes or spends on its own.</p></details></div>${goalProofIllustration()}</section>`;
 }
 
+function launchStatusPanel(workspace) {
+  const launch = workspace?.app_launch_status;
+  const app = workspace?.app;
+  if (!launch || (!app?.data?.store_app_id && !app?.data?.bundle_id)) return '';
+  const copy = {
+    LIVE: 'Live in a verified storefront. Outcome data still needs a matching source.',
+    IN_REVIEW: 'In App Review. Store installs and retention are not applicable yet.',
+    NOT_SUBMITTED: 'Preparing for submission. Focus on waitlist signups or creative tests.',
+    REMOVED: 'Removed from sale. Review store-directed work before scheduling anything new.',
+    UNKNOWN: 'Availability is unknown. Check Apple before interpreting store-dependent metrics.',
+  };
+  const choices = {
+    UNKNOWN: 'Unknown',
+    NOT_SUBMITTED: 'Preparing for submission',
+    IN_REVIEW: 'In App Review',
+    LIVE: 'Live',
+    REMOVED: 'Removed from sale',
+  };
+  const declared = launch.owner_declaration?.status;
+  const note = declared
+    ? `<p>Owner declaration: ${esc(choices[declared] || choices.UNKNOWN)} (unverified).</p>`
+    : '';
+  const conflict =
+    launch.reason === 'SOURCE_CONFLICT'
+      ? '<p>Apple’s version and storefront readings disagree. Check the app and storefront before using install metrics.</p>'
+      : '';
+  const form = workspace.access?.members?.some(
+    (member) =>
+      member.principal === workspace.identity?.principal &&
+      member.role === 'OWNER' &&
+      member.status === 'ACTIVE',
+  )
+    ? `<details><summary>Record your own status</summary><p>Your note does not verify availability or approve a campaign.</p><form id="goal-launch-declare" data-app="${esc(app.id)}" data-version="${app.version}"><label class="field">App Store status<select name="status">${Object.entries(
+        choices,
+      )
+        .map(
+          ([key, value]) =>
+            `<option value="${key}"${key === (declared || 'UNKNOWN') ? ' selected' : ''}>${value}</option>`,
+        )
+        .join(
+          '',
+        )}</select></label><button type="submit" class="button outline">Save declaration</button><p role="alert"></p></form></details>`
+    : '';
+  const countries = (launch.verified_storefronts || []).map(esc).join(', ');
+  const bindings = (workspace.records || []).filter(
+    (row) =>
+      row.kind === 'connection' &&
+      row.data?.provider === 'app_store' &&
+      String(row.data.store_app_id) === String(app.data.store_app_id) &&
+      row.data.auth_mode !== 'disconnected',
+  );
+  return `<section class="panel" aria-label="App Store launch status"><h2>App Store launch status</h2><p>${esc(copy[launch.status] || copy.UNKNOWN)}</p>${conflict}${note}${form}${countries ? `<p>Verified storefronts: ${countries}</p>` : ''}${bindings.length === 1 ? `<form id="goal-launch-check" data-app="${esc(app.id)}" data-version="${app.version}" data-connection="${esc(bindings[0].id)}" data-connection-version="${bindings[0].version}"><label class="field">Storefront country code<input name="storefront" required maxlength="2" pattern="[A-Za-z]{2}" placeholder="CA"></label><button type="submit" class="button outline">Check App Store status</button><p id="goal-launch-error" role="alert"></p></form>` : '<p>Keep one App Store Connect connection for this app to check launch status.</p><button type="button" class="button outline" data-view="connections">Review connections</button>'}</section>`;
+}
+
+async function submitLaunchDeclaration(form) {
+  const { app, version } = form.dataset;
+  if (app !== state.app || Number(version) !== state.workspace?.app.version) return;
+  const submit = form.querySelector('[type=submit]');
+  submit.disabled = true;
+  try {
+    await api(`/api/apps/${encodeURIComponent(app)}/launch-status/declare`, {
+      app_version: Number(version),
+      status: new FormData(form).get('status'),
+    });
+    if (app === state.app) await refresh();
+  } catch {
+    if (form.isConnected)
+      form.querySelector('[role=alert]').textContent =
+        'Could not save. Sign in as the app owner and reopen this app before trying again.';
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+async function submitLaunchCheck(form) {
+  const { app, version, connection, connectionVersion } = form.dataset;
+  if (app !== state.app || Number(version) !== state.workspace?.app.version) return;
+  const storefront = String(new FormData(form).get('storefront') || '')
+    .trim()
+    .toUpperCase();
+  if (!/^[A-Z]{2}$/.test(storefront)) return;
+  const submit = form.querySelector('[type=submit]');
+  submit.disabled = true;
+  try {
+    await queue('sync', {
+      connection_id: connection,
+      connection_version: Number(connectionVersion),
+      manifest_version: Number(version),
+      options: { operation: 'launch_versions', storefront },
+    });
+  } catch {
+    if (form.isConnected)
+      form.querySelector('#goal-launch-error').textContent =
+        'Could not queue the Apple check. Review your connection and retry.';
+  } finally {
+    submit.disabled = false;
+  }
+}
+
 function goalOverview() {
   const id =
     state.goalChoice?.app === state.app
@@ -465,6 +597,7 @@ function goalOverview() {
   return (
     heading('Set your goal', 'Choose one outcome. Watch the work. Review what happened.') +
     startHerePanel() +
+    launchStatusPanel(state.workspace) +
     WMMGoalJourney.view(state.workspace, id, esc) +
     `<details class="panel" id="goal-advanced"><summary>Advanced app overview and twelve-stage diagnostics</summary><div class="toolbar">${button('Review combined automation agreement', 'goal-agreement')}${button('Monitor approved campaigns', 'campaign-monitor-open')}${button('Review private campaign outcomes', 'owner-report-open')}${button('Measure one organic post', 'observational-campaign-open')}</div>${detailedOverview()
       .replace(/<h1>/g, '<h2>')
@@ -691,8 +824,8 @@ const WMMGoalReadiness = (() => {
       (i.accounts.length ? i.accounts.map(destination).join('; ') : 'None') +
       '</p><p>Readiness permits scope review only. Campaign publishing and paid work need their own exact owner scope; editor/runtime blockers remain visible.</p><div class="toolbar">' +
       button('Repair agent connection', 'goal-repair', 'data-tool="agents"') +
-      button('Repair account connection', 'goal-repair', 'data-tool="connections"') +
-      button('Review automation agreement', 'goal-repair', 'data-tool="agreement"') +
+      button('Open social account setup', 'goal-repair', 'data-tool="social-accounts"') +
+      button('Review automation agreement', 'goal-repair', 'data-tool="combined-agreement"') +
       (i.workflows.some((w) => w.id === 'organic_publication')
         ? button('Review organic publication', 'goal-repair', 'data-tool="organic-publication"')
         : '') +
@@ -788,6 +921,10 @@ const WMMGoalReadiness = (() => {
               '</label>',
           )
           .join('') +
+        (accounts.length === 0 && saved.goal === 'campaign'
+          ? '<p>No social destination is connected for this app. Connect the account you want to publish to, then return here to check it. Connecting an account gives no permission to publish or spend.</p>' +
+            button('Connect a social account', 'goal-repair', 'data-tool="social-accounts"')
+          : '') +
         '</fieldset><p>Analytics imports and provider-specific connection tests remain in Connections and Results; this inventory checks the selected agent/workflow scope, not every KPI collector.</p><p id="goal-readiness-error" role="alert"></p><button type="submit" class="button">Check selected connections</button>' +
         button('Cancel', 'close') +
         '</form>',
@@ -840,6 +977,8 @@ const WMMGoalReadiness = (() => {
     }
     active = null;
     if (tool === 'campaign') return campaignOpen();
+    if (tool === 'social-accounts') return guidedNavigate('connections', '#social-heading');
+    if (tool === 'combined-agreement') return WMMAgreement.open();
     if (tool === 'agreement')
       return WMMCompleteAutomation.action(
         { dataset: { action: 'standing-open' } },
@@ -1370,6 +1509,8 @@ export {
   goalProofIllustration,
   startHerePanel,
   goalOverview,
+  submitLaunchCheck,
+  submitLaunchDeclaration,
   goalAction,
   WMMGoalReadiness,
   WMMAgreement,

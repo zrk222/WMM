@@ -1,20 +1,189 @@
-const {test}=require("node:test"),assert=require("node:assert/strict"),fs=require('./helpers/module-source.cjs'),vm=require("node:vm"),path=require("node:path");
-const src=fs.readFileSync(path.join(__dirname,"../mission_control/static/guided-workflow.mjs"),"utf8");
-function fixture(){const values=new Map(),storage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)},calls=[],state={app:"one",workspace:{app:{id:"one",version:1,data:{job:"Help owners plan"}},social_access:{accounts:[]}}};const c={state,localStorage:storage,document:{querySelector:()=>null},render:()=>calls.push("render"),campaignOpen:()=>calls.push("campaign"),guidedNavigate:v=>calls.push(v),guidedOpenTool:v=>calls.push(v)};vm.createContext(c);vm.runInContext(src,c);c.guidedNavigate=v=>calls.push(v);c.guidedOpenTool=v=>calls.push(v);return {g:vm.runInContext("WMMGoalJourney",c),c,state,storage,values,calls};}
-const escape=s=>String(s).replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll("\"","&quot;");
-test("goal selection is app scoped presentation and starts no job or approval",()=>{const h=fixture();h.c.goalAction({dataset:{action:"goal-select",goal:"campaign",app:"one",version:"1"}});assert.equal(h.g.read(h.storage,"one"),"campaign");assert.equal(h.g.read(h.storage,"two"),"");assert.deepEqual(h.calls,["render"]);assert.equal(h.values.size,1);assert.equal(h.g.model(h.state.workspace,"campaign").classification,"PRESENTATION_ONLY_NO_AUTHORITY");});
-test("unknown values and unavailable storage cannot invent a goal or block setup",()=>{const h=fixture();h.values.set("wmm-goal-choice:one","<script>");assert.equal(h.g.read(h.storage,"one"),"");assert.throws(()=>h.g.save(h.storage,"one","publish-anything"));const broken={getItem(){throw Error("disabled")},setItem(){throw Error("full")}};assert.equal(h.g.read(broken,"one"),"");assert.equal(h.g.save(broken,"one","research"),false);});
-test("changed app and version reject before navigation or preference changes",()=>{for(const kind of ["app","version"]){const h=fixture();const ds={action:"goal-select",goal:"research",app:"one",version:"1"};ds[kind]=kind==="app"?"two":"2";assert.throws(()=>h.c.goalAction({dataset:ds}));assert.equal(h.values.size,0);assert.equal(h.calls.length,0);}});
-test("source labels are escaped and connected state is never execution authority",()=>{const h=fixture();h.state.workspace.app.data.job="<script>bad</script>";h.state.workspace.social_access.accounts=[{provider:"facebook",status:"CONNECTED_READ_TESTED",data:{destination:{name:"<img onerror=bad>"}}}];const html=h.g.view(h.state.workspace,"campaign",escape);assert.equal(html.includes("<script>"),false);assert.equal(html.includes("<img onerror"),false);assert.match(html,/Account setup is not execution approval/);assert.match(html,/data-action="goal-next"/);assert.equal((html.match(/data-action="goal-next"/g)||[]).length,1);assert.equal(h.calls.length,0);});
-test("next action opens existing controls only after explicit user choice",()=>{for(const[id,expected]of [["campaign","connections"],["creative","research"],["research","sources"],["measurement","results"]]){const h=fixture();h.c.goalAction({dataset:{action:"goal-next",goal:id,app:"one",version:"1"}});assert.deepEqual(h.calls,[expected]);}});
-test("three primary choices retain all advanced routes",()=>{const html=fs.readFileSync(path.join(__dirname,"../mission_control/static/index.html"),"utf8");const nav=html.match(/<nav aria-label="Main navigation"[^>]*>([\s\S]*?)<\/nav>/)[1];const primary=nav.split("<details>")[0];assert.equal((primary.match(/data-view=/g)||[]).length,3);for(const text of ["Set your goal","Watch the work","Review results","Advanced tools"])assert.ok(nav.includes(text));for(const view of ["weekly","overview","workflow","pipeline","evidence","results","connections","agents","activity","research"])assert.ok(nav.includes("data-view=\""+view+"\""),view);});
+const { test } = require('node:test'),
+  assert = require('node:assert/strict'),
+  fs = require('./helpers/module-source.cjs'),
+  vm = require('node:vm'),
+  path = require('node:path');
+const src = fs.readFileSync(
+  path.join(__dirname, '../mission_control/static/guided-workflow.mjs'),
+  'utf8',
+);
+function fixture() {
+  const values = new Map(),
+    storage = { getItem: (k) => values.get(k), setItem: (k, v) => values.set(k, v) },
+    calls = [],
+    state = {
+      app: 'one',
+      workspace: {
+        app: { id: 'one', version: 1, data: { job: 'Help owners plan' } },
+        social_access: { accounts: [] },
+      },
+    };
+  const c = {
+    state,
+    localStorage: storage,
+    document: { querySelector: () => null },
+    render: () => calls.push('render'),
+    campaignOpen: () => calls.push('campaign'),
+    guidedNavigate: (v) => calls.push(v),
+    guidedOpenTool: (v) => calls.push(v),
+  };
+  vm.createContext(c);
+  vm.runInContext(src, c);
+  c.guidedNavigate = (v) => calls.push(v);
+  c.guidedOpenTool = (v) => calls.push(v);
+  return { g: vm.runInContext('WMMGoalJourney', c), c, state, storage, values, calls };
+}
+const escape = (s) =>
+  String(s).replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+test('goal selection is app scoped presentation and starts no job or approval', () => {
+  const h = fixture();
+  h.c.goalAction({
+    dataset: { action: 'goal-select', goal: 'campaign', app: 'one', version: '1' },
+  });
+  assert.equal(h.g.read(h.storage, 'one'), 'campaign');
+  assert.equal(h.g.read(h.storage, 'two'), '');
+  assert.deepEqual(h.calls, ['render']);
+  assert.equal(h.values.size, 1);
+  assert.equal(
+    h.g.model(h.state.workspace, 'campaign').classification,
+    'PRESENTATION_ONLY_NO_AUTHORITY',
+  );
+});
+test('unknown values and unavailable storage cannot invent a goal or block setup', () => {
+  const h = fixture();
+  h.values.set('wmm-goal-choice:one', '<script>');
+  assert.equal(h.g.read(h.storage, 'one'), '');
+  assert.throws(() => h.g.save(h.storage, 'one', 'publish-anything'));
+  const broken = {
+    getItem() {
+      throw Error('disabled');
+    },
+    setItem() {
+      throw Error('full');
+    },
+  };
+  assert.equal(h.g.read(broken, 'one'), '');
+  assert.equal(h.g.save(broken, 'one', 'research'), false);
+});
+test('changed app and version reject before navigation or preference changes', () => {
+  for (const kind of ['app', 'version']) {
+    const h = fixture();
+    const ds = { action: 'goal-select', goal: 'research', app: 'one', version: '1' };
+    ds[kind] = kind === 'app' ? 'two' : '2';
+    assert.throws(() => h.c.goalAction({ dataset: ds }));
+    assert.equal(h.values.size, 0);
+    assert.equal(h.calls.length, 0);
+  }
+});
+test('source labels are escaped and connected state is never execution authority', () => {
+  const h = fixture();
+  h.state.workspace.app.data.job = '<script>bad</script>';
+  h.state.workspace.social_access.accounts = [
+    {
+      provider: 'facebook',
+      status: 'CONNECTED_READ_TESTED',
+      data: { destination: { name: '<img onerror=bad>' } },
+    },
+  ];
+  const html = h.g.view(h.state.workspace, 'campaign', escape);
+  assert.equal(html.includes('<script>'), false);
+  assert.equal(html.includes('<img onerror'), false);
+  assert.match(html, /Account setup is not execution approval/);
+  assert.match(html, /data-action="goal-next"/);
+  assert.equal((html.match(/data-action="goal-next"/g) || []).length, 1);
+  assert.equal(h.calls.length, 0);
+});
+test('next action opens existing controls only after explicit user choice', () => {
+  for (const [id, expected] of [
+    ['campaign', 'connections'],
+    ['creative', 'research'],
+    ['research', 'sources'],
+    ['measurement', 'results'],
+  ]) {
+    const h = fixture();
+    h.c.goalAction({ dataset: { action: 'goal-next', goal: id, app: 'one', version: '1' } });
+    assert.deepEqual(h.calls, [expected]);
+  }
+});
+test('three primary choices retain all advanced routes', () => {
+  const html = fs.readFileSync(
+    path.join(__dirname, '../mission_control/static/index.html'),
+    'utf8',
+  );
+  const nav = html.match(/<nav aria-label="Main navigation"[^>]*>([\s\S]*?)<\/nav>/)[1];
+  const primary = nav.split('<details>')[0];
+  assert.equal((primary.match(/data-view=/g) || []).length, 3);
+  for (const text of ['Set your goal', 'Watch the work', 'Review results', 'Advanced tools'])
+    assert.ok(nav.includes(text));
+  for (const view of [
+    'weekly',
+    'overview',
+    'workflow',
+    'pipeline',
+    'evidence',
+    'results',
+    'connections',
+    'agents',
+    'activity',
+    'research',
+  ])
+    assert.ok(nav.includes('data-view="' + view + '"'), view);
+});
 
-test("throwing browser storage accessor falls back to session choice",()=>{const h=fixture();vm.runInContext('Object.defineProperty(globalThis,"localStorage",{get(){throw Error("denied")}})',h.c);assert.equal(h.g.browserStorage(),null);assert.equal(h.g.save(null,"one","research"),false);h.c.goalAction({dataset:{action:"goal-select",goal:"research",app:"one",version:"1"}});assert.equal(h.state.goalChoice.id,"research");assert.deepEqual(h.calls,["render"]);});
-test("campaign goal recognizes every supported connected channel as setup only",()=>{
- const h=fixture();h.state.workspace.social_access.accounts=['facebook','instagram','tiktok','youtube','linkedin'].map(provider=>({provider,status:'CONNECTED_READ_TESTED',data:{destination:{name:provider+' account'}}}));
- const model=h.g.model(h.state.workspace,'campaign');assert.equal(model.accounts.length,5);
- const html=h.g.view(h.state.workspace,'campaign',escape);
- for(const provider of ['facebook','instagram','tiktok','youtube','linkedin'])assert.ok(html.includes(provider+' account'));
- assert.doesNotMatch(html,/No channel connection/);assert.match(html,/Account setup is not execution approval/);
- assert.equal(h.calls.length,0);
+test('throwing browser storage accessor falls back to session choice', () => {
+  const h = fixture();
+  vm.runInContext(
+    'Object.defineProperty(globalThis,"localStorage",{get(){throw Error("denied")}})',
+    h.c,
+  );
+  assert.equal(h.g.browserStorage(), null);
+  assert.equal(h.g.save(null, 'one', 'research'), false);
+  h.c.goalAction({
+    dataset: { action: 'goal-select', goal: 'research', app: 'one', version: '1' },
+  });
+  assert.equal(h.state.goalChoice.id, 'research');
+  assert.deepEqual(h.calls, ['render']);
+});
+test('campaign goal recognizes every supported connected channel as setup only', () => {
+  const h = fixture();
+  h.state.workspace.social_access.accounts = [
+    'facebook',
+    'instagram',
+    'tiktok',
+    'youtube',
+    'linkedin',
+  ].map((provider) => ({
+    provider,
+    status: 'CONNECTED_READ_TESTED',
+    data: { destination: { name: provider + ' account' } },
+  }));
+  const model = h.g.model(h.state.workspace, 'campaign');
+  assert.equal(model.accounts.length, 5);
+  const html = h.g.view(h.state.workspace, 'campaign', escape);
+  for (const provider of ['facebook', 'instagram', 'tiktok', 'youtube', 'linkedin'])
+    assert.ok(html.includes(provider + ' account'));
+  assert.doesNotMatch(html, /No channel connection/);
+  assert.match(html, /Account setup is not execution approval/);
+  assert.equal(h.calls.length, 0);
+});
+
+test('launch declarations and source conflict stay separate in the owner panel', () => {
+  const h = fixture();
+  h.c.esc = escape;
+  const workspace = h.state.workspace;
+  workspace.app.data.bundle_id = 'org.example.test';
+  workspace.identity = { principal: 'owner' };
+  workspace.access = { members: [{ principal: 'owner', role: 'OWNER', status: 'ACTIVE' }] };
+  workspace.app_launch_status = {
+    status: 'UNKNOWN',
+    reason: 'SOURCE_CONFLICT',
+    owner_declaration: { status: 'LIVE' },
+  };
+  const render = vm.runInContext('launchStatusPanel', h.c);
+  const html = render(workspace);
+  assert.match(html, /readings disagree/);
+  assert.match(html, /Owner declaration: Live \(unverified\)/);
+  assert.match(html, /id="goal-launch-declare"/);
+  workspace.access.members[0].role = 'MAKER';
+  assert.doesNotMatch(render(workspace), /id="goal-launch-declare"/);
 });

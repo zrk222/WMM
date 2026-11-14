@@ -499,6 +499,18 @@
     'Review the exact batch and keep WMM running. OFF stops undispatched work; reconcile uncertain delivery and inspect retained commitments.',
   );
   define(
+    'goal-launch-check',
+    'Check whether Apple lists this app.',
+    'Choose the storefront country to check against the saved Apple connection.',
+    'WMM saves a read result without changing the listing or approving a campaign.',
+  );
+  define(
+    'goal-launch-declare',
+    'Record your understanding of launch status.',
+    'Choose the status that matches what you know about the app.',
+    'The workspace shows an unverified owner note. Verified availability stays separate.',
+  );
+  define(
     'goal-readiness-form',
     'Check the setup WMM needs to run approved work.',
     'WMM inspects the owner, selected workflows and tested connections without issuing a grant or starting work.',

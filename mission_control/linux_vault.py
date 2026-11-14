@@ -1,14 +1,16 @@
 """Explicit Linux Secret Service storage; no prompts, collection creation or fallback."""
 
-from contextlib import contextmanager
 import hashlib
 import importlib
 import json
 import time
+from contextlib import contextmanager
+
 from .common import Invalid, canonical
 from .payment_signature import unique_pairs
 
 MAX_BYTES = 2560
+MAX_REPLY_SECONDS = 15
 
 
 def address(name):
@@ -50,13 +52,13 @@ class BoundedBus:
 
     def __init__(self, bus):
         self.bus = bus
-        self.deadline = time.monotonic() + 15
+        self.deadline = time.monotonic() + MAX_REPLY_SECONDS
 
     def send_and_get_reply(self, message, **kwargs):
         remaining = self.deadline - time.monotonic()
         if remaining <= 0:
             raise TimeoutError("Secret Service operation deadline")
-        return self.bus.send_and_get_reply(message, timeout=remaining)
+        return self.bus.send_and_get_reply(message, timeout=min(remaining, MAX_REPLY_SECONDS))
 
     def __getattr__(self, name):
         return getattr(self.bus, name)
@@ -81,16 +83,14 @@ class LinuxVault:
             collection = self.library.Collection(bounded)
             if collection.is_locked():
                 raise Invalid("Unlock the desktop keyring before using protected WMM connections")
-            from secretstorage.util import open_session
-
-            session = open_session(bounded)
+            session = importlib.import_module("secretstorage.util").open_session(bounded)
             if not session.encrypted:
                 raise Invalid("Secret Service encrypted transport is required")
             collection.session = session
             yield collection
         except Invalid:
             raise
-        except Exception:
+        except Exception:  # noqa: BLE001 - Redact native provider errors at the credential boundary.
             raise Invalid(
                 "Linux protected credential service is unavailable or locked; unlock the desktop keyring and retry. Existing connection records are preserved."
             ) from None

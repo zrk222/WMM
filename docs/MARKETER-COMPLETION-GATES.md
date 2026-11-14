@@ -132,6 +132,86 @@ MV5's Windows/Ubuntu CI-lane requirement has verified evidence above; MV1–MV4
 and the trial-dependent MV6 freeze remain open. This document grants no provider access,
 external write, production activation, spending, public hosting or outreach.
 
+## Growth operator acceptance: installs and paid subscriptions
+
+These are required outcomes alongside the existing gates and all 42 metrics in
+the [KPI register](WMM-KPI-COVERAGE.md). Track impressions → store views →
+installs → activation and installs → activation → trial → paid → renewal.
+Publication, engagement, and receipts are operational evidence. Rank growth
+work by its expected effect on installs or paid subscriptions.
+
+1. **Close the first-party join on WizeMe.** Freeze the acquisition tag and
+   source, use consented PostHog install/activation events and authenticated
+   RevenueCat trial, payment, and renewal evidence. Use an explicit,
+   app-scoped pseudonymous identity link and compatible cohort windows. Deduplicate
+   events, retain corrections, exclude internal tests, and distinguish store
+   downloads from an SDK-observed first open. Show unmatched, suppressed,
+   immature, and unobservable data separately. A tagged visit alone does not
+   count as an install or a paid conversion.
+2. **Run one subscription experiment through WMM.** Pick one paywall or offer
+   change. Preregister exposure, assignment, paid conversion, sample size,
+   maturity, stop criteria, comparison, and rollback. Preview the exact
+   destination and change, require separate maker/checker approval, and reuse
+   the governed outbox pattern. Verify the selected provider actually supports
+   the mutation and read it back after dispatch. A listing promo-text write
+   does not establish support for editing a paywall, offer, or price. Retain an
+   owner report with attributed trial-to-paid counts and a continue, stop, or
+   revise decision. Only claim incremental subscriptions when the comparison
+   estimates lift with uncertainty; an honest null or inconclusive result is
+   retained with the next decision.
+3. **Close the download loop.** Use store reporting, Apple Ads read signals,
+   and tagged creative to identify the largest observed acquisition leak. Run
+   one authorized listing or distribution intervention with exact readback and
+   attributed install observations. Keep provider attribution and first-party
+   attribution separate when they cannot be reconciled.
+4. **Repeat under standing limits.** The weekly inbox should recommend the
+   best next intervention, with its expected impact, confidence, evidence
+   gaps, and approval needed. Draft and evaluate locally. Publish, mutate
+   prices or listings, or spend only under the existing exact authority.
+   Report what changed and start the next cycle from observed results,
+   including failed experiments and tracking failures.
+
+Acceptance requires durable source and completion receipts, reproducible
+matching and failure cases, and the same figures in the owner UI, agent output,
+and exports. Reuse existing connectors and event stores. First-party coverage
+does not imply MMP coverage or causal proof.
+
+### P2: App acquisition media buying
+
+Status: planned. After the WizeMe trial, review the retained evidence for
+the verified source → install → trial → paid join and the completed
+subscription experiment. A null result is acceptable; unverified attribution
+is not. The paid pilot also needs a verified install signal for the selected
+app, account, and channel. The separate organic download experiment need not
+finish if this signal is already verified.
+
+- [Apple Ads search results](https://ads.apple.com/app-store/help/ad-placements/0082-search-results):
+  first candidate for iOS, extending the existing read signals to a governed
+  keyword campaign with install and subscription measurement.
+- [Google App campaigns](https://developers.google.com/google-ads/api/docs/app-campaigns/overview):
+  prioritize when Android acquisition and conversion tracking are ready.
+- [TikTok App Promotion](https://ads.tiktok.com/resources/help/article/what-is-app-promotion-objective):
+  prioritize when short-form creative and eligible app-event tracking are ready.
+
+Agents recommend one eligible channel based on expected installs, paid
+subscriptions, and measurement coverage. Prefer stronger measurement when
+estimates are similar; defer if no channel can verify tracking and pause.
+Draft the exact app, account, objective, creative, targeting, currency, daily
+and total ceilings, run dates, spend-check cadence, and stop conditions such
+as exhausted budget or lost measurement. Launch requires separate
+owner approval of that exact draft. Reuse the existing authority and receipt
+model; verify provider readback, duplicate prevention, and protective pause
+before live activation. Reconcile uncertain effects before retrying.
+
+Divide matched spend by attributed first installs for CPI and by attributed
+first successful paid subscriptions for paid CAC. For D7/D30 ROAS, divide
+attributed cohort revenue through day 7/30 by matched spend, using a consistent
+currency and declared revenue basis. Declare the attribution source, deduplicate
+overlaps, and compare only mature cohorts with the same rules. Keep missing
+or immature values unavailable. Use preregistered thresholds to recommend
+continue, pause, or revise; attributed counts alone do not establish lift.
+This backlog item authorizes no spend and leaves the WizeMe trial free-only.
+
 ## Next owner-run WizeMe trial handoff
 
 Use the [first evidence packet](../README.md#your-first-evidence-packet) to start.
