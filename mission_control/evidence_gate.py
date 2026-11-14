@@ -65,7 +65,7 @@ def provider_set(store: Any, app_id: str) -> set[str]:
 def evaluate(
     scope: dict[str, Any],
     providers: set[str],
-    request: dict[str, Any] | None = None,
+    request: Any = None,
     scope_status: str = "ACTIVE",
     observed: Any = None,
 ) -> dict[str, Any]:
@@ -140,9 +140,7 @@ def evaluate(
     )
 
 
-def assert_ready(
-    store: Any, app_id: str, scope: dict[str, Any], request: dict[str, Any] | None = None
-) -> dict[str, Any]:
+def assert_ready(store: Any, app_id: str, scope: dict[str, Any], request: Any = None) -> dict[str, Any]:
     """Enforce an explicitly approved measurement plan at the campaign effect boundary."""
     gate = evaluate(scope, provider_set(store, app_id), request=request, scope_status=scope.get("status", "ACTIVE"))
     if gate["status"] != "READY":
