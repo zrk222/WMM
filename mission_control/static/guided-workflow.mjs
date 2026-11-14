@@ -20,7 +20,7 @@ import {
 } from './automatic-preparation.mjs';
 import { acqIntentForm } from './acquisition.mjs';
 import { aeoForm } from './aeo.mjs';
-import { appForm, detailedOverview, download, evidenceForm, modal } from './app-ui.mjs';
+import { appForm, detailedOverview, download, evidenceForm, modal, queue } from './app-ui.mjs';
 import { briefForm, referenceForm } from './app-production.mjs';
 import { campaignOpen } from './campaign-execution.mjs';
 import { WMMCampaignPlan } from './campaign-plan.mjs';
@@ -490,6 +490,105 @@ function startHerePanel() {
   return `<section class="panel goal-proof-layout" aria-label="Start your first experiment"><div><p class="eyebrow">START HERE</p><h2>Your next marketing move, with evidence</h2><p>Built for founders and marketing teams promoting one app or a portfolio. Keep each app’s work and permissions separate.</p><p><strong>Day 1 — a clearer next marketing move.</strong> Choose one app-growth question and prepare your first evidence packet: a plan, its sources and what is still missing.</p><p><strong>Around Day 30, with regular use — a record you can build on.</strong> Review dated research, approved work and available results, then decide what to continue, revise or stop.</p><p class="description">The potential payoff: less repeated research and clearer campaign decisions. Missing measurements stay unknown; growth and time savings are not guaranteed. You still approve what goes live.</p><p>${missing.length ? `Add ${esc(missing.join(', '))} to turn your app facts into a reviewable campaign plan.` : 'Build a campaign plan from your saved facts, channel and outcome. Review it before anything runs.'}</p><div class="toolbar">${primary}${button('Start the guided path', 'first-post-open')}${button('Open your first packet', 'automatic-goal-open', WMMGoalPacket.attributes(WMMGoalPacket.model()))}</div>${exceptions.length ? `<p class="description">${exceptions.length} saved item${exceptions.length === 1 ? '' : 's'} need attention. <button type="button" class="button outline" data-view="workflow">Review workflow</button></p>` : ''}<details><summary>More options</summary><div class="toolbar">${button('What should I do next?', 'next-answer')}${button('Measure one organic post', 'observational-campaign-open')}</div><p class="description">Each path keeps its own approval. Nothing publishes or spends on its own.</p></details></div>${goalProofIllustration()}</section>`;
 }
 
+function launchStatusPanel(workspace) {
+  const launch = workspace?.app_launch_status;
+  const app = workspace?.app;
+  if (!launch || (!app?.data?.store_app_id && !app?.data?.bundle_id)) return '';
+  const copy = {
+    LIVE: 'Live in a verified storefront. Outcome data still needs a matching source.',
+    IN_REVIEW: 'In App Review. Store installs and retention are not applicable yet.',
+    NOT_SUBMITTED: 'Preparing for submission. Focus on waitlist signups or creative tests.',
+    REMOVED: 'Removed from sale. Review store-directed work before scheduling anything new.',
+    UNKNOWN: 'Availability is unknown. Check Apple before interpreting store-dependent metrics.',
+  };
+  const choices = {
+    UNKNOWN: 'Unknown',
+    NOT_SUBMITTED: 'Preparing for submission',
+    IN_REVIEW: 'In App Review',
+    LIVE: 'Live',
+    REMOVED: 'Removed from sale',
+  };
+  const declared = launch.owner_declaration?.status;
+  const note = declared
+    ? `<p>Owner declaration: ${esc(choices[declared] || choices.UNKNOWN)} (unverified).</p>`
+    : '';
+  const conflict =
+    launch.reason === 'SOURCE_CONFLICT'
+      ? '<p>Apple’s version and storefront readings disagree. Check the app and storefront before using install metrics.</p>'
+      : '';
+  const form = workspace.access?.members?.some(
+    (member) =>
+      member.principal === workspace.identity?.principal &&
+      member.role === 'OWNER' &&
+      member.status === 'ACTIVE',
+  )
+    ? `<details><summary>Record your own status</summary><p>Your note does not verify availability or approve a campaign.</p><form id="goal-launch-declare" data-app="${esc(app.id)}" data-version="${app.version}"><label class="field">App Store status<select name="status">${Object.entries(
+        choices,
+      )
+        .map(
+          ([key, value]) =>
+            `<option value="${key}"${key === (declared || 'UNKNOWN') ? ' selected' : ''}>${value}</option>`,
+        )
+        .join(
+          '',
+        )}</select></label><button type="submit" class="button outline">Save declaration</button><p role="alert"></p></form></details>`
+    : '';
+  const countries = (launch.verified_storefronts || []).map(esc).join(', ');
+  const bindings = (workspace.records || []).filter(
+    (row) =>
+      row.kind === 'connection' &&
+      row.data?.provider === 'app_store' &&
+      String(row.data.store_app_id) === String(app.data.store_app_id) &&
+      row.data.auth_mode !== 'disconnected',
+  );
+  return `<section class="panel" aria-label="App Store launch status"><h2>App Store launch status</h2><p>${esc(copy[launch.status] || copy.UNKNOWN)}</p>${conflict}${note}${form}${countries ? `<p>Verified storefronts: ${countries}</p>` : ''}${bindings.length === 1 ? `<form id="goal-launch-check" data-app="${esc(app.id)}" data-version="${app.version}" data-connection="${esc(bindings[0].id)}" data-connection-version="${bindings[0].version}"><label class="field">Storefront country code<input name="storefront" required maxlength="2" pattern="[A-Za-z]{2}" placeholder="CA"></label><button type="submit" class="button outline">Check App Store status</button><p id="goal-launch-error" role="alert"></p></form>` : '<p>Keep one App Store Connect connection for this app to check launch status.</p><button type="button" class="button outline" data-view="connections">Review connections</button>'}</section>`;
+}
+
+async function submitLaunchDeclaration(form) {
+  const { app, version } = form.dataset;
+  if (app !== state.app || Number(version) !== state.workspace?.app.version) return;
+  const submit = form.querySelector('[type=submit]');
+  submit.disabled = true;
+  try {
+    await api(`/api/apps/${encodeURIComponent(app)}/launch-status/declare`, {
+      app_version: Number(version),
+      status: new FormData(form).get('status'),
+    });
+    if (app === state.app) await refresh();
+  } catch {
+    if (form.isConnected)
+      form.querySelector('[role=alert]').textContent =
+        'Could not save. Sign in as the app owner and reopen this app before trying again.';
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+async function submitLaunchCheck(form) {
+  const { app, version, connection, connectionVersion } = form.dataset;
+  if (app !== state.app || Number(version) !== state.workspace?.app.version) return;
+  const storefront = String(new FormData(form).get('storefront') || '')
+    .trim()
+    .toUpperCase();
+  if (!/^[A-Z]{2}$/.test(storefront)) return;
+  const submit = form.querySelector('[type=submit]');
+  submit.disabled = true;
+  try {
+    await queue('sync', {
+      connection_id: connection,
+      connection_version: Number(connectionVersion),
+      manifest_version: Number(version),
+      options: { operation: 'launch_versions', storefront },
+    });
+  } catch {
+    if (form.isConnected)
+      form.querySelector('#goal-launch-error').textContent =
+        'Could not queue the Apple check. Review your connection and retry.';
+  } finally {
+    submit.disabled = false;
+  }
+}
+
 function goalOverview() {
   const id =
     state.goalChoice?.app === state.app
@@ -498,6 +597,7 @@ function goalOverview() {
   return (
     heading('Set your goal', 'Choose one outcome. Watch the work. Review what happened.') +
     startHerePanel() +
+    launchStatusPanel(state.workspace) +
     WMMGoalJourney.view(state.workspace, id, esc) +
     `<details class="panel" id="goal-advanced"><summary>Advanced app overview and twelve-stage diagnostics</summary><div class="toolbar">${button('Review combined automation agreement', 'goal-agreement')}${button('Monitor approved campaigns', 'campaign-monitor-open')}${button('Review private campaign outcomes', 'owner-report-open')}${button('Measure one organic post', 'observational-campaign-open')}</div>${detailedOverview()
       .replace(/<h1>/g, '<h2>')
@@ -1403,6 +1503,8 @@ export {
   goalProofIllustration,
   startHerePanel,
   goalOverview,
+  submitLaunchCheck,
+  submitLaunchDeclaration,
   goalAction,
   WMMGoalReadiness,
   WMMAgreement,

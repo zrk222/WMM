@@ -1013,6 +1013,13 @@ class Handler(BaseHTTPRequestHandler):
         if parts[3] == "agent-access":
             return self.send(200, self.agent_access(parts[2], parts[4:], data))
         app_id, action = parts[2:4]
+        if action == "launch-status":
+            if parts[4:] != ["declare"] or self.path != "/" + "/".join(parts):
+                raise Invalid("Use the exact app launch declaration address")
+            from .app_launch_history import declare
+
+            user, recheck = self.automation_owner_session()
+            return self.send(201, declare(service.store.path, app_id, user["principal"], data, commit_check=recheck))
         if action == "studio":
             from .hypit_studio_routes import human
 

@@ -1,7 +1,9 @@
 """Current selected-release facts; never a publication or authenticity certificate."""
 
-from datetime import datetime, timezone
 import re
+from datetime import datetime, timezone
+from typing import Any
+
 from .common import Invalid, digest, iso_time
 from .subscription_readiness import connection_problem
 
@@ -172,7 +174,7 @@ def review_problem(report, selection):
             "REVIEW_PENDING",
             "Apple review is pending. Prepare local work, but do not claim Apple approval or public availability.",
         )
-    if review != "READY_FOR_SALE":
+    if review not in ("READY_FOR_DISTRIBUTION", "READY_FOR_SALE"):
         return "STATUS_REVIEW_NEEDED", "Inspect Apple status " + str(
             review or "not supplied"
         ) + " before promoting the selected release."
@@ -194,7 +196,9 @@ def inventory_state(report, selection):
 def readiness(app, records, jobs, statuses):
     """Project current source facts without networking, mutations or inferred readiness."""
     store_id = app["data"].get("store_app_id")
-    base = dict(app_id=app["id"], store_app_id=store_id, inventory_verified=False, external_writes=False)
+    base: dict[str, Any] = dict(
+        app_id=app["id"], store_app_id=store_id, inventory_verified=False, external_writes=False
+    )
     if not store_id:
         return dict(base, state="NOT_APPLICABLE", reason="No App Store app is configured for this workspace.")
     rows = [

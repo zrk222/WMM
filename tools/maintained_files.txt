@@ -3,6 +3,9 @@ ios/Build/run_simulators.py
 mission_control/agent_grants.py
 mission_control/agent_review_dispatch.py
 mission_control/agent_tasks.py
+mission_control/app_launch_history.py
+mission_control/app_launch_status.py
+mission_control/apple_storefront.py
 mission_control/architecture.py
 mission_control/attribution_adservices.py
 mission_control/attribution_ingestion.py
@@ -57,10 +60,15 @@ mission_control/payment_sources.py
 mission_control/personal_agent_profiles.py
 mission_control/play_connections.py
 mission_control/pre_registration.py
+mission_control/provider_reports.py
+mission_control/providers.py
 mission_control/publication_linkedin.py
 mission_control/publication_reports.py
+mission_control/publication_schedule.py
 mission_control/rea_video_analysis.py
 mission_control/reconciliation.py
+mission_control/release_inventory.py
+mission_control/release_readiness.py
 mission_control/review_access.py
 mission_control/server.py
 mission_control/service.py
@@ -75,6 +83,7 @@ tests/campaign_paid_schedule_browser.py
 tests/test_agent_context_tasks.py
 tests/test_agent_review_dispatch.py
 tests/test_analytics_read_indexes.py
+tests/test_app_launch_status.py
 tests/test_architecture_gates.py
 tests/test_campaign_monitor.py
 tests/test_campaign_monitor_polish.py
@@ -121,6 +130,7 @@ tests/test_publication_reports.py
 tests/test_query_budgets.py
 tests/test_reconciliation.py
 tests/test_release_attestation_assets.py
+tests/test_release_inventory.py
 tests/test_release_provenance.py
 tests/test_repo_hygiene.py
 tests/test_sbom_reproducibility.py

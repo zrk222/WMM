@@ -1,7 +1,9 @@
 """Bounded app-owned release facts; inventory never certifies Apple readiness."""
 
 import re
+from typing import Any
 from urllib.parse import urlencode, urlsplit
+
 from .common import Invalid
 
 BASE = "https://api.appstoreconnect.apple.com"
@@ -56,9 +58,9 @@ class Inventory:
         self.requests += 1
         return self.reader.read(BASE + path + ("?" + urlencode(query) if query else ""))
 
-    def collection(self, path, kind, relation, owner):
+    def collection(self, path, kind, relation, owner, *, filters=None):
         """Read same-resource pages with explicit coverage and duplicate integrity."""
-        query, seen, rows = {"limit": 100}, set(), {}
+        query, seen, rows = {"limit": 100, **(filters or {})}, set(), {}
         while True:
             seen.add(BASE + path + "?" + urlencode(query))
             payload = self.fetch(path, query)
@@ -80,6 +82,31 @@ class Inventory:
             query = urlsplit(link).query
             # Preserve Apple's encoded cursor rather than interpret or duplicate it.
             query = dict_query(query)
+            if filters and any(
+                [value for name, value in query if name == key] != [expected] for key, expected in filters.items()
+            ):
+                raise Invalid("Release pagination changed its filters")
+
+
+def read_launch_versions(reader, store_id: str) -> dict[str, Any]:
+    """Read app-level iOS states with bounded pagination and explicit coverage."""
+    if not re.fullmatch(r"[0-9]{1,30}", store_id):
+        raise Invalid("Choose a numeric App Store app ID")
+    rows, complete = Inventory(reader).collection(
+        f"/v1/apps/{store_id}/appStoreVersions",
+        "appStoreVersions",
+        "app",
+        store_id,
+        filters={"filter[platform]": "IOS"},
+    )
+    states = set()
+    for row in rows:
+        _, attrs = entity(row, "appStoreVersions")
+        state = version_review_state(attrs)
+        if text(attrs, "platform") != "IOS" or not isinstance(state, str) or not re.fullmatch("[A-Z_]{1,64}", state):
+            raise Invalid("Apple version listing does not contain the requested iOS launch facts")
+        states.add(state)
+    return dict(operation="launch_versions", states=sorted(states), complete=complete)
 
 
 def dict_query(query):
@@ -122,6 +149,12 @@ def text(data, key):
     if value is not None and not isinstance(value, str):
         raise Invalid("Release text field is malformed")
     return value
+
+
+def version_review_state(data):
+    """Prefer Apple's current enum while preserving compatibility with legacy responses."""
+    state = text(data, "appVersionState")
+    return state if state is not None else text(data, "appStoreState")
 
 
 def screenshot(row):
@@ -198,13 +231,15 @@ def selected_build(payload, version):
     return dict(id=identity, number=text(data, "version"), processing_state=text(data, "processingState"))
 
 
-def read_inventory(reader, store_id, version_id):
+def read_inventory(reader, store_id, version_id) -> dict[str, Any]:
     """Verify app ownership before inspecting a selected release's child resources."""
     version_id = resource_id(version_id)
     inventory = Inventory(reader)
     payload = inventory.fetch(
         "/v1/appStoreVersions/" + version_id, {"include": "app,build", "fields[builds]": "version,processingState"}
     )
+    if payload is None:
+        raise Invalid("Apple release details are unavailable")
     version = payload.get("data")
     identity, data = entity(version, "appStoreVersions")
     if identity != version_id:
@@ -224,7 +259,7 @@ def read_inventory(reader, store_id, version_id):
         version_id=identity,
         version=text(data, "versionString"),
         platform=text(data, "platform"),
-        review_state=text(data, "appStoreState"),
+        review_state=version_review_state(data),
         build=build,
         locales=locales,
         coverage="COMPLETE" if complete else "PARTIAL",

@@ -88,6 +88,7 @@ tests/campaign_monitor_ui.test.cjs
 tests/campaign_plan.test.mjs
 tests/currency_display.test.cjs
 tests/feature_library_types.test.mjs
+tests/goal_journey.test.cjs
 tests/goal_readiness_ui.test.cjs
 tests/managed_media.test.cjs
 tests/measurement_results_ui.test.cjs

@@ -1,8 +1,12 @@
 """One due-time binding over the existing campaign tick and durable job queue."""
 
-import json, time, math
+import json
+import math
+import time
+
+from .app_launch_history import removed_listing
 from .campaign_access import identity, scope_owner
-from .common import Invalid, canonical, digest, iso_time, now, uid, safe_data
+from .common import Invalid, canonical, digest, iso_time, now, safe_data, uid
 from .db import connection
 from .operation_authority import check
 from .publication_authority import current
@@ -70,6 +74,10 @@ def _validated(db, store, row):
     ):
         raise PermissionError("Publication schedule no longer matches approval")
     return summary, authority
+
+
+def _removed(db, row, authority):
+    return removed_listing(db, row["app_id"], authority["draft"].get("link"))
 
 
 def _queue(db, row):
@@ -167,7 +175,17 @@ def advance(db, store):
     ).fetchall()
     for row in rows:
         try:
-            _validated(db, store, row)
+            _, authority = _validated(db, store, row)
+            if _removed(db, row, authority):
+                from .store import audit
+
+                audit(
+                    db,
+                    row["app_id"],
+                    "publication_schedule.blocked",
+                    {"schedule_id": row["id"], "reason": "APP_STORE_LISTING_REMOVED"},
+                )
+                raise PermissionError("Scheduled publication paused because this app was removed from the App Store")
             _queue(db, row)
             count += 1
         except (Invalid, PermissionError, ValueError, TypeError, KeyError, OverflowError, OSError, ImportError):
@@ -236,7 +254,13 @@ def check_job(db, store, job):
     if not _due(row):
         raise PermissionError("Publication schedule is not due")
     _live_job(db, job, identity)
-    summary, _ = _validated(db, store, row)
+    summary, authority = _validated(db, store, row)
+    if _removed(db, row, authority):
+        intent = db.execute(
+            "SELECT status FROM publication_intents WHERE app_id=? AND id=?", (row["app_id"], identity)
+        ).fetchone()
+        if intent is None or intent["status"] != "PUBLISHED":
+            raise PermissionError("Scheduled publication paused because this app was removed from the App Store")
     return summary["owner"]
 
 

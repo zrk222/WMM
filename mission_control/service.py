@@ -329,6 +329,15 @@ class Service:
         workspace["creative_learning"] = creative_summary(workspace)
         workspace["launch_gate"] = launch_gate(self.store, app_id)
         workspace["pre_registration"] = pre_registration_draft(app, workspace["insights"])
+        if app["data"].get("store_app_id") or app["data"].get("bundle_id"):
+            from .app_launch_history import current as current_launch
+
+            try:
+                workspace["app_launch_status"] = current_launch(
+                    self.store.path, app_id, app["version"], iso_time(now())
+                )
+            except Invalid:
+                workspace["app_launch_status"] = {"status": "UNKNOWN", "reason": "SAVED_EVIDENCE_NEEDS_REVIEW"}
         return workspace
 
     def subscription_review(self, app_id, expected=None):
@@ -419,8 +428,14 @@ class Service:
             data = self.play_sync_data(app_id, binding, data)
         if "options" in data:
             report_options(binding["data"]["provider"], data["options"])
-            if cast(dict[str, object], data["options"])["operation"] == "subscription_catalog":
-                validate_catalog_scope(self.store.app(app_id), binding["data"])
+            operation = cast(dict[str, object], data["options"])["operation"]
+            if operation in ("subscription_catalog", "launch_versions"):
+                app = self.store.app(app_id)
+                validate_catalog_scope(app, binding["data"])
+                if operation == "launch_versions":
+                    if data.get("manifest_version", app["version"]) != app["version"]:
+                        raise Invalid("App changed; reopen the launch status read")
+                    data = dict(data, manifest_version=app["version"])
         return {**data, "connection_version": version}
 
     def play_sync_data(self, app_id, binding, data):
