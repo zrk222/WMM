@@ -91,3 +91,22 @@ def _cohort_definition(value: dict[str, object]) -> dict[str, object]:
         "subscription_map",
     )
     return {key: value.get(key) for key in fields}
+
+
+def historical_measurement(campaign: Mapping[str, object], delivery: object, outcome: object) -> str:
+    """Separate receipt quality and measurement maturity from publishing permission."""
+    if isinstance(delivery, dict) and delivery.get("status") == "MULTIPLE_POSTS_SHARE_TAG":
+        return "Use a distinct tag per approved post in the next study. This tag cannot identify one delivery."
+    if isinstance(delivery, dict) and delivery.get("status") == "EXACT_TAGGED_POST_READBACK":
+        state = outcome.get("status") if isinstance(outcome, dict) else None
+        if state == "OBSERVED_DESCRIPTIVE":
+            return "Review the matched outcome and sample size. A descriptive rate does not establish lift."
+        if state == "NO_ELIGIBLE_FIRST_OPENS":
+            return "Record the empty eligible cohort; leave the conversion rate unknown and check the acquisition path."
+        return "Complete evidence for the approved measurement window before interpreting the outcome."
+    receipts = campaign.get("receipts")
+    if isinstance(receipts, list) and any(
+        isinstance(receipt, dict) and receipt.get("status") == "VERIFIED" for receipt in receipts
+    ):
+        return "Delivery was verified. Match the approved tag and measurement window to an outcome receipt before attributing results."
+    return "Review saved campaign receipts."
