@@ -455,7 +455,8 @@ def build(db, store, app_id, owner, chosen):
     )
     if "outcome_receipt_sha256" in chosen:
         scope = owned_resource(db, "campaign_scopes", app_id, owner, chosen["scope_id"])
-        plan = object_data(scope["summary"]).get("measurement_plan")
+        approved = object_data(scope["summary"])
+        plan = approved.get("measurement_plan")
         value["first_party_outcomes"] = for_campaign(
             db,
             app_id,
@@ -465,6 +466,9 @@ def build(db, store, app_id, owner, chosen):
             chosen["outcome_receipt_sha256"],
         )
         value["primary_outcome"] = primary_outcome(plan, value["first_party_outcomes"]["report"])
+        value["delivery_evidence"] = matched_post(
+            db, app_id, chosen["scope_id"], approved, value["first_party_outcomes"]
+        )
     value["source_hash"] = digest(
         dict(
             binding=source,
@@ -473,9 +477,58 @@ def build(db, store, app_id, owner, chosen):
             kpis=metrics["sourceHash"],
             experiment=experiment,
             **({"outcome_receipt_sha256": chosen["outcome_receipt_sha256"]} if "first_party_outcomes" in value else {}),
+            **({"delivery_evidence": value["delivery_evidence"]} if "delivery_evidence" in value else {}),
         )
     )
     return value, key
+
+
+def matched_post(db, app_id, scope_id, approved, outcome):
+    """Trace one exact tagged Page post to a window-bound outcome receipt."""
+    unknown = {"status": "NO_EXACT_DELIVERY_RECEIPT"}
+    plan = approved.get("measurement_plan")
+    if not isinstance(plan, dict) or not isinstance(plan.get("link"), str):
+        return unknown
+    link_hash = digest(plan["link"])
+    rows = db.execute(
+        """SELECT id, content_hash, rights_hash, page_id, status, remote_id, result, created, updated FROM campaign_intents
+        WHERE app_id=? AND scope_id=? AND CASE WHEN json_valid(result)
+        THEN json_extract(result,'$.destination_check.approved_link_sha256')=? ELSE 0 END
+        ORDER BY id LIMIT 2""",
+        (app_id, scope_id, link_hash),
+    ).fetchall()
+    if len(rows) != 1:
+        return {"status": "MULTIPLE_POSTS_SHARE_TAG"} if rows else unknown
+    row = rows[0]
+    if (
+        row["status"] != "VERIFIED"
+        or not row["remote_id"]
+        or row["page_id"] != approved["page_id"]
+        or row["content_hash"] not in approved["approved_content_hashes"]
+        or row["rights_hash"] not in approved["approved_rights_hashes"]
+    ):
+        return unknown
+    result = object_data(row["result"])
+    if result.get("id") != row["remote_id"]:
+        return unknown
+    report = outcome["report"]
+    if (
+        not iso_time(report["starts_at"])
+        <= iso_time(row["created"])
+        <= iso_time(row["updated"])
+        < iso_time(report["ends_at"])
+    ):
+        return {"status": "DELIVERY_OUTSIDE_ACQUISITION_WINDOW"}
+    return dict(
+        status="EXACT_TAGGED_POST_READBACK",
+        intent_id=row["id"],
+        content_sha256=row["content_hash"],
+        rights_sha256=row["rights_hash"],
+        destination_sha256=link_hash,
+        provider_readback_at=row["updated"],
+        delivery_sha256=digest(result),
+        outcome_sha256=outcome["receipt_sha256"],
+    )
 
 
 def next_action(campaign, monitor, experiment):

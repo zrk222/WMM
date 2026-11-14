@@ -311,6 +311,20 @@ const WMMOwnerReports = (() => {
       sample
     );
   }
+  function deliveryNote(report) {
+    switch (report.delivery_evidence?.status) {
+      case 'EXACT_TAGGED_POST_READBACK':
+        return 'One approved post has a saved provider readback for this exact campaign link. This connects the evidence; it does not prove the post caused the outcome.';
+      case 'MULTIPLE_POSTS_SHARE_TAG':
+        return 'Several posts share the same tag. The results cannot be assigned to one creative.';
+      case 'DELIVERY_OUTSIDE_ACQUISITION_WINDOW':
+        return 'The saved post is outside the acquisition window.';
+      case 'NO_EXACT_DELIVERY_RECEIPT':
+        return 'No exact post readback matches this campaign receipt. Treat this as campaign-level evidence only.';
+      default:
+        return '';
+    }
+  }
   function model(saved, base) {
     const r = saved.report;
     return {
@@ -356,6 +370,7 @@ const WMMOwnerReports = (() => {
         'Source windows retained; app-wide source observations are not filtered to the requested window.',
         coverageText(r.kpi_coverage),
         ...(outcomeNote(r) ? [outcomeNote(r)] : []),
+        ...(deliveryNote(r) ? [deliveryNote(r)] : []),
         ...(measurementNextStep(r) ? [measurementNextStep(r)] : []),
         'Saved provider readback: ' +
           r.campaign.provider_readback +
@@ -403,6 +418,7 @@ const WMMOwnerReports = (() => {
           '</dl></section>'
         : '') +
       (measurementNextStep(r) ? '<p>' + esc(measurementNextStep(r)) + '</p>' : '') +
+      (deliveryNote(r) ? '<p>' + esc(deliveryNote(r)) + '</p>' : '') +
       '<p>Saved ' +
       esc(r.observed_at) +
       ' · ' +

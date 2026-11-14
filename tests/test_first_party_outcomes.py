@@ -85,8 +85,9 @@ class OutcomeTests(unittest.TestCase):
         with connection(fixture.store.path, write=True) as db:
             scope = db.execute("SELECT summary FROM campaign_scopes WHERE id=?", (chosen["scope_id"],)).fetchone()
             summary = test_campaign_owner_reports.core.object_data(scope["summary"])
+            link = "https://example.test/?utm_campaign=organic"
             summary["measurement_plan"] = dict(
-                window, campaign_tag="organic", primary_metric="paid_conversion", denominator="installs"
+                window, campaign_tag="organic", primary_metric="paid_conversion", denominator="installs", link=link
             )
             db.execute(
                 "UPDATE campaign_scopes SET summary=?,summary_hash=? WHERE id=?",
@@ -112,8 +113,37 @@ class OutcomeTests(unittest.TestCase):
         self.assertEqual(with_receipt["first_party_outcomes"], receipt)
         self.assertEqual(with_receipt["primary_outcome"]["value"], 0)
         self.assertEqual(with_receipt["primary_outcome"]["denominator_count"], 1)
+        self.assertEqual(with_receipt["delivery_evidence"]["status"], "NO_EXACT_DELIVERY_RECEIPT")
         self.assertNotEqual(with_receipt["source_hash"], without["source_hash"])
         self.assertNotIn("first_party_outcomes", without)
+        with connection(fixture.store.path, write=True) as db:
+            content, rights, page = (
+                summary["approved_content_hashes"][0],
+                summary["approved_rights_hashes"][0],
+                summary["page_id"],
+            )
+            result = dict(id=f"{page}_123", destination_check=dict(approved_link_sha256=digest(link)))
+            changed = db.execute(
+                "UPDATE campaign_intents SET scope_id=?, status='VERIFIED', remote_id=?, result=?, created=?, updated=? "
+                "WHERE app_id='sample' AND page_id=? AND content_hash=? AND rights_hash=?",
+                (chosen["scope_id"], result["id"], canonical(result), WINDOW[0], WINDOW[0], page, content, rights),
+            )
+            self.assertEqual(changed.rowcount, 1)
+            evidence = test_campaign_owner_reports.core.matched_post(db, "sample", chosen["scope_id"], summary, receipt)
+            self.assertEqual(evidence["status"], "EXACT_TAGGED_POST_READBACK")
+            self.assertEqual(evidence["content_sha256"], content)
+            self.assertEqual(evidence["outcome_sha256"], receipt["receipt_sha256"])
+            self.assertNotIn(link, canonical(evidence))
+            db.execute(
+                "UPDATE campaign_intents SET updated=? WHERE app_id=? AND scope_id=?",
+                (WINDOW[1], "sample", chosen["scope_id"]),
+            )
+            self.assertEqual(
+                test_campaign_owner_reports.core.matched_post(db, "sample", chosen["scope_id"], summary, receipt)[
+                    "status"
+                ],
+                "DELIVERY_OUTSIDE_ACQUISITION_WINDOW",
+            )
         wrong_window = dict(window, ends_at=WINDOW[1])
         with self.assertRaisesRegex(Invalid, "does not match"):
             fixture.capture(
