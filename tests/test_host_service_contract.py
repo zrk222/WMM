@@ -3,7 +3,6 @@
 import configparser
 import copy
 import os
-from pathlib import Path
 import runpy
 import subprocess
 import sys
@@ -11,12 +10,15 @@ import tempfile
 import threading
 import types
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "tools/test_host_service.py"
 HARNESS = runpy.run_path(str(SCRIPT))
 WRAPPER = runpy.run_path(str(ROOT / "tools/ci_host_user.py"))
+APP = HARNESS["APP"]
+STAGE = HARNESS["STAGE"]
 
 
 class HostServiceContractTests(unittest.TestCase):
@@ -46,18 +48,21 @@ class HostServiceContractTests(unittest.TestCase):
             server, thread, origin = start()
             try:
                 client, csrf = HARNESS["session"](origin, timeout=5)
+                facts = HARNESS["register_app"](client, origin, csrf)
                 queued = HARNESS["submit"](client, origin, csrf, "host-test-key")
-                initial = HARNESS["completed_job"](client, origin, queued["id"], "host-test-key", timeout=15)
+                initial = HARNESS["completed_job"](client, origin, queued["id"], "host-test-key", facts, timeout=15)
                 self.assertEqual(initial["status"], "SUCCEEDED")
                 self.assertEqual(initial["attempts"], 1)
-                self.assertEqual(initial["result"]["outputs"][0]["stage"], 5)
+                self.assertEqual(initial["result"]["outputs"][0]["stage"], STAGE)
             finally:
                 stop(server, thread)
             server, thread, origin = start()
             try:
                 client, csrf = HARNESS["session"](origin, timeout=5)
+                persisted = HARNESS["completed_job"](client, origin, queued["id"], "host-test-key", facts, timeout=5)
+                self.assertEqual(persisted, initial)
                 replay = HARNESS["submit"](client, origin, csrf, "host-test-key")
-                durable = HARNESS["completed_job"](client, origin, queued["id"], "host-test-key", timeout=5)
+                durable = HARNESS["completed_job"](client, origin, queued["id"], "host-test-key", facts, timeout=5)
                 HARNESS["verify_replay"](initial, replay, durable)
                 self.assertEqual(replay, initial)
             finally:
@@ -66,9 +71,9 @@ class HostServiceContractTests(unittest.TestCase):
     def test_missing_or_changed_worker_evidence_fails_closed(self):
         good = {
             "id": "job-one",
-            "app_id": "sample-one",
+            "app_id": APP,
             "action": "pipeline",
-            "data": {"stage": 5},
+            "data": {"stage": STAGE},
             "request_key": "key",
             "status": "SUCCEEDED",
             "attempts": 1,
@@ -77,13 +82,19 @@ class HostServiceContractTests(unittest.TestCase):
                 "spend_minor": 0,
                 "outputs": [
                     {
-                        "stage": 5,
-                        "status": "BLOCKED",
+                        "stage": STAGE,
+                        "status": "PREPARED",
                         "packet": {
                             "schema": "growth.stage-packet.v1",
-                            "app_id": "sample-one",
-                            "stage": 5,
+                            "app_id": APP,
+                            "stage": STAGE,
                             "external_execution": "NOT_RUN",
+                            "manifest_version": 1,
+                            "local_status": "PREPARED",
+                            "content": {
+                                "app_facts": dict(HARNESS["APP_FACTS"]),
+                                "operator_steps": ["Review app facts"],
+                            },
                         },
                     }
                 ],
@@ -101,7 +112,14 @@ class HostServiceContractTests(unittest.TestCase):
             lambda r: r["result"].update(external_execution="UNKNOWN"),
             lambda r: r["result"].update(outputs=[]),
             lambda r: r["result"]["outputs"][0].update(stage=4),
+            lambda r: r["result"]["outputs"][0].update(status="BLOCKED"),
             lambda r: r["result"]["outputs"][0].pop("packet"),
+            lambda r: r["result"]["outputs"][0]["packet"].update(manifest_version=2),
+            lambda r: r["result"]["outputs"][0]["packet"].update(local_status="BLOCKED"),
+            lambda r: r["result"]["outputs"][0]["packet"]["content"]["app_facts"].update(extra="foreign"),
+            lambda r: r["result"]["outputs"][0]["packet"].update(content={}),
+            lambda r: r["result"]["outputs"][0]["packet"]["content"].update(operator_steps=[]),
+            lambda r: r["result"]["outputs"][0]["packet"]["content"]["app_facts"].update(name="Wrong app"),
             lambda r: r["result"]["outputs"][0]["packet"].update(schema="invalid"),
             lambda r: r["result"]["outputs"][0]["packet"].update(app_id="other"),
             lambda r: r["result"]["outputs"][0]["packet"].update(stage=4),
@@ -110,21 +128,29 @@ class HostServiceContractTests(unittest.TestCase):
         ]
         function = HARNESS["completed_job"]
         with patch.dict(function.__globals__, {"request_json": lambda *args: [good]}):
-            self.assertEqual(function(None, "unused", "job-one", "key", timeout=1), good)
+            self.assertEqual(function(None, "unused", "job-one", "key", HARNESS["APP_FACTS"], timeout=1), good)
         for change in changes:
             row = copy.deepcopy(good)
             change(row)
-            with self.subTest(row=row), patch.dict(function.__globals__, {"request_json": lambda *args: [row]}):
-                with self.assertRaises(AssertionError):
-                    function(None, "unused", "job-one", "key", timeout=1)
+            with (
+                self.subTest(row=row),
+                patch.dict(function.__globals__, {"request_json": lambda *args, row=row: [row]}),
+                self.assertRaises(AssertionError),
+            ):
+                function(None, "unused", "job-one", "key", HARNESS["APP_FACTS"], timeout=1)
         for rows in ([], [good, copy.deepcopy(good)]):
-            with self.subTest(rows=rows), patch.dict(function.__globals__, {"request_json": lambda *args: rows}):
-                with self.assertRaises(AssertionError):
-                    function(None, "unused", "job-one", "key", timeout=1)
+            with (
+                self.subTest(rows=rows),
+                patch.dict(function.__globals__, {"request_json": lambda *args, rows=rows: rows}),
+                self.assertRaises(AssertionError),
+            ):
+                function(None, "unused", "job-one", "key", HARNESS["APP_FACTS"], timeout=1)
         pending = {**good, "status": "QUEUED", "result": None}
-        with patch.dict(function.__globals__, {"request_json": lambda *args: [pending]}):
-            with self.assertRaisesRegex(RuntimeError, "timeout"):
-                function(None, "unused", "job-one", "key", timeout=0.02)
+        with (
+            patch.dict(function.__globals__, {"request_json": lambda *args: [pending]}),
+            self.assertRaisesRegex(RuntimeError, "timeout"),
+        ):
+            function(None, "unused", "job-one", "key", HARNESS["APP_FACTS"], timeout=0.02)
         changed = copy.deepcopy(good)
         changed["result"]["outputs"][0]["packet"]["changed"] = True
         with self.assertRaises(AssertionError):
@@ -143,15 +169,16 @@ class HostServiceContractTests(unittest.TestCase):
                 HARNESS["session"](origin, timeout=0.01)
         import socket
 
-        with socket.socket() as bound:
+        with socket.socket() as bound, self.assertRaisesRegex(RuntimeError, "timeout"):
             bound.bind(("127.0.0.1", 0))
             origin = f"http://127.0.0.1:{bound.getsockname()[1]}"
-            with self.assertRaisesRegex(RuntimeError, "timeout"):
-                HARNESS["session"](origin, timeout=0.02)
+            HARNESS["session"](origin, timeout=0.02)
+        with self.assertRaisesRegex(ValueError, "loopback origin"):
+            HARNESS["request_json"](None, "https://example.com", "/api/apps")
 
     def test_port_probe_keeps_active_listener_exclusion_without_time_wait_false_alarm(self):
-        from unittest.mock import Mock
         import socket
+        from unittest.mock import Mock
 
         probe = Mock()
         probe.__enter__ = Mock(return_value=probe)
@@ -161,9 +188,11 @@ class HostServiceContractTests(unittest.TestCase):
         probe.setsockopt.assert_called_once_with(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         probe.bind.assert_called_once_with(("127.0.0.1", 8765))
         probe.bind.side_effect = OSError("active listener")
-        with patch.object(socket, "socket", return_value=probe):
-            with self.assertRaisesRegex(RuntimeError, "port is occupied"):
-                HARNESS["port_available"]()
+        with (
+            patch.object(socket, "socket", return_value=probe),
+            self.assertRaisesRegex(RuntimeError, "port is occupied"),
+        ):
+            HARNESS["port_available"]()
 
     def test_unit_is_explicit_same_user_and_bounded(self):
         unit = configparser.ConfigParser(interpolation=None, strict=True)
@@ -208,9 +237,9 @@ class HostServiceContractTests(unittest.TestCase):
             patch.dict(sys.modules, {"pwd": pwd}),
             patch.object(os, "geteuid", return_value=0, create=True),
             patch("socket.socket", side_effect=AssertionError("unexpected socket")),
+            self.assertRaisesRegex(RuntimeError, "Disposable user"),
         ):
-            with self.assertRaisesRegex(RuntimeError, "Disposable user"):
-                preflight(flags)
+            preflight(flags)
 
     def test_privileged_wrapper_refuses_before_any_command_or_temp_directory(self):
         preflight = WRAPPER["preflight"]
@@ -246,7 +275,7 @@ class HostServiceContractTests(unittest.TestCase):
             self.assertIn("explicitly isolated", result.stderr)
 
     def test_child_command_uses_staged_script_and_minimal_environment(self):
-        parent = Path("/tmp/wmm-host-user-example")
+        parent = Path("/tmp/wmm-host-user-example")  # noqa: S108 (argv fixture only)
         home = parent / "home"
         runtime = Path("/run/user/12345")
         staged = parent / "test_host_service.py"

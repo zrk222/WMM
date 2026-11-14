@@ -1,21 +1,31 @@
 """Opt-in disposable Ubuntu CI user-manager lifecycle test; never provision a host."""
 
 import json
-from http.cookiejar import CookieJar
 import os
-from pathlib import Path
 import re
 import socket
 import subprocess
 import sys
 import tempfile
 import time
-from urllib.request import HTTPRedirectHandler, HTTPCookieProcessor, ProxyHandler, Request, build_opener
+from http.cookiejar import CookieJar
+from pathlib import Path
+from urllib.request import HTTPCookieProcessor, HTTPRedirectHandler, ProxyHandler, Request, build_opener
 from uuid import uuid4
 
 BINARY = Path("/usr/lib/wize-marketing-machine/WMM")
 UNIT = Path("/usr/share/wize-marketing-machine/wmm-worker.service")
 ORIGIN = "http://127.0.0.1:8765"
+APP = "host-packet-fixture"
+STAGE = 1
+APP_FACTS = {
+    "name": "Synthetic host packet",
+    "job": "Find the next task to finish",
+    "audience": "Independent app makers",
+    "activation": "Choose one next task",
+    "release": "0.1.0",
+    "locale": "en-US",
+}
 
 
 def port_available():
@@ -108,36 +118,51 @@ def request_json(client, origin, path, body=None, csrf=None):
     if body is not None:
         data = json.dumps(body).encode("utf-8")
         headers.update({"Content-Type": "application/json", "X-CSRF-Token": csrf})
-    with client.open(Request(origin + path, data=data, headers=headers), timeout=2) as response:
+    if not re.fullmatch(r"http://127\.0\.0\.1:[1-9][0-9]{0,4}", origin) or not path.startswith("/api/"):
+        raise ValueError("Expected an API path on the exact loopback origin")
+    with client.open(Request(origin + path, data=data, headers=headers), timeout=2) as response:  # noqa: S310
         return json.load(response)
+
+
+def register_app(client, origin, csrf):
+    app = request_json(client, origin, "/api/apps", {"id": APP, "data": APP_FACTS}, csrf)
+    facts = app.get("data")
+    if (
+        app.get("id") != APP
+        or app.get("version") != 1
+        or not isinstance(facts, dict)
+        or any(facts.get(field) != value for field, value in APP_FACTS.items())
+    ):
+        raise AssertionError("Synthetic app was not registered as a fresh workspace")
+    return facts
 
 
 def submit(client, origin, csrf, key):
     row = request_json(
         client,
         origin,
-        "/api/apps/sample-one/jobs",
-        {"action": "pipeline", "data": {"stage": 5}, "request_key": key},
+        f"/api/apps/{APP}/jobs",
+        {"action": "pipeline", "data": {"stage": STAGE}, "request_key": key},
         csrf,
     )
     if (
         not isinstance(row, dict)
         or not isinstance(row.get("id"), str)
         or not row["id"]
-        or row.get("app_id") != "sample-one"
+        or row.get("app_id") != APP
         or row.get("action") != "pipeline"
-        or row.get("data") != {"stage": 5}
+        or row.get("data") != {"stage": STAGE}
         or row.get("request_key") != key
     ):
         raise AssertionError("Queued job identity does not match the synthetic request")
     return row
 
 
-def completed_job(client, origin, job_id, key, timeout=45):
+def completed_job(client, origin, job_id, key, expected_facts, timeout=45):
     """Find exactly one request-key row and require a real successful result."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        rows = request_json(client, origin, "/api/apps/sample-one/jobs")
+        rows = request_json(client, origin, f"/api/apps/{APP}/jobs")
         if not isinstance(rows, list):
             raise AssertionError("Job history is not a list")
         matches = [row for row in rows if isinstance(row, dict) and row.get("request_key") == key]
@@ -147,9 +172,9 @@ def completed_job(client, origin, job_id, key, timeout=45):
         if row.get("status") == "SUCCEEDED":
             result = row.get("result")
             if (
-                row.get("app_id") != "sample-one"
+                row.get("app_id") != APP
                 or row.get("action") != "pipeline"
-                or row.get("data") != {"stage": 5}
+                or row.get("data") != {"stage": STAGE}
                 or type(row.get("attempts")) is not int
                 or row["attempts"] != 1
                 or not isinstance(result, dict)
@@ -160,15 +185,26 @@ def completed_job(client, origin, job_id, key, timeout=45):
                 or len(result["outputs"]) != 1
                 or not isinstance(result["outputs"][0], dict)
                 or type(result["outputs"][0].get("stage")) is not int
-                or result["outputs"][0]["stage"] != 5
-                or result["outputs"][0].get("status") not in ("PREPARED", "BLOCKED")
+                or result["outputs"][0]["stage"] != STAGE
+                or result["outputs"][0].get("status") != "PREPARED"
                 or not isinstance(result["outputs"][0].get("packet"), dict)
                 or result["outputs"][0]["packet"].get("schema") != "growth.stage-packet.v1"
-                or result["outputs"][0]["packet"].get("app_id") != "sample-one"
-                or result["outputs"][0]["packet"].get("stage") != 5
+                or result["outputs"][0]["packet"].get("app_id") != APP
+                or result["outputs"][0]["packet"].get("stage") != STAGE
                 or result["outputs"][0]["packet"].get("external_execution") != "NOT_RUN"
             ):
                 raise AssertionError("Completed job does not prove the requested local preparation")
+            packet = result["outputs"][0]["packet"]
+            content = packet.get("content")
+            facts = content.get("app_facts") if isinstance(content, dict) else None
+            if (
+                packet.get("manifest_version") != 1
+                or packet.get("local_status") != "PREPARED"
+                or not isinstance(content, dict)
+                or facts != expected_facts
+                or not content.get("operator_steps")
+            ):
+                raise AssertionError("Prepared packet does not contain the registered synthetic app facts")
             return row
         if row.get("status") not in ("QUEUED", "RUNNING"):
             raise AssertionError(f"Job ended without success: {row.get('status')}")
@@ -228,15 +264,19 @@ def main():
                 or systemctl(env, "is-active", name).stdout.strip() != "active"
             ):
                 raise AssertionError("A competing runtime was not excluded")
+            facts = register_app(client, ORIGIN, csrf)
             key = "host-service-" + uuid4().hex
             queued = submit(client, ORIGIN, csrf, key)
-            initial = completed_job(client, ORIGIN, queued["id"], key)
+            initial = completed_job(client, ORIGIN, queued["id"], key, facts)
             systemctl(env, "stop", name)
             assert_stopped(env, name)
             systemctl(env, "start", name)
             client, csrf = session()
+            persisted = completed_job(client, ORIGIN, queued["id"], key, facts)
+            if persisted != initial:
+                raise AssertionError("Prepared job changed before replay")
             replay = submit(client, ORIGIN, csrf, key)
-            durable = completed_job(client, ORIGIN, queued["id"], key)
+            durable = completed_job(client, ORIGIN, queued["id"], key, facts)
             verify_replay(initial, replay, durable)
             systemctl(env, "stop", name)
             assert_stopped(env, name)
@@ -264,7 +304,7 @@ def main():
                 "durable_replay": "VERIFIED",
                 "job_id": initial["id"],
                 "attempts": initial["attempts"],
-                "stage": 5,
+                "stage": STAGE,
                 "preparation_status": initial["result"]["outputs"][0]["status"],
                 "unit_cleanup": "VERIFIED",
                 "data": "DISPOSABLE_SYNTHETIC",
