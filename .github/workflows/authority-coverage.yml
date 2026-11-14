@@ -21,9 +21,9 @@ jobs:
           python-version: '3.11'
       - name: Install pinned coverage and runtime
         run: 'python -m pip install --require-hashes --only-binary :all: -r requirements.txt -r docs/requirements-coverage.txt'
-      - name: Measure schedule authority with synthetic provider tests
+      - name: Measure schedule authority and HTTP framing
         run: |
-          python -m coverage run --branch --include='*/campaign_schedule_authority.py' -m unittest -q tests.test_campaign_schedule tests.test_campaign_schedule_http tests.test_organic_video_schedule tests.test_authority_expiry_children tests.test_schedule_authority_boundary
+          python -m coverage run --branch --include='*/campaign_schedule_authority.py,*/http_body.py' -m unittest -q tests.test_campaign_schedule tests.test_campaign_schedule_http tests.test_organic_video_schedule tests.test_authority_expiry_children tests.test_schedule_authority_boundary tests.test_agent_gateway_framing tests.test_rejected_http_response
           python -m coverage json -o authority-coverage.json
           python tools/check_authority_coverage.py authority-coverage.json
       - name: Challenge exact schedule authority decisions
