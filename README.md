@@ -30,7 +30,7 @@ Potential benefits: less repeated research and clearer decisions. Measurements d
 | Goal | WMM tools |
 | --- | --- |
 | Find a creative angle | Research Facebook, Instagram Reels, TikTok and YouTube Shorts. Viral qualification requires **100,000 observed views and 10× the creator’s documented baseline**. |
-| Make or revise creative in Studio | Turn a research-backed brief and app footage into a captioned short. Import local or Drive media, trim and stitch clips, then review a Hypit render before export. [See the Studio walkthrough](https://zrk222.github.io/WMM/#studio). |
+| Make or revise creative in Studio | Turn a research-backed brief and app footage into a captioned short. Import local or Drive media, trim and stitch clips, then preview the video before export. [See the Studio walkthrough](https://zrk222.github.io/WMM/#studio). |
 | Run an approved campaign | Schedule approved Facebook batches with recovery, monitoring and reports. Reviewed organic paths cover Instagram, TikTok, YouTube Shorts and LinkedIn; paid work remains bounded Meta engagement campaigns. [Channels and account requirements](docs/agent-multichannel.md). |
 | Measure app growth | Retain observations, failed experiments and CAC/ROAS where inputs support them. Missing metrics stay explicit; engagement is not installs, revenue or lift. |
 
