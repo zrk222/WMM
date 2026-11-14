@@ -745,12 +745,30 @@ def _handoff_cards(db, app, principal):
     return cards
 
 
+def _schedule_deadline_state(db, scope, batch, observed):
+    from .campaign_execution import scope_view
+    from .campaign_schedule import retained_object
+    from .common import iso_time
+
+    try:
+        summary = retained_object(batch["summary"], batch["summary_hash"])
+        base = retained_object(scope["summary"], scope["summary_hash"])
+        permission = scope_view(db, scope)["permission_expires_at"]
+        saved_deadline = summary.get("permission_expires_at", base["expires_at"])
+        if min(iso_time(permission), iso_time(saved_deadline)) <= observed:
+            return "EXPIRED_PENDING_WORK"
+    except (KeyError, TypeError, ValueError, Invalid, PermissionError, OverflowError, RecursionError):
+        return "NEEDS_REPAIR"
+    return None
+
+
 def _schedule_cards(db, app, principal, scopes, unresolved_scopes):
     from .common import iso_time
 
     cards = []
+    observed = iso_time(now())
     rows = db.execute(
-        "SELECT b.id,b.scope_id,b.status,b.summary_hash,b.updated, count(i.id) AS pending FROM campaign_schedule_batches b JOIN campaign_schedule_items i ON i.batch_id=b.id WHERE b.app_id=? AND b.owner=? AND b.status='ACTIVE' AND i.status IN ('READY','QUEUED','BLOCKED') GROUP BY b.id ORDER BY b.updated DESC LIMIT 50",
+        "SELECT b.id,b.scope_id,b.status,b.summary,b.summary_hash,b.updated, count(i.id) AS pending FROM campaign_schedule_batches b JOIN campaign_schedule_items i ON i.batch_id=b.id WHERE b.app_id=? AND b.owner=? AND b.status='ACTIVE' AND i.status IN ('READY','QUEUED','BLOCKED') GROUP BY b.id ORDER BY b.updated DESC LIMIT 50",
         (app["id"], principal),
     )
     for row in rows:
@@ -759,12 +777,8 @@ def _schedule_cards(db, app, principal, scopes, unresolved_scopes):
             continue
         if scope["id"] in unresolved_scopes:
             continue
-        data = _saved(scope["summary"])
-        try:
-            expired = iso_time(data["expires_at"]) <= iso_time(now())
-        except (KeyError, TypeError, Invalid):
-            expired = True
-        if not expired:
+        deadline_state = _schedule_deadline_state(db, scope, row, observed)
+        if deadline_state is None:
             failed = db.execute(
                 "SELECT 1 FROM campaign_schedule_items i LEFT JOIN jobs j ON j.id=i.job_id AND j.app_id=? WHERE i.batch_id=? AND (i.status='BLOCKED' OR j.status IN ('BLOCKED','FAILED','UNKNOWN')) LIMIT 1",
                 (app["id"], row["id"]),
@@ -774,7 +788,7 @@ def _schedule_cards(db, app, principal, scopes, unresolved_scopes):
         source = dict(
             id=row["id"],
             scope_id=row["scope_id"],
-            status="EXPIRED_PENDING_WORK" if expired else "BLOCKED",
+            status=deadline_state or "BLOCKED",
             summary_hash=row["summary_hash"],
             pending_items=row["pending"],
             updated=row["updated"],
@@ -787,9 +801,11 @@ def _schedule_cards(db, app, principal, scopes, unresolved_scopes):
                 row["id"],
                 source["status"],
                 "Review unfinished scheduled campaign work",
-                "The campaign approval expired with pending work."
-                if expired
-                else "A saved scheduled campaign job needs review.",
+                {
+                    "EXPIRED_PENDING_WORK": "The reviewed deadline expired with pending work.",
+                    "NEEDS_REPAIR": "WMM could not verify the saved approval or batch deadline.",
+                    "BLOCKED": "A saved scheduled campaign job needs review.",
+                }[source["status"]],
                 "Inspect the exact batch and delivery receipts; reconcile uncertainty before approving replacement work.",
                 "campaign",
                 dict(scope_id=row["scope_id"], batch_id=row["id"]),

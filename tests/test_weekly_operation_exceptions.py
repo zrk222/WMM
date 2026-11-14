@@ -1,6 +1,7 @@
 """Owner-private bounded weekly operational exceptions over real saved SQLite state."""
 
 from datetime import datetime, timedelta, timezone
+import json
 import time
 import unittest
 from unittest.mock import patch
@@ -454,6 +455,54 @@ class WeeklyOperationTests(unittest.TestCase):
         ):
             self.assertIsNone(trusted_principal(value))
         self.assertEqual(trusted_principal(self.owner), "owner")
+
+    def test_schedule_deadline_uses_renewal_without_extending_saved_batch(self):
+        from mission_control.authority_expiry import record_initial
+        from mission_control.campaign_schedule import initialize
+
+        initialize(self.store)
+        observed = datetime.now(timezone.utc)
+        past = (observed - timedelta(minutes=20)).isoformat()
+        first = (observed - timedelta(minutes=5)).isoformat()
+        later = (observed + timedelta(hours=1)).isoformat()
+        stamp = observed.isoformat()
+        scope_id = self.fixture.fixture.scope["scope_id"]
+        with connection(self.store.path) as db:
+            db.execute("UPDATE campaign_monitors SET status='OFF'")
+            scope = db.execute("SELECT * FROM campaign_scopes WHERE id=?", (scope_id,)).fetchone()
+            summary = json.loads(scope["summary"])
+            summary["expires_at"] = past
+            db.execute(
+                "UPDATE campaign_scopes SET summary=?,summary_hash=? WHERE id=?",
+                (canonical(summary), digest(summary), scope_id),
+            )
+            scope = db.execute("SELECT * FROM campaign_scopes WHERE id=?", (scope_id,)).fetchone()
+            record_initial(db, "CAMPAIGN", scope, past, later, "owner", scope["owner_version"], {}, observed)
+            for name, deadline in (
+                ("old-batch", first),
+                ("new-batch", later),
+                ("legacy-batch", None),
+                ("tampered-batch", later),
+            ):
+                batch = {"permission_expires_at": deadline} if deadline else {}
+                pinned = digest({}) if name == "tampered-batch" else digest(batch)
+                db.execute(
+                    "INSERT INTO campaign_schedule_batches VALUES(?,?,?,?,?,?,?,?,?,?)",
+                    (name, "sample", "owner", scope_id, canonical(batch), pinned, "ACTIVE", 2, stamp, stamp),
+                )
+                db.execute(
+                    "INSERT INTO campaign_schedule_items VALUES(?,?,?,?,?,?,?,?,?)",
+                    (name + "-item", name, observed.timestamp(), "{}", digest({}), "READY", None, stamp, stamp),
+                )
+        by_batch = {c["action"]["batch_id"]: c["state"] for c in self.cards()}
+        self.assertEqual(
+            by_batch,
+            {
+                "old-batch": "EXPIRED_PENDING_WORK",
+                "legacy-batch": "EXPIRED_PENDING_WORK",
+                "tampered-batch": "NEEDS_REPAIR",
+            },
+        )
 
     def test_expired_pending_schedule_owned_refs_and_uncertainty_dedup(self):
         from mission_control.campaign_schedule import initialize
