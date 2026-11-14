@@ -2,7 +2,9 @@
 
 import json
 import time
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
+from sqlite3 import Connection, Row
 from typing import Any
 
 from .app_launch_history import removed_listing
@@ -260,13 +262,21 @@ class CampaignSchedules:
                     from .organic_video_schedule import VideoSchedules
 
                     return VideoSchedules(self.store).status(app_id, batch_id)
-                items = [
-                    item_status(db, app_id, row["scope_id"], item)
-                    for item in db.execute(
-                        "SELECT * FROM campaign_schedule_items WHERE batch_id=? ORDER BY due,id", (batch_id,)
+                rows = db.execute(
+                    "SELECT * FROM campaign_schedule_items WHERE batch_id=? ORDER BY due,id", (batch_id,)
+                ).fetchall()
+                items = [item_status(db, app_id, row["scope_id"], item) for item in rows]
+                try:
+                    validate_items(rows, summary, require_future=False)
+                except Invalid:
+                    progress = (
+                        "NEEDS_RECONCILIATION"
+                        if any(item["effective_status"] == "NEEDS_RECONCILIATION" for item in items)
+                        else "NEEDS_REPAIR"
                     )
-                ]
-            except Invalid:
+                else:
+                    progress = batch_progress(db, row, summary, items, datetime.now(timezone.utc))
+            except (Invalid, KeyError, TypeError, ValueError, OverflowError, RecursionError):
                 return repair_view(row)
             return dict(
                 id=row["id"],
@@ -276,6 +286,7 @@ class CampaignSchedules:
                 summary=summary,
                 summary_hash=row["summary_hash"],
                 items=items,
+                progress=progress,
             )
 
     def history(self, app_id):
@@ -349,9 +360,46 @@ def repair_view(row):
     )
 
 
+def batch_progress(
+    db: Connection, batch: Row, summary: Mapping[str, object], items: Sequence[Mapping[str, object]], observed: datetime
+) -> str:
+    """Describe saved progress separately from the batch's persisted authority switch."""
+    states = {item["effective_status"] for item in items}
+    if "NEEDS_RECONCILIATION" in states:
+        return "NEEDS_RECONCILIATION"
+    if states and states <= {"VERIFIED", "ACTIVE_VERIFIED", "PAUSED_VERIFIED"}:
+        return "DELIVERY_VERIFIED"
+    if batch["status"] != "ACTIVE":
+        return batch["status"]
+
+    scope = db.execute(
+        "SELECT * FROM campaign_scopes WHERE app_id=? AND id=? AND owner=?",
+        (batch["app_id"], batch["scope_id"], batch["owner"]),
+    ).fetchone()
+    if (
+        scope is None
+        or scope["summary_hash"] != summary.get("scope_hash")
+        or (summary.get("app_id"), summary.get("owner"), summary.get("scope_id"), summary.get("batch_id"))
+        != (batch["app_id"], batch["owner"], batch["scope_id"], batch["id"])
+    ):
+        return "NEEDS_REPAIR"
+    if scope["status"] != "ACTIVE":
+        return "APPROVAL_INACTIVE"
+    base = retained_object(scope["summary"], scope["summary_hash"])
+    expiry = min(
+        iso_time(summary.get("permission_expires_at", base["expires_at"])),
+        iso_time(scope_view(db, scope)["permission_expires_at"]),
+    )
+    if expiry <= observed:
+        return "APPROVAL_EXPIRED"
+    if "BLOCKED" in states:
+        return "BLOCKED"
+    return "RUNNING" if "RUNNING" in states else "SCHEDULED"
+
+
 def item_status(db, app_id, scope_id, item):
     job = (
-        db.execute("SELECT status,result FROM jobs WHERE id=?", (item["job_id"],)).fetchone()
+        db.execute("SELECT status,result FROM jobs WHERE id=? AND app_id=?", (item["job_id"], app_id)).fetchone()
         if item["job_id"]
         else None
     )
