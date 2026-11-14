@@ -86,6 +86,7 @@ tests/test_observational_campaign_contract.py
 tests/test_operation_docs.py
 tests/test_operation_feedback_browser.py
 tests/test_operator_client.py
+tests/test_organic_research_browser.py
 tests/test_organic_research_http.py
 tests/test_organic_video_collector.py
 tests/test_organic_video_discovery.py

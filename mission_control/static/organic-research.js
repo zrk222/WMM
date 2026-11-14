@@ -81,8 +81,8 @@
     `<label class="field" for="oresearch-${name}">${m.esc(title)}<textarea id="oresearch-${name}" name="${name}" maxlength="${limit}" required>${m.esc(value)}</textarea></label>`;
   const select = (name, title, values) =>
     `<label class="field" for="oresearch-${name}">${m.esc(title)}<select id="oresearch-${name}" name="${name}">${values.map(([value, text]) => `<option value="${m.esc(value)}">${m.esc(text)}</option>`).join('')}</select></label>`;
-  const check = (name, title, value = 'on', icon = '') =>
-    `<label class="check-row"><input type="checkbox" name="${name}" value="${m.esc(value)}"> ${icon}${m.esc(title)}</label>`;
+  const check = (name, title, value = 'on', icon = '', checked = false) =>
+    `<label class="check-row"><input type="checkbox" name="${name}" value="${m.esc(value)}"${checked ? ' checked' : ''}> ${icon}${m.esc(title)}</label>`;
   function clear() {
     active = null;
   }
@@ -258,6 +258,18 @@
       ['organic-video.claim', 'organic-video.submit'].every((op) => grant.operations.includes(op))
     );
   }
+  function suggestedSearch(app) {
+    const genre = (app.job || app.audience || app.category || 'App walkthroughs')
+      .trim()
+      .slice(0, 120);
+    const appType = (app.category || app.name || 'App').trim().slice(0, 120);
+    return {
+      genre: genre || 'App walkthroughs',
+      app_type: appType || 'App',
+      search_terms: [genre, appType].filter(Boolean).join(' · ') || 'App walkthroughs',
+    };
+  }
+
   async function assignment(t) {
     if (retained(t).length)
       throw new Error('Inspect the uncertain save before assigning another search.');
@@ -280,7 +292,7 @@
         );
         return;
       }
-      const app = t.d.state.workspace.app.data;
+      const suggested = suggestedSearch(t.d.state.workspace.app.data);
       const html = `<p>This assigns metadata research to an existing agent. It creates no credential, downloads no video and publishes nothing. The agent's own permitted source access is required.</p><form id="oresearch-task-form"><div class="form-grid">${select(
         'grant',
         'Connected research agent',
@@ -288,15 +300,15 @@
           g.id,
           g.agent_id + ' · ' + (g.max_calls - g.used) + ' grant calls left',
         ]),
-      )}${field('genre', 'Genre or audience problem', app.job || '', 'text', 'required maxlength="120"')}${field('app_type', 'App type', app.category || '', 'text', 'required maxlength="120"')}${field('search_terms', 'Search terms', '', 'text', 'required maxlength="500"')}</div><fieldset><legend>Platforms to research</legend>${Object.keys(
+      )}</div><p><strong>Suggested search:</strong> ${m.esc(suggested.search_terms)} across all five channels. Up to five clips using public metadata.</p><details><summary>Customize search</summary><div class="form-grid">${field('genre', 'Genre or audience problem', suggested.genre, 'text', 'required maxlength="120"')}${field('app_type', 'App type', suggested.app_type, 'text', 'required maxlength="120"')}${field('search_terms', 'Search terms', suggested.search_terms, 'text', 'required maxlength="500"')}</div><fieldset><legend>Platforms to research</legend>${Object.keys(
         CHANNEL_NAMES,
       )
-        .map((p) => check('platform', CHANNEL_NAMES[p], p, channelLogo(p)))
+        .map((p) => check('platform', CHANNEL_NAMES[p], p, channelLogo(p), true))
         .join('')}</fieldset><div class="form-grid">${select('access', 'Permitted source access', [
         ['PUBLIC_WEB', 'Public web'],
         ['OWNER_AUTHORIZED_PLATFORM', 'Owner-authorized platform session'],
         ['PERMITTED_API', 'Permitted platform API'],
-      ])}${field('minutes', 'Task expires after minutes', 30, 'number', 'required min="1" max="1440"')}${field('max_candidates', 'Maximum candidates', 5, 'number', 'required min="1" max="20"')}${field('max_reads', 'Maximum source reads', 100, 'number', 'required min="1" max="500"')}${field('max_seconds', 'Maximum collection seconds', 600, 'number', 'required min="1" max="3600"')}</div><p>Submit the direct link and its post ID or shortcode. Host scope is limited to the selected platforms' public domains. YouTube collection reads public Shorts metadata only; exact /shorts/video-id URLs and comparable creator Shorts evidence are required. Publishing uses a separate account connection and approval. Task expiry is shortened to the selected grant's expiry. WMM does not delegate its stored credentials to the collector.</p><button type="submit" class="button">Review search assignment</button></form>${button('Back to research', 'open')}`;
+      ])}${field('minutes', 'Task expires after minutes', 30, 'number', 'required min="1" max="1440"')}${field('max_candidates', 'Maximum candidates', 5, 'number', 'required min="1" max="20"')}${field('max_reads', 'Maximum source reads', 100, 'number', 'required min="1" max="500"')}${field('max_seconds', 'Maximum collection seconds', 600, 'number', 'required min="1" max="3600"')}</div><p>Submit the direct link and its post ID or shortcode. Host scope is limited to the selected platforms' public domains. YouTube collection reads public Shorts metadata only; exact /shorts/video-id URLs and comparable creator Shorts evidence are required. Publishing uses a separate account connection and approval. Task expiry is shortened to the selected grant's expiry. WMM does not delegate its stored credentials to the collector.</p></details><p>Review applies your current choices. Viral qualification always requires 100,000 views and 10× a documented creator baseline.</p><button type="submit" class="button">Review search assignment</button></form>${button('Back to research', 'open')}`;
       show(t.d, 'Give your agent a focused search', 'assignment', html, { grants }, t.scope);
     } catch (e) {
       fail(t, e);
@@ -1636,6 +1648,7 @@
     submit,
     validation,
     eligible,
+    suggestedSearch,
     taskBody,
     counts,
     safeURL,

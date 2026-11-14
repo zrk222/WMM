@@ -465,3 +465,29 @@ test('every research card explains its selection and baseline gaps', async () =>
   html = ui.taskHTML(data, s());
   assert.match(html, /not enough comparable posts to verify the creator baseline/);
 });
+
+test('suggested search uses the selected app and remains within the input contract', () => {
+  const defaults = ui.suggestedSearch({
+    job: 'Practice difficult conversations',
+    category: 'Coaching',
+  });
+  const body = ui.taskBody(fd({ ...values, ...defaults }), [grant()], s(), () => 'default-search');
+  assert.match(body.query.search_terms, /Practice difficult conversations/);
+  assert.equal(body.query.app_type, 'Coaching');
+  assert.equal(ui.suggestedSearch({ job: 'x'.repeat(150) }).genre.length, 120);
+  const custom = ui.taskBody(
+    fd({
+      ...values,
+      ...defaults,
+      search_terms: 'manager feedback roleplay',
+      platform: ['linkedin'],
+      max_reads: '30',
+    }),
+    [grant()],
+    s(),
+    () => 'custom-search',
+  );
+  assert.equal(custom.query.search_terms, 'manager feedback roleplay');
+  assert.deepEqual(custom.policy.platforms, ['linkedin']);
+  assert.equal(custom.policy.max_reads, 30);
+});
