@@ -380,6 +380,21 @@ const WMMGoalJourney = (() => {
       return false;
     }
   }
+  const channels = Object.freeze({
+    facebook: 'Facebook',
+    instagram: 'Instagram',
+    tiktok: 'TikTok',
+    youtube: 'YouTube Shorts',
+    linkedin: 'LinkedIn',
+  });
+  function savedConnectionStatus(account) {
+    if (account.status === 'DISCONNECTED') return 'Disconnected';
+    if (account.reconnect_required || account.status === 'RECONNECT_REQUIRED')
+      return 'Sign in again';
+    if (account.status === 'RENEWING') return 'Refreshing sign-in';
+    if (account.status === 'CONNECTED_READ_TESTED') return 'Read check recorded';
+    return 'Check connection';
+  }
   function model(workspace, id) {
     const goal = choices[fixed(id)];
     return {
@@ -388,12 +403,11 @@ const WMMGoalJourney = (() => {
       objective: workspace.app.data.job || '',
       goal: goal ? { id, ...goal } : null,
       accounts: (workspace.social_access?.accounts || [])
-        .filter((a) =>
-          ['facebook', 'instagram', 'tiktok', 'youtube', 'linkedin'].includes(a.provider),
-        )
+        .filter((a) => Object.hasOwn(channels, a.provider))
         .map((a) => ({
-          status: a.status,
-          destination: (a.data?.destination?.name || a.provider) + ' (' + a.provider + ')',
+          status: savedConnectionStatus(a),
+          destination: a.data?.destination?.name,
+          channel: channels[a.provider],
         })),
       classification: 'PRESENTATION_ONLY_NO_AUTHORITY',
     };
@@ -407,8 +421,21 @@ const WMMGoalJourney = (() => {
           `<button type="button" class="button outline" data-action="goal-select" data-goal="${name}" data-app="${html(m.app_id)}" data-version="${m.version}" aria-pressed="${name === id}">${html(c.title)}</button>`,
       )
       .join('');
+    const accounts =
+      g?.id !== 'campaign'
+        ? '<p>Use saved evidence or configure a supported connection. Missing measurements remain unknown.</p>'
+        : m.accounts.length
+          ? '<h3>Saved channel connections</h3><ul>' +
+            m.accounts
+              .map(
+                (a) =>
+                  `<li><strong>${html(a.channel)}</strong>${a.destination ? ` · ${html(a.destination)}` : ''}: ${html(a.status)}</li>`,
+              )
+              .join('') +
+            '</ul>'
+          : '<p>No channel connection is saved for this app.</p>';
     const next = g
-      ? `<section class="panel" aria-label="Your selected goal"><h2>${html(g.title)}</h2><p>${html(g.description)}</p><p><strong>Bring:</strong> ${html(g.need)}.</p><p>${g.id === 'campaign' ? (m.accounts.length ? m.accounts.map((a) => html(a.destination) + ': ' + html(a.status)).join(' A� ') : 'No channel connection is saved for this app.') : 'Use saved evidence or configure your own supported connection. Missing measurements remain unknown.'}</p><p>Account setup is not execution approval. Existing workflow and campaign checks still apply.</p><div class="toolbar"><button type="button" class="button" data-action="goal-next" data-goal="${g.id}" data-app="${html(m.app_id)}" data-version="${m.version}">${html(g.next)}</button><button type="button" class="button outline" data-action="goal-readiness">Check connections for this goal</button><button type="button" class="button outline" data-view="agents">Connect your agent</button></div></section>`
+      ? `<section class="panel" aria-label="Your selected goal"><h2>${html(g.title)}</h2><p>${html(g.description)}</p><p><strong>Bring:</strong> ${html(g.need)}.</p>${accounts}<p>Account setup is not execution approval. Existing workflow and campaign checks still apply.</p><div class="toolbar"><button type="button" class="button" data-action="goal-next" data-goal="${g.id}" data-app="${html(m.app_id)}" data-version="${m.version}">${html(g.next)}</button><button type="button" class="button outline" data-action="goal-readiness">Check connections for this goal</button><button type="button" class="button outline" data-view="agents">Connect your agent</button></div></section>`
       : '<p>Choose one goal to see the relevant tools. This selection starts no work and grants no permission.</p>';
     return `<section class="panel" aria-label="Choose your marketing goal" id="goal-journey"><h2>What would you like to accomplish?</h2><p>Start with one useful result. Your agent and you use the same saved app facts, tools and approval checks.</p><p><strong>Your app purpose:</strong> ${html(m.objective || 'Add the problem your app solves in App setup.')}</p><div class="toolbar" role="group" aria-label="Marketing goals">${cards}</div><p id="goal-message" role="status" aria-live="polite"></p></section>${next}`;
   }
