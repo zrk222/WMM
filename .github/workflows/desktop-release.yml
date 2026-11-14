@@ -25,7 +25,7 @@ jobs:
     outputs:
       sha: ${{ steps.target.outputs.sha }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: main
           persist-credentials: false
@@ -78,18 +78,18 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ needs.validate.outputs.sha }}
           persist-credentials: false
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: WMM-release-*-${{ needs.validate.outputs.sha }}
           path: release-assets
           merge-multiple: true
       - name: Attest release asset provenance
         id: provenance
-        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
         with:
           subject-path: 'release-assets/*'
       - name: Verify official source-bound provenance for all six payloads
@@ -99,7 +99,7 @@ jobs:
           ATTESTATION_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
         run: python tools/verify_release_provenance.py --folder release-assets --sha "$CANDIDATE" --bundle "$ATTESTATION_BUNDLE"
       - name: Retain verified provenance receipt before publication
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: verified-release-provenance-${{ needs.validate.outputs.sha }}
           path: .factory/release-provenance.json
