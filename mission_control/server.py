@@ -1031,17 +1031,9 @@ class Handler(BaseHTTPRequestHandler):
 
             return self.send(201, EditRenders(service.store).queue(app_id, data))
         if action == "video-projects":
-            if urlparse(self.path).query:
-                raise Invalid("Use the exact video project address")
-            from .video_edit_projects import Projects
+            from .video_project_http import post as post_video_project
 
-            projects = Projects(service.store)
-            if len(parts) == 4:
-                return self.send(201, projects.save(app_id, data))
-            if len(parts) == 6 and parts[5] in ("edits", "history", "diff"):
-                operation = "edit" if parts[5] == "edits" else parts[5]
-                return self.send(200, getattr(projects, operation)(app_id, parts[4], data))
-            raise KeyError("Video project route not found")
+            return post_video_project(self, parts, data)
         if action == "workflow-evidence":
             if len(parts) != 4 or urlparse(self.path).query:
                 raise Invalid("Use the exact workflow evidence address")

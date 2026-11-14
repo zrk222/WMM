@@ -17,8 +17,10 @@ mission_control/automation_policy.py
 mission_control/campaign_access.py
 mission_control/campaign_contract.py
 mission_control/campaign_execution.py
+mission_control/campaign_metric_definitions.py
 mission_control/campaign_monitor.py
 mission_control/campaign_owner_reports.py
+mission_control/campaign_pause_receipts.py
 mission_control/campaign_schedule.py
 mission_control/campaign_schedule_authority.py
 mission_control/campaign_transport.py
@@ -78,8 +80,10 @@ mission_control/social_renewal.py
 mission_control/store.py
 mission_control/storekit_ingestion.py
 mission_control/subscription_journey.py
+mission_control/video_project_http.py
 mission_control/viral_policy.py
 mission_control/weekly_inbox.py
+mission_control/weekly_plan_status.py
 mission_control/worker.py
 tests/campaign_paid_schedule_browser.py
 tests/test_agent_context_tasks.py
