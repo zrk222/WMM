@@ -17,6 +17,7 @@ mission_control/creative_rendering.py
 mission_control/creative_toolchain.py
 mission_control/db.py
 mission_control/desktop.py
+mission_control/discovery_contract.py
 mission_control/discovery_http.py
 mission_control/drive_import_jobs.py
 mission_control/experiment_analysis.py
@@ -28,7 +29,9 @@ mission_control/insights.py
 mission_control/integrity_drill.py
 mission_control/ledger.py
 mission_control/managed_media_http.py
+mission_control/market_research.py
 mission_control/marketing_agent_manifest.py
+mission_control/marketing_ontology.py
 mission_control/measurement_economics.py
 mission_control/migrations/__init__.py
 mission_control/notices.py
@@ -39,6 +42,7 @@ mission_control/operator_client.py
 mission_control/organic_video_collector.py
 mission_control/organic_video_discovery.py
 mission_control/payment_sources.py
+mission_control/personal_agent_profiles.py
 mission_control/play_connections.py
 mission_control/publication_linkedin.py
 mission_control/publication_reports.py
