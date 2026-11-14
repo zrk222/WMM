@@ -140,6 +140,11 @@ def owner_history(store, app_id, actor, body):
                     created=row["created"],
                     updated=row["updated"],
                     query=saved["task"]["query"],
+                    candidate_count=len((saved["result"] or {}).get("items", [])),
+                    reviewable_count=sum(
+                        item["status"] == "COLLECTION_REVIEW_REQUIRED"
+                        for item in (saved["result"] or {}).get("items", [])
+                    ),
                     intakes=[],
                 )
             )

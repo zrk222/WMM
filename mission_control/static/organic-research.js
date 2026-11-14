@@ -215,6 +215,14 @@
         )
         .join('');
   }
+  function taskHistoryRow(row) {
+    const found = row.candidate_count || 0;
+    const toReview = row.reviewable_count || 0;
+    const summary = found
+      ? `${found} clip${found === 1 ? '' : 's'} found · ${toReview} meet reported thresholds`
+      : 'No clips returned yet';
+    return `<section class="next-step"><div><h4>${m.esc(row.query.genre)}</h4><p>${m.esc(row.query.search_terms)}</p><p>${m.esc(label(row.status))} · saved ${m.esc(row.created)}</p><p><strong>${summary}</strong></p><p>${row.intakes.length} approved research cards</p>${button(found ? 'Review found videos' : 'Inspect search', 'read', row.id)}</div></section>`;
+  }
   async function open(d, offset = 0) {
     if (!owner(d.state))
       throw new Error('Sign in as this app owner to assign or approve research.');
@@ -228,7 +236,7 @@
     try {
       const page = await request(t, 'task-list', { offset, request_id: null });
       if (!current(t)) return;
-      const html = `<p>Start with a clear marketing question. Your agent gathers permitted public evidence; you decide which idea deserves an original app creative.</p>${button('Assign a new search', 'new', '', true)}<h3>Saved research tasks</h3>${page.items.map((r) => `<section class="next-step"><h4>${m.esc(r.query.genre)}</h4><p>${m.esc(r.query.search_terms)}</p><p>${m.esc(label(r.status))} · saved ${m.esc(r.created)}</p><p>${r.intakes.length} saved research approvals</p>${r.intakes.map((x) => `<p>Research card ${m.esc(x.id)} · source ${m.esc(x.source_id)}</p>`).join('')}${button('Inspect task and research cards', 'read', r.id)}</section>`).join('') || '<p>No research task is saved for this app and owner. Assign a search to an agent with research access. You can review permitted sources manually in the saved-source research workspace.</p>'}<div class="button-row">${offset ? button('First tasks', 'page', '0') : ''}${page.next_offset !== null ? button('More tasks', 'page', String(page.next_offset)) : ''}</div>`;
+      const html = `<p>Start with a clear marketing question. Your agent gathers permitted public evidence; you decide which idea deserves an original app creative.</p>${button('Assign a new search', 'new', '', true)}<h3>Saved research tasks</h3><p>Open a search with clips to review their source evidence and choose what to process.</p>${button('Refresh results', 'page', String(offset))}${page.items.map(taskHistoryRow).join('') || '<p>No research task is saved for this app and owner. Assign a search to an agent with research access. You can review permitted sources manually in the saved-source research workspace.</p>'}<div class="button-row">${offset ? button('First tasks', 'page', '0') : ''}${page.next_offset !== null ? button('More tasks', 'page', String(page.next_offset)) : ''}</div>`;
       const next = show(d, 'Your agent research', 'history', html, page, t.scope);
       recovery(next);
     } catch (e) {
@@ -394,6 +402,37 @@
       },
     );
   }
+  function selectionSummary(entry, qualification) {
+    const q = qualification;
+    const fit =
+      {
+        MATCH: 'The collector marked it relevant to the app search.',
+        UNCERTAIN: 'The collector could not confirm the app fit.',
+        NO_MATCH: 'The collector did not find a clear app fit.',
+      }[entry.relevance] || 'App fit needs review.';
+    if (q.qualification === 'UGC_EXEMPT')
+      return 'Included as UGC, which is exempt from viral thresholds. ' + fit;
+    if (q.qualification === 'QUALIFIED_BY_REPORTED_COUNTS') {
+      const median = q.median?.numerator / q.median?.denominator;
+      const multiple =
+        Number.isFinite(median) && median > 0 ? entry.candidate.views / median : null;
+      const evidence = Number.isFinite(multiple)
+        ? ` It reached ${multiple.toFixed(2)}× the reported creator median.`
+        : '';
+      return (
+        fit +
+        ' Reported views met both viral thresholds.' +
+        evidence +
+        ' Check the source before approval.'
+      );
+    }
+    if (q.qualification === 'INSUFFICIENT_BASELINE')
+      return (
+        fit +
+        ' Kept as a candidate; there are not enough comparable posts to verify the creator baseline.'
+      );
+    return fit + ' Kept as a candidate; it has not met the viral qualification checks.';
+  }
   function taskHTML(saved, state) {
     const c = counts(saved),
       policy = saved.task.policy;
@@ -403,7 +442,7 @@
           obs = entry.candidate,
           url = safeURL(obs.url),
           q = row.qualification;
-        return `<article class="panel"><h3>${m.esc(obs.creator_id)} · ${m.esc(label(obs.platform))}</h3><p>${url ? `<a href="${m.esc(url)}" target="_blank" rel="noopener noreferrer">Inspect original source</a>` : 'Source link unavailable'}</p><p>Observed views: ${m.esc(obs.views ?? 'Unavailable')} · observed ${m.esc(obs.observed_at)} · Post ID ${m.esc(obs.post_id)}</p><p>Qualification: ${m.esc(label(q.qualification))} · comparable baseline posts: ${m.esc(q.baseline_count ?? 'Not required for UGC')}</p><p>App relevance: ${m.esc(label(entry.relevance))} · collector's rights claim: ${m.esc(label(entry.rights))}. Reuse permission remains unestablished.</p><p>${m.esc((q.reasons || []).map(label).join('; '))}</p>${adoptable(saved, row, entry, state) ? button('Review this research idea', 'adopt', q.candidate_hash) : '<p>Keep as a candidate until the reported evidence, app relevance and current review requirements are satisfied. Bring owned UGC through the media library.</p>'}</article>`;
+        return `<article class="panel"><h3>${m.esc(obs.creator_id)} · ${m.esc(label(obs.platform))}</h3><p>${url ? `<a href="${m.esc(url)}" target="_blank" rel="noopener noreferrer">Inspect original source</a>` : 'Source link unavailable'}</p><p>Observed views: ${m.esc(obs.views ?? 'Unavailable')} · observed ${m.esc(obs.observed_at)} · Post ID ${m.esc(obs.post_id)}</p><p>Qualification: ${m.esc(label(q.qualification))} · comparable baseline posts: ${m.esc(q.baseline_count ?? 'Not required for UGC')}</p><p><strong>Why it was selected:</strong> ${m.esc(selectionSummary(entry, q))}</p><p>App relevance: ${m.esc(label(entry.relevance))} · collector's rights claim: ${m.esc(label(entry.rights))}. Reuse permission remains unestablished.</p><p>${m.esc((q.reasons || []).map(label).join('; '))}</p>${adoptable(saved, row, entry, state) ? button('Review this research idea', 'adopt', q.candidate_hash) : '<p>Keep as a candidate until the reported evidence, app relevance and current review requirements are satisfied. Bring owned UGC through the media library.</p>'}</article>`;
       })
       .join('');
     return `<p><strong>${m.esc(label(saved.status))}</strong> · ${m.esc(saved.task.query.genre)} · ${m.esc(saved.task.query.app_type)}</p><p>Search: ${m.esc(saved.task.query.search_terms)}</p><p>${m.esc(policy.platforms.join(', '))} · access ${m.esc(label(policy.access))} · expires ${m.esc(policy.expires)}</p><p>Limits: ${policy.max_candidates} candidates, ${policy.max_reads} source reads, ${policy.max_seconds} collection seconds. Collector access is externally configured and not independently verified by this receipt.</p><dl>${Object.entries(
@@ -1430,6 +1469,7 @@
         reported_views: source.views,
         published_at: source.published_at,
         qualification: q.qualification,
+        selection_summary: selectionSummary(entry, q),
         qualification_reasons: (q.reasons || []).join('; '),
         baseline_posts: q.baseline_count ?? null,
         baseline_median_numerator: q.median?.numerator ?? null,

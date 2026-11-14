@@ -452,3 +452,16 @@ test('unreported selected channels cannot be reported as successful empty search
     ui.report(data, s()).notes.some((x) => x.includes('ask your agent to finish this channel')),
   );
 });
+
+test('every research card explains its selection and baseline gaps', async () => {
+  const data = await saved();
+  const q = data.result.items[0].qualification;
+  q.median = { numerator: 10000, denominator: 1 };
+  let html = ui.taskHTML(data, s());
+  assert.match(html, /Why it was selected/);
+  assert.match(html, /10\.00× the reported creator median/);
+  q.qualification = 'INSUFFICIENT_BASELINE';
+  q.median = null;
+  html = ui.taskHTML(data, s());
+  assert.match(html, /not enough comparable posts to verify the creator baseline/);
+});
