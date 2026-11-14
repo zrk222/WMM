@@ -20,6 +20,18 @@ test('detached modal after delayed preparation never opens approval',async()=>{c
 test('duplicate schedule submit is suppressed during in-flight preparation',async()=>{const h=fixture();let resolve,n=0;h.c.api=()=>{n++;return new Promise(r=>resolve=r)};const submit={disabled:false},form={dataset:{app:'one',version:'1',principal:'owner'},isConnected:true,querySelector:()=>submit,campaign:{scope:{...scope,expires_at:new Date(Date.now()+60000).toISOString()},posts:[post]},values:{due_0:new Date(Date.now()+10000).toISOString()}};const first=h.c.campaignScheduleSubmit(form);await h.c.campaignScheduleSubmit(form);assert.equal(n,1);form.isConnected=false;resolve({summary:{items:[]},summary_hash:'x'});await first;});
 test('paid modal closure while hashing blocks preparation',async()=>{const h=fixture();let resolve;h.c.campaignHash=()=>new Promise(r=>resolve=r);const submit={disabled:false},form={dataset:{app:'one',version:'1',principal:'owner'},isConnected:true,querySelector:()=>submit,campaign:{scope:{...scope,expires_at:new Date(Date.now()+60000).toISOString()}},paidPosts:[post],requestID:'id',values:{post_id:post.remote_id,countries:'CA',budget:'80',name:'Test',due_at:new Date(Date.now()+10000).toISOString(),end_time:new Date(Date.now()+30000).toISOString()}};const pending=h.c.campaignScheduleSubmit(form);form.isConnected=false;resolve('approved');await pending;assert.equal(h.calls.length,0);assert.equal(h.modals.length,0);});
 test('status response after owner or modal changes does not open stale progress',async()=>{const h=fixture();let resolve;h.c.api=()=>new Promise(r=>resolve=r);const source={isConnected:true};const pending=h.c.campaignScheduleStatus('batch',source);h.c.state.workspace.identity.principal='other';resolve({});await pending;assert.equal(h.modals.length,0);});
+
+test('late schedule status cannot reopen an abandoned weekly interaction', async () => {
+  const h = fixture();
+  let resolve;
+  let current = true;
+  h.c.api = () => new Promise((done) => { resolve = done; });
+  const pending = h.c.campaignScheduleStatus('batch', null, () => current);
+  current = false;
+  resolve({});
+  await pending;
+  assert.equal(h.modals.length, 0);
+});
 test('duplicate activation is suppressed while request is pending',async()=>{const h=fixture();let resolve,n=0;h.c.api=()=>{n++;return new Promise(r=>resolve=r)};const panel={dataset:{app:'one',version:'1',principal:'owner'},isConnected:true,campaign:{summary:{batch_id:'batch'},summary_hash:'hash'},querySelector:()=>({textContent:''})};h.panels['#campaign-schedule-review']=panel;const node={dataset:{action:'campaign-schedule-activate'},disabled:false};const pending=h.c.campaignScheduleAction(node);await h.c.campaignScheduleAction(node);assert.equal(n,1);panel.isConnected=false;resolve({});await pending;assert.equal(n,1);});
 
 function liveFixture(){const h=fixture(),timers=[],elements={'#schedule-batch-state':{textContent:''},'#schedule-live-items':{innerHTML:''},'#schedule-live-stage':{textContent:''}},panel={dataset:{app:'one',version:'1',principal:'owner'},isConnected:true,campaign:{id:'batch',version:2,status:'ACTIVE',items:[]},querySelector:s=>elements[s]};h.c.setTimeout=(fn,delay)=>{timers.push({fn,delay});return timers.length;};h.c.clearTimeout=()=>{};return {...h,timers,elements,panel};}

@@ -937,12 +937,13 @@ function campaignScheduleReviewItem(item, scope) {
     '</p></section>'
   );
 }
-async function campaignScheduleStatus(batch, source = null) {
+async function campaignScheduleStatus(batch, source = null, isCurrent = () => true) {
   const app = state.app,
     version = state.workspace.app.version,
     principal = state.workspace.identity?.principal,
     data = await api('/api/apps/' + app + '/campaigns/schedule-status', { batch_id: batch });
   if (
+    !isCurrent() ||
     state.app !== app ||
     state.workspace.app.version !== version ||
     state.workspace.identity?.principal !== principal ||

@@ -32,11 +32,18 @@ test('schedule recovery opens only the reviewed batch and ignores refreshed iden
     };
     vm.createContext(context);
     vm.runInContext(src.slice(begin, finish), context);
-    await context.weeklyAction({ dataset: {
+    const action = context.weeklyAction({ dataset: {
       action: 'weekly-recover', app: 'one', tool: 'campaign',
+      category: 'scheduled_campaign',
       resource: scenario === 'wrong batch' ? 'forged' : 'batch',
       scope: scenario === 'wrong scope' ? 'another' : 'scope',
     } });
+    if (['wrong batch', 'wrong scope', 'foreign card'].includes(scenario)) {
+      await assert.rejects(action, /Refresh this review before opening the schedule/);
+      assert.deepEqual(calls, []);
+      continue;
+    }
+    await action;
     assert.equal(calls[0], 'refresh');
     assert.equal(calls.includes('batch:batch'), scenario === 'match');
     assert.equal(calls.length, scenario === 'changed owner' || scenario === 'changed view' ? 1 : 2);
