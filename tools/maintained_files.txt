@@ -11,6 +11,7 @@ mission_control/automation_execution.py
 mission_control/campaign_contract.py
 mission_control/campaign_execution.py
 mission_control/campaign_monitor.py
+mission_control/campaign_schedule.py
 mission_control/campaign_schedule_authority.py
 mission_control/cloud_connection.py
 mission_control/common.py
@@ -32,6 +33,7 @@ mission_control/hypit_jobs.py
 mission_control/insights.py
 mission_control/integrity_drill.py
 mission_control/ledger.py
+mission_control/linux_vault.py
 mission_control/managed_media_http.py
 mission_control/market_research.py
 mission_control/marketing_agent_manifest.py
@@ -48,6 +50,7 @@ mission_control/organic_video_discovery.py
 mission_control/payment_sources.py
 mission_control/personal_agent_profiles.py
 mission_control/play_connections.py
+mission_control/pre_registration.py
 mission_control/publication_linkedin.py
 mission_control/publication_reports.py
 mission_control/rea_video_analysis.py
@@ -88,6 +91,7 @@ tests/test_kpi_gaps.py
 tests/test_ledger_grouping.py
 tests/test_licensing_plain.py
 tests/test_linkedin_render_contract.py
+tests/test_linux_vault.py
 tests/test_measurement_economics.py
 tests/test_migrations.py
 tests/test_observational_campaign_contract.py
@@ -100,6 +104,7 @@ tests/test_organic_video_collector.py
 tests/test_organic_video_discovery.py
 tests/test_page_reporting_http.py
 tests/test_parser_properties.py
+tests/test_pre_registration.py
 tests/test_property_profiles.py
 tests/test_publication_channel_selection.py
 tests/test_publication_meta_linkedin.py
@@ -112,6 +117,7 @@ tests/test_release_provenance.py
 tests/test_repo_hygiene.py
 tests/test_sbom_reproducibility.py
 tests/test_schedule_authority_boundary.py
+tests/test_schedule_pause_evidence.py
 tests/test_schema_types.py
 tests/test_source_ratchet.py
 tests/test_sqlite_tuning.py
