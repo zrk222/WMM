@@ -165,6 +165,23 @@ class OutcomeTests(unittest.TestCase):
                 test_campaign_owner_reports.core.matched_post(db, "sample", chosen["scope_id"], summary, receipt),
                 {"status": "MULTIPLE_POSTS_SHARE_TAG"},
             )
+            second_summary.pop("measurement_plan")
+            db.execute(
+                "UPDATE campaign_scopes SET summary=?,summary_hash=? WHERE app_id='sample' AND id='second-approval'",
+                (canonical(second_summary), digest(second_summary)),
+            )
+            retained_result = dict(
+                id=second_result["id"],
+                destination_check=dict(approved_link_sha256=digest(second_link), final_url=second_link),
+            )
+            db.execute(
+                "UPDATE campaign_intents SET result=? WHERE app_id='sample' AND id='second-intent'",
+                (canonical(retained_result),),
+            )
+            self.assertEqual(
+                test_campaign_owner_reports.core.matched_post(db, "sample", chosen["scope_id"], summary, receipt),
+                {"status": "MULTIPLE_POSTS_SHARE_TAG"},
+            )
             db.execute("UPDATE campaign_intents SET status='BLOCKED' WHERE id='second-intent'")
             self.assertEqual(
                 test_campaign_owner_reports.core.matched_post(db, "sample", chosen["scope_id"], summary, receipt),

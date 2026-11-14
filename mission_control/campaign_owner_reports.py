@@ -6,6 +6,7 @@ import secrets
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from urllib.parse import parse_qs, urlsplit
 
 from .campaign_execution import saved_pause_receipt, scope_view
 from .campaign_monitor import actor, last_observation, whole
@@ -521,20 +522,22 @@ def matched_post(db, app_id, scope_id, approved, outcome):
         return {"status": "DELIVERY_OUTSIDE_ACQUISITION_WINDOW"}
     # Another approved post can send traffic into the same tagged cohort.
     # Check within this app without including the other scope's data in the report.
-    shared_link = db.execute(
-        """SELECT 1 FROM campaign_intents i LEFT JOIN campaign_scopes s
+    candidates = db.execute(
+        """SELECT json_extract(i.result,'$.destination_check.final_url') AS url,
+        json_extract(i.result,'$.destination_check.approved_link_sha256') AS link_hash,
+        CASE WHEN json_valid(s.summary) THEN json_extract(s.summary,'$.measurement_plan.campaign_tag') END AS plan_tag
+        FROM campaign_intents i LEFT JOIN campaign_scopes s
         ON s.app_id=i.app_id AND s.id=i.scope_id
-        WHERE i.app_id=? AND i.scope_id<>? AND i.status='VERIFIED' AND i.remote_id IS NOT NULL
-        AND CASE WHEN json_valid(i.result) THEN
-            json_extract(i.result,'$.destination_check.approved_link_sha256')=? OR
-            (json_extract(i.result,'$.destination_check.approved_link_sha256') IS NOT NULL AND
-             CASE WHEN json_valid(s.summary) THEN json_extract(s.summary,'$.measurement_plan.campaign_tag')=? ELSE 0 END)
-        ELSE 0 END
-        LIMIT 1""",
-        (app_id, scope_id, link_hash, report["campaign"]),
-    ).fetchone()
-    if shared_link is not None:
-        return {"status": "MULTIPLE_POSTS_SHARE_TAG"}
+        WHERE i.app_id=? AND i.id<>? AND i.status='VERIFIED' AND i.remote_id IS NOT NULL
+        AND json_valid(i.result)""",
+        (app_id, row["id"]),
+    )
+    for candidate in candidates:
+        if candidate["link_hash"] == link_hash or (
+            candidate["link_hash"] is not None
+            and (has_campaign_tag(candidate["url"], report["campaign"]) or candidate["plan_tag"] == report["campaign"])
+        ):
+            return {"status": "MULTIPLE_POSTS_SHARE_TAG"}
     return dict(
         status="EXACT_TAGGED_POST_READBACK",
         intent_id=row["id"],
@@ -545,6 +548,16 @@ def matched_post(db, app_id, scope_id, approved, outcome):
         delivery_sha256=digest(result),
         outcome_sha256=outcome["receipt_sha256"],
     )
+
+
+def has_campaign_tag(url: object, campaign: str) -> bool:
+    """Read retained destination evidence without fetching or exposing its URL."""
+    if not isinstance(url, str) or len(url) > 4096:
+        return False
+    try:
+        return campaign in parse_qs(urlsplit(url).query, max_num_fields=256).get("utm_campaign", [])
+    except ValueError:
+        return False
 
 
 def next_action(campaign, monitor, experiment):
