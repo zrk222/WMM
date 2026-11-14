@@ -105,6 +105,7 @@ tests/test_desktop_entry.py
 tests/test_desktop_release.py
 tests/test_evidence_gate.py
 tests/test_experiments.py
+tests/test_feedback_reuse.py
 tests/test_first_party_outcomes.py
 tests/test_format_ratchet.py
 tests/test_http_benchmark.py
