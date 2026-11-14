@@ -39,6 +39,12 @@ class DangerZoneTypesTests(unittest.TestCase):
             ],
         )
 
+    def test_new_public_framing_function_requires_annotations(self):
+        self.assertEqual(
+            checker.check_source("async def new(request): pass", set(), all_public=True),
+            ["Missing parameter annotation: new.request", "Missing return annotation: new"],
+        )
+
     def test_generated_rows_reject_wrong_grant_and_role_fields(self):
         if not (ROOT / "node_modules/pyright").is_dir():
             self.skipTest("Pinned Pyright is installed by maintainability CI")
