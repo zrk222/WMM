@@ -4,6 +4,9 @@ import http.client
 import json
 import re
 import time
+from collections.abc import Callable
+from datetime import date
+from typing import Literal, TypedDict
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 from .aeo_tls import trust_context
@@ -18,6 +21,54 @@ from .social_registry import META_VERSION
 
 class Unconfirmed(Invalid):
     """A provider operation may have happened; never retry a mutation blindly."""
+
+
+class CampaignSpendWindow(TypedDict):
+    campaign_id: str
+    account_id: str
+    currency: str
+    since: str
+    until: str
+    reported_spend: str | None
+    reporting: Literal["NO_ROWS", "PROVIDER_REPORTED_MAY_LAG"]
+
+
+def checked_spend_window(
+    payload: dict[str, object], identity: str, account_id: str, currency: str, since: str, until: str
+) -> CampaignSpendWindow:
+    """Accept only one complete campaign total for the exact account-local dates."""
+    rows, paging = payload.get("data"), payload.get("paging")
+    if (
+        not isinstance(rows, list)
+        or len(rows) > 1
+        or (paging is not None and (not isinstance(paging, dict) or paging.get("next")))
+    ):
+        raise Unconfirmed("Advertising spend window readback was incomplete")
+    result: CampaignSpendWindow = {
+        "campaign_id": identity,
+        "account_id": account_id,
+        "currency": currency,
+        "since": since,
+        "until": until,
+        "reported_spend": None,
+        "reporting": "NO_ROWS",
+    }
+    if not rows:
+        return result
+    row = rows[0]
+    if not isinstance(row, dict) or (
+        row.get("campaign_id"),
+        row.get("account_id"),
+        row.get("account_currency"),
+        row.get("date_start"),
+        row.get("date_stop"),
+    ) != (identity, account_id, currency, since, until):
+        raise Unconfirmed("Advertising spend window does not match the requested scope")
+    spend = row.get("spend")
+    if not isinstance(spend, str) or not re.fullmatch(r"[0-9]{1,15}(?:\.[0-9]{1,6})?", spend):
+        raise Unconfirmed("Advertising spend window readback was invalid")
+    result.update(reported_spend=spend, reporting="PROVIDER_REPORTED_MAY_LAG")
+    return result
 
 
 def post_id(value, page_id):
@@ -270,3 +321,34 @@ class MetaTransport:
         if not isinstance(value, str) or not re.fullmatch(r"[0-9]{1,15}(?:\.[0-9]{1,6})?", value):
             raise Unconfirmed("Advertising spend readback was invalid")
         return {"reported_spend": value, "reporting": "PROVIDER_REPORTED_MAY_LAG"}
+
+    def campaign_spend_window(
+        self,
+        identity: str,
+        account_id: str,
+        currency: str,
+        since: date,
+        until: date,
+        token: str,
+        secret: str,
+        alive: Callable[[], object],
+    ) -> CampaignSpendWindow:
+        """Read one exact campaign's spend for inclusive dates in its ad account's timezone."""
+        numeric(identity)
+        numeric(account_id)
+        if (
+            not re.fullmatch(r"[A-Z]{3}", currency)
+            or type(since) is not date
+            or type(until) is not date
+            or not 0 <= (until - since).days < 31
+        ):
+            raise Invalid("Choose one currency and a window of up to 31 account-local days")
+        start, end = since.isoformat(), until.isoformat()
+        fields = {
+            "fields": "campaign_id,account_id,account_currency,date_start,date_stop,spend",
+            "level": "campaign",
+            "time_range": json.dumps({"since": start, "until": end}, separators=(",", ":")),
+            "appsecret_proof": app_secret_proof(token, secret),
+        }
+        data = self.request("GET", "/" + META_VERSION + "/" + identity + "/insights", fields, token, alive)
+        return checked_spend_window(data, identity, account_id, currency, start, end)
