@@ -132,6 +132,50 @@ MV5's Windows/Ubuntu CI-lane requirement has verified evidence above; MV1–MV4
 and the trial-dependent MV6 freeze remain open. This document grants no provider access,
 external write, production activation, spending, public hosting or outreach.
 
+## Growth operator acceptance: installs and paid subscriptions
+
+These are required outcomes alongside the existing gates and all 42 metrics in
+the [KPI register](WMM-KPI-COVERAGE.md). Track impressions → store views →
+installs → activation and installs → activation → trial → paid → renewal.
+Publication, engagement, and receipts are operational evidence. Rank growth
+work by its expected effect on installs or paid subscriptions.
+
+1. **Close the first-party join on WizeMe.** Freeze the acquisition tag and
+   source, use consented PostHog install/activation events and authenticated
+   RevenueCat trial, payment, and renewal evidence. Use an explicit,
+   app-scoped pseudonymous identity link and compatible cohort windows. Deduplicate
+   events, retain corrections, exclude internal tests, and distinguish store
+   downloads from an SDK-observed first open. Show unmatched, suppressed,
+   immature, and unobservable data separately. A tagged visit alone does not
+   count as an install or a paid conversion.
+2. **Run one subscription experiment through WMM.** Pick one paywall or offer
+   change. Preregister exposure, assignment, paid conversion, sample size,
+   maturity, stop criteria, comparison, and rollback. Preview the exact
+   destination and change, require separate maker/checker approval, and reuse
+   the governed outbox pattern. Verify the selected provider actually supports
+   the mutation and read it back after dispatch. A listing promo-text write
+   does not establish support for editing a paywall, offer, or price. Retain an
+   owner report with attributed trial-to-paid counts and a continue, stop, or
+   revise decision. Only claim incremental subscriptions when the comparison
+   estimates lift with uncertainty; an honest null or inconclusive result is
+   retained with the next decision.
+3. **Close the download loop.** Use store reporting, Apple Ads read signals,
+   and tagged creative to identify the largest observed acquisition leak. Run
+   one authorized listing or distribution intervention with exact readback and
+   attributed install observations. Keep provider attribution and first-party
+   attribution separate when they cannot be reconciled.
+4. **Repeat under standing limits.** The weekly inbox should recommend the
+   best next intervention, with its expected impact, confidence, evidence
+   gaps, and approval needed. Draft and evaluate locally. Publish, mutate
+   prices or listings, or spend only under the existing exact authority.
+   Report what changed and start the next cycle from observed results,
+   including failed experiments and tracking failures.
+
+Acceptance requires durable source and completion receipts, reproducible
+matching and failure cases, and the same figures in the owner UI, agent output,
+and exports. Reuse existing connectors and event stores. First-party coverage
+does not imply MMP coverage or causal proof.
+
 ## Next owner-run WizeMe trial handoff
 
 Use the [first evidence packet](../README.md#your-first-evidence-packet) to start.
