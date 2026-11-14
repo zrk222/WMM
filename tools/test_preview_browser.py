@@ -148,7 +148,9 @@ def exercise(browser, origin, width):
             assert (OUT / "sample-report.pdf").read_bytes().startswith(b"%PDF")
         context.set_offline(False)
         page.goto(origin + "/index.html")
-        expect(page.get_by_role("heading", level=1, name="Give your personal agent a marketing workspace.")).to_be_visible()
+        expect(
+            page.get_by_role("heading", level=1, name="Give your personal agent a marketing workspace.")
+        ).to_be_visible()
         expect(page.locator("#channels .channel-logo")).to_have_count(5)
         for name in channels.values():
             expect(page.locator("#channels").get_by_role("heading", name=name, exact=True)).to_be_visible()
