@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from mission_control.campaign_contract import scope_data
 from mission_control.campaign_execution import SCHEMA
-from mission_control.common import Invalid, canonical, digest
+from mission_control.common import Invalid, canonical, digest, now
 from mission_control.db import connection
 from mission_control.evidence_gate import (
     assert_ready,
@@ -19,9 +19,10 @@ from mission_control.evidence_gate import (
     measurement_plan,
     provider_set,
 )
+from mission_control.operator_client import OperatorClient
 from mission_control.store import Store
 from mission_control.worker import campaign_job_preview
-from tests import test_campaign_execution
+from tests import test_campaign_access, test_campaign_execution
 
 
 def plan():
@@ -148,6 +149,42 @@ class EvidenceGateTests(unittest.TestCase):
             for private in ("private owner text", "private-scope-id", "example.test", "launch-a"):
                 self.assertNotIn(private, canonical(view))
             self.assertEqual(view["status"], "BLOCKED")
+
+    def test_campaign_http_reads_preserve_owner_review_and_hide_exact_inputs(self):
+        fixture: Any = test_campaign_access.CampaignGatewayTests()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        self.addCleanup(fixture.tearDown)
+        approved = dict(plan(), hypothesis="synthetic private hypothesis")
+        fixture.scope["measurement_plan"] = approved
+        scope_id = fixture.activate()["scope_id"]
+        owner_view = fixture.owner_call("status", {"scope_id": scope_id})
+        self.assertEqual(owner_view["scope"]["measurement_plan"]["hypothesis"], approved["hypothesis"])
+
+        reader = fixture.agent(["campaign.history", "campaign.status"])
+        for operation, args in (("campaign.history", {}), ("campaign.status", {"scope_id": scope_id})):
+            response = reader.call(dict(app_id="sample-one", operation=operation, input=args))
+            self.assertNotIn(approved["hypothesis"], canonical(response))
+            self.assertNotIn(approved["link"], canonical(response))
+
+        message = "synthetic exact post reserved for owner"
+        with connection(fixture.store.path) as db:
+            request = dict(fixture.post, link=approved["link"], message=message)
+            payload = canonical(dict(scope_id=scope_id, batch_id="sample-batch", request=request))
+            db.execute(
+                "INSERT INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)",
+                ("sample-job", "sample-one", "campaign_post", payload, "QUEUED", now(), now(), "sample-key"),
+            )
+        signed_out = OperatorClient(fixture.origin)
+        signed_out.bootstrap()
+        for endpoint in ("/api/apps/sample-one", "/api/apps/sample-one/jobs"):
+            serialized = canonical(signed_out.request("GET", endpoint))
+            self.assertNotIn(approved["hypothesis"], serialized)
+            self.assertNotIn(approved["link"], serialized)
+            self.assertNotIn(message, serialized)
+            self.assertIn(digest(approved["link"]), serialized)
+            self.assertIn("sample-job", serialized)
+        self.assertEqual(fixture.wire.posts, 0)
 
     def test_generic_job_preview_carries_only_a_link_fingerprint(self):
         exact = "https://example.test/path?utm_campaign=launch-a"
