@@ -60,6 +60,7 @@ mission_control/service.py
 mission_control/social_renewal.py
 mission_control/store.py
 mission_control/storekit_ingestion.py
+mission_control/subscription_journey.py
 mission_control/viral_policy.py
 mission_control/weekly_inbox.py
 mission_control/worker.py
@@ -121,6 +122,7 @@ tests/test_source_ratchet.py
 tests/test_sqlite_tuning.py
 tests/test_static_etag.py
 tests/test_static_wiring.py
+tests/test_subscription_journey.py
 tests/test_type_ratchet.py
 tests/test_verify_release_assets.py
 tests/test_weekly_operation_exceptions.py

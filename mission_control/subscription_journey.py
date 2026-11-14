@@ -3,6 +3,7 @@
 import re
 from datetime import timedelta
 from statistics import median
+
 from .common import Invalid, digest, iso_time
 
 JOURNEY_TYPES = {
@@ -126,11 +127,16 @@ def stage_times(events, kind):
     return result
 
 
-def mature_conversion(events, origin, outcome, days, as_of):
+def mature_conversion(events, origin, outcome, days, as_of, *, fixed_window=False):
     """Keep recent starters out of both numerator and eligible denominator."""
     starts, outcomes = stage_times(events, origin), stage_times(events, outcome)
-    eligible = {s for s, stamp in starts.items() if stamp + timedelta(days=days) <= as_of}
-    converted = {s for s in eligible if s in outcomes and outcomes[s] >= starts[s]}
+    duration = timedelta(days=days)
+    eligible = {s for s, stamp in starts.items() if stamp + duration <= as_of}
+    converted = {
+        s
+        for s in eligible
+        if s in outcomes and starts[s] <= outcomes[s] and (not fixed_window or outcomes[s] <= starts[s] + duration)
+    }
     return len(converted), len(eligible)
 
 
@@ -145,7 +151,9 @@ def group_report(binding, events, cohort, as_of, issues):
     """Maturity gates rates; supplied observability never verifies delivery coverage."""
     data = group_counts(events)
     available = cohort["observability"] == "OBSERVED" and as_of >= iso_time(cohort["matures_at"]) and not issues
-    converted, trials = mature_conversion(events, "TRIAL_START", "PURCHASE", binding["trial_days"], as_of)
+    converted, trials = mature_conversion(
+        events, "TRIAL_START", "PURCHASE", binding["trial_days"], as_of, fixed_window=True
+    )
     renewed, paid = mature_conversion(events, "PURCHASE", "RENEWAL", binding["billing_period_days"], as_of)
     data.update(
         binding=binding,
