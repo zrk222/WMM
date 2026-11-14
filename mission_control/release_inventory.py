@@ -58,9 +58,9 @@ class Inventory:
         self.requests += 1
         return self.reader.read(BASE + path + ("?" + urlencode(query) if query else ""))
 
-    def collection(self, path, kind, relation, owner):
+    def collection(self, path, kind, relation, owner, *, filters=None):
         """Read same-resource pages with explicit coverage and duplicate integrity."""
-        query, seen, rows = {"limit": 100}, set(), {}
+        query, seen, rows = {"limit": 100, **(filters or {})}, set(), {}
         while True:
             seen.add(BASE + path + "?" + urlencode(query))
             payload = self.fetch(path, query)
@@ -82,6 +82,31 @@ class Inventory:
             query = urlsplit(link).query
             # Preserve Apple's encoded cursor rather than interpret or duplicate it.
             query = dict_query(query)
+            if filters and any(
+                [value for name, value in query if name == key] != [expected] for key, expected in filters.items()
+            ):
+                raise Invalid("Release pagination changed its filters")
+
+
+def read_launch_versions(reader, store_id: str) -> dict[str, Any]:
+    """Read app-level iOS states with bounded pagination and explicit coverage."""
+    if not re.fullmatch(r"[0-9]{1,30}", store_id):
+        raise Invalid("Choose a numeric App Store app ID")
+    rows, complete = Inventory(reader).collection(
+        f"/v1/apps/{store_id}/appStoreVersions",
+        "appStoreVersions",
+        "app",
+        store_id,
+        filters={"filter[platform]": "IOS"},
+    )
+    states = set()
+    for row in rows:
+        _, attrs = entity(row, "appStoreVersions")
+        state = version_review_state(attrs)
+        if text(attrs, "platform") != "IOS" or not isinstance(state, str) or not re.fullmatch("[A-Z_]{1,64}", state):
+            raise Invalid("Apple version listing does not contain the requested iOS launch facts")
+        states.add(state)
+    return dict(operation="launch_versions", states=sorted(states), complete=complete)
 
 
 def dict_query(query):

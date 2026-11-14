@@ -53,6 +53,8 @@ mission_control/payment_sources.py
 mission_control/personal_agent_profiles.py
 mission_control/play_connections.py
 mission_control/pre_registration.py
+mission_control/provider_reports.py
+mission_control/providers.py
 mission_control/publication_linkedin.py
 mission_control/publication_reports.py
 mission_control/rea_video_analysis.py

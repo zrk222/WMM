@@ -86,6 +86,35 @@ class FakeReader:
 
 
 class ReleaseInventory(unittest.TestCase):
+    def test_launch_version_read_scans_all_ios_versions_under_the_app(self):
+        first, second = (copy.deepcopy(fixtures()[0]["data"]) for _ in range(2))
+        second["id"] = "older"
+        second["attributes"]["appVersionState"] = "READY_FOR_DISTRIBUTION"
+        link = "https://api.appstoreconnect.apple.com/v1/apps/123/appStoreVersions?filter%5Bplatform%5D=IOS&cursor=next"
+        with (
+            patch("mission_control.provider_reports.credential", return_value="synthetic"),
+            patch(
+                "mission_control.provider_reports.report_request",
+                side_effect=[
+                    {"data": [first], "links": {"next": link}},
+                    {"data": [second], "links": {}},
+                ],
+            ) as transport,
+        ):
+            report = read_report(BINDING, "sample-one", {"operation": "launch_versions"})
+        assert isinstance(report, dict)
+        self.assertTrue(report["complete"])
+        self.assertEqual(report["states"], ["READY_FOR_DISTRIBUTION", "WAITING_FOR_REVIEW"])
+        hashes = report["page_source_hashes"]
+        assert isinstance(hashes, list)
+        self.assertEqual(len(hashes), 2)
+        self.assertEqual(transport.call_args.args[0], link)
+        report_destination(link, None)
+        with self.assertRaises(Invalid):
+            report_destination(link.replace("=IOS", "=MAC_OS"), None)
+        with self.assertRaises(Invalid):
+            report_destination(link, {})
+
     def test_current_apple_version_state_takes_precedence_over_deprecated_value(self):
         pages = fixtures()
         pages[0]["data"]["attributes"]["appVersionState"] = "READY_FOR_DISTRIBUTION"
