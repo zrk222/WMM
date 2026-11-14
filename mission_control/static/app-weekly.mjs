@@ -15,7 +15,7 @@ import {
 } from './app.mjs';
 import { WMMCampaignMonitor } from './campaign-monitor.mjs';
 import { WMMOwnerReports } from './campaign-owner-reports.mjs';
-import { campaignOpen, campaignStatus } from './campaign-execution.mjs';
+import { campaignOpen, campaignScheduleStatus, campaignStatus } from './campaign-execution.mjs';
 import { growthReviewServices } from './app-results.mjs';
 import { guidedNavigate, guidedOpenTool } from './guided-workflow.mjs';
 import { WMMAgentControl, WMMPageReports } from './feature-apis.mjs';
@@ -23,6 +23,13 @@ import { WMMAgentControl, WMMPageReports } from './feature-apis.mjs';
 
 function visibleWeeklyExceptions(value, principal) {
   return WMMPageReports.visibleWeeklyExceptions(value, principal) || [];
+}
+
+function recoveryLabel(card) {
+  if (card.category === 'scheduled_campaign') return 'Open schedule';
+  if (card.resolution_route === 'agent_review')
+    return card.state === 'SOURCE_UNAVAILABLE' ? 'Open review queue' : 'Open exact request';
+  return 'Open recovery';
 }
 
 function weeklyView() {
@@ -50,7 +57,7 @@ function weeklyView() {
   const cards = visible
     .map(
       (c) =>
-        `<article class="panel"><p class="eyebrow">${esc(c.app_name)} / ${esc(c.category)}</p><h2>${esc(c.title)}</h2>${status(c.state)}<p>${esc(c.reason)}</p><p><strong>Recommended next step:</strong> ${esc(c.next_action)}</p><p class="description">Handled by: ${esc(c.owner)} Â· Cost unknown Â· Change from prior review not assessed.</p>${button(c.resolution_route === 'agent_review' ? (c.state === 'SOURCE_UNAVAILABLE' ? 'Open review queue' : 'Open exact request') : 'Open recovery', 'weekly-recover', `data-app="${esc(c.app_id)}" data-tool="${esc(c.resolution_route)}" data-resource="${esc(c.action?.resource_id || '')}" data-scope="${esc(c.action?.scope_id || '')}"`)}<details><summary>Source and limits</summary><p>App ${esc(c.source_receipt.app_id)} Â· setup version ${esc(c.source_receipt.manifest_version)} Â· reviewed ${esc(c.source_receipt.observed_at)}</p><p class="app-mono">${esc(c.source_receipt.source_hash || 'Source unavailable')}</p><p>Local input checks do not prove retained value, permission to spend or measured growth.</p></details></article>`,
+        `<article class="panel"><p class="eyebrow">${esc(c.app_name)} / ${esc(c.category)}</p><h2>${esc(c.title)}</h2>${status(c.state)}<p>${esc(c.reason)}</p><p><strong>Recommended next step:</strong> ${esc(c.next_action)}</p><p class="description">Handled by: ${esc(c.owner)} Â· Cost unknown Â· Change from prior review not assessed.</p>${button(recoveryLabel(c), 'weekly-recover', `data-app="${esc(c.app_id)}" data-tool="${esc(c.resolution_route)}" data-resource="${esc(c.action?.resource_id || '')}" data-scope="${esc(c.action?.scope_id || '')}"`)}<details><summary>Source and limits</summary><p>App ${esc(c.source_receipt.app_id)} Â· setup version ${esc(c.source_receipt.manifest_version)} Â· reviewed ${esc(c.source_receipt.observed_at)}</p><p class="app-mono">${esc(c.source_receipt.source_hash || 'Source unavailable')}</p><p>Local input checks do not prove retained value, permission to spend or measured growth.</p></details></article>`,
     )
     .join('');
   const coverage = value.coverage;
@@ -108,6 +115,17 @@ async function weeklyAction(node) {
     ]);
     if (!allowed.has(tool) || !state.boot.apps.some((a) => a.id === app))
       throw new Error('Refresh this review before opening recovery.');
+    const scheduleCard =
+      tool === 'campaign' && node.dataset.resource && state.weeklyReview
+        ? visibleWeeklyExceptions(state.weeklyReview, principal).find(
+            (c) =>
+              c.app_id === app &&
+              c.category === 'scheduled_campaign' &&
+              c.resolution_route === tool &&
+              c.action?.batch_id === node.dataset.resource &&
+              c.action?.scope_id === node.dataset.scope,
+          )
+        : null;
     const reviewCard =
       tool === 'agent_review'
         ? visibleWeeklyExceptions(state.weeklyReview, principal).find(
@@ -126,11 +144,11 @@ async function weeklyAction(node) {
       state.weeklyGeneration !== generation ||
       state.view !== 'weekly' ||
       state.app !== app ||
-      !currentWorkspace()
+      !currentWorkspace() ||
+      state.workspace.identity?.principal !== principal
     )
       return;
     if (tool === 'agent_review') {
-      if (state.workspace.identity?.principal !== principal) return;
       return WMMAgentControl.action(
         {
           dataset:
@@ -145,6 +163,7 @@ async function weeklyAction(node) {
       await WMMCampaignMonitor.open();
       return node.dataset.resource ? WMMCampaignMonitor.inspect(node.dataset.resource) : undefined;
     }
+    if (scheduleCard) return campaignScheduleStatus(scheduleCard.action.batch_id);
     if (tool === 'campaign')
       return node.dataset.scope ? campaignStatus(node.dataset.scope) : campaignOpen();
     if (tool === 'owner_reports') {

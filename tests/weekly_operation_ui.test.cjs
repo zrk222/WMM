@@ -1,6 +1,47 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('./helpers/module-source.cjs'),vm=require('node:vm'),path=require('node:path');
 const reportModule={exports:{}};new Function('module',fs.readFileSync(path.join(__dirname,'../mission_control/static/page-reporting.js'),'utf8'))(reportModule);
 const src=fs.readFileSync(path.join(__dirname,'../mission_control/static/app-weekly.mjs'),'utf8');const start=src.indexOf('function visibleWeeklyExceptions('),end=src.indexOf('function weeklyView()',start),c={WMMPageReports:reportModule.exports};vm.createContext(c);vm.runInContext(src.slice(start,end),c);
+
+test('schedule recovery opens only the reviewed batch and ignores refreshed identity drift', async () => {
+  const begin = src.indexOf('async function weeklyAction(');
+  const finish = src.indexOf('function ', begin + 10);
+  const card = {
+    app_id: 'one', category: 'scheduled_campaign', resolution_route: 'campaign',
+    owner_only: true, owner_principal: 'owner', action: { scope_id: 'scope', batch_id: 'batch' },
+  };
+  for (const scenario of ['match', 'wrong batch', 'wrong scope', 'changed owner', 'changed view', 'foreign card']) {
+    const calls = [];
+    const state = {
+      app: 'one', view: 'weekly', boot: { apps: [{ id: 'one' }] },
+      workspace: { identity: { principal: 'owner' } },
+      weeklyReview: {
+        owner_operations_principal: 'owner',
+        exceptions: [scenario === 'foreign card' ? { ...card, app_id: 'two' } : card],
+      },
+    };
+    const context = {
+      state, $: () => ({}), currentWorkspace: () => true,
+      visibleWeeklyExceptions: c.visibleWeeklyExceptions,
+      refresh: async () => {
+        calls.push('refresh');
+        if (scenario === 'changed owner') state.workspace.identity.principal = 'other';
+        if (scenario === 'changed view') state.view = 'results';
+      },
+      campaignScheduleStatus: (id) => calls.push('batch:' + id),
+      campaignStatus: (id) => calls.push('scope:' + id),
+    };
+    vm.createContext(context);
+    vm.runInContext(src.slice(begin, finish), context);
+    await context.weeklyAction({ dataset: {
+      action: 'weekly-recover', app: 'one', tool: 'campaign',
+      resource: scenario === 'wrong batch' ? 'forged' : 'batch',
+      scope: scenario === 'wrong scope' ? 'another' : 'scope',
+    } });
+    assert.equal(calls[0], 'refresh');
+    assert.equal(calls.includes('batch:batch'), scenario === 'match');
+    assert.equal(calls.length, scenario === 'changed owner' || scenario === 'changed view' ? 1 : 2);
+  }
+});
 test('cached owner operations require matching response and current card principal',()=>{const value={owner_operations_principal:'owner',exceptions:[{id:'public'},{id:'private',owner_only:true,owner_principal:'owner'},{id:'foreign',owner_only:true,owner_principal:'other'}]};assert.deepEqual(Array.from(c.visibleWeeklyExceptions(value,'owner'),x=>x.id),['public','private']);for(const principal of [null,undefined,'other'])assert.deepEqual(Array.from(c.visibleWeeklyExceptions(value,principal),x=>x.id),['public']);assert.deepEqual(Array.from(c.visibleWeeklyExceptions({...value,owner_operations_principal:null},'owner'),x=>x.id),['public']);});
 
 test('operational recovery uses fixed exact-resource controls after current app refresh',async()=>{const begin=src.indexOf('async function weeklyAction('),finish=src.indexOf('function ',begin+10);const actionSource=src.slice(begin,finish);for(const tool of ['monitor','campaign','owner_reports']){const calls=[],state={app:'one',view:'weekly',boot:{apps:[{id:'one'}]},workspace:{app:{version:1},identity:{principal:'owner'}}},c={state,$:()=>({value:'one'}),refresh:async()=>calls.push('refresh'),currentWorkspace:()=>true,WMMCampaignMonitor:{open:async()=>calls.push('monitor-open'),inspect:async id=>calls.push(id)},WMMOwnerReports:{open:async()=>calls.push('reports-open'),inspect:async(kind,id)=>calls.push(kind+':'+id)},campaignStatus:async id=>calls.push('scope:'+id)};vm.createContext(c);vm.runInContext(actionSource,c);await c.weeklyAction({dataset:{action:'weekly-recover',app:'one',tool,resource:'exact-id',scope:'scope-id'}});assert.equal(calls[0],'refresh');assert.equal(calls.at(-1),tool==='monitor'?'exact-id':tool==='campaign'?'scope:scope-id':'plan:exact-id');}});

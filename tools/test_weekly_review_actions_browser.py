@@ -9,6 +9,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from playwright.sync_api import sync_playwright, expect
+from mission_control.common import now
 from tests.test_agent_review_http import ReviewHTTPTests
 from tests.test_verified_review import OWNER_TOKEN, CHECKER_TOKEN
 
@@ -38,6 +39,37 @@ def run(browser, width, out):
 
         login(OWNER_TOKEN)
         weekly()
+        principal = page.evaluate("async () => (await import('/app.mjs')).state.workspace.identity.principal")
+        schedule_calls = []
+
+        def schedule(route):
+            schedule_calls.append(route.request.post_data_json)
+            route.fulfill(json={"id": "exact-batch", "items": [], "status": "ACTIVE", "version": 1})
+
+        page.evaluate(
+            """async ({principal, stamp}) => {
+                const {state, render} = await import('/app.mjs');
+                state.weeklyReview.exceptions.push({
+                    app_id: 'sample-one', app_name: 'Synthetic app', owner: 'App owner',
+                    category: 'scheduled_campaign', resolution_route: 'campaign',
+                    state: 'EXPIRED_PENDING_WORK', owner_principal: principal, owner_only: true,
+                    title: 'Review unfinished scheduled campaign work',
+                    reason: 'Your approval expired before all scheduled work finished.',
+                    next_action: 'Open the schedule and check what went live.',
+                    source_receipt: {app_id: 'sample-one', manifest_version: 1, observed_at: stamp},
+                    action: {scope_id: 'old-scope', batch_id: 'exact-batch', resource_id: 'exact-batch'},
+                });
+                render();
+            }""",
+            {"principal": principal, "stamp": now()},
+        )
+        schedule_url = "**/api/apps/sample-one/campaigns/schedule-status"
+        page.route(schedule_url, schedule)
+        page.get_by_role("button", name="Open schedule", exact=True).press("Enter")
+        expect(page.get_by_role("dialog")).to_contain_text("Batch exact-batch")
+        assert schedule_calls == [{"batch_id": "exact-batch"}]
+        page.locator("#modal").evaluate("(node) => node.close()")
+        page.unroute(schedule_url)
         card = page.locator('[data-action="weekly-recover"][data-resource="review-one"]')
         card.press("Enter")
         dialog = page.get_by_role("dialog")
@@ -87,6 +119,7 @@ def run(browser, width, out):
             "browser": browser.version,
             "owner_maker_cannot_approve": True,
             "checker_inspected": True,
+            "keyboard_opens_exact_schedule": True,
             "checkpoint_unchanged_on_open": True,
             "cancel_removed_after_refresh": True,
             "json_export": True,
