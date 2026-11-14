@@ -19,6 +19,7 @@ from mission_control import campaign_monitor as core
 from mission_control import campaign_monitor_authority as authority
 from mission_control.automation_agreement import monitor_scope
 from mission_control.campaign_execution import CampaignExecutionService
+from mission_control.campaign_schedule import CampaignSchedules, schedule_table_exists
 from mission_control.common import Invalid, canonical, digest, now
 from mission_control.db import connection
 from mission_control.operation_authority import bound_owner, protected
@@ -123,14 +124,20 @@ class CampaignMonitorTests(unittest.TestCase):
         with self.owner():
             return self.monitors.status("sample", monitor["id"])
 
-    def test_fresh_history_and_missing_status_do_not_initialize_monitor_storage(self):
+    def test_fresh_agreement_pickers_and_missing_status_do_not_initialize_storage(self):
+        schedule = CampaignSchedules(self.store)
+        nonexistent = "88888888-8888-4888-8888-888888888888"
         with connection(self.store.path) as db:
             before = "\n".join(db.iterdump())
             self.assertFalse(core.monitor_table_exists(db))
+            self.assertFalse(schedule_table_exists(db))
         with self.owner():
             self.assertEqual(self.monitors.history("sample"), {"monitors": []})
+            self.assertEqual(schedule.history("sample"), {"batches": []})
             with self.assertRaisesRegex(Invalid, "Monitor is unavailable"):
-                self.monitors.status("sample", "88888888-8888-4888-8888-888888888888")
+                self.monitors.status("sample", nonexistent)
+            with self.assertRaisesRegex(Invalid, "Scheduled batch is unavailable"):
+                schedule.status("sample", nonexistent)
         with connection(self.store.path) as db:
             self.assertEqual(before, "\n".join(db.iterdump()))
 

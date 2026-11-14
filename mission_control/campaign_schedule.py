@@ -33,6 +33,13 @@ def initialize(store):
         db.executescript(SCHEMA)
 
 
+def schedule_table_exists(db: Connection) -> bool:
+    return (
+        db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='campaign_schedule_batches'").fetchone()
+        is not None
+    )
+
+
 def owner_context(store, app_id):
     from .campaign_access import identity
 
@@ -141,7 +148,6 @@ def validate_items(rows, summary, *, require_future=True):
 class CampaignSchedules:
     def __init__(self, store):
         self.store = store
-        initialize(store)
 
     def prepare(self, app_id, body):
         actor = owner_context(self.store, app_id)
@@ -150,6 +156,7 @@ class CampaignSchedules:
         items = body["items"]
         if not isinstance(items, list) or not 1 <= len(items) <= MAX_ITEMS:
             raise Invalid("Choose one to twenty scheduled posts")
+        initialize(self.store)
         from .campaign_access import policy_checker
 
         service = CampaignExecutionService(self.store, policy_checker(self.store))
@@ -210,6 +217,8 @@ class CampaignSchedules:
         service = CampaignExecutionService(self.store, policy_checker(self.store))
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
+            if not schedule_table_exists(db):
+                raise Invalid("Scheduled batch is unavailable for activation")
             row = db.execute(
                 "SELECT * FROM campaign_schedule_batches WHERE id=? AND app_id=?", (batch_id, app_id)
             ).fetchone()
@@ -251,6 +260,8 @@ class CampaignSchedules:
     def status(self, app_id, batch_id):
         actor = owner_context(self.store, app_id)
         with connection(self.store.path) as db:
+            if not schedule_table_exists(db):
+                raise Invalid("Scheduled batch is unavailable")
             row = db.execute(
                 "SELECT * FROM campaign_schedule_batches WHERE id=? AND app_id=? AND owner=?", (batch_id, app_id, actor)
             ).fetchone()
@@ -293,6 +304,8 @@ class CampaignSchedules:
         """Return the latest 50 owner-owned batches with saved local receipt state."""
         actor = owner_context(self.store, app_id)
         with connection(self.store.path) as db:
+            if not schedule_table_exists(db):
+                return {"batches": []}
             ids = [
                 row["id"]
                 for row in db.execute(
@@ -307,6 +320,8 @@ class CampaignSchedules:
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
             member(db, app_id, actor, "OWNER")
+            if not schedule_table_exists(db):
+                raise Invalid("Scheduled batch is unavailable")
             row = db.execute(
                 "SELECT * FROM campaign_schedule_batches WHERE id=? AND app_id=? AND owner=?", (batch_id, app_id, actor)
             ).fetchone()

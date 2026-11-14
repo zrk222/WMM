@@ -16,7 +16,7 @@ from .campaign_contract import (
 from .campaign_execution import scope_view
 from .campaign_monitor import ObservationReceipt, allowance_exhausted, monitor_attention, monitor_table_exists
 from .campaign_monitor import view as monitor_view
-from .campaign_schedule import check_paid_review, item_status
+from .campaign_schedule import check_paid_review, item_status, schedule_table_exists
 from .common import Invalid, digest, iso_time
 from .complete_automation import policy_view
 from .db import connection
@@ -272,6 +272,8 @@ def batch_row(db, app_id, principal, identity):
     """Bind selected batch to its stored immutable summary before resolving dependencies."""
     if identity is None:
         return None, None
+    if not schedule_table_exists(db):
+        raise Invalid("Scheduled batch is unavailable for this owner")
     row = owned(db, "campaign_schedule_batches", app_id, identity, principal)
     summary = saved_object(row["summary"])
     exact_keys(
