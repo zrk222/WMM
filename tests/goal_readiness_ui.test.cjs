@@ -392,3 +392,21 @@ test('next scheduled check remains visible without a prior observation', () => {
   assert.match(html, /next due 2026-11-14T10:00:00Z/);
   assert.doesNotMatch(html, /Observed:/);
 });
+
+test('empty campaign destinations offer the exact social setup and combined review', () => {
+  const h = fixture();
+  h.c.guidedNavigate = (view, anchor) => h.calls.push({ view, anchor });
+  vm.runInContext('WMMAgreement.open = () => modal("Combined agreement", "")', h.c);
+  h.w.open();
+  h.w.repair('standing-readiness');
+  assert.match(h.calls.at(-1).body, /No social destination is connected for this app/);
+  assert.match(h.calls.at(-1).body, /data-tool="social-accounts"/);
+  h.w.repair('social-accounts');
+  assert.deepEqual(h.calls.at(-1), { view: 'connections', anchor: '#social-heading' });
+  h.w.repair('combined-agreement');
+  assert.equal(h.calls.at(-1).title, 'Combined agreement');
+  assert.equal(
+    h.calls.some((item) => item.url),
+    false,
+  );
+});
