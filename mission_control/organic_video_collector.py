@@ -1,13 +1,13 @@
 """Durable external-agent research task; never performs internet access itself."""
 
-from datetime import datetime, timedelta, timezone
 import json
+from datetime import datetime, timedelta, timezone
 
 from .agent_grants import app_scope, current
 from .common import Invalid, canonical, digest, iso_time, now, required, safe_data, uid
 from .db import connection
 from .operation_authority import PROTECTED, check, store_identity
-from .organic_video_discovery import collection_coverage, discovery_task, exact, qualify_submission
+from .organic_video_discovery import channel_search_plan, collection_coverage, discovery_task, exact, qualify_submission
 from .review_access import exact_role
 from .store import audit
 
@@ -69,11 +69,13 @@ def _current(db, row, observed):
 
 
 def _view(row):
+    task = json.loads(row["task"])
     value = {
         "id": row["id"],
         "app_id": row["app_id"],
         "task_hash": row["task_hash"],
-        "task": json.loads(row["task"]),
+        "task": task,
+        "channel_search_plan": channel_search_plan(task),
         "status": row["status"],
         "claim_id": row["claim_id"],
         "claim_until": row["claim_until"],

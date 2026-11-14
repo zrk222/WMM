@@ -23,6 +23,33 @@ POST_PATHS = {
 }
 HEX = re.compile(r"[0-9a-f]{64}\Z")
 FAILURE_CODES = ("LOGIN", "CAPTCHA", "TIMEOUT", "UNAVAILABLE", "EMPTY", "PARTIAL")
+SEARCH_SURFACES = {
+    "facebook": ("Reels and public video posts", "problem-and-demo clips"),
+    "instagram": ("Reels", "visual demonstrations and before/after"),
+    "linkedin": ("public native-video posts", "founder, team or professional use cases"),
+    "tiktok": ("native video search and creator catalogs", "problem hooks and relatable use cases"),
+    "youtube": ("Shorts search and channel catalogs", "concise tutorials and app walkthroughs"),
+}
+
+
+def channel_search_plan(task: dict) -> list[dict]:
+    """Split the existing read allowance into a fair, advisory first-pass plan."""
+    policy, query = task["policy"], task["query"]
+    platforms = policy["platforms"]
+    quotient, remainder = divmod(policy["max_reads"], len(platforms))
+    return [
+        {
+            "platform": platform,
+            "hosts": [host for host in policy["hosts"] if host in HOSTS[platform]],
+            "initial_read_allowance": quotient + (index < remainder),
+            "surface": SEARCH_SURFACES[platform][0],
+            "angle": SEARCH_SURFACES[platform][1],
+            "app_type": query["app_type"],
+            "genre": query["genre"],
+            "search_terms": query["search_terms"],
+        }
+        for index, platform in enumerate(platforms)
+    ]
 
 
 def collector_contract():
@@ -58,6 +85,9 @@ def collector_contract():
         },
         "post_identity": "Use the exact post ID or shortcode in the direct link, without share parameters.",
         "coverage": "Use permitted metadata reads for each selected channel. Report unavailable or empty sources explicitly. A selected channel without results is NOT_REPORTED, never empty or successful.",
+        "channel_plan": "Use each claimed task's channel_search_plan to search the native video surface with the app genre, type and terms. Attempt each allowed channel before reallocating unused reads.",
+        "triage": "First retain relevant candidates with exact observed view counts. Then spend remaining reads on earlier comparable posts from the same creator, platform and format. Keep clips with missing baseline as unqualified candidates. If views are hidden, record partial coverage and keep the clip in research notes; never substitute likes or impressions.",
+        "limits": "Use only allowed hosts and the frozen read, time and candidate limits. If a channel has no allowed host or receives no first-pass reads, report the coverage gap explicitly. Do not bypass login or CAPTCHA.",
         "handoff": "Owner review can adopt qualified references from partial searches. Rights and footage stay separate.",
     }
 

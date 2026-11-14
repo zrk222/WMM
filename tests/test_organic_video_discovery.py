@@ -82,6 +82,25 @@ def bundle(task_value, count=10, collected=None):
 
 
 class DiscoveryContractTests(unittest.TestCase):
+    def test_five_channel_first_pass_allocates_reads_with_selected_hosts_only(self):
+        from mission_control.organic_video_discovery import HOSTS, channel_search_plan
+
+        value = task()
+        value["policy"].update(
+            platforms=sorted(HOSTS),
+            hosts=["www." + name + ".com" for name in sorted(HOSTS)],
+            max_reads=13,
+        )
+        value = discovery_task(value["app"], value["policy"], value["query"])
+        rows = channel_search_plan(value)
+        self.assertEqual({row["platform"] for row in rows}, set(HOSTS))
+        self.assertEqual(sum(row["initial_read_allowance"] for row in rows), 13)
+        self.assertEqual({row["initial_read_allowance"] for row in rows}, {2, 3})
+        self.assertEqual(len({row["surface"] for row in rows}), 5)
+        for row in rows:
+            self.assertEqual(row["hosts"], ["www." + row["platform"] + ".com"])
+            self.assertEqual(row["app_type"], value["query"]["app_type"])
+
     def test_agent_catalog_describes_the_five_channel_submission(self):
         catalog_value = catalog()
         assert isinstance(catalog_value, dict)

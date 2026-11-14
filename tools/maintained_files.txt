@@ -14,6 +14,7 @@ mission_control/cloud_connection.py
 mission_control/common.py
 mission_control/connection_setup.py
 mission_control/creative_rendering.py
+mission_control/creative_toolchain.py
 mission_control/db.py
 mission_control/desktop.py
 mission_control/discovery_http.py
@@ -35,11 +36,13 @@ mission_control/observational_campaign_contract.py
 mission_control/onesignal_setup.py
 mission_control/operation_catalog.py
 mission_control/operator_client.py
+mission_control/organic_video_collector.py
 mission_control/organic_video_discovery.py
 mission_control/payment_sources.py
 mission_control/play_connections.py
 mission_control/publication_linkedin.py
 mission_control/publication_reports.py
+mission_control/rea_video_analysis.py
 mission_control/review_access.py
 mission_control/server.py
 mission_control/service.py
@@ -58,6 +61,8 @@ tests/test_campaign_monitor_polish.py
 tests/test_check_distribution.py
 tests/test_ci_current_candidate.py
 tests/test_ci_runner.py
+tests/test_creative_analysis.py
+tests/test_creative_toolchain.py
 tests/test_danger_zone_types.py
 tests/test_dependency_freshness.py
 tests/test_desktop_entry.py
