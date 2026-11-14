@@ -46,11 +46,11 @@ jobs:
       WMM_PACKAGED_FIRST_PACKET_TEST: '1'
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.factory/package-browser
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
           persist-credentials: false
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.11'
       - name: Install declared build dependencies
@@ -118,7 +118,7 @@ jobs:
           '
       - name: Retain Ubuntu installer
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: WMM-Ubuntu-${{ github.sha }}
           path: dist/linux/*.deb
@@ -157,7 +157,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Installer lifecycle failed' }
       - name: Retain Windows installer
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: WMM-Setup-${{ github.sha }}
           path: dist/installer/WMM-Setup.exe
@@ -179,14 +179,14 @@ jobs:
           python tools/publish_desktop_release.py receipt --platform "$platform" --sha "$GITHUB_SHA" --asset "$asset" --lifecycle "$lifecycle" --destination "release-assets/$platform.json"
           cp "$asset" release-assets/
       - name: Retain only passed release assets
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: WMM-release-${{ runner.os }}-${{ inputs.candidate_sha || github.sha }}
           path: release-assets/
           if-no-files-found: error
           retention-days: 7
       - name: Retain runtime without operational data
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: WMM-desktop-${{ matrix.os }}-${{ github.sha }}
           path: dist/desktop/WMM/
@@ -194,7 +194,7 @@ jobs:
           retention-days: 7
       - name: Retain packaged first-packet evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: WMM-first-packet-${{ matrix.os }}-${{ github.sha }}
           path: |

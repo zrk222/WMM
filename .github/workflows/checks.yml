@@ -21,10 +21,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.11'
       - name: Enforce automatically enrolled source ratchets
@@ -69,8 +69,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.11'
       - name: Install declared browser test profile
@@ -98,7 +98,7 @@ jobs:
         run: python -m unittest tests.test_automation_rules_browser -v
       - name: Retain synthetic publication review evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: publication-browser-evidence
           path: .factory/multichannel/browser/
@@ -132,7 +132,7 @@ jobs:
           python tools/test_goal_automation_browser.py
           python tools/test_agreement_paid_browser.py
       - name: Retain owner automation and agreement receipts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: owner-automation-browser-receipts
           path: |
@@ -143,7 +143,7 @@ jobs:
           retention-days: 3
       - name: Retain synthetic goal-first packet evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: goal-first-browser-evidence
           path: .factory/goal-first-automation/
@@ -158,8 +158,8 @@ jobs:
       matrix:
         shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.11'
       - name: Install hash-pinned property profile
@@ -168,7 +168,7 @@ jobs:
           python -m pip install --require-hashes --only-binary :all: -r docs/requirements-properties.txt
       - name: Restore synthetic property examples
         id: property_cache
-        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .factory/hypothesis/examples
           key: hypothesis-${{ runner.os }}-py311-${{ hashFiles('docs/requirements-properties.txt') }}-pr${{ github.event.pull_request.number || 'main' }}-shard${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -212,7 +212,7 @@ jobs:
         run: python -X utf8 tools/run_ci_tests.py --shards 12 --index ${{ matrix.shard }} --windows-timings
       - name: Retain minimized synthetic property examples
         if: always() && steps.property_dependencies.outcome == 'success' && steps.property_cache.outcome == 'success'
-        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .factory/hypothesis/examples
           key: ${{ steps.property_cache.outputs.cache-primary-key }}
@@ -225,8 +225,8 @@ jobs:
       matrix:
         shard: [0, 1, 2, 3]
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.11'
       - name: Install hash-pinned property profile
@@ -235,7 +235,7 @@ jobs:
           python -m pip install --require-hashes --only-binary :all: -r docs/requirements-properties.txt
       - name: Restore synthetic property examples
         id: property_cache
-        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .factory/hypothesis/examples
           key: hypothesis-${{ runner.os }}-py311-${{ hashFiles('docs/requirements-properties.txt') }}-pr${{ github.event.pull_request.number || 'main' }}-shard${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -295,7 +295,7 @@ jobs:
           '
       - name: Retain minimized synthetic property examples
         if: always() && steps.property_dependencies.outcome == 'success' && steps.property_cache.outcome == 'success'
-        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .factory/hypothesis/examples
           key: ${{ steps.property_cache.outputs.cache-primary-key }}
