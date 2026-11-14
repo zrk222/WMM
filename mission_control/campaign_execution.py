@@ -4,15 +4,16 @@ import json
 import sqlite3
 from contextvars import ContextVar
 from datetime import datetime, timezone
+
+from .campaign_contract import ad_data, post_data, scope_data
+from .campaign_destination import check_destination
+from .campaign_locks import CampaignLockBusy, paid_lock
+from .campaign_transport import MetaTransport, Unconfirmed
 from .common import Invalid, canonical, digest, iso_time, now, uid
 from .db import connection
 from .review_access import member
 from .social_connections import Connections
 from .social_profiles import facebook, selected_page
-from .campaign_contract import scope_data, post_data, ad_data
-from .campaign_transport import MetaTransport, Unconfirmed
-from .campaign_locks import paid_lock, CampaignLockBusy
-from .campaign_destination import check_destination
 
 PAID_EXECUTION_READY = (
     True  # Protected gateway, recovery tests and focused ECC review passed; live acceptance is separate.
@@ -431,7 +432,10 @@ class CampaignExecutionService:
     def _preflight(self, app_id, actor, scope_id, action, active=True):
         scope = self.get_scope(app_id, scope_id)
         cfg, secret, grant = self._credentials(app_id, scope)
-        alive = lambda: self._alive(app_id, actor, scope_id, action, active)
+
+        def alive():
+            return self._alive(app_id, actor, scope_id, action, active)
+
         found = facebook(cfg, secret, grant["access_token"], alive)
         saved = self.connections.get(app_id, scope["connection_id"])
         if found.subject_id != saved["subject_id"]:
@@ -528,7 +532,7 @@ class CampaignExecutionService:
             try:
                 result = self._pause(app_id, owner, scope_id, row["id"], "REVOKE")
                 pauses.append({"intent_id": row["id"], "status": result["status"]})
-            except Exception:
+            except Exception:  # noqa: BLE001 - provider effect boundary
                 pauses.append({"intent_id": row["id"], "status": "PAUSE_UNCONFIRMED"})
         return dict(scope, pause_results=pauses)
 
@@ -663,7 +667,7 @@ class CampaignExecutionService:
                 secret,
                 lambda: self._alive(app_id, actor, scope_id, "RUN_POST"),
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 - provider effect boundary
             self._save_intent(app_id, intent["id"], "UNKNOWN")
             raise Unconfirmed("Post dispatch outcome is unknown; inspect the saved intent before any retry") from None
         self._save_intent(app_id, intent["id"], "ACKNOWLEDGED", remote)
@@ -676,7 +680,7 @@ class CampaignExecutionService:
                 secret,
                 lambda: self._alive(app_id, actor, scope_id, "RUN_POST"),
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 - provider effect boundary
             return self._save_intent(app_id, intent["id"], "VERIFYING", remote)
         return self._save_intent(app_id, intent["id"], "VERIFIED", remote, result)
 
@@ -1057,7 +1061,7 @@ class CampaignExecutionService:
                     secret,
                     lambda: self._alive(app_id, actor, scope["scope_id"], "RUN_AD"),
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001 - provider effect boundary
                 self._receipt_paid(app_id, identity, step, owner_token, "UNKNOWN")
                 raise Unconfirmed("Campaign creation outcome is unknown; no automatic retry") from None
             return self._receipt_paid(app_id, identity, step, owner_token, "CREATED_" + kind, kind, remote)
@@ -1122,7 +1126,7 @@ class CampaignExecutionService:
                     secret,
                     lambda: self._alive(app_id, actor, scope["scope_id"], action, active),
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001 - provider effect boundary
                 self._receipt_paid(app_id, identity, step, owner_token, "UNKNOWN")
                 raise Unconfirmed("Advertising status outcome is unknown; inspect before another action") from None
             return self._receipt_paid(app_id, identity, step, owner_token, "ACK_" + status + "_" + kind)
