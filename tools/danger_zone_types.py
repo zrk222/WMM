@@ -3,9 +3,12 @@
 import ast
 from pathlib import Path
 
+ALL_PUBLIC_FUNCTIONS = {"http_body.py"}
+
 PUBLIC_CLASSES = {"review_access.py": {"Access"}}
 
 FUNCTIONS = {
+    "http_body.py": {"singleton", "json_body", "read_exact", "discard_rejected_body"},
     "common.py": {
         "canonical",
         "digest",
@@ -48,12 +51,14 @@ FUNCTIONS = {
 }
 
 
-def check_source(source: str, names: set[str], public_classes: set[str] | None = None) -> list[str]:
+def check_source(
+    source: str, names: set[str], public_classes: set[str] | None = None, *, all_public: bool = False
+) -> list[str]:
     """Check signatures, not annotation spelling or correctness (Pyright does that)."""
     top = ast.parse(source).body
     functions = {node.name: node for node in top if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
     errors: list[str] = []
-    if public_classes:
+    if public_classes or all_public:
         names = names | {name for name in functions if not name.startswith("_")}
     for class_name in sorted(public_classes or ()):
         owner = next((node for node in top if isinstance(node, ast.ClassDef) and node.name == class_name), None)

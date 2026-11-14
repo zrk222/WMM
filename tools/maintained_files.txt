@@ -129,6 +129,7 @@ tests/test_publication_metrics.py
 tests/test_publication_reports.py
 tests/test_query_budgets.py
 tests/test_reconciliation.py
+tests/test_rejected_http_response.py
 tests/test_release_attestation_assets.py
 tests/test_release_inventory.py
 tests/test_release_provenance.py
