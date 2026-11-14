@@ -62,7 +62,7 @@ function reconciliationPanel() {
     .slice(0, 50)
     .map(
       (group) =>
-        `<tr><td>${esc(group.metric)}</td><td>${esc(group.period)}</td><td>${status(group.status)}</td><td>${esc(group.sources.join(', '))}</td><td>${group.values.map((item) => `${esc(item.source)}: ${item.value == null ? 'Not observed' : esc(String(item.value))}`).join('; ')}</td></tr>`,
+        `<tr><td>${esc(group.metric)}</td><td>${esc(group.period)}</td><td>${status(group.status)}</td><td>${esc(group.sources.join(', '))}</td><td>${group.values.map((item) => `<details><summary>${esc(item.source)}: ${item.value == null ? 'Not observed' : esc(String(item.value))}</summary><dl><dt>Definition</dt><dd>${esc(item.definition || 'Not supplied')}</dd><dt>Denominator</dt><dd>${esc(item.denominator ?? 'Not supplied')}</dd><dt>Coverage</dt><dd>${esc(item.coverage || 'Unknown')}</dd><dt>Observed at</dt><dd>${esc(item.observed_at || 'Not supplied')}</dd><dt>Source fingerprint</dt><dd>${esc(item.source_hash || 'Not supplied')}</dd></dl></details>`).join('')}</td></tr>`,
     )
     .join('')}</tbody></table></div></section>`;
 }
@@ -70,14 +70,14 @@ function reconciliationPanel() {
 function creativeLearningPanel() {
   const cycle = state.workspace?.creative_learning;
   if (!cycle) return '';
-  return `<section class="panel" aria-label="Creative learning loop"><h2>Creative learning loop</h2><p>Status: ${status(cycle.status)}</p><p>${esc(cycle.next_brief?.seed || '')}</p>${cycle.gaps?.length ? `<ul>${cycle.gaps.map((gap) => `<li>${esc(gap)}</li>`).join('')}</ul>` : '<p>No stage gaps detected in saved evidence.</p>'}<p class="description">Read-only composition; no new authority or publication.</p></section>`;
+  return `<section class="panel" aria-label="Creative learning loop"><h2>Creative learning loop</h2><p>Status: ${status(cycle.status)}</p><p>${esc(cycle.next_brief?.seed || '')}</p>${cycle.gaps?.length ? `<ul>${cycle.gaps.map((gap) => `<li>${esc(gap)}</li>`).join('')}</ul>` : '<p>Review how the saved stages relate to the same creative and experiment.</p>'}<p class="description">Read-only composition; no new authority or publication.</p></section>`;
 }
 
 function preRegistrationPanel() {
   const draft = state.workspace?.pre_registration;
   if (!draft) return '';
   const plan = draft.measurement_plan;
-  return `<section class="panel" aria-label="Pre-registration draft"><h2>Pre-registration draft</h2><p>Status: ${status(draft.status)}</p>${plan ? `<p>${esc(plan.primary_metric)} / ${esc(plan.denominator)} · tag ${esc(plan.campaign_tag)}</p>` : ''}${draft.missing?.length ? `<ul>${draft.missing.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>` : '<p>Draft inputs are complete enough for owner review.</p>'}<p class="description">${esc(draft.limits)}</p></section>`;
+  return `<section class="panel" aria-label="Pre-registration draft"><h2>Pre-registration draft</h2><p>Status: ${status(draft.status)}</p>${plan ? `<p>${esc(plan.primary_metric)} / ${esc(plan.denominator)} · tag ${esc(plan.campaign_tag)}</p>` : ''}${draft.missing?.length ? `<ul>${draft.missing.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>` : '<p>Draft inputs are complete enough for owner review.</p>'}<p class="description">${esc(draft.limits)}</p>${draft.experiment_draft?.missing?.length ? `<h3>Still needed before registering the experiment</h3><ul>${draft.experiment_draft.missing.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>` : ''}</section>`;
 }
 
 function resultsView() {

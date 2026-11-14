@@ -1,5 +1,6 @@
 """Campaign launch gate refuses an incomplete measurement plan."""
 
+import json
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -33,7 +34,7 @@ def plan():
         denominator="installs",
         link="https://example.test/app?utm_campaign=launch-a",
         campaign_tag="launch-a",
-        starts_at=(now + timedelta(days=1)).isoformat(),
+        starts_at=(now - timedelta(minutes=5)).isoformat(),
         ends_at=(now + timedelta(days=8)).isoformat(),
         hypothesis="The tagged launch improves paid conversion.",
         decision_rule="Keep if the interval excludes zero; otherwise revise.",
@@ -129,6 +130,20 @@ class EvidenceGateTests(unittest.TestCase):
         self.assertEqual(blocked["status"], "BLOCKED")
         self.assertTrue(any(item["name"] == "OUTCOME_SOURCE" for item in blocked["blockers"]))
 
+    def test_measurement_window_includes_start_and_excludes_end(self):
+        approved = plan()
+        starts = datetime.fromisoformat(approved["starts_at"])
+        ends = datetime.fromisoformat(approved["ends_at"])
+        scope = dict(status="ACTIVE", measurement_plan=approved)
+        providers = {"posthog", "revenuecat"}
+
+        def checks(at):
+            return {item["name"]: item["status"] for item in evaluate(scope, providers, observed=at)["checks"]}
+
+        self.assertEqual(checks(starts - timedelta(seconds=1))["WINDOW"], "NOT_STARTED")
+        self.assertEqual(checks(starts)["WINDOW"], "PASS")
+        self.assertEqual(checks(ends)["WINDOW"], "EXPIRED")
+
     def test_mismatched_request_link_blocks_launch(self):
         scope = dict(status="ACTIVE", measurement_plan=plan())
         result = evaluate(
@@ -155,7 +170,14 @@ class EvidenceGateTests(unittest.TestCase):
                             sid + "-report",
                             sid,
                             provider,
-                            '{"source_version":1,"configuration_hash":"hash","rows":[{"value":0}]}',
+                            json.dumps(
+                                dict(
+                                    source_version=1,
+                                    configuration_hash="hash",
+                                    observed_at=datetime.now(timezone.utc).isoformat(),
+                                    rows=[dict(id="metric", unit="events", period="last_7_days", value=0)],
+                                )
+                            ),
                             "receipt",
                             datetime.now(timezone.utc).isoformat(),
                         ),
@@ -221,6 +243,17 @@ class EvidenceGateTests(unittest.TestCase):
                 "INSERT INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)",
                 ("sample-job", "sample-one", "campaign_post", payload, "QUEUED", now(), now(), "sample-key"),
             )
+        from tests.test_verified_review import CHECKER_TOKEN
+
+        anonymous = OperatorClient(fixture.origin)
+        other = OperatorClient(fixture.origin)
+        other.bootstrap()
+        other.request("POST", "/api/identity/login", {"token": CHECKER_TOKEN})
+        for viewer in (anonymous, other):
+            view = canonical(viewer.request("GET", "/api/apps/sample-one"))
+            self.assertNotIn(approved["hypothesis"], view)
+            self.assertNotIn(approved["link"], view)
+
         signed_out = OperatorClient(fixture.origin)
         signed_out.bootstrap()
         for endpoint in ("/api/apps/sample-one", "/api/apps/sample-one/jobs"):

@@ -644,6 +644,8 @@ class CampaignExecutionService:
         from .evidence_gate import assert_ready
 
         scope = self.get_scope(app_id, scope_id)
+        with connection(self.store.path) as db:
+            self._check(db, app_id, actor, scope, "RUN_POST")
         if scope.get("measurement_plan"):
             assert_ready(self.store, app_id, scope, request=post)
         scope, secret, token = self._preflight(app_id, actor, scope_id, "RUN_POST")
@@ -1158,8 +1160,10 @@ class CampaignExecutionService:
         from .evidence_gate import assert_ready
 
         scope = self.get_scope(app_id, scope_id)
+        with connection(self.store.path) as db:
+            self._check(db, app_id, actor, scope, "RUN_AD")
         if scope.get("measurement_plan"):
-            assert_ready(self.store, app_id, scope)
+            assert_ready(self.store, app_id, scope, request=body)
         scope, secret, page_token = self._preflight(app_id, actor, scope_id, "RUN_AD")
         scope, secret, token = self._account_preflight(app_id, actor, scope_id, "RUN_AD")
         intent, fresh = self._reserve_ad(app_id, actor, scope_id, body)
@@ -1252,7 +1256,15 @@ class CampaignExecutionService:
                     ):
                         raise Unconfirmed("Advertising objects changed before final activation")
                     if scope.get("measurement_plan"):
-                        assert_ready(self.store, app_id, scope)
+                        assert_ready(self.store, app_id, scope, request=body)
+                        self.transport.read_post(
+                            scope["page_id"],
+                            body["post_id"],
+                            body["content_hash"],
+                            page_token,
+                            secret,
+                            lambda: self._alive(app_id, actor, scope_id, "RUN_AD"),
+                        )
                 intent = self._paid_status(app_id, actor, scope, intent, kind, "ACTIVE", token, secret)
                 current = self._paid_read(app_id, actor, scope, kind, intent["ids"][kind], token, secret)
                 if current.get("status") != "ACTIVE":

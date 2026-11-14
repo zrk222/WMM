@@ -47,12 +47,12 @@ class CreativeLearningTests(unittest.TestCase):
                 learning=dict(programs=[program], uses=[dict(id="u")]),
             )
         )
-        self.assertEqual(result["status"], "LEARNING_ACTIVE")
+        self.assertEqual(result["status"], "UNLINKED_ACTIVITY")
         self.assertEqual(result["counts"]["briefs"], 1)
         self.assertEqual(result["counts"]["renders"], 1)
         self.assertEqual(result["counts"]["publications"], 1)
         self.assertEqual(result["learned"]["active_pattern"], "outcome-first")
-        self.assertEqual(result["gaps"], [])
+        self.assertTrue(any("exact creative and publication" in gap for gap in result["gaps"]))
 
     def test_unfinished_and_unrelated_work_does_not_count(self):
         result = summary(
