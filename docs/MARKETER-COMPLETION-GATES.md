@@ -176,6 +176,42 @@ matching and failure cases, and the same figures in the owner UI, agent output,
 and exports. Reuse existing connectors and event stores. First-party coverage
 does not imply MMP coverage or causal proof.
 
+### P2: App acquisition media buying
+
+Status: planned. After the WizeMe trial, review the retained evidence for
+the verified source → install → trial → paid join and the completed
+subscription experiment. A null result is acceptable; unverified attribution
+is not. The paid pilot also needs a verified install signal for the selected
+app, account, and channel. The separate organic download experiment need not
+finish if this signal is already verified.
+
+- [Apple Ads search results](https://ads.apple.com/app-store/help/ad-placements/0082-search-results):
+  first candidate for iOS, extending the existing read signals to a governed
+  keyword campaign with install and subscription measurement.
+- [Google App campaigns](https://developers.google.com/google-ads/api/docs/app-campaigns/overview):
+  prioritize when Android acquisition and conversion tracking are ready.
+- [TikTok App Promotion](https://ads.tiktok.com/resources/help/article/what-is-app-promotion-objective):
+  prioritize when short-form creative and eligible app-event tracking are ready.
+
+Agents recommend one eligible channel based on expected installs, paid
+subscriptions, and measurement coverage. Prefer stronger measurement when
+estimates are similar; defer if no channel can verify tracking and pause.
+Draft the exact app, account, objective, creative, targeting, currency, daily
+and total ceilings, run dates, spend-check cadence, and stop conditions such
+as exhausted budget or lost measurement. Launch requires separate
+owner approval of that exact draft. Reuse the existing authority and receipt
+model; verify provider readback, duplicate prevention, and protective pause
+before live activation. Reconcile uncertain effects before retrying.
+
+Divide matched spend by attributed first installs for CPI and by attributed
+first successful paid subscriptions for paid CAC. For D7/D30 ROAS, divide
+attributed cohort revenue through day 7/30 by matched spend, using a consistent
+currency and declared revenue basis. Declare the attribution source, deduplicate
+overlaps, and compare only mature cohorts with the same rules. Keep missing
+or immature values unavailable. Use preregistered thresholds to recommend
+continue, pause, or revise; attributed counts alone do not establish lift.
+This backlog item authorizes no spend and leaves the WizeMe trial free-only.
+
 ## Next owner-run WizeMe trial handoff
 
 Use the [first evidence packet](../README.md#your-first-evidence-packet) to start.
