@@ -28,12 +28,13 @@ def plan():
 
 class EvidenceGateTests(unittest.TestCase):
     def test_plan_binds_tagged_link_and_window(self):
-        value = measurement_plan(plan())
+        base = plan()
+        value = measurement_plan(base)
         self.assertEqual(value["utm_campaign"], "launch-a")
         with self.assertRaises(Invalid):
-            measurement_plan(dict(plan(), campaign_tag="other"))
+            measurement_plan(dict(base, campaign_tag="other"))
         with self.assertRaises(Invalid):
-            measurement_plan(dict(plan(), ends_at=plan()["starts_at"]))
+            measurement_plan(dict(base, ends_at=base["starts_at"]))
 
     def test_gate_is_ready_only_with_both_source_families(self):
         scope = dict(status="ACTIVE", measurement_plan=plan())
