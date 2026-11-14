@@ -159,31 +159,47 @@ class EvidenceGateTests(unittest.TestCase):
             with connection(store.path) as db:
                 for provider in ("posthog", "revenuecat"):
                     sid = provider + "-source"
+                    config = dict(provider=provider, project_id="project-" + provider)
+                    config_hash = digest(config)
+                    stamp = now()
+                    report = dict(
+                        **config,
+                        source_version=1,
+                        configuration_hash=config_hash,
+                        observed_at=stamp,
+                        scope=(
+                            "PROJECT_ID_CHECKED"
+                            if provider == "posthog"
+                            else "PROJECT_PATH_CHECKED_PROJECT_WIDE_METRICS"
+                        ),
+                        rows=[dict(id="metric", unit="events", period="last_7_days", value=0)],
+                    )
                     db.execute(
                         "INSERT INTO insight_sources VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                        ("sample-one", sid, provider, "{}", "hash", "key", "ref", 1, "CONNECTED", 0, 0, None, "", ""),
+                        (
+                            "sample-one",
+                            sid,
+                            provider,
+                            canonical(config),
+                            config_hash,
+                            "key",
+                            "ref",
+                            1,
+                            "CONNECTED",
+                            0,
+                            0,
+                            None,
+                            "",
+                            "",
+                        ),
                     )
                     db.execute(
                         "INSERT INTO insight_reports VALUES(?,?,?,?,?,?,?)",
-                        (
-                            "sample-one",
-                            sid + "-report",
-                            sid,
-                            provider,
-                            json.dumps(
-                                dict(
-                                    source_version=1,
-                                    configuration_hash="hash",
-                                    observed_at=datetime.now(timezone.utc).isoformat(),
-                                    rows=[dict(id="metric", unit="events", period="last_7_days", value=0)],
-                                )
-                            ),
-                            "receipt",
-                            datetime.now(timezone.utc).isoformat(),
-                        ),
+                        ("sample-one", sid + "-report", sid, provider, canonical(report), digest(report), stamp),
                     )
             result = assert_ready(store, "sample-one", dict(status="ACTIVE", measurement_plan=plan()))
             self.assertEqual(result["status"], "READY")
+            self.assertFalse(result["outcome_tracking_verified"])
             with self.assertRaises(Invalid):
                 assert_ready(
                     store,
@@ -191,6 +207,39 @@ class EvidenceGateTests(unittest.TestCase):
                     dict(status="ACTIVE", measurement_plan=plan()),
                     request={"link": "https://example.test/"},
                 )
+            with connection(store.path) as db:
+                retained = db.execute(
+                    "SELECT data,created FROM insight_reports WHERE app_id=? AND provider=?",
+                    ("sample-one", "revenuecat"),
+                ).fetchone()
+            assert retained is not None
+            data, stamp = json.loads(retained["data"]), retained["created"]
+            invalid = (
+                (data, "wrong-hash"),
+                (dict(data, project_id="other-project"), None),
+                (dict(data, scope="unverified"), None),
+                (dict(data, rows=[None]), None),
+                (dict(data, source_version=2), None),
+                (dict(data, observed_at=(datetime.now(timezone.utc) - timedelta(days=8)).isoformat()), None),
+            )
+            for index, (changed, receipt) in enumerate(invalid):
+                with self.subTest(index=index):
+                    with connection(store.path) as db:
+                        db.execute(
+                            "INSERT INTO insight_reports VALUES(?,?,?,?,?,?,?)",
+                            (
+                                "sample-one",
+                                f"invalid-{index}",
+                                "revenuecat-source",
+                                "revenuecat",
+                                canonical(changed),
+                                receipt or digest(changed),
+                                stamp,
+                            ),
+                        )
+                    self.assertEqual(provider_set(store, "sample-one"), {"posthog"})
+                    with self.assertRaisesRegex(Invalid, "OUTCOME_SOURCE"):
+                        assert_ready(store, "sample-one", dict(status="ACTIVE", measurement_plan=plan()))
 
     def test_workspace_readiness_omits_private_scope_data(self):
         with tempfile.TemporaryDirectory() as folder:
