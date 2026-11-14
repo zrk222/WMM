@@ -146,6 +146,7 @@ tests/test_repo_hygiene.py
 tests/test_sbom_reproducibility.py
 tests/test_schedule_authority_boundary.py
 tests/test_schedule_pause_evidence.py
+tests/test_schedules.py
 tests/test_schema_types.py
 tests/test_source_ratchet.py
 tests/test_sqlite_tuning.py

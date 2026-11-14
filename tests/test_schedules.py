@@ -2,32 +2,33 @@
 
 import copy
 import json
-from pathlib import Path
 import tempfile
 import time
 import unittest
-from unittest.mock import patch
-from mission_control.common import Invalid, digest, iso_time
 from datetime import timedelta
+from pathlib import Path
+from unittest.mock import patch
+
+from mission_control.common import Invalid, digest, iso_time
 from mission_control.db import connection
-from mission_control.experiments import Experiments
 from mission_control.experiment_schedules import (
     Schedules,
-    configuration,
     check_scheduled,
-    export_schedules,
-    validate_restored_schedule,
-    pause_queued,
+    configuration,
     disable,
     existing_job,
+    export_schedules,
+    pause_queued,
     reconcile,
     restore_schedules,
     restored_limits,
+    validate_restored_schedule,
 )
+from mission_control.experiments import Experiments
 from mission_control.service import Service
 from mission_control.store import Store
-from mission_control.worker import Runner, run_once, jobs, claim, process
-from tests.test_experiments import prepared, observations, REGISTER, EXPOSE, ANALYZE, LATER
+from mission_control.worker import Runner, claim, jobs, process, run_once
+from tests.test_experiments import ANALYZE, EXPOSE, LATER, REGISTER, observations, prepared
 
 
 class ScheduleTests(unittest.TestCase):
@@ -138,9 +139,11 @@ class ScheduleTests(unittest.TestCase):
         from concurrent.futures import ThreadPoolExecutor
 
         self.save(max_observations=2)
-        with patch("mission_control.experiment_schedules.now", return_value=ANALYZE):
-            with ThreadPoolExecutor(max_workers=2) as pool:
-                results = list(pool.map(lambda _: self.schedules.tick(), range(2)))
+        with (
+            patch("mission_control.experiment_schedules.now", return_value=ANALYZE),
+            ThreadPoolExecutor(max_workers=2) as pool,
+        ):
+            results = list(pool.map(lambda _: self.schedules.tick(), range(2)))
         self.assertEqual(sum(results), 1)
         self.assertEqual(self.setting()["finite_limit"]["remaining"], 1)
         self.execute()
@@ -424,11 +427,13 @@ class ScheduleTests(unittest.TestCase):
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline:
                 saved = jobs(self.store, "sample-one")
-                if saved and saved[0]["status"] == "SUCCEEDED":
+                health = runner.health
+                if saved and saved[0]["status"] == "SUCCEEDED" and health["status"] == "RUNNING":
                     break
                 time.sleep(0.05)
+            self.assertTrue(saved, "The worker did not record a due job")
             self.assertEqual(saved[0]["status"], "SUCCEEDED")
-            self.assertEqual(runner.health["status"], "RUNNING")
+            self.assertEqual(health["status"], "RUNNING", health["last_error"])
         finally:
             runner.stop()
         self.assertEqual(runner.health["status"], "STOPPED")
