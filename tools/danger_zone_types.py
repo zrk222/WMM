@@ -32,6 +32,7 @@ FUNCTIONS = {
         "target_countries",
         "ad_data",
     },
+    "authority_expiry.py": {"deadline", "_binding", "_valid_proof", "effective_expiry"},
     "campaign_schedule_authority.py": {
         "bound",
         "check",
