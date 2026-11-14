@@ -10,12 +10,15 @@ mission_control/architecture.py
 mission_control/attribution_adservices.py
 mission_control/attribution_ingestion.py
 mission_control/audit_runtime.py
+mission_control/automation_agreement.py
 mission_control/automation_execution.py
+mission_control/campaign_access.py
 mission_control/campaign_contract.py
 mission_control/campaign_execution.py
 mission_control/campaign_monitor.py
 mission_control/campaign_schedule.py
 mission_control/campaign_schedule_authority.py
+mission_control/campaign_transport.py
 mission_control/cloud_connection.py
 mission_control/common.py
 mission_control/connection_setup.py
@@ -68,6 +71,7 @@ mission_control/service.py
 mission_control/social_renewal.py
 mission_control/store.py
 mission_control/storekit_ingestion.py
+mission_control/subscription_journey.py
 mission_control/viral_policy.py
 mission_control/weekly_inbox.py
 mission_control/worker.py
@@ -132,6 +136,7 @@ tests/test_source_ratchet.py
 tests/test_sqlite_tuning.py
 tests/test_static_etag.py
 tests/test_static_wiring.py
+tests/test_subscription_journey.py
 tests/test_type_ratchet.py
 tests/test_verify_release_assets.py
 tests/test_weekly_operation_exceptions.py

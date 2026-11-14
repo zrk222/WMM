@@ -60,12 +60,31 @@ def json_job(row):
     return result
 
 
+def campaign_job_preview(job):
+    """Keep exact campaign inputs in the owner-reviewed schedule, not generic job reads."""
+    if job["action"] in ("campaign_post", "campaign_ad"):
+        data = job["data"]
+        request = data.get("request") or {}
+        link = request.get("link")
+        job["data"] = {key: data[key] for key in ("batch_id", "item_id", "scope_id", "operation") if key in data}
+        if isinstance(link, str):
+            job["data"]["approved_link_sha256"] = digest(link)
+        result = job.get("result")
+        if isinstance(result, dict):
+            job["result"] = {
+                key: result[key]
+                for key in ("id", "status", "remote_id", "page_id", "next_action", "external_execution")
+                if key in result
+            }
+    return job
+
+
 def jobs(store, app_id):
     """Return bounded recent runs for one workspace."""
     store.app(app_id)
     with connection(store.path) as db:
         return [
-            json_job(r)
+            campaign_job_preview(json_job(r))
             for r in db.execute(
                 "SELECT * FROM jobs WHERE app_id=? AND action!='drive_import' ORDER BY created DESC LIMIT 100",
                 (app_id,),

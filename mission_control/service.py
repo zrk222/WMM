@@ -328,7 +328,7 @@ class Service:
         workspace["reconciliation"] = reconciliation_summary(workspace)
         workspace["creative_learning"] = creative_summary(workspace)
         workspace["launch_gate"] = launch_gate(self.store, app_id)
-        workspace["pre_registration"] = pre_registration_draft(app, records)
+        workspace["pre_registration"] = pre_registration_draft(app, workspace["insights"])
         if app["data"].get("store_app_id"):
             from .app_launch_history import current as current_launch
 

@@ -1,19 +1,20 @@
 """Owner-only combined review; existing independent scopes retain execution authority."""
 
-from datetime import datetime, timezone
 import json
+from datetime import datetime, timezone
+from typing import Any
 
 from .automation_requirements import social_account, workflow_catalog
 from .campaign_contract import (
     SCOPE_FIELDS,
-    post_data,
     hashes,
+    numeric,
+    post_data,
     target_countries,
     whole,
-    numeric,
 )
-from .campaign_schedule import item_status, check_paid_review
 from .campaign_execution import scope_view
+from .campaign_schedule import check_paid_review, item_status
 from .common import Invalid, digest, iso_time
 from .complete_automation import policy_view
 from .db import connection
@@ -76,16 +77,14 @@ def saved_object(raw):
 
 def owned(db, table, app_id, identity, principal):
     """Only fixed internal table names reach this owner-filtered read."""
-    if table not in (
-        "automation_policies",
-        "campaign_scopes",
-        "campaign_schedule_batches",
-    ):
+    query = {
+        "automation_policies": "SELECT * FROM automation_policies WHERE app_id=? AND id=? AND owner=?",
+        "campaign_scopes": "SELECT * FROM campaign_scopes WHERE app_id=? AND id=? AND owner=?",
+        "campaign_schedule_batches": "SELECT * FROM campaign_schedule_batches WHERE app_id=? AND id=? AND owner=?",
+    }.get(table)
+    if query is None:
         raise Invalid("Unsupported agreement resource")
-    row = db.execute(
-        "SELECT * FROM " + table + " WHERE app_id=? AND id=? AND owner=?",
-        (app_id, identity, principal),
-    ).fetchone()
+    row = db.execute(query, (app_id, identity, principal)).fetchone()
     if row is None:
         raise Invalid("Selected automation resource is unavailable for this owner")
     return row
@@ -97,7 +96,7 @@ def local_scope(db, app_id, principal, identity, observed):
         return None
     row = owned(db, "automation_policies", app_id, identity, principal)
     view = policy_view(db, row, observed)
-    summary = view["summary"]
+    summary: Any = view["summary"]
     if summary is not None:
         inventory = summary["inventory"]
         if inventory["app"]["id"] != app_id or inventory["owner"]["principal"] != principal:
@@ -142,16 +141,16 @@ def campaign_blockers(scope, row, app, owner, account, observed):
     return [reason for failed, reason in checks if failed]
 
 
-def campaign_receipts(db, app_id, scope_id):
+def campaign_receipts(db, app_id, scope_id) -> list[dict[str, Any]]:
     """Return only durable public receipt identities and states, never raw results."""
-    posts = [
+    posts: list[dict[str, Any]] = [
         dict(row, kind="POST")
         for row in db.execute(
             "SELECT id,request_id,request_hash,content_hash,rights_hash,status,remote_id,updated FROM campaign_intents WHERE app_id=? AND scope_id=? ORDER BY id",
             (app_id, scope_id),
         )
     ]
-    ads = [
+    ads: list[dict[str, Any]] = [
         dict(row, kind="AD")
         for row in db.execute(
             "SELECT id,request_id,request_hash,currency,commitment,status,ids,updated FROM campaign_paid_intents WHERE app_id=? AND scope_id=? ORDER BY id",
@@ -166,7 +165,7 @@ def campaign_receipts(db, app_id, scope_id):
     return posts + ads
 
 
-def campaign_scope(db, app, owner, identity, observed):
+def campaign_scope(db, app, owner, identity, observed) -> dict[str, Any] | None:
     """Project exact existing approval and current selected account in this snapshot."""
     if identity is None:
         return None
@@ -187,7 +186,7 @@ def campaign_scope(db, app, owner, identity, observed):
             "billing_notice",
             "rights_notice",
         ),
-        ("extended_expiry_consent",),
+        ("extended_expiry_consent", "measurement_plan"),
     )
     if "extended_expiry_consent" in raw and type(raw["extended_expiry_consent"]) is not bool:
         raise Invalid("Campaign expiry consent needs repair")
@@ -214,6 +213,7 @@ def campaign_scope(db, app, owner, identity, observed):
             )
         }
         | ({"extended_expiry_consent": raw["extended_expiry_consent"]} if "extended_expiry_consent" in raw else {}),
+        measurement_plan_configured="measurement_plan" in raw,
         account=account,
         blockers=blockers,
         receipts=receipts,
@@ -429,6 +429,8 @@ def build_summary(db, app, owner, chosen, observed):
     campaign = campaign_scope(db, app, owner, campaign_id, observed)
     draft_posts = chosen.get("draft_posts")
     if draft_posts is not None:
+        if campaign is None:
+            raise Invalid("Select an existing draft campaign")
         approval = campaign["approval"]
         if (
             campaign["status"] != "DRAFT"

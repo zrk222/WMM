@@ -32,6 +32,19 @@ class ReconciliationTests(unittest.TestCase):
         self.assertEqual(single["groups"][0]["status"], "SINGLE_SOURCE")
         self.assertEqual(matrix([row("a", "installs", "c1", None, "count")])["groups"][0]["status"], "NO_DATA")
 
+    def test_missing_and_denominator_mismatch_do_not_agree(self):
+        first = row("a", "paid", "week", 2, "count", denominator=10, definition="cohort", source_hash="a" * 64)
+        second = dict(first, source="b", value=None)
+        group = matrix([first, second])["groups"][0]
+        self.assertEqual(group["status"], "INCOMPLETE")
+        self.assertEqual(group["missing_sources"], ["b"])
+        self.assertEqual(group["deltas"], [])
+        second = dict(second, value=2, denominator=20)
+        group = matrix([first, second])["groups"][0]
+        self.assertEqual(group["status"], "INCOMPATIBLE")
+        self.assertEqual(group["values"][0]["denominator"], 10)
+        self.assertEqual(group["values"][0]["source_hash"], "a" * 64)
+
     def test_workspace_summary_projects_ledger_and_provider_rows(self):
         workspace = dict(
             ledger=[
