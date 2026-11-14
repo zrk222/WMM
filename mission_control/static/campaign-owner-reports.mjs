@@ -252,13 +252,22 @@ const WMMOwnerReports = (() => {
   }
   function measurementNextStep(report) {
     // Keep measurement guidance visible when the saved next action is an authority reminder.
-    if (report.experiment || report.first_party_outcomes?.report) return '';
+    const primary = report.primary_outcome;
+    if (primary) {
+      if (primary.status === 'OBSERVED_DESCRIPTIVE') return '';
+      if (primary.status === 'PARTIAL_COVERAGE')
+        return 'Collect the rest of the approved observation window before comparing conversion.';
+      if (primary.status === 'NO_ELIGIBLE_FIRST_OPENS')
+        return 'No eligible first opens were observed. Check traffic and tracking before comparing conversion.';
+      return 'Verify the approved metric and denominator against a matching source before judging this campaign.';
+    }
+    if (report.experiment) return '';
     return 'Campaign outcome is unknown. Choose a primary outcome and connect a study with matching dates before judging this campaign. App-wide measurements do not show what this campaign did.';
   }
   function outcomeRows(report) {
     const counts = report.first_party_outcomes?.report?.counts;
     if (!counts) return [];
-    return [
+    const rows = [
       ['INSTALL', 'Attributed first opens'],
       ['ACTIVATION', 'Activated users'],
       ['TRIAL_START', 'Trial starts'],
@@ -270,16 +279,51 @@ const WMMOwnerReports = (() => {
       unit: 'people',
       source: 'Saved first-party campaign receipt',
     }));
+    const primary = report.primary_outcome;
+    if (primary) {
+      rows.unshift({
+        label:
+          primary.metric === 'activation_rate'
+            ? 'Activation per attributed first open'
+            : primary.metric === 'paid_conversion'
+              ? 'Paid subscriptions after trial per attributed first open'
+              : 'Approved primary outcome',
+        value: primary.value,
+        unit: 'fraction',
+        source: 'Exact campaign and window; source-declared coverage',
+      });
+    }
+    return rows;
   }
   function outcomeNote(report) {
     const outcome = report.first_party_outcomes?.report;
     if (!outcome) return '';
+    const primary = report.primary_outcome;
+    const sample =
+      primary && Number.isInteger(primary.numerator) && Number.isInteger(primary.denominator_count)
+        ? ` Sample: ${primary.numerator} matching outcomes from ${primary.denominator_count} attributed first opens.`
+        : '';
     return (
       (outcome.coverage === 'DECLARED_COMPLETE'
         ? 'Submitted sources declare full window coverage.'
         : 'Partial coverage. Other outcomes may be missing.') +
-      ' The source data has not been verified against provider accounts. First opens measure app opens, and the counts do not estimate lift.'
+      ' The source data has not been verified against provider accounts. First opens measure app opens, and the counts do not estimate lift.' +
+      sample
     );
+  }
+  function deliveryNote(report) {
+    switch (report.delivery_evidence?.status) {
+      case 'EXACT_TAGGED_POST_READBACK':
+        return 'One approved post has a saved provider readback for this exact campaign link. This connects the evidence; it does not prove the post caused the outcome.';
+      case 'MULTIPLE_POSTS_SHARE_TAG':
+        return 'Several posts share the same tag. The results cannot be assigned to one creative.';
+      case 'DELIVERY_OUTSIDE_ACQUISITION_WINDOW':
+        return 'The saved post is outside the acquisition window.';
+      case 'NO_EXACT_DELIVERY_RECEIPT':
+        return 'No exact post readback matches this campaign receipt. Treat this as campaign-level evidence only.';
+      default:
+        return '';
+    }
   }
   function model(saved, base) {
     const r = saved.report;
@@ -326,6 +370,7 @@ const WMMOwnerReports = (() => {
         'Source windows retained; app-wide source observations are not filtered to the requested window.',
         coverageText(r.kpi_coverage),
         ...(outcomeNote(r) ? [outcomeNote(r)] : []),
+        ...(deliveryNote(r) ? [deliveryNote(r)] : []),
         ...(measurementNextStep(r) ? [measurementNextStep(r)] : []),
         'Saved provider readback: ' +
           r.campaign.provider_readback +
@@ -373,6 +418,7 @@ const WMMOwnerReports = (() => {
           '</dl></section>'
         : '') +
       (measurementNextStep(r) ? '<p>' + esc(measurementNextStep(r)) + '</p>' : '') +
+      (deliveryNote(r) ? '<p>' + esc(deliveryNote(r)) + '</p>' : '') +
       '<p>Saved ' +
       esc(r.observed_at) +
       ' · ' +

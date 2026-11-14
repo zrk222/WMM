@@ -99,3 +99,33 @@ def for_campaign(
     ):
         raise Invalid("Outcome receipt does not match the approved campaign and measurement window")
     return receipt
+
+
+def primary_outcome(approved_plan: object, report: object) -> dict[str, object]:
+    """Evaluate the approved metric only against a compatible campaign receipt."""
+    plan = approved_plan if isinstance(approved_plan, dict) else {}
+    outcome = report if isinstance(report, dict) else {}
+    metric, denominator = plan.get("primary_metric"), plan.get("denominator")
+    counts = outcome.get("counts")
+    result: dict[str, object] = dict(
+        metric=metric,
+        denominator=denominator,
+        status="UNSUPPORTED_DEFINITION",
+        numerator=None,
+        denominator_count=None,
+        value=None,
+    )
+    if denominator != "installs" or metric not in ("activation_rate", "paid_conversion"):
+        return result
+    if outcome.get("install_definition") != "SOURCE_REPORTED_FIRST_OPEN" or not isinstance(counts, dict):
+        return dict(result, status="DEFINITION_UNVERIFIED")
+    numerator = counts.get("ACTIVATION" if metric == "activation_rate" else "PURCHASE")
+    base = counts.get("INSTALL")
+    result.update(numerator=numerator, denominator_count=base)
+    if outcome.get("coverage") != "DECLARED_COMPLETE":
+        return dict(result, status="PARTIAL_COVERAGE")
+    if type(base) is not int or type(numerator) is not int or not 0 <= numerator <= base:
+        return dict(result, status="COUNTS_UNVERIFIED")
+    if base == 0:
+        return dict(result, status="NO_ELIGIBLE_FIRST_OPENS")
+    return dict(result, status="OBSERVED_DESCRIPTIVE", value=numerator / base)
