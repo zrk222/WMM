@@ -1,10 +1,8 @@
 """Synthetic desktop and mobile owner browser acceptance for campaign attribution."""
 
-import json
 import os
 import unittest
 from datetime import datetime, timedelta
-from pathlib import Path
 
 from tests import test_observational_campaign_transport as fixtures
 from tests.test_verified_review import OWNER_TOKEN
@@ -58,6 +56,9 @@ class ObservationalCampaignBrowserTests(unittest.TestCase):
         page.get_by_role("button", name="Save study").click()
         page.get_by_role("button", name="Preview tagged link").click()
         expect(page.locator("#observational-campaign-receipt")).to_contain_text("utm_campaign=")
+        import json
+        from pathlib import Path
+
         preview = json.loads(page.locator("#observational-campaign-receipt").inner_text())
         with page.expect_download() as download:
             page.get_by_role("button", name="Download collector setup", exact=True).press("Enter")
