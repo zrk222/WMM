@@ -65,6 +65,18 @@ test('a blocked job is attention, not a failed job; unknown states cannot look l
   assert.ok(escaped.includes('&lt;img'));
 });
 
+test('provider action approval, sending and verified readback use their distinct status palettes', () => {
+  for (const [state, equivalent] of [
+    ['WAITING_APPROVAL', 'waiting_review'],
+    ['PENDING_REVIEW', 'waiting_review'],
+    ['DISPATCHING', 'running'],
+    ['VERIFIED_APPLIED', 'succeeded'],
+  ]) {
+    assert.match(renderStatus(state), new RegExp(`class="status ${state.toLowerCase()}"`));
+    assert.equal(palette(state.toLowerCase()), palette(equivalent));
+  }
+});
+
 test('the shared status marker is static, carries no replacement words and wraps on narrow screens', () => {
   const dot = css.match(/\.status::before\s*\{([^}]+)\}/)?.[1];
   assert.match(dot, /content:\s*''/);

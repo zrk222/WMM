@@ -215,15 +215,15 @@
   border-radius: 50%;
   background: currentColor;
 }
-.status:is(.running, .starting, .stopping, .active, .enabled, .in_progress, .processing, .rendering, .uploading, .publishing, .checking, .collecting, .renewing, .retrying) {
+.status:is(.running, .starting, .stopping, .active, .enabled, .in_progress, .processing, .rendering, .uploading, .publishing, .checking, .collecting, .renewing, .retrying, .dispatching) {
   --process-bg: #e5edf9;
   --process-ink: #244663;
 }
-.status:is(.queued, .pending, .waiting, .waiting_review, .awaiting_review, .needs_review, .waiting_for_reports, .awaiting_analysis, .scheduled, .blocked, .needs_setup, .needs_reconciliation, .unknown, .unconfirmed, .interrupted, .expired, .exhausted, .stale, .not_verified, .not_configured, .retry_wait, .cancel_requested, .recovering) {
+.status:is(.queued, .pending, .waiting, .waiting_review, .awaiting_review, .needs_review, .waiting_approval, .pending_review, .waiting_for_reports, .awaiting_analysis, .scheduled, .blocked, .needs_setup, .needs_reconciliation, .unknown, .unconfirmed, .interrupted, .expired, .exhausted, .stale, .not_verified, .not_configured, .retry_wait, .cancel_requested, .recovering) {
   --process-bg: #f9ebce;
   --process-ink: #654609;
 }
-.status:is(.succeeded, .success, .complete, .completed, .verified, .delivered, .published, .measured, .confirmed, .passed, .pass, .ready, .tested_fresh, .healthy) {
+.status:is(.succeeded, .success, .complete, .completed, .verified, .verified_applied, .delivered, .published, .measured, .confirmed, .passed, .pass, .ready, .tested_fresh, .healthy) {
   --process-bg: #e2f2e3;
   --process-ink: #164c30;
 }

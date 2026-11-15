@@ -203,7 +203,7 @@ function guidedWorker() {
     queue: 'Local job queue',
   };
   const failed = Object.values(rows).some((r) => r.failures > 0);
-  return `<section class="panel" aria-label="Automatic workflow health"><h2>Automatic workflow</h2><p>${status(worker.status || 'NOT_STARTED')} · Shared worker for app workspaces on this host.</p><ul>${Object.entries(
+  return `<section class="panel" aria-label="Automatic workflow health"><h2>Automatic workflow</h2><p><span data-guided-worker-state>${status('CHECKING')}</span> · Shared worker for app workspaces on this host.</p><p>Component status from the last workspace refresh:</p><ul>${Object.entries(
     rows,
   )
     .map(

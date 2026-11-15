@@ -41,8 +41,8 @@
     }
     return ['STARTING', 'RECOVERING', 'STOPPED'].includes(status) ? status : 'UNKNOWN';
   }
-  function workerMessage(status, observedAt, lastSuccess) {
-    switch (workerState(status, observedAt, lastSuccess)) {
+  function workerMessage(state) {
+    switch (state) {
       case 'STARTING':
         return 'Worker starting. Refresh progress after its first completed poll.';
       case 'UNCONFIRMED':
@@ -209,13 +209,16 @@
     mounted = ticket;
     const worker = node.querySelector('[data-live-worker]');
     const workerBadge = node.querySelector('[data-live-worker-state]');
+    const guidanceBadge = deps.document.querySelector('[data-guided-worker-state] .status');
     const stage = node.querySelector('[data-live-stage]');
     const announce = (message, status = 'UNKNOWN') => {
       if (worker.textContent !== message) worker.textContent = message;
       const className = 'status ' + status.toLowerCase();
-      if (workerBadge.className !== className) {
-        workerBadge.className = className;
-        workerBadge.textContent = status[0] + status.slice(1).toLowerCase();
+      for (const badge of [workerBadge, guidanceBadge]) {
+        if (badge?.isConnected && badge.className !== className) {
+          badge.className = className;
+          badge.textContent = status[0] + status.slice(1).toLowerCase();
+        }
       }
     };
     const valid = () =>
@@ -247,11 +250,14 @@
           const message = stageAnnouncement(data.runs);
           if (stage.textContent !== message) stage.textContent = message;
           ticket.failures = 0;
+          const observedWorker = workerState(
+            data.worker?.status,
+            data.observed_at,
+            data.worker?.last_success,
+          );
           announce(
-            workerMessage(data.worker?.status, data.observed_at, data.worker?.last_success) +
-              ' ' +
-              workerContext(data.worker?.runtime_mode),
-            workerState(data.worker?.status, data.observed_at, data.worker?.last_success),
+            workerMessage(observedWorker) + ' ' + workerContext(data.worker?.runtime_mode),
+            observedWorker,
           );
           const healthyPoll = data.worker?.last_success;
           node.querySelector('[data-live-status]').textContent =
