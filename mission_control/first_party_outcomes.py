@@ -135,6 +135,7 @@ def join(
             if stamp <= maturity:
                 events.setdefault(subject, []).append((stamp, kind, row_campaign))
     counts = dict.fromkeys(STAGES[1:], 0)
+    paid_first_opens = trial_starters = trial_to_paid = 0
     for rows in events.values():
         observed = {kind: min((stamp for stamp, name, _ in rows if name == kind), default=None) for kind in STAGES}
         touch, install = observed["TOUCH"], observed["INSTALL"]
@@ -147,6 +148,14 @@ def join(
             excluded["unmatched_paid_subjects"] += int(observed["PURCHASE"] is not None)
             continue
         counts["INSTALL"] += 1
+        trial, purchase = observed["TRIAL_START"], observed["PURCHASE"]
+        # Keep the approved funnel counts below. These additional subject-level
+        # measures don't require an activation event or link billing offers.
+        has_paid = purchase is not None and purchase >= install
+        started_trial = trial is not None and trial >= install and (purchase is None or trial < purchase)
+        paid_first_opens += int(has_paid)
+        trial_starters += int(started_trial)
+        trial_to_paid += int(has_paid and started_trial)
         previous = install
         for kind in STAGES[2:]:
             stamp = observed[kind]
@@ -155,7 +164,7 @@ def join(
             counts[kind] += 1
             previous = stamp
     return {
-        "schema": "wmm.first-party-outcomes.v1",
+        "schema": "wmm.first-party-outcomes.v2",
         "app_id": app_id,
         "environment": environment,
         "campaign": campaign,
@@ -166,6 +175,13 @@ def join(
         "attribution": "FIRST_OBSERVED_TOUCH_WITHIN_SOURCE_COVERAGE",
         "install_definition": "SOURCE_REPORTED_FIRST_OPEN",
         "counts": {kind: value if value or complete else None for kind, value in counts.items()},
+        "subscription_observations": {
+            "paid_first_opens": paid_first_opens if paid_first_opens or complete else None,
+            "trial_starters": trial_starters if trial_starters or complete else None,
+            "trial_to_paid": trial_to_paid if trial_to_paid or complete else None,
+            "trial_to_paid_rate": trial_to_paid / trial_starters if complete and trial_starters else None,
+            "definition": "FIRST_OBSERVED_EVENTS_SAME_SUBJECT_NOT_OFFER_LINEAGE",
+        },
         "excluded": excluded,
         "coverage": "DECLARED_COMPLETE" if complete else "PARTIAL",
         "provenance": "NORMALIZED_INPUT_NOT_PROVIDER_VERIFIED",

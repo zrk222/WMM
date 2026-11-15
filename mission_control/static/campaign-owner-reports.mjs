@@ -265,7 +265,8 @@ const WMMOwnerReports = (() => {
     return 'Campaign outcome is unknown. Choose a primary outcome and connect a study with matching dates before judging this campaign. App-wide measurements do not show what this campaign did.';
   }
   function outcomeRows(report) {
-    const counts = report.first_party_outcomes?.report?.counts;
+    const outcome = report.first_party_outcomes?.report;
+    const counts = outcome?.counts;
     if (!counts) return [];
     const rows = [
       ['INSTALL', 'Attributed first opens'],
@@ -293,6 +294,27 @@ const WMMOwnerReports = (() => {
         source: 'Exact campaign and window; source-declared coverage',
       });
     }
+    const subscriptions = outcome.subscription_observations;
+    if (subscriptions?.definition === 'FIRST_OBSERVED_EVENTS_SAME_SUBJECT_NOT_OFFER_LINEAGE') {
+      rows.push(
+        {
+          label: 'First opens followed by a payment',
+          value: subscriptions.paid_first_opens ?? null,
+          unit: 'people',
+          source: 'Includes payments without an observed trial or activation',
+        },
+        {
+          label: 'Trial starters who later paid',
+          value: subscriptions.trial_to_paid_rate ?? null,
+          unit: 'fraction',
+          source:
+            Number.isInteger(subscriptions.trial_starters) &&
+            Number.isInteger(subscriptions.trial_to_paid)
+              ? `${subscriptions.trial_to_paid} of ${subscriptions.trial_starters} observed trial starters; same person, offer unverified`
+              : 'Trial and payment data unavailable',
+        },
+      );
+    }
     return rows;
   }
   function outcomeNote(report) {
@@ -303,12 +325,21 @@ const WMMOwnerReports = (() => {
       primary && Number.isInteger(primary.numerator) && Number.isInteger(primary.denominator_count)
         ? ` Sample: ${primary.numerator} matching outcomes from ${primary.denominator_count} attributed first opens.`
         : '';
+    const subscriptions = outcome.subscription_observations;
+    const trialSample =
+      subscriptions?.definition === 'FIRST_OBSERVED_EVENTS_SAME_SUBJECT_NOT_OFFER_LINEAGE'
+        ? Number.isInteger(subscriptions.trial_starters) &&
+          Number.isInteger(subscriptions.trial_to_paid)
+          ? ` Trial sample: ${subscriptions.trial_to_paid} of ${subscriptions.trial_starters} observed trial starters later paid; same person, offer unverified.`
+          : ' Trial and payment data unavailable.'
+        : '';
     return (
       (outcome.coverage === 'DECLARED_COMPLETE'
         ? 'Submitted sources declare full window coverage.'
         : 'Partial coverage. Other outcomes may be missing.') +
       ' The source data has not been verified against provider accounts. First opens measure app opens, and the counts do not estimate lift.' +
-      sample
+      sample +
+      trialSample
     );
   }
   function deliveryNote(report) {
@@ -412,7 +443,18 @@ const WMMOwnerReports = (() => {
           outcomeRows(r)
             .map(
               (row) =>
-                '<dt>' + esc(row.label) + '</dt><dd>' + esc(row.value ?? 'Unknown') + '</dd>',
+                '<dt>' +
+                esc(row.label) +
+                '</dt><dd>' +
+                esc(
+                  row.unit === 'fraction' && Number.isFinite(row.value)
+                    ? new Intl.NumberFormat(undefined, {
+                        style: 'percent',
+                        maximumFractionDigits: 1,
+                      }).format(row.value)
+                    : (row.value ?? 'Unknown'),
+                ) +
+                '</dd>',
             )
             .join('') +
           '</dl></section>'

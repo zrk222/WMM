@@ -317,6 +317,42 @@ class OutcomeTests(unittest.TestCase):
             report,
         )
 
+    def test_trial_and_paid_observations_do_not_require_activation_or_equate_offers(self) -> None:
+        product = batch(
+            "posthog",
+            *(event(kind, day, subject) for subject in "abcdef" for kind, day in (("TOUCH", 2), ("INSTALL", 3))),
+        )
+        billing = batch(
+            "revenuecat",
+            event("PURCHASE", 4, "a"),  # A direct paid observation.
+            event("TRIAL_START", 5, "b"),
+            event("PURCHASE", 9, "b"),
+            event("TRIAL_START", 5, "c"),
+            event("TRIAL_START", 2, "d"),  # Prior trial is not acquired by this campaign.
+            event("PURCHASE", 4, "e"),
+            event("TRIAL_START", 4, "e"),  # Tied timestamps cannot establish trial before payment.
+            event("PURCHASE", 2, "f"),  # Existing subscriber, not acquired.
+        )
+        report = self.run_join(product, billing)
+        self.assertEqual(report["schema"], "wmm.first-party-outcomes.v2")
+        self.assertEqual(
+            report["subscription_observations"],
+            dict(
+                paid_first_opens=3,
+                trial_starters=2,
+                trial_to_paid=1,
+                trial_to_paid_rate=0.5,
+                definition="FIRST_OBSERVED_EVENTS_SAME_SUBJECT_NOT_OFFER_LINEAGE",
+            ),
+        )
+        self.assertEqual(report["counts"], dict(INSTALL=6, ACTIVATION=0, TRIAL_START=0, PURCHASE=0, RENEWAL=0))
+        partial_billing = billing.copy()
+        partial_billing["complete"] = False
+        partial = self.run_join(product, partial_billing)["subscription_observations"]
+        assert isinstance(partial, dict)
+        self.assertEqual(partial["trial_to_paid"], 1)
+        self.assertIsNone(partial["trial_to_paid_rate"])
+
     def test_partial_and_complete_zero_are_distinct(self) -> None:
         product = batch("posthog")
         for complete, value in ((False, None), (True, 0)):
@@ -326,6 +362,13 @@ class OutcomeTests(unittest.TestCase):
                     result["counts"],
                     dict.fromkeys(("INSTALL", "ACTIVATION", "TRIAL_START", "PURCHASE", "RENEWAL"), value),
                 )
+
+                subscriptions = result["subscription_observations"]
+                assert isinstance(subscriptions, dict)
+                self.assertEqual(subscriptions["paid_first_opens"], value)
+                self.assertEqual(subscriptions["trial_starters"], value)
+                self.assertEqual(subscriptions["trial_to_paid"], value)
+                self.assertIsNone(subscriptions["trial_to_paid_rate"])
 
     def test_conflicting_first_touch_and_internal_or_unconsented_events_never_count(self) -> None:
         report = self.run_join(
