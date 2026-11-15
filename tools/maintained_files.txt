@@ -143,6 +143,7 @@ tests/test_migrations.py
 tests/test_native_workspace_credential_isolation.py
 tests/test_new_public_annotations.py
 tests/test_observational_campaign.py
+tests/test_observational_campaign_browser.py
 tests/test_observational_campaign_contract.py
 tests/test_operation_docs.py
 tests/test_operation_feedback_browser.py
