@@ -27,6 +27,7 @@ function visibleWeeklyExceptions(value, principal) {
 
 function recoveryLabel(card) {
   if (card.category === 'scheduled_campaign') return 'Open schedule';
+  if (card.category === 'rule_schedule') return 'Review scheduled rules';
   if (card.resolution_route === 'agent_review')
     return card.state === 'SOURCE_UNAVAILABLE' ? 'Open review queue' : 'Open exact request';
   return 'Open recovery';
@@ -129,6 +130,20 @@ async function weeklyAction(node) {
         : null;
     if (scheduleRecovery && !scheduleCard)
       throw new Error('Refresh this review before opening the schedule.');
+    const ruleRecovery = node.dataset.category === 'rule_schedule';
+    if (
+      ruleRecovery &&
+      !visibleWeeklyExceptions(state.weeklyReview, principal).some(
+        (c) =>
+          c.app_id === app &&
+          c.category === 'rule_schedule' &&
+          c.resolution_route === tool &&
+          tool === 'results' &&
+          c.action?.resource_id === node.dataset.resource,
+      )
+    ) {
+      throw new Error('Refresh the weekly review before opening these scheduled rules.');
+    }
     const reviewCard =
       tool === 'agent_review'
         ? visibleWeeklyExceptions(state.weeklyReview, principal).find(
@@ -150,6 +165,15 @@ async function weeklyAction(node) {
       currentWorkspace() &&
       state.workspace.identity?.principal === principal;
     if (!current()) return;
+    if (ruleRecovery) {
+      guidedNavigate('results');
+      const rules = document.querySelector('[aria-label="Automation rule preview"] > details');
+      if (!rules) return;
+      rules.open = true;
+      rules.querySelector('summary')?.focus();
+      rules.querySelector('[data-action="automation-proposals-view"]')?.click();
+      return;
+    }
     if (tool === 'agent_review') {
       return WMMAgentControl.action(
         {
