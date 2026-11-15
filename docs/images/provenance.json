@@ -3,7 +3,7 @@
   "synthetic": true,
   "captured_at": "2026-10-28T02:49:48.851066+00:00",
   "images": {
-    "overview.png": "0fb17f90a63428de868e213de93f1dd271219ee2e8ace918f522799c26f9e7d8",
+    "overview.png": "7739058fb47e751255ec4333f1004518005718986fb27acaf64eb474c1a96ca3",
     "pipeline.png": "384e65c306ca65fabe0f7ae6fca478124067b38342f91bc49596d47237d3717e",
     "results.png": "e46e440b18c33d91fe1ce4cd2795ab50434cf896fd4217f7de956253bed72d58",
     "sample-workflow.png": "e3fe342f7d901e4782b976d5d9566b9b5f732832a7d46f832eabbc43940b9b60",
@@ -35,11 +35,11 @@
       "source_demo_sha256": "42450629dd93ce8f11b5560dd9614ce72df613802bdf5189f6f6309c03728207"
     },
     "overview.png": {
-      "source": "Actual Chromium capture of the candidate WMM overview; isolated synthetic app; no accounts, approvals, publication or spending",
-      "source_base_commit": "f27dccf0a0942b7bc334b63a430445d6c9b5ba1c",
-      "candidate_ui_sha256": "277792d47805c1cf3ce8deb9dfbdd91a759f9164fba6f00aa490ed936af41ddf",
-      "captured_at": "2026-11-12T03:05:40.489382+00:00",
-      "viewport_width": 1440,
+      "source": "Actual Chromium capture of the revised WMM home; isolated synthetic fixture; no connected accounts, approvals, publication or spending",
+      "source_base_commit": "444531e386c40b8aa26de4c087a2d8f8d0a3f9b6",
+      "candidate_ui_sha256": "dc88d4751cf88bcfdaa1791ba7eab92560ac4adbc77e0db7becffc97fe938f4e",
+      "captured_at": "2026-11-15T06:39:48.052098+00:00",
+      "viewport_width": 1280,
       "synthetic": true
     }
   }
