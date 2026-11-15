@@ -20,7 +20,8 @@ function fixture() {
     },
     calls = [],
     dialog = { open: true },
-    node = { isConnected: true };
+    node = { isConnected: true },
+    messages = { status: { textContent: '' }, error: { textContent: '' } };
   const c = {
     state,
     globalThis: null,
@@ -29,15 +30,25 @@ function fixture() {
       String(v ?? '')
         .replaceAll('<', '&lt;')
         .replaceAll('>', '&gt;'),
-    button: (t, a, attrs) =>
-      '<button data-action="' + a + '" ' + (attrs || '') + '>' + t + '</button>',
+    button: (t, a, attrs, style) =>
+      '<button class="' +
+      (style || '') +
+      '" data-action="' +
+      a +
+      '" ' +
+      (attrs || '') +
+      '>' +
+      t +
+      '</button>',
     modal: (title, body) => calls.push({ title, body }),
     $: (s) =>
       s === '#modal'
         ? dialog
         : ['#goal-readiness-form', '#goal-readiness-mode'].includes(s)
           ? node
-          : { textContent: '' },
+          : s === '#goal-readiness-status'
+            ? messages.status
+            : messages.error,
     api: async (url, body) => {
       calls.push({ url, body });
       return {
@@ -75,6 +86,7 @@ function fixture() {
     c,
     node,
     dialog,
+    messages,
   };
 }
 test('exact goal selection sends no authority fields and retains blocked broader workflows', () => {
@@ -214,8 +226,8 @@ test('current owner submits one read-only readiness call with no expiry or spend
   assert.equal(Object.hasOwn(call.body, 'purpose'), false);
   assert.match(h.calls.at(-1).body, /No approval/);
 });
-test('app/version/principal/goal changes or replaced dialog discard late readback', async () => {
-  for (const kind of ['app', 'version', 'principal', 'goal', 'dialog', 'replaced']) {
+test('app/version/principal/role/goal changes or replaced dialog discard late readback', async () => {
+  for (const kind of ['app', 'version', 'principal', 'role', 'goal', 'dialog', 'replaced']) {
     const h = fixture();
     h.w.open();
     h.w.repair('standing-readiness');
@@ -229,6 +241,7 @@ test('app/version/principal/goal changes or replaced dialog discard late readbac
       if (kind === 'app') h.state.app = 'two';
       if (kind === 'version') h.state.workspace.app.version = 2;
       if (kind === 'principal') h.state.workspace.identity.principal = 'other';
+      if (kind === 'role') h.state.workspace.access.members[0].status = 'REVOKED';
       if (kind === 'goal') h.state.goalChoice.id = 'research';
       if (kind === 'dialog') h.dialog.open = false;
       if (kind === 'replaced') h.node.isConnected = false;
@@ -236,6 +249,45 @@ test('app/version/principal/goal changes or replaced dialog discard late readbac
     };
     await h.w.submit(h.node);
     assert.equal(h.calls.length, 2, kind);
+  }
+});
+test('editing the account during a pending check preserves the new selection and a clean retry', async () => {
+  for (const failed of [false, true]) {
+    const h = fixture();
+    h.w.open();
+    h.w.repair('standing-readiness');
+    h.node.values = {
+      agent_id: 'my-agent',
+      workflows: ['social_publish'],
+      social_connection_ids: ['old'],
+    };
+    const control = { disabled: false };
+    h.node.querySelector = () => control;
+    let complete;
+    const original = h.c.api;
+    h.c.api = async (_, body) => {
+      assert.deepEqual(Array.from(body.social_connection_ids), ['old']);
+      return new Promise((resolve, reject) => {
+        complete = () =>
+          failed ? reject(new Error('Old connection error')) : resolve({ inventory: {} });
+      });
+    };
+    const pending = h.w.submit(h.node);
+    assert.equal(control.disabled, true);
+    assert.match(h.messages.status.textContent, /Checking/);
+    h.node.values.social_connection_ids = ['new'];
+    await h.w.submit(h.node);
+    complete();
+    await pending;
+    assert.equal(h.calls.length, 2);
+    assert.equal(control.disabled, false);
+    assert.equal(h.messages.status.textContent, '');
+    assert.match(h.messages.error.textContent, /Your selection changed/);
+    h.c.api = original;
+    await h.w.submit(h.node);
+    assert.deepEqual(Array.from(h.calls.at(-2).body.social_connection_ids), ['new']);
+    assert.equal(h.messages.error.textContent, '');
+    assert.match(h.calls.at(-1).body, /No approval/);
   }
 });
 test('unknown repair routes reject without a call', () => {
@@ -378,12 +430,18 @@ test('missing Facebook credential replaces the historical verified label with a 
   const reconnect = w.markup({ ...data, credential_repairs: { a: 'RECONNECT_REQUIRED' } });
   assert.match(reconnect, /<h3>Needs setup<\/h3>/);
   assert.match(reconnect, /facebook \/ page · Reconnect Facebook in Connections/);
+  assert.match(reconnect, /class="primary" data-action="goal-repair" data-tool="social-accounts"/);
+  assert.equal(reconnect.match(/data-tool="social-accounts"/g).length, 1);
   assert.doesNotMatch(reconnect, /Recently verified/);
   assert.match(
     w.markup({ ...data, credential_repairs: { a: 'PROTECTED_STORAGE_UNAVAILABLE' } }),
     /Unlock this device’s protected credential storage/,
   );
   assert.match(w.markup(data), /Recently verified/);
+  assert.match(
+    w.markup(data),
+    /class="primary" data-action="goal-repair" data-tool="combined-agreement"/,
+  );
 });
 
 test('next scheduled check remains visible without a prior observation', () => {
