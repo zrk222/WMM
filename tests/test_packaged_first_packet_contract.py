@@ -224,7 +224,7 @@ class PackagedFirstPacketTests(unittest.TestCase):
             self.assertFalse(harness.exact_app_creation(request, harness.ORIGIN, app_id, fields))
 
     @unittest.skipUnless(os.environ.get("WMM_PACKAGED_FIRST_PACKET_TEST") == "1", "requires local Playwright browser")
-    def test_refused_form_returns_fixture_failure_without_waiting_for_a_response_timeout(self):
+    def test_refused_form_returns_fixture_failure_without_waiting_for_a_response_timeout(self) -> None:
         import tempfile
 
         from mission_control.desktop import DesktopRuntime
