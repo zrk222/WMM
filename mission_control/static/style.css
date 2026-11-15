@@ -195,6 +195,47 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* Process colors describe the named state; active work never implies delivery. */
+.status[class] {
+  --process-bg: #edf0f2;
+  --process-ink: #36434b;
+  background: var(--process-bg);
+  color: var(--process-ink);
+  border: 1px solid currentColor;
+  gap: 0.45em;
+  font-variant-numeric: tabular-nums;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.status::before {
+  content: '';
+  inline-size: 0.42em;
+  block-size: 0.42em;
+  flex: 0 0 0.42em;
+  border-radius: 50%;
+  background: currentColor;
+}
+.status:is(.running, .starting, .stopping, .active, .enabled, .in_progress, .processing, .rendering, .uploading, .publishing, .checking, .collecting, .renewing, .retrying) {
+  --process-bg: #e5edf9;
+  --process-ink: #244663;
+}
+.status:is(.queued, .pending, .waiting, .waiting_review, .awaiting_review, .needs_review, .waiting_for_reports, .awaiting_analysis, .scheduled, .blocked, .needs_setup, .needs_reconciliation, .unknown, .unconfirmed, .interrupted, .expired, .exhausted, .stale, .not_verified, .not_configured, .retry_wait, .cancel_requested, .recovering) {
+  --process-bg: #f9ebce;
+  --process-ink: #654609;
+}
+.status:is(.succeeded, .success, .complete, .completed, .verified, .delivered, .published, .measured, .confirmed, .passed, .pass, .ready, .tested_fresh, .healthy) {
+  --process-bg: #e2f2e3;
+  --process-ink: #164c30;
+}
+.status:is(.failed, .error, .rejected, .invalid, .invalid_result, .failed_validation, .denied, .conflict, .breached) {
+  --process-bg: #fbe5e2;
+  --process-ink: #83291f;
+}
+.status:is(.stopped, .paused, .paused_verified, .cancelled, .canceled, .off, .disconnected, .disabled, .not_started, .draft, .idle, .restored_paused) {
+  --process-bg: #edf0f2;
+  --process-ink: #36434b;
+}
+
 /* Analytics colors indicate evidence state; every pill also names the state. */
 .analytics-status {
   --status-bg: #edf0f2;

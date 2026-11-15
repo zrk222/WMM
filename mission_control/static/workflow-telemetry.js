@@ -21,6 +21,7 @@
   function panel() {
     return `<section class="panel" id="workflow-monitor" aria-label="Live workflow progression">
     <h2>See what your agent is doing</h2><p>Follow the recorded stage, current activity and saved result.</p>
+    <p><span class="status checking" data-live-worker-state>Checking</span></p>
     <p data-live-worker role="status">Checking the worker on this host…</p><p data-live-status>Loading saved observations…</p>
     <p class="sr-only" data-live-stage role="status"></p>
     <details><summary>Keep approved work running</summary>
@@ -31,18 +32,25 @@
     <button class="button outline" type="button" data-action="telemetry-refresh">Refresh progress</button><div data-live-runs></div>
     </section>`;
   }
+  function workerState(status, observedAt, lastSuccess) {
+    if (status === 'RUNNING') {
+      const age = Date.parse(observedAt) - Date.parse(lastSuccess);
+      if (!Number.isFinite(age) || age < 0) return 'UNCONFIRMED';
+      if (age > HEALTH_FRESHNESS_MS) return 'STALE';
+      return 'RUNNING';
+    }
+    return ['STARTING', 'RECOVERING', 'STOPPED'].includes(status) ? status : 'UNKNOWN';
+  }
   function workerMessage(status, observedAt, lastSuccess) {
-    switch (status) {
+    switch (workerState(status, observedAt, lastSuccess)) {
       case 'STARTING':
         return 'Worker starting. Refresh progress after its first completed poll.';
-      case 'RUNNING': {
-        const age = Date.parse(observedAt) - Date.parse(lastSuccess);
-        if (!Number.isFinite(age) || age < 0)
-          return 'Recent worker activity is unconfirmed. Check WMM on this workspace’s host before relying on scheduled work.';
-        if (age > HEALTH_FRESHNESS_MS)
-          return 'The worker has not confirmed a healthy check in the last two minutes. If no long job is running, check WMM on the host.';
+      case 'UNCONFIRMED':
+        return 'Recent worker activity is unconfirmed. Check WMM on this workspace’s host before relying on scheduled work.';
+      case 'STALE':
+        return 'The worker has not confirmed a healthy check in the last two minutes. If no long job is running, check WMM on the host.';
+      case 'RUNNING':
         return 'Worker reported healthy. Open a run to verify what was actually delivered.';
-      }
       case 'RECOVERING':
         return 'Worker needs attention. Open Advanced tools → Guided workflow to check which work needs recovery.';
       case 'STOPPED':
@@ -124,13 +132,18 @@
     ].filter(Boolean);
     return parts.length ? `<p>${esc(parts.join(' · '))}.</p>` : '';
   }
+  function statusMarkup(value, label = value) {
+    const key = typeof value === 'string' && /^[A-Z][A-Z_]{0,63}$/.test(value) ? value : 'UNKNOWN';
+    const text = key === 'UNKNOWN' ? 'Unknown' : String(label).replaceAll('_', ' ');
+    return `<span class="status ${key.toLowerCase()}">${esc(text)}</span>`;
+  }
   function markup(data) {
     if (!data.runs.length)
       return '<p>No workflow runs yet. Start an approved workflow to see its stages here.</p>';
     return data.runs
       .map(
         (run) =>
-          `<article class="panel"><h3>${waitingForReports(run) ? 'Read completed · waiting for reports' : `${esc(run.action)} · ${esc(run.status)}`}</h3><p>Attempt ${esc(run.attempts)} · ${esc(run.processed_stages)} stages processed · ${esc(run.blocked_stages)} blocked</p>${timingMarkup(run.timing)}<p>${waitingForReports(run) ? 'The source read completed, but the provider has no report data available yet. This read supplied no app metrics.' : `${run.latest?.stage ? `Stage ${esc(run.latest.stage)}: ${esc(run.latest.stage_title)} · ` : ''}${esc(run.activity)}`}</p><p>Last worker event: ${esc(run.latest?.observed_at || 'No event recorded')}. Job updated: ${esc(run.updated)}.</p><p><strong>Next action:</strong> ${esc(waitingForReports(run) ? 'Inspect the saved source result and check its refresh schedule in Connections. An enabled schedule checks again at its saved due time.' : nextAction(run.status))}</p>${typeof run.id === 'string' && run.id ? `<button type="button" class="button outline" data-action="telemetry-open-job" data-id="${esc(run.id)}">Inspect run and saved output</button>` : ''}<details><summary>Observed steps (${run.events.length})</summary><ol>${run.events.map((event) => `<li>${esc(event.observed_at)} · ${event.stage ? `Stage ${esc(event.stage)} · ` : ''}${esc(event.message)}</li>`).join('')}</ol></details></article>`,
+          `<article class="panel"><h3>${waitingForReports(run) ? `Read completed · ${statusMarkup('WAITING_FOR_REPORTS', 'waiting for reports')}` : `${esc(run.action)} · ${statusMarkup(run.status)}`}</h3><p>Attempt ${esc(run.attempts)} · ${esc(run.processed_stages)} stages processed · ${esc(run.blocked_stages)} blocked</p>${timingMarkup(run.timing)}<p>${waitingForReports(run) ? 'The source read completed, but the provider has no report data available yet. This read supplied no app metrics.' : `${run.latest?.stage ? `Stage ${esc(run.latest.stage)}: ${esc(run.latest.stage_title)} · ` : ''}${esc(run.activity)}`}</p><p>Last worker event: ${esc(run.latest?.observed_at || 'No event recorded')}. Job updated: ${esc(run.updated)}.</p><p><strong>Next action:</strong> ${esc(waitingForReports(run) ? 'Inspect the saved source result and check its refresh schedule in Connections. An enabled schedule checks again at its saved due time.' : nextAction(run.status))}</p>${typeof run.id === 'string' && run.id ? `<button type="button" class="button outline" data-action="telemetry-open-job" data-id="${esc(run.id)}">Inspect run and saved output</button>` : ''}<details><summary>Observed steps (${run.events.length})</summary><ol>${run.events.map((event) => `<li>${esc(event.observed_at)} · ${event.stage ? `Stage ${esc(event.stage)} · ` : ''}${esc(event.message)}</li>`).join('')}</ol></details></article>`,
       )
       .join('');
   }
@@ -195,9 +208,15 @@
     };
     mounted = ticket;
     const worker = node.querySelector('[data-live-worker]');
+    const workerBadge = node.querySelector('[data-live-worker-state]');
     const stage = node.querySelector('[data-live-stage]');
-    const announce = (message) => {
+    const announce = (message, status = 'UNKNOWN') => {
       if (worker.textContent !== message) worker.textContent = message;
+      const className = 'status ' + status.toLowerCase();
+      if (workerBadge.className !== className) {
+        workerBadge.className = className;
+        workerBadge.textContent = status[0] + status.slice(1).toLowerCase();
+      }
     };
     const valid = () =>
       mounted === ticket &&
@@ -232,6 +251,7 @@
             workerMessage(data.worker?.status, data.observed_at, data.worker?.last_success) +
               ' ' +
               workerContext(data.worker?.runtime_mode),
+            workerState(data.worker?.status, data.observed_at, data.worker?.last_success),
           );
           const healthyPoll = data.worker?.last_success;
           node.querySelector('[data-live-status]').textContent =

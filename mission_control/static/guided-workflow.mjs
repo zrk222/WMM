@@ -203,12 +203,12 @@ function guidedWorker() {
     queue: 'Local job queue',
   };
   const failed = Object.values(rows).some((r) => r.failures > 0);
-  return `<section class="panel" aria-label="Automatic workflow health"><h2>Automatic workflow</h2><p>${esc(label(worker.status || 'NOT_STARTED'))} · Shared worker for app workspaces on this host.</p><ul>${Object.entries(
+  return `<section class="panel" aria-label="Automatic workflow health"><h2>Automatic workflow</h2><p>${status(worker.status || 'NOT_STARTED')} · Shared worker for app workspaces on this host.</p><ul>${Object.entries(
     rows,
   )
     .map(
       ([name, row]) =>
-        `<li>${esc(names[name] || name)}: ${esc(label(row.status))}${row.failures ? ` · ${row.failures} consecutive failures` : ''}</li>`,
+        `<li>${esc(names[name] || name)}: ${status(row.status || 'UNKNOWN')}${row.failures ? ` · ${row.failures} consecutive failures` : ''}</li>`,
     )
     .join(
       '',

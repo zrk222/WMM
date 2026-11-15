@@ -26,7 +26,10 @@ test('completed reads distinguish missing provider reports without claiming metr
     updated: 'now',
   };
   const html = ui.markup({ runs: [run] });
-  assert.match(html, /Read completed · waiting for reports/);
+  assert.match(
+    html,
+    /Read completed · <span class="status waiting_for_reports">waiting for reports<\/span>/,
+  );
   assert.match(html, /This read supplied no app metrics/);
   assert.match(html, /check its refresh schedule in Connections/);
   assert.match(html, /An enabled schedule/);
@@ -39,7 +42,7 @@ test('completed reads distinguish missing provider reports without claiming metr
     { outcome_code: 'PRIVATE_UNKNOWN' },
   ]) {
     const other = ui.markup({ runs: [{ ...run, ...changes }] });
-    assert.ok(!other.includes('Read completed · waiting for reports'));
+    assert.ok(!other.includes('class="status waiting_for_reports"'));
     assert.ok(!other.includes('PRIVATE_UNKNOWN'));
   }
 });
@@ -309,6 +312,7 @@ function pollFixture() {
   const list = { innerHTML: 'retained', contains: () => false },
     status = { textContent: '' },
     worker = { textContent: '' },
+    workerState = { textContent: '' },
     refresh = {};
   const announcements = [];
   const stage = {
@@ -323,6 +327,7 @@ function pollFixture() {
     '[data-live-runs]': list,
     '[data-live-status]': status,
     '[data-live-worker]': worker,
+    '[data-live-worker-state]': workerState,
     '[data-live-stage]': stage,
   };
   const node = { isConnected: true, querySelector: (s) => targets[s] ?? refresh };
@@ -343,6 +348,7 @@ function pollFixture() {
     list,
     status,
     worker,
+    workerState,
     announcements,
     node,
     document,
@@ -405,11 +411,13 @@ test('fresh telemetry distinguishes worker recovery, health and stopped state', 
   await f.settle();
   assert.match(f.worker.textContent, /Worker needs attention/);
   assert.match(f.status.textContent, /prior-poll/);
+  assert.equal(f.workerState.className, 'status recovering');
   assert.doesNotMatch(f.worker.textContent, /PRIVATE_ERROR|healthy/);
   for (const last_success of [null, 'bad-date', '2026-11-14T12:01:00Z']) {
     f.answer = reply({ status: 'RUNNING', last_success });
     await f.tick();
     assert.match(f.worker.textContent, /activity is unconfirmed/);
+    assert.equal(f.workerState.className, 'status unconfirmed');
   }
   f.answer = reply({
     status: 'RUNNING',
@@ -418,6 +426,7 @@ test('fresh telemetry distinguishes worker recovery, health and stopped state', 
   });
   await f.tick();
   assert.match(f.worker.textContent, /not confirmed a healthy check/);
+  assert.equal(f.workerState.className, 'status stale');
   assert.doesNotMatch(f.worker.textContent, /Worker stopped|reported healthy/);
   f.answer = reply({
     status: 'RUNNING',
@@ -426,6 +435,7 @@ test('fresh telemetry distinguishes worker recovery, health and stopped state', 
   });
   await f.tick();
   assert.match(f.worker.textContent, /reported healthy/);
+  assert.equal(f.workerState.className, 'status running');
   assert.match(
     f.worker.textContent,
     /Headless mode.*Closing this browser does not stop a headless worker/,
@@ -440,11 +450,13 @@ test('fresh telemetry distinguishes worker recovery, health and stopped state', 
   f.answer = reply({ status: 'STOPPED' });
   await f.tick();
   assert.match(f.worker.textContent, /Start WMM on the host/);
+  assert.equal(f.workerState.className, 'status stopped');
   f.answer = async () => {
     throw Error('offline');
   };
   await f.tick();
   assert.match(f.worker.textContent, /status unavailable/);
+  assert.equal(f.workerState.className, 'status unknown');
   assert.match(f.ui.panel(), /Open the private-host setup guide/);
   f.ui.clear();
 });
