@@ -10,7 +10,13 @@ function fixture() {
         .replaceAll('<', '&lt;')
         .replaceAll('>', '&gt;'),
     button: () => '',
-    state: { app: 'one', workspace: { app: { version: 1 }, identity: { principal: 'owner' } } },
+    state: {
+      app: 'one',
+      workspace: {
+        app: { id: 'one', version: 1 },
+        identity: { status: 'AUTHENTICATED', role: 'OWNER', principal: 'owner' },
+      },
+    },
   };
   vm.createContext(c);
   vm.runInContext(
@@ -407,7 +413,17 @@ function interactive() {
       esc: String,
       AbortSignal,
       button: () => '',
-      state: { app: 'one', workspace: { app: { version: 1 }, identity: { principal: 'owner' } } },
+      state: {
+        app: 'one',
+        workspace: {
+          app: { id: 'one', version: 1 },
+          identity: { status: 'AUTHENTICATED', principal: 'owner' },
+          access: {
+            configured: true,
+            members: [{ principal: 'owner', role: 'OWNER', status: 'ACTIVE', version: 1 }],
+          },
+        },
+      },
       FormData: class {
         constructor(form) {
           return Object.entries(form.values || {});
@@ -442,6 +458,9 @@ test('late scope lists are discarded after app, manifest, owner or modal changes
     (h) => (h.c.state.app = 'two'),
     (h) => h.c.state.workspace.app.version++,
     (h) => (h.c.state.workspace.identity.principal = 'other'),
+    (h) => (h.c.state.workspace.access.members[0].role = 'CHECKER'),
+    (h) => h.c.state.workspace.access.members[0].version++,
+    (h) => (h.c.state.workspace.identity.status = 'UNAUTHENTICATED'),
     (h) => (h.nodes.get('#modal').open = false),
     (h) => h.c.modal('Another task', '<div id="other"></div>'),
   ]) {
@@ -680,4 +699,32 @@ test('agreement distinguishes exact recovery routes for expired, uncertain and s
   schedule.items.push({ effective_status: 'NEEDS_RECONCILIATION' });
   assert.equal(a.guidance({ campaign, schedule, dispatch_uncertain: true }).tool, 'schedule');
   assert.equal(a.guidance({ campaign }).tool, 'campaign');
+});
+
+test('the agreement gives the right owner access repair without reading histories', async () => {
+  for (const [identity, configured, expected] of [
+    [{ status: 'UNAUTHENTICATED' }, true, 'Sign in as the app owner'],
+    [
+      { status: 'AUTHENTICATED', role: 'CHECKER', principal: 'person' },
+      true,
+      'Only the current app owner',
+    ],
+    [{ status: 'AUTHENTICATED', principal: 'person' }, false, 'Set up this app'],
+    [{ status: 'UNAUTHENTICATED' }, false, 'Set up this app'],
+  ]) {
+    const h = interactive();
+    h.c.state.workspace.identity = identity;
+    h.c.state.workspace.access = { configured };
+    h.c.api = () => assert.fail('No owner history may be read during setup');
+    await h.a.open();
+    assert.match(h.requests.at(-1).html, new RegExp(expected));
+    assert.equal(h.nodes.has('#agreement-form'), false);
+  }
+});
+
+test('an unrefreshed app switch cannot open another app’s agreement', async () => {
+  const h = interactive();
+  h.c.state.app = 'two';
+  h.c.api = () => assert.fail('No queries while workspace changes');
+  await assert.rejects(h.a.open(), /Wait for the selected app/);
 });

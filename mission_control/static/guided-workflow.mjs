@@ -1075,12 +1075,29 @@ const WMMGoalReadiness = (() => {
 
 const WMMAgreement = (() => {
   let active = null;
-  const scope = () => ({
-    app: state.app,
-    version: state.workspace.app.version,
-    principal: state.workspace.identity?.principal,
-  });
-  const same = (a, b) => a.app === b.app && a.version === b.version && a.principal === b.principal;
+  const scope = () => {
+    const workspace = state.workspace;
+    const identity = workspace?.identity;
+    const owner = workspace?.access?.members?.find(
+      (member) =>
+        member.principal === identity?.principal &&
+        member.status === 'ACTIVE' &&
+        member.role === 'OWNER',
+    );
+    return {
+      app: state.app,
+      workspaceApp: workspace?.app?.id,
+      version: workspace?.app?.version,
+      principal: identity?.status === 'AUTHENTICATED' && owner ? identity.principal : null,
+      ownerVersion: owner?.version,
+    };
+  };
+  const same = (a, b) =>
+    a.app === b.app &&
+    a.workspaceApp === b.workspaceApp &&
+    a.version === b.version &&
+    a.principal === b.principal &&
+    a.ownerVersion === b.ownerVersion;
   function valid(t) {
     return active === t && same(t.scope, scope()) && t.node?.isConnected && $('#modal').open;
   }
@@ -1170,6 +1187,25 @@ const WMMAgreement = (() => {
   }
   async function open() {
     const saved = scope();
+    if (!saved.app || saved.app !== saved.workspaceApp)
+      throw new Error('Wait for the selected app to load, then open the agreement.');
+    if (!saved.principal) {
+      active = null;
+      const signedIn = state.workspace.identity?.status === 'AUTHENTICATED';
+      const repair =
+        state.workspace.access?.configured === false
+          ? '<p>Set up this app’s owner to review its agreement. WMM will ask you to confirm.</p>' +
+            button('Set up app owner', 'access-bootstrap')
+          : !signedIn
+            ? '<p>Sign in as the app owner to review this agreement.</p>' +
+              button('Sign in with GitHub', 'identity-login')
+            : '<p>Only the current app owner can review this agreement. Ask them to open it in this workspace.</p>';
+      modal(
+        'Automation agreement',
+        '<div class="modal-content">' + repair + button('Close', 'close') + '</div>',
+      );
+      return;
+    }
     modal(
       'Automation agreement',
       '<div id="agreement-loading" class="modal-content"><p role="status">Reading your saved scopes…</p></div>',
