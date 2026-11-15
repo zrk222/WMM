@@ -199,7 +199,7 @@ class PackagedFirstPacketTests(unittest.TestCase):
         from types import SimpleNamespace
 
         app_id, fields = harness.first_app_fixture(390)
-        body = dict(id=app_id, data=dict(fields, growth_mode="AUTO"), version=None)
+        body = dict(id=app_id, data=dict(fields, growth_mode="AUTO", setup_source_url=""), version=None)
         exact = SimpleNamespace(method="POST", url=harness.ORIGIN + "/api/apps", post_data_json=body)
         self.assertTrue(harness.exact_app_creation(exact, harness.ORIGIN, app_id, fields))
         for changes in (
@@ -207,6 +207,8 @@ class PackagedFirstPacketTests(unittest.TestCase):
             {"version": 1},
             {"data": dict(fields, credential="")},
             {"data": dict(fields, website="https://example.invalid")},
+            {"data": dict(fields, setup_source_url="https://example.invalid")},
+            {"data": dict(fields, setup_source_url=None)},
             {"data": dict(fields, growth_mode="OFF")},
             {"data": []},
         ):
@@ -220,6 +222,25 @@ class PackagedFirstPacketTests(unittest.TestCase):
         ):
             request = SimpleNamespace(method="POST", url=url, post_data_json=body)
             self.assertFalse(harness.exact_app_creation(request, harness.ORIGIN, app_id, fields))
+
+    @unittest.skipUnless(os.environ.get("WMM_PACKAGED_FIRST_PACKET_TEST") == "1", "requires local Playwright browser")
+    def test_refused_form_returns_fixture_failure_without_waiting_for_a_response_timeout(self) -> None:
+        import tempfile
+
+        from mission_control.desktop import DesktopRuntime
+
+        with tempfile.TemporaryDirectory() as folder:
+            runtime = DesktopRuntime(directory=Path(folder) / "workspace", preferred_port=0)
+            origin = runtime.start(workers=False)
+            try:
+                with (
+                    patch.object(harness, "exact_app_creation", return_value=False),
+                    self.assertRaisesRegex(AssertionError, "Synthetic app was not created"),
+                ):
+                    harness.verify_packet_browser(origin, Path(folder) / "browser")
+                self.assertEqual(len(runtime.server.service.store.apps()), 3)
+            finally:
+                runtime.close()
 
     def test_occupied_port_refuses_without_spawning_or_stopping_listener(self):
         import tempfile
