@@ -68,6 +68,14 @@ class ResearchHTTPTests(unittest.TestCase):
         self.assertEqual(detail["intakes"][0]["id"], saved["id"])
         self.assertEqual(detail["intakes"][0]["request_hash"], digest(self.f.body))
         self.assertEqual(detail["intakes"][0]["data"]["publication"], "NOT_RUN")
+        shortlist = detail["creative_shortlist"]
+        self.assertEqual(len(shortlist), 1)
+        self.assertEqual(shortlist[0]["tier"], "VIRAL_BY_REPORTED_COUNTS")
+        self.assertEqual(
+            shortlist[0]["candidate_hash"], detail["result"]["items"][0]["qualification"]["candidate_hash"]
+        )
+        self.assertEqual(detail["result_hash"], digest(detail["result"]))
+
         history = self.call("task-list", dict(offset=0, request_id=None))
         self.assertEqual(history["items"][0]["intakes"][0]["id"], saved["id"])
         self.assertEqual(history["items"][0]["intakes"][0]["source_id"], saved["data"]["source"]["id"])

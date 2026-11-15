@@ -93,6 +93,17 @@ test('source labels are escaped and connected state is never execution authority
   assert.equal((html.match(/data-action="goal-next"/g) || []).length, 1);
   assert.equal(h.calls.length, 0);
 });
+test('the campaign goal exposes organic measurement setup without starting work', () => {
+  const h = fixture();
+  const campaign = h.g.view(h.state.workspace, 'campaign', escape);
+  assert.match(campaign, /data-action="observational-campaign-open">Plan a tracked organic post/);
+  assert.match(campaign, /before you publish/);
+  assert.match(campaign, /No channel connection is saved for this app/);
+  for (const goal of ['research', 'creative', 'measurement']) {
+    assert.doesNotMatch(h.g.view(h.state.workspace, goal, escape), /Plan a tracked organic post/);
+  }
+  assert.deepEqual(h.calls, []);
+});
 test('next action opens existing controls only after explicit user choice', () => {
   for (const [id, expected] of [
     ['campaign', 'connections'],
@@ -165,6 +176,27 @@ test('campaign goal recognizes every supported connected channel as setup only',
   assert.doesNotMatch(html, /No channel connection/);
   assert.match(html, /Account setup is not execution approval/);
   assert.equal(h.calls.length, 0);
+});
+
+test('current public storefronts show without claiming release, measurements or approval', () => {
+  const h = fixture();
+  h.c.esc = escape;
+  const workspace = h.state.workspace;
+  workspace.app.data.store_app_id = '123';
+  workspace.app_launch_status = {
+    status: 'UNKNOWN',
+    reason: 'CURRENT_CONNECT_READ_REQUIRED',
+    observed_public_storefronts: ['AU', 'CA'],
+    verified_storefronts: [],
+  };
+  const render = vm.runInContext('launchStatusPanel', h.c);
+  const html = render(workspace);
+  assert.match(html, /Public listings observed in AU, CA/);
+  assert.match(html, /verification and store metrics are still unconfirmed/);
+  assert.match(html, /Review connections/);
+  assert.doesNotMatch(html, /Live in a verified storefront|Verified storefronts:|Approve|Publish/);
+  workspace.app_launch_status.observed_public_storefronts = [];
+  assert.match(render(workspace), /Availability is unknown/);
 });
 
 test('launch declarations and source conflict stay separate in the owner panel', () => {

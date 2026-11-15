@@ -77,6 +77,7 @@ def resolve(
         "store_metric_applicability": eligibility,
         "store_metrics": ["installs", "retention", "cac", "roas", "revenue"],
         "reason": reason,
+        "observed_public_storefronts": available,
         "verified_storefronts": available if status == "LIVE" else [],
         "observed_at": now.isoformat(),
         "authority_issued": False,

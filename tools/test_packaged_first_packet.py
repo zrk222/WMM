@@ -1,11 +1,8 @@
 """Opt-in synthetic frozen-runtime acceptance; no application imports."""
 
 import hashlib
-from collections import deque
-from contextlib import closing, nullcontext
 import json
 import os
-from pathlib import Path
 import queue
 import re
 import socket
@@ -14,6 +11,9 @@ import subprocess
 import tempfile
 import threading
 import time
+from collections import deque
+from contextlib import closing, nullcontext
+from pathlib import Path
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -61,7 +61,7 @@ def exact_app_creation(request, origin, app_id, fields):
     if not isinstance(body, dict) or set(body) != {"id", "data", "version"}:
         return False
     data = body["data"]
-    defaults = dict.fromkeys(
+    defaults: dict[str, str] = dict.fromkeys(
         (
             "currency",
             "website",
@@ -104,47 +104,128 @@ def read_boundary(url, origin, method, status=None):
     return dict(path=path, method=method, status=status if type(status) is int and 100 <= status <= 599 else None)
 
 
-def capture_packet_failure(page, out, width, exception, boundaries, page_errors):
+STARTUP_TIMEOUT_MS = 30_000
+STATIC_MODULES = frozenset(
+    f"/{path.name}"
+    for path in (Path(__file__).resolve().parents[1] / "mission_control" / "static").iterdir()
+    if path.suffix in (".js", ".mjs")
+)
+
+
+def failure_code(request):
+    value = request.failure or ""
+    return value if re.fullmatch(r"net::ERR_[A-Z0-9_]{1,48}", value) else "OTHER"
+
+
+def asset_boundary(request, origin, event, response=None):
+    parts, base = urlsplit(request.url), urlsplit(origin)
+    if (parts.scheme, parts.netloc) != (base.scheme, base.netloc) or request.method != "GET":
+        return None
+    if request.resource_type == "document":
+        path = "/" if parts.path == "/" else "OTHER_DOCUMENT"
+    elif request.resource_type == "script":
+        path = parts.path if parts.path in STATIC_MODULES else "OTHER_SCRIPT"
+    else:
+        return None
+    item = dict(path=path, kind=request.resource_type, event=event)
+    if event == "failed":
+        item["failure"] = failure_code(request)
+    if response is not None:
+        mime = response.headers.get("content-type", "").partition(";")[0].strip().lower()
+        item.update(
+            status=response.status,
+            mime=(
+                "javascript"
+                if mime in ("text/javascript", "application/javascript", "application/ecmascript", "text/ecmascript")
+                else "html"
+                if mime == "text/html"
+                else "other"
+                if mime
+                else "missing"
+            ),
+        )
+    return item
+
+
+def capture_packet_failure(page, out, width, exception, boundaries, page_errors, assets=(), asset_failures=()):
     """Best-effort metadata only; never obscure the original acceptance failure."""
-    report = dict(
-        schema="wmm.packaged-packet-failure.v1",
+    report: dict[str, object] = dict(
+        schema="wmm.packaged-packet-failure.v2",
         width=width,
         exception_type=type(exception).__name__,
         api_boundaries=list(boundaries)[-32:],
+        asset_boundaries=list(assets)[-32:],
+        asset_failures=list(asset_failures)[:32],
         page_error_count=len(page_errors),
     )
     try:
-        snapshot = page.evaluate('async () => ({\n            document_ready:document.readyState,\n            boot_loaded:typeof (await import(\'/app.mjs\')).state!==\'undefined\' && !!(await import(\'/app.mjs\')).state.boot,\n            research_loaded:typeof (await import(\'/app.mjs\')).state!==\'undefined\' && !!(await import(\'/app.mjs\')).state.research,\n            workspace_loaded:typeof (await import(\'/app.mjs\')).state!==\'undefined\' && !!(await import(\'/app.mjs\')).state.workspace,\n            selected_app:typeof (await import(\'/app.mjs\')).state!==\'undefined\' ? (await import(\'/app.mjs\')).state.app : null,\n            workspace_app:typeof (await import(\'/app.mjs\')).state!==\'undefined\' ? (await import(\'/app.mjs\')).state.workspace?.app?.id : null,\n            workspace_error:typeof (await import(\'/app.mjs\')).state!==\'undefined\' && !!(await import(\'/app.mjs\')).state.workspaceError,\n            retry_visible:!!document.querySelector(\'#main [data-action="reload"]\')\n        })')
+        snapshot = page.evaluate("""() => ({
+            document_ready: document.readyState,
+            dashboard_declared: !!document.querySelector('script[type="module"][src="/dashboard.mjs"]'),
+            workspace_rendered: !!document.querySelector('#main [data-action="goal-select"]'),
+            selected_app: document.querySelector('#app-select')?.value || null,
+            retry_visible: !!document.querySelector('#main [data-action="reload"]')
+        })""")
         safe = {}
-        for key in ("boot_loaded", "research_loaded", "workspace_loaded", "workspace_error", "retry_visible"):
+        for key in ("dashboard_declared", "workspace_rendered", "retry_visible"):
             safe[key] = snapshot.get(key) is True
         safe["document_ready"] = (
             snapshot.get("document_ready")
             if snapshot.get("document_ready") in ("loading", "interactive", "complete")
             else "UNKNOWN"
         )
-        for key in ("selected_app", "workspace_app"):
-            value = snapshot.get(key)
-            safe[key] = (
-                value
-                if value is None
-                or value in ("sample-one", "sample-two", "packaged-first-app-1440", "packaged-first-app-390")
-                else "UNEXPECTED_APP"
-            )
+        value = snapshot.get("selected_app")
+        safe["selected_app"] = (
+            value
+            if value is None
+            or value in ("sample-one", "sample-two", "packaged-first-app-1440", "packaged-first-app-390")
+            else "UNEXPECTED_APP"
+        )
         report["readiness"] = safe
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 - best-effort capture must preserve the original failure.
         report["snapshot_error_type"] = type(error).__name__
     try:
         target = Path(out) / f"failure-{width}.json"
         target.write_text(json.dumps(report, indent=2), encoding="utf-8")
         exception.add_note("Packaged startup diagnostics: " + str(target))
-    except Exception:
+    except OSError:
         exception.add_note("Packaged startup diagnostics could not be retained")
+
+
+def actual_get(origin, path):
+    return lambda response: response.url == origin + path and response.request.method == "GET"
+
+
+def rendered_workspace(page, response, app_id, name=None):
+    from playwright.sync_api import expect
+
+    assert response.status == 200, "Dashboard workspace request failed"
+    workspace = response.json()
+    app = workspace["app"]
+    assert app["id"] == app_id
+    if name is not None:
+        assert app["data"]["name"] == name
+    expect(page.locator("#app-name")).to_have_text(app["data"]["name"])
+    expect(page.get_by_role("heading", name="Set your goal", exact=True)).to_be_visible()
+    expect(
+        page.locator(f'[data-action="goal-select"][data-app="{app_id}"][data-version="{int(app["version"])}"]').first
+    ).to_be_visible()
+    return dict(app_id=app_id, version=app["version"], source_hash=workspace["preparation"]["source_hash"])
+
+
+def navigate_to_workspace(page, origin, app_id, navigate, name=None):
+    # Register before navigation. Only requests issued by the production entry point count.
+    with page.expect_response(actual_get(origin, f"/api/apps/{app_id}")) as workspace:
+        with page.expect_response(actual_get(origin, "/api/bootstrap"), timeout=STARTUP_TIMEOUT_MS) as bootstrap:
+            document = navigate()
+            assert document is not None and document.status in (200, 304), "Dashboard document request failed"
+        assert bootstrap.value.status == 200, "Dashboard bootstrap request failed"
+    return rendered_workspace(page, workspace.value, app_id, name)
 
 
 def verify_packet_browser(origin, output_dir, storage_dir=None, expected_initial_goal=None):
     """Use the real form on a fresh profile; read only across restart and upgrade."""
-    from playwright.sync_api import sync_playwright, expect
+    from playwright.sync_api import expect, sync_playwright
 
     parsed = urlsplit(origin)
     assert parsed.scheme == "http" and parsed.hostname == "127.0.0.1" and parsed.port
@@ -159,68 +240,109 @@ def verify_packet_browser(origin, output_dir, storage_dir=None, expected_initial
                 app_id, fields = first_app_fixture(width)
                 fresh = expected_initial_goal is None
                 storage = Path(storage_dir) / f"storage-{width}.json" if storage_dir else None
-                options = dict(viewport=dict(width=width, height=900))
-                if storage and storage.exists():
-                    options["storage_state"] = str(storage)
-                context = browser.new_context(**options)
+                context = browser.new_context(
+                    viewport={"width": width, "height": 900},
+                    service_workers="block",
+                    storage_state=str(storage) if storage and storage.exists() else None,
+                )
                 violations, errors, setup_writes = [], [], []
                 boundaries = deque(maxlen=32)
 
-                def observe(request, status=None):
-                    value = read_boundary(request.url, origin, request.method, status)
-                    if value is not None:
-                        boundaries.append(value)
+                assets = deque(maxlen=32)
+                asset_failures = []
 
-                context.on("response", lambda response: observe(response.request, response.status))
-                context.on("requestfailed", lambda request: observe(request))
+                def observe(
+                    request,
+                    event,
+                    response=None,
+                    *,
+                    boundaries=boundaries,
+                    assets=assets,
+                    asset_failures=asset_failures,
+                    violations=violations,
+                ):
+                    api = read_boundary(
+                        request.url, origin, request.method, None if response is None else response.status
+                    )
+                    if api is not None:
+                        api["event"] = event
+                        if event == "failed":
+                            api["failure"] = failure_code(request)
+                        boundaries.append(api)
+                    if event == "request" and not request.url.startswith(origin + "/"):
+                        violations.append("non-loopback browser request")
+                    asset = asset_boundary(request, origin, event, response)
+                    if asset is not None:
+                        assets.append(asset)
+                        if len(asset_failures) < 32 and (
+                            event == "failed"
+                            or (
+                                response is not None
+                                and (
+                                    response.status >= 400
+                                    or (
+                                        asset["kind"] == "script"
+                                        and asset["mime"] != "javascript"
+                                        and not 300 <= response.status < 400
+                                    )
+                                )
+                            )
+                        ):
+                            asset_failures.append(asset)
 
+                context.on("request", lambda request, observe=observe: observe(request, "request"))
+                context.on(
+                    "response", lambda response, observe=observe: observe(response.request, "response", response)
+                )
+                context.on("requestfailed", lambda request, observe=observe: observe(request, "failed"))
+
+                # Playwright dispatches a second argument when this callback declares extra parameters.
                 def guard(route):
                     request = route.request
                     if request.url.startswith(origin + "/") and request.method in ("GET", "HEAD"):
                         route.continue_()
-                    elif fresh and not setup_writes and exact_app_creation(request, origin, app_id, fields):
-                        setup_writes.append(request.method)
+                    elif fresh and not setup_writes and exact_app_creation(request, origin, app_id, fields):  # noqa: B023 -- context is closed before the next viewport
+                        setup_writes.append(request.method)  # noqa: B023 -- context is closed before the next viewport
                         route.continue_()
                     else:
-                        violations.append(dict(url=request.url, method=request.method))
+                        violations.append("blocked request")  # noqa: B023 -- context is closed before the next viewport
                         route.abort()
 
                 context.route("**/*", guard)
                 page = context.new_page()
-                page.on("pageerror", lambda error: errors.append(str(error)))
+                page.on("pageerror", lambda _error, errors=errors: errors.append("page error"))
                 try:
-                    page.goto(origin)
                     if fresh:
-                        page.wait_for_function("(context) => {const state=context.state;return (() => state.workspace?.app?.id==='sample-one')(context.original);}", arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': None})
+                        navigate_to_workspace(page, origin, "sample-one", lambda page=page: page.goto(origin))
                         add_app = page.locator('[data-action="add-app"]' if width == 390 else "#add-app")
                         add_app.press("Enter")
                         form = page.locator("#app-form")
                         expect(form).to_be_visible()
                         for name, value in fields.items():
                             form.locator(f'[name="{name}"]').fill(value)
-                        with page.expect_response(
-                            lambda r: r.url == origin + "/api/apps" and r.request.method == "POST"
-                        ) as saved:
-                            form.get_by_role("button", name="Save and choose a goal").press("Enter")
-                        assert saved.value.status == 201, "Synthetic app was not created"
-                    page.wait_for_function('(context) => {const state=context.state;return (id => state.workspace?.app?.id===id)(context.original);}', arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': app_id})
-                    expect(page.get_by_role("heading", name="Set your goal", exact=True)).to_be_visible()
-                    assert page.evaluate("async () => (await import('/app.mjs')).state.workspace.app.data.name") == fields["name"]
+                        with page.expect_response(actual_get(origin, f"/api/apps/{app_id}")) as workspace:
+                            with page.expect_response(
+                                lambda r: r.url == origin + "/api/apps" and r.request.method == "POST"
+                            ) as saved:
+                                form.get_by_role("button", name="Save and choose a goal").press("Enter")
+                            assert saved.value.status == 201, "Synthetic app was not created"
+                        expected = rendered_workspace(page, workspace.value, app_id, fields["name"])
+                    else:
+                        expected = navigate_to_workspace(
+                            page, origin, app_id, lambda page=page: page.goto(origin), fields["name"]
+                        )
                     if expected_initial_goal:
                         expect(
                             page.locator('[data-action="goal-select"][data-goal="' + expected_initial_goal + '"]')
                         ).to_have_attribute("aria-pressed", "true")
-                    expected = page.evaluate(
-                        "async () => ({app_id:(await import('/app.mjs')).state.workspace.app.id,version:(await import('/app.mjs')).state.workspace.app.version,source_hash:(await import('/app.mjs')).state.workspace.preparation.source_hash})"
-                    )
+                    packet_trigger = page.get_by_role("button", name="Open your first packet", exact=True)
+                    dialog = page.get_by_role("dialog")
                     for goal, title, stages in GOALS:
                         page.get_by_role("button", name=title, exact=True).press("Enter")
                         expect(page.locator('[data-action="goal-select"][data-goal="' + goal + '"]')).to_have_attribute(
                             "aria-pressed", "true"
                         )
-                        packet_trigger = page.get_by_role("button", name="Open your first packet", exact=True)
                         packet_trigger.press("Enter")
-                        dialog = page.get_by_role("dialog")
                         expect(dialog).to_contain_text(title + " — evidence packet")
                         expect(dialog).to_contain_text("Missing measurements remain unknown")
                         assert (
@@ -254,14 +376,14 @@ def verify_packet_browser(origin, output_dir, storage_dir=None, expected_initial
                     expect(advanced.locator("summary")).to_be_focused()
                     page.keyboard.press("Enter")
                     expect(advanced).to_have_attribute("open", "")
-                    page.reload()
-                    page.wait_for_function('(context) => {const state=context.state;return (id => state.workspace?.app?.id===id)(context.original);}', arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': app_id})
+                    assert navigate_to_workspace(page, origin, app_id, page.reload, fields["name"]) == expected
                     expect(page.locator('[data-action="goal-select"][data-goal="measurement"]')).to_have_attribute(
                         "aria-pressed", "true"
                     )
                     assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
                     assert not violations, violations
                     assert not errors, errors
+                    assert not asset_failures, "A document or script request failed"
                     assert len(setup_writes) == int(fresh)
                     if storage:
                         storage.parent.mkdir(parents=True, exist_ok=True)
@@ -281,7 +403,7 @@ def verify_packet_browser(origin, output_dir, storage_dir=None, expected_initial
                         )
                     )
                 except Exception as error:
-                    capture_packet_failure(page, out, width, error, boundaries, errors)
+                    capture_packet_failure(page, out, width, error, boundaries, errors, assets, asset_failures)
                     raise
                 finally:
                     context.close()
@@ -295,11 +417,17 @@ def _workspace_state(private):
     assert len(databases) == 1
     with closing(sqlite3.connect(databases[0].resolve().as_uri() + "?mode=ro", uri=True)) as db:
         tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        queries = {
+            "jobs": "SELECT count(*) FROM jobs",
+            "automation_policies": "SELECT count(*) FROM automation_policies",
+            "campaign_intents": "SELECT count(*) FROM campaign_intents",
+            "campaign_paid_intents": "SELECT count(*) FROM campaign_paid_intents",
+        }
         counts = {
-            t: dict(status="PRESENT", count=db.execute("SELECT count(*) FROM " + t).fetchone()[0])
+            t: dict(status="PRESENT", count=db.execute(query).fetchone()[0])
             if t in tables
             else dict(status="ABSENT", count=None)
-            for t in ("jobs", "automation_policies", "campaign_intents", "campaign_paid_intents")
+            for t, query in queries.items()
         }
         apps = [
             dict(id=r[0], version=r[1], data_sha256=hashlib.sha256(r[2].encode("utf-8")).hexdigest())
@@ -329,9 +457,13 @@ def _same_bindings(current, previous):
     assert current["records"] == previous["records"], "Durable source records changed across restart"
 
 
-def preflight(env):
+def require_ci(env):
     if env.get("CI", "").lower() != "true" or env.get("WMM_PACKAGED_FIRST_PACKET_TEST") != "1":
         raise RuntimeError("Requires CI=true and WMM_PACKAGED_FIRST_PACKET_TEST=1 in isolated CI")
+
+
+def preflight(env):
+    require_ci(env)
     with socket.socket() as probe:
         if os.name == "nt":
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
@@ -352,11 +484,13 @@ def _start(binary, folder, env):
         text=True,
         creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
     )
+    stream = child.stdout
+    assert stream is not None, "Frozen runtime stdout pipe was not opened"
     lines = queue.Queue(maxsize=64)
 
     def read():
         for _ in range(128):
-            line = child.stdout.readline(8193)
+            line = stream.readline(8193)
             if not line or len(line) > 8192:
                 break
             try:
@@ -365,7 +499,7 @@ def _start(binary, folder, env):
                 break
 
     reader = threading.Thread(target=read, daemon=True)
-    child._wmm_stdout_reader = reader
+    vars(child)["_wmm_stdout_reader"] = reader
     reader.start()
     try:
         deadline = time.monotonic() + 45
@@ -424,11 +558,18 @@ def _profile(profile_dir, folder):
 
 def verify_frozen_first_packet(binary, folder, env=None, label="runtime", *, profile_dir=None):
     env = dict(os.environ if env is None else env)
-    preflight(env)
+    require_ci(env)
     assert re.fullmatch(r"[A-Za-z0-9_-]{1,80}", label), "Unsafe evidence label"
-    binary = Path(binary).resolve(strict=True)
     out = ROOT / ".factory" / "packaged-first-packet" / label
-    out.mkdir(parents=True, exist_ok=True)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    if out.is_symlink():
+        raise RuntimeError("Evidence path must not be a symlink")
+    if out.exists():
+        archive = Path(tempfile.mkdtemp(prefix=label + "-", dir=out.parent))
+        out.rename(archive / "previous-attempt")
+    out.mkdir()
+    preflight(env)
+    binary = Path(binary).resolve(strict=True)
     profile, checkpoint, prior = _profile(profile_dir, folder) if profile_dir is not None else (None, None, None)
     with (
         nullcontext(str(profile)) if profile is not None else tempfile.TemporaryDirectory(prefix="wmm-first-packet-")
@@ -467,7 +608,8 @@ def verify_frozen_first_packet(binary, folder, env=None, label="runtime", *, pro
                 nontechnical_person="NOT_RUN",
                 offline_restart="PASS_SAME_PRIVATE_WORKSPACE_AND_BROWSER_STORAGE",
                 profile_reused=prior is not None,
-                network="BROWSER_EXTERNAL_BLOCKED_NOT_OS_OFFLINE",
+                network="BROWSER_REQUESTS_MONITORED_NO_EXTERNAL_OBSERVED",
+                network_check="PLAYWRIGHT_ROUTE_AND_REQUEST_OBSERVATION_SERVICE_WORKERS_DISABLED",
             )
         finally:
             _stop(child)
@@ -475,5 +617,7 @@ def verify_frozen_first_packet(binary, folder, env=None, label="runtime", *, pro
             payload = json.dumps(dict(schema="wmm.first-packet-profile.v1", workspace=after))
             assert len(payload.encode("utf-8")) <= 1048576
             checkpoint.write_text(payload, encoding="utf-8")
-    (out / "evidence.json").write_text(json.dumps(evidence, indent=2), encoding="utf-8")
+    pending = out / "evidence.pending.json"
+    pending.write_text(json.dumps(evidence, indent=2), encoding="utf-8")
+    pending.replace(out / "evidence.json")
     return evidence

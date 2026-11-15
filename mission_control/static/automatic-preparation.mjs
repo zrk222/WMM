@@ -141,7 +141,13 @@ const WMMGoalPacket = (() => {
     return m;
   }
   function view(m) {
-    return `<p>${esc(m.purpose)}</p>${notice('Local evidence drafts only. Missing measurements remain unknown. This packet grants no approval and proves no delivery or business outcome.')}${m.goal ? m.outputs.map(({ stage, output: o }) => `<section class="panel" data-goal-packet-stage="${esc(stage)}"><h3>${esc(o?.packet?.title || `Step ${stage}`)}</h3><p>${esc(o?.status || 'UNKNOWN — no current output')}</p>${(o?.missing || []).length ? `<ul>${o.missing.map((v) => `<li>${esc(packetNeed(v))}</li>`).join('')}</ul>` : '<p>Review the underlying evidence; local preparation does not establish measured results.</p>'}<details><summary>Stage tasks and evidence</summary><ol>${(o?.packet?.operations?.tasks || []).map((v) => `<li>${esc(v)}</li>`).join('')}</ol><pre>${json(o?.packet || null)}</pre></details></section>`).join('') : '<p>Choose a goal on the home page, then open your first packet.</p>'}<details><summary>Packet source</summary><p>${esc(m.app_id)} · version ${esc(m.manifest_version)} · ${esc(m.source_hash)}</p></details>`;
+    const tracking =
+      m.goal === 'campaign'
+        ? notice(
+            'The full campaign plan below keeps its evidence requirements. For one organic post, set up the tagged link and measurement source before requesting publication approval.',
+          ) + button('Plan a tracked organic post', 'observational-campaign-open')
+        : '';
+    return `<p>${esc(m.purpose)}</p>${notice('Local evidence drafts only. Missing measurements remain unknown. This packet grants no approval and proves no delivery or business outcome.')}${tracking}${m.goal ? m.outputs.map(({ stage, output: o }) => `<section class="panel" data-goal-packet-stage="${esc(stage)}"><h3>${esc(o?.packet?.title || `Step ${stage}`)}</h3><p>${esc(o?.status || 'UNKNOWN — no current output')}</p>${(o?.missing || []).length ? `<ul>${o.missing.map((v) => `<li>${esc(packetNeed(v))}</li>`).join('')}</ul>` : '<p>Review the underlying evidence; local preparation does not establish measured results.</p>'}<details><summary>Stage tasks and evidence</summary><ol>${(o?.packet?.operations?.tasks || []).map((v) => `<li>${esc(v)}</li>`).join('')}</ol><pre>${json(o?.packet || null)}</pre></details></section>`).join('') : '<p>Choose a goal on the home page, then open your first packet.</p>'}<details><summary>Packet source</summary><p>${esc(m.app_id)} · version ${esc(m.manifest_version)} · ${esc(m.source_hash)}</p></details>`;
   }
   function history(m) {
     return (state.workspace.jobs || [])

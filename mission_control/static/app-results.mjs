@@ -16,6 +16,7 @@ import {
   state,
   toast,
 } from './app.mjs';
+import { WMMAnalyticsInventory } from './analytics-inventory.mjs';
 import { WMMObservationalCampaign } from './observational-campaign.mjs';
 import {
   analyticsOverviewPanel,
@@ -337,10 +338,18 @@ function openExperiment(id) {
       ? ''
       : `${e.state === 'PLANNED' ? button('Record observed exposure', 'experiment-action', `data-id="${esc(id)}" data-operation="observe"`) : button('Evaluate current evidence', 'experiment-evaluate', `data-id="${esc(id)}"`)}${latest ? button('Record decision', 'experiment-action', `data-id="${esc(id)}" data-operation="decide"`) : ''}${e.state === 'DECIDED' ? button('Propose rollback', 'experiment-action', `data-id="${esc(id)}" data-operation="rollback"`) : ''}${button('Record decision note', 'experiment-action', `data-id="${esc(id)}" data-operation="note"`)}${button('Cancel test', 'experiment-action', `data-id="${esc(id)}" data-operation="cancel"`)}`;
   const effect = latest?.data.effect;
+  const relative =
+    effect && WMMAnalyticsInventory.relativeChange(effect.control_rate, effect.treatment_rate);
+  const relativeMarkup = relative
+    ? `<p>Compared with control in the latest saved assessment: <span class="analytics-status" data-tone="${relative.tone}">${esc(relative.text)}</span> · Descriptive only</p>`
+    : effect?.control_rate === 0
+      ? '<p>Relative change unavailable because the control rate is zero.</p>'
+      : '';
+  const points = (rate) => (rate * 100).toFixed(2);
   const scheduled = experimentSchedulePanel(e);
   modal(
     e.data.name,
-    `<div class="modal-content">${notice('Exposure receipts are operator reported. Rollback is a proposal, not a provider action. Re-evaluate after new imports: previous decisions may become stale.')}${status(e.state)} ${status(latest?.data.status || 'NOT_EVALUATED')} ${status(e.decision_status)}<p>${esc(e.data.hypothesis)}</p>${effect ? `<p>Descriptive difference: ${percent(effect.difference)} Â· 95% interval ${effect.interval.map(percent).join(' to ')}</p><p>${esc(effect.method)}</p>` : notice('No defensible comparison is available yet.', 'warning')}${latest ? latest.data.issues.map((i) => notice(i, 'warning')).join('') : ''}${experimentIterationPanel(e)}${scheduled}<h3>Decision and recovery history</h3>${e.actions.map((a) => `<p><strong>${esc(label(a.data.operation))}</strong> Â· ${esc(a.data.operation === 'note' ? a.data.note || '' : a.data.reason || a.data.source)} Â· ${esc(a.created)}${a.data.operation === 'rollback' ? ' Â· External rollback NOT RUN' : ''}${a.data.operation === 'note' ? ' Â· Human note, not provider verification' : ''}</p>`).join('') || '<p>No lifecycle actions recorded.</p>'}<details><summary>Immutable plan, source hashes and all assessments</summary><pre>${json(e)}</pre></details><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions">${controls}${button('Download experiment', 'experiment-download', `data-id="${esc(id)}"`)}</div>`,
+    `<div class="modal-content">${notice('Exposure receipts are operator reported. Rollback is a proposal, not a provider action. Re-evaluate after new imports: previous decisions may become stale.')}${status(e.state)} ${status(latest?.data.status || 'NOT_EVALUATED')} ${status(e.decision_status)}<p>${esc(e.data.hypothesis)}</p>${effect ? `<p>Descriptive difference: ${points(effect.difference)} percentage points Â· 95% interval ${effect.interval.map(points).join(' to ')} percentage points</p>${relativeMarkup}<p>${esc(effect.method)}</p>` : notice('No defensible comparison is available yet.', 'warning')}${latest ? latest.data.issues.map((i) => notice(i, 'warning')).join('') : ''}${experimentIterationPanel(e)}${scheduled}<h3>Decision and recovery history</h3>${e.actions.map((a) => `<p><strong>${esc(label(a.data.operation))}</strong> Â· ${esc(a.data.operation === 'note' ? a.data.note || '' : a.data.reason || a.data.source)} Â· ${esc(a.created)}${a.data.operation === 'rollback' ? ' Â· External rollback NOT RUN' : ''}${a.data.operation === 'note' ? ' Â· Human note, not provider verification' : ''}</p>`).join('') || '<p>No lifecycle actions recorded.</p>'}<details><summary>Immutable plan, source hashes and all assessments</summary><pre>${json(e)}</pre></details><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions">${controls}${button('Download experiment', 'experiment-download', `data-id="${esc(id)}"`)}</div>`,
     'EXPERIMENT EVIDENCE',
   );
 }

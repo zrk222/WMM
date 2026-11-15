@@ -63,10 +63,23 @@ export const WMMAnalyticsInventory = (() => {
     const experiments = workspace.experiments || [];
     const integrity = workspace.measurement_integrity || { state: 'UNAVAILABLE' };
     const measured = cohorts.filter((row) => row.status === 'MEASURED').length;
+    const paymentStatus = new Map([
+      ['CONFLICT', ['Conflict', 'alert']],
+      ['INCOMPLETE', ['Needs evidence', 'attention']],
+      ['FINANCIAL_CORRESPONDENCE_ONLY', ['Financial match only', 'info']],
+      ['TEST_ONLY', ['Test data only', 'info']],
+      ['NO_DATA', ['No data', 'neutral']],
+    ]).get(integrity.state) || ['Unavailable', 'neutral'];
+    const noData = ['No data', 'neutral'];
     const areas = [
       {
         id: 'cohorts',
         name: 'Acquisition cohorts',
+        status: !cohorts.length
+          ? noData
+          : measured === cohorts.length
+            ? ['Measured', 'ready']
+            : ['Needs evidence', 'attention'],
         saved: cohorts.length ? `${cohorts.length} saved · ${measured} measured` : 'None',
         latest: latestRecord(workspace, 'cohort'),
         next: cohorts.length ? 'Review below' : 'Add cohort evidence',
@@ -74,6 +87,7 @@ export const WMMAnalyticsInventory = (() => {
       {
         id: 'ledger',
         name: 'Event-level results',
+        status: ledger.length ? ['Reports saved', 'info'] : noData,
         saved: ledger.length ? `${ledger.length} report(s)` : 'None',
         latest: latestSaved(ledger.map((row) => row.as_of)),
         next: ledger.length ? 'Review below' : 'Import a cohort with events',
@@ -81,6 +95,11 @@ export const WMMAnalyticsInventory = (() => {
       {
         id: 'retention',
         name: 'Value retention',
+        status: !retentionCount
+          ? noData
+          : retentionAvailable === retentionCount
+            ? ['Measured', 'ready']
+            : ['Needs evidence', 'attention'],
         saved: retentionCount ? retentionText : 'None',
         latest: latestSaved([
           latestRecord(workspace, 'retention'),
@@ -95,6 +114,11 @@ export const WMMAnalyticsInventory = (() => {
       {
         id: 'installs',
         name: 'Install attribution',
+        status: campaigns.some((row) => row.last_observed_at)
+          ? ['Observations saved', 'info']
+          : campaigns.length
+            ? ['Awaiting observations', 'attention']
+            : noData,
         saved: campaigns.length ? `${campaigns.length} campaign token(s)` : 'None',
         latest: latestSaved(campaigns.map((row) => row.last_observed_at)),
         next: campaigns.length ? 'Review coverage below' : 'Import the MMP export',
@@ -102,6 +126,7 @@ export const WMMAnalyticsInventory = (() => {
       {
         id: 'payments',
         name: 'Payment comparison',
+        status: paymentStatus,
         saved:
           integrity.state === 'UNAVAILABLE'
             ? 'Unavailable'
@@ -112,6 +137,7 @@ export const WMMAnalyticsInventory = (() => {
       {
         id: 'experiments',
         name: 'Experiments',
+        status: experiments.length ? ['Experiments saved', 'info'] : noData,
         saved: experiments.length ? `${experiments.length} saved` : 'None',
         latest: latestSaved(experiments.map((row) => row.updated || row.created)),
         next: experiments.length ? 'Review below' : 'Plan one bounded test',
@@ -187,5 +213,34 @@ export const WMMAnalyticsInventory = (() => {
     };
   }
 
-  return { summary, latestSaved };
+  /** Compare two like-for-like observations against a positive baseline.
+   * @param {unknown} baseline
+   * @param {unknown} current
+   * @param {boolean} [lowerIsBetter]
+   */
+  function relativeChange(baseline, current, lowerIsBetter = false) {
+    if (
+      typeof baseline !== 'number' ||
+      typeof current !== 'number' ||
+      !Number.isFinite(baseline) ||
+      !Number.isFinite(current) ||
+      baseline <= 0 ||
+      current < 0
+    ) {
+      return null;
+    }
+    const delta = (100 * (current - baseline)) / baseline;
+    if (!Number.isFinite(delta)) return null;
+    const magnitude = Math.abs(delta);
+    if (magnitude === 0) return { text: '0% · No change', tone: 'neutral' };
+    const higher = delta > 0;
+    const direction = higher ? 'higher' : 'lower';
+    const text =
+      magnitude < 0.01
+        ? `Less than 0.01% ${direction}`
+        : `${higher ? '+' : '−'}${Number(magnitude.toFixed(2))}% ${direction}`;
+    return { text, tone: higher !== lowerIsBetter ? 'ready' : 'alert' };
+  }
+
+  return { summary, latestSaved, relativeChange };
 })();

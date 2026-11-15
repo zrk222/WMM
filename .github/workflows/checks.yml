@@ -34,6 +34,12 @@ jobs:
           if [[ ! "$RATCHET_BASE" =~ ^[0-9a-f]{40}$ ]]; then exit 2; fi
           git fetch --no-tags --depth=1 origin "$RATCHET_BASE"
           python tools/source_ratchet.py --base "$RATCHET_BASE" --head HEAD
+      - name: Enforce annotations on newly added public functions
+        env:
+          RATCHET_BASE: ${{ github.event.pull_request.base.sha || github.event.before || inputs.base_sha }}
+        run: |
+          if [[ ! "$RATCHET_BASE" =~ ^[0-9a-f]{40}$ ]]; then exit 2; fi
+          python tools/check_new_public_annotations.py --base "$RATCHET_BASE" --head HEAD
       - name: Install pinned runtime and formatter
         run: |
           python -m pip install --require-hashes --only-binary :all: -r requirements.txt
@@ -96,6 +102,10 @@ jobs:
         env:
           WMM_BROWSER_TEST_PROFILE: '1'
         run: python -m unittest tests.test_automation_rules_browser -v
+      - name: Verify public-link and manual app setup on phone and desktop
+        env:
+          WMM_BROWSER_TEST_PROFILE: '1'
+        run: python -m unittest tests.test_source_first_setup -v
       - name: Retain synthetic publication review evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

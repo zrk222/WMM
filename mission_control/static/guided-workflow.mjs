@@ -441,8 +441,12 @@ const WMMGoalJourney = (() => {
               .join('') +
             '</ul>'
           : '<p>No channel connection is saved for this app.</p>';
+    const tracking =
+      g?.id === 'campaign'
+        ? '<p>For one organic post, set up measurement before you publish. Your app website, tagged link and measurement source belong to this app.</p><button type="button" class="button outline" data-action="observational-campaign-open">Plan a tracked organic post</button>'
+        : '';
     const next = g
-      ? `<section class="panel" aria-label="Your selected goal"><h2>${html(g.title)}</h2><p>${html(g.description)}</p><p><strong>Bring:</strong> ${html(g.need)}.</p>${accounts}<p>Account setup is not execution approval. Existing workflow and campaign checks still apply.</p><div class="toolbar"><button type="button" class="button" data-action="goal-next" data-goal="${g.id}" data-app="${html(m.app_id)}" data-version="${m.version}">${html(g.next)}</button><button type="button" class="button outline" data-action="goal-readiness">Check connections for this goal</button><button type="button" class="button outline" data-view="agents">Connect your agent</button></div></section>`
+      ? `<section class="panel" aria-label="Your selected goal"><h2>${html(g.title)}</h2><p>${html(g.description)}</p><p><strong>Bring:</strong> ${html(g.need)}.</p>${accounts}<p>Account setup is not execution approval. Existing workflow and campaign checks still apply.</p><div class="toolbar"><button type="button" class="button" data-action="goal-next" data-goal="${g.id}" data-app="${html(m.app_id)}" data-version="${m.version}">${html(g.next)}</button><button type="button" class="button outline" data-action="goal-readiness">Check connections for this goal</button><button type="button" class="button outline" data-view="agents">Connect your agent</button></div>${tracking}</section>`
       : '<p>Choose one goal to see the relevant tools. This selection starts no work and grants no permission.</p>';
     return `<section class="panel" aria-label="Choose your marketing goal" id="goal-journey"><h2>What would you like to accomplish?</h2><p>Start with one useful result. Your agent and you use the same saved app facts, tools and approval checks.</p><p><strong>Your app purpose:</strong> ${html(m.objective || 'Add the problem your app solves in App setup.')}</p><div class="goal-choice-grid" role="group" aria-label="Marketing goals">${cards}</div><p id="goal-message" role="status" aria-live="polite"></p></section>${next}`;
   }
@@ -488,7 +492,7 @@ function startHerePanel() {
   const primary = missing.length
     ? button('Finish app setup', 'edit-app')
     : button('Build your campaign plan', 'campaign-plan-open');
-  return `<section class="panel goal-proof-layout" aria-label="Start your first experiment"><div><p class="eyebrow">START HERE</p><h2>Your next marketing move, with evidence</h2><p>Built for founders and marketing teams promoting one app or a portfolio. Keep each app’s work and permissions separate.</p><p><strong>Day 1 — a clearer next marketing move.</strong> Choose one app-growth question and prepare your first evidence packet: a plan, its sources and what is still missing.</p><p><strong>Around Day 30, with regular use — a record you can build on.</strong> Review dated research, approved work and available results, then decide what to continue, revise or stop.</p><p class="description">The potential payoff: less repeated research and clearer campaign decisions. Missing measurements stay unknown; growth and time savings are not guaranteed. You still approve what goes live.</p><p>${missing.length ? `Add ${esc(missing.join(', '))} to turn your app facts into a reviewable campaign plan.` : 'Build a campaign plan from your saved facts, channel and outcome. Review it before anything runs.'}</p><div class="toolbar">${primary}${button('Start the guided path', 'first-post-open')}${button('Open your first packet', 'automatic-goal-open', WMMGoalPacket.attributes(WMMGoalPacket.model()))}</div>${exceptions.length ? `<p class="description">${exceptions.length} saved item${exceptions.length === 1 ? '' : 's'} need attention. <button type="button" class="button outline" data-view="workflow">Review workflow</button></p>` : ''}<details><summary>More options</summary><div class="toolbar">${button('What should I do next?', 'next-answer')}${button('Measure one organic post', 'observational-campaign-open')}</div><p class="description">Each path keeps its own approval. Nothing publishes or spends on its own.</p></details></div>${goalProofIllustration()}</section>`;
+  return `<section class="panel goal-proof-layout" aria-label="Start your first experiment"><div><p class="eyebrow">ONE APP. ONE QUESTION. YOUR NEXT DECISION.</p><h2>Turn your app question into a plan you can review.</h2><p>Your agent can research, prepare creative and carry approved marketing work forward here. Keep the plan, sources and missing evidence together before deciding what to run.</p><p>${missing.length ? `Add ${esc(missing.join(', '))} to prepare a useful plan for this app.` : 'Start with your saved app facts, channel and outcome. Review the plan before anything runs.'}</p><div class="toolbar">${primary}${button('Open your first packet', 'automatic-goal-open', WMMGoalPacket.attributes(WMMGoalPacket.model()))}${button('Start the guided path', 'first-post-open')}</div><p><strong>What you leave with:</strong> one reviewable plan, its sources and a clear next step. A prepared packet is not a published campaign.</p><p class="description">After approved work runs, inspect its receipts and available measurements. Choose what to continue, revise or stop. Missing measurements stay unknown; growth and time savings are not guaranteed. You still approve what goes live.</p>${exceptions.length ? `<p class="description">${exceptions.length} saved item${exceptions.length === 1 ? '' : 's'} need attention. <button type="button" class="button outline" data-view="workflow">Review workflow</button></p>` : ''}<details><summary>More options</summary><div class="toolbar">${button('What should I do next?', 'next-answer')}${button('Measure one organic post', 'observational-campaign-open')}</div><p class="description">Each path keeps its own approval. Nothing publishes or spends on its own.</p></details></div>${goalProofIllustration()}</section>`;
 }
 
 function launchStatusPanel(workspace) {
@@ -535,6 +539,17 @@ function launchStatusPanel(workspace) {
         )}</select></label><button type="submit" class="button outline">Save declaration</button><p role="alert"></p></form></details>`
     : '';
   const countries = (launch.verified_storefronts || []).map(esc).join(', ');
+  const publicCountries = (launch.observed_public_storefronts || []).map(esc).join(', ');
+  const publicOnly =
+    launch.status === 'UNKNOWN' && publicCountries
+      ? '<p>Public listings observed in ' +
+        publicCountries +
+        '. App Store Connect verification and store metrics are still unconfirmed.</p>'
+      : '';
+  const statusCopy =
+    launch.status === 'UNKNOWN' && publicCountries
+      ? 'The app is visible in the checked storefronts. Verify its release to continue.'
+      : copy[launch.status] || copy.UNKNOWN;
   const bindings = (workspace.records || []).filter(
     (row) =>
       row.kind === 'connection' &&
@@ -542,7 +557,7 @@ function launchStatusPanel(workspace) {
       String(row.data.store_app_id) === String(app.data.store_app_id) &&
       row.data.auth_mode !== 'disconnected',
   );
-  return `<section class="panel" aria-label="App Store launch status"><h2>App Store launch status</h2><p>${esc(copy[launch.status] || copy.UNKNOWN)}</p>${conflict}${note}${form}${countries ? `<p>Verified storefronts: ${countries}</p>` : ''}${bindings.length === 1 ? `<form id="goal-launch-check" data-app="${esc(app.id)}" data-version="${app.version}" data-connection="${esc(bindings[0].id)}" data-connection-version="${bindings[0].version}"><label class="field">Storefront country code<input name="storefront" required maxlength="2" pattern="[A-Za-z]{2}" placeholder="CA"></label><button type="submit" class="button outline">Check App Store status</button><p id="goal-launch-error" role="alert"></p></form>` : '<p>Keep one App Store Connect connection for this app to check launch status.</p><button type="button" class="button outline" data-view="connections">Review connections</button>'}</section>`;
+  return `<section class="panel" aria-label="App Store launch status"><h2>App Store launch status</h2><p>${esc(statusCopy)}</p>${publicOnly}${conflict}${note}${form}${countries ? `<p>Verified storefronts: ${countries}</p>` : ''}${bindings.length === 1 ? `<form id="goal-launch-check" data-app="${esc(app.id)}" data-version="${app.version}" data-connection="${esc(bindings[0].id)}" data-connection-version="${bindings[0].version}"><label class="field">Storefront country code<input name="storefront" required maxlength="2" pattern="[A-Za-z]{2}" placeholder="CA"></label><button type="submit" class="button outline">Check App Store status</button><p id="goal-launch-error" role="alert"></p></form>` : '<p>Keep one App Store Connect connection for this app to check launch status.</p><button type="button" class="button outline" data-view="connections">Review connections</button>'}</section>`;
 }
 
 async function submitLaunchDeclaration(form) {
@@ -1040,6 +1055,55 @@ const WMMAgreement = (() => {
         .join('')
     );
   }
+  const histories = [
+    [
+      'Local workflow scope',
+      'workflow_policy_id',
+      '/agent-grants/automation-status',
+      'policies',
+      'id',
+      'workflow scopes',
+    ],
+    [
+      'Campaign scope',
+      'campaign_scope_id',
+      '/campaigns/history',
+      'scopes',
+      'scope_id',
+      'campaign scopes',
+    ],
+    [
+      'Scheduled batch',
+      'schedule_batch_id',
+      '/campaigns/schedule-history',
+      'batches',
+      'id',
+      'scheduled batches',
+    ],
+    [
+      'Campaign monitor',
+      'campaign_monitor_id',
+      '/campaign-monitor/history',
+      'monitors',
+      'id',
+      'monitors',
+    ],
+  ];
+  function historyField(history, rows) {
+    const [label, name, , , key, plural] = history;
+    if (rows === null)
+      return '<p><strong>' + label + ':</strong> Saved ' + plural + ' could not be read.</p>';
+    if (!rows.length) return '<p><strong>' + label + ':</strong> None saved for this app.</p>';
+    return (
+      '<label class="field">' +
+      label +
+      '<select name="' +
+      name +
+      '">' +
+      options(rows, key) +
+      '</select></label>'
+    );
+  }
   async function open() {
     const saved = scope();
     modal(
@@ -1047,44 +1111,40 @@ const WMMAgreement = (() => {
       '<div id="agreement-loading" class="modal-content"><p role="status">Reading your saved scopes…</p></div>',
     );
     const ticket = (active = { scope: saved, node: $('#agreement-loading') });
-    try {
-      const [local, campaign, batches, monitoring] = await Promise.all([
-        api('/api/apps/' + saved.app + '/agent-grants/automation-status', {}),
-        api('/api/apps/' + saved.app + '/campaigns/history', {}),
-        api('/api/apps/' + saved.app + '/campaigns/schedule-history', {}),
-        api(
-          '/api/apps/' + saved.app + '/campaign-monitor/history',
-          {},
-          {
-            signal: globalThis.AbortSignal.timeout(10000),
-          },
-        ).catch(() => null),
-      ]);
-      if (!valid(ticket)) return;
-      modal(
-        'Choose your automation agreement',
-        '<form id="agreement-form" class="modal-content"><p>Review local work, campaign effects and schedules together. Their existing approvals remain separate; this review activates nothing.</p><label class="field">Local workflow scope<select name="workflow_policy_id">' +
-          options(local.policies, 'id') +
-          '</select></label><label class="field">Campaign scope<select name="campaign_scope_id">' +
-          options(campaign.scopes, 'scope_id') +
-          '</select></label><label class="field">Scheduled batch<select name="schedule_batch_id">' +
-          options(batches.batches, 'id') +
-          '</select></label>' +
-          (Array.isArray(monitoring?.monitors)
-            ? '<label class="field"><span id="agreement-monitor-label">Campaign monitor</span><select name="campaign_monitor_id" aria-labelledby="agreement-monitor-label">' +
-              options(monitoring.monitors, 'id') +
-              '</select></label>'
-            : '<p>Saved monitors could not be read. You can still review the other scopes.</p>') +
-          '<p>A batch or monitor includes its linked campaign. Select that same campaign or leave the campaign field empty.</p><p id="agreement-error" role="alert"></p><button class="button" type="submit">Review combined agreement</button>' +
-          button('Cancel', 'close') +
-          '</form>',
-      );
-      active = { scope: saved, node: $('#agreement-form'), pending: false };
-    } catch (e) {
-      if (valid(ticket))
-        ticket.node.textContent =
-          e.message + ' Sign in as the app owner and reconnect required scopes.';
-    }
+    const signal = globalThis.AbortSignal.timeout(10000);
+    const reads = await Promise.allSettled(
+      histories.map(([, , route]) => api('/api/apps/' + saved.app + route, {}, { signal })),
+    );
+    if (!valid(ticket)) return;
+    const rows = reads.map((read, i) => {
+      const list = read.status === 'fulfilled' ? read.value?.[histories[i][3]] : null;
+      const key = histories[i][4];
+      return Array.isArray(list) &&
+        list.every((row) => row && typeof row[key] === 'string' && row[key])
+        ? list
+        : null;
+    });
+    const unavailable = rows.includes(null);
+    const canReview = rows.some((list) => list?.some((row) => !row.evidence_unavailable));
+    modal(
+      'Choose your automation agreement',
+      '<form id="agreement-form" class="modal-content"><p>Review local work, campaign effects and schedules together. Their existing approvals remain separate; this review activates nothing.</p>' +
+        (unavailable
+          ? '<p role="status">' +
+            (canReview
+              ? 'Some saved work could not be read. Retry the lists, or review the scopes that loaded.'
+              : 'No saved scopes are available to review. Retry loading saved work.') +
+            '</p>'
+          : '') +
+        histories.map((history, i) => historyField(history, rows[i])).join('') +
+        '<p>A batch or monitor includes its linked campaign. Select that same campaign or leave the campaign field empty.</p><p id="agreement-error" role="alert"></p><button class="button" type="submit"' +
+        (canReview ? '' : ' disabled') +
+        '>Review combined agreement</button>' +
+        (unavailable ? button('Retry loading saved work', 'goal-agreement') : '') +
+        button('Cancel', 'close') +
+        '</form>',
+    );
+    active = { scope: saved, node: $('#agreement-form'), pending: false };
   }
   function guidance(s) {
     const schedule = s.schedule;

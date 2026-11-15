@@ -2,7 +2,9 @@
 
 import json
 import time
-from typing import NotRequired, TypedDict
+from collections.abc import Iterable, Mapping
+from sqlite3 import Connection, Row
+from typing import NotRequired, TypedDict, cast
 
 from .common import Invalid, canonical, digest, iso_time, now, uid
 from .db import connection
@@ -25,6 +27,18 @@ class ObservationReceipt(TypedDict):
     updated: str
     observations: list[dict[str, str | int]]
     external_execution: NotRequired[str]
+
+
+class _ProtectivePlan(TypedDict):
+    protective_conditions: list[str]
+    expires_at: str
+    scope_id: str
+    targets: list[dict[str, str]]
+
+
+class _RetainedMonitorSummary(TypedDict):
+    proposal: _ProtectivePlan
+    source: dict[str, object]
 
 
 CONDITIONS = ("configuration_drift", "active_after_end")
@@ -183,7 +197,7 @@ def target_row(db, app_id, scope_id, target):
     raise PermissionError("Monitor target changed or is outside its campaign scope")
 
 
-def bound_targets(db, app_id, scope_id, targets):
+def bound_targets(db: Connection, app_id: str, scope_id: str, targets: Iterable[Mapping[str, str]]) -> bool:
     """Validate every exact target and report whether any paid intent is present."""
     paid = False
     for target in targets:
@@ -192,7 +206,7 @@ def bound_targets(db, app_id, scope_id, targets):
     return paid
 
 
-def retained_summary(row):
+def retained_summary(row: Row) -> _RetainedMonitorSummary:
     """Reject unreadable or changed approval evidence before using any fields."""
     try:
         summary = json.loads(row["summary"])
@@ -203,7 +217,7 @@ def retained_summary(row):
         if not isinstance(summary["source"], dict):
             raise Invalid("Monitor source evidence changed")
         proposal(summary["proposal"])
-        return summary
+        return cast(_RetainedMonitorSummary, summary)
     except (TypeError, ValueError, KeyError) as error:
         raise Invalid("Saved monitor evidence needs repair") from error
 
@@ -226,7 +240,7 @@ def checked(db, row):
     return summary
 
 
-def pause_ineligible(db, row, summary):
+def pause_ineligible(db: Connection, row: Row, summary: _RetainedMonitorSummary) -> bool:
     """Identify an otherwise-current monitor whose only issue is organic-only pause."""
     plan = summary["proposal"]
     if not plan["protective_conditions"]:

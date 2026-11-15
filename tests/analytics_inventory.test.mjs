@@ -5,6 +5,32 @@ import { WMMAnalyticsInventory as inventory } from '../mission_control/static/an
 const cohort = { kind: 'cohort', created: '2026-11-09T10:00:00+00:00' };
 const retention = { kind: 'retention', created: '2026-11-08T10:00:00+00:00' };
 
+test('like-for-like change separates percentage direction from whether it is desirable', () => {
+  assert.deepEqual(inventory.relativeChange(20, 25), { text: '+25% higher', tone: 'ready' });
+  assert.deepEqual(inventory.relativeChange(20, 15), { text: '−25% lower', tone: 'alert' });
+  assert.deepEqual(inventory.relativeChange(200, 150, true), { text: '−25% lower', tone: 'ready' });
+  assert.deepEqual(inventory.relativeChange(200, 250, true), {
+    text: '+25% higher',
+    tone: 'alert',
+  });
+  assert.deepEqual(inventory.relativeChange(20, 0), { text: '−100% lower', tone: 'alert' });
+  assert.deepEqual(inventory.relativeChange(20, 20), { text: '0% · No change', tone: 'neutral' });
+  assert.deepEqual(inventory.relativeChange(100, 100.005), {
+    text: 'Less than 0.01% higher',
+    tone: 'ready',
+  });
+  for (const [baseline, current] of [
+    [0, 2],
+    [null, 2],
+    [1, null],
+    [1, Infinity],
+    [1, -2],
+    ['1', 2],
+  ]) {
+    assert.equal(inventory.relativeChange(baseline, current), null);
+  }
+});
+
 test('empty analytics stays unavailable and points to one acquisition step', () => {
   const view = inventory.summary({});
   assert.equal(view.savedCount, 0);
@@ -34,6 +60,21 @@ test('unmeasured cohort is repaired before installs are requested', () => {
   });
   assert.equal(view.step.id, 'repair_cohort');
   assert.equal(view.areas.find((row) => row.id === 'cohorts').saved, '1 saved · 0 measured');
+});
+
+test('status labels distinguish measured, missing, unobserved and conflicting evidence', () => {
+  const view = inventory.summary({
+    metrics: { cohorts: [{ status: 'MEASURED' }] },
+    install_attribution: { campaigns: [{}] },
+    measurement_integrity: { state: 'CONFLICT', rows: [] },
+    experiments: [{ created: '2026-11-09T10:00:00+00:00' }],
+  });
+  const states = Object.fromEntries(view.areas.map((row) => [row.id, row.status]));
+  assert.deepEqual(states.cohorts, ['Measured', 'ready']);
+  assert.deepEqual(states.ledger, ['No data', 'neutral']);
+  assert.deepEqual(states.installs, ['Awaiting observations', 'attention']);
+  assert.deepEqual(states.payments, ['Conflict', 'alert']);
+  assert.deepEqual(states.experiments, ['Experiments saved', 'info']);
 });
 
 test('payment repair precedes retention advice', () => {

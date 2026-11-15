@@ -98,7 +98,12 @@ class OrganicResearchBrowserTests(unittest.TestCase):
         page.locator('[data-action="oresearch-read"]').first.click()
         page.wait_for_selector('[data-action="oresearch-adopt"]')
         self.assertIn("100000", page.locator("#modal").inner_text())
-        page.locator('[data-action="oresearch-adopt"]').click()
+        angles = page.get_by_role("region", name="Creative angles", exact=True)
+        expect(angles).to_contain_text("Meets viral thresholds by reported counts")
+        action = angles.get_by_role("button", name="Review this angle", exact=True)
+        action.focus()
+        expect(action).to_be_focused()
+        action.press("Enter")
         page.wait_for_function(
             "() => document.querySelector('#oresearch-adopt-form') || document.querySelector('#oresearch-error')?.textContent"
         )

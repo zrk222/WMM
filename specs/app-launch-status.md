@@ -13,6 +13,9 @@ does not establish that the app is available in a storefront.
   returned app identity. An empty lookup cannot prove non-submission, prior
   removal, or worldwide absence. Conflicting current sources yield `UNKNOWN`
   with both observations. TestFlight alone does not imply App Store availability.
+  Show fresh, nonconflicting public listing observations separately when release
+  status is still unknown. Keep verified storefronts, store metrics and campaign
+  authority unchanged until their own checks pass.
 - Confirm `LIVE` with current app-level Connect release evidence and exact
   storefront presence. Keep the first verified presence date distinct from an
   authoritative launch date; never invent a historical launch date.

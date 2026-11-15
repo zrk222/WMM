@@ -231,7 +231,20 @@ function appForm(isNew = false) {
   ];
   const fields = [
     field('currency', app.data.currency, 'text', 'Optional until economics are supplied', false),
-    field('website', app.data.website, 'text', 'Optional public app website', false),
+    field(
+      'website',
+      app.data.website,
+      'text',
+      'Website you use for campaign tracking, if applicable',
+      false,
+    ),
+    field(
+      'setup_source_url',
+      app.data.setup_source_url,
+      'text',
+      'Optional public listing or page to use for discovery',
+      false,
+    ),
   ];
   fields.push(
     ...['brand_voice', 'brand_visual', 'brand_source', 'brand_boundaries'].map((key) =>
@@ -284,15 +297,18 @@ function appForm(isNew = false) {
   const setup = isNew
     ? `<div class="form-grid">${essentials.join('')}</div><details><summary>Optional settings</summary><p>Add these now or return to App setup later.</p><div class="form-grid">${workspaceId}${fields.join('')}</div></details>`
     : `<div class="form-grid">${workspaceId}${essentials.join('')}${fields.join('')}</div>`;
+  const sourceFirst = isNew
+    ? `<details class="panel"><summary>Start with an App Store link or public website</summary><form id="app-link-setup-form"><p>Save a local draft with just your app name and link. Then choose whether WMM should read the public page. You can fill in the details manually instead.</p><div class="form-grid"><label class="field" for="app-link-name">App name<input id="app-link-name" name="name" maxlength="100" required></label><div class="field"><label for="app-link-url">Public HTTPS link</label><input id="app-link-url" name="setup_source_url" type="url" maxlength="2048" required aria-describedby="app-link-hint"><small id="app-link-hint">Use a public website or App Store listing without tracking parameters.</small></div></div><button type="submit" class="button outline">Save draft and review source</button><p id="app-link-error" class="field-error" role="alert"></p></form></details>`
+    : '';
   modal(
     isNew ? 'Add your app' : 'App setup',
-    `<form id="app-form" data-new="${isNew}"><div class="modal-content">${setup}<div class="field-error" id="form-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">${isNew ? 'Save and choose a goal' : 'Save app setup'}</button></div></form>`,
+    `${sourceFirst}<form id="app-form" data-new="${isNew}"><div class="modal-content">${setup}<div class="field-error" id="form-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">${isNew ? 'Save and choose a goal' : 'Save app setup'}</button></div></form>`,
   );
   if (!isNew) $('#field-id').readOnly = true;
   if (!isNew)
     $('#app-form .modal-content').insertAdjacentHTML(
       'afterbegin',
-      `<section class="panel"><h3>Let the agent collect app details</h3><p>Read the saved public website, compare its suggestions and approve only the fields you want to change.</p>${button('Discover app details', 'setup-open')}</section>`,
+      `<section class="panel"><h3>Let the agent collect app details</h3><p>Read the saved public source, compare its suggestions and approve only the fields you want to change.</p>${button('Discover app details', 'setup-open')}</section>`,
     );
 }
 
