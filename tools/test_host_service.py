@@ -1,5 +1,6 @@
 """Opt-in disposable Ubuntu CI user-manager lifecycle test; never provision a host."""
 
+import hashlib
 import json
 import os
 import re
@@ -8,10 +9,11 @@ import subprocess
 import sys
 import tempfile
 import time
+from datetime import datetime, timedelta, timezone
 from http.cookiejar import CookieJar
 from pathlib import Path
 from urllib.error import HTTPError
-from urllib.request import HTTPCookieProcessor, HTTPRedirectHandler, ProxyHandler, Request, build_opener
+from urllib.request import HTTPCookieProcessor, HTTPRedirectHandler, OpenerDirector, ProxyHandler, Request, build_opener
 from uuid import uuid4
 
 BINARY = Path("/usr/lib/wize-marketing-machine/WMM")
@@ -19,6 +21,10 @@ UNIT = Path("/usr/share/wize-marketing-machine/wmm-worker.service")
 ORIGIN = "http://127.0.0.1:8765"
 APP = "host-packet-fixture"
 STAGE = 1
+FOLLOWUP_SUBJECT = "fixture-subject"
+FOLLOWUP_TASK = "fixture-automatic-checkpoint"
+FOLLOWUP_ACTION = "Review saved useful outcome"
+FOLLOWUP_PROMPT = "Ready for your optional checkpoint?"
 APP_FACTS = {
     "name": "Synthetic host packet",
     "job": "Find the next task to finish",
@@ -115,7 +121,7 @@ def session(origin=ORIGIN, timeout=45):
     raise RuntimeError("Service did not serve bootstrap before timeout")
 
 
-def request_json(client, origin, path, body=None, csrf=None, *, canary=None, timeout=2):
+def request_json(client, origin, path, body=None, csrf=None, *, canary=None, timeout: float = 2):
     headers = {"Origin": origin}
     data = None
     if body is not None:
@@ -151,6 +157,149 @@ def register_app(client, origin, csrf):
     ):
         raise AssertionError("Synthetic app was not registered as a fresh workspace")
     return facts
+
+
+def followup_workspace(client: OpenerDirector, canary: str, timeout: float = 2) -> dict:
+    return request_json(client, ORIGIN, f"/api/apps/{APP}", canary=canary, timeout=timeout)
+
+
+def arm_followup(client: OpenerDirector, csrf: str, canary: str) -> datetime:
+    """Save exact synthetic consent and a future checkpoint through the private app session."""
+    manifest_version = followup_workspace(client, canary)["app"]["version"]
+    stamp = datetime.now(timezone.utc)
+    quiet_start = stamp + timedelta(minutes=10)
+    common = {"manifest_version": manifest_version, "version": None}
+    for kind, identity, data in (
+        (
+            "policy",
+            "policy",
+            {"enabled": True, "cadence": "After useful practice", "prompt": FOLLOWUP_PROMPT},
+        ),
+        (
+            "subject",
+            FOLLOWUP_SUBJECT,
+            {
+                "confirmed": True,
+                "source": "Disposable fixture consent; no real subject or delivery",
+                "granted_at": (stamp - timedelta(minutes=1)).isoformat(),
+                "expires_at": (stamp + timedelta(minutes=5)).isoformat(),
+                "timezone": "UTC",
+                "quiet_start": quiet_start.strftime("%H:%M"),
+                "quiet_end": (quiet_start + timedelta(minutes=1)).strftime("%H:%M"),
+            },
+        ),
+    ):
+        request_json(
+            client,
+            ORIGIN,
+            f"/api/apps/{APP}/followup/{kind}",
+            {**common, "id": identity, "data": data},
+            csrf,
+            canary=canary,
+        )
+    due = datetime.now(timezone.utc) + timedelta(seconds=35)
+    saved = request_json(
+        client,
+        ORIGIN,
+        f"/api/apps/{APP}/followup/task",
+        {
+            **common,
+            "id": FOLLOWUP_TASK,
+            "data": {
+                "subject_id": FOLLOWUP_SUBJECT,
+                "action": FOLLOWUP_ACTION,
+                "due_at": due.isoformat(),
+                "expires_at": (stamp + timedelta(minutes=5)).isoformat(),
+                "state": "OPEN",
+            },
+        },
+        csrf,
+        canary=canary,
+    )
+    if saved["handoff"] or saved["eligibility"][FOLLOWUP_TASK] != {"status": "NOT_DUE"}:
+        raise AssertionError("Expected an armed future checkpoint without a handoff")
+    return due
+
+
+def assert_followup_not_due(client: OpenerDirector, canary: str, due: datetime) -> None:
+    state = followup_workspace(client, canary)["followup"]
+    if (
+        datetime.now(timezone.utc) >= due
+        or state["handoff"]
+        or state["eligibility"][FOLLOWUP_TASK] != {"status": "NOT_DUE"}
+    ):
+        raise AssertionError("The task was not still pending after the last login closed")
+
+
+def followup_receipt(workspace: dict, due: datetime) -> tuple[dict, dict] | None:
+    """Check the exact bound handoff and its single preparation event from a read-only snapshot."""
+    state = workspace["followup"]
+    handoffs = state["handoff"]
+    if not handoffs:
+        return None
+    if (
+        len(handoffs) != 1
+        or state["automatic_external_writes"] is not False
+        or (
+            state["delivery"] != "MANUAL_HANDOFF_ONLY"
+            or state["eligibility"][FOLLOWUP_TASK] != {"status": "ALREADY_PREPARED"}
+        )
+    ):
+        raise AssertionError("Expected one prepared handoff and no delivery authority")
+    handoff = handoffs[0]
+    data = handoff["data"]
+    source = {"app": workspace["app"]}
+    for kind in ("policy", "subject", "task"):
+        (source[kind],) = state[kind]
+    encoded = json.dumps(source, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    fingerprint = hashlib.sha256(encoded.encode()).hexdigest()
+    created = datetime.fromisoformat(handoff["created"])
+    if (
+        handoff["app_id"] != APP
+        or handoff["version"] != 1
+        or handoff["imported"] != 0
+        or not isinstance(handoff["id"], str)
+        or not handoff["id"]
+        or created < due
+        or handoff["updated"] != handoff["created"]
+        or data
+        != {
+            "task_id": FOLLOWUP_TASK,
+            "subject_id": FOLLOWUP_SUBJECT,
+            "source_hash": fingerprint,
+            "action": FOLLOWUP_ACTION,
+            "prompt": FOLLOWUP_PROMPT,
+            "delivery": "MANUAL_HANDOFF_UNSENT",
+            "local_date": created.astimezone(timezone.utc).date().isoformat(),
+        }
+    ):
+        raise AssertionError("Automatic preparation did not retain the exact checkpoint and source binding")
+    events = [row for row in workspace["audit"] if row["action"] == "followup.prepared"]
+    if len(events) != 1 or events[0]["detail"] != {
+        "id": handoff["id"],
+        "task_id": FOLLOWUP_TASK,
+        "source_hash": fingerprint,
+    }:
+        raise AssertionError("Expected one preparation event bound to the saved handoff")
+    return handoff, events[0]
+
+
+def wait_followup(client: OpenerDirector, canary: str, due: datetime, timeout: float = 50) -> tuple[dict, dict]:
+    """Use only GET reads while waiting for the worker to prepare the due checkpoint."""
+    deadline = time.monotonic() + timeout
+    while (remaining := deadline - time.monotonic()) > 0:
+        try:
+            workspace = followup_workspace(client, canary, timeout=min(2, remaining))
+        except TimeoutError:
+            pass
+        else:
+            if time.monotonic() >= deadline:
+                break
+            receipt = followup_receipt(workspace, due)
+            if receipt is not None:
+                return receipt
+        time.sleep(min(0.25, max(0, deadline - time.monotonic())))
+    raise RuntimeError("The automatic checkpoint did not prepare before the timeout")
 
 
 def assert_secret_absent(value, canary):
@@ -450,9 +599,14 @@ def main():
             facts = register_app(client, ORIGIN, csrf)
             protected, canary = register_protected_connection(env, client, csrf)
             assert_connection_status(client, protected, canary, "PROTECTED_KEY_PRESENT")
+            due = arm_followup(client, csrf, canary)
             invocation = close_login_session(env, name)
+            assert_followup_not_due(client, canary, due)
             client, csrf = session()
             assert_connection_status(client, protected, canary, "PROTECTED_KEY_PRESENT")
+            followup = wait_followup(client, canary, due)
+            if login_sessions(env) or service_invocation(env, name) != invocation:
+                raise AssertionError("Automatic preparation did not finish in the original service with no OS login")
             key = "host-service-" + uuid4().hex
             queued = submit(client, ORIGIN, csrf, key)
             initial = completed_job(client, ORIGIN, queued["id"], key, facts)
@@ -472,6 +626,10 @@ def main():
             replay = submit(client, ORIGIN, csrf, key)
             durable = completed_job(client, ORIGIN, queued["id"], key, facts)
             verify_replay(initial, replay, durable)
+            if followup_receipt(followup_workspace(client, canary), due) != followup:
+                raise AssertionError(
+                    "Restart did not retain exactly the original automatic handoff and preparation event"
+                )
             remove_protected_connection(client, csrf, protected, canary)
             assert_workspace_private(workspace, canary)
             systemctl(env, "stop", name)
@@ -498,6 +656,8 @@ def main():
                 "workspace_exclusion": "VERIFIED",
                 "stop_restart": "VERIFIED",
                 "worker_result": "VERIFIED",
+                "automatic_local_preparation": "VERIFIED_DUE_AFTER_LOGOUT_RETAINED_ON_RESTART_UNSENT",
+                "automatic_local_preparation_id": followup[0]["id"],
                 "disposable_os_logout": "VERIFIED_SAME_SERVICE_JOB_COMPLETED_NO_SESSIONS",
                 "protected_storage": "VERIFIED_AFTER_LOGOUT_AND_RESTART_WITH_DISPOSABLE_UNLOCKED_KEYRING",
                 "protected_storage_cleanup": "VERIFIED_LOCAL_REMOVAL",

@@ -91,10 +91,11 @@ Missing measurements stay unknown. Growth and time savings are not guaranteed.
    in WMM, **Review campaign scope** shows the exact post, destination, limits
    and expiry. Review the approved posts and their dates separately before
    turning on a schedule.
-3. To see those decisions together, open **Advanced app overview and
-   twelve-stage diagnostics** on **Set your goal**, then **Review combined
-   automation agreement**. The agreement is a summary of your existing
-   approvals.
+3. In **Watch the work**, choose **Review combined automation agreement**.
+   As the app owner, you can review saved workflow limits, approved campaign
+   actions and schedules together. This summary does not change an approval.
+   You can also open it from **Advanced app overview and twelve-stage
+   diagnostics** on **Set your goal**.
 4. In **Watch the work**, check whether the worker is healthy and open the
    saved campaign run for its receipt. Use **Review results** to see available
    measurements. A sent post and a measured result are two different things.

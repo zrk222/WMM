@@ -21,7 +21,10 @@ A founder can reach a useful, evidence-bound campaign plan without developer ass
 1. **Consent and setup (5 min).** Explain that this is a product test, not a marketing result. Use their own app facts or a supplied synthetic app. Do not enter real provider credentials unless they explicitly choose a disposable test account.
 2. **Task (25 min).** Ask: “Using WMM, prepare one marketing experiment you could actually review, with a clear outcome and the evidence still missing.”
    - They must add or inspect app facts.
-   - They must reach **Build your campaign plan** and export or review it.
+   - They must reach **Build your campaign plan** and export or review it. The
+     research packet under **Open your first packet** alone does not meet this
+     task. The observer records which draft actually opened, without naming
+     either control before the participant tries.
    - They must find the first measured-post path and explain what approval is still needed.
 3. **Think-aloud capture (5 min).** Note where they hesitate, what they misread, and every dead end. Do not answer product questions until the task ends.
 4. **Debrief (10 min).** Ask what the product does in one sentence, what they would do next, and whether they would use it again for this app. Record verbatim quotes with permission.
@@ -30,10 +33,10 @@ A founder can reach a useful, evidence-bound campaign plan without developer ass
 
 | Signal | Pass |
 | --- | --- |
-| Independently creates a useful plan/packet | At least 4 of 5, with no developer action |
-| Elects to use WMM again | At least 3 of 5, with a concrete next task |
-| Understands the approval boundary | At least 4 of 5 explain that the plan does not publish or spend |
-| Finds the next step without help | At least 4 of 5 within the session |
+| Independently creates a useful campaign plan | At least 4 of 5 reach **Build your campaign plan**, open or export the plan, and identify the outcome and missing evidence without help |
+| Elects to use WMM again | At least 3 of 5 choose a concrete next task |
+| Understands the approval boundary | At least 4 of 5 explain in their own words that opening or exporting the plan does not publish or spend and that an external action needs a separate approval |
+| Finds the next step without help | At least 4 of 5 reach the first measured-post path during the 25-minute task without help |
 
 A pass on plan creation does not establish measured value. A failure is retained; do not remove a participant or reinterpret a blocked task as success.
 
@@ -45,7 +48,10 @@ For each participant, keep:
 - starting state and app category;
 - task completion time;
 - exact blocked step and UI label;
-- whether a plan was exported or reviewed;
+- the exact resulting screen or exported artifact kind: research packet,
+  campaign plan, or neither;
+- whether the measured-post path was found independently, with help, or not
+  found, and the participant's explanation of the approval boundary;
 - one-sentence product description;
 - reuse intent and the concrete next task;
 - quote(s) with consent;
@@ -53,8 +59,25 @@ For each participant, keep:
 
 ## Decision
 
-- **Continue:** at least 4/5 create a useful plan and at least 3/5 choose a concrete reuse task.
-- **Repair first:** 2–3/5 create a plan or fewer than 3/5 choose reuse; fix the observed blocker before more features.
-- **Stop/reframe:** 0–1/5 create a plan or participants cannot explain the product; revisit the wedge, not the feature list.
+Apply the first matching rule below. Use only reviewed observations; a public
+self-report alone cannot supply a pass. A blocked install counts as an
+unsuccessful first attempt and remains in the cohort.
+
+1. **Incomplete:** Fewer than five eligible first attempts are reviewed, or
+   an observer cannot score all four signals and the product-purpose explanation. If a participant did not
+   reach a task, record that signal as unsuccessful rather than unknown.
+2. **Stop/reframe:** Zero or one participant completes the campaign plan
+   unaided, or zero or one can explain the product's purpose in their own
+   words as preparing or coordinating app marketing using evidence.
+3. **Continue:** All four acceptance thresholds pass.
+4. **Repair first:** Any other complete cohort. Repair the observed install,
+   plan, next-step, or approval problem before adding scope.
+
+For example, four independent plans and three reuse tasks still mean
+**Repair first** if only three participants find the next step. One independent
+plan means **Stop/reframe** regardless of reuse. Four independent plans, three
+reuse tasks, four accurate approval explanations, and four independently
+located next steps mean **Continue**, provided the product-purpose condition
+does not trigger **Stop/reframe**.
 
 Do not publish a commercial claim from this protocol alone. It measures first-run usability and intent, not retention, revenue or growth.
