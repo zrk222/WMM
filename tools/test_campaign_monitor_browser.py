@@ -4,6 +4,7 @@ import json
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any, cast
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -41,9 +42,32 @@ def run(browser, width):
         page.get_by_role("button", name="Verify my identity", exact=True).click()
         expect(page.get_by_role("button", name="Sign out of review session")).to_be_visible()
         page.get_by_role("button", name="Monitor approved campaigns", exact=True).click()
+        organic_scope_id = cast(Any, f.fixture).scope["scope_id"]
+        page.locator('[data-action=campaign-monitor-select][data-id="' + organic_scope_id + '"]').click()
+        organic_form = page.locator("#campaign-monitor-form")
+        expect(organic_form).to_contain_text("Page posts are read-only")
+        expect(organic_form.locator("[name=configuration_drift]")).to_be_disabled()
+        expect(organic_form.locator("[name=active_after_end]")).to_be_disabled()
+        expect(organic_form.locator("[name=max_pause_attempts]")).to_have_value("0")
+        assert organic_form.locator("[name=max_pause_attempts]").evaluate("element => element.readOnly")
+        assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
+        organic_form.get_by_role("button", name="Cancel", exact=True).click()
+        page.get_by_role("button", name="Monitor approved campaigns", exact=True).click()
         page.locator('[data-action=campaign-monitor-select][data-id="' + f.scope["scope_id"] + '"]').click()
         form = page.locator("#campaign-monitor-form")
+        assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
         form.locator("[name=targets]").check()
+        expect(form.locator("[data-pause-status]")).to_contain_text("available for review")
+        form.locator("[name=configuration_drift]").check()
+        form.locator("[name=max_pause_attempts]").fill("1")
+        form.locator("[name=targets]").uncheck()
+        expect(form.locator("[name=configuration_drift]")).not_to_be_checked()
+        expect(form.locator("[name=configuration_drift]")).to_be_disabled()
+        expect(form.locator("[name=max_pause_attempts]")).to_have_value("0")
+        assert form.locator("[name=max_pause_attempts]").evaluate("element => element.readOnly")
+        expect(form.locator("[data-pause-status]")).to_contain_text("Select a paid campaign")
+        form.locator("[name=targets]").check()
+        expect(form.locator("[data-pause-status]")).to_contain_text("available for review")
         form.locator("[name=expires_at]").fill((datetime.now() + timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M"))
         form.locator("[name=configuration_drift]").check()
         form.locator("[name=max_pause_attempts]").fill("1")
@@ -55,6 +79,8 @@ def run(browser, width):
         expect(review).to_contain_text("matching provider observation no more than 30 seconds old")
         expect(review).to_contain_text("80")
         expect(review).to_contain_text("cannot publish, create, activate")
+        expect(review).to_contain_text("does not approve or execute a pause")
+        expect(review).to_contain_text("paid campaign")
         assert f.job() is None
         review.get_by_role("button", name="Approve exact monitor", exact=True).click()
         progress = page.locator("#monitor-progress")

@@ -42,6 +42,7 @@ function fixture() {
 }
 const scope = { scope_id: 's', status: 'ACTIVE', expires_at: '2026-11-03T00:00:00Z' },
   rows = [{ id: 'i', scope_id: 's', request_hash: 'h', kind: 'AD' }],
+  organic = { id: 'p', scope_id: 's', request_hash: 'ph' },
   values = {
     cadence_seconds: '300',
     max_runs: '10',
@@ -67,6 +68,124 @@ test('exact monitor targets and finite limits issue no client authority', () => 
   ])
     assert.throws(() => h.a.proposal(bad, rows, scope, clock));
   assert.throws(() => h.a.proposal(values, [], scope, clock));
+});
+test('page posts stay read-only and cannot submit protective pause', () => {
+  const h = fixture(),
+    p = h.a.proposal(values, [organic], scope, clock);
+  assert.deepEqual(Array.from(p.protective_conditions), []);
+  assert.equal(p.max_pause_attempts, 0);
+  assert.throws(
+    () =>
+      h.a.proposal(
+        { ...values, max_pause_attempts: '1', configuration_drift: 'on' },
+        [organic],
+        scope,
+        clock,
+      ),
+    /paid campaign/,
+  );
+  const mixed = h.a.proposal(
+    { ...values, max_pause_attempts: '1', configuration_drift: 'on' },
+    [organic, ...rows],
+    scope,
+    clock,
+  );
+  assert.deepEqual(Array.from(mixed.protective_conditions), ['configuration_drift']);
+});
+function pauseForm(targets) {
+  const checks = [
+      { name: 'configuration_drift', checked: true, disabled: false },
+      { name: 'active_after_end', checked: false, disabled: false },
+    ],
+    attempts = { name: 'max_pause_attempts', value: '1', readOnly: false },
+    status = { textContent: '' };
+  return {
+    targets,
+    checks,
+    attempts,
+    status,
+    querySelectorAll: (selector) => (selector.includes('checkbox') ? checks : []),
+    querySelector: (selector) =>
+      selector.includes('max_pause_attempts')
+        ? attempts
+        : selector.includes('data-pause-status')
+          ? status
+          : null,
+  };
+}
+test('pause eligibility follows the selected paid target and clears stale inputs', () => {
+  const h = fixture(),
+    form = pauseForm(['i']);
+  h.a.syncPauseControls(form, [organic, ...rows]);
+  assert.equal(form.attempts.readOnly, false);
+  assert.equal(form.checks[0].disabled, false);
+  assert.match(form.status.textContent, /available for review/);
+  form.targets = ['p'];
+  h.a.syncPauseControls(form, [organic, ...rows]);
+  assert.equal(form.attempts.value, '0');
+  assert.equal(form.attempts.readOnly, true);
+  assert.equal(form.checks[0].checked, false);
+  assert.equal(form.checks[0].disabled, true);
+  assert.match(form.status.textContent, /Select a paid campaign/);
+});
+test('page-post-only markup keeps pause controls disabled and explains why', () => {
+  const h = fixture(),
+    html = h.a.pauseMarkup([organic]);
+  assert.match(html, /Page posts are read-only/);
+  assert.match(html, /data-pause-status role="status" aria-live="polite"/);
+  assert.match(html, /id="pause-reason"/);
+  assert.match(html, /aria-describedby="pause-reason"/);
+  assert.match(html, /name="configuration_drift"[^>]*disabled/);
+  assert.match(html, /name="max_pause_attempts"[^>]*value="0"/);
+  assert.match(html, /name="max_pause_attempts"[^>]*readonly/);
+  assert.match(html, /name="max_pause_attempts"[^>]*aria-describedby="pause-reason"/);
+  const paid = h.a.pauseMarkup(rows);
+  assert.match(paid, /Select a paid campaign/);
+  assert.match(paid, /disabled/);
+  assert.match(paid, /readonly/);
+  assert.equal(h.a.pauseEligibility([organic], []).available, false);
+  assert.match(h.a.pauseEligibility([organic], []).reason, /read-only/);
+});
+test('review labels exact paid and Page post targets', () => {
+  const h = fixture(),
+    data = {
+      summary_hash: 'hash',
+      summary: {
+        proposal: {
+          scope_id: 's',
+          targets: [
+            { intent_id: 'i', request_hash: 'h' },
+            { intent_id: 'p', request_hash: 'ph' },
+          ],
+          cadence_seconds: 300,
+          expires_at: '2026-11-03T00:00:00Z',
+          max_runs: 10,
+          max_provider_units: 80,
+          max_pause_attempts: 1,
+          protective_conditions: ['configuration_drift'],
+        },
+      },
+    };
+  const html = h.a.summary(data, [...rows, organic]);
+  assert.match(html, /paid campaign/);
+  assert.match(html, /Page post/);
+  assert.match(html, /does not approve or execute a pause/);
+});
+test('empty saved target explains review location and creates no monitor request', async () => {
+  const h = fixture(),
+    urls = [];
+  h.c.api = async (url) => {
+    urls.push(url);
+    if (url.endsWith('/campaigns/history')) return { scopes: [scope] };
+    if (url.endsWith('/campaign-monitor/history')) return { monitors: [] };
+    return { scope, intents: [] };
+  };
+  await h.a.open();
+  urls.length = 0;
+  await h.a.choose('s');
+  assert.deepEqual(urls, ['/api/apps/one/campaigns/status']);
+  assert.match(h.nodes.get('#monitor-home').textContent, /Review the campaign in Campaigns/);
+  assert.ok(!urls.some((url) => url.includes('prepare') || url.includes('activate')));
 });
 test('protective rules are explicit and saved target selector stays in scope', () => {
   const h = fixture(),
@@ -182,6 +301,7 @@ test('next step is consistent across the monitor and printable report', () => {
     ['REVIEW_EXPIRY', /monitoring approval expired/],
     ['REVIEW_ALLOWANCE', /used the approved number of checks or requests/],
     ['VERIFY_PROVIDER', /Check the campaign in Meta/],
+    ['REVIEW_PAUSE_ELIGIBILITY', /Page posts are read-only/],
     ['UNKNOWN_CODE', /Check the connected account and campaign approval/],
   ]) {
     const data = { ...base, attention };
