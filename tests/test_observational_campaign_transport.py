@@ -10,7 +10,7 @@ from tests import test_agent_grants as fixtures
 
 
 class ObservationalCampaignTransportTests(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.fixture = fixtures.GrantTests()
         self.fixture.setUp()
         self.addCleanup(self.fixture.tearDown)
@@ -20,7 +20,7 @@ class ObservationalCampaignTransportTests(unittest.TestCase):
         self.version = store.app("sample-one")["version"]
         self.base = "/api/apps/sample-one/observational-campaign/"
 
-    def test_owner_registration_and_scoped_mcp_reads_share_saved_study(self):
+    def test_owner_registration_and_scoped_mcp_reads_share_saved_study(self) -> None:
         start = datetime.now(timezone.utc) + timedelta(hours=1)
         registration = dict(
             request_id=str(uuid4()),
@@ -82,7 +82,7 @@ class ObservationalCampaignTransportTests(unittest.TestCase):
             client.call(self.fixture.envelope("observational-campaign.link", binding, "sample-two"))
         self.assertEqual(foreign.exception.status, 403)
 
-    def test_signed_out_session_cannot_read_private_history(self):
+    def test_signed_out_session_cannot_read_private_history(self) -> None:
         owner = self.fixture.owner
         owner.request("POST", "/api/identity/logout", {})
         with self.assertRaises(ClientError) as denied:
