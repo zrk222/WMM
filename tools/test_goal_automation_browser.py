@@ -425,7 +425,7 @@ def main() -> None:
         ),
     ):
         browser = p.chromium.launch()
-        result = {"status": "PASS", "observations": [run(browser, w, out) for w in (1440, 390)]}
+        result = {"status": "PASS", "observations": [run(browser, w, out) for w in (1440, 320)]}
         browser.close()
     (out / "automation-browser.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps(result))
