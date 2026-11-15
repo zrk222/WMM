@@ -287,7 +287,7 @@ def submit(client, origin, csrf, key):
 
 
 def job_history_reads(client, origin, timeout):
-    """Retry only a transport timeout on this read, within the original polling budget."""
+    """Bound retries and result acceptance; a socket timeout is not an HTTP deadline."""
     deadline = time.monotonic() + timeout
     while (remaining := deadline - time.monotonic()) > 0:
         try:
@@ -295,6 +295,8 @@ def job_history_reads(client, origin, timeout):
         except TimeoutError:
             pass
         else:
+            if time.monotonic() >= deadline:
+                return
             yield rows
         time.sleep(min(0.25, max(0, deadline - time.monotonic())))
 

@@ -32,7 +32,7 @@ class HostServiceContractTests(unittest.TestCase):
                 raise TimeoutError("slow local test server")
             return []
 
-        ticks = iter((0.0, 0.05, 0.06, 0.31))
+        ticks = iter((0.0, 0.05, 0.06, 0.31, 0.32))
         clock = types.SimpleNamespace(monotonic=lambda: next(ticks), sleep=lambda _seconds: None)
         with patch.dict(poll.__globals__, {"request_json": read, "time": clock}):
             self.assertEqual(next(poll(None, "fixture", 1)), [])
@@ -48,6 +48,33 @@ class HostServiceContractTests(unittest.TestCase):
             self.assertRaisesRegex(PermissionError, "not permitted"),
         ):
             next(poll(None, "fixture", 1))
+
+    def test_job_history_never_accepts_a_late_read_or_retries_past_deadline(self):
+        poll = HARNESS["job_history_reads"]
+
+        def exercise(instants, timed_out, expected):
+            ticks = iter(instants)
+            clock = types.SimpleNamespace(monotonic=lambda: next(ticks), sleep=lambda _seconds: None)
+            deadlines = []
+
+            def read(client, origin, path, *, timeout):
+                deadlines.append(timeout)
+                if timed_out:
+                    raise TimeoutError("slow local test server")
+                return [{"status": "SUCCEEDED"}]
+
+            with patch.dict(poll.__globals__, {"request_json": read, "time": clock}):
+                self.assertEqual(list(poll(None, "fixture", 1)), [])
+            self.assertEqual(len(deadlines), expected)
+            self.assertTrue(all(0 < timeout < 1 for timeout in deadlines))
+
+        cases = (
+            ((0.0, 0.75, 1.02), False, 1),
+            ((0.0, 0.2, 0.3, 0.55, 0.9, 1.01), True, 2),
+        )
+        for instants, timed_out, expected in cases:
+            with self.subTest(timed_out=timed_out):
+                exercise(instants, timed_out, expected)
 
     def test_keyring_readiness_uses_exact_bus_and_requires_a_default_collection(self):
         open_keyring = HARNESS["open_disposable_keyring"]
