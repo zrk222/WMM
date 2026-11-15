@@ -60,6 +60,7 @@ mission_control/notices.py
 mission_control/observational_campaign.py
 mission_control/observational_campaign_contract.py
 mission_control/onesignal_setup.py
+mission_control/operation_authority.py
 mission_control/operation_catalog.py
 mission_control/operator_client.py
 mission_control/organic_video_collector.py
