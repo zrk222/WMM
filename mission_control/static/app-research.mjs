@@ -43,31 +43,60 @@ function activityTimelinePanel() {
   const t = state.workspace?.activity_timeline;
   if (!t) return '';
   const kinds = Object.keys(t.coverage?.counts || {});
-  return `<section class="panel" aria-label="Unified activity timeline"><h2>Unified activity timeline</h2><p>${esc(t.events.length)} newest local records. ${esc(t.boundary)}</p><div class="toolbar"><label class="field" for="activity-kind">Record type<select id="activity-kind"><option value="">All record types</option>${kinds.map((k) => `<option value="${esc(k)}">${esc(label(k))}</option>`).join('')}</select></label>${button('Filter timeline', 'activity-filter')}${t.next_cursor ? button('Load older records', 'activity-more', `data-cursor="${esc(t.next_cursor)}"`) : ''}</div><div id="activity-timeline-list">${activityTimelineEvents(t.events)}</div>${t.coverage?.truncated_sources?.length ? notice('These bounded sources may be incomplete: ' + t.coverage.truncated_sources.join(', '), 'warning') : ''}</section>`;
+  return `<section class="panel" aria-label="Unified activity timeline"><h2>Unified activity timeline</h2><p role="status">${esc(t.events.length)} newest local records. ${esc(t.boundary)}</p><div class="toolbar"><label class="field" for="activity-kind">Record type<select id="activity-kind"><option value="">All record types</option>${kinds.map((k) => `<option value="${esc(k)}">${esc(label(k))}</option>`).join('')}</select></label>${button('Filter timeline', 'activity-filter')}${t.next_cursor ? button('Load older records', 'activity-more', `data-cursor="${esc(t.next_cursor)}"`) : ''}</div><div id="activity-timeline-list" tabindex="-1">${activityTimelineEvents(t.events)}</div>${t.coverage?.truncated_sources?.length ? notice('These bounded sources may be incomplete: ' + t.coverage.truncated_sources.join(', '), 'warning') : ''}</section>`;
 }
 
+let timelineRequest;
 async function activityAction(node) {
-  const kind = $('#activity-kind')?.value || '';
+  const list = $('#activity-timeline-list'),
+    filter = $('#activity-kind'),
+    app = state.app,
+    workspace = state.workspace,
+    principal = workspace?.identity?.principal;
+  if (state.view !== 'activity' || !list || workspace?.app?.id !== app || node.disabled) return;
+  const kind = filter?.value || '';
   const cursor = node.dataset.cursor || '';
+  if (cursor && kind !== (list.dataset.appliedKind || ''))
+    throw new Error('Apply the selected record type before loading older records.');
   const params = new URLSearchParams({ limit: '20' });
   if (kind) params.set('kind', kind);
   if (cursor) params.set('cursor', cursor);
-  const result = await api(`/api/apps/${encodeURIComponent(state.app)}/activity/history?${params}`);
-  const list = $('#activity-timeline-list');
-  list.innerHTML = cursor
-    ? list.innerHTML + activityTimelineEvents(result.events)
-    : activityTimelineEvents(result.events);
-  const holder = list.closest('section');
-  holder.querySelector("[data-action='activity-more']")?.remove();
-  if (result.next_cursor)
-    holder
-      .querySelector('.toolbar')
-      .insertAdjacentHTML(
-        'beforeend',
-        button('Load older records', 'activity-more', `data-cursor="${esc(result.next_cursor)}"`),
-      );
-  holder.querySelector('p').textContent =
-    `${esc(result.events.length)} records on this page. ${esc(result.boundary)}`;
+  const request = (timelineRequest = Symbol());
+  const current = () =>
+    timelineRequest === request &&
+    state.view === 'activity' &&
+    state.app === app &&
+    state.workspace === workspace &&
+    workspace.identity?.principal === principal &&
+    list.isConnected &&
+    (filter?.value || '') === kind;
+  node.disabled = true;
+  try {
+    const result = await api(`/api/apps/${encodeURIComponent(app)}/activity/history?${params}`);
+    if (!current()) return;
+    if (cursor) list.insertAdjacentHTML('beforeend', activityTimelineEvents(result.events));
+    else list.innerHTML = activityTimelineEvents(result.events);
+    list.dataset.appliedKind = kind;
+    const holder = list.closest('section');
+    const moreSelector = "[data-action='activity-more']";
+    const more = holder.querySelector(moreSelector);
+    const restoreFocus = cursor && more && [more, document.body].includes(document.activeElement);
+    more?.remove();
+    if (result.next_cursor)
+      holder
+        .querySelector('.toolbar')
+        .insertAdjacentHTML(
+          'beforeend',
+          button('Load older records', 'activity-more', `data-cursor="${esc(result.next_cursor)}"`),
+        );
+    if (restoreFocus) (holder.querySelector(moreSelector) || list).focus();
+    holder.querySelector('[role=status]').textContent =
+      `${result.events.length} records on this page. ${result.boundary}`;
+  } catch (error) {
+    if (current()) throw error;
+  } finally {
+    node.disabled = false;
+  }
 }
 
 const savedRunLabels = new Map([
@@ -82,9 +111,14 @@ const savedRunLabels = new Map([
   ['campaign_owner_report', 'Save private campaign report'],
 ]);
 
+function activityFront(workspace) {
+  const updates = guidedExceptionPanel(workspace.workflow?.exceptions);
+  return `<div id="activity-front">${updates || '<section class="panel" aria-label="Workflow status"><h2>No workflow exceptions recorded</h2><p>See activity and campaign checks below. A quiet workspace does not verify delivery or current access.</p></section>'}</div>`;
+}
+
 function activityView() {
   const w = state.workspace;
-  return `${heading('Every action leaves a trail', 'Inspect saved runs, review packets and the history of this app workspace.')}${guidedEvidenceStates()}${activityTimelinePanel()}${guidedExceptionPanel(w.workflow.exceptions)}${verifiedReviewPanel()}<section class="panel" aria-label="Watch campaign delivery"><h2>Watch campaign delivery</h2><p>Review saved provider checks, exceptions and protective pauses for approved Facebook campaigns.</p>${button('Monitor approved campaigns', 'campaign-monitor-open')}${button('Review private campaign outcomes', 'owner-report-open')}</section>${providerActionsPanel()}${notice('Legacy local-name packets below are manual bookkeeping. They cannot establish verified identity or authorize provider execution.')}<div class="section-heading"><h2>Manual review history</h2>${button('Prepare review packet', 'prepare-review')}</div>${w.approvals.length ? `<div class="record-list">${w.approvals.map((r) => `<button class="record-row" data-action="review" data-id="${esc(r.id)}"><span class="record-icon" aria-hidden="true">âœ“</span><span class="record-main"><strong>${esc(r.packet.record.title)}</strong><small>Prepared by ${esc(r.preparer)} Â· expires ${esc(new Date(r.expires).toLocaleString())}</small></span>${status(r.status)}</button>`).join('')}</div>` : empty('Nothing waiting for review', 'Add a distribution, store or experiment record, then freeze its exact contents into a review packet.')}<div class="section-heading"><h2>Saved runs</h2></div>${w.jobs.length ? `<div class="record-list saved-run-list">${w.jobs.map((job) => `<button class="record-row" data-action="job" data-id="${esc(job.id)}"><span class="record-icon" aria-hidden="true">â†»</span><span class="record-main"><strong>${savedRunLabels.get(job.action) ?? 'Saved workflow run'}</strong><small>${esc(new Date(job.created).toLocaleString())} Â· attempt ${job.attempts}</small></span>${status(job.status)}</button>`).join('')}</div>` : empty('Your first run starts the trail', 'Prepare the pipeline to save app-scoped packets and exact missing-input checklists.', button('Prepare the pipeline', 'run-all'))}<div class="section-heading"><h2>Workspace history</h2></div>${
+  return `${heading('Watch the work', 'See what needs attention and review the work this app has saved.')}${activityFront(w)}${guidedEvidenceStates()}${activityTimelinePanel()}${verifiedReviewPanel()}<section class="panel" aria-label="Watch campaign delivery"><h2>Watch campaign delivery</h2><p>Review saved provider checks, exceptions and protective pauses for approved Facebook campaigns.</p>${button('Monitor approved campaigns', 'campaign-monitor-open')}${button('Review private campaign outcomes', 'owner-report-open')}</section>${providerActionsPanel()}${notice('Legacy local-name packets below are manual bookkeeping. They cannot establish verified identity or authorize provider execution.')}<div class="section-heading"><h2>Manual review history</h2>${button('Prepare review packet', 'prepare-review')}</div>${w.approvals.length ? `<div class="record-list">${w.approvals.map((r) => `<button class="record-row" data-action="review" data-id="${esc(r.id)}"><span class="record-icon" aria-hidden="true">âœ“</span><span class="record-main"><strong>${esc(r.packet.record.title)}</strong><small>Prepared by ${esc(r.preparer)} Â· expires ${esc(new Date(r.expires).toLocaleString())}</small></span>${status(r.status)}</button>`).join('')}</div>` : empty('Nothing waiting for review', 'Add a distribution, store or experiment record, then freeze its exact contents into a review packet.')}<div class="section-heading"><h2>Saved runs</h2></div>${w.jobs.length ? `<div class="record-list saved-run-list">${w.jobs.map((job) => `<button class="record-row" data-action="job" data-id="${esc(job.id)}"><span class="record-icon" aria-hidden="true">â†»</span><span class="record-main"><strong>${savedRunLabels.get(job.action) ?? 'Saved workflow run'}</strong><small>${esc(new Date(job.created).toLocaleString())} Â· attempt ${job.attempts}</small></span>${status(job.status)}</button>`).join('')}</div>` : empty('Your first run starts the trail', 'Prepare the pipeline to save app-scoped packets and exact missing-input checklists.', button('Prepare the pipeline', 'run-all'))}<div class="section-heading"><h2>Workspace history</h2></div>${
     w.audit.length
       ? `<div class="record-list">${w.audit
           .slice(0, 20)
