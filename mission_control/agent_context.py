@@ -1,22 +1,87 @@
 """Bounded public campaign context; no network, credential or uploaded-file reads."""
 
+from collections.abc import Callable, Mapping
+from sqlite3 import Connection, Row
+from typing import cast
+
+from . import (
+    agent_economics,
+    agent_feedback,
+    agent_registry,
+    pipeline,
+)
+from . import creative_taste as creative_taste_module
+from . import release_readiness as release_readiness_module
+from . import store as store_module
+from . import subscription_readiness as subscription_readiness_module
 from .common import Invalid, canonical, digest
 from .db import connection
-from .store import decode
-from .agent_registry import FACTS
-from .pipeline import evaluate
-from .release_readiness import readiness as release_readiness
-from .subscription_readiness import readiness as subscription_readiness
-from .agent_economics import derive
-from .agent_feedback import feedback
-from .creative_taste import guidance as creative_taste
+from .store import Store
+
+
+def decode(row: Row) -> dict[str, object]:
+    return cast(
+        Callable[[Row], dict[str, object]],
+        vars(store_module).get("decode"),
+    )(row)
+
+
+def evaluate(
+    app: object,
+    records: object,
+    ledger_reports: object = (),
+    catalog: object = None,
+    release: object = None,
+) -> list[Mapping[str, object]]:
+    return cast(
+        Callable[..., list[Mapping[str, object]]],
+        vars(pipeline).get("evaluate"),
+    )(app, records, ledger_reports, catalog, release)
+
+
+def release_readiness(app: object, records: object, jobs: object, statuses: object) -> Mapping[str, object]:
+    return cast(
+        Callable[..., Mapping[str, object]],
+        vars(release_readiness_module).get("readiness"),
+    )(app, records, jobs, statuses)
+
+
+def subscription_readiness(app: object, records: object, jobs: object, statuses: object) -> Mapping[str, object]:
+    return cast(
+        Callable[..., Mapping[str, object]],
+        vars(subscription_readiness_module).get("readiness"),
+    )(app, records, jobs, statuses)
+
+
+def derive(store: Store, app: object) -> tuple[list[Mapping[str, object]], Mapping[str, object]]:
+    return cast(
+        Callable[..., tuple[list[Mapping[str, object]], Mapping[str, object]]],
+        vars(agent_economics).get("derive"),
+    )(store, app)
+
+
+def feedback(store: Store, app: object) -> Mapping[str, object]:
+    return cast(
+        Callable[..., Mapping[str, object]],
+        vars(agent_feedback).get("feedback"),
+    )(store, app)
+
+
+def creative_taste() -> Mapping[str, object]:
+    return cast(
+        Callable[[], Mapping[str, object]],
+        vars(creative_taste_module).get("guidance"),
+    )()
+
+
+FACTS = cast(tuple[str, ...], vars(agent_registry).get("FACTS"))
 
 LIMIT = 100
 MAX_CHARS = 32768
 SCHEMA = "growth.agent-context.v1"
 
 
-def indexed(db, sql, app_id):
+def indexed(db: Connection, sql: str, app_id: str) -> list[dict[str, object]]:
     """Reject overflow instead of silently omitting a newer failed observation."""
     rows = db.execute(sql, (app_id, LIMIT + 1)).fetchall()
     if len(rows) > LIMIT:
@@ -24,16 +89,19 @@ def indexed(db, sql, app_id):
     return [decode(row) for row in rows]
 
 
-def saved_sources(store, app_id):
+def saved_sources(store: Store, app_id: str) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
     """Load this app only; review content is replaced with a critical-count signal."""
     with connection(store.path) as db:
         records = indexed(
             db, "SELECT * FROM records WHERE app_id=? AND kind!='review' ORDER BY updated DESC,id LIMIT ?", app_id
         )
-        reviews = db.execute(
-            "SELECT COUNT(*) FROM records WHERE app_id=? AND kind='review' AND json_extract(data,'$.confirmed')=1 AND json_extract(data,'$.severity')='P0'",
-            (app_id,),
-        ).fetchone()[0]
+        reviews = cast(
+            int,
+            db.execute(
+                "SELECT COUNT(*) FROM records WHERE app_id=? AND kind='review' AND json_extract(data,'$.confirmed')=1 AND json_extract(data,'$.severity')='P0'",
+                (app_id,),
+            ).fetchone()[0],
+        )
         jobs = indexed(
             db,
             "SELECT * FROM jobs WHERE app_id=? AND action='sync' AND json_extract(data,'$.options.operation') IN ('release_inventory','subscription_catalog') ORDER BY created DESC,id LIMIT ?",
@@ -55,15 +123,20 @@ def saved_sources(store, app_id):
     return records, jobs
 
 
-def source(identity, classification, data):
+def source(identity: str, classification: str, data: Mapping[str, object]) -> dict[str, object]:
     """Bind citations to exactly the sanitized values approved for transmission."""
-    return dict(id=identity, classification=classification, data=data, sha256=digest(data))
+    return dict(
+        id=identity,
+        classification=classification,
+        data=data,
+        sha256=digest(data),
+    )
 
 
-def provider_source(identity, view):
+def provider_source(identity: str, view: Mapping[str, object]) -> dict[str, object]:
     """Expose validator state and public identity, never raw reports or diagnostics."""
-    report = view.get("report") or {}
-    values = dict(
+    report = cast(Mapping[str, object], view.get("report") or {})
+    values: dict[str, object] = dict(
         state=view["state"],
         access="NOT_CHECKED",
         scope="Saved provider observation only; no live access or product journey verified",
@@ -81,28 +154,44 @@ def provider_source(identity, view):
     return source(identity, "SAVED_PROVIDER_OBSERVATION", values)
 
 
-def stage_source(stage):
+def stage_source(stage: Mapping[str, object]) -> dict[str, object]:
     """Use catalog instructions and counts, excluding operator-written diagnostics."""
-    data = {key: stage[key] for key in ("id", "title", "status", "inputs", "dependencies", "operations")}
+    data: dict[str, object] = {
+        key: stage[key]
+        for key in (
+            "id",
+            "title",
+            "status",
+            "inputs",
+            "dependencies",
+            "operations",
+        )
+    }
     data.update(
-        missing_count=len(stage["missing"]),
+        missing_count=len(cast(list[object], stage["missing"])),
         evidence_scope="OPERATOR_ASSERTIONS_AND_SAVED_PROVIDER_CHECKS",
         economics="Current imported-ledger derivation; amounts excluded and provider signatures not independently verified",
     )
     return source("stage_" + str(stage["id"]), "WORKFLOW_DERIVATION", data)
 
 
-def snapshot(store, app_id):
+def snapshot(store: Store, app_id: str) -> dict[str, object]:
     """Assemble the selected public manifest and twelve current stage summaries."""
     app = store.app(app_id)
     records, jobs = saved_sources(store, app_id)
     release = release_readiness(app, records, jobs, {})
     subscriptions = subscription_readiness(app, records, jobs, {})
     ledger, economics = derive(store, app)
-    fields = FACTS + ("brand_source", "brand_visual", "store_app_id", "authorized_spend_minor")
-    facts = {key: app["data"].get(key) for key in fields}
+    fields = FACTS + (
+        "brand_source",
+        "brand_visual",
+        "store_app_id",
+        "authorized_spend_minor",
+    )
+    app_data = cast(Mapping[str, object], app["data"])
+    facts: dict[str, object] = {key: app_data.get(key) for key in fields}
     facts["authorized_spend_minor"] = 0
-    sources = [source("app_manifest", "OWNER_SUPPLIED_PUBLIC_FACTS", facts)]
+    sources: list[dict[str, object]] = [source("app_manifest", "OWNER_SUPPLIED_PUBLIC_FACTS", facts)]
     sources += [
         stage_source(stage)
         for stage in evaluate(app, records, ledger_reports=ledger, catalog=subscriptions, release=release)
@@ -114,7 +203,7 @@ def snapshot(store, app_id):
     sources += [source("ledger_state", "LOCAL_IMPORTED_LEDGER_DERIVATION", economics)]
     sources += [source("action_feedback", "TYPED_LOCAL_ACTION_OUTCOMES", feedback(store, app))]
     sources += [source("creative_taste", "PRODUCT_ADVISORY_GUIDANCE", creative_taste())]
-    value = dict(
+    value: dict[str, object] = dict(
         schema=SCHEMA,
         app_id=app_id,
         sources=sources,
