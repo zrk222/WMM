@@ -1,16 +1,19 @@
 """Private app-scoped observational campaign attribution records and reports."""
 
-from collections import Counter
 import json
-import re
-from datetime import timezone
-from urllib.parse import urlsplit
+from collections import Counter
+from typing import TypedDict, cast
 
 from . import observational_campaign_contract as contract
 from .common import Invalid, canonical, digest, iso_time, now
 from .db import connection
 
 OPS = {name: "observational-campaign." + name for name in contract.ACTION_NAMES}
+
+
+class SourceCoverage(TypedDict):
+    complete: bool
+    source_event_count: int | None
 
 
 def _tables(db):
@@ -20,6 +23,8 @@ def _tables(db):
       request_id TEXT NOT NULL, request_hash TEXT NOT NULL, app_version INTEGER NOT NULL, data TEXT NOT NULL,
       hash TEXT NOT NULL, registered_at TEXT NOT NULL,
       PRIMARY KEY(app_id,study_id), UNIQUE(app_id,request_id));
+    CREATE INDEX IF NOT EXISTS observational_campaign_public_tag
+      ON observational_campaign_studies(study_id,app_id);
     CREATE TABLE IF NOT EXISTS observational_campaign_batches(
       app_id TEXT NOT NULL, study_id TEXT NOT NULL, batch_id TEXT NOT NULL,
       source_id TEXT NOT NULL, hash TEXT NOT NULL, data TEXT NOT NULL,
@@ -88,7 +93,7 @@ def _context(app_id, action, body, store):
     try:
         envelope = json.loads(context["envelope"])
     except (KeyError, TypeError, ValueError):
-        raise PermissionError("Current exact observational-campaign operation authority is required")
+        raise PermissionError("Current exact observational-campaign operation authority is required") from None
     if (
         not isinstance(envelope, dict)
         or envelope.get("app_id") != app_id
@@ -116,13 +121,39 @@ def _manifest(body, app):
         raise Invalid("manifest_version differs from the current app version")
 
 
-def _study(db, app_id, study_id, study_hash, app):
+class CampaignTagConflict(Invalid):
+    """One public tag cannot safely identify a single workspace."""
+
+
+def assert_campaign_tag_lane(db, app_id, study_id):
+    """Reject a public tag that could select another app's analytics lane."""
+    other = db.execute(
+        "SELECT 1 FROM install_attribution_batches WHERE campaign_token=? AND app_id!=? LIMIT 1",
+        (study_id, app_id),
+    ).fetchone()
+    if (
+        not other
+        and db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='observational_campaign_studies'"
+        ).fetchone()
+    ):
+        other = db.execute(
+            "SELECT 1 FROM observational_campaign_studies WHERE study_id=? AND app_id!=? LIMIT 1",
+            (study_id, app_id),
+        ).fetchone()
+    if other:
+        raise CampaignTagConflict("Campaign tag is unavailable in this workspace. Start a new campaign with a new tag.")
+
+
+def _study(db, app_id, study_id, study_hash, app, *, allow_legacy_replay: bool = False):
     contract.uuid_value(study_id, "study_id")
     row = db.execute(
         "SELECT * FROM observational_campaign_studies WHERE app_id=? AND study_id=?", (app_id, study_id)
     ).fetchone()
     if row is None:
         raise Invalid("Study is unavailable in this app")
+    if not allow_legacy_replay:
+        assert_campaign_tag_lane(db, app_id, study_id)
     data = json.loads(row["data"])
     if digest(data) != row["hash"] or row["hash"] != study_hash:
         raise Invalid("Study hash differs from its saved definition")
@@ -244,9 +275,7 @@ def report_in_snapshot(db, app_id, study, app, as_of):
             eligible_landings[key] = min(time, eligible_landings.get(key, time))
         eligible.append((kind, key, time))
     for kind, key, time in eligible:
-        if kind == "LANDING":
-            counts[kind][key] = min(time, counts[kind].get(key, time))
-        elif key in eligible_landings and eligible_landings[key] < time:
+        if kind == "LANDING" or key in eligible_landings and eligible_landings[key] < time:
             counts[kind][key] = min(time, counts[kind].get(key, time))
         else:
             exclusions["UNMATCHED_REGISTRATION"] += 1
@@ -372,6 +401,7 @@ class ObservationalCampaign:
             created = now()
             definition = contract.definition_data(body["definition"], created)
             origin = contract.app_origin(app["data"].get("website"))
+            assert_campaign_tag_lane(db, app_id, definition["id"])
             data = dict(
                 definition,
                 app_id=app_id,
@@ -448,7 +478,7 @@ class ObservationalCampaign:
             actor = check(db, context)
             app = _app(db, app_id)
             _manifest(body, app)
-            study = _study(db, app_id, body["study_id"], body["study_hash"], app)
+            study = _study(db, app_id, body["study_id"], body["study_hash"], app, allow_legacy_replay=True)
             batch = contract.batch_data(body["batch"], study, app["version"], created)
             batch_hash = digest(batch)
             old = db.execute(
@@ -459,6 +489,7 @@ class ObservationalCampaign:
                 if old["hash"] != batch_hash or old["study_id"] != study["id"]:
                     raise Invalid("Batch ID already exists with conflicting content")
                 return json.loads(old["receipt"])
+            assert_campaign_tag_lane(db, app_id, study["id"])
             inserted = duplicates = 0
             staged = []
             seen = {}
@@ -496,8 +527,9 @@ class ObservationalCampaign:
                     ),
                 )
                 inserted += 1
+            coverage = cast(dict[str, SourceCoverage], batch["coverage"])
             for event_type in contract.EVENT_TYPES:
-                cov = batch["coverage"][event_type]
+                cov = coverage[event_type]
                 complete = int(cov["complete"])
                 db.execute(
                     "INSERT INTO observational_campaign_coverage VALUES(?,?,?,?,?,?,?,?,?,?)",
@@ -526,7 +558,7 @@ class ObservationalCampaign:
                 "duplicates": duplicates,
                 "coverage": {
                     key: {"reported_complete": val["complete"], "source_event_count": val["source_event_count"]}
-                    for key, val in batch["coverage"].items()
+                    for key, val in coverage.items()
                 },
                 "status": "SOURCE_REPORTED",
                 "received_at": created,

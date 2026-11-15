@@ -154,6 +154,10 @@ function socialDestinations(flow, reconnect) {
     (item) => normalized(item.name) === normalized(state.workspace.app.data.name),
   );
   const recommended = matches.length === 1 ? matches[0].id : '';
+  const sharedPageNote =
+    flow.provider === 'facebook'
+      ? '<p>Using one company Page for several apps? Confirm it separately in each app. Page totals include all apps. Use each app’s campaign links and reports to measure its results.</p>'
+      : '';
   const saved = state.workspace.social_access.accounts.filter(
     (row) =>
       row.provider === flow.provider &&
@@ -162,7 +166,7 @@ function socialDestinations(flow, reconnect) {
   );
   modal(
     'Confirm this app’s destination',
-    `<form id="social-confirm-form" class="modal-content" data-app="${esc(app)}" data-flow="${flow.id}"><p>Official provider account: <strong>${esc(flow.data.identity.name)}</strong>. ${recommended ? 'One destination exactly matches this app name. Please confirm it.' : 'Choose the account or Page this app should use. No destination has been selected automatically.'}</p><label class="field">Account or Page<select name="destination_id" required><option value="">Choose a verified destination</option>${choices.map((item) => `<option value="${esc(item.id)}" ${item.id === recommended ? 'selected' : ''}>${esc(item.name)} · ${esc(item.kind.toLowerCase())}</option>`).join('')}</select></label>${!choices.length ? notice('No permitted destination was found. Review official permissions, then reconnect.', 'warning') : ''}<label class="field">Save as<select name="connection_id"><option value="">A separate saved account</option>${saved.map((row) => `<option value="${row.id}" ${row.id === reconnect ? 'selected' : ''}>Reconnect ${esc(row.data.destination.name)}</option>`).join('')}</select></label><p>Confirming retains only this app’s grant. Read access has been checked; posting, messaging and ad spending are not enabled.</p><p id="social-error" role="alert"></p><div class="modal-actions"><button type="submit" class="button primary" ${choices.length ? '' : 'disabled'}>Approve destination</button>${button('Cancel this login', 'social-cancel', `data-flow="${flow.id}"`)}${button('Review setup', 'social-edit', `data-provider="${flow.provider}"`)}</div></form>`,
+    `<form id="social-confirm-form" class="modal-content" data-app="${esc(app)}" data-flow="${flow.id}"><p>Official provider account: <strong>${esc(flow.data.identity.name)}</strong>. ${recommended ? 'One destination exactly matches this app name. Please confirm it.' : 'Choose the account or Page this app should use. No destination has been selected automatically.'}</p><label class="field">Account or Page<select name="destination_id" required><option value="">Choose a verified destination</option>${choices.map((item) => `<option value="${esc(item.id)}" ${item.id === recommended ? 'selected' : ''}>${esc(item.name)} · ${esc(item.kind.toLowerCase())}</option>`).join('')}</select></label>${sharedPageNote}${!choices.length ? notice('No permitted destination was found. Review official permissions, then reconnect.', 'warning') : ''}<label class="field">Save as<select name="connection_id"><option value="">A separate saved account</option>${saved.map((row) => `<option value="${row.id}" ${row.id === reconnect ? 'selected' : ''}>Reconnect ${esc(row.data.destination.name)}</option>`).join('')}</select></label><p>Confirming retains only this app’s grant. Read access has been checked; posting, messaging and ad spending are not enabled.</p><p id="social-error" role="alert"></p><div class="modal-actions"><button type="submit" class="button primary" ${choices.length ? '' : 'disabled'}>Approve destination</button>${button('Cancel this login', 'social-cancel', `data-flow="${flow.id}"`)}${button('Review setup', 'social-edit', `data-provider="${flow.provider}"`)}</div></form>`,
     'VERIFIED ACCOUNT · YOUR CHOICE',
   );
 }

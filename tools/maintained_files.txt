@@ -45,6 +45,7 @@ mission_control/funnel_http.py
 mission_control/http_body.py
 mission_control/hypit_jobs.py
 mission_control/insights.py
+mission_control/install_attribution.py
 mission_control/integrity_drill.py
 mission_control/ledger.py
 mission_control/linux_vault.py
@@ -55,6 +56,7 @@ mission_control/marketing_ontology.py
 mission_control/measurement_economics.py
 mission_control/migrations/__init__.py
 mission_control/notices.py
+mission_control/observational_campaign.py
 mission_control/observational_campaign_contract.py
 mission_control/onesignal_setup.py
 mission_control/operation_catalog.py
@@ -117,6 +119,7 @@ tests/test_format_ratchet.py
 tests/test_host_service_contract.py
 tests/test_http.py
 tests/test_http_benchmark.py
+tests/test_install_attribution.py
 tests/test_integrity_drill.py
 tests/test_kpi_data_gaps.py
 tests/test_kpi_gaps.py
@@ -128,6 +131,7 @@ tests/test_measurement_economics.py
 tests/test_meta_windowed_spend.py
 tests/test_migrations.py
 tests/test_native_workspace_credential_isolation.py
+tests/test_observational_campaign.py
 tests/test_observational_campaign_contract.py
 tests/test_operation_docs.py
 tests/test_operation_feedback_browser.py
@@ -158,6 +162,7 @@ tests/test_schedule_authority_boundary.py
 tests/test_schedule_pause_evidence.py
 tests/test_schedules.py
 tests/test_schema_types.py
+tests/test_social_connections.py
 tests/test_source_ratchet.py
 tests/test_sqlite_tuning.py
 tests/test_static_etag.py

@@ -4,6 +4,8 @@ import json
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
+from typing import NotRequired, TypedDict, cast
+
 from .common import Invalid, canonical, digest, iso_time, now, uid
 from .db import connection
 from .review_access import member
@@ -12,6 +14,83 @@ STATES = ("ATTRIBUTED", "UNATTRIBUTED", "SUPPRESSED", "UNKNOWN")
 SOURCE = re.compile(r"[A-Z][A-Z0-9_]{1,31}")
 OPAQUE = re.compile(r"[A-Za-z0-9_-]{1,128}")
 SHA256 = re.compile(r"[a-f0-9]{64}")
+
+
+class Window(TypedDict):
+    starts_at: str
+    ends_at: str
+
+
+class Install(TypedDict):
+    install_id: str
+    state: str
+    occurred_at: str
+
+
+class Coverage(TypedDict):
+    complete: bool
+    source_event_count: int | None
+    excluded: dict[str, int]
+
+
+class StudyLink(TypedDict):
+    study_id: str
+    study_hash: str
+    app_version: int
+    registered_at: str
+    window: Window
+
+
+class Batch(TypedDict):
+    source: str
+    campaign_token: str
+    request_id: str
+    source_receipt_sha256: str
+    observed_at: str
+    window: Window
+    coverage: Coverage
+    installs: list[Install]
+    study_link: NotRequired[StudyLink | None]
+
+
+class PublicBatch(TypedDict):
+    batch_id: str
+    source: str
+    complete: bool
+    source_event_count: int | None
+    imported: int
+    excluded: int
+    reconciled: bool
+    observed_at: str
+    window: Window
+    source_receipt_sha256: str
+    batch_hash: str
+    study_linked: bool
+
+
+class BatchCoverage(TypedDict):
+    public: PublicBatch
+    study_link: StudyLink | None
+    declaration_hash: str
+    installs: list[Install]
+
+
+class Report(TypedDict):
+    schema: str
+    app_id: str
+    campaign_token: str
+    counts: dict[str, int | None]
+    recorded: int | None
+    coverage_status: str
+    coverage_reasons: list[str]
+    batches: list[PublicBatch]
+    campaign_start: str | None
+    study: StudyLink | None
+    study_status: str
+    day: int | None
+    aggregation: dict[str, int | str] | None
+    scope: str
+    external_writes: bool
 
 
 def _exact(value, keys):
@@ -35,7 +114,7 @@ def _time(value, name):
         raise Invalid(name + " must be an ISO timestamp with timezone") from exc
 
 
-def _window(value):
+def _window(value) -> Window:
     _exact(value, ("starts_at", "ends_at"))
     starts = _time(value["starts_at"], "Window start")
     ends = _time(value["ends_at"], "Window end")
@@ -43,10 +122,10 @@ def _window(value):
         raise Invalid("Window start must be before its end")
     if (ends - starts).total_seconds() > 90 * 86400:
         raise Invalid("Window cannot exceed 90 days")
-    return dict(starts_at=starts.isoformat(), ends_at=ends.isoformat())
+    return Window(starts_at=starts.isoformat(), ends_at=ends.isoformat())
 
 
-def _install(row, observed, window):
+def _install(row, observed: datetime, window: Window) -> Install:
     _exact(row, ("install_id", "state", "occurred_at"))
     identity = row["install_id"]
     if not isinstance(identity, str) or not OPAQUE.fullmatch(identity):
@@ -63,10 +142,10 @@ def _install(row, observed, window):
         raise Invalid("Install time cannot be after the source observation")
     if not iso_time(window["starts_at"]) <= occurred <= iso_time(window["ends_at"]):
         raise Invalid("Install time must fall inside the declared window")
-    return dict(install_id=identity, state=row["state"], occurred_at=occurred.isoformat())
+    return Install(install_id=identity, state=row["state"], occurred_at=occurred.isoformat())
 
 
-def _coverage(value):
+def _coverage(value) -> Coverage:
     if (
         not isinstance(value, dict)
         or not {"complete", "source_event_count"} <= set(value)
@@ -88,10 +167,10 @@ def _coverage(value):
             raise Invalid("Exclusion reasons must be uppercase tokens")
         if type(number) is not int or not 0 <= number <= 1000000:
             raise Invalid("Excluded counts must be bounded whole numbers")
-    return dict(complete=value["complete"], source_event_count=count, excluded=dict(excluded))
+    return Coverage(complete=value["complete"], source_event_count=count, excluded=dict(excluded))
 
 
-def validate_batch(body):
+def validate_batch(body) -> Batch:
     """Validate one exact batch without touching storage; used by imports and the mapper."""
     _exact(
         body,
@@ -132,7 +211,7 @@ def validate_batch(body):
         raise Invalid("Source event count cannot be below imported plus excluded records")
     if coverage["complete"] and coverage["source_event_count"] != accounted:
         raise Invalid("Complete coverage must equal imported plus excluded records")
-    return dict(
+    return Batch(
         source=source,
         campaign_token=campaign,
         request_id=request,
@@ -144,8 +223,11 @@ def validate_batch(body):
     )
 
 
-def _study_link(db, app_id, campaign_token):
+def _study_link(db, app_id: str, campaign_token: str) -> StudyLink | None:
     """Resolve an exact registered study and its immutable observation window."""
+    from .observational_campaign import assert_campaign_tag_lane
+
+    assert_campaign_tag_lane(db, app_id, campaign_token)
     if not db.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='observational_campaign_studies'"
     ).fetchone():
@@ -160,7 +242,7 @@ def _study_link(db, app_id, campaign_token):
     data = json.loads(row["data"])
     if digest(data) != row["hash"]:
         raise Invalid("Registered study integrity changed")
-    return dict(
+    return StudyLink(
         study_id=row["study_id"],
         study_hash=row["hash"],
         app_version=row["app_version"],
@@ -177,27 +259,27 @@ def _owner_context(db, app_id, user):
     return owner, app["version"]
 
 
-def _import_binding(db, app_id, data):
+def _import_binding(db, app_id: str, data: Batch) -> StudyLink | None:
     study = _study_link(db, app_id, data["campaign_token"])
     if study is not None and data["window"] != study["window"]:
         raise Invalid("Use the exact registered study window")
     return study
 
 
-def _normalize_stored_times(data):
+def _normalize_stored_times(data: Batch) -> Batch:
     """Read old offset representations without changing their saved receipt hash."""
-    return dict(
-        data,
-        window=_window(data["window"]),
-        observed_at=_time(data["observed_at"], "Observed time").isoformat(),
-        installs=[
-            dict(row, occurred_at=_time(row["occurred_at"], "Occurred time").isoformat()) for row in data["installs"]
+    return {
+        **data,
+        "window": _window(data["window"]),
+        "observed_at": _time(data["observed_at"], "Observed time").isoformat(),
+        "installs": [
+            {**row, "occurred_at": _time(row["occurred_at"], "Occurred time").isoformat()} for row in data["installs"]
         ],
-    )
+    }
 
 
-def _saved_input(saved, data):
-    stored = json.loads(saved["data"])
+def _saved_input(saved, data: Batch) -> StudyLink | None:
+    stored = cast(Batch, json.loads(saved["data"]))
     if digest(stored) != saved["hash"]:
         raise Invalid("Saved install batch integrity changed")
     study = stored.pop("study_link", None)
@@ -304,15 +386,15 @@ def record_batch(store, app_id, user, body, *, preview_id=None):
         return dict(id=request, hash=hashed, status="RECORDED", inserted=inserted, duplicates=duplicates)
 
 
-def _batch_coverage(row, *, include_rows=False):
+def _batch_coverage(row, *, include_rows: bool = False) -> BatchCoverage:
     data = json.loads(row["data"])
     if digest(data) != row["hash"]:
         raise Invalid("Saved install batch integrity changed")
-    data = _normalize_stored_times(data)
+    data = _normalize_stored_times(cast(Batch, data))
     declared = data["coverage"]["source_event_count"]
     imported = len(data["installs"])
     excluded = sum(data["coverage"].get("excluded", {}).values())
-    result = dict(
+    public = PublicBatch(
         batch_id=row["id"],
         source=data["source"],
         complete=data["coverage"]["complete"],
@@ -324,27 +406,29 @@ def _batch_coverage(row, *, include_rows=False):
         window=data["window"],
         source_receipt_sha256=data["source_receipt_sha256"],
         batch_hash=row["hash"],
-        study_link=data.get("study_link"),
+        study_linked=bool(data.get("study_link")),
     )
-    result["declaration_hash"] = digest({key: value for key, value in data.items() if key != "request_id"})
-    if include_rows:
-        result["installs"] = data["installs"]
-    return result
+    return {
+        "public": public,
+        "study_link": data.get("study_link"),
+        "declaration_hash": digest({key: value for key, value in data.items() if key != "request_id"}),
+        "installs": data["installs"] if include_rows else [],
+    }
 
 
-def _coverage_result(batches, study, cutoff=None):
+def _coverage_result(batches: list[BatchCoverage], study: StudyLink | None, cutoff: datetime | None = None):
     reasons = []
     if len({item["declaration_hash"] for item in batches}) > 1:
         reasons.append("MULTIPLE_BATCH_DECLARATIONS")
-    if any(not item["complete"] for item in batches):
+    if any(not item["public"]["complete"] for item in batches):
         reasons.append("INCOMPLETE_COVERAGE")
-    if any(not item["reconciled"] for item in batches):
+    if any(not item["public"]["reconciled"] for item in batches):
         reasons.append("UNRECONCILED_COUNTS")
-    if any(study and item["window"] != study["window"] for item in batches):
+    if any(study and item["public"]["window"] != study["window"] for item in batches):
         reasons.append("STUDY_WINDOW_MISMATCH")
     if any(
-        (cutoff and iso_time(item["window"]["ends_at"]) < cutoff)
-        or iso_time(item["observed_at"]) < (cutoff or iso_time(item["window"]["ends_at"]))
+        (cutoff and iso_time(item["public"]["window"]["ends_at"]) < cutoff)
+        or iso_time(item["public"]["observed_at"]) < (cutoff or iso_time(item["public"]["window"]["ends_at"]))
         for item in batches
     ):
         reasons.append("WINDOW_NOT_FULLY_OBSERVED")
@@ -353,8 +437,8 @@ def _coverage_result(batches, study, cutoff=None):
         study
         and links
         and all(
-            link and link["study_hash"] == study["study_hash"] and item["window"] == study["window"]
-            for link, item in zip(links, batches)
+            link and link["study_hash"] == study["study_hash"] and item["public"]["window"] == study["window"]
+            for link, item in zip(links, batches, strict=True)
         )
     )
     study_status = "LINKED" if linked else "MIXED" if any(links) else "UNLINKED"
@@ -362,7 +446,7 @@ def _coverage_result(batches, study, cutoff=None):
     return status, reasons, study_status
 
 
-def report(store, app_id, user, campaign_token, day=None):
+def report(store, app_id: str, user, campaign_token: str, day: int | None = None) -> Report:
     """Return descriptive install counts and exact coverage, with unknowns kept null."""
     store.app(app_id)
     campaign = _uuid(campaign_token, "Campaign token")
@@ -381,33 +465,25 @@ def report(store, app_id, user, campaign_token, day=None):
             )
         ]
     installs = {}
-    starts = {iso_time(item["window"]["starts_at"]) for item in batches}
+    starts = {iso_time(item["public"]["window"]["starts_at"]) for item in batches}
     if study:
         starts = {iso_time(study["window"]["starts_at"])}
     for item in batches:
-        rows = item.pop("installs")
-        if not study or item["window"] == study["window"]:
+        rows = item["installs"]
+        if not study or item["public"]["window"] == study["window"]:
             for row in rows:
-                installs.setdefault((item["source"], row["install_id"]), row)
+                installs.setdefault((item["public"]["source"], row["install_id"]), row)
     if day is not None and len(starts) > 1:
         raise Invalid("Day views require one frozen campaign window; batches declare different starts")
     campaign_start = next(iter(starts)) if len(starts) == 1 else None
     cutoff = campaign_start + timedelta(days=day) if campaign_start is not None and day is not None else None
     rows = [row for row in installs.values() if cutoff is None or iso_time(row["occurred_at"]) <= cutoff]
     status, reasons, study_status = _coverage_result(batches, study, cutoff)
-    counts = {state: 0 for state in STATES}
+    totals = dict.fromkeys(STATES, 0)
     for row in rows:
-        counts[row["state"]] += 1
-    if status != "COMPLETE":
-        counts = {state: count or None for state, count in counts.items()}
-    public = [
-        dict(
-            {k: v for k, v in item.items() if k not in ("study_link", "declaration_hash")},
-            study_linked=bool(item["study_link"]),
-        )
-        for item in batches
-    ]
-    return dict(
+        totals[row["state"]] += 1
+    counts = {state: (count if status == "COMPLETE" else count or None) for state, count in totals.items()}
+    return Report(
         schema="growth.install-attribution-report.v1",
         app_id=app_id,
         campaign_token=campaign,
@@ -415,7 +491,7 @@ def report(store, app_id, user, campaign_token, day=None):
         recorded=len(rows) if batches else None,
         coverage_status=status,
         coverage_reasons=reasons,
-        batches=public,
+        batches=[item["public"] for item in batches],
         campaign_start=campaign_start.isoformat() if campaign_start else None,
         study=study if study_status == "LINKED" else None,
         study_status=study_status,
@@ -428,12 +504,29 @@ def report(store, app_id, user, campaign_token, day=None):
     )
 
 
-def summary(store, app_id):
+class CampaignSummary(TypedDict):
+    campaign_token: str
+    batches: int
+    coverage_status: str
+    study_status: str
+    last_observed_at: str
+
+
+class Summary(TypedDict):
+    schema: str
+    app_id: str
+    campaigns: list[CampaignSummary]
+    scope: str
+
+
+def summary(store, app_id: str) -> Summary:
     """Workspace-safe metadata using the same coverage rules as the owner report."""
+    from .observational_campaign import CampaignTagConflict
+
     store.app(app_id)
     with connection(store.path) as db:
         db.execute("BEGIN")
-        campaigns = {}
+        campaigns: dict[str, list[BatchCoverage]] = {}
         for row in db.execute(
             "SELECT campaign_token,id,source,data,hash FROM install_attribution_batches "
             "WHERE app_id=? ORDER BY created,id",
@@ -442,17 +535,20 @@ def summary(store, app_id):
             campaigns.setdefault(row["campaign_token"], []).append(_batch_coverage(row))
         result = []
         for token, batches in sorted(campaigns.items()):
-            coverage, _, study_status = _coverage_result(batches, _study_link(db, app_id, token))
+            try:
+                coverage, _, study_status = _coverage_result(batches, _study_link(db, app_id, token))
+            except CampaignTagConflict:
+                coverage, study_status = "PARTIAL", "UNLINKED"
             result.append(
-                dict(
+                CampaignSummary(
                     campaign_token=token,
                     batches=len(batches),
                     coverage_status=coverage,
                     study_status=study_status,
-                    last_observed_at=max(item["observed_at"] for item in batches),
+                    last_observed_at=max(item["public"]["observed_at"] for item in batches),
                 )
             )
-    return dict(
+    return Summary(
         schema="growth.install-attribution-summary.v1",
         app_id=app_id,
         campaigns=result,

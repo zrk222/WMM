@@ -3,6 +3,7 @@
 import unittest
 
 from mission_control.integrity_drill import run
+from mission_control.migrations import BASELINE_VERSION, discovered
 
 
 class IntegrityDrillTests(unittest.TestCase):
@@ -14,7 +15,9 @@ class IntegrityDrillTests(unittest.TestCase):
         self.assertEqual(receipt["backup"]["integrity_check"], ["ok"])
         self.assertTrue(receipt["backup"]["counts_match"])
         self.assertEqual(receipt["replay_after_backup"], [])
-        self.assertEqual(receipt["user_version"], 1)
+        expected_versions = [BASELINE_VERSION, *(version for version, _, _ in discovered())]
+        self.assertEqual(receipt["migrations"], expected_versions)
+        self.assertEqual(receipt["user_version"], expected_versions[-1])
         self.assertTrue(receipt["replay_digest_match"])
         self.assertGreater(receipt["table_count"], 100)
 
