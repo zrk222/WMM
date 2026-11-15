@@ -39,6 +39,20 @@ class DangerZoneTypesTests(unittest.TestCase):
             ],
         )
 
+    def test_reviewed_handler_methods_require_annotations(self) -> None:
+        source = """class Handler:
+    def session(self) -> str: return "token"
+    def boundary(self, write): return "token"
+    def _internal(self, value): return value
+"""
+        self.assertEqual(
+            checker.check_source(source, set(), methods={"Handler": {"session", "boundary"}}),
+            [
+                "Missing parameter annotation: Handler.boundary.write",
+                "Missing return annotation: Handler.boundary",
+            ],
+        )
+
     def test_new_public_framing_function_requires_annotations(self):
         self.assertEqual(
             checker.check_source("async def new(request): pass", set(), all_public=True),

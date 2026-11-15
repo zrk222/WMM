@@ -43,6 +43,7 @@ mission_control/first_party_outcomes.py
 mission_control/first_party_receipts.py
 mission_control/funnel_http.py
 mission_control/http_body.py
+mission_control/http_types.py
 mission_control/hypit_jobs.py
 mission_control/insights.py
 mission_control/install_attribution.py
@@ -131,6 +132,7 @@ tests/test_measurement_economics.py
 tests/test_meta_windowed_spend.py
 tests/test_migrations.py
 tests/test_native_workspace_credential_isolation.py
+tests/test_new_public_annotations.py
 tests/test_observational_campaign.py
 tests/test_observational_campaign_contract.py
 tests/test_operation_docs.py
@@ -180,6 +182,7 @@ tools/check_distribution.py
 tools/check_evidence_budget.py
 tools/check_format.py
 tools/check_layering.py
+tools/check_new_public_annotations.py
 tools/check_schedule_mutations.py
 tools/check_types.py
 tools/ci_host_user.py

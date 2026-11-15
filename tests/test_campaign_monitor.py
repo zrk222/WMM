@@ -175,16 +175,19 @@ class CampaignMonitorTests(unittest.TestCase):
         assert row is not None
         self.assertEqual(row["status"], "ACTIVE_campaign")
 
-    def test_bound_targets_reports_any_paid_target_for_mixed_selection(self):
+    def test_bound_targets_reports_any_paid_target_for_mixed_selection(self) -> None:
         targets = [
             dict(intent_id="post", request_hash="a" * 64),
             dict(intent_id="ad", request_hash="b" * 64),
         ]
-        with patch.object(core, "target_row", side_effect=[(object(), False), (object(), True)]) as target:
-            self.assertTrue(core.bound_targets(None, "sample", "scope", targets))
+        with (
+            connection(self.store.path) as db,
+            patch.object(core, "target_row", side_effect=[(object(), False), (object(), True)]) as target,
+        ):
+            self.assertTrue(core.bound_targets(db, "sample", "scope", targets))
         self.assertEqual(target.call_count, 2)
 
-    def test_protect_skips_non_paid_target_even_with_observed_reason(self):
+    def test_protect_skips_non_paid_target_even_with_observed_reason(self) -> None:
         result = dict(
             id="post",
             status="SUCCEEDED",
@@ -222,7 +225,7 @@ class CampaignMonitorTests(unittest.TestCase):
             )
         service.run_pause.assert_not_called()
 
-    def test_mixed_scope_pauses_paid_target_and_skips_page_post(self):
+    def test_mixed_scope_pauses_paid_target_and_skips_page_post(self) -> None:
         target = {"countries": ["CA"]}
         message = "A synthetic mixed-scope Page update"
         content = digest({"message": message, "link": None})
@@ -302,7 +305,7 @@ class CampaignMonitorTests(unittest.TestCase):
         with self.owner():
             self.assertEqual(self.monitors.status("sample", monitor["id"])["pause_attempts"], 1)
 
-    def test_organic_only_pause_is_rejected_before_saving(self):
+    def test_organic_only_pause_is_rejected_before_saving(self) -> None:
         post = self.fixture.service.list_intents("sample", self.fixture.scope["scope_id"])[0]
         body = self.body(
             scope_id=self.fixture.scope["scope_id"],
@@ -321,7 +324,7 @@ class CampaignMonitorTests(unittest.TestCase):
                 0,
             )
 
-    def test_saved_organic_only_pause_is_blocked(self):
+    def test_saved_organic_only_pause_is_blocked(self) -> None:
         post = self.fixture.service.list_intents("sample", self.fixture.scope["scope_id"])[0]
         with self.owner():
             saved = self.monitors.prepare(
@@ -356,7 +359,7 @@ class CampaignMonitorTests(unittest.TestCase):
             self.assertEqual(shown["status"], "BLOCKED")
             self.assertEqual(shown["attention"], "REVIEW_PAUSE_ELIGIBILITY")
 
-    def test_pause_eligibility_does_not_mask_verification_attention(self):
+    def test_pause_eligibility_does_not_mask_verification_attention(self) -> None:
         post = self.fixture.service.list_intents("sample", self.fixture.scope["scope_id"])[0]
         with self.owner():
             saved = self.monitors.prepare(
@@ -444,7 +447,7 @@ class CampaignMonitorTests(unittest.TestCase):
         self.assertEqual(self.status(monitor)["pause_attempts"], 1)
         self.assertEqual(self.status(monitor)["provider_units"], 8)
 
-    def test_acknowledged_monitor_pause_hands_off_readback_without_replaying_or_charging_a_pause(self):
+    def test_acknowledged_monitor_pause_hands_off_readback_without_replaying_or_charging_a_pause(self) -> None:
         monitor, job = self.job()
         self.wire.objects[self.intent["ids"]["adset"]]["lifetime_budget"] = 999
         read = self.wire.read_paid

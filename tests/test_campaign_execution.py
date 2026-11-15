@@ -694,7 +694,7 @@ class PaidTests(CampaignFixture):
         self.assertIsNone(retained["pause_readback"])
         self.assertEqual(retained["commitment"], 80)
 
-    def test_acknowledged_pause_retry_after_restart_reads_only(self):
+    def test_acknowledged_pause_retry_after_restart_reads_only(self) -> None:
         intent = self.service.run_ad("sample", "owner", self.paid_scope["scope_id"], self.adbody)
         scope_id = self.paid_scope["scope_id"]
         campaign = self.transport.objects[intent["ids"]["campaign"]]
@@ -728,7 +728,7 @@ class PaidTests(CampaignFixture):
             self.assertEqual(result["pause_readback"]["effective_status"], "PAUSED")
             self.assertEqual(result["commitment"], 80)
 
-    def test_stale_pause_readback_cannot_replace_a_newer_delivery_observation(self):
+    def test_stale_pause_readback_cannot_replace_a_newer_delivery_observation(self) -> None:
         intent = self.service.run_ad("sample", "owner", self.paid_scope["scope_id"], self.adbody)
         scope_id = self.paid_scope["scope_id"]
         with patch("mission_control.campaign_pause_receipts.now", return_value="2026-11-15T00:00:00+00:00"):
