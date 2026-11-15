@@ -68,14 +68,13 @@ class DangerZoneTypesTests(unittest.TestCase):
         self.assertIn("mission_control/agent_tasks.py", strict)
 
     def test_agent_task_boundary_names_remain_patchable(self) -> None:
-        from mission_control import agent_tasks
-
         from mission_control import (
             agent_api,
             agent_context,
             agent_contract,
             agent_native,
             agent_registry,
+            agent_tasks,
             agent_usage,
             draft_recipes,
             worker,
