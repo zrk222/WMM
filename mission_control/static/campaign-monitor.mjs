@@ -24,6 +24,62 @@ const WMMCampaignMonitor = (() => {
       (r) => r.scope_id === snapshot.scope.scope_id && r.request_hash && r.id,
     );
   }
+  const paidTarget = (row) => row?.kind === 'AD';
+  function selectedRows(form, rows) {
+    const ids = new Set(new FormData(form).getAll('targets'));
+    return rows.filter((row) => ids.has(row.id));
+  }
+  function pauseEligibility(rows, selected) {
+    if (!rows.some(paidTarget))
+      return {
+        available: false,
+        reason:
+          'No saved paid campaign is in this scope. Page posts are read-only; protective pause is unavailable.',
+      };
+    if (!selected.some(paidTarget))
+      return {
+        available: false,
+        reason: 'Select a paid campaign to enable protective pause. Page posts remain read-only.',
+      };
+    return {
+      available: true,
+      reason:
+        'Protective pause is available for review on the selected paid campaign. Approval and each provider readback remain separate.',
+    };
+  }
+  function pauseMarkup(rows) {
+    const pauseState = pauseEligibility(rows, []);
+    return (
+      '<fieldset data-pause-controls aria-describedby="pause-reason"><legend>Optional protective pause</legend><p id="pause-reason" data-pause-status role="status" aria-live="polite">' +
+      esc(pauseState.reason) +
+      '</p><label class="check-row"><input name="configuration_drift" type="checkbox" disabled>Pause an ' +
+      'identity-matched active campaign after fresh configuration drift is observed.</label><label class="check-row">' +
+      '<input name="active_after_end" type="checkbox" disabled>Pause an owned campaign observed active after its approved end, ' +
+      'before this monitor and scope expire.</label><label class="field">Maximum protective pause attempts<input ' +
+      'name="max_pause_attempts" type="number" min="0" max="20" value="0" required readonly ' +
+      'aria-describedby="pause-reason"></label></fieldset>'
+    );
+  }
+  function syncPauseControls(form, rows) {
+    if (
+      !form ||
+      typeof form.querySelector !== 'function' ||
+      typeof form.querySelectorAll !== 'function'
+    )
+      return;
+    const pauseState = pauseEligibility(rows, selectedRows(form, rows));
+    for (const input of form.querySelectorAll('[data-pause-controls] input[type="checkbox"]')) {
+      input.disabled = !pauseState.available;
+      if (!pauseState.available) input.checked = false;
+    }
+    const attempts = form.querySelector('[data-pause-controls] input[name="max_pause_attempts"]');
+    if (attempts) {
+      if (!pauseState.available) attempts.value = '0';
+      attempts.readOnly = !pauseState.available;
+    }
+    const status = form.querySelector('[data-pause-status]');
+    if (status) status.textContent = pauseState.reason;
+  }
   function proposal(values, selected, scope, clock = Date.now()) {
     const targets = selected.map((r) => ({ intent_id: r.id, request_hash: r.request_hash }));
     if (
@@ -54,6 +110,10 @@ const WMMCampaignMonitor = (() => {
     if (Boolean(conditions.length) !== Boolean(pauses))
       throw Error(
         'Select protective conditions and a positive finite pause allowance together, or set pause attempts to zero.',
+      );
+    if (conditions.length && !selected.some(paidTarget))
+      throw Error(
+        'Protective pause requires a selected paid campaign intent. Page posts are read-only.',
       );
     return {
       scope_id: scope.scope_id,
@@ -139,8 +199,14 @@ const WMMCampaignMonitor = (() => {
       });
       if (!valid(previous)) return;
       const rows = options(snapshot);
-      if (snapshot.scope.status !== 'ACTIVE' || !rows.length)
-        throw Error('This scope needs a saved delivery intent before monitoring.');
+      if (snapshot.scope.status !== 'ACTIVE')
+        throw Error(
+          'This campaign scope is no longer active. Review its saved receipt in Campaigns before monitoring.',
+        );
+      if (!rows.length)
+        throw Error(
+          'This scope has no saved Page post or paid campaign to monitor. Review the campaign in Campaigns and save a delivery intent first.',
+        );
       modal(
         'Set finite monitoring limits',
         '<form id="campaign-monitor-form" class="modal-content"><p>WMM reads only the selected saved intents while this ' +
@@ -167,19 +233,23 @@ const WMMCampaignMonitor = (() => {
           'class="field">Monitoring expiry (local time)<input name="expires_at" type="datetime-local" required></label>' +
           '<p>Must expire by ' +
           esc(snapshot.scope.expires_at) +
-          '. Provider read allowances are independent of emergency pause allowances.</p><fieldset><legend>Optional ' +
-          'protective pause</legend><label class="check-row"><input name="configuration_drift" type="checkbox">Pause an ' +
-          'identity-matched active campaign after fresh configuration drift is observed.</label><label class="check-row">' +
-          '<input name="active_after_end" type="checkbox">Pause an owned campaign observed active after its approved end, ' +
-          'before this monitor and scope expire.</label><label class="field">Maximum protective pause attempts<input ' +
-          'name="max_pause_attempts" type="number" min="0" max="20" value="0" required></label></fieldset><p>Media ' +
+          '. Provider read allowances are independent of emergency pause allowances.</p>' +
+          pauseMarkup(rows) +
+          '<p>Media ' +
           'commitments stay held after pause. Reported spend may lag; this monitor does not enforce a real-time spend ' +
           'threshold.</p><p id="monitor-error" role="alert"></p><button type="submit" class="button primary">Review exact ' +
           'monitoring plan</button>' +
           button('Cancel', 'close') +
           '</form>',
       );
-      active = { scope: previous.scope, node: $('#campaign-monitor-form'), snapshot, rows };
+      const form = $('#campaign-monitor-form');
+      if (form && form.addEventListener) {
+        syncPauseControls(form, rows);
+        form.addEventListener('change', (event) => {
+          if (event.target.name === 'targets') syncPauseControls(form, rows);
+        });
+      }
+      active = { scope: previous.scope, node: form, snapshot, rows };
     } catch (e) {
       if (valid(previous)) previous.node.textContent = e.message;
     } finally {
@@ -194,7 +264,7 @@ const WMMCampaignMonitor = (() => {
   const needsRepair = (data) => data.evidence_unavailable || !data.summary?.proposal;
   const repairNotice =
     'Saved monitor approval evidence is unavailable. Check campaign receipts before approving further monitoring.';
-  function summary(data) {
+  function summary(data, rows = []) {
     if (needsRepair(data)) return '<p role="alert">' + esc(repairNotice) + '</p>';
     const p = data.summary.proposal;
     return (
@@ -214,9 +284,17 @@ const WMMCampaignMonitor = (() => {
       esc(p.max_pause_attempts) +
       '.</p><p>Protective rules: ' +
       esc(p.protective_conditions.map(ruleName).join('; ') || 'None; read-only monitoring') +
-      '</p><details><summary>Exact target IDs and approval binding</summary><ul>' +
+      '</p>' +
+      (p.protective_conditions.length
+        ? '<p>Protective pause applies only to paid campaign targets eligible at pause time. This review does not approve or execute a pause; activation and each provider readback remain separate.</p>'
+        : '') +
+      '<details><summary>Exact target IDs and approval binding</summary><ul>' +
       p.targets
-        .map((t) => '<li>' + esc(t.intent_id) + ' · ' + esc(t.request_hash) + '</li>')
+        .map((t) => {
+          const row = rows.find((item) => item.id === t.intent_id);
+          const kind = row ? (row.kind === 'AD' ? ' · paid campaign' : ' · Page post') : '';
+          return '<li>' + esc(t.intent_id) + ' · ' + esc(t.request_hash) + esc(kind) + '</li>';
+        })
         .join('') +
       '</ul><p>Summary hash ' +
       esc(data.summary_hash) +
@@ -241,7 +319,7 @@ const WMMCampaignMonitor = (() => {
       modal(
         'Approve this monitoring plan',
         '<div id="monitor-review" class="modal-content"><h3>Review exact monitoring authority</h3>' +
-          summary(data) +
+          summary(data, t.rows) +
           '<p>Activation permits the existing worker to read these targets and perform only the selected protective ' +
           'pauses. It cannot publish, create, activate or increase an ad budget. Work stops at expiry or OFF.</p><p ' +
           'id="monitor-error" role="alert"></p>' +
@@ -268,6 +346,8 @@ const WMMCampaignMonitor = (() => {
         return 'This monitoring approval expired. Review a new plan if you want WMM to keep watching this campaign.';
       case 'REVIEW_ALLOWANCE':
         return 'WMM used the approved number of checks or requests. Review the saved result before approving more monitoring.';
+      case 'REVIEW_PAUSE_ELIGIBILITY':
+        return 'This saved monitor requests protective pause for a Page post. Page posts are read-only; approve a new read-only plan without pause conditions, or turn this monitor OFF.';
       default:
         return 'Check the connected account and campaign approval, then review the saved receipt before approving another monitor.';
     }
@@ -464,7 +544,22 @@ const WMMCampaignMonitor = (() => {
       node.disabled = false;
     }
   }
-  return { open, choose, submit, proposal, options, summary, progress, inspect, report, action };
+  return {
+    open,
+    choose,
+    submit,
+    proposal,
+    options,
+    pauseEligibility,
+    pauseMarkup,
+    syncPauseControls,
+    selectedRows,
+    summary,
+    progress,
+    inspect,
+    report,
+    action,
+  };
 })();
 
 export { WMMCampaignMonitor };

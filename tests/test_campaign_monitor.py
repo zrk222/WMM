@@ -10,10 +10,10 @@ import json
 import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from mission_control import campaign_monitor as core
 from mission_control import campaign_monitor_authority as authority
@@ -154,6 +154,134 @@ class CampaignMonitorTests(unittest.TestCase):
             ).fetchone()
         assert row is not None
         self.assertEqual(row["status"], "ACTIVE_campaign")
+
+    def test_bound_targets_reports_any_paid_target_for_mixed_selection(self):
+        targets = [
+            dict(intent_id="post", request_hash="a" * 64),
+            dict(intent_id="ad", request_hash="b" * 64),
+        ]
+        with patch.object(core, "target_row", side_effect=[(object(), False), (object(), True)]) as target:
+            self.assertTrue(core.bound_targets(None, "sample", "scope", targets))
+        self.assertEqual(target.call_count, 2)
+
+    def test_protect_skips_non_paid_target_even_with_observed_reason(self):
+        result = dict(
+            id="post",
+            status="SUCCEEDED",
+            result=dict(
+                observed_at=now(),
+                configuration="CHANGED_OR_UNCONFIRMED_PAUSE_RECOMMENDED",
+                objects=dict(campaign=dict(status="ACTIVE")),
+            ),
+            ids=dict(campaign="campaign-1"),
+        )
+        capability = dict(
+            scope_id=self.fixture.scope["scope_id"],
+            summary=dict(
+                proposal=dict(
+                    targets=[dict(intent_id="post", request_hash="h" * 64)],
+                    protective_conditions=["configuration_drift"],
+                    max_pause_attempts=1,
+                )
+            ),
+        )
+        service = Mock()
+        with (
+            patch.object(core, "connection", return_value=nullcontext(object())),
+            patch.object(core, "target_row", return_value=(object(), False)),
+        ):
+            self.assertIsNone(
+                core.protect(
+                    self.store,
+                    dict(app_id="sample", data=dict(monitor_id="monitor")),
+                    service,
+                    capability,
+                    result,
+                    dict(intent_id="post", request_hash="h" * 64),
+                )
+            )
+        service.run_pause.assert_not_called()
+
+    def test_organic_only_pause_is_rejected_before_saving(self):
+        post = self.fixture.service.list_intents("sample", self.fixture.scope["scope_id"])[0]
+        body = self.body(
+            scope_id=self.fixture.scope["scope_id"],
+            targets=[dict(intent_id=post["id"], request_hash=post["request_hash"])],
+            max_pause_attempts=1,
+            protective_conditions=["configuration_drift"],
+        )
+        with self.owner():
+            with self.assertRaisesRegex(Invalid, "paid campaign"):
+                self.monitors.prepare("sample", body)
+            self.assertEqual(self.monitors.history("sample")["monitors"], [])
+        with connection(self.store.path) as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM campaign_monitors").fetchone()[0], 0)
+            self.assertEqual(
+                db.execute("SELECT count(*) FROM jobs WHERE action='campaign_monitor'").fetchone()[0],
+                0,
+            )
+
+    def test_saved_organic_only_pause_is_blocked(self):
+        post = self.fixture.service.list_intents("sample", self.fixture.scope["scope_id"])[0]
+        with self.owner():
+            saved = self.monitors.prepare(
+                "sample",
+                self.body(
+                    scope_id=self.fixture.scope["scope_id"],
+                    targets=[dict(intent_id=post["id"], request_hash=post["request_hash"])],
+                    max_pause_attempts=0,
+                    protective_conditions=[],
+                ),
+            )
+            self.monitors.activate("sample", saved["id"], saved["summary_hash"])
+        with connection(self.store.path) as db:
+            row = db.execute("SELECT * FROM campaign_monitors WHERE id=?", (saved["id"],)).fetchone()
+            summary = json.loads(row["summary"])
+            summary["proposal"]["max_pause_attempts"] = 1
+            summary["proposal"]["protective_conditions"] = ["configuration_drift"]
+            db.execute(
+                "UPDATE campaign_monitors SET summary=?, summary_hash=? WHERE id=?",
+                (canonical(summary), digest(summary), saved["id"]),
+            )
+            row = db.execute("SELECT * FROM campaign_monitors WHERE id=?", (saved["id"],)).fetchone()
+            with self.assertRaisesRegex(PermissionError, "paid campaign"):
+                core.checked(db, row)
+        with self.owner():
+            shown = self.monitors.status("sample", saved["id"])
+            self.assertEqual(shown["effective_status"], "BLOCKED")
+            self.assertEqual(shown["attention"], "REVIEW_PAUSE_ELIGIBILITY")
+        self.assertEqual(core.tick(self.store), 0)
+        with self.owner():
+            shown = self.monitors.status("sample", saved["id"])
+            self.assertEqual(shown["status"], "BLOCKED")
+            self.assertEqual(shown["attention"], "REVIEW_PAUSE_ELIGIBILITY")
+
+    def test_pause_eligibility_does_not_mask_verification_attention(self):
+        post = self.fixture.service.list_intents("sample", self.fixture.scope["scope_id"])[0]
+        with self.owner():
+            saved = self.monitors.prepare(
+                "sample",
+                self.body(
+                    scope_id=self.fixture.scope["scope_id"],
+                    targets=[dict(intent_id=post["id"], request_hash=post["request_hash"])],
+                    max_pause_attempts=0,
+                    protective_conditions=[],
+                ),
+            )
+            self.monitors.activate("sample", saved["id"], saved["summary_hash"])
+        with connection(self.store.path) as db:
+            row = db.execute("SELECT * FROM campaign_monitors WHERE id=?", (saved["id"],)).fetchone()
+            summary = json.loads(row["summary"])
+            summary["proposal"]["max_pause_attempts"] = 1
+            summary["proposal"]["protective_conditions"] = ["configuration_drift"]
+            db.execute(
+                "UPDATE campaign_monitors SET summary=?, summary_hash=?, last_job=? WHERE id=?",
+                (canonical(summary), digest(summary), "synthetic-monitor-job", saved["id"]),
+            )
+            row = db.execute("SELECT * FROM campaign_monitors WHERE id=?", (saved["id"],)).fetchone()
+            shown = core.view(db, row)
+        self.assertEqual(shown["effective_status"], "BLOCKED")
+        self.assertEqual(shown["attention"], "VERIFY_PROVIDER")
 
     def test_tick_atomic_unique_pending_and_twenty_limit(self):
         monitors = [self.activate() for _ in range(21)]
@@ -623,6 +751,26 @@ class CampaignMonitorTests(unittest.TestCase):
                     "/api/identity/login",
                     dict(token="synthetic_identity_token"),  # noqa: S106 - fake identity adapter
                 )
+                post = self.fixture.service.list_intents("sample", self.fixture.scope["scope_id"])[0]
+                with self.assertRaises(ClientError) as rejected:
+                    client.request(
+                        "POST",
+                        base + "prepare",
+                        dict(
+                            proposal=self.body(
+                                scope_id=self.fixture.scope["scope_id"],
+                                targets=[
+                                    dict(
+                                        intent_id=post["id"],
+                                        request_hash=post["request_hash"],
+                                    )
+                                ],
+                                max_pause_attempts=1,
+                                protective_conditions=["configuration_drift"],
+                            )
+                        ),
+                    )
+                self.assertEqual(rejected.exception.status, 400)
                 saved = client.request("POST", base + "prepare", dict(proposal=self.body()))
                 assert saved is not None
                 active = client.request(
