@@ -1,7 +1,10 @@
 """Trusted-service bridge from scoped delegation to exact independently reviewed writes."""
 
 import json
+import sqlite3
+from collections.abc import Mapping
 from datetime import datetime, timezone
+from typing import cast
 
 from .agent_checkpoints import claim_in_db, persist, prepare_in_db, read_row
 from .agent_grants import authenticated, consume, token_digest
@@ -14,7 +17,7 @@ from .operation_runtime import execute
 from .operator_client import encode_body
 
 
-def saved_request(db, app_id, identity):
+def saved_request(db: sqlite3.Connection, app_id: str, identity: str) -> dict[str, object]:
     """Read only an exact app-owned request and check its frozen grant/input binding."""
     row = db.execute("SELECT * FROM agent_review_requests WHERE app_id=? AND id=?", (app_id, identity)).fetchone()
     if not row:
@@ -127,7 +130,7 @@ class ReviewedDispatch:
                 (app_id, identity, grant["id"], canonical(envelope), input_hash),
             )
             consume(db, grant, envelope, self.clock())
-            return request_view(db, saved_request(db, app_id, identity))
+            return request_view(db, saved_request(db, cast(str, app_id), cast(str, identity)))
 
     def inspect(self, token, app_id, identity):
         """Current grant can inspect its receipt even after its call quota is exhausted."""
@@ -148,7 +151,7 @@ class ReviewedDispatch:
             if view["result"] is not None:
                 raise Invalid("Reviewed request already has a receipt")
             claimed = claim_in_db(db, app_id, identity, grant["agent_id"], revision, packet_hash, self.clock())
-            admission = consume(db, grant, request["envelope"], self.clock())
+            admission = consume(db, grant, cast(Mapping[str, object], request["envelope"]), self.clock())
         from .operation_authority import bound_agent
         from .video_edit_projects import admitted_caller
 
@@ -156,7 +159,13 @@ class ReviewedDispatch:
             id=identity, input_hash=request["input_hash"], packet_hash=claimed["hash"], revision=claimed["revision"]
         )
         with (
-            bound_agent(self.service.store, request["envelope"], admission, review, host_check=self.host_check),
+            bound_agent(
+                self.service.store,
+                cast(Mapping[str, object], request["envelope"]),
+                admission,
+                review,
+                host_check=self.host_check,
+            ),
             admitted_caller(admission),
         ):
             result = run_operation(self.service, request["envelope"], self.executor)

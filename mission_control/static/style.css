@@ -194,3 +194,85 @@
 .saved-run-list {
   grid-template-columns: minmax(0, 1fr);
 }
+
+/* Process colors describe the named state; active work never implies delivery. */
+.status[class] {
+  --process-bg: #edf0f2;
+  --process-ink: #36434b;
+  background: var(--process-bg);
+  color: var(--process-ink);
+  border: 1px solid currentColor;
+  gap: 0.45em;
+  font-variant-numeric: tabular-nums;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.status::before {
+  content: '';
+  inline-size: 0.42em;
+  block-size: 0.42em;
+  flex: 0 0 0.42em;
+  border-radius: 50%;
+  background: currentColor;
+}
+.status:is(.running, .starting, .stopping, .active, .enabled, .in_progress, .processing, .rendering, .uploading, .publishing, .checking, .collecting, .renewing, .retrying, .dispatching) {
+  --process-bg: #e5edf9;
+  --process-ink: #244663;
+}
+.status:is(.queued, .pending, .waiting, .waiting_review, .awaiting_review, .needs_review, .waiting_approval, .pending_review, .waiting_for_reports, .awaiting_analysis, .scheduled, .blocked, .needs_setup, .needs_reconciliation, .unknown, .unconfirmed, .interrupted, .expired, .exhausted, .stale, .not_verified, .not_configured, .retry_wait, .cancel_requested, .recovering) {
+  --process-bg: #f9ebce;
+  --process-ink: #654609;
+}
+.status:is(.succeeded, .success, .complete, .completed, .verified, .verified_applied, .delivered, .published, .measured, .confirmed, .passed, .pass, .ready, .tested_fresh, .healthy) {
+  --process-bg: #e2f2e3;
+  --process-ink: #164c30;
+}
+.status:is(.failed, .error, .rejected, .invalid, .invalid_result, .failed_validation, .denied, .conflict, .breached) {
+  --process-bg: #fbe5e2;
+  --process-ink: #83291f;
+}
+.status:is(.stopped, .paused, .paused_verified, .cancelled, .canceled, .off, .disconnected, .disabled, .not_started, .draft, .idle, .restored_paused) {
+  --process-bg: #edf0f2;
+  --process-ink: #36434b;
+}
+
+/* Analytics colors indicate evidence state; every pill also names the state. */
+.analytics-status {
+  --status-bg: #edf0f2;
+  --status-ink: #36434b;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  margin-block-end: 4px;
+  padding: 3px 9px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: var(--status-bg);
+  color: var(--status-ink);
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+.analytics-status::before { content: ''; inline-size: 0.42em; block-size: 0.42em; border-radius: 50%; background: currentColor; }
+.analytics-status[data-tone='ready'] { --status-bg: #e2f2e3; --status-ink: #164c30; }
+.analytics-status[data-tone='info'] { --status-bg: #e5edf9; --status-ink: #244663; }
+.analytics-status[data-tone='attention'] { --status-bg: #f9ebce; --status-ink: #654609; }
+.analytics-status[data-tone='alert'] { --status-bg: #fbe5e2; --status-ink: #83291f; }
+
+/* Rest, press and selection are separate states; disabled controls stay flat. */
+:where(.button, .icon-button, .sidebar-add):not(:disabled):not([aria-disabled='true']) {
+  box-shadow: inset 0 1px 0 #ffffff24, 0 2px 0 #183d3433;
+}
+:where(.button, .icon-button, .sidebar-add):not(:disabled):active {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 4px #17373130;
+}
+:where(.button, .icon-button, .nav-item)[aria-pressed='true'],
+.nav-item.active { box-shadow: inset 0 2px 4px #17373126; }
+:where(.button, .icon-button):disabled,
+:where(.button, .icon-button)[aria-disabled='true'] { box-shadow: none; transform: none; }
+:where(.button, .icon-button, .nav-item) :where(svg, .action-icon) {
+  filter: drop-shadow(0 1px 1px #142d3524);
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.button, .icon-button, .sidebar-add):is(:hover, :active) { transform: none; transition: none; }
+}

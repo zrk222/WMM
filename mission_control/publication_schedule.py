@@ -3,6 +3,7 @@
 import json
 import math
 import time
+from typing import cast
 
 from .app_launch_history import removed_listing
 from .campaign_access import identity, scope_owner
@@ -107,7 +108,7 @@ def enqueue_approved(store, app_id, authority_id):
     reference(authority_id)
     context, actor = identity(store, app_id)
     owner = scope_owner(store, context, actor)
-    envelope = json.loads(context["envelope"])
+    envelope = json.loads(cast(str, context["envelope"]))
     body = envelope["input"]
     if (
         envelope["operation"] not in ("publication.execute", "publication.activate")

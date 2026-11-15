@@ -1,5 +1,7 @@
 # Wize Marketing Machine
 
+[![WMM growth console: three stations for the goal, work and results](docs/images/wmm-console.webp)](https://zrk222.github.io/WMM/)
+
 **Turn one app-growth question into an evidence-backed marketing experiment.**
 
 Built for founders and marketing teams to promote and manage one app or a portfolio with personal AI agents. Set a goal, repair missing connections and review one Automation agreement. Your agents work within approved limits; each app keeps its own permissions, evidence and reports.

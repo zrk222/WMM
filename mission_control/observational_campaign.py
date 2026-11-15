@@ -91,7 +91,7 @@ def _context(app_id, action, body, store):
     if context is None or context.get("store") != store_identity(store):
         raise PermissionError("Current exact observational-campaign operation authority is required")
     try:
-        envelope = json.loads(context["envelope"])
+        envelope = json.loads(cast(str, context["envelope"]))
     except (KeyError, TypeError, ValueError):
         raise PermissionError("Current exact observational-campaign operation authority is required") from None
     if (

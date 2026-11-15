@@ -51,6 +51,10 @@ jobs:
         env:
           TAG: ${{ inputs.tag }}
         run: test "$TAG" = v0.1.0-preview.10
+      - name: Require publisher browser sign-in configuration
+        env:
+          WMM_GITHUB_DEVICE_CLIENT_ID: ${{ vars.WMM_GITHUB_DEVICE_CLIENT_ID }}
+        run: python -c "import runpy; runpy.run_path('tools/build_desktop.py')['public_device_client'](required=True)"
       - name: Check Windows signing settings before building packages
         if: ${{ !inputs.unsigned_windows_preview10 }}
         env:

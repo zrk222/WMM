@@ -225,13 +225,14 @@ function render() {
     research: researchView,
   };
   $('#main').innerHTML = views[state.view]();
+  const runtimeAnchor = state.view === 'activity' ? $('#activity-front') : $('#main .page-heading');
   if (['agents', 'activity'].includes(state.view))
-    $('#main .page-heading').insertAdjacentHTML(
+    runtimeAnchor.insertAdjacentHTML(
       'afterend',
       WMMAgentControl.panel(state, verifiedOwnerNext(state.workspace, 'connect an agent')),
     );
   if (['agents', 'activity'].includes(state.view))
-    $('#main .page-heading').insertAdjacentHTML(
+    runtimeAnchor.insertAdjacentHTML(
       'afterend',
       WMMCompleteAutomation.panel(state, verifiedOwnerNext(state.workspace, 'manage automation')),
     );
@@ -252,13 +253,17 @@ function render() {
 
   automationDecorateWorkflow();
   WMMPageReports.decorate(state, document);
+  if (state.view === 'activity') {
+    const report = $('#main .page-reporting');
+    if (report) runtimeAnchor.insertAdjacentElement('afterend', report);
+  }
   if (state.view === 'overview') {
     $('#goal-advanced')?.insertAdjacentHTML('beforebegin', WMMOrganicResearch.entry());
     const report = $('#main .page-reporting');
     if (report) $('#goal-advanced > summary').insertAdjacentElement('afterend', report);
   }
   if (['workflow', 'agents', 'activity', 'research'].includes(state.view)) {
-    $('#main .page-heading').insertAdjacentHTML('afterend', WMMTelemetry.panel());
+    runtimeAnchor.insertAdjacentHTML('afterend', WMMTelemetry.panel());
     WMMTelemetry.mount(growthReviewServices());
   }
   WMMPublicationUI?.mount(state, growthReviewServices());
