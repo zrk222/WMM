@@ -346,9 +346,12 @@ class OutcomeTests(unittest.TestCase):
             ),
         )
         self.assertEqual(report["counts"], dict(INSTALL=6, ACTIVATION=0, TRIAL_START=0, PURCHASE=0, RENEWAL=0))
-        partial = self.run_join(product, dict(billing, complete=False))
-        self.assertEqual(partial["subscription_observations"]["trial_to_paid"], 1)
-        self.assertIsNone(partial["subscription_observations"]["trial_to_paid_rate"])
+        partial_billing = billing.copy()
+        partial_billing["complete"] = False
+        partial = self.run_join(product, partial_billing)["subscription_observations"]
+        assert isinstance(partial, dict)
+        self.assertEqual(partial["trial_to_paid"], 1)
+        self.assertIsNone(partial["trial_to_paid_rate"])
 
     def test_partial_and_complete_zero_are_distinct(self) -> None:
         product = batch("posthog")
@@ -361,6 +364,7 @@ class OutcomeTests(unittest.TestCase):
                 )
 
                 subscriptions = result["subscription_observations"]
+                assert isinstance(subscriptions, dict)
                 self.assertEqual(subscriptions["paid_first_opens"], value)
                 self.assertEqual(subscriptions["trial_starters"], value)
                 self.assertEqual(subscriptions["trial_to_paid"], value)
