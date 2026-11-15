@@ -4,6 +4,7 @@ Regenerate with ``python tools/generate_schema_types.py`` after any schema
 change. The core scope is ``db.py`` plus the host-installed ``onesignal_setup``
 schema; domain modules that install their own tables remain separate.
 """
+
 from typing import TypedDict
 
 
@@ -314,6 +315,44 @@ class AutomationPoliciesRow(TypedDict):
     summary_hash: str
     created: str
     updated: str
+
+
+class AutomationRuleProposalsRow(TypedDict):
+    app_id: str
+    owner: str
+    id: str
+    run_id: str
+    action_key: str
+    observed_at: str
+    proposal: str
+    dismissed_at: str | None
+
+
+class AutomationRuleRunsRow(TypedDict):
+    app_id: str
+    owner: str
+    id: str
+    app_version: int
+    rule_version: int
+    observed_at: str
+    receipt: str
+
+
+class AutomationRuleSchedulesRow(TypedDict):
+    app_id: str
+    owner: str
+    owner_version: int
+    app_version: int
+    version: int
+    definition: str
+    definition_hash: str
+    next_due: str
+    expires: str
+    run_count: int
+    max_runs: int
+    status: str
+    receipt_id: str | None
+    stopped_reason: str | None
 
 
 class AutomationRuleSetsRow(TypedDict):

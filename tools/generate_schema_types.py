@@ -18,6 +18,7 @@ Regenerate with ``python tools/generate_schema_types.py`` after any schema
 change. The core scope is ``db.py`` plus the host-installed ``onesignal_setup``
 schema; domain modules that install their own tables remain separate.
 """
+
 from typing import TypedDict
 '''
 

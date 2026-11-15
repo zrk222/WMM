@@ -1,3 +1,4 @@
+import { proposalInboxMarkup } from './automation-proposal-inbox.mjs';
 import { WMMPublicationUI } from './publication.mjs';
 import { status } from './app.mjs';
 import { WMMCampaignPlan } from './feature-apis.mjs';
@@ -406,6 +407,7 @@ function automationRulesPanel() {
   return `<section class="panel" aria-label="Automation rule preview"><details ${selected ? 'open' : ''}><summary>Automation rules</summary><p class="description">See what WMM would suggest using saved evidence. A preview does not approve work, publish or spend.</p>
     ${selected ? `<p><strong>Example for ${esc(selected.link.study.name)}:</strong> If the observation window has ended and coverage is incomplete, suggest collecting the final evidence.</p>${button('Preview this example', 'automation-rules-run', 'data-example="study"')}` : button('Choose study evidence', 'first-post-open')}
     <details><summary>Advanced rule editor</summary><p>Saving adds an immutable version.</p><label class="field" for="automation-rules-json">Rule to preview (JSON)<textarea id="automation-rules-json" name="rules" rows="8" spellcheck="false">${esc(JSON.stringify(sample, null, 2))}</textarea></label><div class="toolbar">${button('Preview draft', 'automation-rules-run')}${button('Load latest into editor', 'automation-rules-load')}${button('Save rules', 'automation-rules-save')}</div></details>
+    <div class="toolbar">${button('View saved recommendations', 'automation-proposals-view')}</div><p id="automation-proposal-status" role="status"></p><div id="automation-proposal-inbox"></div>
     <details><summary>Saved rule versions</summary>${button('Show saved versions', 'automation-rules-history')}<div id="automation-rules-history" aria-live="polite"></div></details><p id="automation-rules-status" class="description" role="status"></p><div id="automation-rules-result" role="status" aria-live="polite"></div></details></section>`;
 }
 
@@ -595,7 +597,9 @@ async function showAutomationVersions(node) {
           .map(
             (row) =>
               `<li>Version ${esc(row.version)} · ${esc(savedWhen(row.created))} · ${esc(row.hash.slice(0, 12))}…
-      ${button(`Preview saved version ${row.version}`, 'automation-rules-run', `data-version="${esc(row.version)}" data-hash="${esc(row.hash)}"`)}</li>`,
+      ${button(`Preview saved version ${row.version}`, 'automation-rules-run', `data-version="${esc(row.version)}" data-hash="${esc(row.hash)}"`)}
+      ${button('Run and save recommendations', 'automation-proposals-run', `data-rule-version="${esc(row.version)}" data-rule-hash="${esc(row.hash)}"`)}
+      ${button('Review schedule', 'automation-proposals-prepare', `data-rule-version="${esc(row.version)}" data-rule-hash="${esc(row.hash)}"`)}</li>`,
           )
           .join('')}</ul>`
       : '<p>No saved rule versions yet.</p>';
@@ -676,7 +680,131 @@ async function manageAutomationRules(node, action) {
   }
 }
 
+async function manageRuleProposals(node, action) {
+  const panel = node.closest('section');
+  const target = panel?.querySelector('#automation-proposal-inbox');
+  const message = panel?.querySelector('#automation-proposal-status');
+  if (!target || !message || panel.dataset.proposalsBusy === 'true') return;
+  const app = state.app;
+  const identity = JSON.stringify(experimentScheduleIdentity());
+  const stillHere = () =>
+    message.isConnected &&
+    target.isConnected &&
+    app === state.app &&
+    identity === JSON.stringify(experimentScheduleIdentity());
+  const path = `/api/apps/${encodeURIComponent(app)}/automation/proposals`;
+  const selected = ruleStudySelection();
+  const saved = { version: Number(node.dataset.ruleVersion), hash: node.dataset.ruleHash };
+  panel.dataset.proposalsBusy = 'true';
+  node.disabled = true;
+  message.textContent = 'Checking saved recommendations…';
+  let actionSaved = false;
+  try {
+    if (action === 'automation-proposals-run') {
+      const body = {
+        app_version: state.workspace.app.version,
+        saved,
+        study: selected?.binding ?? null,
+      };
+      const request = JSON.stringify(body);
+      const previous = panel.pendingProposalRun;
+      const id = previous?.request === request ? previous.id : crypto.randomUUID();
+      panel.pendingProposalRun = { request, id };
+      await api(path + '/run', { ...body, request_id: id });
+      delete panel.pendingProposalRun;
+    } else if (action === 'automation-proposals-dismiss') {
+      await api(path + '/dismiss', { id: node.dataset.proposal });
+    } else if (action === 'automation-proposals-off') {
+      await api(path + '/schedule', { enabled: false, version: Number(node.dataset.version) });
+    } else if (action === 'automation-proposals-start') {
+      const review = panel.proposalScheduleReview;
+      if (
+        !review ||
+        review.appVersion !== state.workspace.app.version ||
+        review.identity !== identity ||
+        JSON.stringify(review.study) !== JSON.stringify(selected?.binding ?? null) ||
+        JSON.stringify(review.saved) !== JSON.stringify(saved)
+      ) {
+        message.textContent =
+          'The app, study or rule selection changed. Review the schedule again.';
+        return;
+      }
+      const interval = panel.querySelector('#proposal-interval');
+      const count = panel.querySelector('#proposal-count');
+      const days = panel.querySelector('#proposal-days');
+      if (![interval, count, days].every((field) => field.reportValidity())) {
+        message.textContent = 'Check the review interval, dates and run limit.';
+        return;
+      }
+      await api(path + '/schedule', {
+        enabled: true,
+        version: node.dataset.version ? Number(node.dataset.version) : null,
+        app_version: state.workspace.app.version,
+        saved,
+        study: selected?.binding ?? null,
+        interval_hours: interval.valueAsNumber,
+        expires_at: new Date(Date.now() + days.valueAsNumber * 86400000).toISOString(),
+        max_runs: count.valueAsNumber,
+      });
+    }
+    actionSaved = [
+      'automation-proposals-run',
+      'automation-proposals-dismiss',
+      'automation-proposals-off',
+      'automation-proposals-start',
+    ].includes(action);
+    const value = await api(path);
+    if (!stillHere() || value.app_id !== app) return;
+    target.innerHTML = proposalInboxMarkup(value, {
+      appVersion: state.workspace?.app?.version,
+      esc,
+      button,
+      savedWhen,
+    });
+    if (action === 'automation-proposals-prepare') {
+      panel.proposalScheduleReview = {
+        appVersion: state.workspace.app.version,
+        identity,
+        study: selected?.binding ?? null,
+        saved,
+      };
+      const attrs = `data-rule-version="${esc(saved.version)}" data-rule-hash="${esc(saved.hash)}" data-version="${esc(value.schedule?.version ?? '')}"`;
+      target.insertAdjacentHTML(
+        'afterbegin',
+        `<fieldset><legend>Schedule local review for rule version ${esc(saved.version)}</legend>
+        <p>WMM will save recommendations from local evidence while it runs. It will not post, spend, or contact providers. ${value.schedule?.status === 'ACTIVE' ? 'Starting replaces the existing schedule.' : ''}</p>
+        <div class="form-grid"><label class="field">Hours between reviews<input id="proposal-interval" type="number" min="1" max="24" value="24" required></label>
+        <label class="field">End after days<input id="proposal-days" type="number" min="2" max="7" value="7" required></label>
+        <label class="field">Maximum reviews<input id="proposal-count" type="number" min="1" max="30" value="6" required></label></div>
+        ${button('Start scheduled reviews', 'automation-proposals-start', attrs)}</fieldset>`,
+      );
+      target.querySelector('#proposal-interval')?.focus();
+    }
+    message.textContent =
+      action === 'automation-proposals-run'
+        ? 'Review saved. Recommendations do not execute.'
+        : action === 'automation-proposals-start'
+          ? 'Scheduled reviews are on.'
+          : action === 'automation-proposals-off'
+            ? 'Scheduled reviews are off.'
+            : action === 'automation-proposals-dismiss'
+              ? 'Recommendation dismissed.'
+              : 'Saved recommendations loaded.';
+    if (!node.isConnected)
+      panel.querySelector('[data-action="automation-proposals-view"]')?.focus();
+  } catch (error) {
+    if (stillHere())
+      message.textContent = actionSaved
+        ? 'Your change was saved. Select View saved recommendations to refresh the inbox.'
+        : 'Could not confirm the update. ' + error.message;
+  } finally {
+    delete panel.dataset.proposalsBusy;
+    if (node.isConnected) node.disabled = false;
+  }
+}
+
 export {
+  manageRuleProposals,
   campaignPlanOpen,
   nextAnswer,
   measuredPostEvidence,

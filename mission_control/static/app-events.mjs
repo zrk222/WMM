@@ -73,6 +73,7 @@ import {
   campaignPlanOpen,
   firstMeasuredPost,
   manageAutomationRules,
+  manageRuleProposals,
   nextAnswer,
   ruleStudySelection,
   runAutomationRulePreview,
@@ -642,6 +643,7 @@ async function handleAction(node) {
     return manageAutomationRules(node, action);
   if (action === 'automation-rules-run') return runAutomationRulePreview(node);
   if (action === 'automation-rules-history') return showAutomationVersions(node);
+  if (action.startsWith('automation-proposals-')) return manageRuleProposals(node, action);
   if (action === 'cloud-connection-test' || action === 'cloud-connection-remove') {
     const form = node.closest('#cloud-connection-form'),
       app = form?.dataset.app;

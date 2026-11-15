@@ -384,6 +384,7 @@ class Handler(BaseHTTPRequestHandler):
             "/app-production.mjs",
             "/app-install.mjs",
             "/app-campaign.mjs",
+            "/automation-proposal-inbox.mjs",
             "/app-results.mjs",
             "/app-connections.mjs",
             "/app-research.mjs",
@@ -564,25 +565,10 @@ class Handler(BaseHTTPRequestHandler):
             with db_connection(store.path) as db:
                 member(db, app_id, user["principal"], "OWNER")
             return self.send(200, CloudConnections(store).current(app_id))
-        if parts[3:] == ["automation", "rules", "history"]:
-            query = urlparse(self.path).query
-            if query and not re.fullmatch(r"before=[1-9][0-9]{0,18}", query):
-                raise Invalid("Use one exact rule history cursor")
-            from .automation_store import version_index
+        if parts[3:4] == ["automation"]:
+            from .automation_http import get
 
-            user, recheck = self.automation_owner_session()
-            result = version_index(store, app_id, user["principal"], int(query[7:]) if query else None)
-            recheck()
-            return self.send(200, result)
-        if parts[3:] == ["automation", "rules"]:
-            if urlparse(self.path).query:
-                raise Invalid("Use the exact automation rules address")
-            from .automation_store import current
-
-            user, recheck = self.automation_owner_session()
-            result = current(store, app_id, user["principal"])
-            recheck()
-            return self.send(200, result)
+            return get(self, app_id, parts[4:])
         if parts[3:] == ["jobs"]:
             if urlparse(self.path).query:
                 raise Invalid("Use the exact app job history address")
@@ -1229,35 +1215,9 @@ class Handler(BaseHTTPRequestHandler):
         return user, lambda: identities.local(session, user["principal"], user["session_generation"])
 
     def post_automation(self, parts, data):
-        """Preview or save local owner-authored rules without granting action authority."""
-        if len(parts) != 5 or parts[4] not in ("evaluate", "rules") or urlparse(self.path).query:
-            raise Invalid("Use the exact automation rule preview or save address")
-        user, recheck = self.automation_owner_session()
-        store = self.server.service.store
-        if parts[4] == "rules":
-            if not isinstance(data, dict) or set(data) != {"document"}:
-                raise Invalid("Submit the exact rules document")
-            from .automation_store import save
+        from .automation_http import post
 
-            return self.send(201, save(store, parts[2], user, data["document"], commit_check=recheck))
-        if not isinstance(data, dict) or set(data) - {"study"} not in ({"rules"}, {"saved"}):
-            raise Invalid("Submit a rules draft or an exact saved version")
-        if "saved" in data and not isinstance(data["saved"], dict):
-            raise Invalid("Choose a saved version and its exact fingerprint")
-        if "study" in data and not isinstance(data["study"], dict):
-            raise Invalid("Choose the exact study and its fingerprint")
-        from .automation_rules import simulate_database
-
-        result = simulate_database(
-            store.path,
-            parts[2],
-            user["principal"],
-            rules=data.get("rules"),
-            reference=data.get("saved"),
-            study=data.get("study"),
-        )
-        recheck()
-        return self.send(200, result)
+        return post(self, parts, data)
 
     def post_cloud_connection(self, parts, data):
         """Owner-only optional personal cloud setup; local mode remains the default."""

@@ -25,6 +25,7 @@ mission_control/static/attribution.mjs
 mission_control/static/audit-runtime.mjs
 mission_control/static/authority-expiry.js
 mission_control/static/automatic-preparation.mjs
+mission_control/static/automation-proposal-inbox.mjs
 mission_control/static/campaign-execution.mjs
 mission_control/static/campaign-monitor.mjs
 mission_control/static/campaign-owner-reports.mjs

@@ -1,0 +1,25 @@
+name: durable-rule-proposals
+language: python
+modules:
+  - name: automation_proposals
+    path: mission_control/automation_proposals.py
+    language: python
+    functions:
+      - name: inbox
+        args: [store, app_id, owner]
+        returns: ProposalInbox
+      - name: run
+        args: [store, app_id, owner, app_version, reference, study]
+        returns: RunReceipt
+  - name: automation_proposal_schedule
+    path: mission_control/automation_proposal_schedule.py
+    language: python
+    functions:
+      - name: tick
+        args: [store]
+        returns: int
+dependencies:
+  - from: automation_proposal_schedule
+    to: automation_proposals
+invariants: []
+
