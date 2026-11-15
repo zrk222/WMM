@@ -60,7 +60,7 @@ def owner(store, app_id):
     context = PROTECTED.get()
     if context is None or "principal" not in context or context["store"] != store_identity(store):
         raise PermissionError("A current protected owner session is required")
-    if json.loads(context["envelope"]).get("app_id") != app_id:
+    if json.loads(cast(str, context["envelope"])).get("app_id") != app_id:
         raise PermissionError("Owner scope belongs to another app")
     with connection(store.path) as db:
         principal = check(db, context)

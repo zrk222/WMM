@@ -2,6 +2,7 @@
 
 import json
 from datetime import datetime, timedelta, timezone
+from typing import cast
 
 from .agent_grants import app_scope, current
 from .common import Invalid, canonical, digest, iso_time, now, required, safe_data, uid
@@ -30,7 +31,7 @@ def _authorized(db, store, app_id, actor, body, operation, agent):
     context = PROTECTED.get()
     if not context or context.get("store") != store_identity(store):
         raise PermissionError("Current protected operation is required")
-    envelope = json.loads(context["envelope"])
+    envelope = json.loads(cast(str, context["envelope"]))
     if (
         envelope.get("app_id") != app_id
         or envelope.get("operation") != operation

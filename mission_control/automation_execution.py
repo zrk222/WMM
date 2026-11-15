@@ -32,7 +32,7 @@ class WorkerLease(TypedDict):
 ACTIVE: ContextVar[StandingExecutionContext | None] = ContextVar("wmm_standing_execution", default=None)
 
 
-def execution_row(db, identity):
+def execution_row(db: Connection, identity: str) -> Row:
     """Require an exact retained execution; identity never comes from an envelope."""
     row = db.execute("SELECT * FROM automation_executions WHERE id=?", (identity,)).fetchone()
     if row is None:

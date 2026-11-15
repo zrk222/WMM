@@ -13,15 +13,16 @@ from .common import canonical, digest
 from .schema_types import AgentGrantsRow
 from .store import Store
 
+
+class IdentitiesLike(Protocol):
+    def local(self, session: str, principal: str, generation: str | None = None) -> Mapping[str, object]: ...
+
+
 Context = dict[str, object]
 
 REQUEST: ContextVar[Context | None] = ContextVar("wmm_operation_authority", default=None)
 PROTECTED: ContextVar[Context | None] = ContextVar("wmm_protected_operation", default=None)
 NATIVE_MEDIA_CHECKING: ContextVar[bool] = ContextVar("wmm_native_media_checking", default=False)
-
-
-class IdentitiesLike(Protocol):
-    def local(self, session: str, principal: str, generation: str | None = None) -> Mapping[str, object]: ...
 
 
 def utc() -> datetime:
@@ -37,21 +38,24 @@ def bound_agent(
     store: Store,
     envelope: Mapping[str, object],
     admission: Mapping[str, object],
-    review: object = None,
+    review: Mapping[str, object] | None = None,
     host_check: Callable[[], object] | None = None,
 ) -> Iterator[None]:
     """Only authenticated dispatchers bind this context; retain no bearer credential."""
     from .db import connection
 
-    context: Context = dict(
-        store=store_identity(store),
-        envelope=canonical(envelope),
-        grant_id=cast(str, admission["grant_id"]),
-        agent_id=cast(str, admission["agent_id"]),
-        attempt=cast(int, admission["attempt"]),
-        review=review,
-        execution_id=cast(str | None, admission.get("automation_execution_id")),
-        host_check=host_check,
+    context = cast(
+        Context,
+        dict(
+            store=store_identity(store),
+            envelope=canonical(envelope),
+            grant_id=cast(str, admission["grant_id"]),
+            agent_id=cast(str, admission["agent_id"]),
+            attempt=cast(int, admission["attempt"]),
+            review=review,
+            execution_id=cast(str | None, admission.get("automation_execution_id")),
+            host_check=host_check,
+        ),
     )
     with connection(store.path) as db:
         row = cast(
@@ -60,7 +64,7 @@ def bound_agent(
         )
         if row is None:
             raise PermissionError("Admitted grant is unavailable")
-        context["grant_version"] = row["version"]
+        context["grant_version"] = cast(int, row["version"])
     token = REQUEST.set(context)
     try:
         yield
@@ -84,14 +88,17 @@ def bound_owner(
     local = identities.local(session, principal)
     with connection(store.path) as db:
         role = member(db, cast(str, envelope["app_id"]), principal, "OWNER")
-    context: Context = dict(
-        store=store_identity(store),
-        envelope=canonical(envelope),
-        principal=principal,
-        role_version=role["version"],
-        identities=identities,
-        session=session,
-        generation=local["session_generation"],
+    context = cast(
+        Context,
+        dict(
+            store=store_identity(store),
+            envelope=canonical(envelope),
+            principal=principal,
+            role_version=role["version"],
+            identities=identities,
+            session=session,
+            generation=cast(str | None, local["session_generation"]),
+        ),
     )
     token = REQUEST.set(context)
     try:
@@ -107,7 +114,6 @@ def check_agent(db: sqlite3.Connection, context: Context, envelope: Mapping[str,
     from . import agent_review_policy
     from .agent_grants import current
 
-    dispatch = cast(Callable[..., object], vars(agent_review_policy)["ordinary_dispatch"])
     row = cast(
         AgentGrantsRow | None,
         db.execute("SELECT * FROM agent_grants WHERE id=?", (context["grant_id"],)).fetchone(),
@@ -119,7 +125,7 @@ def check_agent(db: sqlite3.Connection, context: Context, envelope: Mapping[str,
     if type(attempt) is not int or not 1 <= attempt <= row["used"]:
         raise PermissionError("Grant admission attempt is unavailable")
     if context["review"] is None:
-        dispatch(db, row["id"], envelope["operation"])
+        agent_review_policy.ordinary_dispatch(db, row["id"], cast(str, envelope["operation"]))
     else:
         check_review(db, context, envelope)
     check_standing(db, context, envelope, row)
@@ -133,17 +139,16 @@ def check_standing(
     grant: Mapping[str, object],
 ) -> None:
     """A live standing execution cannot borrow an ordinary or different admission."""
-    from . import automation_execution
+    from .automation_execution import ACTIVE, execution_row
 
-    active = cast(Mapping[str, object] | None, vars(automation_execution)["ACTIVE"].get())
+    active = ACTIVE.get()
     execution_id = context["execution_id"]
     if active is not None and execution_id is None:
         raise PermissionError("Standing operation cannot borrow another admission")
     if execution_id is not None:
         if active is None or active["id"] != execution_id:
             raise PermissionError("Standing operation context is unavailable")
-        row_fn = cast(Callable[..., Mapping[str, object]], vars(automation_execution)["execution_row"])
-        execution = row_fn(db, active["id"])
+        execution = execution_row(db, active["id"])
         actual = (
             active["store"],
             execution["grant_id"],
@@ -157,13 +162,13 @@ def check_standing(
 
 
 def check_review(db: sqlite3.Connection, context: Context, envelope: Mapping[str, object]) -> None:
-    from . import agent_checkpoints, agent_review_dispatch
+    from . import agent_checkpoints
+    from .agent_review_dispatch import saved_request
 
-    request_fn = cast(Callable[..., Mapping[str, object]], vars(agent_review_dispatch)["saved_request"])
     read_fn = cast(Callable[..., Mapping[str, object]], vars(agent_checkpoints)["read_row"])
     current_fn = cast(Callable[..., None], vars(agent_checkpoints)["current"])
     review = cast(Mapping[str, object], context["review"])
-    request = request_fn(db, envelope["app_id"], review["id"])
+    request = saved_request(db, cast(str, envelope["app_id"]), cast(str, review["id"]))
     row = read_fn(db, envelope["app_id"], review["id"], review["revision"])
     packet = cast(Mapping[str, object], row["packet"])
     if (
@@ -201,12 +206,12 @@ def check(db: sqlite3.Connection, context: Context) -> str:
     return cast(str, context["principal"])
 
 
-def guard_connection(path: object, db: sqlite3.Connection) -> None:
+def guard_connection(path: str | Path, db: sqlite3.Connection) -> None:
     """Runs in the business connection at entry and immediately before commit."""
     context = PROTECTED.get()
     if context is None:
         return
-    if str(Path(cast(str, path)).resolve()) != context["store"]:
+    if str(Path(path).resolve()) != context["store"]:
         raise PermissionError("Protected operation cannot cross its local datastore")
     check(db, context)
     checks = context.get("native_media_checks")

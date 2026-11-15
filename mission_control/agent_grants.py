@@ -201,7 +201,7 @@ def _batch_envelope(store, app_id, operation, plan_hash, expires):
     context = PROTECTED.get()
     if not context or context.get("store") != store_identity(store):
         raise PermissionError("Protected batch admission is required")
-    envelope = json.loads(context["envelope"])
+    envelope = json.loads(cast(str, context["envelope"]))
     if (
         envelope["app_id"] != app_id
         or envelope["operation"] != operation
@@ -245,7 +245,7 @@ def capture_batch_authority(db, store, app_id, operation, plan_hash, expires):
         raise Invalid("Batch authority must have a future expiry")
     check(db, context)
     version, app_hash = app_scope(db, app_id)
-    result = dict(
+    result: dict[str, object] = dict(
         schema="growth.batch-authority.v1",
         app_id=app_id,
         operation=operation,
@@ -258,7 +258,11 @@ def capture_batch_authority(db, store, app_id, operation, plan_hash, expires):
     if "grant_id" not in context:
         if deadline > observed + timedelta(hours=24):
             raise Invalid("Owner batch authority remains limited to 24 hours")
-        result.update(kind="OWNER", principal=context["principal"], role_version=context["role_version"])
+        result.update(
+            kind="OWNER",
+            principal=cast(str, context["principal"]),
+            role_version=cast(int, context["role_version"]),
+        )
         return result
     grant = cast(AgentGrantsRow, db.execute("SELECT * FROM agent_grants WHERE id=?", (context["grant_id"],)).fetchone())
     from .authority_expiry import effective_expiry
@@ -271,9 +275,9 @@ def capture_batch_authority(db, store, app_id, operation, plan_hash, expires):
         grant_id=grant["id"],
         grant_version=grant["version"],
         agent_id=grant["agent_id"],
-        attempt=context["attempt"],
-        review=context["review"],
-        execution_id=context.get("execution_id"),
+        attempt=cast(int, context["attempt"]),
+        review=cast(Mapping[str, object] | None, context["review"]),
+        execution_id=cast(str | None, context.get("execution_id")),
         native_host_required=context.get("host_check") is not None,
         grant_consent_revision=grant_proof["revision"],
         grant_consent_hash=grant_proof["receipt_hash"],
@@ -319,7 +323,7 @@ def check_batch_authority(db, store, app_id, reference, plan_hash):
             or not isinstance(host.get("identities"), NativeIdentities)
             or host.get("store") != store_identity(store)
             or host.get("principal") != row["owner"]
-            or json.loads(host["envelope"]).get("app_id") != app_id
+            or json.loads(cast(str, host["envelope"])).get("app_id") != app_id
         ):
             raise PermissionError("Fresh native owner and host verification are required")
         check(db, host)
