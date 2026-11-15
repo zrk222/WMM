@@ -11,7 +11,8 @@
   <link rel="stylesheet" href="/page-reporting.css">
   <link rel="stylesheet" href="/video-editor.css">
   <link rel="stylesheet" href="/packaging.css">
-  <script type="module" src="/dashboard.mjs"></script>
+  <script src="/startup-recovery.js"></script>
+  <script id="workspace-entry" type="module" src="/dashboard.mjs"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to workspace</a>
@@ -40,7 +41,7 @@
     </aside>
     <div class="workspace">
       <header class="topbar"><div class="breadcrumb">Portfolio <span aria-hidden="true">/</span> <strong id="app-name">Loading…</strong></div><div class="top-actions"><span class="local-badge">LOCAL</span><button class="button subtle mobile-add" data-action="add-app" aria-label="Add an app">＋</button><button class="button subtle" id="edit-app">App setup <span aria-hidden="true">↗</span></button></div></header>
-      <main id="main" tabindex="-1"><div class="loading-panel" role="status"><h1>Opening your workspace</h1><p>Your saved evidence and pipeline are loading…</p></div></main>
+      <main id="main" tabindex="-1"><div class="loading-panel" role="status"><h1 id="workspace-boot-heading">Opening your workspace</h1><p id="workspace-boot-message">Your saved evidence and pipeline are loading…</p><a id="workspace-boot-retry" class="button outline" href="/">Reload workspace</a></div></main>
       <footer class="page-footer">Built around evidence. Designed for your next useful move.<span>App Growth / Mission Control</span></footer>
     </div>
   </div>
