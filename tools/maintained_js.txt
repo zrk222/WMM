@@ -91,6 +91,7 @@ tests/activity_timeline_ui.test.cjs
 tests/analytics_inventory.test.mjs
 tests/automation_agreement_ui.test.cjs
 tests/campaign_monitor_ui.test.cjs
+tests/campaign_owner_report_ui.test.cjs
 tests/campaign_plan.test.mjs
 tests/campaign_schedule_ui.test.cjs
 tests/currency_display.test.cjs
