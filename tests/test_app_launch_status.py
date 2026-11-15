@@ -202,6 +202,22 @@ class AppLaunchStatusTests(unittest.TestCase):
         connect["complete"] = False
         self.assertEqual(resolve(connect, [], NOW)["status"], "UNKNOWN")
 
+    def test_public_storefronts_remain_visible_without_proving_release_or_metrics(self) -> None:
+        stale = (NOW - timedelta(days=2)).isoformat()
+        stamp = NOW.isoformat()
+        observations: list[StorefrontRead] = [
+            {"observed_at": stamp, "storefront": "AU", "state": "AVAILABLE"},
+            {"observed_at": stamp, "storefront": "CA", "state": "AVAILABLE"},
+            {"observed_at": stamp, "storefront": "CA", "state": "NOT_LISTED"},
+            {"observed_at": stale, "storefront": "US", "state": "AVAILABLE"},
+        ]
+        result = resolve(None, observations, NOW)
+        self.assertEqual(result["observed_public_storefronts"], ["AU"])
+        self.assertEqual(result["verified_storefronts"], [])
+        self.assertEqual(result["status"], "UNKNOWN")
+        self.assertEqual(result["store_metric_applicability"], "UNKNOWN")
+        self.assertIs(result["authority_issued"], False)
+
     def test_stale_evidence_or_empty_lookup_does_not_certify_availability_or_removal(self) -> None:
         connect: ConnectRead = {
             "observed_at": (NOW - timedelta(days=2)).isoformat(),

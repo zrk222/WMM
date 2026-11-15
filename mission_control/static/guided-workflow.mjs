@@ -535,6 +535,17 @@ function launchStatusPanel(workspace) {
         )}</select></label><button type="submit" class="button outline">Save declaration</button><p role="alert"></p></form></details>`
     : '';
   const countries = (launch.verified_storefronts || []).map(esc).join(', ');
+  const publicCountries = (launch.observed_public_storefronts || []).map(esc).join(', ');
+  const publicOnly =
+    launch.status === 'UNKNOWN' && publicCountries
+      ? '<p>Public listings observed in ' +
+        publicCountries +
+        '. App Store Connect verification and store metrics are still unconfirmed.</p>'
+      : '';
+  const statusCopy =
+    launch.status === 'UNKNOWN' && publicCountries
+      ? 'The app is visible in the checked storefronts. Verify its release to continue.'
+      : copy[launch.status] || copy.UNKNOWN;
   const bindings = (workspace.records || []).filter(
     (row) =>
       row.kind === 'connection' &&
@@ -542,7 +553,7 @@ function launchStatusPanel(workspace) {
       String(row.data.store_app_id) === String(app.data.store_app_id) &&
       row.data.auth_mode !== 'disconnected',
   );
-  return `<section class="panel" aria-label="App Store launch status"><h2>App Store launch status</h2><p>${esc(copy[launch.status] || copy.UNKNOWN)}</p>${conflict}${note}${form}${countries ? `<p>Verified storefronts: ${countries}</p>` : ''}${bindings.length === 1 ? `<form id="goal-launch-check" data-app="${esc(app.id)}" data-version="${app.version}" data-connection="${esc(bindings[0].id)}" data-connection-version="${bindings[0].version}"><label class="field">Storefront country code<input name="storefront" required maxlength="2" pattern="[A-Za-z]{2}" placeholder="CA"></label><button type="submit" class="button outline">Check App Store status</button><p id="goal-launch-error" role="alert"></p></form>` : '<p>Keep one App Store Connect connection for this app to check launch status.</p><button type="button" class="button outline" data-view="connections">Review connections</button>'}</section>`;
+  return `<section class="panel" aria-label="App Store launch status"><h2>App Store launch status</h2><p>${esc(statusCopy)}</p>${publicOnly}${conflict}${note}${form}${countries ? `<p>Verified storefronts: ${countries}</p>` : ''}${bindings.length === 1 ? `<form id="goal-launch-check" data-app="${esc(app.id)}" data-version="${app.version}" data-connection="${esc(bindings[0].id)}" data-connection-version="${bindings[0].version}"><label class="field">Storefront country code<input name="storefront" required maxlength="2" pattern="[A-Za-z]{2}" placeholder="CA"></label><button type="submit" class="button outline">Check App Store status</button><p id="goal-launch-error" role="alert"></p></form>` : '<p>Keep one App Store Connect connection for this app to check launch status.</p><button type="button" class="button outline" data-view="connections">Review connections</button>'}</section>`;
 }
 
 async function submitLaunchDeclaration(form) {
