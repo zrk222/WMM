@@ -9,7 +9,8 @@
     "mission_control/automation_execution.py",
     "mission_control/campaign_schedule.py",
     "mission_control/agent_tasks.py",
-    "mission_control/agent_context.py"
+    "mission_control/agent_context.py",
+    "mission_control/agent_contract.py"
   ],
   "extraPaths": [
     "."
