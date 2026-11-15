@@ -1,8 +1,9 @@
 """Unified provider health: login and publishing access stay separate from analytics permission."""
 
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
+
 from mission_control.common import canonical
 from mission_control.provider_health import project, recovery_text
 from mission_control.service import Service
@@ -60,6 +61,19 @@ def workspace():
 class ProviderHealthTests(unittest.TestCase):
     def entries(self):
         return {item["provider"]: item for item in project(workspace())["entries"]}
+
+    def test_unavailable_store_vault_does_not_request_replacing_the_key(self):
+        value = workspace()
+        value["connections"]["store-1"]["status"] = "PROTECTED_STORAGE_UNAVAILABLE"
+        recovery = project(value)["recovery"]
+        self.assertEqual(recovery["state"], "PROTECTED_STORAGE_UNAVAILABLE")
+        self.assertEqual(recovery["permission_state"], "ANALYTICS_READ_UNVERIFIED")
+        self.assertEqual(recovery["recovery_route"], "connections")
+        action = recovery_text(recovery)
+        self.assertIn("unlock protected storage on the computer running WMM", action)
+        self.assertNotIn("Reconnect", action)
+        value["connections"]["store-1"]["status"] = "RECONNECT_REQUIRED"
+        self.assertIn("Reconnect", recovery_text(project(value)["recovery"]))
 
     def test_store_key_presence_is_not_analytics_permission(self):
         entries = self.entries()

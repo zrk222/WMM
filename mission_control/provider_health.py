@@ -51,7 +51,12 @@ def _store_records(workspace):
             continue
         status = (statuses.get(record.get("id")) or {}).get("status", "UNKNOWN")
         scope = {key: data[key] for key in ("store_app_id", "account_id") if data.get(key)}
-        if status in ("RECONNECT_REQUIRED", "PROTECTED_STORAGE_UNAVAILABLE", "DISCONNECTED"):
+        if status == "PROTECTED_STORAGE_UNAVAILABLE":
+            action, route = (
+                "Restore or unlock protected storage on the computer running WMM, then test read access again",
+                "connections",
+            )
+        elif status in ("RECONNECT_REQUIRED", "DISCONNECTED"):
             action, route = "Reconnect this protected key and test its current scope", "connections"
         elif status == "ENVIRONMENT_REFERENCE":
             action, route = "Move this access into protected local storage", "connections"
