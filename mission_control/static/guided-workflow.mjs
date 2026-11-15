@@ -203,12 +203,12 @@ function guidedWorker() {
     queue: 'Local job queue',
   };
   const failed = Object.values(rows).some((r) => r.failures > 0);
-  return `<section class="panel" aria-label="Automatic workflow health"><h2>Automatic workflow</h2><p>${esc(label(worker.status || 'NOT_STARTED'))} · Shared worker for app workspaces on this host.</p><ul>${Object.entries(
+  return `<section class="panel" aria-label="Automatic workflow health"><h2>Automatic workflow</h2><p><span data-guided-worker-state>${status('CHECKING')}</span> · Shared worker for app workspaces on this host.</p><p>Component status from the last workspace refresh:</p><ul>${Object.entries(
     rows,
   )
     .map(
       ([name, row]) =>
-        `<li>${esc(names[name] || name)}: ${esc(label(row.status))}${row.failures ? ` · ${row.failures} consecutive failures` : ''}</li>`,
+        `<li>${esc(names[name] || name)}: ${status(row.status || 'UNKNOWN')}${row.failures ? ` · ${row.failures} consecutive failures` : ''}</li>`,
     )
     .join(
       '',
@@ -688,7 +688,14 @@ const WMMGoalReadiness = (() => {
     );
   }
   function valid(t) {
-    return active === t && same(t.scope, snapshot()) && t.node?.isConnected && $('#modal').open;
+    return (
+      active === t &&
+      t.node?.isConnected &&
+      $('#modal')?.open &&
+      state.workspace?.app?.id === state.app &&
+      same(t.scope, snapshot()) &&
+      owner()
+    );
   }
   function owner() {
     return state.workspace.access?.members?.some(
@@ -716,6 +723,17 @@ const WMMGoalReadiness = (() => {
       agent_connection_id: values.agent_connection_id || null,
       social_connection_ids: values.social_connection_ids || [],
     };
+  }
+  function formSelection(form, saved) {
+    const fields = new FormData(form);
+    return selection(
+      {
+        ...Object.fromEntries(fields),
+        workflows: fields.getAll('workflows'),
+        social_connection_ids: fields.getAll('social_connection_ids'),
+      },
+      saved,
+    );
   }
   const blockerHelp = {
     EXACT_OWNER_CAMPAIGN_SCOPE_REQUIRED:
@@ -762,9 +780,42 @@ const WMMGoalReadiness = (() => {
   function statusLabel(value) {
     return label(statusLabels, value, 'Needs review');
   }
+  function nextRepair(inventory, repairs) {
+    const blockers = new Set(inventory.workflows.flatMap((w) => w.blockers));
+    const credentials = Object.values(repairs);
+    if (credentials.includes('PROTECTED_STORAGE_UNAVAILABLE'))
+      return ['Check protected credential storage', 'connections'];
+    if (
+      credentials.includes('RECONNECT_REQUIRED') ||
+      blockers.has('FRESH_DESTINATION_ACCOUNT_REQUIRED') ||
+      blockers.has('PUBLICATION_CONNECTION_REQUIRED') ||
+      blockers.has('PUBLICATION_ADAPTER_REQUIRED')
+    )
+      return ['Repair the selected social connection', 'social-accounts'];
+    if (blockers.has('FRESH_INFERENCE_TEST_REQUIRED')) return ['Repair agent connection', 'agents'];
+    if (blockers.has('EXACT_CURRENT_OWNER_PUBLICATION_APPROVAL_REQUIRED'))
+      return ['Review organic publication', 'organic-publication'];
+    if (blockers.has('EXACT_OWNER_CAMPAIGN_SCOPE_REQUIRED'))
+      return ['Review campaign scope', 'campaign'];
+    if (inventory.scope_status === 'READY_FOR_SCOPE_REVIEW' && !credentials.length)
+      return ['Review automation agreement', 'combined-agreement'];
+    return null;
+  }
   function markup(data) {
     const i = data.inventory;
     const repairs = data.credential_repairs || {};
+    const next = nextRepair(i, repairs);
+    const action = (title, tool, style = 'outline') =>
+      button(title, 'goal-repair', 'data-tool="' + tool + '"', style);
+    const related = [
+      ['Repair agent connection', 'agents'],
+      ['Open social account setup', 'social-accounts'],
+      ['Review automation agreement', 'combined-agreement'],
+    ];
+    if (i.workflows.some((w) => w.id === 'organic_publication'))
+      related.push(['Review organic publication', 'organic-publication']);
+    if (i.workflows.some((w) => ['social_publish', 'paid_effects'].includes(w.id)))
+      related.push(['Review campaign scope', 'campaign']);
     const repairCopy = {
       RECONNECT_REQUIRED:
         'Reconnect Facebook in Connections. This device is missing the saved login.',
@@ -828,7 +879,13 @@ const WMMGoalReadiness = (() => {
     return (
       '<h3>' +
       esc(statusLabel(Object.keys(repairs).length ? 'BLOCKED' : i.scope_status)) +
-      '</h3><p>Checked ' +
+      '</h3>' +
+      (next
+        ? '<div class="next-step"><p><strong>Next step</strong></p>' +
+          action(...next, 'primary') +
+          '</div>'
+        : '') +
+      '<p>Checked ' +
       esc(data.observed_at) +
       '. No approval, grant, job or campaign has been created.</p><ul>' +
       workflows +
@@ -839,15 +896,10 @@ const WMMGoalReadiness = (() => {
       '. Provider quota remains unknown.</p><p>Selected destinations: ' +
       (i.accounts.length ? i.accounts.map(destination).join('; ') : 'None') +
       '</p><p>Readiness permits scope review only. Campaign publishing and paid work need their own exact owner scope; editor/runtime blockers remain visible.</p><div class="toolbar">' +
-      button('Repair agent connection', 'goal-repair', 'data-tool="agents"') +
-      button('Open social account setup', 'goal-repair', 'data-tool="social-accounts"') +
-      button('Review automation agreement', 'goal-repair', 'data-tool="combined-agreement"') +
-      (i.workflows.some((w) => w.id === 'organic_publication')
-        ? button('Review organic publication', 'goal-repair', 'data-tool="organic-publication"')
-        : '') +
-      (i.workflows.some((w) => ['social_publish', 'paid_effects'].includes(w.id))
-        ? button('Review campaign scope', 'goal-repair', 'data-tool="campaign"')
-        : '') +
+      related
+        .filter(([, tool]) => tool !== next?.[1])
+        .map(([title, tool]) => action(title, tool))
+        .join('') +
       '</div><details><summary>Technical details</summary><p>Scope: ' +
       esc(i.scope_status) +
       ' · agent: ' +
@@ -941,7 +993,7 @@ const WMMGoalReadiness = (() => {
           ? '<p>No social destination is connected for this app. Connect the account you want to publish to, then return here to check it. Connecting an account gives no permission to publish or spend.</p>' +
             button('Connect a social account', 'goal-repair', 'data-tool="social-accounts"')
           : '') +
-        '</fieldset><p>Analytics imports and provider-specific connection tests remain in Connections and Results; this inventory checks the selected agent/workflow scope, not every KPI collector.</p><p id="goal-readiness-error" role="alert"></p><button type="submit" class="button">Check selected connections</button>' +
+        '</fieldset><p>Analytics imports and provider-specific connection tests remain in Connections and Results; this inventory checks the selected agent/workflow scope, not every KPI collector.</p><p id="goal-readiness-status" role="status"></p><p id="goal-readiness-error" role="alert"></p><button type="submit" class="button">Check selected connections</button>' +
         button('Cancel', 'close') +
         '</form>',
     );
@@ -949,21 +1001,33 @@ const WMMGoalReadiness = (() => {
   }
   async function submit(form) {
     const t = active;
-    if (!t || t.pending || !valid(t)) return;
+    if (!t || t.node !== form || t.pending || !valid(t)) return;
     t.pending = true;
     const submit = form.querySelector('[type=submit]');
+    const progress = $('#goal-readiness-status');
+    const error = $('#goal-readiness-error');
+    let reviewed;
+    const stillSelected = () => {
+      if (!valid(t)) return false;
+      try {
+        if (!reviewed || JSON.stringify(formSelection(form, t.scope)) === reviewed) return true;
+      } catch {
+        // An incomplete new selection also invalidates the earlier request.
+      }
+      error.textContent = 'Your selection changed. Check the selected connections again.';
+      return false;
+    };
     submit.disabled = true;
+    error.textContent = '';
+    progress.textContent = 'Checking selected connections…';
     try {
-      const fd = new FormData(form),
-        values = Object.fromEntries(fd);
-      values.workflows = fd.getAll('workflows');
-      values.social_connection_ids = fd.getAll('social_connection_ids');
-      const body = selection(values, t.scope);
+      const body = formSelection(form, t.scope);
+      reviewed = JSON.stringify(body);
       const data = await api(
         '/api/apps/' + encodeURIComponent(t.scope.app) + '/agent-grants/automation-readiness',
         body,
       );
-      if (valid(t)) {
+      if (stillSelected()) {
         modal(
           'WMM-managed readiness checklist',
           '<div class="modal-content">' + markup(data) + '</div>',
@@ -971,9 +1035,9 @@ const WMMGoalReadiness = (() => {
         active = null;
       }
     } catch (e) {
-      if (valid(t))
-        $('#goal-readiness-error').textContent = e.message + ' Your selections are preserved.';
+      if (stillSelected()) error.textContent = e.message + ' Your selections are preserved.';
     } finally {
+      progress.textContent = '';
       t.pending = false;
       submit.disabled = false;
     }
@@ -1568,6 +1632,30 @@ const WMMAgreement = (() => {
       'Local-work spend limit ' + (l.spend_limit_minor ?? 'Unavailable') + ' minor',
     ];
   }
+  function scheduleReportNotes(schedule, approval) {
+    if (!schedule) return ['No batch'];
+    return [
+      'Batch ' + schedule.id + ' ' + schedule.effective_status,
+      'Schedule approval expires ' + (schedule.permission_expires_at || 'Unavailable'),
+      'Saved batch fingerprint ' + (schedule.summary_hash || 'Unavailable'),
+      ...schedule.items.flatMap((item) => scheduleItemReportNotes(item, approval)),
+    ];
+  }
+  function scheduleItemReportNotes(item, approval) {
+    const operation = item.operation || 'campaign.publish';
+    const id = item.item_id || 'Unknown';
+    const notes = [
+      `Item ${id} ${operation} · due ${item.due_at || 'Unknown'} · Scope destination ${scopeDestination(operation, approval)} · ${item.effective_status || 'Unknown'}`,
+      `Item ${id} evidence: approved request ${item.input_hash || 'Unavailable'} · local job ${item.job_id || 'Not recorded'} (${item.job_status || 'Unknown'}) · provider intent ${item.intent?.id || 'Not recorded'} (${item.intent?.status || 'Unknown'})`,
+    ];
+    if (operation === 'campaign.ad-launch') {
+      const ids = Object.entries(item.intent?.ids || {}).map(([key, value]) => key + ': ' + value);
+      notes.push(
+        `Media budget ${item.request.lifetime_budget_minor} minor ${approval?.currency || 'Unknown'} · held ${item.intent?.commitment ?? 'Not yet recorded'} · ends ${item.request.end_time} · saved provider IDs ${ids.join('; ') || 'Not recorded'}`,
+      );
+    }
+    return notes;
+  }
   function reportModel(data, base) {
     const s = data.summary,
       c = s.campaign;
@@ -1604,34 +1692,10 @@ const WMMAgreement = (() => {
         ...localWorkReportNotes(s.local_work),
         ...(c ? campaignReportNotes(c) : ['No campaign']),
         ...monitorReportNotes(s.monitor),
-        s.schedule ? 'Batch ' + s.schedule.id + ' ' + s.schedule.effective_status : 'No batch',
-        ...(s.schedule?.items || []).map(
-          (i) =>
-            'Item ' +
-            (i.item_id || 'Unknown') +
-            ' ' +
-            (i.operation || 'campaign.publish') +
-            ' · due ' +
-            (i.due_at || 'Unknown') +
-            ' · Scope destination ' +
-            scopeDestination(i.operation || 'campaign.publish', c?.approval) +
-            ' · ' +
-            (i.effective_status || 'Unknown') +
-            (i.operation === 'campaign.ad-launch'
-              ? ' · media budget ' +
-                i.request.lifetime_budget_minor +
-                ' minor ' +
-                (c?.approval.currency || 'Unknown') +
-                ' · held ' +
-                (i.intent?.commitment ?? 'Not yet recorded') +
-                ' · ends ' +
-                i.request.end_time +
-                ' · saved provider IDs ' +
-                Object.entries(i.intent?.ids || {})
-                  .map(([k, v]) => k + ': ' + v)
-                  .join('; ')
-              : ''),
-        ),
+        ...scheduleReportNotes(s.schedule, c?.approval),
+        'Next step: ' + guidance(s).next,
+        ...(s.stop_rules || []).map((rule) => 'Stop rule: ' + rule),
+        ...(s.revocation ? ['Stopping work: ' + s.revocation] : []),
         'Private content, rights prose and credentials are excluded. Business improvement is not established.',
       ],
     };

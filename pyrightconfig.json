@@ -1,23 +1,16 @@
 {
-  "typeCheckingMode": "standard",
-  "pythonVersion": "3.11",
-  "strict": [
-    "mission_control/review_access.py",
-    "mission_control/http_body.py",
-    "mission_control/agent_grants.py",
-    "mission_control/operation_authority.py",
-    "mission_control/automation_execution.py"
-  ],
-  "extraPaths": [
-    "."
-  ],
-  "reportMissingImports": "error",
-  "reportMissingTypeStubs": "none",
-  "exclude": [
-    ".factory",
-    "node_modules",
-    "**/__pycache__",
-    "mission_control/static"
-  ],
-  "include": []
+    "typeCheckingMode": "standard",
+    "pythonVersion": "3.11",
+    "strict": [
+        "mission_control/review_access.py",
+        "mission_control/http_body.py",
+        "mission_control/agent_grants.py",
+        "mission_control/operation_authority.py",
+        "mission_control/automation_execution.py",
+    ],
+    "extraPaths": ["."],
+    "reportMissingImports": "error",
+    "reportMissingTypeStubs": "none",
+    "exclude": [".factory", "node_modules", "**/__pycache__", "mission_control/static"],
+    "include": [],
 }

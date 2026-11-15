@@ -35,6 +35,7 @@ mission_control/creative_rendering.py
 mission_control/creative_toolchain.py
 mission_control/db.py
 mission_control/desktop.py
+mission_control/device_signin.py
 mission_control/discovery_contract.py
 mission_control/discovery_http.py
 mission_control/drive_import_jobs.py
@@ -120,7 +121,9 @@ tests/test_customer_workflow_ui_http.py
 tests/test_danger_zone_types.py
 tests/test_dependency_freshness.py
 tests/test_desktop_entry.py
+tests/test_desktop_public_config.py
 tests/test_desktop_release.py
+tests/test_device_signin.py
 tests/test_evidence_gate.py
 tests/test_experiments.py
 tests/test_feedback_reuse.py
@@ -215,6 +218,7 @@ tools/preview_video/capture.py
 tools/publish_desktop_release.py
 tools/query_budget.py
 tools/run_ci_tests.py
+tools/smoke_desktop_bundle.py
 tools/source_ratchet.py
 tools/test_agreement_paid_browser.py
 tools/test_campaign_monitor_browser.py

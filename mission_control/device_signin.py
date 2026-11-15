@@ -6,24 +6,41 @@ import os
 import re
 import secrets
 import time
+from pathlib import Path
+from urllib.error import URLError
 from urllib.parse import urlencode
 from urllib.request import Request
-from urllib.error import URLError
 
 from .common import Invalid
 from .operator_identity import _github_opener, github_read
-
 
 VERIFY_URL = "https://github.com/login/device"
 MAX_ATTEMPTS = 32
 MAX_AGE = 900
 TOKEN = re.compile(r"[A-Za-z0-9_]{20,256}")
+PUBLIC_CONFIG = Path(__file__).with_name("public-config.json")
+
+
+def bundled_client_id() -> str:
+    """Read only the publisher's public identifier; malformed bundles stay unavailable."""
+    try:
+        with PUBLIC_CONFIG.open("rb") as stream:
+            raw = stream.read(1025)
+        if len(raw) > 1024:
+            return ""
+        data = json.loads(raw)
+    except (OSError, ValueError):
+        return ""
+    if not isinstance(data, dict) or set(data) != {"github_device_client_id"}:
+        return ""
+    value = data["github_device_client_id"]
+    return value if isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9_]{10,64}", value) else ""
 
 
 def request(path, fields):
     """POST only to GitHub's fixed device endpoints with native TLS and no redirects."""
     urls = {"begin": VERIFY_URL + "/code", "poll": "https://github.com/login/oauth/access_token"}
-    call = Request(
+    call = Request(  # noqa: S310 - both URLs are fixed GitHub HTTPS endpoints
         urls[path],
         urlencode(fields).encode("ascii"),
         method="POST",
@@ -46,7 +63,7 @@ def request(path, fields):
 
 class DeviceSignIns:
     def __init__(self, identities, client_id=None, clock=time.monotonic):
-        raw = os.environ.get("WMM_GITHUB_DEVICE_CLIENT_ID", "") if client_id is None else client_id
+        raw = os.environ.get("WMM_GITHUB_DEVICE_CLIENT_ID", bundled_client_id()) if client_id is None else client_id
         self.client_id = raw if re.fullmatch(r"[A-Za-z0-9_]{10,64}", raw) else ""
         self.identities = identities
         self.lock = identities.lock
@@ -98,7 +115,7 @@ class DeviceSignIns:
             self._prune()
             if self.identities.public(session)["status"] != "SIGNED_OUT":
                 raise PermissionError("Sign out before connecting a different GitHub account.")
-            flow = self.flows.get(session)
+            flow: dict | None = self.flows.get(session)
             if flow and flow["app"] == app:
                 return self._summary(flow)
             if len(self.flows) >= MAX_ATTEMPTS and flow is None:

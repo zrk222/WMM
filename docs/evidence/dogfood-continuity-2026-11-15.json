@@ -1,0 +1,151 @@
+{
+  "schema": "wmm.dogfood-continuity.v1",
+  "id": "V05",
+  "observed_at": "2026-11-15T09:17:20.183240+00:00",
+  "classification": "PRIVATE_APP_READBACK_AND_SYNTHETIC_INSTALL_CHECK",
+  "private_artifacts_sha256": {
+    "packet_readback": "7a1ec8868de07cfd7955d7cb9f1a8f437c8cbcea1803443a54d15312e3c0200b",
+    "readiness": "10381095ed2f951e97cf237304e43a3de323ce11f725731b6ae7f84b82c1067d",
+    "installed_first_use": "c0076ff6ccbf13501c7c5a3f106fd394d867d50d8b5e8ae7b46880094cab5d80"
+  },
+  "app_workspaces": [
+    {
+      "app": "WizeMe.APP",
+      "viewport_px": 1440,
+      "goal_packets": [
+        "research",
+        "creative",
+        "campaign",
+        "measurement"
+      ],
+      "browser_elapsed_seconds": 3.7,
+      "apple_credential": "RECONNECT_REQUIRED",
+      "apple_schedule": "PAUSED",
+      "apple_retained_inventory": "WAITING_FOR_REPORTS",
+      "retained_apple_report_families": 5,
+      "facebook_check": "PROTECTED_ACCESS_UNAVAILABLE",
+      "retained_verified_facebook_intents": 1,
+      "queued_or_running_jobs": 0
+    },
+    {
+      "app": "SUDHĪ",
+      "viewport_px": 390,
+      "goal_packets": [
+        "research",
+        "creative",
+        "campaign",
+        "measurement"
+      ],
+      "browser_elapsed_seconds": 3.23,
+      "apple_credential": "NO_SAVED_CONNECTION",
+      "apple_schedule": null,
+      "apple_retained_inventory": null,
+      "retained_apple_report_families": 0,
+      "facebook_check": "NO_SAVED_DESTINATION",
+      "retained_verified_facebook_intents": 0,
+      "queued_or_running_jobs": 0
+    }
+  ],
+  "installed_windows": {
+    "classification": "INSTALLED_WINDOWS_SYNTHETIC_NO_OWNER_WORKSPACE",
+    "viewports_px": [
+      1440,
+      390
+    ],
+    "goal_packets_per_viewport": 4,
+    "same_app_bindings_after_restart": true,
+    "read_only_on_restart": true,
+    "first_time_human_acceptance": "NOT_RUN"
+  },
+  "fresh_provider_requests": 0,
+  "publications": 0,
+  "media_spend_minor": 0,
+  "campaign_outcome": null,
+  "marketing_lift": null,
+  "elapsed_time_scope": "Automated loopback packet export only; not a manual comparison or full campaign cycle.",
+  "e14_fixed_window_recheck": {
+    "observed_at": "2026-11-15T09:22:58.982234+00:00",
+    "window": {
+      "start_at": "2026-11-07T13:48:46.754Z",
+      "end_at": "2026-11-09T13:48:46.754Z"
+    },
+    "marketing_lift": null,
+    "new_publications": 0,
+    "media_spend_minor": 0,
+    "state": "OBSERVED",
+    "source": "analytics_external_web_traffic_events",
+    "transaction_read_only": true,
+    "tls_verified": true,
+    "aggregate_only": true,
+    "query_sha256": "89344a1b6ef3d4752d2c00d38515c033ffa05c2f10b1f05de15064b2d448ec5c",
+    "earlier_receipt_sha256": "28fd9e963fbcd7b31ba917a919de793e84a864d823bd5898a9ddedf90d0ca0b5",
+    "counts": {
+      "eligible_page_view_events": 29,
+      "e14_tagged_page_view_events": 0,
+      "confirmed_registration_events": 0,
+      "e14_confirmed_registration_events": 0
+    },
+    "same_counts_as_earlier": true,
+    "conversion_rate": null,
+    "decision": "RETAIN_INCONCLUSIVE"
+  },
+  "installed_owner_workspace_readback": {
+    "observed_at": "2026-11-15T09:47:33.496613+00:00",
+    "classification": "INSTALLED_WINDOWS_OWNER_WORKSPACE_HEADLESS",
+    "apps": [
+      {
+        "app": "WizeMe.APP",
+        "loaded": true,
+        "saved_jobs": 36,
+        "owner_session_signed_in": false
+      },
+      {
+        "app": "SUDHĪ",
+        "loaded": true,
+        "saved_jobs": 0,
+        "owner_session_signed_in": false
+      }
+    ],
+    "historical_campaign_job_attempts": 1,
+    "historical_verified_post_count": 1,
+    "duplicate_intents_created": false,
+    "credential_migration": false,
+    "live_delivery_reverified": false,
+    "new_publications": 0,
+    "media_spend_minor": 0,
+    "private_receipt_sha256": "75d039942d7c4c4173846f0d1075fb8b748eff797c01ecf3731de4c4459e0b1e"
+  },
+  "installed_ui_campaign_review": {
+    "observed_at": "2026-11-15T09:49:22.416058+00:00",
+    "workflows": [
+      {
+        "app": "WizeMe.APP",
+        "selected_goal": "campaign",
+        "opened_goal_packet": true,
+        "download_button_clicked": true,
+        "packet_classification": "LOCAL_DRAFT_NO_AUTHORITY",
+        "missing_stage_inputs": [
+          4,
+          6
+        ]
+      },
+      {
+        "app": "SUDHĪ",
+        "selected_goal": "campaign",
+        "opened_goal_packet": true,
+        "download_button_clicked": true,
+        "packet_classification": "LOCAL_DRAFT_NO_AUTHORITY",
+        "missing_stage_inputs": [
+          4,
+          6
+        ],
+        "own_social_connection": "NOT_CONFIGURED",
+        "app_selection_isolated": true
+      }
+    ],
+    "private_receipt_sha256": "6d74a984f16a07bccfeb187daef6732e09a5ccf7b4381e4eb2714bd1934b3c1a",
+    "evidence_boundary": "Observed installed UI and clicked download; downloaded file path was not supplied by the browser tool.",
+    "new_publications": 0,
+    "media_spend_minor": 0
+  }
+}
