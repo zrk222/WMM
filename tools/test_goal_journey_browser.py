@@ -1,17 +1,21 @@
 """Actual goal-first home, synthetic apps, no provider or campaign execution."""
 
+import json
+import sys
+import threading
 from pathlib import Path
-import json, sys, threading
+
+from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from playwright.sync_api import sync_playwright, expect
-from mission_control.server import Server
-from mission_control.worker import jobs
-from tests.test_guided_workflow import GuidedWorkflowTests
 
 
 def run(browser, width, out):
+    from mission_control.server import Server
+    from mission_control.worker import jobs
+    from tests.test_guided_workflow import GuidedWorkflowTests
+
     fixture = GuidedWorkflowTests()
     fixture.setUp()
     fixture.store.save_app(
@@ -37,7 +41,10 @@ def run(browser, width, out):
     page.on("request", lambda request: writes.append(request.url) if request.method == "POST" else None)
     try:
         page.goto("http://127.0.0.1:" + str(server.server_port))
-        page.wait_for_function('(context) => {const state=context.state;return (() => state.workspace?.app?.id===state.app)(context.original);}', arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': None})
+        page.wait_for_function(
+            "(context) => {const state=context.state;return (() => state.workspace?.app?.id===state.app)(context.original);}",
+            arg={"state": page.evaluate_handle("async () => (await import('/app.mjs')).state"), "original": None},
+        )
         expect(page.get_by_role("heading", name="Set your goal", exact=True)).to_be_visible()
         expect(page.get_by_role("region", name="Start your first experiment")).to_be_visible()
         intro = page.get_by_role("region", name="Start your first experiment")
@@ -143,14 +150,32 @@ def run(browser, width, out):
         page.screenshot(path=str(out / f"goal-home-{width}.png"), full_page=True)
         (out / f"goal-home-{width}.html").write_text(page.content(), encoding="utf-8")
         page.locator("#app-select").select_option("sample-two")
-        page.wait_for_function('(context) => {const state=context.state;return (expected => state.workspace?.app?.id===expected)(context.original);}', arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': 'sample-two'})
+        page.wait_for_function(
+            "(context) => {const state=context.state;return (expected => state.workspace?.app?.id===expected)(context.original);}",
+            arg={
+                "state": page.evaluate_handle("async () => (await import('/app.mjs')).state"),
+                "original": "sample-two",
+            },
+        )
         expect(page.get_by_role("region", name="Your selected goal")).to_have_count(0)
         page.get_by_role("button", name="Understand app results", exact=True).click()
         page.locator("#app-select").select_option("sample-one")
-        page.wait_for_function('(context) => {const state=context.state;return (expected => state.workspace?.app?.id===expected)(context.original);}', arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': 'sample-one'})
+        page.wait_for_function(
+            "(context) => {const state=context.state;return (expected => state.workspace?.app?.id===expected)(context.original);}",
+            arg={
+                "state": page.evaluate_handle("async () => (await import('/app.mjs')).state"),
+                "original": "sample-one",
+            },
+        )
         expect(page.get_by_role("heading", name="Run an approved campaign", exact=True)).to_be_visible()
         page.reload()
-        page.wait_for_function('(context) => {const state=context.state;return (expected => state.workspace?.app?.id===expected)(context.original);}', arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': 'sample-one'})
+        page.wait_for_function(
+            "(context) => {const state=context.state;return (expected => state.workspace?.app?.id===expected)(context.original);}",
+            arg={
+                "state": page.evaluate_handle("async () => (await import('/app.mjs')).state"),
+                "original": "sample-one",
+            },
+        )
         expect(page.get_by_role("heading", name="Run an approved campaign", exact=True)).to_be_visible()
         page.locator("#goal-advanced > summary").click()
         with page.expect_popup() as popup_info:
