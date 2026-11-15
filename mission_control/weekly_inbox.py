@@ -6,8 +6,10 @@ from typing import Any
 
 from .common import Invalid, digest, iso_time, now
 from .weekly_controls import decision_controls
+from .weekly_exception_card import exception_card as _card
 from .weekly_plan_status import owned_job, plan_issue
 from .weekly_plan_status import saved as _saved
+from .weekly_rule_exception import rule_schedule_exception
 
 EXPIRY_HORIZON = timedelta(days=7)
 
@@ -343,17 +345,22 @@ def operation_exceptions(store, app, user):
     with connection(store.path) as db:
         db.execute("BEGIN")
         try:
-            role = member(db, app["id"], principal)["role"]
+            membership = member(db, app["id"], principal)
+            role = membership["role"]
         except PermissionError:
             return []
         if role not in ("OWNER", "CHECKER", "MAKER"):
             return []
         tables = {row["name"] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         cards = _agent_review_cards(db, app, principal, role, tables)
-        if role != "OWNER" or "campaign_scopes" not in tables:
+        if role != "OWNER":
             return cards
+        if "automation_rule_schedules" in tables:
+            rule_issue = rule_schedule_exception(db, app, principal, membership["version"])
+            if rule_issue is not None:
+                cards.append(rule_issue)
         try:
-            return cards + _operation_rows(db, app, principal, tables)
+            return cards + _operation_rows(db, app, principal, tables) if "campaign_scopes" in tables else cards
         except Exception:  # noqa: BLE001 - preserve source-health card for unexpected failures
             return cards + [
                 _card(
@@ -1005,47 +1012,4 @@ def _plan_card(db, app, principal, row, tool, unresolved):
         {},
         source,
         2,
-    )
-
-
-def _card(
-    app,
-    principal,
-    category,
-    identity,
-    state,
-    title,
-    reason,
-    repair,
-    tool,
-    refs,
-    source,
-    priority,
-):
-    receipt = dict(
-        app_id=app["id"],
-        manifest_version=app["version"],
-        source_hash=digest(source),
-        observed_at=now(),
-        source_updated_at=source.get("updated"),
-    )
-    return dict(
-        id=digest([app["id"], category, identity]),
-        app_id=app["id"],
-        app_name=app["data"]["name"],
-        category=category,
-        priority=priority,
-        state=state,
-        title=title,
-        reason=reason,
-        next_action=repair,
-        resolution_route=tool,
-        action=dict(tool=tool, resource_id=identity, **refs),
-        source_receipt=receipt,
-        change="CURRENT_EXCEPTION_NO_PRIOR_DELIVERY_COMPARISON",
-        cost_minor=None,
-        owner="App owner",
-        owner_only=True,
-        owner_principal=principal,
-        evidence=source,
     )

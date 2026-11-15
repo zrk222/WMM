@@ -296,3 +296,62 @@ test('damaged review metadata opens the existing queue rather than a synthetic m
   });
   assert.deepEqual(calls, ['refresh', 'control-queue']);
 });
+
+test('rule schedule recovery is same-app, owner matched, and opens the read-only Results action', async () => {
+  const first = src.indexOf('async function weeklyAction(');
+  const end = src.indexOf('function ', first + 10);
+  for (const scenario of ['valid', 'wrong version', 'owner changed', 'foreign']) {
+    const calls = [];
+    const review = { focus: () => calls.push('focus'), click: () => calls.push('read inbox') };
+    const details = { open: false, querySelector: () => review };
+    const card = {
+      app_id: scenario === 'foreign' ? 'two' : 'one',
+      category: 'rule_schedule',
+      resolution_route: 'results',
+      owner_only: true,
+      owner_principal: 'owner',
+      action: { resource_id: '3' },
+    };
+    const state = {
+      app: 'one',
+      view: 'weekly',
+      boot: { apps: [{ id: 'one' }] },
+      workspace: { identity: { principal: 'owner' } },
+      weeklyReview: { owner_operations_principal: 'owner', exceptions: [card] },
+    };
+    const context = {
+      state,
+      $: () => ({}),
+      currentWorkspace: () => true,
+      visibleWeeklyExceptions: c.visibleWeeklyExceptions,
+      guidedNavigate: (view) => calls.push(view),
+      document: { querySelector: () => details },
+      refresh: async () => {
+        calls.push('refresh');
+        if (scenario === 'owner changed') state.workspace.identity.principal = 'other';
+      },
+    };
+    vm.createContext(context);
+    vm.runInContext(src.slice(first, end), context);
+    const action = context.weeklyAction({
+      dataset: {
+        action: 'weekly-recover',
+        app: 'one',
+        tool: 'results',
+        category: 'rule_schedule',
+        resource: scenario === 'wrong version' ? '4' : '3',
+      },
+    });
+    if (scenario === 'foreign' || scenario === 'wrong version') {
+      await assert.rejects(action, /Refresh the weekly review/);
+      assert.deepEqual(calls, []);
+    } else {
+      await action;
+      assert.deepEqual(
+        calls,
+        scenario === 'valid' ? ['refresh', 'results', 'focus', 'read inbox'] : ['refresh'],
+      );
+    }
+    assert.equal(details.open, scenario === 'valid');
+  }
+});
