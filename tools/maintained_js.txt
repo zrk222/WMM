@@ -104,6 +104,7 @@ tests/mmp_import_model.test.mjs
 tests/operation_feedback.test.cjs
 tests/organic_research_ui.test.cjs
 tests/page_reporting.test.cjs
+tests/process_status_ui.test.cjs
 tests/publication_ui.test.cjs
 tests/weekly_operation_ui.test.cjs
 tests/wmm_hero_vendor.test.mjs
