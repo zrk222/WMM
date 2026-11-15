@@ -7,6 +7,7 @@ Unified owner-facing inspection of existing separately enforced workflow/campaig
 
 ### Requirements (EARS)
 - The system shall display existing owner workflow policies, campaign scopes and scheduled batches for exact selection through `agreement_select`.
+- The picker shall read saved scope families independently with one bounded wait. Show an unavailable history separately from a verified empty history. Allow read-only retry, retain healthy choices, and disable review when no usable scope loaded. A late result may not reopen another app’s picker.
 - When the owner submits a selection, the system shall display the `hash-bound combined agreement` without issuing authority through `agreement_read`.
 - If app, version, principal or dialog changes, the system shall reject late agreement readback through `agreement_stale`.
 - The system shall emit a `sanitized owner report` containing identifiers, status and approved resource allowances without private copy or credentials through `agreement_report`.
