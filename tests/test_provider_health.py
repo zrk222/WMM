@@ -1,15 +1,16 @@
 """Unified provider health: login and publishing access stay separate from analytics permission."""
 
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
+
 from mission_control.common import canonical
 from mission_control.provider_health import project, recovery_text
 from mission_control.service import Service
 from mission_control.store import Store
 
 
-def workspace():
+def workspace(*, store_status: str = "RECONNECT_REQUIRED", posthog_error: str | None = None):
     return dict(
         records=[
             dict(
@@ -19,7 +20,7 @@ def workspace():
             ),
             dict(kind="connection", id="ads-1", data=dict(provider="apple_ads", store_app_id="123", account_id="456")),
         ],
-        connections={"store-1": {"status": "RECONNECT_REQUIRED"}, "ads-1": {"status": "PROTECTED_KEY_PRESENT"}},
+        connections={"store-1": {"status": store_status}, "ads-1": {"status": "PROTECTED_KEY_PRESENT"}},
         insights={
             "sources": [
                 dict(
@@ -27,7 +28,7 @@ def workspace():
                     status="CONNECTED",
                     updated="2026-11-01T00:00:00+00:00",
                     data=dict(project_id="project-1"),
-                    last_error=None,
+                    last_error=posthog_error,
                 ),
                 dict(
                     provider="clarity",
@@ -61,6 +62,17 @@ class ProviderHealthTests(unittest.TestCase):
     def entries(self):
         return {item["provider"]: item for item in project(workspace())["entries"]}
 
+    def test_unavailable_store_vault_does_not_request_replacing_the_key(self):
+        recovery = project(workspace(store_status="PROTECTED_STORAGE_UNAVAILABLE"))["recovery"]
+        assert recovery is not None
+        self.assertEqual(recovery["state"], "PROTECTED_STORAGE_UNAVAILABLE")
+        self.assertEqual(recovery["permission_state"], "ANALYTICS_READ_UNVERIFIED")
+        self.assertEqual(recovery["recovery_route"], "connections")
+        action = recovery_text(recovery)
+        self.assertIn("unlock protected storage on the computer running WMM", action)
+        self.assertNotIn("Reconnect", action)
+        self.assertIn("Reconnect", recovery_text(project(workspace())["recovery"]))
+
     def test_store_key_presence_is_not_analytics_permission(self):
         entries = self.entries()
         store = entries["app_store"]
@@ -92,15 +104,16 @@ class ProviderHealthTests(unittest.TestCase):
 
     def test_one_highest_priority_recovery_and_no_secret_leakage(self):
         value = project(workspace())
-        self.assertEqual(value["recovery"]["provider"], "app_store")
-        self.assertIn("Reconnect", recovery_text(value["recovery"]))
+        recovery = value["recovery"]
+        assert recovery is not None
+        self.assertEqual(recovery["provider"], "app_store")
+        self.assertIn("Reconnect", recovery_text(recovery))
         encoded = canonical(value)
         for private in ("PRIVATE_CREDENTIAL", "api_key", "token", "secret"):
             self.assertNotIn(private, encoded)
 
     def test_ambiguous_failure_is_sanitized_and_empty_is_explicit(self):
-        value = workspace()
-        value["insights"]["sources"][0]["last_error"] = "Token expired for project; see private response"
+        value = workspace(posthog_error="Token expired for project; see private response")
         entry = {item["provider"]: item for item in project(value)["entries"]}["posthog"]
         self.assertEqual(entry["failure"], "READ_FAILED")
         empty = project({})
