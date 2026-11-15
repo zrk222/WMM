@@ -51,8 +51,11 @@ def _checked_policy(
     from . import complete_automation
 
     check = cast(
-        Callable[..., tuple[Mapping[str, object], Mapping[str, object]]],
-        vars(complete_automation)["checked_policy"],
+        Callable[
+            [Connection, object, datetime],
+            tuple[Mapping[str, object], Mapping[str, object]],
+        ],
+        vars(complete_automation).get("checked_policy"),
     )
     return check(db, policy_id, observed)
 
@@ -60,7 +63,10 @@ def _checked_policy(
 def _verify_access(store: Store, app_id: str, identity: str) -> None:
     from . import complete_automation
 
-    verify = cast(Callable[..., None], vars(complete_automation)["verify_access"])
+    verify = cast(
+        Callable[[object, str, str], None],
+        vars(complete_automation).get("verify_access"),
+    )
     verify(store, app_id, identity)
 
 
@@ -181,8 +187,14 @@ def check_job(db: Connection, context: StandingExecutionContext, execution: Row)
     if data.get("native_runtime") == "IOS_LOCAL_V1":
         from . import ios_jobs
 
-        source_hash = cast(Callable[..., str], vars(ios_jobs)["source_hash"])
-        require_native_sources = cast(Callable[..., None], vars(ios_jobs)["require_native_sources"])
+        source_hash = cast(
+            Callable[[Connection, str], str],
+            vars(ios_jobs).get("source_hash"),
+        )
+        require_native_sources = cast(
+            Callable[[Connection, str], None],
+            vars(ios_jobs).get("require_native_sources"),
+        )
         app = db.execute("SELECT version,data FROM apps WHERE id=?", (row["app_id"],)).fetchone()
         if (
             app is None
@@ -303,11 +315,11 @@ def execute_admitted(
 
     dispatcher = cast(
         Callable[[ServiceLike, Mapping[str, object]], object],
-        vars(operation_runtime)["execute"],
+        vars(operation_runtime).get("execute"),
     )
     admitted_caller = cast(
         Callable[[Mapping[str, object]], AbstractContextManager[None]],
-        vars(video_edit_projects)["admitted_caller"],
+        vars(video_edit_projects).get("admitted_caller"),
     )
     with bound_agent(service.store, envelope, admission), admitted_caller(admission):
         return dispatch_admitted(service, envelope, admission, dispatcher)
@@ -334,13 +346,17 @@ def dispatch_admitted(
 
 
 @contextmanager
-def job_execution(store: Store, job: WorkerLease) -> Iterator[None]:
+def job_execution(store: Store, job: Mapping[str, object] | None) -> Iterator[None]:
     """Workers inherit only their durable exact job scope, never ambient credentials."""
     from .complete_automation import utc
     from .db import connection
 
+    lease = cast(WorkerLease, job)
     with connection(store.path) as db:
-        row = db.execute("SELECT execution_id FROM automation_job_scopes WHERE job_id=?", (job["id"],)).fetchone()
+        row = db.execute(
+            "SELECT execution_id FROM automation_job_scopes WHERE job_id=?",
+            (lease["id"],),
+        ).fetchone()
         if row is not None:
             execution = execution_row(db, row["execution_id"])
             policy, summary = _checked_policy(db, execution["policy_id"], utc())
@@ -355,7 +371,7 @@ def job_execution(store: Store, job: WorkerLease) -> Iterator[None]:
     if row is None:
         yield
         return
-    with bound(store, cast(str, row["execution_id"]), job):
+    with bound(store, cast(str, row["execution_id"]), lease):
         with connection(store.path):
             pass
         yield
