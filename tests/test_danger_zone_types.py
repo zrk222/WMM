@@ -61,6 +61,7 @@ class DangerZoneTypesTests(unittest.TestCase):
 
     def test_strict_allowlist_includes_reviewed_authority_modules(self) -> None:
         strict = json.loads((ROOT / "pyrightconfig.json").read_text(encoding="utf-8"))["strict"]
+        self.assertIn("mission_control/agent_grants.py", strict)
         self.assertIn("mission_control/operation_authority.py", strict)
 
     def test_generated_rows_reject_wrong_grant_and_role_fields(self):

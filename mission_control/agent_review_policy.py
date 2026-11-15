@@ -14,9 +14,12 @@ def validate(body: object) -> list[str]:
         raise Invalid("Review operations must be a subset of granted operations")
     body = cast(dict[str, object], body)
     selected = body.get("review_operations", [])
-    granted = cast(list[str], body["operations"])
-    if not isinstance(selected, list) or any(not isinstance(name, str) or name not in granted for name in selected):
+    if not isinstance(selected, list):
         raise Invalid("Review operations must be a subset of granted operations")
+    if selected:
+        granted = body.get("operations")
+        if not isinstance(granted, list) or any(not isinstance(name, str) or name not in granted for name in selected):
+            raise Invalid("Review operations must be a subset of granted operations")
     if len(selected) != len(set(selected)) or any(OPERATIONS[name]["method"] != "POST" for name in selected):
         raise Invalid("Review policy accepts unique local write operations only")
     return sorted(cast(list[str], selected))
