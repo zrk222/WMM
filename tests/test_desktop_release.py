@@ -64,23 +64,25 @@ class ReleaseTests(unittest.TestCase):
         self.folder = Path(self.temp.name)
         for platform, name in release.ASSETS.items():
             prefix = "windows" if platform == "Windows" else "ubuntu"
+            browser_runs = []
             for phase in ("fresh", "upgrade"):
                 evidence = self.folder / (prefix + "-" + phase) / "evidence.json"
                 evidence.parent.mkdir()
-                evidence.write_text(
-                    json.dumps(
-                        dict(
-                            github_sha=SHA,
-                            offline_restart="PASS_SAME_PRIVATE_WORKSPACE_AND_BROWSER_STORAGE",
-                            network="BROWSER_EXTERNAL_BLOCKED_NOT_OS_OFFLINE",
-                        )
-                    )
+                proof = dict(
+                    github_sha=SHA,
+                    executable_sha256="c" * 64,
+                    offline_restart="PASS_SAME_PRIVATE_WORKSPACE_AND_BROWSER_STORAGE",
+                    network="BROWSER_REQUESTS_MONITORED_NO_EXTERNAL_OBSERVED",
                 )
+                evidence.write_text(json.dumps(proof), encoding="utf-8")
+                browser_runs.append(json.dumps(dict(first_packet=proof, phase=prefix + "-" + phase)))
             asset = self.folder / name
             asset.write_bytes(b"synthetic installer " + platform.encode())
-            result = self.folder / "lifecycle.json"
+            result = self.folder / (prefix + "-lifecycle.json")
             result.write_text(
-                json.dumps(
+                "\n".join(browser_runs)
+                + "\n"
+                + json.dumps(
                     dict(
                         status="PASS",
                         install="VERIFIED",
@@ -113,6 +115,22 @@ class ReleaseTests(unittest.TestCase):
                     )
                 )
             )
+
+    def test_receipt_rejects_same_commit_proof_from_different_executable(self):
+        proof = self.folder / "windows-fresh" / "evidence.json"
+        data = json.loads(proof.read_text(encoding="utf-8"))
+        proof.write_text(json.dumps(dict(data, executable_sha256="d" * 64)), encoding="utf-8")
+        target = self.folder / "new.json"
+        with self.assertRaisesRegex(ValueError, "Missing source-bound"):
+            release.receipt(
+                "Windows",
+                SHA,
+                self.folder / "WMM-Setup.exe",
+                self.folder / "windows-lifecycle.json",
+                target,
+                self.folder,
+            )
+        self.assertFalse(target.exists())
 
     def test_both_passed_assets_and_manifest(self):
         paths = release.validate_assets(self.folder, SHA)

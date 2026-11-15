@@ -22,6 +22,60 @@ STAGE = HARNESS["STAGE"]
 
 
 class HostServiceContractTests(unittest.TestCase):
+    def test_job_history_retries_only_timeout_within_the_read_budget(self):
+        poll = HARNESS["job_history_reads"]
+        calls = []
+
+        def read(client, origin, path, *, timeout):
+            calls.append((path, timeout))
+            if len(calls) == 1:
+                raise TimeoutError("slow local test server")
+            return []
+
+        ticks = iter((0.0, 0.05, 0.06, 0.31, 0.32))
+        clock = types.SimpleNamespace(monotonic=lambda: next(ticks), sleep=lambda _seconds: None)
+        with patch.dict(poll.__globals__, {"request_json": read, "time": clock}):
+            self.assertEqual(next(poll(None, "fixture", 1)), [])
+        self.assertEqual([path for path, _ in calls], [f"/api/apps/{APP}/jobs"] * 2)
+        self.assertGreater(calls[0][1], calls[1][1])
+        self.assertTrue(all(0 < timeout <= 1 for _, timeout in calls))
+
+        def rejected(*args, **kwargs):
+            raise PermissionError("not permitted")
+
+        with (
+            patch.dict(poll.__globals__, {"request_json": rejected}),
+            self.assertRaisesRegex(PermissionError, "not permitted"),
+        ):
+            next(poll(None, "fixture", 1))
+
+    def test_job_history_never_accepts_a_late_read_or_retries_past_deadline(self):
+        poll = HARNESS["job_history_reads"]
+
+        def exercise(instants, timed_out, expected):
+            ticks = iter(instants)
+            clock = types.SimpleNamespace(monotonic=lambda: next(ticks), sleep=lambda _seconds: None)
+            deadlines = []
+
+            def read(client, origin, path, *, timeout):
+                deadlines.append(timeout)
+                if timed_out:
+                    raise TimeoutError("slow local test server")
+                return [{"status": "SUCCEEDED"}]
+
+            with patch.dict(poll.__globals__, {"request_json": read, "time": clock}):
+                self.assertEqual(list(poll(None, "fixture", 1)), [])
+            self.assertEqual(len(deadlines), expected)
+            self.assertTrue(all(0 < timeout < 1 for timeout in deadlines))
+
+        cases = (
+            ((0.0, 0.75, 1.02), False, 1),
+            ((0.0, 0.2, 0.3, 0.55, 0.9, 1.01), True, 2),
+        )
+        for instants, timed_out, expected in cases:
+            with self.subTest(timed_out=timed_out):
+                exercise(instants, timed_out, expected)
+
     def test_keyring_readiness_uses_exact_bus_and_requires_a_default_collection(self):
         open_keyring = HARNESS["open_disposable_keyring"]
         bus = "unix:path=/run/user/1002/bus"
@@ -162,27 +216,27 @@ class HostServiceContractTests(unittest.TestCase):
             lambda r: r.update(status="FAILED"),
         ]
         function = HARNESS["completed_job"]
-        with patch.dict(function.__globals__, {"request_json": lambda *args: [good]}):
+        with patch.dict(function.__globals__, {"request_json": lambda *args, **kwargs: [good]}):
             self.assertEqual(function(None, "unused", "job-one", "key", HARNESS["APP_FACTS"], timeout=1), good)
         for change in changes:
             row = copy.deepcopy(good)
             change(row)
             with (
                 self.subTest(row=row),
-                patch.dict(function.__globals__, {"request_json": lambda *args, row=row: [row]}),
+                patch.dict(function.__globals__, {"request_json": lambda *args, row=row, **kwargs: [row]}),
                 self.assertRaises(AssertionError),
             ):
                 function(None, "unused", "job-one", "key", HARNESS["APP_FACTS"], timeout=1)
         for rows in ([], [good, copy.deepcopy(good)]):
             with (
                 self.subTest(rows=rows),
-                patch.dict(function.__globals__, {"request_json": lambda *args, rows=rows: rows}),
+                patch.dict(function.__globals__, {"request_json": lambda *args, rows=rows, **kwargs: rows}),
                 self.assertRaises(AssertionError),
             ):
                 function(None, "unused", "job-one", "key", HARNESS["APP_FACTS"], timeout=1)
         pending = {**good, "status": "QUEUED", "result": None}
         with (
-            patch.dict(function.__globals__, {"request_json": lambda *args: [pending]}),
+            patch.dict(function.__globals__, {"request_json": lambda *args, **kwargs: [pending]}),
             self.assertRaisesRegex(RuntimeError, "timeout"),
         ):
             function(None, "unused", "job-one", "key", HARNESS["APP_FACTS"], timeout=0.02)

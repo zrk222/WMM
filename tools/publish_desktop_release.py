@@ -31,7 +31,8 @@ def validate_target(sha, main_sha, ref, repository, tag):
 
 
 def receipt(platform, sha, asset, lifecycle, destination, evidence_root=None):
-    data = json.loads(Path(lifecycle).read_text(encoding="utf-8-sig").splitlines()[-1])
+    lines = Path(lifecycle).read_text(encoding="utf-8-sig").splitlines()
+    data = json.loads(lines[-1])
     removal = "uninstall" if platform == "Windows" else "removal"
     if (
         platform not in ASSETS
@@ -48,19 +49,32 @@ def receipt(platform, sha, asset, lifecycle, destination, evidence_root=None):
         Path(evidence_root) if evidence_root else Path(__file__).resolve().parents[1] / ".factory/packaged-first-packet"
     )
     prefix = "windows" if platform == "Windows" else "ubuntu"
+    browser_runs = {}
+    for line in lines[:-1]:
+        if not line.startswith('{"first_packet":'):
+            continue
+        row = json.loads(line)
+        label = row.get("phase")
+        if label in browser_runs or label not in (prefix + "-fresh", prefix + "-upgrade"):
+            raise ValueError("Unexpected browser evidence in installer lifecycle")
+        browser_runs[label] = row["first_packet"]
     offline = []
     for phase in ("fresh", "upgrade"):
-        observed = json.loads((evidence_root / (prefix + "-" + phase) / "evidence.json").read_text())
+        label = prefix + "-" + phase
+        evidence_path = evidence_root / label / "evidence.json"
+        observed = json.loads(evidence_path.read_text(encoding="utf-8"))
         if (
-            observed.get("github_sha") != sha
+            observed != browser_runs.get(label)
+            or observed.get("github_sha") != sha
+            or not re.fullmatch("[0-9a-f]{64}", str(observed.get("executable_sha256")))
             or observed.get("offline_restart") != "PASS_SAME_PRIVATE_WORKSPACE_AND_BROWSER_STORAGE"
-            or observed.get("network") != "BROWSER_EXTERNAL_BLOCKED_NOT_OS_OFFLINE"
+            or observed.get("network") != "BROWSER_REQUESTS_MONITORED_NO_EXTERNAL_OBSERVED"
         ):
             raise ValueError("Missing source-bound browser-isolated restart proof")
         offline.append(
             dict(
                 phase=phase,
-                evidence_sha256=digest(evidence_root / (prefix + "-" + phase) / "evidence.json"),
+                evidence_sha256=digest(evidence_path),
                 offline_restart=observed["offline_restart"],
                 network=observed["network"],
             )

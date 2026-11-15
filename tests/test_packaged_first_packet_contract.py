@@ -2,14 +2,17 @@
 
 import copy
 import importlib.util
-from pathlib import Path
+import os
 import socket
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location(
     "packaged_packet_harness", Path(__file__).resolve().parents[1] / "tools" / "test_packaged_first_packet.py"
 )
+assert spec is not None and spec.loader is not None
+CI_ENV = dict(CI="true", WMM_PACKAGED_FIRST_PACKET_TEST="1")
 harness = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(harness)
 
@@ -27,18 +30,19 @@ class PackagedFirstPacketTests(unittest.TestCase):
         self.assertIsNone(harness.read_boundary(harness.ORIGIN + "/api/research", harness.ORIGIN, "DELETE"))
 
     def test_failure_snapshot_is_allowlisted_and_bounded(self):
-        import tempfile, json
+        import json
+        import tempfile
         from unittest.mock import Mock
 
         page = Mock()
         page.evaluate.return_value = dict(
-            boot_loaded=True,
-            research_loaded=False,
+            dashboard_declared=True,
+            workspace_rendered=False,
             document_ready="complete",
             selected_app="private-customer",
             csrf="never-record",
-            token="never-record",
-            workspace_error="raw-private-error",
+            token="never-record",  # noqa: S106 - synthetic leakage sentinel.
+            retry_visible="raw-private-error",
         )
         error = TimeoutError("private exception text")
         with tempfile.TemporaryDirectory() as folder:
@@ -62,7 +66,8 @@ class PackagedFirstPacketTests(unittest.TestCase):
         self.assertIn("Packaged startup diagnostics:", error.__notes__[0])
 
     def test_diagnostic_errors_preserve_original_failure(self):
-        import tempfile, json
+        import json
+        import tempfile
         from unittest.mock import Mock
 
         page = Mock()
@@ -76,6 +81,88 @@ class PackagedFirstPacketTests(unittest.TestCase):
         with patch.object(harness.Path, "write_text", side_effect=OSError("private path")):
             harness.capture_packet_failure(page, ".", 390, error, [], [])
         self.assertIn("could not be retained", error.__notes__[-1])
+
+    def test_asset_diagnostics_classify_known_modules_without_retaining_raw_urls_or_mime(self):
+        from types import SimpleNamespace
+
+        origin = harness.ORIGIN
+        request = SimpleNamespace(
+            url=origin + "/dashboard.mjs?data=private-query",
+            method="GET",
+            resource_type="script",
+            failure="net::ERR_CONNECTION_RESET",
+        )
+        reply = SimpleNamespace(status=503, headers={"content-type": "private-content-type; secret=value"})
+        self.assertEqual(
+            harness.asset_boundary(request, origin, "response", reply),
+            dict(path="/dashboard.mjs", kind="script", event="response", status=503, mime="other"),
+        )
+        self.assertEqual(harness.asset_boundary(request, origin, "failed")["failure"], "net::ERR_CONNECTION_RESET")
+        request.url = origin + "/private-module.mjs?data=private-query"
+        request.failure = "net::ERR_CONNECTION_RESET private-path"
+        self.assertEqual(
+            harness.asset_boundary(request, origin, "failed"),
+            dict(path="OTHER_SCRIPT", kind="script", event="failed", failure="OTHER"),
+        )
+        request.url = "https://example.invalid/dashboard.mjs"
+        self.assertIsNone(harness.asset_boundary(request, origin, "failed"))
+
+    @unittest.skipUnless(os.environ.get("WMM_PACKAGED_FIRST_PACKET_TEST") == "1", "requires local Playwright browser")
+    def test_document_module_failure_and_bootstrap_failure_are_both_rejected(self):
+        import json
+        import tempfile
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        from threading import Thread
+
+        class Fixture(BaseHTTPRequestHandler):
+            def do_GET(self):
+                code, kind, body = {
+                    "/": (200, "text/html", b'<script type="module" src="/dashboard.mjs"></script>'),
+                    "/dashboard.mjs": (200, "text/javascript", b"import '/app.mjs'; fetch('/api/bootstrap');"),
+                    "/app.mjs": (503, "text/plain", b"fixture module failure")
+                    if module_fails
+                    else (200, "text/javascript", b"export {};"),
+                    "/api/bootstrap": (503, "application/json", b"{}"),
+                }.get(self.path, (404, "text/plain", b"not found"))
+                self.send_response(code)
+                self.send_header("Content-Type", kind)
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, format, *args):
+                pass
+
+        for module_fails in (True, False):
+            with (
+                self.subTest(module_fails=module_fails),
+                tempfile.TemporaryDirectory() as folder,
+                ThreadingHTTPServer(("127.0.0.1", 0), Fixture) as server,
+                patch.object(harness, "STARTUP_TIMEOUT_MS", 2_000),
+            ):
+                thread = Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                try:
+                    message = "Dashboard bootstrap request failed" if not module_fails else "Timeout"
+                    with self.assertRaisesRegex(Exception, message):
+                        harness.verify_packet_browser(f"http://127.0.0.1:{server.server_port}", folder)
+                    report = json.loads((Path(folder) / "failure-1440.json").read_text())
+                    self.assertIs(report["readiness"]["dashboard_declared"], True)
+                    self.assertIs(report["readiness"]["workspace_rendered"], False)
+                    if module_fails:
+                        self.assertEqual(report["api_boundaries"], [])
+                        self.assertIn(
+                            dict(path="/app.mjs", kind="script", event="response", status=503, mime="other"),
+                            report["asset_failures"],
+                        )
+                    else:
+                        self.assertEqual(report["asset_failures"], [])
+                        self.assertIn(
+                            dict(path="/api/bootstrap", method="GET", event="response", status=503),
+                            report["api_boundaries"],
+                        )
+                finally:
+                    server.shutdown()
+                    thread.join()
 
     def test_packet_binding_rejects_foreign_stale_and_wrong_subset(self):
         expected = dict(app_id="sample-one", version=1, source_hash="source")
@@ -135,7 +222,9 @@ class PackagedFirstPacketTests(unittest.TestCase):
             self.assertFalse(harness.exact_app_creation(request, harness.ORIGIN, app_id, fields))
 
     def test_occupied_port_refuses_without_spawning_or_stopping_listener(self):
-        with socket.socket() as listener:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as folder, socket.socket() as listener:
             if harness.os.name != "nt":
                 listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
@@ -145,12 +234,32 @@ class PackagedFirstPacketTests(unittest.TestCase):
                 pass
             else:
                 listener.listen()
-            with patch.object(harness.subprocess, "Popen") as spawn:
-                with self.assertRaises(OSError):
-                    harness.verify_frozen_first_packet(
-                        "absent", ".", dict(CI="true", WMM_PACKAGED_FIRST_PACKET_TEST="1")
-                    )
-                spawn.assert_not_called()
+            with (
+                patch.object(harness, "ROOT", Path(folder)),
+                patch.object(harness.subprocess, "Popen") as spawn,
+                self.assertRaises(OSError),
+            ):
+                harness.verify_frozen_first_packet("absent", ".", CI_ENV)
+            spawn.assert_not_called()
+
+    def test_failed_repeated_attempt_preserves_history_but_invalidates_current_receipt(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            evidence_root = root / ".factory" / "packaged-first-packet"
+            previous = evidence_root / "sample" / "evidence.json"
+            previous.parent.mkdir(parents=True)
+            previous.write_text("old PASS", encoding="utf-8")
+            with (
+                patch.object(harness, "ROOT", root),
+                patch.object(harness, "preflight", side_effect=OSError("occupied")),
+                self.assertRaises(OSError),
+            ):
+                harness.verify_frozen_first_packet("absent", ".", CI_ENV, "sample")
+            self.assertFalse(previous.exists())
+            [archived] = evidence_root.glob("sample-*/previous-attempt/evidence.json")
+            self.assertEqual(archived.read_text(encoding="utf-8"), "old PASS")
 
     def test_unix_preflight_reuses_closed_connections_without_reusing_listeners(self):
         from unittest.mock import Mock
@@ -172,16 +281,18 @@ class PackagedFirstPacketTests(unittest.TestCase):
             [sys.executable, "-u", "-c", "import time; print('READY', flush=True); time.sleep(30)"],
             stdout=subprocess.PIPE,
             text=True,
-            creationflags=subprocess.CREATE_NO_WINDOW if harness.os.name == "nt" else 0,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
         )
         try:
-            self.assertEqual(child.stdout.readline().strip(), "READY")
-            reader = threading.Thread(target=child.stdout.read, daemon=True)
-            child._wmm_stdout_reader = reader
+            stream = child.stdout
+            assert stream is not None
+            self.assertEqual(stream.readline().strip(), "READY")
+            reader = threading.Thread(target=stream.read, daemon=True)
+            vars(child)["_wmm_stdout_reader"] = reader
             reader.start()
             harness._stop(child)
             self.assertFalse(reader.is_alive())
-            self.assertTrue(child.stdout.closed)
+            self.assertTrue(stream.closed)
         finally:
             if child.poll() is None:
                 child.kill()
@@ -233,14 +344,14 @@ class PackagedFirstPacketTests(unittest.TestCase):
                 patch.object(harness, "_workspace_state", return_value=workspace),
                 patch.object(harness, "verify_packet_browser", return_value=[]) as browser,
             ):
-                evidence = harness.verify_frozen_first_packet(binary, folder, {}, "unit")
+                evidence = harness.verify_frozen_first_packet(binary, folder, CI_ENV, "unit")
             self.assertEqual(preflight.call_count, 2)
             self.assertEqual(start.call_count, 2)
             self.assertEqual(start.call_args_list[0], start.call_args_list[1])
             self.assertEqual([c.args[0] for c in stop.call_args_list], [first, second])
             self.assertEqual(browser.call_args_list[0].args[2], browser.call_args_list[1].args[2])
             self.assertEqual(browser.call_args_list[1].args[3], "measurement")
-            self.assertEqual(evidence["network"], "BROWSER_EXTERNAL_BLOCKED_NOT_OS_OFFLINE")
+            self.assertEqual(evidence["network"], "BROWSER_REQUESTS_MONITORED_NO_EXTERNAL_OBSERVED")
             self.assertEqual(evidence["provider_data"], "NOT_RUN")
 
     def test_restart_workspace_change_fails_and_stops_second_owned_child(self):
@@ -263,14 +374,14 @@ class PackagedFirstPacketTests(unittest.TestCase):
                     "_workspace_state",
                     side_effect=[{"apps": ["one"], "records": []}, {"apps": ["changed"], "records": []}],
                 ),
+                self.assertRaises(AssertionError),
             ):
-                with self.assertRaises(AssertionError):
-                    harness.verify_frozen_first_packet(binary, folder, {}, "unit")
+                harness.verify_frozen_first_packet(binary, folder, CI_ENV, "unit")
             self.assertEqual([c.args[0] for c in stop.call_args_list], [first, second])
 
     def test_lazy_tables_are_absent_not_zero_and_reader_releases_database(self):
-        import tempfile
         import sqlite3
+        import tempfile
 
         with tempfile.TemporaryDirectory() as folder:
             database = Path(folder) / "mission-control.sqlite3"
@@ -287,8 +398,8 @@ class PackagedFirstPacketTests(unittest.TestCase):
             self.assertFalse(database.exists())
 
     def test_nonzero_effects_fail_and_failed_read_still_releases_database(self):
-        import tempfile
         import sqlite3
+        import tempfile
 
         with tempfile.TemporaryDirectory() as folder:
             database = Path(folder) / "mission-control.sqlite3"
@@ -317,8 +428,8 @@ class PackagedFirstPacketTests(unittest.TestCase):
             harness._same_bindings(after, before)
 
     def test_profile_upgrade_checkpoint_rejects_replacement_and_unmarked_database(self):
-        import tempfile
         import json
+        import tempfile
 
         with tempfile.TemporaryDirectory() as folder:
             profile = Path(folder) / "profile"
@@ -341,7 +452,6 @@ class PackagedFirstPacketTests(unittest.TestCase):
 
     def test_upgrade_reuses_profile_and_requires_prior_browser_goal(self):
         import tempfile
-        import json
         from unittest.mock import Mock
 
         with tempfile.TemporaryDirectory() as folder:
@@ -361,8 +471,8 @@ class PackagedFirstPacketTests(unittest.TestCase):
                 patch.object(harness, "_workspace_state", return_value=state),
                 patch.object(harness, "verify_packet_browser", return_value=[]) as browser,
             ):
-                first = harness.verify_frozen_first_packet(binary, folder, {}, "fresh", profile_dir=profile)
-                upgraded = harness.verify_frozen_first_packet(binary, folder, {}, "upgrade", profile_dir=profile)
+                first = harness.verify_frozen_first_packet(binary, folder, CI_ENV, "fresh", profile_dir=profile)
+                upgraded = harness.verify_frozen_first_packet(binary, folder, CI_ENV, "upgrade", profile_dir=profile)
             self.assertFalse(first["profile_reused"])
             self.assertTrue(upgraded["profile_reused"])
             self.assertIsNone(browser.call_args_list[0].args[3])
