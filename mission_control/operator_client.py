@@ -1,11 +1,13 @@
 """Bounded local HTTP transport. No proxy, redirect, credential loading or auto retry."""
 
-from http.cookiejar import CookieJar
-from http.client import HTTPException
 import json
 import re
+from http.client import HTTPException
+from http.cookiejar import CookieJar
+from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, build_opener, ProxyHandler, HTTPCookieProcessor, HTTPRedirectHandler
+from urllib.request import HTTPCookieProcessor, HTTPRedirectHandler, ProxyHandler, Request, build_opener
+
 from .common import Invalid, canonical
 from .operation_catalog import request_data
 
@@ -45,32 +47,67 @@ def error_fields(error):
     return value
 
 
-def uncertain_response(error):
-    """Read only one small closed envelope; never forward arbitrary server messages."""
-    if error.code != 409:
-        return False
+_SIGN_IN_REASONS = frozenset(
+    (
+        "Sign in with GitHub before changing verified access or reviews",
+        "Authenticated operator session changed; sign in again",
+        "Authenticated operator session was replaced; sign in again",
+        "Authenticated identity changed; sign in again",
+    )
+)
+_ROLE_REASONS = frozenset(
+    ("This GitHub account has no active role in this app", "This action requires the app's owner role")
+)
+_SESSION_REASONS = frozenset(
+    (
+        "Reload the current research session",
+        "Reload the current campaign session",
+        "Session expired; reload before saving",
+    )
+)
+
+
+def rejection_envelope(error):
+    """Read at most one small JSON object without exposing server text."""
+    if error.code not in (403, 409):
+        return {}
     try:
         if error.headers.get_content_type() != "application/json":
-            return False
+            return {}
         raw = error.read(4097)
         if len(raw) > 4096:
-            return False
+            return {}
         value = strict_json(raw)
-        return (
-            type(value) is dict
-            and set(value) == {"error", "outcome", "reconciliation_required"}
-            and type(value["error"]) is str
-            and value["outcome"] == "UNKNOWN"
-            and value["reconciliation_required"] is True
-        )
+        return value if type(value) is dict else {}
     except (OSError, ValueError, Invalid, HTTPException):
-        return False
+        return {}
+
+
+def access_error(value, grant):
+    """Translate only exact local reasons; unfamiliar messages remain private."""
+    reason = value.get("error")
+    if grant:
+        return "AGENT_ACCESS_DENIED", "Ask the owner to check this agent grant for the app and operation."
+    if set(value) == {"error"} and type(reason) is str:
+        if reason in _SIGN_IN_REASONS:
+            return (
+                "SIGN_IN_REQUIRED",
+                "Sign in with GitHub in WMM to continue as the owner. For an agent or CLI, use a scoped WMM agent grant.",
+            )
+        if reason in _ROLE_REASONS:
+            return "APP_ACCESS_REQUIRED", "Use the account that owns this app in WMM, or ask the app owner for access."
+        if reason in _SESSION_REASONS:
+            return (
+                "SESSION_REFRESH_REQUIRED",
+                "Reopen WMM to refresh your session, then review your request before retrying.",
+            )
+    return "ACCESS_DENIED", "Check the app and your WMM access. Ask the owner to review access if this continues."
 
 
 class NoRedirect(HTTPRedirectHandler):
     """Never forward a session or POST to a redirected destination."""
 
-    def redirect_request(self, request, fp, code, message, headers, newurl):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
         raise ClientError("REDIRECT_REJECTED", "The local server redirected the request; no follow-up was sent", code)
 
 
@@ -122,7 +159,7 @@ def validate_json_depth(text):
             depth -= 1
 
 
-def strict_json(raw):
+def strict_json(raw: bytes) -> Any:
     """Bound bytes and reject malformed UTF-8, duplicate keys, constants and deep trees."""
     if len(raw) > MAX_BYTES:
         raise Invalid("JSON exceeds the 16777216 bytes limit")
@@ -153,10 +190,19 @@ def response_data(response):
 def reject_http(error, path, body):
     """Classify one closed HTTP failure without retrying an uncertain mutation."""
     try:
-        unknown = uncertain_response(error)
+        value = rejection_envelope(error)
     finally:
         error.close()
-    if unknown:
+    if error.code == 403:
+        code, message = access_error(value, path.startswith("/api/agent-operations/"))
+        raise ClientError(code, message, error.code) from None
+    if (
+        error.code == 409
+        and set(value) == {"error", "outcome", "reconciliation_required"}
+        and type(value["error"]) is str
+        and value["outcome"] == "UNKNOWN"
+        and value["reconciliation_required"] is True
+    ):
         raise ClientError(
             "OUTCOME_UNKNOWN",
             "Local operation outcome is uncertain; inspect the saved attempt before retrying",
@@ -224,7 +270,8 @@ class OperatorClient:
             headers["Authorization"] = "Bearer " + self.grant_token
         if payload is not None:
             headers.update({"Content-Type": "application/json", "X-CSRF-Token": self.csrf or ""})
-        request = Request(self.origin + path, data=payload, headers=headers, method=method)
+        # origin_data restricts the destination to literal IPv4 loopback HTTP.
+        request = Request(self.origin + path, data=payload, headers=headers, method=method)  # noqa: S310
         try:
             with self.opener.open(request, timeout=request_timeout(path, body)) as response:
                 return response_data(response)

@@ -508,11 +508,13 @@ def catalog() -> dict[str, object]:
     from .discovery_contract import agent_contract as discovery_contract
     from .funnel_contract import agent_contract
     from .market_research import agent_contract as market_contract
+    from .marketing_ontology import ontology
     from .packaging_contract import agent_contract as packaging_contract
 
     value["domain_contracts"] = {
         "app_sales_funnel": agent_contract(),
         "discovery_research": discovery_contract(),
+        "marketing_ontology": ontology(),
         "content_packaging": packaging_contract(),
     }
     cast(dict[str, object], value["domain_contracts"])["market_research"] = market_contract()

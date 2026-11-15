@@ -4,6 +4,10 @@ Built for founders and marketing teams, WMM helps you promote and manage one
 app or a portfolio. Keep a separate question, evidence and permissions for each
 app, and hand approved work to your AI assistant. This guide is for the desktop preview.
 
+**First time here?** If you want to help test setup without coaching, read the
+[first-run trial guide](founder-trial.md) before trying the demo or following
+the steps below. You can report a blocked install, too.
+
 ## What you need
 
 - Windows 10/11, or Ubuntu 24.04 on a graphical desktop.
@@ -18,21 +22,22 @@ app, and hand approved work to your AI assistant. This guide is for the desktop 
    (Ubuntu). Public downloads do not need a GitHub sign-in.
 2. Install it the normal way for your system, then open **Wize Marketing
    Machine** from the Start menu or Applications.
-3. Keep the WMM window open while you work. Closing it stops its local engine
-   and any approved scheduled work.
+3. You can close the browser tab. Approved scheduled work continues while WMM
+   is running and your computer is awake. To stop the local worker, choose
+   **Quit WMM** in the desktop window. To keep approved work running while your
+   computer sleeps, see [run WMM on your own always-on host](always-on-runtime.md).
 
-**Windows note:** the preview installer is not publisher-signed. Windows may
-warn you. Do not disable OS security controls or install a root certificate to
-get past it. On a managed laptop, ask your IT administrator to review the release
-and its published checksums. A matching checksum verifies the download;
-it does not establish a trusted Windows publisher. If your policy prevents
-installation, you can explore the [interactive sample](https://zrk222.github.io/WMM/demo.html)
-without installing anything. The sample uses synthetic data; it does not run
-your campaigns or connect your accounts.
+**Windows note:** The Windows installer for [Desktop Preview 10](https://github.com/zrk222/WMM/releases/tag/v0.1.0-preview.10) is unsigned. SmartScreen or your device policy may block it.
+For a release advertised as signed, check that Windows reports a valid signature
+and the publisher matches the release's verification instructions. A matching
+checksum alone does not identify the publisher. Do not weaken OS security to
+install. If your device policy blocks installation, ask IT or try the
+[interactive sample](https://zrk222.github.io/WMM/demo.html), which uses synthetic
+data and does not connect accounts.
 
 ## Your first 15 minutes
 
-**Day 1 — a clearer next marketing move.** Choose one app-growth question and
+**Day 1 â€” a clearer next marketing move.** Choose one app-growth question and
 prepare your first evidence packet: a plan, its sources and what is still missing.
 
 You do not need an account, a paid model or a provider connection for these
@@ -51,7 +56,7 @@ steps.
    a JSON copy if you need one. These steps do not publish or spend.
 5. **Add one reference.** Choose **Add a research reference** and save a source
    you want to study. To qualify as viral, a source also needs 100,000 views and
-   10× a documented creator baseline. That is evidence, not a promise.
+   10Ã— a documented creator baseline. That is evidence, not a promise.
 
 ## Around Day 30, with regular use
 
@@ -75,6 +80,24 @@ Missing measurements stay unknown. Growth and time savings are not guaranteed.
 - **Prepare vs publish vs measure:** three separate things. WMM can prepare
   work, you approve a specific publish, and only a connected source can show
   what happened.
+
+## When you are ready to run an approved campaign
+
+1. In **Set your goal**, choose **Run an approved campaign**, then
+   **Check connections for this goal**. Choose **Check WMM-managed setup** for
+   WMM's worker or **Use my personal agent** for an assistant you run yourself.
+   Checking setup does not approve a campaign or start work.
+2. Follow the repair shown for each missing item. For a Facebook Page campaign
+   in WMM, **Review campaign scope** shows the exact post, destination, limits
+   and expiry. Review the approved posts and their dates separately before
+   turning on a schedule.
+3. To see those decisions together, open **Advanced app overview and
+   twelve-stage diagnostics** on **Set your goal**, then **Review combined
+   automation agreement**. The agreement is a summary of your existing
+   approvals.
+4. In **Watch the work**, check whether the worker is healthy and open the
+   saved campaign run for its receipt. Use **Review results** to see available
+   measurements. A sent post and a measured result are two different things.
 
 ## Optional: let an AI assistant help
 
@@ -115,8 +138,8 @@ to you.
 
 - **No installer listed:** open **Assets** on the preview page. Choose the
   installer for your system; the source archives are for developers.
-- **Windows warns about the publisher:** expected for this preview; do not
-  weaken OS security.
+- **Windows warns about the publisher:** check the release notes and [verification guide](VERIFY-RELEASE.md).
+  Do not weaken OS security.
 - **Ubuntu package tools missing:** use a graphical desktop with the normal
   Debian package installer, or wait for a later build.
 - **Your workspace will not open:** keep a copy of the data folder and open an

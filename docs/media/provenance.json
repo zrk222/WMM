@@ -1,0 +1,49 @@
+{
+  "schema": "wmm.preview-video-provenance.v1",
+  "classification": "ACTUAL_WMM_UI_SYNTHETIC_WORKSPACE",
+  "synthetic": true,
+  "renderer": "Remotion",
+  "renderer_version": "4.0.448",
+  "duration_seconds": 15,
+  "width": 1440,
+  "height": 1000,
+  "source": {
+    "mission_control/static/creative-rendering.mjs": "b3dabf6745cf35bc8746740c2b716381230fc20d081dba0b4c7d975e40ab0449",
+    "mission_control/static/video-editor.js": "7fca21d27e554f6d9e5d5ef9a5d66f03eaa53bacb0606c4a462d8c4493874188",
+    "mission_control/static/style.css": "749d9a5fb2fcb067c3a24c0622c5efe2bdb336d0ff47d6f6fb281eb13e5afeb0"
+  },
+  "captures": [
+    {
+      "file": "01-workspace.png",
+      "caption": "Open your app's creative workspace",
+      "sha256": "20813577d77c8ca2d710a842ef5a42d062fb1c904de7263ff0a9bc2b6000849a"
+    },
+    {
+      "file": "02-render-options.png",
+      "caption": "Choose the approved brief, renderer and video format",
+      "sha256": "15871b3b7b19a0e8a47137a77e13ff4ca5cc35bc7b8ca8d5d31e67f5dfce23cb"
+    },
+    {
+      "file": "03-edit.png",
+      "caption": "Revise the real timeline, captions and crop controls",
+      "sha256": "f76b0aaf0f8b1f688edae935be281dbfffa66722a1ec70d39bf66d4c3fe96f0e"
+    },
+    {
+      "file": "04-taste.png",
+      "caption": "Inspect the guided taste proposal before applying it",
+      "sha256": "13c97095de461a9f8293b76a5dd4caec20df78efca52e01606bb019e83ec7360"
+    },
+    {
+      "file": "05-save.png",
+      "caption": "Save a new revision; review before rendering or publication",
+      "sha256": "6067d64c415f7604aca45d878e36727974b4e7e7955a776170c926addebda484"
+    }
+  ],
+  "assets": {
+    "video-production.mp4": "7cbcd03c0e3c819d0cfb93b8aa44194ecbf9a3ef6a49530278b4481d52c8c8a6",
+    "video-production.vtt": "119e9c574bdcf9aca165b4d179e871dabd7a9539e4ba005568ee38ac8eaf208b",
+    "video-production.webp": "2bbebd3cab71efd309f3667c46e7ee69b2199e21604e4a54192d250f53c1878a"
+  },
+  "social_publication": "NOT_RUN",
+  "marketing_result": "NOT_ESTABLISHED"
+}

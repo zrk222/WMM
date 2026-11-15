@@ -1,11 +1,15 @@
 """Actual Chromium journey over synthetic RSA OIDC and isolated client databases."""
 
+# Bootstrap the repo before local imports; callbacks run within each synchronous viewport case.
+# ruff: noqa: E402, B023
+
 import json
-from pathlib import Path
 import sys
 import tempfile
 import threading
 import time
+from html import escape
+from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,7 +17,9 @@ sys.path.insert(0, str(ROOT))
 
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
-from playwright.sync_api import sync_playwright
+from jwt.algorithms import RSAAlgorithm
+from playwright.sync_api import Route, sync_playwright
+
 from mission_control.hosted_browser_http import BrowserServer
 from mission_control.hosted_login_flow import LoginFlow
 from mission_control.hosted_oidc import OIDCClient, ProviderConfig
@@ -28,7 +34,7 @@ class Provider:
 
     def __init__(self):
         self.key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-        self.nonce = None
+        self.nonce: str | None = None
         self.subject = "reader"
         self.config = ProviderConfig(
             "https://identity.example/",
@@ -51,7 +57,7 @@ class Provider:
             return json.dumps(
                 dict(id_token=jwt.encode(claims, self.key, algorithm="RS256", headers={"kid": "fixture"}))
             ).encode()
-        key = json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(self.key.public_key()))
+        key = json.loads(RSAAlgorithm.to_jwk(self.key.public_key()))
         return json.dumps(dict(keys=[dict(key, kid="fixture", use="sig", alg="RS256")])).encode()
 
 
@@ -81,15 +87,73 @@ def run():
         try:
             for width in (1440, 390):
                 context = browser.new_context(viewport={"width": width, "height": 950})
+                authorization_requests: list[str] = []
+                authorization_redirects: list[str] = []
+                handoff_lengths: list[int] = []
+
+                def start_authorization(route: Route) -> None:
+                    # Playwright routes only the first request of a redirect chain.
+                    # Exercise the real CSRF-protected POST, then make the synthetic
+                    # provider handoff a fresh navigation that can be fulfilled.
+                    assert route.request.method == "POST"
+                    response = route.fetch(max_redirects=0)
+                    assert response.status == 303
+                    location = response.headers["location"]
+                    assert urlsplit(location).scheme == "https"
+                    assert urlsplit(location).netloc == "identity.example"
+                    assert urlsplit(location).path == "/authorize"
+                    authorization_redirects.append(location)
+                    body = f'<!doctype html><html><head><meta http-equiv="refresh" content="0;url={escape(location)}"></head><body>Synthetic provider handoff</body></html>'
+                    headers = dict(response.headers)
+                    assert headers["referrer-policy"] == "no-referrer"
+                    handoff_lengths.append(len(body.encode("utf-8")))
+                    headers["content-length"] = str(handoff_lengths[-1])
+                    headers["content-type"] = "text/html; charset=utf-8"
+                    route.fulfill(
+                        response=response,
+                        status=200,
+                        headers=headers,
+                        body=body,
+                    )
+
+                def synthetic_authorization(route: Route) -> None:
+                    request = route.request
+                    assert request.is_navigation_request() and request.method == "GET"
+                    assert urlsplit(request.url).path == "/authorize"
+                    authorization_requests.append(request.url)
+                    route.fulfill(
+                        status=200,
+                        content_type="text/html",
+                        body='<!doctype html><html><body><p id="synthetic-provider-ready">Synthetic identity fixture</p></body></html>',
+                    )
+
+                # Fulfill before creating the page: synthetic identity navigation must
+                # never reach DNS or race a detached Chromium protocol session.
+                context.route("https://identity.example/**", synthetic_authorization)
+                context.route(origin + "/auth/start", start_authorization)
                 page = context.new_page()
                 page.set_default_timeout(10000)
                 errors = []
                 page.on("pageerror", lambda error: errors.append(str(error)))
 
                 def sign_in():
-                    with page.expect_request("https://identity.example/**") as authorization:
+                    previous_requests = len(authorization_requests)
+                    with (
+                        page.expect_response(origin + "/auth/start") as handoff,
+                        page.expect_response("https://identity.example/**") as response,
+                        page.expect_request("https://identity.example/**") as authorization,
+                    ):
                         page.locator("#sign-in-form button").focus()
                         page.locator("#sign-in-form button").press("Enter", no_wait_after=True)
+                    assert response.value.status == 200
+                    assert handoff.value.status == 200
+                    assert handoff.value.headers["referrer-policy"] == "no-referrer"
+                    assert int(handoff.value.headers["content-length"]) == handoff_lengths[-1]
+                    page.wait_for_url(authorization.value.url, wait_until="load")
+                    page.locator("#synthetic-provider-ready").wait_for(state="visible")
+                    assert len(authorization_requests) == previous_requests + 1
+                    assert authorization_requests[-1] == page.url == response.value.url
+                    assert authorization_redirects == authorization_requests
                     query = parse_qs(urlsplit(authorization.value.url).query)
                     assert query["code_challenge_method"] == ["S256"]
                     assert "referer" not in authorization.value.headers
@@ -97,8 +161,8 @@ def run():
                     location = (
                         query["redirect_uri"][0] + "?" + urlencode(dict(code="fixture-code", state=query["state"][0]))
                     )
-                    # Provider consent is a fixture: observe the real top-level
-                    # authorization navigation, then return its matching callback.
+                    # Only a settled, visibly fulfilled provider fixture may return
+                    # through the real callback, nonce, PKCE and session path.
                     page.goto(location)
 
                 page.goto(origin)
@@ -208,6 +272,7 @@ def run():
                 page.locator("#sign-in-form").wait_for(state="visible")
                 assert "Alpha app" not in page.content() and "Beta app" not in page.content()
                 assert not errors, errors
+                assert len(authorization_requests) == 3
                 observations.append(
                     dict(
                         width=width,
@@ -221,6 +286,8 @@ def run():
                         delayed_logout="PASS",
                         pageshow_refresh="PASS",
                         external_referrer_absent="PASS",
+                        synthetic_provider_settled="PASS",
+                        authorization_attempts=len(authorization_requests),
                         errors=errors,
                     )
                 )
@@ -233,7 +300,7 @@ def run():
     receipt = dict(
         schema="wmm.browser-client-login.acceptance.v1",
         observations=observations,
-        provider="synthetic RSA fixture; no real provider or public hosting acceptance",
+        provider="real auth-start POST/303, fresh synthetic provider navigation and RSA fixture; no real provider or public hosting acceptance",
         python=sys.version,
         jwt=jwt.__version__,
         chromium=browser_version,

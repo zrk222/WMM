@@ -3,11 +3,11 @@
 import errno
 import json
 import os
-from pathlib import Path
 import signal
 import sys
 import threading
 import webbrowser
+from pathlib import Path
 
 
 def data_directory(platform=None, environ=None, home=None):
@@ -23,6 +23,10 @@ def data_directory(platform=None, environ=None, home=None):
         candidate = Path(environ.get("XDG_DATA_HOME") or home / ".local" / "share")
         base = candidate if candidate.is_absolute() else home / ".local" / "share"
     return base / "Wize Marketing Machine"
+
+
+class LoopbackUnavailable(OSError):
+    """The requested fixed local listener cannot be opened."""
 
 
 class DesktopRuntime:
@@ -44,8 +48,15 @@ class DesktopRuntime:
             try:
                 self.server = Server(("127.0.0.1", preferred_port), store, runtime_mode=mode)
             except OSError as error:
-                if fixed_port or error.errno not in (errno.EADDRINUSE, errno.EACCES, 10048, 10013):
+                if error.errno not in (errno.EADDRINUSE, errno.EACCES, 10048, 10013):
                     raise
+                if fixed_port:
+                    message = (
+                        f"WMM cannot listen on 127.0.0.1:{preferred_port}. "
+                        "Quit other WMM instances or ask your host administrator to free this local port, "
+                        "then restart the worker."
+                    )
+                    raise LoopbackUnavailable(error.errno, message) from error
                 self.server = Server(("127.0.0.1", 0), store, runtime_mode=mode)
         except BaseException:
             self.lock.release()
@@ -99,7 +110,7 @@ def stop_workers(server):
         if worker.thread is not None and worker.thread.ident is not None:
             try:
                 worker.stop()
-            except Exception as error:
+            except Exception as error:  # noqa: BLE001 - stop both workers even if one fails
                 failed = failed or error
     return failed
 
@@ -124,7 +135,10 @@ def headless():
             sig = getattr(signal, name, None)
             if sig is not None:
                 previous[sig] = signal.signal(sig, request_stop)
-        runtime = DesktopRuntime(fixed_port=True, headless=True)
+        try:
+            runtime = DesktopRuntime(fixed_port=True, headless=True)
+        except LoopbackUnavailable as error:
+            raise SystemExit(error.strerror) from None
         try:
             origin = runtime.start()
             print(json.dumps(dict(status="RUNNING", origin=origin, mode="HEADLESS")), flush=True)
@@ -164,7 +178,8 @@ def self_test():
     """Exercise bundled assets and actual loopback APIs in a disposable private database."""
     import ssl
     import tempfile
-    from urllib.request import build_opener, ProxyHandler
+    from urllib.request import ProxyHandler, build_opener
+
     from mission_control.operation_catalog import catalog
     from mission_control.operator_identity import _identity_trust_context
 
@@ -213,6 +228,7 @@ def self_test():
 def vault_self_test():
     """Roundtrip only a unique disposable WMM item; never return secret bytes."""
     from uuid import uuid4
+
     from mission_control.credential_vault import Vault
 
     vault = Vault()

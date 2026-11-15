@@ -42,6 +42,7 @@ function appendSetupReviewLinks(target, row) {
 function setupHome() {
   setupReview = null;
   const setup = state.workspace.setup_discovery;
+  const source = setup.source_url || setup.website;
   const rows = setup.proposals
     .map(
       (row) =>
@@ -50,7 +51,7 @@ function setupHome() {
     .join('');
   modal(
     'Discover app details',
-    `<div class="modal-content" id="setup-home"><p>Use the saved website to collect explicit app metadata and official store links. Nothing changes until you approve selected fields.</p><p><strong>Saved source:</strong> ${esc(setup.website || 'No public website saved')}</p>${notice('Website claims and page language do not prove product behavior, ownership or a tested locale. Credentials and private pages are not requested.')}<div class="toolbar">${button('Read saved website', 'setup-read', setup.website && setup.proposals.length < setup.capacity ? '' : 'disabled')}${button('Edit saved website', 'setup-edit')}</div><p>Up to ${setup.capacity} local drafts. Remove a reviewed draft if storage is full.</p><h3>Saved discovery drafts</h3>${rows || '<p>No drafts yet. Read the saved website to begin.</p>'}<p id="setup-error" class="field-error" role="alert"></p></div>`,
+    `<div class="modal-content" id="setup-home"><p>Use the saved public source to collect app details. This link does not set your campaign website. Nothing changes until you approve selected fields.</p><p><strong>Saved source:</strong> ${esc(source || 'No public source saved')}</p>${notice('Page claims and language do not prove product behavior, ownership or a tested locale. Credentials and private pages are not requested.')}<div class="toolbar">${button('Read saved source', 'setup-read', source && setup.proposals.length < setup.capacity ? '' : 'disabled')}${button('Edit app setup', 'setup-edit')}</div><p>Up to ${setup.capacity} local drafts. Remove a reviewed draft if storage is full.</p><h3>Saved discovery drafts</h3>${rows || '<p>No drafts yet. Read the saved source to begin.</p>'}<p id="setup-error" class="field-error" role="alert"></p></div>`,
     'SOURCE → REVIEW → APPROVE',
   );
 }
@@ -75,8 +76,7 @@ async function setupRead(node) {
     if (setupCurrent(anchor, app)) setupShow(row);
   } catch (failure) {
     if (setupCurrent(anchor, app))
-      error.textContent =
-        failure.message + ' Review the saved website or retry the current source.';
+      error.textContent = failure.message + ' Review the saved source or retry the read.';
   } finally {
     if (node.isConnected) node.disabled = false;
   }

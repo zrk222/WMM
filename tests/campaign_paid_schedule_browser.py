@@ -1,10 +1,11 @@
 """Synthetic browser interaction; all network is blocked."""
 
-from datetime import datetime, timedelta
-from pathlib import Path
 import json
 import re
-from playwright.sync_api import sync_playwright, expect
+from datetime import datetime, timedelta
+from pathlib import Path
+
+from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 out = ROOT / ".factory" / "campaign-paid-schedule-ui"
@@ -25,8 +26,8 @@ with sync_playwright() as playwright:
             else route.abort(),
         )
         page = context.new_page()
-        errors = []
-        page.on("pageerror", lambda error: errors.append(str(error)))
+        errors: list[str] = []
+        page.on("pageerror", lambda error, captured=errors: captured.append(str(error)))
         page.goto("http://127.0.0.1:8765/")
         page.add_style_tag(path=str(ROOT / "mission_control/static/style.css"))
         page.evaluate("""() => {
@@ -87,9 +88,31 @@ with sync_playwright() as playwright:
         report_button = progress.get_by_role("button", name="Report / Save PDF")
         report_button.focus()
         expect(progress).to_contain_text("PAUSED_VERIFIED", timeout=12000)
+        expect(progress).to_contain_text("Campaign verified paused. Review the saved receipt.")
         expect(report_button).to_be_focused()
         report_button.click()
-        assert "PRIVATE COPY" not in json.dumps(page.evaluate("window.savedReport"))
+        report = json.dumps(page.evaluate("window.savedReport"))
+        assert "Campaign verified paused. Review the saved receipt." in report
+        assert "PRIVATE COPY" not in report
+        guidance = page.evaluate("""() => {
+          const states = ['VERIFIED', 'BLOCKED', 'NEEDS_RECONCILIATION', 'QUEUED'];
+          const count = window.calls.length;
+          const results = states.map(effective_status => {
+            const item = {effective_status, operation: 'campaign.publish'};
+            const data = {items: [item]};
+            return [campaignScheduleProgressItem(item, data), campaignScheduleReport(data).notes.join(' ')];
+          });
+          return {results, noCalls: count === window.calls.length};
+        }""")
+        assert guidance["noCalls"]
+        for expected, projected in zip(
+            ("Post verified", "Review the campaign approval", "The original action may have gone through"),
+            guidance["results"][:3],
+            strict=True,
+        ):
+            assert all(expected in surface for surface in projected)
+        assert all("The original action may have gone through" not in surface for surface in guidance["results"][3])
+        (out / f"paid-progress-{width}.html").write_text(page.content(), encoding="utf-8")
         assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
         assert not errors, errors
         calls = page.evaluate("window.calls")

@@ -37,3 +37,14 @@ Scenario: runtime_preserved
 
 ## SHOULD - Technical
 Use object for unvalidated input and narrowed shapes after existing validation. No blanket Any or ignore rules. Add five newly enrolled core files. Keep fetchone partial projections distinct from generated full-row mappings.
+
+### Membership and ownership slice
+
+- Type all public `Access` methods and the constructor. The access view exposes
+  generated membership rows through a named return shape.
+- The existing CI guard rejects new untyped public methods on `Access`,
+  including asynchronous and static methods. Existing runtime checks still
+  decide whether membership or owner setup may change state.
+- Pyright uses strict mode for `review_access.py`. Its database connection,
+  store and manifest-version dependencies expose typed public signatures.
+  Other maintained modules keep their existing profile.

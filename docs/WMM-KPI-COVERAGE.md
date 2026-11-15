@@ -21,9 +21,9 @@ Keep provider-specific denominators and availability thresholds with each result
 |---|---|---|
 | CPI | PARTIAL_APPLE_ADS | spend / attributed installs |
 | CPA | MISSING | matched cost / deduplicated named actions |
-| CAC | PARTIAL_SUPPLIED_COHORT; LIVE_GAP=MISSING | matched acquisition cost / distinct acquired payers |
-| ROAS_D7 | MISSING | attributed cohort revenue through day7 / matched cohort spend |
-| ROAS_D30 | MISSING | attributed cohort revenue through day30 / matched cohort spend |
+| CAC | PARTIAL_SUPPLIED_SCOPED_ECONOMICS; LIVE_GAP=MISSING | matched acquisition cost / distinct acquired payers |
+| ROAS_D7 | PARTIAL_SUPPLIED_SCOPED_ECONOMICS; LIVE_GAP=MISSING | attributed cohort revenue through day7 / matched cohort spend |
+| ROAS_D30 | PARTIAL_SUPPLIED_SCOPED_ECONOMICS; LIVE_GAP=MISSING | attributed cohort revenue through day30 / matched cohort spend |
 | PAYBACK | MISSING | first mature horizon cumulative net contribution recovers acquisition cost |
 | LTV_CAC | MISSING | same-cohort declared observed or modeled LTV / same-cohort CAC |
 | STORE_CVR | MISSING_STORE_ANALYTICS | provider-specific store conversion. Apple total downloads and pre-orders / unique device impressions, counting each pre-order once |
@@ -71,8 +71,8 @@ zero, a supplied-cohort proxy or a provider metric for them.
 | Gap | Why it is missing |
 |---|---|
 | CAC (live observed) | No live matched acquisition cost / distinct acquired-payer join. Supplied-cohort CAC is separate partial evidence. |
-| ROAS_D7 | No attributed cohort revenue through day 7 divided by matched cohort spend. |
-| ROAS_D30 | No attributed cohort revenue through day 30 divided by matched cohort spend. |
+| ROAS_D7 | No live attributed cohort revenue through day 7 divided by matched cohort spend; supplied scoped calculations remain separate. |
+| ROAS_D30 | No live attributed cohort revenue through day 30 divided by matched cohort spend; supplied scoped calculations remain separate. |
 | PAYBACK | No mature cumulative net contribution that recovers acquisition cost. |
 
 ## Required proof for each metric
@@ -98,3 +98,13 @@ Canonical machine-readable matrix: specs/kpi-report-coverage.json. Full acceptan
 - [developer.apple.com](https://developer.apple.com/help/app-store-connect-analytics/engagement/app-usage): Usage/deletion data covers opted-in diagnostic/usage sharing, not all users.
 - [support.google.com](https://support.google.com/googleplay/android-developer/answer/6135870?hl=en): Statistics and acquisition CSV exports use private GCS; devstorage.read_only and Play account permissions must be verified separately.
 - [developers.google.com](https://developers.google.com/workspace/drive/api/guides/api-specific-auth): drive.file plus Google Picker grants selected-file access; OAuth metadata access alone is not a content download grant.
+
+## Actionable closure inventory
+
+Every one of the 42 registered metrics now has `data_gap.required_inputs`,
+`data_gap.next_action` and `data_gap.closure_evidence` in the canonical matrix.
+This prevents a missing metric from becoming an unexplained blank or being
+dropped from the requirements. These are repair requirements, not completed
+collectors. Supplied-evidence economics is described in
+[the measurement contract](MEASUREMENT-DATA-CONTRACT.md); authenticated numerical
+provider reads, attribution joins and live acceptance remain separately required.

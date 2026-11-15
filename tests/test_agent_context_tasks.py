@@ -1,16 +1,23 @@
 """Approved evidence must remain unchanged before and after model inference."""
 
-from unittest.mock import patch
 import unittest
+from typing import Any, cast
+from unittest.mock import patch
+
+from mission_control.agent_access import AgentAccess
+from mission_control.agent_tasks import proposal
+from mission_control.common import Invalid, canonical, digest
+from mission_control.db import connection
+from mission_control.store import Store
+from mission_control.worker import run_once
 from tests import test_agent_tasks as fixtures
 from tests.test_agent_access import answer
-from mission_control.agent_tasks import proposal
-from mission_control.common import canonical, digest
-from mission_control.db import connection
-from mission_control.worker import run_once
 
 
 class GroundedTaskTests(unittest.TestCase):
+    store: Store
+    access: AgentAccess
+    identity: str
     setUp = fixtures.AgentTaskTests.setUp
     approve = fixtures.AgentTaskTests.approve
     result = fixtures.AgentTaskTests.result
@@ -48,9 +55,12 @@ class GroundedTaskTests(unittest.TestCase):
         self.assertNotIn("draft", self.result()["result"])
 
     def test_connection_test_transmits_no_campaign_sources(self):
-        value = proposal(self.store, "sample-one", dict(task="connection_test", focus="", connection_id=self.identity))[
-            "proposal"
-        ]
+        value = cast(
+            dict[str, Any],
+            proposal(self.store, "sample-one", dict(task="connection_test", focus="", connection_id=self.identity))[
+                "proposal"
+            ],
+        )
         self.assertIsNone(value["context"])
         self.assertEqual(value["source_ids"], [])
         self.assertNotIn("stage_2", value["prompt"])
@@ -71,7 +81,7 @@ class GroundedTaskTests(unittest.TestCase):
     def test_current_stage_citation_is_accepted_and_other_app_rejected(self):
         self.ready()
         self.approve("campaign_plan")
-        response = answer()
+        response: dict[str, Any] = answer()
         response["items"][0]["source_ids"] = ["stage_2"]
         with patch("mission_control.agent_tasks.api_run", return_value=(response, {})):
             run_once(self.store)
@@ -81,3 +91,36 @@ class GroundedTaskTests(unittest.TestCase):
         with patch("mission_control.agent_tasks.api_run", return_value=(response, {})):
             run_once(self.store)
         self.assertEqual(self.result()["status"], "BLOCKED")
+
+    def test_changed_evidence_keeps_previously_tested_connection_usable(self):
+        self.ready()
+        self.approve("campaign_plan")
+        self.change()
+        with patch("mission_control.agent_tasks.api_run") as run:
+            run_once(self.store)
+            run.assert_not_called()
+        self.assertEqual(self.result()["status"], "BLOCKED")
+        self.assertEqual(self.access.get("sample-one", self.identity)["status"], "TESTED")
+        self.approve("campaign_plan")
+
+    def test_expired_task_does_not_mark_healthy_connection_broken(self):
+        self.ready()
+        queued = self.approve("campaign_plan")
+        data = queued["data"]
+        data["envelope"]["expires_at"] = "2020-01-01T00:00:00+00:00"
+        data["envelope_hash"] = digest(data["envelope"])
+        with connection(self.store.path) as db:
+            db.execute("UPDATE jobs SET data=? WHERE id=?", (canonical(data), queued["id"]))
+        with patch("mission_control.agent_tasks.api_run") as run:
+            run_once(self.store)
+            run.assert_not_called()
+        self.assertEqual(self.result()["status"], "BLOCKED")
+        self.assertEqual(self.access.get("sample-one", self.identity)["status"], "TESTED")
+
+    def test_provider_permission_failure_still_requires_connection_retest(self):
+        self.ready()
+        self.approve("campaign_plan")
+        with patch("mission_control.agent_tasks.api_run", side_effect=Invalid("Provider permission denied")):
+            run_once(self.store)
+        self.assertEqual(self.result()["status"], "BLOCKED")
+        self.assertEqual(self.access.get("sample-one", self.identity)["status"], "NEEDS_ATTENTION")

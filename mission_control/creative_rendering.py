@@ -15,7 +15,7 @@ from .media_native import SHAPES, capability, caption_lines, render_native
 
 
 def render_request(db, store, app_id, body):
-    """Freeze only the exact latest current short-video brief and supported readable copy."""
+    """Freeze a short-video or LinkedIn scene plan on an explicit MP4 render request."""
     if not isinstance(body, dict) or set(body) != {"brief_id", "brief_hash", "shape"}:
         raise Invalid("Choose a current brief and portrait or landscape video")
     if body["shape"] not in SHAPES:
@@ -23,8 +23,8 @@ def render_request(db, store, app_id, body):
     brief = latest(db, "creative_briefs", app_id, body["brief_id"])
     if brief["hash"] != body["brief_hash"]:
         raise Invalid("Brief changed; reload before rendering")
-    if brief["data"]["definition"]["channel"] != "SHORT_VIDEO":
-        raise Invalid("Choose a short-video brief for MP4 rendering")
+    if brief["data"]["definition"]["channel"] not in ("SHORT_VIDEO", "LINKEDIN"):
+        raise Invalid("Choose a short-video or LinkedIn scene brief for MP4 rendering")
     findings = stale_findings(db, store, app_id, brief["data"])
     if findings:
         raise Invalid("Repair current brief proof: " + "; ".join(findings))

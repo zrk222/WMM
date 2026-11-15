@@ -1,14 +1,17 @@
 """Opt-in isolated Windows CI installer lifecycle; never installs prerequisites."""
 
+import asyncio
+import hashlib
 import importlib.util
 import json
 import os
-from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
 import time
 import uuid
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INSTALL_TIMEOUT_SECONDS = 180
@@ -17,6 +20,23 @@ INSTALL_TIMEOUT_SECONDS = 180
 def run(argv, cwd, env, timeout=INSTALL_TIMEOUT_SECONDS):
     return subprocess.run(
         [str(x) for x in argv], cwd=cwd, env=env, check=True, capture_output=True, text=True, timeout=timeout
+    )
+
+
+def verify_publisher(path, thumbprint, cwd, env):
+    """Check Windows trust, the pinned publisher, and the timestamp on exact bytes."""
+    command = (
+        "$ErrorActionPreference='Stop'; "
+        "$s=Get-AuthenticodeSignature -LiteralPath $env:WMM_CHECK_BINARY; "
+        "if ($s.Status -ne 'Valid' -or "
+        "$s.SignerCertificate.Thumbprint -cne $env:WMM_WINDOWS_SIGNER_THUMBPRINT -or "
+        "-not $s.TimeStamperCertificate) { throw 'Publisher or timestamp verification failed' }"
+    )
+    run(
+        ["pwsh.exe", "-NoProfile", "-NonInteractive", "-Command", command],
+        cwd,
+        dict(env, WMM_CHECK_BINARY=str(path), WMM_WINDOWS_SIGNER_THUMBPRINT=thumbprint),
+        30,
     )
 
 
@@ -53,11 +73,11 @@ def verify_binary(binary, folder, env, label):
         if args in (["--self-test"], ["--vault-self-test"]) and value.get("status") != "PASS":
             raise AssertionError("Installed binary self-test did not pass")
     spec = importlib.util.spec_from_file_location("wmm_bundle_smoke", ROOT / "tools/smoke_desktop_bundle.py")
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Packaged smoke verifier unavailable")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    import anyio
-
-    anyio.run(module.mcp_smoke, binary, str(folder))
+    asyncio.run(module.mcp_smoke(binary, str(folder)))
     module.setup_smoke(binary, folder, env, label=label)
     module.first_packet_smoke(binary, folder, env, label=label, profile_dir=env["LOCALAPPDATA"])
 
@@ -129,6 +149,15 @@ def main():
                 env,
             )
             setup = output / "WMM-Setup.exe"
+        thumbprint = env.get("WMM_WINDOWS_SIGNER_THUMBPRINT")
+        signature = {}
+        installer_hash = None
+        if thumbprint:
+            if not re.fullmatch("[0-9A-F]{40}", thumbprint):
+                raise ValueError("Expected an uppercase certificate thumbprint")
+            with setup.open("rb") as stream:
+                installer_hash = hashlib.file_digest(stream, "sha256").hexdigest()
+            verify_publisher(setup, thumbprint, temp, env)
         args = ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=" + str(install)]
         run([setup, *args], temp, env)
         binary = install / "WMM.exe"
@@ -139,7 +168,19 @@ def main():
         verify_binary(binary, temp, env, "windows-upgrade")
         if marker.read_text(encoding="utf-8") != "synthetic private workspace":
             raise AssertionError("Upgrade changed the workspace fixture")
-        run([install / "unins000.exe", "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"], temp, env)
+        uninstaller = install / "unins000.exe"
+        if thumbprint:
+            verify_publisher(uninstaller, thumbprint, temp, env)
+            with setup.open("rb") as stream:
+                if hashlib.file_digest(stream, "sha256").hexdigest() != installer_hash:
+                    raise ValueError("Installer bytes changed during lifecycle verification")
+            signature["publisher_signature"] = dict(
+                thumbprint=thumbprint,
+                installer_sha256=installer_hash,
+                installer="VALID_TIMESTAMPED",
+                uninstaller="VALID_TIMESTAMPED",
+            )
+        run([uninstaller, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"], temp, env)
         wait_removed(install)
         if binary.exists() or marker.read_text(encoding="utf-8") != "synthetic private workspace":
             raise AssertionError("Uninstall did not remove program or preserve workspace fixture")
@@ -152,6 +193,7 @@ def main():
                 uninstall="VERIFIED",
                 workspace="SYNTHETIC_PRESERVED",
                 provider="NOT_RUN",
+                **signature,
             )
         )
     )

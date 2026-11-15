@@ -25,11 +25,31 @@ are not installer distribution proof.
 Existing tags/releases/assets are never overwritten. An interrupted upload leaves
 a draft for inspection; choose a new tag after resolving the cause. A
 public-download verification failure may occur after publication: inspect that
-release and its logs explicitly before claiming successful distribution. This
-workflow does not sign Windows binaries, install trust roots, bypass TLS, or prove
-human first-use acceptance. The SBOM is a build-environment package inventory, not
+release and its logs explicitly before claiming successful distribution. The public workflow requires a trusted Windows signing provider available to the
+Windows runner. Configure the public certificate thumbprint (uppercase) as
+`WMM_WINDOWS_SIGNER_THUMBPRINT` and its HTTPS timestamp endpoint as
+`WMM_WINDOWS_TIMESTAMP_URL`. These settings do not provision a key or certificate.
+The installer and installed uninstaller must pass Windows signature verification
+under that identity before the release can publish. Build-only runs stay unsigned.
+Signing does not install trust roots, bypass TLS, or prove human first-use acceptance. The SBOM is a build-environment package inventory, not
 a file-level runtime inventory or a provenance attestation. SHA256SUMS.txt covers
-every uploaded asset.
+the eight other release assets.
+
+Before the publisher creates SHA256SUMS.txt, the pinned GitHub attestation action
+attests the exact six staged payloads. `tools/verify_release_provenance.py` then
+requires the official `gh attestation verify` result for each payload, constrained
+to repository `zrk222/WMM`, signer workflow
+`zrk222/WMM/.github/workflows/desktop-release.yml`, the exact admitted source SHA,
+and GitHub-hosted runners. Missing or failed results stop publication. The helper
+rejects missing, empty, linked or extra stage entries and changed bytes during
+verification, then writes `.factory/release-provenance.json` outside the release
+folder. That receipt must upload successfully before the immutable publisher
+runs. After all six payload verifications pass, the exact action-generated bundle is copied as `release-attestation.sigstore.json`, and the complete source-bound verification receipt as `release-provenance.json`. Both are explicit public release assets covered by the checksum manifest. They are not added to the six attestation subjects, and no recursive checksum or receipt attestation is claimed.
+
+The receipt records payload hashes, bundle hash, verifier result counts, full verifier outputs and their hashes;
+it is execution evidence, not a substitute for independently verifying downloaded
+payloads with the [buyer verification commands](VERIFY-RELEASE.md). The checksum
+manifest is created later, covers all eight other assets and is not itself attested. Provenance verification does not substitute for Windows publisher verification.
 
 ## Installer checks
 
@@ -39,8 +59,7 @@ every uploaded asset.
 - Both: keep the desktop window open for its local engine; workspace data stays
   outside the installed program.
 
-Unsigned Windows publisher verification and nontechnical first-use acceptance
-remain separate evidence.
+Publisher verification and nontechnical first-use acceptance remain separate evidence.
 
 ## Build a Windows installer with your own signing key
 

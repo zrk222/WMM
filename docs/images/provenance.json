@@ -3,12 +3,13 @@
   "synthetic": true,
   "captured_at": "2026-10-28T02:49:48.851066+00:00",
   "images": {
-    "overview.png": "0fb17f90a63428de868e213de93f1dd271219ee2e8ace918f522799c26f9e7d8",
+    "overview.png": "7739058fb47e751255ec4333f1004518005718986fb27acaf64eb474c1a96ca3",
     "pipeline.png": "384e65c306ca65fabe0f7ae6fca478124067b38342f91bc49596d47237d3717e",
     "results.png": "e46e440b18c33d91fe1ce4cd2795ab50434cf896fd4217f7de956253bed72d58",
-    "sample-workflow.png": "78be07a47083dae0e3b9fee86ccfeec1ed0c612822208b9c715f47ba3c343f1e",
+    "sample-workflow.png": "e3fe342f7d901e4782b976d5d9566b9b5f732832a7d46f832eabbc43940b9b60",
     "agent-task-setup.png": "cad3721275d32a646ddd460ed9f5c7dc7da0f32d2e97d3053c711d212d20b8c3",
-    "goal-to-proof.png": "9d528775572d39aaa3582aff363e83480bd77f0e9bf7c8bf39bb5e3d5f916c51"
+    "goal-to-proof.png": "9d528775572d39aaa3582aff363e83480bd77f0e9bf7c8bf39bb5e3d5f916c51",
+    "wmm-console.webp": "7b684328d1da77fbf817d8f2e96a514a4b9fb42d3b965945a6d83f93f72fcb13"
   },
   "additional_captures": {
     "goal-to-proof.png": {
@@ -27,19 +28,27 @@
       "verification_command": "python tools/test_agent_task_presets_browser.py"
     },
     "sample-workflow.png": {
-      "source": "Actual Chromium render of the branded four-channel sample; fictional Trail Timer with YouTube Shorts selected; no account, model call, publication or spending",
-      "captured_at": "2026-11-05T17:00:49.943349+00:00",
+      "source": "Actual Chromium render of the updated branded synthetic demo; fictional Trail Timer with YouTube Shorts selected; no connected accounts, AI generation, publication or spending",
+      "captured_at": "2026-11-13T04:35:04.479417+00:00",
       "viewport_width": 1440,
       "synthetic": true,
-      "verification_command": "python tools/test_preview_browser.py"
+      "verification_command": "python -X utf8 tools/test_preview_browser.py",
+      "source_demo_sha256": "42450629dd93ce8f11b5560dd9614ce72df613802bdf5189f6f6309c03728207"
     },
     "overview.png": {
-      "source": "Actual Chromium capture of the candidate WMM overview; isolated synthetic app; no accounts, approvals, publication or spending",
-      "source_base_commit": "f27dccf0a0942b7bc334b63a430445d6c9b5ba1c",
-      "candidate_ui_sha256": "277792d47805c1cf3ce8deb9dfbdd91a759f9164fba6f00aa490ed936af41ddf",
-      "captured_at": "2026-11-12T03:05:40.489382+00:00",
-      "viewport_width": 1440,
+      "source": "Actual Chromium capture of the revised WMM home; isolated synthetic fixture; no connected accounts, approvals, publication or spending",
+      "source_base_commit": "444531e386c40b8aa26de4c087a2d8f8d0a3f9b6",
+      "candidate_ui_sha256": "dc88d4751cf88bcfdaa1791ba7eab92560ac4adbc77e0db7becffc97fe938f4e",
+      "captured_at": "2026-11-15T06:39:48.052098+00:00",
+      "viewport_width": 1280,
       "synthetic": true
+    },
+    "wmm-console.webp": {
+      "source": "Chromium capture of the decorative Three.js overview scene on loopback, without any app or account data.",
+      "captured_at": "2026-11-15T08:04:47.653265+00:00",
+      "viewport_width": 1440,
+      "synthetic": true,
+      "scene_sha256": "2d8f763b495a15ba9f36513e9a680d75191717d2068bd651d360f9f3171ccb8c"
     }
   }
 }

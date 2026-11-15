@@ -1,12 +1,18 @@
 """Synthetic source observations; no network or provider state."""
 
 import copy
-from datetime import datetime, timedelta, timezone
 import unittest
+from datetime import datetime, timedelta, timezone
 
 from mission_control.common import Invalid, digest
+from mission_control.creative_intelligence import creative_shortlist
 from mission_control.operation_catalog import catalog
-from mission_control.organic_video_discovery import discovery_task, qualify_submission, validate_submission
+from mission_control.organic_video_discovery import (
+    collection_coverage,
+    discovery_task,
+    qualify_submission,
+    validate_submission,
+)
 from mission_control.viral_policy import qualify
 
 
@@ -77,13 +83,194 @@ def bundle(task_value, count=10, collected=None):
 
 
 class DiscoveryContractTests(unittest.TestCase):
-    def test_agent_catalog_describes_the_four_channel_submission(self):
-        contract = catalog()["domain_contracts"]["discovery_research"]["short_video_collector"]
-        self.assertEqual(set(contract["direct_post_examples"]), {"facebook", "instagram", "tiktok", "youtube"})
+    def test_shortlist_prioritizes_qualified_evidence_and_distinct_creators(self) -> None:
+        contract = task()
+        submitted = bundle(contract)
+        original = copy.deepcopy(submitted["candidates"][0])
+        for name, creator, views, relevance in (
+            ("duplicate-creator", "CREATOR-ONE", 150000, "MATCH"),
+            ("pattern-only", "creator-two", 80000, "MATCH"),
+            ("qualified-other", "creator-three", 120000, "MATCH"),
+            ("no-match", "creator-four", 220000, "MISMATCH"),
+        ):
+            entry = copy.deepcopy(original)
+            candidate = entry["candidate"]
+            candidate.update(
+                post_id=name, creator_id=creator, views=views, url="https://www.tiktok.com/@creator/video/" + name
+            )
+            for item in entry["history"]:
+                item["creator_id"] = creator
+            for observation, proof in zip([candidate, *entry["history"]], entry["evidence"], strict=True):
+                proof.update(
+                    post_id=observation["post_id"], url=observation["url"], observation_hash=digest(observation)
+                )
+            entry["relevance"] = relevance
+            submitted["candidates"].append(entry)
+        result = qualify_submission(contract, submitted)
+        shortlist = creative_shortlist(submitted, result)
+        self.assertEqual(
+            [entry["post_id"] for entry in shortlist], ["duplicate-creator", "qualified-other", "pattern-only"]
+        )
+        self.assertEqual(shortlist[2]["tier"], "PROMISING_PATTERN")
+        self.assertEqual(shortlist[2]["next_action"], "INSPECT_PATTERN_ONLY")
+        self.assertTrue(all(item["adaptation"] == "ORIGINAL_ASSETS_ONLY" for item in shortlist))
+        self.assertEqual(result["publication"], "NOT_RUN")
+        self.assertEqual(creative_shortlist(None, None), [])
+        submitted["candidates"].reverse()
+        self.assertEqual(creative_shortlist(submitted, qualify_submission(contract, submitted)), shortlist)
+
+    def test_market_search_and_manifests_share_exact_ontology(self):
+        from mission_control.marketing_ontology import filter_term, ontology
+
+        result = catalog()
+        contracts = result["domain_contracts"]
+        assert isinstance(contracts, dict)
+        current = ontology()
+        self.assertEqual(contracts["marketing_ontology"], current)
+        self.assertEqual(contracts["discovery_research"]["marketing_ontology_sha256"], current["ontology_sha256"])
+        self.assertEqual(filter_term("narratives", "app demo"), "APP_DEMO")
+        self.assertEqual(filter_term("treatments", "app demo"), "app demo")
+        self.assertEqual(contracts["market_research"]["marketing_ontology_sha256"], current["ontology_sha256"])
+        self.assertEqual(
+            digest({key: value for key, value in current.items() if key != "ontology_sha256"}),
+            current["ontology_sha256"],
+        )
+        axes = current["axes"]
+        assert isinstance(axes, dict)
+        self.assertIn("APP_DEMO", axes["narrative"])
+        self.assertIn("TALKING_HEAD", axes["treatment"])
+        self.assertNotIn("APP_DEMO", axes["treatment"])
+        from typing import Any, cast
+
+        from mission_control.agent_operations import discovery
+
+        guide = cast(dict[str, Any], discovery({"id": "sample-one", "version": 1, "data": {}})["personal_agent_guide"])
+        assert isinstance(guide, dict)
+        self.assertEqual(guide["marketing_ontology"], current)
+        profiles = guide["profiles"]
+        assert isinstance(profiles, list)
+        for profile in profiles:
+            assert isinstance(profile, dict)
+            self.assertEqual(profile["marketing_ontology_ref"], current["ontology_sha256"])
+
+    def test_discovery_search_normalizes_only_known_aliases_in_their_axis(self):
+        from mission_control.discovery_contract import query
+
+        filters = {
+            "outcome": "demo installs",
+            "audience": "founders",
+            "industries": [],
+            "narratives": ["app demo", "APP_DEMO"],
+            "treatments": ["Talking Head"],
+            "published_after": "2026-10-01T00:00:00Z",
+            "published_before": "2026-11-01T00:00:00Z",
+            "freshness_seconds": 86400,
+            "minimum_views": 100000,
+            "baseline_required": True,
+            "viral_only": True,
+            "ranking": "CREATOR_OUTLIER",
+        }
+        current = query(filters)
+        self.assertEqual(current["narratives"], ["APP_DEMO"])
+        self.assertEqual(current["treatments"], ["TALKING_HEAD"])
+        self.assertEqual(filters["narratives"], ["app demo", "APP_DEMO"])
+        with self.assertRaises(Invalid):
+            query({**filters, "treatments": ["app demo"]})
+
+    def test_five_channel_first_pass_allocates_reads_with_selected_hosts_only(self):
+        from mission_control.organic_video_discovery import HOSTS, channel_search_plan
+
+        value = task()
+        value["policy"].update(
+            platforms=sorted(HOSTS),
+            hosts=["www." + name + ".com" for name in sorted(HOSTS)],
+            max_reads=13,
+        )
+        value = discovery_task(value["app"], value["policy"], value["query"])
+        rows = channel_search_plan(value)
+        self.assertEqual({row["platform"] for row in rows}, set(HOSTS))
+        self.assertEqual(sum(row["initial_read_allowance"] for row in rows), 13)
+        self.assertEqual({row["initial_read_allowance"] for row in rows}, {2, 3})
+        self.assertEqual(len({row["surface"] for row in rows}), 5)
+        for row in rows:
+            self.assertEqual(row["hosts"], ["www." + row["platform"] + ".com"])
+            self.assertEqual(row["app_type"], value["query"]["app_type"])
+
+    def test_agent_catalog_describes_the_five_channel_submission(self):
+        catalog_value = catalog()
+        assert isinstance(catalog_value, dict)
+        contracts = catalog_value["domain_contracts"]
+        assert isinstance(contracts, dict)
+        contract = contracts["discovery_research"]["short_video_collector"]
+        self.assertEqual(
+            set(contract["direct_post_examples"]), {"facebook", "instagram", "tiktok", "youtube", "linkedin"}
+        )
         sample = bundle(task())
         self.assertEqual(set(contract["submit"]["result_fields"]), set(sample))
         self.assertEqual(set(contract["observation_fields"]), set(sample["candidates"][0]["candidate"]))
         self.assertEqual(set(contract["evidence_fields"]), set(sample["candidates"][0]["evidence"][0]))
+
+    def test_linkedin_research_keeps_threshold_identity_and_selected_scope(self):
+        value = task()
+        value["policy"].update(platforms=["linkedin"], hosts=["www.linkedin.com"])
+        value = discovery_task(value["app"], value["policy"], value["query"])
+        data = bundle(value)
+        item = data["candidates"][0]
+        for index, row in enumerate([item["candidate"], *item["history"]]):
+            identity = "urn:li:activity:" + str(7000000000000000000 + index)
+            row.update(platform="linkedin", post_id=identity, url="https://www.linkedin.com/feed/update/" + identity)
+            item["evidence"][index].update(post_id=identity, url=row["url"], observation_hash=digest(row))
+        result = qualify_submission(value, data)["items"][0]
+        self.assertEqual(result["qualification"]["qualification"], "QUALIFIED_BY_REPORTED_COUNTS")
+        self.assertEqual(result["reuse_permission"], "NOT_ESTABLISHED")
+        for url in (
+            "https://www.linkedin.com/in/creator",
+            "https://www.linkedin.com/feed/update/urn:li:activity:1",
+            "https://www.linkedin.com.evil.invalid/feed/update/urn:li:activity:7000000000000000000",
+            item["candidate"]["url"] + "?share=1",
+        ):
+            invalid = copy.deepcopy(data)
+            row = invalid["candidates"][0]["candidate"]
+            row["url"] = url
+            invalid["candidates"][0]["evidence"][0].update(url=url, observation_hash=digest(row))
+            with self.subTest(url=url), self.assertRaises(Invalid):
+                validate_submission(value, invalid)
+        mixed = copy.deepcopy(data)
+        mixed["candidates"][0]["history"][0]["creator_id"] = "different-creator"
+        mixed["candidates"][0]["evidence"][1]["observation_hash"] = digest(mixed["candidates"][0]["history"][0])
+        with self.assertRaisesRegex(Invalid, "Baseline posts must match"):
+            qualify_submission(value, mixed)
+        other_scope = task()
+        out_of_scope = copy.deepcopy(data)
+        out_of_scope["task_hash"] = digest(other_scope)
+        with self.assertRaisesRegex(Invalid, "Observation platform is outside task scope"):
+            validate_submission(other_scope, out_of_scope)
+
+    def test_selected_channel_reporting_distinguishes_unreported_empty_failure_and_observed(self):
+        value = task()
+        value["policy"].update(platforms=["tiktok", "linkedin"], hosts=["www.tiktok.com", "www.linkedin.com"])
+        data = bundle(value)
+        self.assertEqual(collection_coverage(value, None)["linkedin"]["status"], "NOT_RUN")
+        self.assertEqual(collection_coverage(value, data)["linkedin"]["status"], "NOT_REPORTED")
+        self.assertEqual(collection_coverage(value, data)["tiktok"]["status"], "OBSERVED")
+        data["failures"] = [{"source": "https://www.linkedin.com/", "code": "EMPTY"}]
+        self.assertEqual(collection_coverage(value, data)["linkedin"]["status"], "REPORTED_EMPTY")
+        data["failures"][0]["code"] = "LOGIN"
+        self.assertEqual(collection_coverage(value, data)["linkedin"]["status"], "SOURCE_FAILURE")
+
+    def test_absolute_cutoff_rejects_candidate_despite_large_relative_outlier(self):
+        value = task()
+        data = bundle(value)
+        item = data["candidates"][0]
+        item["candidate"]["views"] = 99999
+        for row in item["history"]:
+            row["views"] = 1000
+        for row, evidence in zip([item["candidate"], *item["history"]], item["evidence"], strict=True):
+            evidence["observation_hash"] = digest(row)
+        result = qualify_submission(value, data)["items"][0]["qualification"]
+        self.assertEqual(result["qualification"], "NOT_QUALIFIED")
+        self.assertEqual(result["reasons"], ["BELOW_100000_VIEWS"])
+        self.assertEqual(result["required_views"], 100000)
 
     def test_exact_existing_viral_threshold_and_history_limits(self):
         value = task()

@@ -1,17 +1,18 @@
 """Complete assignment and real miniature CLI execution; no full repository run."""
 
-from collections import Counter
-import json
 import importlib.util
-from pathlib import Path
+import json
 import subprocess
 import sys
 import tempfile
 import unittest
+from collections import Counter
+from pathlib import Path
 
 _spec = importlib.util.spec_from_file_location(
     "wmm_ci_runner", Path(__file__).resolve().parents[1] / "tools" / "run_ci_tests.py"
 )
+assert _spec is not None and _spec.loader is not None
 runner = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(runner)
 
@@ -47,6 +48,17 @@ class ShardTests(unittest.TestCase):
         other = runner.partition(shorter, 4)
         self.assertNotEqual(hashes[0], runner.inventory(shorter, other, 0, True)["inventory_sha256"])
 
+    def test_duration_balance_separates_expensive_modules_without_losing_unknowns(self):
+        flat = sum((cases(name, 2) for name in ("a", "b", "c", "d")), [])
+        weights = {"a": 90, "c": 90}
+        assigned = runner.partition(flat, 2, weights)
+        self.assertEqual([len(shard) for shard in assigned], [4, 4])
+        self.assertNotEqual(
+            next(i for i, shard in enumerate(assigned) if any(type(case).__module__ == "a" for _, case in shard)),
+            next(i for i, shard in enumerate(assigned) if any(type(case).__module__ == "c" for _, case in shard)),
+        )
+        runner.verify_assignment(flat, assigned)
+
     def test_assignment_sabotage_drop_duplicate_or_substitute_cannot_pass(self):
         flat = cases("one_module", 4)
         assigned = runner.partition(flat, 1)
@@ -77,7 +89,7 @@ class ShardTests(unittest.TestCase):
             for name, source in files.items():
                 (tests / name).write_text(source, encoding="utf-8")
             result = subprocess.run(
-                [sys.executable, str(Path(runner.__file__).resolve()), *args],
+                [sys.executable, str(Path(__file__).resolve().parents[1] / "tools" / "run_ci_tests.py"), *args],
                 cwd=root,
                 capture_output=True,
                 text=True,

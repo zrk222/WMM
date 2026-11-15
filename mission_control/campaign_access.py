@@ -2,9 +2,10 @@
 
 import json
 import re
+
 from .common import Invalid
 from .db import connection
-from .operation_authority import REQUEST, PROTECTED, check, store_identity
+from .operation_authority import PROTECTED, REQUEST, check, store_identity
 from .social_contract import reference
 
 OWNER_ACTIONS = {"prepare", "activate", "revoke"}
@@ -60,10 +61,7 @@ def retained_check(store, app_id, actor, scope, action):
     from .campaign_monitor_authority import check as monitor_check
     from .campaign_schedule_authority import check as schedule_check
 
-    for check in (monitor_check, schedule_check):
-        if check(store, app_id, actor, scope, action):
-            return True
-    return False
+    return any(validator(store, app_id, actor, scope, action) for validator in (monitor_check, schedule_check))
 
 
 def scope_owner(store, context, actor):
@@ -86,10 +84,21 @@ def dispatch(store, app_id, action, body):
     from .campaign_execution import CampaignExecutionService
 
     service = CampaignExecutionService(store, policy_checker(store))
+
+    def read_scope(value):
+        if "principal" in context:
+            return value
+        return {key: item for key, item in value.items() if key != "measurement_plan"}
+
+    def read_intent(value):
+        if "principal" in context or not isinstance(value.get("result"), dict):
+            return value
+        return dict(value, result={key: item for key, item in value["result"].items() if key != "destination_check"})
+
     if action == "history":
         owner = scope_owner(store, context, actor)
         if "approved_link_sha256" not in body:
-            return dict(scopes=service.list_scopes(app_id, owner))
+            return dict(scopes=[read_scope(scope) for scope in service.list_scopes(app_id, owner)])
         if "principal" not in context:
             raise PermissionError("Only the authenticated owner can look up tracked post receipts")
         return dict(
@@ -113,13 +122,16 @@ def dispatch(store, app_id, action, body):
     routes = {
         "activate": lambda: service.activate_scope(app_id, actor, scope_id, body["approval_hash"]),
         "revoke": lambda: service.revoke_scope(app_id, actor, scope_id),
-        "status": lambda: dict(scope=scope, intents=service.list_intents(app_id, scope_id)),
+        "status": lambda: dict(
+            scope=read_scope(scope), intents=[read_intent(intent) for intent in service.list_intents(app_id, scope_id)]
+        ),
         "publish": lambda: service.run_post(app_id, actor, scope_id, body["request"]),
         "ad-launch": lambda: service.run_ad(app_id, actor, scope_id, body["request"]),
         "pause": lambda: service.run_pause(app_id, actor, scope_id, body["intent_id"]),
         "reconcile": lambda: service.reconcile(app_id, actor, scope_id, body["intent_id"]),
     }
-    return routes[action]()
+    result = routes[action]()
+    return read_intent(result) if action in {"publish", "reconcile"} else result
 
 
 def validate_fields(action, body):

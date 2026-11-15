@@ -1,10 +1,11 @@
 """Protected-context lifecycle using temporary SQLite and synthetic external observations."""
 
 import copy
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any, cast
 from unittest.mock import patch
 
 from mission_control.agent_grants import Grants
@@ -83,16 +84,17 @@ class CollectorTests(unittest.TestCase):
     def owner_call(self, body=None, app="sample-one", actor=None):
         body = self.body if body is None else body
         envelope = {"app_id": app, "operation": "organic-video.prepare", "input": body}
-        with bound_owner(self.store, envelope, Identities(), "owner-session", self.owner):
-            with protected(self.store, envelope) as admitted:
-                return prepare(self.store, app, actor or admitted, body)
+        with (
+            bound_owner(self.store, envelope, Identities(), "owner-session", self.owner),
+            protected(self.store, envelope) as admitted,
+        ):
+            return cast(dict[str, Any], prepare(self.store, app, actor or admitted, body))
 
     def agent_call(self, operation, body, function, token=None, app="sample-one", actor=None):
         envelope = {"app_id": app, "operation": operation, "input": body}
         admission = self.grants.admit(token or self.grant["token"], envelope)
-        with bound_agent(self.store, envelope, admission):
-            with protected(self.store, envelope) as admitted:
-                return function(self.store, app, actor or admitted, body)
+        with bound_agent(self.store, envelope, admission), protected(self.store, envelope) as admitted:
+            return cast(dict[str, Any], function(self.store, app, actor or admitted, body))
 
     def claim_task(self, saved):
         return self.agent_call("organic-video.claim", {"task_id": saved["id"], "task_hash": saved["task_hash"]}, claim)
@@ -118,6 +120,13 @@ class CollectorTests(unittest.TestCase):
         complete = self.agent_call("organic-video.submit", request, submit)
         self.assertEqual(complete["status"], "SUBMITTED")
         self.assertEqual(complete["result"]["collection_verification"], "REQUIRED")
+        shortlist = complete["creative_shortlist"]
+        self.assertEqual(len(shortlist), 1)
+        self.assertEqual(
+            shortlist[0]["candidate_hash"], complete["result"]["items"][0]["qualification"]["candidate_hash"]
+        )
+        self.assertEqual(shortlist[0]["adaptation"], "ORIGINAL_ASSETS_ONLY")
+
         self.assertEqual(self.agent_call("organic-video.submit", request, submit), complete)
         changed = copy.deepcopy(request)
         changed["result"]["read_count"] = 2
@@ -147,8 +156,8 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual(
             result["channel_coverage"],
             {
-                "instagram": {"candidates": 0, "failures": 0},
-                "tiktok": {"candidates": 1, "failures": 0},
+                "instagram": {"candidates": 0, "failures": 0, "status": "NOT_REPORTED"},
+                "tiktok": {"candidates": 1, "failures": 0, "status": "OBSERVED"},
             },
         )
         self.assertEqual(result["result"]["items"][0]["status"], "COLLECTION_REVIEW_REQUIRED")

@@ -1,19 +1,22 @@
 """Owner-only combined review; existing independent scopes retain execution authority."""
 
-from datetime import datetime, timezone
 import json
+from datetime import datetime, timezone
+from typing import Any, TypedDict, cast
 
 from .automation_requirements import social_account, workflow_catalog
 from .campaign_contract import (
     SCOPE_FIELDS,
-    post_data,
     hashes,
+    numeric,
+    post_data,
     target_countries,
     whole,
-    numeric,
 )
-from .campaign_schedule import item_status, check_paid_review
 from .campaign_execution import scope_view
+from .campaign_monitor import ObservationReceipt, allowance_exhausted, monitor_attention, monitor_table_exists
+from .campaign_monitor import view as monitor_view
+from .campaign_schedule import check_paid_review, item_status, schedule_table_exists
 from .common import Invalid, digest, iso_time
 from .complete_automation import policy_view
 from .db import connection
@@ -40,12 +43,52 @@ UNCERTAIN = (
 )
 
 
+class AgreementPreview(TypedDict):
+    status: str
+    summary: dict[str, Any]
+    summary_hash: str
+    observed_at: str
+    authority_issued: bool
+    next_actions: list[str]
+    artifacts: list[object]
+
+
+class MonitorProposal(TypedDict):
+    scope_id: str
+    targets: list[dict[str, str]]
+    protective_conditions: list[str]
+    cadence_seconds: int
+    expires_at: str
+    max_runs: int
+    max_provider_units: int
+    max_pause_attempts: int
+
+
+class SavedMonitorSummary(TypedDict):
+    proposal: MonitorProposal
+
+
+class MonitorRead(TypedDict):
+    id: str
+    summary: SavedMonitorSummary | None
+    summary_hash: str | None
+    status: str
+    effective_status: str
+    last_observation: ObservationReceipt | None
+    next_due: float | None
+    runs: int
+    provider_units: int
+    pause_attempts: int
+
+
 def selection(body):
     """Accept exact existing resource references, never new authority choices."""
-    exact_keys(body, FIELDS, ("draft_posts",))
+    exact_keys(body, FIELDS, ("draft_posts", "campaign_monitor_id"))
     if type(body["manifest_version"]) is not int or body["manifest_version"] < 1:
         raise Invalid("Use the current app manifest version")
     selected = [body[name] for name in FIELDS[1:] if body[name] is not None]
+    if body.get("campaign_monitor_id") is not None:
+        selected.append(body["campaign_monitor_id"])
     if not selected:
         raise Invalid("Select at least one existing automation resource")
     for identity in selected:
@@ -55,6 +98,7 @@ def selection(body):
         if (
             body["campaign_scope_id"] is None
             or body["schedule_batch_id"] is not None
+            or body.get("campaign_monitor_id") is not None
             or not isinstance(posts, list)
             or not 1 <= len(posts) <= 20
         ):
@@ -76,16 +120,14 @@ def saved_object(raw):
 
 def owned(db, table, app_id, identity, principal):
     """Only fixed internal table names reach this owner-filtered read."""
-    if table not in (
-        "automation_policies",
-        "campaign_scopes",
-        "campaign_schedule_batches",
-    ):
+    query = {
+        "automation_policies": "SELECT * FROM automation_policies WHERE app_id=? AND id=? AND owner=?",
+        "campaign_scopes": "SELECT * FROM campaign_scopes WHERE app_id=? AND id=? AND owner=?",
+        "campaign_schedule_batches": "SELECT * FROM campaign_schedule_batches WHERE app_id=? AND id=? AND owner=?",
+    }.get(table)
+    if query is None:
         raise Invalid("Unsupported agreement resource")
-    row = db.execute(
-        "SELECT * FROM " + table + " WHERE app_id=? AND id=? AND owner=?",
-        (app_id, identity, principal),
-    ).fetchone()
+    row = db.execute(query, (app_id, identity, principal)).fetchone()
     if row is None:
         raise Invalid("Selected automation resource is unavailable for this owner")
     return row
@@ -97,7 +139,7 @@ def local_scope(db, app_id, principal, identity, observed):
         return None
     row = owned(db, "automation_policies", app_id, identity, principal)
     view = policy_view(db, row, observed)
-    summary = view["summary"]
+    summary: Any = view["summary"]
     if summary is not None:
         inventory = summary["inventory"]
         if inventory["app"]["id"] != app_id or inventory["owner"]["principal"] != principal:
@@ -142,16 +184,16 @@ def campaign_blockers(scope, row, app, owner, account, observed):
     return [reason for failed, reason in checks if failed]
 
 
-def campaign_receipts(db, app_id, scope_id):
+def campaign_receipts(db, app_id, scope_id) -> list[dict[str, Any]]:
     """Return only durable public receipt identities and states, never raw results."""
-    posts = [
+    posts: list[dict[str, Any]] = [
         dict(row, kind="POST")
         for row in db.execute(
             "SELECT id,request_id,request_hash,content_hash,rights_hash,status,remote_id,updated FROM campaign_intents WHERE app_id=? AND scope_id=? ORDER BY id",
             (app_id, scope_id),
         )
     ]
-    ads = [
+    ads: list[dict[str, Any]] = [
         dict(row, kind="AD")
         for row in db.execute(
             "SELECT id,request_id,request_hash,currency,commitment,status,ids,updated FROM campaign_paid_intents WHERE app_id=? AND scope_id=? ORDER BY id",
@@ -166,7 +208,7 @@ def campaign_receipts(db, app_id, scope_id):
     return posts + ads
 
 
-def campaign_scope(db, app, owner, identity, observed):
+def campaign_scope(db, app, owner, identity, observed) -> dict[str, Any] | None:
     """Project exact existing approval and current selected account in this snapshot."""
     if identity is None:
         return None
@@ -187,7 +229,7 @@ def campaign_scope(db, app, owner, identity, observed):
             "billing_notice",
             "rights_notice",
         ),
-        ("extended_expiry_consent",),
+        ("extended_expiry_consent", "measurement_plan"),
     )
     if "extended_expiry_consent" in raw and type(raw["extended_expiry_consent"]) is not bool:
         raise Invalid("Campaign expiry consent needs repair")
@@ -214,6 +256,7 @@ def campaign_scope(db, app, owner, identity, observed):
             )
         }
         | ({"extended_expiry_consent": raw["extended_expiry_consent"]} if "extended_expiry_consent" in raw else {}),
+        measurement_plan_configured="measurement_plan" in raw,
         account=account,
         blockers=blockers,
         receipts=receipts,
@@ -229,6 +272,8 @@ def batch_row(db, app_id, principal, identity):
     """Bind selected batch to its stored immutable summary before resolving dependencies."""
     if identity is None:
         return None, None
+    if not schedule_table_exists(db):
+        raise Invalid("Scheduled batch is unavailable for this owner")
     row = owned(db, "campaign_schedule_batches", app_id, identity, principal)
     summary = saved_object(row["summary"])
     exact_keys(
@@ -392,7 +437,7 @@ class Agreement:
         self.store = store
         self.clock = clock or (lambda: datetime.now(timezone.utc))
 
-    def preview(self, app_id, user, body):
+    def preview(self, app_id, user, body) -> AgreementPreview:
         """Return an exact combined review without approving any selected scope."""
         path_segment(app_id)
         chosen = selection(body)
@@ -406,7 +451,7 @@ class Agreement:
             app = dict(id=app_id, version=row["version"], data=saved_object(row["data"]))
             summary = build_summary(db, app, owner, chosen, observed)
         blocked = summary["blocked"]
-        return dict(
+        return AgreementPreview(
             status="warning" if blocked else "success",
             summary=summary,
             summary_hash=digest(summary),
@@ -417,6 +462,61 @@ class Agreement:
         )
 
 
+def monitor_scope(db, app_id, principal, identity):
+    """Project one exact saved monitor without resolving secrets or dispatching work."""
+    if identity is None:
+        return None
+    if not monitor_table_exists(db):
+        raise Invalid("Monitor is unavailable for this owner")
+    row = db.execute(
+        "SELECT * FROM campaign_monitors WHERE app_id=? AND owner=? AND id=?", (app_id, principal, identity)
+    ).fetchone()
+    if row is None:
+        raise Invalid("Monitor is unavailable for this owner")
+    # The monitor's saved summary path validates these proposal fields before returning them.
+    reviewed = cast(MonitorRead, monitor_view(db, row))
+    if reviewed["summary"] is None:
+        raise Invalid("Saved monitor evidence needs repair")
+    plan = reviewed["summary"]["proposal"]
+    observation = reviewed["last_observation"]
+    previous = observation["status"] if observation else None
+    in_flight = previous in ("QUEUED", "RUNNING")
+    exhausted = allowance_exhausted(row, plan)
+    effective = reviewed["effective_status"]
+    if effective == "ACTIVE" and not in_flight and (exhausted or (row["last_job"] and previous != "SUCCEEDED")):
+        effective = "BLOCKED"
+    next_due = None
+    if effective == "ACTIVE" and not in_flight:
+        stored_due = reviewed["next_due"]
+        if stored_due is None:
+            raise Invalid("Saved monitor schedule needs repair")
+        try:
+            next_due = datetime.fromtimestamp(stored_due, timezone.utc).isoformat()
+        except (ArithmeticError, OSError, TypeError, ValueError):
+            raise Invalid("Saved monitor schedule needs repair") from None
+    return dict(
+        id=reviewed["id"],
+        scope_id=plan["scope_id"],
+        summary_hash=reviewed["summary_hash"],
+        status=reviewed["status"],
+        effective_status=effective,
+        attention=monitor_attention(row, plan, effective, observation),
+        targets=plan["targets"],
+        conditions=plan["protective_conditions"],
+        cadence_seconds=plan["cadence_seconds"],
+        expires_at=plan["expires_at"],
+        next_due_at=next_due,
+        check_in_progress=in_flight,
+        check_allowance_exhausted=exhausted,
+        runs=reviewed["runs"],
+        max_runs=plan["max_runs"],
+        provider_units=reviewed["provider_units"],
+        max_provider_units=plan["max_provider_units"],
+        pause_attempts=reviewed["pause_attempts"],
+        max_pause_attempts=plan["max_pause_attempts"],
+    )
+
+
 def build_summary(db, app, owner, chosen, observed):
     """Keep every selected family visible and independent in a hash-bound owner review."""
     row, saved = batch_row(db, app["id"], owner["principal"], chosen["schedule_batch_id"])
@@ -425,10 +525,18 @@ def build_summary(db, app, owner, chosen, observed):
         if campaign_id is not None and campaign_id != row["scope_id"]:
             raise Invalid("Selected schedule and campaign scope differ")
         campaign_id = row["scope_id"]
+    monitor_id = chosen.get("campaign_monitor_id")
+    monitor = monitor_scope(db, app["id"], owner["principal"], monitor_id)
+    if monitor is not None:
+        if campaign_id is not None and campaign_id != monitor["scope_id"]:
+            raise Invalid("Selected monitor and campaign scope differ")
+        campaign_id = monitor["scope_id"]
     local = local_scope(db, app["id"], owner["principal"], chosen["workflow_policy_id"], observed)
     campaign = campaign_scope(db, app, owner, campaign_id, observed)
     draft_posts = chosen.get("draft_posts")
     if draft_posts is not None:
+        if campaign is None:
+            raise Invalid("Select an existing draft campaign")
         approval = campaign["approval"]
         if (
             campaign["status"] != "DRAFT"
@@ -444,11 +552,13 @@ def build_summary(db, app, owner, chosen, observed):
             raise Invalid("Draft post differs from the saved campaign scope")
         campaign["draft_posts"] = draft_posts
     batch = batch_scope(db, app["id"], row, saved, campaign, observed)
-    uncertain = uncertainty(local, campaign, batch)
-    blocked = uncertain or any(value and value["effective_status"] != "ACTIVE" for value in (local, campaign, batch))
+    uncertain = uncertainty(local, campaign, batch) or bool(monitor and monitor["attention"] == "VERIFY_PROVIDER")
+    blocked = uncertain or any(
+        value and value["effective_status"] != "ACTIVE" for value in (local, campaign, batch, monitor)
+    )
     return dict(
         schema="wmm.automation-agreement.v1",
-        selection={name: chosen[name] for name in FIELDS},
+        selection={name: chosen[name] for name in FIELDS + (("campaign_monitor_id",) if monitor_id else ())},
         app=dict(id=app["id"], version=app["version"], hash=digest(app["data"])),
         owner=dict(principal=owner["principal"], role_version=owner["version"]),
         policy_sha256=digest(operating_manifest(app)),
@@ -456,6 +566,7 @@ def build_summary(db, app, owner, chosen, observed):
         local_work=local,
         campaign=campaign,
         schedule=batch,
+        monitor=monitor,
         blocked=bool(blocked),
         dispatch_uncertain=uncertain,
         execution_authority=False,

@@ -1,0 +1,449 @@
+{
+  "schema": "wmm.http-comparison.v1",
+  "source_commit": "ebfefe40645ed9d4821c949873b84caa9e2cbc7a",
+  "source_sha256": {
+    "tools/benchmark_http.py": "9db48157d1b09a76958d977a0e755044441ba25b24d6d209ceaa1fb84c3843f7",
+    "tests/test_http_benchmark.py": "ab87dd2069c45daa380995e0d734c1aa863b8f0251d98da2245e2b69e42c57d8",
+    "tests/test_http.py": "42a10f7e7a02f32a0972c2d22821dfc4c12c99735b931ce973b44f57e98ff00f",
+    "mission_control/server.py": "94b00cecf3e68ff1d8c355940c0175675ff8fabae658b23edc237dbc5dc91c1a",
+    "mission_control/operator_identity.py": "885ef24b90d3dab8b50f0aa6dcf93edb7602e46bc2ba7665ebccb7e2d8043240",
+    "mission_control/http_body.py": "1d6030c08536dfc19672777b05468296b1a6bdedeeec1067e223addadf784f81"
+  },
+  "environment": {
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+    "platform": "Windows-10-10.0.26300-SP0"
+  },
+  "parity_pass": true,
+  "full_http_suite": [
+    {
+      "adapter": "baseline",
+      "tests_run": 21,
+      "successful": true,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "adapter": "bounded_pool",
+      "tests_run": 21,
+      "successful": true,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "scope": "Sequential loopback bootstrap requests; same Handler/Server; synthetic identity provider; bounded probes plus optional unchanged full tests.test_http suite; not a framework comparison",
+  "results": [
+    {
+      "adapter": "baseline",
+      "cold_first_bootstrap_ms": 33.354,
+      "warmup_requests": 5,
+      "measurement": {
+        "count": 100,
+        "p50_ms": 16.1595,
+        "p95_ms": 31.2348,
+        "samples_ms": [
+          17.8378,
+          14.6847,
+          15.9448,
+          16.1595,
+          15.6163,
+          15.5666,
+          15.9068,
+          16.2233,
+          17.0983,
+          31.6281,
+          28.9719,
+          16.8408,
+          30.6216,
+          29.9944,
+          31.958,
+          30.4174,
+          30.1952,
+          16.0324,
+          15.8981,
+          16.1427,
+          15.6155,
+          14.6737,
+          16.4872,
+          15.4733,
+          16.373,
+          15.2379,
+          14.9377,
+          15.448,
+          15.7485,
+          15.6489,
+          15.9375,
+          18.4835,
+          4.6771,
+          23.8757,
+          5.4226,
+          27.0879,
+          6.1735,
+          25.1362,
+          16.1094,
+          31.6458,
+          30.3286,
+          15.7234,
+          16.7564,
+          16.0549,
+          16.4478,
+          15.1966,
+          16.5027,
+          30.7579,
+          15.0024,
+          15.3643,
+          15.7493,
+          16.9182,
+          16.2599,
+          31.2348,
+          32.9973,
+          29.1501,
+          15.5979,
+          6.0419,
+          24.6166,
+          5.6698,
+          25.7479,
+          17.139,
+          29.7908,
+          15.4881,
+          16.2991,
+          29.7817,
+          15.7902,
+          4.5673,
+          4.0539,
+          22.648,
+          14.7051,
+          17.0088,
+          16.5133,
+          29.4207,
+          16.2531,
+          15.9469,
+          14.7357,
+          15.9725,
+          15.0384,
+          17.4309,
+          28.7591,
+          15.8532,
+          30.9022,
+          15.1141,
+          15.705,
+          31.2054,
+          31.3203,
+          5.1802,
+          25.3676,
+          17.0246,
+          5.6597,
+          24.8228,
+          15.8827,
+          15.9678,
+          30.1746,
+          15.7955,
+          5.2886,
+          5.1511,
+          20.4905,
+          30.2713
+        ]
+      },
+      "memory_after_requests": {
+        "resident_bytes": 42983424,
+        "peak_resident_bytes": 42983424,
+        "method": "GetProcessMemoryInfo.WorkingSetSize"
+      },
+      "parity": [
+        {
+          "name": "signed-out",
+          "actual": {
+            "status": "SIGNED_OUT"
+          },
+          "expected": {
+            "status": "SIGNED_OUT"
+          }
+        },
+        {
+          "name": "protected-unauthorized",
+          "actual": 403,
+          "expected": 403
+        },
+        {
+          "name": "missing-route",
+          "actual": 404,
+          "expected": 404
+        },
+        {
+          "name": "host-boundary",
+          "actual": 403,
+          "expected": 403
+        },
+        {
+          "name": "csrf-rejected",
+          "actual": 403,
+          "expected": 403
+        },
+        {
+          "name": "origin-rejected",
+          "actual": 403,
+          "expected": 403
+        },
+        {
+          "name": "invalid-login",
+          "actual": 400,
+          "expected": 400
+        },
+        {
+          "name": "authorized-login",
+          "actual": [
+            200,
+            "AUTHENTICATED",
+            "github:12345"
+          ],
+          "expected": [
+            200,
+            "AUTHENTICATED",
+            "github:12345"
+          ]
+        },
+        {
+          "name": "protected-authenticated-dispatch",
+          "actual": 404,
+          "expected": 404
+        },
+        {
+          "name": "session-principal",
+          "actual": "github:12345",
+          "expected": "github:12345"
+        },
+        {
+          "name": "authorized-logout",
+          "actual": [
+            200,
+            {
+              "status": "SIGNED_OUT"
+            }
+          ],
+          "expected": [
+            200,
+            {
+              "status": "SIGNED_OUT"
+            }
+          ]
+        },
+        {
+          "name": "logout-clears-principal",
+          "actual": {
+            "status": "SIGNED_OUT"
+          },
+          "expected": {
+            "status": "SIGNED_OUT"
+          }
+        }
+      ]
+    },
+    {
+      "adapter": "bounded_pool",
+      "cold_first_bootstrap_ms": 21.4807,
+      "warmup_requests": 5,
+      "measurement": {
+        "count": 100,
+        "p50_ms": 15.8075,
+        "p95_ms": 30.7798,
+        "samples_ms": [
+          14.4777,
+          16.6646,
+          30.0304,
+          4.5496,
+          4.5602,
+          4.8926,
+          5.0501,
+          28.7666,
+          4.9851,
+          25.9123,
+          15.5829,
+          16.2614,
+          30.2283,
+          15.9506,
+          5.3765,
+          26.9509,
+          14.8221,
+          14.9534,
+          15.7952,
+          15.1961,
+          15.5638,
+          16.2104,
+          14.8878,
+          17.8603,
+          16.1429,
+          15.9495,
+          15.7681,
+          6.1486,
+          6.7514,
+          18.5939,
+          15.7139,
+          6.2742,
+          5.6891,
+          18.5842,
+          30.7798,
+          29.5767,
+          14.9122,
+          16.943,
+          15.8075,
+          5.5995,
+          25.5519,
+          30.8108,
+          6.4051,
+          24.8663,
+          5.6802,
+          5.4458,
+          5.4389,
+          15.1881,
+          5.251,
+          28.0018,
+          30.7762,
+          16.4244,
+          30.6527,
+          15.3498,
+          16.663,
+          31.6665,
+          31.1889,
+          29.1315,
+          15.5679,
+          29.7313,
+          15.8054,
+          15.7047,
+          16.3804,
+          14.8488,
+          14.7782,
+          15.3999,
+          15.115,
+          15.2258,
+          4.6829,
+          4.6342,
+          24.5693,
+          29.8694,
+          14.9773,
+          16.8841,
+          21.7967,
+          24.7833,
+          16.2762,
+          14.8436,
+          16.408,
+          15.0695,
+          16.2105,
+          16.2462,
+          17.7663,
+          6.8957,
+          6.7063,
+          30.7792,
+          31.7225,
+          6.182,
+          25.2941,
+          18.5095,
+          28.5308,
+          15.4756,
+          15.6051,
+          15.7652,
+          31.6103,
+          7.6157,
+          22.5118,
+          16.5846,
+          30.4579,
+          30.0378
+        ]
+      },
+      "memory_after_requests": {
+        "resident_bytes": 43188224,
+        "peak_resident_bytes": 43188224,
+        "method": "GetProcessMemoryInfo.WorkingSetSize"
+      },
+      "parity": [
+        {
+          "name": "signed-out",
+          "actual": {
+            "status": "SIGNED_OUT"
+          },
+          "expected": {
+            "status": "SIGNED_OUT"
+          }
+        },
+        {
+          "name": "protected-unauthorized",
+          "actual": 403,
+          "expected": 403
+        },
+        {
+          "name": "missing-route",
+          "actual": 404,
+          "expected": 404
+        },
+        {
+          "name": "host-boundary",
+          "actual": 403,
+          "expected": 403
+        },
+        {
+          "name": "csrf-rejected",
+          "actual": 403,
+          "expected": 403
+        },
+        {
+          "name": "origin-rejected",
+          "actual": 403,
+          "expected": 403
+        },
+        {
+          "name": "invalid-login",
+          "actual": 400,
+          "expected": 400
+        },
+        {
+          "name": "authorized-login",
+          "actual": [
+            200,
+            "AUTHENTICATED",
+            "github:12345"
+          ],
+          "expected": [
+            200,
+            "AUTHENTICATED",
+            "github:12345"
+          ]
+        },
+        {
+          "name": "protected-authenticated-dispatch",
+          "actual": 404,
+          "expected": 404
+        },
+        {
+          "name": "session-principal",
+          "actual": "github:12345",
+          "expected": "github:12345"
+        },
+        {
+          "name": "authorized-logout",
+          "actual": [
+            200,
+            {
+              "status": "SIGNED_OUT"
+            }
+          ],
+          "expected": [
+            200,
+            {
+              "status": "SIGNED_OUT"
+            }
+          ]
+        },
+        {
+          "name": "logout-clears-principal",
+          "actual": {
+            "status": "SIGNED_OUT"
+          },
+          "expected": {
+            "status": "SIGNED_OUT"
+          }
+        }
+      ]
+    }
+  ],
+  "source_commit_scope": "Checkout base at measurement time; candidate benchmark sources are identified by source_sha256, not claimed to be tracked in that base commit."
+}

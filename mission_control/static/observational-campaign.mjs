@@ -1,5 +1,5 @@
 import { $, api, button, esc, state } from './app.mjs';
-import { modal } from './app-ui.mjs';
+import { download, modal } from './app-ui.mjs';
 import { WMMPageReports } from './feature-apis.mjs';
 /* Private owner controls for one-post campaign attribution. */
 const WMMObservationalCampaign = (() => {
@@ -118,7 +118,7 @@ const WMMObservationalCampaign = (() => {
           '<details><summary>Register a study</summary><form id="observational-campaign-register">' +
           field('name', 'Study name', 'text', 'maxlength="120"') +
           field('hypothesis', 'What will you learn?', 'text', 'maxlength="1000"') +
-          '<label class="field">Channel<select name="source"><option value="facebook">Facebook</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option></select></label>' +
+          '<label class="field">Channel<select name="source"><option value="facebook">Facebook</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option><option value="linkedin">LinkedIn</option></select></label>' +
           field(
             'creative_id',
             'Creative reference',
@@ -168,7 +168,7 @@ const WMMObservationalCampaign = (() => {
             'text',
             'pattern="[A-Za-z0-9_-]{1,64}" maxlength="64"',
           ) +
-          '<p class="description">Use the non-secret source ID that appears in your analytics export. Both events must come from this collector. This is separate from the social channel.</p>' +
+          '<p class="description">Use the non-secret source ID from your analytics export. That source must capture the tagged visit and linked registration and supply final coverage for both. Entering an ID does not test the source.</p>' +
           field('landing_event', 'Landing event in your source', 'text', 'maxlength="128"') +
           field(
             'registration_event',
@@ -193,6 +193,7 @@ const WMMObservationalCampaign = (() => {
         esc(study.study_id) +
         '</p>' +
         button('Preview tagged link', 'observational-campaign-link') +
+        button('Download collector setup', 'observational-campaign-collector-setup') +
         button('Read results', 'observational-campaign-report') +
         button('All studies', 'observational-campaign-open') +
         ['ingest', 'correct']
@@ -432,10 +433,23 @@ const WMMObservationalCampaign = (() => {
     if (operation === 'pdf' && task.report) {
       return perform(task, null, () => pdf(task.report, node));
     }
-    if (operation !== 'link' && operation !== 'report') return;
+    if (operation !== 'link' && operation !== 'report' && operation !== 'collector-setup') return;
     return perform(task, node, async () => {
-      const result = await call(task, operation, binding(task));
-      if (valid(task)) showResult(task, result);
+      const result = await call(
+        task,
+        operation === 'collector-setup' ? 'link' : operation,
+        binding(task),
+      );
+      if (!valid(task)) return;
+      if (operation !== 'collector-setup') return showResult(task, result);
+      if (!result.collector_setup) {
+        $('#observational-campaign-status').textContent =
+          'This study has no declared collector. Register a new study with the source that records both events.';
+        return;
+      }
+      download('collector-setup-' + task.study.study_id + '.json', result.collector_setup);
+      $('#observational-campaign-status').textContent =
+        'Setup downloaded. Check the tagged visit and linked registration with your collector before publishing.';
     });
   }
 

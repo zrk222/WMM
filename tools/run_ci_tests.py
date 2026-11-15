@@ -1,12 +1,12 @@
 """Deterministic complete unittest sharding; test counts are not duration estimates."""
 
-from collections import Counter
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import sys
 import unittest
+from collections import Counter
+from pathlib import Path
 
 # Match repository imports of `python -m unittest discover -s tests`, including
 # when this file is invoked directly rather than as an installed package.
@@ -38,7 +38,7 @@ def verify_assignment(cases, assigned):
         raise ValueError("Shard assignment changed the full discovered ID multiset")
 
 
-def partition(cases, shards):
+def partition(cases, shards, module_seconds=None):
     """Greedily balance whole defining modules, preserving their discovery order."""
     if type(shards) is not int or shards < 1:
         raise ValueError("Shard count must be a positive integer")
@@ -52,10 +52,14 @@ def partition(cases, shards):
         raise ValueError("Shard count exceeds the discovered test occurrence count")
     assigned = [[] for _ in range(shards)]
     counts = [0] * shards
-    for module, members in sorted(groups.items(), key=lambda pair: (-len(pair[1]), pair[0])):
+
+    def weight(module, members):
+        return module_seconds.get(module, len(members) * 2) if module_seconds is not None else len(members)
+
+    for module, members in sorted(groups.items(), key=lambda pair: (-weight(*pair), pair[0])):
         index = min(range(shards), key=lambda number: (counts[number], number))
         assigned[index].extend(members)
-        counts[index] += len(members)
+        counts[index] += weight(module, members)
     verify_assignment(cases, assigned)
     return assigned
 
@@ -85,6 +89,9 @@ def main(argv=None):
     parser.add_argument("--shards", type=int, default=4)
     parser.add_argument("--index", type=int, required=True)
     parser.add_argument("--plan-only", action="store_true", help="Discover/assign only; no tests run or pass claim")
+    parser.add_argument(
+        "--windows-timings", action="store_true", help="Balance whole modules by observed Windows duration"
+    )
     args = parser.parse_args(argv)
     if args.shards < 1 or not 0 <= args.index < args.shards:
         parser.error("Require shards >= 1 and 0 <= index < shards")
@@ -92,7 +99,23 @@ def main(argv=None):
         # Do not set top_level_dir: that would change test_* imports to tests.*.
         suite = unittest.TestLoader().discover(start_dir="tests", pattern="test_*.py")
         cases = list(flatten(suite))
-        assigned = partition(cases, args.shards)
+        weights = (
+            json.loads((ROOT / "tools/windows-ci-module-seconds.json").read_text(encoding="utf-8"))["seconds"]
+            if args.windows_timings
+            else None
+        )
+        assigned = partition(cases, args.shards, weights)
+        if weights is not None:
+            print(
+                "CI_ESTIMATE_SECONDS "
+                + str(
+                    sum(
+                        weights.get(module, count * 2)
+                        for module, count in Counter(type(case).__module__ for _, case in assigned[args.index]).items()
+                    )
+                ),
+                flush=True,
+            )
         value = inventory(cases, assigned, args.index, args.plan_only)
         print("CI_INVENTORY " + json.dumps(value, sort_keys=True), flush=True)
         if not assigned[args.index]:

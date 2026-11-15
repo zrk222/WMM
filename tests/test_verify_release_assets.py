@@ -1,16 +1,18 @@
 """Downloaded release verification is local, complete and source-bound."""
 
 import hashlib
+import importlib.util
 import json
-from shutil import copyfile
-from pathlib import Path
-from tests.test_desktop_release import ReleaseTests, release
 import tempfile
 import unittest
-import importlib.util
+from pathlib import Path
+from shutil import copyfile
+
+from tests.test_desktop_release import ReleaseTests, release
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("wmm_verify_release", ROOT / "tools" / "verify_release_assets.py")
+assert SPEC is not None and SPEC.loader is not None
 verify_release = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(verify_release)
 SHA = "a" * 40

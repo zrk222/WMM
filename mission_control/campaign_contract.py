@@ -27,6 +27,7 @@ class CampaignScope(TypedDict):
     billing_acknowledged: bool
     ordinary_ad_attestation: bool
     extended_expiry_consent: NotRequired[bool]
+    measurement_plan: NotRequired[dict[str, str]]
 
 
 class PostRequest(TypedDict):
@@ -155,11 +156,10 @@ def scope_limits(body: CampaignScope) -> bool:
 
 
 def scope_data(body: object) -> CampaignScope:
-    exact(
-        body,
-        SCOPE_FIELDS
-        + (("extended_expiry_consent",) if isinstance(body, dict) and "extended_expiry_consent" in body else ()),
+    optional = tuple(
+        name for name in ("extended_expiry_consent", "measurement_plan") if isinstance(body, dict) and name in body
     )
+    exact(body, SCOPE_FIELDS + optional)
     body = cast(CampaignScope, body)
     safe_data(body)
     reference(body["connection_id"])
@@ -181,6 +181,10 @@ def scope_data(body: object) -> CampaignScope:
     result["approved_content_hashes"] = hashes(body["approved_content_hashes"], True)
     result["approved_rights_hashes"] = hashes(body["approved_rights_hashes"], True)
     result["approved_targeting_hashes"] = hashes(body["approved_targeting_hashes"], paid)
+    if "measurement_plan" in body:
+        from .evidence_gate import measurement_plan
+
+        result["measurement_plan"] = measurement_plan(body["measurement_plan"])
     return cast(CampaignScope, result)
 
 

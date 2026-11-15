@@ -21,6 +21,44 @@ class DangerZoneTypesTests(unittest.TestCase):
         self.assertEqual(len(checker.check_source("def read(value): return value", {"read"})), 2)
         self.assertEqual(len(checker.check_source("", {"read"})), 1)
 
+    def test_new_public_access_methods_require_annotations(self):
+        source = """class Access:
+    def __init__(self, store: object) -> None: pass
+    def verified(self, item: int) -> int: return item
+    def new(self, item): return item
+    @staticmethod
+    def static(self) -> None: pass
+    def _internal(self, item): return item
+"""
+        self.assertEqual(
+            checker.check_source(source, set(), {"Access"}),
+            [
+                "Missing parameter annotation: Access.new.item",
+                "Missing return annotation: Access.new",
+                "Missing parameter annotation: Access.static.self",
+            ],
+        )
+
+    def test_reviewed_handler_methods_require_annotations(self) -> None:
+        source = """class Handler:
+    def session(self) -> str: return "token"
+    def boundary(self, write): return "token"
+    def _internal(self, value): return value
+"""
+        self.assertEqual(
+            checker.check_source(source, set(), methods={"Handler": {"session", "boundary"}}),
+            [
+                "Missing parameter annotation: Handler.boundary.write",
+                "Missing return annotation: Handler.boundary",
+            ],
+        )
+
+    def test_new_public_framing_function_requires_annotations(self):
+        self.assertEqual(
+            checker.check_source("async def new(request): pass", set(), all_public=True),
+            ["Missing parameter annotation: new.request", "Missing return annotation: new"],
+        )
+
     def test_generated_rows_reject_wrong_grant_and_role_fields(self):
         if not (ROOT / "node_modules/pyright").is_dir():
             self.skipTest("Pinned Pyright is installed by maintainability CI")

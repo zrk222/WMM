@@ -4,10 +4,12 @@ https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares
 https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api
 """
 
-import re, hashlib
+import hashlib
+import re
 from urllib.parse import quote
-from .common import Invalid
+
 from . import publication_transport as http
+from .common import Invalid
 
 _HEADERS = {"Linkedin-Version": "202609", "X-Restli-Protocol-Version": "2.0.0"}
 
@@ -162,7 +164,7 @@ def upload(draft, artifact, state, context):
 
 def publish(draft, state, context):
     owner = _owner(draft, context)
-    if state.get("status") != "READY_TO_PUBLISH":
+    if state.get("remote_id") is not None or state.get("status") != "READY_TO_PUBLISH":
         raise Invalid("LinkedIn content is not ready")
     caption = draft["caption"] + ("\n" + draft["link"] if draft.get("link") else "")
     body = {
@@ -191,7 +193,7 @@ def publish(draft, state, context):
 
 def read(draft, state, context):
     owner = _owner(draft, context)
-    if state.get("status") == "PROCESSING":
+    if state.get("remote_id") is None and state.get("status") == "PROCESSING":
         asset = _urn(state.get("asset_id"), "video")
         response = http.request(context, "GET", "/rest/videos/" + quote(asset, safe=""), headers=_HEADERS)
         if response.data.get("id") != asset:

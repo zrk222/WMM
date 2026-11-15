@@ -16,6 +16,7 @@ verified delivery.
 - The system shall keep analytics permission distinct: a protected store key or untested social login reports `ANALYTICS_READ_UNVERIFIED` or `PUBLISHING_ONLY_NOT_ANALYTICS`, never a successful analytics read.
 - The system shall retain only a bounded uppercase failure code and shall replace any raw provider message with `READ_FAILED`.
 - The system shall choose one highest-priority `recovery` entry, preferring reconnect, expired, disconnected and permission-required states over pending or healthy states.
+- When protected storage for a saved store key is unavailable, recovery shall direct the owner to restore protected storage on the host before testing access. A missing or disconnected key may instead require reconnecting.
 - The system shall exclude credentials, credential references, API keys, tokens, raw provider messages and private configuration from the projection.
 - The system shall expose the projection in the workspace and render it on the Connections page with the explicit boundary that login is not analytics permission.
 

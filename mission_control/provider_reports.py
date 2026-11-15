@@ -1,18 +1,21 @@
 """Bounded source-linked customer reviews and current Apple Ads report reads."""
 
-from dataclasses import dataclass
-from datetime import date, datetime, timezone
 import re
 import time
+from dataclasses import dataclass
+from datetime import date, datetime, timezone
+from typing import Any
 from urllib.parse import urlencode, urlsplit
+
+from .ads_reports import REPORT_PATHS, read_keywords
+from .apple_analytics import DISCOVERY, DOWNLOADS, read_analytics
+from .apple_analytics import identity as analytics_identity
+from .apple_metrics import parse_partitions
+from .apple_segments import read_instance_segments
 from .common import Invalid, digest, iso_time, now, required
 from .providers import credential, report_request
-from .ads_reports import REPORT_PATHS, read_keywords
+from .release_inventory import read_inventory, read_launch_versions, release_options
 from .subscription_catalog import read_catalog
-from .release_inventory import read_inventory, release_options
-from .apple_analytics import DISCOVERY, DOWNLOADS, identity as analytics_identity, read_analytics
-from .apple_segments import read_instance_segments
-from .apple_metrics import parse_partitions
 
 
 @dataclass(frozen=True)
@@ -50,7 +53,7 @@ class PreparedAppleMetrics:
                 external_writes=False,
             )
         values = []
-        for item, status in zip(self.partitions, statuses):
+        for item, status in zip(self.partitions, statuses, strict=False):
             instance = item["instance"]
             values.append(
                 dict(
@@ -66,7 +69,7 @@ class PreparedAppleMetrics:
         if discovery:
             # Values are source rows, not an app-wide sum or a deduplicated audience.
             sample, count = [], 0
-            for item, status in zip(self.partitions, statuses):
+            for item, status in zip(self.partitions, statuses, strict=False):
                 if status == "STALE":
                     continue
                 for row in item["instance"]["rows"]:
@@ -132,8 +135,13 @@ def report_options(provider, options):
         return google_options(options)
     if operation == "release_inventory":
         return release_options(provider, options)
+    if provider == "app_store" and operation == "launch_versions" and set(options) == {"operation", "storefront"}:
+        from .apple_storefront import storefront_code
+
+        storefront_code(options["storefront"])
+        return options
     if (
-        operation in ("reviews", "subscription_catalog", "analytics_reports")
+        operation in ("reviews", "subscription_catalog", "analytics_reports", "launch_versions")
         and provider == "app_store"
         and set(options) == {"operation"}
     ):
@@ -241,6 +249,13 @@ def read_report(binding, app_id, options, connection_id=None, connection_version
         report = read_catalog(reader, store_id)
     elif options["operation"] == "release_inventory":
         report = read_inventory(reader, store_id, options["version_id"])
+    elif options["operation"] == "launch_versions":
+        report = read_launch_versions(reader, store_id)
+        if "storefront" in options:
+            from .apple_storefront import lookup
+
+            observation, fingerprint = lookup(store_id, options["storefront"])
+            report.update(storefront_read=observation, storefront_source_hash=fingerprint)
     elif options["operation"] == "analytics_reports":
         report = read_analytics(reader, store_id)
     elif options["operation"] == "campaign_report":
@@ -271,7 +286,7 @@ def prepare_analytics_metrics(reader, binding, app_id, store_id, options, connec
     connection_id = analytics_identity(connection_id)
     if type(connection_version) is not int or not 1 <= connection_version <= 2147483647:
         raise Invalid("Apple analytics read requires the current connection version")
-    inventory = read_analytics(reader, store_id)
+    inventory: dict[str, Any] = read_analytics(reader, store_id)
     report = next((item for item in inventory["reports"] if item["id"] == options["report_id"]), None)
     family = DISCOVERY if options.get("report_family") == DISCOVERY else DOWNLOADS
     if (
@@ -336,8 +351,8 @@ def prepare_analytics_metrics(reader, binding, app_id, store_id, options, connec
 
 def google_report(binding, app_id, options):
     """Read only a validated protected Google target, retaining typed source and coverage evidence."""
-    from .play_contract import connection_metadata
     from .play_auth import PlayReader
+    from .play_contract import connection_metadata
     from .play_reports import read
 
     selected = connection_metadata(binding)

@@ -22,6 +22,8 @@ import {
   goalAction,
   guidedAction,
   guidedNavigate,
+  submitLaunchCheck,
+  submitLaunchDeclaration,
 } from './guided-workflow.mjs';
 import { WMMCampaignMonitor } from './campaign-monitor.mjs';
 import { WMMObservationalCampaign } from './observational-campaign.mjs';
@@ -104,7 +106,7 @@ import { playAction, playRetry, playSubmit } from './google-play.mjs';
 import { rankingAction } from './creative-ranking.mjs';
 import { renderingAction } from './creative-rendering.mjs';
 import { saveJourneyFields } from './journey-readiness.mjs';
-import { setupAction } from './setup-discovery.mjs';
+import { setupAction, setupHome } from './setup-discovery.mjs';
 import { socialAction, socialSubmit } from './social-access.mjs';
 import { spiraAction } from './spira-workflow.mjs';
 import { spyTokAction } from './spytok-workflow.mjs';
@@ -131,9 +133,37 @@ import {
 } from './feature-apis.mjs';
 ('use strict');
 
+function cohortPayload(values) {
+  const data = { ...values };
+  const keys = [
+    'cost_basis',
+    'revenue_basis',
+    'attribution_status',
+    'spend_source',
+    'currency',
+    'coverage_through',
+  ];
+  const economics = Object.fromEntries(
+    keys.map((key) => [key, String(data[`economics_${key}`] ?? '').trim()]),
+  );
+  for (const key of keys) delete data[`economics_${key}`];
+  if (economics.cost_basis) {
+    if (keys.some((key) => !economics[key]))
+      throw new Error(
+        'Complete all six acquisition economics fields, or leave cost basis unselected.',
+      );
+    data.economics = economics;
+  }
+  return data;
+}
+
 async function formSubmit(event) {
   const form = event.target;
   const formId = form.getAttribute('id');
+  if (form.isConnected && formId === 'app-link-setup-form') {
+    event.preventDefault();
+    return saveLinkedApp(form);
+  }
   if (formId?.startsWith('publication-')) {
     event.preventDefault();
     return WMMPublicationUI.submit(form, event, growthReviewServices());
@@ -169,6 +199,14 @@ async function formSubmit(event) {
   if (formId === 'goal-readiness-form') {
     event.preventDefault();
     return WMMGoalReadiness.submit(form);
+  }
+  if (formId === 'goal-launch-declare') {
+    event.preventDefault();
+    return submitLaunchDeclaration(form);
+  }
+  if (formId === 'goal-launch-check') {
+    event.preventDefault();
+    return submitLaunchCheck(form);
   }
   if (formId === 'standing-scope-form') {
     event.preventDefault();
@@ -385,7 +423,7 @@ async function formSubmit(event) {
     if (formId === 'app-form') await saveApp(data, form.dataset.new === 'true', form);
     if (formId === 'evidence-form') await saveEvidence(data, form);
     if (formId === 'review-form') await api(`/api/apps/${state.app}/reviews`, data);
-    if (formId === 'cohort-form') await api(`/api/apps/${state.app}/cohorts`, data);
+    if (formId === 'cohort-form') await api(`/api/apps/${state.app}/cohorts`, cohortPayload(data));
     if (formId === 'experiment-form') await saveExperiment(form);
     if (formId === 'experiment-action-form') await saveExperimentAction(form);
     if (formId === 'experiment-schedule-form') await saveExperimentSchedule(form);
@@ -402,7 +440,37 @@ async function formSubmit(event) {
   }
 }
 
-async function saveApp(data, isNew, form) {
+async function saveLinkedApp(form) {
+  const selected = state.app;
+  const submit = form.querySelector('button[type=submit]');
+  const error = form.querySelector('#app-link-error');
+  const currentForm = () => form.isConnected && $('#modal').open;
+  if (!currentForm() || submit.disabled) return;
+  submit.disabled = true;
+  error.textContent = '';
+  try {
+    const data = new FormData(form);
+    const name = String(data.get('name') ?? '').trim();
+    const source = String(data.get('setup_source_url') ?? '').trim();
+    if (!name || !source.startsWith('https://'))
+      throw new Error('Enter an app name and a public link that starts with https://.');
+    const id = await saveApp(
+      { id: '', name, setup_source_url: source },
+      true,
+      form,
+      () => currentForm() && state.app === selected,
+    );
+    if (!currentForm() || state.app !== id) return;
+    await initialize();
+    if (currentForm() && state.app === id && currentWorkspace()) setupHome();
+  } catch (failure) {
+    if (currentForm()) error.textContent = failure.message;
+  } finally {
+    if (form.isConnected) submit.disabled = false;
+  }
+}
+
+async function saveApp(data, isNew, form, stillHere = () => true) {
   let id = data.id.trim();
   if (isNew && !id) {
     const base =
@@ -426,8 +494,11 @@ async function saveApp(data, isNew, form) {
     data: { ...previous, ...data },
     version: isNew ? null : Number(form.dataset.manifestVersion),
   });
-  state.app = id;
-  if (isNew) state.view = 'overview';
+  if (stillHere()) {
+    state.app = id;
+    if (isNew) state.view = 'overview';
+  }
+  return id;
 }
 
 async function saveEvidence(data, form) {
@@ -532,7 +603,6 @@ async function handleAction(node) {
   if (node.dataset.action.startsWith('observational-campaign-'))
     return WMMObservationalCampaign.action(node);
   if (node.dataset.action.startsWith('campaign-monitor-')) return WMMCampaignMonitor.action(node);
-  if (node.dataset.action.startsWith('campaign-')) return campaignAction(node);
   if (node.dataset.action.startsWith('social-')) return socialAction(node);
   if (node.dataset.action.startsWith('play-')) return playAction(node);
   if (node.dataset.action.startsWith('setup-')) return setupAction(node);
@@ -616,6 +686,7 @@ async function handleAction(node) {
     if (!state.campaignPlan) throw new Error('Open the campaign plan first.');
     return download(`${state.app}-campaign-plan.json`, state.campaignPlan);
   }
+  if (action.startsWith('campaign-')) return campaignAction(node);
   if (action === 'next-answer-workflow') {
     $('#modal').close();
     state.view = 'workflow';
@@ -773,6 +844,27 @@ async function handleAction(node) {
       `${state.app}-${id}-report.json`,
       state.workspace.ledger.find((r) => r.cohort.cohort_id === id),
     );
+  if (action === 'ledger-covered') {
+    const app = state.app;
+    const workspace = state.workspace;
+    const current = workspace.ledger.find((r) => r.cohort.cohort_id === id);
+    const cutoff = current?.cohort.economics?.coverage_through;
+    if (!cutoff || !Number.isFinite(Date.parse(cutoff)) || Date.parse(cutoff) > Date.now())
+      throw new Error(
+        'Supply a completed, past coverage timestamp before viewing its economics snapshot.',
+      );
+    const reports = await api(
+      `/api/apps/${encodeURIComponent(state.app)}/measurement?as_of=${encodeURIComponent(cutoff)}`,
+    );
+    if (state.app !== app || state.workspace !== workspace) return;
+    const covered = reports.find((r) => r.cohort.cohort_id === id);
+    if (!covered) throw new Error('The covered cohort report is unavailable. Refresh and retry.');
+    state.workspace.ledger = state.workspace.ledger.map((r) =>
+      r.cohort.cohort_id === id ? covered : r,
+    );
+    render();
+    return;
+  }
   if (action === 'ledger-history') return historicalForm(id);
   if (action === 'export')
     return serverDownload(

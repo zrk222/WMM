@@ -1,6 +1,7 @@
 """Read-only provider health projection; login and key presence are not analytics permission."""
 
 import re
+from typing import TypedDict
 
 ACTIONABLE = {
     "RECONNECT_REQUIRED",
@@ -13,11 +14,42 @@ ACTIONABLE = {
 PENDING = {"CONFIGURED_UNTESTED", "ENVIRONMENT_REFERENCE", "PENDING", "EXCHANGING"}
 
 
+class ProviderHealthRow(TypedDict):
+    provider: str
+    kind: str
+    state: str
+    login_state: str
+    permission_state: str
+    scope: dict[str, str]
+    expires_at: float | str | None
+    failure: str | None
+    next_action: str
+    recovery_route: str
+    as_of: str | None
+
+
+class ProviderHealth(TypedDict):
+    schema: str
+    entries: list[ProviderHealthRow]
+    recovery: ProviderHealthRow | None
+    scope: str
+
+
 def _entry(
-    provider, kind, state, permission, scope=None, expires=None, failure=None, action=None, route=None, as_of=None
-):
+    provider: str,
+    kind: str,
+    state: str,
+    permission: str,
+    *,
+    action: str,
+    route: str,
+    scope: dict[str, str] | None = None,
+    expires: float | str | None = None,
+    failure: str | None = None,
+    as_of: str | None = None,
+) -> ProviderHealthRow:
     """Keep one provider row free of credentials, tokens and raw provider payloads."""
-    return dict(
+    return ProviderHealthRow(
         provider=provider,
         kind=kind,
         state=state,
@@ -39,7 +71,7 @@ def _failure(value):
     return "READ_FAILED" if value else None
 
 
-def _store_records(workspace):
+def _store_records(workspace) -> list[ProviderHealthRow]:
     statuses = workspace.get("connections") or {}
     entries = []
     for record in workspace.get("records") or []:
@@ -51,7 +83,12 @@ def _store_records(workspace):
             continue
         status = (statuses.get(record.get("id")) or {}).get("status", "UNKNOWN")
         scope = {key: data[key] for key in ("store_app_id", "account_id") if data.get(key)}
-        if status in ("RECONNECT_REQUIRED", "PROTECTED_STORAGE_UNAVAILABLE", "DISCONNECTED"):
+        if status == "PROTECTED_STORAGE_UNAVAILABLE":
+            action, route = (
+                "Restore or unlock protected storage on the computer running WMM, then test read access again",
+                "connections",
+            )
+        elif status in ("RECONNECT_REQUIRED", "DISCONNECTED"):
             action, route = "Reconnect this protected key and test its current scope", "connections"
         elif status == "ENVIRONMENT_REFERENCE":
             action, route = "Move this access into protected local storage", "connections"
@@ -63,7 +100,7 @@ def _store_records(workspace):
     return entries
 
 
-def _insights(workspace):
+def _insights(workspace) -> list[ProviderHealthRow]:
     entries = []
     for source in (workspace.get("insights") or {}).get("sources") or []:
         provider = source.get("provider")
@@ -101,7 +138,7 @@ def _insights(workspace):
     return entries
 
 
-def _social(workspace):
+def _social(workspace) -> list[ProviderHealthRow]:
     entries = []
     for account in (workspace.get("social_access") or {}).get("accounts") or []:
         provider = account.get("provider")
@@ -130,7 +167,7 @@ def _social(workspace):
     return entries
 
 
-def _play(workspace):
+def _play(workspace) -> list[ProviderHealthRow]:
     entries = []
     for flow in (workspace.get("play") or {}).get("flows") or []:
         status = flow.get("status") or "UNKNOWN"
@@ -156,7 +193,7 @@ def _play(workspace):
     return entries
 
 
-def _priority(entry):
+def _priority(entry: ProviderHealthRow) -> int:
     if entry["state"] in ACTIONABLE:
         return 0
     if entry["failure"]:
@@ -166,13 +203,13 @@ def _priority(entry):
     return 3
 
 
-def project(workspace):
+def project(workspace) -> ProviderHealth:
     """Unify supported provider state and one exact recovery path without new authority."""
     entries = _store_records(workspace) + _insights(workspace) + _social(workspace) + _play(workspace)
     entries.sort(key=lambda item: (item["provider"], item["kind"], item["state"]))
     ordered = sorted(entries, key=_priority)
     recovery = ordered[0] if ordered and _priority(ordered[0]) < 3 else None
-    return dict(
+    return ProviderHealth(
         schema="growth.provider-health.v1",
         entries=entries,
         recovery=recovery,
@@ -180,7 +217,7 @@ def project(workspace):
     )
 
 
-def recovery_text(value):
+def recovery_text(value: ProviderHealthRow | None) -> str:
     """Render one exact next action; absence is an explicit no-recovery state."""
     if not value:
         return "No provider needs repair from the saved local state. Missing scope or delivery is not inferred."

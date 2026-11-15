@@ -1,7 +1,7 @@
 """Bounded external research envelopes; observations are not independently verified."""
 
-from datetime import datetime, timedelta, timezone
 import re
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
 
 from .common import Invalid, digest, iso_time, required
@@ -12,15 +12,44 @@ HOSTS = {
     "facebook": {"facebook.com", "www.facebook.com"},
     "instagram": {"instagram.com", "www.instagram.com"},
     "youtube": {"youtube.com", "www.youtube.com"},
+    "linkedin": {"linkedin.com", "www.linkedin.com"},
 }
 # YouTube already binds the exact Shorts link and ID in observation().
 POST_PATHS = {
+    "linkedin": re.compile(r"/feed/update/(?P<post>urn:li:(?:activity|ugcPost|share):[0-9]+)/?"),
     "facebook": re.compile(r"/(?:[A-Za-z0-9._-]+/)?(?:reels?|videos|posts)/(?P<post>[A-Za-z0-9_-]+)/?"),
     "instagram": re.compile(r"/(?:[A-Za-z0-9._-]+/)?(?:reel|p|tv)/(?P<post>[A-Za-z0-9_-]+)/?"),
     "tiktok": re.compile(r"/@[A-Za-z0-9._-]+/video/(?P<post>[A-Za-z0-9_-]+)/?"),
 }
 HEX = re.compile(r"[0-9a-f]{64}\Z")
 FAILURE_CODES = ("LOGIN", "CAPTCHA", "TIMEOUT", "UNAVAILABLE", "EMPTY", "PARTIAL")
+SEARCH_SURFACES = {
+    "facebook": ("Reels and public video posts", "problem-and-demo clips"),
+    "instagram": ("Reels", "visual demonstrations and before/after"),
+    "linkedin": ("public native-video posts", "founder, team or professional use cases"),
+    "tiktok": ("native video search and creator catalogs", "problem hooks and relatable use cases"),
+    "youtube": ("Shorts search and channel catalogs", "concise tutorials and app walkthroughs"),
+}
+
+
+def channel_search_plan(task: dict) -> list[dict]:
+    """Split the existing read allowance into a fair, advisory first-pass plan."""
+    policy, query = task["policy"], task["query"]
+    platforms = policy["platforms"]
+    quotient, remainder = divmod(policy["max_reads"], len(platforms))
+    return [
+        {
+            "platform": platform,
+            "hosts": [host for host in policy["hosts"] if host in HOSTS[platform]],
+            "initial_read_allowance": quotient + (index < remainder),
+            "surface": SEARCH_SURFACES[platform][0],
+            "angle": SEARCH_SURFACES[platform][1],
+            "app_type": query["app_type"],
+            "genre": query["genre"],
+            "search_terms": query["search_terms"],
+        }
+        for index, platform in enumerate(platforms)
+    ]
 
 
 def collector_contract():
@@ -52,9 +81,13 @@ def collector_contract():
             "instagram": "https://www.instagram.com/reel/ABCdef12345/",
             "tiktok": "https://www.tiktok.com/@example/video/12345678901",
             "youtube": "https://www.youtube.com/shorts/ABCdef12345",
+            "linkedin": "https://www.linkedin.com/feed/update/urn:li:activity:7000000000000000000",
         },
         "post_identity": "Use the exact post ID or shortcode in the direct link, without share parameters.",
-        "coverage": "Use permitted metadata reads for each selected channel. Report unavailable or empty sources explicitly.",
+        "coverage": "Use permitted metadata reads for each selected channel. Report unavailable or empty sources explicitly. A selected channel without results is NOT_REPORTED, never empty or successful.",
+        "channel_plan": "Use each claimed task's channel_search_plan to search the native video surface with the app genre, type and terms. Attempt each allowed channel before reallocating unused reads.",
+        "triage": "First retain relevant candidates with exact observed view counts. Then spend remaining reads on earlier comparable posts from the same creator, platform and format. Keep clips with missing baseline as unqualified candidates. If views are hidden, record partial coverage and keep the clip in research notes; never substitute likes or impressions.",
+        "limits": "Use only allowed hosts and the frozen read, time and candidate limits. If a channel has no allowed host or receives no first-pass reads, report the coverage gap explicitly. Do not bypass login or CAPTCHA.",
         "handoff": "Owner review can adopt qualified references from partial searches. Rights and footage stay separate.",
     }
 
@@ -75,6 +108,7 @@ def _text(value, label, limit=200):
 
 
 def _url(value, hosts):
+    parsed = None
     try:
         parsed = urlsplit(value)
         valid = (
@@ -88,12 +122,12 @@ def _url(value, hosts):
         )
     except (TypeError, ValueError):
         valid = False
-    if not valid:
+    if not valid or parsed is None:
         raise Invalid("Observation must use an allowed HTTPS platform host")
     return parsed.path
 
 
-def discovery_task(app, policy, query) -> object:
+def discovery_task(app, policy, query) -> dict:
     """Freeze owner-selected bounds; readiness does not imply a live collection."""
     exact(app, ("id", "version", "hash"))
     exact(
@@ -154,7 +188,7 @@ def discovery_task(app, policy, query) -> object:
     }
 
 
-def validate_submission(task, result, *, require_post_links=True) -> object:
+def validate_submission(task, result, *, require_post_links=True) -> dict:
     """Validate exact observation identities, bounded provenance and chronology."""
     exact(
         result,
@@ -204,10 +238,10 @@ def validate_submission(task, result, *, require_post_links=True) -> object:
                 and "views" in row
                 and row["views"] is None
             ):
-                normalized_row = observation({**row, "views": 0}, stamp)
+                normalized_row: dict[str, str | int | None] = {**observation({**row, "views": 0}, stamp)}
                 normalized_row["views"] = None
             else:
-                normalized_row = observation(row, stamp)
+                normalized_row = {**observation(row, stamp)}
             normalized.append(normalized_row)
         for row in normalized:
             if row["platform"] not in task["policy"]["platforms"]:
@@ -230,7 +264,7 @@ def validate_submission(task, result, *, require_post_links=True) -> object:
         evidence = item["evidence"]
         if not isinstance(evidence, list) or len(evidence) != len(normalized):
             raise Invalid("Every observation needs its own source receipt")
-        for row, receipt in zip(normalized, evidence):
+        for row, receipt in zip(normalized, evidence, strict=True):
             exact(receipt, ("post_id", "url", "observed_at", "observation_hash", "source_sha256"))
             if (
                 receipt["post_id"] != row["post_id"]
@@ -246,20 +280,36 @@ def validate_submission(task, result, *, require_post_links=True) -> object:
 
 def collection_coverage(task, submission):
     """Summarize retained candidate and failure counts for every selected platform."""
-    coverage = {platform: {"candidates": 0, "failures": 0} for platform in task["policy"]["platforms"]}
+    coverage: dict[str, dict[str, int | str]] = {
+        platform: {"candidates": 0, "failures": 0} for platform in task["policy"]["platforms"]
+    }
     if submission:
         for item in submission["candidates"]:
-            coverage[item["candidate"]["platform"]]["candidates"] += 1
+            counts = coverage[item["candidate"]["platform"]]
+            counts["candidates"] = int(counts["candidates"]) + 1
         for failure in submission["failures"]:
             host = urlsplit(failure["source"]).hostname
             for platform in coverage:
                 if host in HOSTS[platform]:
-                    coverage[platform]["failures"] += 1
+                    coverage[platform]["failures"] = int(coverage[platform]["failures"]) + 1
                     break
+    for platform, counts in coverage.items():
+        if counts["candidates"]:
+            state = "OBSERVED_WITH_FAILURES" if counts["failures"] else "OBSERVED"
+        elif counts["failures"]:
+            codes = [
+                failure["code"]
+                for failure in submission["failures"]
+                if urlsplit(failure["source"]).hostname in HOSTS[platform]
+            ]
+            state = "REPORTED_EMPTY" if all(code == "EMPTY" for code in codes) else "SOURCE_FAILURE"
+        else:
+            state = "NOT_REPORTED" if submission is not None else "NOT_RUN"
+        counts["status"] = state
     return coverage
 
 
-def qualify_submission(task, result, *, require_post_links=True) -> object:
+def qualify_submission(task, result, *, require_post_links=True) -> dict:
     """Preserve existing qualification and separate its claims from source rights."""
     validate_submission(task, result, require_post_links=require_post_links)
     output = []

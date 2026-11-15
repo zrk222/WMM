@@ -2,27 +2,30 @@
 
 import http.cookiejar
 import json
-from pathlib import Path
 import tempfile
 import threading
 import unittest
-from urllib.request import build_opener, HTTPCookieProcessor, Request
+from pathlib import Path
+from typing import Any
+from unittest.mock import patch
 from urllib.error import HTTPError
-from mission_control.server import Server, Handler
-from mission_control.store import Store
+from urllib.request import HTTPCookieProcessor, Request, build_opener
+
 from mission_control.common import Invalid
+from mission_control.connection_setup import Connections
+from mission_control.server import Server
+from mission_control.store import Store
+from tests.test_creative_library import reference
+from tests.test_creative_production import inspection, ready_production
+from tests.test_experiments import EXPOSE, REGISTER, prepared
 from tests.test_ledger import cohort, event
 from tests.test_provider_setup import generated_key
-from mission_control.connection_setup import Connections
-from tests.test_experiments import prepared, REGISTER, EXPOSE
-from unittest.mock import patch
-from tests.test_creative_library import reference
-from tests.test_creative_production import ready_production, inspection
 
 
 class HTTPTests(unittest.TestCase):
     def test_resolution_approval_exact_scope_csrf_and_durable_worker(self):
         import uuid
+
         from mission_control.resolutions import Resolutions
 
         store = self.server.service.store
@@ -54,7 +57,15 @@ class HTTPTests(unittest.TestCase):
         self.assertFalse(workspace["resolutions"]["automatic_external_writes"])
 
     def test_campaign_collection_exact_scope_csrf_and_replay(self):
+        from datetime import datetime, timedelta, timezone
+
         from mission_control.campaign_inputs import CampaignInputs
+
+        collection_hour = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
+        clock_patch = patch("mission_control.campaign_inputs.datetime", wraps=datetime)
+        clock = clock_patch.start()
+        self.addCleanup(clock_patch.stop)
+        clock.now.return_value = collection_hour
 
         store = self.server.service.store
         app = store.app("sample-one")
@@ -75,15 +86,19 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request("/api/apps/sample-two/campaign-inputs", body)[0], 400)
         self.assertEqual(self.request(path + "?override=true", body)[0], 400)
         code, result, _ = self.request(path, body)
-        self.assertEqual(code, 201)
+        self.assertEqual(code, 201, result)
         self.assertEqual(len(result["tasks"]), 3)
         code, replayed, _ = self.request(path, body)
         self.assertEqual(code, 201)
         self.assertEqual([t["job"]["id"] for t in result["tasks"]], [t["job"]["id"] for t in replayed["tasks"]])
         self.assertFalse(result["external_writes"])
+        clock.now.return_value = collection_hour + timedelta(hours=1)
+        code, rejected, _ = self.request(path, body)
+        self.assertEqual(code, 400, rejected)
+        self.assertIn("refresh the collection proposal", rejected["error"])
 
     def test_signed_payment_webhook_and_fresh_identity_reconciliation_boundaries(self):
-        from tests.test_signed_payments import APP, CONFIG, PaymentFixture, snapshot, signed
+        from tests.test_signed_payments import APP, CONFIG, PaymentFixture, signed, snapshot
         from tests.test_verified_review import OWNER_TOKEN, synthetic_identity
 
         f = PaymentFixture(self.server.service.store)
@@ -165,8 +180,8 @@ class HTTPTests(unittest.TestCase):
             self.assertEqual(delivery(raw, header)[0], 400)
 
     def test_outcome_learning_fresh_identity_exact_approval_use_and_rollback(self):
-        from tests.test_outcome_learning import LearningFixture, APP, FINAL, clock
-        from tests.test_verified_review import OWNER_TOKEN, CHECKER_TOKEN, synthetic_identity
+        from tests.test_outcome_learning import APP, FINAL, LearningFixture, clock
+        from tests.test_verified_review import CHECKER_TOKEN, OWNER_TOKEN, synthetic_identity
 
         f = LearningFixture(self.server.service.store)
         row, _ = f.ready()
@@ -212,8 +227,8 @@ class HTTPTests(unittest.TestCase):
             self.assertNotIn(OWNER_TOKEN, json.dumps(view))
 
     def test_authenticated_provider_action_exact_change_and_readback(self):
-        from tests.test_provider_outbox import outbox_fixture, SyntheticApple, APP
-        from tests.test_verified_review import OWNER_TOKEN, CHECKER_TOKEN, synthetic_identity
+        from tests.test_provider_outbox import APP, SyntheticApple, outbox_fixture
+        from tests.test_verified_review import CHECKER_TOKEN, OWNER_TOKEN, synthetic_identity
 
         data = outbox_fixture(self.server.service.store)
         remote = SyntheticApple()
@@ -259,8 +274,9 @@ class HTTPTests(unittest.TestCase):
         self.assertFalse(self.request("/api/bootstrap")[1]["automatic_external_writes"])
 
     def test_verified_identity_and_review_session_boundaries(self):
-        from tests.test_verified_review import fixture, OWNER_TOKEN, CHECKER_TOKEN, OWNER, CHECKER, synthetic_identity
         from unittest.mock import patch
+
+        from tests.test_verified_review import CHECKER, CHECKER_TOKEN, OWNER, OWNER_TOKEN, fixture, synthetic_identity
 
         record = fixture(self.server.service.store)
         app = "review-test"
@@ -307,8 +323,8 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request("/api/bootstrap")[1]["identity"]["status"], "SIGNED_OUT")
 
     def test_native_video_routes_actual_bytes_scope_and_download(self):
-        from tests.test_creative_rendering import prepared_render, APP
         from mission_control.worker import run_once
+        from tests.test_creative_rendering import APP, prepared_render
 
         _, data = prepared_render(self.server.service.store)
         code, job, _ = self.request(f"/api/apps/{APP}/production/renders", dict(data=data, request_key="http-video"))
@@ -347,7 +363,7 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request(f"/api/apps/{APP}/renders/{row['id']}/unknown")[0], 404)
 
     def test_acquisition_fixed_panel_routes_and_current_scope(self):
-        from tests.test_acquisition_workflows import ready_acquisition, panel_data, answer, APP
+        from tests.test_acquisition_workflows import APP, answer, panel_data, ready_acquisition
 
         data, _ = ready_acquisition(self.server.service.store)
         code, intent, _ = self.request(f"/api/apps/{APP}/acquisition/intents", {"data": data})
@@ -369,7 +385,7 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(len(workspace["acquisition"]["observations"]), 1)
 
     def test_ranking_scope_types_and_saved_rationale(self):
-        from tests.test_creative_ranking import ready_ranking, APP, EVALUATED
+        from tests.test_creative_ranking import APP, EVALUATED, ready_ranking
 
         sources = ready_ranking(self.server.service.store)
         ids = [s["id"] for s in sources]
@@ -417,7 +433,8 @@ class HTTPTests(unittest.TestCase):
             response = exc
         raw = response.read()
         content_type = response.headers.get("Content-Type", "")
-        data = json.loads(raw) if content_type.startswith("application/json") else raw
+        # Tests refine the response shape according to the endpoint under test.
+        data: Any = json.loads(raw) if content_type.startswith("application/json") else raw
         return response.status, data, response.headers
 
     def sign_in_owner(self, app):
@@ -465,7 +482,8 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request(url + "/evaluate", {"unexpected": True})[0], 404)
         self.assertEqual(self.request(url + "/actions", dict(operation="cancel", version=1, reason="Stale"))[0], 400)
         from datetime import timedelta
-        from mission_control.common import now, iso_time
+
+        from mission_control.common import iso_time, now
 
         self.sign_in_owner("sample-one")
         body = dict(
@@ -523,8 +541,8 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request(url + "/unknown", {})[0], 404)
 
     def test_workspace_job_receipt_cannot_precede_completed_schedule(self):
-        from mission_control.worker import enqueue
         from mission_control.db import connection
+        from mission_control.worker import enqueue
 
         job = enqueue(self.server.service.store, "sample-one", "pipeline", {"stage": 0}, "schedule-snapshot-race")
 
@@ -603,7 +621,7 @@ class HTTPTests(unittest.TestCase):
 
     def test_only_loopback_bind(self):
         with self.assertRaises(Invalid):
-            Server(("0.0.0.0", 0), self.server.service.store)
+            Server(("0.0.0.0", 0), self.server.service.store)  # noqa: S104 - rejected before binding
 
     def test_cohort_import_as_of_and_isolation(self):
         self.assertEqual(self.request("/api/apps/sample-one/cohorts", cohort())[0], 201)

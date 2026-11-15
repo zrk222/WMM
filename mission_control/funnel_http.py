@@ -1,14 +1,13 @@
 """Exact owner-bound local funnel routes share the authoritative domain service."""
 
-from contextlib import contextmanager
-import secrets
 import re
+import secrets
+from contextlib import contextmanager
+
 from .common import Invalid, identifier
-from .managed_media_http import singleton
-from .http_body import read_exact
-from .operator_client import strict_json
-from .operation_authority import bound_owner, protected
 from .funnel_store import Funnels
+from .http_body import json_body, singleton
+from .operation_authority import bound_owner, protected
 
 
 def offset(handler, parts):
@@ -50,9 +49,8 @@ def owner(handler, parts):
     if handler.headers.get_all("Host") != [origin[7:]]:
         raise PermissionError("Use the exact local funnel host")
     supplied = handler.headers.get_all("Origin")
-    if supplied is not None or handler.command == "POST":
-        if supplied != [origin]:
-            raise PermissionError("Use the exact local funnel origin")
+    if (supplied is not None or handler.command == "POST") and supplied != [origin]:
+        raise PermissionError("Use the exact local funnel origin")
     session = handler.session()
     user = handler.server.identities.fresh(session)
     if handler.command == "POST" and not secrets.compare_digest(singleton(handler, "X-CSRF-Token"), session):
@@ -61,18 +59,6 @@ def owner(handler, parts):
     envelope = dict(app_id=parts[2], operation="funnel.owner", input=dict(method=handler.command, path=handler.path))
     with bound_owner(store, envelope, handler.server.identities, session, user), protected(store, envelope):
         yield Funnels(store), start
-
-
-def json_body(handler):
-    """One bounded JSON request and absolute deadline; no alternate transfer framing."""
-    if singleton(handler, "Content-Type") != "application/json":
-        raise Invalid("Use application/json for funnel input")
-    if handler.headers.get_all("Transfer-Encoding") is not None:
-        raise Invalid("Funnel input cannot use transfer encoding")
-    length = singleton(handler, "Content-Length")
-    if not length.isascii() or not length.isdecimal() or not 1 <= int(length) <= 1048576:
-        raise Invalid("Funnel input exceeds its bounded byte limit")
-    return strict_json(read_exact(handler, 1048576, "Funnel"))
 
 
 def get(handler, parts):
@@ -98,7 +84,7 @@ def post(handler, parts):
             raise Invalid("Save a new immutable funnel at the collection address")
         if len(parts) == 6 and parts[5] != "observations":
             raise Invalid("This funnel address is read-only")
-        value = json_body(handler)
+        value = json_body(handler, "Funnel")
         if len(parts) == 4:
             return handler.send(201, flow.save(parts[2], value))
         if not isinstance(value, dict) or "funnel_id" in value:

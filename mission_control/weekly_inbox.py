@@ -2,9 +2,12 @@
 
 import json
 from datetime import timedelta
+from typing import Any
 
 from .common import Invalid, digest, iso_time, now
 from .weekly_controls import decision_controls
+from .weekly_plan_status import owned_job, plan_issue
+from .weekly_plan_status import saved as _saved
 
 EXPIRY_HORIZON = timedelta(days=7)
 
@@ -16,7 +19,7 @@ ROUTES = {
 }
 
 
-def project(workspace):
+def project(workspace) -> dict[str, Any]:
     """Project only the selected app's evidence, not its credentials or conversations."""
     app = workspace["app"]
     controls = decision_controls(app, workspace["records"], workspace["stages"])
@@ -45,7 +48,10 @@ def project(workspace):
                     resolution_route="findings",
                 )
             )
-    for gate in controls["gates"]:
+    gates = controls["gates"]
+    if not isinstance(gates, list):
+        raise Invalid("Weekly decision gates are malformed")
+    for gate in gates:
         if gate["state"] != "LOCAL_INPUTS_READY":
             stage = next((s for s in workspace["stages"] if s["id"] == gate["stage"]), {})
             cards.append(
@@ -78,7 +84,7 @@ def project(workspace):
         app_name=app["data"]["name"],
         source_receipt=receipt,
         exceptions=cards,
-        local_ready=[g["id"] for g in controls["gates"] if g["state"] == "LOCAL_INPUTS_READY"],
+        local_ready=[g["id"] for g in gates if g["state"] == "LOCAL_INPUTS_READY"],
         current_stage=dict(
             id=current,
             title=stage["title"] if stage else None,
@@ -89,7 +95,7 @@ def project(workspace):
     )
 
 
-def review(service, offset=0, user=None):
+def review(service, offset=0, user=None) -> dict[str, Any]:
     """Read at most five workspaces; retain every failed source and explicit coverage."""
     if type(offset) is not int or offset < 0:
         raise Invalid("Use a nonnegative portfolio offset")
@@ -102,7 +108,7 @@ def review(service, offset=0, user=None):
             row = project(service.workspace(app["id"]))
             row["active_work"] = active_work(service.store, app, user)
             row["exceptions"].extend(operation_exceptions(service.store, app, user))
-        except Exception:
+        except Exception:  # noqa: BLE001 - one damaged workspace cannot hide the other apps
             row = dict(
                 app_id=app["id"],
                 app_name=app["data"]["name"],
@@ -167,7 +173,7 @@ def _soon(value, current):
     """Return a future expiry inside the review horizon; anything else stays absent."""
     try:
         at = iso_time(value)
-    except Exception:
+    except (Invalid, OverflowError):
         return None
     return at if current < at <= current + EXPIRY_HORIZON else None
 
@@ -348,7 +354,7 @@ def operation_exceptions(store, app, user):
             return cards
         try:
             return cards + _operation_rows(db, app, principal, tables)
-        except Exception:
+        except Exception:  # noqa: BLE001 - preserve source-health card for unexpected failures
             return cards + [
                 _card(
                     app,
@@ -378,7 +384,7 @@ def _authoritative_review_grant(db, app_id, item, cache):
         ).fetchone()
         if source is None:
             raise Invalid("Grant source unavailable")
-        grant = dict(source)
+        grant = source
         cache[grant_id] = grant
     if (
         grant["id"] != item["g_id"]
@@ -410,7 +416,9 @@ def _authoritative_review_grant(db, app_id, item, cache):
 def _agent_review_cards(db, app, principal, role, tables):
     """Read bounded metadata only; inspection and decisions remain in Agent Control."""
     from datetime import datetime, timezone
-    from .agent_checkpoints import OPERATIONS, current as checkpoint_current, hashed
+
+    from .agent_checkpoints import OPERATIONS, hashed
+    from .agent_checkpoints import current as checkpoint_current
     from .agent_grants import current as grant_current
     from .authority_expiry import effective_expiry
     from .common import iso_time
@@ -431,7 +439,7 @@ def _agent_review_cards(db, app, principal, role, tables):
             "LEFT JOIN agent_grants g ON g.id=r.grant_id WHERE r.app_id=? ORDER BY r.id LIMIT 100",
             (app["id"],),
         ).fetchall()
-    except Exception:
+    except Exception:  # noqa: BLE001 - preserve the source-health fallback
         return [_review_source_card(app, principal, role, "review-source")]
     observed = datetime.now(timezone.utc)
     cards = []
@@ -440,7 +448,9 @@ def _agent_review_cards(db, app, principal, role, tables):
     for item in rows:
         identity = item["id"]
         row = _saved(item["checkpoint"])
-        packet = row.get("packet") if isinstance(row.get("packet"), dict) else {}
+        packet = row.get("packet")
+        if not isinstance(packet, dict):
+            packet = {}
         # Never disclose another maker's request, including corrupt sources.
         # ReviewedDispatch creates the checkpoint as the grant owner; do not
         # trust a damaged packet to identify the maker for a private read.
@@ -643,7 +653,7 @@ def _operation_rows(db, app, principal, tables):
         if table not in tables:
             continue
         sql = (
-            "SELECT i.* FROM " + table + " i JOIN campaign_scopes s ON s.app_id=i.app_id AND s.id=i.scope_id "
+            "SELECT i.* FROM " + table + " i JOIN campaign_scopes s ON s.app_id=i.app_id AND s.id=i.scope_id "  # noqa: S608 - closed local table tuple
             "WHERE i.app_id=? AND s.owner=? ORDER BY i.updated DESC,i.id LIMIT 100"
         )
         for row in db.execute(sql, (app["id"], principal)):
@@ -684,7 +694,7 @@ def _operation_rows(db, app, principal, tables):
 
 def _handoff_cards(db, app, principal):
     """Reuse current handoff admission state without resuming or issuing authority."""
-    from .agent_handoffs import _read, _job, _view, _utc
+    from .agent_handoffs import _job, _read, _utc, _view
 
     cards = []
     observed = _utc()
@@ -745,12 +755,39 @@ def _handoff_cards(db, app, principal):
     return cards
 
 
-def _schedule_cards(db, app, principal, scopes, unresolved_scopes):
+def _schedule_deadline_state(db, scope, batch, observed):
+    from .campaign_execution import scope_view
+    from .campaign_schedule import retained_object
     from .common import iso_time
 
+    try:
+        summary = retained_object(batch["summary"], batch["summary_hash"])
+        base = retained_object(scope["summary"], scope["summary_hash"])
+        expected = {
+            "batch_id": batch["id"],
+            "app_id": scope["app_id"],
+            "owner": scope["owner"],
+            "scope_id": scope["id"],
+            "scope_hash": scope["summary_hash"],
+        }
+        if scope["status"] != "ACTIVE" or any(summary.get(key) != value for key, value in expected.items()):
+            return "NEEDS_REPAIR"
+        permission = scope_view(db, scope)["permission_expires_at"]
+        saved_deadline = summary.get("permission_expires_at", base["expires_at"])
+        if min(iso_time(permission), iso_time(saved_deadline)) <= observed:
+            return "EXPIRED_PENDING_WORK"
+    except (KeyError, TypeError, ValueError, Invalid, PermissionError, OverflowError, RecursionError):
+        return "NEEDS_REPAIR"
+    return None
+
+
+def _schedule_cards(db, app, principal, scopes, unresolved_scopes):
+    from .campaign_schedule import MAX_ITEMS, item_status, retained_object
+
     cards = []
+    observed = iso_time(now())
     rows = db.execute(
-        "SELECT b.id,b.scope_id,b.status,b.summary_hash,b.updated, count(i.id) AS pending FROM campaign_schedule_batches b JOIN campaign_schedule_items i ON i.batch_id=b.id WHERE b.app_id=? AND b.owner=? AND b.status='ACTIVE' AND i.status IN ('READY','QUEUED','BLOCKED') GROUP BY b.id ORDER BY b.updated DESC LIMIT 50",
+        "SELECT b.id,b.scope_id,b.status,b.summary,b.summary_hash,b.updated, count(i.id) AS pending FROM campaign_schedule_batches b JOIN campaign_schedule_items i ON i.batch_id=b.id WHERE b.app_id=? AND b.owner=? AND b.status='ACTIVE' AND i.status IN ('READY','QUEUED','BLOCKED') GROUP BY b.id ORDER BY b.updated DESC LIMIT 50",
         (app["id"], principal),
     )
     for row in rows:
@@ -759,24 +796,61 @@ def _schedule_cards(db, app, principal, scopes, unresolved_scopes):
             continue
         if scope["id"] in unresolved_scopes:
             continue
-        data = _saved(scope["summary"])
+        items = db.execute(
+            """SELECT i.*, j.id AS owned_job_id FROM campaign_schedule_items i
+            LEFT JOIN jobs j ON j.id=i.job_id AND j.app_id=?
+            WHERE i.batch_id=? AND i.status IN ('READY','QUEUED','BLOCKED')
+            ORDER BY i.due,i.id LIMIT ?""",
+            (app["id"], row["id"], MAX_ITEMS + 1),
+        ).fetchall()
+        states = set()
+        pending = 0
         try:
-            expired = iso_time(data["expires_at"]) <= iso_time(now())
-        except (KeyError, TypeError, Invalid):
-            expired = True
-        if not expired:
-            failed = db.execute(
-                "SELECT 1 FROM campaign_schedule_items i LEFT JOIN jobs j ON j.id=i.job_id AND j.app_id=? WHERE i.batch_id=? AND (i.status='BLOCKED' OR j.status IN ('BLOCKED','FAILED','UNKNOWN')) LIMIT 1",
-                (app["id"], row["id"]),
-            ).fetchone()
-            if not failed:
-                continue
+            reviewed = retained_object(row["summary"], row["summary_hash"]).get("items")
+        except (Invalid, OverflowError, RecursionError):
+            reviewed = None
+        for item in items:
+            state = item["status"]
+            if item["job_id"]:
+                if not item["owned_job_id"]:
+                    state = "NEEDS_REPAIR"
+                else:
+                    try:
+                        body = retained_object(item["body"], item["body_hash"])
+                        if (
+                            not isinstance(reviewed, list)
+                            or body not in reviewed
+                            or body.get("item_id") != item["id"]
+                            or iso_time(body.get("due_at")).timestamp() != item["due"]
+                        ):
+                            raise Invalid("Saved scheduled item does not match the review")
+                        state = item_status(db, app["id"], row["scope_id"], item)["effective_status"]
+                    except (Invalid, KeyError, TypeError, ValueError, OverflowError, RecursionError):
+                        state = "NEEDS_REPAIR"
+            if state not in ("VERIFIED", "ACTIVE_VERIFIED", "PAUSED_VERIFIED", "CANCELLED"):
+                pending += 1
+                states.add(state)
+        if row["pending"] > MAX_ITEMS:
+            pending += row["pending"] - len(items)
+            states.add("NEEDS_REPAIR")
+        if not pending:
+            continue
+        if "NEEDS_RECONCILIATION" in states:
+            status = "NEEDS_RECONCILIATION"
+        elif "NEEDS_REPAIR" in states:
+            status = "NEEDS_REPAIR"
+        else:
+            status = _schedule_deadline_state(db, scope, row, observed)
+            if status is None and "BLOCKED" in states:
+                status = "BLOCKED"
+        if status is None:
+            continue
         source = dict(
             id=row["id"],
             scope_id=row["scope_id"],
-            status="EXPIRED_PENDING_WORK" if expired else "BLOCKED",
+            status=status,
             summary_hash=row["summary_hash"],
-            pending_items=row["pending"],
+            pending_items=pending,
             updated=row["updated"],
         )
         cards.append(
@@ -785,12 +859,20 @@ def _schedule_cards(db, app, principal, scopes, unresolved_scopes):
                 principal,
                 "scheduled_campaign",
                 row["id"],
-                source["status"],
+                status,
                 "Review unfinished scheduled campaign work",
-                "The campaign approval expired with pending work."
-                if expired
-                else "A saved scheduled campaign job needs review.",
-                "Inspect the exact batch and delivery receipts; reconcile uncertainty before approving replacement work.",
+                {
+                    "EXPIRED_PENDING_WORK": "Your approval expired before all scheduled work finished.",
+                    "NEEDS_REPAIR": "WMM could not verify the saved approval or schedule records.",
+                    "NEEDS_RECONCILIATION": "A scheduled job has no verified delivery receipt.",
+                    "BLOCKED": "A saved scheduled campaign job needs review.",
+                }[status],
+                {
+                    "EXPIRED_PENDING_WORK": "Open the schedule and check what went live. Approve a new schedule for any remaining work you still want.",
+                    "NEEDS_REPAIR": "Open the schedule to review saved evidence. Prepare a replacement only after checking that nothing went live twice.",
+                    "NEEDS_RECONCILIATION": "Open the schedule and check the provider before approving a retry.",
+                    "BLOCKED": "Open the schedule to see what stopped and how to fix it.",
+                }[status],
                 "campaign",
                 dict(scope_id=row["scope_id"], batch_id=row["id"]),
                 source,
@@ -798,18 +880,6 @@ def _schedule_cards(db, app, principal, scopes, unresolved_scopes):
             )
         )
     return cards
-
-
-def _saved(raw):
-    import json
-
-    if not isinstance(raw, str) or len(raw) > 65536:
-        return {}
-    try:
-        value = json.loads(raw)
-    except (TypeError, ValueError):
-        return {}
-    return value if isinstance(value, dict) else {}
 
 
 def _intent_card(app, principal, scope, row, paid):
@@ -909,8 +979,8 @@ def _plan_card(db, app, principal, row, tool, unresolved):
         target.get("intent_id") in unresolved for target in proposal.get("targets", []) if isinstance(target, dict)
     ):
         return None
-    job = _owned_job(db, app, row, tool)
-    issue = _plan_issue(row, proposal, job, tool)
+    job = owned_job(db, app["id"], row, tool)
+    issue = plan_issue(row, proposal, job, tool, now)
     if issue is None:
         return None
     state, title, reason, repair = issue
@@ -936,80 +1006,6 @@ def _plan_card(db, app, principal, row, tool, unresolved):
         source,
         2,
     )
-
-
-def _owned_job(db, app, row, tool):
-    if not row["last_job"]:
-        return None
-    job = db.execute(
-        "SELECT id,app_id,action,status,data,updated FROM jobs WHERE id=? AND app_id=?",
-        (row["last_job"], app["id"]),
-    ).fetchone()
-    if job is None:
-        return None
-    expected = "campaign_monitor" if tool == "monitor" else "campaign_owner_report"
-    data = _saved(job["data"])
-    key = "monitor_id" if tool == "monitor" else "plan_id"
-    if (
-        job["status"]
-        not in {
-            "QUEUED",
-            "RUNNING",
-            "SUCCEEDED",
-            "FAILED",
-            "BLOCKED",
-            "UNKNOWN",
-            "CANCELLED",
-            "INTERRUPTED",
-        }
-        or job["action"] != expected
-        or data.get(key) != row["id"]
-        or data.get("summary_hash") != row["summary_hash"]
-    ):
-        return None
-    return job
-
-
-def _plan_issue(row, proposal, job, tool):
-    name = "Campaign monitor" if tool == "monitor" else "Private report plan"
-    repair = (
-        "Open the exact monitor controls and inspect its last observation before approving replacement work."
-        if tool == "monitor"
-        else "Open private reports, inspect the failed snapshot job and review current source bindings before another plan."
-    )
-    limit = proposal.get("max_runs" if tool == "monitor" else "max_reports")
-    finished = type(limit) is int and row["runs"] >= limit and (job is None or job["status"] == "SUCCEEDED")
-    if finished:
-        return None
-    if row["status"] == "BLOCKED" or (job and job["status"] in ("FAILED", "BLOCKED", "UNKNOWN")):
-        return (
-            "BLOCKED",
-            name + " needs a decision",
-            "Saved local work stopped at a validation, authority or execution boundary.",
-            repair,
-        )
-    if row["status"] != "ACTIVE":
-        return None
-    from .common import iso_time
-
-    try:
-        expired = iso_time(proposal["expires_at"]) <= iso_time(now())
-    except (Invalid, KeyError, TypeError):
-        return (
-            "INTEGRITY_REVIEW_REQUIRED",
-            name + " needs review",
-            "Saved expiry could not be verified.",
-            repair,
-        )
-    limit = proposal.get("max_runs" if tool == "monitor" else "max_reports")
-    if expired and type(limit) is int and row["runs"] < limit:
-        return (
-            "EXPIRED",
-            name + " expired with unfinished planned work",
-            "The finite approval ended before all planned runs were dispatched.",
-            repair,
-        )
-    return None
 
 
 def _card(

@@ -1,22 +1,60 @@
 """Synthetic release protocol tests. No builds, credentials or network calls."""
 
-import json
 import importlib.util
 import io
+import json
 import os
-from pathlib import Path
+import runpy
+import shutil
+import subprocess
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location(
     "wmm_release", Path(__file__).resolve().parents[1] / "tools/publish_desktop_release.py"
 )
+assert spec is not None and spec.loader is not None
 release = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release)
 
 SHA = "a" * 40
 TAG = "v0.1.0-preview.1"
+THUMBPRINT = "A" * 40
+
+
+def add_provenance(folder, sha=SHA):
+    """Create fixture-only downloadable evidence through the actual staging path."""
+    verifier = runpy.run_path(str(Path(__file__).resolve().parents[1] / "tools/verify_release_provenance.py"))
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        stage = root / "stage"
+        stage.mkdir()
+        for name in verifier["payload_names"]():
+            shutil.copyfile(folder / name, stage / name)
+        bundle = root / "action-bundle.json"
+        bundle.write_text('{"synthetic":"not cryptographic evidence"}')
+
+        def fake_verify(args, **kwargs):
+            path = Path(args[3])
+            output = [
+                {
+                    "attestation": {"bundle": "synthetic fixture"},
+                    "verificationResult": {
+                        "statement": {
+                            "predicateType": verifier["PREDICATE"],
+                            "subject": [{"name": path.name, "digest": {"sha256": release.digest(path)}}],
+                        }
+                    },
+                }
+            ]
+            return subprocess.CompletedProcess(args, 0, json.dumps(output), "")
+
+        with patch("subprocess.run", side_effect=fake_verify):
+            verifier["verify"](stage, sha, root / "receipt.json", bundle)
+        for name in (verifier["BUNDLE_NAME"], verifier["RECEIPT_NAME"]):
+            shutil.copyfile(stage / name, folder / name)
 
 
 class ReleaseTests(unittest.TestCase):
@@ -26,23 +64,25 @@ class ReleaseTests(unittest.TestCase):
         self.folder = Path(self.temp.name)
         for platform, name in release.ASSETS.items():
             prefix = "windows" if platform == "Windows" else "ubuntu"
+            browser_runs = []
             for phase in ("fresh", "upgrade"):
                 evidence = self.folder / (prefix + "-" + phase) / "evidence.json"
                 evidence.parent.mkdir()
-                evidence.write_text(
-                    json.dumps(
-                        dict(
-                            github_sha=SHA,
-                            offline_restart="PASS_SAME_PRIVATE_WORKSPACE_AND_BROWSER_STORAGE",
-                            network="BROWSER_EXTERNAL_BLOCKED_NOT_OS_OFFLINE",
-                        )
-                    )
+                proof = dict(
+                    github_sha=SHA,
+                    executable_sha256="c" * 64,
+                    offline_restart="PASS_SAME_PRIVATE_WORKSPACE_AND_BROWSER_STORAGE",
+                    network="BROWSER_REQUESTS_MONITORED_NO_EXTERNAL_OBSERVED",
                 )
+                evidence.write_text(json.dumps(proof), encoding="utf-8")
+                browser_runs.append(json.dumps(dict(first_packet=proof, phase=prefix + "-" + phase)))
             asset = self.folder / name
             asset.write_bytes(b"synthetic installer " + platform.encode())
-            result = self.folder / "lifecycle.json"
+            result = self.folder / (prefix + "-lifecycle.json")
             result.write_text(
-                json.dumps(
+                "\n".join(browser_runs)
+                + "\n"
+                + json.dumps(
                     dict(
                         status="PASS",
                         install="VERIFIED",
@@ -75,6 +115,22 @@ class ReleaseTests(unittest.TestCase):
                     )
                 )
             )
+
+    def test_receipt_rejects_same_commit_proof_from_different_executable(self):
+        proof = self.folder / "windows-fresh" / "evidence.json"
+        data = json.loads(proof.read_text(encoding="utf-8"))
+        proof.write_text(json.dumps(dict(data, executable_sha256="d" * 64)), encoding="utf-8")
+        target = self.folder / "new.json"
+        with self.assertRaisesRegex(ValueError, "Missing source-bound"):
+            release.receipt(
+                "Windows",
+                SHA,
+                self.folder / "WMM-Setup.exe",
+                self.folder / "windows-lifecycle.json",
+                target,
+                self.folder,
+            )
+        self.assertFalse(target.exists())
 
     def test_both_passed_assets_and_manifest(self):
         paths = release.validate_assets(self.folder, SHA)
@@ -159,6 +215,51 @@ class ReleaseTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 release.validate_target(*bad)
 
+    def mark_signed_fixture(self):
+        path = self.folder / "Windows.json"
+        data = json.loads(path.read_text())
+        data["lifecycle"]["publisher_signature"] = {
+            "thumbprint": THUMBPRINT,
+            "installer_sha256": release.digest(self.folder / "WMM-Setup.exe"),
+            "installer": "VALID_TIMESTAMPED",
+            "uninstaller": "VALID_TIMESTAMPED",
+        }
+        path.write_text(json.dumps(data))
+
+    def test_early_signing_config_requires_publisher_and_https_timestamp(self):
+        release.validate_signing_config(THUMBPRINT, "https://timestamp.example.com")
+        for thumbprint, timestamp in (
+            ("", "https://timestamp.example.com"),
+            (THUMBPRINT.lower(), "https://timestamp.example.com"),
+            (THUMBPRINT, ""),
+            (THUMBPRINT, "http://timestamp.example.com"),
+            (THUMBPRINT, "https://timestamp.example.com/path?option=x"),
+        ):
+            with self.subTest(thumbprint=thumbprint, timestamp=timestamp), self.assertRaises(ValueError):
+                release.validate_signing_config(thumbprint, timestamp)
+
+    def test_unsigned_preview_10_is_explicit_and_scoped(self):
+        with patch.dict(os.environ, WMM_UNSIGNED_WINDOWS_PREVIEW10="true"):
+            self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.10"))
+            with self.assertRaisesRegex(ValueError, "limited to Preview 10"):
+                release.windows_release_notice(self.folder, "v0.1.0-preview.11")
+            self.mark_signed_fixture()
+            with self.assertRaisesRegex(ValueError, "unsigned Windows lifecycle receipt"):
+                release.windows_release_notice(self.folder, "v0.1.0-preview.10")
+
+    def test_signed_release_requires_exact_publisher_and_bytes(self):
+        with self.assertRaisesRegex(ValueError, "Configure"):
+            release.require_windows_signature(self.folder, "")
+        with self.assertRaisesRegex(ValueError, "Missing verified"):
+            release.require_windows_signature(self.folder, THUMBPRINT)
+        self.mark_signed_fixture()
+        release.require_windows_signature(self.folder, THUMBPRINT)
+        with self.assertRaisesRegex(ValueError, "Missing verified"):
+            release.require_windows_signature(self.folder, "B" * 40)
+        (self.folder / "WMM-Setup.exe").write_bytes(b"changed")
+        with self.assertRaisesRegex(ValueError, "Missing verified"):
+            release.require_windows_signature(self.folder, THUMBPRINT)
+
     def fake_gh(self, *args):
         self.calls.append(args)
         if args[:2] == ("api", "repos/" + release.REPOSITORY):
@@ -183,16 +284,25 @@ class ReleaseTests(unittest.TestCase):
         return ""
 
     def test_existing_tag_refused_before_any_mutation(self):
+        self.mark_signed_fixture()
+        add_provenance(self.folder)
         self.calls, self.refs = [], [dict(ref="refs/tags/" + TAG)]
         with (
-            patch.dict(os.environ, GITHUB_REF="refs/heads/main", GITHUB_REPOSITORY=release.REPOSITORY),
+            patch.dict(
+                os.environ,
+                GITHUB_REF="refs/heads/main",
+                GITHUB_REPOSITORY=release.REPOSITORY,
+                WMM_WINDOWS_SIGNER_THUMBPRINT=THUMBPRINT,
+            ),
             patch.object(release, "gh", self.fake_gh),
+            self.assertRaises(ValueError),
         ):
-            with self.assertRaises(ValueError):
-                release.publish(self.folder, SHA, TAG)
+            release.publish(self.folder, SHA, TAG)
         self.assertFalse(any(c[0] == "release" for c in self.calls))
 
     def test_upload_failure_preserves_draft_and_never_clobbers(self):
+        self.mark_signed_fixture()
+        add_provenance(self.folder)
         self.calls, self.refs = [], []
 
         def failed_upload(*args):
@@ -202,11 +312,16 @@ class ReleaseTests(unittest.TestCase):
             return self.fake_gh(*args)
 
         with (
-            patch.dict(os.environ, GITHUB_REF="refs/heads/main", GITHUB_REPOSITORY=release.REPOSITORY),
+            patch.dict(
+                os.environ,
+                GITHUB_REF="refs/heads/main",
+                GITHUB_REPOSITORY=release.REPOSITORY,
+                WMM_WINDOWS_SIGNER_THUMBPRINT=THUMBPRINT,
+            ),
             patch.object(release, "gh", failed_upload),
+            self.assertRaises(RuntimeError),
         ):
-            with self.assertRaises(RuntimeError):
-                release.publish(self.folder, SHA, TAG)
+            release.publish(self.folder, SHA, TAG)
         self.assertTrue(any(c[:2] == ("release", "create") and "--draft" in c for c in self.calls))
         self.assertFalse(any(c[:2] == ("release", "edit") for c in self.calls))
         self.assertNotIn("--clobber", str(self.calls))
@@ -214,12 +329,19 @@ class ReleaseTests(unittest.TestCase):
     def test_private_repository_refused(self):
         with (
             patch.object(release, "gh", side_effect=[json.dumps(dict(private=True)), SHA]),
-            patch.dict(os.environ, GITHUB_REF="refs/heads/main", GITHUB_REPOSITORY=release.REPOSITORY),
+            patch.dict(
+                os.environ,
+                GITHUB_REF="refs/heads/main",
+                GITHUB_REPOSITORY=release.REPOSITORY,
+                WMM_WINDOWS_SIGNER_THUMBPRINT=THUMBPRINT,
+            ),
+            self.assertRaises(ValueError),
         ):
-            with self.assertRaises(ValueError):
-                release.publish(self.folder, SHA, TAG)
+            release.publish(self.folder, SHA, TAG)
 
     def test_publication_requires_full_anonymous_download_hashes(self):
+        self.mark_signed_fixture()
+        add_provenance(self.folder)
         self.calls, self.refs = [], []
         urls = []
 
@@ -228,12 +350,17 @@ class ReleaseTests(unittest.TestCase):
             return io.BytesIO((self.folder / url.rsplit("/", 1)[-1]).read_bytes())
 
         with (
-            patch.dict(os.environ, GITHUB_REF="refs/heads/main", GITHUB_REPOSITORY=release.REPOSITORY),
+            patch.dict(
+                os.environ,
+                GITHUB_REF="refs/heads/main",
+                GITHUB_REPOSITORY=release.REPOSITORY,
+                WMM_WINDOWS_SIGNER_THUMBPRINT=THUMBPRINT,
+            ),
             patch.object(release, "gh", self.fake_gh),
             patch.object(release, "urlopen", download),
         ):
             release.publish(self.folder, SHA, TAG)
-        self.assertEqual(len(urls), 7)
+        self.assertEqual(len(urls), 9)
         self.assertTrue(all(url.startswith("https://github.com/zrk222/WMM/releases/download/") for url in urls))
         self.assertTrue(any(c[:2] == ("release", "edit") for c in self.calls))
 

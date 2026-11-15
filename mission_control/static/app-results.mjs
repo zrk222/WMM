@@ -16,6 +16,7 @@ import {
   state,
   toast,
 } from './app.mjs';
+import { WMMAnalyticsInventory } from './analytics-inventory.mjs';
 import { WMMObservationalCampaign } from './observational-campaign.mjs';
 import {
   analyticsOverviewPanel,
@@ -48,6 +49,38 @@ function kpiGapPanel() {
   return `<section class="panel" aria-label="KPI gaps"><h2>KPI gaps remain explicit</h2><p class="description">These metrics are not collected; no value, zero or provider proxy is inferred.</p><div class="table-wrap"><table class="result-table"><thead><tr><th>Metric</th><th>Status</th><th>Reason</th></tr></thead><tbody>${gaps.map((gap) => `<tr><td>${esc(gap.metric)}</td><td>${status(gap.status)}</td><td>${esc(gap.reason)}</td></tr>`).join('')}</tbody></table></div></section>`;
 }
 
+function launchGatePanel() {
+  const gate = state.workspace?.launch_gate;
+  if (!gate || gate.status === 'NOT_CONFIGURED') return '';
+  const blockers = gate.blockers || [];
+  return `<section class="panel" aria-label="Launch measurement gate"><h2>Launch measurement gate</h2><p>Status: ${status(gate.status)}</p>${blockers.length ? `<ul>${blockers.map((item) => `<li>${esc(item.name.replaceAll('_', ' '))}: ${status(item.status)}</li>`).join('')}</ul>` : '<p>The saved plan passed these local checks. Verify your tracking and approvals before launching.</p>'}<p class="description">A READY gate does not publish, spend or prove an outcome.</p></section>`;
+}
+
+function reconciliationPanel() {
+  const groups = state.workspace?.reconciliation?.groups || [];
+  if (!groups.length) return '';
+  return `<section class="panel" aria-label="Cross-source reconciliation"><h2>Cross-source reconciliation</h2><p class="description">Source values stay separate. No average is computed.</p><div class="table-wrap"><table class="result-table"><thead><tr><th>Metric</th><th>Period</th><th>Status</th><th>Sources</th><th>Values</th></tr></thead><tbody>${groups
+    .slice(0, 50)
+    .map(
+      (group) =>
+        `<tr><td>${esc(group.metric)}</td><td>${esc(group.period)}</td><td>${status(group.status)}</td><td>${esc(group.sources.join(', '))}</td><td>${group.values.map((item) => `<details><summary>${esc(item.source)}: ${item.value == null ? 'Not observed' : esc(String(item.value))}</summary><dl><dt>Definition</dt><dd>${esc(item.definition || 'Not supplied')}</dd><dt>Denominator</dt><dd>${esc(item.denominator ?? 'Not supplied')}</dd><dt>Coverage</dt><dd>${esc(item.coverage || 'Unknown')}</dd><dt>Observed at</dt><dd>${esc(item.observed_at || 'Not supplied')}</dd><dt>Source fingerprint</dt><dd>${esc(item.source_hash || 'Not supplied')}</dd></dl></details>`).join('')}</td></tr>`,
+    )
+    .join('')}</tbody></table></div></section>`;
+}
+
+function creativeLearningPanel() {
+  const cycle = state.workspace?.creative_learning;
+  if (!cycle) return '';
+  return `<section class="panel" aria-label="Creative learning loop"><h2>Creative learning loop</h2><p>Status: ${status(cycle.status)}</p><p>${esc(cycle.next_brief?.seed || '')}</p>${cycle.gaps?.length ? `<ul>${cycle.gaps.map((gap) => `<li>${esc(gap)}</li>`).join('')}</ul>` : '<p>Review how the saved stages relate to the same creative and experiment.</p>'}<p class="description">Read-only composition; no new authority or publication.</p></section>`;
+}
+
+function preRegistrationPanel() {
+  const draft = state.workspace?.pre_registration;
+  if (!draft) return '';
+  const plan = draft.measurement_plan;
+  return `<section class="panel" aria-label="Pre-registration draft"><h2>Pre-registration draft</h2><p>Status: ${status(draft.status)}</p>${plan ? `<p>${esc(plan.primary_metric)} / ${esc(plan.denominator)} · tag ${esc(plan.campaign_tag)}</p>` : ''}${draft.missing?.length ? `<ul>${draft.missing.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>` : '<p>Draft inputs are complete enough for owner review.</p>'}<p class="description">${esc(draft.limits)}</p>${draft.experiment_draft?.missing?.length ? `<h3>Still needed before registering the experiment</h3><ul>${draft.experiment_draft.missing.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>` : ''}</section>`;
+}
+
 function resultsView() {
   const study = ruleStudySelection();
   const decision = `<section class="panel" aria-labelledby="results-decision-heading"><h2 id="results-decision-heading" tabindex="-1">What should you do next?</h2>
@@ -56,6 +89,10 @@ function resultsView() {
   return (
     decision +
     kpiGapPanel() +
+    launchGatePanel() +
+    preRegistrationPanel() +
+    reconciliationPanel() +
+    creativeLearningPanel() +
     analyticsOverviewPanel() +
     automationRulesPanel() +
     WMMFunnels.panel() +
@@ -147,10 +184,10 @@ function ledgerResults() {
   const panels = rows
     .map(
       (r) =>
-        `<section class="panel ledger-panel"><div class="section-heading"><h3>${esc(r.cohort.cohort_id)}</h3>${status(r.status)}</div><p class="description">${esc(r.cohort.release)} Â· ${esc(r.cohort.locale)} Â· ${r.events} imported events</p>${!r.mature ? notice('Follow-up has not matured yet.', 'warning') : ''}${!r.costs_complete ? notice('Acquisition and delivery costs need explicit export rows, including zero-cost receipts.', 'warning') : ''}${r.observability !== 'OBSERVED' ? notice('Attribution is partial or unknown; conversion and contribution remain inconclusive.', 'warning') : ''}${r.issues.map((issue) => notice(issue, 'warning')).join('')}<div class="table-wrap"><table class="result-table"><thead><tr><th>Event-derived outcome</th><th>Supplied result</th></tr></thead><tbody><tr><td>Eligible installs / activations / paid</td><td>${r.installs} / ${r.activated} / ${r.paid}</td></tr><tr><td>Paid conversion</td><td>${percent(r.paid_conversion)}</td></tr><tr><td>Net proceeds after refunds</td><td>${money(r.net_proceeds_minor, r.cohort.currency)}</td></tr><tr><td>Contribution after costs</td><td>${money(r.contribution_after_acquisition_minor, r.cohort.currency)}</td></tr></tbody></table></div><div class="toolbar">${button('Import event export', 'import-events', `data-id="${esc(r.cohort.cohort_id)}"`)}${button('CSV template', 'event-template')}${button('Download as-of report', 'ledger-report', `data-id="${esc(r.cohort.cohort_id)}"`)}${button('Earlier report', 'ledger-history', `data-id="${esc(r.cohort.cohort_id)}"`)}</div><details><summary>Observation contract, source and reconciliation details</summary><pre>${json(r)}</pre></details></section>`,
+        `<section class="panel ledger-panel"><div class="section-heading"><h3>${esc(r.cohort.cohort_id)}</h3>${status(r.status)}</div><p class="description">${esc(r.cohort.release)} Â· ${esc(r.cohort.locale)} Â· ${r.events} imported events · Evidence as of ${esc(r.as_of)}</p>${!r.mature ? notice('Follow-up has not matured yet.', 'warning') : ''}${!r.costs_complete ? notice('Acquisition and delivery costs need explicit export rows, including zero-cost receipts.', 'warning') : ''}${r.observability !== 'OBSERVED' ? notice('Attribution is partial or unknown; conversion and contribution remain inconclusive.', 'warning') : ''}${r.issues.map((issue) => notice(issue, 'warning')).join('')}<div class="table-wrap"><table class="result-table"><thead><tr><th>Event-derived outcome</th><th>Supplied result</th></tr></thead><tbody><tr><td>Eligible installs / activations / paid</td><td>${r.installs} / ${r.activated} / ${r.paid}</td></tr><tr><td>Paid conversion</td><td>${percent(r.paid_conversion)}</td></tr><tr><td>Net proceeds after refunds</td><td>${money(r.net_proceeds_minor, r.cohort.currency)}</td></tr><tr><td>Contribution after costs</td><td>${money(r.contribution_after_acquisition_minor, r.cohort.currency)}</td></tr></tbody></table></div><div class="toolbar">${button('Import event export', 'import-events', `data-id="${esc(r.cohort.cohort_id)}"`)}${button('CSV template', 'event-template')}${button('Download as-of report', 'ledger-report', `data-id="${esc(r.cohort.cohort_id)}"`)}${button('Earlier report', 'ledger-history', `data-id="${esc(r.cohort.cohort_id)}"`)}${r.cohort.economics?.coverage_through ? button('Use covered economics snapshot', 'ledger-covered', `data-id="${esc(r.cohort.cohort_id)}"`) : ''}</div><details><summary>Observation contract, source and reconciliation details</summary><pre>${json(r)}</pre></details></section>`,
     )
     .join('');
-  return `${paymentResultsPanel()}${outcomeLearningPanel()}${experimentResults()}<div class="section-heading"><h2>Reconciled event ledger</h2>${button('Define event cohort', 'define-cohort')}</div>${notice('Import permitted exports using opaque IDs only. Late refunds restate these cohorts. Imported files are not authenticated provider notifications.')}${rows.length ? panels : empty('Start with a declared observation window', 'Define the app build, acquisition dates, follow-up maturity and attribution coverage. Then import a CSV or JSON export.', button('Set up event cohort', 'define-cohort'))}`;
+  return `${paymentResultsPanel()}${outcomeLearningPanel()}${experimentResults()}<div class="section-heading"><h2>Reconciled event ledger</h2>${button('Define event cohort', 'define-cohort')}</div>${notice('Import permitted exports using opaque IDs only. Late refunds restate these cohorts. Imported files are not authenticated provider notifications.')}${rows.length ? panels + WMMPageReports.sectionsHTML(WMMPageReports.measurementSections({ ledger: rows }), 3) : empty('Start with a declared observation window', 'Define the app build, acquisition dates, follow-up maturity and attribution coverage. Then import a CSV or JSON export.', button('Set up event cohort', 'define-cohort'))}`;
 }
 
 function experimentIterationPanel(e) {
@@ -177,7 +214,7 @@ function experimentResults() {
     .map((e) => {
       const latest = e.assessments.at(-1),
         decision = e.actions.filter((a) => a.data.operation === 'decide').at(-1);
-      return `<section class="panel experiment-panel"><div class="section-heading"><h3>${esc(e.data.name)}</h3>${status(e.state)}</div><p>${esc(e.data.hypothesis)}</p><p class="description">${esc(label(e.data.primary_metric))} Â· ${esc(e.data.assignment_method)} Â· analysis ${esc(new Date(e.data.analysis_at).toLocaleString())}</p><p>Approximate sample: ${e.data.sample_plan.control} control / ${e.data.sample_plan.treatment} treatment installs</p>${latest ? `<p>Latest assessment: ${status(latest.data.status)} Â· decision ${status(e.decision_status)}</p>${latest.data.issues.map((i) => notice(i, 'warning')).join('')}` : notice('No assessment recorded. Exposure and the fixed analysis date are required.')}${decision ? `<p>Recorded decision: ${esc(label(decision.data.decision))}</p>` : ''}${experimentIterationPanel(e)}${button('Inspect experiment', 'experiment-open', `data-id="${esc(e.id)}"`)}</section>`;
+      return `<section class="panel experiment-panel"><div class="section-heading"><h3>${esc(e.data.name)}</h3>${status(e.state)}</div><p>${esc(e.data.hypothesis)}</p><p class="description">${esc(label(e.data.primary_metric))} Â· ${esc(e.data.assignment_method)} Â· analysis ${esc(new Date(e.data.analysis_at).toLocaleString())}</p><p>Approximate sample: ${e.data.sample_plan.control} control / ${e.data.sample_plan.treatment} treatment installs</p>${latest ? `<p>Latest assessment: ${status(latest.data.status)} Â· decision ${status(e.decision_status)}</p>${latest.data.issues.map((i) => notice(i, 'warning')).join('')}` : notice('No assessment recorded. Exposure and the fixed analysis date are required.')}${decision ? `<p>Recorded decision: ${esc(label(decision.data.decision))}</p>` : ''}${WMMPageReports.sectionsHTML(WMMPageReports.measurementSections({ experiments: [e] }), 3)}${experimentIterationPanel(e)}${button('Inspect experiment', 'experiment-open', `data-id="${esc(e.id)}"`)}</section>`;
     })
     .join('');
   const worker = state.workspace.worker || { status: 'NOT_STARTED' };
@@ -301,10 +338,18 @@ function openExperiment(id) {
       ? ''
       : `${e.state === 'PLANNED' ? button('Record observed exposure', 'experiment-action', `data-id="${esc(id)}" data-operation="observe"`) : button('Evaluate current evidence', 'experiment-evaluate', `data-id="${esc(id)}"`)}${latest ? button('Record decision', 'experiment-action', `data-id="${esc(id)}" data-operation="decide"`) : ''}${e.state === 'DECIDED' ? button('Propose rollback', 'experiment-action', `data-id="${esc(id)}" data-operation="rollback"`) : ''}${button('Record decision note', 'experiment-action', `data-id="${esc(id)}" data-operation="note"`)}${button('Cancel test', 'experiment-action', `data-id="${esc(id)}" data-operation="cancel"`)}`;
   const effect = latest?.data.effect;
+  const relative =
+    effect && WMMAnalyticsInventory.relativeChange(effect.control_rate, effect.treatment_rate);
+  const relativeMarkup = relative
+    ? `<p>Compared with control in the latest saved assessment: <span class="analytics-status" data-tone="${relative.tone}">${esc(relative.text)}</span> · Descriptive only</p>`
+    : effect?.control_rate === 0
+      ? '<p>Relative change unavailable because the control rate is zero.</p>'
+      : '';
+  const points = (rate) => (rate * 100).toFixed(2);
   const scheduled = experimentSchedulePanel(e);
   modal(
     e.data.name,
-    `<div class="modal-content">${notice('Exposure receipts are operator reported. Rollback is a proposal, not a provider action. Re-evaluate after new imports: previous decisions may become stale.')}${status(e.state)} ${status(latest?.data.status || 'NOT_EVALUATED')} ${status(e.decision_status)}<p>${esc(e.data.hypothesis)}</p>${effect ? `<p>Descriptive difference: ${percent(effect.difference)} Â· 95% interval ${effect.interval.map(percent).join(' to ')}</p><p>${esc(effect.method)}</p>` : notice('No defensible comparison is available yet.', 'warning')}${latest ? latest.data.issues.map((i) => notice(i, 'warning')).join('') : ''}${experimentIterationPanel(e)}${scheduled}<h3>Decision and recovery history</h3>${e.actions.map((a) => `<p><strong>${esc(label(a.data.operation))}</strong> Â· ${esc(a.data.operation === 'note' ? a.data.note || '' : a.data.reason || a.data.source)} Â· ${esc(a.created)}${a.data.operation === 'rollback' ? ' Â· External rollback NOT RUN' : ''}${a.data.operation === 'note' ? ' Â· Human note, not provider verification' : ''}</p>`).join('') || '<p>No lifecycle actions recorded.</p>'}<details><summary>Immutable plan, source hashes and all assessments</summary><pre>${json(e)}</pre></details><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions">${controls}${button('Download experiment', 'experiment-download', `data-id="${esc(id)}"`)}</div>`,
+    `<div class="modal-content">${notice('Exposure receipts are operator reported. Rollback is a proposal, not a provider action. Re-evaluate after new imports: previous decisions may become stale.')}${status(e.state)} ${status(latest?.data.status || 'NOT_EVALUATED')} ${status(e.decision_status)}<p>${esc(e.data.hypothesis)}</p>${effect ? `<p>Descriptive difference: ${points(effect.difference)} percentage points Â· 95% interval ${effect.interval.map(points).join(' to ')} percentage points</p>${relativeMarkup}<p>${esc(effect.method)}</p>` : notice('No defensible comparison is available yet.', 'warning')}${latest ? latest.data.issues.map((i) => notice(i, 'warning')).join('') : ''}${experimentIterationPanel(e)}${scheduled}<h3>Decision and recovery history</h3>${e.actions.map((a) => `<p><strong>${esc(label(a.data.operation))}</strong> Â· ${esc(a.data.operation === 'note' ? a.data.note || '' : a.data.reason || a.data.source)} Â· ${esc(a.created)}${a.data.operation === 'rollback' ? ' Â· External rollback NOT RUN' : ''}${a.data.operation === 'note' ? ' Â· Human note, not provider verification' : ''}</p>`).join('') || '<p>No lifecycle actions recorded.</p>'}<details><summary>Immutable plan, source hashes and all assessments</summary><pre>${json(e)}</pre></details><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions">${controls}${button('Download experiment', 'experiment-download', `data-id="${esc(id)}"`)}</div>`,
     'EXPERIMENT EVIDENCE',
   );
 }
@@ -451,6 +496,29 @@ async function saveExperimentSchedule(form) {
   }
 }
 
+function cohortEconomicsFields() {
+  const choice = (name, title, choices) =>
+    `<label class="field" for="${name}">${esc(title)}<select id="${name}" name="${name}">${choices.map(([value, caption]) => `<option value="${value}">${esc(caption)}</option>`).join('')}</select></label>`;
+  return `<fieldset><legend>Optional acquisition economics</legend><p>Leave cost basis unselected to keep the original cohort definition. If selected, supply all six fields. These declarations are not provider verification.</p><div class="form-grid">${choice(
+    'economics_cost_basis',
+    'Cost basis (optional)',
+    [
+      ['', 'Not supplied'],
+      ['MEDIA_SPEND', 'Media spend'],
+      ['TOTAL_ACQUISITION_COST', 'Total acquisition cost'],
+    ],
+  )}${choice('economics_revenue_basis', 'Revenue basis', [
+    ['', 'Choose when supplying economics'],
+    ['NET_PROCEEDS', 'Net proceeds'],
+    ['GROSS_REVENUE', 'Gross revenue'],
+  ])}${choice('economics_attribution_status', 'Attribution coverage', [
+    ['', 'Choose when supplying economics'],
+    ['DECLARED_MATCHED', 'Declared matched'],
+    ['PARTIAL', 'Partial'],
+    ['UNAVAILABLE', 'Unavailable'],
+  ])}${field('economics_spend_source', '', 'text', 'Spend export / receipt reference; no credentials', false, 'Spend source')}${field('economics_currency', '', 'text', 'Must match the cohort and imported costs', false, 'Economics currency')}${field('economics_coverage_through', '', 'text', 'ISO timestamp with timezone through which coverage is complete', false, 'Coverage through')}</div></fieldset>`;
+}
+
 function cohortForm() {
   const app = state.workspace.app.data;
   const fields = [
@@ -468,7 +536,7 @@ function cohortForm() {
   const observable = `<label class="field" for="field-observability">Observation coverage<select id="field-observability" name="observability"><option value="UNKNOWN">Unknown</option><option value="PARTIAL">Partial or privacy suppressed</option><option value="OBSERVED">Observed under the documented contract</option></select></label>`;
   modal(
     'Define event cohort',
-    `<form id="cohort-form"><div class="modal-content">${notice('Definitions and imported events are immutable. Use a fresh cohort for corrected boundaries; snapshots preserve the originals.')}<div class="form-grid">${fields.join('')}${observable}</div><div class="field-error" id="form-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Save event cohort</button></div></form>`,
+    `<form id="cohort-form"><div class="modal-content">${notice('Definitions and imported events are immutable. Use a fresh cohort for corrected boundaries; snapshots preserve the originals.')}<div class="form-grid">${fields.join('')}${observable}</div>${cohortEconomicsFields()}<div class="field-error" id="form-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Save event cohort</button></div></form>`,
   );
 }
 

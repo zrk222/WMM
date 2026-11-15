@@ -1,0 +1,36 @@
+name: Check founder trial eligibility
+description: Ask to join a 45-minute uncoached WMM first run.
+title: "[Founder trial] Eligibility check"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue is public and linked to your GitHub account. Leave out emails, credentials, customer data, private analytics or exports, and private attachments.
+        [Read the trial guide](https://github.com/zrk222/WMM/blob/main/docs/founder-trial.md). This self-report is pending qualification and does not count as a trial result.
+  - type: checkboxes
+    id: eligibility
+    attributes:
+      label: Eligibility
+      description: If any statement does not apply, this outside-founder trial is not for you.
+      options:
+        - label: I own or market an app.
+          required: true
+        - label: I have never used WMM or seen its demo.
+          required: true
+        - label: I am not the project owner or a contributor.
+          required: true
+        - label: I can set aside 45 minutes for an uncoached first run.
+          required: true
+  - type: input
+    id: context
+    attributes:
+      label: Role, app category, and platform
+      description: Give broad details only. Leave out names, links, and contact information.
+      placeholder: Founder; personal productivity; Windows
+    validations:
+      required: true
+  - type: input
+    id: experience
+    attributes:
+      label: Relevant experience (optional)
+      description: For example, whether you have run an app marketing experiment before.

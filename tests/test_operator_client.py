@@ -1,25 +1,26 @@
 """Actual local server/session persistence plus hostile transport fixtures."""
 
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
-from unittest.mock import patch
-import json
+import socket
 import tempfile
 import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any
+from unittest.mock import patch
+
 from mission_control import operator_client as target
 from mission_control.common import Invalid
-from mission_control.server import Server
-from mission_control.store import Store
 from mission_control.operator_client import (
-    OperatorClient,
+    MAX_BYTES,
     ClientError,
+    OperatorClient,
+    encode_body,
     origin_data,
     strict_json,
-    encode_body,
-    MAX_BYTES,
 )
-import socket
+from mission_control.server import Server
+from mission_control.store import Store
 from tests.test_aso_validation import listing
 from tests.test_customer_workflow import proposal
 
@@ -43,8 +44,10 @@ class OperatorClientTests(unittest.TestCase):
         self.thread.join()
         self.tmp.cleanup()
 
-    def call(self, operation, value=None, app="sample-one", **extra):
-        return self.client.call(dict(app_id=app, operation=operation, input=value or {}, **extra))
+    def call(self, operation, value=None, app="sample-one", **extra) -> dict[str, Any]:
+        result = self.client.call(dict(app_id=app, operation=operation, input=value or {}, **extra))
+        assert isinstance(result, dict)
+        return result
 
     def test_actual_growth_save_replay_readback_and_cross_app_isolation(self):
         with patch.dict(
@@ -63,8 +66,18 @@ class OperatorClientTests(unittest.TestCase):
         self.assertEqual(len(list(self.client.cookies)), 1)
         self.assertEqual(self.call("snapshot.export")["payload"]["growth_reviews"][0]["id"], "listing-one")
 
+    def test_signed_out_owner_history_offers_recovery_without_changing_app(self):
+        client = self.client
+        for operation, inputs in (("campaign.history", {}), ("discovery.history", {"kind": "collection"})):
+            with self.subTest(operation=operation), self.assertRaises(ClientError) as error:
+                client.call({"app_id": "sample-one", "operation": operation, "input": inputs})
+            self.assertEqual(error.exception.status, 403)
+            self.assertEqual(error.exception.code, "SIGN_IN_REQUIRED")
+            self.assertIn("scoped WMM agent grant", str(error.exception))
+        self.assertEqual(self.call("workspace.read")["app"]["version"], 1)
+
     def test_customer_save_and_server_validation_preserve_original(self):
-        body = dict(id="workflow-one", manifest_version=1, data=proposal())
+        body: dict[str, Any] = dict(id="workflow-one", manifest_version=1, data=proposal())
         first = self.call("customer.save", body)
         self.assertEqual(self.call("customer.history")["history"][0]["hash"], first["hash"])
         bad = dict(body, data=dict(body["data"], locale="fr-CA"))
@@ -143,7 +156,7 @@ class TransportFixture(BaseHTTPRequestHandler):
         self.connection.shutdown(socket.SHUT_RDWR)
         self.connection.close()
 
-    def log_message(self, *args):
+    def log_message(self, format, *args):
         pass
 
 
@@ -220,9 +233,8 @@ class JSONDepthTests(unittest.TestCase):
         with patch.dict(os.environ, {"WMM_AGENT_GRANT": "wmmg_" + "a" * 43}):
             self.assertIsNone(target.grant_environment(False))
             self.assertEqual(target.grant_environment(True), "wmmg_" + "a" * 43)
-        with patch.dict(os.environ, {"WMM_AGENT_GRANT": "invalid"}):
-            with self.assertRaises(Invalid):
-                target.grant_environment(True)
+        with patch.dict(os.environ, {"WMM_AGENT_GRANT": "invalid"}), self.assertRaises(Invalid):
+            target.grant_environment(True)
         response = SimpleNamespace(
             headers=SimpleNamespace(get_content_type=lambda: "application/json"),
             read=lambda maximum: b"[" * 65 + b"]" * 65,
@@ -234,9 +246,11 @@ class JSONDepthTests(unittest.TestCase):
     def test_strict_json_accepts_64_containers_and_rejects_65_before_parser(self):
         self.assertIsInstance(target.strict_json(b"[" * 64 + b"0" + b"]" * 64), list)
         for raw in (b"[" * 65 + b"0" + b"]" * 65, b'{"x":' * 65 + b"0" + b"}" * 65):
-            with patch.object(target.json, "loads", side_effect=AssertionError("Do not parse excessive nesting")):
-                with self.assertRaisesRegex(Invalid, "64"):
-                    target.strict_json(raw)
+            with (
+                patch.object(target.json, "loads", side_effect=AssertionError("Do not parse excessive nesting")),
+                self.assertRaisesRegex(Invalid, "64"),
+            ):
+                target.strict_json(raw)
 
     def test_validate_json_depth(self):
         raw = b'[{"x":' * 32 + b"0" + b"}]" * 32
@@ -266,6 +280,21 @@ class JSONDepthTests(unittest.TestCase):
                 "OUTCOME_UNKNOWN",
             ),
             (400, "/ordinary", b"{}", "HTTP_REJECTED"),
+            (
+                403,
+                "/ordinary",
+                b'{"error":"Authenticated operator session changed; sign in again"}',
+                "SIGN_IN_REQUIRED",
+            ),
+            (
+                403,
+                "/ordinary",
+                b'{"error":"This GitHub account has no active role in this app"}',
+                "APP_ACCESS_REQUIRED",
+            ),
+            (403, "/ordinary", b'{"error":"Reload the current campaign session"}', "SESSION_REFRESH_REQUIRED"),
+            (403, "/ordinary", b'{"error":"private-provider-detail"}', "ACCESS_DENIED"),
+            (403, "/api/agent-operations/call", b'{"error":"private-provider-detail"}', "AGENT_ACCESS_DENIED"),
         ):
             stream = io.BytesIO(raw)
             error = HTTPError("http://127.0.0.1:1", status, "", headers, stream)
@@ -273,6 +302,7 @@ class JSONDepthTests(unittest.TestCase):
                 target.reject_http(error, path, {})
             self.assertEqual(caught.exception.code, code)
             self.assertTrue(stream.closed)
+            self.assertNotIn("private-provider-detail", str(caught.exception))
 
     def test_strict_json_keeps_ambiguity_utf8_and_invalid_syntax_rejection(self):
         for raw in (b'{"x":1,"x":2}', b'{"x":NaN}', b'{"x":1e999}', b"\xff", b"[}", b'"unterminated\\'):

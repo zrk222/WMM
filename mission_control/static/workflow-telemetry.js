@@ -11,6 +11,8 @@
         /[&<>"']/g,
         (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
       );
+  const HEALTH_FRESHNESS_MS = 120_000;
+  const READ_TIMEOUT_MS = 10_000;
   const IN_PROGRESS = new Set(['RUNNING', 'QUEUED', 'RETRY_WAIT', 'CANCEL_REQUESTED']);
   let generation = 0,
     timer = null,
@@ -29,12 +31,18 @@
     <button class="button outline" type="button" data-action="telemetry-refresh">Refresh progress</button><div data-live-runs></div>
     </section>`;
   }
-  function workerMessage(status) {
+  function workerMessage(status, observedAt, lastSuccess) {
     switch (status) {
       case 'STARTING':
         return 'Worker starting. Refresh progress after its first completed poll.';
-      case 'RUNNING':
+      case 'RUNNING': {
+        const age = Date.parse(observedAt) - Date.parse(lastSuccess);
+        if (!Number.isFinite(age) || age < 0)
+          return 'Recent worker activity is unconfirmed. Check WMM on this workspace’s host before relying on scheduled work.';
+        if (age > HEALTH_FRESHNESS_MS)
+          return 'The worker has not confirmed a healthy check in the last two minutes. If no long job is running, check WMM on the host.';
         return 'Worker reported healthy. Open a run to verify what was actually delivered.';
+      }
       case 'RECOVERING':
         return 'Worker needs attention. Open Advanced tools → Guided workflow to check which work needs recovery.';
       case 'STOPPED':
@@ -48,7 +56,7 @@
       case 'DESKTOP':
         return 'Desktop mode. Keep WMM open and its computer awake to run scheduled work.';
       case 'HEADLESS':
-        return 'Headless mode on this workspace’s host. Closing this browser leaves the worker running. The host and its protected credential store must stay available.';
+        return 'Headless mode on this workspace’s host. Closing this browser does not stop a headless worker. The host and its protected credential store must stay available.';
       case 'SERVER':
         return 'Server mode on this workspace’s host. Keep the server process running and its host awake.';
       default:
@@ -204,6 +212,8 @@
         try {
           const data = await deps.api(
             `/api/apps/${encodeURIComponent(ticket.app)}/workflow-telemetry`,
+            undefined,
+            { signal: AbortSignal.timeout(READ_TIMEOUT_MS) },
           );
           if (!valid()) return;
           if (data.app_id !== ticket.app) throw new Error('Wrong app progress received.');
@@ -219,7 +229,9 @@
           if (stage.textContent !== message) stage.textContent = message;
           ticket.failures = 0;
           announce(
-            workerMessage(data.worker?.status) + ' ' + workerContext(data.worker?.runtime_mode),
+            workerMessage(data.worker?.status, data.observed_at, data.worker?.last_success) +
+              ' ' +
+              workerContext(data.worker?.runtime_mode),
           );
           const healthyPoll = data.worker?.last_success;
           node.querySelector('[data-live-status]').textContent =

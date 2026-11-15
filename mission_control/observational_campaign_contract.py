@@ -1,13 +1,12 @@
 """Closed validation contracts for observational campaign attribution."""
 
-from datetime import timezone
 import re
-import uuid
+from datetime import timezone
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from .common import Invalid, canonical, digest, iso_time, required
+from .common import Invalid, digest, iso_time, required
 
-SOURCES = ("facebook", "instagram", "tiktok", "youtube")
+SOURCES = ("facebook", "instagram", "tiktok", "youtube", "linkedin")
 EVENT_TYPES = ("LANDING", "REGISTRATION")
 CHECKPOINT_STATES = (
     "COLLECTING",
@@ -93,7 +92,7 @@ def aware_utc(value, label):
 def definition_data(value, registered_at):
     if (
         not isinstance(value, dict)
-        or not DEFINITION_FIELDS <= set(value)
+        or not set(value) >= DEFINITION_FIELDS
         or set(value) - DEFINITION_FIELDS - OPTIONAL_DEFINITION_FIELDS
     ):
         raise Invalid("Study definition fields must match the registered schema")
@@ -104,7 +103,7 @@ def definition_data(value, registered_at):
     result["name"] = required(result["name"], "name", 120)
     result["hypothesis"] = required(result["hypothesis"], "hypothesis", 1000)
     if result["source"] not in SOURCES:
-        raise Invalid("source must be facebook, instagram, tiktok, or youtube")
+        raise Invalid("source must be facebook, instagram, tiktok, youtube, or linkedin")
     result["creative_id"] = opaque(result["creative_id"], "creative_id")
     result["landing_path"] = landing_path(result["landing_path"])
     result["starts_at"] = aware_utc(result["starts_at"], "starts_at")

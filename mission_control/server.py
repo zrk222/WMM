@@ -1,30 +1,34 @@
 """Loopback-only Mission Control server. Run: python -m mission_control.server."""
 
 import argparse
-from http import cookies
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import hashlib
 import json
 import mimetypes
 import os
-from pathlib import Path
 import re
 import secrets
 import socket
 import sys
-from urllib.parse import urlparse, unquote, parse_qs
+from collections.abc import Mapping
+from http import cookies
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import cast
+from urllib.parse import parse_qs, unquote, urlparse
+
 from .common import Invalid, canonical, digest
-import hashlib
-from .store import Store
 from .db import connection
-from .service import Service
-from .worker import Runner
-from .operator_identity import Identities
+from .http_types import AppVersionRow, DesktopProof, DomainPost, JsonObject, Webhook, WorkerHealthHook
 from .operation_outcome import EffectUncertain
+from .operator_identity import Identities
+from .service import Service
+from .store import Store
+from .worker import Runner
 
 STATIC = Path(__file__).resolve().parent / "static"
 
 
-def media_range(value, size):
+def media_range(value: str, size: int) -> tuple[int, int]:
     """Parse one bounded byte range; reject malformed, multipart or unsatisfiable input."""
     match = re.fullmatch(r"bytes=(\d*)-(\d*)", value)
     if not match or not any(match.groups()):
@@ -42,7 +46,7 @@ def media_range(value, size):
     return start, end
 
 
-def owner_domain_post(parts):
+def owner_domain_post(parts: list[str]) -> DomainPost | None:
     """Resolve only fixed private domain modules, retaining lazy imports."""
     if len(parts) < 4 or parts[:2] != ["api", "apps"]:
         return None
@@ -65,7 +69,7 @@ def owner_domain_post(parts):
         return None
     from importlib import import_module
 
-    return import_module("." + module, __package__).post
+    return cast(DomainPost, import_module("." + module, __package__).post)
 
 
 class Server(ThreadingHTTPServer):
@@ -75,12 +79,14 @@ class Server(ThreadingHTTPServer):
     # stdlib default of five pending connections can refuse individual scripts.
     request_queue_size = 32
 
-    def server_bind(self):
+    def server_bind(self) -> None:
         if os.name == "nt":
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         super().server_bind()
 
-    def __init__(self, address, store, operator="local-operator", *, runtime_mode="SERVER"):
+    def __init__(
+        self, address: tuple[str, int], store: Store, operator: str = "local-operator", *, runtime_mode: str = "SERVER"
+    ) -> None:
         if address[0] != "127.0.0.1":
             raise Invalid("Mission Control may bind only to 127.0.0.1")
         super().__init__(address, Handler)
@@ -96,7 +102,7 @@ class Server(ThreadingHTTPServer):
                 if path.is_file()
             }
         )
-        self.sessions = {}
+        self.sessions: dict[str, str] = {}
         self.identities = Identities()
         from .device_signin import DeviceSignIns
 
@@ -105,12 +111,14 @@ class Server(ThreadingHTTPServer):
         from .audit_worker import AuditWorker
 
         self.audit_runner = AuditWorker(store)
-        self.runtime_mode = runtime_mode if runtime_mode in ("DESKTOP", "HEADLESS", "SERVER") else "UNKNOWN"
-        self.service.worker_health = lambda: dict(self.runner.health, runtime_mode=self.runtime_mode)
-        self.studio_shutdown_result = None
-        self.desktop_proof = None
+        self.runtime_mode: str = runtime_mode if runtime_mode in ("DESKTOP", "HEADLESS", "SERVER") else "UNKNOWN"
+        cast(WorkerHealthHook, self.service).worker_health = lambda: dict(
+            self.runner.health, runtime_mode=self.runtime_mode
+        )
+        self.studio_shutdown_result: Mapping[str, object] | None = None
+        self.desktop_proof: DesktopProof | None = None
 
-    def server_close(self):
+    def server_close(self) -> None:
         """Retain native cleanup outcome separately from listening-socket closure."""
         try:
             if hasattr(self, "service"):
@@ -120,20 +128,23 @@ class Server(ThreadingHTTPServer):
 
 
 class Handler(BaseHTTPRequestHandler):
-    def log_message(self, format, *args):
+    # Server.__init__ always constructs this handler with the local Server subclass.
+    server: Server  # pyright: ignore[reportIncompatibleVariableOverride]
+
+    def log_message(self, format: str, *args: object) -> None:
         """Avoid logging request paths or sensitive provider references to console."""
         return
 
     def send(
         self,
-        code,
-        body,
-        content_type="application/json; charset=utf-8",
-        filename=None,
-        headers=None,
-        cache_control="no-store",
-        etag=None,
-    ):
+        code: int,
+        body: object,
+        content_type: str = "application/json; charset=utf-8",
+        filename: str | None = None,
+        headers: Mapping[str, str] | None = None,
+        cache_control: str = "no-store",
+        etag: str | None = None,
+    ) -> None:
         """Return a bounded response with cache, content, framing and cookie protection."""
         if code >= 400 and self.command == "POST":
             from .http_body import discard_rejected_body
@@ -161,7 +172,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
-    def asset_tag(self, file, raw):
+    def asset_tag(self, file: Path, raw: bytes) -> str:
         """Bind a static asset version to the server build and its exact bytes."""
         build = getattr(self.server.service, "build_id", "") or ""
         try:
@@ -170,14 +181,14 @@ class Handler(BaseHTTPRequestHandler):
             relative = file.name
         return '"%s"' % digest(dict(build=build, path=relative, bytes=hashlib.sha256(raw).hexdigest()))
 
-    def matches_asset_tag(self, tag):
+    def matches_asset_tag(self, tag: str) -> bool:
         """Honor exact, weak and wildcard If-None-Match forms without overclaiming."""
         value = self.headers.get("If-None-Match", "")
         if value.strip() == "*":
             return True
         return any(item.strip().removeprefix("W/") == tag for item in value.split(",") if item.strip())
 
-    def send_asset(self, file, content_type):
+    def send_asset(self, file: Path, content_type: str) -> None:
         """Serve an immutable-per-build static asset with a cheap revalidation 304."""
         raw = file.read_bytes()
         tag = self.asset_tag(file, raw)
@@ -190,7 +201,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         self.send(200, raw, content_type, cache_control="no-cache", etag=tag)
 
-    def session(self):
+    def session(self) -> str:
         """Establish a local HttpOnly session with its bound anti-CSRF token."""
         jar = cookies.SimpleCookie()
         jar.load(self.headers.get("Cookie", ""))
@@ -203,7 +214,7 @@ class Handler(BaseHTTPRequestHandler):
             self.new_cookie = session_id
         return self.server.sessions[session_id]
 
-    def boundary(self, write=False):
+    def boundary(self, write: bool = False) -> str | None:
         """Reject another host, cross-origin write or invalid session token."""
         expected = f"127.0.0.1:{self.server.server_port}"
         if self.headers.get("Host") != expected:
@@ -218,15 +229,15 @@ class Handler(BaseHTTPRequestHandler):
                 raise PermissionError("Session expired; reload before saving")
         return csrf
 
-    def do_GET(self):
+    def do_GET(self) -> None:
         """Dispatch read-only API and static workspace requests through boundary checks."""
         self.dispatch(False)
 
-    def do_POST(self):
+    def do_POST(self) -> None:
         """Dispatch write requests only after host, session and CSRF validation."""
         self.dispatch(True)
 
-    def dispatch(self, write):
+    def dispatch(self, write: bool) -> None:
         """Return clear input errors and preserve existing state on operational failure."""
         try:
             path = urlparse(self.path).path
@@ -265,7 +276,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send(400, {"error": str(exc)})
         except (ConnectionAbortedError, BrokenPipeError, ConnectionResetError):
             return
-        except Exception:
+        except Exception:  # noqa: BLE001 - HTTP boundary returns a fixed private failure response.
             self.send(
                 500,
                 {
@@ -273,16 +284,16 @@ class Handler(BaseHTTPRequestHandler):
                 },
             )
 
-    def webhook_handler(self, path):
+    def webhook_handler(self, path: str) -> Webhook | None:
         """Recognize only the original exact signed-delivery routes before CSRF."""
-        routes = (
+        routes: tuple[tuple[str, Webhook], ...] = (
             (r"/api/payments/[a-z0-9-]+/[a-f0-9-]{36}", self.payment_webhook),
             (r"/api/storekit/[a-z0-9-]+/[a-f0-9-]{36}", self.storekit_webhook),
             (r"/api/attribution/[a-z0-9-]+/[a-f0-9-]{36}/[a-f0-9-]{36}/[1-9][0-9]{0,6}", self.attribution_webhook),
         )
         return next((handler for pattern, handler in routes if re.fullmatch(pattern, path)), None)
 
-    def get(self, path, token):
+    def get(self, path: str, token: str | None) -> None:
         """Serve the fixed UI routes and app-scoped read endpoints."""
         callback = self.callback_page(path)
         if callback:
@@ -325,9 +336,9 @@ class Handler(BaseHTTPRequestHandler):
             "/insights.mjs",
             "/storekit.mjs",
             "/attribution.mjs",
-            "/analytics-inventory.js",
-            "/campaign-plan.js",
-            "/mmp-import-model.js",
+            "/analytics-inventory.mjs",
+            "/campaign-plan.mjs",
+            "/mmp-import-model.mjs",
             "/guided-workflow.mjs",
             "/subscriptions.mjs",
             "/workflow-automation.mjs",
@@ -368,6 +379,8 @@ class Handler(BaseHTTPRequestHandler):
             "/organic-policy.js",
             "/operation-feedback.js",
             "/app-ui.mjs",
+            "/app-money.mjs",
+            "/currency-profile.mjs",
             "/app-production.mjs",
             "/app-install.mjs",
             "/app-campaign.mjs",
@@ -377,7 +390,7 @@ class Handler(BaseHTTPRequestHandler):
             "/app-weekly.mjs",
             "/app-events.mjs",
         )
-        if path in scripts:
+        if path in scripts or path == "/startup-recovery.js":
             return self.send_asset(STATIC / path[1:], "text/javascript; charset=utf-8")
         files = {
             "/packaging.css": "packaging.css",
@@ -399,7 +412,9 @@ class Handler(BaseHTTPRequestHandler):
         if path not in files:
             raise KeyError(path)
         file = STATIC / files[path]
-        content_type = "text/javascript" if file.suffix in (".js", ".mjs") else mimetypes.guess_type(file.name)[0]
+        content_type = (
+            "text/javascript" if file.suffix in (".js", ".mjs") else cast(str, mimetypes.guess_type(file.name)[0])
+        )
         return self.send_asset(file, content_type + "; charset=utf-8")
 
     def get_weekly_review(self):
@@ -418,7 +433,7 @@ class Handler(BaseHTTPRequestHandler):
         )
         return self.send(200, review(self.server.service, int(query.split("=")[1]) if query else 0, user=user))
 
-    def callback_page(self, path):
+    def callback_page(self, path: str) -> str | None:
         """Serve local callback assets without processing provider codes in a GET."""
         if re.fullmatch(r"/social/callback/(facebook|instagram|tiktok|linkedin)", path):
             return "social-callback.html"
@@ -499,7 +514,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise Invalid("Use the exact workflow telemetry address")
             from .workflow_telemetry import monitor
 
-            return self.send(200, monitor(store, app_id, self.server.service.worker_health()))
+            return self.send(200, monitor(store, app_id, cast(WorkerHealthHook, self.server.service).worker_health()))
         if parts[3:] == ["reports", "summary"]:
             if urlparse(self.path).query:
                 raise Invalid("Use the exact app summary report address")
@@ -617,15 +632,24 @@ class Handler(BaseHTTPRequestHandler):
 
     def get_instrumentation(self, parts):
         """Download the exact reviewed app-owned package without provider or install authority."""
-        from .instrumentation import prepare, archive
+        from .instrumentation import archive, prepare
         from .instrumentation_state import record_download
 
         if urlparse(self.path).query or len(parts) != 8 or parts[5] != "instrumentation":
             raise Invalid("Use the current exact integration package address")
-        value = prepare(self.server.service.store, parts[2], parts[4], parts[6], parts[7])
-        record_download(self.server.service.store, parts[2], value["experiment_id"], parts[7], value["bundle_hash"])
+        value = cast(dict[str, object], prepare(self.server.service.store, parts[2], parts[4], parts[6], parts[7]))
+        record_download(
+            self.server.service.store,
+            parts[2],
+            cast(str, value["experiment_id"]),
+            parts[7],
+            cast(str, value["bundle_hash"]),
+        )
         return self.send(
-            200, archive(value), "application/zip", filename="wmm-" + value["experiment_id"] + "-instrumentation.zip"
+            200,
+            archive(value),
+            "application/zip",
+            filename="wmm-" + cast(str, value["experiment_id"]) + "-instrumentation.zip",
         )
 
     def get_social_progress(self, app_id, identity):
@@ -646,7 +670,7 @@ class Handler(BaseHTTPRequestHandler):
         if not re.fullmatch(r"[a-f0-9-]+\.(?:png|jpg|jpeg)", parts[4]):
             raise Invalid("Invalid asset identifier")
         file = store.path.parent / "files" / app_id / parts[4]
-        return self.send(200, file.read_bytes(), mimetypes.guess_type(file.name)[0])
+        return self.send(200, file.read_bytes(), cast(str, mimetypes.guess_type(file.name)[0]))
 
     def get_activity(self, app_id):
         """Serve one bounded, filtered page of joined app-owned local records."""
@@ -734,7 +758,7 @@ class Handler(BaseHTTPRequestHandler):
         headers["Content-Range"] = f"bytes {start}-{end}/{len(raw)}"
         return self.send(206, raw[start : end + 1], "video/mp4", filename, headers)
 
-    def payment_webhook(self, path):
+    def payment_webhook(self, path: str) -> None:
         """Authenticate finite loopback delivery via HMAC, never a browser CSRF exemption."""
         from .signed_payments import Payments
 
@@ -759,14 +783,14 @@ class Handler(BaseHTTPRequestHandler):
         parts = path.strip("/").split("/")
         return self.send(200, Payments(self.server.service.store).intake(parts[2], parts[3], raw, signatures[0]))
 
-    def body(self, limit=1048576):
+    def body(self, limit: int = 1048576) -> bytes:
         """Read an explicitly bounded request body and reject invalid size."""
         length = int(self.headers.get("Content-Length", "0"))
         if not 0 < length <= limit:
             raise Invalid("Request is empty or exceeds the upload limit")
         return self.rfile.read(length)
 
-    def storekit_webhook(self, path):
+    def storekit_webhook(self, path: str) -> None:
         """Finite loopback deliveries authenticate with Apple JWS; they cannot create browser sessions."""
         from .storekit_ingestion import Notifications
 
@@ -788,7 +812,7 @@ class Handler(BaseHTTPRequestHandler):
         parts = path.strip("/").split("/")
         return self.send(200, Notifications(self.server.service.store).ingest(parts[2], parts[3], raw))
 
-    def post(self, path):
+    def post(self, path: str) -> None:
         """Parse finite object requests or process a bounded image upload."""
         service = self.server.service
         parts = path.strip("/").split("/")
@@ -824,7 +848,7 @@ class Handler(BaseHTTPRequestHandler):
             raise KeyError(path)
         return self.post_app(parts, data)
 
-    def post_data(self, path, parts):
+    def post_data(self, path: str, parts: list[str]) -> JsonObject:
         """Keep original per-route byte limits and strict duplicate/nonfinite checks."""
         if "studio" in parts:
             from .hypit_studio_routes import read_body
@@ -869,7 +893,7 @@ class Handler(BaseHTTPRequestHandler):
             or path == "/api/restore"
         )
         if strict:
-            from .payment_signature import unique_pairs, bounded_tree
+            from .payment_signature import bounded_tree, unique_pairs
 
             data = json.loads(
                 raw,
@@ -881,9 +905,9 @@ class Handler(BaseHTTPRequestHandler):
             data = json.loads(raw)
         if not isinstance(data, dict):
             raise Invalid("Request must be a JSON object")
-        return data
+        return cast(JsonObject, data)
 
-    def retry_worker(self, data):
+    def retry_worker(self, data: JsonObject) -> None:
         """Bind explicit shared-worker recovery to a current workspace session."""
         if (
             urlparse(self.path).query
@@ -894,13 +918,13 @@ class Handler(BaseHTTPRequestHandler):
             raise Invalid("Reload the current workspace before retrying automation")
         with connection(self.server.service.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
-            row = db.execute("SELECT version FROM apps WHERE id=?", (data["app_id"],)).fetchone()
+            row = cast(AppVersionRow | None, db.execute("SELECT version FROM apps WHERE id=?", (data["app_id"],)).fetchone())  # fmt: skip
             if row is None or row["version"] != data["manifest_version"]:
                 raise Invalid("App setup changed; refresh saved work before retrying automation")
             result = self.server.runner.retry_failed()
         return self.send(200, result)
 
-    def post_limit(self, path, parts):
+    def post_limit(self, path: str, parts: list[str]) -> int:
         """Bound protected setup independently from snapshots and ordinary records."""
         if "storekit" in parts:
             return 262144
@@ -930,7 +954,7 @@ class Handler(BaseHTTPRequestHandler):
             return 512
         return 33554432 if path == "/api/restore" else 1048576
 
-    def attribution_body(self, path, parts):
+    def attribution_body(self, path: str, parts: list[str]) -> bytes:
         """Protected setup is finite and exact JSON, with no alternate HTTP framing."""
         if (
             urlparse(self.path).query
@@ -954,7 +978,7 @@ class Handler(BaseHTTPRequestHandler):
         """Finite app-owned access operations cannot accept arbitrary commands."""
         from .agent_access import AgentAccess, detect
         from .agent_contract import exact
-        from .agent_tasks import proposal, AgentWork
+        from .agent_tasks import AgentWork, proposal
 
         store = self.server.service.store
         store.app(app_id)
@@ -989,6 +1013,13 @@ class Handler(BaseHTTPRequestHandler):
         if parts[3] == "agent-access":
             return self.send(200, self.agent_access(parts[2], parts[4:], data))
         app_id, action = parts[2:4]
+        if action == "launch-status":
+            if parts[4:] != ["declare"] or self.path != "/" + "/".join(parts):
+                raise Invalid("Use the exact app launch declaration address")
+            from .app_launch_history import declare
+
+            user, recheck = self.automation_owner_session()
+            return self.send(201, declare(service.store.path, app_id, user["principal"], data, commit_check=recheck))
         if action == "studio":
             from .hypit_studio_routes import human
 
@@ -1000,17 +1031,9 @@ class Handler(BaseHTTPRequestHandler):
 
             return self.send(201, EditRenders(service.store).queue(app_id, data))
         if action == "video-projects":
-            if urlparse(self.path).query:
-                raise Invalid("Use the exact video project address")
-            from .video_edit_projects import Projects
+            from .video_project_http import post as post_video_project
 
-            projects = Projects(service.store)
-            if len(parts) == 4:
-                return self.send(201, projects.save(app_id, data))
-            if len(parts) == 6 and parts[5] in ("edits", "history", "diff"):
-                operation = "edit" if parts[5] == "edits" else parts[5]
-                return self.send(200, getattr(projects, operation)(app_id, parts[4], data))
-            raise KeyError("Video project route not found")
+            return post_video_project(self, parts, data)
         if action == "workflow-evidence":
             if len(parts) != 4 or urlparse(self.path).query:
                 raise Invalid("Use the exact workflow evidence address")
@@ -1180,7 +1203,7 @@ class Handler(BaseHTTPRequestHandler):
             data.get("request_id"),
             source_hash,
         )
-        normalized = checklist.pop("_batch", None)
+        normalized = cast(dict[str, object], checklist.pop("_batch", None))
         if checklist["status"] != "READY":
             if not confirm:
                 return self.send(200, dict(checklist=checklist, batch=None, preview_id=None))
@@ -1337,8 +1360,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def post_storekit(self, parts, data):
         """Fresh app owner/maker identity protects source setup, manual verification and disconnect."""
-        from .storekit_sources import Sources
         from .storekit_ingestion import Notifications
+        from .storekit_sources import Sources
 
         user = self.server.identities.fresh(self.session())
         store = self.server.service.store
@@ -1350,7 +1373,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(201, Notifications(store).manual(parts[2], parts[5], user, data))
         raise KeyError("StoreKit action route not found")
 
-    def attribution_webhook(self, path):
+    def attribution_webhook(self, path: str) -> None:
         """Finite loopback intake authenticates the original Apple signature and map hash."""
         from .attribution_ingestion import Observations
 
@@ -1380,10 +1403,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def post_attribution(self, parts, data):
         """Fresh app roles protect declarations, immutable maps and explicit one-shot reads."""
-        from .attribution_sources import Sources
-        from .attribution_maps import Maps
-        from .attribution_ingestion import Observations
         from .attribution_adservices import AdServices
+        from .attribution_ingestion import Observations
+        from .attribution_maps import Maps
+        from .attribution_sources import Sources
 
         user = self.server.identities.fresh(self.session())
         store = self.server.service.store

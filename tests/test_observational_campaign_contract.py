@@ -1,7 +1,7 @@
 """Closed schema and canonical URL checks for observational campaign records."""
 
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from mission_control.common import Invalid
 from mission_control.observational_campaign_contract import (
@@ -33,6 +33,30 @@ class ObservationalCampaignContractTests(unittest.TestCase):
         }
         self.study = definition_data(self.definition, self.created)
         self.study["hash"] = "a" * 64
+
+    def test_all_five_sources_keep_tagged_url_and_collector_namespaces_separate(self):
+        from urllib.parse import parse_qs, urlsplit
+
+        sources = ("facebook", "instagram", "tiktok", "youtube", "linkedin")
+        self.assertEqual(tuple(schema_contract()["study_constraints"]["source_allowlist"]), sources)
+        for source in sources:
+            with self.subTest(source=source):
+                study = definition_data(
+                    {**self.definition, "source": source, "collector_source_id": "owned-events"}, self.created
+                )
+                query = parse_qs(urlsplit(tagged_url("https://example.com", study)).query)
+                self.assertEqual(query["utm_source"], [source])
+                self.assertEqual(query["utm_medium"], ["organic"])
+                self.assertEqual(study["collector_source_id"], "owned-events")
+
+    def test_study_channel_picker_matches_five_source_contract(self):
+        from pathlib import Path
+
+        ui = (Path(__file__).resolve().parents[1] / "mission_control/static/observational-campaign.mjs").read_text(
+            encoding="utf-8"
+        )
+        for source in schema_contract()["study_constraints"]["source_allowlist"]:
+            self.assertIn(f'<option value="{source}">', ui)
 
     def test_closed_action_fields_and_json_safe_catalog_contract(self):
         self.assertEqual(ACTION_FIELDS["history"], {"required": (), "optional": ("offset",)})
@@ -113,7 +137,9 @@ class ObservationalCampaignContractTests(unittest.TestCase):
         }
         study = {"id": self.study_id, "hash": self.study["hash"], "data": self.study}
         normalized = batch_data(body, study, 1, "2030-01-02T00:00:01Z")
-        self.assertEqual(normalized["coverage"]["LANDING"], {"complete": True, "source_event_count": 0})
+        coverage = normalized["coverage"]
+        assert isinstance(coverage, dict)
+        self.assertEqual(coverage["LANDING"], {"complete": True, "source_event_count": 0})
         with self.assertRaises(Invalid):
             batch_data(dict(body, events=[{}] * 501), study, 1, "2030-01-02T00:00:01Z")
         with self.assertRaises(Invalid):

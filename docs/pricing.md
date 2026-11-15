@@ -16,6 +16,11 @@ marketing or automation services to outside clients.
 
 ## Commercial — written agreement required
 
+**Agency pilot: US$900 per year for one agency.** This is the starting offer for
+using WMM privately to deliver marketing services to outside clients. Confirm
+the covered operators, client work, and any applicable taxes in writing before
+payment. Public hosting, redistribution and white-label use are quoted separately.
+
 A separate paid written agreement is required before you:
 
 - sell, rent, sublicense or commercially redistribute WMM or a derivative;
@@ -49,9 +54,9 @@ license sets no automatic royalty and silence is not permission.
 
 ## Current status
 
-There is no automatic checkout and no published list price yet. Commercial
-quotes are written and case-specific. This is deliberate: hosting, seats and
-client-facing use change the scope and support burden materially.
+There is no automatic checkout. The pilot price is an offer to discuss a
+written agreement; paying on its own does not grant permission. Free personal
+and internal use remains available under the existing license.
 
 ## What is not included
 

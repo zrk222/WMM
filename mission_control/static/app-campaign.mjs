@@ -86,7 +86,15 @@ async function nextAnswer() {
   );
 }
 
-function measuredPostEvidence(link, destination, pubs, workspace, scopes = [], tracked = null) {
+function measuredPostEvidence(
+  link,
+  destination,
+  pubs,
+  workspace,
+  scopes = [],
+  tracked = null,
+  approvedLinkHash = null,
+) {
   if (!destination)
     return { delivery: false, ambiguous: false, queued: false, approved: false, coverage: null };
   const channel = link.study.source;
@@ -103,7 +111,8 @@ function measuredPostEvidence(link, destination, pubs, workspace, scopes = [], t
       ? (workspace.jobs || []).filter(
           (row) =>
             row.action === 'campaign_post' &&
-            row.data?.request?.link === link.url &&
+            (row.data?.request?.link === link.url ||
+              (approvedLinkHash && row.data?.approved_link_sha256 === approvedLinkHash)) &&
             (row.result?.page_id != null
               ? row.result.page_id === destination
               : scopes?.some(
@@ -293,6 +302,7 @@ async function firstMeasuredPost(offset = 0) {
             state.workspace,
             campaigns?.scopes ?? null,
             campaigns?.tracked_posts,
+            linkHash,
           );
           output.querySelector('#first-post-progress').textContent = !selected.destination
             ? 'Choose a destination to check delivery.'
@@ -328,9 +338,20 @@ function analyticsOverviewPanel() {
       ? ''
       : button('Add cohort evidence', 'add-evidence', 'data-kind="cohort"'),
     ledger: '',
-    retention: counts.retention
-      ? ''
-      : button('Add retention evidence', 'add-evidence', 'data-kind="retention"'),
+    retention:
+      (state.workspace.metrics?.event_ledger || [])
+        .filter((row) => row.cohort?.cohort_id)
+        .map((row) =>
+          button(
+            'Download retention report: ' + row.cohort.cohort_id,
+            'ledger-report',
+            'data-id="' + esc(row.cohort.cohort_id) + '"',
+          ),
+        )
+        .join('') ||
+      (counts.retention
+        ? ''
+        : button('Add retention evidence', 'add-evidence', 'data-kind="retention"')),
     installs: button('Import install export', 'install-import-open'),
     payments:
       state.workspace?.measurement_integrity?.state === 'UNAVAILABLE'
@@ -343,13 +364,14 @@ function analyticsOverviewPanel() {
     repair_cohort: button('Add corrected cohort evidence', 'add-evidence', 'data-kind="cohort"'),
     import_installs: button('Import install export', 'install-import-open'),
     repair_payments: button('Review connections', 'measurement-connections'),
+    repair_retention: '',
     add_retention: button('Add retention evidence', 'add-evidence', 'data-kind="retention"'),
     inspect_result: button('Inspect payment comparison', 'measurement-inspect'),
   };
   const rows = view.areas
     .map(
       (row) =>
-        `<tr><td>${esc(row.name)}</td><td>${esc(row.saved)}</td><td>${esc(row.id === 'payments' && state.workspace?.measurement_integrity?.state !== 'UNAVAILABLE' ? 'Current comparison' : savedWhen(row.latest))}</td><td>${esc(row.next)}</td><td>${controls[row.id] || ''}</td></tr>`,
+        `<tr><td>${esc(row.name)}</td><td><span class="analytics-status" data-tone="${esc(row.status[1])}">${esc(row.status[0])}</span><div>${esc(row.saved)}</div></td><td>${esc(row.id === 'payments' && state.workspace?.measurement_integrity?.state !== 'UNAVAILABLE' ? 'Current comparison' : savedWhen(row.latest))}</td><td>${esc(row.next)}</td><td>${controls[row.id] || ''}</td></tr>`,
     )
     .join('');
   return `<section class="panel" aria-label="Analytics overview"><div class="section-heading"><div><p class="eyebrow">ANALYTICS</p><h2>What you can answer now</h2><p>Saved evidence in ${view.savedCount} of ${view.total} areas. Availability is not confidence, attribution completeness or causality.</p></div></div><div class="table-wrap"><table class="result-table"><caption>Saved analytics evidence and the next useful action</caption><thead><tr><th scope="col">Area</th><th scope="col">Saved evidence</th><th scope="col">Latest saved</th><th scope="col">Next</th><th scope="col">Action</th></tr></thead><tbody>${rows}</tbody></table></div><div class="next-step"><div><h3>${esc(view.step.title)}</h3><p>${esc(view.step.detail)}</p>${stepControls[view.step.id] || ''}</div></div><p class="description">A missing source stays unknown. WMM does not infer installs, revenue, retention or lift from unrelated counts.</p></section>`;

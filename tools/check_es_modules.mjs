@@ -27,12 +27,17 @@ read(path.resolve(root, entry)).link((specifier, parent) => {
 `;
 
 function validate(root, entry = 'dashboard.mjs') {
-  const result = spawnSync(process.execPath,
+  const result = spawnSync(
+    process.execPath,
     ['--experimental-vm-modules', '-e', linker, path.resolve(root), entry],
-    { encoding: 'utf8', timeout: 30000, maxBuffer: 1024 * 1024 });
+    { encoding: 'utf8', timeout: 30000, maxBuffer: 1024 * 1024 },
+  );
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error('Module linkage failed: ' + result.stderr);
-  return JSON.parse(result.stdout);
+  const graph = JSON.parse(result.stdout);
+  if (graph.compatibilityLibraries > 24)
+    throw new Error('Compatibility library budget exceeded: ' + graph.compatibilityLibraries);
+  return graph;
 }
 
 export { validate };

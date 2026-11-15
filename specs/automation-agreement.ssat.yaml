@@ -139,6 +139,11 @@
           "returns": "object"
         },
         {
+          "name": "monitor_scope",
+          "args": ["db", "app_id", "principal", "identity"],
+          "returns": "object"
+        },
+        {
           "name": "build_summary",
           "args": [
             "db",

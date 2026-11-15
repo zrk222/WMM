@@ -1,0 +1,29 @@
+{
+  "schema": "wmm.dogfood.e14-evidence.v1",
+  "delivery": {
+    "delivered": "2026-11-07T13:48:46.754969+00:00",
+    "linked_reports": 1,
+    "receipt_hash": "b985ecfc1d0113ac53be4b01543a58af99bfc0d8ed420a30b269efe79a0bb6db",
+    "approved_link_hash": "79f17eabef0db0be6356e4f5794298af9a4f8dc1e1496844a2d2e1536aa2e37f"
+  },
+  "fixed_window": {
+    "observed_at": "2026-11-10T13:23:03.515Z",
+    "start_at": "2026-11-07T13:48:46.754Z",
+    "end_at": "2026-11-09T13:48:46.754Z",
+    "eligible_page_view_events": 29,
+    "e14_tagged_page_view_events": 0,
+    "confirmed_registration_events": 0,
+    "e14_confirmed_registration_events": 0,
+    "latest_eligible_event": "2026-11-09T09:29:41.531Z"
+  },
+  "fresh_tracking_check": {
+    "observed_at": "2026-11-13T17:21:38.838515+00:00",
+    "internal_tagged_landings": 1,
+    "server_confirmed_new_registrations_with_internal_tag": 0
+  },
+  "decision": "COLLECT_REPAIR",
+  "registration_linkage_verified": false,
+  "conversion_rate": null,
+  "incremental_lift": null,
+  "evidence_boundary": "Owner-verifiable stored delivery and aggregate read-only measurement. No provider re-read, new post, paid campaign or independent audit."
+}

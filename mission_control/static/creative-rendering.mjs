@@ -54,6 +54,21 @@ async function watchRender(app, id) {
   }
 }
 
+/** Explain the purpose and current availability before an operator chooses a tool. */
+function toolExplainers() {
+  return `<section class="panel" aria-label="Creative tools">
+    <h3>Choose the right creative tool</h3>
+    <dl class="details-list">
+      <dt><strong>Hypit · Create and edit</strong></dt>
+      <dd>Use a current brief and approved material to make a video locally. Preview the cut before approving publication.</dd>
+      <dt><strong>rea-video · Learn from a reference</strong></dt>
+      <dd>Break down a permitted clip into timestamped shots for your brief. Direct analysis from this screen is not available yet.</dd>
+      <dt><strong>Genjutsu · Recast a scene</strong></dt>
+      <dd>Create a variant with a different performer or object. This optional cloud step would require media rights and an approved cost. It is not available from WMM yet.</dd>
+    </dl>
+  </section>`;
+}
+
 function renderingPanel() {
   const media = state.workspace.renders || { capability: { status: 'UNAVAILABLE' }, items: [] };
   const hypit = state.workspace.hypit_renders || {
@@ -75,7 +90,7 @@ function renderingPanel() {
         `<div class="next-step"><div><strong>${r.data.renderer === 'HYPIT_LOCAL' ? 'Hypit captions' : 'App screens'} · ${esc(label(videoRequest(r).shape))} · ${videoRequest(r).duration_seconds} seconds</strong><p>${esc(r.status)} · ${(r.data.artifact.bytes / 1048576).toFixed(2)} MiB · visual review required</p>${button('Preview video', 'render-open', `data-id="${esc(r.id)}"`)}</div></div>`,
     )
     .join('');
-  return `<div class="section-heading"><div><h2>Render an original video</h2><p>Choose actual app screens or a Hypit text composition from the same approved brief. Both create a local MP4 without a video-generation API.</p></div>${button('Render a video', 'render-create')}</div><section class="panel"><h3>Produce a finite batch</h3><p>Review exact briefs, shapes and a frame budget before creating local videos. Nothing is published.</p>${button('Review video batches', 'render-batch-list')}<h3>App screens</h3>${status(media.capability.status)}<p class="description">Silent H.264 MP4 with approved screens and captions; ${esc(media.capability.script_support || 'verify native caption support')}</p>${media.capability.status !== 'READY' ? notice(media.capability.repair || 'Check local native tools.', 'warning') : ''}<h3>Hypit caption composition</h3>${status(hypit.capability?.status || 'UNAVAILABLE')}<p>Creates a title and timed approved text. It does not include app screens, generated footage or narration. ${esc(hypit.capability?.repair || 'Prepare the optional local Hypit runtime.')}</p><p>Preview every scene before use. Interrupted Hypit attempts retain their build identity for inspection; repeating a render request does not restart uncertain work.</p>${jobs}${files || '<p>No rendered videos yet. Prepare a current short-video brief, then choose its renderer and frame shape.</p>'}</section>`;
+  return `<div class="section-heading"><div><h2>Render an original video</h2><p>Choose actual app screens or a Hypit text composition from the same approved brief. Both create a local MP4 without a video-generation API.</p></div>${button('Render a video', 'render-create')}</div>${toolExplainers()}<section class="panel"><h3>Produce a finite batch</h3><p>Review exact briefs, shapes and a frame budget before creating local videos. Nothing is published.</p>${button('Review video batches', 'render-batch-list')}<h3>App screens</h3>${status(media.capability.status)}<p class="description">Silent H.264 MP4 with approved screens and captions; ${esc(media.capability.script_support || 'verify native caption support')}</p>${media.capability.status !== 'READY' ? notice(media.capability.repair || 'Check local native tools.', 'warning') : ''}<h3>Hypit caption composition</h3>${status(hypit.capability?.status || 'UNAVAILABLE')}<p>Creates a title and timed approved text. It does not include app screens, generated footage or narration. ${esc(hypit.capability?.repair || 'Prepare the optional local Hypit runtime.')}</p><p>Preview every scene before use. Interrupted Hypit attempts retain their build identity for inspection; repeating a render request does not restart uncertain work.</p>${jobs}${files || '<p>No rendered videos yet. Prepare a current short-video brief, then choose its renderer and frame shape.</p>'}</section>`;
 }
 
 async function showCreativeBatches() {

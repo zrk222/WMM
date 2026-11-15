@@ -1,11 +1,11 @@
 """Bounded, source-linked market research snapshots; no provider reads or ranking claims."""
 
-from datetime import timedelta
 import hashlib
 import ipaddress
-from itertools import product
 import math
 import re
+from datetime import timedelta
+from itertools import product
 from urllib.parse import urlsplit
 
 from .common import Invalid, digest, iso_time, required
@@ -416,7 +416,10 @@ def market_research_readout(data, as_of):
 
 def agent_contract():
     """Return exact caller schema and a compact valid-shaped fixture template."""
+    from .marketing_ontology import ontology
+
     return {
+        "marketing_ontology_sha256": ontology()["ontology_sha256"],
         "kind": "MARKET_RESEARCH",
         "entry_fields": {
             "release": "current configured release",

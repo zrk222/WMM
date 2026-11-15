@@ -4,7 +4,9 @@ import base64
 import hashlib
 import json
 import re
+import sqlite3
 from pathlib import Path
+from typing import TypedDict, cast
 
 from .acquisition_portable import export_acquisition, restore_acquisition
 from .automation_policy import check_manifest_version, validate_manifest
@@ -30,7 +32,14 @@ def decode(row):
     return result
 
 
-def audit(db, app_id, action, detail):
+class AppView(TypedDict):
+    id: str
+    data: dict[str, object]
+    version: int
+    updated: str
+
+
+def audit(db: sqlite3.Connection, app_id: str, action: str, detail: object) -> None:
     """Append an app-scoped immutable description of a completed local change."""
     db.execute(
         "INSERT INTO audit(app_id,action,detail,created) VALUES(?,?,?,?)", (app_id, action, canonical(detail), now())
@@ -55,10 +64,11 @@ def app_data(data):
                 raise Invalid(field + ": use text up to 2000 characters")
             result[field] = value.strip()
     result["authorized_spend_minor"] = 0
-    if result.get("website"):
-        from .aeo_transport import public_url
+    for field in ("website", "setup_source_url"):
+        if result.get(field):
+            from .aeo_transport import public_url
 
-        result["website"] = public_url(result["website"])
+            result[field] = public_url(result[field])
     if "social_callback_base_url" in result:
         from .social_contract import relay_base
 
@@ -92,13 +102,13 @@ class Store:
         with connection(self.path) as db:
             return [decode(r) for r in db.execute("SELECT * FROM apps ORDER BY rowid")]
 
-    def app(self, app_id):
+    def app(self, app_id: str) -> AppView:
         """Resolve an exact app namespace or return an explicit missing-workspace error."""
         with connection(self.path) as db:
             row = db.execute("SELECT * FROM apps WHERE id=?", (app_id,)).fetchone()
         if row is None:
             raise KeyError("App workspace not found")
-        return decode(row)
+        return cast(AppView, decode(row))
 
     def save_app(self, app_id, data, version=None):
         """Create or version-check a manifest before committing an audited update."""

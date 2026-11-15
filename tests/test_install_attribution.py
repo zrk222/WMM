@@ -1,11 +1,14 @@
 """MMP install exports stay app-scoped, descriptive and explicitly covered."""
 
-from pathlib import Path
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from threading import Barrier
+
 from mission_control.common import Invalid, canonical, digest
-from mission_control.install_attribution import record_batch, report, summary
 from mission_control.db import connection
+from mission_control.install_attribution import record_batch, report, summary
 from mission_control.observational_campaign import _tables
 from mission_control.review_access import Access
 from mission_control.store import Store
@@ -101,7 +104,7 @@ class InstallAttributionTests(unittest.TestCase):
     def test_validation_rejects_pii_future_times_and_unknown_fields(self):
         for changed in (
             dict(source="apps"),
-            dict(campaign_token="not-a-uuid"),
+            dict(campaign_token="not-a-uuid"),  # noqa: S106 - invalid public test tag
             dict(source_receipt_sha256="A" * 64),
             dict(coverage=dict(complete=True, source_event_count=None)),
             dict(extra=True),
@@ -146,6 +149,14 @@ class InstallAttributionTests(unittest.TestCase):
                 ),
             )
         return study_hash
+
+    def test_install_import_rejects_another_apps_public_campaign_tag(self):
+        self.register_study(dict(starts_at="2026-11-01T00:00:00Z", ends_at="2026-11-02T00:00:00Z"))
+        Access(self.store).bootstrap("sample-two", OWNER, {"confirm_owner": True})
+        with self.assertRaisesRegex(Invalid, "Campaign tag is unavailable in this workspace"):
+            record_batch(self.store, "sample-two", OWNER, self.body())
+        with connection(self.store.path) as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM install_attribution_batches").fetchone()[0], 0)
 
     def test_day_seven_and_no_import_do_not_report_complete_zero(self):
         before = report(self.store, APP, OWNER, CAMPAIGN, day=7)
@@ -205,7 +216,9 @@ class InstallAttributionTests(unittest.TestCase):
         record_batch(self.store, APP, OWNER, self.body())
         value = report(self.store, APP, OWNER, CAMPAIGN)
         self.assertEqual(value["study_status"], "LINKED")
-        self.assertEqual(value["study"]["study_hash"], study_hash)
+        study = value["study"]
+        assert study is not None
+        self.assertEqual(study["study_hash"], study_hash)
 
     def test_multiple_batches_are_partial_and_day_requires_one_window(self):
         record_batch(self.store, APP, OWNER, self.body())
@@ -254,6 +267,41 @@ class InstallAttributionTests(unittest.TestCase):
         self.assertEqual(item["coverage_status"], "COMPLETE")
         self.assertEqual(item["study_status"], "UNLINKED")
         self.assertNotIn("counts", item)
+
+    def test_legacy_unbound_import_turns_partial_when_another_app_claims_its_tag(self):
+        other = "sample-two"
+        Access(self.store).bootstrap(other, OWNER, {"confirm_owner": True})
+        body = self.body()
+        record_batch(self.store, other, OWNER, body)
+        self.register_study(dict(starts_at="2026-11-01T00:00:00Z", ends_at="2026-11-02T00:00:00Z"))
+
+        item = summary(self.store, other)["campaigns"][0]
+        self.assertEqual((item["coverage_status"], item["study_status"]), ("PARTIAL", "UNLINKED"))
+        with self.assertRaisesRegex(Invalid, "Campaign tag is unavailable in this workspace"):
+            report(self.store, other, OWNER, CAMPAIGN)
+        self.assertEqual(record_batch(self.store, other, OWNER, body)["status"], "ALREADY_RECORDED")
+        with self.assertRaisesRegex(Invalid, "Request identity was already used"):
+            record_batch(self.store, other, OWNER, {**body, "source_receipt_sha256": "b" * 64})
+        with self.assertRaisesRegex(Invalid, "Campaign tag is unavailable in this workspace"):
+            report(self.store, APP, OWNER, CAMPAIGN)
+
+    def test_concurrent_standalone_imports_cannot_claim_one_tag_in_two_apps(self):
+        other = "sample-two"
+        Access(self.store).bootstrap(other, OWNER, {"confirm_owner": True})
+        start = Barrier(2)
+
+        def submit(app_id):
+            start.wait(timeout=5)
+            try:
+                return record_batch(self.store, app_id, OWNER, self.body())["status"]
+            except Invalid as exc:
+                self.assertIn("Campaign tag is unavailable in this workspace", str(exc))
+                return "REJECTED"
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            self.assertCountEqual(list(pool.map(submit, (APP, other))), ["RECORDED", "REJECTED"])
+        with connection(self.store.path) as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM install_attribution_batches").fetchone()[0], 1)
 
     def test_owner_and_app_boundaries(self):
         with self.assertRaises(PermissionError):

@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "creative-workflow-contract",
+      "kind": "python",
+      "run": "import unittest; suite=unittest.defaultTestLoader.loadTestsFromName('tests.test_creative_toolchain'); assert suite.countTestCases()==3; assert unittest.TextTestRunner().run(suite).wasSuccessful()"
+    }
+  ]
+}

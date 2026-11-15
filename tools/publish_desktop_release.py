@@ -4,10 +4,10 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import runpy
 import subprocess
+from pathlib import Path
 from urllib.request import urlopen
 
 ASSETS = {"Windows": "WMM-Setup.exe", "Linux": "wize-marketing-machine_0.1.0_amd64.deb"}
@@ -31,7 +31,8 @@ def validate_target(sha, main_sha, ref, repository, tag):
 
 
 def receipt(platform, sha, asset, lifecycle, destination, evidence_root=None):
-    data = json.loads(Path(lifecycle).read_text(encoding="utf-8-sig").splitlines()[-1])
+    lines = Path(lifecycle).read_text(encoding="utf-8-sig").splitlines()
+    data = json.loads(lines[-1])
     removal = "uninstall" if platform == "Windows" else "removal"
     if (
         platform not in ASSETS
@@ -48,19 +49,32 @@ def receipt(platform, sha, asset, lifecycle, destination, evidence_root=None):
         Path(evidence_root) if evidence_root else Path(__file__).resolve().parents[1] / ".factory/packaged-first-packet"
     )
     prefix = "windows" if platform == "Windows" else "ubuntu"
+    browser_runs = {}
+    for line in lines[:-1]:
+        if not line.startswith('{"first_packet":'):
+            continue
+        row = json.loads(line)
+        label = row.get("phase")
+        if label in browser_runs or label not in (prefix + "-fresh", prefix + "-upgrade"):
+            raise ValueError("Unexpected browser evidence in installer lifecycle")
+        browser_runs[label] = row["first_packet"]
     offline = []
     for phase in ("fresh", "upgrade"):
-        observed = json.loads((evidence_root / (prefix + "-" + phase) / "evidence.json").read_text())
+        label = prefix + "-" + phase
+        evidence_path = evidence_root / label / "evidence.json"
+        observed = json.loads(evidence_path.read_text(encoding="utf-8"))
         if (
-            observed.get("github_sha") != sha
+            observed != browser_runs.get(label)
+            or observed.get("github_sha") != sha
+            or not re.fullmatch("[0-9a-f]{64}", str(observed.get("executable_sha256")))
             or observed.get("offline_restart") != "PASS_SAME_PRIVATE_WORKSPACE_AND_BROWSER_STORAGE"
-            or observed.get("network") != "BROWSER_EXTERNAL_BLOCKED_NOT_OS_OFFLINE"
+            or observed.get("network") != "BROWSER_REQUESTS_MONITORED_NO_EXTERNAL_OBSERVED"
         ):
             raise ValueError("Missing source-bound browser-isolated restart proof")
         offline.append(
             dict(
                 phase=phase,
-                evidence_sha256=digest(evidence_root / (prefix + "-" + phase) / "evidence.json"),
+                evidence_sha256=digest(evidence_path),
                 offline_restart=observed["offline_restart"],
                 network=observed["network"],
             )
@@ -83,11 +97,16 @@ def receipt(platform, sha, asset, lifecycle, destination, evidence_root=None):
     )
 
 
-def validate_assets(folder, sha):
+def validate_assets(folder, sha, require_provenance=False):
     folder = Path(folder)
     paths = [folder / name for name in ASSETS.values()]
     paths += [folder / ("sbom-" + platform + ".json") for platform in ASSETS]
     paths += [folder / (platform + ".json") for platform in ASSETS]
+    evidence = [folder / name for name in ("release-attestation.sigstore.json", "release-provenance.json")]
+    if require_provenance or any(path.exists() or path.is_symlink() for path in evidence):
+        if not all(path.is_file() and not path.is_symlink() for path in evidence):
+            raise ValueError("New releases require the complete downloadable provenance bundle and receipt")
+        paths += evidence
     for path in paths:
         if path.is_symlink() or not path.is_file() or path.stat().st_size == 0:
             raise ValueError("Release asset must be a nonempty regular file: " + path.name)
@@ -108,13 +127,52 @@ def gh(*args):
     return result.stdout
 
 
+def validate_signing_config(thumbprint, timestamp_url):
+    """Reject missing or malformed release settings before provisioning runners."""
+    if not re.fullmatch("[0-9A-F]{40}", thumbprint or ""):
+        raise ValueError("Configure WMM_WINDOWS_SIGNER_THUMBPRINT with the uppercase publisher thumbprint")
+    if not re.fullmatch(r"https://[A-Za-z0-9.-]+(?::[0-9]+)?(?:/[A-Za-z0-9._/-]*)?", timestamp_url or ""):
+        raise ValueError("Configure WMM_WINDOWS_TIMESTAMP_URL with the signer's HTTPS timestamp endpoint")
+
+
+def require_windows_signature(folder, expected_thumbprint):
+    """Require attested lifecycle evidence for the exact Windows release bytes."""
+    if not re.fullmatch("[0-9A-F]{40}", expected_thumbprint or ""):
+        raise ValueError("Configure the expected Windows publisher certificate thumbprint")
+    folder = Path(folder)
+    observation = json.loads((folder / "Windows.json").read_text(encoding="utf-8"))["lifecycle"].get(
+        "publisher_signature"
+    )
+    installer_hash = digest(folder / ASSETS["Windows"])
+    if observation != {
+        "thumbprint": expected_thumbprint,
+        "installer_sha256": installer_hash,
+        "installer": "VALID_TIMESTAMPED",
+        "uninstaller": "VALID_TIMESTAMPED",
+    }:
+        raise ValueError("Missing verified Windows installer and uninstaller publisher signatures")
+
+
+def windows_release_notice(folder, tag):
+    if os.environ.get("WMM_UNSIGNED_WINDOWS_PREVIEW10") == "true":
+        if tag != "v0.1.0-preview.10":
+            raise ValueError("Unsigned Windows publication is limited to Preview 10")
+        lifecycle = json.loads((Path(folder) / "Windows.json").read_text(encoding="utf-8"))["lifecycle"]
+        if lifecycle.get("publisher_signature") is not None:
+            raise ValueError("Expected an unsigned Windows lifecycle receipt")
+        return "The Windows installer is unsigned. SmartScreen may warn or block installation. "
+    require_windows_signature(folder, os.environ.get("WMM_WINDOWS_SIGNER_THUMBPRINT"))
+    return "Windows installer and uninstaller publisher signatures were verified during lifecycle testing. "
+
+
 def publish(folder, sha, tag):
     repo = json.loads(gh("api", "repos/" + REPOSITORY))
     main = gh("api", "repos/" + REPOSITORY + "/git/ref/heads/main", "--jq", ".object.sha").strip()
     validate_target(sha, main, os.environ.get("GITHUB_REF"), os.environ.get("GITHUB_REPOSITORY"), tag)
     if repo.get("private") is not False:
         raise ValueError("Anonymous installer downloads require a public repository")
-    paths = validate_assets(folder, sha)
+    paths = validate_assets(folder, sha, require_provenance=True)
+    windows_notice = windows_release_notice(folder, tag)
     # A successful list proves absence. API/network errors abort rather than looking like 404.
     refs = json.loads(gh("api", "repos/" + REPOSITORY + "/git/matching-refs/tags/" + tag))
     releases = json.loads(gh("api", "--paginate", "--slurp", "repos/" + REPOSITORY + "/releases"))
@@ -124,10 +182,15 @@ def publish(folder, sha, tag):
         raise ValueError("Existing release/tag is immutable; choose a new version")
     notes = (
         "Windows and Ubuntu amd64 preview installers. No system Python required. "
-        "SHA256SUMS.txt covers every uploaded file. sbom-Windows.json and sbom-Linux.json list the "
+        "SHA256SUMS.txt covers the eight other release assets. sbom-Windows.json and sbom-Linux.json list the "
         "build-environment packages; this is not a runtime file inventory. "
-        "Windows publisher signature is not provided; OS trust prompts can appear. "
-        "See docs/desktop-first-run.md at source commit " + sha + ". "
+        "release-attestation.sigstore.json contains the GitHub provenance bundle for the six payloads; "
+        "release-provenance.json retains the source-bound verification results. "
+        "Neither the checksum manifest nor the provenance receipt is itself attested. "
+        + windows_notice
+        + "See docs/desktop-first-run.md at source commit "
+        + sha
+        + ". "
         "Automated synthetic installer checks are not human first-use acceptance."
     )
     gh(
@@ -165,7 +228,7 @@ def publish(folder, sha, tag):
     # Native HTTPS validation, anonymous full-byte download: no token, custom CA or TLS bypass.
     for path in paths:
         url = f"https://github.com/{REPOSITORY}/releases/download/{tag}/{path.name}"
-        with urlopen(url, timeout=120) as response:
+        with urlopen(url, timeout=120) as response:  # noqa: S310 - fixed HTTPS origin; validated tag and asset names
             downloaded = hashlib.file_digest(response, "sha256").hexdigest()
         if downloaded != digest(path):
             raise ValueError("Public download hash mismatch: " + url)

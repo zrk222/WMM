@@ -1,12 +1,12 @@
 """Exact loopback owner routes for the shared local research service."""
 
 import secrets
+
 from .common import Invalid, identifier
-from .managed_media_http import singleton
+from .discovery_access import WRITES, dispatch
+from .http_body import json_body as json_body
+from .http_body import singleton
 from .operation_authority import bound_owner, protected
-from .http_body import read_exact
-from .operator_client import strict_json
-from .discovery_access import dispatch, WRITES
 
 
 def route(handler, parts):
@@ -19,18 +19,6 @@ def route(handler, parts):
     if handler.command != "POST" or handler.path != "/" + "/".join(parts):
         raise Invalid("Use an exact research POST without query")
     return parts[4]
-
-
-def json_body(handler, label="Research"):
-    """One strict bounded JSON body; duplicate keys and alternate framing are rejected."""
-    if singleton(handler, "Content-Type") != "application/json":
-        raise Invalid("Use application/json for " + label.lower() + " input")
-    if handler.headers.get_all("Transfer-Encoding") is not None:
-        raise Invalid(label + " input cannot use transfer encoding")
-    length = singleton(handler, "Content-Length")
-    if not length.isascii() or not length.isdecimal() or not 1 <= int(length) <= 1048576:
-        raise Invalid(label + " input exceeds its bounded byte limit")
-    return strict_json(read_exact(handler, 1048576, label))
 
 
 def post(handler, parts):
