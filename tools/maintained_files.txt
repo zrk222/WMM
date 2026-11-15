@@ -127,6 +127,7 @@ tests/test_batch_authority.py
 tests/test_campaign_execution.py
 tests/test_campaign_monitor.py
 tests/test_campaign_monitor_polish.py
+tests/test_campaign_owner_reports_integration.py
 tests/test_campaign_report_pause_guidance.py
 tests/test_campaign_schedule_progress.py
 tests/test_check_distribution.py
@@ -181,6 +182,7 @@ tests/test_packaging_ui_http.py
 tests/test_page_reporting_http.py
 tests/test_parser_properties.py
 tests/test_pre_registration.py
+tests/test_private_report_job_boundary.py
 tests/test_property_profiles.py
 tests/test_provider_health.py
 tests/test_publication_channel_selection.py

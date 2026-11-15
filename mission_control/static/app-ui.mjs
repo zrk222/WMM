@@ -757,6 +757,14 @@ function providerResult(result) {
 
 function openJob(id) {
   const job = state.workspace.jobs.find((j) => j.id === id);
+  if (job?.action === 'campaign_owner_report') {
+    modal(
+      'Private campaign report run',
+      `<div class="modal-content">${status(job.status)}<p class="app-mono">${esc(id)}</p><p>Read saved reports or stop the plan in Private campaign outcomes.</p></div><div class="modal-actions">${button('Close', 'close')}</div>`,
+      'RUN HISTORY',
+    );
+    return;
+  }
   const reportWaiting =
     job?.action === 'sync' &&
     job.status === 'SUCCEEDED' &&
@@ -776,6 +784,13 @@ function openJob(id) {
   let content = notice(
     'This run is saved locally. Prepared packets are not provider publication or measured acquisition.',
   );
+  const ownerStop = ['campaign_post', 'campaign_ad'].includes(job.action)
+    ? 'To stop this batch, open Connections → Campaign automation → Saved schedules.'
+    : job.action === 'campaign_monitor'
+      ? 'To stop this monitor, open Watch the work → Monitor approved campaigns.'
+      : '';
+  const active = ['RUNNING', 'QUEUED'].includes(job.status);
+  if (ownerStop && active) content += notice(ownerStop, 'info');
   if (job.result?.error && !reportWaiting) content += notice(job.result.error, 'error');
   content += outputs.map((output) => stagePacketCard(output, id)).join('');
   if (job.result && !outputs.length)
@@ -789,7 +804,7 @@ function openJob(id) {
     : `${status(job.status)}<p class="app-mono">${esc(id)}</p>`;
   modal(
     outputs.length ? 'Your prepared workflow' : 'Saved run',
-    `<div class="modal-content">${runState}${content}</div><div class="modal-actions">${['RUNNING', 'QUEUED'].includes(job.status) ? button('Cancel local run', 'cancel-job', `data-id="${esc(id)}"`) : button('Close result', 'close')}</div>`,
+    `<div class="modal-content">${runState}${content}</div><div class="modal-actions">${active && !ownerStop ? button('Cancel local run', 'cancel-job', `data-id="${esc(id)}"`) : button('Close result', 'close')}</div>`,
     outputs.length ? 'SAVED WORKFLOW' : 'RUN HISTORY',
   );
   $('#modal-body').dataset.job = id;
