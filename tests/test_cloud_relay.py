@@ -1,4 +1,5 @@
 """Reference relay implements the v1 contract with bearer auth and idempotency."""
+
 from concurrent.futures import ThreadPoolExecutor
 import json
 import os
@@ -27,10 +28,19 @@ class CloudRelayTests(unittest.TestCase):
     def setUpClass(cls):
         cls.folder = tempfile.TemporaryDirectory()
         cls.port = free_port()
-        env = dict(os.environ, WMM_CLOUD_TOKEN=TOKEN, WMM_CLOUD_DB=str(Path(cls.folder.name) / "relay.sqlite3"),
-                   WMM_CLOUD_HOST="127.0.0.1", WMM_CLOUD_PORT=str(cls.port))
-        cls.process = subprocess.Popen([sys.executable, str(ROOT / "cloud" / "relay.py")], env=env,
-                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        env = dict(
+            os.environ,
+            WMM_CLOUD_TOKEN=TOKEN,
+            WMM_CLOUD_DB=str(Path(cls.folder.name) / "relay.sqlite3"),
+            WMM_CLOUD_HOST="127.0.0.1",
+            WMM_CLOUD_PORT=str(cls.port),
+        )
+        cls.process = subprocess.Popen(
+            [sys.executable, str(ROOT / "cloud" / "relay.py")],
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         deadline = time.time() + 10
         while time.time() < deadline:
             try:
@@ -75,11 +85,9 @@ class CloudRelayTests(unittest.TestCase):
             self.call("POST", "/v1/install-batches", {"batch": {"source": "OTHER"}}, key="request-0001")
         self.assertEqual(error.exception.code, 409)
 
-
     def test_concurrent_retries_share_one_committed_receipt(self):
         def send(_):
-            return self.call("POST", "/v1/install-batches", {"batch": {"source": "MMP"}},
-                             key="concurrent-0001")
+            return self.call("POST", "/v1/install-batches", {"batch": {"source": "MMP"}}, key="concurrent-0001")
 
         with ThreadPoolExecutor(max_workers=6) as pool:
             replies = list(pool.map(send, range(12)))

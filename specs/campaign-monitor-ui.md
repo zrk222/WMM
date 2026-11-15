@@ -10,6 +10,7 @@ Owners review finite exact-intent monitoring and explicitly selected protective 
 - The system shall present cadence, expiry, run/read/pause allowances and explicit protective conditions before hash-bound owner activation through `review_authority`.
 - If app, owner, manifest or dialog changes during a request, the system shall reject stale follow-up actions through `context_binding`.
 - The system shall display saved monitor states, resource usage, job observations and OFF controls without claiming fresh provider results through `monitor_progress`.
+- A stopped monitor and its report shall give different next steps for expired approval, exhausted allowance, general approval or connection repair, and unconfirmed provider state; uncertainty takes priority.
 - The system shall return a report containing only selected identifiers, states and resource counts without private content or credentials through `report_projection`.
 
 ### Acceptance criteria (Gherkin)

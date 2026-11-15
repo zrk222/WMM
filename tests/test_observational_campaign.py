@@ -1,17 +1,24 @@
 """Durable synthetic lifecycle tests for one-arm observational attribution."""
+
 import copy
 import json
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
 import tempfile
 import unittest
+from contextvars import ContextVar
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import cast
 from unittest.mock import patch
 
-from mission_control.common import Invalid, canonical, digest, now
+from mission_control.common import Invalid, canonical, digest
 from mission_control.db import connection
+from mission_control.install_attribution import record_batch
 from mission_control.observational_campaign import ObservationalCampaign
 from mission_control.operation_authority import PROTECTED
+from mission_control.review_access import Access
 from mission_control.store import Store
+
+TEST_PROTECTED = cast(ContextVar[dict[str, str] | None], PROTECTED)
 
 APP = "sample-one"
 STUDY = "11111111-1111-4111-8111-111111111111"
@@ -38,28 +45,44 @@ class ObservationalCampaignTests(unittest.TestCase):
         return self.clock.isoformat().replace("+00:00", "Z")
 
     def _set_context(self, action, body, app_id=APP):
-        self._real_context = PROTECTED.get()
-        PROTECTED.set({"store": str(self.store.path.resolve()), "envelope": canonical({"app_id": app_id, "operation": "observational-campaign." + action, "input": body})})
+        self._real_context = TEST_PROTECTED.get()
+        TEST_PROTECTED.set(
+            {
+                "store": str(self.store.path.resolve()),
+                "envelope": canonical(
+                    {"app_id": app_id, "operation": "observational-campaign." + action, "input": body}
+                ),
+            }
+        )
 
     def _clear_context(self):
-        PROTECTED.set(self._real_context)
+        TEST_PROTECTED.set(self._real_context)
 
-    def invoke(self, action, body):
+    def invoke(self, action, body, app_id=APP):
         if action == "ingest":
             self.clock += timedelta(seconds=30)
-        self._set_context(action, body)
+        self._set_context(action, body, app_id)
         try:
             with patch("mission_control.operation_authority.check", return_value=self.authority):
-                return self.service.dispatch(APP, action, body)
+                return self.service.dispatch(app_id, action, body)
         finally:
             self._clear_context()
 
     def definition(self, **changes):
         start = self.clock + timedelta(seconds=13)
-        value = {"id": STUDY, "name": "Organic post", "hypothesis": "Tagged post visits can be linked to registration.",
-                 "source": "facebook", "creative_id": "creative_1", "landing_path": "/start",
-                 "starts_at": start.isoformat(), "ends_at": (start + timedelta(days=10)).isoformat(),
-                 "landing_event": "landing", "registration_event": "registration", "attribution_model": "FIRST_TOUCH"}
+        value = {
+            "id": STUDY,
+            "name": "Organic post",
+            "hypothesis": "Tagged post visits can be linked to registration.",
+            "source": "facebook",
+            "creative_id": "creative_1",
+            "landing_path": "/start",
+            "starts_at": start.isoformat(),
+            "ends_at": (start + timedelta(days=10)).isoformat(),
+            "landing_event": "landing",
+            "registration_event": "registration",
+            "attribution_model": "FIRST_TOUCH",
+        }
         value.update(changes)
         return value
 
@@ -68,36 +91,72 @@ class ObservationalCampaignTests(unittest.TestCase):
         index = self.count("observational_campaign_studies")
         study_id = f"{index + 1:08d}-1111-4111-8111-111111111111"
         request_id = f"{index + 1:08d}-2222-4222-8222-222222222222"
-        body = {"request_id": request_id, "manifest_version": app["version"], "definition": self.definition(id=study_id, **definition)}
+        body = {
+            "request_id": request_id,
+            "manifest_version": app["version"],
+            "definition": self.definition(id=study_id, **definition),
+        }
         receipt = self.invoke("register", body)
         return body, receipt
 
     def scoped(self, receipt, action, **data):
         app = self.store.app(APP)
-        body = {"study_id": receipt["study_id"], "study_hash": receipt["study_hash"], "manifest_version": app["version"], **data}
+        body = {
+            "study_id": receipt["study_id"],
+            "study_hash": receipt["study_hash"],
+            "manifest_version": app["version"],
+            **data,
+        }
         return body
 
     def event(self, receipt, event_id, subject, kind, occurred_at=None, **changes):
-        start = self.store.app(APP)["data"].get("release")
-        study_row = self.db_row(receipt["study_id"])
         when = occurred_at or (self.clock + timedelta(seconds=12)).isoformat()
-        value = {"event_id": event_id, "subject_id": subject, "type": kind, "occurred_at": when,
-                 "campaign_token": receipt["study_id"], "consent": "GRANTED", "bot": False, "internal_test": False}
+        value = {
+            "event_id": event_id,
+            "subject_id": subject,
+            "type": kind,
+            "occurred_at": when,
+            "campaign_token": receipt["study_id"],
+            "consent": "GRANTED",
+            "bot": False,
+            "internal_test": False,
+        }
         value.update(changes)
         return value
 
     def db_row(self, study_id):
         with connection(self.store.path) as db:
-            return db.execute("SELECT data,hash FROM observational_campaign_studies WHERE app_id=? AND study_id=?", (APP, study_id)).fetchone()
+            return db.execute(
+                "SELECT data,hash FROM observational_campaign_studies WHERE app_id=? AND study_id=?", (APP, study_id)
+            ).fetchone()
 
-    def batch(self, receipt, events, batch_id="33333333-3333-4333-8333-333333333333", source_id="wize-api", complete=True, coverage_count=None):
+    def batch(
+        self,
+        receipt,
+        events,
+        batch_id="33333333-3333-4333-8333-333333333333",
+        source_id="wize-api",
+        complete=True,
+        coverage_count=None,
+    ):
         if coverage_count is None:
-            coverage_count = {kind: sum(1 for event in events if event["type"] == kind) for kind in ("LANDING", "REGISTRATION")}
-        return {"batch_id": batch_id, "study_id": receipt["study_id"], "study_hash": receipt["study_hash"],
-                "app_version": self.store.app(APP)["version"], "source_id": source_id,
-                "source_receipt_sha256": SOURCE_RECEIPT, "observed_at": (self.clock + timedelta(seconds=30)).isoformat(),
-                "coverage": {kind: {"complete": complete, "source_event_count": coverage_count[kind] if complete else None}
-                             for kind in ("LANDING", "REGISTRATION")}, "events": events}
+            coverage_count = {
+                kind: sum(1 for event in events if event["type"] == kind) for kind in ("LANDING", "REGISTRATION")
+            }
+        return {
+            "batch_id": batch_id,
+            "study_id": receipt["study_id"],
+            "study_hash": receipt["study_hash"],
+            "app_version": self.store.app(APP)["version"],
+            "source_id": source_id,
+            "source_receipt_sha256": SOURCE_RECEIPT,
+            "observed_at": (self.clock + timedelta(seconds=30)).isoformat(),
+            "coverage": {
+                kind: {"complete": complete, "source_event_count": coverage_count[kind] if complete else None}
+                for kind in ("LANDING", "REGISTRATION")
+            },
+            "events": events,
+        }
 
     def test_registration_is_local_immutable_plan_and_url_is_canonical(self):
         body, receipt = self.register()
@@ -108,6 +167,7 @@ class ObservationalCampaignTests(unittest.TestCase):
         link = self.invoke("link", self.scoped(receipt, "link"))
         self.assertEqual(link["url"].count("&") + 1, 4)
         self.assertIn("utm_campaign=" + receipt["study_id"], link["url"])
+        self.assertIsNone(link["collector_setup"])
 
     def test_no_context_rejected_and_wrong_app_or_action_context_rejected(self):
         with self.assertRaises(PermissionError):
@@ -131,10 +191,14 @@ class ObservationalCampaignTests(unittest.TestCase):
         _, receipt = self.register()
         start = self.clock + timedelta(seconds=13)
         landing = self.event(receipt, "landing1", "subject1", "LANDING", start.isoformat())
-        registration = self.event(receipt, "register1", "subject1", "REGISTRATION", (start + timedelta(seconds=1)).isoformat())
+        registration = self.event(
+            receipt, "register1", "subject1", "REGISTRATION", (start + timedelta(seconds=1)).isoformat()
+        )
         another_landing = self.event(receipt, "landing2", "subject2", "LANDING", start.isoformat())
         repeated_subject = self.event(receipt, "landing3", "subject2", "LANDING", start.isoformat())
-        body = self.scoped(receipt, "ingest", batch=self.batch(receipt, [registration, landing, another_landing, repeated_subject]))
+        body = self.scoped(
+            receipt, "ingest", batch=self.batch(receipt, [registration, landing, another_landing, repeated_subject])
+        )
         self.invoke("ingest", body)
         report = self.invoke("report", self.scoped(receipt, "report"))
         self.assertEqual(report["landing_subjects"], 2)
@@ -155,13 +219,74 @@ class ObservationalCampaignTests(unittest.TestCase):
         zero = self.invoke("report", self.scoped(empty_receipt, "report"))
         self.assertEqual(zero["landing_subjects"], 0)
 
+    def test_three_apps_on_shared_origin_keep_facebook_campaign_tags_and_counts_separate(self):
+        apps = (APP, "sample-two", "sample-three")
+        for app_id in apps[1:]:
+            self.store.save_app(app_id, {"name": app_id, "website": "https://example.test/home", "release": "r1"})
+        results = []
+        for index, app_id in enumerate(apps, 1):
+            study_id = f"{index:08d}-1111-4111-8111-111111111111"
+            body = {
+                "request_id": REQUEST,
+                "manifest_version": 1,
+                "definition": self.definition(id=study_id, collector_source_id="company-site"),
+            }
+            if index > 1:
+                duplicate = dict(body, definition=dict(body["definition"], id=results[0][0]["study_id"]))
+                with self.assertRaisesRegex(Invalid, "Campaign tag is unavailable in this workspace"):
+                    self.invoke("register", duplicate, app_id)
+            receipt = self.invoke("register", body, app_id)
+            scoped = self.scoped(receipt, "link")
+            url = self.invoke("link", scoped, app_id)["url"]
+            self.assertIn("utm_source=facebook", url)
+            self.assertIn("utm_campaign=" + study_id, url)
+            start = self.clock + timedelta(seconds=13)
+            events = [
+                self.event(receipt, f"landing{n}", f"subject{n}", "LANDING", start.isoformat()) for n in range(index)
+            ]
+            batch = self.batch(receipt, events, source_id="company-site")
+            self.invoke("ingest", dict(scoped, batch=batch), app_id)
+            results.append((receipt, url))
+        self.assertEqual(len({url for _, url in results}), len(apps))
+        for expected, (app_id, (receipt, _)) in enumerate(zip(apps, results, strict=True), 1):
+            own = self.invoke("report", self.scoped(receipt, "report"), app_id)
+            self.assertEqual(own["landing_subjects"], expected)
+            for foreign, _ in results:
+                if foreign != receipt:
+                    with self.assertRaisesRegex(Invalid, "Study is unavailable in this app"):
+                        self.invoke("report", self.scoped(foreign, "report"), app_id)
+
+    def test_study_cannot_adopt_another_apps_standalone_install_tag(self):
+        other = "other-app"
+        owner = {"principal": "github:synthetic", "login": "synthetic"}
+        self.store.save_app(other, {"name": "Other app"})
+        Access(self.store).bootstrap(other, owner, {"confirm_owner": True})
+        batch = {
+            "source": "MMP_EXPORT",
+            "campaign_token": STUDY,
+            "request_id": REQUEST,
+            "source_receipt_sha256": SOURCE_RECEIPT,
+            "observed_at": "2026-11-02T00:00:00Z",
+            "window": {"starts_at": "2026-11-01T00:00:00Z", "ends_at": "2026-11-02T00:00:00Z"},
+            "coverage": {"complete": True, "source_event_count": 0},
+            "installs": [],
+        }
+        self.assertEqual(record_batch(self.store, other, owner, batch)["status"], "RECORDED")
+        body = {"request_id": REQUEST, "manifest_version": 1, "definition": self.definition()}
+        with self.assertRaisesRegex(Invalid, "Campaign tag is unavailable in this workspace"):
+            self.invoke("register", body)
+        self.assertEqual(self.count("observational_campaign_studies"), 0)
+        self.assertEqual(record_batch(self.store, other, owner, batch)["status"], "ALREADY_RECORDED")
+
     def test_declared_collector_must_reconcile_both_event_types_after_close(self):
         definition, receipt = self.register(collector_source_id="wize-api")
         start = self.clock + timedelta(seconds=13)
-        events = [self.event(receipt, "land-a", "a", "LANDING", start.isoformat()),
-                  self.event(receipt, "land-b", "b", "LANDING", start.isoformat()),
-                  self.event(receipt, "reg-a", "a", "REGISTRATION", (start + timedelta(seconds=1)).isoformat()),
-                  self.event(receipt, "unmatched", "c", "REGISTRATION", (start + timedelta(seconds=1)).isoformat())]
+        events = [
+            self.event(receipt, "land-a", "a", "LANDING", start.isoformat()),
+            self.event(receipt, "land-b", "b", "LANDING", start.isoformat()),
+            self.event(receipt, "reg-a", "a", "REGISTRATION", (start + timedelta(seconds=1)).isoformat()),
+            self.event(receipt, "unmatched", "c", "REGISTRATION", (start + timedelta(seconds=1)).isoformat()),
+        ]
         with self.assertRaisesRegex(Invalid, "differs from the collector"):
             self.invoke("ingest", self.scoped(receipt, "ingest", batch=self.batch(receipt, events, source_id="other")))
         self.assertEqual(self.count("observational_campaign_batches"), 0)
@@ -172,16 +297,22 @@ class ObservationalCampaignTests(unittest.TestCase):
         self.assertFalse(early["coverage"]["LANDING"]["coverage_complete"])
         self.assertIsNone(early["checkpoint"]["ratio_counts"])
         from mission_control.automation_rules import _study_facts
+
         with connection(self.store.path) as db:
             db.execute("PRAGMA query_only=ON")
             self.assertNotIn("linked_registration_rate", _study_facts(db, APP, binding, self._now()))
         self.clock = datetime.fromisoformat(definition["definition"]["ends_at"]) + timedelta(seconds=1)
         overdue = self.invoke("report", binding)
         self.assertEqual(overdue["checkpoint"]["state"], "COVERAGE_INCOMPLETE")
-        self.assertEqual(overdue["checkpoint"]["coverage_issues"],
-                         {"LANDING": "BEFORE_CLOSE", "REGISTRATION": "BEFORE_CLOSE"})
-        final = self.batch(receipt, [], batch_id="44444444-4444-4444-8444-444444444444",
-                           coverage_count={"LANDING": 2, "REGISTRATION": 2})
+        self.assertEqual(
+            overdue["checkpoint"]["coverage_issues"], {"LANDING": "BEFORE_CLOSE", "REGISTRATION": "BEFORE_CLOSE"}
+        )
+        final = self.batch(
+            receipt,
+            [],
+            batch_id="44444444-4444-4444-8444-444444444444",
+            coverage_count={"LANDING": 2, "REGISTRATION": 2},
+        )
         self.invoke("ingest", self.scoped(receipt, "ingest", batch=final))
         ready = self.invoke("report", binding)
         self.assertEqual(ready["checkpoint"]["state"], "DESCRIPTIVE_READY")
@@ -194,10 +325,14 @@ class ObservationalCampaignTests(unittest.TestCase):
             self.assertEqual(facts["linked_registration_rate"], 0.5)
             self.assertEqual(facts["source_sha256"], ready["source_hash"])
             with self.assertRaisesRegex(Invalid, "Study hash differs"):
-                _study_facts(db, APP, dict(binding, study_hash="0"*64), self._now())
+                _study_facts(db, APP, dict(binding, study_hash="0" * 64), self._now())
         self.assertNotEqual(overdue["source_hash"], ready["source_hash"])
-        mismatch = self.batch(receipt, [], batch_id="55555555-5555-4555-8555-555555555555",
-                              coverage_count={"LANDING": 2, "REGISTRATION": 1})
+        mismatch = self.batch(
+            receipt,
+            [],
+            batch_id="55555555-5555-4555-8555-555555555555",
+            coverage_count={"LANDING": 2, "REGISTRATION": 1},
+        )
         self.invoke("ingest", self.scoped(receipt, "ingest", batch=mismatch))
         current = self.invoke("report", binding)
         self.assertEqual(current["checkpoint"]["coverage_issues"], {"REGISTRATION": "COUNT_MISMATCH"})
@@ -211,8 +346,9 @@ class ObservationalCampaignTests(unittest.TestCase):
         self.clock = datetime.fromisoformat(definition["definition"]["ends_at"]) + timedelta(seconds=1)
         binding = self.scoped(receipt, "report")
         missing = self.invoke("report", binding)
-        self.assertEqual(missing["checkpoint"]["coverage_issues"],
-                         {"LANDING": "MISSING_RECEIPT", "REGISTRATION": "MISSING_RECEIPT"})
+        self.assertEqual(
+            missing["checkpoint"]["coverage_issues"], {"LANDING": "MISSING_RECEIPT", "REGISTRATION": "MISSING_RECEIPT"}
+        )
         self.assertIsNone(missing["landing_subjects"])
         self.invoke("ingest", self.scoped(receipt, "ingest", batch=self.batch(receipt, [])))
         complete = self.invoke("report", binding)
@@ -220,6 +356,7 @@ class ObservationalCampaignTests(unittest.TestCase):
         self.assertEqual((complete["landing_subjects"], complete["linked_registration_subjects"]), (0, 0))
         self.assertIsNone(complete["checkpoint"]["ratio_counts"])
         from mission_control.automation_rules import _study_facts
+
         with connection(self.store.path) as db:
             facts = _study_facts(db, APP, binding, self._now())
         self.assertEqual((facts["eligible_landings"], facts["linked_registrations"]), (0, 0))
@@ -235,7 +372,14 @@ class ObservationalCampaignTests(unittest.TestCase):
             self.event(receipt, "unknown-bot", "s4", "LANDING", start.isoformat(), bot=None),
             self.event(receipt, "test", "s5", "LANDING", start.isoformat(), internal_test=True),
             self.event(receipt, "missing-token", "s6", "LANDING", start.isoformat(), campaign_token=None),
-            self.event(receipt, "wrong-token", "s7", "LANDING", start.isoformat(), campaign_token="66666666-6666-4666-8666-666666666666"),
+            self.event(
+                receipt,
+                "wrong-token",
+                "s7",
+                "LANDING",
+                start.isoformat(),
+                campaign_token="66666666-6666-4666-8666-666666666666",  # noqa: S106 - public test tag
+            ),
             self.event(receipt, "unmatched", "s8", "REGISTRATION", start.isoformat()),
         ]
         body = self.scoped(receipt, "ingest", batch=self.batch(receipt, events))
@@ -255,7 +399,10 @@ class ObservationalCampaignTests(unittest.TestCase):
     def test_exact_batch_retry_conflict_is_atomic_and_source_mismatch_stays_incomplete(self):
         _, receipt = self.register()
         when = self.clock + timedelta(seconds=13)
-        events = [self.event(receipt, "first", "s1", "LANDING", when.isoformat()), self.event(receipt, "second", "s2", "LANDING", when.isoformat())]
+        events = [
+            self.event(receipt, "first", "s1", "LANDING", when.isoformat()),
+            self.event(receipt, "second", "s2", "LANDING", when.isoformat()),
+        ]
         batch = self.batch(receipt, events)
         first = self.invoke("ingest", self.scoped(receipt, "ingest", batch=batch))
         retry = self.invoke("ingest", self.scoped(receipt, "ingest", batch=copy.deepcopy(batch)))
@@ -266,13 +413,20 @@ class ObservationalCampaignTests(unittest.TestCase):
         changed["events"][0]["subject_id"] = "tampered"
         with self.assertRaises(Invalid):
             self.invoke("ingest", self.scoped(receipt, "ingest", batch=changed))
-        collision = self.batch(receipt, [dict(events[0], subject_id="different")], batch_id="77777777-7777-4777-8777-777777777777")
+        collision = self.batch(
+            receipt, [dict(events[0], subject_id="different")], batch_id="77777777-7777-4777-8777-777777777777"
+        )
         before = self.count("observational_campaign_events")
         with self.assertRaises(Invalid):
             self.invoke("ingest", self.scoped(receipt, "ingest", batch=collision))
         self.assertEqual(self.count("observational_campaign_events"), before)
 
-        mismatch = self.batch(receipt, [], batch_id="88888888-8888-4888-8888-888888888888", coverage_count={"LANDING": 1, "REGISTRATION": 0})
+        mismatch = self.batch(
+            receipt,
+            [],
+            batch_id="88888888-8888-4888-8888-888888888888",
+            coverage_count={"LANDING": 1, "REGISTRATION": 0},
+        )
         self.invoke("ingest", self.scoped(receipt, "ingest", batch=mismatch))
         report = self.invoke("report", self.scoped(receipt, "report"))
         self.assertFalse(report["coverage"]["LANDING"]["coverage_complete"])
@@ -285,22 +439,44 @@ class ObservationalCampaignTests(unittest.TestCase):
         batch = self.batch(receipt, [original])
         self.invoke("ingest", self.scoped(receipt, "ingest", batch=batch))
         with connection(self.store.path) as db:
-            stored = db.execute("SELECT hash FROM observational_campaign_events WHERE app_id=? AND source_id='wize-api' AND event_id='landing'", (APP,)).fetchone()
+            stored = db.execute(
+                "SELECT hash FROM observational_campaign_events WHERE app_id=? AND source_id='wize-api' AND event_id='landing'",
+                (APP,),
+            ).fetchone()
         replacement = dict(original, consent="GRANTED")
-        correction = {"correction_id": "99999999-9999-4999-8999-999999999999", "source_id": "wize-api", "event_id": "landing",
-                      "original_hash": stored["hash"], "replacement": replacement, "reason": "Corrected synthetic consent classification"}
+        correction = {
+            "correction_id": "99999999-9999-4999-8999-999999999999",
+            "source_id": "wize-api",
+            "event_id": "landing",
+            "original_hash": stored["hash"],
+            "replacement": replacement,
+            "reason": "Corrected synthetic consent classification",
+        }
         result = self.invoke("correct", self.scoped(receipt, "correct", correction=correction))
         self.assertEqual(result["original_hash"], stored["hash"])
         report = self.invoke("report", self.scoped(receipt, "report"))
         self.assertEqual(report["landing_subjects"], 1)
         self.assertEqual(report["exclusions"]["CONSENT_DENIED"], 0)
         with connection(self.store.path) as db:
-            row = db.execute("SELECT data,hash FROM observational_campaign_events WHERE app_id=? AND source_id='wize-api' AND event_id='landing'", (APP,)).fetchone()
-            correction_row = db.execute("SELECT replacement_hash FROM observational_campaign_corrections WHERE app_id=? AND event_id='landing'", (APP,)).fetchone()
+            row = db.execute(
+                "SELECT data,hash FROM observational_campaign_events WHERE app_id=? AND source_id='wize-api' AND event_id='landing'",
+                (APP,),
+            ).fetchone()
+            correction_row = db.execute(
+                "SELECT replacement_hash FROM observational_campaign_corrections WHERE app_id=? AND event_id='landing'",
+                (APP,),
+            ).fetchone()
         self.assertEqual(digest(json.loads(row["data"])), row["hash"])
         from mission_control.observational_campaign_contract import event_data
+
         study_data = json.loads(self.db_row(receipt["study_id"])["data"])
-        normalized = event_data(replacement, receipt["study_id"], study_data["starts_at"], study_data["ends_at"], (self.clock + timedelta(seconds=30)).isoformat())
+        normalized = event_data(
+            replacement,
+            receipt["study_id"],
+            study_data["starts_at"],
+            study_data["ends_at"],
+            (self.clock + timedelta(seconds=30)).isoformat(),
+        )
         self.assertEqual(correction_row["replacement_hash"], digest(normalized))
 
     def test_app_drift_and_storage_corruption_fail_closed(self):
@@ -313,7 +489,10 @@ class ObservationalCampaignTests(unittest.TestCase):
 
         _, receipt2 = self.register()
         self._corrupt("DROP TRIGGER observational_campaign_studies_no_update", ())
-        self._corrupt("UPDATE observational_campaign_studies SET data=? WHERE app_id=? AND study_id=?", ("{}", APP, receipt2["study_id"]))
+        self._corrupt(
+            "UPDATE observational_campaign_studies SET data=? WHERE app_id=? AND study_id=?",
+            ("{}", APP, receipt2["study_id"]),
+        )
         with self.assertRaises(Invalid):
             self.invoke("report", self.scoped(receipt2, "report"))
 
@@ -333,10 +512,16 @@ class ObservationalCampaignTests(unittest.TestCase):
 
     def count(self, table):
         with connection(self.store.path) as db:
-            return db.execute("SELECT count(*) FROM " + table).fetchone()[0]
+            query = {
+                "observational_campaign_batches": "SELECT count(*) FROM observational_campaign_batches",
+                "observational_campaign_events": "SELECT count(*) FROM observational_campaign_events",
+                "observational_campaign_studies": "SELECT count(*) FROM observational_campaign_studies",
+            }[table]
+            return db.execute(query).fetchone()[0]
 
     def _ensure_tables(self):
         from mission_control.observational_campaign import _tables
+
         with connection(self.store.path) as db:
             _tables(db)
 

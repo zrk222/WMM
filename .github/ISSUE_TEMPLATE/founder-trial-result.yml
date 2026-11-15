@@ -1,0 +1,41 @@
+name: Report a founder trial first run
+description: Report what happened, including installation blocks, early stops, or help.
+title: "[Founder trial] First-run report"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Report the first attempt, including failures. This issue is public and linked to your GitHub account. Leave out emails, credentials, customer data, private analytics or exports, and private attachments.
+        A self-report is pending review and is not verified cohort evidence. [Read the trial guide](https://github.com/zrk222/WMM/blob/main/docs/founder-trial.md).
+  - type: input
+    id: run-context
+    attributes:
+      label: Session date, desktop platform, and release tag
+      description: If you stopped before choosing a release, say so.
+    validations:
+      required: true
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: What happened?
+      options:
+        - Installation blocked
+        - Stopped before reviewing or exporting a plan
+        - Reviewed or exported a plan with help
+        - Reviewed or exported a plan without help
+    validations:
+      required: true
+  - type: textarea
+    id: attempt
+    attributes:
+      label: Starting point, time spent, and what happened
+      description: Include the generic app category, the exact blocked step or button label, and any help you received. Say whether you used a real account (yes or no only). Leave out secrets and exports.
+    validations:
+      required: true
+  - type: textarea
+    id: debrief
+    attributes:
+      label: What does WMM do, and what would you do next?
+      description: Describe WMM in one sentence. If you found the measured-post path, explain what approval was still needed in your own words. Say whether you would use WMM again for this app and for what concrete task. If you could not tell, say so.
+    validations:
+      required: true

@@ -1,4 +1,5 @@
 """Unified local activity chronology: exact links, filters, paging and privacy."""
+
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import json
@@ -24,10 +25,28 @@ class ActivityTimelineTests(unittest.TestCase):
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
         self.store = Store(Path(self.folder.name) / "test.sqlite", seed=False)
-        self.store.save_app(APP, dict(name="Synthetic app", release="build-1", job="Synthetic job",
-                                      audience="Synthetic audience", activation="Synthetic value", locale="en-US"))
-        self.store.save_app(OTHER, dict(name="Other app", release="build-2", job="Other job",
-                                        audience="Other audience", activation="Other value", locale="en-US"))
+        self.store.save_app(
+            APP,
+            dict(
+                name="Synthetic app",
+                release="build-1",
+                job="Synthetic job",
+                audience="Synthetic audience",
+                activation="Synthetic value",
+                locale="en-US",
+            ),
+        )
+        self.store.save_app(
+            OTHER,
+            dict(
+                name="Other app",
+                release="build-2",
+                job="Other job",
+                audience="Other audience",
+                activation="Other value",
+                locale="en-US",
+            ),
+        )
         with connection(self.store.path) as db:
             db.execute("DELETE FROM audit")
 
@@ -36,34 +55,67 @@ class ActivityTimelineTests(unittest.TestCase):
             db.execute(sql, values)
 
     def audit(self, action, detail, created):
-        self.execute("INSERT INTO audit(app_id,action,detail,created) VALUES(?,?,?,?)",
-                     (APP, action, json.dumps(detail), created))
+        self.execute(
+            "INSERT INTO audit(app_id,action,detail,created) VALUES(?,?,?,?)",
+            (APP, action, json.dumps(detail), created),
+        )
 
     def job(self, identity, action, status, created, app=APP):
-        self.execute("INSERT INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)",
-                     (identity, app, action, "{}", status, created, created, "request-" + identity))
+        self.execute(
+            "INSERT INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)",
+            (identity, app, action, "{}", status, created, created, "request-" + identity),
+        )
 
     def approval(self, identity, status, created, value_hash="b" * 64):
-        self.execute("INSERT INTO approvals(id,app_id,packet,hash,preparer,status,expires,created) VALUES(?,?,?,?,?,?,?,?)",
-                     (identity, APP, "{}", value_hash, "owner", status, created, created))
+        self.execute(
+            "INSERT INTO approvals(id,app_id,packet,hash,preparer,status,expires,created) VALUES(?,?,?,?,?,?,?,?)",
+            (identity, APP, "{}", value_hash, "owner", status, created, created),
+        )
 
     def review(self, identity, status, created, value_hash="c" * 64):
-        self.execute("INSERT INTO verified_reviews(id,app_id,packet,hash,preparer,status,expires,created) VALUES(?,?,?,?,?,?,?,?)",
-                     (identity, APP, "{}", value_hash, "owner", status, created, created))
+        self.execute(
+            "INSERT INTO verified_reviews(id,app_id,packet,hash,preparer,status,expires,created) VALUES(?,?,?,?,?,?,?,?)",
+            (identity, APP, "{}", value_hash, "owner", status, created, created),
+        )
 
     def action(self, identity, status, created, value_hash="d" * 64):
-        self.execute("INSERT INTO provider_actions(id,app_id,target_key,packet,hash,preparer,status,expires,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?)",
-                     (identity, APP, "target", "{}", value_hash, "owner", status, created, created, created))
+        self.execute(
+            "INSERT INTO provider_actions(id,app_id,target_key,packet,hash,preparer,status,expires,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?)",
+            (identity, APP, "target", "{}", value_hash, "owner", status, created, created, created),
+        )
 
     def grant(self, identity, status, created, token_hash="e" * 64):
-        self.execute("INSERT INTO agent_grants(id,app_id,agent_id,owner,owner_version,app_version,app_hash,operations,token_hash,expires,max_calls,used,status,version,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                     (identity, APP, "agent", "owner", 1, 1, "a" * 64, "[]", token_hash, created, 20, 0, status, 1, created, created))
+        self.execute(
+            "INSERT INTO agent_grants(id,app_id,agent_id,owner,owner_version,app_version,app_hash,operations,token_hash,expires,max_calls,used,status,version,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                identity,
+                APP,
+                "agent",
+                "owner",
+                1,
+                1,
+                "a" * 64,
+                "[]",
+                token_hash,
+                created,
+                20,
+                0,
+                status,
+                1,
+                created,
+                created,
+            ),
+        )
 
     def source(self, identity, created, value_hash="f" * 64):
-        self.execute("INSERT INTO insight_sources(app_id,id,provider,data,hash,scope_key,credential_ref,version,status,lease,next_due,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                     (APP, "source", "posthog", "{}", "a" * 64, "scope", "credential", 1, "ACTIVE", 0, 0, created, created))
-        self.execute("INSERT INTO insight_reports(app_id,id,source_id,provider,data,hash,created) VALUES(?,?,?,?,?,?,?)",
-                     (APP, identity, "source", "posthog", "{}", value_hash, created))
+        self.execute(
+            "INSERT INTO insight_sources(app_id,id,provider,data,hash,scope_key,credential_ref,version,status,lease,next_due,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (APP, "source", "posthog", "{}", "a" * 64, "scope", "credential", 1, "ACTIVE", 0, 0, created, created),
+        )
+        self.execute(
+            "INSERT INTO insight_reports(app_id,id,source_id,provider,data,hash,created) VALUES(?,?,?,?,?,?,?)",
+            (APP, identity, "source", "posthog", "{}", value_hash, created),
+        )
 
     def events(self, **kwargs):
         return read(self.store, APP, **kwargs)["events"]
@@ -136,7 +188,9 @@ class ActivityTimelineTests(unittest.TestCase):
         self.assertTrue(third["complete"])
         self.assertIsNone(third["next_cursor"])
         paged = first["events"] + second["events"] + third["events"]
-        self.assertEqual([item["id"] for item in paged], [item["id"] for item in read(self.store, APP, limit=200)["events"]])
+        self.assertEqual(
+            [item["id"] for item in paged], [item["id"] for item in read(self.store, APP, limit=200)["events"]]
+        )
         self.assertEqual(len({item["id"] for item in paged}), 25)
         self.assertEqual(read(self.store, APP, limit=10), read(self.store, APP, limit=10))
 
@@ -144,13 +198,17 @@ class ActivityTimelineTests(unittest.TestCase):
         self.job("job-1", "sync", "SUCCEEDED", at(1))
         workspace = Service(self.store).workspace(APP)
         self.assertEqual(workspace["activity_timeline"]["schema"], "growth.activity-timeline.v1")
-        self.assertEqual([item["id"] for item in workspace["activity_timeline"]["events"]],
-                         [item["id"] for item in read(self.store, APP)["events"]])
+        self.assertEqual(
+            [item["id"] for item in workspace["activity_timeline"]["events"]],
+            [item["id"] for item in read(self.store, APP)["events"]],
+        )
 
     def test_agent_catalog_exposes_one_filtered_read(self):
         from mission_control.operation_catalog import request_data, catalog
-        value = request_data({"app_id": APP, "operation": "activity.history",
-                              "input": {"kind": "JOB", "status": "QUEUED", "limit": 10}})
+
+        value = request_data(
+            {"app_id": APP, "operation": "activity.history", "input": {"kind": "JOB", "status": "QUEUED", "limit": 10}}
+        )
         self.assertEqual(value["method"], "GET")
         self.assertEqual(value["path"], "/api/apps/" + APP + "/activity/history?kind=JOB&status=QUEUED&limit=10")
         self.assertIsNone(value["body"])
@@ -160,11 +218,13 @@ class ActivityTimelineTests(unittest.TestCase):
 
     def test_mcp_tool_is_read_only_and_closed(self):
         from mission_control.agent_mcp import tool_definitions
+
         tool = next(item for item in tool_definitions() if item["name"] == "wmm_activity_history")
         self.assertTrue(tool["annotations"]["readOnlyHint"])
         self.assertFalse(tool["annotations"]["destructiveHint"])
-        self.assertEqual(set(tool["inputSchema"]["properties"]["input"]["properties"]),
-                         {"kind", "status", "cursor", "limit"})
+        self.assertEqual(
+            set(tool["inputSchema"]["properties"]["input"]["properties"]), {"kind", "status", "cursor", "limit"}
+        )
 
     def test_unknown_app_is_denied(self):
         with self.assertRaises(KeyError):

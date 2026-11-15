@@ -1,4 +1,5 @@
 """Saved automation simulation, through the real local owner UI."""
+
 import json
 import os
 import unittest
@@ -24,22 +25,25 @@ class AutomationRulesBrowserTests(unittest.TestCase):
                         host.tearDown()
 
     def exercise(self, host, context, expect):
-        context.add_cookies([dict(name=c.name, value=c.value, domain="127.0.0.1", path=c.path or "/")
-                             for c in host.owner.cookies])
+        context.add_cookies(
+            [dict(name=c.name, value=c.value, domain="127.0.0.1", path=c.path or "/") for c in host.owner.cookies]
+        )
         context.add_init_script("localStorage.setItem('growth-app','sample-one')")
         external = []
+
         def local_only(route):
             if route.request.url.startswith(host.origin + "/"):
                 route.continue_()
             else:
                 external.append(route.request.url)
                 route.abort()
+
         context.route("**/*", local_only)
         page = context.new_page()
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(host.origin)
-        page.wait_for_function("() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one'")
+        page.wait_for_function("(context) => {const state=context.state;return (() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one')(context.original);}", arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': None})
         nav = page.locator('[data-view="results"]')
         if not nav.is_visible():
             page.locator("details").filter(has=nav).locator("summary").first.click()

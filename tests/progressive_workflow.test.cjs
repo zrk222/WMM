@@ -1,8 +1,8 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
-const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const fs=require('./helpers/module-source.cjs'),vm=require('node:vm'),path=require('node:path');
 const esc=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const context={esc,status:s=>`<span>${esc(s)}</span>`,button:(title,action)=>`<button data-action="${action}">${esc(title)}</button>`,resolutionButton:()=>'',heading:(a,b,c)=>`<h1>${a}</h1><p>${b}</p>${c}`,notice:s=>`<p>${s}</p>`,label:s=>s};
-vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(__dirname,'../mission_control/static/guided-workflow.js'),'utf8'),context);
+vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(__dirname,'../mission_control/static/guided-workflow.mjs'),'utf8'),context);
 const guide=()=>({next_step:2,local_ready_count:1,next_action:{title:'Review current inputs'},steps:Array.from({length:12},(_,i)=>({id:i+1,title:`Stage ${i+1}`,description:'Purpose of stage',local_status:'NEEDS_INPUT',direct_needs:['Current source'],critical_findings:[],dependency_needs:[],deliverable:'Reviewed stage packet',verify:'Verify actual result',tools:[],primary:{id:'app',title:'Edit setup'},record_ids:[]}))});
 test('recommended stage appears before native disclosure and every other stage remains accessible',()=>{
  const g=guide(),html=context.guidedStageJourney(g),fold=html.indexOf('<details');

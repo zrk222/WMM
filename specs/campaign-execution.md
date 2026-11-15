@@ -13,6 +13,8 @@ Implement a narrowly scoped Facebook Page publishing and Meta advertising adapte
 - When a Page post is published, the system shall save its exact returned ID and read it back through `post_readback`.
 - When an ad is activated, the system shall save each object ID, verify one finite lifetime budget and end time, and retain commitment through `paid_budget`.
 - When scope is revoked or expires after at most 24 hours, the system shall reject new effects and permit protective pause and readback through `protective_stop`.
+- When Meta acknowledged a protective pause but its readback did not complete, a retry shall inspect the exact saved campaign without resending the pause. If Meta still reports a different configured state, leave the result unconfirmed.
+- An interrupted monitor stops automatic mutations and leaves the existing pause allowance and budget hold intact. An owner can verify the acknowledged pause through the exact saved campaign. A configured pause alone does not establish that delivery stopped; only an effective PAUSED readback verifies cessation.
 - The system shall reject credentials from persistent intent and public results through `secret_boundary`.
 
 ### Acceptance criteria (Gherkin)

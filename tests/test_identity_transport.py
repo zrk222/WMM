@@ -1,4 +1,5 @@
 """Offline transport boundaries for fixed GitHub identity reads."""
+
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import base64
@@ -162,9 +163,7 @@ class IdentityTransportTests(unittest.TestCase):
             thread.start()
             try:
                 url = f"https://127.0.0.1:{server.server_port}/user"
-                contexts = (
-                    operator_identity._identity_trust_context(),
-                )
+                contexts = (operator_identity._identity_trust_context(),)
                 for context in contexts:
                     with self.subTest(context=context):
                         self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
@@ -188,9 +187,11 @@ class IdentityTransportTests(unittest.TestCase):
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         native = SimpleNamespace(SSLContext=Mock(return_value=context), inject_into_ssl=Mock())
         original_context_class = ssl.SSLContext
-        with patch.object(operator_identity.sys, "platform", "win32"), \
-                patch.dict(sys.modules, {"truststore": native}), \
-                patch.object(operator_identity.ssl, "create_default_context") as default:
+        with (
+            patch.object(operator_identity.sys, "platform", "win32"),
+            patch.dict(sys.modules, {"truststore": native}),
+            patch.object(operator_identity.ssl, "create_default_context") as default,
+        ):
             actual = operator_identity._identity_trust_context()
         native.SSLContext.assert_called_once_with(ssl.PROTOCOL_TLS_CLIENT)
         native.inject_into_ssl.assert_not_called()
@@ -203,9 +204,11 @@ class IdentityTransportTests(unittest.TestCase):
 
     def test_non_windows_uses_stdlib_without_native_dependency(self):
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        with patch.object(operator_identity.sys, "platform", "linux"), \
-                patch.dict(sys.modules, {"truststore": None}), \
-                patch.object(operator_identity.ssl, "create_default_context", return_value=context) as default:
+        with (
+            patch.object(operator_identity.sys, "platform", "linux"),
+            patch.dict(sys.modules, {"truststore": None}),
+            patch.object(operator_identity.ssl, "create_default_context", return_value=context) as default,
+        ):
             actual = operator_identity._identity_trust_context()
         default.assert_called_once_with()
         self.assertIs(actual, context)
@@ -214,10 +217,12 @@ class IdentityTransportTests(unittest.TestCase):
         self.assertEqual(actual.minimum_version, ssl.TLSVersion.TLSv1_2)
 
     def test_missing_windows_native_dependency_fails_before_transport(self):
-        with patch.object(operator_identity.sys, "platform", "win32"), \
-                patch.dict(sys.modules, {"truststore": None}), \
-                patch.object(operator_identity.ssl, "create_default_context") as default, \
-                patch.object(operator_identity, "build_opener") as builder:
+        with (
+            patch.object(operator_identity.sys, "platform", "win32"),
+            patch.dict(sys.modules, {"truststore": None}),
+            patch.object(operator_identity.ssl, "create_default_context") as default,
+            patch.object(operator_identity, "build_opener") as builder,
+        ):
             with self.assertRaisesRegex(Invalid, "requires the bundled native trust provider"):
                 operator_identity.github_read("/user", SYNTHETIC_TOKEN)
         default.assert_not_called()
@@ -238,8 +243,10 @@ class IdentityTransportTests(unittest.TestCase):
         for failure in failures:
             with self.subTest(failure=type(failure).__name__):
                 opener = FakeOpener(failure)
-                with patch.object(operator_identity, "build_opener", return_value=opener) as builder, \
-                        patch.object(operator_identity.ssl, "create_default_context") as fallback:
+                with (
+                    patch.object(operator_identity, "build_opener", return_value=opener) as builder,
+                    patch.object(operator_identity.ssl, "create_default_context") as fallback,
+                ):
                     with self.assertRaises(Invalid) as caught:
                         operator_identity.github_read("/user", SYNTHETIC_TOKEN)
                 self.assertEqual(builder.call_count, 1)

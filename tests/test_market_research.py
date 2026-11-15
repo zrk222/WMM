@@ -1,4 +1,5 @@
 """Offline contracts and immutable GrowthReviews lifecycle for market research."""
+
 import copy
 import hashlib
 import tempfile
@@ -20,35 +21,78 @@ STAMP = "2026-10-23T12:00:00+00:00"
 
 def fixture():
     excerpt = "Find nearby hiking trails and plan a trip"
-    return {"id": "market-1", "manifest_version": 1, "kind": "MARKET_RESEARCH", "data": {
-        "release": "build-1", "snapshot": {
-            "platform": "iOS", "locale": "en-US", "territory": "US", "observed_at": STAMP,
-            "own_listing": {"excerpt": "plan hiking trail trips", "source_id": "src-1"},
-            "sources": [{"id": "src-1", "url": "https://example.com/report", "sha256": hashlib.sha256(excerpt.encode()).hexdigest(),
-                "retrieved_at": STAMP, "coverage": "COMPLETE", "excerpt": excerpt}],
-            "phrases": [{"id": "phrase-1", "phrase": "hiking trails", "source_ids": ["src-1"],
-                "observed": {"demand_signal": "Source lists phrase", "competitor_position": None},
-                "inferred": {"intent": "trip planning", "relevance": 0.8},
-                "metrics": {"search_volume": None, "rank": None, "difficulty": None}}],
-            "competitors": [{"id": "comp-1", "name": "TrailCo", "listing_excerpt": "Find nearby hiking trails", "source_id": "src-1"}],
-        }}}
+    return {
+        "id": "market-1",
+        "manifest_version": 1,
+        "kind": "MARKET_RESEARCH",
+        "data": {
+            "release": "build-1",
+            "snapshot": {
+                "platform": "iOS",
+                "locale": "en-US",
+                "territory": "US",
+                "observed_at": STAMP,
+                "own_listing": {"excerpt": "plan hiking trail trips", "source_id": "src-1"},
+                "sources": [
+                    {
+                        "id": "src-1",
+                        "url": "https://example.com/report",
+                        "sha256": hashlib.sha256(excerpt.encode()).hexdigest(),
+                        "retrieved_at": STAMP,
+                        "coverage": "COMPLETE",
+                        "excerpt": excerpt,
+                    }
+                ],
+                "phrases": [
+                    {
+                        "id": "phrase-1",
+                        "phrase": "hiking trails",
+                        "source_ids": ["src-1"],
+                        "observed": {"demand_signal": "Source lists phrase", "competitor_position": None},
+                        "inferred": {"intent": "trip planning", "relevance": 0.8},
+                        "metrics": {"search_volume": None, "rank": None, "difficulty": None},
+                    }
+                ],
+                "competitors": [
+                    {
+                        "id": "comp-1",
+                        "name": "TrailCo",
+                        "listing_excerpt": "Find nearby hiking trails",
+                        "source_id": "src-1",
+                    }
+                ],
+            },
+        },
+    }
 
 
 def intent_fixture():
     body = fixture()
     snapshot = body["data"]["snapshot"]
-    for name, excerpt in (("gap", "Trail reviews ask for route planning without a signal."),
-                          ("proof", "Build 1 can save a route and reopen it offline.")):
-        snapshot["sources"].append(dict(snapshot["sources"][0], id=name, excerpt=excerpt,
-                                        sha256=hashlib.sha256(excerpt.encode()).hexdigest()))
+    for name, excerpt in (
+        ("gap", "Trail reviews ask for route planning without a signal."),
+        ("proof", "Build 1 can save a route and reopen it offline."),
+    ):
+        snapshot["sources"].append(
+            dict(snapshot["sources"][0], id=name, excerpt=excerpt, sha256=hashlib.sha256(excerpt.encode()).hexdigest())
+        )
     base = snapshot["phrases"][0]
     for name, phrase in (("offline", "offline trail planner"), ("family", "family trail maps")):
         snapshot["phrases"].append(dict(base, id=name, phrase=phrase))
+
     def cluster(name, pid, demand, gap, proof, test):
-        return dict(id=name, intent=name + " trip planning", phrase_ids=[pid],
-                    evidence=dict(demand=demand, competitive_gap=gap, app_proof=proof), test=test)
-    test = dict(change="Show an offline route on the first screenshot",
-                hypothesis="Visitors looking for offline routes will install more often.")
+        return dict(
+            id=name,
+            intent=name + " trip planning",
+            phrase_ids=[pid],
+            evidence=dict(demand=demand, competitive_gap=gap, app_proof=proof),
+            test=test,
+        )
+
+    test = dict(
+        change="Show an offline route on the first screenshot",
+        hypothesis="Visitors looking for offline routes will install more often.",
+    )
     snapshot["intent_clusters"] = [
         cluster("family", "family", [], [], [], None),
         cluster("generic", base["id"], ["src-1"], ["src-1"], ["src-1"], test),
@@ -61,7 +105,9 @@ class MarketResearchTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.store = Store(Path(self.tmp.name) / "market.sqlite", seed=False)
-        self.store.save_app("sample-one", dict(name="App", release="build-1", locale="en-US", currency="USD", store_app_id="123"))
+        self.store.save_app(
+            "sample-one", dict(name="App", release="build-1", locale="en-US", currency="USD", store_app_id="123")
+        )
         self.stamp = datetime.fromisoformat(STAMP)
         self.work = GrowthReviews(self.store, lambda: self.stamp)
 
@@ -90,7 +136,11 @@ class MarketResearchTests(unittest.TestCase):
         changed["data"]["snapshot"]["phrases"][0]["phrase"] = "camping"
         with self.assertRaises(Invalid):
             self.work.save("sample-one", changed)
-        self.store.save_app("sample-one", dict(name="App", release="build-2", locale="en-US", currency="USD", store_app_id="123"), version=1)
+        self.store.save_app(
+            "sample-one",
+            dict(name="App", release="build-2", locale="en-US", currency="USD", store_app_id="123"),
+            version=1,
+        )
         listed = self.work.list("sample-one")["history"][0]
         self.assertEqual(listed["readout"]["availability"], "STALE_APP_SCOPE")
         with connection(self.store.path) as db:
@@ -119,61 +169,76 @@ class MarketResearchTests(unittest.TestCase):
             lambda b: b["data"]["snapshot"].update(token="secret"),
             lambda b: b["data"]["snapshot"]["phrases"][0]["inferred"].update(relevance=float("nan")),
         ):
-            body = fixture(); fn(body); mutations.append(body)
+            body = fixture()
+            fn(body)
+            mutations.append(body)
         for body in mutations:
             with self.subTest(body=body):
-                with self.assertRaises(Invalid): self.work.save("sample-one", body)
+                with self.assertRaises(Invalid):
+                    self.work.save("sample-one", body)
 
     def test_operator_metrics_require_source_and_remain_unverified(self):
-        body = fixture(); phrase = body["data"]["snapshot"]["phrases"][0]
+        body = fixture()
+        phrase = body["data"]["snapshot"]["phrases"][0]
         phrase["metrics"]["search_volume"] = {"value": 1200, "source_id": "src-1"}
         row = self.work.save("sample-one", body)
-        metric = self.work.list("sample-one")["history"][0]["readout"]["analysis"]["candidates"][0]["metrics"]["search_volume"]
+        metric = self.work.list("sample-one")["history"][0]["readout"]["analysis"]["candidates"][0]["metrics"][
+            "search_volume"
+        ]
         self.assertEqual(metric["provenance"], "OPERATOR_ASSERTION")
         self.assertFalse(metric["provider_verified"])
         phrase["metrics"]["rank"] = {"value": 2, "source_id": "missing"}
-        with self.assertRaises(Invalid): self.work.save("sample-one", dict(body, id="market-2"))
+        with self.assertRaises(Invalid):
+            self.work.save("sample-one", dict(body, id="market-2"))
 
     def test_no_result_partial_and_stale_states_have_next_actions(self):
         body = fixture()["data"]["snapshot"]
-        body["sources"][0]["coverage"] = "NO_RESULTS"; body["phrases"] = []
+        body["sources"][0]["coverage"] = "NO_RESULTS"
+        body["phrases"] = []
         no_result = validate_snapshot(body, {"locale": "en-US"}, STAMP)
         self.assertEqual(analyze_snapshot(no_result, STAMP)["state"], "NO_RESULTS")
-        body = fixture()["data"]["snapshot"]; body["sources"][0]["coverage"] = "PARTIAL"
+        body = fixture()["data"]["snapshot"]
+        body["sources"][0]["coverage"] = "PARTIAL"
         partial = validate_snapshot(body, {"locale": "en-US"}, STAMP)
         self.assertEqual(analyze_snapshot(partial, STAMP)["state"], "PARTIAL")
         body = fixture()["data"]["snapshot"]
         old = (self.stamp - timedelta(days=91)).isoformat()
-        body["sources"][0]["retrieved_at"] = old; body["observed_at"] = STAMP
+        body["sources"][0]["retrieved_at"] = old
+        body["observed_at"] = STAMP
         stale = validate_snapshot(body, {"locale": "en-US"}, STAMP)
         self.assertEqual(analyze_snapshot(stale, STAMP)["state"], "STALE")
 
     def test_imported_stale_scope_and_assertion_provenance_are_both_visible(self):
-        row=self.work.save("sample-one",fixture())
-        row=dict(row,imported=1)
-        changed=dict(row['context'],manifest_version=2,app_hash='0'*64)
-        value=entry_readout(row,changed,STAMP)
-        self.assertEqual(value['scope_status'],'STALE_APP_SCOPE')
-        self.assertEqual(value['import_provenance'],'IMPORTED_ASSERTION')
-        self.assertFalse(value['provider_verified'])
+        row = self.work.save("sample-one", fixture())
+        row = dict(row, imported=1)
+        changed = dict(row["context"], manifest_version=2, app_hash="0" * 64)
+        value = entry_readout(row, changed, STAMP)
+        self.assertEqual(value["scope_status"], "STALE_APP_SCOPE")
+        self.assertEqual(value["import_provenance"], "IMPORTED_ASSERTION")
+        self.assertFalse(value["provider_verified"])
 
     def test_mixed_source_coverage_is_partial_and_empty_source_packet_is_invalid(self):
-        value=fixture()['data']['snapshot']
-        value['sources'].append(dict(value['sources'][0],id='no-result-source',coverage='NO_RESULTS'))
-        normalized=validate_snapshot(value,{'locale':'en-US'},STAMP)
-        self.assertEqual(analyze_snapshot(normalized,STAMP)['state'],'PARTIAL')
-        value['sources'][0]['coverage']='PARTIAL'
-        self.assertEqual(analyze_snapshot(validate_snapshot(value,{'locale':'en-US'},STAMP),STAMP)['state'],'PARTIAL')
-        value['sources']=[]
-        with self.assertRaises(Invalid):validate_snapshot(value,{'locale':'en-US'},STAMP)
+        value = fixture()["data"]["snapshot"]
+        value["sources"].append(dict(value["sources"][0], id="no-result-source", coverage="NO_RESULTS"))
+        normalized = validate_snapshot(value, {"locale": "en-US"}, STAMP)
+        self.assertEqual(analyze_snapshot(normalized, STAMP)["state"], "PARTIAL")
+        value["sources"][0]["coverage"] = "PARTIAL"
+        self.assertEqual(
+            analyze_snapshot(validate_snapshot(value, {"locale": "en-US"}, STAMP), STAMP)["state"], "PARTIAL"
+        )
+        value["sources"] = []
+        with self.assertRaises(Invalid):
+            validate_snapshot(value, {"locale": "en-US"}, STAMP)
 
     def test_intent_readout_prioritizes_reviewable_test_and_keeps_unknowns(self):
         body = intent_fixture()
         row = self.work.save("sample-one", body)
         read = lambda: self.work.list("sample-one")["history"][0]["readout"]["analysis"]
         results = read()["intent_opportunities"]
-        self.assertEqual([(r["id"], r["status"]) for r in results], [
-            ("offline", "REVIEW_TEST"), ("generic", "COLLECT_EVIDENCE"), ("family", "COLLECT_EVIDENCE")])
+        self.assertEqual(
+            [(r["id"], r["status"]) for r in results],
+            [("offline", "REVIEW_TEST"), ("generic", "COLLECT_EVIDENCE"), ("family", "COLLECT_EVIDENCE")],
+        )
         self.assertEqual(results[0]["phrases"], ["offline trail planner"])
         self.assertEqual(results[0]["evidence"]["app_proof"], ["proof"])
         self.assertFalse(results[0]["organic_demand_verified"])

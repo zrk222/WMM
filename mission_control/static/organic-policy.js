@@ -1,86 +1,791 @@
 /* Existing organic policy controls; only a fresh owner can approve or revoke. */
-(function(root,factory){const value=factory(root.WMMDiscoveryModel||(typeof require==='function'?require('./discovery-model.js'):null));if(typeof module==='object'&&module.exports)module.exports=value;else root.WMMOrganicPolicy=value;})(globalThis,function(m){
+(function (root, factory) {
+  const value = factory(
+    root.WMMDiscoveryModel ||
+      (typeof require === 'function' ? require('./discovery-model.js') : null),
+  );
+  if (typeof module === 'object' && module.exports) module.exports = value;
+  else root.WMMOrganicPolicy = value;
+})(globalThis, function (m) {
   'use strict';
-  const POLICY_UI_REQUEST_TIMEOUT_MS=30000,POLICY_UI_PENDING_LIMIT=25,POLICY_UI_MAX_TEMPLATES=20;
-  let active=null;
-  const pending=new Map();
-  const member=s=>s.workspace?.access?.members?.find(row=>row.principal===s.workspace?.identity?.principal);
-  const owner=s=>s.workspace?.app?.id===s.app&&s.workspace?.identity?.status==='AUTHENTICATED'&&
-    s.workspace.identity.expires_at_epoch>Date.now()/1000&&member(s)?.role==='OWNER'&&member(s)?.status==='ACTIVE';
-  const scope=s=>({app:s.app,version:s.workspace?.app?.version,principal:s.workspace?.identity?.principal,role:member(s)?.role,roleVersion:member(s)?.version,roleStatus:member(s)?.status,session:s.boot?.csrf});
-  const current=t=>active===t&&t.node.open&&owner(t.d.state)&&m.equal(t.scope,scope(t.d.state));
-  const human=v=>String(v??'Unknown').replaceAll('_',' ').toLowerCase();
-  const button=(title,action,id='',primary=false)=>`<button type="button" class="button ${primary?'':'outline'}" data-action="opolicy-${action}" data-id="${m.esc(id)}">${m.esc(title)}</button>`;
-  const expiryUI=()=>globalThis.WMMAuthorityExpiry||(typeof require==='function'?require('./authority-expiry.js'):null);
-  const field=(name,title,value='',type='text',extra='')=>`<label class="field" for="opolicy-${name}">${m.esc(title)}<input id="opolicy-${name}" name="${name}" type="${type}" value="${m.esc(value)}" ${extra}></label>`;
-  const check=(name,title,value,selected=false)=>`<label class="check-row"><input type="checkbox" name="${m.esc(name)}" value="${m.esc(value)}" ${selected?'checked':''}> ${m.esc(title)}</label>`;
-  function clear(){active=null;}
-  function invalidate(state){if(active&&!m.equal(active.scope,scope(state))){const node=active.node;clear();node.close();node.querySelector('#modal-body').replaceChildren();}}
-  function panel(){return `<section class="panel" aria-label="Organic video production approval"><p class="eyebrow">YOUR CONTENT. YOUR LIMITS.</p><h2>Set the boundaries for original app videos</h2><p>Choose the clips, proven claims, captions and Page your agent may use. Review a finite local-production policy, inspect held capacity and revoke it when needed.</p>${button('Review video production approvals','open','',true)}<p>This policy uses local Hypit composition with zero model-service spending. Creating it does not render, schedule or publish a video.</p></section>`;}
-  function show(d,title,kind,html,data=null,captured=null){
-    const capturedScope=captured||scope(d.state);
-    d.modal(title,`<div class="modal-content organic-policy-workspace" tabindex="-1">${html}<p id="opolicy-progress" role="status" aria-live="polite"></p><p id="opolicy-error" class="field-error" role="alert"></p><div id="opolicy-recovery"></div></div>`,'VIDEO PRODUCTION APPROVAL');
-    active={d,node:d.document.querySelector('#modal'),scope:capturedScope,kind,data,busy:false};
-    active.node.querySelector('.organic-policy-workspace').focus({preventScroll:true});return active;
+  const POLICY_UI_REQUEST_TIMEOUT_MS = 30000,
+    POLICY_UI_PENDING_LIMIT = 25,
+    POLICY_UI_MAX_TEMPLATES = 20;
+  let active = null;
+  const pending = new Map();
+  const member = (s) =>
+    s.workspace?.access?.members?.find((row) => row.principal === s.workspace?.identity?.principal);
+  const owner = (s) =>
+    s.workspace?.app?.id === s.app &&
+    s.workspace?.identity?.status === 'AUTHENTICATED' &&
+    s.workspace.identity.expires_at_epoch > Date.now() / 1000 &&
+    member(s)?.role === 'OWNER' &&
+    member(s)?.status === 'ACTIVE';
+  const scope = (s) => ({
+    app: s.app,
+    version: s.workspace?.app?.version,
+    principal: s.workspace?.identity?.principal,
+    role: member(s)?.role,
+    roleVersion: member(s)?.version,
+    roleStatus: member(s)?.status,
+    session: s.boot?.csrf,
+  });
+  const current = (t) =>
+    active === t && t.node.open && owner(t.d.state) && m.equal(t.scope, scope(t.d.state));
+  const human = (v) =>
+    String(v ?? 'Unknown')
+      .replaceAll('_', ' ')
+      .toLowerCase();
+  const button = (title, action, id = '', primary = false) =>
+    `<button type="button" class="button ${primary ? '' : 'outline'}" data-action="opolicy-${action}" data-id="${m.esc(id)}">${m.esc(title)}</button>`;
+  const expiryUI = () =>
+    globalThis.WMMAuthorityExpiry ||
+    (typeof require === 'function' ? require('./authority-expiry.js') : null);
+  const field = (name, title, value = '', type = 'text', extra = '') =>
+    `<label class="field" for="opolicy-${name}">${m.esc(title)}<input id="opolicy-${name}" name="${name}" type="${type}" value="${m.esc(value)}" ${extra}></label>`;
+  const check = (name, title, value, selected = false) =>
+    `<label class="check-row"><input type="checkbox" name="${m.esc(name)}" value="${m.esc(value)}" ${selected ? 'checked' : ''}> ${m.esc(title)}</label>`;
+  function clear() {
+    active = null;
   }
-  function busy(t,value,message=''){t.busy=value;if(!current(t))return;t.node.querySelector('.organic-policy-workspace').setAttribute('aria-busy',String(value));if(message)t.node.querySelector('#opolicy-progress').textContent=message;t.node.querySelectorAll('button,input,textarea,select').forEach(n=>n.disabled=value);}
-  function fail(t,e){if(current(t))t.node.querySelector('#opolicy-error').textContent=e.message+' Saved policy history is preserved.';}
-  function validation(node,d,invalid=false){const t=active;if(!t||!current(t)||!node.closest('#opolicy-form'))return;if(invalid){node.setAttribute('aria-invalid','true');t.node.querySelector('#opolicy-error').textContent=(node.labels?.[0]?.textContent.trim()||'Policy field')+': '+node.validationMessage;}else if(node.validity?.valid){node.removeAttribute('aria-invalid');if(!t.node.querySelector('[aria-invalid="true"]'))t.node.querySelector('#opolicy-error').textContent='';}}
-  async function request(t,action,body){
-    if(!['policy-context','policy-history','policy-create','policy-read','policy-revoke'].includes(action))throw new Error('Unsupported production policy action.');
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),POLICY_UI_REQUEST_TIMEOUT_MS);let response,value;
-    try{response=await (t.d.fetch||t.d.browser.fetch.bind(t.d.browser))('/api/apps/'+encodeURIComponent(t.scope.app)+'/organic-video/'+action,{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-CSRF-Token':t.d.state.boot.csrf},body:JSON.stringify(body),signal:controller.signal});value=await response.json();}
-    catch(cause){const e=new Error('The local policy response was not received. Inspect its saved identity before sending again.');e.uncertain=true;throw e;}finally{clearTimeout(timer);}
-    if(!response.ok){const e=new Error(value.error||'Policy request rejected.');e.uncertain=response.status>=500;throw e;}return value;
+  function invalidate(state) {
+    if (active && !m.equal(active.scope, scope(state))) {
+      const node = active.node;
+      clear();
+      node.close();
+      node.querySelector('#modal-body').replaceChildren();
+    }
   }
-  async function expiryRequest(t,action,body){const response=await (t.d.fetch||t.d.browser.fetch.bind(t.d.browser))('/api/apps/'+encodeURIComponent(t.scope.app)+'/authority-expiry/'+action,{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-CSRF-Token':t.d.state.boot.csrf},body:JSON.stringify(body)});const value=await response.json();if(!response.ok)throw new Error(value.error||'Expiry request rejected.');return value;}
-  async function hash(value,browser){return Array.from(new Uint8Array(await browser.crypto.subtle.digest('SHA-256',new TextEncoder().encode(m.stable(value)))),b=>b.toString(16).padStart(2,'0')).join('');}
-  const canInspect=(row,t)=>row.scope.app===t.scope.app&&row.scope.principal===t.scope.principal;
-  const retained=t=>[...pending.values()].filter(row=>canInspect(row,t));
-  function recovery(t){if(current(t))t.node.querySelector('#opolicy-recovery').innerHTML=retained(t).map(row=>`<section class="notice"><p>Outcome not verified. Keep this exact ${row.action==='policy-create'?'approval':'revocation'} request.</p>${button('Inspect saved outcome','inspect',row.key)}${row.inspected&&m.equal(row.scope,t.scope)?button('Retry this identical request','retry',row.key):''}</section>`).join('');}
-  async function open(d,offset=0){
-    if(!owner(d.state))throw new Error('Sign in as this app owner to review production policy authority.');
-    const t=show(d,'Your video production approvals','history','<p>Reading saved production approvals.</p>');busy(t,true,'Reading policy history');
-    try{const page=await request(t,'policy-history',{offset,request_id:null});if(!current(t))return;
-      const rows=page.items.map(row=>`<section class="next-step"><h3>${m.esc(human(row.snapshot.policy.mode))} · Page ${m.esc(row.snapshot.policy.page_id)}</h3><p>Saved ${m.esc(row.created)}. ${row.revoked?'Revoked.':row.expired?'Expired.':'Saved approval; revalidate before relying on it.'} ${row.app_current?'':'App context changed.'}</p><p>${row.usage.generations_held} held generation slots · ${row.usage.artifact_slots_admitted} admitted artifacts · ${row.usage.provider_calls_reserved} reserved provider calls. These are not delivered-post counts.</p>${button('Inspect exact approval','read',row.id)}</section>`).join('');
-      const t2=show(d,'Your video production approvals','history',`<p>Keep local video production inside the sources, claims and limits you chose. Saved history includes revoked and expired approvals.</p>${button('Create a production approval','new','',true)}<h3>Saved policies</h3>${rows||'<p>No production policy is saved for this app and owner. Choose rights-reviewed clips and proven claims before approving a local video workflow.</p>'}<div class="button-row">${offset?button('First approvals','page','0'):''}${page.next_offset!==null?button('More approvals','page',String(page.next_offset)):''}</div>`,page,t.scope);recovery(t2);
-    }catch(e){fail(t,e);}finally{busy(t,false);}
+  function panel() {
+    return `<section class="panel" aria-label="Organic video production approval"><p class="eyebrow">YOUR CONTENT. YOUR LIMITS.</p><h2>Set the boundaries for original app videos</h2><p>Choose the clips, proven claims, captions and Page your agent may use. Review a finite local-production policy, inspect held capacity and revoke it when needed.</p>${button('Review video production approvals', 'open', '', true)}<p>This policy uses local Hypit composition with zero model-service spending. Creating it does not render, schedule or publish a video.</p></section>`;
   }
-  function draft(context,d){const expires=new Date(Date.now()+30*60000);return {request_id:d.uuid(),sources:[],claims:[],outputs:[],page:'',mode:'EXACT',auto_taste:false,taste_agent:'',taste_rules:'',expiry:new Date(expires.getTime()-expires.getTimezoneOffset()*60000).toISOString().slice(0,16),currency:d.state.workspace.app.data.currency||'USD',max_generations:1,max_posts:1,max_calls:20,owner_version:context.review.owner_version,templates:[{id:d.uuid(),caption:'',claim_ids:[]}]};}
-  function formHTML(context,value){
-    return `<p>Select only the clips and claims this app is allowed to use. This approval permits the exact local composition rules below; it does not start work.</p><form id="opolicy-form"><fieldset><legend>Destination and output rules</legend><label class="field" for="opolicy-page">Approved Facebook Page<select id="opolicy-page" name="page" required><option value="">Choose a tested Page</option>${context.pages.map(p=>`<option value="${m.esc(p.connection_id)}" ${value.page===p.connection_id?'selected':''}>${m.esc(p.label||p.page_id)}</option>`).join('')}</select></label><label class="field" for="opolicy-mode">Output approval<select id="opolicy-mode" name="mode"><option value="EXACT" ${value.mode==='EXACT'?'selected':''}>Only selected existing output bytes</option><option value="STANDING_GENERATED" ${value.mode==='STANDING_GENERATED'?'selected':''}>Allow new locally generated outputs within this policy</option></select></label><p>Exact mode requires selected output hashes. Standing-generated mode permits new outputs only after existing policy reservation and admission checks.</p><fieldset><legend>Existing local output hashes — exact mode only</legend>${context.approved_outputs.map(o=>check('outputs',(o.label||'Saved output')+' · '+o.sha256,o.sha256,value.outputs.includes(o.sha256))).join('')||'<p>No completed Hypit render is recorded. Render an approved brief first, or explicitly choose standing-generated approval.</p>'}</fieldset></fieldset><fieldset><legend>Agent taste review — optional</legend>${check('auto_taste','Auto-approve output after my selected taste agent passes it','yes',value.auto_taste)}<label class="field" for="opolicy-taste-agent">Selected reviewer<select id="opolicy-taste-agent" name="taste_agent"><option value="">Choose an active scoped agent</option>${(context.taste_reviewers||[]).map(a=>`<option value="${m.esc(a.id)}" ${value.taste_agent===a.id?'selected':''}>${m.esc(a.agent_id)}</option>`).join('')}</select></label><label class="field" for="opolicy-taste-rules">My acceptance rules<textarea id="opolicy-taste-rules" name="taste_rules" maxlength="4000">${m.esc(value.taste_rules||'')}</textarea></label><p>Standing-generated mode only. The selected agent must attest actual output timestamps for opening, captions, framing, timing, audio, claims, CTA and source identity. Missing evidence holds approval. Agent judgment does not certify every frame or grant source reuse rights. No paid calls or spending are added.</p></fieldset><fieldset><legend>Rights-reviewed source clips</legend>${context.eligible.sources.map(s=>check('sources',(s.title||s.id)+' · review '+s.review_version,s.id,value.sources.includes(s.id))).join('')||'<p>No eligible source clip. Open the video library and complete its reuse-rights review.</p>'}</fieldset><fieldset><legend>Proven app claims</legend>${context.eligible.claims.map(c=>check('claims',c.claim||c.title||c.id,c.id,value.claims.includes(c.id))).join('')||'<p>No current proven claim. Add claim evidence and resolve its verification before returning.</p>'}</fieldset><fieldset><legend>Literal captions and claim bindings</legend>${value.templates.map((row,i)=>`<section class="next-step"><label class="field" for="opolicy-caption-${m.esc(row.id)}">Caption ${i+1}<textarea id="opolicy-caption-${m.esc(row.id)}" name="caption-${m.esc(row.id)}" maxlength="5000" required>${m.esc(row.caption)}</textarea></label><fieldset><legend>Claims used by caption ${i+1}</legend>${context.eligible.claims.map(c=>check('template-'+row.id,c.claim||c.title||c.id,c.id,row.claim_ids.includes(c.id))).join('')}</fieldset>${value.templates.length>1?button('Remove this caption','remove-template',row.id):''}</section>`).join('')}${button('Add another literal caption','add-template')}</fieldset><fieldset><legend>Finite limits</legend><div class="form-grid">${field('expiry','Approval expires — device local time',value.expiry,'datetime-local','required')}${field('currency','Model-service currency',value.currency,'text','required pattern="[A-Z]{3}" maxlength="3"')}${field('max_generations','Held generation ceiling',value.max_generations,'number','required min="1" max="500"')}${field('max_posts','Admitted output ceiling',value.max_posts,'number','required min="1" max="20"')}${field('max_calls','Reserved provider-call ceiling',value.max_calls,'number','required min="1" max="500"')}</div><p>Local Hypit only · declarative composition only · model-service budget 0 minor units. Expiry must be in the next 24 hours. Held attempts are not automatically released on failure.</p></fieldset><p>${context.missing.map(row=>m.esc(row.next_action)).join(' ')}</p><button type="submit" class="button">Review exact production approval</button></form>${button('Back to approval history','open')}`;
+  function show(d, title, kind, html, data = null, captured = null) {
+    const capturedScope = captured || scope(d.state);
+    d.modal(
+      title,
+      `<div class="modal-content organic-policy-workspace" tabindex="-1">${html}<p id="opolicy-progress" role="status" aria-live="polite"></p><p id="opolicy-error" class="field-error" role="alert"></p><div id="opolicy-recovery"></div></div>`,
+      'VIDEO PRODUCTION APPROVAL',
+    );
+    active = {
+      d,
+      node: d.document.querySelector('#modal'),
+      scope: capturedScope,
+      kind,
+      data,
+      busy: false,
+    };
+    active.node.querySelector('.organic-policy-workspace').focus({ preventScroll: true });
+    return active;
   }
-  function readDraft(fd,value){return {...value,page:fd.get('page'),mode:fd.get('mode'),auto_taste:fd.get('auto_taste')==='yes',taste_agent:fd.get('taste_agent'),taste_rules:fd.get('taste_rules'),sources:fd.getAll('sources'),claims:fd.getAll('claims'),outputs:fd.getAll('outputs'),expiry:fd.get('expiry'),extended_expiry_consent:fd.get('extended_expiry_consent')==='on',currency:fd.get('currency'),max_generations:fd.get('max_generations'),max_posts:fd.get('max_posts'),max_calls:fd.get('max_calls'),templates:value.templates.map(row=>({...row,caption:fd.get('caption-'+row.id),claim_ids:fd.getAll('template-'+row.id)}))};}
-  function policyBody(context,value,at=Date.now()){
-    const page=context.pages.find(row=>row.connection_id===value.page);if(!page)throw new Error('Select a current tested Page.');
-    const choose=(ids,rows,label)=>{if(!ids.length||ids.length>20||new Set(ids).size!==ids.length)throw new Error('Select one through twenty distinct '+label+'.');return ids.map(id=>{const row=rows.find(x=>x.id===id);if(!row)throw new Error('Selected '+label+' changed. Reload production setup.');return row;});};
-    const sources=choose(value.sources,context.eligible.sources,'sources').map(s=>({id:s.id,sha256:s.sha256,review_version:s.review_version}));
-    const claims=choose(value.claims,context.eligible.claims,'claims').map(c=>({id:c.id,sha256:c.sha256}));
-    if(!['EXACT','STANDING_GENERATED'].includes(value.mode))throw new Error('Choose an explicit output approval mode.');
-    if(value.mode==='EXACT'&&(!value.outputs.length||value.outputs.some(h=>!context.approved_outputs.some(o=>o.sha256===h))))throw new Error('Exact mode needs selected current local output hashes.');
-    if(value.mode==='STANDING_GENERATED'&&value.outputs.length)throw new Error('Clear exact output selections before approving new local generations.');
-    if(!Array.isArray(value.templates)||!value.templates.length||value.templates.length>POLICY_UI_MAX_TEMPLATES)throw new Error('Use one through twenty caption templates.');
-    const templates=value.templates.map(row=>{const caption=m.text(row.caption,'Exact caption',5000);if(/[\x00-\x09\x0b-\x1f\x7f{}]/.test(caption))throw new Error('Use literal captions without placeholders or control characters.');if(!row.claim_ids.length||new Set(row.claim_ids).size!==row.claim_ids.length||row.claim_ids.some(id=>!value.claims.includes(id)))throw new Error('Each caption must use selected proven claims.');return {id:row.id,caption,claim_ids:row.claim_ids};});
-    const expires=Date.parse(value.expiry);if(!Number.isFinite(expires)||expires<=at)throw new Error('Choose a finite expiry in the future.');const extended=expires>at+24*3600000;if(extended&&value.extended_expiry_consent!==true)throw new Error('Explicit consent is required for an expiry more than 24 hours away.');
-    if(!/^[A-Z]{3}$/.test(value.currency))throw new Error('Use an explicit three-letter currency.');
-    let taste={};if(value.auto_taste){if(value.mode!=='STANDING_GENERATED')throw new Error('Agent taste approval requires standing-generated mode.');if(!(context.taste_reviewers||[]).some(a=>a.id===value.taste_agent))throw new Error('Choose a current scoped taste reviewer.');taste={taste_auto_review:{reviewer_grant_id:value.taste_agent,guidance_sha256:context.taste_guidance_sha256,rules:m.text(value.taste_rules,'Owner acceptance rules',4000)}};}
-    return {request_id:value.request_id,manifest_version:context.app.version,app_hash:context.app.hash,owner_version:value.owner_version,session_binding:context.review.session_binding,page_binding:page.binding,policy:{...taste,...(extended?{extended_expiry_consent:true}:{}),connection_id:page.connection_id,page_id:page.page_id,mode:value.mode,expires_at:new Date(expires).toISOString(),sources,claims,templates,transformations:['DECLARATIVE_COMPOSITION'],generation_providers:['HYPIT_LOCAL'],currency:value.currency,max_model_minor:0,max_generations:m.integer(value.max_generations,'Generation ceiling',1,500),max_posts:m.integer(value.max_posts,'Admitted output ceiling',1,20),max_calls:m.integer(value.max_calls,'Call ceiling',1,500),approved_output_hashes:value.mode==='EXACT'?[...new Set(value.outputs)].sort():[]}};
+  function busy(t, value, message = '') {
+    t.busy = value;
+    if (!current(t)) return;
+    t.node.querySelector('.organic-policy-workspace').setAttribute('aria-busy', String(value));
+    if (message) t.node.querySelector('#opolicy-progress').textContent = message;
+    t.node.querySelectorAll('button,input,textarea,select').forEach((n) => (n.disabled = value));
   }
-  function policyNotes(saved,meta=null){const p=saved.data.policy;return [`Policy ${saved.id} / ${saved.hash}. App ${saved.data.app_id}, setup ${saved.data.app_version}, app hash ${saved.data.app_hash}. Approving owner ${saved.data.owner}; owner role version ${saved.data.owner_version}.`, `Destination Page ${p.page_id}; connection ${p.connection_id}; output mode ${p.mode}. Page version ${saved.data.page?.version??'Unknown'} and configuration ${saved.data.page?.config_version??'Unknown'}. Expires ${p.expires_at}.`, `Generation provider ${p.generation_providers.join(', ')}; transformations ${p.transformations.join(', ')}. Service budget ${p.max_model_minor} ${p.currency} minor units. Held generation ceiling ${p.max_generations}, admitted artifact ceiling ${p.max_posts}, reserved call ceiling ${p.max_calls}.`,...p.sources.map(s=>`Source ${s.id}, SHA256 ${s.sha256}, rights review ${s.review_version}.`),...p.claims.map(c=>`Claim ${c.id}, SHA256 ${c.sha256}.`),...p.templates.map(row=>`Template ${row.id}: ${row.caption}. Claims ${row.claim_ids.join(', ')}.`),...(p.taste_auto_review?[`Agent-attested automatic review: reviewer grant ${p.taste_auto_review.reviewer_grant_id}; guidance ${p.taste_auto_review.guidance_sha256}; owner rules: ${p.taste_auto_review.rules}; rules SHA256 ${saved.data.taste_reviewer?.rules_sha256||'Recorded with the saved policy'}. Missing evidence requires HOLD. This is agent judgment, not mechanical visual certification or source rights approval.`]:['Output taste review: manual.']),`Exact approved output hashes: ${p.approved_output_hashes.join(', ')||'None; standing-generated admission required'}.`,...(meta?[`History revoked ${meta.revoked}; expired ${meta.expired}; app current ${meta.app_current}. Revalidation ${meta.currentness}.`,`Held capacity: ${JSON.stringify(meta.usage)}. Remaining limits: ${JSON.stringify(meta.remaining)}. Admission uses held capacity. Provider phase completion and public visibility are separate checks.`]:[]),'This policy grants no new ad-spending authority. Saving it does not render, schedule or publish. External delivery and measured app outcomes require their own receipts.'];}
-  async function newForm(t){if(retained(t).length)throw new Error('Inspect the uncertain policy request before creating another approval.');busy(t,true,'Reading tested connections and current evidence');try{const context=await request(t,'policy-context',{});if(!current(t))return;if(context.app.id!==t.scope.app||context.app.version!==t.scope.version)throw new Error('App setup changed. Reload before approving.');const value=draft(context,t.d);const next=show(t.d,'Choose the rules for your app videos','form',formHTML(context,value),{context,value},t.scope),form=next.node.querySelector('#opolicy-form');form.querySelector('[type=submit]').insertAdjacentHTML('beforebegin',expiryUI().consentMarkup());expiryUI().bindConsent(form,'expiry');const note=[...form.querySelectorAll('p')].find(p=>p.textContent.includes('Expiry must be in the next 24 hours'));if(note)note.textContent='Expiry is finite and in the future. More than 24 hours requires your explicit consent.';}catch(e){fail(t,e);}finally{busy(t,false);}}
-  function normalize(p){return {...p,expires_at:Date.parse(p.expires_at)};}
-  function verified(saved,body,scope=null){return Boolean(saved?.id&&saved?.hash&&(!scope||(saved.data?.app_id===scope.app&&saved.data?.owner===scope.principal))&&saved.data?.owner_version===body.owner_version&&m.equal(saved.data?.page,body.page_binding)&&saved.data?.app_version===body.manifest_version&&saved.data?.app_hash===body.app_hash&&m.equal(normalize(saved.data?.policy||{}),normalize(body.policy)));}
-  async function details(t,id){busy(t,true,'Reading the exact saved approval');try{const page=await request(t,'policy-history',{offset:0,request_id:null});if(!current(t))return;const row=page.items.find(x=>x.id===id)||(t.data?.items||[]).find(x=>x.id===id);if(!row)throw new Error('Saved policy is not in this app history page. Reopen its history.');let currentness='CURRENTNESS_NOT_REVALIDATED',saved={id:row.id,hash:row.hash,data:row.snapshot},reason='';try{saved=await request(t,'policy-read',{policy_id:row.id,policy_hash:row.hash});currentness='CURRENT_POLICY_REVALIDATED';}catch(e){reason=e.message;}if(!current(t))return;const meta={...row,currentness},effectiveExpiry=saved.permission_expires_at||saved.data?.permission_expires_at||row.permission_expires_at||saved.data.policy.expires_at,extendable=!row.revoked&&row.app_current&&Date.parse(effectiveExpiry)>Date.now();const next=show(t.d,'Your exact video production approval','detail',`<p>${m.esc(human(currentness))}. ${m.esc(reason)}</p><p>Current permission expiry: ${m.esc(effectiveExpiry)} · revision ${m.esc(saved.consent_revision??row.consent_revision??0)}. Earlier verification, provider and child-work deadlines remain independent.</p>${policyNotes(saved,meta).map(s=>`<p>${m.esc(s)}</p>`).join('')}<div class="button-row">${!row.revoked?button('Revoke this exact approval','revoke',row.id):''}${button('Download policy report JSON','json')}${button('Report / Save PDF','pdf')}${button('Back to history','open')}</div>`,{saved,meta},t.scope);if(extendable)next.node.querySelector('.organic-policy-workspace .button-row').insertAdjacentHTML('afterbegin',button('Extend expiry','extend',row.id));recovery(next);}catch(e){fail(t,e);}finally{busy(t,false);}}
-  function report(saved,meta,state){
-    const proofNotes=[];
-    if(saved.data.page?.data_hash)proofNotes.push('Page evidence SHA256 '+saved.data.page.data_hash);
-    for(const source of saved.data.proofs?.sources||[])proofNotes.push('Source '+source.id+' rights SHA256 '+source.rights_hash+' and retained record SHA256 '+source.record_hash);
-    for(const claim of saved.data.proofs?.claims||[])proofNotes.push('Claim '+claim.id+' proof SHA256 '+claim.evidence_hash+' at version '+claim.version);
-    return {schema:'wmm.organic-policy-report.v1',title:'Video production approval',app_id:state.app,app_name:state.workspace.app.data.name,scope:'SELECTED_APP',manifest_version:saved.data.app_version,generated_at:new Date().toISOString(),loaded_at:meta?.created||'Saved approval',purpose:'Inspect exact production authority, evidence, held capacity and revocation state.',next_step:'Revalidate before use; prepare and verify a render through the separately governed workflow.',filters:{policy_id:saved.id,policy_hash:saved.hash,mode:saved.data.policy.mode},metrics:Object.entries(meta?.usage||{}).map(([name,value])=>({label:human(name),value,unit:'count',source:'Saved policy history'})),cohorts:[],policy_snapshot:saved.data,usage:meta?.usage||null,remaining:meta?.remaining||null,notes:[...policyNotes(saved,meta),...proofNotes]};}
-  async function reviewWrite(t,action,body){if(pending.size>=POLICY_UI_PENDING_LIMIT)throw new Error('Inspect retained uncertain requests before another approval.');const key=action+':'+(body.request_id||body.policy_id),record={key,scope:t.scope,action,body,requestHash:await hash(body,t.d.browser),lookupRequestId:body.request_id||t.data?.meta?.request_id||null};if(!current(t))return;show(t.d,action==='policy-create'?'Review this video production approval':'Review this policy revocation','review',`${action==='policy-create'?policyNotes({id:'Pending owner confirmation',hash:record.requestHash,data:{policy:body.policy,app_id:t.scope.app,app_version:t.scope.version,app_hash:body.app_hash,owner:t.scope.principal,owner_version:t.scope.roleVersion,page:body.page_binding}}).concat(t.data.context.eligible.claims.filter(c=>body.policy.claims.some(x=>x.id===c.id)).map(c=>'Claim statement: '+(c.claim||c.title||c.id))).map(s=>`<p>${m.esc(s)}</p>`).join(''):`<p>Revoke only policy ${m.esc(body.policy_id)}, hash ${m.esc(body.policy_hash)}. This stops future admission under it; existing effects, incurred costs and held history are retained.</p>`}<p>Request SHA256 ${m.esc(record.requestHash)}. Confirm only if these are your exact intended limits.</p>${button(action==='policy-create'?'Approve this exact production policy':'Revoke this exact policy','confirm','',true)}${button('Return to history','open')}`,record,t.scope);}
-  async function inspect(t,record){busy(t,true,'Inspecting the retained exact request');try{const page=await request(t,'policy-history',{offset:0,request_id:record.lookupRequestId});if(!current(t))return;const row=page.items.find(x=>record.action==='policy-create'?x.request_id===record.body.request_id&&x.request_hash===record.requestHash&&verified({id:x.id,hash:x.hash,data:x.snapshot},record.body,record.scope):x.id===record.body.policy_id&&x.hash===record.body.policy_hash&&x.revoked);if(!row){record.inspected=true;const next=show(t.d,'Inspect this uncertain policy request','recovery','<p>No matching committed outcome was found in this history read. Saved authority has not been changed by this inspection. Explicitly repeat only the identical retained request if it is still your intended action.</p>',record,t.scope);recovery(next);return;}pending.delete(record.key);t.d.toast('Exact saved policy outcome found. No request was repeated.');return open(t.d);}catch(e){fail(t,e);recovery(t);}finally{busy(t,false);}}
-  async function write(t,record){if(!current(t)||t.busy)return;const previouslyUncertain=pending.has(record.key);record.inspected=false;pending.set(record.key,record);busy(t,true,'Saving the exact owner decision');let acknowledged=false;try{const result=await request(t,record.action,record.body);acknowledged=true;if(record.action==='policy-create'){if(!verified(result,record.body,record.scope))throw new Error('Saved approval did not match the exact reviewed policy.');record.saved=result;const read=await request(t,'policy-read',{policy_id:result.id,policy_hash:result.hash});if(!m.equal(read,result))throw new Error('Exact saved policy readback differed.');}else if(result.policy_id!==record.body.policy_id||result.policy_hash!==record.body.policy_hash||result.status!=='REVOKED')throw new Error('Revocation receipt differed from the exact request.');pending.delete(record.key);if(current(t)){t.d.toast(record.action==='policy-create'?'Production policy saved and revalidated. No work has started.':'Exact production policy revoked. Retained history is unchanged.');return open(t.d);}}catch(e){if(!previouslyUncertain&&!acknowledged&&!e.uncertain)pending.delete(record.key);if(current(t)){fail(t,e);recovery(t);}}finally{busy(t,false);}}
-  async function submit(form,d){const t=active;if(!t||!current(t)||t.busy||t.kind!=='form')return;try{const value=readDraft(new d.FormData(form),t.data.value);const body=policyBody(t.data.context,value);t.data.value=value;await reviewWrite(t,'policy-create',body);}catch(e){fail(t,e);}}
-  async function action(node,d){const mode=node.dataset.action.slice('opolicy-'.length);if(mode==='open')return open(d);const t=active;if(!t||!current(t)||t.busy)throw new Error('Reload the current app owner policy view.');if(mode==='extend'&&t.kind==='detail'){const saved=t.data.saved,expires=saved.permission_expires_at||saved.data?.permission_expires_at||t.data.meta.permission_expires_at||saved.data.policy.expires_at;return expiryUI().open({kind:'ORGANIC_POLICY',id:saved.id,expires,app:t.scope.app,api:(path,body)=>expiryRequest(t,path.split('/').pop(),body),modal:d.modal,document:d.document,FormData:d.FormData||d.browser.FormData,uuid:d.uuid,owner:()=>owner(d.state),current:()=>current(t),done:()=>open(d)});}try{if(mode==='page')return open(d,m.integer(node.dataset.id,'History offset',0,2000));if(mode==='new')return newForm(t);if(mode==='read')return details(t,node.dataset.id);if(['add-template','remove-template'].includes(mode)){const value=readDraft(new d.FormData(t.node.querySelector('#opolicy-form')),t.data.value);if(mode==='add-template'){if(value.templates.length>=POLICY_UI_MAX_TEMPLATES)throw new Error('Use at most twenty literal captions.');value.templates.push({id:d.uuid(),caption:'',claim_ids:[]});}else value.templates=value.templates.filter(x=>x.id!==node.dataset.id);show(d,'Choose the rules for your app videos','form',formHTML(t.data.context,value),{context:t.data.context,value},t.scope);return;}if(mode==='confirm'&&t.kind==='review')return write(t,t.data);if(mode==='revoke'&&t.kind==='detail')return reviewWrite(t,'policy-revoke',{policy_id:t.data.saved.id,policy_hash:t.data.saved.hash});if(['inspect','retry'].includes(mode)){const record=pending.get(node.dataset.id);if(!record||!canInspect(record,t)||(mode==='retry'&&(!record.inspected||!m.equal(record.scope,t.scope))))throw new Error('Retained request belongs to another app or owner session.');return mode==='inspect'?inspect(t,record):write(t,record);}if(['json','pdf'].includes(mode)&&t.kind==='detail'){const value=report(t.data.saved,t.data.meta,d.state);if(mode==='pdf')return d.pageReports.openReport(value,d.browser);const url=d.browser.URL.createObjectURL(new d.browser.Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const a=d.document.createElement('a');a.href=url;a.download='wmm-video-production-policy.json';d.document.body.append(a);a.click();a.remove();d.browser.setTimeout(()=>d.browser.URL.revokeObjectURL(url),0);}}catch(e){fail(t,e);}}
-  return {owner,scope,current,clear,invalidate,panel,open,action,submit,validation,policyBody,policyNotes,report,request,pending,verified,normalize,readDraft,formHTML};
+  function fail(t, e) {
+    if (current(t))
+      t.node.querySelector('#opolicy-error').textContent =
+        e.message + ' Saved policy history is preserved.';
+  }
+  function validation(node, d, invalid = false) {
+    const t = active;
+    if (!t || !current(t) || !node.closest('#opolicy-form')) return;
+    if (invalid) {
+      node.setAttribute('aria-invalid', 'true');
+      t.node.querySelector('#opolicy-error').textContent =
+        (node.labels?.[0]?.textContent.trim() || 'Policy field') + ': ' + node.validationMessage;
+    } else if (node.validity?.valid) {
+      node.removeAttribute('aria-invalid');
+      if (!t.node.querySelector('[aria-invalid="true"]'))
+        t.node.querySelector('#opolicy-error').textContent = '';
+    }
+  }
+  async function request(t, action, body) {
+    if (
+      ![
+        'policy-context',
+        'policy-history',
+        'policy-create',
+        'policy-read',
+        'policy-revoke',
+      ].includes(action)
+    )
+      throw new Error('Unsupported production policy action.');
+    const controller = new AbortController(),
+      timer = setTimeout(() => controller.abort(), POLICY_UI_REQUEST_TIMEOUT_MS);
+    let response, value;
+    try {
+      response = await (t.d.fetch || t.d.browser.fetch.bind(t.d.browser))(
+        '/api/apps/' + encodeURIComponent(t.scope.app) + '/organic-video/' + action,
+        {
+          method: 'POST',
+          credentials: 'same-origin',
+          redirect: 'error',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': t.d.state.boot.csrf },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        },
+      );
+      value = await response.json();
+    } catch (cause) {
+      const e = new Error(
+        'The local policy response was not received. Inspect its saved identity before sending again.',
+      );
+      e.uncertain = true;
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!response.ok) {
+      const e = new Error(value.error || 'Policy request rejected.');
+      e.uncertain = response.status >= 500;
+      throw e;
+    }
+    return value;
+  }
+  async function expiryRequest(t, action, body) {
+    const response = await (t.d.fetch || t.d.browser.fetch.bind(t.d.browser))(
+      '/api/apps/' + encodeURIComponent(t.scope.app) + '/authority-expiry/' + action,
+      {
+        method: 'POST',
+        credentials: 'same-origin',
+        redirect: 'error',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': t.d.state.boot.csrf },
+        body: JSON.stringify(body),
+      },
+    );
+    const value = await response.json();
+    if (!response.ok) throw new Error(value.error || 'Expiry request rejected.');
+    return value;
+  }
+  async function hash(value, browser) {
+    return Array.from(
+      new Uint8Array(
+        await browser.crypto.subtle.digest('SHA-256', new TextEncoder().encode(m.stable(value))),
+      ),
+      (b) => b.toString(16).padStart(2, '0'),
+    ).join('');
+  }
+  const canInspect = (row, t) =>
+    row.scope.app === t.scope.app && row.scope.principal === t.scope.principal;
+  const retained = (t) => [...pending.values()].filter((row) => canInspect(row, t));
+  function recovery(t) {
+    if (current(t))
+      t.node.querySelector('#opolicy-recovery').innerHTML = retained(t)
+        .map(
+          (row) =>
+            `<section class="notice"><p>Outcome not verified. Keep this exact ${row.action === 'policy-create' ? 'approval' : 'revocation'} request.</p>${button('Inspect saved outcome', 'inspect', row.key)}${row.inspected && m.equal(row.scope, t.scope) ? button('Retry this identical request', 'retry', row.key) : ''}</section>`,
+        )
+        .join('');
+  }
+  async function open(d, offset = 0) {
+    if (!owner(d.state))
+      throw new Error('Sign in as this app owner to review production policy authority.');
+    const t = show(
+      d,
+      'Your video production approvals',
+      'history',
+      '<p>Reading saved production approvals.</p>',
+    );
+    busy(t, true, 'Reading policy history');
+    try {
+      const page = await request(t, 'policy-history', { offset, request_id: null });
+      if (!current(t)) return;
+      const rows = page.items
+        .map(
+          (row) =>
+            `<section class="next-step"><h3>${m.esc(human(row.snapshot.policy.mode))} · Page ${m.esc(row.snapshot.policy.page_id)}</h3><p>Saved ${m.esc(row.created)}. ${row.revoked ? 'Revoked.' : row.expired ? 'Expired.' : 'Saved approval; revalidate before relying on it.'} ${row.app_current ? '' : 'App context changed.'}</p><p>${row.usage.generations_held} held generation slots · ${row.usage.artifact_slots_admitted} admitted artifacts · ${row.usage.provider_calls_reserved} reserved provider calls. These are not delivered-post counts.</p>${button('Inspect exact approval', 'read', row.id)}</section>`,
+        )
+        .join('');
+      const t2 = show(
+        d,
+        'Your video production approvals',
+        'history',
+        `<p>Keep local video production inside the sources, claims and limits you chose. Saved history includes revoked and expired approvals.</p>${button('Create a production approval', 'new', '', true)}<h3>Saved policies</h3>${rows || '<p>No production policy is saved for this app and owner. Choose rights-reviewed clips and proven claims before approving a local video workflow.</p>'}<div class="button-row">${offset ? button('First approvals', 'page', '0') : ''}${page.next_offset !== null ? button('More approvals', 'page', String(page.next_offset)) : ''}</div>`,
+        page,
+        t.scope,
+      );
+      recovery(t2);
+    } catch (e) {
+      fail(t, e);
+    } finally {
+      busy(t, false);
+    }
+  }
+  function draft(context, d) {
+    const expires = new Date(Date.now() + 30 * 60000);
+    return {
+      request_id: d.uuid(),
+      sources: [],
+      claims: [],
+      outputs: [],
+      page: '',
+      mode: 'EXACT',
+      auto_taste: false,
+      taste_agent: '',
+      taste_rules: '',
+      expiry: new Date(expires.getTime() - expires.getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16),
+      currency: d.state.workspace.app.data.currency || 'USD',
+      max_generations: 1,
+      max_posts: 1,
+      max_calls: 20,
+      owner_version: context.review.owner_version,
+      templates: [{ id: d.uuid(), caption: '', claim_ids: [] }],
+    };
+  }
+  function formHTML(context, value) {
+    return `<p>Select only the clips and claims this app is allowed to use. This approval permits the exact local composition rules below; it does not start work.</p><form id="opolicy-form"><fieldset><legend>Destination and output rules</legend><label class="field" for="opolicy-page">Approved Facebook Page<select id="opolicy-page" name="page" required><option value="">Choose a tested Page</option>${context.pages.map((p) => `<option value="${m.esc(p.connection_id)}" ${value.page === p.connection_id ? 'selected' : ''}>${m.esc(p.label || p.page_id)}</option>`).join('')}</select></label><label class="field" for="opolicy-mode">Output approval<select id="opolicy-mode" name="mode"><option value="EXACT" ${value.mode === 'EXACT' ? 'selected' : ''}>Only selected existing output bytes</option><option value="STANDING_GENERATED" ${value.mode === 'STANDING_GENERATED' ? 'selected' : ''}>Allow new locally generated outputs within this policy</option></select></label><p>Exact mode requires selected output hashes. Standing-generated mode permits new outputs only after existing policy reservation and admission checks.</p><fieldset><legend>Existing local output hashes — exact mode only</legend>${context.approved_outputs.map((o) => check('outputs', (o.label || 'Saved output') + ' · ' + o.sha256, o.sha256, value.outputs.includes(o.sha256))).join('') || '<p>No completed Hypit render is recorded. Render an approved brief first, or explicitly choose standing-generated approval.</p>'}</fieldset></fieldset><fieldset><legend>Agent taste review — optional</legend>${check('auto_taste', 'Auto-approve output after my selected taste agent passes it', 'yes', value.auto_taste)}<label class="field" for="opolicy-taste-agent">Selected reviewer<select id="opolicy-taste-agent" name="taste_agent"><option value="">Choose an active scoped agent</option>${(context.taste_reviewers || []).map((a) => `<option value="${m.esc(a.id)}" ${value.taste_agent === a.id ? 'selected' : ''}>${m.esc(a.agent_id)}</option>`).join('')}</select></label><label class="field" for="opolicy-taste-rules">My acceptance rules<textarea id="opolicy-taste-rules" name="taste_rules" maxlength="4000">${m.esc(value.taste_rules || '')}</textarea></label><p>Standing-generated mode only. The selected agent must attest actual output timestamps for opening, captions, framing, timing, audio, claims, CTA and source identity. Missing evidence holds approval. Agent judgment does not certify every frame or grant source reuse rights. No paid calls or spending are added.</p></fieldset><fieldset><legend>Rights-reviewed source clips</legend>${context.eligible.sources.map((s) => check('sources', (s.title || s.id) + ' · review ' + s.review_version, s.id, value.sources.includes(s.id))).join('') || '<p>No eligible source clip. Open the video library and complete its reuse-rights review.</p>'}</fieldset><fieldset><legend>Proven app claims</legend>${context.eligible.claims.map((c) => check('claims', c.claim || c.title || c.id, c.id, value.claims.includes(c.id))).join('') || '<p>No current proven claim. Add claim evidence and resolve its verification before returning.</p>'}</fieldset><fieldset><legend>Literal captions and claim bindings</legend>${value.templates.map((row, i) => `<section class="next-step"><label class="field" for="opolicy-caption-${m.esc(row.id)}">Caption ${i + 1}<textarea id="opolicy-caption-${m.esc(row.id)}" name="caption-${m.esc(row.id)}" maxlength="5000" required>${m.esc(row.caption)}</textarea></label><fieldset><legend>Claims used by caption ${i + 1}</legend>${context.eligible.claims.map((c) => check('template-' + row.id, c.claim || c.title || c.id, c.id, row.claim_ids.includes(c.id))).join('')}</fieldset>${value.templates.length > 1 ? button('Remove this caption', 'remove-template', row.id) : ''}</section>`).join('')}${button('Add another literal caption', 'add-template')}</fieldset><fieldset><legend>Finite limits</legend><div class="form-grid">${field('expiry', 'Approval expires — device local time', value.expiry, 'datetime-local', 'required')}${field('currency', 'Model-service currency', value.currency, 'text', 'required pattern="[A-Z]{3}" maxlength="3"')}${field('max_generations', 'Held generation ceiling', value.max_generations, 'number', 'required min="1" max="500"')}${field('max_posts', 'Admitted output ceiling', value.max_posts, 'number', 'required min="1" max="20"')}${field('max_calls', 'Reserved provider-call ceiling', value.max_calls, 'number', 'required min="1" max="500"')}</div><p>Local Hypit only · declarative composition only · model-service budget 0 minor units. Expiry must be in the next 24 hours. Held attempts are not automatically released on failure.</p></fieldset><p>${context.missing.map((row) => m.esc(row.next_action)).join(' ')}</p><button type="submit" class="button">Review exact production approval</button></form>${button('Back to approval history', 'open')}`;
+  }
+  function readDraft(fd, value) {
+    return {
+      ...value,
+      page: fd.get('page'),
+      mode: fd.get('mode'),
+      auto_taste: fd.get('auto_taste') === 'yes',
+      taste_agent: fd.get('taste_agent'),
+      taste_rules: fd.get('taste_rules'),
+      sources: fd.getAll('sources'),
+      claims: fd.getAll('claims'),
+      outputs: fd.getAll('outputs'),
+      expiry: fd.get('expiry'),
+      extended_expiry_consent: fd.get('extended_expiry_consent') === 'on',
+      currency: fd.get('currency'),
+      max_generations: fd.get('max_generations'),
+      max_posts: fd.get('max_posts'),
+      max_calls: fd.get('max_calls'),
+      templates: value.templates.map((row) => ({
+        ...row,
+        caption: fd.get('caption-' + row.id),
+        claim_ids: fd.getAll('template-' + row.id),
+      })),
+    };
+  }
+  function policyBody(context, value, at = Date.now()) {
+    const page = context.pages.find((row) => row.connection_id === value.page);
+    if (!page) throw new Error('Select a current tested Page.');
+    const choose = (ids, rows, label) => {
+      if (!ids.length || ids.length > 20 || new Set(ids).size !== ids.length)
+        throw new Error('Select one through twenty distinct ' + label + '.');
+      return ids.map((id) => {
+        const row = rows.find((x) => x.id === id);
+        if (!row) throw new Error('Selected ' + label + ' changed. Reload production setup.');
+        return row;
+      });
+    };
+    const sources = choose(value.sources, context.eligible.sources, 'sources').map((s) => ({
+      id: s.id,
+      sha256: s.sha256,
+      review_version: s.review_version,
+    }));
+    const claims = choose(value.claims, context.eligible.claims, 'claims').map((c) => ({
+      id: c.id,
+      sha256: c.sha256,
+    }));
+    if (!['EXACT', 'STANDING_GENERATED'].includes(value.mode))
+      throw new Error('Choose an explicit output approval mode.');
+    if (
+      value.mode === 'EXACT' &&
+      (!value.outputs.length ||
+        value.outputs.some((h) => !context.approved_outputs.some((o) => o.sha256 === h)))
+    )
+      throw new Error('Exact mode needs selected current local output hashes.');
+    if (value.mode === 'STANDING_GENERATED' && value.outputs.length)
+      throw new Error('Clear exact output selections before approving new local generations.');
+    if (
+      !Array.isArray(value.templates) ||
+      !value.templates.length ||
+      value.templates.length > POLICY_UI_MAX_TEMPLATES
+    )
+      throw new Error('Use one through twenty caption templates.');
+    const templates = value.templates.map((row) => {
+      const caption = m.text(row.caption, 'Exact caption', 5000);
+      if (/[\x00-\x09\x0b-\x1f\x7f{}]/.test(caption))
+        throw new Error('Use literal captions without placeholders or control characters.');
+      if (
+        !row.claim_ids.length ||
+        new Set(row.claim_ids).size !== row.claim_ids.length ||
+        row.claim_ids.some((id) => !value.claims.includes(id))
+      )
+        throw new Error('Each caption must use selected proven claims.');
+      return { id: row.id, caption, claim_ids: row.claim_ids };
+    });
+    const expires = Date.parse(value.expiry);
+    if (!Number.isFinite(expires) || expires <= at)
+      throw new Error('Choose a finite expiry in the future.');
+    const extended = expires > at + 24 * 3600000;
+    if (extended && value.extended_expiry_consent !== true)
+      throw new Error('Explicit consent is required for an expiry more than 24 hours away.');
+    if (!/^[A-Z]{3}$/.test(value.currency))
+      throw new Error('Use an explicit three-letter currency.');
+    let taste = {};
+    if (value.auto_taste) {
+      if (value.mode !== 'STANDING_GENERATED')
+        throw new Error('Agent taste approval requires standing-generated mode.');
+      if (!(context.taste_reviewers || []).some((a) => a.id === value.taste_agent))
+        throw new Error('Choose a current scoped taste reviewer.');
+      taste = {
+        taste_auto_review: {
+          reviewer_grant_id: value.taste_agent,
+          guidance_sha256: context.taste_guidance_sha256,
+          rules: m.text(value.taste_rules, 'Owner acceptance rules', 4000),
+        },
+      };
+    }
+    return {
+      request_id: value.request_id,
+      manifest_version: context.app.version,
+      app_hash: context.app.hash,
+      owner_version: value.owner_version,
+      session_binding: context.review.session_binding,
+      page_binding: page.binding,
+      policy: {
+        ...taste,
+        ...(extended ? { extended_expiry_consent: true } : {}),
+        connection_id: page.connection_id,
+        page_id: page.page_id,
+        mode: value.mode,
+        expires_at: new Date(expires).toISOString(),
+        sources,
+        claims,
+        templates,
+        transformations: ['DECLARATIVE_COMPOSITION'],
+        generation_providers: ['HYPIT_LOCAL'],
+        currency: value.currency,
+        max_model_minor: 0,
+        max_generations: m.integer(value.max_generations, 'Generation ceiling', 1, 500),
+        max_posts: m.integer(value.max_posts, 'Admitted output ceiling', 1, 20),
+        max_calls: m.integer(value.max_calls, 'Call ceiling', 1, 500),
+        approved_output_hashes: value.mode === 'EXACT' ? [...new Set(value.outputs)].sort() : [],
+      },
+    };
+  }
+  function policyNotes(saved, meta = null) {
+    const p = saved.data.policy;
+    return [
+      `Policy ${saved.id} / ${saved.hash}. App ${saved.data.app_id}, setup ${saved.data.app_version}, app hash ${saved.data.app_hash}. Approving owner ${saved.data.owner}; owner role version ${saved.data.owner_version}.`,
+      `Destination Page ${p.page_id}; connection ${p.connection_id}; output mode ${p.mode}. Page version ${saved.data.page?.version ?? 'Unknown'} and configuration ${saved.data.page?.config_version ?? 'Unknown'}. Expires ${p.expires_at}.`,
+      `Generation provider ${p.generation_providers.join(', ')}; transformations ${p.transformations.join(', ')}. Service budget ${p.max_model_minor} ${p.currency} minor units. Held generation ceiling ${p.max_generations}, admitted artifact ceiling ${p.max_posts}, reserved call ceiling ${p.max_calls}.`,
+      ...p.sources.map(
+        (s) => `Source ${s.id}, SHA256 ${s.sha256}, rights review ${s.review_version}.`,
+      ),
+      ...p.claims.map((c) => `Claim ${c.id}, SHA256 ${c.sha256}.`),
+      ...p.templates.map(
+        (row) => `Template ${row.id}: ${row.caption}. Claims ${row.claim_ids.join(', ')}.`,
+      ),
+      ...(p.taste_auto_review
+        ? [
+            `Agent-attested automatic review: reviewer grant ${p.taste_auto_review.reviewer_grant_id}; guidance ${p.taste_auto_review.guidance_sha256}; owner rules: ${p.taste_auto_review.rules}; rules SHA256 ${saved.data.taste_reviewer?.rules_sha256 || 'Recorded with the saved policy'}. Missing evidence requires HOLD. This is agent judgment, not mechanical visual certification or source rights approval.`,
+          ]
+        : ['Output taste review: manual.']),
+      `Exact approved output hashes: ${p.approved_output_hashes.join(', ') || 'None; standing-generated admission required'}.`,
+      ...(meta
+        ? [
+            `History revoked ${meta.revoked}; expired ${meta.expired}; app current ${meta.app_current}. Revalidation ${meta.currentness}.`,
+            `Held capacity: ${JSON.stringify(meta.usage)}. Remaining limits: ${JSON.stringify(meta.remaining)}. Admission uses held capacity. Provider phase completion and public visibility are separate checks.`,
+          ]
+        : []),
+      'This policy grants no new ad-spending authority. Saving it does not render, schedule or publish. External delivery and measured app outcomes require their own receipts.',
+    ];
+  }
+  async function newForm(t) {
+    if (retained(t).length)
+      throw new Error('Inspect the uncertain policy request before creating another approval.');
+    busy(t, true, 'Reading tested connections and current evidence');
+    try {
+      const context = await request(t, 'policy-context', {});
+      if (!current(t)) return;
+      if (context.app.id !== t.scope.app || context.app.version !== t.scope.version)
+        throw new Error('App setup changed. Reload before approving.');
+      const value = draft(context, t.d);
+      const next = show(
+          t.d,
+          'Choose the rules for your app videos',
+          'form',
+          formHTML(context, value),
+          { context, value },
+          t.scope,
+        ),
+        form = next.node.querySelector('#opolicy-form');
+      form
+        .querySelector('[type=submit]')
+        .insertAdjacentHTML('beforebegin', expiryUI().consentMarkup());
+      expiryUI().bindConsent(form, 'expiry');
+      const note = [...form.querySelectorAll('p')].find((p) =>
+        p.textContent.includes('Expiry must be in the next 24 hours'),
+      );
+      if (note)
+        note.textContent =
+          'Expiry is finite and in the future. More than 24 hours requires your explicit consent.';
+    } catch (e) {
+      fail(t, e);
+    } finally {
+      busy(t, false);
+    }
+  }
+  function normalize(p) {
+    return { ...p, expires_at: Date.parse(p.expires_at) };
+  }
+  function verified(saved, body, scope = null) {
+    return Boolean(
+      saved?.id &&
+        saved?.hash &&
+        (!scope || (saved.data?.app_id === scope.app && saved.data?.owner === scope.principal)) &&
+        saved.data?.owner_version === body.owner_version &&
+        m.equal(saved.data?.page, body.page_binding) &&
+        saved.data?.app_version === body.manifest_version &&
+        saved.data?.app_hash === body.app_hash &&
+        m.equal(normalize(saved.data?.policy || {}), normalize(body.policy)),
+    );
+  }
+  async function details(t, id) {
+    busy(t, true, 'Reading the exact saved approval');
+    try {
+      const page = await request(t, 'policy-history', { offset: 0, request_id: null });
+      if (!current(t)) return;
+      const row =
+        page.items.find((x) => x.id === id) || (t.data?.items || []).find((x) => x.id === id);
+      if (!row)
+        throw new Error('Saved policy is not in this app history page. Reopen its history.');
+      let currentness = 'CURRENTNESS_NOT_REVALIDATED',
+        saved = { id: row.id, hash: row.hash, data: row.snapshot },
+        reason = '';
+      try {
+        saved = await request(t, 'policy-read', { policy_id: row.id, policy_hash: row.hash });
+        currentness = 'CURRENT_POLICY_REVALIDATED';
+      } catch (e) {
+        reason = e.message;
+      }
+      if (!current(t)) return;
+      const meta = { ...row, currentness },
+        effectiveExpiry =
+          saved.permission_expires_at ||
+          saved.data?.permission_expires_at ||
+          row.permission_expires_at ||
+          saved.data.policy.expires_at,
+        extendable = !row.revoked && row.app_current && Date.parse(effectiveExpiry) > Date.now();
+      const next = show(
+        t.d,
+        'Your exact video production approval',
+        'detail',
+        `<p>${m.esc(human(currentness))}. ${m.esc(reason)}</p><p>Current permission expiry: ${m.esc(effectiveExpiry)} · revision ${m.esc(saved.consent_revision ?? row.consent_revision ?? 0)}. Earlier verification, provider and child-work deadlines remain independent.</p>${policyNotes(
+          saved,
+          meta,
+        )
+          .map((s) => `<p>${m.esc(s)}</p>`)
+          .join(
+            '',
+          )}<div class="button-row">${!row.revoked ? button('Revoke this exact approval', 'revoke', row.id) : ''}${button('Download policy report JSON', 'json')}${button('Report / Save PDF', 'pdf')}${button('Back to history', 'open')}</div>`,
+        { saved, meta },
+        t.scope,
+      );
+      if (extendable)
+        next.node
+          .querySelector('.organic-policy-workspace .button-row')
+          .insertAdjacentHTML('afterbegin', button('Extend expiry', 'extend', row.id));
+      recovery(next);
+    } catch (e) {
+      fail(t, e);
+    } finally {
+      busy(t, false);
+    }
+  }
+  function report(saved, meta, state) {
+    const proofNotes = [];
+    if (saved.data.page?.data_hash)
+      proofNotes.push('Page evidence SHA256 ' + saved.data.page.data_hash);
+    for (const source of saved.data.proofs?.sources || [])
+      proofNotes.push(
+        'Source ' +
+          source.id +
+          ' rights SHA256 ' +
+          source.rights_hash +
+          ' and retained record SHA256 ' +
+          source.record_hash,
+      );
+    for (const claim of saved.data.proofs?.claims || [])
+      proofNotes.push(
+        'Claim ' +
+          claim.id +
+          ' proof SHA256 ' +
+          claim.evidence_hash +
+          ' at version ' +
+          claim.version,
+      );
+    return {
+      schema: 'wmm.organic-policy-report.v1',
+      title: 'Video production approval',
+      app_id: state.app,
+      app_name: state.workspace.app.data.name,
+      scope: 'SELECTED_APP',
+      manifest_version: saved.data.app_version,
+      generated_at: new Date().toISOString(),
+      loaded_at: meta?.created || 'Saved approval',
+      purpose: 'Inspect exact production authority, evidence, held capacity and revocation state.',
+      next_step:
+        'Revalidate before use; prepare and verify a render through the separately governed workflow.',
+      filters: { policy_id: saved.id, policy_hash: saved.hash, mode: saved.data.policy.mode },
+      metrics: Object.entries(meta?.usage || {}).map(([name, value]) => ({
+        label: human(name),
+        value,
+        unit: 'count',
+        source: 'Saved policy history',
+      })),
+      cohorts: [],
+      policy_snapshot: saved.data,
+      usage: meta?.usage || null,
+      remaining: meta?.remaining || null,
+      notes: [...policyNotes(saved, meta), ...proofNotes],
+    };
+  }
+  async function reviewWrite(t, action, body) {
+    if (pending.size >= POLICY_UI_PENDING_LIMIT)
+      throw new Error('Inspect retained uncertain requests before another approval.');
+    const key = action + ':' + (body.request_id || body.policy_id),
+      record = {
+        key,
+        scope: t.scope,
+        action,
+        body,
+        requestHash: await hash(body, t.d.browser),
+        lookupRequestId: body.request_id || t.data?.meta?.request_id || null,
+      };
+    if (!current(t)) return;
+    show(
+      t.d,
+      action === 'policy-create'
+        ? 'Review this video production approval'
+        : 'Review this policy revocation',
+      'review',
+      `${
+        action === 'policy-create'
+          ? policyNotes({
+              id: 'Pending owner confirmation',
+              hash: record.requestHash,
+              data: {
+                policy: body.policy,
+                app_id: t.scope.app,
+                app_version: t.scope.version,
+                app_hash: body.app_hash,
+                owner: t.scope.principal,
+                owner_version: t.scope.roleVersion,
+                page: body.page_binding,
+              },
+            })
+              .concat(
+                t.data.context.eligible.claims
+                  .filter((c) => body.policy.claims.some((x) => x.id === c.id))
+                  .map((c) => 'Claim statement: ' + (c.claim || c.title || c.id)),
+              )
+              .map((s) => `<p>${m.esc(s)}</p>`)
+              .join('')
+          : `<p>Revoke only policy ${m.esc(body.policy_id)}, hash ${m.esc(body.policy_hash)}. This stops future admission under it; existing effects, incurred costs and held history are retained.</p>`
+      }<p>Request SHA256 ${m.esc(record.requestHash)}. Confirm only if these are your exact intended limits.</p>${button(action === 'policy-create' ? 'Approve this exact production policy' : 'Revoke this exact policy', 'confirm', '', true)}${button('Return to history', 'open')}`,
+      record,
+      t.scope,
+    );
+  }
+  async function inspect(t, record) {
+    busy(t, true, 'Inspecting the retained exact request');
+    try {
+      const page = await request(t, 'policy-history', {
+        offset: 0,
+        request_id: record.lookupRequestId,
+      });
+      if (!current(t)) return;
+      const row = page.items.find((x) =>
+        record.action === 'policy-create'
+          ? x.request_id === record.body.request_id &&
+            x.request_hash === record.requestHash &&
+            verified({ id: x.id, hash: x.hash, data: x.snapshot }, record.body, record.scope)
+          : x.id === record.body.policy_id && x.hash === record.body.policy_hash && x.revoked,
+      );
+      if (!row) {
+        record.inspected = true;
+        const next = show(
+          t.d,
+          'Inspect this uncertain policy request',
+          'recovery',
+          '<p>No matching committed outcome was found in this history read. Saved authority has not been changed by this inspection. Explicitly repeat only the identical retained request if it is still your intended action.</p>',
+          record,
+          t.scope,
+        );
+        recovery(next);
+        return;
+      }
+      pending.delete(record.key);
+      t.d.toast('Exact saved policy outcome found. No request was repeated.');
+      return open(t.d);
+    } catch (e) {
+      fail(t, e);
+      recovery(t);
+    } finally {
+      busy(t, false);
+    }
+  }
+  async function write(t, record) {
+    if (!current(t) || t.busy) return;
+    const previouslyUncertain = pending.has(record.key);
+    record.inspected = false;
+    pending.set(record.key, record);
+    busy(t, true, 'Saving the exact owner decision');
+    let acknowledged = false;
+    try {
+      const result = await request(t, record.action, record.body);
+      acknowledged = true;
+      if (record.action === 'policy-create') {
+        if (!verified(result, record.body, record.scope))
+          throw new Error('Saved approval did not match the exact reviewed policy.');
+        record.saved = result;
+        const read = await request(t, 'policy-read', {
+          policy_id: result.id,
+          policy_hash: result.hash,
+        });
+        if (!m.equal(read, result)) throw new Error('Exact saved policy readback differed.');
+      } else if (
+        result.policy_id !== record.body.policy_id ||
+        result.policy_hash !== record.body.policy_hash ||
+        result.status !== 'REVOKED'
+      )
+        throw new Error('Revocation receipt differed from the exact request.');
+      pending.delete(record.key);
+      if (current(t)) {
+        t.d.toast(
+          record.action === 'policy-create'
+            ? 'Production policy saved and revalidated. No work has started.'
+            : 'Exact production policy revoked. Retained history is unchanged.',
+        );
+        return open(t.d);
+      }
+    } catch (e) {
+      if (!previouslyUncertain && !acknowledged && !e.uncertain) pending.delete(record.key);
+      if (current(t)) {
+        fail(t, e);
+        recovery(t);
+      }
+    } finally {
+      busy(t, false);
+    }
+  }
+  async function submit(form, d) {
+    const t = active;
+    if (!t || !current(t) || t.busy || t.kind !== 'form') return;
+    try {
+      const value = readDraft(new d.FormData(form), t.data.value);
+      const body = policyBody(t.data.context, value);
+      t.data.value = value;
+      await reviewWrite(t, 'policy-create', body);
+    } catch (e) {
+      fail(t, e);
+    }
+  }
+  async function action(node, d) {
+    const mode = node.dataset.action.slice('opolicy-'.length);
+    if (mode === 'open') return open(d);
+    const t = active;
+    if (!t || !current(t) || t.busy) throw new Error('Reload the current app owner policy view.');
+    if (mode === 'extend' && t.kind === 'detail') {
+      const saved = t.data.saved,
+        expires =
+          saved.permission_expires_at ||
+          saved.data?.permission_expires_at ||
+          t.data.meta.permission_expires_at ||
+          saved.data.policy.expires_at;
+      return expiryUI().open({
+        kind: 'ORGANIC_POLICY',
+        id: saved.id,
+        expires,
+        app: t.scope.app,
+        api: (path, body) => expiryRequest(t, path.split('/').pop(), body),
+        modal: d.modal,
+        document: d.document,
+        FormData: d.FormData || d.browser.FormData,
+        uuid: d.uuid,
+        owner: () => owner(d.state),
+        current: () => current(t),
+        done: () => open(d),
+      });
+    }
+    try {
+      if (mode === 'page') return open(d, m.integer(node.dataset.id, 'History offset', 0, 2000));
+      if (mode === 'new') return newForm(t);
+      if (mode === 'read') return details(t, node.dataset.id);
+      if (['add-template', 'remove-template'].includes(mode)) {
+        const value = readDraft(
+          new d.FormData(t.node.querySelector('#opolicy-form')),
+          t.data.value,
+        );
+        if (mode === 'add-template') {
+          if (value.templates.length >= POLICY_UI_MAX_TEMPLATES)
+            throw new Error('Use at most twenty literal captions.');
+          value.templates.push({ id: d.uuid(), caption: '', claim_ids: [] });
+        } else value.templates = value.templates.filter((x) => x.id !== node.dataset.id);
+        show(
+          d,
+          'Choose the rules for your app videos',
+          'form',
+          formHTML(t.data.context, value),
+          { context: t.data.context, value },
+          t.scope,
+        );
+        return;
+      }
+      if (mode === 'confirm' && t.kind === 'review') return write(t, t.data);
+      if (mode === 'revoke' && t.kind === 'detail')
+        return reviewWrite(t, 'policy-revoke', {
+          policy_id: t.data.saved.id,
+          policy_hash: t.data.saved.hash,
+        });
+      if (['inspect', 'retry'].includes(mode)) {
+        const record = pending.get(node.dataset.id);
+        if (
+          !record ||
+          !canInspect(record, t) ||
+          (mode === 'retry' && (!record.inspected || !m.equal(record.scope, t.scope)))
+        )
+          throw new Error('Retained request belongs to another app or owner session.');
+        return mode === 'inspect' ? inspect(t, record) : write(t, record);
+      }
+      if (['json', 'pdf'].includes(mode) && t.kind === 'detail') {
+        const value = report(t.data.saved, t.data.meta, d.state);
+        if (mode === 'pdf') return d.pageReports.openReport(value, d.browser);
+        const url = d.browser.URL.createObjectURL(
+          new d.browser.Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }),
+        );
+        const a = d.document.createElement('a');
+        a.href = url;
+        a.download = 'wmm-video-production-policy.json';
+        d.document.body.append(a);
+        a.click();
+        a.remove();
+        d.browser.setTimeout(() => d.browser.URL.revokeObjectURL(url), 0);
+      }
+    } catch (e) {
+      fail(t, e);
+    }
+  }
+  return {
+    owner,
+    scope,
+    current,
+    clear,
+    invalidate,
+    panel,
+    open,
+    action,
+    submit,
+    validation,
+    policyBody,
+    policyNotes,
+    report,
+    request,
+    pending,
+    verified,
+    normalize,
+    readDraft,
+    formHTML,
+  };
 });

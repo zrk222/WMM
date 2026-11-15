@@ -1,4 +1,5 @@
 """Source-linked listing preflight; no ranking, policy approval or publication claims."""
+
 import re
 from collections import Counter
 from datetime import timedelta
@@ -6,13 +7,29 @@ from .common import Invalid, digest, iso_time, safe_data
 
 RULE_VERSION = "2026-10-27.v2"
 REVIEWED_AT = "2026-10-27T00:00:00+00:00"
-LIMITS = {"iOS": {"title": 30, "subtitle": 30, "keywords": 100, "description": 4000, "promotional_text": 170},
-          "Android": {"title": 30, "short_description": 80, "description": 4000}}
-SOURCES = {"iOS": ["https://developer.apple.com/app-store/product-page/", "https://developer.apple.com/app-store/product-page-optimization/", "https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information"],
-           "Android": ["https://support.google.com/googleplay/android-developer/answer/13393723", "https://support.google.com/googleplay/android-developer/answer/12053285"]}
-SURFACES = {"iOS": {"MANUAL_METADATA": set(LIMITS["iOS"]), "PRODUCT_PAGE_OPTIMIZATION": {"icon", "screenshots", "app_preview"}},
-            "Android": {"MANUAL_METADATA": set(LIMITS["Android"]), "LOCALIZED_LISTING_EXPERIMENT": {"short_description", "description", "icon", "feature_graphic", "screenshots"},
-                        "DEFAULT_GRAPHICS_EXPERIMENT": {"icon", "feature_graphic", "screenshots"}}}
+LIMITS = {
+    "iOS": {"title": 30, "subtitle": 30, "keywords": 100, "description": 4000, "promotional_text": 170},
+    "Android": {"title": 30, "short_description": 80, "description": 4000},
+}
+SOURCES = {
+    "iOS": [
+        "https://developer.apple.com/app-store/product-page/",
+        "https://developer.apple.com/app-store/product-page-optimization/",
+        "https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information",
+    ],
+    "Android": [
+        "https://support.google.com/googleplay/android-developer/answer/13393723",
+        "https://support.google.com/googleplay/android-developer/answer/12053285",
+    ],
+}
+SURFACES = {
+    "iOS": {"MANUAL_METADATA": set(LIMITS["iOS"]), "PRODUCT_PAGE_OPTIMIZATION": {"icon", "screenshots", "app_preview"}},
+    "Android": {
+        "MANUAL_METADATA": set(LIMITS["Android"]),
+        "LOCALIZED_LISTING_EXPERIMENT": {"short_description", "description", "icon", "feature_graphic", "screenshots"},
+        "DEFAULT_GRAPHICS_EXPERIMENT": {"icon", "feature_graphic", "screenshots"},
+    },
+}
 
 
 def issue(field, code, correction):
@@ -25,8 +42,15 @@ def rule_findings(version, observed_at):
     stamp = iso_time(observed_at)
     fresh = iso_time(REVIEWED_AT) <= stamp <= iso_time(REVIEWED_AT) + timedelta(days=90)
     if version != RULE_VERSION or not fresh:
-        return [issue("rule_version", "RULE_REVIEW_NEEDED", "Recheck official rules and select the reviewed rule version before relying on this preflight.")]
+        return [
+            issue(
+                "rule_version",
+                "RULE_REVIEW_NEEDED",
+                "Recheck official rules and select the reviewed rule version before relying on this preflight.",
+            )
+        ]
     return []
+
 
 def validate_listing(value, observed_at) -> dict:
     """Evaluate one versioned localized listing without modifying its source."""
@@ -43,14 +67,29 @@ def validate_listing(value, observed_at) -> dict:
     findings += keyword_findings(value["fields"]) if platform == "iOS" else []
     findings += surface_findings(platform, value["surface"], value["test_fields"])
     findings += rule_findings(value["rule_version"], observed_at)
-    return {"platform": platform, "locale": value["locale"], "rule_version": RULE_VERSION,
-            "source_rule_version": value["rule_version"],
-            "rules_reviewed_at": REVIEWED_AT, "sources": SOURCES[platform], "fields": observations,
-            "findings": findings, "source_hash": digest(value), "original": value,
-            "status": "NEEDS_REPAIR" if findings else "READY_FOR_REVIEW", "external_writes": False,
-            "claims_verified": False, "provider_approved": False,
-            "review_required": ["Verify every claim against current product evidence and rights", "Review localized meaning with a native-language reviewer", "Confirm provider character counters and current rules"],
-            "scope": "Deterministic preflight only. Counts use Unicode code points; provider counters remain authoritative. No ranking prediction, experiment execution or publication."}
+    return {
+        "platform": platform,
+        "locale": value["locale"],
+        "rule_version": RULE_VERSION,
+        "source_rule_version": value["rule_version"],
+        "rules_reviewed_at": REVIEWED_AT,
+        "sources": SOURCES[platform],
+        "fields": observations,
+        "findings": findings,
+        "source_hash": digest(value),
+        "original": value,
+        "status": "NEEDS_REPAIR" if findings else "READY_FOR_REVIEW",
+        "external_writes": False,
+        "claims_verified": False,
+        "provider_approved": False,
+        "review_required": [
+            "Verify every claim against current product evidence and rights",
+            "Review localized meaning with a native-language reviewer",
+            "Confirm provider character counters and current rules",
+        ],
+        "scope": "Deterministic preflight only. Counts use Unicode code points; provider counters remain authoritative. No ranking prediction, experiment execution or publication.",
+    }
+
 
 def field_findings(platform, fields) -> tuple:
     """Report missing, extra and overlength fields with explicit character counts."""
@@ -67,9 +106,21 @@ def field_findings(platform, fields) -> tuple:
         if name not in optional and not text.strip():
             findings.append(issue(name, "MISSING", "Supply truthful localized " + name + "."))
         if len(text) > maximum:
-            findings.append(issue(name, "TOO_LONG", "Shorten this field to " + str(maximum) + " characters; review meaning before replacing it."))
+            findings.append(
+                issue(
+                    name,
+                    "TOO_LONG",
+                    "Shorten this field to " + str(maximum) + " characters; review meaning before replacing it.",
+                )
+            )
         if re.search(r"(?i)(?:#1\b|\bguaranteed\b|\b100%\s+(?:safe|effective)\b|\bbest\s+app\b)", text):
-            findings.append(issue(name, "CLAIM_REVIEW", "Remove unsupported ranking or absolute outcome claims, or attach independently reviewed substantiation."))
+            findings.append(
+                issue(
+                    name,
+                    "CLAIM_REVIEW",
+                    "Remove unsupported ranking or absolute outcome claims, or attach independently reviewed substantiation.",
+                )
+            )
     return observations, findings
 
 
@@ -78,13 +129,13 @@ def field_observation(platform, name, text, maximum) -> dict:
     observation = {"field": name, "characters": len(text), "text": text}
     if platform == "iOS" and name == "keywords":
         try:
-            observation.update(bytes=len(text.encode("utf-8")), byte_reference=100,
-                               maximum_characters=maximum)
+            observation.update(bytes=len(text.encode("utf-8")), byte_reference=100, maximum_characters=maximum)
         except UnicodeEncodeError as error:
             raise Invalid("Apple keywords must contain valid UTF-8 text") from error
         return observation
     observation["maximum_characters"] = maximum
     return observation
+
 
 def keyword_findings(fields) -> list:
     """Flag duplicate keyword tokens without imposing an invented density target."""
@@ -93,12 +144,31 @@ def keyword_findings(fields) -> list:
     repeated = sorted(word for word, count in Counter(words).items() if count > 1)
     findings = []
     if len(text) <= 100 and len(text.encode("utf-8")) > 100:
-        findings.append(issue("keywords", "KEYWORD_BYTE_REVIEW", "Apple's product-page guidance says 100 characters, while its App Store Connect reference lists 100 bytes. Check the current App Store Connect counter for this locale; this byte count alone does not establish acceptance."))
+        findings.append(
+            issue(
+                "keywords",
+                "KEYWORD_BYTE_REVIEW",
+                "Apple's product-page guidance says 100 characters, while its App Store Connect reference lists 100 bytes. Check the current App Store Connect counter for this locale; this byte count alone does not establish acceptance.",
+            )
+        )
     if repeated:
-        findings.append(issue("keywords", "DUPLICATE_KEYWORD", "Review repeated words: " + ", ".join(repeated) + "; preserve intent while removing duplication."))
+        findings.append(
+            issue(
+                "keywords",
+                "DUPLICATE_KEYWORD",
+                "Review repeated words: " + ", ".join(repeated) + "; preserve intent while removing duplication.",
+            )
+        )
     if ", " in text or " ," in text:
-        findings.append(issue("keywords", "SEPARATOR_SPACING", "Remove spaces around commas; spaces inside keyword phrases are permitted."))
+        findings.append(
+            issue(
+                "keywords",
+                "SEPARATOR_SPACING",
+                "Remove spaces around commas; spaces inside keyword phrases are permitted.",
+            )
+        )
     return findings
+
 
 def surface_findings(platform, surface, test_fields) -> list:
     """Reject text experiments on Apple PPO and titles on Play listing experiments."""
@@ -109,4 +179,16 @@ def surface_findings(platform, surface, test_fields) -> list:
     if len(test_fields) != len(set(test_fields)):
         raise Invalid("Test fields cannot repeat")
     unsupported = sorted(set(test_fields) - SURFACES[platform][surface])
-    return [issue("test_fields", "UNSUPPORTED_SURFACE", "This surface cannot test: " + ", ".join(unsupported) + ". Select a supported surface or prepare a manual metadata review.")] if unsupported else []
+    return (
+        [
+            issue(
+                "test_fields",
+                "UNSUPPORTED_SURFACE",
+                "This surface cannot test: "
+                + ", ".join(unsupported)
+                + ". Select a supported surface or prepare a manual metadata review.",
+            )
+        ]
+        if unsupported
+        else []
+    )

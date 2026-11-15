@@ -1,4 +1,5 @@
 """Current app-bound preparation and download eligibility, never delivery truth."""
+
 from zoneinfo import ZoneInfo
 from .common import digest, iso_time
 
@@ -25,8 +26,10 @@ def permission(policy, subject, task, observed):
 
 def calendar(subject, observed):
     """Derive current local date/quiet hours using the actual DST offset."""
-    data = subject["data"]; local = observed.astimezone(ZoneInfo(data["timezone"]))
-    wall = local.strftime("%H:%M"); start, end = data["quiet_start"], data["quiet_end"]
+    data = subject["data"]
+    local = observed.astimezone(ZoneInfo(data["timezone"]))
+    wall = local.strftime("%H:%M")
+    start, end = data["quiet_start"], data["quiet_end"]
     quiet = start <= wall < end if start < end else wall >= start or wall < end
     return local.date().isoformat(), quiet
 

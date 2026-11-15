@@ -1,0 +1,79 @@
+name: macOS desktop artifacts
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'mission_control/macos_vault.py'
+      - 'mission_control/credential_vault.py'
+      - 'tools/build_desktop.py'
+      - 'tools/build_macos_package.py'
+      - 'tools/check_macos_bundle.py'
+      - 'tools/test_native_desktop_bundle.py'
+      - 'desktop/src-tauri/src/main.rs'
+      - 'desktop/launcher/src/lib.rs'
+      - 'tests/test_macos_*.py'
+      - 'docs/requirements-macos.txt'
+      - '.github/workflows/macos-desktop.yml'
+permissions:
+  contents: read
+concurrency:
+  group: macos-desktop-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15-intel
+            architecture: x86_64
+          - runner: macos-15
+            architecture: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    env:
+      WMM_MAC_PACKAGE_TEST: '1'
+      MACOSX_DEPLOYMENT_TARGET: '15.0'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - name: Check declared native architecture
+        env:
+          EXPECTED_ARCH: ${{ matrix.architecture }}
+        run: python -c "import os,platform; assert platform.machine() == os.environ['EXPECTED_ARCH']"
+      - name: Install declared build and native Keychain dependencies
+        run: |
+          python -m pip install --require-hashes --only-binary :all: -r requirements.txt
+          python -m pip install --only-binary :all: pyinstaller==6.22.3 -r docs/requirements-mcp.txt -r docs/requirements-macos.txt
+      - name: Run Mac source contracts
+        run: python -m unittest tests.test_macos_vault tests.test_macos_package tests.test_macos_keychain_probe tests.test_native_desktop_package tests.test_desktop_entry -v
+      - name: Build the existing native shell and frozen engine
+        env:
+          WMM_GITHUB_DEVICE_CLIENT_ID: ${{ vars.WMM_GITHUB_DEVICE_CLIENT_ID }}
+        run: python tools/build_desktop.py --native-window
+      - name: Stage unsigned Mac app artifact
+        run: python tools/build_macos_package.py
+      - name: Verify actual native pair and Keychain cleanup
+        run: |
+          ditto -x -k "dist/macos/WMM-macOS-${{ matrix.architecture }}.zip" dist/macos/extracted
+          python tools/check_macos_bundle.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: WMM-macOS-${{ matrix.architecture }}-${{ github.sha }}
+          path: |
+            dist/macos/*.zip
+            dist/macos/build.json
+            dist/macos/acceptance.json
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ failure() && hashFiles('dist/macos/failure.json') != '' }}
+        with:
+          name: WMM-macOS-failure-${{ matrix.architecture }}-${{ github.sha }}
+          path: dist/macos/failure.json
+          if-no-files-found: error
+          retention-days: 7

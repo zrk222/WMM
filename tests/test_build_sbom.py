@@ -1,4 +1,5 @@
 """SBOM generation is deterministic and source-bound; it is not a runtime file inventory."""
+
 import importlib.util
 from pathlib import Path
 import unittest
@@ -24,7 +25,9 @@ class FakeDistribution:
 
 class BuildSBOMTests(unittest.TestCase):
     def test_components_are_sorted_normalized_and_deduplicated(self):
-        value = sbom.build(SHA, "Linux", [FakeDistribution("demo_app", "2.0", "MIT"), FakeDistribution("Demo.App", "2.0", "MIT")])
+        value = sbom.build(
+            SHA, "Linux", [FakeDistribution("demo_app", "2.0", "MIT"), FakeDistribution("Demo.App", "2.0", "MIT")]
+        )
         self.assertEqual(value["bomFormat"], "CycloneDX")
         self.assertEqual(value["metadata"]["component"]["version"], SHA)
         self.assertEqual([row["purl"] for row in value["components"]], ["pkg:pypi/demo-app@2.0"])

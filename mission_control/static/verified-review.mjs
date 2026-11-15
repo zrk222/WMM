@@ -1,0 +1,372 @@
+import { status } from './app.mjs';
+import { $, api, button, esc, json, notice, refresh, state, toast } from './app.mjs';
+import { download, modal } from './app-ui.mjs';
+('use strict');
+
+function reviewIdentity() {
+  return state.workspace.identity || { status: 'SIGNED_OUT' };
+}
+function myReviewRole() {
+  return (state.workspace.access?.members || []).find(
+    (r) => r.principal === reviewIdentity().principal && r.status === 'ACTIVE',
+  );
+}
+function verifiedReviewPanel() {
+  const w = state.workspace,
+    identity = reviewIdentity(),
+    access = w.access || { configured: false, members: [] },
+    role = myReviewRole();
+  const signed = identity.status === 'AUTHENTICATED';
+  const action = signed
+    ? button('Sign out of review session', 'identity-logout')
+    : button('Sign in for verified review', 'identity-login');
+  const setup = !access.configured
+    ? button('Establish app owner', 'access-bootstrap')
+    : role?.role === 'OWNER'
+      ? button('Assign a reviewer', 'access-member')
+      : '';
+  const members = access.members
+    .map(
+      (r) =>
+        `<div class="record-row"><span class="record-main"><strong>${esc(r.login)}</strong><small>${esc(r.principal)} · ${esc(r.role)} · version ${r.version}</small></span>${status(r.status)}${role?.role === 'OWNER' && r.role !== 'OWNER' ? button('Edit access', 'access-member', `data-id="${esc(r.principal)}"`) : ''}</div>`,
+    )
+    .join('');
+  const reviews = (w.verified_reviews || [])
+    .map(
+      (r) =>
+        `<button class="record-row" data-action="verified-review-open" data-id="${esc(r.id)}"><span class="record-main"><strong>${esc(r.packet.record.title)}</strong><small>Maker ${esc(r.preparer)} · ${esc(new Date(r.expires).toLocaleString())}</small></span>${status(r.availability === 'CURRENT' ? r.status : 'UNAVAILABLE')}</button>`,
+    )
+    .join('');
+  return `<section class="panel"><p class="eyebrow">VERIFIED REVIEW ACCESS</p><h2>Your app's maker and checker</h2><p class="description">${signed ? `Signed in as ${esc(identity.login)} (${esc(identity.principal)}). ${role ? `App role: ${esc(role.role)}.` : 'No active role in this app.'}` : 'Sign in with your own GitHub account to prepare or independently review exact packets.'}</p>${notice('Identity is rechecked for every protected action. Tokens stay in server memory for 15 minutes. Recorded review does not execute a provider action or authorize spending.')}<div class="toolbar">${action}${setup}</div>${members ? `<details><summary>App access (${access.members.length})</summary>${members}</details>` : notice("The first verified owner must establish this app's local access policy.")}</section><div class="section-heading"><h2>Verified review inbox</h2>${button('Prepare verified review', 'verified-review-prepare')}</div>${reviews ? `<div class="record-list">${reviews}</div>` : notice('No verified packets yet. Add distribution, store or experiment evidence, then prepare its exact contents for a different authenticated checker.')}`;
+}
+
+/** Point directly to the existing sign-in and first-owner review without granting access. */
+function verifiedOwnerNext(workspace, task) {
+  if (workspace.access?.configured === false) {
+    return (
+      '<p>Set up this app’s owner to ' +
+      esc(task) +
+      '. WMM asks you to confirm before setting ownership.</p>' +
+      button('Set up app owner', 'access-bootstrap')
+    );
+  }
+  if (workspace.identity?.status !== 'AUTHENTICATED') {
+    return (
+      '<p>Sign in as the app owner to ' +
+      esc(task) +
+      '.</p>' +
+      button('Sign in with GitHub', 'identity-login')
+    );
+  }
+  return (
+    '<p>Only the current app owner can ' + esc(task) + '. Ask the owner to make this change.</p>'
+  );
+}
+
+/** Collect an ephemeral identity token and optionally retain the explicit first-owner task. */
+function identityLogin(next = '', manual = false) {
+  if (!manual && state.workspace.device_signin_available) {
+    modal(
+      'Sign in for verified review',
+      `<form id="identity-form" data-device="true" data-app="${esc(state.app)}" data-app-version="${state.workspace.app.version}" data-next="${next === 'owner-bootstrap' ? 'owner-bootstrap' : ''}"><div class="modal-content"><p>Use your GitHub account to verify your identity for this workspace.</p><div data-device-status aria-live="polite"></div><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions" data-device-actions>${button('Start GitHub sign-in', 'identity-device-begin')}${button('Use a personal access token', 'identity-device-manual')}</div></form>`,
+      'VERIFIED REVIEW SESSION',
+    );
+    return;
+  }
+  modal(
+    'Sign in for verified review',
+    `<form id="identity-form" data-app="${esc(state.app)}" data-app-version="${state.workspace.app.version}" data-next="${next === 'owner-bootstrap' ? 'owner-bootstrap' : ''}"><div class="modal-content">${notice('Use your own GitHub fine-grained token with no repository permissions. This verifies your numeric account ID through GitHub; it does not connect product data or repositories.')}<p><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Create a GitHub identity token</a> · <a href="https://docs.github.com/en/rest/users/users#get-the-authenticated-user" target="_blank" rel="noopener noreferrer">Review the identity permissions</a></p><label class="field" for="identity-token">GitHub identity token<input id="identity-token" name="token" type="password" autocomplete="off" minlength="20" maxlength="256" required></label><p class="description">The token is cleared from this form after submission and never saved to workspace files or browser storage. Sign-out or server restart clears the session.</p><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Verify my identity</button></div></form>`,
+    'EPHEMERAL REVIEW SESSION',
+  );
+}
+
+function deviceBinding(form) {
+  return { app_id: form.dataset.app, app_version: Number(form.dataset.appVersion) };
+}
+
+function deviceActive(form) {
+  return (
+    form.isConnected &&
+    $('#modal').open &&
+    state.app === form.dataset.app &&
+    state.workspace.app.version === Number(form.dataset.appVersion)
+  );
+}
+
+async function deviceRequest(form, step, extra = {}) {
+  const body = { ...deviceBinding(form), ...extra };
+  if (step !== 'begin') body.flow_id = form.dataset.flow;
+  return api(`/api/identity/device/${step}`, body);
+}
+
+function showDeviceState(form, result) {
+  const message = form.querySelector('[data-device-status]'),
+    actions = form.querySelector('[data-device-actions]');
+  form.dataset.flow = result.flow_id;
+  if (result.status === 'WAITING') {
+    message.innerHTML = `<p>Enter <strong class="app-mono">${esc(result.user_code)}</strong> at <span class="app-mono">github.com/login/device</span> in your browser. Return here once GitHub confirms.</p>${result.retry_after ? '<p>You can check again in ' + esc(result.retry_after) + ' seconds.</p>' : ''}`;
+    actions.innerHTML =
+      button('Open GitHub in browser', 'identity-device-open') +
+      button('Check GitHub sign-in', 'identity-device-poll') +
+      button('Cancel sign-in', 'identity-device-cancel');
+  } else if (result.status === 'VERIFIED') {
+    form.dataset.principal = result.principal;
+    message.textContent = `GitHub verified ${result.login} (${result.principal}). Confirm this is the account you want to use.`;
+    actions.innerHTML =
+      button('Confirm this account', 'identity-device-confirm') +
+      button('Cancel sign-in', 'identity-device-cancel');
+  }
+}
+
+async function deviceClick(node, step) {
+  const form = node.closest('#identity-form[data-device]');
+  if (!form) return;
+  const alert = form.querySelector('#form-error');
+  if (!deviceActive(form)) {
+    alert.textContent = 'This app changed. Open sign-in again.';
+    return;
+  }
+  if (step === 'manual') return identityLogin(form.dataset.next, true);
+  if (step === 'cancel') return $('#modal').close();
+  if (form.dataset.busy) return;
+  form.dataset.busy = 'true';
+  node.disabled = true;
+  alert.textContent = '';
+  try {
+    const result = await deviceRequest(
+      form,
+      step,
+      step === 'confirm' ? { principal: form.dataset.principal } : {},
+    );
+    if (!deviceActive(form)) {
+      if (step === 'begin' && result.flow_id) {
+        form.dataset.flow = result.flow_id;
+        await deviceRequest(form, 'cancel').catch(() => {});
+      }
+      return;
+    }
+    if (step === 'open') {
+      if (!result.browser_opened)
+        alert.textContent =
+          'Open github.com/login/device in your browser and enter the code shown.';
+    } else if (step === 'confirm') {
+      delete form.dataset.flow;
+      $('#modal').close();
+      await refresh();
+      if (ownerContinuation(form, form.dataset.app, true)) accessBootstrap();
+    } else {
+      showDeviceState(form, result);
+    }
+  } catch (error) {
+    if (deviceActive(form)) alert.textContent = error.message;
+  } finally {
+    delete form.dataset.busy;
+    node.disabled = false;
+  }
+}
+
+document.addEventListener(
+  'close',
+  (event) => {
+    if (event.target.id !== 'modal' || event.target.open) return;
+    const form = $('#identity-form[data-device][data-flow]');
+    if (form) {
+      deviceRequest(form, 'cancel').catch(() => {});
+      delete form.dataset.flow;
+    }
+  },
+  true,
+);
+
+/** Require an authenticated identity and explicit checkbox before establishing the first app owner. */
+function accessBootstrap() {
+  if (reviewIdentity().status !== 'AUTHENTICATED') return identityLogin('owner-bootstrap');
+  modal(
+    "Establish this app's owner",
+    `<form id="access-bootstrap-form" data-app="${esc(state.app)}" data-app-version="${state.workspace.app.version}" data-principal="${esc(reviewIdentity().principal)}"><div class="modal-content">${notice(`This establishes ${reviewIdentity().login} as the fixed local owner of ${state.workspace.app.data.name}. Use the actual app owner's account on this trusted workstation. It cannot replace an existing owner.`)}<label class="check-label"><input type="checkbox" name="confirm_owner" required> I am establishing the first owner for this local app.</label><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Establish verified owner</button></div></form>`,
+  );
+}
+
+function accessMember(principal) {
+  const row = (state.workspace.access.members || []).find((r) => r.principal === principal);
+  modal(
+    'Assign app review access',
+    `<form id="access-member-form" data-app="${esc(state.app)}" data-version="${row?.version || ''}"><div class="modal-content">${notice("The authenticated owner assigns a separate maker or checker by their verified GitHub account ID. Revoking or changing access invalidates that role's earlier packets. This does not grant access to Apple or other providers.")}<label class="field" for="member-login">GitHub username<input id="member-login" name="login" maxlength="39" value="${esc(row?.login || '')}" ${row ? 'readonly' : ''} required></label><label class="field" for="member-role">App role<select id="member-role" name="role"><option value="CHECKER" ${row?.role === 'CHECKER' ? 'selected' : ''}>Checker: independently inspect packets</option><option value="MAKER" ${row?.role === 'MAKER' ? 'selected' : ''}>Maker: prepare exact packets</option></select></label><label class="field" for="member-status">Access status<select id="member-status" name="status"><option value="ACTIVE">Active</option><option value="REVOKED" ${row?.status === 'REVOKED' ? 'selected' : ''}>Revoked</option></select></label><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Save app access</button></div></form>`,
+  );
+}
+
+function verifiedPrepare() {
+  if (reviewIdentity().status !== 'AUTHENTICATED') return identityLogin();
+  const records = state.workspace.records.filter((r) =>
+    ['distribution', 'store', 'experiment'].includes(r.kind),
+  );
+  if (!records.length)
+    return modal(
+      'Add review evidence first',
+      `<div class="modal-content">${notice("Add this app's distribution, store or experiment record before freezing a packet.")}</div><div class="modal-actions">${button('Add store evidence', 'add-evidence', 'data-kind="store"')}</div>`,
+    );
+  modal(
+    'Prepare verified review',
+    `<form id="verified-prepare-form" data-app="${esc(state.app)}"><div class="modal-content">${notice("Freeze this app's current manifest, exact record and your authenticated maker role for 24 hours. A different authorized checker must review the hash. External execution remains unimplemented.")}<label class="field" for="verified-record">Source evidence<select id="verified-record" name="record_id">${records.map((r) => `<option value="${esc(r.id)}">${esc(r.title)}</option>`).join('')}</select></label><div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions"><button class="button" type="submit">Freeze exact review packet</button></div></form>`,
+  );
+}
+
+function verifiedOpen(id) {
+  const row = state.workspace.verified_reviews.find((r) => r.id === id);
+  if (!row) return;
+  const user = reviewIdentity(),
+    role = myReviewRole();
+  const allowed =
+    user.status === 'AUTHENTICATED' &&
+    ['OWNER', 'CHECKER'].includes(role?.role) &&
+    row.preparer !== user.principal &&
+    row.availability === 'CURRENT' &&
+    row.status === 'WAITING_REVIEW';
+  modal(
+    'Inspect verified packet',
+    `<div class="modal-content">${status(row.status)}${status(row.availability)}${notice(row.unavailable_reason || 'Review only the frozen contents and exact hash below. Recorded review alone does not execute or publish.', row.availability === 'CURRENT' ? 'info' : 'warning')}<div class="details-list"><p><strong>Maker:</strong> ${esc(row.preparer)}</p><p><strong>Checker:</strong> ${esc(row.checker || 'Not recorded')}</p><p><strong>Expires:</strong> ${esc(new Date(row.expires).toLocaleString())}</p></div><p class="app-mono">SHA256 ${esc(row.hash)}</p><details open><summary>Exact frozen evidence</summary><pre>${json(row.packet)}</pre></details>${!allowed && row.status === 'WAITING_REVIEW' ? notice('A different authenticated, active checker is required; the packet and its source must still be current.') : ''}<div id="form-error" class="field-error" role="alert"></div></div><div class="modal-actions">${button('Download verified receipt', 'verified-review-download', `data-id="${esc(id)}"`)}${allowed ? button('Record independent verified review', 'verified-review-approve', `data-id="${esc(id)}"`, '') : ''}</div>`,
+  );
+}
+
+/** Resume only the still-connected original app task after authenticated sign-in. */
+function ownerContinuation(form, app, active) {
+  return (
+    active &&
+    form.isConnected &&
+    !$('#modal').open &&
+    form.dataset.next === 'owner-bootstrap' &&
+    state.app === app &&
+    String(state.workspace.app.version) === form.dataset.appVersion &&
+    reviewIdentity().status === 'AUTHENTICATED' &&
+    state.workspace.access?.configured === false
+  );
+}
+/** Submit one selected review form through its existing closed API route. */
+async function verifiedRequest(form, id, data, app) {
+  if (id === 'identity-form') {
+    const token = data.token;
+    form.reset();
+    return api('/api/identity/login', { token });
+  }
+  const requests = {
+    'access-bootstrap-form': () =>
+      api(`/api/apps/${app}/access/bootstrap`, {
+        confirm_owner: !!data.confirm_owner,
+        expected_principal: form.dataset.principal,
+        manifest_version: Number(form.dataset.appVersion),
+      }),
+    'access-member-form': () =>
+      api(`/api/apps/${app}/access/members`, {
+        ...data,
+        version: form.dataset.version ? Number(form.dataset.version) : null,
+      }),
+    'verified-prepare-form': () => api(`/api/apps/${app}/verified-reviews`, data),
+  };
+  return requests[id]();
+}
+/** Refresh current authority before returning to the intended owner step or saved review. */
+async function verifiedSubmitted(form, id, data, app) {
+  const result = await verifiedRequest(form, id, data, app);
+  const active = form.isConnected && $('#modal').open;
+  if (active) $('#modal').close();
+  await refresh();
+  if (ownerContinuation(form, app, active)) return accessBootstrap();
+  if (id === 'verified-prepare-form' && result && active && state.app === app)
+    return verifiedOpen(result.id);
+}
+/** Retain form error handling and prevent a second submit while a request is pending. */
+async function verifiedSubmit(event) {
+  const form = event.target,
+    id = form.id;
+  if (
+    ![
+      'identity-form',
+      'access-bootstrap-form',
+      'access-member-form',
+      'verified-prepare-form',
+    ].includes(id)
+  )
+    return;
+  event.preventDefault();
+  if (form.dataset.device) return;
+  const submit = form.querySelector('[type="submit"]');
+  submit.disabled = true;
+  const data = Object.fromEntries(new FormData(form)),
+    app = form.dataset.app || state.app;
+  try {
+    await verifiedSubmitted(form, id, data, app);
+  } catch (error) {
+    const field = form.querySelector('#form-error');
+    if (form.isConnected && field) field.textContent = error.message;
+    else toast(error.message);
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+async function verifiedClick(event) {
+  const node = event.target.closest('[data-action]');
+  if (!node) return;
+  const action = node.dataset.action,
+    id = node.dataset.id;
+  if (action.startsWith('identity-device-'))
+    return deviceClick(node, action.slice('identity-device-'.length));
+  const simple = {
+    'identity-login': identityLogin,
+    'access-bootstrap': accessBootstrap,
+    'access-member': () => accessMember(id),
+    'verified-review-prepare': verifiedPrepare,
+    'verified-review-open': () => verifiedOpen(id),
+  };
+  if (simple[action]) return simple[action]();
+  if (action === 'verified-review-download')
+    return download(
+      `${state.app}-verified-review.json`,
+      state.workspace.verified_reviews.find((r) => r.id === id),
+    );
+  try {
+    if (action === 'identity-logout') {
+      await api('/api/identity/logout', {});
+      return refresh();
+    }
+    if (action === 'verified-review-approve') {
+      node.disabled = true;
+      const app = state.app,
+        row = state.workspace.verified_reviews.find((r) => r.id === id);
+      await api(`/api/apps/${app}/verified-reviews/${id}/approve`, { hash: row.hash });
+      await refresh();
+      if (state.app === app && node.isConnected && $('#modal').open) verifiedOpen(id);
+    }
+  } catch (error) {
+    const field = $('#form-error');
+    if (field) field.textContent = error.message;
+    else toast(error.message);
+  } finally {
+    node.disabled = false;
+  }
+}
+
+document.addEventListener('submit', verifiedSubmit);
+document.addEventListener('click', verifiedClick);
+
+export {
+  reviewIdentity,
+  myReviewRole,
+  verifiedReviewPanel,
+  verifiedOwnerNext,
+  identityLogin,
+  deviceBinding,
+  deviceActive,
+  deviceRequest,
+  showDeviceState,
+  deviceClick,
+  accessBootstrap,
+  accessMember,
+  verifiedPrepare,
+  verifiedOpen,
+  ownerContinuation,
+  verifiedRequest,
+  verifiedSubmitted,
+  verifiedSubmit,
+  verifiedClick,
+};

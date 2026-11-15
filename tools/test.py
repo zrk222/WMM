@@ -1,4 +1,4 @@
-﻿"""Canonical, profile-aware test entry point.
+"""Canonical, profile-aware test entry point.
 
 Examples:
   python tools/test.py --profile inventory
@@ -12,6 +12,7 @@ packages, FFmpeg and a platform keyring. Browser adds Playwright. Profiles are
 reported before any test runs so a clean checkout cannot silently look green
 with optional coverage missing.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -45,8 +46,10 @@ def core_gaps() -> list[str]:
         gaps.append("Python 3.11 or newer is required")
     if not have_module("zoneinfo"):
         gaps.append("Python zoneinfo support is required")
-    for module, label in (("mcp", "MCP test package (docs/requirements-mcp.txt)"),
-                          ("keyring", "keyring package needed by platform credential tests")):
+    for module, label in (
+        ("mcp", "MCP test package (docs/requirements-mcp.txt)"),
+        ("keyring", "keyring package needed by platform credential tests"),
+    ):
         if not have_module(module):
             gaps.append(label)
     if shutil.which("ffmpeg") is None:
@@ -143,13 +146,18 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--profile", choices=PROFILES, default="core")
     parser.add_argument("--install", action="store_true", help="Install declared pip profile before testing")
-    parser.add_argument("--allow-missing", action="store_true", help="Run and report skips even when profile tools are absent")
+    parser.add_argument(
+        "--allow-missing", action="store_true", help="Run and report skips even when profile tools are absent"
+    )
     parser.add_argument("--list", action="store_true", help="List profiles and expected suites without running")
     args = parser.parse_args(argv)
     if args.list or args.profile == "inventory":
         print("PROFILES", flush=True)
         print("  inventory  no tests; reports the declared profile surface", flush=True)
-        print("  core       Python suites with CI-equivalent optional packages; browser modules skip without Playwright", flush=True)
+        print(
+            "  core       Python suites with CI-equivalent optional packages; browser modules skip without Playwright",
+            flush=True,
+        )
         print("  browser    Browser unittest modules; requires Playwright and FFmpeg", flush=True)
         print("  node       Node browser-logic suites; requires Node.js", flush=True)
         print("  all        core + browser + node", flush=True)
@@ -174,16 +182,17 @@ def main(argv=None) -> int:
             modules = [path for path in sorted((ROOT / "tests").glob("test_*.py")) if "browser" in path.name.lower()]
             if not modules:
                 raise SystemExit("No browser unittest modules found")
-            suite = unittest.TestLoader().discover(start_dir=str(ROOT / "tests"),
-                                                   pattern="test_*browser*.py")
+            suite = unittest.TestLoader().discover(start_dir=str(ROOT / "tests"), pattern="test_*browser*.py")
             cases = list(flatten(suite))
         else:
             cases, _ = discover(args.profile)
         report(args.profile, gaps, len(cases), 0 if args.profile != "core" else 0)
         result = unittest.TextTestRunner(verbosity=1).run(unittest.TestSuite(cases))
-        print(f"SUMMARY profile={args.profile} ran={result.testsRun} "
-              f"failures={len(result.failures)} errors={len(result.errors)} skipped={len(result.skipped)}",
-              flush=True)
+        print(
+            f"SUMMARY profile={args.profile} ran={result.testsRun} "
+            f"failures={len(result.failures)} errors={len(result.errors)} skipped={len(result.skipped)}",
+            flush=True,
+        )
         if result.failures:
             print("FAILURES:", flush=True)
             for case, _ in result.failures:
@@ -202,4 +211,3 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

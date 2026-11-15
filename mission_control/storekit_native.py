@@ -1,4 +1,5 @@
 """Fail-closed ephemeral Crypt32 chain verification and BCrypt ES256 verification."""
+
 import ctypes as c
 from ctypes import wintypes as w
 import hashlib
@@ -24,7 +25,7 @@ def require(condition, message):
 def filetime(stamp):
     """Convert a Unix clock to the native UTC FILETIME ABI."""
     ticks = int((stamp + 11644473600) * 10000000)
-    return w.FILETIME(ticks & 0xffffffff, ticks >> 32)
+    return w.FILETIME(ticks & 0xFFFFFFFF, ticks >> 32)
 
 
 def has_oid(cert, wanted):
@@ -49,8 +50,10 @@ def check_chain(pointer, expected):
     require(simple.trust.error == 0 and simple.count == 3, "Certificate chain is invalid")
     actual = [cert_bytes(simple.elements[i].contents.cert) for i in range(simple.count)]
     require(actual == list(expected), "Certificate chain does not match the supplied pinned path")
-    require(all(simple.elements[i].contents.trust.error == 0 for i in range(simple.count)),
-            "Certificate element trust failed")
+    require(
+        all(simple.elements[i].contents.trust.error == 0 for i in range(simple.count)),
+        "Certificate element trust failed",
+    )
 
 
 class NativeVerifier:
@@ -59,8 +62,7 @@ class NativeVerifier:
     def __init__(self, roots):
         require(os.name == "nt", "StoreKit verification requires Windows native cryptography")
         require(1 <= len(roots) <= 3, "Pinned root count is invalid")
-        require(all(isinstance(raw, bytes) and 0 < len(raw) <= 8192 for raw in roots),
-                "Pinned root size is invalid")
+        require(all(isinstance(raw, bytes) and 0 < len(raw) <= 8192 for raw in roots), "Pinned root size is invalid")
         self.roots = tuple(roots)
         self.crypt, self.bcrypt = abi.libraries()
         self.root_store = None
@@ -71,13 +73,17 @@ class NativeVerifier:
     def add(self, store, raw):
         """Memory-store addition makes a native copy, never changes system trust."""
         buffer = c.create_string_buffer(raw)
-        require(self.crypt.CertAddEncodedCertificateToStore(store, 1, buffer, len(raw), 4, None),
-                "Certificate memory-store parsing failed")
+        require(
+            self.crypt.CertAddEncodedCertificateToStore(store, 1, buffer, len(raw), 4, None),
+            "Certificate memory-store parsing failed",
+        )
 
     def prepare(self, certs):
         """Require a pinned supplied root before constructing an exclusive engine."""
-        require(len(certs) == 3 and all(isinstance(raw, bytes) and 0 < len(raw) <= 8192 for raw in certs),
-                "Certificate chain input is invalid")
+        require(
+            len(certs) == 3 and all(isinstance(raw, bytes) and 0 < len(raw) <= 8192 for raw in certs),
+            "Certificate chain input is invalid",
+        )
         require(certs[2] in self.roots, "Certificate root is not pinned")
         self.root_store = self.crypt.CertOpenStore(abi.P(2), 0, None, 0, None)
         self.other_store = self.crypt.CertOpenStore(abi.P(2), 0, None, 0, None)
@@ -97,8 +103,10 @@ class NativeVerifier:
         config.exclusive_root = self.root_store
         config.flags = 8192
         config.timeout = 5000
-        require(self.crypt.CertCreateCertificateChainEngine(c.byref(config), c.byref(self.engine)),
-                "Exclusive certificate engine is unavailable")
+        require(
+            self.crypt.CertCreateCertificateChainEngine(c.byref(config), c.byref(self.engine)),
+            "Exclusive certificate engine is unavailable",
+        )
 
     def chain(self, certs, online, now):
         """Validate current time, and optionally require fresh native revocation."""
@@ -113,9 +121,19 @@ class NativeVerifier:
         result = abi.P()
         flags = ONLINE_FLAGS if online else OFFLINE_FLAGS
         try:
-            require(self.crypt.CertGetCertificateChain(self.engine, self.certs[0], c.byref(current),
-                    self.other_store, c.byref(params), flags, None, c.byref(result)),
-                    "Certificate trust or revocation service is unavailable; retry")
+            require(
+                self.crypt.CertGetCertificateChain(
+                    self.engine,
+                    self.certs[0],
+                    c.byref(current),
+                    self.other_store,
+                    c.byref(params),
+                    flags,
+                    None,
+                    c.byref(result),
+                ),
+                "Certificate trust or revocation service is unavailable; retry",
+            )
             require(bool(result.value), "Native certificate chain returned no context")
             check_chain(result, certs)
         finally:
@@ -124,18 +142,24 @@ class NativeVerifier:
 
     def signature(self, message, signature):
         """Use the leaf public key to verify a P1363 ES256 signature, with cleanup."""
-        require(isinstance(message, bytes) and isinstance(signature, bytes) and len(signature) == 64,
-                "ES256 signature input is invalid")
+        require(
+            isinstance(message, bytes) and isinstance(signature, bytes) and len(signature) == 64,
+            "ES256 signature input is invalid",
+        )
         key = abi.P()
         try:
             public = self.certs[0].contents.info.contents.public_key
-            require(self.crypt.CryptImportPublicKeyInfoEx2(1, c.byref(public), 0, None, c.byref(key)),
-                    "Native certificate public key is invalid")
+            require(
+                self.crypt.CryptImportPublicKeyInfoEx2(1, c.byref(public), 0, None, c.byref(key)),
+                "Native certificate public key is invalid",
+            )
             self.require_p256(key)
             digest = c.create_string_buffer(hashlib.sha256(message).digest())
             signed = c.create_string_buffer(signature)
-            require(self.bcrypt.BCryptVerifySignature(key, None, digest, 32, signed, 64, 0) == 0,
-                    "StoreKit ES256 signature is invalid")
+            require(
+                self.bcrypt.BCryptVerifySignature(key, None, digest, 32, signed, 64, 0) == 0,
+                "StoreKit ES256 signature is invalid",
+            )
         finally:
             if key.value:
                 self.bcrypt.BCryptDestroyKey(key)
@@ -144,10 +168,14 @@ class NativeVerifier:
         """Reject another curve even when its native signature primitive is usable."""
         blob = c.create_string_buffer(72)
         length = abi.D()
-        require(self.bcrypt.BCryptExportKey(key, None, "ECCPUBLICBLOB", blob, 72, c.byref(length), 0) == 0,
-                "Certificate must use a P256 public key")
-        require(length.value == 72 and struct.unpack("<II", blob.raw[:8]) in
-                ((0x31534345, 32), (0x314b4345, 32)), "Certificate must use a P256 public key")
+        require(
+            self.bcrypt.BCryptExportKey(key, None, "ECCPUBLICBLOB", blob, 72, c.byref(length), 0) == 0,
+            "Certificate must use a P256 public key",
+        )
+        require(
+            length.value == 72 and struct.unpack("<II", blob.raw[:8]) in ((0x31534345, 32), (0x314B4345, 32)),
+            "Certificate must use a P256 public key",
+        )
 
     def close(self):
         """Release partial constructions too; no native trust handles escape."""

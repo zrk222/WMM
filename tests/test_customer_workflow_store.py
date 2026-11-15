@@ -1,4 +1,5 @@
 """SQLite persistence, immutable customer history, source expiry and portable atomicity."""
+
 import copy
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,7 +17,9 @@ class CustomerWorkflowStoreTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.store = Store(Path(self.tmp.name) / "source.sqlite")
         app = self.store.app("sample-one")
-        self.store.save_app("sample-one", dict(app["data"], release="build-1", locale="en-US", currency="USD"), app["version"])
+        self.store.save_app(
+            "sample-one", dict(app["data"], release="build-1", locale="en-US", currency="USD"), app["version"]
+        )
         self.work = CustomerWorkflows(self.store, lambda: OBSERVED)
         self.body = dict(id="workflow-one", manifest_version=self.store.app("sample-one")["version"], data=proposal())
 
@@ -26,7 +29,9 @@ class CustomerWorkflowStoreTests(unittest.TestCase):
     def test_save_list_history_restart_and_immutable_replay(self):
         row = self.work.save("sample-one", self.body)
         self.assertEqual(self.work.save("sample-one", self.body), row)
-        self.assertEqual(CustomerWorkflows(Store(self.store.path), lambda: OBSERVED).list("sample-one"), self.work.list("sample-one"))
+        self.assertEqual(
+            CustomerWorkflows(Store(self.store.path), lambda: OBSERVED).list("sample-one"), self.work.list("sample-one")
+        )
         with connection(self.store.path) as db:
             self.assertEqual(history(db, "sample-one"), [row])
         changed = copy.deepcopy(self.body)
@@ -35,8 +40,11 @@ class CustomerWorkflowStoreTests(unittest.TestCase):
             self.work.save("sample-one", changed)
 
     def test_manifest_and_app_scope_rejection_without_cross_app_borrowing(self):
-        for app_id, body in (("sample-two", self.body), ("sample-one", dict(self.body, manifest_version=True)),
-                             ("sample-one", dict(self.body, data=dict(proposal(), release="other")))):
+        for app_id, body in (
+            ("sample-two", self.body),
+            ("sample-one", dict(self.body, manifest_version=True)),
+            ("sample-one", dict(self.body, data=dict(proposal(), release="other"))),
+        ):
             with self.assertRaises(Invalid):
                 self.work.save(app_id, body)
         with self.assertRaises(Invalid):
@@ -76,12 +84,27 @@ class CustomerWorkflowStoreTests(unittest.TestCase):
 
     def test_existing_pmf_history_remains_unchanged_when_store_reopens(self):
         from mission_control.pmf_research import Research
+
         research = Research(self.store, lambda: OBSERVED)
-        value = dict(segment="Synthetic founders", problem="Billing reconciliation", alternative="Manual spreadsheet",
-            switching_cost="Unmeasured", value_event="First reconciliation", cadence="weekly", release="build-1",
-            locale="en-US", currency="USD", arm="discovery", starts_at="2026-10-01T00:00:00+00:00",
-            ends_at="2026-10-10T00:00:00+00:00", matures_at="2026-10-20T00:00:00+00:00", target_responses=10)
-        research.save("sample-one", "study", dict(id="existing-study", manifest_version=self.body["manifest_version"], data=value))
+        value = dict(
+            segment="Synthetic founders",
+            problem="Billing reconciliation",
+            alternative="Manual spreadsheet",
+            switching_cost="Unmeasured",
+            value_event="First reconciliation",
+            cadence="weekly",
+            release="build-1",
+            locale="en-US",
+            currency="USD",
+            arm="discovery",
+            starts_at="2026-10-01T00:00:00+00:00",
+            ends_at="2026-10-10T00:00:00+00:00",
+            matures_at="2026-10-20T00:00:00+00:00",
+            target_responses=10,
+        )
+        research.save(
+            "sample-one", "study", dict(id="existing-study", manifest_version=self.body["manifest_version"], data=value)
+        )
         before = research.list("sample-one")
         self.work.save("sample-one", self.body)
         reopened = Store(self.store.path)

@@ -1,17 +1,37 @@
 """Listing preflight boundaries, Unicode, stale rules and supported test surfaces."""
+
 import copy
 import unittest
 import time
 from unittest.mock import patch
 from mission_control.common import Invalid, digest
-from mission_control.aso_validation import (validate_listing, field_findings, field_observation,
-    keyword_findings, surface_findings, issue, rule_findings, RULE_VERSION)
+from mission_control.aso_validation import (
+    validate_listing,
+    field_findings,
+    field_observation,
+    keyword_findings,
+    surface_findings,
+    issue,
+    rule_findings,
+    RULE_VERSION,
+)
 
 
 def listing(platform="iOS"):
     fields = {"title": "Useful habits", "description": "Record useful progress."}
-    fields.update({"subtitle": "Remember your next step", "keywords": "habits,progress,reflection"} if platform == "iOS" else {"short_description": "Remember your next step"})
-    return dict(platform=platform, locale="en-US", fields=fields, surface="MANUAL_METADATA", test_fields=["title"], rule_version=RULE_VERSION)
+    fields.update(
+        {"subtitle": "Remember your next step", "keywords": "habits,progress,reflection"}
+        if platform == "iOS"
+        else {"short_description": "Remember your next step"}
+    )
+    return dict(
+        platform=platform,
+        locale="en-US",
+        fields=fields,
+        surface="MANUAL_METADATA",
+        test_fields=["title"],
+        rule_version=RULE_VERSION,
+    )
 
 
 class AsoValidationTests(unittest.TestCase):
@@ -44,9 +64,14 @@ class AsoValidationTests(unittest.TestCase):
         self.assertEqual(ordinary, {"field": "title", "characters": 7, "text": "A title", "maximum_characters": 30})
 
     def test_field_findings_exact_boundaries_and_locale_unicode(self):
-        for platform, field, limit in (("iOS", "title", 30), ("iOS", "subtitle", 30),
-                                       ("iOS", "promotional_text", 170), ("Android", "title", 30),
-                                       ("Android", "short_description", 80), ("Android", "description", 4000)):
+        for platform, field, limit in (
+            ("iOS", "title", 30),
+            ("iOS", "subtitle", 30),
+            ("iOS", "promotional_text", 170),
+            ("Android", "title", 30),
+            ("Android", "short_description", 80),
+            ("Android", "description", 4000),
+        ):
             value = listing(platform)
             value["fields"][field] = "界" * limit
             observations, findings = field_findings(platform, value["fields"])
@@ -60,7 +85,10 @@ class AsoValidationTests(unittest.TestCase):
         value["fields"]["keywords"] = "界" * 33 + "a"
         observations, findings = field_findings("iOS", value["fields"])
         keyword = next(row for row in observations if row["field"] == "keywords")
-        self.assertEqual((keyword["characters"], keyword["bytes"], keyword["maximum_characters"], keyword["byte_reference"]), (34, 100, 100, 100))
+        self.assertEqual(
+            (keyword["characters"], keyword["bytes"], keyword["maximum_characters"], keyword["byte_reference"]),
+            (34, 100, 100, 100),
+        )
         self.assertFalse(any(row["code"] == "KEYWORD_BYTE_REVIEW" for row in findings))
         value["fields"]["keywords"] += "b"
         result = validate_listing(value, "2026-10-27T12:00:00+00:00")
@@ -108,7 +136,12 @@ class AsoValidationTests(unittest.TestCase):
         self.assertEqual(issue("title", "MISSING", "Repair")["correction"], "Repair")
 
     def test_malformed_inputs_and_cross_platform_fields(self):
-        for key, item in (("platform", "web"), ("locale", ""), ("fields", {"subtitle": "wrong"}), ("surface", "unknown")):
+        for key, item in (
+            ("platform", "web"),
+            ("locale", ""),
+            ("fields", {"subtitle": "wrong"}),
+            ("surface", "unknown"),
+        ):
             value = listing("Android")
             value[key] = item
             with self.subTest(key=key), self.assertRaises(Invalid):

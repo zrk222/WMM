@@ -1,4 +1,5 @@
 """Read-only protocol discovery through the actual isolated loopback server."""
+
 import unittest
 import time
 from unittest.mock import patch
@@ -29,7 +30,10 @@ class AgentOperationTests(unittest.TestCase):
     def test_discovery_reports_removed_feedback_capabilities_without_granting_authority(self):
         app = self.server.service.store.app("sample-one")
         baseline = discovery(app)
-        with patch("mission_control.agent_operations.TOOLS", ("collect_sources", "inspect_site", "refresh_analytics", "evaluate_experiment", "reuse_observation")):
+        with patch(
+            "mission_control.agent_operations.TOOLS",
+            ("collect_sources", "inspect_site", "refresh_analytics", "evaluate_experiment", "reuse_observation"),
+        ):
             code, result, _ = self.request("/api/apps/sample-one/agent-operations")
         self.assertEqual(code, 200)
         self.assertEqual(result["coverage"]["feedback_missing_tools"], ["discover_setup", "inspect_tracking"])
@@ -39,8 +43,11 @@ class AgentOperationTests(unittest.TestCase):
 
     def test_query_path_and_unknown_app_rejected_without_mutation(self):
         before = self.server.service.store.export("sample-one")
-        for route in ("/api/apps/absent/agent-operations", "/api/apps/sample-one/agent-operations?approve=true",
-                      "/api/apps/sample-one/agent-operations/execute"):
+        for route in (
+            "/api/apps/absent/agent-operations",
+            "/api/apps/sample-one/agent-operations?approve=true",
+            "/api/apps/sample-one/agent-operations/execute",
+        ):
             self.assertNotEqual(self.request(route)[0], 200)
         self.assertEqual(self.request("/api/apps/sample-one/agent-operations", {"approved": True})[0], 404)
         after = self.server.service.store.export("sample-one")
@@ -58,8 +65,15 @@ class AgentOperationTests(unittest.TestCase):
 
     def test_discovery_does_not_export_private_records(self):
         store = self.server.service.store
-        store.save_record("sample-one", dict(kind="measurement", title="Synthetic confidential evidence",
-            source="Private synthetic source", data={"private_marker": "SYNTHETIC_PRIVATE_RECORD"}))
+        store.save_record(
+            "sample-one",
+            dict(
+                kind="measurement",
+                title="Synthetic confidential evidence",
+                source="Private synthetic source",
+                data={"private_marker": "SYNTHETIC_PRIVATE_RECORD"},
+            ),
+        )
         result = self.request("/api/apps/sample-one/agent-operations")[1]
         self.assertNotIn("SYNTHETIC_PRIVATE_RECORD", str(result))
         self.assertNotIn("Private synthetic source", str(result))

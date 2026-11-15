@@ -1,6 +1,6 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const fs=require('node:fs');
+const fs=require('./helpers/module-source.cjs');
 const path=require('node:path');
 const load=source=>{const mod={exports:{}};new Function('module',fs.readFileSync(path.join(__dirname,'..',source),'utf8'))(mod);return mod.exports;};
 const expiry=load('mission_control/static/authority-expiry.js');
@@ -61,10 +61,10 @@ test('extension review presents local and UTC dates, unchanged usage and depende
 test('all owner surfaces load one helper and expose owner expiry consent and extension hooks',()=>{
   const root=path.resolve(__dirname,'..');
   const index=fs.readFileSync(path.join(root,'mission_control/static/index.html'),'utf8');
-  assert.equal((index.match(/src="\/authority-expiry\.js"/g)||[]).length,1);
+assert.match(index,/<script type="module" src="\/dashboard\.mjs"><\/script>/);assert.equal((require('node:fs').readFileSync(require('node:path').join(__dirname,'../mission_control/static/feature-apis.mjs'),'utf8').match(/import ['"]\.\/authority-expiry\.js['"];/g)||[]).length,1);
   const agentText=fs.readFileSync(path.join(root,'mission_control/static/agent-control.js'),'utf8');
   const automationText=fs.readFileSync(path.join(root,'mission_control/static/complete-automation.js'),'utf8');
-  const campaignText=fs.readFileSync(path.join(root,'mission_control/static/campaign-execution.js'),'utf8');
+  const campaignText=fs.readFileSync(path.join(root,'mission_control/static/campaign-execution.mjs'),'utf8');
   const organicText=fs.readFileSync(path.join(root,'mission_control/static/organic-policy.js'),'utf8');
   for(const [source,kind] of [[agentText,'AGENT_GRANT'],[automationText,'AUTOMATION'],[campaignText,'CAMPAIGN'],[organicText,'ORGANIC_POLICY']]){
     assert.ok(source.includes(kind),`missing ${kind} binding`);

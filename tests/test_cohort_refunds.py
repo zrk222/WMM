@@ -1,4 +1,5 @@
 """Prove manual cohort arithmetic matches post-refund event-ledger semantics."""
+
 import copy
 from datetime import datetime
 import unittest
@@ -27,8 +28,7 @@ def ledger_event(event_id, kind, amount_minor=0, related_event_id=""):
     }
 
 
-def manual_cohort(refund_minor=0, installs=1, activated=1, paid=1,
-                  acquisition_cost_minor=300, delivery_cost_minor=100):
+def manual_cohort(refund_minor=0, installs=1, activated=1, paid=1, acquisition_cost_minor=300, delivery_cost_minor=100):
     gross_purchase_minor = 2000 if paid else 0
     return {
         "cohort_id": "pilot-1",
@@ -45,8 +45,7 @@ def manual_cohort(refund_minor=0, installs=1, activated=1, paid=1,
     }
 
 
-def event_ledger(refund_minor=0, activity=True, as_of=AS_OF,
-                 acquisition_cost_minor=300, delivery_cost_minor=100):
+def event_ledger(refund_minor=0, activity=True, as_of=AS_OF, acquisition_cost_minor=300, delivery_cost_minor=100):
     cohort = {
         "cohort_id": "pilot-1",
         "release": "synthetic-build",
@@ -62,17 +61,21 @@ def event_ledger(refund_minor=0, activity=True, as_of=AS_OF,
     }
     events = []
     if activity:
-        events.extend((
-            ledger_event("install", "INSTALL"),
-            ledger_event("activation", "ACTIVATION"),
-            ledger_event("purchase", "PURCHASE", 2000),
-        ))
+        events.extend(
+            (
+                ledger_event("install", "INSTALL"),
+                ledger_event("activation", "ACTIVATION"),
+                ledger_event("purchase", "PURCHASE", 2000),
+            )
+        )
         if refund_minor:
             events.append(ledger_event("refund-1", "REFUND", refund_minor, "purchase"))
-    events.extend((
-        ledger_event("cost-acquisition", "COST_ACQUISITION", acquisition_cost_minor),
-        ledger_event("cost-delivery", "COST_DELIVERY", delivery_cost_minor),
-    ))
+    events.extend(
+        (
+            ledger_event("cost-acquisition", "COST_ACQUISITION", acquisition_cost_minor),
+            ledger_event("cost-delivery", "COST_DELIVERY", delivery_cost_minor),
+        )
+    )
     return ledger_report(cohort, events, datetime.fromisoformat(as_of))
 
 
@@ -89,25 +92,25 @@ class CohortRefundSemanticsTests(unittest.TestCase):
                 self.assertEqual(manual["counts"]["refunds_minor"], refund_minor)
                 self.assertEqual(ledger["refunds_minor"], refund_minor)
                 self.assertEqual(manual["counts"]["net_proceeds_minor"], 2000 - refund_minor)
-                self.assertEqual(manual["contribution_minor"],
-                                 ledger["net_proceeds_minor"] - ledger["delivery_cost_minor"])
-                self.assertEqual(manual["contribution_after_acquisition_minor"],
-                                 ledger["contribution_after_acquisition_minor"])
+                self.assertEqual(
+                    manual["contribution_minor"], ledger["net_proceeds_minor"] - ledger["delivery_cost_minor"]
+                )
+                self.assertEqual(
+                    manual["contribution_after_acquisition_minor"], ledger["contribution_after_acquisition_minor"]
+                )
 
     def test_zero_denominators_remain_null_and_match_ledger(self):
-        manual = cohort_metrics(manual_cohort(
-            installs=0, activated=0, paid=0, acquisition_cost_minor=0,
-            delivery_cost_minor=0))
-        ledger = event_ledger(
-            activity=False, acquisition_cost_minor=0, delivery_cost_minor=0)
+        manual = cohort_metrics(
+            manual_cohort(installs=0, activated=0, paid=0, acquisition_cost_minor=0, delivery_cost_minor=0)
+        )
+        ledger = event_ledger(activity=False, acquisition_cost_minor=0, delivery_cost_minor=0)
 
         self.assertEqual(ledger["status"], "SUPPLIED_RECONCILED")
         self.assertIsNone(manual["activation_rate"])
         self.assertIsNone(manual["paid_conversion"])
         self.assertIsNone(manual["paid_cac_minor"])
         self.assertIsNone(ledger["paid_cac_minor"])
-        self.assertEqual(manual["contribution_after_acquisition_minor"],
-                         ledger["contribution_after_acquisition_minor"])
+        self.assertEqual(manual["contribution_after_acquisition_minor"], ledger["contribution_after_acquisition_minor"])
 
     def test_immature_cohorts_are_inconclusive_without_contribution(self):
         manual_data = manual_cohort(refund_minor=500)

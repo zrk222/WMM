@@ -1,4 +1,5 @@
 """Single-owner WMM cloud relay reference: HTTPS behind a proxy, bearer token, idempotent batches."""
+
 from __future__ import annotations
 
 from contextlib import closing
@@ -24,8 +25,10 @@ KEY = re.compile(r"[A-Za-z0-9._:-]{8,128}")
 def database():
     DATABASE.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(DATABASE)
-    db.execute("CREATE TABLE IF NOT EXISTS batches(idempotency_key TEXT PRIMARY KEY, receipt TEXT NOT NULL, "
-               "body TEXT NOT NULL, hash TEXT NOT NULL, created TEXT NOT NULL)")
+    db.execute(
+        "CREATE TABLE IF NOT EXISTS batches(idempotency_key TEXT PRIMARY KEY, receipt TEXT NOT NULL, "
+        "body TEXT NOT NULL, hash TEXT NOT NULL, created TEXT NOT NULL)"
+    )
     return db
 
 
@@ -86,18 +89,27 @@ class Handler(BaseHTTPRequestHandler):
         value_hash = hashlib.sha256(body.encode()).hexdigest()
         receipt = "wmm-" + value_hash[:32]
         with closing(database()) as db, db:
-            inserted = db.execute(
-                "INSERT INTO batches VALUES(?,?,?,?,datetime('now')) "
-                "ON CONFLICT(idempotency_key) DO NOTHING", (key, receipt, body, value_hash)
-            ).rowcount == 1
+            inserted = (
+                db.execute(
+                    "INSERT INTO batches VALUES(?,?,?,?,datetime('now')) ON CONFLICT(idempotency_key) DO NOTHING",
+                    (key, receipt, body, value_hash),
+                ).rowcount
+                == 1
+            )
             saved_hash, saved_receipt = db.execute(
                 "SELECT hash,receipt FROM batches WHERE idempotency_key=?", (key,)
             ).fetchone()
         if saved_hash != value_hash:
             return self._send(409, {"error": "idempotency key reused with different content"})
-        return self._send(201 if inserted else 200, {"schema": SCHEMA,
-                          "status": "ACCEPTED" if inserted else "DUPLICATE",
-                          "receipt": saved_receipt, "tenant": TENANT})
+        return self._send(
+            201 if inserted else 200,
+            {
+                "schema": SCHEMA,
+                "status": "ACCEPTED" if inserted else "DUPLICATE",
+                "receipt": saved_receipt,
+                "tenant": TENANT,
+            },
+        )
 
 
 def main():

@@ -1,4 +1,5 @@
 """Bounded attribution wire types and separate signed/unsigned result semantics."""
+
 import base64
 import re
 import uuid
@@ -37,23 +38,29 @@ def boolean(value):
 
 def identifier(value):
     """Bound an ASCII provider identifier without URLs or injected delimiters."""
-    require(isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,254}", value),
-            "Attribution identifier is invalid")
+    require(
+        isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,254}", value),
+        "Attribution identifier is invalid",
+    )
     return value
 
 
 def postback_id(value):
     """Retain original signed case, but require UUID syntax for deduplication."""
-    require(isinstance(value, str) and re.fullmatch(r"[A-Fa-f0-9]{8}(?:-[A-Fa-f0-9]{4}){3}-[A-Fa-f0-9]{12}", value),
-            "Attribution postback identity is invalid")
+    require(
+        isinstance(value, str) and re.fullmatch(r"[A-Fa-f0-9]{8}(?:-[A-Fa-f0-9]{4}){3}-[A-Fa-f0-9]{12}", value),
+        "Attribution postback identity is invalid",
+    )
     uuid.UUID(value)
     return value
 
 
 def source_id(value):
     """Preserve privacy-truncated two-, three- or four-digit source identifiers."""
-    require(isinstance(value, str) and re.fullmatch(r"[0-9]{2,4}", value),
-            "Attribution source identifier must retain two through four digits")
+    require(
+        isinstance(value, str) and re.fullmatch(r"[0-9]{2,4}", value),
+        "Attribution source identifier must retain two through four digits",
+    )
     return value
 
 
@@ -87,27 +94,44 @@ def base64_bytes(value, cap, url=False):
 
 def conversions(data, sequence):
     """Unsigned conversion values cannot prove activation, money or user outcomes."""
-    require(not ("conversion-value" in data and "coarse-conversion-value" in data),
-            "Choose only fine or coarse conversion value")
+    require(
+        not ("conversion-value" in data and "coarse-conversion-value" in data),
+        "Choose only fine or coarse conversion value",
+    )
     fine, coarse = data.get("conversion-value"), data.get("coarse-conversion-value")
     if fine is not None:
         integer(fine, 0, 63)
         require(sequence == 0, "Fine conversion is unavailable after the first postback")
     if coarse is not None:
         require(coarse in ("low", "medium", "high"), "Coarse conversion value is invalid")
-    return {"status": "UNSIGNED_OBSERVATION", "conversion_value": fine,
-            "coarse_conversion_value": coarse,
-            "availability": "AVAILABLE" if fine is not None or coarse is not None else "UNAVAILABLE"}
+    return {
+        "status": "UNSIGNED_OBSERVATION",
+        "conversion_value": fine,
+        "coarse_conversion_value": coarse,
+        "availability": "AVAILABLE" if fine is not None or coarse is not None else "UNAVAILABLE",
+    }
 
 
 def result(channel, version, signed, unsigned, app_id, environment, postback, conversion, sequence, won):
     """Keep channels separate; follow-ups and redownloads are not new installs."""
-    identity = digest({"channel": channel, "app_id": app_id, "environment": environment,
-                       "postback_id": postback.lower()})
-    return {"channel": channel, "version": version, "environment": environment,
-            "app_id": app_id, "postback_id": postback.lower(), "identity": identity,
-            "signed": signed, "signed_sha256": digest(signed), "unsigned": unsigned,
-            "signature_status": "NATIVE_VERIFIED", "conversion_type": conversion,
-            "sequence": sequence, "did_win": won,
-            "new_install_candidate": won and sequence == 0 and conversion == "download",
-            "overlap_status": "UNRESOLVED", "current_ingestion_authority": False}
+    identity = digest(
+        {"channel": channel, "app_id": app_id, "environment": environment, "postback_id": postback.lower()}
+    )
+    return {
+        "channel": channel,
+        "version": version,
+        "environment": environment,
+        "app_id": app_id,
+        "postback_id": postback.lower(),
+        "identity": identity,
+        "signed": signed,
+        "signed_sha256": digest(signed),
+        "unsigned": unsigned,
+        "signature_status": "NATIVE_VERIFIED",
+        "conversion_type": conversion,
+        "sequence": sequence,
+        "did_win": won,
+        "new_install_candidate": won and sequence == 0 and conversion == "download",
+        "overlap_status": "UNRESOLVED",
+        "current_ingestion_authority": False,
+    }

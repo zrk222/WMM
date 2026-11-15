@@ -1,4 +1,5 @@
 """Owner-authored rule sets are immutable versions; saving does not evaluate."""
+
 from pathlib import Path
 import sqlite3
 import tempfile
@@ -21,14 +22,35 @@ class AutomationStoreTests(unittest.TestCase):
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
         self.store = Store(Path(self.folder.name) / "state.sqlite", seed=False)
-        self.store.save_app(APP, dict(name="Synthetic app", release="build-1", job="Synthetic job",
-                                     audience="Synthetic audience", activation="Synthetic value", locale="en-US"))
+        self.store.save_app(
+            APP,
+            dict(
+                name="Synthetic app",
+                release="build-1",
+                job="Synthetic job",
+                audience="Synthetic audience",
+                activation="Synthetic value",
+                locale="en-US",
+            ),
+        )
         Access(self.store).bootstrap(APP, OWNER, {"confirm_owner": True})
-        self.document = {"schema": "wmm.automation-rules.v1", "mode": "PROPOSE_ONLY", "timezone": "UTC",
-                         "rules": [{"id": "one", "enabled": True, "priority": 1,
-                                    "when": {"fact": "app.release", "op": "eq", "value": "build-1"},
-                                    "then": {"propose": {"action": "review", "tool": "reports.read", "reason": "ready"},
-                                             "requires": ["OWNER_REVIEW"]}}]}
+        self.document = {
+            "schema": "wmm.automation-rules.v1",
+            "mode": "PROPOSE_ONLY",
+            "timezone": "UTC",
+            "rules": [
+                {
+                    "id": "one",
+                    "enabled": True,
+                    "priority": 1,
+                    "when": {"fact": "app.release", "op": "eq", "value": "build-1"},
+                    "then": {
+                        "propose": {"action": "review", "tool": "reports.read", "reason": "ready"},
+                        "requires": ["OWNER_REVIEW"],
+                    },
+                }
+            ],
+        }
 
     def test_save_is_versioned_and_does_not_evaluate(self):
         first = save(self.store, APP, OWNER, self.document)
@@ -66,12 +88,12 @@ class AutomationStoreTests(unittest.TestCase):
         with self.assertRaises(PermissionError):
             save(self.store, "other-app", OWNER, self.document)
 
-
     def test_inactive_role_denies_read_and_write(self):
         save(self.store, APP, OWNER, self.document)
         with connection(self.store.path) as db:
-            db.execute("UPDATE operator_roles SET status='REVOKED' WHERE app_id=? AND principal=?",
-                       (APP, OWNER["principal"]))
+            db.execute(
+                "UPDATE operator_roles SET status='REVOKED' WHERE app_id=? AND principal=?", (APP, OWNER["principal"])
+            )
         for operation in (current, history):
             with self.assertRaises(PermissionError):
                 operation(self.store, APP, OWNER["principal"])
@@ -83,9 +105,13 @@ class AutomationStoreTests(unittest.TestCase):
     def test_stale_session_rolls_back_rule_and_audit(self):
         def replaced():
             raise PermissionError("session changed")
+
         with self.assertRaises(PermissionError):
             save(self.store, APP, OWNER, self.document, commit_check=replaced)
         self.assertIsNone(current(self.store, APP, OWNER["principal"]))
         with connection(self.store.path) as db:
-            self.assertIsNone(db.execute("SELECT 1 FROM audit WHERE app_id=? AND action=?",
-                                         (APP, "automation.rules.saved")).fetchone())
+            self.assertIsNone(
+                db.execute(
+                    "SELECT 1 FROM audit WHERE app_id=? AND action=?", (APP, "automation.rules.saved")
+                ).fetchone()
+            )

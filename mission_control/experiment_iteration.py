@@ -29,8 +29,7 @@ def iteration_plan(definition, assessment, assessment_hash):
     minimum = definition.get("minimum_detectable_effect")
     threshold = minimum if type(minimum) in (int, float) and 0 < minimum < 1 else None
     try:
-        bound = (digest(definition) == assessment.get("definition_hash")
-                 and digest(assessment) == assessment_hash)
+        bound = digest(definition) == assessment.get("definition_hash") and digest(assessment) == assessment_hash
     except (TypeError, ValueError):
         bound = False
     if not bound:
@@ -68,9 +67,11 @@ def has_guardrail_breach(assessment):
 def classify(assessment, threshold):
     state = assessment.get("status")
     issues = assessment.get("issues", [])
-    if (state not in ("BLOCKED", "INCONCLUSIVE", "EVALUATED")
-            or not isinstance(issues, list)
-            or not isinstance(assessment.get("guardrail_findings", []), list)):
+    if (
+        state not in ("BLOCKED", "INCONCLUSIVE", "EVALUATED")
+        or not isinstance(issues, list)
+        or not isinstance(assessment.get("guardrail_findings", []), list)
+    ):
         return "REPAIR", "The saved comparison diagnostics are invalid. Evaluate current evidence."
     needs_repair = state == "BLOCKED" or ASSIGNMENT_MISMATCH in issues
     if has_guardrail_breach(assessment):
@@ -81,31 +82,50 @@ def classify(assessment, threshold):
     if needs_repair:
         return "REPAIR", "Resolve the evidence or assignment issue before changing the experiment."
     if state != "EVALUATED":
-        return "COLLECT", "Recover missing evidence from the declared window, or preregister a new test if it cannot be recovered."
+        return (
+            "COLLECT",
+            "Recover missing evidence from the declared window, or preregister a new test if it cannot be recovered.",
+        )
     effect = assessment.get("effect")
     if not isinstance(effect, dict) or threshold is None:
         return "REPAIR", "The saved comparison or its practical effect threshold is unavailable."
     bounds = effect.get("interval")
-    if (not isinstance(bounds, (list, tuple)) or len(bounds) != 2
-            or any(type(value) not in (int, float) or not -1 <= value <= 1 for value in bounds)
-            or bounds[0] > bounds[1]):
+    if (
+        not isinstance(bounds, (list, tuple))
+        or len(bounds) != 2
+        or any(type(value) not in (int, float) or not -1 <= value <= 1 for value in bounds)
+        or bounds[0] > bounds[1]
+    ):
         return "REPAIR", "The saved comparison interval is invalid. Evaluate current evidence."
     lower, upper = bounds
     if lower >= threshold:
-        return "CONTINUE", "The observed interval clears the practical threshold. Preregister an untouched holdout to check the pattern."
+        return (
+            "CONTINUE",
+            "The observed interval clears the practical threshold. Preregister an untouched holdout to check the pattern.",
+        )
     if upper <= -threshold:
         return "REVISE", "Keep the control. The treatment interval is below the practical loss threshold."
     if lower > -threshold and upper < threshold:
-        return "REVISE", "Keep the control and change one variable. The observed interval stays inside the practical difference band."
-    return "COLLECT", "The interval spans a practical threshold. Keep the frozen window and preregister a new sample plan if needed."
+        return (
+            "REVISE",
+            "Keep the control and change one variable. The observed interval stays inside the practical difference band.",
+        )
+    return (
+        "COLLECT",
+        "The interval spans a practical threshold. Keep the frozen window and preregister a new sample plan if needed.",
+    )
 
 
 def creative_draft(definition):
     control = definition.get("control", {})
     asset_hash = control.get("creative_sha256")
     tweak = CREATIVE_TWEAKS.get(definition.get("primary_metric"))
-    if (not tweak or control.get("variant_type") == "SUBSCRIPTION"
-            or not isinstance(asset_hash, str) or not re.fullmatch(r"[0-9a-f]{64}", asset_hash)):
+    if (
+        not tweak
+        or control.get("variant_type") == "SUBSCRIPTION"
+        or not isinstance(asset_hash, str)
+        or not re.fullmatch(r"[0-9a-f]{64}", asset_hash)
+    ):
         return None
     variable, change = tweak
     return dict(

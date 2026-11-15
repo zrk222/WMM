@@ -1,6 +1,10 @@
 """Customer authoring script integration through real loopback/static boundaries."""
+
+import re
 import unittest
+
 from tests import test_http
+from tests.dashboard_fixture import assert_dashboard_entry
 
 
 class CustomerWorkflowUIHTTPTests(unittest.TestCase):
@@ -9,17 +13,36 @@ class CustomerWorkflowUIHTTPTests(unittest.TestCase):
     request = test_http.HTTPTests.request
 
     def test_customer_workflow_ui_is_served_and_embedded_with_existing_results(self):
-        code, content, headers = self.request('/customer-workflow.js')
+        code, content, headers = self.request("/customer-workflow.js")
         self.assertEqual(code, 200)
-        self.assertIn('text/javascript', headers['Content-Type'])
-        self.assertIn('WMMCustomerWorkflow', content.decode('utf-8'))
-        self.assertIn('/customer-workflow.js', self.request('/')[1].decode('utf-8'))
-        source = self.request('/app.js')[1].decode('utf-8')
-        for expected in ('WMMCustomerWorkflow.panel(state)', 'WMMCustomerWorkflow.submit(form,growthReviewServices())', 'WMMCustomerWorkflow.action(node,growthReviewServices())', 'legacyResultsView()'):
+        self.assertIn("text/javascript", headers["Content-Type"])
+        self.assertIn("WMMCustomerWorkflow", content.decode("utf-8"))
+        html = self.request("/")[1].decode("utf-8")
+        assert_dashboard_entry(self, html)
+        code, adapter, headers = self.request("/feature-apis.mjs")
+        self.assertEqual(code, 200)
+        self.assertIn("text/javascript", headers["Content-Type"])
+        imports = re.findall(r"^import ['\"]([^'\"]+)['\"];", adapter.decode(), re.M)
+        self.assertEqual(imports.count("./customer-workflow.js"), 1)
+        source = re.sub(
+            r"\s+",
+            "",
+            (
+                self.request("/app.mjs")[1] + self.request("/app-results.mjs")[1] + self.request("/app-events.mjs")[1]
+            ).decode("utf-8"),
+        )
+        for expected in (
+            "WMMCustomerWorkflow.panel(state)",
+            "WMMCustomerWorkflow.submit(form,growthReviewServices())",
+            "WMMCustomerWorkflow.action(node,growthReviewServices())",
+            "legacyResultsView()",
+        ):
             self.assertIn(expected, source)
-        self.assertEqual(self.request('/api/apps/sample-one')[1]['subscription_growth']['customer_workflows']['app_id'], 'sample-one')
+        self.assertEqual(
+            self.request("/api/apps/sample-one")[1]["subscription_growth"]["customer_workflows"]["app_id"], "sample-one"
+        )
 
     def test_customer_script_keeps_exact_static_and_host_boundaries(self):
-        self.assertEqual(self.request('/customer-workflow.js/extra')[0], 404)
-        self.assertEqual(self.request('/customer-workflow.js', headers={'Host':'external.example'})[0], 403)
-        self.assertEqual(self.request('/customer-workflow-ui.json')[0], 404)
+        self.assertEqual(self.request("/customer-workflow.js/extra")[0], 404)
+        self.assertEqual(self.request("/customer-workflow.js", headers={"Host": "external.example"})[0], 403)
+        self.assertEqual(self.request("/customer-workflow-ui.json")[0], 404)

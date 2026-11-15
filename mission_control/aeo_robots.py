@@ -1,4 +1,5 @@
 """Conservative bounded robots policies; unknown input never becomes permission."""
+
 import re
 from urllib.parse import quote, urlsplit
 from .common import Invalid
@@ -10,9 +11,12 @@ def normalized_path(value):
     if re.search(r"%(?![A-Fa-f0-9]{2})", value):
         raise Invalid("Malformed robots percent encoding")
     value = quote(value, safe="/%*:$@!&'()+,;=-._~")
+
     def escape(match):
-        byte = int(match[1], 16); char = chr(byte)
-        return char if re.fullmatch(r"[A-Za-z0-9._~-]", char) else "%"+match[1].upper()
+        byte = int(match[1], 16)
+        char = chr(byte)
+        return char if re.fullmatch(r"[A-Za-z0-9._~-]", char) else "%" + match[1].upper()
+
     return re.sub(r"%([A-Fa-f0-9]{2})", escape, value)
 
 
@@ -27,7 +31,8 @@ def rule_pattern(value):
 
 def matches(pattern, path):
     """Wildcard matching without backtracking regular expressions."""
-    terminal = pattern.endswith("$"); body = pattern[:-1] if terminal else pattern
+    terminal = pattern.endswith("$")
+    body = pattern[:-1] if terminal else pattern
     pieces = body.split("*")
     if not path.startswith(pieces[0]):
         return False
@@ -41,7 +46,7 @@ def matches(pattern, path):
             return False
         offset = found + len(piece)
     if terminal:
-        return path.endswith(pieces[-1]) and len(path)-len(pieces[-1]) >= offset
+        return path.endswith(pieces[-1]) and len(path) - len(pieces[-1]) >= offset
     return True
 
 
@@ -51,7 +56,9 @@ def agent_group(state, value):
         raise Invalid("Unsupported robots agent")
     if state["has_directives"]:
         state["groups"].append((state["agents"], state["rules"]))
-        state["agents"] = []; state["rules"] = []; state["has_directives"] = False
+        state["agents"] = []
+        state["rules"] = []
+        state["has_directives"] = False
     state["agents"].append(value.lower())
 
 
@@ -75,7 +82,7 @@ def apply_directive(state, key, value):
 
 def parse_rules(raw):
     """Keep agent groups and sitemaps; malformed input stops the whole policy."""
-    state = {"groups":[], "agents":[], "rules":[], "maps":[], "count":0, "has_directives":False}
+    state = {"groups": [], "agents": [], "rules": [], "maps": [], "count": 0, "has_directives": False}
     for line in raw.splitlines():
         if len(line) > 2048:
             raise Invalid("Robots line limit")
@@ -95,14 +102,16 @@ def parse_rules(raw):
 
 def matching_rules(groups, agent):
     """Merge all groups with equally specific matching product tokens."""
-    selected = []; best = -1
+    selected = []
+    best = -1
     for agents, rules in groups:
         lengths = [0 if p == "*" else len(p) for p in agents if p == "*" or agent.lower().startswith(p)]
         if not lengths:
             continue
         score = max(lengths)
         if score > best:
-            best = score; selected = list(rules)
+            best = score
+            selected = list(rules)
         elif score == best:
             selected.extend(rules)
     return selected
@@ -110,7 +119,8 @@ def matching_rules(groups, agent):
 
 def evaluate(groups, path, agent):
     """Longest matching path wins; Allow wins equal specificity."""
-    path = normalized_path(path); candidates = []
+    path = normalized_path(path)
+    candidates = []
     for action, pattern in matching_rules(groups, agent):
         if matches(pattern, path):
             size = len(pattern.rstrip("$").replace("*", "").encode())
@@ -129,6 +139,10 @@ def policy(resource, url, agent):
         if any("text/html" in t.lower() for t in types):
             raise Invalid("HTML is not a robots policy")
         groups, maps = parse_rules(text(resource))
-        return {"state": evaluate(groups, urlsplit(url).path or "/", agent), "reason": "ROBOTS_OBSERVED", "sitemaps": maps}
+        return {
+            "state": evaluate(groups, urlsplit(url).path or "/", agent),
+            "reason": "ROBOTS_OBSERVED",
+            "sitemaps": maps,
+        }
     except (Invalid, ReadError):
         return {"state": "UNKNOWN", "reason": "ROBOTS_UNSUPPORTED", "sitemaps": []}

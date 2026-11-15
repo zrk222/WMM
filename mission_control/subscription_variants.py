@@ -1,4 +1,5 @@
 """Frozen operator-tested paywall/offer variants; no provider mutation authority."""
+
 import json
 import re
 from datetime import timedelta
@@ -6,19 +7,42 @@ from .common import Invalid, amount, digest, iso_time, required, safe_data
 from .ledger import opaque, cohort_data, currency, eligible_events
 from .subscription_journey import binding_data, JOURNEY_TYPES, stage_times
 
-CONFIG_FIELDS = {"version", "experiment_type", "access_method", "placement", "product_id",
-                 "offer_id", "storefront", "variant_id", "price_minor", "renewal_price_minor",
-                 "currency", "trial_days", "intro_days", "billing_period_days", "renewal_terms"}
+CONFIG_FIELDS = {
+    "version",
+    "experiment_type",
+    "access_method",
+    "placement",
+    "product_id",
+    "offer_id",
+    "storefront",
+    "variant_id",
+    "price_minor",
+    "renewal_price_minor",
+    "currency",
+    "trial_days",
+    "intro_days",
+    "billing_period_days",
+    "renewal_terms",
+}
 INPUT_FIELDS = {"variant_type", "cohort_id", "source_record_id", "configuration"}
 FROZEN_FIELDS = INPUT_FIELDS | {"cohort", "cohort_hash", "source_hash", "configuration_hash"}
-MONEY_FIELDS = {"product_id", "offer_id", "price_minor", "renewal_price_minor", "trial_days", "intro_days",
-                "billing_period_days", "renewal_terms"}
+MONEY_FIELDS = {
+    "product_id",
+    "offer_id",
+    "price_minor",
+    "renewal_price_minor",
+    "trial_days",
+    "intro_days",
+    "billing_period_days",
+    "renewal_terms",
+}
 
 
 def event_binding(configuration) -> dict:
     """Derive the exact event envelope from the frozen configuration bytes."""
     fields = ("version", "product_id", "offer_id", "storefront", "variant_id", "trial_days", "billing_period_days")
     return binding_data(dict({key: configuration[key] for key in fields}, configuration_sha256=digest(configuration)))
+
 
 def validate_configuration(value) -> dict:
     """Validate explicit terms without inventing prices, products or trial eligibility."""
@@ -27,9 +51,11 @@ def validate_configuration(value) -> dict:
         raise Invalid("Complete the exact subscription configuration fields")
     result = dict(value)
     event_binding(result)
-    choices = {"experiment_type": {"PAYWALL", "OFFER"},
-               "access_method": {"FREEMIUM", "HARD", "SOFT", "METERED"},
-               "placement": {"AFTER_ONBOARDING", "AFTER_VALUE", "METERED_LIMIT"}}
+    choices = {
+        "experiment_type": {"PAYWALL", "OFFER"},
+        "access_method": {"FREEMIUM", "HARD", "SOFT", "METERED"},
+        "placement": {"AFTER_ONBOARDING", "AFTER_VALUE", "METERED_LIMIT"},
+    }
     for key, allowed in choices.items():
         if not isinstance(result[key], str) or result[key] not in allowed:
             raise Invalid("Choose a supported subscription " + key)
@@ -47,7 +73,14 @@ def source_data(row, configuration, cohort, at):
     data = json.loads(row["data"])
     if not isinstance(data, dict) or data.get("subscription_configuration") != configuration:
         raise Invalid("Billing evidence configuration changed or does not match")
-    identity = (cohort["release"], cohort["platform"], cohort["locale"], configuration["product_id"], configuration["currency"], configuration["price_minor"])
+    identity = (
+        cohort["release"],
+        cohort["platform"],
+        cohort["locale"],
+        configuration["product_id"],
+        configuration["currency"],
+        configuration["price_minor"],
+    )
     if tuple(data.get(k) for k in ("release", "platform", "locale", "sku", "currency", "price_minor")) != identity:
         raise Invalid("Billing evidence belongs to a different release, platform, locale or product")
     if data.get("result") != "PASS" or data.get("eligibility_status") != "ELIGIBLE":
@@ -70,6 +103,7 @@ def source_row(db, app_id, record_id):
         raise Invalid("Choose billing evidence from this app")
     return row
 
+
 def bind_subscription(db, app_id, variant, at) -> dict:
     """Freeze a typed subscription arm without requiring a creative image."""
     if set(variant) != INPUT_FIELDS or variant["variant_type"] != "SUBSCRIPTION":
@@ -85,8 +119,17 @@ def bind_subscription(db, app_id, variant, at) -> dict:
         raise Invalid("Subscription and cohort currencies differ")
     row = source_row(db, app_id, source_id)
     source_data(row, configuration, data, at)
-    return dict(variant_type="SUBSCRIPTION", cohort_id=cohort_id, cohort_hash=cohort["hash"], cohort=data,
-                source_record_id=source_id, source_hash=row["hash"], configuration=configuration, configuration_hash=digest(configuration))
+    return dict(
+        variant_type="SUBSCRIPTION",
+        cohort_id=cohort_id,
+        cohort_hash=cohort["hash"],
+        cohort=data,
+        source_record_id=source_id,
+        source_hash=row["hash"],
+        configuration=configuration,
+        configuration_hash=digest(configuration),
+    )
+
 
 def validate_frozen_subscription(db, app_id, variant) -> None:
     """Restore historical definitions without silently refreshing their billing proof."""
@@ -94,14 +137,25 @@ def validate_frozen_subscription(db, app_id, variant) -> None:
         raise Invalid("Invalid frozen subscription variant")
     configuration = validate_configuration(variant["configuration"])
     cohort = cohort_data(variant["cohort"])
-    stored = db.execute("SELECT hash FROM growth_cohorts WHERE app_id=? AND id=?", (app_id, variant["cohort_id"])).fetchone()
-    if not stored or stored[0] != digest(cohort) or stored[0] != variant["cohort_hash"] or cohort["cohort_id"] != variant["cohort_id"]:
+    stored = db.execute(
+        "SELECT hash FROM growth_cohorts WHERE app_id=? AND id=?", (app_id, variant["cohort_id"])
+    ).fetchone()
+    if (
+        not stored
+        or stored[0] != digest(cohort)
+        or stored[0] != variant["cohort_hash"]
+        or cohort["cohort_id"] != variant["cohort_id"]
+    ):
         raise Invalid("Frozen subscription cohort does not match restored source")
     source_row(db, app_id, variant["source_record_id"])
-    if not re.fullmatch(r"[a-f0-9]{64}", str(variant["source_hash"])) or digest(configuration) != variant["configuration_hash"]:
+    if (
+        not re.fullmatch(r"[a-f0-9]{64}", str(variant["source_hash"]))
+        or digest(configuration) != variant["configuration_hash"]
+    ):
         raise Invalid("Invalid frozen subscription source hash")
     if configuration["currency"] != cohort["currency"]:
         raise Invalid("Frozen subscription currency differs from cohort")
+
 
 def variant_findings(db, app_id, variant, at) -> list:
     """Changed, expired, deleted or corrupt billing proof blocks interpretation."""
@@ -127,6 +181,7 @@ def exposure_findings(eligible):
                 break
     return issues
 
+
 def event_findings(events, variant) -> list:
     """Reject unbound payments and config drift instead of borrowing cohort totals."""
     expected = event_binding(variant["configuration"])
@@ -136,6 +191,7 @@ def event_findings(events, variant) -> list:
     cohort = variant["cohort"]
     _, eligible = eligible_events(events, iso_time(cohort["starts_at"]), iso_time(cohort["ends_at"]))
     return exposure_findings(eligible)
+
 
 def comparable_variants(control, treatment) -> None:
     """Keep experiment surfaces comparable and reject identical test configurations."""
@@ -154,14 +210,18 @@ def comparable_variants(control, treatment) -> None:
     if not changes:
         raise Invalid("Subscription configurations are identical apart from variant identity")
 
+
 def validate_horizons(variant, analysis_at) -> None:
     """Observe the last acquired user's trial and first renewal before analysis."""
     if variant.get("variant_type") != "SUBSCRIPTION":
         return
     config = variant["configuration"]
-    minimum = iso_time(variant["cohort"]["ends_at"]) + timedelta(days=config["trial_days"] + config["intro_days"] + config["billing_period_days"])
+    minimum = iso_time(variant["cohort"]["ends_at"]) + timedelta(
+        days=config["trial_days"] + config["intro_days"] + config["billing_period_days"]
+    )
     if iso_time(variant["cohort"]["matures_at"]) < minimum or iso_time(analysis_at) < minimum:
         raise Invalid("Subscription cohort and analysis need the complete trial and first-renewal horizon")
+
 
 def variant_input(variant) -> dict:
     """Reconstruct exactly the historical registration input for hash validation."""

@@ -1,4 +1,5 @@
 """Finite analytics setup and privacy-preserving aggregate observation shapes."""
+
 import math
 import re
 from .common import Invalid
@@ -6,12 +7,21 @@ from .payment_signature import strict_json
 from .event_mapping import mapping, DEFAULTS
 
 PROVIDERS = {
-    "posthog": {"name": "PostHog", "link": "https://posthog.com/docs/api",
-                "guide": "Create a read-scoped Personal API key (project and query read access). Choose your cloud region and the numeric project ID from its URL. SDK public capture keys cannot read analytics."},
-    "clarity": {"name": "Microsoft Clarity", "link": "https://learn.microsoft.com/en-us/clarity/setup-and-installation/clarity-data-export-api",
-                "guide": "Project Settings → Data Export → Generate new API token. Paste that project token and its project ID. No recordings or personal browsing URLs are imported."},
-    "revenuecat": {"name": "RevenueCat", "link": "https://www.revenuecat.com/docs/api-v2",
-                   "guide": "Create a secret REST API v2 key with charts_metrics:overview:read. Paste the proj… project ID. Public SDK keys and v1 secret keys cannot read this API."},
+    "posthog": {
+        "name": "PostHog",
+        "link": "https://posthog.com/docs/api",
+        "guide": "Create a read-scoped Personal API key (project and query read access). Choose your cloud region and the numeric project ID from its URL. SDK public capture keys cannot read analytics.",
+    },
+    "clarity": {
+        "name": "Microsoft Clarity",
+        "link": "https://learn.microsoft.com/en-us/clarity/setup-and-installation/clarity-data-export-api",
+        "guide": "Project Settings → Data Export → Generate new API token. Paste that project token and its project ID. No recordings or personal browsing URLs are imported.",
+    },
+    "revenuecat": {
+        "name": "RevenueCat",
+        "link": "https://www.revenuecat.com/docs/api-v2",
+        "guide": "Create a secret REST API v2 key with charts_metrics:overview:read. Paste the proj… project ID. Public SDK keys and v1 secret keys cannot read this API.",
+    },
 }
 
 
@@ -52,8 +62,11 @@ def project_scope(body):
 
 def validate_key(provider, key):
     """Reject public SDK tokens before any remote request; scopes still require provider checks."""
-    patterns = {"posthog": r"ph[xs]_[A-Za-z0-9_-]{16,}", "revenuecat": r"sk_[A-Za-z0-9_-]{16,}",
-                "clarity": r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"}
+    patterns = {
+        "posthog": r"ph[xs]_[A-Za-z0-9_-]{16,}",
+        "revenuecat": r"sk_[A-Za-z0-9_-]{16,}",
+        "clarity": r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+",
+    }
     if not re.fullmatch(patterns[provider], key):
         raise Invalid("Use a project export token or server-side read key, not a public SDK key")
 
@@ -94,7 +107,12 @@ def validate_event_count(row, allowed=None):
     allowed = set(DEFAULTS.values()) - {""} if allowed is None else allowed
     if not isinstance(row, list) or len(row) != 2:
         raise Invalid("PostHog aggregate response differs from the requested report")
-    if not isinstance(row[0], str) or row[0] not in allowed or type(row[1]) is not int or not 0 <= row[1] <= 9007199254740991:
+    if (
+        not isinstance(row[0], str)
+        or row[0] not in allowed
+        or type(row[1]) is not int
+        or not 0 <= row[1] <= 9007199254740991
+    ):
         raise Invalid("PostHog aggregate response differs from the requested report")
 
 
@@ -102,8 +120,17 @@ def shape_clarity(payload):
     """Keep aggregate numeric diagnostics only; URL and dimension labels are discarded."""
     if not isinstance(payload, list) or len(payload) > 1000:
         raise Invalid("Clarity response shape is unsupported")
-    allowed = {"Traffic", "RageClickCount", "DeadClickCount", "ScriptErrorCount",
-               "Rage Click Count", "Dead Click Count", "Script Error Count", "ScrollDepth", "EngagementTime"}
+    allowed = {
+        "Traffic",
+        "RageClickCount",
+        "DeadClickCount",
+        "ScriptErrorCount",
+        "Rage Click Count",
+        "Dead Click Count",
+        "Script Error Count",
+        "ScrollDepth",
+        "EngagementTime",
+    }
     result = []
     for metric in payload:
         if not isinstance(metric, dict) or metric.get("metricName") not in allowed:
@@ -130,21 +157,43 @@ def clarity_rows(metric):
 
 def numeric_strings(row):
     """Clarity returns some counts as decimal strings; do not parse URLs or IDs."""
-    fields = {"totalSessionCount", "totalBotSessionCount", "distantUserCount", "sessionsCount",
-              "pagesViews", "subTotal", "total", "sessionsWithMetricPercentage", "sessionsWithoutMetricPercentage"}
-    return {k: float(v) for k, v in row.items() if k in fields and isinstance(v, str)
-            and re.fullmatch(r"[0-9]{1,15}(?:\.[0-9]{1,6})?", v)}
+    fields = {
+        "totalSessionCount",
+        "totalBotSessionCount",
+        "distantUserCount",
+        "sessionsCount",
+        "pagesViews",
+        "subTotal",
+        "total",
+        "sessionsWithMetricPercentage",
+        "sessionsWithoutMetricPercentage",
+    }
+    return {
+        k: float(v)
+        for k, v in row.items()
+        if k in fields and isinstance(v, str) and re.fullmatch(r"[0-9]{1,15}(?:\.[0-9]{1,6})?", v)
+    }
 
 
 def shape_revenuecat(payload):
     """Preserve provider unit/period/recency instead of relabeling project metrics as cash."""
     rows = payload.get("metrics") if isinstance(payload, dict) else None
-    if not isinstance(payload, dict) or payload.get("object") != "overview_metrics" or not isinstance(rows, list) or len(rows) > 100:
+    if (
+        not isinstance(payload, dict)
+        or payload.get("object") != "overview_metrics"
+        or not isinstance(rows, list)
+        or len(rows) > 100
+    ):
         raise Invalid("RevenueCat overview response is unsupported")
     result = []
     for row in rows:
         if not isinstance(row, dict) or not finite(row.get("value")):
             raise Invalid("RevenueCat metric value is absent or nonfinite")
-        result.append({**{key: text(row.get(key, "")) for key in ("id", "name", "unit", "period")},
-                       "value": row["value"], "last_updated_at": row.get("last_updated_at") if finite(row.get("last_updated_at")) else None})
+        result.append(
+            {
+                **{key: text(row.get(key, "")) for key in ("id", "name", "unit", "period")},
+                "value": row["value"],
+                "last_updated_at": row.get("last_updated_at") if finite(row.get("last_updated_at")) else None,
+            }
+        )
     return result

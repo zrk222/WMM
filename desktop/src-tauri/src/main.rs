@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Mutex;
 use tauri::{webview::NewWindowResponse, Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuilder};
-use wmm_native_launcher::Engine;
+use wmm_native_launcher::{Engine, EngineDigestMismatch};
 
 struct EngineSlot(Mutex<Option<Engine>>);
 
@@ -63,12 +63,45 @@ fn dashboard(app: &tauri::App) -> Result<Engine, Box<dyn std::error::Error>> {
     Ok(engine)
 }
 
+fn verification_kind(error: Option<&std::io::Error>) -> &'static str {
+    use std::io::ErrorKind::*;
+    match error.map(|value| value.kind()) {
+        Some(TimedOut) => "timeout",
+        Some(InvalidData) => "invalid-data",
+        Some(NotFound) => "not-found",
+        Some(PermissionDenied) => "permission-denied",
+        Some(ConnectionRefused) => "connection-refused",
+        Some(BrokenPipe) => "broken-pipe",
+        Some(UnexpectedEof) => "unexpected-eof",
+        _ => "other",
+    }
+}
+
 fn main() -> ExitCode {
     let arguments: Vec<_> = std::env::args_os().skip(1).collect();
     if arguments == ["--verify-bundled-engine"] {
-        return match bundled_engine().and_then(|engine| Ok(engine.shutdown()?)) {
+        let engine = match bundled_engine() {
+            Ok(engine) => engine,
+            Err(error) => {
+                let io = error.downcast_ref::<std::io::Error>();
+                if io
+                    .and_then(std::io::Error::get_ref)
+                    .is_some_and(|cause| cause.is::<EngineDigestMismatch>())
+                {
+                    return ExitCode::from(3);
+                }
+                let kind = verification_kind(io);
+                eprintln!("WMM native verification: start failed ({kind})");
+                return ExitCode::FAILURE;
+            }
+        };
+        return match engine.shutdown() {
             Ok(()) => ExitCode::SUCCESS,
-            Err(_) => ExitCode::FAILURE,
+            Err(error) => {
+                let kind = verification_kind(Some(&error));
+                eprintln!("WMM native verification: shutdown failed ({kind})");
+                ExitCode::FAILURE
+            }
         };
     }
     if !arguments.is_empty() {

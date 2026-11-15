@@ -2,6 +2,10 @@
 
 Status: **NOT YET RUN**. This is the owner-run protocol for recommendation 2. It does not contain participant results and must not be reported as if it does.
 
+## Supplementary evidence
+
+[Jason McGill's Desktop Preview 8 evaluation](reviews/jason-preview8-2026-11-12.md) records a reviewer-reported artifact-integrity/source-build traceability PASS and a separate first-use attempt stopped by Microsoft Defender SmartScreen before installation. It is not an overall validation or security endorsement. As a contributor/reviewer, Jason is not counted toward the five-outside-founder cohort below. The cohort protocol remains NOT YET RUN.
+
 ## Hypothesis
 
 A founder can reach a useful, evidence-bound campaign plan without developer assistance, and enough founders choose to use WMM again to justify the next build.

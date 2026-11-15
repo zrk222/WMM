@@ -1,0 +1,35 @@
+{
+  "name": "creative-toolchain",
+  "language": "python",
+  "modules": [
+    {
+      "name": "creative_toolchain",
+      "path": "mission_control/creative_toolchain.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "plan",
+          "args": [
+            "selection",
+            "binding",
+            "receipts"
+          ],
+          "returns": "dict"
+        },
+        {
+          "name": "handoff",
+          "args": [
+            "engine",
+            "binding",
+            "payload"
+          ],
+          "returns": "dict"
+        }
+      ]
+    }
+  ],
+  "dependencies": [],
+  "tests": {
+    "command": "python -m unittest tests.test_creative_toolchain -q"
+  }
+}

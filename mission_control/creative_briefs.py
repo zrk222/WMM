@@ -1,241 +1,446 @@
 """Original evidence-bound briefs; preparation never implies rendering or publication."""
+
 import sqlite3
 import json
-from .common import Invalid,amount,canonical,digest,iso_time,now,required,safe_data
+from .common import Invalid, amount, canonical, digest, iso_time, now, required, safe_data
 from .db import connection
-from .creative_analysis import latest,append,saved_items
-from .creative_library import latest_capture,source_url,verify_owned_source
+from .creative_analysis import latest, append, saved_items
+from .creative_library import latest_capture, source_url, verify_owned_source
 from .experiments import asset_intact
 from .production_feasibility import bound as production_bound
 
-CHANNELS=("SHORT_VIDEO","LINKEDIN","X")
-FIELDS={"analysis_id","analysis_hash","channel","objective","owner","claim_ids","asset_ids","readiness_id","store_id","route_id","currency","budget_minor","duration_seconds"}
-DISCOVERY_FIELDS={"schema","mode","manifest_version","collection_id","collection_hash","reference_id","review_hash"}
+CHANNELS = ("SHORT_VIDEO", "LINKEDIN", "X")
+FIELDS = {
+    "analysis_id",
+    "analysis_hash",
+    "channel",
+    "objective",
+    "owner",
+    "claim_ids",
+    "asset_ids",
+    "readiness_id",
+    "store_id",
+    "route_id",
+    "currency",
+    "budget_minor",
+    "duration_seconds",
+}
+DISCOVERY_FIELDS = {
+    "schema",
+    "mode",
+    "manifest_version",
+    "collection_id",
+    "collection_hash",
+    "reference_id",
+    "review_hash",
+}
 
 
 def definition(data):
     """Require explicit objective, budget, channel and app evidence identities."""
     safe_data(data)
-    if set(data) not in (FIELDS,FIELDS|{"discovery"}):raise Invalid("Complete the brief preparation fields")
-    result=dict(data)
+    if set(data) not in (FIELDS, FIELDS | {"discovery"}):
+        raise Invalid("Complete the brief preparation fields")
+    result = dict(data)
     if "discovery" in data:
-        value=data["discovery"]
-        if not isinstance(value,dict) or set(value)!=DISCOVERY_FIELDS or value.get("schema")!="wmm.brief-discovery.v1":raise Invalid("Use the exact versioned discovery binding")
-        if value["mode"] not in ("ORIGINAL_RECREATION","LICENSED_EDIT") or data["channel"]!="SHORT_VIDEO":raise Invalid("Choose a supported short-video discovery mode")
-    for key in ("objective","owner"):result[key]=required(data[key],key,2000)
-    for key in ("analysis_id","analysis_hash","readiness_id","store_id","route_id"):result[key]=required(data[key],key,120)
-    if data["channel"] not in CHANNELS:raise Invalid("Choose short video, LinkedIn or X")
-    if type(data["duration_seconds"]) is not int or data["duration_seconds"] not in (15,30,45,60):raise Invalid("Choose a 15, 30, 45 or 60 second scene plan")
-    amount(data["budget_minor"],"Production budget")
-    for key in ("claim_ids","asset_ids"):
-        evidence_ids(data[key],key)
+        value = data["discovery"]
+        if (
+            not isinstance(value, dict)
+            or set(value) != DISCOVERY_FIELDS
+            or value.get("schema") != "wmm.brief-discovery.v1"
+        ):
+            raise Invalid("Use the exact versioned discovery binding")
+        if value["mode"] not in ("ORIGINAL_RECREATION", "LICENSED_EDIT") or data["channel"] != "SHORT_VIDEO":
+            raise Invalid("Choose a supported short-video discovery mode")
+    for key in ("objective", "owner"):
+        result[key] = required(data[key], key, 2000)
+    for key in ("analysis_id", "analysis_hash", "readiness_id", "store_id", "route_id"):
+        result[key] = required(data[key], key, 120)
+    if data["channel"] not in CHANNELS:
+        raise Invalid("Choose short video, LinkedIn or X")
+    if type(data["duration_seconds"]) is not int or data["duration_seconds"] not in (15, 30, 45, 60):
+        raise Invalid("Choose a 15, 30, 45 or 60 second scene plan")
+    amount(data["budget_minor"], "Production budget")
+    for key in ("claim_ids", "asset_ids"):
+        evidence_ids(data[key], key)
     return result
 
 
-def evidence_ids(ids,key):
+def evidence_ids(ids, key):
     """Require a small explicit selection of distinct evidence identifiers."""
-    if not isinstance(ids,list) or not 1<=len(ids)<=5 or any(not isinstance(v,str) for v in ids) or len(set(ids))!=len(ids):raise Invalid("Choose 1 through 5 distinct "+key.replace("_"," "))
+    if (
+        not isinstance(ids, list)
+        or not 1 <= len(ids) <= 5
+        or any(not isinstance(v, str) for v in ids)
+        or len(set(ids)) != len(ids)
+    ):
+        raise Invalid("Choose 1 through 5 distinct " + key.replace("_", " "))
 
 
-def record_scope(data,kind,app):
+def record_scope(data, kind, app):
     """Require selected evidence to match the frozen app release and locale."""
-    if data.get("release")!=app["release"]:raise Invalid(kind+" does not match the current app release")
-    if kind in ("readiness","claim","asset","store") and data.get("locale")!=app["locale"]:raise Invalid(kind+" does not match the current app locale")
+    if data.get("release") != app["release"]:
+        raise Invalid(kind + " does not match the current app release")
+    if kind in ("readiness", "claim", "asset", "store") and data.get("locale") != app["locale"]:
+        raise Invalid(kind + " does not match the current app locale")
 
 
-def bound_record(db,app_id,item_id,kind,app):
+def bound_record(db, app_id, item_id, kind, app):
     """Freeze only selected app/release/locale evidence with its canonical hash."""
-    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
-    row=db.execute("SELECT * FROM records WHERE app_id=? AND id=? AND kind=?",(app_id,item_id,kind)).fetchone()
-    if not row:raise Invalid("Choose "+kind+" evidence from this app")
-    result=dict(row);result["data"]=json.loads(result["data"]);data=result["data"]
-    record_scope(data,kind,app)
-    if kind!="asset":checked(data,kind)
+    if type(db) is not sqlite3.Connection:
+        raise TypeError("Native SQLite connection required")
+    row = db.execute("SELECT * FROM records WHERE app_id=? AND id=? AND kind=?", (app_id, item_id, kind)).fetchone()
+    if not row:
+        raise Invalid("Choose " + kind + " evidence from this app")
+    result = dict(row)
+    result["data"] = json.loads(result["data"])
+    data = result["data"]
+    record_scope(data, kind, app)
+    if kind != "asset":
+        checked(data, kind)
     return result
 
 
-def checked(data,kind,stamp=None):
+def checked(data, kind, stamp=None):
     """Reject old, future or failed supplied product proofs, including route fallbacks."""
-    age=(iso_time(stamp or now())-iso_time(data.get("checked_at"))).total_seconds()
-    if not 0<=age<=14*86400:raise Invalid(kind+" needs a passing check within 14 days")
-    if kind=="store":
-        if data.get("availability")!="AVAILABLE":raise Invalid("Store destination must be available")
+    age = (iso_time(stamp or now()) - iso_time(data.get("checked_at"))).total_seconds()
+    if not 0 <= age <= 14 * 86400:
+        raise Invalid(kind + " needs a passing check within 14 days")
+    if kind == "store":
+        if data.get("availability") != "AVAILABLE":
+            raise Invalid("Store destination must be available")
         source_url(data.get("destination"))
-    elif data.get("result")!="PASS":raise Invalid(kind+" proof did not pass")
-    if kind=="readiness":
+    elif data.get("result") != "PASS":
+        raise Invalid(kind + " proof did not pass")
+    if kind == "readiness":
         from .journey_readiness import complete
-        if not complete(data):raise Invalid("Complete current journey coverage and resolve critical product findings before preparing marketing")
-    if kind=="route":route_checked(data)
+
+        if not complete(data):
+            raise Invalid(
+                "Complete current journey coverage and resolve critical product findings before preparing marketing"
+            )
+    if kind == "route":
+        route_checked(data)
 
 
 def route_checked(data):
     """Require all entry states and an explicit usable fallback description."""
-    if not all(data.get(key) is True for key in ("installed","fresh_install","signed_out")):raise Invalid("Test installed, fresh-install and signed-out routes")
-    required(data.get("fallback"),"Tested route fallback",2000)
+    if not all(data.get(key) is True for key in ("installed", "fresh_install", "signed_out")):
+        raise Invalid("Test installed, fresh-install and signed-out routes")
+    required(data.get("fallback"), "Tested route fallback", 2000)
 
 
-def latest_proof(db,app_id,record,app):
+def latest_proof(db, app_id, record, app):
     """A selected old pass cannot hide a newer failure in the applicable scope."""
-    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
-    rows=db.execute("SELECT data FROM records WHERE app_id=? AND kind=? ORDER BY updated DESC,id DESC",(app_id,record["kind"]))
+    if type(db) is not sqlite3.Connection:
+        raise TypeError("Native SQLite connection required")
+    rows = db.execute(
+        "SELECT data FROM records WHERE app_id=? AND kind=? ORDER BY updated DESC,id DESC", (app_id, record["kind"])
+    )
     for row in rows:
-        data=json.loads(row[0])
-        if data.get("release")!=app["release"]:continue
-        if record["kind"] in ("claim","store") and data.get("locale")!=app["locale"]:continue
-        if record['kind']=='readiness' and data.get('locale') not in (None,'',app['locale']):continue
-        checked(data,record["kind"])
+        data = json.loads(row[0])
+        if data.get("release") != app["release"]:
+            continue
+        if record["kind"] in ("claim", "store") and data.get("locale") != app["locale"]:
+            continue
+        if record["kind"] == "readiness" and data.get("locale") not in (None, "", app["locale"]):
+            continue
+        checked(data, record["kind"])
         return
 
 
-def critical_findings(db,app_id):
+def critical_findings(db, app_id):
     """Confirmed P0 product evidence blocks fresh briefs until resolved."""
-    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
-    for row in db.execute("SELECT data FROM records WHERE app_id=? AND kind='review'",(app_id,)):
-        data=json.loads(row[0])
-        if data.get("confirmed") is True and data.get("severity")=="P0":raise Invalid("Resolve the confirmed P0 before preparing this brief")
+    if type(db) is not sqlite3.Connection:
+        raise TypeError("Native SQLite connection required")
+    for row in db.execute("SELECT data FROM records WHERE app_id=? AND kind='review'", (app_id,)):
+        data = json.loads(row[0])
+        if data.get("confirmed") is True and data.get("severity") == "P0":
+            raise Invalid("Resolve the confirmed P0 before preparing this brief")
 
 
-def bind(db,store,app_id,data):
+def bind(db, store, app_id, data):
     """Freeze current app, inspection, selected proof and actual scene bytes."""
-    if type(db) is not sqlite3.Connection: raise TypeError('Native SQLite connection required')
-    requested=definition(data);app=json.loads(db.execute("SELECT data FROM apps WHERE id=?",(app_id,)).fetchone()[0])
-    for key in ("name","job","audience","activation","release","locale","currency"):required(app.get(key),"App "+key)
-    if data["currency"]!=app["currency"]:raise Invalid("Production budget currency must match this app")
-    analysis=latest(db,"creative_analyses",app_id,data["analysis_id"])
-    if analysis["hash"]!=data["analysis_hash"]:raise Invalid("Analysis changed; reload the current inspection")
-    capture=latest_capture(db,app_id,analysis["data"]["reference_id"])
-    if capture["hash"]!=analysis["data"]["capture_hash"]:raise Invalid("Source changed; correct the inspection before preparing a brief")
-    verify_owned_source(db,store,app_id,capture["data"])
-    records=bind_proofs(db,store,app_id,app,data);critical_findings(db,app_id)
-    frozen={"definition":requested,"app":app,"app_hash":digest(app),"analysis":analysis,"source":capture,"records":records,"production":production_bound(db,app_id,app,capture,data["channel"])}
-    if "discovery" in requested:frozen["discovery"]=bind_discovery(db,store,app_id,requested,analysis,capture)
-    return dict(frozen,content=compose(frozen),state="PREPARED",render="NOT_RUN",publication="NOT_RUN")
+    if type(db) is not sqlite3.Connection:
+        raise TypeError("Native SQLite connection required")
+    requested = definition(data)
+    app = json.loads(db.execute("SELECT data FROM apps WHERE id=?", (app_id,)).fetchone()[0])
+    for key in ("name", "job", "audience", "activation", "release", "locale", "currency"):
+        required(app.get(key), "App " + key)
+    if data["currency"] != app["currency"]:
+        raise Invalid("Production budget currency must match this app")
+    analysis = latest(db, "creative_analyses", app_id, data["analysis_id"])
+    if analysis["hash"] != data["analysis_hash"]:
+        raise Invalid("Analysis changed; reload the current inspection")
+    capture = latest_capture(db, app_id, analysis["data"]["reference_id"])
+    if capture["hash"] != analysis["data"]["capture_hash"]:
+        raise Invalid("Source changed; correct the inspection before preparing a brief")
+    verify_owned_source(db, store, app_id, capture["data"])
+    records = bind_proofs(db, store, app_id, app, data)
+    critical_findings(db, app_id)
+    frozen = {
+        "definition": requested,
+        "app": app,
+        "app_hash": digest(app),
+        "analysis": analysis,
+        "source": capture,
+        "records": records,
+        "production": production_bound(db, app_id, app, capture, data["channel"]),
+    }
+    if "discovery" in requested:
+        frozen["discovery"] = bind_discovery(db, store, app_id, requested, analysis, capture)
+    return dict(frozen, content=compose(frozen), state="PREPARED", render="NOT_RUN", publication="NOT_RUN")
 
 
-def bind_discovery(db,store,app_id,requested,analysis,capture):
+def bind_discovery(db, store, app_id, requested, analysis, capture):
     """Bind a current qualified research card without granting foreign-byte use."""
     from .funnel_store import app_context
     from .discovery_store import latest as research, selected_review, scoped, reviews, authentic_proofs
     from .discovery_query import evaluate, boundaries
-    value=requested["discovery"];stamp=now()
-    app=app_context(db,app_id,value["manifest_version"])
-    saved=research(db,app_id,value["collection_id"],"COLLECTION")
-    if len(canonical(saved).encode('utf-8'))>1048576:raise Invalid("Research collection exceeds the 1 MiB brief evidence limit")
-    source,review=selected_review(db,app_id,app,saved,value,stamp)
-    if analysis["data"]["reference_id"]!=value["reference_id"] or (capture["reference_id"],capture["version"],capture["hash"])!=(source["reference_id"],source["version"],source["hash"]):raise Invalid("Discovery and analysis must use the same current source")
-    newest=reviews(db,app_id).get(value["reference_id"])
-    if not newest or (newest["id"],newest["version"],newest["hash"])!=(review["id"],review["version"],review["hash"]):raise Invalid("Research review changed after collection")
-    selected=[row for row in saved["data"]["results"] if row["reference_id"]==value["reference_id"]]
-    if len(selected)!=1 or selected[0]["included"] is not True or selected[0]["qualified"] is not True:raise Invalid("Select an included qualified research card")
-    if (selected[0]["source_version"],selected[0]["source_hash"])!=(source["version"],source["hash"]):raise Invalid("Research source changed after collection")
-    if selected[0]["review"]["version"]!=review["version"]:raise Invalid("Review changed after collection")
-    if saved["data"]["state"]!="OBSERVED":raise Invalid("Research collection is incomplete")
-    for observed in (saved["data"]["observed_at"],source["data"]["metric_at"]):
-        if not 0<=(iso_time(stamp)-iso_time(observed)).total_seconds()<=86400:raise Invalid("Research evidence must be fresh within 24 hours")
-    current=scoped(app,source,review,stamp)
-    if current is None:raise Invalid("Research app or source context changed")
-    decision=evaluate(source,current,saved["data"]["query"],stamp)
-    if decision["included"] is not True or decision["qualified"] is not True:raise Invalid("Research candidate is no longer fresh and qualified")
-    if current["card"]["rights_status"]=="REVOKED" or (value["mode"]=="LICENSED_EDIT" and decision["rights_missing"]):raise Invalid("Current explicit source rights are required for this mode")
-    ids=current["card"]["authentic_evidence_ids"]
-    if not set(ids).issubset(set(requested["asset_ids"])):raise Invalid("Select the card's authentic app assets in the brief")
-    proof=authentic_proofs(db,store,app_id,ids,app)
-    return dict(schema="wmm.brief-research-proof.v1",mode=value["mode"],manifest_version=app["version"],app_hash=app["hash"],
-                collection_id=saved["id"],collection_version=saved["version"],collection_hash=saved["hash"],
-                collection_provenance=saved["data"].get("collection_provenance","NOT_INDEPENDENTLY_VERIFIED"),
-                reference_id=source["reference_id"],source_version=source["version"],source_hash=source["hash"],
-                review_id=review["id"],review_version=review["version"],review_hash=review["hash"],card=current["card"],
-                collection=saved,review=review,authentic_proofs=proof,policy=selected[0]["policy"],boundaries=boundaries(),foreign_bytes="NOT_AUTHORIZED")
+
+    value = requested["discovery"]
+    stamp = now()
+    app = app_context(db, app_id, value["manifest_version"])
+    saved = research(db, app_id, value["collection_id"], "COLLECTION")
+    if len(canonical(saved).encode("utf-8")) > 1048576:
+        raise Invalid("Research collection exceeds the 1 MiB brief evidence limit")
+    source, review = selected_review(db, app_id, app, saved, value, stamp)
+    if analysis["data"]["reference_id"] != value["reference_id"] or (
+        capture["reference_id"],
+        capture["version"],
+        capture["hash"],
+    ) != (source["reference_id"], source["version"], source["hash"]):
+        raise Invalid("Discovery and analysis must use the same current source")
+    newest = reviews(db, app_id).get(value["reference_id"])
+    if not newest or (newest["id"], newest["version"], newest["hash"]) != (
+        review["id"],
+        review["version"],
+        review["hash"],
+    ):
+        raise Invalid("Research review changed after collection")
+    selected = [row for row in saved["data"]["results"] if row["reference_id"] == value["reference_id"]]
+    if len(selected) != 1 or selected[0]["included"] is not True or selected[0]["qualified"] is not True:
+        raise Invalid("Select an included qualified research card")
+    if (selected[0]["source_version"], selected[0]["source_hash"]) != (source["version"], source["hash"]):
+        raise Invalid("Research source changed after collection")
+    if selected[0]["review"]["version"] != review["version"]:
+        raise Invalid("Review changed after collection")
+    if saved["data"]["state"] != "OBSERVED":
+        raise Invalid("Research collection is incomplete")
+    for observed in (saved["data"]["observed_at"], source["data"]["metric_at"]):
+        if not 0 <= (iso_time(stamp) - iso_time(observed)).total_seconds() <= 86400:
+            raise Invalid("Research evidence must be fresh within 24 hours")
+    current = scoped(app, source, review, stamp)
+    if current is None:
+        raise Invalid("Research app or source context changed")
+    decision = evaluate(source, current, saved["data"]["query"], stamp)
+    if decision["included"] is not True or decision["qualified"] is not True:
+        raise Invalid("Research candidate is no longer fresh and qualified")
+    if current["card"]["rights_status"] == "REVOKED" or (
+        value["mode"] == "LICENSED_EDIT" and decision["rights_missing"]
+    ):
+        raise Invalid("Current explicit source rights are required for this mode")
+    ids = current["card"]["authentic_evidence_ids"]
+    if not set(ids).issubset(set(requested["asset_ids"])):
+        raise Invalid("Select the card's authentic app assets in the brief")
+    proof = authentic_proofs(db, store, app_id, ids, app)
+    return dict(
+        schema="wmm.brief-research-proof.v1",
+        mode=value["mode"],
+        manifest_version=app["version"],
+        app_hash=app["hash"],
+        collection_id=saved["id"],
+        collection_version=saved["version"],
+        collection_hash=saved["hash"],
+        collection_provenance=saved["data"].get("collection_provenance", "NOT_INDEPENDENTLY_VERIFIED"),
+        reference_id=source["reference_id"],
+        source_version=source["version"],
+        source_hash=source["hash"],
+        review_id=review["id"],
+        review_version=review["version"],
+        review_hash=review["hash"],
+        card=current["card"],
+        collection=saved,
+        review=review,
+        authentic_proofs=proof,
+        policy=selected[0]["policy"],
+        boundaries=boundaries(),
+        foreign_bytes="NOT_AUTHORIZED",
+    )
 
 
-def bind_proofs(db,store,app_id,app,data):
+def bind_proofs(db, store, app_id, app, data):
     """Bind current product checks and verify authentic, rights-cleared asset bytes."""
-    selected=[(data[key+"_id"],key) for key in ("readiness","store","route")]
-    selected += [(item,"claim") for item in data["claim_ids"]]+[(item,"asset") for item in data["asset_ids"]]
-    records=[]
-    for item_id,kind in selected:
-        record=bound_record(db,app_id,item_id,kind,app)
-        if kind=="asset":asset_checked(store,app_id,record["data"])
-        else:latest_proof(db,app_id,record,app)
+    selected = [(data[key + "_id"], key) for key in ("readiness", "store", "route")]
+    selected += [(item, "claim") for item in data["claim_ids"]] + [(item, "asset") for item in data["asset_ids"]]
+    records = []
+    for item_id, kind in selected:
+        record = bound_record(db, app_id, item_id, kind, app)
+        if kind == "asset":
+            asset_checked(store, app_id, record["data"])
+        else:
+            latest_proof(db, app_id, record, app)
         records.append(record)
     return records
 
 
-def asset_checked(store,app_id,data):
+def asset_checked(store, app_id, data):
     """Require real current scene bytes and explicit authenticity and usage rights."""
-    if data.get("authentic") is not True or data.get("rights_cleared") is not True:raise Invalid("Screens must be authentic and rights cleared")
-    if not asset_intact(store.path.parent/"files"/app_id,data):raise Invalid("Scene image is missing or changed; upload and verify it again")
+    if data.get("authentic") is not True or data.get("rights_cleared") is not True:
+        raise Invalid("Screens must be authentic and rights cleared")
+    if not asset_intact(store.path.parent / "files" / app_id, data):
+        raise Invalid("Scene image is missing or changed; upload and verify it again")
 
 
 def compose(frozen):
     """Create original copy from explicit app hypotheses and exact approved claims."""
-    app=frozen["app"];d=frozen["definition"];analysis=frozen["analysis"]["data"]
-    claims=[r["data"]["claim"] for r in frozen["records"] if r["kind"]=="claim"]
-    destination=next(r["data"]["destination"] for r in frozen["records"] if r["kind"]=="store")
-    hooks=["What would a useful next step look like for "+d["objective"]+"?", "Before your next decision, try one concrete example with "+app["name"]+".", "From a question to a next step: an inside look at "+app["name"]+"."]
-    scenes=[{"asset_id":r["id"],"file_id":r["data"]["file_id"],"sha256":r["data"]["sha256"],"instruction":"Capture this actual screen at a readable size; use a fictional test without private information."} for r in frozen["records"] if r["kind"]=="asset"]
-    content={"hooks":hooks,"copy":channel_copy(d["channel"],app,d,hooks,claims,destination),"beats":scene_beats(d,hooks,claims,destination),
-             "screens":scenes,"demo_steps":["Open the tested first-value route: "+destination,"Enter a clearly labeled fictional example about "+d["objective"],"Demonstrate the exact approved behavior: "+claims[0],"Verify the real result and saved/reloaded state before recording."],
-             "captions":[hooks[0],*claims,"Try the demonstrated workflow: "+destination],"sound_off":"Burn in readable captions; keep actual controls visible and avoid rapid or tiny screen text.",
-             "limitations":["App job and campaign objective are hypotheses, not measured benefits.","This is a prepared brief. Rendering, publication, spend and audience outcomes remain unexecuted.",*app.get("excluded_claims",[])],
-             "cta":"Try the demonstrated workflow","destination":destination,"first_value":app["activation"],"mechanism":{"family":analysis["format_family"],"source_url":frozen["source"]["data"]["url"],"observations":analysis["observations"],"uncertainty":analysis["uncertainty"],"basis":"Operator inspected; source language and footage are not copied"}}
+    app = frozen["app"]
+    d = frozen["definition"]
+    analysis = frozen["analysis"]["data"]
+    claims = [r["data"]["claim"] for r in frozen["records"] if r["kind"] == "claim"]
+    destination = next(r["data"]["destination"] for r in frozen["records"] if r["kind"] == "store")
+    hooks = [
+        "What would a useful next step look like for " + d["objective"] + "?",
+        "Before your next decision, try one concrete example with " + app["name"] + ".",
+        "From a question to a next step: an inside look at " + app["name"] + ".",
+    ]
+    scenes = [
+        {
+            "asset_id": r["id"],
+            "file_id": r["data"]["file_id"],
+            "sha256": r["data"]["sha256"],
+            "instruction": "Capture this actual screen at a readable size; use a fictional test without private information.",
+        }
+        for r in frozen["records"]
+        if r["kind"] == "asset"
+    ]
+    content = {
+        "hooks": hooks,
+        "copy": channel_copy(d["channel"], app, d, hooks, claims, destination),
+        "beats": scene_beats(d, hooks, claims, destination),
+        "screens": scenes,
+        "demo_steps": [
+            "Open the tested first-value route: " + destination,
+            "Enter a clearly labeled fictional example about " + d["objective"],
+            "Demonstrate the exact approved behavior: " + claims[0],
+            "Verify the real result and saved/reloaded state before recording.",
+        ],
+        "captions": [hooks[0], *claims, "Try the demonstrated workflow: " + destination],
+        "sound_off": "Burn in readable captions; keep actual controls visible and avoid rapid or tiny screen text.",
+        "limitations": [
+            "App job and campaign objective are hypotheses, not measured benefits.",
+            "This is a prepared brief. Rendering, publication, spend and audience outcomes remain unexecuted.",
+            *app.get("excluded_claims", []),
+        ],
+        "cta": "Try the demonstrated workflow",
+        "destination": destination,
+        "first_value": app["activation"],
+        "mechanism": {
+            "family": analysis["format_family"],
+            "source_url": frozen["source"]["data"]["url"],
+            "observations": analysis["observations"],
+            "uncertainty": analysis["uncertainty"],
+            "basis": "Operator inspected; source language and footage are not copied",
+        },
+    }
     return content
 
 
-def channel_copy(channel,app,data,hooks,claims,destination):
+def channel_copy(channel, app, data, hooks, claims, destination):
     """Keep approved claims exact and reject X overflow instead of cutting sentences."""
-    if channel=="X":
-        value=app["name"]+": "+claims[0]+"\nTry the demonstrated workflow: "+destination
-        if len(value)>280:raise Invalid("Approved claim and destination exceed 280 characters; choose a shorter approved claim")
+    if channel == "X":
+        value = app["name"] + ": " + claims[0] + "\nTry the demonstrated workflow: " + destination
+        if len(value) > 280:
+            raise Invalid("Approved claim and destination exceed 280 characters; choose a shorter approved claim")
         return value
-    if channel=="LINKEDIN":return hooks[0]+"\n\nFor "+app["audience"]+", this is the workflow we want to test.\n\n"+"\n".join(claims)+"\n\nWatch the actual in-app demonstration, then try it: "+destination
-    return "\n".join([hooks[0],"Question to test: "+data["objective"],*claims,"Try the demonstrated workflow: "+destination])
+    if channel == "LINKEDIN":
+        return (
+            hooks[0]
+            + "\n\nFor "
+            + app["audience"]
+            + ", this is the workflow we want to test.\n\n"
+            + "\n".join(claims)
+            + "\n\nWatch the actual in-app demonstration, then try it: "
+            + destination
+        )
+    return "\n".join(
+        [hooks[0], "Question to test: " + data["objective"], *claims, "Try the demonstrated workflow: " + destination]
+    )
 
 
-def scene_beats(data,hooks,claims,destination):
+def scene_beats(data, hooks, claims, destination):
     """Declare a four-part original scene plan, not observed competitor timings."""
-    quarter=data["duration_seconds"]/4
-    lines=[hooks[0],"Question to test: "+data["objective"],"\n".join(claims),"Try the demonstrated workflow: "+destination]
-    return [{"start_seconds":i*quarter,"end_seconds":(i+1)*quarter,"script":line,"basis":"ORIGINAL_PROPOSED","scene":["Original presenter or title","Actual question-entry screen","Actual approved app behavior","Actual first-value route and CTA"][i]} for i,line in enumerate(lines)]
+    quarter = data["duration_seconds"] / 4
+    lines = [
+        hooks[0],
+        "Question to test: " + data["objective"],
+        "\n".join(claims),
+        "Try the demonstrated workflow: " + destination,
+    ]
+    return [
+        {
+            "start_seconds": i * quarter,
+            "end_seconds": (i + 1) * quarter,
+            "script": line,
+            "basis": "ORIGINAL_PROPOSED",
+            "scene": [
+                "Original presenter or title",
+                "Actual question-entry screen",
+                "Actual approved app behavior",
+                "Actual first-value route and CTA",
+            ][i],
+        }
+        for i, line in enumerate(lines)
+    ]
 
 
-def stale_findings(db,store,app_id,data):
+def stale_findings(db, store, app_id, data):
     """Recheck selected current proof and scene bytes without altering saved copy."""
-    issues=[]
+    issues = []
     try:
-        current=bind(db,store,app_id,data["definition"])
-        if proof_identity(current)!=proof_identity(data):issues.append("Source, app manifest or selected evidence changed after preparation")
-    except (Invalid,OSError,KeyError) as exc:issues.append(str(exc) if isinstance(exc,Invalid) else "A required source or asset is unavailable")
+        current = bind(db, store, app_id, data["definition"])
+        if proof_identity(current) != proof_identity(data):
+            issues.append("Source, app manifest or selected evidence changed after preparation")
+    except (Invalid, OSError, KeyError) as exc:
+        issues.append(str(exc) if isinstance(exc, Invalid) else "A required source or asset is unavailable")
     return issues
 
 
 def proof_identity(data):
     """Ignore restore bookkeeping; compare semantic sources and evidence hashes."""
-    analysis=data["analysis"];source=data["source"]
-    return (data["app_hash"],(analysis["id"],analysis["version"],analysis["hash"]),
-            (source["reference_id"],source["version"],source["hash"]),
-            [(r["id"],r["version"],r["hash"]) for r in data["records"]],
-            digest(data["content"]),digest(data.get("production")),digest(data.get("discovery")))
+    analysis = data["analysis"]
+    source = data["source"]
+    return (
+        data["app_hash"],
+        (analysis["id"], analysis["version"], analysis["hash"]),
+        (source["reference_id"], source["version"], source["hash"]),
+        [(r["id"], r["version"], r["hash"]) for r in data["records"]],
+        digest(data["content"]),
+        digest(data.get("production")),
+        digest(data.get("discovery")),
+    )
 
 
 class Briefs:
-    def __init__(self,store):self.store=store
+    def __init__(self, store):
+        self.store = store
 
-    def list(self,app_id):
+    def list(self, app_id):
         """Expose actual content and history with current proof/stale diagnostics."""
         self.store.app(app_id)
         with connection(self.store.path) as db:
-            items=saved_items(db,"creative_briefs",app_id)
+            items = saved_items(db, "creative_briefs", app_id)
             for item in items:
-                item["findings"]=stale_findings(db,self.store,app_id,item["current"]["data"])
-                item["evidence_status"]="STALE_EVIDENCE" if item["findings"] else "CURRENT"
+                item["findings"] = stale_findings(db, self.store, app_id, item["current"]["data"])
+                item["evidence_status"] = "STALE_EVIDENCE" if item["findings"] else "CURRENT"
             return items
 
-    def save(self,app_id,body):
+    def save(self, app_id, body):
         """Prepare or revise immutable original briefs against current app proof."""
         self.store.app(app_id)
-        if set(body) not in ({"data"},{"id","version","data"}):raise Invalid("Invalid brief save fields")
+        if set(body) not in ({"data"}, {"id", "version", "data"}):
+            raise Invalid("Invalid brief save fields")
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
-            data=bind(db,self.store,app_id,body["data"])
-            return append(db,"creative_briefs",app_id,data,body)
+            data = bind(db, self.store, app_id, body["data"])
+            return append(db, "creative_briefs", app_id, data, body)

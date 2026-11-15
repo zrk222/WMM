@@ -1,4 +1,5 @@
 """Single-use app invitations for MAKER/CHECKER; no public signup or OWNER grant."""
+
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import tempfile
@@ -20,13 +21,21 @@ class TeamInvitationTests(unittest.TestCase):
         self.addCleanup(self.folder.cleanup)
         self.store = Store(Path(self.folder.name) / "state.sqlite", seed=False)
         for app in (APP, "sample-two"):
-            self.store.save_app(app, dict(name="Synthetic " + app, release="build-1", job="Synthetic job",
-                                         audience="Synthetic audience", activation="Synthetic value", locale="en-US"))
+            self.store.save_app(
+                app,
+                dict(
+                    name="Synthetic " + app,
+                    release="build-1",
+                    job="Synthetic job",
+                    audience="Synthetic audience",
+                    activation="Synthetic value",
+                    locale="en-US",
+                ),
+            )
         Access(self.store).bootstrap(APP, OWNER, {"confirm_owner": True})
 
     def body(self, login="maker-one", role="MAKER", hours=24):
-        return dict(login=login, role=role,
-                    expires=(datetime.now(timezone.utc) + timedelta(hours=hours)).isoformat())
+        return dict(login=login, role=role, expires=(datetime.now(timezone.utc) + timedelta(hours=hours)).isoformat())
 
     def test_owner_issues_once_only_invitation_and_accepts_maker(self):
         issued = issue(self.store, APP, OWNER, self.body())
@@ -61,8 +70,10 @@ class TeamInvitationTests(unittest.TestCase):
         issued = issue(self.store, APP, OWNER, self.body())
         row = list_invitations(self.store, APP, OWNER)["invitations"][0]
         with connection(self.store.path) as db:
-            db.execute("UPDATE team_invitations SET expires=? WHERE app_id=? AND id=?",
-                       ((datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat(), APP, row["id"]))
+            db.execute(
+                "UPDATE team_invitations SET expires=? WHERE app_id=? AND id=?",
+                ((datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat(), APP, row["id"]),
+            )
         self.assertEqual(list_invitations(self.store, APP, OWNER)["invitations"][0]["status"], "EXPIRED")
         with self.assertRaises(Invalid):
             accept(self.store, issued["token"], INVITEE)

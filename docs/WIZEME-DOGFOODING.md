@@ -1,8 +1,18 @@
 # WizeMe dogfooding: operations with receipts
 
-**Snapshot: November 6, 2026 (UTC).** We are using Wize Marketing Machine on
+**Evidence review: November 14, 2026 (UTC).** We are using Wize Marketing Machine on
 WizeMe.APP to prove the working marketing loop: connect a real app, collect
 evidence, make one approved change, then measure what happened.
+
+## Current acceptance status
+
+WMM verified delivery of one owner-approved, zero-spend Facebook post with the exact E14 campaign link on November 7. Its separate 48-hour observation found no tagged traffic or confirmed registrations. On November 14, a fresh internal production check verified that a campaign tag survived from landing to signup after the tracking repair. The original E14 conversion rate and campaign lift remain unknown.
+
+On November 13, the automated Windows and Ubuntu package run at source `4ac6587c1edd60019706053cd67d677a840aa0e4` passed install, upgrade, removal and isolated first-packet/restart checks. This is engineering acceptance, not an outside-founder session, publisher signing or marketing impact. [Package run](https://github.com/zrk222/WMM/actions/runs/43371264849).
+
+[Desktop Preview 10](https://github.com/zrk222/WMM/releases/tag/v0.1.0-preview.10) shipped on November 13 from commit f80234b. Both installer lifecycles and all six artifact attestations passed the [release checks](https://github.com/zrk222/WMM/actions/runs/43455759453). The Windows installer is unsigned. Independent first-use, agent-host operation on the released installer and a measured tagged-campaign result are still awaiting verification.
+
+## Retained operations
 
 | When (UTC) | What we operated | Verified result | Receipt |
 | --- | --- | --- | --- |
@@ -21,6 +31,11 @@ evidence, make one approved change, then measure what happened.
 | Nov 5, 01:15 | Inspected the private workspace's saved schedule and its two successive due Apple downloads reads. | Jobs queued on Nov 3 and Nov 4 at 13:28 UTC, 24 hours and 0.434 seconds apart. Both completed with `WAITING_FOR_REPORTS`. The latest job matches the enabled 24-hour schedule. Numerical observations remain unavailable. This inspection made no provider request. | E11 |
 | Nov 5, 02:25 | Read aggregate activity from WizeMe's production database using the existing connection in its local source checkout. | An explicit read-only transaction returned external-classified user, registration, conversation and retention-event counts for a 30-day window. The primary connection succeeded after the configured failover failed. Counts stay private. Latest observed activity predates the Facebook trial, leaving campaign impact inconclusive. | E12 |
 | Nov 6, 04:12–04:14 | Re-read the fixed 24-hour before and after windows in production and checked whether web traffic was present. | Registrations, conversations and retention events showed no recorded change. The post used an untagged link, so campaign attribution remains unavailable. | E13 |
+| Nov 7, 13:48 | Verified one owner-approved organic Facebook post and its exact E14 destination. | The private receipt binds the post to the approved content and link and to one saved owner report. No ad spend was authorized. | [V03](evidence/wizeme-e14-readback-2026-11-13.json) |
+| Nov 10, 13:23 | Read the 48 hours after E14 delivery. | The source recorded 29 eligible page views overall, zero E14-tagged page views and zero confirmed registrations. The source cannot establish actual clicks, causation or a conversion rate. | [V03](evidence/wizeme-e14-readback-2026-11-13.json) |
+| Nov 11, 11:58 | Matched an internal tagged landing visit against its prior readback receipt. | The landing tag was observed. The internal visit is excluded from campaign measurement. Registration linkage and campaign impact remain unverified. | V01 |
+| Nov 11, 15:57 | Checked the installed workspace's saved schedule, delivery and private owner report. | One successful scheduled job matched one verified post and one hash-verified owner report. The report establishes no attribution. No fresh provider read occurred. | V02 |
+| Nov 14, 12:21 | Verified the tracking repair on the live WizeMe web and API deployment. | One landing and one new server-confirmed registration shared a fresh internal tag. Both were excluded from external metrics. No new post or paid activity. | [V04](evidence/wizeme-e14-tracking-repair-2026-11-14.json) |
 
 The delivered change can be inspected on the public Page. [Published WizeMe.APP post](https://www.facebook.com/122102679789533699/posts/122102676339533699)
 
@@ -29,6 +44,14 @@ hashes and observation times. Original receipts stay in the owner's private
 workspace. They are not publicly downloadable; this is an owner-verifiable
 operations record, not an independent audit. No keys or private account identifiers are
 included.
+
+## Failures and unproven outcomes
+
+- E05: the first replacement schedule produced no post; its finite allowance stopped execution before a publish intent existed.
+- E12: the configured provider failover failed; the primary connection succeeded. Counts stay private and predate the campaign.
+- E13: the post used an untagged link. Registrations, conversations and retention events showed no recorded change, so campaign attribution is unavailable.
+- The full work cycle and a comparable manual run have not been timed.
+- **Measured growth and time savings remain unproven.** Delivery of one post is verified; notification delivery, ad spending and measured growth are not.
 
 **What we learned:** WMM can read the real Apple account, dispatch a scheduled
 read, preserve missing-data states and record scoped agent access. Changing the
@@ -60,12 +83,13 @@ observations were 1 minute 57 seconds apart. That interval measures two
 recorded system events. The full work cycle and a comparable manual run still
 need timing.
 
-**Next proof:** preregister a new organic test with a unique campaign link and
-verify that the tag reaches the landing-page and registration records. Freeze
-the measurement window, sample requirements and decision rule before launch.
-Then collect the follow-up and record a continue, stop or revise decision.
+**E14 decision — repair tracking before repeating the post.** A November 13 read found one internal tagged landing and no server-confirmed new registration under the internal tag. The November 14 [repair check](evidence/wizeme-e14-tracking-repair-2026-11-14.json) passed in production using a fresh internal tag. That check verifies the signup tracking path. It adds no registrations to the original campaign.
+The [follow-up worksheet](WIZEME-PREREGISTRATION-20261108.md) remains a draft.
+Freeze the measurement window, sample requirements and decision rule before
+any separately approved launch. Then collect the follow-up and record a
+continue, stop or revise decision.
 
-The verified publication proves delivery. Notification delivery, ad spending,
+The verified publications prove delivery. Notification delivery, ad spending,
 measured growth and time savings remain unproven. OneSignal auto-setup code and
 offline tests are engineering evidence, separate from these live operations.
 

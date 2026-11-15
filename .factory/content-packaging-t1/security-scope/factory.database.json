@@ -1,4 +1,0 @@
-{
-  "schema": "factory.database-context-config.v1",
-  "dialect": "sqlite"
-}

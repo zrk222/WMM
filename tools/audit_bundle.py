@@ -1,4 +1,5 @@
 """Read-only, tamper-evident evidence bundle for one app; not an audit opinion."""
+
 from __future__ import annotations
 
 import argparse
@@ -11,11 +12,22 @@ import sqlite3
 
 SCHEMA = "wmm.audit-bundle.v1"
 KEY_TABLES = (
-    "apps", "records", "audit", "agent_grants", "agent_review_requests", "verified_reviews",
-    "provider_actions", "provider_action_events", "growth_review_entries",
-    "install_attribution_batches", "install_attribution_rows",
-    "observational_campaign_studies", "observational_campaign_batches", "observational_campaign_events",
-    "operator_roles", "team_sessions",
+    "apps",
+    "records",
+    "audit",
+    "agent_grants",
+    "agent_review_requests",
+    "verified_reviews",
+    "provider_actions",
+    "provider_action_events",
+    "growth_review_entries",
+    "install_attribution_batches",
+    "install_attribution_rows",
+    "observational_campaign_studies",
+    "observational_campaign_batches",
+    "observational_campaign_events",
+    "operator_roles",
+    "team_sessions",
 )
 
 
@@ -39,8 +51,12 @@ def schema_sha256(db) -> str:
 
 
 def table_names(db) -> list[str]:
-    return [row[0] for row in db.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")]
+    return [
+        row[0]
+        for row in db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+        )
+    ]
 
 
 def app_columns(db, table: str, app_id: str) -> list[str]:
@@ -58,8 +74,10 @@ def table_state(db, table: str, app_id: str) -> dict:
         return {"count": None, "digest": None, "scope": "NO_APP_COLUMN"}
     quoted = ", ".join('"' + column.replace('"', '""') + '"' for column in columns)
     key = "id" if table == "apps" else "app_id"
-    rows = db.execute('SELECT ' + quoted + ' FROM "' + table.replace('"', '""') + '" WHERE ' + key + '=? ORDER BY ' + quoted,
-                      (app_id,)).fetchall()
+    rows = db.execute(
+        "SELECT " + quoted + ' FROM "' + table.replace('"', '""') + '" WHERE ' + key + "=? ORDER BY " + quoted,
+        (app_id,),
+    ).fetchall()
     if not rows:
         return {"count": 0, "digest": None, "scope": "APP_SCOPED"}
     return {"count": len(rows), "digest": digest([list(row) for row in rows]), "scope": "APP_SCOPED"}
@@ -82,32 +100,50 @@ def attribution(db, app_id: str) -> dict:
     studies = []
     if "observational_campaign_studies" in names:
         for study_id, value_hash, data in db.execute(
-                "SELECT study_id,hash,data FROM observational_campaign_studies WHERE app_id=? ORDER BY study_id",
-                (app_id,)):
+            "SELECT study_id,hash,data FROM observational_campaign_studies WHERE app_id=? ORDER BY study_id", (app_id,)
+        ):
             try:
                 value = json.loads(data)
             except (TypeError, ValueError):
                 value = {}
-            studies.append({"study_id": study_id, "hash": value_hash,
-                            "source": value.get("source"), "creative_id": value.get("creative_id"),
-                            "starts_at": value.get("starts_at"), "ends_at": value.get("ends_at")})
+            studies.append(
+                {
+                    "study_id": study_id,
+                    "hash": value_hash,
+                    "source": value.get("source"),
+                    "creative_id": value.get("creative_id"),
+                    "starts_at": value.get("starts_at"),
+                    "ends_at": value.get("ends_at"),
+                }
+            )
     batches = []
     if "install_attribution_batches" in names:
         for batch_id, token, source, value_hash, created in db.execute(
-                "SELECT id,campaign_token,source,hash,created FROM install_attribution_batches "
-                "WHERE app_id=? ORDER BY created,id", (app_id,)):
-            batches.append({"id": batch_id, "campaign_token": token, "source": source,
-                            "hash": value_hash, "created": created})
+            "SELECT id,campaign_token,source,hash,created FROM install_attribution_batches "
+            "WHERE app_id=? ORDER BY created,id",
+            (app_id,),
+        ):
+            batches.append(
+                {"id": batch_id, "campaign_token": token, "source": source, "hash": value_hash, "created": created}
+            )
     states = {}
     if "install_attribution_rows" in names:
-        states = {state: count for state, count in db.execute(
-            "SELECT state,count(*) FROM install_attribution_rows WHERE app_id=? GROUP BY state ORDER BY state",
-            (app_id,))}
+        states = {
+            state: count
+            for state, count in db.execute(
+                "SELECT state,count(*) FROM install_attribution_rows WHERE app_id=? GROUP BY state ORDER BY state",
+                (app_id,),
+            )
+        }
     study_ids = {row["study_id"] for row in studies}
     tokens = {row["campaign_token"] for row in batches}
-    return {"studies": studies, "batches": batches, "install_states": states,
-            "linked_studies": sorted(study_ids & tokens),
-            "unlinked_campaign_tokens": sorted(tokens - study_ids)}
+    return {
+        "studies": studies,
+        "batches": batches,
+        "install_states": states,
+        "linked_studies": sorted(study_ids & tokens),
+        "unlinked_campaign_tokens": sorted(tokens - study_ids),
+    }
 
 
 def build(database: Path, app_id: str) -> dict:
@@ -144,8 +180,12 @@ def verify(database: Path, app_id: str, bundle: dict) -> dict:
     fresh = build(database, app_id)
     if fresh["manifest_sha256"] != claimed:
         raise ValueError("Database no longer matches the bundle; evidence changed")
-    return {"status": "MATCH", "app_id": app_id, "manifest_sha256": claimed,
-            "audit_chain_sha256": fresh["audit"]["chain_sha256"]}
+    return {
+        "status": "MATCH",
+        "app_id": app_id,
+        "manifest_sha256": claimed,
+        "audit_chain_sha256": fresh["audit"]["chain_sha256"],
+    }
 
 
 def main(argv=None) -> int:
@@ -163,8 +203,11 @@ def main(argv=None) -> int:
     if args.command == "export":
         value = build(Path(args.database), args.app)
         Path(args.out).write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        print(json.dumps({"status": "EXPORTED", "app_id": args.app,
-                          "manifest_sha256": value["manifest_sha256"]}, sort_keys=True))
+        print(
+            json.dumps(
+                {"status": "EXPORTED", "app_id": args.app, "manifest_sha256": value["manifest_sha256"]}, sort_keys=True
+            )
+        )
         return 0
     value = json.loads(Path(args.bundle).read_text(encoding="utf-8"))
     print(json.dumps(verify(Path(args.database), args.app, value), sort_keys=True))

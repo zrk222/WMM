@@ -1,4 +1,5 @@
 """Validate complete portable growth history before insertion; imports are assertions."""
+
 from datetime import datetime, timezone
 from .common import Invalid, canonical, identifier, iso_time, safe_data
 from .pmf_contract import exact, hashed
@@ -19,8 +20,36 @@ def context_data(value, app_id):
 
 def projection_data(value, request, created):
     """Validate frozen observations and lineage without authenticating an imported job."""
-    exact(value, {"status", "observed", "numerator_exact", "reasons", "binding", "row_count", "unit_source_sha256", "classification_provenance", "classification_provider_verified", "provider_observed_at", "external_writes", "spend_authority", "scope"})
-    exact(value["binding"], {"job_id", "report_hash", "result_hash", "connection_id", "connection_version", "connection_hash", "request_hash"})
+    exact(
+        value,
+        {
+            "status",
+            "observed",
+            "numerator_exact",
+            "reasons",
+            "binding",
+            "row_count",
+            "unit_source_sha256",
+            "classification_provenance",
+            "classification_provider_verified",
+            "provider_observed_at",
+            "external_writes",
+            "spend_authority",
+            "scope",
+        },
+    )
+    exact(
+        value["binding"],
+        {
+            "job_id",
+            "report_hash",
+            "result_hash",
+            "connection_id",
+            "connection_version",
+            "connection_hash",
+            "request_hash",
+        },
+    )
     binding = value["binding"]
     if binding["job_id"] != request["job_id"] or binding["report_hash"] != request["report_hash"]:
         raise Invalid("Comparison snapshot source selector changed")
@@ -40,7 +69,10 @@ def projection_data(value, request, created):
 
 def projection_truth(value):
     """Reject fabricated authority, unbounded reasons and contradictory missing metrics."""
-    if value["classification_provenance"] != "OPERATOR_DECLARED" or value["classification_provider_verified"] is not False:
+    if (
+        value["classification_provenance"] != "OPERATOR_DECLARED"
+        or value["classification_provider_verified"] is not False
+    ):
         raise Invalid("Comparison classification cannot become provider verification")
     if value["external_writes"] is not False or value["spend_authority"] is not False:
         raise Invalid("Comparison snapshot cannot import execution authority")
@@ -50,7 +82,11 @@ def projection_truth(value):
 def projection_state(value):
     """Validate bounded descriptive state independently of authority assertions."""
     reasons = value["reasons"]
-    if not isinstance(reasons, list) or len(reasons) > 100 or any(not isinstance(item, str) or len(item) > 2000 for item in reasons):
+    if (
+        not isinstance(reasons, list)
+        or len(reasons) > 100
+        or any(not isinstance(item, str) or len(item) > 2000 for item in reasons)
+    ):
         raise Invalid("Comparison snapshot reasons are malformed")
     if not isinstance(value["scope"], str) or len(value["scope"]) > 2000:
         raise Invalid("Comparison snapshot scope is malformed")
@@ -62,7 +98,9 @@ def projection_state(value):
 
 def projection_numerator(value):
     """Keep retained decimal source text bounded without inventing missing totals."""
-    if value["numerator_exact"] is not None and (not isinstance(value["numerator_exact"], str) or len(value["numerator_exact"]) > 100):
+    if value["numerator_exact"] is not None and (
+        not isinstance(value["numerator_exact"], str) or len(value["numerator_exact"]) > 100
+    ):
         raise Invalid("Comparison snapshot exact numerator is malformed")
 
 
@@ -75,7 +113,9 @@ def projection_observation(value, request):
     normalized.pop("value")
     if normalized != observed or observed["source_sha256"] != value["binding"]["result_hash"]:
         raise Invalid("Comparison snapshot observation changed or is not canonical")
-    expected = dict(request["segment"], metric=request["metric"], denominator=METRICS[request["metric"]], platform="iOS")
+    expected = dict(
+        request["segment"], metric=request["metric"], denominator=METRICS[request["metric"]], platform="iOS"
+    )
     if any(observed[key] != item for key, item in expected.items()):
         raise Invalid("Comparison snapshot metric or classification changed")
 
@@ -87,7 +127,10 @@ def stored_data(row):
         if entry_data(kind, value, row["context"], created) != value:
             raise Invalid("Growth review snapshot is not canonical")
         return
-    exact(value, {"reference_id", "reference_hash", "job_id", "report_hash", "metric", "segment", "reference", "projection"})
+    exact(
+        value,
+        {"reference_id", "reference_hash", "job_id", "report_hash", "metric", "segment", "reference", "projection"},
+    )
     selected = {key: item for key, item in value.items() if key not in ("reference", "projection")}
     if comparison_data(selected) != selected or benchmark_record(value["reference"], created) != value["reference"]:
         raise Invalid("Comparison snapshot data is not canonical")
@@ -146,4 +189,16 @@ def restore(db, app_id, rows):
     for row in rows:
         linked_data(row, entries)
     for row in rows:
-        db.execute("INSERT INTO growth_review_entries VALUES(?,?,?,?,?,?,?,?)", (app_id, row["id"], row["kind"], canonical(row["data"]), row["hash"], canonical(row["context"]), row["created"], 1))
+        db.execute(
+            "INSERT INTO growth_review_entries VALUES(?,?,?,?,?,?,?,?)",
+            (
+                app_id,
+                row["id"],
+                row["kind"],
+                canonical(row["data"]),
+                row["hash"],
+                canonical(row["context"]),
+                row["created"],
+                1,
+            ),
+        )

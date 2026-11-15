@@ -1,4 +1,5 @@
 """Durable app-scoped team sessions bound to verified GitHub identity."""
+
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import tempfile
@@ -21,12 +22,30 @@ class TeamSessionTests(unittest.TestCase):
         self.addCleanup(self.folder.cleanup)
         self.store = Store(Path(self.folder.name) / "state.sqlite", seed=False)
         for app in (APP, "sample-two"):
-            self.store.save_app(app, dict(name="Synthetic " + app, release="build-1", job="Synthetic job",
-                                         audience="Synthetic audience", activation="Synthetic value", locale="en-US"))
+            self.store.save_app(
+                app,
+                dict(
+                    name="Synthetic " + app,
+                    release="build-1",
+                    job="Synthetic job",
+                    audience="Synthetic audience",
+                    activation="Synthetic value",
+                    locale="en-US",
+                ),
+            )
         Access(self.store).bootstrap(APP, OWNER, {"confirm_owner": True})
         from mission_control.team_access import accept, issue
-        invitation = issue(self.store, APP, OWNER, dict(login=MEMBER["login"], role="MAKER",
-            expires=(datetime.now(timezone.utc) + timedelta(hours=4)).isoformat()))
+
+        invitation = issue(
+            self.store,
+            APP,
+            OWNER,
+            dict(
+                login=MEMBER["login"],
+                role="MAKER",
+                expires=(datetime.now(timezone.utc) + timedelta(hours=4)).isoformat(),
+            ),
+        )
         accept(self.store, invitation["token"], MEMBER)
 
     def test_login_stores_only_a_hash_and_verify_returns_identity(self):
@@ -37,14 +56,18 @@ class TeamSessionTests(unittest.TestCase):
         with connection(self.store.path) as db:
             self.assertNotIn(issued["token"], "\n".join(db.iterdump()))
         value = verify(self.store, issued["token"])
-        self.assertEqual((value["principal"], value["login"], value["app_id"]), (MEMBER["principal"], MEMBER["login"], APP))
+        self.assertEqual(
+            (value["principal"], value["login"], value["app_id"]), (MEMBER["principal"], MEMBER["login"], APP)
+        )
         self.assertNotIn(issued["token"], str(list_sessions(self.store, APP, OWNER)))
 
     def test_expired_and_revoked_sessions_are_denied(self):
         issued = open_session(self.store, APP, MEMBER)
         with connection(self.store.path) as db:
-            db.execute("UPDATE team_sessions SET expires=? WHERE id=?",
-                       ((datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat(), issued["session"]["id"]))
+            db.execute(
+                "UPDATE team_sessions SET expires=? WHERE id=?",
+                ((datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat(), issued["session"]["id"]),
+            )
         with self.assertRaises(PermissionError):
             verify(self.store, issued["token"])
         second = open_session(self.store, APP, MEMBER)
@@ -60,8 +83,10 @@ class TeamSessionTests(unittest.TestCase):
             open_session(self.store, APP, {"principal": "github:3", "login": "outsider"})
         issued = open_session(self.store, APP, MEMBER)
         with connection(self.store.path) as db:
-            db.execute("UPDATE operator_roles SET status='REVOKED',version=version+1 WHERE app_id=? AND principal=?",
-                       (APP, MEMBER["principal"]))
+            db.execute(
+                "UPDATE operator_roles SET status='REVOKED',version=version+1 WHERE app_id=? AND principal=?",
+                (APP, MEMBER["principal"]),
+            )
         with self.assertRaises(PermissionError):
             verify(self.store, issued["token"])
 

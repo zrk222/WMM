@@ -1,14 +1,22 @@
 """Real owner monitor UI, protected HTTP and synthetic worker pause acceptance."""
-from pathlib import Path
-from datetime import datetime, timedelta
+
 import json
 import sys
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, cast
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from playwright.sync_api import sync_playwright, expect
-from tests.test_campaign_monitor_integration import CampaignMonitorIntegrationTests
-from mission_control.db import connection
+from playwright.sync_api import expect, sync_playwright  # noqa: E402 - repository root configured above
+
+from mission_control.db import connection  # noqa: E402 - repository root configured above
+from tests.test_campaign_monitor_integration import (  # noqa: E402 - repository root configured above
+    CampaignMonitorIntegrationTests,
+)
+
 OUT = ROOT / ".factory/goal-first-automation"
+
 
 def run(browser, width):
     f = CampaignMonitorIntegrationTests()
@@ -19,26 +27,60 @@ def run(browser, width):
     page.on("pageerror", lambda error: errors.append(str(error)))
     try:
         page.goto(f.client.origin)
-        page.wait_for_function("() => state.workspace?.app?.id===state.app")
+        page.wait_for_function(
+            "(state) => state.workspace?.app?.id===state.app",
+            arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"),
+        )
         page.locator("#app-select").select_option("sample")
-        page.wait_for_function("() => state.app==='sample' && state.workspace?.app?.id==='sample'")
+        page.wait_for_function(
+            "(state) => state.app==='sample' && state.workspace?.app?.id==='sample'",
+            arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"),
+        )
         page.locator("#navigation > [data-view=activity]").click()
         page.get_by_role("button", name="Sign in for verified review", exact=True).click()
         page.get_by_label("GitHub identity token", exact=True).fill("synthetic_owner_identity_token")
         page.get_by_role("button", name="Verify my identity", exact=True).click()
         expect(page.get_by_role("button", name="Sign out of review session")).to_be_visible()
         page.get_by_role("button", name="Monitor approved campaigns", exact=True).click()
-        page.locator("[data-action=campaign-monitor-select][data-id=\"" + f.scope["scope_id"] + "\"]").click()
+        organic_scope_id = cast(Any, f.fixture).scope["scope_id"]
+        page.locator('[data-action=campaign-monitor-select][data-id="' + organic_scope_id + '"]').click()
+        organic_form = page.locator("#campaign-monitor-form")
+        expect(organic_form).to_contain_text("Page posts are read-only")
+        expect(organic_form.locator("[name=configuration_drift]")).to_be_disabled()
+        expect(organic_form.locator("[name=active_after_end]")).to_be_disabled()
+        expect(organic_form.locator("[name=max_pause_attempts]")).to_have_value("0")
+        assert organic_form.locator("[name=max_pause_attempts]").evaluate("element => element.readOnly")
+        assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
+        organic_form.get_by_role("button", name="Cancel", exact=True).click()
+        page.get_by_role("button", name="Monitor approved campaigns", exact=True).click()
+        page.locator('[data-action=campaign-monitor-select][data-id="' + f.scope["scope_id"] + '"]').click()
         form = page.locator("#campaign-monitor-form")
+        assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
         form.locator("[name=targets]").check()
-        form.locator("[name=expires_at]").fill((datetime.now()+timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M"))
+        expect(form.locator("[data-pause-status]")).to_contain_text("available for review")
+        form.locator("[name=configuration_drift]").check()
+        form.locator("[name=max_pause_attempts]").fill("1")
+        form.locator("[name=targets]").uncheck()
+        expect(form.locator("[name=configuration_drift]")).not_to_be_checked()
+        expect(form.locator("[name=configuration_drift]")).to_be_disabled()
+        expect(form.locator("[name=max_pause_attempts]")).to_have_value("0")
+        assert form.locator("[name=max_pause_attempts]").evaluate("element => element.readOnly")
+        expect(form.locator("[data-pause-status]")).to_contain_text("Select a paid campaign")
+        form.locator("[name=targets]").check()
+        expect(form.locator("[data-pause-status]")).to_contain_text("available for review")
+        form.locator("[name=expires_at]").fill((datetime.now() + timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M"))
         form.locator("[name=configuration_drift]").check()
         form.locator("[name=max_pause_attempts]").fill("1")
         form.get_by_role("button", name="Review exact monitoring plan", exact=True).click()
         review = page.locator("#monitor-review")
-        expect(review).to_contain_text("Pause after verified configuration drift")
+        expect(review).to_contain_text(
+            "Pause an active campaign when its configuration changed or could not be confirmed"
+        )
+        expect(review).to_contain_text("matching provider observation no more than 30 seconds old")
         expect(review).to_contain_text("80")
         expect(review).to_contain_text("cannot publish, create, activate")
+        expect(review).to_contain_text("does not approve or execute a pause")
+        expect(review).to_contain_text("paid campaign")
         assert f.job() is None
         review.get_by_role("button", name="Approve exact monitor", exact=True).click()
         progress = page.locator("#monitor-progress")
@@ -53,41 +95,66 @@ def run(browser, width):
         assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
         page.screenshot(path=str(OUT / f"monitor-{width}.png"), full_page=True)
         (OUT / f"monitor-{width}.html").write_text(page.content(), encoding="utf-8")
+        with connection(f.store.path) as db:
+            db.execute("UPDATE campaign_monitors SET status='BLOCKED',units=160")
+        progress.get_by_role("button", name="Refresh monitor receipts", exact=True).press("Enter")
+        expect(progress).to_contain_text("WMM used the approved number of checks or requests.")
+        expect(progress).to_contain_text("Protective pause verified")
+        assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
+        (OUT / f"monitor-next-step-{width}.html").write_text(page.content(), encoding="utf-8")
         with page.expect_popup() as info:
             progress.get_by_role("button", name="Monitor report / Save PDF", exact=True).click()
         report = info.value
         expect(report.locator("body")).to_contain_text("Campaign monitoring")
+        expect(report.locator("body")).to_contain_text("WMM used the approved number of checks or requests.")
         assert "synthetic-token" not in report.locator("body").inner_text()
         assert "synthetic-secret" not in report.locator("body").inner_text()
         report.close()
         progress.get_by_role("button", name="Turn monitor OFF", exact=True).click()
         expect(page.locator("#monitor-progress")).to_contain_text("Monitoring off")
-        assert f.job()["status"] == "SUCCEEDED"
+        job = f.job()
+        assert job is not None and job["status"] == "SUCCEEDED"
         with connection(f.store.path) as db:
-            db.execute("UPDATE campaign_paid_intents SET status='UNKNOWN' WHERE id=?",(f.intent["id"],))
+            db.execute("UPDATE campaign_paid_intents SET status='UNKNOWN' WHERE id=?", (f.intent["id"],))
         page.locator("#close-modal").click()
         page.locator("#navigation > details > summary").click()
         page.locator("#navigation [data-view=weekly]").click()
-        page.get_by_role("button",name="Refresh review",exact=True).click()
-        card=page.locator("article.panel").filter(has=page.get_by_role("heading",name="Reconcile uncertain campaign delivery",exact=True))
+        page.get_by_role("button", name="Refresh review", exact=True).click()
+        card = page.locator("article.panel").filter(
+            has=page.get_by_role("heading", name="Reconcile uncertain campaign delivery", exact=True)
+        )
         expect(card).to_be_visible()
-        card.get_by_role("button",name="Open recovery",exact=True).click()
+        card.get_by_role("button", name="Open recovery", exact=True).click()
         expect(page.locator("#campaign-progress")).to_contain_text("UNKNOWN")
         page.locator("#close-modal").click()
         page.locator("#navigation > [data-view=activity]").click()
-        page.get_by_role("button",name="Sign out of review session",exact=True).click()
-        expect(page.get_by_role("button",name="Sign in for verified review",exact=True)).to_be_visible()
+        page.get_by_role("button", name="Sign out of review session", exact=True).click()
+        expect(page.get_by_role("button", name="Sign in for verified review", exact=True)).to_be_visible()
         page.locator("#navigation [data-view=weekly]").click()
-        expect(page.get_by_role("heading",name="Reconcile uncertain campaign delivery",exact=True)).to_have_count(0)
+        expect(page.get_by_role("heading", name="Reconcile uncertain campaign delivery", exact=True)).to_have_count(0)
         assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
         assert not errors, errors
-        return dict(width=width, status="PASS", exact_review=True, no_job_before_approval=True, worker_pause="SYNTHETIC_PAUSED_VERIFIED", private_report=True, owner_exception_recovery=True, signed_out_private_cache_hidden=True, off=True, no_overflow=True, javascript_errors=errors)
+        return dict(
+            width=width,
+            status="PASS",
+            exact_review=True,
+            no_job_before_approval=True,
+            worker_pause="SYNTHETIC_PAUSED_VERIFIED",
+            private_report=True,
+            allowance_next_step=True,
+            owner_exception_recovery=True,
+            signed_out_private_cache_hidden=True,
+            off=True,
+            no_overflow=True,
+            javascript_errors=errors,
+        )
     except Exception:
         print(json.dumps({"errors": errors, "body": page.locator("body").inner_text()[-5000:]}))
         raise
     finally:
         context.close()
         f.doCleanups()
+
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
@@ -100,6 +167,7 @@ def main():
     result = dict(status="PASS", observations=observations)
     (OUT / "monitor-browser.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps(result))
+
 
 if __name__ == "__main__":
     main()

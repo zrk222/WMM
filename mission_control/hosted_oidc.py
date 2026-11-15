@@ -1,4 +1,5 @@
 """Fixed-provider OIDC verification with bounded, pinned HTTPS egress."""
+
 import base64
 import json
 import math
@@ -32,8 +33,7 @@ def unique_pairs(pairs):
 
 def strict_json(raw):
     try:
-        result = json.loads(raw, object_pairs_hook=unique_pairs,
-                            parse_constant=lambda _: fail())
+        result = json.loads(raw, object_pairs_hook=unique_pairs, parse_constant=lambda _: fail())
         if not isinstance(result, dict):
             fail()
         return result
@@ -81,6 +81,7 @@ def dependencies_available():
     try:
         import jwt  # noqa: F401
         import cryptography  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -88,6 +89,7 @@ def dependencies_available():
 
 class ProviderTransport:
     """One request, no redirects, no ambient proxy, same caller deadline."""
+
     def request(self, url, method, body, deadline):
         try:
             host = urlsplit(url).hostname
@@ -129,7 +131,8 @@ def key_for(jwks, kid):
     keys = jwks.get("keys")
     if not isinstance(keys, list) or not 1 <= len(keys) <= 16:
         fail()
-    seen = set(); selected = None
+    seen = set()
+    selected = None
     for key in keys:
         if not isinstance(key, dict) or not text_field(key.get("kid"), 256) or key["kid"] in seen:
             fail()
@@ -152,6 +155,7 @@ def public_key(key):
         fail()
     try:
         from jwt.algorithms import RSAAlgorithm
+
         value = RSAAlgorithm.from_jwk(key)
         if not 2048 <= value.key_size <= 8192:
             fail()
@@ -204,17 +208,32 @@ class OIDCClient:
 
     def authorization(self, state, nonce, verifier, redirect_uri):
         import hashlib
-        challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode("ascii")).digest()).rstrip(b"=").decode("ascii")
-        fields = {"response_type": "code", "client_id": self.config.client_id,
-                  "redirect_uri": redirect_uri, "scope": "openid", "state": state,
-                  "nonce": nonce, "code_challenge": challenge, "code_challenge_method": "S256"}
+
+        challenge = (
+            base64.urlsafe_b64encode(hashlib.sha256(verifier.encode("ascii")).digest()).rstrip(b"=").decode("ascii")
+        )
+        fields = {
+            "response_type": "code",
+            "client_id": self.config.client_id,
+            "redirect_uri": redirect_uri,
+            "scope": "openid",
+            "state": state,
+            "nonce": nonce,
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+        }
         return self.config.authorization_endpoint + "?" + urlencode(fields)
 
     def exchange(self, code, verifier, nonce, redirect_uri):
         if not dependencies_available() or not all(text_field(x, 4096) for x in (code, verifier, nonce, redirect_uri)):
             fail()
-        fields = {"grant_type": "authorization_code", "code": code, "redirect_uri": redirect_uri,
-                  "client_id": self.config.client_id, "code_verifier": verifier}
+        fields = {
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": redirect_uri,
+            "client_id": self.config.client_id,
+            "code_verifier": verifier,
+        }
         if self.config.client_secret is not None:
             fields["client_secret"] = self.config.client_secret
         deadline = time.monotonic() + DEADLINE_SECONDS
@@ -223,12 +242,29 @@ class OIDCClient:
             result = strict_json(raw)
             token = result.get("id_token")
             header, claims = jwt_parts(token)
-            if set(header) - {"alg", "kid", "typ"} or header.get("alg") != "RS256" or not text_field(header.get("kid"), 256):
+            if (
+                set(header) - {"alg", "kid", "typ"}
+                or header.get("alg") != "RS256"
+                or not text_field(header.get("kid"), 256)
+            ):
                 fail()
             jwks = strict_json(self.transport.request(self.config.jwks_uri, "GET", None, deadline))
             key = public_key(key_for(jwks, header["kid"]))
             import jwt
-            jwt.decode(token, key, algorithms=["RS256"], options={"verify_exp": False, "verify_iat": False, "verify_nbf": False, "verify_aud": False, "verify_iss": False, "verify_sub": False})
+
+            jwt.decode(
+                token,
+                key,
+                algorithms=["RS256"],
+                options={
+                    "verify_exp": False,
+                    "verify_iat": False,
+                    "verify_nbf": False,
+                    "verify_aud": False,
+                    "verify_iss": False,
+                    "verify_sub": False,
+                },
+            )
             return validate_claims(claims, self.config, nonce, self.clock())
         except Exception:
             fail()

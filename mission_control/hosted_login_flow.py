@@ -1,4 +1,5 @@
 """Ephemeral browser-bound, one-use authorization flow."""
+
 import re
 import secrets
 import threading
@@ -19,10 +20,16 @@ def reject():
 def valid_binding(origin, redirect_uri):
     try:
         parts = urlsplit(origin)
-        return (parts.scheme == "http" and parts.hostname == "127.0.0.1" and
-                parts.port is not None and parts.netloc == "127.0.0.1:" + str(parts.port) and
-                not parts.path and not parts.query and not parts.fragment and
-                redirect_uri == origin + "/auth/callback")
+        return (
+            parts.scheme == "http"
+            and parts.hostname == "127.0.0.1"
+            and parts.port is not None
+            and parts.netloc == "127.0.0.1:" + str(parts.port)
+            and not parts.path
+            and not parts.query
+            and not parts.fragment
+            and redirect_uri == origin + "/auth/callback"
+        )
     except (ValueError, TypeError):
         return False
 
@@ -31,7 +38,12 @@ def _callback_pair(pair, result):
     if not isinstance(pair, (list, tuple)) or len(pair) != 2:
         reject()
     key, value = pair
-    if not isinstance(key, str) or key not in ("code", "state", "error") or key in result or not text_field(value, 4096):
+    if (
+        not isinstance(key, str)
+        or key not in ("code", "state", "error")
+        or key in result
+        or not text_field(value, 4096)
+    ):
         reject()
     result[key] = value
 
@@ -67,8 +79,13 @@ class LoginFlow:
             if len(self.contexts) >= MAX_PENDING:
                 reject()
             browser, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
-            self.contexts[browser] = {"csrf": csrf, "expires": self.clock() + FLOW_SECONDS,
-                                      "generation": secrets.token_urlsafe(32), "flow": None, "committed": False}
+            self.contexts[browser] = {
+                "csrf": csrf,
+                "expires": self.clock() + FLOW_SECONDS,
+                "generation": secrets.token_urlsafe(32),
+                "flow": None,
+                "committed": False,
+            }
             return browser, csrf
 
     def context_for(self, browser):
@@ -84,11 +101,20 @@ class LoginFlow:
         with self.lock:
             self._clean()
             item = self.contexts.get(browser)
-            if not item or not isinstance(csrf, str) or not re.fullmatch(r"[A-Za-z0-9_-]{43}", csrf) or not secrets.compare_digest(item["csrf"], csrf):
+            if (
+                not item
+                or not isinstance(csrf, str)
+                or not re.fullmatch(r"[A-Za-z0-9_-]{43}", csrf)
+                or not secrets.compare_digest(item["csrf"], csrf)
+            ):
                 reject()
             state, nonce, verifier = (secrets.token_urlsafe(32) for _ in range(3))
-            item.update(generation=secrets.token_urlsafe(32), expires=self.clock() + FLOW_SECONDS, committed=False,
-                        flow=(state, nonce, verifier, origin, redirect_uri, self.provider.config))
+            item.update(
+                generation=secrets.token_urlsafe(32),
+                expires=self.clock() + FLOW_SECONDS,
+                committed=False,
+                flow=(state, nonce, verifier, origin, redirect_uri, self.provider.config),
+            )
             return self.provider.authorization(state, nonce, verifier, redirect_uri)
 
     def _consume(self, browser, origin, redirect_uri, fields):

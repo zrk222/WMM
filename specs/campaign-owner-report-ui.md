@@ -12,6 +12,8 @@ Private report controls join exact saved campaign and monitor receipts with sour
 - The system shall display source-window alignment, KPI unknowns, exact receipts, held commitments, descriptive comparison and next action through `report_evidence`.
 - The system shall return a printable private report projection without raw creative, credential or provider payloads through `report_pdf`.
 
+- Without a selected study, the private screen and printable report shall explain how to measure the campaign even when a saved authority or recovery reminder takes priority.
+
 ### Acceptance criteria (Gherkin)
 ```gherkin
 Scenario: report_selection

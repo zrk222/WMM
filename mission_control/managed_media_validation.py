@@ -1,4 +1,5 @@
 """Bounded technical validation of imported video bytes; grants no reuse rights."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -108,7 +109,9 @@ def _finite_seconds(value, field_name, max_duration=MAX_DURATION_SECONDS):
         raise Invalid(f"Video {field_name} is malformed") from None
     if math.isfinite(seconds) and seconds > max_duration:
         if max_duration == MAX_DURATION_SECONDS:
-            raise Invalid(f"Video {field_name} exceeds the {max_duration:g}-second original-source limit; choose a shorter source")
+            raise Invalid(
+                f"Video {field_name} exceeds the {max_duration:g}-second original-source limit; choose a shorter source"
+            )
         raise Invalid(f"Video {field_name} exceeds the {max_duration:g}-second output limit")
     if not math.isfinite(seconds) or seconds <= 0:
         raise Invalid(f"Video {field_name} is outside the supported range")
@@ -177,7 +180,9 @@ def _audio_stream(stream, max_duration):
 def _normalized_metadata(video, audio_stream, container, max_duration):
     width, height = _dimensions(video)
     frame_rate = _frame_rate(video.get("avg_frame_rate"))
-    duration = _finite_seconds(container.get("duration") if isinstance(container, dict) else None, "duration", max_duration)
+    duration = _finite_seconds(
+        container.get("duration") if isinstance(container, dict) else None, "duration", max_duration
+    )
     if "duration" in video and video["duration"] not in (None, "N/A"):
         _finite_seconds(video["duration"], "video stream duration", max_duration)
     audio = _audio_stream(audio_stream, max_duration) if audio_stream else None
@@ -195,9 +200,12 @@ def _normalized_metadata(video, audio_stream, container, max_duration):
 def media_metadata(value: str | bytes | dict, *, max_duration=MAX_DURATION_SECONDS) -> dict:
     """Parse ffprobe JSON or a decoded JSON document using finite closed bounds."""
     try:
-        if (type(max_duration) not in (int, float) or not math.isfinite(max_duration)
-                or not 0 < max_duration <= MAX_DURATION_SECONDS):
-            raise Invalid('Use a finite positive duration limit no larger than the original-source bound')
+        if (
+            type(max_duration) not in (int, float)
+            or not math.isfinite(max_duration)
+            or not 0 < max_duration <= MAX_DURATION_SECONDS
+        ):
+            raise Invalid("Use a finite positive duration limit no larger than the original-source bound")
         value = _load_metadata(value)
         if not isinstance(value, dict):
             raise Invalid("Video decoder returned malformed metadata")
@@ -229,8 +237,20 @@ def media_probe(media: _StagedMedia, ffprobe: str, alive=lambda: None) -> dict:
     if not isinstance(media, _StagedMedia) or not isinstance(ffprobe, str) or not ffprobe:
         raise Invalid("FFprobe is required to inspect imported video")
     fields = "stream=codec_type,codec_name,width,height,avg_frame_rate,duration,sample_rate,channels:format=duration"
-    args = [ffprobe, "-v", "error", "-protocol_whitelist", "file,pipe", "-f", media.demuxer,
-            "-show_entries", fields, "-of", "json", media.path.name]
+    args = [
+        ffprobe,
+        "-v",
+        "error",
+        "-protocol_whitelist",
+        "file,pipe",
+        "-f",
+        media.demuxer,
+        "-show_entries",
+        fields,
+        "-of",
+        "json",
+        media.path.name,
+    ]
     try:
         output = _native_result(args, media.path.parent, PROBE_TIMEOUT_SECONDS, alive)
     except Invalid:
@@ -264,9 +284,30 @@ def _decode_one(media, ffmpeg, stream_map, disable_other, alive, deadline):
     timeout = min(DECODE_TIMEOUT_SECONDS, int(remaining))
     if timeout < 1:
         raise Invalid("Imported video decode exceeded its time limit")
-    args = [ffmpeg, "-hide_banner", "-loglevel", "error", "-nostdin", "-xerror", "-err_detect", "explode",
-            "-protocol_whitelist", "file,pipe", "-f", media.demuxer, "-i", media.path.name,
-            "-map", stream_map, disable_other, "-f", "framehash", "-hash", "md5", "pipe:1"]
+    args = [
+        ffmpeg,
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-nostdin",
+        "-xerror",
+        "-err_detect",
+        "explode",
+        "-protocol_whitelist",
+        "file,pipe",
+        "-f",
+        media.demuxer,
+        "-i",
+        media.path.name,
+        "-map",
+        stream_map,
+        disable_other,
+        "-f",
+        "framehash",
+        "-hash",
+        "md5",
+        "pipe:1",
+    ]
     try:
         output = _native_result(args, media.path.parent, timeout, alive)
     except Invalid:
@@ -276,7 +317,12 @@ def _decode_one(media, ffmpeg, stream_map, disable_other, alive, deadline):
 
 def media_decode(media: _StagedMedia, metadata: dict, ffmpeg: str, alive=lambda: None) -> dict:
     """Decode selected video and optional audio to bounded frame-hash streams."""
-    if not isinstance(media, _StagedMedia) or not isinstance(metadata, dict) or not isinstance(ffmpeg, str) or not ffmpeg:
+    if (
+        not isinstance(media, _StagedMedia)
+        or not isinstance(metadata, dict)
+        or not isinstance(ffmpeg, str)
+        or not ffmpeg
+    ):
         raise Invalid("FFmpeg is required to decode imported video")
     deadline = time.monotonic() + DECODE_TIMEOUT_SECONDS
     video_frames = _decode_one(media, ffmpeg, "0:v:0", "-an", alive, deadline)

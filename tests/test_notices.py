@@ -1,4 +1,5 @@
 """Opt-in local notices stay quiet by default and never repeat across restarts."""
+
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import tempfile
@@ -18,45 +19,110 @@ class NoticeTests(unittest.TestCase):
         self.addCleanup(self.folder.cleanup)
         self.path = Path(self.folder.name) / "state.sqlite"
         self.store = Store(self.path, seed=False)
-        self.store.save_app(APP, dict(name="Synthetic app", release="build-1", job="Synthetic job",
-                                     audience="Synthetic audience", activation="Synthetic value", locale="en-US"))
+        self.store.save_app(
+            APP,
+            dict(
+                name="Synthetic app",
+                release="build-1",
+                job="Synthetic job",
+                audience="Synthetic audience",
+                activation="Synthetic value",
+                locale="en-US",
+            ),
+        )
         from mission_control.campaign_monitor import initialize as initialize_monitors
+
         initialize_monitors(self.store)
 
     def insert_fixtures(self):
         stamp = now()
         soon = (datetime.now(timezone.utc) + timedelta(days=2)).isoformat()
         with connection(self.store.path) as db:
-            db.execute("INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-                       ("job-failed", APP, "pipeline", "{}", "FAILED", 1, 0,
-                        canonical(dict(secret="PRIVATE_RESULT")), stamp, stamp, "job-request"))
-            db.execute("INSERT INTO agent_grants VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                       ("grant-soon", APP, "agent", "owner", 1, 1, "a" * 64, '["workspace.read"]',
-                        "b" * 64, soon, 5, 0, "ACTIVE", 1, stamp, stamp))
-            db.execute("INSERT INTO campaign_monitors VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                       ("monitor-1", APP, "owner", "{}", digest({}), "BLOCKED", 1, 0, 0, 0, 0, None, stamp, stamp))
-            db.execute("INSERT INTO apple_metrics_schedules VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                       (APP, "connection", "conn-1", 1, "c" * 64, 1, "report", 24, 1, 1, 0, None, None, None, 0,
-                        "BLOCKED", None, "Synthetic failure", stamp))
+            db.execute(
+                "INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    "job-failed",
+                    APP,
+                    "pipeline",
+                    "{}",
+                    "FAILED",
+                    1,
+                    0,
+                    canonical(dict(secret="PRIVATE_RESULT")),
+                    stamp,
+                    stamp,
+                    "job-request",
+                ),
+            )
+            db.execute(
+                "INSERT INTO agent_grants VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    "grant-soon",
+                    APP,
+                    "agent",
+                    "owner",
+                    1,
+                    1,
+                    "a" * 64,
+                    '["workspace.read"]',
+                    "b" * 64,
+                    soon,
+                    5,
+                    0,
+                    "ACTIVE",
+                    1,
+                    stamp,
+                    stamp,
+                ),
+            )
+            db.execute(
+                "INSERT INTO campaign_monitors VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("monitor-1", APP, "owner", "{}", digest({}), "BLOCKED", 1, 0, 0, 0, 0, None, stamp, stamp),
+            )
+            db.execute(
+                "INSERT INTO apple_metrics_schedules VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    APP,
+                    "connection",
+                    "conn-1",
+                    1,
+                    "c" * 64,
+                    1,
+                    "report",
+                    24,
+                    1,
+                    1,
+                    0,
+                    None,
+                    None,
+                    None,
+                    0,
+                    "BLOCKED",
+                    None,
+                    "Synthetic failure",
+                    stamp,
+                ),
+            )
 
     def test_study_windows_are_surfaced_without_inventing_results(self):
         import json
         from mission_control.observational_campaign import _tables
+
         configure(self.store, APP, True)
         ended = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
         ending = (datetime.now(timezone.utc) + timedelta(days=2)).isoformat()
         with connection(self.store.path) as db:
             _tables(db)
             for study_id, ends in (("study-ended", ended), ("study-ending", ending)):
-                db.execute("INSERT INTO observational_campaign_studies VALUES(?,?,?,?,?,?,?,?)",
-                           (APP, study_id, "request-" + study_id, "a" * 64, 1,
-                            json.dumps({"ends_at": ends}), "b" * 64, now()))
+                db.execute(
+                    "INSERT INTO observational_campaign_studies VALUES(?,?,?,?,?,?,?,?)",
+                    (APP, study_id, "request-" + study_id, "a" * 64, 1, json.dumps({"ends_at": ends}), "b" * 64, now()),
+                )
         items = {item["id"]: item for item in collect(self.store, APP)}
         self.assertEqual({item["kind"] for item in items.values()}, {"OBSERVATIONAL_STUDY"})
         states = {item["state"] for item in items.values()}
         self.assertEqual(states, {"ENDED", "ENDING_SOON"})
-        self.assertTrue(all("read results" in item["title"] or "ends soon" in item["title"]
-                            for item in items.values()))
+        self.assertTrue(all("read results" in item["title"] or "ends soon" in item["title"] for item in items.values()))
         self.assertNotIn("installs", canonical(list(items.values())))
 
     def test_default_is_quiet_and_opt_in_is_explicit(self):
@@ -98,8 +164,10 @@ class NoticeTests(unittest.TestCase):
         self.assertEqual(pending(self.store, APP), [])
         self.assertEqual(status(self.store, APP)["dismissed"], 1)
         with connection(self.store.path) as db:
-            db.execute("INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-                       ("job-blocked", APP, "sync", "{}", "BLOCKED", 1, 0, "{}", now(), now(), "blocked-request"))
+            db.execute(
+                "INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                ("job-blocked", APP, "sync", "{}", "BLOCKED", 1, 0, "{}", now(), now(), "blocked-request"),
+            )
         failed = sync(self.store, APP)
         self.assertEqual(len(failed), 1)
 
@@ -112,6 +180,7 @@ class NoticeTests(unittest.TestCase):
 
     def test_cli_is_quiet_until_opted_in_and_delivers_once(self):
         from mission_control.notices import main
+
         base = ["--database", str(self.path), "--app", APP]
         self.assertEqual(main(base + ["--once"]), 0)
         self.assertEqual(pending(self.store, APP), [])

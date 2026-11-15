@@ -1,4 +1,5 @@
 """Current source, role and exact authorization boundaries for provider actions."""
+
 from datetime import datetime, timezone
 import json
 from .common import Invalid, digest, iso_time
@@ -9,10 +10,13 @@ from .verified_reviews import source
 
 def connection_row(db, app_id, identity):
     """Resolve only this app's connected App Store metadata without credentials."""
-    row = db.execute("SELECT * FROM records WHERE app_id=? AND id=? AND kind='connection'", (app_id, identity)).fetchone()
+    row = db.execute(
+        "SELECT * FROM records WHERE app_id=? AND id=? AND kind='connection'", (app_id, identity)
+    ).fetchone()
     if not row:
         raise Invalid("Choose this app's App Store Connect connection")
-    result = dict(row); result["data"] = json.loads(result["data"])
+    result = dict(row)
+    result["data"] = json.loads(result["data"])
     if result["data"].get("provider") != "app_store" or result["data"].get("auth_mode") == "disconnected":
         raise Invalid("App Store connection is unavailable; reconnect before continuing")
     return result
@@ -23,7 +27,11 @@ def sources(db, app_id, record_id, connection_id):
     version, record = source(db, app_id, record_id)
     app = db.execute("SELECT data FROM apps WHERE id=?", (app_id,)).fetchone()
     manifest = json.loads(app["data"])
-    if record["kind"] != "store" or record["data"].get("release") != manifest["release"] or record["data"].get("locale") != manifest["locale"]:
+    if (
+        record["kind"] != "store"
+        or record["data"].get("release") != manifest["release"]
+        or record["data"].get("locale") != manifest["locale"]
+    ):
         raise Invalid("Choose store evidence for the workspace's current release and locale")
     return version, manifest, record, connection_row(db, app_id, connection_id)
 
@@ -31,7 +39,11 @@ def sources(db, app_id, record_id, connection_id):
 def current(db, row):
     """Reject stale authorization, changed exact inputs and revoked role versions."""
     packet = json.loads(row["packet"])
-    if digest(packet) != row["hash"] or (packet["app_id"], packet["preparer"], packet["expires"]) != (row["app_id"], row["preparer"], row["expires"]):
+    if digest(packet) != row["hash"] or (packet["app_id"], packet["preparer"], packet["expires"]) != (
+        row["app_id"],
+        row["preparer"],
+        row["expires"],
+    ):
         raise Invalid("Provider action packet integrity changed")
     if iso_time(row["expires"]) <= datetime.now(timezone.utc):
         raise Invalid("Provider action approval expired; prepare a new baseline")

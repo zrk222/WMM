@@ -85,6 +85,12 @@ host environment variables. Provide `WMM_AGENT_GRANT` through protected host
 configuration; the generated JSON contains no token. Hosts differ in config
 location and environment support, so no personal host registration is automatic.
 
+Before proposing App Store installs or paid acquisition, read
+`workspace.read.app_launch_status` for the selected app. Only fresh, verified
+storefront evidence can establish live availability. An owner declaration is
+unverified and never authorizes publishing or spend. When store availability is
+unknown, propose measurable web, waitlist or creative tests instead.
+
 The host launches the generated MCP command as a stdio process. It is not a
 web address or a second HTTP service. Closing stdin ends that adapter process;
 WMM continues separately. Call `wmm_catalog` first, then `wmm_operations_read`

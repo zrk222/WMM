@@ -1,18 +1,31 @@
 """Fixed local component supervision; no exception bodies or effect authority."""
+
 from copy import deepcopy
 import threading
 import time
 from .common import now
 
-COMPONENTS = ("experiments", "creative_batches", "analytics", "apple_metrics", "followup", "social", "campaign_schedule", "campaign_monitor", "owner_reports", "queue")
+COMPONENTS = (
+    "experiments",
+    "creative_batches",
+    "analytics",
+    "apple_metrics",
+    "followup",
+    "social",
+    "campaign_schedule",
+    "campaign_monitor",
+    "owner_reports",
+    "queue",
+)
 
 
 class Supervision:
     def __init__(self):
         self.lock = threading.Lock()
         self.retry = threading.Event()
-        self.rows = {name: {"status": "STARTING", "failures": 0,
-                           "last_success": None, "next_due": 0} for name in COMPONENTS}
+        self.rows = {
+            name: {"status": "STARTING", "failures": 0, "last_success": None, "next_due": 0} for name in COMPONENTS
+        }
         self.status = "STARTING"
         self.last_success = None
 
@@ -40,8 +53,7 @@ class Supervision:
                 row["next_due"] = time.monotonic() + row["failures"]
             return False
         with self.lock:
-            row.update(status="RUNNING", failures=0, last_success=now(),
-                       next_due=time.monotonic() + interval)
+            row.update(status="RUNNING", failures=0, last_success=now(), next_due=time.monotonic() + interval)
         return result
 
     def finish(self):
@@ -59,10 +71,16 @@ class Supervision:
             failed = [name for name, row in rows.items() if row["failures"]]
             for row in rows.values():
                 row["retry_after_seconds"] = max(0, row.pop("next_due") - time.monotonic())
-            error = ("Local automation needs attention: " + ", ".join(failed) +
-                     ". Check configuration or storage, then retry failed automation. Saved work is preserved.") if failed else None
-            return {"status": self.status, "last_success": self.last_success,
-                    "last_error": error, "components": rows}
+            error = (
+                (
+                    "Local automation needs attention: "
+                    + ", ".join(failed)
+                    + ". Check configuration or storage, then retry failed automation. Saved work is preserved."
+                )
+                if failed
+                else None
+            )
+            return {"status": self.status, "last_success": self.last_success, "last_error": error, "components": rows}
 
     def stopped(self):
         """Mark only after the worker has actually terminated."""

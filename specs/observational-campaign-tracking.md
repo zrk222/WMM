@@ -35,8 +35,19 @@ Scenario: Register the bounded canonical link
   Given an authenticated owner, current app website origin, supported utm_source, and opaque source/creative ID
   When a study is registered before its future start with an end no more than 30 days after start
   Then WMM stores one immutable app/version/release/hash-bound study UUID
+  And reserves the public tag across workspaces, even on a shared Page and website
+  And install-only imports reserve the same tag across both collectors and apps
+  And legacy ambiguous tags stay unavailable for new imports, links and reports
+  But an exact retry may return its existing app-scoped receipt without claiming attribution
   And returns a same-origin HTTPS URL with exactly 4 query keys: utm_source, utm_medium=organic, utm_campaign equal to study UUID, and utm_content equal to source/creative ID
   And stores no baseline, second arm, sample size, or lift rule
+
+Scenario: Keep a shared Facebook destination's app measurements separate
+  Given two or more independently connected apps use the same Facebook Page
+  When one app tries to register, use or import an ambiguous public campaign tag
+  Then WMM requires a new unambiguous tag without exposing another workspace
+  And never pools measurements or borrows another app's authority
+  And existing disambiguated links retain their original four UTM parameters
 
 Scenario: Reject host and time expansion
   Given a study using the configured app registered HTTPS origin and a 30-day maximum window

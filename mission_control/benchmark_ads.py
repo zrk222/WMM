@@ -1,4 +1,5 @@
 """Project saved Apple Ads observations; never fetch, bid, infer revenue or spend."""
+
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal, localcontext
 import json
@@ -15,7 +16,9 @@ from .ads_reports import row_identity
 def source_connection(db, app, job, report):
     """Use this app's current exact connection and actual promoted-store identity."""
     data = job["data"]
-    row = db.execute("SELECT * FROM records WHERE app_id=? AND id=? AND kind='connection'", (app["id"], data.get("connection_id"))).fetchone()
+    row = db.execute(
+        "SELECT * FROM records WHERE app_id=? AND id=? AND kind='connection'", (app["id"], data.get("connection_id"))
+    ).fetchone()
     if not row or type(data.get("connection_version")) is not int or row["version"] != data["connection_version"]:
         raise Invalid("Saved Ads report connection changed; refresh the source")
     binding = json.loads(row["data"])
@@ -32,7 +35,9 @@ def source_report(db, app_id, job_id, source_hash, as_of):
     identifier(job_id)
     hashed(source_hash)
     app = db.execute("SELECT * FROM apps WHERE id=?", (app_id,)).fetchone()
-    job = db.execute("SELECT * FROM jobs WHERE app_id=? AND id=? AND action='sync' AND status='SUCCEEDED'", (app_id, job_id)).fetchone()
+    job = db.execute(
+        "SELECT * FROM jobs WHERE app_id=? AND id=? AND action='sync' AND status='SUCCEEDED'", (app_id, job_id)
+    ).fetchone()
     if not app or not job:
         raise Invalid("Choose this app's successful saved Apple Ads read")
     app = dict(dict(app), data=json.loads(app["data"]))
@@ -44,11 +49,20 @@ def source_report(db, app_id, job_id, source_hash, as_of):
     exact(options, {"operation", "start", "end", "campaign_ids"})
     campaign_ids(options["campaign_ids"])
     if options != report.get("request") or options["operation"] not in ("campaign_report", "keyword_report"):
-        raise Invalid("Use an exact saved campaign or keyword report; account-local search-term windows need timezone support")
+        raise Invalid(
+            "Use an exact saved campaign or keyword report; account-local search-term windows need timezone support"
+        )
     if report.get("operation") != options["operation"] or report.get("external_writes") is not False:
         raise Invalid("Saved report operation or read-only boundary is invalid")
-    frozen = dict(job_id=job_id, report_hash=source_hash, result_hash=digest(report), connection_id=record["id"],
-                  connection_version=record["version"], connection_hash=record["hash"], request_hash=digest(options))
+    frozen = dict(
+        job_id=job_id,
+        report_hash=source_hash,
+        result_hash=digest(report),
+        connection_id=record["id"],
+        connection_version=record["version"],
+        connection_hash=record["hash"],
+        request_hash=digest(options),
+    )
     return report, binding, options, frozen
 
 
@@ -93,8 +107,10 @@ def report_window(options):
         raise Invalid("Saved Ads report needs ISO calendar dates") from exc
     if start > end:
         raise Invalid("Saved Ads report dates are reversed")
-    return (datetime.combine(start, time.min, timezone.utc).isoformat(),
-            datetime.combine(end + timedelta(days=1), time.min, timezone.utc).isoformat())
+    return (
+        datetime.combine(start, time.min, timezone.utc).isoformat(),
+        datetime.combine(end + timedelta(days=1), time.min, timezone.utc).isoformat(),
+    )
 
 
 def count_value(value):
@@ -139,7 +155,9 @@ def aggregate_metric(rows, metric, code):
             numerator = sum((spend_minor(row["totalMetrics"].get("localSpend"), code) for row in rows), Decimal(0))
         field = "taps" if metric == "CPT_MINOR" else "totalInstalls"
     else:
-        numerator = sum(count_value(row["totalMetrics"].get("totalInstalls" if metric == "CR" else "taps")) for row in rows)
+        numerator = sum(
+            count_value(row["totalMetrics"].get("totalInstalls" if metric == "CR" else "taps")) for row in rows
+        )
         field = "taps" if metric == "CR" else "impressions"
     denominator = sum(count_value(row["totalMetrics"].get(field)) for row in rows)
     return numerator, denominator
@@ -165,15 +183,35 @@ def project_saved_ads(db, app_id, job_id, source_hash, metric, segment, as_of):
         numerator, denominator = aggregate_metric(rows, metric, code)
         numerator_exact = str(numerator)
         numerator = int(numerator) if numerator == int(numerator) else float(numerator)
-        value = dict(segment, metric=metric, denominator=METRICS[metric], platform="iOS", currency=code,
-                     period_start=start, period_end=end, numerator=numerator, denominator_count=denominator,
-                     source_sha256=frozen["result_hash"], coverage=report.get("coverage", "UNKNOWN"))
+        value = dict(
+            segment,
+            metric=metric,
+            denominator=METRICS[metric],
+            platform="iOS",
+            currency=code,
+            period_start=start,
+            period_end=end,
+            numerator=numerator,
+            denominator_count=denominator,
+            source_sha256=frozen["result_hash"],
+            coverage=report.get("coverage", "UNKNOWN"),
+        )
         observed = observed_record(value)
         observed.pop("value")
     except Invalid as exc:
         reasons.append(str(exc))
-    return dict(status="SOURCE_METRICS_UNAVAILABLE" if reasons else "SAVED_ACCOUNT_OBSERVATION", observed=observed, numerator_exact=numerator_exact,
-                reasons=reasons, binding=frozen, row_count=len(rows), unit_source_sha256=SOURCE_SHA256,
-                classification_provenance="OPERATOR_DECLARED", classification_provider_verified=False,
-                provider_observed_at=report["observed_at"], external_writes=False, spend_authority=False,
-                scope="Metrics come from a saved app-owned report. Category, territory, placement and campaign type are operator classification, not provider verification. Provider-declared rows may restate; no post-install revenue, causal lift, bids or scale authority.")
+    return dict(
+        status="SOURCE_METRICS_UNAVAILABLE" if reasons else "SAVED_ACCOUNT_OBSERVATION",
+        observed=observed,
+        numerator_exact=numerator_exact,
+        reasons=reasons,
+        binding=frozen,
+        row_count=len(rows),
+        unit_source_sha256=SOURCE_SHA256,
+        classification_provenance="OPERATOR_DECLARED",
+        classification_provider_verified=False,
+        provider_observed_at=report["observed_at"],
+        external_writes=False,
+        spend_authority=False,
+        scope="Metrics come from a saved app-owned report. Category, territory, placement and campaign type are operator classification, not provider verification. Provider-declared rows may restate; no post-install revenue, causal lift, bids or scale authority.",
+    )

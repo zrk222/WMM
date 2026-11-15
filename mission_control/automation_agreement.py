@@ -1,19 +1,22 @@
 """Owner-only combined review; existing independent scopes retain execution authority."""
 
-from datetime import datetime, timezone
 import json
+from datetime import datetime, timezone
+from typing import Any, TypedDict, cast
 
 from .automation_requirements import social_account, workflow_catalog
 from .campaign_contract import (
     SCOPE_FIELDS,
-    post_data,
     hashes,
+    numeric,
+    post_data,
     target_countries,
     whole,
-    numeric,
 )
-from .campaign_schedule import item_status, check_paid_review
 from .campaign_execution import scope_view
+from .campaign_monitor import ObservationReceipt, allowance_exhausted, monitor_attention, monitor_table_exists
+from .campaign_monitor import view as monitor_view
+from .campaign_schedule import check_paid_review, item_status, schedule_table_exists
 from .common import Invalid, digest, iso_time
 from .complete_automation import policy_view
 from .db import connection
@@ -40,20 +43,65 @@ UNCERTAIN = (
 )
 
 
+class AgreementPreview(TypedDict):
+    status: str
+    summary: dict[str, Any]
+    summary_hash: str
+    observed_at: str
+    authority_issued: bool
+    next_actions: list[str]
+    artifacts: list[object]
+
+
+class MonitorProposal(TypedDict):
+    scope_id: str
+    targets: list[dict[str, str]]
+    protective_conditions: list[str]
+    cadence_seconds: int
+    expires_at: str
+    max_runs: int
+    max_provider_units: int
+    max_pause_attempts: int
+
+
+class SavedMonitorSummary(TypedDict):
+    proposal: MonitorProposal
+
+
+class MonitorRead(TypedDict):
+    id: str
+    summary: SavedMonitorSummary | None
+    summary_hash: str | None
+    status: str
+    effective_status: str
+    last_observation: ObservationReceipt | None
+    next_due: float | None
+    runs: int
+    provider_units: int
+    pause_attempts: int
+
+
 def selection(body):
     """Accept exact existing resource references, never new authority choices."""
-    exact_keys(body, FIELDS, ("draft_posts",))
+    exact_keys(body, FIELDS, ("draft_posts", "campaign_monitor_id"))
     if type(body["manifest_version"]) is not int or body["manifest_version"] < 1:
         raise Invalid("Use the current app manifest version")
     selected = [body[name] for name in FIELDS[1:] if body[name] is not None]
+    if body.get("campaign_monitor_id") is not None:
+        selected.append(body["campaign_monitor_id"])
     if not selected:
         raise Invalid("Select at least one existing automation resource")
     for identity in selected:
         reference(identity)
     if "draft_posts" in body:
         posts = body["draft_posts"]
-        if (body["campaign_scope_id"] is None or body["schedule_batch_id"] is not None
-                or not isinstance(posts, list) or not 1 <= len(posts) <= 20):
+        if (
+            body["campaign_scope_id"] is None
+            or body["schedule_batch_id"] is not None
+            or body.get("campaign_monitor_id") is not None
+            or not isinstance(posts, list)
+            or not 1 <= len(posts) <= 20
+        ):
             raise Invalid("Select one draft campaign and one to twenty exact posts")
         return dict(body, draft_posts=[post_data(post) for post in posts])
     return dict(body)
@@ -72,16 +120,14 @@ def saved_object(raw):
 
 def owned(db, table, app_id, identity, principal):
     """Only fixed internal table names reach this owner-filtered read."""
-    if table not in (
-        "automation_policies",
-        "campaign_scopes",
-        "campaign_schedule_batches",
-    ):
+    query = {
+        "automation_policies": "SELECT * FROM automation_policies WHERE app_id=? AND id=? AND owner=?",
+        "campaign_scopes": "SELECT * FROM campaign_scopes WHERE app_id=? AND id=? AND owner=?",
+        "campaign_schedule_batches": "SELECT * FROM campaign_schedule_batches WHERE app_id=? AND id=? AND owner=?",
+    }.get(table)
+    if query is None:
         raise Invalid("Unsupported agreement resource")
-    row = db.execute(
-        "SELECT * FROM " + table + " WHERE app_id=? AND id=? AND owner=?",
-        (app_id, identity, principal),
-    ).fetchone()
+    row = db.execute(query, (app_id, identity, principal)).fetchone()
     if row is None:
         raise Invalid("Selected automation resource is unavailable for this owner")
     return row
@@ -93,13 +139,10 @@ def local_scope(db, app_id, principal, identity, observed):
         return None
     row = owned(db, "automation_policies", app_id, identity, principal)
     view = policy_view(db, row, observed)
-    summary = view["summary"]
+    summary: Any = view["summary"]
     if summary is not None:
         inventory = summary["inventory"]
-        if (
-            inventory["app"]["id"] != app_id
-            or inventory["owner"]["principal"] != principal
-        ):
+        if inventory["app"]["id"] != app_id or inventory["owner"]["principal"] != principal:
             raise Invalid("Local policy summary ownership changed")
     return dict(
         id=view["id"],
@@ -123,13 +166,11 @@ def campaign_blockers(scope, row, app, owner, account, observed):
         (scope["status"] != "ACTIVE", "CAMPAIGN_SCOPE_" + scope["status"]),
         (iso_time(scope["permission_expires_at"]) <= observed, "CAMPAIGN_SCOPE_EXPIRED"),
         (
-            (scope["app_version"], scope["app_hash"])
-            != (app["version"], digest(app["data"])),
+            (scope["app_version"], scope["app_hash"]) != (app["version"], digest(app["data"])),
             "CAMPAIGN_APP_CHANGED",
         ),
         (
-            (scope["owner_version"], row["owner_version"])
-            != (owner["version"], owner["version"]),
+            (scope["owner_version"], row["owner_version"]) != (owner["version"], owner["version"]),
             "CAMPAIGN_OWNER_CHANGED",
         ),
         (
@@ -143,16 +184,16 @@ def campaign_blockers(scope, row, app, owner, account, observed):
     return [reason for failed, reason in checks if failed]
 
 
-def campaign_receipts(db, app_id, scope_id):
+def campaign_receipts(db, app_id, scope_id) -> list[dict[str, Any]]:
     """Return only durable public receipt identities and states, never raw results."""
-    posts = [
+    posts: list[dict[str, Any]] = [
         dict(row, kind="POST")
         for row in db.execute(
             "SELECT id,request_id,request_hash,content_hash,rights_hash,status,remote_id,updated FROM campaign_intents WHERE app_id=? AND scope_id=? ORDER BY id",
             (app_id, scope_id),
         )
     ]
-    ads = [
+    ads: list[dict[str, Any]] = [
         dict(row, kind="AD")
         for row in db.execute(
             "SELECT id,request_id,request_hash,currency,commitment,status,ids,updated FROM campaign_paid_intents WHERE app_id=? AND scope_id=? ORDER BY id",
@@ -167,7 +208,7 @@ def campaign_receipts(db, app_id, scope_id):
     return posts + ads
 
 
-def campaign_scope(db, app, owner, identity, observed):
+def campaign_scope(db, app, owner, identity, observed) -> dict[str, Any] | None:
     """Project exact existing approval and current selected account in this snapshot."""
     if identity is None:
         return None
@@ -188,7 +229,7 @@ def campaign_scope(db, app, owner, identity, observed):
             "billing_notice",
             "rights_notice",
         ),
-        ("extended_expiry_consent",),
+        ("extended_expiry_consent", "measurement_plan"),
     )
     if "extended_expiry_consent" in raw and type(raw["extended_expiry_consent"]) is not bool:
         raise Invalid("Campaign expiry consent needs repair")
@@ -214,18 +255,13 @@ def campaign_scope(db, app, owner, identity, observed):
                 "connection_version",
             )
         }
-        | (
-            {"extended_expiry_consent": raw["extended_expiry_consent"]}
-            if "extended_expiry_consent" in raw
-            else {}
-        ),
+        | ({"extended_expiry_consent": raw["extended_expiry_consent"]} if "extended_expiry_consent" in raw else {}),
+        measurement_plan_configured="measurement_plan" in raw,
         account=account,
         blockers=blockers,
         receipts=receipts,
         effective_status="BLOCKED" if blockers else "ACTIVE",
-        commitment_held_minor=sum(
-            r["commitment"] for r in receipts if r["kind"] == "AD"
-        ),
+        commitment_held_minor=sum(r["commitment"] for r in receipts if r["kind"] == "AD"),
         provider_readback="NOT_PERFORMED",
         billing_notice=raw["billing_notice"],
         rights_notice=raw["rights_notice"],
@@ -236,6 +272,8 @@ def batch_row(db, app_id, principal, identity):
     """Bind selected batch to its stored immutable summary before resolving dependencies."""
     if identity is None:
         return None, None
+    if not schedule_table_exists(db):
+        raise Invalid("Scheduled batch is unavailable for this owner")
     row = owned(db, "campaign_schedule_batches", app_id, identity, principal)
     summary = saved_object(row["summary"])
     exact_keys(
@@ -258,17 +296,9 @@ def batch_row(db, app_id, principal, identity):
 def batch_item(db, app_id, row, expected, scope, permission_expires_at):
     """Validate exact post bytes and due binding while permitting historical due times."""
     body = saved_object(row["body"])
-    fields = (
-        ("item_id", "due_at", "request", "operation")
-        if "operation" in body
-        else ("item_id", "due_at", "request")
-    )
+    fields = ("item_id", "due_at", "request", "operation") if "operation" in body else ("item_id", "due_at", "request")
     exact_keys(body, fields)
-    if (
-        digest(body) != row["body_hash"]
-        or body != expected
-        or body["item_id"] != row["id"]
-    ):
+    if digest(body) != row["body_hash"] or body != expected or body["item_id"] != row["id"]:
         raise Invalid("Scheduled post integrity changed")
     if row["due"] != iso_time(body["due_at"]).timestamp():
         raise Invalid("Scheduled post due time changed")
@@ -282,9 +312,7 @@ def batch_item(db, app_id, row, expected, scope, permission_expires_at):
     if iso_time(body["due_at"]) >= iso_time(permission_expires_at):
         raise Invalid("Scheduled post exceeds campaign expiry")
     job = (
-        db.execute(
-            "SELECT app_id,action,status,data FROM jobs WHERE id=?", (row["job_id"],)
-        ).fetchone()
+        db.execute("SELECT app_id,action,status,data FROM jobs WHERE id=?", (row["job_id"],)).fetchone()
         if row["job_id"]
         else None
     )
@@ -343,12 +371,7 @@ def item_view(db, app_id, row, body, job, scope_id):
         if "operation" in body:
             expected["operation"] = operation
         action = "campaign_ad" if operation == "campaign.ad-launch" else "campaign_post"
-        if (
-            job is None
-            or job["app_id"] != app_id
-            or job["action"] != action
-            or saved_object(job["data"]) != expected
-        ):
+        if job is None or job["app_id"] != app_id or job["action"] != action or saved_object(job["data"]) != expected:
             raise Invalid("Scheduled job binding changed")
     status = item_status(db, app_id, scope_id, row)
     return dict(body, input_hash=row["body_hash"], **status)
@@ -356,9 +379,7 @@ def item_view(db, app_id, row, body, job, scope_id):
 
 def captured_permission_expiry(summary, scope):
     """Resolve the batch's admission-time deadline within current campaign authority."""
-    permission_expires_at = summary.get(
-        "permission_expires_at", scope["approval"]["expires_at"]
-    )
+    permission_expires_at = summary.get("permission_expires_at", scope["approval"]["expires_at"])
     if iso_time(permission_expires_at) > iso_time(scope["permission_expires_at"]):
         raise Invalid("Scheduled permission exceeds campaign authority")
     return permission_expires_at
@@ -376,25 +397,15 @@ def batch_scope(db, app_id, row, summary, scope, observed):
         (row["id"],),
     ).fetchall()
     expected = {item["item_id"]: item for item in summary["items"]}
-    if (
-        not 1 <= len(rows) <= 20
-        or len(rows) != len(expected)
-        or len(expected) != len(summary["items"])
-    ):
+    if not 1 <= len(rows) <= 20 or len(rows) != len(expected) or len(expected) != len(summary["items"]):
         raise Invalid("Scheduled item set changed")
-    items = [
-        batch_item(db, app_id, item, expected.get(item["id"]), scope, permission_expires_at)
-        for item in rows
-    ]
+    items = [batch_item(db, app_id, item, expected.get(item["id"]), scope, permission_expires_at) for item in rows]
     blockers = list(scope["blockers"])
     if iso_time(permission_expires_at) <= observed:
         blockers.append("SCHEDULE_PERMISSION_EXPIRED")
     if row["status"] != "ACTIVE":
         blockers.append("SCHEDULE_BATCH_" + row["status"])
-    if any(
-        item["effective_status"] in ("BLOCKED", "NEEDS_RECONCILIATION")
-        for item in items
-    ):
+    if any(item["effective_status"] in ("BLOCKED", "NEEDS_RECONCILIATION") for item in items):
         blockers.append("SCHEDULE_ITEM_NEEDS_REVIEW")
     return dict(
         id=row["id"],
@@ -416,9 +427,7 @@ def uncertainty(local, campaign, batch):
     states += [r["status"] for r in (campaign or {}).get("receipts", [])]
     states += [r["job_status"] for r in (batch or {}).get("items", [])]
     states += [r["effective_status"] for r in (batch or {}).get("items", [])]
-    return any(
-        state in UNCERTAIN or str(state).startswith("PENDING_") for state in states
-    )
+    return any(state in UNCERTAIN or str(state).startswith("PENDING_") for state in states)
 
 
 class Agreement:
@@ -428,7 +437,7 @@ class Agreement:
         self.store = store
         self.clock = clock or (lambda: datetime.now(timezone.utc))
 
-    def preview(self, app_id, user, body):
+    def preview(self, app_id, user, body) -> AgreementPreview:
         """Return an exact combined review without approving any selected scope."""
         path_segment(app_id)
         chosen = selection(body)
@@ -439,58 +448,117 @@ class Agreement:
             row = db.execute("SELECT * FROM apps WHERE id=?", (app_id,)).fetchone()
             if row is None or row["version"] != chosen["manifest_version"]:
                 raise Invalid("App manifest changed; reload the agreement")
-            app = dict(
-                id=app_id, version=row["version"], data=saved_object(row["data"])
-            )
+            app = dict(id=app_id, version=row["version"], data=saved_object(row["data"]))
             summary = build_summary(db, app, owner, chosen, observed)
         blocked = summary["blocked"]
-        return dict(
+        return AgreementPreview(
             status="warning" if blocked else "success",
             summary=summary,
             summary_hash=digest(summary),
             observed_at=observed.isoformat(),
             authority_issued=False,
-            next_actions=[
-                "Inspect each scope and reconcile uncertain work before requesting changes."
-            ],
+            next_actions=["Inspect each scope and reconcile uncertain work before requesting changes."],
             artifacts=[],
         )
 
 
+def monitor_scope(db, app_id, principal, identity):
+    """Project one exact saved monitor without resolving secrets or dispatching work."""
+    if identity is None:
+        return None
+    if not monitor_table_exists(db):
+        raise Invalid("Monitor is unavailable for this owner")
+    row = db.execute(
+        "SELECT * FROM campaign_monitors WHERE app_id=? AND owner=? AND id=?", (app_id, principal, identity)
+    ).fetchone()
+    if row is None:
+        raise Invalid("Monitor is unavailable for this owner")
+    # The monitor's saved summary path validates these proposal fields before returning them.
+    reviewed = cast(MonitorRead, monitor_view(db, row))
+    if reviewed["summary"] is None:
+        raise Invalid("Saved monitor evidence needs repair")
+    plan = reviewed["summary"]["proposal"]
+    observation = reviewed["last_observation"]
+    previous = observation["status"] if observation else None
+    in_flight = previous in ("QUEUED", "RUNNING")
+    exhausted = allowance_exhausted(row, plan)
+    effective = reviewed["effective_status"]
+    if effective == "ACTIVE" and not in_flight and (exhausted or (row["last_job"] and previous != "SUCCEEDED")):
+        effective = "BLOCKED"
+    next_due = None
+    if effective == "ACTIVE" and not in_flight:
+        stored_due = reviewed["next_due"]
+        if stored_due is None:
+            raise Invalid("Saved monitor schedule needs repair")
+        try:
+            next_due = datetime.fromtimestamp(stored_due, timezone.utc).isoformat()
+        except (ArithmeticError, OSError, TypeError, ValueError):
+            raise Invalid("Saved monitor schedule needs repair") from None
+    return dict(
+        id=reviewed["id"],
+        scope_id=plan["scope_id"],
+        summary_hash=reviewed["summary_hash"],
+        status=reviewed["status"],
+        effective_status=effective,
+        attention=monitor_attention(row, plan, effective, observation),
+        targets=plan["targets"],
+        conditions=plan["protective_conditions"],
+        cadence_seconds=plan["cadence_seconds"],
+        expires_at=plan["expires_at"],
+        next_due_at=next_due,
+        check_in_progress=in_flight,
+        check_allowance_exhausted=exhausted,
+        runs=reviewed["runs"],
+        max_runs=plan["max_runs"],
+        provider_units=reviewed["provider_units"],
+        max_provider_units=plan["max_provider_units"],
+        pause_attempts=reviewed["pause_attempts"],
+        max_pause_attempts=plan["max_pause_attempts"],
+    )
+
+
 def build_summary(db, app, owner, chosen, observed):
     """Keep every selected family visible and independent in a hash-bound owner review."""
-    row, saved = batch_row(
-        db, app["id"], owner["principal"], chosen["schedule_batch_id"]
-    )
+    row, saved = batch_row(db, app["id"], owner["principal"], chosen["schedule_batch_id"])
     campaign_id = chosen["campaign_scope_id"]
     if row is not None:
         if campaign_id is not None and campaign_id != row["scope_id"]:
             raise Invalid("Selected schedule and campaign scope differ")
         campaign_id = row["scope_id"]
-    local = local_scope(
-        db, app["id"], owner["principal"], chosen["workflow_policy_id"], observed
-    )
+    monitor_id = chosen.get("campaign_monitor_id")
+    monitor = monitor_scope(db, app["id"], owner["principal"], monitor_id)
+    if monitor is not None:
+        if campaign_id is not None and campaign_id != monitor["scope_id"]:
+            raise Invalid("Selected monitor and campaign scope differ")
+        campaign_id = monitor["scope_id"]
+    local = local_scope(db, app["id"], owner["principal"], chosen["workflow_policy_id"], observed)
     campaign = campaign_scope(db, app, owner, campaign_id, observed)
     draft_posts = chosen.get("draft_posts")
     if draft_posts is not None:
+        if campaign is None:
+            raise Invalid("Select an existing draft campaign")
         approval = campaign["approval"]
-        if (campaign["status"] != "DRAFT" or approval["ad_account_id"] is not None
-                or len(draft_posts) > approval["max_posts"]):
+        if (
+            campaign["status"] != "DRAFT"
+            or approval["ad_account_id"] is not None
+            or len(draft_posts) > approval["max_posts"]
+        ):
             raise Invalid("Use the current draft organic campaign scope")
-        if any(post["content_hash"] not in approval["approved_content_hashes"]
-               or post["rights_hash"] not in approval["approved_rights_hashes"]
-               for post in draft_posts):
+        if any(
+            post["content_hash"] not in approval["approved_content_hashes"]
+            or post["rights_hash"] not in approval["approved_rights_hashes"]
+            for post in draft_posts
+        ):
             raise Invalid("Draft post differs from the saved campaign scope")
         campaign["draft_posts"] = draft_posts
     batch = batch_scope(db, app["id"], row, saved, campaign, observed)
-    uncertain = uncertainty(local, campaign, batch)
+    uncertain = uncertainty(local, campaign, batch) or bool(monitor and monitor["attention"] == "VERIFY_PROVIDER")
     blocked = uncertain or any(
-        value and value["effective_status"] != "ACTIVE"
-        for value in (local, campaign, batch)
+        value and value["effective_status"] != "ACTIVE" for value in (local, campaign, batch, monitor)
     )
     return dict(
         schema="wmm.automation-agreement.v1",
-        selection={name: chosen[name] for name in FIELDS},
+        selection={name: chosen[name] for name in FIELDS + (("campaign_monitor_id",) if monitor_id else ())},
         app=dict(id=app["id"], version=app["version"], hash=digest(app["data"])),
         owner=dict(principal=owner["principal"], role_version=owner["version"]),
         policy_sha256=digest(operating_manifest(app)),
@@ -498,6 +566,7 @@ def build_summary(db, app, owner, chosen, observed):
         local_work=local,
         campaign=campaign,
         schedule=batch,
+        monitor=monitor,
         blocked=bool(blocked),
         dispatch_uncertain=uncertain,
         execution_authority=False,

@@ -1,71 +1,109 @@
 """Bounded owned CLI processes; no shell expansion or inherited provider keys."""
-import os,subprocess,tempfile,time
+
+import os, subprocess, tempfile, time
 from pathlib import Path
 from .common import Invalid
 from .audit_tools import stop_owned
 
-CAP=1048576
+CAP = 1048576
 
 
 def environment(extra=None):
     """Official clients retain their own login stores; unrelated tokens are excluded."""
-    names=('SYSTEMROOT','WINDIR','TEMP','TMP','LOCALAPPDATA','APPDATA','USERPROFILE','HOME','PATH','PROGRAMFILES')
-    result={key:os.environ[key] for key in names if key in os.environ}
+    names = (
+        "SYSTEMROOT",
+        "WINDIR",
+        "TEMP",
+        "TMP",
+        "LOCALAPPDATA",
+        "APPDATA",
+        "USERPROFILE",
+        "HOME",
+        "PATH",
+        "PROGRAMFILES",
+    )
+    result = {key: os.environ[key] for key in names if key in os.environ}
     result.update(extra or {})
     return result
 
 
-def wait(process,output,error,alive,timeout):
+def wait(process, output, error, alive, timeout):
     """Bound wall time, cancellation and file growth, including a stalled child."""
-    deadline=time.monotonic()+timeout
+    deadline = time.monotonic() + timeout
     while process.poll() is None:
         alive()
-        if time.monotonic()>deadline:raise Invalid('Agent timed out; quota may have been consumed. Review before retrying')
-        if output.stat().st_size+error.stat().st_size>CAP:raise Invalid('Agent output exceeded its bounded size')
-        time.sleep(.05)
+        if time.monotonic() > deadline:
+            raise Invalid("Agent timed out; quota may have been consumed. Review before retrying")
+        if output.stat().st_size + error.stat().st_size > CAP:
+            raise Invalid("Agent output exceeded its bounded size")
+        time.sleep(0.05)
     alive()
-    if output.stat().st_size+error.stat().st_size>CAP:raise Invalid('Agent output exceeded its bounded size')
+    if output.stat().st_size + error.stat().st_size > CAP:
+        raise Invalid("Agent output exceeded its bounded size")
 
 
-def capture(args,input_text='',alive=lambda:None,timeout=120,folder=None,extra_env=None,diagnostics=None):
+def capture(args, input_text="", alive=lambda: None, timeout=120, folder=None, extra_env=None, diagnostics=None):
     """Use preopened files so a child that never reads stdin cannot block the parent."""
-    if not 1<=timeout<=180 or len(input_text.encode())>32768:raise Invalid('Agent input or deadline exceeds its limit')
-    with tempfile.TemporaryDirectory(prefix='growth-agent-owned-') as temporary:
-        root=Path(folder) if folder else Path(temporary)
-        output,error,source=(Path(temporary)/name for name in ('output','error','input'))
-        source.write_text(input_text,encoding='utf-8')
-        flags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0
-        with source.open('rb') as stdin,output.open('wb') as stdout,error.open('wb') as stderr:
-            process=None;finished=False
+    if not 1 <= timeout <= 180 or len(input_text.encode()) > 32768:
+        raise Invalid("Agent input or deadline exceeds its limit")
+    with tempfile.TemporaryDirectory(prefix="growth-agent-owned-") as temporary:
+        root = Path(folder) if folder else Path(temporary)
+        output, error, source = (Path(temporary) / name for name in ("output", "error", "input"))
+        source.write_text(input_text, encoding="utf-8")
+        flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        with source.open("rb") as stdin, output.open("wb") as stdout, error.open("wb") as stderr:
+            process = None
+            finished = False
             try:
-                process=subprocess.Popen(args,cwd=root,env=environment(extra_env),stdin=stdin,stdout=stdout,
-                    stderr=stderr,shell=False,creationflags=flags,start_new_session=os.name!='nt')
-                wait(process,output,error,alive,timeout)
-                code=process.returncode;finished=True
+                process = subprocess.Popen(
+                    args,
+                    cwd=root,
+                    env=environment(extra_env),
+                    stdin=stdin,
+                    stdout=stdout,
+                    stderr=stderr,
+                    shell=False,
+                    creationflags=flags,
+                    start_new_session=os.name != "nt",
+                )
+                wait(process, output, error, alive, timeout)
+                code = process.returncode
+                finished = True
             finally:
                 try:
-                    if process is not None:stop_owned(process)
+                    if process is not None:
+                        stop_owned(process)
                 finally:
                     if diagnostics is not None:
-                        diagnostics(diagnostic_snapshot(output,error,process,finished))
-        return dict(code=code,stdout=output.read_text(encoding='utf-8',errors='replace'),
-                    stderr=error.read_text(encoding='utf-8',errors='replace'))
+                        diagnostics(diagnostic_snapshot(output, error, process, finished))
+        return dict(
+            code=code,
+            stdout=output.read_text(encoding="utf-8", errors="replace"),
+            stderr=error.read_text(encoding="utf-8", errors="replace"),
+        )
 
 
-def diagnostic_snapshot(output,error,process,finished):
+def diagnostic_snapshot(output, error, process, finished):
     """Copy bounded private output before the owned temporary directory disappears."""
-    with output.open('rb') as stream:out=stream.read(CAP//2)
-    with error.open('rb') as stream:err=stream.read(CAP//2)
-    return dict(code=process.poll() if process is not None else None,interrupted=not finished,
-                stdout=out.decode('utf-8',errors='replace'),stderr=err.decode('utf-8',errors='replace'),
-                stdout_truncated=output.stat().st_size>len(out),stderr_truncated=error.stat().st_size>len(err))
+    with output.open("rb") as stream:
+        out = stream.read(CAP // 2)
+    with error.open("rb") as stream:
+        err = stream.read(CAP // 2)
+    return dict(
+        code=process.poll() if process is not None else None,
+        interrupted=not finished,
+        stdout=out.decode("utf-8", errors="replace"),
+        stderr=err.decode("utf-8", errors="replace"),
+        stdout_truncated=output.stat().st_size > len(out),
+        stderr_truncated=error.stat().st_size > len(err),
+    )
 
 
 def failure(value):
     """Classify operational recovery without exporting raw CLI diagnostics or credentials."""
-    text=(value['stderr']+' '+value['stdout']).lower()
-    if any(word in text for word in ('rate limit','quota','usage limit','limit reached')):
-        return 'Agent allowance is exhausted or rate-limited; wait for reset or approve another connection'
-    if any(word in text for word in ('login','log in','sign in','authentication','unauthorized','401','403')):
-        return 'Agent sign-in or permission needs attention; reconnect the official account and test again'
-    return 'Agent execution did not return an accepted result; review tool version and connection before retrying'
+    text = (value["stderr"] + " " + value["stdout"]).lower()
+    if any(word in text for word in ("rate limit", "quota", "usage limit", "limit reached")):
+        return "Agent allowance is exhausted or rate-limited; wait for reset or approve another connection"
+    if any(word in text for word in ("login", "log in", "sign in", "authentication", "unauthorized", "401", "403")):
+        return "Agent sign-in or permission needs attention; reconnect the official account and test again"
+    return "Agent execution did not return an accepted result; review tool version and connection before retrying"

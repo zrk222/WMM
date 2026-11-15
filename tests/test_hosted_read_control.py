@@ -44,10 +44,13 @@ class ReadControlTests(unittest.TestCase):
                 self.assertEqual(admission.role, role)
                 receipt_id = reopened.finish(admission, "app", "a" * 64, "request-1")
                 receipt = reopened.receipts()[-1]
-                self.assertEqual((receipt['id'], receipt['outcome'], receipt['projection_hash']),
-                                 (receipt_id, "ALLOWED", "a" * 64))
-                self.assertEqual((receipt['session_generation'], receipt['client_epoch'], receipt['member_epoch']),
-                                 (admission.generation, admission.client_epoch, admission.member_epoch))
+                self.assertEqual(
+                    (receipt["id"], receipt["outcome"], receipt["projection_hash"]), (receipt_id, "ALLOWED", "a" * 64)
+                )
+                self.assertEqual(
+                    (receipt["session_generation"], receipt["client_epoch"], receipt["member_epoch"]),
+                    (admission.generation, admission.client_epoch, admission.member_epoch),
+                )
 
     def test_subject_client_isolation_and_snapshots(self):
         self.control.register_client("tenant", "other")
@@ -137,8 +140,8 @@ class ReadControlTests(unittest.TestCase):
         token = self.control.issue_session("issuer", "alice")
         self.finish(self.control.admit(token, "tenant", "client"))
         self.control.denied(token, "tenant", "client", "app", "arbitrary secret", "request-2")
-        self.assertEqual(self.control.receipts()[-1]['reason'], "INVALID_REQUEST")
-        self.assertIsNone(self.control.receipts()[-1]['session_generation'])
+        self.assertEqual(self.control.receipts()[-1]["reason"], "INVALID_REQUEST")
+        self.assertIsNone(self.control.receipts()[-1]["session_generation"])
         with closing(sqlite3.connect(self.path)) as db:
             stored = db.execute("SELECT token_hash FROM sessions").fetchone()[0]
         self.assertEqual(stored, hashlib.sha256(token.encode()).digest())
@@ -177,7 +180,7 @@ class ReadControlTests(unittest.TestCase):
         admission = self.control.admit(self.control.issue_session(issuer, subject), "tenant", "client")
         self.assertEqual((admission.issuer, admission.subject), (issuer, subject))
         self.finish(admission)
-        self.assertEqual(self.control.receipts()[-1]['issuer'], issuer)
+        self.assertEqual(self.control.receipts()[-1]["issuer"], issuer)
         for invalid in ("bad\nissuer", "wmmr_secret", "a" * 201):
             with self.assertRaises(ValueError):
                 self.control.set_member(invalid, subject, "tenant", "client", "VIEWER")
@@ -195,8 +198,8 @@ class ReadControlTests(unittest.TestCase):
             db.commit()
         reopened = Control(self.path, self.clock)
         old = reopened.receipts()[0]
-        self.assertEqual((old['id'], old['reason']), ("old", "NOT_FOUND"))
-        self.assertIsNone(old['client_epoch'])
+        self.assertEqual((old["id"], old["reason"]), ("old", "NOT_FOUND"))
+        self.assertIsNone(old["client_epoch"])
         self.member()
         self.finish(reopened.admit(reopened.issue_session("issuer", "alice"), "tenant", "client"))
         self.assertEqual(len(Control(self.path, self.clock).receipts()), 2)

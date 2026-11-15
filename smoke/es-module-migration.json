@@ -1,0 +1,21 @@
+{
+  "scope": "Bounded dashboard graph validator; browser/runtime acceptance is separately verified by parent.",
+  "checks": [
+    {
+      "name": "validator accepts valid module and rejects missing module and named export",
+      "kind": "command",
+      "run": "node -e \"import('./tools/check_es_modules.mjs').then(({validate})=>{const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),assert=require('node:assert/strict');const root=fs.mkdtempSync(path.join(os.tmpdir(),'wmm-forge-'));try{fs.writeFileSync(path.join(root,'dashboard.mjs'),'export const value=1;');assert.equal(validate(root).modules,1);fs.writeFileSync(path.join(root,'dashboard.mjs'),'import {value} from '+String.fromCharCode(39)+'./missing.mjs'+String.fromCharCode(39)+';');assert.throws(()=>validate(root),/ENOENT|Missing module/);fs.writeFileSync(path.join(root,'missing.mjs'),'export const other=1;');assert.throws(()=>validate(root),/does not provide an export named/);}finally{for(const file of fs.readdirSync(root))fs.unlinkSync(path.join(root,file));fs.rmdirSync(root);}}).catch(error=>{console.error(error);process.exitCode=1;})\"",
+      "expect_exit": 0,
+      "timeout_s": 60,
+      "must_fail_on_stub": true
+    },
+    {
+      "name": "actual dashboard graph and single entry",
+      "kind": "command",
+      "run": "node --test tests/es_module_graph.test.cjs",
+      "expect_exit": 0,
+      "timeout_s": 60,
+      "must_fail_on_stub": false
+    }
+  ]
+}

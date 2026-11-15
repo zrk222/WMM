@@ -1,0 +1,55 @@
+name: Repository hygiene
+on:
+  schedule:
+    - cron: '41 7 * * 1'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Retain the eligible-branch manifest without deleting branches
+        required: false
+        default: true
+        type: boolean
+permissions:
+  contents: write
+  pull-requests: read
+concurrency:
+  group: repository-branch-hygiene
+  cancel-in-progress: false
+jobs:
+  stale-branches:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - name: Write exact eligible-branch manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/branch_hygiene.py plan
+      - name: Retain manifest before any deletion
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: branch-hygiene-before-deletion
+          path: .factory/branch-hygiene/manifest.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+      - name: Recheck and delete eligible stale merged branches
+        if: github.event_name == 'schedule' || !inputs.dry_run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/branch_hygiene.py apply
+      - name: Retain actual branch outcomes
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: branch-hygiene-outcomes
+          path: .factory/branch-hygiene/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 30

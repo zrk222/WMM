@@ -1,4 +1,5 @@
 """Finite plan and actual local output inspection in isolated workspaces."""
+
 import tempfile
 import time
 import unittest
@@ -35,7 +36,7 @@ class CreativeBatchTests(unittest.TestCase):
         Access(self.store).bootstrap(APP, OWNER, {"confirm_owner": True})
         self.identity = Identities()
         self.session = "synthetic-batch-owner"
-        self.identity.sessions[self.session] = dict(user=OWNER, token="fixture-only", expires=time.time()+900)
+        self.identity.sessions[self.session] = dict(user=OWNER, token="fixture-only", expires=time.time() + 900)
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -49,15 +50,17 @@ class CreativeBatchTests(unittest.TestCase):
         self.assertEqual(plan["manifest_version"], self.store.app(APP)["version"])
         self.assertEqual(plan["publication"], "NOT_RUN")
         self.assertEqual(jobs(self.store, APP), [])
-        for invalid in (dict(selection, variants=[]),
-                        dict(selection, variants=[self.request] * 9),
-                        dict(selection, variants=[self.request] * 2),
-                        dict(selection, variants=[None]),
-                        dict(selection, max_total_frames=True),
-                        dict(selection, max_total_frames=1),
-                        dict(selection, runtime="REMOTE"),
-                        dict(selection, expires="2000-01-01T00:00:00+00:00"),
-                        dict(selection, variants=[dict(self.request, brief_hash="wrong")])):
+        for invalid in (
+            dict(selection, variants=[]),
+            dict(selection, variants=[self.request] * 9),
+            dict(selection, variants=[self.request] * 2),
+            dict(selection, variants=[None]),
+            dict(selection, max_total_frames=True),
+            dict(selection, max_total_frames=1),
+            dict(selection, runtime="REMOTE"),
+            dict(selection, expires="2000-01-01T00:00:00+00:00"),
+            dict(selection, variants=[dict(self.request, brief_hash="wrong")]),
+        ):
             with self.subTest(invalid=invalid), self.assertRaises(Invalid):
                 prepare(self.store, APP, invalid)
         app = self.store.app(APP)
@@ -109,14 +112,20 @@ class CreativeBatchTests(unittest.TestCase):
                 return Batch(self.store).create(APP, body)
 
     def test_atomic_reservation_replay_and_rollback(self):
-        selection = dict(variants=[self.request, dict(self.request, shape="LANDSCAPE")],
-                         max_total_frames=2880, runtime="DESKTOP", expires=self.expires)
+        selection = dict(
+            variants=[self.request, dict(self.request, shape="LANDSCAPE")],
+            max_total_frames=2880,
+            runtime="DESKTOP",
+            expires=self.expires,
+        )
         calls = []
+
         def fail_second(*args):
             calls.append(1)
             if len(calls) == 2:
                 raise Invalid("synthetic failure after first child")
             return enqueue_db(*args)
+
         with patch("mission_control.worker.enqueue_db", side_effect=fail_second):
             with self.assertRaises(Invalid):
                 self.create(selection, "rollback-batch")
@@ -129,7 +138,10 @@ class CreativeBatchTests(unittest.TestCase):
         self.assertEqual([v["job_id"] for v in first["variants"]], [v["job_id"] for v in second["variants"]])
         self.assertEqual(len(jobs(self.store, APP)), 2)
         cancellation = dict(app_id=APP, operation="creative.batch.cancel", input={"batch_id": first["id"]})
-        with bound_owner(self.store, cancellation, self.identity, self.session, OWNER), protected(self.store, cancellation):
+        with (
+            bound_owner(self.store, cancellation, self.identity, self.session, OWNER),
+            protected(self.store, cancellation),
+        ):
             cancelled = Batch(self.store).cancel(APP, first["id"])
         self.assertEqual(cancelled["state"], "CANCELLED")
         self.assertTrue(all(job["status"] == "CANCELLED" for job in jobs(self.store, APP)))
@@ -138,7 +150,9 @@ class CreativeBatchTests(unittest.TestCase):
         selection = dict(variants=[self.request], max_total_frames=1440, runtime="DESKTOP", expires=self.expires)
         batch = self.create(selection, "revoked-owner")
         with connection(self.store.path) as db:
-            db.execute("UPDATE operator_roles SET status='REVOKED' WHERE app_id=? AND principal=?", (APP, OWNER["principal"]))
+            db.execute(
+                "UPDATE operator_roles SET status='REVOKED' WHERE app_id=? AND principal=?", (APP, OWNER["principal"])
+            )
         self.assertTrue(run_once(self.store))
         job = next(j for j in jobs(self.store, APP) if j["id"] == batch["variants"][0]["job_id"])
         self.assertEqual(job["status"], "BLOCKED")
@@ -146,9 +160,17 @@ class CreativeBatchTests(unittest.TestCase):
 
     def test_revoked_agent_grant_blocks_already_queued_render(self):
         grant_expiry = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
-        issued = Grants(self.store).issue(APP, OWNER, dict(agent_id="fixture-agent",
-            manifest_version=self.store.app(APP)["version"], operations=["creative.batch.create"],
-            expires=grant_expiry, max_calls=5))
+        issued = Grants(self.store).issue(
+            APP,
+            OWNER,
+            dict(
+                agent_id="fixture-agent",
+                manifest_version=self.store.app(APP)["version"],
+                operations=["creative.batch.create"],
+                expires=grant_expiry,
+                max_calls=5,
+            ),
+        )
         selection = dict(variants=[self.request], max_total_frames=1440, runtime="DESKTOP", expires=self.expires)
         reviewed = Batch(self.store).plan(APP, selection)
         body = dict(plan=reviewed["plan_json"], plan_hash=reviewed["plan_hash"], request_key="agent-fixture")
@@ -177,21 +199,30 @@ class CreativeBatchTests(unittest.TestCase):
         unit = Batch(self.store).plan(APP, selection)["plan"]["total_frames"]
         for index in range(11520 // unit - 1):
             self.create(selection, "fill-" + str(index))
+
         def admit(index):
             try:
                 self.create(selection, "race-" + str(index))
                 return "ADMITTED"
             except Invalid:
                 return "REJECTED"
+
         with ThreadPoolExecutor(max_workers=2) as executor:
             outcomes = list(executor.map(admit, range(2)))
         self.assertCountEqual(outcomes, ["ADMITTED", "REJECTED"])
         with connection(self.store.path) as db:
-            self.assertLessEqual(db.execute("SELECT sum(reserved_frames) FROM creative_batches WHERE state='ACTIVE'").fetchone()[0], 11520)
+            self.assertLessEqual(
+                db.execute("SELECT sum(reserved_frames) FROM creative_batches WHERE state='ACTIVE'").fetchone()[0],
+                11520,
+            )
 
     def test_expired_batch_lease_is_not_reclaimed_or_duplicated(self):
-        selection = dict(variants=[self.request, dict(self.request, shape="LANDSCAPE")],
-                         max_total_frames=2880, runtime="DESKTOP", expires=self.expires)
+        selection = dict(
+            variants=[self.request, dict(self.request, shape="LANDSCAPE")],
+            max_total_frames=2880,
+            runtime="DESKTOP",
+            expires=self.expires,
+        )
         batch = self.create(selection, "lease-expiry")
         attempt = claim(self.store)
         with connection(self.store.path) as db:
@@ -210,19 +241,30 @@ class CreativeBatchTests(unittest.TestCase):
     def test_uncertain_process_cleanup_retains_cancelled_reservation(self):
         selection = dict(variants=[self.request], max_total_frames=1440, runtime="DESKTOP", expires=self.expires)
         batch = self.create(selection, "uncertain-stop")
+
         @contextmanager
         def uncertain():
             yield dict(active=0, uncertain=True)
+
         def cancel_during_render(store, job, *args):
             cancellation = dict(app_id=APP, operation="creative.batch.cancel", input={"batch_id": batch["id"]})
-            with bound_owner(self.store, cancellation, self.identity, self.session, OWNER), protected(self.store, cancellation):
+            with (
+                bound_owner(self.store, cancellation, self.identity, self.session, OWNER),
+                protected(self.store, cancellation),
+            ):
                 Batch(self.store).cancel(APP, batch["id"])
             raise Invalid("Synthetic uncertain subprocess cleanup")
-        with patch("mission_control.media_native.track_children", side_effect=uncertain), \
-             patch("mission_control.worker.process", side_effect=cancel_during_render):
+
+        with (
+            patch("mission_control.media_native.track_children", side_effect=uncertain),
+            patch("mission_control.worker.process", side_effect=cancel_during_render),
+        ):
             self.assertTrue(run_once(self.store))
         with connection(self.store.path) as db:
-            row = db.execute("SELECT b.state,v.native_state FROM creative_batches b JOIN creative_batch_variants v ON v.batch_id=b.id WHERE b.id=?", (batch["id"],)).fetchone()
+            row = db.execute(
+                "SELECT b.state,v.native_state FROM creative_batches b JOIN creative_batch_variants v ON v.batch_id=b.id WHERE b.id=?",
+                (batch["id"],),
+            ).fetchone()
             self.assertEqual((row["state"], row["native_state"]), ("CANCEL_PENDING_HOLD", "STOP_PENDING"))
 
     def test_plan_data_bound_plan_guard_batch_guard_render_and_public_batch(self):
@@ -236,7 +278,8 @@ class CreativeBatchTests(unittest.TestCase):
             self.assertEqual(guard_batch(db, self.store, row)["plan"], batch["plan"])
             self.assertIsNone(guard_render(db, self.store, job))
             self.assertEqual(public_batch(db, row)["id"], batch["id"])
-            altered = dict(row); altered["plan_hash"] = "0" * 64
+            altered = dict(row)
+            altered["plan_hash"] = "0" * 64
             with self.assertRaises(Invalid):
                 bound_plan(altered)
 
@@ -247,7 +290,9 @@ class CreativeBatchTests(unittest.TestCase):
             copies = Renders(self.store).copy_screens(Path(temporary), APP, request)
             self.assertEqual(len(copies), 1)
             self.assertTrue(copies[0].is_file())
-            source = self.store.path.parent / "files" / APP / request["brief"]["data"]["content"]["screens"][0]["file_id"]
+            source = (
+                self.store.path.parent / "files" / APP / request["brief"]["data"]["content"]["screens"][0]["file_id"]
+            )
             source.write_bytes(b"changed")
             with self.assertRaises(Invalid):
                 Renders(self.store).copy_screens(Path(temporary), APP, request)

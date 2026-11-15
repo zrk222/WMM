@@ -1,4 +1,5 @@
 """Documented fixed-destination read-only analytics API adapters."""
+
 import json
 from urllib.request import Request, build_opener
 from urllib.error import HTTPError, URLError
@@ -18,15 +19,22 @@ class ProviderFailure(Invalid):
 def request(url, token, body=None):
     """Fixed callers only; never follow redirects or persist a raw error body."""
     data = json.dumps(body, allow_nan=False).encode() if body is not None else None
-    req = Request(url, data=data, headers={"Authorization": "Bearer " + token,
-                  "Accept": "application/json", "Content-Type": "application/json"},
-                  method="POST" if data is not None else "GET")
+    req = Request(
+        url,
+        data=data,
+        headers={"Authorization": "Bearer " + token, "Accept": "application/json", "Content-Type": "application/json"},
+        method="POST" if data is not None else "GET",
+    )
     try:
         with build_opener(NoRedirect()).open(req, timeout=15) as response:
             raw = response.read(2097153)
     except HTTPError as exc:
-        code = "PERMISSION_REQUIRED" if exc.code in (401, 403) else "RATE_LIMITED" if exc.code == 429 else "PROVIDER_ERROR"
-        raise ProviderFailure(code, "Provider HTTP " + str(exc.code) + "; check token, project permissions and rate limits") from None
+        code = (
+            "PERMISSION_REQUIRED" if exc.code in (401, 403) else "RATE_LIMITED" if exc.code == 429 else "PROVIDER_ERROR"
+        )
+        raise ProviderFailure(
+            code, "Provider HTTP " + str(exc.code) + "; check token, project permissions and rate limits"
+        ) from None
     except (URLError, TimeoutError, OSError):
         raise ProviderFailure("NETWORK_ERROR", "Provider read failed; saved configuration remains available") from None
     if len(raw) > 2097152:
@@ -59,6 +67,13 @@ def read(config, token):
     else:
         payload = request("https://api.revenuecat.com/v2/projects/" + project + "/metrics/overview", token)
         rows, scope = shape_revenuecat(payload), "PROJECT_PATH_CHECKED_PROJECT_WIDE_METRICS"
-    return {"provider": provider, "project_id": project, "observed_at": now(), "scope": scope, **metadata,
-            "rows": rows, "coverage": "SELECTED_AGGREGATES_ONLY",
-            "interpretation": "Provider aggregate observation; not transaction evidence, SDK installation proof or causal attribution. Never add these totals to Stripe or StoreKit."}
+    return {
+        "provider": provider,
+        "project_id": project,
+        "observed_at": now(),
+        "scope": scope,
+        **metadata,
+        "rows": rows,
+        "coverage": "SELECTED_AGGREGATES_ONLY",
+        "interpretation": "Provider aggregate observation; not transaction evidence, SDK installation proof or causal attribution. Never add these totals to Stripe or StoreKit.",
+    }

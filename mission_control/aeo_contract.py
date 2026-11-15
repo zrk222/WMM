@@ -1,4 +1,5 @@
 """Closed raw-source report contracts and reproducible repair findings."""
+
 import re
 from .common import Invalid
 from .aeo_transport import AGENT, public_url, origin
@@ -6,7 +7,9 @@ from .aeo_inspection import VERSION
 
 AGENTS = (AGENT, "Googlebot", "OAI-SearchBot")
 HEADERS = {"content-type", "content-encoding", "content-length", "x-robots-tag"}
-ERRORS = set("ADDRESS_BLOCKED BODY_INCOMPLETE BODY_TOO_LARGE CHARSET_UNSUPPORTED DEADLINE DNS_BUSY DNS_FAILED DNS_INVALID ENCODING_UNSUPPORTED HEADERS_TOO_LARGE LIMIT_INVALID NETWORK_FAILED REDIRECT_LIMIT REDIRECT_ORIGIN REQUEST_LIMIT ROBOTS_TARGET_BLOCKED TLS_FAILED URL_INVALID UTF8_INVALID HTML_TYPE_UNSUPPORTED".split())
+ERRORS = set(
+    "ADDRESS_BLOCKED BODY_INCOMPLETE BODY_TOO_LARGE CHARSET_UNSUPPORTED DEADLINE DNS_BUSY DNS_FAILED DNS_INVALID ENCODING_UNSUPPORTED HEADERS_TOO_LARGE LIMIT_INVALID NETWORK_FAILED REDIRECT_LIMIT REDIRECT_ORIGIN REQUEST_LIMIT ROBOTS_TARGET_BLOCKED TLS_FAILED URL_INVALID UTF8_INVALID HTML_TYPE_UNSUPPORTED".split()
+)
 
 
 def require(condition, message="Invalid AEO evidence"):
@@ -64,7 +67,8 @@ def resource(value, target, cap):
         return
     fields(value, "url status bytes sha256 headers")
     require(type(value["status"]) is int and 100 <= value["status"] <= 599)
-    number(value["bytes"], cap); sha(value["sha256"])
+    number(value["bytes"], cap)
+    sha(value["sha256"])
     require(isinstance(value["headers"], dict) and set(value["headers"]) <= HEADERS)
     for values in value["headers"].values():
         strings(values, 64, 16384)
@@ -82,49 +86,83 @@ def policies(value):
 
 def metadata(value):
     """Validate raw-source facts without interpreting psychological or ranking meaning."""
-    fields(value, "title title_count languages canonicals hreflang h1_count static_text_words controls jsonld_types jsonld_status visibility")
+    fields(
+        value,
+        "title title_count languages canonicals hreflang h1_count static_text_words controls jsonld_types jsonld_status visibility",
+    )
     string(value["title"], 300)
     for key in ("title_count", "h1_count", "static_text_words"):
         number(value[key], 1048576)
-    for key, count, length in (("languages",32,300),("canonicals",32,2400),("jsonld_types",64,300),("jsonld_status",9,40)):
+    for key, count, length in (
+        ("languages", 32, 300),
+        ("canonicals", 32, 2400),
+        ("jsonld_types", 64, 300),
+        ("jsonld_status", 9, 40),
+    ):
         strings(value[key], count, length)
-    require(all(v in ("DECLARED_NOT_VALIDATED","INVALID_JSON","UNSUPPORTED","UNTERMINATED") for v in value["jsonld_status"]))
+    require(
+        all(
+            v in ("DECLARED_NOT_VALIDATED", "INVALID_JSON", "UNSUPPORTED", "UNTERMINATED")
+            for v in value["jsonld_status"]
+        )
+    )
     require(value["visibility"] == "RAW_HTML_NOT_RENDERED")
     require(isinstance(value["hreflang"], list) and len(value["hreflang"]) <= 64)
     for item in value["hreflang"]:
-        fields(item, "lang url"); string(item["lang"],300); string(item["url"],2400)
+        fields(item, "lang url")
+        string(item["lang"], 300)
+        string(item["url"], 2400)
     fields(value["controls"], "Googlebot OAI-SearchBot")
     for controls in value["controls"].values():
         fields(controls, "indexing snippets")
-        require(all(v in ("RESTRICTED","UNKNOWN","NO_OBSERVED_RESTRICTION") for v in controls.values()))
+        require(all(v in ("RESTRICTED", "UNKNOWN", "NO_OBSERVED_RESTRICTION") for v in controls.values()))
 
 
 def report(value):
     """Reject impossible success states and unexpected report data."""
-    fields(value, "parser_version target robots policies page metadata sitemap membership indexing citations growth state")
+    fields(
+        value, "parser_version target robots policies page metadata sitemap membership indexing citations growth state"
+    )
     require(value["parser_version"] == VERSION)
     target = url(value["target"])
-    require((value["indexing"],value["citations"],value["growth"]) == ("NOT_VERIFIED","NOT_MEASURED","NOT_MEASURED"))
-    resource(value["robots"],target,512000); require(value["robots"] is not None)
-    resource(value["page"],target,1048576); resource(value["sitemap"],target,1048576)
+    require(
+        (value["indexing"], value["citations"], value["growth"]) == ("NOT_VERIFIED", "NOT_MEASURED", "NOT_MEASURED")
+    )
+    resource(value["robots"], target, 512000)
+    require(value["robots"] is not None)
+    resource(value["page"], target, 1048576)
+    resource(value["sitemap"], target, 1048576)
     policies(value["policies"])
     fields(value["membership"], "state reason")
-    require(value["membership"]["state"] in ("YES","NOT_LISTED_IN_CHECKED_MAP","UNKNOWN"))
-    require(value["membership"]["reason"] in ("NOT_READ","EXACT_URL_OBSERVED","ONE_MAP_CHECKED","SITEMAP_UNAVAILABLE","SITEMAP_UNSUPPORTED","SITEMAP_INDEX_OR_UNSUPPORTED","SITEMAP_ORIGIN_OR_URL","SITEMAP_ROBOTS_BLOCKED"))
+    require(value["membership"]["state"] in ("YES", "NOT_LISTED_IN_CHECKED_MAP", "UNKNOWN"))
+    require(
+        value["membership"]["reason"]
+        in (
+            "NOT_READ",
+            "EXACT_URL_OBSERVED",
+            "ONE_MAP_CHECKED",
+            "SITEMAP_UNAVAILABLE",
+            "SITEMAP_UNSUPPORTED",
+            "SITEMAP_INDEX_OR_UNSUPPORTED",
+            "SITEMAP_ORIGIN_OR_URL",
+            "SITEMAP_ROBOTS_BLOCKED",
+        )
+    )
     state = value["state"]
-    require(state in ERRORS | {"OBSERVED","BLOCKED_ROBOTS","PAGE_UNAVAILABLE"})
+    require(state in ERRORS | {"OBSERVED", "BLOCKED_ROBOTS", "PAGE_UNAVAILABLE"})
     report_state(value)
     return value
 
 
 def report_state(value):
     """A blocked or unavailable source cannot carry invented page facts."""
-    state=value["state"]; page=value["page"]
+    state = value["state"]
+    page = value["page"]
     if state == "OBSERVED":
         observed_state(value)
     else:
         require(value["metadata"] is None and value["sitemap"] is None)
-        require(value["membership"] == {"state":"UNKNOWN","reason":"NOT_READ"})
+        require(value["membership"] == {"state": "UNKNOWN", "reason": "NOT_READ"})
         if state == "BLOCKED_ROBOTS":
             require(page is None and value["policies"][AGENT]["state"] != "ALLOW")
         elif state == "PAGE_UNAVAILABLE":
@@ -138,7 +176,7 @@ def report_state(value):
 
 def observed_state(value):
     """Successful parsing requires actual HTTP success and explicit crawl permission."""
-    page=value["page"]
+    page = value["page"]
     require(page is not None and page["status"] == 200 and "error" not in page)
     require(value["policies"][AGENT]["state"] == "ALLOW")
     metadata(value["metadata"])
@@ -146,19 +184,34 @@ def observed_state(value):
 
 def repairs(value):
     """Derive actionable checks, not a synthetic AEO score or visibility claim."""
-    result=[]
+    result = []
+
     def add(code, instruction):
-        result.append({"code":code,"instruction":instruction})
+        result.append({"code": code, "instruction": instruction})
+
     if value["state"] != "OBSERVED":
-        add(value["state"], "Inspect the source failure and robots policy. Correct access or encoding, then run a new check.")
+        add(
+            value["state"],
+            "Inspect the source failure and robots policy. Correct access or encoding, then run a new check.",
+        )
     for agent, policy in value["policies"].items():
         if policy["state"] != "ALLOW":
-            add("ROBOTS_"+agent, "Review robots.txt for "+agent+": "+policy["state"]+". Unknown permission requires investigation.")
-    source=value["metadata"]
+            add(
+                "ROBOTS_" + agent,
+                "Review robots.txt for "
+                + agent
+                + ": "
+                + policy["state"]
+                + ". Unknown permission requires investigation.",
+            )
+    source = value["metadata"]
     if source:
         metadata_repairs(source, add)
     if value["membership"]["state"] != "YES":
-        add("SITEMAP", "Check the exact final page URL in a same-origin sitemap. One map or unsupported map does not prove site-wide absence.")
+        add(
+            "SITEMAP",
+            "Check the exact final page URL in a same-origin sitemap. One map or unsupported map does not prove site-wide absence.",
+        )
     return result
 
 
@@ -183,6 +236,6 @@ def control_repairs(source, add):
     for agent, controls in source["controls"].items():
         for key, state in controls.items():
             if state != "NO_OBSERVED_RESTRICTION":
-                add(agent+"_"+key, "Inspect HTTP and HTML "+key+" controls for "+agent+": "+state+".")
+                add(agent + "_" + key, "Inspect HTTP and HTML " + key + " controls for " + agent + ": " + state + ".")
     if any(v != "DECLARED_NOT_VALIDATED" for v in source["jsonld_status"]):
         add("JSON_LD", "Repair malformed or unsupported JSON-LD. Declared types do not establish schema validity.")

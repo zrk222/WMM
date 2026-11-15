@@ -1,7 +1,7 @@
-const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
+const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('./helpers/module-source.cjs');
 test('Cloudflare setup offers an explicit paid choice and bounded, labelled free defaults',()=>{
  const context={esc:x=>String(x),document:{querySelector:()=>({addEventListener(){}})}};
- vm.createContext(context);vm.runInContext(fs.readFileSync('mission_control/static/agent-access.js','utf8'),context);
+ vm.createContext(context);vm.runInContext(fs.readFileSync('mission_control/static/agent-access.mjs','utf8'),context);
  const html=context.agentCloudflareFields();
  assert.match(html,/<label class="field">Cloudflare account ID<input name="account_id"/);
  assert.match(html,/<option value="free" selected>Free allowance only<\/option>/);
@@ -17,7 +17,7 @@ test('setup submits explicit paid policy and keeps generic adapter payload uncha
  const context={state,FormData:class {constructor(form){return Object.entries(form.values)}},
    document:{querySelector:()=>({addEventListener(){}})},$:()=>({close(){}}),
    api:async (...args)=>{calls.push(args);return {cleanup:'NO_PRIOR_KEY'}},refresh:async()=>{},toast:()=>{}};
- vm.createContext(context);vm.runInContext(fs.readFileSync('mission_control/static/agent-access.js','utf8'),context);
+ vm.createContext(context);vm.runInContext(fs.readFileSync('mission_control/static/agent-access.mjs','utf8'),context);
  const form=(provider,values)=>({id:'agent-setup-form',dataset:{app:'app',provider,profile:'',version:''},values,
    isConnected:true,reset(){},querySelector:()=>({disabled:false,textContent:''})});
  await context.agentSubmit(form('cloudflare_api',{label:'CF',model:'@cf/example',api_key:'synthetic',billing_mode:'paid',charges:'on',account_id:'a'.repeat(32),daily_request_limit:'7',max_output_tokens:'64'}));

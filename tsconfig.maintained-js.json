@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": true,
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": []
+  },
+  "files": [
+    "mission_control/static/analytics-inventory.mjs",
+    "mission_control/static/campaign-plan.mjs",
+    "mission_control/static/mmp-import-model.mjs"
+  ]
+}

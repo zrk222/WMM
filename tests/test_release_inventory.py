@@ -1,4 +1,5 @@
 """Explicit synthetic release facts; never provider approval or image authenticity."""
+
 import copy
 import json
 import os
@@ -6,32 +7,74 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+
 from mission_control.common import Invalid
-from mission_control.release_inventory import read_inventory, Inventory, resource_id, dict_query, screenshot
+from mission_control.db import connection
 from mission_control.provider_reports import read_report, report_options
 from mission_control.providers import report_destination
-from mission_control.store import Store
+from mission_control.release_inventory import Inventory, dict_query, read_inventory, screenshot
 from mission_control.service import Service
+from mission_control.store import Store
 from mission_control.worker import run_once
 
-BINDING = {'provider': 'app_store', 'store_app_id': '123', 'account_id': '0', 'env_ref': 'GROWTH_SAMPLE_ONE_SYNTHETIC'}
+BINDING = {"provider": "app_store", "store_app_id": "123", "account_id": "0", "env_ref": "GROWTH_SAMPLE_ONE_SYNTHETIC"}
 
 
 def row(kind, identity, attrs, relation=None, owner=None):
-    result = {'type': kind, 'id': identity, 'attributes': attrs}
+    result = {"type": kind, "id": identity, "attributes": attrs}
     if relation:
-        result['relationships'] = {relation: {'data': {'id': owner}}}
+        result["relationships"] = {relation: {"data": {"id": owner}}}
     return result
 
 
 def fixtures():
-    version = row('appStoreVersions', 'version-1', {'versionString': '1.0', 'platform': 'IOS', 'appStoreState': 'WAITING_FOR_REVIEW'}, 'app', '123')
-    version['relationships']['build'] = {'data': {'id': 'build-1'}}
-    build = row('builds', 'build-1', {'version': '42', 'processingState': 'VALID'})
-    locale = row('appStoreVersionLocalizations', 'locale-1', {'locale': 'en-US', 'description': 'Synthetic description', 'keywords': '', 'supportUrl': 'https://example.com'}, 'appStoreVersion', 'version-1')
-    display = row('appScreenshotSets', 'set-1', {'screenshotDisplayType': 'APP_IPHONE_67'}, 'appStoreVersionLocalization', 'locale-1')
-    image = row('appScreenshots', 'image-1', {'fileName': '<img src=x onerror=alert(1)>.png', 'sourceFileChecksum': 'abc', 'assetDeliveryState': {'state': 'COMPLETE'}, 'imageAsset': {'width': 1290, 'height': 2796, 'templateUrl': 'PRIVATE-ASSET-URL'}, 'uploadOperations': ['PRIVATE-UPLOAD']}, 'appScreenshotSet', 'set-1')
-    return [{'data': version, 'included': [build]}, {'data': [locale], 'links': {}}, {'data': [display], 'links': {}}, {'data': [image], 'links': {}}]
+    version = row(
+        "appStoreVersions",
+        "version-1",
+        {"versionString": "1.0", "platform": "IOS", "appStoreState": "WAITING_FOR_REVIEW"},
+        "app",
+        "123",
+    )
+    version["relationships"]["build"] = {"data": {"id": "build-1"}}
+    build = row("builds", "build-1", {"version": "42", "processingState": "VALID"})
+    locale = row(
+        "appStoreVersionLocalizations",
+        "locale-1",
+        {
+            "locale": "en-US",
+            "description": "Synthetic description",
+            "keywords": "",
+            "supportUrl": "https://example.com",
+        },
+        "appStoreVersion",
+        "version-1",
+    )
+    display = row(
+        "appScreenshotSets",
+        "set-1",
+        {"screenshotDisplayType": "APP_IPHONE_67"},
+        "appStoreVersionLocalization",
+        "locale-1",
+    )
+    image = row(
+        "appScreenshots",
+        "image-1",
+        {
+            "fileName": "<img src=x onerror=alert(1)>.png",
+            "sourceFileChecksum": "abc",
+            "assetDeliveryState": {"state": "COMPLETE"},
+            "imageAsset": {"width": 1290, "height": 2796, "templateUrl": "PRIVATE-ASSET-URL"},
+            "uploadOperations": ["PRIVATE-UPLOAD"],
+        },
+        "appScreenshotSet",
+        "set-1",
+    )
+    return [
+        {"data": version, "included": [build]},
+        {"data": [locale], "links": {}},
+        {"data": [display], "links": {}},
+        {"data": [image], "links": {}},
+    ]
 
 
 class FakeReader:
@@ -44,108 +87,281 @@ class FakeReader:
 
 
 class ReleaseInventory(unittest.TestCase):
+    def test_launch_read_retains_evidence_in_the_same_completed_worker_job(self):
+        from mission_control.app_launch_history import history
+
+        with tempfile.TemporaryDirectory() as folder:
+            store = Store(Path(folder) / "launch.sqlite")
+            app = store.app("sample-one")
+            store.save_app("sample-one", dict(app["data"], store_app_id="123"), app["version"])
+            binding = store.save_record(
+                "sample-one",
+                {"kind": "connection", "title": "Apple", "source": "Fixture", "data": BINDING},
+            )
+            service = Service(store)
+            service.queue(
+                "sample-one",
+                dict(
+                    action="sync",
+                    data=dict(connection_id=binding["id"], options=dict(operation="launch_versions")),
+                    request_key="launch-observation",
+                ),
+            )
+            version = fixtures()[0]["data"]
+            with (
+                patch("mission_control.provider_reports.credential", return_value="synthetic"),
+                patch("mission_control.provider_reports.report_request", return_value={"data": [version], "links": {}}),
+            ):
+                run_once(store)
+            rows = history(store.path, "sample-one", store.app("sample-one")["version"])
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["status"], "IN_REVIEW")
+            workspace = service.workspace("sample-one")
+            self.assertEqual(workspace["app_launch_status"]["status"], "IN_REVIEW")
+            job = workspace["jobs"][0]
+            self.assertEqual(job["status"], "SUCCEEDED")
+            self.assertEqual(job["result"]["launch_evidence_hash"], rows[0]["evidence_hash"])
+            service.queue(
+                "sample-one",
+                dict(
+                    action="sync",
+                    data=dict(connection_id=binding["id"], options=dict(operation="launch_versions")),
+                    request_key="stale-launch-observation",
+                ),
+            )
+            from mission_control.worker import persist_job_result
+
+            def change_binding_before_commit(store_arg, job_arg, result, status, delay):
+                with connection(store.path, write=True) as db:
+                    db.execute("UPDATE records SET version=version+1 WHERE id=?", (binding["id"],))
+                return persist_job_result(store_arg, job_arg, result, status, delay)
+
+            with (
+                patch("mission_control.provider_reports.credential", return_value="synthetic"),
+                patch("mission_control.provider_reports.report_request", return_value={"data": [version], "links": {}}),
+                patch("mission_control.worker.persist_job_result", side_effect=change_binding_before_commit),
+            ):
+                run_once(store)
+            jobs = service.workspace("sample-one")["jobs"]
+            self.assertEqual(jobs[0]["status"], "BLOCKED")
+            self.assertEqual(history(store.path, "sample-one", store.app("sample-one")["version"]), rows)
+
+    def test_launch_version_read_scans_all_ios_versions_under_the_app(self):
+        first, second = (copy.deepcopy(fixtures()[0]["data"]) for _ in range(2))
+        second["id"] = "older"
+        second["attributes"]["appVersionState"] = "READY_FOR_DISTRIBUTION"
+        link = "https://api.appstoreconnect.apple.com/v1/apps/123/appStoreVersions?filter%5Bplatform%5D=IOS&cursor=next"
+        with (
+            patch("mission_control.provider_reports.credential", return_value="synthetic"),
+            patch(
+                "mission_control.provider_reports.report_request",
+                side_effect=[
+                    {"data": [first], "links": {"next": link}},
+                    {"data": [second], "links": {}},
+                ],
+            ) as transport,
+        ):
+            report = read_report(BINDING, "sample-one", {"operation": "launch_versions"})
+        assert isinstance(report, dict)
+        self.assertTrue(report["complete"])
+        self.assertEqual(report["states"], ["READY_FOR_DISTRIBUTION", "WAITING_FOR_REVIEW"])
+        hashes = report["page_source_hashes"]
+        assert isinstance(hashes, list)
+        self.assertEqual(len(hashes), 2)
+        self.assertEqual(transport.call_args.args[0], link)
+        report_destination(link, None)
+        with self.assertRaises(Invalid):
+            report_destination(link.replace("=IOS", "=MAC_OS"), None)
+        with self.assertRaises(Invalid):
+            report_destination(link, {})
+
+    def test_current_apple_version_state_takes_precedence_over_deprecated_value(self):
+        pages = fixtures()
+        pages[0]["data"]["attributes"]["appVersionState"] = "READY_FOR_DISTRIBUTION"
+        result = read_inventory(FakeReader(pages), "123", "version-1")
+        self.assertEqual(result["review_state"], "READY_FOR_DISTRIBUTION")
+
     def test_owned_release_projection_and_order(self):
         pages = fixtures()
-        second = copy.deepcopy(pages[-1]['data'][0]); second['id'] = 'image-2'; second['attributes']['fileName'] = 'second.png'
-        pages[-1]['data'].append(second)
+        second = copy.deepcopy(pages[-1]["data"][0])
+        second["id"] = "image-2"
+        second["attributes"]["fileName"] = "second.png"
+        pages[-1]["data"].append(second)
         reader = FakeReader(pages)
-        result = read_inventory(reader, '123', 'version-1')
-        self.assertEqual(result['coverage'], 'COMPLETE')
-        self.assertEqual(result['build']['number'], '42')
-        self.assertEqual(result['locales'][0]['missing_fields'], ['keywords'])
-        images = result['locales'][0]['screenshot_sets'][0]['screenshots']
-        self.assertEqual([x['id'] for x in images], ['image-1', 'image-2'])
-        self.assertEqual(result['requests'], 4)
-        self.assertNotIn('PRIVATE-', json.dumps(result))
-        self.assertIn('include=app%2Cbuild', reader.calls[0])
+        result = read_inventory(reader, "123", "version-1")
+        self.assertEqual(result["coverage"], "COMPLETE")
+        self.assertEqual(result["build"]["number"], "42")
+        self.assertEqual(result["locales"][0]["missing_fields"], ["keywords"])
+        images = result["locales"][0]["screenshot_sets"][0]["screenshots"]
+        self.assertEqual([x["id"] for x in images], ["image-1", "image-2"])
+        self.assertEqual(result["requests"], 4)
+        self.assertNotIn("PRIVATE-", json.dumps(result))
+        self.assertIn("include=app%2Cbuild", reader.calls[0])
 
     def test_empty_resources_are_not_fabricated(self):
-        pages = fixtures()[:2]; pages[0]['data']['relationships']['build']['data'] = None; pages[1]['data'] = []
-        result = read_inventory(FakeReader(pages), '123', 'version-1')
-        self.assertEqual(result['locales'], [])
-        self.assertIsNone(result['build'])
-        self.assertIn('separate verification', result['interpretation'])
+        pages = fixtures()[:2]
+        pages[0]["data"]["relationships"]["build"]["data"] = None
+        pages[1]["data"] = []
+        result = read_inventory(FakeReader(pages), "123", "version-1")
+        self.assertEqual(result["locales"], [])
+        self.assertIsNone(result["build"])
+        self.assertIn("separate verification", result["interpretation"])
 
     def test_rejects_ids_before_credential_and_foreign_parent_before_children(self):
-        for identity in ('../other', 'x?secret=y', '', 'é', 'a'*81, True, 123):
-            with self.subTest(identity=identity), patch('mission_control.provider_reports.credential') as secret, self.assertRaises(Invalid):
-                read_report(BINDING, 'sample-one', {'operation': 'release_inventory', 'version_id': identity})
+        for identity in ("../other", "x?secret=y", "", "é", "a" * 81, True, 123):
+            with (
+                self.subTest(identity=identity),
+                patch("mission_control.provider_reports.credential") as secret,
+                self.assertRaises(Invalid),
+            ):
+                read_report(BINDING, "sample-one", {"operation": "release_inventory", "version_id": identity})
             secret.assert_not_called()
-        for kind in ('app', 'identity', 'type'):
+        for kind in ("app", "identity", "type"):
             pages = fixtures()
-            if kind == 'app': pages[0]['data']['relationships']['app']['data']['id'] = '999'
-            if kind == 'identity': pages[0]['data']['id'] = 'other'
-            if kind == 'type': pages[0]['data']['type'] = 'builds'
+            if kind == "app":
+                pages[0]["data"]["relationships"]["app"]["data"]["id"] = "999"
+            if kind == "identity":
+                pages[0]["data"]["id"] = "other"
+            if kind == "type":
+                pages[0]["data"]["type"] = "builds"
             reader = FakeReader(pages)
-            with self.assertRaises(Invalid): read_inventory(reader, '123', 'version-1')
+            with self.assertRaises(Invalid):
+                read_inventory(reader, "123", "version-1")
             self.assertEqual(len(reader.calls), 1)
 
     def test_pagination_duplicates_and_hostile_links(self):
-        path = '/v1/appStoreVersions/version-1/appStoreVersionLocalizations'
-        for link in ('https://evil.example/x', 'https://api.appstoreconnect.apple.com'+path+'?limit=100', 'https://api.appstoreconnect.apple.com/v1/other?cursor=x', 17):
-            pages = fixtures(); pages[1]['links']['next'] = link
-            with self.subTest(link=link), self.assertRaises(Invalid): read_inventory(FakeReader(pages), '123', 'version-1')
-        pages = fixtures(); duplicate = copy.deepcopy(pages[1]['data'][0]); duplicate['attributes']['locale'] = 'fr-FR'; pages[1]['data'].append(duplicate)
-        with self.assertRaises(Invalid): read_inventory(FakeReader(pages), '123', 'version-1')
-        for wrong in ({'data': [], 'links': None}, {'data': [fixtures()[1]['data'][0]]*101, 'links': {}}):
-            with self.assertRaises(Invalid): read_inventory(FakeReader([fixtures()[0], wrong]), '123', 'version-1')
+        path = "/v1/appStoreVersions/version-1/appStoreVersionLocalizations"
+        for link in (
+            "https://evil.example/x",
+            "https://api.appstoreconnect.apple.com" + path + "?limit=100",
+            "https://api.appstoreconnect.apple.com/v1/other?cursor=x",
+            17,
+        ):
+            pages = fixtures()
+            pages[1]["links"]["next"] = link
+            with self.subTest(link=link), self.assertRaises(Invalid):
+                read_inventory(FakeReader(pages), "123", "version-1")
+        pages = fixtures()
+        duplicate = copy.deepcopy(pages[1]["data"][0])
+        duplicate["attributes"]["locale"] = "fr-FR"
+        pages[1]["data"].append(duplicate)
+        with self.assertRaises(Invalid):
+            read_inventory(FakeReader(pages), "123", "version-1")
+        for wrong in ({"data": [], "links": None}, {"data": [fixtures()[1]["data"][0]] * 101, "links": {}}):
+            with self.assertRaises(Invalid):
+                read_inventory(FakeReader([fixtures()[0], wrong]), "123", "version-1")
 
     def test_request_cap_and_exact_cursor_query(self):
-        path = '/v1/appStoreVersions/version-1/appStoreVersionLocalizations'
-        pages = [{'data': [], 'links': {'next': 'https://api.appstoreconnect.apple.com'+path+'?cursor='+str(i)}} for i in range(30)]
-        inventory = Inventory(FakeReader(pages)); rows, complete = inventory.collection(path, 'appStoreVersionLocalizations', 'appStoreVersion', 'version-1')
-        self.assertFalse(complete); self.assertEqual(inventory.requests, 24); self.assertEqual(inventory.uninspected, [path])
-        self.assertEqual(dict_query('cursor=a%2Bb&x=1&x=2'), [('cursor', 'a+b'), ('x', '1'), ('x', '2')])
-        for cursor in ('broken', 'x='+'a'*4001):
-            with self.assertRaises(Invalid): dict_query(cursor)
+        path = "/v1/appStoreVersions/version-1/appStoreVersionLocalizations"
+        pages = [
+            {"data": [], "links": {"next": "https://api.appstoreconnect.apple.com" + path + "?cursor=" + str(i)}}
+            for i in range(30)
+        ]
+        inventory = Inventory(FakeReader(pages))
+        rows, complete = inventory.collection(path, "appStoreVersionLocalizations", "appStoreVersion", "version-1")
+        self.assertFalse(complete)
+        self.assertEqual(inventory.requests, 24)
+        self.assertEqual(inventory.uninspected, [path])
+        self.assertEqual(dict_query("cursor=a%2Bb&x=1&x=2"), [("cursor", "a+b"), ("x", "1"), ("x", "2")])
+        for cursor in ("broken", "x=" + "a" * 4001):
+            with self.assertRaises(Invalid):
+                dict_query(cursor)
 
     def test_malformed_children_and_fixed_transport(self):
-        for index, relation in ((1, 'appStoreVersion'), (2, 'appStoreVersionLocalization'), (3, 'appScreenshotSet')):
-            pages = fixtures(); pages[index]['data'][0]['relationships'][relation]['data']['id'] = 'foreign'
-            with self.assertRaises(Invalid): read_inventory(FakeReader(pages), '123', 'version-1')
-        image = fixtures()[-1]['data'][0]; image['attributes']['imageAsset']['width'] = True
-        with self.assertRaises(Invalid): screenshot(image)
-        for url in ('https://api.appstoreconnect.apple.com/v1/appStoreVersions/version-1', 'https://api.appstoreconnect.apple.com/v1/appScreenshotSets/set-1/appScreenshots'):
+        for index, relation in ((1, "appStoreVersion"), (2, "appStoreVersionLocalization"), (3, "appScreenshotSet")):
+            pages = fixtures()
+            pages[index]["data"][0]["relationships"][relation]["data"]["id"] = "foreign"
+            with self.assertRaises(Invalid):
+                read_inventory(FakeReader(pages), "123", "version-1")
+        image = fixtures()[-1]["data"][0]
+        image["attributes"]["imageAsset"]["width"] = True
+        with self.assertRaises(Invalid):
+            screenshot(image)
+        for url in (
+            "https://api.appstoreconnect.apple.com/v1/appStoreVersions/version-1",
+            "https://api.appstoreconnect.apple.com/v1/appScreenshotSets/set-1/appScreenshots",
+        ):
             report_destination(url, None)
-            with self.assertRaises(Invalid): report_destination(url, {})
-        with self.assertRaises(Invalid): report_options('apple_ads', {'operation': 'release_inventory', 'version_id': 'version-1'})
-        with self.assertRaises(Invalid): report_options('app_store', {'operation': 'release_inventory', 'version_id': 'version-1', 'extra': True})
+            with self.assertRaises(Invalid):
+                report_destination(url, {})
+        with self.assertRaises(Invalid):
+            report_options("apple_ads", {"operation": "release_inventory", "version_id": "version-1"})
+        with self.assertRaises(Invalid):
+            report_options("app_store", {"operation": "release_inventory", "version_id": "version-1", "extra": True})
 
     def test_partial_inventory_and_missing_build_or_malformed_metadata(self):
         pages = fixtures()
-        locales = [row('appStoreVersionLocalizations', 'locale-'+str(i), {'locale':'synthetic-'+str(i)}, 'appStoreVersion', 'version-1') for i in range(30)]
-        result = read_inventory(FakeReader([pages[0], {'data':locales,'links':{}}]+[{'data':[],'links':{}}]*30), '123', 'version-1')
-        self.assertEqual(result['coverage'], 'PARTIAL')
-        self.assertEqual(result['requests'], 24)
-        self.assertEqual(len(result['locales']), 30)
-        self.assertEqual(len(result['uninspected']), 8)
-        self.assertTrue(any(x['coverage']=='PARTIAL' for x in result['locales']))
-        for failure in ('build_missing', 'build_duplicate', 'metadata_type', 'delivery_type', 'relationship_type'):
+        locales = [
+            row(
+                "appStoreVersionLocalizations",
+                "locale-" + str(i),
+                {"locale": "synthetic-" + str(i)},
+                "appStoreVersion",
+                "version-1",
+            )
+            for i in range(30)
+        ]
+        result = read_inventory(
+            FakeReader([pages[0], {"data": locales, "links": {}}] + [{"data": [], "links": {}}] * 30),
+            "123",
+            "version-1",
+        )
+        self.assertEqual(result["coverage"], "PARTIAL")
+        self.assertEqual(result["requests"], 24)
+        self.assertEqual(len(result["locales"]), 30)
+        self.assertEqual(len(result["uninspected"]), 8)
+        self.assertTrue(any(x["coverage"] == "PARTIAL" for x in result["locales"]))
+        for failure in ("build_missing", "build_duplicate", "metadata_type", "delivery_type", "relationship_type"):
             pages = fixtures()
-            if failure=='build_missing': pages[0]['included']=[]
-            if failure=='build_duplicate': pages[0]['included']*=2
-            if failure=='metadata_type': pages[1]['data'][0]['attributes']['description']={'bad':True}
-            if failure=='delivery_type': pages[3]['data'][0]['attributes']['assetDeliveryState']=['bad']
-            if failure=='relationship_type': pages[1]['data'][0]['relationships']=[]
-            with self.subTest(failure=failure), self.assertRaises(Invalid): read_inventory(FakeReader(pages),'123','version-1')
+            if failure == "build_missing":
+                pages[0]["included"] = []
+            if failure == "build_duplicate":
+                pages[0]["included"] *= 2
+            if failure == "metadata_type":
+                pages[1]["data"][0]["attributes"]["description"] = {"bad": True}
+            if failure == "delivery_type":
+                pages[3]["data"][0]["attributes"]["assetDeliveryState"] = ["bad"]
+            if failure == "relationship_type":
+                pages[1]["data"][0]["relationships"] = []
+            with self.subTest(failure=failure), self.assertRaises(Invalid):
+                read_inventory(FakeReader(pages), "123", "version-1")
 
     def test_durable_failure_preserves_binding_then_explicit_read_succeeds(self):
-        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {'GROWTH_SAMPLE_ONE_SYNTHETIC': 'synthetic-key'}):
-            store = Store(Path(folder)/'test.sqlite'); service = Service(store)
-            binding = store.save_record('sample-one', {'kind':'connection','title':'Synthetic','source':'Synthetic fixture','data':BINDING})
-            body = {'action':'sync','data':{'connection_id':binding['id'],'connection_version':binding['version'],'options':{'operation':'release_inventory','version_id':'version-1'}},'request_key':'fixture-fail'}
-            first = service.queue('sample-one', body)
-            with patch('mission_control.provider_reports.report_request', side_effect=Invalid('Synthetic read timeout')): run_once(store)
-            self.assertEqual(service.workspace('sample-one')['jobs'][0]['status'], 'BLOCKED')
-            self.assertEqual(store.records('sample-one')[0]['hash'], binding['hash'])
-            service.queue('sample-one', {**body, 'request_key':'fixture-retry'})
-            with patch('mission_control.provider_reports.report_request', side_effect=fixtures()): run_once(store)
-            latest = service.workspace('sample-one')['jobs'][0]
-            self.assertEqual(latest['status'], 'SUCCEEDED')
-            self.assertFalse(latest['result']['external_writes'])
-            self.assertEqual(len(latest['result']['page_source_hashes']), 4)
-            self.assertNotIn('synthetic-key', json.dumps(latest['result']))
+        with (
+            tempfile.TemporaryDirectory() as folder,
+            patch.dict(os.environ, {"GROWTH_SAMPLE_ONE_SYNTHETIC": "synthetic-key"}),
+        ):
+            store = Store(Path(folder) / "test.sqlite")
+            service = Service(store)
+            binding = store.save_record(
+                "sample-one",
+                {"kind": "connection", "title": "Synthetic", "source": "Synthetic fixture", "data": BINDING},
+            )
+            body = {
+                "action": "sync",
+                "data": {
+                    "connection_id": binding["id"],
+                    "connection_version": binding["version"],
+                    "options": {"operation": "release_inventory", "version_id": "version-1"},
+                },
+                "request_key": "fixture-fail",
+            }
+            service.queue("sample-one", body)
+            with patch(
+                "mission_control.provider_reports.report_request", side_effect=Invalid("Synthetic read timeout")
+            ):
+                run_once(store)
+            self.assertEqual(service.workspace("sample-one")["jobs"][0]["status"], "BLOCKED")
+            self.assertEqual(store.records("sample-one")[0]["hash"], binding["hash"])
+            service.queue("sample-one", {**body, "request_key": "fixture-retry"})
+            with patch("mission_control.provider_reports.report_request", side_effect=fixtures()):
+                run_once(store)
+            latest = service.workspace("sample-one")["jobs"][0]
+            self.assertEqual(latest["status"], "SUCCEEDED")
+            self.assertFalse(latest["result"]["external_writes"])
+            self.assertEqual(len(latest["result"]["page_source_hashes"]), 4)
+            self.assertNotIn("synthetic-key", json.dumps(latest["result"]))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

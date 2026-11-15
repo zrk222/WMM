@@ -1,4 +1,5 @@
 """Canonical bounded compact JWS decoding with an explicit native verifier boundary."""
+
 import base64
 import re
 from .common import Invalid

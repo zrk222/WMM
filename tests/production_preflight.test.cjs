@@ -1,9 +1,9 @@
-const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('./helpers/module-source.cjs'),vm=require('node:vm');
 function fixture(){
  const calls=[],panels={},state={app:'one',workspace:{}},form={dataset:{app:'one',key:'request-one'},isConnected:true};
  const plan={source_hash:'a'.repeat(64),input_hash:'b'.repeat(64),scene:{width:720,height:1280,frame_rate:24,duration_seconds:8,scenes:[{start_seconds:0,end_seconds:8,words:8,words_per_second:1,density_advisory:'NO_FLAG'}]},readiness:{remediation:[]},reuse_candidates:{items:[{render_id:'saved',artifact_bytes:1024}],scanned:1,unavailable:0,truncated:false}};
  const context={state,document:{addEventListener(){}},api:async(path,body)=>{calls.push({path,body});return path.endsWith('hypit-plan')?plan:{render_id:'saved'};},esc:x=>String(x),json:JSON.stringify,notice:x=>x,button:(name,action)=>`<button type="button" data-action="${action}">${name}</button>`,modal:()=>{panels['#hypit-plan']={dataset:{app:'one'},isConnected:true};},$:s=>panels[s],toast(){},refresh:async()=>{}};
- vm.createContext(context);vm.runInContext(fs.readFileSync('mission_control/static/creative-rendering.js','utf8'),context);
+ vm.createContext(context);vm.runInContext(fs.readFileSync('mission_control/static/creative-rendering.mjs','utf8'),context);
  context.openRender=id=>{context.opened=id;};return {context,calls,form,plan,panels};
 }
 test('Hypit preflight shows a plan without submitting a build',async()=>{

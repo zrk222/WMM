@@ -1,4 +1,5 @@
 """Pinned Apple attribution public keys; no remote or operator-controlled trust."""
+
 import base64
 from .common import Invalid
 
@@ -19,7 +20,7 @@ def skan_key(version):
     raise Invalid("SKAdNetwork version is unsupported")
 
 
-def aak_key(kid,environment):
+def aak_key(kid, environment):
     """Development signing keys cannot cross into a production source."""
     if environment == "Production" and kid == "apple-cas-identifier/0":
         return base64.b64decode(P256, validate=True), "P256"

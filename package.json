@@ -1,4 +1,10 @@
 {
   "private": true,
-  "type": "commonjs"
+  "type": "commonjs",
+  "devDependencies": {
+    "eslint": "9.39.1",
+    "prettier": "3.6.2",
+    "pyright": "1.1.407",
+    "typescript": "5.9.3"
+  }
 }

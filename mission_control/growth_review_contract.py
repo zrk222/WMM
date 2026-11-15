@@ -1,4 +1,5 @@
 """Immutable local review inputs; notes and source hashes grant no execution authority."""
+
 from .common import Invalid, digest, identifier, iso_time, required, safe_data
 from .pmf_contract import exact, hashed
 from .aso_validation import validate_listing
@@ -13,8 +14,14 @@ KINDS = ("ASO_LISTING", "BENCHMARK_REFERENCE", "BENCHMARK_COMPARISON", "MARKET_R
 def context_of(app):
     """Bind public app scope and its exact manifest content without exposing secrets."""
     data = app["data"]
-    return dict(app_id=app["id"], manifest_version=app["version"], app_hash=digest(data),
-                release=data.get("release"), locale=data.get("locale"), currency=data.get("currency"))
+    return dict(
+        app_id=app["id"],
+        manifest_version=app["version"],
+        app_hash=digest(data),
+        release=data.get("release"),
+        locale=data.get("locale"),
+        currency=data.get("currency"),
+    )
 
 
 def entry_hash(kind, data, context):
@@ -98,7 +105,12 @@ def entry_readout(row, app_context, observed_at):
         analysis = validate_listing(data["listing"], observed_at)
     elif kind == "BENCHMARK_REFERENCE":
         reference = benchmark_record(data["reference"], observed_at)
-        analysis = dict(status="REFERENCE_EXPIRED" if iso_time(reference["expires_at"]) <= iso_time(observed_at) else "REFERENCE_AVAILABLE", reference=reference)
+        analysis = dict(
+            status="REFERENCE_EXPIRED"
+            if iso_time(reference["expires_at"]) <= iso_time(observed_at)
+            else "REFERENCE_AVAILABLE",
+            reference=reference,
+        )
     elif kind == "BENCHMARK_COMPARISON":
         analysis = comparison_readout(data, observed_at)
     elif kind == "MARKET_RESEARCH":
@@ -112,8 +124,21 @@ def entry_readout(row, app_context, observed_at):
     if row["imported"]:
         availability = "IMPORTED_ASSERTION"
     if kind == "BENCHMARK_COMPARISON" and availability != "CURRENT_LOCAL_EVIDENCE":
-        analysis = dict(status=availability, difference=None, reasons=["Rebind the saved reference and account source to the current app before relying on this comparison"])
-    return dict(analysis=analysis, availability=availability, provider_verified=False, outcomes_verified=False,
-                scope_status="CURRENT_APP_SCOPE" if row["context"] == app_context else "STALE_APP_SCOPE",
-                import_provenance="IMPORTED_ASSERTION" if row["imported"] else "LOCALLY_RECORDED",
-                execution_authority=False, external_writes=False, spend_minor=0)
+        analysis = dict(
+            status=availability,
+            difference=None,
+            reasons=[
+                "Rebind the saved reference and account source to the current app before relying on this comparison"
+            ],
+        )
+    return dict(
+        analysis=analysis,
+        availability=availability,
+        provider_verified=False,
+        outcomes_verified=False,
+        scope_status="CURRENT_APP_SCOPE" if row["context"] == app_context else "STALE_APP_SCOPE",
+        import_provenance="IMPORTED_ASSERTION" if row["imported"] else "LOCALLY_RECORDED",
+        execution_authority=False,
+        external_writes=False,
+        spend_minor=0,
+    )

@@ -1,14 +1,35 @@
 """Comparable advisory reference data, never spend, causal lift or return forecasts."""
+
 import math
 from .common import Invalid, required, iso_time, digest, safe_data
 from .pmf_contract import exact, hashed
 from .creative_library import source_url
 from .ledger import currency
 
-SCOPE_FIELDS = {"metric", "denominator", "category", "territory", "platform", "placement",
-                "campaign_type", "currency", "period_start", "period_end"}
-REFERENCE_FIELDS = SCOPE_FIELDS | {"dataset_id", "source_url", "source_sha256", "published_at", "retrieved_at",
-                                  "expires_at", "percentile", "value", "coverage", "limitations"}
+SCOPE_FIELDS = {
+    "metric",
+    "denominator",
+    "category",
+    "territory",
+    "platform",
+    "placement",
+    "campaign_type",
+    "currency",
+    "period_start",
+    "period_end",
+}
+REFERENCE_FIELDS = SCOPE_FIELDS | {
+    "dataset_id",
+    "source_url",
+    "source_sha256",
+    "published_at",
+    "retrieved_at",
+    "expires_at",
+    "percentile",
+    "value",
+    "coverage",
+    "limitations",
+}
 OBSERVED_FIELDS = SCOPE_FIELDS | {"numerator", "denominator_count", "source_sha256", "coverage"}
 METRICS = {"CPT_MINOR": "TAPS", "CPI_MINOR": "INSTALLS", "CR": "TAPS", "TTR": "IMPRESSIONS"}
 
@@ -86,8 +107,16 @@ def compare_benchmark(reference, observed, as_of) -> dict:
         reasons.append("Observed denominator is unavailable")
     if iso_time(actual["period_end"]) > iso_time(as_of):
         reasons.append("Observed measurement period has not ended")
-    return {"status": "INCOMPATIBLE" if reasons else "COMPARABLE_ADVISORY", "reasons": reasons,
-            "difference": actual["value"] - ref["value"] if not reasons else None,
-            "reference": ref, "observed": actual, "source_hash": digest({"reference": ref, "observed": actual}),
-            "post_install_revenue": None, "roas": None, "lifetime_value": None, "spend_authority": False,
-            "scope": "Supplied aggregate references and observations; source URL and hash do not authenticate the dataset. No causal lift, bid, budget, forecast or scale approval."}
+    return {
+        "status": "INCOMPATIBLE" if reasons else "COMPARABLE_ADVISORY",
+        "reasons": reasons,
+        "difference": actual["value"] - ref["value"] if not reasons else None,
+        "reference": ref,
+        "observed": actual,
+        "source_hash": digest({"reference": ref, "observed": actual}),
+        "post_install_revenue": None,
+        "roas": None,
+        "lifetime_value": None,
+        "spend_authority": False,
+        "scope": "Supplied aggregate references and observations; source URL and hash do not authenticate the dataset. No causal lift, bid, budget, forecast or scale approval.",
+    }

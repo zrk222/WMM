@@ -1,4 +1,5 @@
 """Native Apple keyword observations, without campaign mutation or ROI inference."""
+
 import re
 from .common import Invalid, digest
 
@@ -86,9 +87,20 @@ def read_keywords(reader, binding, options, query, page_check):
         if offset >= total:
             break
     search = options["operation"] == "search_term_report"
-    return {"operation": options["operation"], "api_version": "PLATFORM_V1", "rows": rows,
-            "pages": pages, "declared_rows": total, "coverage": "COMPLETE" if offset >= total else "PARTIAL",
-            "reporting_timezone": "ORTZ" if search else "UTC", "privacy_suppression_possible": search,
-            "coverage_scope": "PROVIDER_DECLARED_ROWS_ONLY", "interpretation":
-            ("Account reporting timezone (ORTZ). Low-volume queries may be suppressed or aggregated; fetched rows are not total demand. " if search else "UTC report window. ") +
-            "Page cap may limit coverage. Missing metrics remain unavailable; attributed installs do not prove paid customers or ROI."}
+    return {
+        "operation": options["operation"],
+        "api_version": "PLATFORM_V1",
+        "rows": rows,
+        "pages": pages,
+        "declared_rows": total,
+        "coverage": "COMPLETE" if offset >= total else "PARTIAL",
+        "reporting_timezone": "ORTZ" if search else "UTC",
+        "privacy_suppression_possible": search,
+        "coverage_scope": "PROVIDER_DECLARED_ROWS_ONLY",
+        "interpretation": (
+            "Account reporting timezone (ORTZ). Low-volume queries may be suppressed or aggregated; fetched rows are not total demand. "
+            if search
+            else "UTC report window. "
+        )
+        + "Page cap may limit coverage. Missing metrics remain unavailable; attributed installs do not prove paid customers or ROI.",
+    }

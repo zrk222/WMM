@@ -6,12 +6,12 @@ dispatch pending. This demonstrates owner review and reconciliation guidance,
 never provider delivery or business lift.
 """
 
-from pathlib import Path
 import hashlib
 import json
 import os
 import sys
 import threading
+from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,10 +19,11 @@ sys.path.insert(0, str(ROOT))
 # Direct script execution needs the repository root before project imports.
 
 from playwright.sync_api import expect, sync_playwright  # noqa: E402
-from mission_control.db import connection  # noqa: E402
+
 from mission_control.common import digest  # noqa: E402
+from mission_control.db import connection  # noqa: E402
 from mission_control.server import Server  # noqa: E402
-from tests.test_automation_agreement import AutomationAgreementTests, BATCH, SCOPE  # noqa: E402
+from tests.test_automation_agreement import BATCH, SCOPE, AutomationAgreementTests  # noqa: E402
 from tests.test_verified_review import OWNER, OWNER_TOKEN, synthetic_identity  # noqa: E402
 
 OUT = Path(
@@ -35,9 +36,7 @@ OUT = Path(
 
 def run(browser, width):
     """Exercise real owner session, current UI, immutable review and private PDF."""
-    fixture = AutomationAgreementTests(
-        "test_scheduled_request_paid_historical_end_budget_target_and_remote_ids"
-    )
+    fixture = AutomationAgreementTests("test_scheduled_request_paid_historical_end_budget_target_and_remote_ids")
     fixture.setUp()
     server = None
     thread = None
@@ -59,30 +58,23 @@ def run(browser, width):
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(origin)
-        page.wait_for_function("() => state.workspace?.app?.id === state.app")
+        page.wait_for_function(
+            "(state) => state.workspace?.app?.id === state.app",
+            arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"),
+        )
         page.locator("#navigation > [data-view=activity]").click()
-        page.get_by_role(
-            "button", name="Sign in for verified review", exact=True
-        ).click()
+        page.get_by_role("button", name="Sign in for verified review", exact=True).click()
         page.get_by_label("GitHub identity token", exact=True).fill(OWNER_TOKEN)
         page.get_by_role("button", name="Verify my identity", exact=True).click()
-        expect(
-            page.get_by_role("button", name="Sign out of review session")
-        ).to_be_visible()
+        expect(page.get_by_role("button", name="Sign out of review session")).to_be_visible()
         page.locator("#navigation > [data-view=overview]").click()
         baseline = fixture.fixture.dump()
         requests = []
-        page.on(
-            "request", lambda request: requests.append((request.method, request.url))
-        )
+        page.on("request", lambda request: requests.append((request.method, request.url)))
         page.locator("#goal-advanced > summary").click()
-        page.get_by_role(
-            "button", name="Review combined automation agreement", exact=True
-        ).click()
+        page.get_by_role("button", name="Review combined automation agreement", exact=True).click()
         form = page.locator("#agreement-form")
-        form.locator("[name=workflow_policy_id]").select_option(
-            fixture.issued["policy_id"]
-        )
+        form.locator("[name=workflow_policy_id]").select_option(fixture.issued["policy_id"])
         form.locator("[name=schedule_batch_id]").select_option(BATCH)
         form.get_by_role("button", name="Review combined agreement", exact=True).click()
         summary = page.locator("#agreement-summary")
@@ -118,9 +110,7 @@ def run(browser, width):
             "Campaign scope " + SCOPE,
         ):
             expect(summary).to_contain_text(text)
-        fingerprints = summary.locator("details").filter(
-            has_text="Exact approved content, rights and targeting hashes"
-        )
+        fingerprints = summary.locator("details").filter(has_text="Exact approved content, rights and targeting hashes")
         assert fingerprints.count() == 1
         expect(fingerprints).not_to_have_attribute("open", "")
         fingerprints.locator("summary").focus()
@@ -132,22 +122,14 @@ def run(browser, width):
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         assert summary.evaluate("(node) => node.scrollWidth <= node.clientWidth + 1")
         page.screenshot(path=str(OUT / f"agreement-paid-{width}.png"), full_page=True)
-        (OUT / f"agreement-paid-{width}.html").write_text(
-            page.content(), encoding="utf-8"
-        )
+        (OUT / f"agreement-paid-{width}.html").write_text(page.content(), encoding="utf-8")
         summary.locator("article").first.scroll_into_view_if_needed()
-        page.screenshot(
-            path=str(OUT / f"agreement-paid-detail-{width}.png"), full_page=True
-        )
+        page.screenshot(path=str(OUT / f"agreement-paid-detail-{width}.png"), full_page=True)
         with page.expect_popup() as report_info:
-            page.get_by_role(
-                "button", name="Agreement report / Save PDF", exact=True
-            ).click()
+            page.get_by_role("button", name="Agreement report / Save PDF", exact=True).click()
         report = report_info.value
         expect(report.locator("body")).to_contain_text("Combined automation agreement")
-        expect(report.locator("body")).to_contain_text(
-            "Maximum total media commitment 100 minor CAD"
-        )
+        expect(report.locator("body")).to_contain_text("Maximum total media commitment 100 minor CAD")
         expected_padding = "20px" if width <= 600 else "32px"
         report.wait_for_function(
             "(padding) => getComputedStyle(document.body).paddingLeft === padding",
@@ -155,21 +137,28 @@ def run(browser, width):
         )
         assert report.evaluate("document.documentElement.scrollWidth <= innerWidth")
         report_text = report.locator("body").inner_text()
-        for expected in ("WMM background worker", "Owner " + OWNER["principal"],
-                         "Batch " + BATCH, "Campaign scope " + SCOPE,
-                         "Local policy " + local_work["id"] + " " + local_work["effective_status"],
-                         "local-work agent " + local_work["summary"]["inventory"]["selection"]["agent_id"],
-                         "Local-work permitted operations " + ", ".join(local_work["summary"]["operations"]),
-                         "Local-work permission expires " + local_work["summary"]["stops_at"],
-                         "Local-work calls " + str(local_usage["used"]) + "/" + str(local_usage["max_calls"]),
-                         "Local-work spend limit 0 minor",
-                         "Per-campaign media cap 90 minor CAD",
-                         "Maximum total media commitment 100 minor CAD",
-                         "Page for posts Facebook Page 123 · paid promotion Meta ad account 456",
-                         "Scope destination Meta ad account 456",
-                         "Approved content fingerprints:", fixture.post["content_hash"],
-                         "Approved rights fingerprints:", "b" * 64,
-                         "Approved targeting fingerprints:", digest(dict(countries=["CA"]))):
+        for expected in (
+            "WMM background worker",
+            "Owner " + OWNER["principal"],
+            "Batch " + BATCH,
+            "Campaign scope " + SCOPE,
+            "Local policy " + local_work["id"] + " " + local_work["effective_status"],
+            "local-work agent " + local_work["summary"]["inventory"]["selection"]["agent_id"],
+            "Local-work permitted operations " + ", ".join(local_work["summary"]["operations"]),
+            "Local-work permission expires " + local_work["summary"]["stops_at"],
+            "Local-work calls " + str(local_usage["used"]) + "/" + str(local_usage["max_calls"]),
+            "Local-work spend limit 0 minor",
+            "Per-campaign media cap 90 minor CAD",
+            "Maximum total media commitment 100 minor CAD",
+            "Page for posts Facebook Page 123 · paid promotion Meta ad account 456",
+            "Scope destination Meta ad account 456",
+            "Approved content fingerprints:",
+            fixture.post["content_hash"],
+            "Approved rights fingerprints:",
+            "b" * 64,
+            "Approved targeting fingerprints:",
+            digest(dict(countries=["CA"])),
+        ):
             assert expected in report_text, expected
         for private in (
             fixture.post["message"],
@@ -179,27 +168,20 @@ def run(browser, width):
             "synthetic-private-marker-never-public",
         ):
             assert private not in report_text
-        report.screenshot(
-            path=str(OUT / f"agreement-paid-report-{width}.png"), full_page=True
-        )
-        (OUT / f"agreement-paid-report-{width}.html").write_text(
-            report.content(), encoding="utf-8"
-        )
+        report.screenshot(path=str(OUT / f"agreement-paid-report-{width}.png"), full_page=True)
+        (OUT / f"agreement-paid-report-{width}.html").write_text(report.content(), encoding="utf-8")
         report.close()
-        assert baseline == fixture.fixture.dump(), (
-            "Read-only agreement changed durable state"
-        )
+        assert baseline == fixture.fixture.dump(), "Read-only agreement changed durable state"
         allowed = (
             "/agent-grants/automation-status",
             "/campaigns/history",
             "/campaigns/schedule-history",
+            "/campaign-monitor/history",
             "/agent-grants/agreement-preview",
         )
-        writes = [url for method, url in requests if method != "GET"]
-        assert len(writes) == 4, writes
-        assert all(any(url.endswith(suffix) for suffix in allowed) for url in writes), (
-            writes
-        )
+        expected_posts = sorted(("POST", origin + "/api/apps/sample-one" + path) for path in allowed)
+        posts = sorted((method, url) for method, url in requests if method != "GET")
+        assert posts == expected_posts, posts
         assert not errors, errors
         return dict(
             width=width,
@@ -221,7 +203,7 @@ def run(browser, width):
             report_responsive_styles_loaded=True,
             no_overflow=True,
             no_business_writes=True,
-            read_only_posts=len(writes),
+            read_only_posts=len(posts),
             provider="SYNTHETIC_HISTORY_ONLY",
             javascript_errors=errors,
         )
@@ -240,14 +222,14 @@ def main():
     """Forbid inference, provider and vault access while running both viewports."""
     sources = [
         "tools/test_agreement_paid_browser.py",
-        "mission_control/static/guided-workflow.js",
-        "mission_control/static/app.js",
+        "mission_control/static/guided-workflow.mjs",
+        "mission_control/static/campaign-monitor.mjs",
+        "mission_control/static/app.mjs",
         "mission_control/automation_agreement.py",
+        "mission_control/campaign_monitor.py",
         "tests/test_automation_agreement.py",
     ]
-    initial_hashes = {
-        name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in sources
-    }
+    initial_hashes = {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in sources}
     OUT.mkdir(parents=True, exist_ok=True)
     with (
         sync_playwright() as playwright,
@@ -273,20 +255,14 @@ def main():
             observations = [run(browser, width) for width in (1440, 390)]
         finally:
             browser.close()
-    final_hashes = {
-        name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in sources
-    }
-    assert initial_hashes == final_hashes, (
-        "Acceptance sources changed while the browser ran"
-    )
+    final_hashes = {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in sources}
+    assert initial_hashes == final_hashes, "Acceptance sources changed while the browser ran"
     result = dict(
         status="PASS",
         observations=observations,
         source_sha256=final_hashes,
     )
-    (OUT / "agreement-paid-browser.json").write_text(
-        json.dumps(result, indent=2), encoding="utf-8"
-    )
+    (OUT / "agreement-paid-browser.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps(result))
 
 

@@ -1,4 +1,5 @@
 """The canonical test entry point reports profiles without pretending optional suites passed."""
+
 import importlib.util
 from pathlib import Path
 import unittest

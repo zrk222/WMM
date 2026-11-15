@@ -1,4 +1,5 @@
 """Native owner expiry actions exercise real host identity and SQLite boundaries."""
+
 from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
@@ -20,15 +21,25 @@ class NativeBridgeExpiryRouteContractTests(unittest.TestCase):
         swift_lists = {
             "automation": ("preview", "activate", "status", "off", *expiry),
             "agentAccess": (
-                "list", "issue", "revoke", "handoff-list", "handoff-create",
-                "handoff-revoke", *expiry,
+                "list",
+                "issue",
+                "revoke",
+                "handoff-list",
+                "handoff-create",
+                "handoff-revoke",
+                *expiry,
             ),
         }
         objc_lists = {
             "automation": ("preview", "activate", "status", "off", *expiry),
             "agentAccess": (
-                "list", "issue", "revoke", "handoff-list", "handoff-create",
-                "handoff-revoke", *expiry,
+                "list",
+                "issue",
+                "revoke",
+                "handoff-list",
+                "handoff-create",
+                "handoff-revoke",
+                *expiry,
             ),
         }
         for action, expected in swift_lists.items():
@@ -54,8 +65,12 @@ def future(hours):
 
 
 def confirm(preview):
-    return dict(preview=preview['preview'], preview_hash=preview['preview_hash'],
-                request_id=str(uuid4()), extended_expiry_consent=True)
+    return dict(
+        preview=preview["preview"],
+        preview_hash=preview["preview_hash"],
+        request_id=str(uuid4()),
+        extended_expiry_consent=True,
+    )
 
 
 class NativeGrantExpiryTests(unittest.TestCase):
@@ -70,36 +85,41 @@ class NativeGrantExpiryTests(unittest.TestCase):
         with self.assertRaises(Invalid):
             self.issue(expires=future(48))
         issued = self.issue(expires=future(48), extended_expiry_consent=True)
-        identity, token = issued['grant']['id'], issued['token']
+        identity, token = issued["grant"]["id"], issued["token"]
         self.call(token)
         with connection(self.path) as db:
-            before = dict(db.execute('SELECT * FROM agent_grants WHERE id=?', (identity,)).fetchone())
-        review = self.manage('extension-preview', dict(kind='AGENT_GRANT', id=identity, expires=future(96)))
-        self.assertEqual(review['preview']['usage']['used'], 1)
+            before = dict(db.execute("SELECT * FROM agent_grants WHERE id=?", (identity,)).fetchone())
+        review = self.manage("extension-preview", dict(kind="AGENT_GRANT", id=identity, expires=future(96)))
+        self.assertEqual(review["preview"]["usage"]["used"], 1)
         body = confirm(review)
         with self.assertRaises(Invalid):
-            self.manage('extension-confirm', dict(body, extended_expiry_consent=False))
-        result = self.manage('extension-confirm', body)
-        replay = self.manage('extension-confirm', body)
-        self.assertEqual(result['receipt']['receipt_hash'], replay['receipt']['receipt_hash'])
-        history = self.manage('extension-history', dict(kind='AGENT_GRANT', id=identity))
-        self.assertGreaterEqual(len(history['receipts']), 1)
+            self.manage("extension-confirm", dict(body, extended_expiry_consent=False))
+        result = self.manage("extension-confirm", body)
+        replay = self.manage("extension-confirm", body)
+        self.assertEqual(result["receipt"]["receipt_hash"], replay["receipt"]["receipt_hash"])
+        history = self.manage("extension-history", dict(kind="AGENT_GRANT", id=identity))
+        self.assertGreaterEqual(len(history["receipts"]), 1)
         with connection(self.path) as db:
-            after = dict(db.execute('SELECT * FROM agent_grants WHERE id=?', (identity,)).fetchone())
-        for field in ('id', 'token_hash', 'used', 'max_calls', 'version'):
+            after = dict(db.execute("SELECT * FROM agent_grants WHERE id=?", (identity,)).fetchone())
+        for field in ("id", "token_hash", "used", "max_calls", "version"):
             self.assertEqual(before[field], after[field])
         self.call(token)
 
     def test_wrong_owner_locked_and_forged_kind_are_denied(self):
         issued = self.issue()
-        body = dict(kind='AGENT_GRANT', id=issued['grant']['id'], expires=future(48))
-        review = self.manage('extension-preview', body)
-        forged = confirm(review); forged['preview'] = dict(forged['preview'], kind='AUTOMATION')
-        with self.assertRaises(Invalid): self.manage('extension-confirm', forged)
+        body = dict(kind="AGENT_GRANT", id=issued["grant"]["id"], expires=future(48))
+        review = self.manage("extension-preview", body)
+        forged = confirm(review)
+        forged["preview"] = dict(forged["preview"], kind="AUTOMATION")
+        with self.assertRaises(Invalid):
+            self.manage("extension-confirm", forged)
         self.available = False
-        with self.assertRaises(PermissionError): self.manage('extension-confirm', confirm(review))
-        self.available = True; self.principal = str(uuid4())
-        with self.assertRaises(PermissionError): self.manage('extension-preview', body)
+        with self.assertRaises(PermissionError):
+            self.manage("extension-confirm", confirm(review))
+        self.available = True
+        self.principal = str(uuid4())
+        with self.assertRaises(PermissionError):
+            self.manage("extension-preview", body)
 
 
 class NativeAutomationExpiryTests(unittest.TestCase):
@@ -114,26 +134,33 @@ class NativeAutomationExpiryTests(unittest.TestCase):
 
     def test_long_issuance_and_atomic_linked_extension(self):
         self.setup_standing()
-        proposal = self.proposal(); proposal['limits']['expires'] = future(48)
-        with self.assertRaises(Invalid): self.manage('preview', proposal)
-        proposal['extended_expiry_consent'] = True
-        preview = self.manage('preview', proposal)
-        issued = self.manage('activate', dict(proposal=preview['proposal'], summary_hash=preview['summary_hash'], confirm_scope=True))
-        identity = issued['policy_id']
+        proposal = self.proposal()
+        proposal["limits"]["expires"] = future(48)
+        with self.assertRaises(Invalid):
+            self.manage("preview", proposal)
+        proposal["extended_expiry_consent"] = True
+        preview = self.manage("preview", proposal)
+        issued = self.manage(
+            "activate", dict(proposal=preview["proposal"], summary_hash=preview["summary_hash"], confirm_scope=True)
+        )
+        identity = issued["policy_id"]
         with connection(self.path) as db:
-            before = dict(db.execute('SELECT * FROM agent_grants WHERE id=?', (issued['grant']['id'],)).fetchone())
-        review = self.manage('extension-preview', dict(kind='AUTOMATION', id=identity, expires=future(96)))
-        self.assertEqual(review['preview']['bundle'][0]['id'], before['id'])
-        self.manage('extension-confirm', confirm(review))
-        self.assertTrue(self.manage('extension-history', dict(kind='AUTOMATION', id=identity))['receipts'])
-        status = self.manage('status')['policies'][0]
-        self.assertEqual(status['effective_status'], 'ACTIVE')
-        self.assertEqual(status['permission_expires_at'], review['preview']['new_expiry'])
-        self.assertIsNotNone(status['verification_due_at'])
+            before = dict(db.execute("SELECT * FROM agent_grants WHERE id=?", (issued["grant"]["id"],)).fetchone())
+        review = self.manage("extension-preview", dict(kind="AUTOMATION", id=identity, expires=future(96)))
+        self.assertEqual(review["preview"]["bundle"][0]["id"], before["id"])
+        self.manage("extension-confirm", confirm(review))
+        self.assertTrue(self.manage("extension-history", dict(kind="AUTOMATION", id=identity))["receipts"])
+        status = self.manage("status")["policies"][0]
+        self.assertEqual(status["effective_status"], "ACTIVE")
+        self.assertEqual(status["permission_expires_at"], review["preview"]["new_expiry"])
+        self.assertIsNotNone(status["verification_due_at"])
         with connection(self.path) as db:
-            after = dict(db.execute('SELECT * FROM agent_grants WHERE id=?', (before['id'],)).fetchone())
-            linked = db.execute("SELECT count(*) FROM authority_expiry_consents WHERE kind='AGENT_GRANT' AND authority_id=?", (before['id'],)).fetchone()[0]
-        for field in ('id', 'token_hash', 'used', 'max_calls', 'version'):
+            after = dict(db.execute("SELECT * FROM agent_grants WHERE id=?", (before["id"],)).fetchone())
+            linked = db.execute(
+                "SELECT count(*) FROM authority_expiry_consents WHERE kind='AGENT_GRANT' AND authority_id=?",
+                (before["id"],),
+            ).fetchone()[0]
+        for field in ("id", "token_hash", "used", "max_calls", "version"):
             self.assertEqual(before[field], after[field])
         self.assertGreaterEqual(linked, 2)
 
@@ -144,37 +171,52 @@ class NativeRetainedJobExpiryTests(NativeAutomationExpiryTests):
         from mission_control.ios_automation import native_access
         from mission_control.ios_jobs import NativeJobs, native_pipeline_context
         from mission_control import worker
+
         self.setup_standing()
-        preview = self.manage('preview', self.proposal(['pipeline_preparation']))
-        issued = self.manage('activate', dict(proposal=preview['proposal'], summary_hash=preview['summary_hash'], confirm_scope=True))
+        preview = self.manage("preview", self.proposal(["pipeline_preparation"]))
+        issued = self.manage(
+            "activate", dict(proposal=preview["proposal"], summary_hash=preview["summary_hash"], confirm_scope=True)
+        )
         agent = NativeAgentAccess(self.runtime.service, self.runtime.identities)
-        payload = json.dumps(dict(app_id='new-app', operation='pipeline.prepare',
-            input=dict(action='pipeline', data=dict(stage=1), request_key='native-expiry-job'))).encode()
+        payload = json.dumps(
+            dict(
+                app_id="new-app",
+                operation="pipeline.prepare",
+                input=dict(action="pipeline", data=dict(stage=1), request_key="native-expiry-job"),
+            )
+        ).encode()
         with native_access(self.runtime.service, self.runtime.identities, self.session, self.vault):
             with native_pipeline_context(self.runtime.service, self.runtime.identities, self.session):
-                queued = json.loads(agent.call(self.session, issued['token'], payload))
-        review = self.manage('extension-preview', dict(kind='AUTOMATION', id=issued['policy_id'], expires=future(48)))
-        self.manage('extension-confirm', confirm(review))
+                queued = json.loads(agent.call(self.session, issued["token"], payload))
+        review = self.manage("extension-preview", dict(kind="AUTOMATION", id=issued["policy_id"], expires=future(48)))
+        self.manage("extension-confirm", confirm(review))
         jobs = NativeJobs(self.runtime.service, self.runtime.identities)
-        call = lambda: jobs.call(self.session, 'new-app', 'run', json.dumps(dict(id=queued['id'])).encode())
+        call = lambda: jobs.call(self.session, "new-app", "run", json.dumps(dict(id=queued["id"])).encode())
         late = datetime.now(timezone.utc) + timedelta(hours=2)
         with native_access(self.runtime.service, self.runtime.identities, self.session, self.vault):
-            with patch('mission_control.complete_automation.utc', return_value=late):
-                with self.assertRaisesRegex(PermissionError, 'execution approval expired'): call()
+            with patch("mission_control.complete_automation.utc", return_value=late):
+                with self.assertRaisesRegex(PermissionError, "execution approval expired"):
+                    call()
         with connection(self.path) as db:
-            self.assertEqual(db.execute('SELECT status FROM jobs WHERE id=?', (queued['id'],)).fetchone()[0], 'QUEUED')
+            self.assertEqual(db.execute("SELECT status FROM jobs WHERE id=?", (queued["id"],)).fetchone()[0], "QUEUED")
         # Advance the authority clock after processing, so the final commit must recheck it.
         clock = [datetime.now(timezone.utc)]
         original = worker.process
+
         def process_then_expire(*args):
             result = original(*args)
             clock[0] = late
             return result
+
         with native_access(self.runtime.service, self.runtime.identities, self.session, self.vault):
-            with patch('mission_control.complete_automation.utc', side_effect=lambda: clock[0]), patch.object(worker, 'process', side_effect=process_then_expire):
-                with self.assertRaisesRegex(PermissionError, 'execution approval expired'): call()
+            with (
+                patch("mission_control.complete_automation.utc", side_effect=lambda: clock[0]),
+                patch.object(worker, "process", side_effect=process_then_expire),
+            ):
+                with self.assertRaisesRegex(PermissionError, "execution approval expired"):
+                    call()
         with connection(self.path) as db:
-            self.assertEqual(db.execute('SELECT status FROM jobs WHERE id=?', (queued['id'],)).fetchone()[0], 'RUNNING')
+            self.assertEqual(db.execute("SELECT status FROM jobs WHERE id=?", (queued["id"],)).fetchone()[0], "RUNNING")
 
 
 from tests import test_ios_standing_media as media
@@ -199,15 +241,25 @@ class NativeRetainedMediaExpiryTests(unittest.TestCase):
 
     def test_standing_render_cannot_inherit_extended_parent(self):
         job = self.queue_scene()
+
         def manage(action, body):
-            return json.loads(self.runtime.native_automation(self.session, 'new-app', action, json.dumps(body).encode()))
-        review = manage('extension-preview', dict(kind='AUTOMATION', id=self.issued['policy_id'], expires=future(48)))
-        manage('extension-confirm', confirm(review))
-        self.assertEqual(self.host('scene', 'validate', job)['packet_hash'], job['packet_hash'])
-        with patch('mission_control.complete_automation.utc', return_value=datetime.now(timezone.utc) + timedelta(hours=2)):
-            with self.assertRaisesRegex(PermissionError, 'execution approval expired'): self.host('scene', 'validate', job)
+            return json.loads(
+                self.runtime.native_automation(self.session, "new-app", action, json.dumps(body).encode())
+            )
+
+        review = manage("extension-preview", dict(kind="AUTOMATION", id=self.issued["policy_id"], expires=future(48)))
+        manage("extension-confirm", confirm(review))
+        self.assertEqual(self.host("scene", "validate", job)["packet_hash"], job["packet_hash"])
+        with patch(
+            "mission_control.complete_automation.utc", return_value=datetime.now(timezone.utc) + timedelta(hours=2)
+        ):
+            with self.assertRaisesRegex(PermissionError, "execution approval expired"):
+                self.host("scene", "validate", job)
         with connection(self.path) as db:
-            self.assertEqual(db.execute('SELECT status FROM ios_studio_jobs WHERE id=?', (job['job_id'],)).fetchone()[0], 'PREPARED')
+            self.assertEqual(
+                db.execute("SELECT status FROM ios_studio_jobs WHERE id=?", (job["job_id"],)).fetchone()[0], "PREPARED"
+            )
 
 
-if __name__ == '__main__': unittest.main()
+if __name__ == "__main__":
+    unittest.main()

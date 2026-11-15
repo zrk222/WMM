@@ -1,16 +1,16 @@
 """Private packaged entry and actual loopback server, without GUI or provider access."""
 
 import json
-from pathlib import Path
 import socket
 import subprocess
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 from urllib.request import urlopen
 
-from mission_control.desktop import DesktopRuntime, data_directory, dispatch, main
+from mission_control.desktop import DesktopRuntime, LoopbackUnavailable, data_directory, dispatch, main
 from mission_control.workspace_lock import WorkspaceBusy
 
 
@@ -21,39 +21,40 @@ class DesktopEntryTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
-            runtime = DesktopRuntime(root / 'owner', 0, fixed_port=True)
+            runtime = DesktopRuntime(root / "owner", 0, fixed_port=True)
             try:
                 port = runtime.server.server_port
                 self.assertNotEqual(port, 8765)
                 store = runtime.server.service.store
-                app = store.app('sample-one')
-                store.save_app('sample-one', {**app['data'], 'name': 'Synthetic owner fixture'}, app['version'])
+                app = store.app("sample-one")
+                store.save_app("sample-one", {**app["data"], "name": "Synthetic owner fixture"}, app["version"])
                 origin = runtime.start(workers=False)
-                other_store = Store(root / 'other.sqlite3')
+                other_store = Store(root / "other.sqlite3")
                 duplicate = None
                 try:
                     with self.assertRaises(OSError):
-                        duplicate = Server(('127.0.0.1', port), other_store)
+                        duplicate = Server(("127.0.0.1", port), other_store)
                 finally:
                     if duplicate is not None:
                         duplicate.server_close()
                 with socket.socket() as competitor:
                     competitor.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                     with self.assertRaises(OSError):
-                        competitor.bind(('127.0.0.1', port))
-                with urlopen(origin + '/api/bootstrap', timeout=5) as response:
-                    apps = json.load(response)['apps']
-                self.assertEqual(next(a for a in apps if a['id'] == 'sample-one')['data']['name'],
-                                 'Synthetic owner fixture')
+                        competitor.bind(("127.0.0.1", port))
+                with urlopen(origin + "/api/bootstrap", timeout=5) as response:
+                    apps = json.load(response)["apps"]
+                self.assertEqual(
+                    next(a for a in apps if a["id"] == "sample-one")["data"]["name"], "Synthetic owner fixture"
+                )
             finally:
                 runtime.close()
             # A separate listener with no accepted connections avoids depending on
             # platform TCP TIME_WAIT behavior when verifying socket release.
-            unconnected = DesktopRuntime(root / 'unconnected', 0, fixed_port=True)
+            unconnected = DesktopRuntime(root / "unconnected", 0, fixed_port=True)
             unused_port = unconnected.server.server_port
             self.assertNotEqual(unused_port, 8765)
             unconnected.close()
-            reopened = DesktopRuntime(root / 'unconnected', unused_port, fixed_port=True)
+            reopened = DesktopRuntime(root / "unconnected", unused_port, fixed_port=True)
             reopened.close()
 
     def test_headless_start_exposes_mode_on_loopback_without_workspace_paths(self):
@@ -61,11 +62,16 @@ class DesktopEntryTests(unittest.TestCase):
             runtime = DesktopRuntime(Path(folder), 0, fixed_port=True, headless=True)
             try:
                 origin = runtime.start(workers=False)
-                with urlopen(origin + '/api/apps/sample-one/workflow-telemetry', timeout=5) as response:
+                with urlopen(origin + "/api/apps/sample-one/workflow-telemetry", timeout=5) as response:
                     value = json.load(response)
-                self.assertEqual(value['worker'], {
-                    'runtime_mode': 'HEADLESS', 'status': 'STARTING', 'last_success': None,
-                })
+                self.assertEqual(
+                    value["worker"],
+                    {
+                        "runtime_mode": "HEADLESS",
+                        "status": "STARTING",
+                        "last_success": None,
+                    },
+                )
                 self.assertNotIn(str(folder), json.dumps(value))
             finally:
                 runtime.close()
@@ -73,7 +79,7 @@ class DesktopEntryTests(unittest.TestCase):
     def test_ephemeral_wmm_listener_drives_fixed_refusal_and_fallback(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
-            owner = DesktopRuntime(root / 'owner', 0, fixed_port=True)
+            owner = DesktopRuntime(root / "owner", 0, fixed_port=True)
             fallback = None
             try:
                 port = owner.server.server_port
@@ -81,19 +87,19 @@ class DesktopEntryTests(unittest.TestCase):
                 owner.start(workers=False)
                 unexpected = None
                 try:
-                    with self.assertRaises(OSError):
-                        unexpected = DesktopRuntime(root / 'fixed', port, fixed_port=True)
+                    with self.assertRaisesRegex(LoopbackUnavailable, f"127.0.0.1:{port}"):
+                        unexpected = DesktopRuntime(root / "fixed", port, fixed_port=True)
                 finally:
                     if unexpected is not None:
                         unexpected.close()
                 # Reopen the failed workspace to prove its lock was released.
-                fixed = DesktopRuntime(root / 'fixed', 0, fixed_port=True)
+                fixed = DesktopRuntime(root / "fixed", 0, fixed_port=True)
                 fixed.close()
-                fallback = DesktopRuntime(root / 'fallback', port)
+                fallback = DesktopRuntime(root / "fallback", port)
                 self.assertNotEqual(fallback.server.server_port, port)
                 fallback.start(workers=False)
-                with urlopen(owner.origin + '/api/bootstrap', timeout=5) as response:
-                    self.assertTrue(json.load(response)['apps'])
+                with urlopen(owner.origin + "/api/bootstrap", timeout=5) as response:
+                    self.assertTrue(json.load(response)["apps"])
             finally:
                 if fallback is not None:
                     fallback.close()
@@ -123,9 +129,7 @@ class DesktopEntryTests(unittest.TestCase):
             try:
                 origin = runtime.start(workers=False)
                 self.assertEqual(runtime.server.server_address[0], "127.0.0.1")
-                self.assertNotEqual(
-                    runtime.server.server_port, occupied.getsockname()[1]
-                )
+                self.assertNotEqual(runtime.server.server_port, occupied.getsockname()[1])
                 self.assertEqual(runtime.start(workers=False), origin)
                 with urlopen(origin + "/api/bootstrap", timeout=5) as response:
                     self.assertIn("apps", json.load(response))
@@ -133,6 +137,7 @@ class DesktopEntryTests(unittest.TestCase):
                     self.assertIn(b"Set your goal", response.read())
             finally:
                 runtime.close()
+            assert runtime.thread is not None
             self.assertFalse(runtime.thread.is_alive())
             self.assertTrue((Path(folder) / "mission-control.sqlite3").is_file())
             self.assertEqual(runtime.server.fileno(), -1)
@@ -145,17 +150,14 @@ class DesktopEntryTests(unittest.TestCase):
         adapter = Mock()
         adapter.main.return_value = 0
         with patch("importlib.import_module", return_value=adapter) as imported:
-            adapter.main.side_effect = lambda: self.assertEqual(
-                sys.argv[1:], ["catalog"]
-            )
+            adapter.main.side_effect = lambda: self.assertEqual(sys.argv[1:], ["catalog"])
             self.assertTrue(dispatch(["--agent-cli", "catalog"]))
             imported.assert_called_once_with(".agent_cli", "mission_control")
         self.assertIs(sys.argv, before)
         adapter.main.side_effect = None
         adapter.main.return_value = 2
-        with patch("importlib.import_module", return_value=adapter):
-            with self.assertRaises(SystemExit) as error:
-                dispatch(["--mcp", "--origin", "http://127.0.0.1:8765"])
+        with patch("importlib.import_module", return_value=adapter), self.assertRaises(SystemExit) as error:
+            dispatch(["--mcp", "--origin", "http://127.0.0.1:8765"])
         self.assertEqual(error.exception.code, 2)
         self.assertIs(sys.argv, before)
         adapter.main.return_value = 0
@@ -223,11 +225,11 @@ class DesktopEntryTests(unittest.TestCase):
     def test_worker_start_failure_releases_workspace(self):
         with tempfile.TemporaryDirectory() as folder:
             runtime = DesktopRuntime(Path(folder), 0)
-            with patch.object(
-                runtime.server.runner, "start", side_effect=RuntimeError("synthetic")
+            with (
+                patch.object(runtime.server.runner, "start", side_effect=RuntimeError("synthetic")),
+                self.assertRaises(RuntimeError),
             ):
-                with self.assertRaises(RuntimeError):
-                    runtime.start()
+                runtime.start()
             resumed = DesktopRuntime(Path(folder), 0)
             resumed.close()
 
@@ -235,11 +237,11 @@ class DesktopEntryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             runtime = DesktopRuntime(Path(folder), 0)
             runtime.start()
-            with patch.object(
-                runtime.server.runner, "stop", side_effect=RuntimeError("synthetic")
+            with (
+                patch.object(runtime.server.runner, "stop", side_effect=RuntimeError("synthetic")),
+                self.assertRaises(RuntimeError),
             ):
-                with self.assertRaises(RuntimeError):
-                    runtime.close()
+                runtime.close()
             with self.assertRaises(WorkspaceBusy):
                 DesktopRuntime(Path(folder), 0)
             runtime.server.runner.stop()
@@ -251,9 +253,7 @@ class DesktopEntryTests(unittest.TestCase):
         runtime = Mock()
         runtime.start.return_value = "http://127.0.0.1:8765"
         with (
-            patch(
-                "mission_control.desktop.DesktopRuntime", return_value=runtime
-            ) as factory,
+            patch("mission_control.desktop.DesktopRuntime", return_value=runtime) as factory,
             patch("mission_control.desktop.threading.Event") as event,
             patch("mission_control.desktop.signal.signal", return_value=None),
             patch("webbrowser.open") as browser,
@@ -294,8 +294,8 @@ class DesktopEntryTests(unittest.TestCase):
         self.assertTrue(all(value == "previous" for value in handlers.values()))
 
     def test_locked_native_vault_remains_failure_without_fallback(self):
-        from mission_control.linux_vault import LinuxVault
         from mission_control.common import Invalid
+        from mission_control.linux_vault import LinuxVault
 
         vault = LinuxVault.__new__(LinuxVault)
         vault.library = Mock()
@@ -313,13 +313,35 @@ class DesktopEntryTests(unittest.TestCase):
             run.assert_called_once()
             browser.assert_not_called()
 
+    def test_headless_port_conflict_exits_with_repair_instead_of_success(self):
+        with (
+            patch(
+                "mission_control.desktop.DesktopRuntime",
+                side_effect=LoopbackUnavailable(10048, "Free local port 8765, then restart the worker."),
+            ),
+            patch("builtins.print") as output,
+            self.assertRaisesRegex(SystemExit, "Free local port 8765"),
+        ):
+            main(["--headless"])
+        output.assert_not_called()
+
     def test_headless_runtime_uses_user_path_and_process_exit_releases_lock(self):
+        with socket.socket() as probe:
+            try:
+                if sys.platform != "win32":
+                    probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                probe.bind(("127.0.0.1", 8765))
+            except OSError as error:
+                self.skipTest(f"Fixed loopback port is unavailable: {error}")
         with tempfile.TemporaryDirectory() as folder:
             environment = dict(__import__("os").environ)
             if sys.platform == "win32":
                 environment["LOCALAPPDATA"] = folder
+            elif sys.platform == "darwin":
+                environment["HOME"] = folder
             else:
                 environment["XDG_DATA_HOME"] = folder
+            data_root = Path(folder) / "Library/Application Support" if sys.platform == "darwin" else Path(folder)
             child = subprocess.Popen(
                 [sys.executable, "-u", "-m", "mission_control.desktop", "--headless"],
                 stdout=subprocess.PIPE,
@@ -327,6 +349,7 @@ class DesktopEntryTests(unittest.TestCase):
                 text=True,
                 env=environment,
             )
+            assert child.stdout is not None and child.stderr is not None
             try:
                 line = child.stdout.readline()
                 data = json.loads(line)
@@ -337,16 +360,8 @@ class DesktopEntryTests(unittest.TestCase):
                 else:
                     child.send_signal(__import__("signal").SIGTERM)
                 child.wait(timeout=30)
-                self.assertTrue(
-                    (
-                        Path(folder)
-                        / "Wize Marketing Machine"
-                        / "mission-control.sqlite3"
-                    ).exists()
-                )
-                runtime = DesktopRuntime(
-                    Path(folder) / "Wize Marketing Machine", 0, fixed_port=True
-                )
+                self.assertTrue((data_root / "Wize Marketing Machine" / "mission-control.sqlite3").exists())
+                runtime = DesktopRuntime(data_root / "Wize Marketing Machine", 0, fixed_port=True)
                 runtime.close()
             finally:
                 if child.poll() is None:
@@ -358,18 +373,21 @@ class DesktopEntryTests(unittest.TestCase):
     def test_build_manifest_includes_explicit_public_assets_not_workspace_data(self):
         import runpy
 
-        command = runpy.run_path(
-            str(Path(__file__).resolve().parents[1] / "tools/build_desktop.py")
-        )["command"]
+        command = runpy.run_path(str(Path(__file__).resolve().parents[1] / "tools/build_desktop.py"))["command"]
         argv = command()
         data = [argv[i + 1] for i, value in enumerate(argv) if value == "--add-data"]
-        self.assertEqual(len(data), 7)
-        self.assertTrue(
-            any("mission_control/static" in item.replace("\\", "/") for item in data)
+        self.assertEqual(len(data), 9)
+        self.assertIn(
+            str(Path(__file__).resolve().parents[1] / "licenses/Apache-2.0.txt") + ":licenses",
+            data,
         )
-        self.assertFalse(
-            any("mission_control/data" in item.replace("\\", "/") for item in data)
+        self.assertTrue(any("mission_control/static" in item.replace("\\", "/") for item in data))
+        self.assertIn(
+            str(Path(__file__).resolve().parents[1] / "mission_control/migrations/*.sql")
+            + ":mission_control/migrations",
+            data,
         )
+        self.assertFalse(any("mission_control/data" in item.replace("\\", "/") for item in data))
         self.assertIn("--onedir", argv)
         self.assertNotIn("--onefile", argv)
         self.assertIn("mcp", argv)
@@ -377,126 +395,174 @@ class DesktopEntryTests(unittest.TestCase):
     def test_disposable_vault_probe_verifies_cleanup_without_secret_output(self):
         from contextlib import redirect_stdout
         from io import StringIO
+
         from mission_control.desktop import vault_self_test
+
         saved = {}
         vault = Mock()
         vault.get.side_effect = lambda key: saved.get(key)
         vault.put.side_effect = lambda key, value: saved.__setitem__(key, value)
         vault.delete.side_effect = lambda key: saved.pop(key, None)
         output = StringIO()
-        with patch('mission_control.credential_vault.Vault', return_value=vault), redirect_stdout(output):
+        with patch("mission_control.credential_vault.Vault", return_value=vault), redirect_stdout(output):
             vault_self_test()
         self.assertFalse(saved)
         self.assertEqual(vault.put.call_count, 1)
         self.assertEqual(vault.delete.call_count, 1)
-        self.assertTrue(vault.put.call_args.args[0].startswith('WMM/disposable-package-test/'))
-        self.assertNotIn('synthetic-private-', output.getvalue())
-        self.assertTrue(json.loads(output.getvalue())['synthetic_item_removed'])
+        self.assertTrue(vault.put.call_args.args[0].startswith("WMM/disposable-package-test/"))
+        self.assertNotIn("synthetic-private-", output.getvalue())
+        self.assertTrue(json.loads(output.getvalue())["synthetic_item_removed"])
 
     def test_disposable_vault_probe_cleans_up_failed_readback(self):
         from contextlib import redirect_stdout
         from io import StringIO
+
         from mission_control.desktop import vault_self_test
+
         vault = Mock()
-        vault.get.side_effect = [None, {'wrong': 'value'}]
+        vault.get.side_effect = [None, {"wrong": "value"}]
         output = StringIO()
-        with patch('mission_control.credential_vault.Vault', return_value=vault), redirect_stdout(output):
-            with self.assertRaises(RuntimeError):
-                vault_self_test()
+        with (
+            patch("mission_control.credential_vault.Vault", return_value=vault),
+            redirect_stdout(output),
+            self.assertRaises(RuntimeError),
+        ):
+            vault_self_test()
         vault.delete.assert_called_once()
-        self.assertEqual(output.getvalue(), '')
+        self.assertEqual(output.getvalue(), "")
 
     def test_linux_bundle_explicitly_collects_protected_storage(self):
         import runpy
-        with patch('sys.platform', 'linux'):
-            argv = runpy.run_path(str(Path(__file__).resolve().parents[1]/'tools/build_desktop.py'))['command']()
-        self.assertIn('secretstorage', argv)
-        self.assertIn('jeepney', argv)
+
+        with patch("sys.platform", "linux"):
+            argv = runpy.run_path(str(Path(__file__).resolve().parents[1] / "tools/build_desktop.py"))["command"]()
+        self.assertIn("secretstorage", argv)
+        self.assertIn("jeepney", argv)
 
     def test_only_windows_bundle_collects_native_identity_trust(self):
         import runpy
-        for platform in ('win32', 'linux', 'darwin'):
-            with self.subTest(platform=platform), patch('sys.platform', platform):
-                argv = runpy.run_path(str(Path(__file__).resolve().parents[1]/'tools/build_desktop.py'))['command']()
-            self.assertEqual('truststore' in argv, platform == 'win32')
-            if platform == 'win32':
-                index = argv.index('truststore')
-                self.assertEqual(argv[index - 1], '--collect-all')
+
+        for platform in ("win32", "linux", "darwin"):
+            with self.subTest(platform=platform), patch("sys.platform", platform):
+                argv = runpy.run_path(str(Path(__file__).resolve().parents[1] / "tools/build_desktop.py"))["command"]()
+            self.assertEqual("truststore" in argv, platform == "win32")
+            if platform == "win32":
+                index = argv.index("truststore")
+                self.assertEqual(argv[index - 1], "--collect-all")
 
     def test_self_test_constructs_verified_identity_context_without_provider_access(self):
         from contextlib import redirect_stdout
         from io import StringIO
+
         from mission_control.desktop import self_test
+
         output = StringIO()
-        with patch('mission_control.operator_identity.github_read', side_effect=AssertionError('provider request')) as provider, \
-                patch('mission_control.desktop.data_directory', side_effect=AssertionError('user data')) as user_data, \
-                redirect_stdout(output):
+        with (
+            patch(
+                "mission_control.operator_identity.github_read", side_effect=AssertionError("provider request")
+            ) as provider,
+            patch("mission_control.desktop.data_directory", side_effect=AssertionError("user data")) as user_data,
+            redirect_stdout(output),
+        ):
             self_test()
         value = json.loads(output.getvalue())
-        self.assertEqual(value['status'], 'PASS')
-        self.assertEqual(value['provider_execution'], 'NOT_RUN')
-        self.assertEqual(value['data'], 'DISPOSABLE_SYNTHETIC')
-        self.assertEqual(value['identity_tls'], dict(
-            profile='WINDOWS_NATIVE_TRUSTSTORE' if sys.platform == 'win32' else 'STDLIB_DEFAULT',
-            context_constructed=True, certificate_required=True, check_hostname=True,
-            minimum_tls_version='TLSv1_2'))
+        self.assertEqual(value["status"], "PASS")
+        self.assertEqual(value["provider_execution"], "NOT_RUN")
+        self.assertEqual(value["data"], "DISPOSABLE_SYNTHETIC")
+        self.assertEqual(
+            value["identity_tls"],
+            dict(
+                profile="WINDOWS_NATIVE_TRUSTSTORE" if sys.platform == "win32" else "STDLIB_DEFAULT",
+                context_constructed=True,
+                certificate_required=True,
+                check_hostname=True,
+                minimum_tls_version="TLSv1_2",
+            ),
+        )
         provider.assert_not_called()
         user_data.assert_not_called()
 
     def test_self_test_native_context_failure_stops_before_runtime_and_pass_output(self):
         from contextlib import redirect_stdout
         from io import StringIO
+
         from mission_control.desktop import self_test
+
         output = StringIO()
-        with patch('mission_control.operator_identity._identity_trust_context', side_effect=RuntimeError('native provider missing')), \
-                patch('mission_control.desktop.DesktopRuntime') as runtime, redirect_stdout(output):
-            with self.assertRaisesRegex(RuntimeError, 'native provider missing'):
-                self_test()
+        with (
+            patch(
+                "mission_control.operator_identity._identity_trust_context",
+                side_effect=RuntimeError("native provider missing"),
+            ),
+            patch("mission_control.desktop.DesktopRuntime") as runtime,
+            redirect_stdout(output),
+            self.assertRaisesRegex(RuntimeError, "native provider missing"),
+        ):
+            self_test()
         runtime.assert_not_called()
-        self.assertEqual(output.getvalue(), '')
+        self.assertEqual(output.getvalue(), "")
 
     def test_self_test_rejects_unsafe_identity_context_before_runtime(self):
         import ssl
         from contextlib import redirect_stdout
         from io import StringIO
+
         from mission_control.desktop import self_test
-        for mode in ('certificate', 'hostname', 'minimum_tls'):
+
+        for mode in ("certificate", "hostname", "minimum_tls"):
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-            if mode == 'minimum_tls':
+            if mode == "minimum_tls":
                 context.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
             else:
                 context.check_hostname = False
-                if mode == 'certificate':
+                if mode == "certificate":
                     context.verify_mode = ssl.CERT_NONE
             output = StringIO()
-            with self.subTest(mode=mode), \
-                    patch('mission_control.operator_identity._identity_trust_context', return_value=context), \
-                    patch('mission_control.desktop.DesktopRuntime') as runtime, redirect_stdout(output):
-                with self.assertRaises(AssertionError):
-                    self_test()
+            with (
+                self.subTest(mode=mode),
+                patch("mission_control.operator_identity._identity_trust_context", return_value=context),
+                patch("mission_control.desktop.DesktopRuntime") as runtime,
+                redirect_stdout(output),
+                self.assertRaises(AssertionError),
+            ):
+                self_test()
             runtime.assert_not_called()
-            self.assertEqual(output.getvalue(), '')
+            self.assertEqual(output.getvalue(), "")
 
     def test_packaged_smoke_rejects_missing_or_unsafe_identity_tls_flags(self):
         import runpy
         from contextlib import redirect_stdout
         from io import StringIO
-        main = runpy.run_path(str(Path(__file__).resolve().parents[1]/'tools/smoke_desktop_bundle.py'))['main']
-        tls = dict(profile='WINDOWS_NATIVE_TRUSTSTORE' if sys.platform == 'win32' else 'STDLIB_DEFAULT',
-            context_constructed=True, certificate_required=True, check_hostname=True, minimum_tls_version='TLSv1_2')
-        invalid = [dict(status='PASS')]
-        for key, value in (('profile', 'WRONG_PROVIDER'), ('context_constructed', False),
-                           ('certificate_required', False), ('check_hostname', False),
-                           ('minimum_tls_version', 'TLSv1')):
-            invalid.append(dict(status='PASS', identity_tls=dict(tls, **{key: value})))
-        for value in invalid:
-            with self.subTest(value=value), patch('subprocess.run', side_effect=[
-                    Mock(stdout='{}', returncode=0), Mock(stdout=json.dumps(value), returncode=0)
-                    ]) as execute, redirect_stdout(StringIO()):
-                with self.assertRaises((AssertionError, KeyError)):
-                    main()
-            self.assertEqual(execute.call_count, 2)
 
+        main = runpy.run_path(str(Path(__file__).resolve().parents[1] / "tools/smoke_desktop_bundle.py"))["main"]
+        tls = dict(
+            profile="WINDOWS_NATIVE_TRUSTSTORE" if sys.platform == "win32" else "STDLIB_DEFAULT",
+            context_constructed=True,
+            certificate_required=True,
+            check_hostname=True,
+            minimum_tls_version="TLSv1_2",
+        )
+        invalid: list[dict[str, object]] = [dict(status="PASS")]
+        for key, value in (
+            ("profile", "WRONG_PROVIDER"),
+            ("context_constructed", False),
+            ("certificate_required", False),
+            ("check_hostname", False),
+            ("minimum_tls_version", "TLSv1"),
+        ):
+            invalid.append(dict(status="PASS", identity_tls=dict(tls, **{key: value})))
+        for value in invalid:
+            with (
+                self.subTest(value=value),
+                patch(
+                    "subprocess.run",
+                    side_effect=[Mock(stdout="{}", returncode=0), Mock(stdout=json.dumps(value), returncode=0)],
+                ) as execute,
+                redirect_stdout(StringIO()),
+                self.assertRaises((AssertionError, KeyError)),
+            ):
+                main()
+            self.assertEqual(execute.call_count, 2)
 
 
 if __name__ == "__main__":

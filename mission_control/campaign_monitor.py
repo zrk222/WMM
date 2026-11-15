@@ -2,6 +2,10 @@
 
 import json
 import time
+from collections.abc import Iterable, Mapping
+from sqlite3 import Connection, Row
+from typing import NotRequired, TypedDict, cast
+
 from .common import Invalid, canonical, digest, iso_time, now, uid
 from .db import connection
 from .review_access import member
@@ -15,6 +19,28 @@ CREATE TABLE IF NOT EXISTS campaign_monitors (
  units INTEGER NOT NULL DEFAULT 0, pauses INTEGER NOT NULL DEFAULT 0,
  last_job TEXT, created TEXT NOT NULL, updated TEXT NOT NULL);
 """
+
+
+class ObservationReceipt(TypedDict):
+    job_id: str
+    status: str
+    updated: str
+    observations: list[dict[str, str | int]]
+    external_execution: NotRequired[str]
+
+
+class _ProtectivePlan(TypedDict):
+    protective_conditions: list[str]
+    expires_at: str
+    scope_id: str
+    targets: list[dict[str, str]]
+
+
+class _RetainedMonitorSummary(TypedDict):
+    proposal: _ProtectivePlan
+    source: dict[str, object]
+
+
 CONDITIONS = ("configuration_drift", "active_after_end")
 FIELDS = (
     "scope_id",
@@ -31,6 +57,12 @@ FIELDS = (
 def initialize(store):
     with connection(store.path) as db:
         db.executescript(SCHEMA)
+
+
+def monitor_table_exists(db):
+    return (
+        db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='campaign_monitors'").fetchone() is not None
+    )
 
 
 def whole(value, low, high):
@@ -68,18 +100,12 @@ def _targets(targets):
 
 
 def _conditions(conditions, attempts):
-    if not isinstance(conditions, list) or any(
-        not isinstance(c, str) for c in conditions
-    ):
+    if not isinstance(conditions, list) or any(not isinstance(c, str) for c in conditions):
         raise Invalid("Protective conditions must be named strings")
-    if len(set(conditions)) != len(conditions) or any(
-        c not in CONDITIONS for c in conditions
-    ):
+    if len(set(conditions)) != len(conditions) or any(c not in CONDITIONS for c in conditions):
         raise Invalid("Select only the displayed protective conditions")
     if bool(conditions) != bool(attempts):
-        raise Invalid(
-            "Approve protective conditions and finite pause attempts together"
-        )
+        raise Invalid("Approve protective conditions and finite pause attempts together")
 
 
 def actor(store, app_id):
@@ -87,9 +113,7 @@ def actor(store, app_id):
 
     context, principal = identity(store, app_id)
     if "principal" not in context:
-        raise PermissionError(
-            "Only a freshly authenticated owner may manage monitoring"
-        )
+        raise PermissionError("Only a freshly authenticated owner may manage monitoring")
     return principal
 
 
@@ -106,7 +130,8 @@ def source(db, app_id, principal, scope_id):
     if digest(scope) != row["summary_hash"]:
         raise Invalid("Campaign approval integrity changed")
     from .campaign_execution import scope_view
-    scope['permission_expires_at'] = scope_view(db, row)['permission_expires_at']
+
+    scope["permission_expires_at"] = scope_view(db, row)["permission_expires_at"]
     app = db.execute("SELECT * FROM apps WHERE id=?", (app_id,)).fetchone()
     if (
         scope["owner_principal"],
@@ -115,18 +140,13 @@ def source(db, app_id, principal, scope_id):
         scope["app_hash"],
     ) != (principal, role["version"], app["version"], digest(json.loads(app["data"]))):
         raise PermissionError("Campaign app or owner revision changed")
-    if (
-        row["status"] != "ACTIVE"
-        or iso_time(scope["permission_expires_at"]).timestamp() <= time.time()
-    ):
+    if row["status"] != "ACTIVE" or iso_time(scope["permission_expires_at"]).timestamp() <= time.time():
         raise PermissionError("Campaign approval is OFF or expired")
     connection_row = db.execute(
         "SELECT * FROM social_connections WHERE app_id=? AND id=?",
         (app_id, scope["connection_id"]),
     ).fetchone()
-    config = db.execute(
-        "SELECT * FROM social_configs WHERE app_id=? AND provider='facebook'", (app_id,)
-    ).fetchone()
+    config = db.execute("SELECT * FROM social_configs WHERE app_id=? AND provider='facebook'", (app_id,)).fetchone()
     check_connection(connection_row, config, scope)
     return dict(
         scope_id=scope_id,
@@ -167,53 +187,138 @@ def target_row(db, app_id, scope_id, target):
     """Never resolve a target outside its app, scope and immutable request hash."""
     for table in ("campaign_paid_intents", "campaign_intents"):
         row = db.execute(
-            "SELECT * FROM "
-            + table
-            + " WHERE app_id=? AND scope_id=? AND id=? AND request_hash=?",
+            "SELECT * FROM " + table + " WHERE app_id=? AND scope_id=? AND id=? AND request_hash=?",  # noqa: S608 - closed local table tuple
             (app_id, scope_id, target["intent_id"], target["request_hash"]),
         ).fetchone()
         if row is not None:
-            if (
-                table == "campaign_paid_intents"
-                and digest(json.loads(row["data"])) != row["request_hash"]
-            ):
+            if table == "campaign_paid_intents" and digest(json.loads(row["data"])) != row["request_hash"]:
                 raise PermissionError("Paid request integrity changed")
             return row, table == "campaign_paid_intents"
     raise PermissionError("Monitor target changed or is outside its campaign scope")
+
+
+def bound_targets(db: Connection, app_id: str, scope_id: str, targets: Iterable[Mapping[str, str]]) -> bool:
+    """Validate every exact target and report whether any paid intent is present."""
+    paid = False
+    for target in targets:
+        _, is_paid = target_row(db, app_id, scope_id, target)
+        paid = paid or is_paid
+    return paid
+
+
+def retained_summary(row: Row) -> _RetainedMonitorSummary:
+    """Reject unreadable or changed approval evidence before using any fields."""
+    try:
+        summary = json.loads(row["summary"])
+        if not isinstance(summary, dict) or digest(summary) != row["summary_hash"]:
+            raise Invalid("Monitor approval integrity changed")
+        if (summary["app_id"], summary["owner"]) != (row["app_id"], row["owner"]):
+            raise Invalid("Monitor summary ownership changed")
+        if not isinstance(summary["source"], dict):
+            raise Invalid("Monitor source evidence changed")
+        proposal(summary["proposal"])
+        return cast(_RetainedMonitorSummary, summary)
+    except (TypeError, ValueError, KeyError) as error:
+        raise Invalid("Saved monitor evidence needs repair") from error
 
 
 def checked(db, row):
     """Recheck retained owner authority without taking the owner's actor identity."""
     if row is None:
         raise PermissionError("Monitor is unavailable")
-    summary = json.loads(row["summary"])
-    if (summary["app_id"], summary["owner"]) != (row["app_id"], row["owner"]):
-        raise PermissionError("Monitor summary ownership changed")
-    if digest(summary) != row["summary_hash"]:
-        raise PermissionError("Monitor approval integrity changed")
-    if (
-        row["status"] != "ACTIVE"
-        or iso_time(summary["proposal"]["expires_at"]).timestamp() <= time.time()
-    ):
+    summary = retained_summary(row)
+    if row["status"] != "ACTIVE" or iso_time(summary["proposal"]["expires_at"]).timestamp() <= time.time():
         raise PermissionError("Monitor is OFF or expired")
-    current, _ = source(
-        db, row["app_id"], row["owner"], summary["proposal"]["scope_id"]
-    )
+    current, _ = source(db, row["app_id"], row["owner"], summary["proposal"]["scope_id"])
     if current != summary["source"]:
         raise PermissionError("Monitor source revisions changed")
-    for target in summary["proposal"]["targets"]:
-        target_row(db, row["app_id"], summary["proposal"]["scope_id"], target)
+    paid = bound_targets(db, row["app_id"], summary["proposal"]["scope_id"], summary["proposal"]["targets"])
+    if summary["proposal"]["protective_conditions"] and not paid:
+        raise PermissionError(
+            "Saved monitor requests protective pause without a paid campaign target; Page posts are read-only."
+        )
     return summary
 
 
+def pause_ineligible(db: Connection, row: Row, summary: _RetainedMonitorSummary) -> bool:
+    """Identify an otherwise-current monitor whose only issue is organic-only pause."""
+    plan = summary["proposal"]
+    if not plan["protective_conditions"]:
+        return False
+    if iso_time(plan["expires_at"]).timestamp() <= time.time():
+        return False
+    try:
+        current, _ = source(db, row["app_id"], row["owner"], plan["scope_id"])
+        if current != summary["source"]:
+            return False
+        return not bound_targets(db, row["app_id"], plan["scope_id"], plan["targets"])
+    except (Invalid, PermissionError, ValueError, KeyError):
+        return False
+
+
+def monitor_attention(row, proposal, effective, observation):
+    """Give the owner a safe next step from exact, sanitized evidence."""
+    if effective != "BLOCKED":
+        return None
+    if observation:
+        states = observation["observations"]
+        if (
+            observation.get("external_execution") == "MONITOR_INTERRUPTED_UNCONFIRMED"
+            or observation["status"] in {"RUNNING", "UNKNOWN", "FAILED", "BLOCKED"}
+            or (observation["status"] == "SUCCEEDED" and not states)
+            or any(
+                item["status"] == "UNKNOWN"
+                or item["status"].startswith(("ACK_", "PENDING_"))
+                or item.get("recovery")
+                in {"OWNER_UNVERIFIED", "LEASE_STATE_CONFLICT", "ABANDONED_UNKNOWN", "IN_FLIGHT"}
+                for item in states
+            )
+        ):
+            return "VERIFY_PROVIDER"
+    elif row["last_job"]:
+        return "VERIFY_PROVIDER"
+    if iso_time(proposal["expires_at"]).timestamp() <= time.time():
+        return "REVIEW_EXPIRY"
+    # A quota message must not imply that an incomplete or missing job succeeded.
+    if observation and observation["status"] == "SUCCEEDED" and allowance_exhausted(row, proposal):
+        return "REVIEW_ALLOWANCE"
+    return "CHECK_APPROVAL"
+
+
+def allowance_exhausted(row, limits):
+    return row["runs"] >= limits["max_runs"] or row["units"] >= limits["max_provider_units"]
+
+
 def view(db, row):
-    summary = json.loads(row["summary"])
+    try:
+        summary = retained_summary(row)
+    except (Invalid, PermissionError):
+        return dict(
+            id=row["id"],
+            version=row["version"],
+            status=row["status"],
+            effective_status="OFF" if row["status"] == "OFF" else "NEEDS_REPAIR",
+            summary=None,
+            summary_hash=None,
+            runs=row["runs"],
+            provider_units=row["units"],
+            pause_attempts=row["pauses"],
+            last_job=row["last_job"],
+            last_observation=None,
+            next_due=None,
+            evidence_unavailable=True,
+            repair="Saved monitor evidence is unreadable. Check campaign receipts before retrying.",
+        )
     effective = row["status"]
     if effective == "ACTIVE":
         try:
             checked(db, row)
         except (Invalid, PermissionError, ValueError, KeyError):
             effective = "BLOCKED"
+    observation = last_observation(db, row, summary)
+    attention = monitor_attention(row, summary["proposal"], effective, observation)
+    if effective == "BLOCKED" and attention == "CHECK_APPROVAL" and pause_ineligible(db, row, summary):
+        attention = "REVIEW_PAUSE_ELIGIBILITY"
     return dict(
         id=row["id"],
         version=row["version"],
@@ -225,7 +330,8 @@ def view(db, row):
         provider_units=row["units"],
         pause_attempts=row["pauses"],
         last_job=row["last_job"],
-        last_observation=last_observation(db, row, summary),
+        last_observation=observation,
+        attention=attention,
         next_due=row["due"],
     )
 
@@ -250,17 +356,13 @@ def last_observation(db, row, summary):
     if not isinstance(observations, list) or len(observations) > 20:
         observations = []
     targets = {value["intent_id"] for value in summary["proposal"]["targets"]}
-    safe = [
-        value
-        for item in observations
-        if (value := _observation(item, targets)) is not None
-    ]
-    receipt = dict(
-        job_id=job["id"],
-        status=job["status"],
-        updated=job["updated"],
-        observations=safe,
-    )
+    safe = [value for item in observations if (value := _observation(item, targets)) is not None]
+    receipt: ObservationReceipt = {
+        "job_id": job["id"],
+        "status": job["status"],
+        "updated": job["updated"],
+        "observations": safe,
+    }
     if job["status"] == "BLOCKED" and raw.get("external_execution") == "MONITOR_INTERRUPTED_UNCONFIRMED":
         receipt["external_execution"] = "MONITOR_INTERRUPTED_UNCONFIRMED"
     return receipt
@@ -274,10 +376,7 @@ def _observation_job(job, row):
         row["summary_hash"],
     ):
         return False
-    if (
-        type(data["monitor_version"]) is not int
-        or not 1 <= data["monitor_version"] <= row["version"]
-    ):
+    if type(data["monitor_version"]) is not int or not 1 <= data["monitor_version"] <= row["version"]:
         return False
     if type(data["run"]) is not int or not 1 <= data["run"] <= row["runs"]:
         return False
@@ -290,9 +389,7 @@ def _observation_job(job, row):
         "CANCELLED",
         "UNKNOWN",
     )
-    if job["status"] not in states:
-        return False
-    return True
+    return job["status"] in states
 
 
 def _small_object(raw):
@@ -354,7 +451,7 @@ def _observation(item, targets):
         "ABANDONED_UNKNOWN",
     ):
         result["recovery"] = recovery
-    if item.get("protective_pause") == "PAUSED_campaign":
+    if item.get("protective_pause") == "PAUSED_campaign" and item.get("pause_effective_status") == "PAUSED":
         result["protective_pause"] = "PAUSED_campaign"
     commitment = item.get("commitment_held_minor")
     if type(commitment) is int and 0 <= commitment <= 100000000:
@@ -367,21 +464,20 @@ class Monitors:
 
     def __init__(self, store):
         self.store = store
-        initialize(store)
 
     def prepare(self, app_id, body):
         principal = actor(self.store, app_id)
         chosen = proposal(body)
+        initialize(self.store)
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
             binding, scope = source(db, app_id, principal, chosen["scope_id"])
             expiry = iso_time(chosen["expires_at"]).timestamp()
             if not time.time() < expiry <= iso_time(scope["permission_expires_at"]).timestamp():
-                raise Invalid(
-                    "Monitor expiry must be future and within campaign expiry"
-                )
-            for target in chosen["targets"]:
-                target_row(db, app_id, chosen["scope_id"], target)
+                raise Invalid("Monitor expiry must be future and within campaign expiry")
+            paid = bound_targets(db, app_id, chosen["scope_id"], chosen["targets"])
+            if chosen["protective_conditions"] and not paid:
+                raise Invalid("Protective pause requires a selected paid campaign intent; Page posts are read-only.")
             identity = uid()
             summary = dict(
                 schema="wmm.campaign-monitor.v1",
@@ -389,8 +485,7 @@ class Monitors:
                 owner=principal,
                 source=binding,
                 proposal=chosen,
-                effects=["RECONCILE"]
-                + (["PROTECTIVE_PAUSE"] if chosen["protective_conditions"] else []),
+                effects=["RECONCILE"] + (["PROTECTIVE_PAUSE"] if chosen["protective_conditions"] else []),
                 limitations="Saved identity and fresh provider readback required. No spend-threshold conversion, causal lift, creation, publication or activation.",
             )
             stamp = now()
@@ -410,9 +505,7 @@ class Monitors:
             )
             return view(
                 db,
-                db.execute(
-                    "SELECT * FROM campaign_monitors WHERE id=?", (identity,)
-                ).fetchone(),
+                db.execute("SELECT * FROM campaign_monitors WHERE id=?", (identity,)).fetchone(),
             )
 
     def activate(self, app_id, identity, summary_hash):
@@ -439,6 +532,8 @@ class Monitors:
         principal = actor(self.store, app_id)
         with connection(self.store.path) as db:
             member(db, app_id, principal, "OWNER")
+            if not monitor_table_exists(db):
+                return dict(monitors=[])
             return dict(
                 monitors=[
                     view(db, row)
@@ -470,6 +565,8 @@ class Monitors:
 def owned(db, app_id, principal, identity):
     reference(identity)
     member(db, app_id, principal, "OWNER")
+    if not monitor_table_exists(db):
+        raise Invalid("Monitor is unavailable for this owner")
     row = db.execute(
         "SELECT * FROM campaign_monitors WHERE app_id=? AND owner=? AND id=?",
         (app_id, principal, identity),
@@ -485,14 +582,22 @@ def tick(store):
     count = 0
     with connection(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
-        rows = db.execute(
-            "SELECT * FROM campaign_monitors WHERE status='ACTIVE' AND due<=? ORDER BY due,id LIMIT 20",
-            (time.time(),),
-        ).fetchall()
-        for row in rows:
-            if not eligible(db, row):
-                continue
-            count += queue(db, row)
+        cutoff, after_due, after_id = time.time(), -float("inf"), ""
+        while count < 20:
+            rows = db.execute(
+                """SELECT * FROM campaign_monitors
+                WHERE status='ACTIVE' AND due<=? AND (due>? OR (due=? AND id>?))
+                ORDER BY due,id LIMIT 20""",
+                (cutoff, after_due, after_due, after_id),
+            ).fetchall()
+            if not rows:
+                break
+            for row in rows:
+                after_due, after_id = row["due"], row["id"]
+                if eligible(db, row):
+                    count += queue(db, row)
+                if count == 20:
+                    break
     return count
 
 
@@ -505,10 +610,7 @@ def eligible(db, row):
     if not _previous_finished(db, row):
         return False
     limits = summary["proposal"]
-    if (
-        row["runs"] >= limits["max_runs"]
-        or row["units"] >= limits["max_provider_units"]
-    ):
+    if allowance_exhausted(row, limits):
         block(db, row["id"])
         return False
     return True
@@ -517,9 +619,7 @@ def eligible(db, row):
 def _previous_finished(db, row):
     if not row["last_job"]:
         return True
-    old = db.execute(
-        "SELECT status,lease FROM jobs WHERE id=?", (row["last_job"],)
-    ).fetchone()
+    old = db.execute("SELECT status,lease FROM jobs WHERE id=?", (row["last_job"],)).fetchone()
     if old and old["status"] in ("QUEUED", "RUNNING"):
         if old["status"] == "RUNNING" and old["lease"] <= time.time():
             block(db, row["id"])
@@ -535,8 +635,11 @@ def _previous_finished(db, row):
 
 
 def interrupted_result():
-    return dict(status="BLOCKED", external_execution="MONITOR_INTERRUPTED_UNCONFIRMED",
-                next_action="Inspect the retained campaign intent and verify its provider state before taking another action.")
+    return dict(
+        status="BLOCKED",
+        external_execution="MONITOR_INTERRUPTED_UNCONFIRMED",
+        next_action="Inspect the retained campaign intent and verify its provider state before taking another action.",
+    )
 
 
 def block(db, identity):
@@ -583,16 +686,22 @@ def queue(db, row):
 
 def execute(store, job, transport=None):
     """Only reconcile and specifically approved pause; never resume an uncertain mutation."""
-    from .campaign_monitor_authority import bound, BoundaryTransport, MonitorService
     from .campaign_access import policy_checker
+    from .campaign_monitor_authority import BoundaryTransport, MonitorService, bound
 
     results = []
     with bound(store, job) as capability:
-        service = MonitorService(
-            store, policy_checker(store), BoundaryTransport(store, transport)
-        )
+        service = MonitorService(store, policy_checker(store), BoundaryTransport(store, transport))
         try:
-            for target in capability["summary"]["proposal"]["targets"]:
+            summary = capability["summary"]
+            if not isinstance(summary, dict):
+                raise PermissionError("Monitor approval evidence is unavailable")
+            plan = summary.get("proposal")
+            if not isinstance(plan, dict) or not isinstance(plan.get("targets"), list):
+                raise PermissionError("Monitor target evidence is unavailable")
+            for target in plan["targets"]:
+                if not isinstance(target, dict) or not isinstance(target.get("intent_id"), str):
+                    raise PermissionError("Monitor target identity is unavailable")
                 capability.update(intent_id=target["intent_id"], action="RECONCILE")
                 result = service.reconcile(
                     job["app_id"],
@@ -607,16 +716,17 @@ def execute(store, job, transport=None):
                         recovery=result.get("recovery"),
                     )
                 )
-                paused = protect(store, job, service, capability, result)
+                paused = protect(store, job, service, capability, result, target)
                 if paused is not None:
                     results[-1]["protective_pause"] = paused["status"]
+                    results[-1]["pause_effective_status"] = paused["pause_readback"]["effective_status"]
                     results[-1]["commitment_held_minor"] = paused["commitment"]
             return dict(
                 status="OBSERVED",
                 observations=results,
                 authority="EXACT_RETAINED_MONITOR_ONLY",
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 - any provider failure blocks unattended mutation replay
             with connection(store.path) as db:
                 block(db, job["data"]["monitor_id"])
             return dict(
@@ -626,7 +736,7 @@ def execute(store, job, transport=None):
             )
 
 
-def protect(store, job, service, capability, result):
+def protect(store, job, service, capability, result, target):
     if result.get("recovery") == "IN_FLIGHT":
         return
     if result.get("recovery") in ("OWNER_UNVERIFIED", "LEASE_STATE_CONFLICT"):
@@ -641,10 +751,11 @@ def protect(store, job, service, capability, result):
             raise PermissionError("Campaign dispatch requires owner reconciliation")
         return
     with connection(store.path) as db:
+        _, paid = target_row(db, job["app_id"], capability["scope_id"], target)
+        if not paid:
+            return
         db.execute("BEGIN IMMEDIATE")
-        row = db.execute(
-            "SELECT * FROM campaign_monitors WHERE id=?", (job["data"]["monitor_id"],)
-        ).fetchone()
+        row = db.execute("SELECT * FROM campaign_monitors WHERE id=?", (job["data"]["monitor_id"],)).fetchone()
         checked(db, row)
         if row["pauses"] >= capability["summary"]["proposal"]["max_pause_attempts"]:
             raise PermissionError("Monitor pause allowance exhausted")
@@ -658,10 +769,13 @@ def protect(store, job, service, capability, result):
         pause_reason=reason,
         pause_observation=json.loads(canonical(result)),
     )
-    paused = service.run_pause(
-        job["app_id"], "monitor:" + job["id"], capability["scope_id"], result["id"]
-    )
-    if paused["status"] != "PAUSED_campaign":
+    paused = service.run_pause(job["app_id"], "monitor:" + job["id"], capability["scope_id"], result["id"])
+    readback = paused.get("pause_readback")
+    if (
+        paused["status"] != "PAUSED_campaign"
+        or not isinstance(readback, dict)
+        or readback.get("effective_status") != "PAUSED"
+    ):
         raise PermissionError("Protective pause was not verified")
     return paused
 
@@ -671,15 +785,9 @@ def pause_reason(result, conditions):
     if not _fresh_active_observation(result):
         return None
     data = result["result"]
-    if (
-        "configuration_drift" in conditions
-        and data.get("configuration") == "CHANGED_OR_UNCONFIRMED_PAUSE_RECOMMENDED"
-    ):
+    if "configuration_drift" in conditions and data.get("configuration") == "CHANGED_OR_UNCONFIRMED_PAUSE_RECOMMENDED":
         return "configuration_drift"
-    if (
-        "active_after_end" in conditions
-        and iso_time(result["data"]["end_time"]).timestamp() <= time.time()
-    ):
+    if "active_after_end" in conditions and iso_time(result["data"]["end_time"]).timestamp() <= time.time():
         return "active_after_end"
     return None
 
@@ -690,6 +798,5 @@ def _fresh_active_observation(result):
     if not observed or not 0 <= time.time() - iso_time(observed).timestamp() <= 30:
         return False
     return bool(
-        result.get("ids", {}).get("campaign")
-        and data.get("objects", {}).get("campaign", {}).get("status") == "ACTIVE"
+        result.get("ids", {}).get("campaign") and data.get("objects", {}).get("campaign", {}).get("status") == "ACTIVE"
     )

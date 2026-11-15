@@ -1,4 +1,5 @@
 """Deterministic user-authored rules over supplied facts; proposals only, no effects."""
+
 from __future__ import annotations
 
 import argparse
@@ -81,8 +82,12 @@ def _rule(value):
     tool = _text(propose["tool"], "proposal tool", 200)
     reason = _text(propose["reason"], "proposal reason")
     requires = then["requires"]
-    if not isinstance(requires, list) or not requires or len(requires) > 10 or any(
-            not isinstance(item, str) or not item for item in requires):
+    if (
+        not isinstance(requires, list)
+        or not requires
+        or len(requires) > 10
+        or any(not isinstance(item, str) or not item for item in requires)
+    ):
         raise Invalid("Proposals need 1-10 named approvals")
     cooldown = value.get("cooldown", "")
     if cooldown and (not isinstance(cooldown, str) or len(cooldown) > 40):
@@ -90,9 +95,18 @@ def _rule(value):
     expires = value.get("expires_at")
     if expires is not None:
         iso_time(expires)
-    return dict(id=value["id"], enabled=value["enabled"], priority=value["priority"], when=when,
-                action=action, tool=tool, reason=reason, requires=list(requires),
-                cooldown=cooldown, expires_at=expires)
+    return dict(
+        id=value["id"],
+        enabled=value["enabled"],
+        priority=value["priority"],
+        when=when,
+        action=action,
+        tool=tool,
+        reason=reason,
+        requires=list(requires),
+        cooldown=cooldown,
+        expires_at=expires,
+    )
 
 
 def _saved_rows(value):
@@ -148,10 +162,14 @@ def project(workspace):
         },
         "install": {
             "campaign_count": _count(campaigns),
-            "campaign_tokens": (sorted(row.get("campaign_token") for row in campaigns if row.get("campaign_token"))
-                                if campaigns is not None else None),
-            "last_observed_at": max((row.get("last_observed_at") for row in campaigns or []
-                                     if row.get("last_observed_at")), default=None),
+            "campaign_tokens": (
+                sorted(row.get("campaign_token") for row in campaigns if row.get("campaign_token"))
+                if campaigns is not None
+                else None
+            ),
+            "last_observed_at": max(
+                (row.get("last_observed_at") for row in campaigns or [] if row.get("last_observed_at")), default=None
+            ),
         },
         "measurement": {"state": integrity.get("state")},
         "experiments": {
@@ -160,9 +178,11 @@ def project(workspace):
             "awaiting_analysis": _count(experiments, "state", "AWAITING_ANALYSIS"),
         },
     }
-    return {key: {inner: value for inner, value in values.items() if value is not None}
-            for key, values in facts.items()
-            if any(value is not None for value in values.values())}
+    return {
+        key: {inner: value for inner, value in values.items() if value is not None}
+        for key, values in facts.items()
+        if any(value is not None for value in values.values())
+    }
 
 
 @contextmanager
@@ -178,6 +198,7 @@ def _database_snapshot(path, app_id, owner_principal):
             db.execute("BEGIN")
             if owner_principal is not None:
                 from .review_access import member
+
                 member(db, app_id, owner_principal, "OWNER")
             yield db
     except (Invalid, PermissionError):
@@ -201,24 +222,32 @@ def _project_snapshot(db, app_id):
     if app is None:
         raise Invalid("The selected app is not in this WMM workspace")
     facts = project({"app": dict(app, data=json.loads(app["data"]))})
-    counts = db.execute("""SELECT count(CASE WHEN kind='cohort' THEN 1 END) AS cohort_count,
+    counts = db.execute(
+        """SELECT count(CASE WHEN kind='cohort' THEN 1 END) AS cohort_count,
         count(CASE WHEN kind='retention' THEN 1 END) AS retention_window_count
-        FROM records WHERE app_id=? AND kind IN ('cohort','retention')""", (app_id,)).fetchone()
+        FROM records WHERE app_id=? AND kind IN ('cohort','retention')""",
+        (app_id,),
+    ).fetchone()
     facts["metrics"] = dict(counts)
     campaign_count = db.execute(
-        "SELECT count(DISTINCT campaign_token) FROM install_attribution_batches WHERE app_id=?",
-        (app_id,)).fetchone()[0]
+        "SELECT count(DISTINCT campaign_token) FROM install_attribution_batches WHERE app_id=?", (app_id,)
+    ).fetchone()[0]
     facts["install"] = {"campaign_count": campaign_count}
-    experiments = db.execute("""SELECT count(*) AS count,
+    experiments = db.execute(
+        """SELECT count(*) AS count,
         count(CASE WHEN state='PLANNED' THEN 1 END) AS planned,
         count(CASE WHEN state='AWAITING_ANALYSIS' THEN 1 END) AS awaiting_analysis
-        FROM experiments WHERE app_id=?""", (app_id,)).fetchone()
+        FROM experiments WHERE app_id=?""",
+        (app_id,),
+    ).fetchone()
     facts["experiments"] = dict(experiments)
-    jobs = db.execute("""SELECT count(CASE WHEN status='QUEUED' THEN 1 END) AS queued,
+    jobs = db.execute(
+        """SELECT count(CASE WHEN status='QUEUED' THEN 1 END) AS queued,
         count(CASE WHEN status='RUNNING' THEN 1 END) AS running,
         count(CASE WHEN status='UNKNOWN' THEN 1 END) AS unknown
         FROM jobs WHERE app_id=? AND action!='drive_import' AND status IN ('QUEUED','RUNNING','UNKNOWN')""",
-                      (app_id,)).fetchone()
+        (app_id,),
+    ).fetchone()
     facts["jobs"] = dict(jobs)
     return facts
 
@@ -241,18 +270,25 @@ def _study_facts(db, app_id, reference, observed_at):
     counts = checkpoint["ratio_counts"]
     ready = checkpoint["state"] in ("DESCRIPTIVE_READY", "NO_ELIGIBLE_LANDINGS")
     facts = dict(
-        id=study["id"], definition_sha256=study["hash"], manifest_version=app["version"],
-        source_sha256=report["source_hash"], provenance=report["provenance"],
+        id=study["id"],
+        definition_sha256=study["hash"],
+        manifest_version=app["version"],
+        source_sha256=report["source_hash"],
+        provenance=report["provenance"],
         coverage="COMPLETE" if ready else "INCOMPLETE",
         checkpoint=checkpoint["state"],
-        window=dict(starts_at=report["starts_at"], ends_at=report["ends_at"],
-                    state="COLLECTING" if iso_time(observed_at) < iso_time(report["ends_at"]) else "ENDED"),
+        window=dict(
+            starts_at=report["starts_at"],
+            ends_at=report["ends_at"],
+            state="COLLECTING" if iso_time(observed_at) < iso_time(report["ends_at"]) else "ENDED",
+        ),
     )
     if counts:
         facts.update(counts, linked_registration_rate=counts["linked_registrations"] / counts["eligible_landings"])
     elif ready:
-        facts.update(eligible_landings=report["landing_subjects"],
-                     linked_registrations=report["linked_registration_subjects"])
+        facts.update(
+            eligible_landings=report["landing_subjects"], linked_registrations=report["linked_registration_subjects"]
+        )
     return facts
 
 
@@ -264,6 +300,7 @@ def simulate_database(path, app_id, owner_principal, *, rules=None, reference=No
         binding = None
         if reference is not None:
             from .automation_store import version_in_snapshot
+
             saved = version_in_snapshot(db, app_id, reference)
             binding = {key: saved[key] for key in ("app_id", "version", "hash")}
             rules = saved["document"]
@@ -349,8 +386,13 @@ def _compare(facts, item):
         if op in ("gt", "gte", "lt", "lte"):
             if type(value) not in (int, float) or type(expected) not in (int, float):
                 return UNKNOWN
-            return TRUE if {"gt": value > expected, "gte": value >= expected,
-                            "lt": value < expected, "lte": value <= expected}[op] else FALSE
+            return (
+                TRUE
+                if {"gt": value > expected, "gte": value >= expected, "lt": value < expected, "lte": value <= expected}[
+                    op
+                ]
+                else FALSE
+            )
         if op == "in":
             if not isinstance(expected, list):
                 return UNKNOWN
@@ -410,8 +452,13 @@ def evaluate(document, facts, observed_at=None, *, binding=None):
         if status == "ACTIVE":
             value = _evaluate(facts, rule["when"], gaps)
             status = "MATCH" if value == TRUE else "UNKNOWN" if value == UNKNOWN else "NO_MATCH"
-        record = dict(rule_id=rule["id"], priority=rule["priority"], status=status,
-                      condition=value, **{key: sorted(paths) for key, paths in gaps.items()})
+        record = dict(
+            rule_id=rule["id"],
+            priority=rule["priority"],
+            status=status,
+            condition=value,
+            **{key: sorted(paths) for key, paths in gaps.items()},
+        )
         results.append(record)
         if status != "MATCH":
             continue
@@ -421,21 +468,41 @@ def evaluate(document, facts, observed_at=None, *, binding=None):
             continue
         seen.add(key)
         record["proposal_status"] = "PROPOSED"
-        proposal = dict(id=digest([rule_set, version, rule["id"], snapshot, rule["action"], rule["tool"]]),
-                        rule_id=rule["id"], priority=rule["priority"], status="PROPOSED",
-                        action=rule["action"], tool=rule["tool"], reason=rule["reason"],
-                        requires=rule["requires"], cooldown=rule["cooldown"],
-                        fact_snapshot_sha256=snapshot, rule_sha256=digest(rule),
-                        rule_set_sha256=rule_set, rule_version=version,
-                        observed_at=stamp, mode=rules["mode"])
+        proposal = dict(
+            id=digest([rule_set, version, rule["id"], snapshot, rule["action"], rule["tool"]]),
+            rule_id=rule["id"],
+            priority=rule["priority"],
+            status="PROPOSED",
+            action=rule["action"],
+            tool=rule["tool"],
+            reason=rule["reason"],
+            requires=rule["requires"],
+            cooldown=rule["cooldown"],
+            fact_snapshot_sha256=snapshot,
+            rule_sha256=digest(rule),
+            rule_set_sha256=rule_set,
+            rule_version=version,
+            observed_at=stamp,
+            mode=rules["mode"],
+        )
         proposals.append(proposal)
-    report = dict(schema="wmm.automation-evaluation.v1", evaluator_version=2,
-                  mode=rules["mode"], timezone=rules["timezone"],
-                  rules_sha256=rule_set, rule_binding=binding, facts_sha256=snapshot,
-                  observed_at=stamp, results=results, proposals=proposals,
-                  boundaries=["Proposals only; no publication, spend, provider or filesystem effect.",
-                              "Unavailable facts cannot satisfy comparisons; explicit missing checks can match.",
-                              "Exact approval or an existing grant is still required before any action."])
+    report = dict(
+        schema="wmm.automation-evaluation.v1",
+        evaluator_version=2,
+        mode=rules["mode"],
+        timezone=rules["timezone"],
+        rules_sha256=rule_set,
+        rule_binding=binding,
+        facts_sha256=snapshot,
+        observed_at=stamp,
+        results=results,
+        proposals=proposals,
+        boundaries=[
+            "Proposals only; no publication, spend, provider or filesystem effect.",
+            "Unavailable facts cannot satisfy comparisons; explicit missing checks can match.",
+            "Exact approval or an existing grant is still required before any action.",
+        ],
+    )
     return {**report, "evaluation_sha256": digest(report)}
 
 

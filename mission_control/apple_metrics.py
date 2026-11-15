@@ -4,13 +4,13 @@ This module does not fetch reports, resolve credentials, or authorize ingestion.
 The production ``ingest`` entry point remains disabled until the durable worker
 can fence app, connection, schedule, lease, attempt, and completion authority.
 """
+
 from .apple_analytics_parser import parse_instance
 from .apple_metrics_contract import PARTITION_FIELDS, complete_instance, partition
-from .apple_metrics_store import (MAX_APP_BYTES, MAX_PARTITION_BYTES,
-                                  MAX_PARTITIONS_PER_APP, _reconcile)
+from .apple_metrics_store import MAX_APP_BYTES, MAX_PARTITION_BYTES, MAX_PARTITIONS_PER_APP, _reconcile
 from .common import Invalid, canonical
 
-IDENTITY_FIELDS = PARTITION_FIELDS - {'event_date'}
+IDENTITY_FIELDS = PARTITION_FIELDS - {"event_date"}
 
 
 def parse_partitions(identity, processing_date, segments, complete):
@@ -21,28 +21,27 @@ def parse_partitions(identity, processing_date, segments, complete):
     intact; no downloads are aggregated and missing dates remain absent.
     """
     if type(identity) is not dict or set(identity) != IDENTITY_FIELDS:
-        raise Invalid('Invalid Apple metrics report identity')
+        raise Invalid("Invalid Apple metrics report identity")
     # Reuse the closed-key validator for all shared identity constraints and
     # validate the processing date before passing it to the existing parser.
     partition(dict(identity, event_date=processing_date))
-    parsed = parse_instance(identity['store_app_id'], processing_date,
-                            segments, complete, identity['report_family'])
+    parsed = parse_instance(identity["store_app_id"], processing_date, segments, complete, identity["report_family"])
     grouped = {}
-    for row in parsed['rows']:
-        grouped.setdefault(row['date'], []).append(row)
+    for row in parsed["rows"]:
+        grouped.setdefault(row["date"], []).append(row)
     if not grouped or len(grouped) > MAX_PARTITIONS_PER_APP:
-        raise Invalid('Apple metrics report date count exceeds local storage limit')
+        raise Invalid("Apple metrics report date count exceeds local storage limit")
 
     result, total_bytes = [], 0
     for day in sorted(grouped):
         key = partition(dict(identity, event_date=day))
         instance = complete_instance(key, dict(parsed, rows=grouped[day]))
-        size = len(canonical(instance).encode('utf-8'))
+        size = len(canonical(instance).encode("utf-8"))
         if size > MAX_PARTITION_BYTES:
-            raise Invalid('Apple metrics partition storage limit reached')
+            raise Invalid("Apple metrics partition storage limit reached")
         total_bytes += size
         if total_bytes > MAX_APP_BYTES:
-            raise Invalid('Apple metrics app storage limit reached')
+            raise Invalid("Apple metrics app storage limit reached")
         result.append(dict(partition=key, instance=instance))
     return result
 
@@ -56,15 +55,17 @@ def reconcile_offline_instance(db, identity, processing_date, segments, complete
     a later SQL failure inside its surrounding transaction.
     """
     if not db.in_transaction:
-        raise Invalid('Apple metrics reconciliation requires an owned transaction')
+        raise Invalid("Apple metrics reconciliation requires an owned transaction")
     partitions = parse_partitions(identity, processing_date, segments, complete)
-    db.execute('SAVEPOINT apple_metrics_instance')
+    db.execute("SAVEPOINT apple_metrics_instance")
     try:
-        statuses = [dict(partition=item['partition'], status=_reconcile(
-            db, item['partition'], item['instance'])) for item in partitions]
-        db.execute('RELEASE SAVEPOINT apple_metrics_instance')
+        statuses = [
+            dict(partition=item["partition"], status=_reconcile(db, item["partition"], item["instance"]))
+            for item in partitions
+        ]
+        db.execute("RELEASE SAVEPOINT apple_metrics_instance")
         return statuses
     except BaseException:
-        db.execute('ROLLBACK TO SAVEPOINT apple_metrics_instance')
-        db.execute('RELEASE SAVEPOINT apple_metrics_instance')
+        db.execute("ROLLBACK TO SAVEPOINT apple_metrics_instance")
+        db.execute("RELEASE SAVEPOINT apple_metrics_instance")
         raise

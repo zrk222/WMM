@@ -1,5 +1,6 @@
 """Durable worker observations with fixed public labels, never model or secret text."""
 
+from datetime import timedelta
 import json
 
 from .common import Invalid, iso_time, now
@@ -8,17 +9,19 @@ from .catalog import stages
 
 MAX_JOBS = 100
 MAX_EVENTS = 200
+STAGE_TITLES = {row["id"]: row["title"] for row in stages()}
+ATTEMPT_ENDS = frozenset(("SUCCEEDED", "FAILED", "BLOCKED", "CANCELLED", "RETRY_WAIT"))
 EVENTS = {
-    'DRIVE_ACCOUNT': 'Verifying the confirmed account for the selected original.',
-    'DRIVE_METADATA': 'Checking the selected video format, version and download permission.',
-    'DRIVE_DOWNLOAD': 'Downloading the selected original within its byte and time limits.',
-    'DRIVE_RECHECK': 'Rechecking the account, original version and content identity.',
-    'DRIVE_VALIDATION': 'Decoding the original and verifying picture, sound and duration.',
-    'DRIVE_RETAINED': 'Original retained. Separate source reuse review is required before editing.',
-    'EDIT_PROOF': 'Checking the exact current edit revision and its source rights.',
-    'EDIT_SOURCES': 'Copying and verifying the selected source videos for editing.',
-    'EDIT_ENCODING': 'Rendering the timeline cuts, speed, framing and color adjustments.',
-    'EDIT_COMMIT': 'Rechecking the project and saving the validated edited MP4.',
+    "DRIVE_ACCOUNT": "Verifying the confirmed account for the selected original.",
+    "DRIVE_METADATA": "Checking the selected video format, version and download permission.",
+    "DRIVE_DOWNLOAD": "Downloading the selected original within its byte and time limits.",
+    "DRIVE_RECHECK": "Rechecking the account, original version and content identity.",
+    "DRIVE_VALIDATION": "Decoding the original and verifying picture, sound and duration.",
+    "DRIVE_RETAINED": "Original retained. Separate source reuse review is required before editing.",
+    "EDIT_PROOF": "Checking the exact current edit revision and its source rights.",
+    "EDIT_SOURCES": "Copying and verifying the selected source videos for editing.",
+    "EDIT_ENCODING": "Rendering the timeline cuts, speed, framing and color adjustments.",
+    "EDIT_COMMIT": "Rechecking the project and saving the validated edited MP4.",
     "NATIVE_PROOF": "Checking the approved video brief, screen rights and current source evidence.",
     "NATIVE_SCREENS": "Copying the selected app screens and verifying their saved file hashes.",
     "NATIVE_ENCODING": "Encoding the app-screen video and checking the MP4 output.",
@@ -37,9 +40,7 @@ EVENTS = {
 
 def append(db, job, code, stage=None):
     """Save finite application events attached to an exact actual job attempt."""
-    if code not in EVENTS or (
-        stage is not None and (type(stage) is not int or not 1 <= stage <= 12)
-    ):
+    if code not in EVENTS or (stage is not None and (type(stage) is not int or not 1 <= stage <= 12)):
         raise Invalid("Unknown workflow progress event")
     db.execute(
         "INSERT INTO workflow_events(app_id,job_id,attempt,code,stage,observed_at) VALUES(?,?,?,?,?,?)",
@@ -96,6 +97,32 @@ def monitor(store, app_id, worker_health=None):
     )
 
 
+def elapsed_ms(start, end):
+    try:
+        delta = iso_time(end) - iso_time(start)
+    except (Invalid, ValueError, OverflowError):
+        return None
+    return delta // timedelta(milliseconds=1) if delta.days >= 0 else None
+
+
+def attempt_timing(job, events):
+    """Derive timings only from the current attempt's retained observations."""
+    started = next((row["observed_at"] for row in events if row["code"] == "STARTED"), None)
+    if started is None:
+        return {}
+    timing = {}
+    if job["attempts"] == 1:
+        queue = elapsed_ms(job.get("created"), started)
+        if queue is not None:
+            timing["initial_queue_ms"] = queue
+    last = events[-1]
+    if last["code"] in ATTEMPT_ENDS:
+        runtime = elapsed_ms(started, last["observed_at"])
+        if runtime is not None:
+            timing["attempt_ms"] = runtime
+    return timing
+
+
 def run_view(db, app_id, job):
     """Separate processed/blocked stages from elapsed-time estimates and job success."""
     raw_result = job.pop("result", None)
@@ -110,31 +137,25 @@ def run_view(db, app_id, job):
         "SELECT id,attempt,code,stage,observed_at FROM workflow_events WHERE app_id=? AND job_id=? ORDER BY id DESC LIMIT ?",
         (app_id, job["id"], MAX_EVENTS),
     ).fetchall()
-    names = {row["id"]: row["title"] for row in stages()}
     events = [
         dict(
             row,
             message=EVENTS.get(row["code"], "Unknown retained event; inspect job."),
-            stage_title=names.get(row["stage"]),
+            stage_title=STAGE_TITLES.get(row["stage"]),
         )
         for row in reversed(rows)
     ]
     current = [row for row in events if row["attempt"] == job["attempts"]]
-    finished = {
-        row["stage"]
-        for row in current
-        if row["code"] in ("STAGE_PREPARED", "STAGE_BLOCKED")
-    }
+    finished = {row["stage"] for row in current if row["code"] in ("STAGE_PREPARED", "STAGE_BLOCKED")}
     blocked = {row["stage"] for row in current if row["code"] == "STAGE_BLOCKED"}
     latest = current[-1] if current else None
     return dict(
         job,
         events=events,
         latest=latest,
+        timing=attempt_timing(job, current),
         processed_stages=len(finished),
         blocked_stages=len(blocked),
         telemetry="OBSERVED" if latest else "NO_STAGE_EVENTS",
-        activity=latest["message"]
-        if latest
-        else "No worker step event recorded for this attempt yet.",
+        activity=latest["message"] if latest else "No worker step event recorded for this attempt yet.",
     )

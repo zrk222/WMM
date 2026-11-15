@@ -1,17 +1,18 @@
 """Independent SQLite persistence with foreign keys and transactional writes."""
+
+import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-import sqlite3
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS apple_metric_partitions(app_id TEXT NOT NULL REFERENCES apps(id),store_app_id TEXT NOT NULL,connection_id TEXT NOT NULL,connection_version INTEGER NOT NULL CHECK(connection_version>0),report_id TEXT NOT NULL,report_family TEXT NOT NULL,granularity TEXT NOT NULL,event_date TEXT NOT NULL,processing_date TEXT NOT NULL,fingerprint TEXT NOT NULL,source_hash TEXT NOT NULL,data TEXT NOT NULL,byte_count INTEGER NOT NULL CHECK(byte_count>0),ingested_at TEXT NOT NULL,PRIMARY KEY(app_id,store_app_id,connection_id,connection_version,report_id,report_family,granularity,event_date));
-CREATE TABLE IF NOT EXISTS apple_metrics_schedules(app_id TEXT PRIMARY KEY REFERENCES apps(id),id TEXT NOT NULL UNIQUE,connection_id TEXT NOT NULL,connection_version INTEGER NOT NULL CHECK(connection_version>0),connection_hash TEXT NOT NULL,app_version INTEGER NOT NULL CHECK(app_version>0),report_id TEXT NOT NULL,interval_hours INTEGER NOT NULL CHECK(interval_hours BETWEEN 24 AND 168),enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),version INTEGER NOT NULL CHECK(version>0),next_due REAL NOT NULL,last_due REAL,last_job TEXT,reconciled_job TEXT,failures INTEGER NOT NULL CHECK(failures BETWEEN 0 AND 3),status TEXT NOT NULL,last_success TEXT,last_error TEXT,updated TEXT NOT NULL);
-CREATE INDEX IF NOT EXISTS apple_metrics_schedule_due ON apple_metrics_schedules(enabled,next_due);
-CREATE TABLE IF NOT EXISTS discovery_documents(app_id TEXT NOT NULL REFERENCES apps(id),id TEXT NOT NULL,version INTEGER NOT NULL,kind TEXT NOT NULL CHECK(kind IN ('REVIEW','COLLECTION','WATCH','ATTEMPT')),data TEXT NOT NULL,hash TEXT NOT NULL,created TEXT NOT NULL,PRIMARY KEY(app_id,id,version));
-CREATE TRIGGER IF NOT EXISTS discovery_no_replace BEFORE INSERT ON discovery_documents WHEN EXISTS(SELECT 1 FROM discovery_documents WHERE app_id=NEW.app_id AND id=NEW.id AND version=NEW.version) BEGIN SELECT RAISE(ABORT,'Research history is immutable'); END;
-CREATE TRIGGER IF NOT EXISTS discovery_no_rowid_replace BEFORE INSERT ON discovery_documents WHEN EXISTS(SELECT 1 FROM discovery_documents WHERE rowid=NEW.rowid) BEGIN SELECT RAISE(ABORT,'Research history is immutable'); END;
-CREATE TRIGGER IF NOT EXISTS discovery_no_update BEFORE UPDATE ON discovery_documents BEGIN SELECT RAISE(ABORT,'Research history is immutable'); END;
-CREATE TRIGGER IF NOT EXISTS discovery_no_delete BEFORE DELETE ON discovery_documents BEGIN SELECT RAISE(ABORT,'Research history is immutable'); END;
+from .schema_apple_metrics import SCHEMA as APPLE_METRICS_SCHEMA
+from .schema_discovery import SCHEMA as DISCOVERY_SCHEMA
+
+SCHEMA = (
+    "\n"  # noqa: S608 -- assembled literal DDL only, without request interpolation.
+    + APPLE_METRICS_SCHEMA
+    + DISCOVERY_SCHEMA
+    + """\
 CREATE TABLE IF NOT EXISTS drive_flows(id TEXT PRIMARY KEY,app_id TEXT NOT NULL REFERENCES apps(id),manifest_version INTEGER NOT NULL,connection_id TEXT,connection_version INTEGER NOT NULL,state_hash TEXT NOT NULL UNIQUE,secret_ref TEXT NOT NULL,data TEXT NOT NULL,status TEXT NOT NULL,expires REAL NOT NULL,created TEXT NOT NULL,updated TEXT NOT NULL,result TEXT);
 CREATE INDEX IF NOT EXISTS drive_flow_app ON drive_flows(app_id,created);
 CREATE TABLE IF NOT EXISTS drive_connections(app_id TEXT PRIMARY KEY REFERENCES apps(id),id TEXT NOT NULL UNIQUE,version INTEGER NOT NULL,data TEXT NOT NULL,secret_ref TEXT,status TEXT NOT NULL,expires REAL,created TEXT NOT NULL,updated TEXT NOT NULL);
@@ -189,24 +190,35 @@ CREATE TRIGGER IF NOT EXISTS managed_media_immutable_delete BEFORE DELETE ON man
 CREATE TRIGGER IF NOT EXISTS managed_media_reviews_append_only_update BEFORE UPDATE ON managed_media_reviews BEGIN SELECT RAISE(ABORT,'managed media reviews are append-only'); END;
 CREATE TRIGGER IF NOT EXISTS managed_media_reviews_append_only_delete BEFORE DELETE ON managed_media_reviews BEGIN SELECT RAISE(ABORT,'managed media reviews are append-only'); END;
 """
+)
 
 
 @contextmanager
 def session(path):
-    """Own one scoped SQLite handle; callers use guarded transactions for business SQL."""
+    """Own one scoped SQLite handle with bounded cache and default durable commits."""
     db = sqlite3.connect(str(path), timeout=15)
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA foreign_keys=ON")
-    try:yield db
-    finally:db.close()
+    db.execute("PRAGMA cache_size=-16000")
+    db.execute("PRAGMA temp_store=MEMORY")
+    db.execute("PRAGMA mmap_size=268435456")
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 @contextmanager
-def transaction(path, db):
+def transaction(path, db, *, write=False):
     """Guard each independently committed transaction, including reused connections."""
+    if write and db.in_transaction:
+        raise ValueError("Write scope requires a connection without an active transaction")
     with db:
+        if write:
+            db.execute("BEGIN IMMEDIATE")
         from .automation_execution import guard_connection
         from .operation_authority import guard_connection as operation_guard
+
         guard_connection(path, db)
         operation_guard(path, db)
         yield db
@@ -215,24 +227,37 @@ def transaction(path, db):
 
 
 @contextmanager
-def connection(path):
+def connection(
+    path: str | Path, *, write: bool = False, busy_timeout_ms: object = None
+) -> Iterator[sqlite3.Connection]:
     """Open a scoped transactional connection with the same entry and commit guards."""
+    if busy_timeout_ms is not None and (type(busy_timeout_ms) is not int or not 0 <= busy_timeout_ms <= 60000):
+        raise ValueError("Busy timeout must be an integer from 0 to 60000 milliseconds")
     with session(path) as db:
-        with transaction(path, db):yield db
+        if busy_timeout_ms is not None:
+            db.execute(f"PRAGMA busy_timeout={busy_timeout_ms}")
+        with transaction(path, db, write=write):
+            yield db
 
 
 def migrate_execution_authority(db):
     """Preserve child receipts while removing the provisional parent deletion constraint."""
-    if not db.execute('PRAGMA foreign_key_list(automation_execution_authority)').fetchone():
+    if not db.execute("PRAGMA foreign_key_list(automation_execution_authority)").fetchone():
         return
-    for operation in ('no_replace','no_update','no_delete'):
-        db.execute('DROP TRIGGER IF EXISTS automation_execution_authority_'+operation)
-    db.execute('ALTER TABLE automation_execution_authority RENAME TO automation_execution_authority_old')
-    db.execute('CREATE TABLE automation_execution_authority(execution_id TEXT PRIMARY KEY,permission_expires_at TEXT NOT NULL,policy_revision INTEGER NOT NULL,policy_hash TEXT NOT NULL,grant_revision INTEGER NOT NULL,grant_hash TEXT NOT NULL,record_hash TEXT NOT NULL)')
-    db.execute('INSERT INTO automation_execution_authority SELECT * FROM automation_execution_authority_old')
-    db.execute('DROP TABLE automation_execution_authority_old')
-    db.execute("CREATE TRIGGER automation_execution_authority_no_update BEFORE UPDATE ON automation_execution_authority BEGIN SELECT RAISE(ABORT,'standing execution authority is immutable'); END")
-    db.execute("CREATE TRIGGER automation_execution_authority_no_delete BEFORE DELETE ON automation_execution_authority BEGIN SELECT RAISE(ABORT,'standing execution authority is immutable'); END")
+    for operation in ("no_replace", "no_update", "no_delete"):
+        db.execute("DROP TRIGGER IF EXISTS automation_execution_authority_" + operation)
+    db.execute("ALTER TABLE automation_execution_authority RENAME TO automation_execution_authority_old")
+    db.execute(
+        "CREATE TABLE automation_execution_authority(execution_id TEXT PRIMARY KEY,permission_expires_at TEXT NOT NULL,policy_revision INTEGER NOT NULL,policy_hash TEXT NOT NULL,grant_revision INTEGER NOT NULL,grant_hash TEXT NOT NULL,record_hash TEXT NOT NULL)"
+    )
+    db.execute("INSERT INTO automation_execution_authority SELECT * FROM automation_execution_authority_old")
+    db.execute("DROP TABLE automation_execution_authority_old")
+    db.execute(
+        "CREATE TRIGGER automation_execution_authority_no_update BEFORE UPDATE ON automation_execution_authority BEGIN SELECT RAISE(ABORT,'standing execution authority is immutable'); END"
+    )
+    db.execute(
+        "CREATE TRIGGER automation_execution_authority_no_delete BEFORE DELETE ON automation_execution_authority BEGIN SELECT RAISE(ABORT,'standing execution authority is immutable'); END"
+    )
 
 
 def initialize(path):
@@ -242,15 +267,29 @@ def initialize(path):
         db.execute("PRAGMA journal_mode=WAL")
         db.executescript(SCHEMA)
         from .onesignal_setup import SCHEMA as ONESIGNAL_SCHEMA
+
         db.executescript(ONESIGNAL_SCHEMA)
         db.execute("BEGIN IMMEDIATE")
         migrate_execution_authority(db)
-        db.execute('DROP TRIGGER IF EXISTS authority_expiry_no_replace')
-        db.execute("CREATE TRIGGER authority_expiry_no_replace BEFORE INSERT ON authority_expiry_consents WHEN EXISTS(SELECT 1 FROM authority_expiry_consents WHERE rowid=NEW.rowid OR (app_id=NEW.app_id AND kind=NEW.kind AND authority_id=NEW.authority_id AND (revision=NEW.revision OR request_id=NEW.request_id))) BEGIN SELECT RAISE(ABORT,'expiry consent is immutable'); END")
-        db.execute('DROP TRIGGER IF EXISTS automation_execution_authority_no_replace')
-        db.execute("CREATE TRIGGER automation_execution_authority_no_replace BEFORE INSERT ON automation_execution_authority WHEN EXISTS(SELECT 1 FROM automation_execution_authority WHERE rowid=NEW.rowid OR execution_id=NEW.execution_id) BEGIN SELECT RAISE(ABORT,'standing execution authority is immutable'); END")
-        columns={row["name"] for row in db.execute("PRAGMA table_info(authority_expiry_consents)")}
-        if "stable_hash" not in columns:db.execute("ALTER TABLE authority_expiry_consents ADD COLUMN stable_hash TEXT NOT NULL DEFAULT ''")
-        columns={row["name"] for row in db.execute("PRAGMA table_info(creative_batch_variants)")}
-        if "native_state" not in columns:db.execute("ALTER TABLE creative_batch_variants ADD COLUMN native_state TEXT NOT NULL DEFAULT 'PREPARED'")
-        if "native_packet_hash" not in columns:db.execute("ALTER TABLE creative_batch_variants ADD COLUMN native_packet_hash TEXT")
+        db.execute("DROP TRIGGER IF EXISTS authority_expiry_no_replace")
+        db.execute(
+            "CREATE TRIGGER authority_expiry_no_replace BEFORE INSERT ON authority_expiry_consents WHEN EXISTS(SELECT 1 FROM authority_expiry_consents WHERE rowid=NEW.rowid OR (app_id=NEW.app_id AND kind=NEW.kind AND authority_id=NEW.authority_id AND (revision=NEW.revision OR request_id=NEW.request_id))) BEGIN SELECT RAISE(ABORT,'expiry consent is immutable'); END"
+        )
+        db.execute("DROP TRIGGER IF EXISTS automation_execution_authority_no_replace")
+        db.execute(
+            "CREATE TRIGGER automation_execution_authority_no_replace BEFORE INSERT ON automation_execution_authority WHEN EXISTS(SELECT 1 FROM automation_execution_authority WHERE rowid=NEW.rowid OR execution_id=NEW.execution_id) BEGIN SELECT RAISE(ABORT,'standing execution authority is immutable'); END"
+        )
+        columns = {row["name"] for row in db.execute("PRAGMA table_info(authority_expiry_consents)")}
+        if "stable_hash" not in columns:
+            db.execute("ALTER TABLE authority_expiry_consents ADD COLUMN stable_hash TEXT NOT NULL DEFAULT ''")
+        columns = {row["name"] for row in db.execute("PRAGMA table_info(creative_batch_variants)")}
+        if "native_state" not in columns:
+            db.execute("ALTER TABLE creative_batch_variants ADD COLUMN native_state TEXT NOT NULL DEFAULT 'PREPARED'")
+        if "native_packet_hash" not in columns:
+            db.execute("ALTER TABLE creative_batch_variants ADD COLUMN native_packet_hash TEXT")
+        db.execute("COMMIT")
+        from hashlib import sha256
+
+        from . import migrations
+
+        migrations.apply(db, baseline_checksum=sha256((SCHEMA + ONESIGNAL_SCHEMA).encode()).hexdigest())

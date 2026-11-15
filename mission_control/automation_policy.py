@@ -1,9 +1,15 @@
 """Typed app-owned automation preferences; no execution authority is stored here."""
+
+import sqlite3
+
 from .common import Invalid
 
 MODES = {"AUTO", "SUGGEST", "OFF"}
-METRICS = {"activation_rate": "Useful activation", "paid_conversion": "Paid conversion",
-           "retention_rate": "Retained value"}
+METRICS = {
+    "activation_rate": "Useful activation",
+    "paid_conversion": "Paid conversion",
+    "retention_rate": "Retained value",
+}
 
 
 def bounded_text(value, name, maximum):
@@ -50,7 +56,7 @@ def validate_manifest(data):
     preferences(data)
 
 
-def check_manifest_version(db, app_id, version):
+def check_manifest_version(db: sqlite3.Connection, app_id: str, version: object) -> None:
     """Optional UI binding is checked inside the same transaction as its local write."""
     if version is None:
         return

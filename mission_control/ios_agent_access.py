@@ -1,42 +1,44 @@
 """Trusted native owner grant controls and scoped calls; never a model authority API."""
+
 import json
 from .common import Invalid
 from .ios_bridge import decode_document, decode_request, encode_response
 
 
-EXPIRY_ACTIONS = ('extension-preview', 'extension-confirm', 'extension-history')
+EXPIRY_ACTIONS = ("extension-preview", "extension-confirm", "extension-history")
 
 
 def validate_listing(action, body):
-    if action in ('list', 'handoff-list') and body:
-        raise Invalid('Listing accepts no body fields')
+    if action in ("list", "handoff-list") and body:
+        raise Invalid("Listing accepts no body fields")
 
 
 def expiry_kind(body, action):
     if not isinstance(body, dict):
-        raise Invalid('Use an exact native expiry request')
-    value = body.get('preview') if action == 'extension-confirm' else body
-    if not isinstance(value, dict) or value.get('kind') != 'AGENT_GRANT':
-        raise Invalid('Choose the supported native authority kind')
+        raise Invalid("Use an exact native expiry request")
+    value = body.get("preview") if action == "extension-confirm" else body
+    if not isinstance(value, dict) or value.get("kind") != "AGENT_GRANT":
+        raise Invalid("Choose the supported native authority kind")
 
 
 def manage_expiry(adapter, session, app_id, action, body):
     from .authority_expiry import AuthorityExpiry
     from .operation_authority import bound_owner, protected
+
     expiry_kind(body, action)
     user = adapter.identities.fresh(session)
-    envelope = dict(app_id=app_id, operation='native.expiry.' + action, input=body)
+    envelope = dict(app_id=app_id, operation="native.expiry." + action, input=body)
     with bound_owner(adapter.service.store, envelope, adapter.identities, session, user):
         with protected(adapter.service.store, envelope):
             expiry = AuthorityExpiry(adapter.service.store)
-            if action == 'extension-preview':
+            if action == "extension-preview":
                 result = expiry.preview(app_id, user, body)
-            elif action == 'extension-confirm':
+            elif action == "extension-confirm":
                 result = expiry.confirm(app_id, user, body)
             else:
-                if set(body) != {'kind', 'id'}:
-                    raise Invalid('Use an exact native expiry history request')
-                result = expiry.history(app_id, user, body['kind'], body['id'])
+                if set(body) != {"kind", "id"}:
+                    raise Invalid("Use an exact native expiry history request")
+                result = expiry.history(app_id, user, body["kind"], body["id"])
     return encode_response(result)
 
 
@@ -50,87 +52,128 @@ class NativeAgentAccess:
         from .operation_authority import bound_owner, protected
         from .operation_catalog import catalog
         from .agent_handoffs import Handoffs
+
         body = decode_document(payload)
         if action in EXPIRY_ACTIONS:
             return manage_expiry(self, session, app_id, action, body)
-        if not isinstance(body, dict) or action not in ('list', 'issue', 'revoke', 'handoff-list', 'handoff-create', 'handoff-revoke'):
-            raise Invalid('Choose a fixed native owner grant action')
+        if not isinstance(body, dict) or action not in (
+            "list",
+            "issue",
+            "revoke",
+            "handoff-list",
+            "handoff-create",
+            "handoff-revoke",
+        ):
+            raise Invalid("Choose a fixed native owner grant action")
         validate_listing(action, body)
-        if action == 'issue' and (set(body) != {'confirm_scope', 'grant'} or body['confirm_scope'] is not True):
-            raise Invalid('Explicit owner confirmation of the exact grant scope is required')
-        if action == 'revoke' and (set(body) != {'id', 'version', 'confirm_revoke'} or body['confirm_revoke'] is not True):
-            raise Invalid('Confirm the exact current grant revocation')
+        if action == "issue" and (set(body) != {"confirm_scope", "grant"} or body["confirm_scope"] is not True):
+            raise Invalid("Explicit owner confirmation of the exact grant scope is required")
+        if action == "revoke" and (
+            set(body) != {"id", "version", "confirm_revoke"} or body["confirm_revoke"] is not True
+        ):
+            raise Invalid("Confirm the exact current grant revocation")
         user = self.identities.fresh(session)
-        envelope = dict(app_id=app_id, operation='native.agent-access.' + action, input=body)
+        envelope = dict(app_id=app_id, operation="native.agent-access." + action, input=body)
         grants = Grants(self.service.store)
         handoffs = Handoffs(self.service.store)
         with bound_owner(self.service.store, envelope, self.identities, session, user):
             with protected(self.service.store, envelope):
-                if action == 'list':
-                    operations=catalog()['operations']
-                    result = dict(grants.list(app_id, user), operations=operations,
-                                  native_media={'available':[name for name in operations if name.startswith(('ios.scene.','ios.timeline.'))],
-                                      'unsupported':[name for name in operations if name.startswith('studio.') or name in ('editor.queue','native.queue','hypit.queue')],
-                                      'standing':'EXACT_NATIVE_VIDEO_POLICY_REQUIRED','completion':'TRUSTED_NATIVE_HOST_ONLY'},
-                                  native_execution_acceptance='INCOMPLETE')
-                elif action == 'issue':
-                    result = grants.issue(app_id, user, body['grant'])
-                elif action == 'revoke':
-                    result = grants.revoke(app_id, user, {key: body[key] for key in ('id', 'version')})
-                elif action == 'handoff-list':
-                    result = handoffs.list(app_id,user)
-                elif action == 'handoff-create':
-                    result = handoffs.create(app_id,user,body)
+                if action == "list":
+                    operations = catalog()["operations"]
+                    result = dict(
+                        grants.list(app_id, user),
+                        operations=operations,
+                        native_media={
+                            "available": [
+                                name for name in operations if name.startswith(("ios.scene.", "ios.timeline."))
+                            ],
+                            "unsupported": [
+                                name
+                                for name in operations
+                                if name.startswith("studio.") or name in ("editor.queue", "native.queue", "hypit.queue")
+                            ],
+                            "standing": "EXACT_NATIVE_VIDEO_POLICY_REQUIRED",
+                            "completion": "TRUSTED_NATIVE_HOST_ONLY",
+                        },
+                        native_execution_acceptance="INCOMPLETE",
+                    )
+                elif action == "issue":
+                    result = grants.issue(app_id, user, body["grant"])
+                elif action == "revoke":
+                    result = grants.revoke(app_id, user, {key: body[key] for key in ("id", "version")})
+                elif action == "handoff-list":
+                    result = handoffs.list(app_id, user)
+                elif action == "handoff-create":
+                    result = handoffs.create(app_id, user, body)
                 else:
-                    result = handoffs.revoke(app_id,user,body)
+                    result = handoffs.revoke(app_id, user, body)
         return encode_response(result)
 
     def call(self, session, credential, payload):
         from .agent_grants import token_digest
         from .db import connection
         from .ios_operation_adapter import ScopedAgentAdapter
+
         envelope = decode_request(payload)
         user = self.identities.fresh(session)
         with connection(self.service.store.path) as db:
-            grant = db.execute('SELECT owner FROM agent_grants WHERE token_hash=? AND app_id=?',
-                               (token_digest(credential), envelope['app_id'])).fetchone()
-            if grant is None or grant['owner'] != user['principal']:
-                raise PermissionError('Use this native owner\'s app-scoped agent grant')
+            grant = db.execute(
+                "SELECT owner FROM agent_grants WHERE token_hash=? AND app_id=?",
+                (token_digest(credential), envelope["app_id"]),
+            ).fetchone()
+            if grant is None or grant["owner"] != user["principal"]:
+                raise PermissionError("Use this native owner's app-scoped agent grant")
+
         def current_host():
-            self.identities.local(session, user['principal'], user['session_generation'])
+            self.identities.local(session, user["principal"], user["session_generation"])
+
         # Agent admission, quotas, review and standing authority remain shared.
         # The native unlock check is additive and runs again at business commit.
         return ScopedAgentAdapter(self.service, host_check=current_host).call(credential, payload)
 
-    def review(self,session,credential,action,payload):
+    def review(self, session, credential, action, payload):
         from .agent_grants import token_digest
         from .db import connection
         from .ios_operation_adapter import ScopedAgentAdapter
-        from .operation_authority import bound_owner,protected
-        body=decode_document(payload)
-        fields={'prepare':{'id','envelope'},'inspect':{'id','app_id'},
-                'resume':{'id','app_id','revision','packet_hash'}}
-        if action not in fields or not isinstance(body,dict) or set(body)!=fields[action]:
-            raise Invalid('Use an exact native reviewed-agent request')
-        if action=='prepare':
+        from .operation_authority import bound_owner, protected
+
+        body = decode_document(payload)
+        fields = {
+            "prepare": {"id", "envelope"},
+            "inspect": {"id", "app_id"},
+            "resume": {"id", "app_id", "revision", "packet_hash"},
+        }
+        if action not in fields or not isinstance(body, dict) or set(body) != fields[action]:
+            raise Invalid("Use an exact native reviewed-agent request")
+        if action == "prepare":
             from .operation_catalog import request_data
-            request_data(body['envelope']);app_id=body['envelope']['app_id']
-        else:app_id=body['app_id']
-        user=self.identities.fresh(session)
+
+            request_data(body["envelope"])
+            app_id = body["envelope"]["app_id"]
+        else:
+            app_id = body["app_id"]
+        user = self.identities.fresh(session)
         with connection(self.service.store.path) as db:
-            grant=db.execute('SELECT owner FROM agent_grants WHERE token_hash=? AND app_id=?',
-                             (token_digest(credential),app_id)).fetchone()
-            if grant is None or grant['owner']!=user['principal']:
-                raise PermissionError('Use this native owner\'s app-scoped agent grant')
+            grant = db.execute(
+                "SELECT owner FROM agent_grants WHERE token_hash=? AND app_id=?", (token_digest(credential), app_id)
+            ).fetchone()
+            if grant is None or grant["owner"] != user["principal"]:
+                raise PermissionError("Use this native owner's app-scoped agent grant")
+
         def current_host():
-            self.identities.local(session,user['principal'],user['session_generation'])
-        adapter=ScopedAgentAdapter(self.service,host_check=current_host)
-        envelope=dict(app_id=app_id,operation='native.agent-review.'+action,input={})
-        with bound_owner(self.service.store,envelope,self.identities,session,user):
-            with protected(self.service.store,envelope):
-                if action=='prepare':result=adapter.prepare_review(credential,body['id'],
-                    json.dumps(body['envelope']).encode())
-                elif action=='inspect':result=adapter.inspect_review(credential,app_id,body['id'])
-                else:result=adapter.resume_review(credential,app_id,body['id'],body['revision'],body['packet_hash'])
+            self.identities.local(session, user["principal"], user["session_generation"])
+
+        adapter = ScopedAgentAdapter(self.service, host_check=current_host)
+        envelope = dict(app_id=app_id, operation="native.agent-review." + action, input={})
+        with bound_owner(self.service.store, envelope, self.identities, session, user):
+            with protected(self.service.store, envelope):
+                if action == "prepare":
+                    result = adapter.prepare_review(credential, body["id"], json.dumps(body["envelope"]).encode())
+                elif action == "inspect":
+                    result = adapter.inspect_review(credential, app_id, body["id"])
+                else:
+                    result = adapter.resume_review(
+                        credential, app_id, body["id"], body["revision"], body["packet_hash"]
+                    )
         current_host()
         return result

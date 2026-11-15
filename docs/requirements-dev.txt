@@ -1,0 +1,3 @@
+# Formatting and lint ratchet; installed by the dedicated CI job.
+ruff==0.14.10 ; sys_platform == "linux" --hash=sha256:59aabd2e2c4fd614d2862e7939c34a532c04f1084476d6833dddef4afab87e9f
+ruff==0.14.10 ; sys_platform == "win32" --hash=sha256:466297bd73638c6bdf06485683e812db1c00c7ac96d4ddd0294a338c62fdc154

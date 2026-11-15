@@ -1,0 +1,6 @@
+{
+  "checks": [
+    {"name": "scoped-address-and-bounded-json-roundtrip", "kind": "python",
+     "run": "from mission_control.macos_vault import address, encode, decode; assert address('one') != address('two'); assert decode(encode({'synthetic': 'value'})) == {'synthetic': 'value'}"}
+  ]
+}
