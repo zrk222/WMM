@@ -183,3 +183,9 @@
   .goal-choice-grid { grid-template-columns: minmax(0, 1fr); }
   .goal-choice-grid .goal-choice { min-height: 56px; }
 }
+
+/* Keep long connection states readable on narrow screens. */
+.connection-card .status {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
