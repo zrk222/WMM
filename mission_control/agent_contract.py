@@ -1,7 +1,7 @@
 """Typed app facts, access profiles and bounded draft outputs, never agent commands."""
 
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from typing import cast
 
 from . import aeo_transport, agent_registry
@@ -10,14 +10,14 @@ from .common import Invalid, canonical, required
 
 REGISTRY = cast(
     Mapping[str, Mapping[str, object]],
-    vars(agent_registry).get("REGISTRY"),
+    vars(agent_registry)["REGISTRY"],
 )
 
 
 def public_url(value: object) -> str:
     return cast(
         Callable[[object], str],
-        vars(aeo_transport).get("public_url"),
+        vars(aeo_transport)["public_url"],
     )(value)
 
 
@@ -70,9 +70,9 @@ def output_contract() -> dict[str, object]:
     )
 
 
-def exact(value: object, keys: object) -> None:
+def exact(value: object, keys: Collection[object]) -> None:
     """Reject hidden commands, authority and extra fields before using their values."""
-    if not isinstance(value, dict) or set(cast(dict[object, object], value)) != set(cast(tuple[object, ...], keys)):
+    if not isinstance(value, dict) or set(cast(dict[object, object], value)) != set(keys):
         raise Invalid("Use only the documented agent access fields")
 
 
@@ -202,13 +202,17 @@ def draft(value: object, source_ids: object = SOURCE_IDS) -> Mapping[str, object
     exact(value, ("summary", "items", "unknowns"))
     body = cast(Mapping[str, object], value)
     bounded_text(body["summary"], "summary", SUMMARY_CHARS)
+    if not isinstance(body["items"], list):
+        raise Invalid("Agent returned too many draft items")
     items = cast(list[object], body["items"])
-    if not isinstance(body["items"], list) or len(items) > MAX_ITEMS:
+    if len(items) > MAX_ITEMS:
         raise Invalid("Agent returned too many draft items")
     for item in items:
         draft_item(item, source_ids)
+    if not isinstance(body["unknowns"], list):
+        raise Invalid("Agent returned invalid unknowns")
     unknowns = cast(list[object], body["unknowns"])
-    if not isinstance(body["unknowns"], list) or len(unknowns) > MAX_UNKNOWNS:
+    if len(unknowns) > MAX_UNKNOWNS:
         raise Invalid("Agent returned invalid unknowns")
     for text in unknowns:
         bounded_text(text, "unknown", UNKNOWN_CHARS)
@@ -221,9 +225,11 @@ def draft_item(item: object, source_ids: object) -> None:
     body = cast(Mapping[str, object], item)
     bounded_text(body["title"], "item title", TITLE_CHARS)
     bounded_text(body["detail"], "item detail", DETAIL_CHARS)
+    if not isinstance(body["source_ids"], list):
+        raise Invalid("Agent returned an invalid source index")
     citations = cast(list[object], body["source_ids"])
-    approved = cast(list[str], source_ids)
-    if not isinstance(body["source_ids"], list) or len(citations) > len(SOURCE_IDS):
+    approved = cast(Collection[str], source_ids)
+    if len(citations) > len(SOURCE_IDS):
         raise Invalid("Agent returned an invalid source index")
     if any(not isinstance(s, str) or s not in approved for s in citations):
         raise Invalid("Agent cited a source outside the approved app facts")
