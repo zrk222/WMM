@@ -5,7 +5,7 @@ import re
 from collections.abc import Callable
 from datetime import timedelta
 from sqlite3 import Connection
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from .automation_rules import _project_snapshot, _study_facts, evaluate
 from .automation_store import version_in_snapshot
@@ -31,6 +31,15 @@ class ProposalDisposition(TypedDict):
     status: str
 
 
+class ReportIntegrationReceipt(TypedDict):
+    status: str
+    template_id: str
+    template_hash: str
+    proposal_id: NotRequired[str]
+    report_id: NotRequired[str]
+    report_hash: NotRequired[str]
+
+
 class RunReceipt(TypedDict):
     id: str
     app_id: str
@@ -42,6 +51,7 @@ class RunReceipt(TypedDict):
     results: list[dict]
     proposals: list[ProposalDisposition]
     mode: str
+    integration: NotRequired[ReportIntegrationReceipt]
 
 
 class SavedProposal(TypedDict):
@@ -92,16 +102,18 @@ def stored_proposal(
         (app_id, owner, proposal_id),
     ).fetchone():
         return "UNCHANGED"
+    return "COOLDOWN" if within_cooldown(db, app_id, owner, action_key, stamp, cooldown) else None
+
+
+def within_cooldown(db: Connection, app_id: str, owner: str, action_key: str, stamp: str, cooldown: timedelta) -> bool:
     if not cooldown:
-        return None
+        return False
     last = db.execute(
         """SELECT observed_at FROM automation_rule_proposals
            WHERE app_id=? AND owner=? AND action_key=? ORDER BY observed_at DESC LIMIT 1""",
         (app_id, owner, action_key),
     ).fetchone()
-    if last is not None and iso_time(last["observed_at"]) + cooldown > iso_time(stamp):
-        return "COOLDOWN"
-    return None
+    return last is not None and iso_time(last["observed_at"]) + cooldown > iso_time(stamp)
 
 
 def evaluate_in_snapshot(
