@@ -66,6 +66,7 @@ class DangerZoneTypesTests(unittest.TestCase):
         self.assertIn("mission_control/automation_execution.py", strict)
         self.assertIn("mission_control/campaign_schedule.py", strict)
         self.assertIn("mission_control/agent_tasks.py", strict)
+        self.assertIn("mission_control/agent_context.py", strict)
 
     def test_agent_task_boundary_names_remain_patchable(self) -> None:
         from mission_control import (
