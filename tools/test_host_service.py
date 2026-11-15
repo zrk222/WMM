@@ -121,7 +121,7 @@ def session(origin=ORIGIN, timeout=45):
     raise RuntimeError("Service did not serve bootstrap before timeout")
 
 
-def request_json(client, origin, path, body=None, csrf=None, *, canary=None, timeout=2):
+def request_json(client, origin, path, body=None, csrf=None, *, canary=None, timeout: float = 2):
     headers = {"Origin": origin}
     data = None
     if body is not None:
