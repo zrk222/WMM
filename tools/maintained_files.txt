@@ -20,6 +20,7 @@ mission_control/automation_http.py
 mission_control/automation_policy.py
 mission_control/automation_proposal_schedule.py
 mission_control/automation_proposals.py
+mission_control/automation_rule_report_integration.py
 mission_control/campaign_access.py
 mission_control/campaign_contract.py
 mission_control/campaign_execution.py
@@ -114,6 +115,7 @@ tests/test_architecture_gates.py
 tests/test_automation_agreement.py
 tests/test_automation_proposal_schedule.py
 tests/test_automation_proposals.py
+tests/test_automation_rule_report_integration.py
 tests/test_automation_rules_browser.py
 tests/test_batch_authority.py
 tests/test_campaign_execution.py
