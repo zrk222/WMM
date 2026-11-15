@@ -6,7 +6,17 @@ from .common import digest
 
 
 def row(
-    source, metric, period, value, unit, *, denominator=None, definition=None, coverage="UNKNOWN", source_hash=None
+    source,
+    metric,
+    period,
+    value,
+    unit,
+    *,
+    denominator=None,
+    definition=None,
+    coverage="UNKNOWN",
+    source_hash=None,
+    observed_at=None,
 ):
     """Keep one source observation addressable without normalizing away its meaning."""
     return dict(
@@ -19,6 +29,7 @@ def row(
         definition=definition or source,
         coverage=coverage,
         source_hash=source_hash,
+        observed_at=observed_at,
     )
 
 
@@ -34,11 +45,22 @@ def matrix(rows: list[dict[str, Any]]) -> dict[str, Any]:
         units = sorted({item["unit"] for item in values})
         definitions = sorted({item["definition"] for item in values})
         sources = sorted({item["source"] for item in items})
-        compatible = len(units) <= 1 and len(definitions) <= 1
+        observed_sources = {item["source"] for item in values}
+        missing_sources = sorted({item["source"] for item in items if item["value"] is None})
+        compatible = (
+            len(units) == 1
+            and len(definitions) == 1
+            and all(item["denominator"] == values[0]["denominator"] for item in values)
+            and period not in {"UNSPECIFIED", "CURRENT"}
+            and not period.lower().startswith("last_")
+            and len(observed_sources) == len(values)
+        )
         numeric = values and all(type(item["value"]) in (int, float) for item in values)
         if not values:
             status = "NO_DATA"
-        elif len(sources) == 1:
+        elif missing_sources:
+            status = "INCOMPLETE"
+        elif len(observed_sources) == 1:
             status = "SINGLE_SOURCE"
         elif not compatible:
             status = "INCOMPATIBLE"
@@ -49,7 +71,7 @@ def matrix(rows: list[dict[str, Any]]) -> dict[str, Any]:
         else:
             status = "CONFLICT"
         deltas = []
-        if compatible and numeric:
+        if compatible and numeric and not missing_sources:
             for index, first in enumerate(values):
                 for second in values[index + 1 :]:
                     difference = second["value"] - first["value"]
@@ -67,9 +89,11 @@ def matrix(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 period=period,
                 status=status,
                 sources=sources,
+                observed_sources=sorted(observed_sources),
+                missing_sources=missing_sources,
                 units=units,
                 definitions=definitions,
-                values=[dict(source=item["source"], value=item["value"], coverage=item["coverage"]) for item in items],
+                values=items,
                 deltas=deltas,
             )
         )
@@ -107,8 +131,8 @@ def summary(workspace: Any) -> dict[str, Any]:
                     )
                 )
         for metric, unit in (
-            ("net_proceeds_minor", cohort.get("currency", "minor")),
-            ("paid_cac_minor", cohort.get("currency", "minor")),
+            ("net_proceeds_minor", cohort.get("currency") or "minor"),
+            ("paid_cac_minor", cohort.get("currency") or "minor"),
         ):
             if metric in report:
                 rows.append(
@@ -142,9 +166,11 @@ def summary(workspace: Any) -> dict[str, Any]:
                     str(item.get("period") or "UNSPECIFIED"),
                     value,
                     str(item.get("unit") or "unknown"),
-                    definition=str(report.get("provider") or "provider") + " aggregate",
-                    coverage="PARTIAL",
-                    source_hash=report.get("hash"),
+                    denominator=item.get("denominator"),
+                    definition=item.get("definition") or (str(report.get("provider") or "provider") + " aggregate"),
+                    coverage=item.get("coverage") or data.get("coverage") or "PARTIAL",
+                    source_hash=item.get("source_hash") or report.get("hash"),
+                    observed_at=item.get("observed_at") or data.get("observed_at"),
                 )
             )
     storekit = (workspace.get("storekit") or {}).get("report") or {}

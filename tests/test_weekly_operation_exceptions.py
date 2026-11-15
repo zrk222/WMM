@@ -598,6 +598,98 @@ class WeeklyOperationTests(unittest.TestCase):
             db.execute("UPDATE campaign_schedule_batches SET status='OFF'")
         self.assertEqual(self.cards(), [])
 
+    def test_weekly_only_reports_scheduled_items_still_needing_attention(self):
+        from mission_control.campaign_schedule import initialize
+
+        initialize(self.store)
+        stamp = now()
+        past = "2020-01-01T00:00:00+00:00"
+        scope_id = self.fixture.fixture.scope["scope_id"]
+        with connection(self.store.path) as db:
+            db.execute("UPDATE campaign_monitors SET status='OFF'")
+            scope_hash = db.execute("SELECT summary_hash FROM campaign_scopes WHERE id=?", (scope_id,)).fetchone()[0]
+            for name in ("delivered", "uncertain", "mixed", "cancelled"):
+                reviewed_items = []
+                states = {
+                    "delivered": ("SUCCEEDED",),
+                    "uncertain": ("SUCCEEDED",),
+                    "mixed": ("SUCCEEDED", None),
+                    "cancelled": ("CANCELLED",),
+                }[name]
+                for index in range(len(states)):
+                    item_id = f"{name}-{index}"
+                    reviewed_items.append(dict(item_id=item_id, due_at=past, request=dict(request_id=item_id)))
+                summary = dict(
+                    batch_id=name,
+                    app_id="sample",
+                    owner="owner",
+                    scope_id=scope_id,
+                    scope_hash=scope_hash,
+                    permission_expires_at=past,
+                    items=reviewed_items,
+                )
+                db.execute(
+                    "INSERT INTO campaign_schedule_batches VALUES(?,?,?,?,?,?,?,?,?,?)",
+                    (name, "sample", "owner", scope_id, canonical(summary), digest(summary), "ACTIVE", 2, stamp, stamp),
+                )
+                for body, job_state in zip(reviewed_items, states, strict=True):
+                    item_id = body["item_id"]
+                    job_id = f"job-{item_id}" if job_state else None
+                    if job_id:
+                        db.execute(
+                            "INSERT INTO jobs(id,app_id,action,data,status,result,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?,?)",
+                            (job_id, "sample", "campaign_post", "{}", job_state, "{}", stamp, stamp, job_id),
+                        )
+                    db.execute(
+                        "INSERT INTO campaign_schedule_items VALUES(?,?,?,?,?,?,?,?,?)",
+                        (
+                            item_id,
+                            name,
+                            datetime.fromisoformat(past).timestamp(),
+                            canonical(body),
+                            digest(body),
+                            "QUEUED" if job_id else "READY",
+                            job_id,
+                            stamp,
+                            stamp,
+                        ),
+                    )
+                    if job_id and name in ("delivered", "mixed"):
+                        db.execute(
+                            "INSERT INTO campaign_intents VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                            (
+                                "sample",
+                                item_id,
+                                scope_id,
+                                item_id,
+                                digest(body["request"]),
+                                digest(item_id),
+                                "rights",
+                                "page",
+                                "VERIFIED",
+                                "123",
+                                "{}",
+                                stamp,
+                                stamp,
+                            ),
+                        )
+        cards = {c["action"]["batch_id"]: c for c in self.cards()}
+        self.assertEqual(
+            {key: card["state"] for key, card in cards.items()},
+            {
+                "uncertain": "NEEDS_RECONCILIATION",
+                "mixed": "EXPIRED_PENDING_WORK",
+            },
+        )
+        self.assertEqual(cards["mixed"]["evidence"]["pending_items"], 1)
+        with connection(self.store.path) as db:
+            db.execute("UPDATE campaign_schedule_items SET due=0 WHERE id='delivered-0'")
+            db.execute("INSERT INTO apps(id,data,updated) VALUES('foreign','{}',?)", (stamp,))
+            db.execute("UPDATE jobs SET app_id='foreign' WHERE id='job-uncertain-0'")
+        cards = {c["action"]["batch_id"]: c for c in self.cards()}
+        self.assertEqual(cards["uncertain"]["state"], "NEEDS_REPAIR")
+        self.assertEqual(cards["delivered"]["state"], "NEEDS_REPAIR")
+
     def test_closed_states_foreign_owned_rows_and_payloads_never_exported(self):
         with connection(self.store.path) as db:
             db.execute(

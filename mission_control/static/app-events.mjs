@@ -22,6 +22,8 @@ import {
   goalAction,
   guidedAction,
   guidedNavigate,
+  submitLaunchCheck,
+  submitLaunchDeclaration,
 } from './guided-workflow.mjs';
 import { WMMCampaignMonitor } from './campaign-monitor.mjs';
 import { WMMObservationalCampaign } from './observational-campaign.mjs';
@@ -193,6 +195,14 @@ async function formSubmit(event) {
   if (formId === 'goal-readiness-form') {
     event.preventDefault();
     return WMMGoalReadiness.submit(form);
+  }
+  if (formId === 'goal-launch-declare') {
+    event.preventDefault();
+    return submitLaunchDeclaration(form);
+  }
+  if (formId === 'goal-launch-check') {
+    event.preventDefault();
+    return submitLaunchCheck(form);
   }
   if (formId === 'standing-scope-form') {
     event.preventDefault();

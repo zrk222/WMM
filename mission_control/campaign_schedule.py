@@ -2,9 +2,12 @@
 
 import json
 import time
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
+from sqlite3 import Connection, Row
 from typing import Any
 
+from .app_launch_history import removed_listing
 from .campaign_contract import ad_data, post_data
 from .campaign_execution import CampaignExecutionService, saved_pause_receipt, scope_view
 from .common import Invalid, canonical, digest, iso_time, now, uid
@@ -28,6 +31,13 @@ CREATE INDEX IF NOT EXISTS campaign_schedule_due ON campaign_schedule_items(stat
 def initialize(store):
     with connection(store.path) as db:
         db.executescript(SCHEMA)
+
+
+def schedule_table_exists(db: Connection) -> bool:
+    return (
+        db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='campaign_schedule_batches'").fetchone()
+        is not None
+    )
 
 
 def owner_context(store, app_id):
@@ -77,9 +87,25 @@ def prepare_item(item, scope, db, app_id):
         or post["rights_hash"] not in scope["approved_rights_hashes"]
     ):
         raise PermissionError("Scheduled post is outside campaign approval")
+    check_measurement_schedule(db, app_id, scope, operation, post, due)
+    return due, operation, post
+
+
+def check_measurement_schedule(db, app_id, scope, operation, post, due):
     if operation == "campaign.ad-launch":
         check_paid_review(db, app_id, scope, post, due)
-    return due, operation, post
+    plan = scope.get("measurement_plan")
+    if plan:
+        from .evidence_gate import measurement_plan
+
+        parsed = measurement_plan(plan, retained=True)
+        if operation == "campaign.publish" and post.get("link") != parsed["link"]:
+            raise Invalid("The scheduled post must use the approved tagged link.")
+        starts, ends = iso_time(parsed["starts_at"]), iso_time(parsed["ends_at"])
+        if not starts <= due < ends:
+            raise Invalid("Schedule work inside the approved measurement window.")
+        if operation == "campaign.ad-launch" and iso_time(post["end_time"]) > ends:
+            raise Invalid("Paid delivery must end inside the approved measurement window.")
 
 
 def check_paid_review(db, app_id, scope, body, due):
@@ -92,12 +118,16 @@ def check_paid_review(db, app_id, scope, body, due):
     ):
         raise PermissionError("Paid promotion exceeds the approved scope")
     post = db.execute(
-        """SELECT 1 FROM campaign_intents WHERE app_id=? AND page_id=? AND remote_id=?
+        """SELECT result FROM campaign_intents WHERE app_id=? AND page_id=? AND remote_id=?
         AND status='VERIFIED' AND content_hash=? AND rights_hash=?""",
         (app_id, scope["page_id"], body["post_id"], body["content_hash"], body["rights_hash"]),
     ).fetchone()
     if post is None:
         raise PermissionError("Schedule only a verified saved Page post")
+    if scope.get("measurement_plan"):
+        from .evidence_gate import check_promotion_link
+
+        check_promotion_link(post, scope["measurement_plan"])
 
 
 def validate_items(rows, summary, *, require_future=True):
@@ -118,7 +148,6 @@ def validate_items(rows, summary, *, require_future=True):
 class CampaignSchedules:
     def __init__(self, store):
         self.store = store
-        initialize(store)
 
     def prepare(self, app_id, body):
         actor = owner_context(self.store, app_id)
@@ -127,6 +156,7 @@ class CampaignSchedules:
         items = body["items"]
         if not isinstance(items, list) or not 1 <= len(items) <= MAX_ITEMS:
             raise Invalid("Choose one to twenty scheduled posts")
+        initialize(self.store)
         from .campaign_access import policy_checker
 
         service = CampaignExecutionService(self.store, policy_checker(self.store))
@@ -187,6 +217,8 @@ class CampaignSchedules:
         service = CampaignExecutionService(self.store, policy_checker(self.store))
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
+            if not schedule_table_exists(db):
+                raise Invalid("Scheduled batch is unavailable for activation")
             row = db.execute(
                 "SELECT * FROM campaign_schedule_batches WHERE id=? AND app_id=?", (batch_id, app_id)
             ).fetchone()
@@ -205,6 +237,16 @@ class CampaignSchedules:
             check_deadline(summary, scope["expires_at"])
             rows = db.execute("SELECT * FROM campaign_schedule_items WHERE batch_id=?", (batch_id,)).fetchall()
             validate_items(rows, summary)
+            if scope.get("measurement_plan"):
+                for item in summary["items"]:
+                    check_measurement_schedule(
+                        db,
+                        app_id,
+                        scope,
+                        item.get("operation", "campaign.publish"),
+                        item["request"],
+                        iso_time(item["due_at"]),
+                    )
             db.execute(
                 "UPDATE campaign_schedule_batches SET status='ACTIVE',version=version+1,updated=? WHERE id=?",
                 (now(), batch_id),
@@ -218,6 +260,8 @@ class CampaignSchedules:
     def status(self, app_id, batch_id):
         actor = owner_context(self.store, app_id)
         with connection(self.store.path) as db:
+            if not schedule_table_exists(db):
+                raise Invalid("Scheduled batch is unavailable")
             row = db.execute(
                 "SELECT * FROM campaign_schedule_batches WHERE id=? AND app_id=? AND owner=?", (batch_id, app_id, actor)
             ).fetchone()
@@ -229,13 +273,21 @@ class CampaignSchedules:
                     from .organic_video_schedule import VideoSchedules
 
                     return VideoSchedules(self.store).status(app_id, batch_id)
-                items = [
-                    item_status(db, app_id, row["scope_id"], item)
-                    for item in db.execute(
-                        "SELECT * FROM campaign_schedule_items WHERE batch_id=? ORDER BY due,id", (batch_id,)
+                rows = db.execute(
+                    "SELECT * FROM campaign_schedule_items WHERE batch_id=? ORDER BY due,id", (batch_id,)
+                ).fetchall()
+                items = [item_status(db, app_id, row["scope_id"], item) for item in rows]
+                try:
+                    validate_items(rows, summary, require_future=False)
+                except Invalid:
+                    progress = (
+                        "NEEDS_RECONCILIATION"
+                        if any(item["effective_status"] == "NEEDS_RECONCILIATION" for item in items)
+                        else "NEEDS_REPAIR"
                     )
-                ]
-            except Invalid:
+                else:
+                    progress = batch_progress(db, row, summary, items, datetime.now(timezone.utc))
+            except (Invalid, KeyError, TypeError, ValueError, OverflowError, RecursionError):
                 return repair_view(row)
             return dict(
                 id=row["id"],
@@ -245,12 +297,15 @@ class CampaignSchedules:
                 summary=summary,
                 summary_hash=row["summary_hash"],
                 items=items,
+                progress=progress,
             )
 
     def history(self, app_id):
         """Return the latest 50 owner-owned batches with saved local receipt state."""
         actor = owner_context(self.store, app_id)
         with connection(self.store.path) as db:
+            if not schedule_table_exists(db):
+                return {"batches": []}
             ids = [
                 row["id"]
                 for row in db.execute(
@@ -265,6 +320,8 @@ class CampaignSchedules:
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
             member(db, app_id, actor, "OWNER")
+            if not schedule_table_exists(db):
+                raise Invalid("Scheduled batch is unavailable")
             row = db.execute(
                 "SELECT * FROM campaign_schedule_batches WHERE id=? AND app_id=? AND owner=?", (batch_id, app_id, actor)
             ).fetchone()
@@ -318,9 +375,46 @@ def repair_view(row):
     )
 
 
+def batch_progress(
+    db: Connection, batch: Row, summary: Mapping[str, object], items: Sequence[Mapping[str, object]], observed: datetime
+) -> str:
+    """Describe saved progress separately from the batch's persisted authority switch."""
+    states = {item["effective_status"] for item in items}
+    if "NEEDS_RECONCILIATION" in states:
+        return "NEEDS_RECONCILIATION"
+    if states and states <= {"VERIFIED", "ACTIVE_VERIFIED", "PAUSED_VERIFIED"}:
+        return "DELIVERY_VERIFIED"
+    if batch["status"] != "ACTIVE":
+        return batch["status"]
+
+    scope = db.execute(
+        "SELECT * FROM campaign_scopes WHERE app_id=? AND id=? AND owner=?",
+        (batch["app_id"], batch["scope_id"], batch["owner"]),
+    ).fetchone()
+    if (
+        scope is None
+        or scope["summary_hash"] != summary.get("scope_hash")
+        or (summary.get("app_id"), summary.get("owner"), summary.get("scope_id"), summary.get("batch_id"))
+        != (batch["app_id"], batch["owner"], batch["scope_id"], batch["id"])
+    ):
+        return "NEEDS_REPAIR"
+    if scope["status"] != "ACTIVE":
+        return "APPROVAL_INACTIVE"
+    base = retained_object(scope["summary"], scope["summary_hash"])
+    expiry = min(
+        iso_time(summary.get("permission_expires_at", base["expires_at"])),
+        iso_time(scope_view(db, scope)["permission_expires_at"]),
+    )
+    if expiry <= observed:
+        return "APPROVAL_EXPIRED"
+    if "BLOCKED" in states:
+        return "BLOCKED"
+    return "RUNNING" if "RUNNING" in states else "SCHEDULED"
+
+
 def item_status(db, app_id, scope_id, item):
     job = (
-        db.execute("SELECT status,result FROM jobs WHERE id=?", (item["job_id"],)).fetchone()
+        db.execute("SELECT status,result FROM jobs WHERE id=? AND app_id=?", (item["job_id"], app_id)).fetchone()
         if item["job_id"]
         else None
     )
@@ -347,7 +441,7 @@ def item_status(db, app_id, scope_id, item):
     if intent is not None and operation == "campaign.ad-launch":
         if intent["status"] == "PAUSED_campaign":
             receipt = saved_pause_receipt(db, intent)
-            pause_confirmed = receipt is not None and receipt["effective_status"] != "ACTIVE"
+            pause_confirmed = receipt is not None and receipt["effective_status"] == "PAUSED"
         intent = {key: intent[key] for key in ("id", "status", "ids", "commitment", "currency")}
     else:
         intent = dict(intent) if intent else None
@@ -361,6 +455,12 @@ def item_status(db, app_id, scope_id, item):
         effective_status=effective_status(item["status"], job, intent, operation, pause_confirmed),
         job_id=item["job_id"],
         job_status=job["status"] if job else None,
+        **(
+            {"attention": "This post points to an app removed from the App Store. Review the link before rescheduling."}
+            if (item["status"] == "BLOCKED" or (job and job["status"] == "FAILED"))
+            and removed_listing(db, app_id, request.get("link"))
+            else {}
+        ),
         intent=intent,
     )
 
@@ -440,6 +540,13 @@ def tick(store):
         for row in rows:
             try:
                 action, data = due_payload(row)
+                if removed_listing(db, row["app_id"], data["request"].get("link")):
+                    db.execute(
+                        "UPDATE campaign_schedule_items SET status='BLOCKED',updated=? WHERE id=?",
+                        (now(), row["id"]),
+                    )
+                    audit(db, row["app_id"], "blocked", dict(item_id=row["id"], reason="APP_STORE_LISTING_REMOVED"))
+                    continue
             except (ValueError, TypeError, KeyError, OverflowError, OSError):
                 db.execute(
                     "UPDATE campaign_schedule_items SET status='BLOCKED',updated=? WHERE id=?", (now(), row["id"])

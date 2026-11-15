@@ -1013,6 +1013,13 @@ class Handler(BaseHTTPRequestHandler):
         if parts[3] == "agent-access":
             return self.send(200, self.agent_access(parts[2], parts[4:], data))
         app_id, action = parts[2:4]
+        if action == "launch-status":
+            if parts[4:] != ["declare"] or self.path != "/" + "/".join(parts):
+                raise Invalid("Use the exact app launch declaration address")
+            from .app_launch_history import declare
+
+            user, recheck = self.automation_owner_session()
+            return self.send(201, declare(service.store.path, app_id, user["principal"], data, commit_check=recheck))
         if action == "studio":
             from .hypit_studio_routes import human
 
@@ -1024,17 +1031,9 @@ class Handler(BaseHTTPRequestHandler):
 
             return self.send(201, EditRenders(service.store).queue(app_id, data))
         if action == "video-projects":
-            if urlparse(self.path).query:
-                raise Invalid("Use the exact video project address")
-            from .video_edit_projects import Projects
+            from .video_project_http import post as post_video_project
 
-            projects = Projects(service.store)
-            if len(parts) == 4:
-                return self.send(201, projects.save(app_id, data))
-            if len(parts) == 6 and parts[5] in ("edits", "history", "diff"):
-                operation = "edit" if parts[5] == "edits" else parts[5]
-                return self.send(200, getattr(projects, operation)(app_id, parts[4], data))
-            raise KeyError("Video project route not found")
+            return post_video_project(self, parts, data)
         if action == "workflow-evidence":
             if len(parts) != 4 or urlparse(self.path).query:
                 raise Invalid("Use the exact workflow evidence address")

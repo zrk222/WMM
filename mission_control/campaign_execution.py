@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from .campaign_contract import ad_data, post_data, scope_data
 from .campaign_destination import check_destination
 from .campaign_locks import CampaignLockBusy, paid_lock
+from .campaign_pause_receipts import pause_receipt_data
+from .campaign_pause_receipts import saved_pause_receipt as saved_pause_receipt
 from .campaign_transport import MetaTransport, Unconfirmed
 from .common import Invalid, canonical, digest, iso_time, now, uid
 from .db import connection
@@ -46,80 +48,6 @@ CREATE TABLE IF NOT EXISTS campaign_pause_receipts (
  app_id TEXT NOT NULL, intent_id TEXT NOT NULL, hash TEXT NOT NULL, data TEXT NOT NULL,
  observed_at TEXT NOT NULL, PRIMARY KEY(app_id,intent_id,hash));
 """
-
-EFFECTIVE_STATUSES = frozenset(
-    (
-        "ACTIVE",
-        "PAUSED",
-        "DELETED",
-        "PENDING_REVIEW",
-        "DISAPPROVED",
-        "PREAPPROVED",
-        "PENDING_BILLING_INFO",
-        "CAMPAIGN_PAUSED",
-        "ARCHIVED",
-        "ADSET_PAUSED",
-        "IN_PROCESS",
-        "WITH_ISSUES",
-    )
-)
-
-
-def pause_receipt_data(intent, observed):
-    """Keep only the exact identity and status fields from a confirmed pause read."""
-    ids = json.loads(intent["ids"]) if isinstance(intent["ids"], str) else intent["ids"]
-    if (
-        not isinstance(observed, dict)
-        or observed.get("id") != ids.get("campaign")
-        or str(observed.get("account_id")) != intent["account_id"]
-        or observed.get("status") != "PAUSED"
-    ):
-        raise Invalid("Pause observation differs from the saved campaign")
-    effective = observed.get("effective_status")
-    if not isinstance(effective, str) or effective not in EFFECTIVE_STATUSES:
-        effective = None
-    return dict(
-        schema="wmm.campaign-pause-readback.v1",
-        app_id=intent["app_id"],
-        intent_id=intent["id"],
-        scope_id=intent["scope_id"],
-        request_hash=intent["request_hash"],
-        campaign_id=ids["campaign"],
-        account_id=intent["account_id"],
-        configured_status="PAUSED",
-        effective_status=effective,
-        observed_at=now(),
-    )
-
-
-def saved_pause_receipt(db, intent):
-    """Read a retained pause observation independently of later reconciliation."""
-    if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='campaign_pause_receipts'").fetchone():
-        return None
-    row = db.execute(
-        "SELECT hash,data,observed_at FROM campaign_pause_receipts "
-        "WHERE app_id=? AND intent_id=? ORDER BY observed_at DESC,rowid DESC LIMIT 1",
-        (intent["app_id"], intent["id"]),
-    ).fetchone()
-    if row is None:
-        return None
-    try:
-        receipt = json.loads(row["data"])
-        expected = pause_receipt_data(
-            intent,
-            dict(
-                id=receipt["campaign_id"],
-                account_id=receipt["account_id"],
-                status=receipt["configured_status"],
-                effective_status=receipt["effective_status"],
-            ),
-        )
-        expected["observed_at"] = iso_time(receipt["observed_at"]).isoformat()
-        if receipt != expected or receipt["observed_at"] != row["observed_at"] or digest(receipt) != row["hash"]:
-            raise Invalid("Saved pause receipt failed integrity validation")
-    except (KeyError, ValueError, TypeError, AttributeError):
-        raise Invalid("Saved pause receipt failed integrity validation") from None
-    return dict(receipt, sha256=row["hash"])
 
 
 def row_scope(row):
@@ -404,6 +332,15 @@ class CampaignExecutionService:
                 )
         return scope
 
+    def _dispatch_alive(self, app_id, actor, scope_id, action, request=None):
+        """Recheck the reviewed evidence whenever an effect is about to be sent."""
+        scope = self._alive(app_id, actor, scope_id, action)
+        if scope.get("measurement_plan"):
+            from .evidence_gate import assert_ready
+
+            assert_ready(self.store, app_id, scope, request=request)
+        return scope
+
     def _safety_admit(self, db, app_id, scope_id, category):
         """Reserve a separate finite no-spend safety check inside the same transaction."""
         row = db.execute(
@@ -632,11 +569,14 @@ class CampaignExecutionService:
 
     def run_post(self, app_id, actor, scope_id, body):
         post = post_data(body)
-        scope, secret, token = self._preflight(app_id, actor, scope_id, "RUN_POST")
-        if scope.get("measurement_plan"):
-            from .evidence_gate import assert_ready
+        from .evidence_gate import assert_ready
 
+        scope = self.get_scope(app_id, scope_id)
+        with connection(self.store.path) as db:
+            self._check(db, app_id, actor, scope, "RUN_POST")
+        if scope.get("measurement_plan"):
             assert_ready(self.store, app_id, scope, request=post)
+        scope, secret, token = self._preflight(app_id, actor, scope_id, "RUN_POST")
         with connection(self.store.path) as db:
             self._check(db, app_id, actor, scope, "RUN_POST")
             if (
@@ -655,6 +595,8 @@ class CampaignExecutionService:
             intent, _ = self._reserve_post(app_id, actor, scope_id, post)
             return intent
         destination = check_destination(post["link"])
+        if scope.get("measurement_plan"):
+            assert_ready(self.store, app_id, scope, request=post)
         intent, fresh = self._reserve_post(app_id, actor, scope_id, post, destination)
         if not fresh:
             return intent
@@ -665,7 +607,7 @@ class CampaignExecutionService:
                 post["link"],
                 token,
                 secret,
-                lambda: self._alive(app_id, actor, scope_id, "RUN_POST"),
+                lambda: self._dispatch_alive(app_id, actor, scope_id, "RUN_POST", post),
             )
         except Exception:  # noqa: BLE001 - provider effect boundary
             self._save_intent(app_id, intent["id"], "UNKNOWN")
@@ -852,6 +794,10 @@ class CampaignExecutionService:
             ).fetchone()
             if post is None:
                 raise PermissionError("Promote only a verified saved Page post with approved content and rights")
+            if scope.get("measurement_plan"):
+                from .evidence_gate import check_promotion_link
+
+                check_promotion_link(post, scope["measurement_plan"])
             previous = db.execute(
                 "SELECT * FROM campaign_paid_intents WHERE app_id=? AND request_id=?", (app_id, body["request_id"])
             ).fetchone()
@@ -1059,7 +1005,7 @@ class CampaignExecutionService:
                     fields,
                     token,
                     secret,
-                    lambda: self._alive(app_id, actor, scope["scope_id"], "RUN_AD"),
+                    lambda: self._dispatch_alive(app_id, actor, scope["scope_id"], "RUN_AD"),
                 )
             except Exception:  # noqa: BLE001 - provider effect boundary
                 self._receipt_paid(app_id, identity, step, owner_token, "UNKNOWN")
@@ -1124,7 +1070,11 @@ class CampaignExecutionService:
                     status,
                     token,
                     secret,
-                    lambda: self._alive(app_id, actor, scope["scope_id"], action, active),
+                    lambda: (
+                        self._dispatch_alive(app_id, actor, scope["scope_id"], action)
+                        if action == "RUN_AD" and status == "ACTIVE"
+                        else self._alive(app_id, actor, scope["scope_id"], action, active)
+                    ),
                 )
             except Exception:  # noqa: BLE001 - provider effect boundary
                 self._receipt_paid(app_id, identity, step, owner_token, "UNKNOWN")
@@ -1135,12 +1085,15 @@ class CampaignExecutionService:
         if not PAID_EXECUTION_READY:
             raise Invalid("Paid lifecycle verification is incomplete")
         body = ad_data(body)
+        from .evidence_gate import assert_ready
+
+        scope = self.get_scope(app_id, scope_id)
+        with connection(self.store.path) as db:
+            self._check(db, app_id, actor, scope, "RUN_AD")
+        if scope.get("measurement_plan"):
+            assert_ready(self.store, app_id, scope, request=body)
         scope, secret, page_token = self._preflight(app_id, actor, scope_id, "RUN_AD")
         scope, secret, token = self._account_preflight(app_id, actor, scope_id, "RUN_AD")
-        if scope.get("measurement_plan"):
-            from .evidence_gate import assert_ready
-
-            assert_ready(self.store, app_id, scope)
         intent, fresh = self._reserve_ad(app_id, actor, scope_id, body)
         if not fresh:
             return intent
@@ -1230,6 +1183,16 @@ class CampaignExecutionService:
                         current_objects[k].get("status") != "ACTIVE" for k in ("adset", "ad")
                     ):
                         raise Unconfirmed("Advertising objects changed before final activation")
+                    if scope.get("measurement_plan"):
+                        assert_ready(self.store, app_id, scope, request=body)
+                        self.transport.read_post(
+                            scope["page_id"],
+                            body["post_id"],
+                            body["content_hash"],
+                            page_token,
+                            secret,
+                            lambda: self._alive(app_id, actor, scope_id, "RUN_AD"),
+                        )
                 intent = self._paid_status(app_id, actor, scope, intent, kind, "ACTIVE", token, secret)
                 current = self._paid_read(app_id, actor, scope, kind, intent["ids"][kind], token, secret)
                 if current.get("status") != "ACTIVE":

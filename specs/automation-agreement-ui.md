@@ -15,6 +15,7 @@ Unified owner-facing inspection of existing separately enforced workflow/campaig
 - The owner-only schedule review shall show the exact saved organic post link as text, or show that no link was approved. The exported report shall exclude the link.
 - Before activating a draft organic campaign, the owner-only combined agreement shall show the proposed copy and full link as text when the content and rights hashes match the saved draft. It shall display the selected Meta request ceiling. Preview shall neither activate the scope nor contact Meta. Export shall exclude the draft copy and link.
 - If a local-work policy is selected, the system shall display exactly its agent, permitted operations, saved ISO-8601 expiry timestamp, integer calls-used count, configured integer call allowance (1 through 10000 calls), and `spend_limit_minor` as a fixed 0 minor currency units in the sanitized owner report through `agreement_report`; unavailable fields shall be labeled and private payloads and credentials shall remain excluded.
+- If an optional saved monitor is selected, the system shall show its exact protective conditions, intent fingerprints, cadence and limits in `agreement_read` and `agreement_report`. The recovery button opens that monitor for review without retry, activation or provider writes. A monitor with no conditions is read/reconcile only.
 
 ### Acceptance criteria (Gherkin)
 ```gherkin
@@ -56,3 +57,5 @@ max_total_minor = 100
 max_posts = 1
 max_campaigns = 1
 max_calls = 50
+
+When a selected schedule or campaign needs review, its primary recovery button opens the exact saved record. An uncertain scheduled item takes priority over unrelated blockers. The button reads local state only and does not retry, renew, or dispatch work.

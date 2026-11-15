@@ -1,15 +1,17 @@
 """Exact approved observation reuse is local, fresh, app-owned and hash-bound."""
 
-import json, tempfile, unittest
-from datetime import timedelta
+import tempfile
+import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
-from mission_control.store import Store, decode
-from mission_control.resolutions import Resolutions
+
 from mission_control.agent_feedback import reuse_candidate
-from mission_control.common import canonical, digest, now, iso_time, Invalid
+from mission_control.common import canonical, digest, iso_time, now
 from mission_control.db import connection
-from mission_control.worker import run_once, jobs
+from mission_control.resolutions import Resolutions
+from mission_control.store import Store, decode
+from mission_control.worker import jobs, run_once
 from tests.test_agent_feedback import initialize, inspect, request
 
 
@@ -19,6 +21,11 @@ class ReuseTests(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         self.store = Store(Path(tmp.name) / "reuse.sqlite3")
         initialize(self.store)
+        # The same approved source must stay in the same hourly collection window.
+        clock_patch = patch("mission_control.campaign_inputs.datetime", wraps=datetime)
+        clock = clock_patch.start()
+        self.addCleanup(clock_patch.stop)
+        clock.now.return_value = datetime.now(timezone.utc)
 
     def test_reuse_observation_zero_network_and_same_artifact(self):
         original = inspect(self.store)
@@ -29,7 +36,9 @@ class ReuseTests(unittest.TestCase):
         self.assertEqual(saved["status"], "SUCCEEDED")
         self.assertEqual(saved["result"]["artifacts"], original["result"]["artifacts"])
         self.assertEqual(saved["result"]["proof_status"], "PARTIAL")
-        self.assertEqual(reuse_candidate(self.store, self.store.app("sample-one"))["source_job_id"], job["id"])
+        candidate = reuse_candidate(self.store, self.store.app("sample-one"))
+        assert candidate is not None
+        self.assertEqual(candidate["source_job_id"], job["id"])
 
     def test_new_failed_read_supersedes_queued_reuse(self):
         inspect(self.store)

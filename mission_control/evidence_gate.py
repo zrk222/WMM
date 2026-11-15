@@ -3,10 +3,13 @@
 import json
 import re
 import sqlite3
+from datetime import datetime, timedelta, timezone
+from math import isfinite
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
-from .common import Invalid, iso_time, required
+from .aeo_transport import ReadError, public_url
+from .common import Invalid, digest, iso_time, required
 
 PLAN_FIELDS = (
     "primary_metric",
@@ -18,13 +21,18 @@ PLAN_FIELDS = (
     "hypothesis",
     "decision_rule",
 )
-ACQUISITION_SOURCES = {"posthog", "app_store", "google_play", "apple_ads"}
-OUTCOME_SOURCES = {"revenuecat", "storekit", "stripe_live", "stripe_test"}
+ACQUISITION_SOURCES = {"posthog"}
+OUTCOME_SOURCES = {"revenuecat"}
+REPORT_SCOPES = {
+    "posthog": "PROJECT_ID_CHECKED",
+    "revenuecat": "PROJECT_PATH_CHECKED_PROJECT_WIDE_METRICS",
+}
 
 
-def measurement_plan(value: Any) -> dict[str, Any]:
+def measurement_plan(value: Any, *, retained: bool = False) -> dict[str, Any]:
     """Validate the owner-approved measurement inputs before they enter a scope."""
-    if not isinstance(value, dict) or set(value) != set(PLAN_FIELDS):
+    fields = set(value) if isinstance(value, dict) else set()
+    if fields != set(PLAN_FIELDS) and not (retained and fields == set(PLAN_FIELDS) | {"utm_campaign"}):
         raise Invalid("Use the exact measurement plan fields")
     for name in ("primary_metric", "denominator", "campaign_tag", "hypothesis", "decision_rule"):
         required(value[name], name, 2000)
@@ -33,11 +41,14 @@ def measurement_plan(value: Any) -> dict[str, Any]:
     link = value["link"]
     if not isinstance(link, str) or len(link) > 2048:
         raise Invalid("Use a bounded HTTPS measurement link")
-    parts = urlsplit(link)
-    if parts.scheme != "https" or not parts.hostname or parts.username or parts.password:
-        raise Invalid("Use a public HTTPS measurement link without credentials")
-    tag = (parse_qs(parts.query).get("utm_campaign") or [None])[0]
-    if tag != value["campaign_tag"]:
+    try:
+        public_url(link, allow_tracking=True)
+        parts = urlsplit(link)
+    except (ReadError, ValueError):
+        raise Invalid("Use a valid public HTTPS measurement link") from None
+    tags = parse_qs(parts.query, keep_blank_values=True).get("utm_campaign")
+    tag = value["campaign_tag"]
+    if tags != [tag] or ("utm_campaign" in value and value["utm_campaign"] != tag):
         raise Invalid("The measurement link must carry the approved utm_campaign tag")
     starts, ends = iso_time(value["starts_at"]), iso_time(value["ends_at"])
     if not starts < ends:
@@ -46,20 +57,79 @@ def measurement_plan(value: Any) -> dict[str, Any]:
 
 
 def provider_set(store: Any, app_id: str) -> set[str]:
-    """Read only connection and payment-source provider names for gate coverage."""
-    values = {r["data"].get("provider") for r in store.records(app_id) if r.get("kind") == "connection"}
+    """Use saved successful reads for the current source revisions, never connection labels."""
     from .db import connection
 
+    now = datetime.now(timezone.utc)
     with connection(store.path) as db:
-        table = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='payment_sources'").fetchone()
-        if table:
-            values.update(
-                row[0]
-                for row in db.execute(
-                    "SELECT DISTINCT json_extract(data,'$.provider') FROM payment_sources WHERE app_id=?", (app_id,)
-                )
-            )
-    return {value for value in values if isinstance(value, str) and value}
+        rows = db.execute(
+            """SELECT s.provider,s.data,s.hash,s.version,r.data,r.hash FROM insight_sources s
+            JOIN insight_reports r ON r.app_id=s.app_id AND r.source_id=s.id AND r.provider=s.provider
+            WHERE s.app_id=? AND s.status='CONNECTED' AND s.provider IN ('posthog','revenuecat')
+              AND r.rowid=(SELECT MAX(recent.rowid) FROM insight_reports recent
+                           WHERE recent.app_id=s.app_id AND recent.source_id=s.id)""",
+            (app_id,),
+        )
+        providers = set()
+        for provider, raw_config, config_hash, version, raw_report, report_hash in rows:
+            try:
+                config, data = json.loads(raw_config), json.loads(raw_report)
+            except (TypeError, ValueError):
+                continue
+            source = dict(provider=provider, data=config, version=version, hash=config_hash)
+            report = dict(provider=provider, data=data, hash=report_hash)
+            if current_report(source, report, now):
+                providers.add(provider)
+        return providers
+
+
+def current_report(source: dict[str, Any], report: dict[str, Any], observed: datetime) -> bool:
+    """Verify that the current configuration produced a usable project aggregate."""
+    config, data = source["data"], report["data"]
+    provider = source["provider"]
+    if not isinstance(config, dict) or not isinstance(data, dict) or provider not in REPORT_SCOPES:
+        return False
+    try:
+        age = observed - iso_time(data.get("observed_at"))
+        config_hash = digest(config)
+        return (
+            report["provider"] == config.get("provider") == data.get("provider") == provider
+            and report["hash"] == digest(data)
+            and source.get("hash", config_hash) == data.get("configuration_hash") == config_hash
+            and data.get("scope") == REPORT_SCOPES[provider]
+            and bool(config.get("project_id"))
+            and data.get("project_id") == config["project_id"]
+            and data.get("source_version") == source["version"]
+            and isinstance(data.get("rows"), list)
+            and any(usable_aggregate(item) for item in data["rows"])
+            and timedelta(0) <= age <= timedelta(days=7)
+        )
+    except (Invalid, TypeError, ValueError):
+        return False
+
+
+def usable_aggregate(item: Any) -> bool:
+    """Require a named finite aggregate with a declared unit and period."""
+    return (
+        isinstance(item, dict)
+        and bool(item.get("id") or item.get("name"))
+        and bool(item.get("unit"))
+        and bool(item.get("period"))
+        and type(item.get("value")) in (int, float)
+        and (type(item["value"]) is int or isfinite(item["value"]))
+    )
+
+
+def check_promotion_link(post: Any, plan: Any) -> None:
+    """Bind a paid promotion to a verified post with the exact retained tagged link."""
+    parsed = measurement_plan(plan, retained=True)
+    try:
+        result = json.loads(post["result"] or "{}")
+        seen = result["destination_check"]["approved_link_sha256"]
+    except (KeyError, TypeError, ValueError):
+        seen = None
+    if seen != digest(parsed["link"]):
+        raise Invalid("The verified Page post does not have the approved tagged link receipt.")
 
 
 def evaluate(
@@ -70,7 +140,6 @@ def evaluate(
     observed: Any = None,
 ) -> dict[str, Any]:
     """Return explicit checks and blockers without inventing evidence or authority."""
-    del observed
     checks = []
 
     def check(name, status, detail):
@@ -82,7 +151,7 @@ def evaluate(
         plan = None
     else:
         try:
-            plan = measurement_plan(plan)
+            plan = measurement_plan(plan, retained=True)
             check("MEASUREMENT_PLAN", "PASS", "Approved measurement plan is present.")
         except Invalid as exc:
             check("MEASUREMENT_PLAN", "INVALID", str(exc))
@@ -110,15 +179,18 @@ def evaluate(
             "PASS" if outcome else "MISSING",
             "Connected outcome or cash source: " + (", ".join(outcome) or "none") + ".",
         )
+        paid = isinstance(request, dict) and "end_time" in request and "post_id" in request
         link = request.get("link") if isinstance(request, dict) else None
         check(
             "TAGGED_LINK",
-            "PASS" if plan["link"] and (link is None or link == plan["link"]) else "MISMATCH",
+            "PASS" if plan["link"] and (request is None or paid or link == plan["link"]) else "MISMATCH",
             "Approved tagged link is present." if link is None else "Request link must equal the approved tagged link.",
         )
+        stamp = observed or datetime.now(timezone.utc)
+        starts, ends = iso_time(plan["starts_at"]), iso_time(plan["ends_at"])
         check(
             "WINDOW",
-            "PASS" if iso_time(plan["starts_at"]) < iso_time(plan["ends_at"]) else "INVALID",
+            "NOT_STARTED" if stamp < starts else ("EXPIRED" if stamp >= ends else "PASS"),
             f"{plan['starts_at']} to {plan['ends_at']}.",
         )
     check(
@@ -134,17 +206,26 @@ def evaluate(
         blockers=blockers,
         measurement_plan=plan,
         providers=sorted(providers),
+        outcome_tracking_verified=False,
         authority_issued=False,
         external_writes=False,
-        scope="Preflight only. A READY gate does not publish, spend, approve provider terms or prove an outcome.",
+        scope="Preflight only. READY confirms aggregate availability, not the selected metric, denominator, attribution or an outcome. It grants no publication or spending authority.",
     )
 
 
 def assert_ready(store: Any, app_id: str, scope: dict[str, Any], request: Any = None) -> dict[str, Any]:
     """Enforce an explicitly approved measurement plan at the campaign effect boundary."""
     gate = evaluate(scope, provider_set(store, app_id), request=request, scope_status=scope.get("status", "ACTIVE"))
+    plan = gate.get("measurement_plan")
+    if (
+        plan
+        and isinstance(request, dict)
+        and "end_time" in request
+        and iso_time(request["end_time"]) > iso_time(plan["ends_at"])
+    ):
+        raise Invalid("Paid delivery must end inside the approved measurement window")
     if gate["status"] != "READY":
-        details = "; ".join(f"{b['name']}: {b['detail']}" for b in gate["blockers"])
+        details = "; ".join(f"{b['name']}: {b['status']}" for b in gate["blockers"])
         raise Invalid("Measurement evidence is incomplete: " + details)
     return gate
 
@@ -156,7 +237,8 @@ def latest(store: Any, app_id: str) -> dict[str, Any]:
     try:
         with connection(store.path) as db:
             row = db.execute(
-                "SELECT * FROM campaign_scopes WHERE app_id=? ORDER BY created DESC,id DESC LIMIT 1", (app_id,)
+                "SELECT summary,summary_hash,status FROM campaign_scopes WHERE app_id=? ORDER BY created DESC,id DESC LIMIT 1",
+                (app_id,),
             ).fetchone()
     except (sqlite3.Error, OSError, ValueError):
         row = None
@@ -171,6 +253,14 @@ def latest(store: Any, app_id: str) -> dict[str, Any]:
             external_writes=False,
             scope="Preflight only.",
         )
-    scope = json.loads(row["summary"])
-    gate = evaluate(scope, provider_set(store, app_id), scope_status=row["status"])
-    return dict(gate, scope_id=row["id"])
+    try:
+        scope = json.loads(row["summary"])
+        if not isinstance(scope, dict) or digest(scope) != row["summary_hash"]:
+            raise ValueError
+        gate = evaluate(scope, provider_set(store, app_id), scope_status=row["status"])
+        checks = [dict(name=item["name"], status=item["status"]) for item in gate["checks"]]
+        return dict(
+            status=gate["status"], checks=checks, blockers=[item for item in checks if item["status"] != "PASS"]
+        )
+    except (TypeError, ValueError):
+        return dict(status="BLOCKED", checks=[], blockers=[dict(name="SAVED_MEASUREMENT_PLAN", status="INVALID")])

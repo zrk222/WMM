@@ -45,6 +45,12 @@ def initialize(store):
         db.executescript(SCHEMA)
 
 
+def monitor_table_exists(db):
+    return (
+        db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='campaign_monitors'").fetchone() is not None
+    )
+
+
 def whole(value, low, high):
     if type(value) is not int or not low <= value <= high:
         raise Invalid("Monitor resource allowance is outside its supported bounds")
@@ -260,13 +266,13 @@ def monitor_attention(row, proposal, effective, observation):
     if iso_time(proposal["expires_at"]).timestamp() <= time.time():
         return "REVIEW_EXPIRY"
     # A quota message must not imply that an incomplete or missing job succeeded.
-    if (
-        observation
-        and observation["status"] == "SUCCEEDED"
-        and (row["runs"] >= proposal["max_runs"] or row["units"] >= proposal["max_provider_units"])
-    ):
+    if observation and observation["status"] == "SUCCEEDED" and allowance_exhausted(row, proposal):
         return "REVIEW_ALLOWANCE"
     return "CHECK_APPROVAL"
+
+
+def allowance_exhausted(row, limits):
+    return row["runs"] >= limits["max_runs"] or row["units"] >= limits["max_provider_units"]
 
 
 def view(db, row):
@@ -431,7 +437,7 @@ def _observation(item, targets):
         "ABANDONED_UNKNOWN",
     ):
         result["recovery"] = recovery
-    if item.get("protective_pause") == "PAUSED_campaign":
+    if item.get("protective_pause") == "PAUSED_campaign" and item.get("pause_effective_status") == "PAUSED":
         result["protective_pause"] = "PAUSED_campaign"
     commitment = item.get("commitment_held_minor")
     if type(commitment) is int and 0 <= commitment <= 100000000:
@@ -444,11 +450,11 @@ class Monitors:
 
     def __init__(self, store):
         self.store = store
-        initialize(store)
 
     def prepare(self, app_id, body):
         principal = actor(self.store, app_id)
         chosen = proposal(body)
+        initialize(self.store)
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
             binding, scope = source(db, app_id, principal, chosen["scope_id"])
@@ -512,6 +518,8 @@ class Monitors:
         principal = actor(self.store, app_id)
         with connection(self.store.path) as db:
             member(db, app_id, principal, "OWNER")
+            if not monitor_table_exists(db):
+                return dict(monitors=[])
             return dict(
                 monitors=[
                     view(db, row)
@@ -543,6 +551,8 @@ class Monitors:
 def owned(db, app_id, principal, identity):
     reference(identity)
     member(db, app_id, principal, "OWNER")
+    if not monitor_table_exists(db):
+        raise Invalid("Monitor is unavailable for this owner")
     row = db.execute(
         "SELECT * FROM campaign_monitors WHERE app_id=? AND owner=? AND id=?",
         (app_id, principal, identity),
@@ -586,7 +596,7 @@ def eligible(db, row):
     if not _previous_finished(db, row):
         return False
     limits = summary["proposal"]
-    if row["runs"] >= limits["max_runs"] or row["units"] >= limits["max_provider_units"]:
+    if allowance_exhausted(row, limits):
         block(db, row["id"])
         return False
     return True
@@ -695,6 +705,7 @@ def execute(store, job, transport=None):
                 paused = protect(store, job, service, capability, result, target)
                 if paused is not None:
                     results[-1]["protective_pause"] = paused["status"]
+                    results[-1]["pause_effective_status"] = paused["pause_readback"]["effective_status"]
                     results[-1]["commitment_held_minor"] = paused["commitment"]
             return dict(
                 status="OBSERVED",
@@ -745,7 +756,12 @@ def protect(store, job, service, capability, result, target):
         pause_observation=json.loads(canonical(result)),
     )
     paused = service.run_pause(job["app_id"], "monitor:" + job["id"], capability["scope_id"], result["id"])
-    if paused["status"] != "PAUSED_campaign":
+    readback = paused.get("pause_readback")
+    if (
+        paused["status"] != "PAUSED_campaign"
+        or not isinstance(readback, dict)
+        or readback.get("effective_status") != "PAUSED"
+    ):
         raise PermissionError("Protective pause was not verified")
     return paused
 

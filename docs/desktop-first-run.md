@@ -81,6 +81,24 @@ Missing measurements stay unknown. Growth and time savings are not guaranteed.
   work, you approve a specific publish, and only a connected source can show
   what happened.
 
+## When you are ready to run an approved campaign
+
+1. In **Set your goal**, choose **Run an approved campaign**, then
+   **Check connections for this goal**. Choose **Check WMM-managed setup** for
+   WMM's worker or **Use my personal agent** for an assistant you run yourself.
+   Checking setup does not approve a campaign or start work.
+2. Follow the repair shown for each missing item. For a Facebook Page campaign
+   in WMM, **Review campaign scope** shows the exact post, destination, limits
+   and expiry. Review the approved posts and their dates separately before
+   turning on a schedule.
+3. To see those decisions together, open **Advanced app overview and
+   twelve-stage diagnostics** on **Set your goal**, then **Review combined
+   automation agreement**. The agreement is a summary of your existing
+   approvals.
+4. In **Watch the work**, check whether the worker is healthy and open the
+   saved campaign run for its receipt. Use **Review results** to see available
+   measurements. A sent post and a measured result are two different things.
+
 ## Optional: let an AI assistant help
 
 Any assistant that can run a local command on this computer can work with WMM.

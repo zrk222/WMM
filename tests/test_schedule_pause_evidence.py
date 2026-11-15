@@ -15,8 +15,9 @@ from tests import test_campaign_schedule
 class SchedulePauseEvidenceTests(unittest.TestCase):
     def test_pause_label_requires_an_intact_provider_receipt(self) -> None:
         fixture: Any = test_campaign_schedule.ScheduleTests()
-        fixture.setUp()
         self.addCleanup(fixture.doCleanups)
+        fixture.setUp()
+        self.addCleanup(fixture.tearDown)
         scope, due, request = fixture.paid_fixture()
         service, batch = fixture.paid_batch(scope, due, [request])
         with patch("time.time", return_value=due.timestamp() + 1):
@@ -30,16 +31,20 @@ class SchedulePauseEvidenceTests(unittest.TestCase):
         key = (stopped["intent"]["id"],)
         with connection(fixture.store.path) as db:
             original = db.execute("SELECT data FROM campaign_pause_receipts WHERE intent_id=?", key).fetchone()
-            receipt = json.loads(original["data"])
-            receipt["effective_status"] = "ACTIVE"
-            db.execute(
-                "UPDATE campaign_pause_receipts SET hash=?,data=? WHERE intent_id=?",
-                (digest(receipt), canonical(receipt), *key),
-            )
-        with fixture.owner_bound():
-            delivery_active = service.status("sample-one", batch["id"])["items"][0]
-        self.assertEqual(delivery_active["effective_status"], "NEEDS_RECONCILIATION")
-        self.assertEqual(delivery_active["intent"]["commitment"], stopped["intent"]["commitment"])
+        receipt = json.loads(original["data"])
+        for effective in ("ACTIVE", None, "PENDING_REVIEW", "WITH_ISSUES", "PAUSED"):
+            with self.subTest(effective=effective):
+                receipt["effective_status"] = effective
+                with connection(fixture.store.path) as db:
+                    db.execute(
+                        "UPDATE campaign_pause_receipts SET hash=?,data=? WHERE intent_id=?",
+                        (digest(receipt), canonical(receipt), *key),
+                    )
+                with fixture.owner_bound():
+                    status = service.status("sample-one", batch["id"])["items"][0]
+                expected = "PAUSED_VERIFIED" if effective == "PAUSED" else "NEEDS_RECONCILIATION"
+                self.assertEqual(status["effective_status"], expected)
+                self.assertEqual(status["intent"]["commitment"], stopped["intent"]["commitment"])
         with connection(fixture.store.path) as db:
             db.execute("UPDATE campaign_pause_receipts SET hash='invalid' WHERE intent_id=?", key)
         with fixture.owner_bound():

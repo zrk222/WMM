@@ -437,3 +437,20 @@ test('private principal metadata fails closed rather than falling through owner-
   );
   assert.equal(reports.visibleWeeklyExceptions(null, 'checker'), null);
 });
+
+test('results explain store launch without changing historical cohort values', () => {
+  const state = fixture();
+  state.view = 'results';
+  state.workspace.app_launch_status = {
+    status: 'IN_REVIEW',
+    store_metric_applicability: 'NOT_APPLICABLE_YET',
+  };
+  const pending = reports.model(state, timestamp);
+  assert.match(pending.notes[0], /not applicable yet.*Web observations remain separate/);
+  state.workspace.app_launch_status = { status: 'REMOVED' };
+  const removed = reports.model(state, timestamp);
+  assert.match(removed.notes[0], /removed from sale.*historical record/);
+  assert.deepEqual(removed.cohorts, pending.cohorts);
+  state.workspace.app_launch_status = { status: 'UNKNOWN' };
+  assert.match(reports.model(state, timestamp).notes[0], /availability unknown/);
+});

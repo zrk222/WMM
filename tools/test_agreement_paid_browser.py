@@ -6,12 +6,12 @@ dispatch pending. This demonstrates owner review and reconciliation guidance,
 never provider delivery or business lift.
 """
 
-from pathlib import Path
 import hashlib
 import json
 import os
 import sys
 import threading
+from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,10 +19,11 @@ sys.path.insert(0, str(ROOT))
 # Direct script execution needs the repository root before project imports.
 
 from playwright.sync_api import expect, sync_playwright  # noqa: E402
-from mission_control.db import connection  # noqa: E402
+
 from mission_control.common import digest  # noqa: E402
+from mission_control.db import connection  # noqa: E402
 from mission_control.server import Server  # noqa: E402
-from tests.test_automation_agreement import AutomationAgreementTests, BATCH, SCOPE  # noqa: E402
+from tests.test_automation_agreement import BATCH, SCOPE, AutomationAgreementTests  # noqa: E402
 from tests.test_verified_review import OWNER, OWNER_TOKEN, synthetic_identity  # noqa: E402
 
 OUT = Path(
@@ -57,7 +58,10 @@ def run(browser, width):
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(origin)
-        page.wait_for_function('(state) => state.workspace?.app?.id === state.app', arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"))
+        page.wait_for_function(
+            "(state) => state.workspace?.app?.id === state.app",
+            arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"),
+        )
         page.locator("#navigation > [data-view=activity]").click()
         page.get_by_role("button", name="Sign in for verified review", exact=True).click()
         page.get_by_label("GitHub identity token", exact=True).fill(OWNER_TOKEN)
@@ -172,11 +176,12 @@ def run(browser, width):
             "/agent-grants/automation-status",
             "/campaigns/history",
             "/campaigns/schedule-history",
+            "/campaign-monitor/history",
             "/agent-grants/agreement-preview",
         )
-        writes = [url for method, url in requests if method != "GET"]
-        assert len(writes) == 4, writes
-        assert all(any(url.endswith(suffix) for suffix in allowed) for url in writes), writes
+        expected_posts = sorted(("POST", origin + "/api/apps/sample-one" + path) for path in allowed)
+        posts = sorted((method, url) for method, url in requests if method != "GET")
+        assert posts == expected_posts, posts
         assert not errors, errors
         return dict(
             width=width,
@@ -198,7 +203,7 @@ def run(browser, width):
             report_responsive_styles_loaded=True,
             no_overflow=True,
             no_business_writes=True,
-            read_only_posts=len(writes),
+            read_only_posts=len(posts),
             provider="SYNTHETIC_HISTORY_ONLY",
             javascript_errors=errors,
         )
@@ -218,8 +223,10 @@ def main():
     sources = [
         "tools/test_agreement_paid_browser.py",
         "mission_control/static/guided-workflow.mjs",
+        "mission_control/static/campaign-monitor.mjs",
         "mission_control/static/app.mjs",
         "mission_control/automation_agreement.py",
+        "mission_control/campaign_monitor.py",
         "tests/test_automation_agreement.py",
     ]
     initial_hashes = {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in sources}

@@ -1,6 +1,7 @@
 """Independent SQLite persistence with foreign keys and transactional writes."""
 
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -226,7 +227,9 @@ def transaction(path, db, *, write=False):
 
 
 @contextmanager
-def connection(path, *, write=False, busy_timeout_ms=None):
+def connection(
+    path: str | Path, *, write: bool = False, busy_timeout_ms: object = None
+) -> Iterator[sqlite3.Connection]:
     """Open a scoped transactional connection with the same entry and commit guards."""
     if busy_timeout_ms is not None and (type(busy_timeout_ms) is not int or not 0 <= busy_timeout_ms <= 60000):
         raise ValueError("Busy timeout must be an integer from 0 to 60000 milliseconds")

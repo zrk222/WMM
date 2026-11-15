@@ -17,11 +17,14 @@ from unittest.mock import Mock, patch
 
 from mission_control import campaign_monitor as core
 from mission_control import campaign_monitor_authority as authority
+from mission_control.automation_agreement import monitor_scope
 from mission_control.campaign_execution import CampaignExecutionService
+from mission_control.campaign_schedule import CampaignSchedules, schedule_table_exists
 from mission_control.common import Invalid, canonical, digest, now
 from mission_control.db import connection
 from mission_control.operation_authority import bound_owner, protected
-from mission_control.worker import claim
+from mission_control.store import Store
+from mission_control.worker import claim, persist_job_result
 from tests import test_campaign_execution as fixtures
 
 
@@ -120,6 +123,23 @@ class CampaignMonitorTests(unittest.TestCase):
     def status(self, monitor) -> dict[str, Any]:
         with self.owner():
             return self.monitors.status("sample", monitor["id"])
+
+    def test_fresh_agreement_pickers_and_missing_status_do_not_initialize_storage(self):
+        schedule = CampaignSchedules(self.store)
+        nonexistent = "88888888-8888-4888-8888-888888888888"
+        with connection(self.store.path) as db:
+            before = "\n".join(db.iterdump())
+            self.assertFalse(core.monitor_table_exists(db))
+            self.assertFalse(schedule_table_exists(db))
+        with self.owner():
+            self.assertEqual(self.monitors.history("sample"), {"monitors": []})
+            self.assertEqual(schedule.history("sample"), {"batches": []})
+            with self.assertRaisesRegex(Invalid, "Monitor is unavailable"):
+                self.monitors.status("sample", nonexistent)
+            with self.assertRaisesRegex(Invalid, "Scheduled batch is unavailable"):
+                schedule.status("sample", nonexistent)
+        with connection(self.store.path) as db:
+            self.assertEqual(before, "\n".join(db.iterdump()))
 
     def test_prepare_activate_exact_hash_owner_selection_and_finite_plan(self):
         with self.assertRaises(PermissionError):
@@ -333,11 +353,54 @@ class CampaignMonitorTests(unittest.TestCase):
         self.assertEqual(result["status"], "OBSERVED")
         self.assertEqual(statuses, [("campaign", "PAUSED")])
         self.assertEqual(result["observations"][0]["protective_pause"], "PAUSED_campaign")
+        self.assertEqual(result["observations"][0]["pause_effective_status"], "PAUSED")
+        persist_job_result(self.store, job, result, "SUCCEEDED", 0)
+        shown = self.status(monitor)["last_observation"]
+        assert shown is not None
+        self.assertEqual(shown["observations"][0]["protective_pause"], "PAUSED_campaign")
         current = self.fixture.service.list_intents("sample", self.scope["scope_id"])[0]
         self.assertEqual(current["status"], "PAUSED_campaign")
         self.assertEqual(current["commitment"], 80)
         self.assertEqual(self.status(monitor)["pause_attempts"], 1)
         self.assertEqual(self.status(monitor)["provider_units"], 8)
+
+    def test_configured_pause_with_effective_active_requires_reconciliation(self) -> None:
+        self.assert_unverified_effective_pause("ACTIVE")
+
+    def test_configured_pause_without_effective_status_requires_reconciliation(self) -> None:
+        self.assert_unverified_effective_pause(None)
+
+    def assert_unverified_effective_pause(self, effective: str | None) -> None:
+        monitor, job = self.job()
+        self.wire.objects[self.intent["ids"]["adset"]]["lifetime_budget"] = 999
+        original = self.wire.set_paid_status
+
+        def status(kind, identity, value, token, secret, alive):
+            result = original(kind, identity, value, token, secret, alive)
+            if effective is None:
+                self.wire.objects[identity].pop("effective_status", None)
+            else:
+                self.wire.objects[identity]["effective_status"] = effective
+            return result
+
+        with patch.object(self.wire, "set_paid_status", side_effect=status) as write:
+            result = core.execute(self.store, job, self.wire)
+            write.assert_called_once()
+            self.assertEqual(result["status"], "BLOCKED")
+            self.assertNotIn("protective_pause", result["observations"][0])
+            persist_job_result(self.store, job, result, "BLOCKED", 0)
+            reopened = Store(self.store.path, seed=False)
+            self.assertEqual(core.tick(reopened), 0)
+            self.assertIsNone(claim(reopened))
+            write.assert_called_once()
+        retained = self.fixture.service.list_intents("sample", self.scope["scope_id"])[0]
+        self.assertEqual(retained["pause_readback"]["configured_status"], "PAUSED")
+        self.assertEqual(retained["pause_readback"]["effective_status"], effective)
+        self.assertEqual(retained["commitment"], 80)
+        shown = self.status(monitor)
+        self.assertEqual(shown["attention"], "VERIFY_PROVIDER")
+        self.assertEqual(shown["last_observation"]["status"], "BLOCKED")
+        self.assertNotIn("protective_pause", shown["last_observation"]["observations"][0])
 
     def test_active_after_end_requires_selected_condition(self):
         monitor, job = self.job(protective_conditions=["active_after_end"])
@@ -508,6 +571,27 @@ class CampaignMonitorTests(unittest.TestCase):
         self.assertEqual(core.tick(self.store), 0)
         self.assertEqual(self.status(another)["effective_status"], "BLOCKED")
 
+    def test_agreement_separates_last_inflight_check_from_exhausted_monitor(self):
+        monitor, job = self.job(max_runs=1, protective_conditions=[], max_pause_attempts=0)
+        with connection(self.store.path) as db:
+            pending = monitor_scope(db, "sample", "owner", monitor["id"])
+        assert pending is not None
+        self.assertTrue(pending["check_in_progress"])
+        self.assertTrue(pending["check_allowance_exhausted"])
+        self.assertIsNone(pending["next_due_at"])
+        self.assertEqual(pending["effective_status"], "ACTIVE")
+
+        result = core.execute(self.store, job, self.wire)
+        persist_job_result(self.store, job, result, "SUCCEEDED", 0)
+        with connection(self.store.path) as db:
+            exhausted = monitor_scope(db, "sample", "owner", monitor["id"])
+        assert exhausted is not None
+        self.assertEqual(exhausted["status"], "ACTIVE")  # Projection did not mutate the scheduler record.
+        self.assertEqual(exhausted["effective_status"], "BLOCKED")
+        self.assertFalse(exhausted["check_in_progress"])
+        self.assertEqual(exhausted["attention"], "REVIEW_ALLOWANCE")
+        self.assertIsNone(exhausted["next_due_at"])
+
     def test_unknown_pending_recovery_reads_only_and_retains_hold(self):
         monitor, job = self.job(protective_conditions=[], max_pause_attempts=0)
         with connection(self.store.path) as db:
@@ -661,7 +745,6 @@ class CampaignMonitorTests(unittest.TestCase):
                     intent_id=self.intent["id"],
                     status="UNKNOWN",
                     recovery="ABANDONED_UNKNOWN",
-                    protective_pause="PAUSED_campaign",
                     commitment_held_minor=80,
                 )
             ],

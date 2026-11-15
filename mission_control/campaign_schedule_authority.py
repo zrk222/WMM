@@ -8,6 +8,7 @@ from contextvars import ContextVar
 from sqlite3 import Connection, Row
 from typing import TYPE_CHECKING, Any, TypedDict
 
+from .app_launch_history import removed_listing
 from .common import digest, iso_time
 from .db import connection
 
@@ -77,6 +78,8 @@ def check(store: "Store", app_id: str, actor: str, scope: Packet, action: str) -
             raise PermissionError("Scheduled operation does not match effect")
         check_lease(row, app_id, active)
         check_content(row, data, body, summary, app_id, scope)
+        if removed_listing(db, app_id, body["request"].get("link")):
+            raise PermissionError("Scheduled post paused because this app was removed from the App Store")
     return True
 
 

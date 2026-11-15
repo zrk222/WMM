@@ -20,9 +20,10 @@ import {
 } from './automatic-preparation.mjs';
 import { acqIntentForm } from './acquisition.mjs';
 import { aeoForm } from './aeo.mjs';
-import { appForm, detailedOverview, download, evidenceForm, modal } from './app-ui.mjs';
+import { appForm, detailedOverview, download, evidenceForm, modal, queue } from './app-ui.mjs';
 import { briefForm, referenceForm } from './app-production.mjs';
 import { campaignOpen } from './campaign-execution.mjs';
+import { monitorPauseEvidence, monitorRuleName } from './campaign-monitor.mjs';
 import { WMMCampaignPlan } from './campaign-plan.mjs';
 import { capabilitySetup } from './production-feasibility.mjs';
 import { cohortForm, experimentForm, growthReviewServices } from './app-results.mjs';
@@ -490,6 +491,105 @@ function startHerePanel() {
   return `<section class="panel goal-proof-layout" aria-label="Start your first experiment"><div><p class="eyebrow">START HERE</p><h2>Your next marketing move, with evidence</h2><p>Built for founders and marketing teams promoting one app or a portfolio. Keep each app’s work and permissions separate.</p><p><strong>Day 1 — a clearer next marketing move.</strong> Choose one app-growth question and prepare your first evidence packet: a plan, its sources and what is still missing.</p><p><strong>Around Day 30, with regular use — a record you can build on.</strong> Review dated research, approved work and available results, then decide what to continue, revise or stop.</p><p class="description">The potential payoff: less repeated research and clearer campaign decisions. Missing measurements stay unknown; growth and time savings are not guaranteed. You still approve what goes live.</p><p>${missing.length ? `Add ${esc(missing.join(', '))} to turn your app facts into a reviewable campaign plan.` : 'Build a campaign plan from your saved facts, channel and outcome. Review it before anything runs.'}</p><div class="toolbar">${primary}${button('Start the guided path', 'first-post-open')}${button('Open your first packet', 'automatic-goal-open', WMMGoalPacket.attributes(WMMGoalPacket.model()))}</div>${exceptions.length ? `<p class="description">${exceptions.length} saved item${exceptions.length === 1 ? '' : 's'} need attention. <button type="button" class="button outline" data-view="workflow">Review workflow</button></p>` : ''}<details><summary>More options</summary><div class="toolbar">${button('What should I do next?', 'next-answer')}${button('Measure one organic post', 'observational-campaign-open')}</div><p class="description">Each path keeps its own approval. Nothing publishes or spends on its own.</p></details></div>${goalProofIllustration()}</section>`;
 }
 
+function launchStatusPanel(workspace) {
+  const launch = workspace?.app_launch_status;
+  const app = workspace?.app;
+  if (!launch || (!app?.data?.store_app_id && !app?.data?.bundle_id)) return '';
+  const copy = {
+    LIVE: 'Live in a verified storefront. Outcome data still needs a matching source.',
+    IN_REVIEW: 'In App Review. Store installs and retention are not applicable yet.',
+    NOT_SUBMITTED: 'Preparing for submission. Focus on waitlist signups or creative tests.',
+    REMOVED: 'Removed from sale. Review store-directed work before scheduling anything new.',
+    UNKNOWN: 'Availability is unknown. Check Apple before interpreting store-dependent metrics.',
+  };
+  const choices = {
+    UNKNOWN: 'Unknown',
+    NOT_SUBMITTED: 'Preparing for submission',
+    IN_REVIEW: 'In App Review',
+    LIVE: 'Live',
+    REMOVED: 'Removed from sale',
+  };
+  const declared = launch.owner_declaration?.status;
+  const note = declared
+    ? `<p>Owner declaration: ${esc(choices[declared] || choices.UNKNOWN)} (unverified).</p>`
+    : '';
+  const conflict =
+    launch.reason === 'SOURCE_CONFLICT'
+      ? '<p>Apple’s version and storefront readings disagree. Check the app and storefront before using install metrics.</p>'
+      : '';
+  const form = workspace.access?.members?.some(
+    (member) =>
+      member.principal === workspace.identity?.principal &&
+      member.role === 'OWNER' &&
+      member.status === 'ACTIVE',
+  )
+    ? `<details><summary>Record your own status</summary><p>Your note does not verify availability or approve a campaign.</p><form id="goal-launch-declare" data-app="${esc(app.id)}" data-version="${app.version}"><label class="field">App Store status<select name="status">${Object.entries(
+        choices,
+      )
+        .map(
+          ([key, value]) =>
+            `<option value="${key}"${key === (declared || 'UNKNOWN') ? ' selected' : ''}>${value}</option>`,
+        )
+        .join(
+          '',
+        )}</select></label><button type="submit" class="button outline">Save declaration</button><p role="alert"></p></form></details>`
+    : '';
+  const countries = (launch.verified_storefronts || []).map(esc).join(', ');
+  const bindings = (workspace.records || []).filter(
+    (row) =>
+      row.kind === 'connection' &&
+      row.data?.provider === 'app_store' &&
+      String(row.data.store_app_id) === String(app.data.store_app_id) &&
+      row.data.auth_mode !== 'disconnected',
+  );
+  return `<section class="panel" aria-label="App Store launch status"><h2>App Store launch status</h2><p>${esc(copy[launch.status] || copy.UNKNOWN)}</p>${conflict}${note}${form}${countries ? `<p>Verified storefronts: ${countries}</p>` : ''}${bindings.length === 1 ? `<form id="goal-launch-check" data-app="${esc(app.id)}" data-version="${app.version}" data-connection="${esc(bindings[0].id)}" data-connection-version="${bindings[0].version}"><label class="field">Storefront country code<input name="storefront" required maxlength="2" pattern="[A-Za-z]{2}" placeholder="CA"></label><button type="submit" class="button outline">Check App Store status</button><p id="goal-launch-error" role="alert"></p></form>` : '<p>Keep one App Store Connect connection for this app to check launch status.</p><button type="button" class="button outline" data-view="connections">Review connections</button>'}</section>`;
+}
+
+async function submitLaunchDeclaration(form) {
+  const { app, version } = form.dataset;
+  if (app !== state.app || Number(version) !== state.workspace?.app.version) return;
+  const submit = form.querySelector('[type=submit]');
+  submit.disabled = true;
+  try {
+    await api(`/api/apps/${encodeURIComponent(app)}/launch-status/declare`, {
+      app_version: Number(version),
+      status: new FormData(form).get('status'),
+    });
+    if (app === state.app) await refresh();
+  } catch {
+    if (form.isConnected)
+      form.querySelector('[role=alert]').textContent =
+        'Could not save. Sign in as the app owner and reopen this app before trying again.';
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+async function submitLaunchCheck(form) {
+  const { app, version, connection, connectionVersion } = form.dataset;
+  if (app !== state.app || Number(version) !== state.workspace?.app.version) return;
+  const storefront = String(new FormData(form).get('storefront') || '')
+    .trim()
+    .toUpperCase();
+  if (!/^[A-Z]{2}$/.test(storefront)) return;
+  const submit = form.querySelector('[type=submit]');
+  submit.disabled = true;
+  try {
+    await queue('sync', {
+      connection_id: connection,
+      connection_version: Number(connectionVersion),
+      manifest_version: Number(version),
+      options: { operation: 'launch_versions', storefront },
+    });
+  } catch {
+    if (form.isConnected)
+      form.querySelector('#goal-launch-error').textContent =
+        'Could not queue the Apple check. Review your connection and retry.';
+  } finally {
+    submit.disabled = false;
+  }
+}
+
 function goalOverview() {
   const id =
     state.goalChoice?.app === state.app
@@ -498,6 +598,7 @@ function goalOverview() {
   return (
     heading('Set your goal', 'Choose one outcome. Watch the work. Review what happened.') +
     startHerePanel() +
+    launchStatusPanel(state.workspace) +
     WMMGoalJourney.view(state.workspace, id, esc) +
     `<details class="panel" id="goal-advanced"><summary>Advanced app overview and twelve-stage diagnostics</summary><div class="toolbar">${button('Review combined automation agreement', 'goal-agreement')}${button('Monitor approved campaigns', 'campaign-monitor-open')}${button('Review private campaign outcomes', 'owner-report-open')}${button('Measure one organic post', 'observational-campaign-open')}</div>${detailedOverview()
       .replace(/<h1>/g, '<h2>')
@@ -724,8 +825,8 @@ const WMMGoalReadiness = (() => {
       (i.accounts.length ? i.accounts.map(destination).join('; ') : 'None') +
       '</p><p>Readiness permits scope review only. Campaign publishing and paid work need their own exact owner scope; editor/runtime blockers remain visible.</p><div class="toolbar">' +
       button('Repair agent connection', 'goal-repair', 'data-tool="agents"') +
-      button('Repair account connection', 'goal-repair', 'data-tool="connections"') +
-      button('Review automation agreement', 'goal-repair', 'data-tool="agreement"') +
+      button('Open social account setup', 'goal-repair', 'data-tool="social-accounts"') +
+      button('Review automation agreement', 'goal-repair', 'data-tool="combined-agreement"') +
       (i.workflows.some((w) => w.id === 'organic_publication')
         ? button('Review organic publication', 'goal-repair', 'data-tool="organic-publication"')
         : '') +
@@ -821,6 +922,10 @@ const WMMGoalReadiness = (() => {
               '</label>',
           )
           .join('') +
+        (accounts.length === 0 && saved.goal === 'campaign'
+          ? '<p>No social destination is connected for this app. Connect the account you want to publish to, then return here to check it. Connecting an account gives no permission to publish or spend.</p>' +
+            button('Connect a social account', 'goal-repair', 'data-tool="social-accounts"')
+          : '') +
         '</fieldset><p>Analytics imports and provider-specific connection tests remain in Connections and Results; this inventory checks the selected agent/workflow scope, not every KPI collector.</p><p id="goal-readiness-error" role="alert"></p><button type="submit" class="button">Check selected connections</button>' +
         button('Cancel', 'close') +
         '</form>',
@@ -873,6 +978,8 @@ const WMMGoalReadiness = (() => {
     }
     active = null;
     if (tool === 'campaign') return campaignOpen();
+    if (tool === 'social-accounts') return guidedNavigate('connections', '#social-heading');
+    if (tool === 'combined-agreement') return WMMAgreement.open();
     if (tool === 'agreement')
       return WMMCompleteAutomation.action(
         { dataset: { action: 'standing-open' } },
@@ -905,6 +1012,7 @@ const WMMAgreement = (() => {
       campaign_scope_id: values.campaign_scope_id || null,
       schedule_batch_id: values.schedule_batch_id || null,
     };
+    if (values.campaign_monitor_id) value.campaign_monitor_id = values.campaign_monitor_id;
     if (!Object.values(value).slice(1).some(Boolean))
       throw new Error('Select at least one saved scope or scheduled batch.');
     return value;
@@ -940,10 +1048,17 @@ const WMMAgreement = (() => {
     );
     const ticket = (active = { scope: saved, node: $('#agreement-loading') });
     try {
-      const [local, campaign, batches] = await Promise.all([
+      const [local, campaign, batches, monitoring] = await Promise.all([
         api('/api/apps/' + saved.app + '/agent-grants/automation-status', {}),
         api('/api/apps/' + saved.app + '/campaigns/history', {}),
         api('/api/apps/' + saved.app + '/campaigns/schedule-history', {}),
+        api(
+          '/api/apps/' + saved.app + '/campaign-monitor/history',
+          {},
+          {
+            signal: globalThis.AbortSignal.timeout(10000),
+          },
+        ).catch(() => null),
       ]);
       if (!valid(ticket)) return;
       modal(
@@ -954,7 +1069,13 @@ const WMMAgreement = (() => {
           options(campaign.scopes, 'scope_id') +
           '</select></label><label class="field">Scheduled batch<select name="schedule_batch_id">' +
           options(batches.batches, 'id') +
-          '</select></label><p>A batch includes its linked campaign. Select that same campaign or leave the campaign field empty.</p><p id="agreement-error" role="alert"></p><button class="button" type="submit">Review combined agreement</button>' +
+          '</select></label>' +
+          (Array.isArray(monitoring?.monitors)
+            ? '<label class="field"><span id="agreement-monitor-label">Campaign monitor</span><select name="campaign_monitor_id" aria-labelledby="agreement-monitor-label">' +
+              options(monitoring.monitors, 'id') +
+              '</select></label>'
+            : '<p>Saved monitors could not be read. You can still review the other scopes.</p>') +
+          '<p>A batch or monitor includes its linked campaign. Select that same campaign or leave the campaign field empty.</p><p id="agreement-error" role="alert"></p><button class="button" type="submit">Review combined agreement</button>' +
           button('Cancel', 'close') +
           '</form>',
       );
@@ -966,19 +1087,52 @@ const WMMAgreement = (() => {
     }
   }
   function guidance(s) {
+    const schedule = s.schedule;
+    const campaign = s.campaign;
+    if (
+      s.monitor?.attention === 'VERIFY_PROVIDER' &&
+      !schedule?.items?.some((item) => item.effective_status === 'NEEDS_RECONCILIATION')
+    )
+      return {
+        label: 'Monitoring needs reconciliation',
+        next: 'Inspect this monitor’s saved provider receipt before retrying. A missing confirmation does not prove the campaign stopped.',
+        tool: 'monitor',
+      };
     if (s.dispatch_uncertain)
       return {
         label: 'Delivery needs reconciliation',
         next: 'Inspect saved campaign receipts before any retry. Unknown delivery keeps its existing budget commitment.',
-        tool: 'campaign',
+        tool: schedule?.items?.some((item) => item.effective_status === 'NEEDS_RECONCILIATION')
+          ? 'schedule'
+          : campaign
+            ? 'campaign'
+            : 'agreement',
       };
-    if (s.campaign?.effective_status !== 'ACTIVE' && s.campaign)
+    if (schedule?.blockers?.includes('SCHEDULE_PERMISSION_EXPIRED'))
+      return {
+        label: 'Schedule approval expired',
+        next: 'Open this schedule to see what finished and what still needs approval.',
+        tool: 'schedule',
+      };
+    if (schedule && schedule.effective_status !== 'ACTIVE')
+      return {
+        label: 'Schedule needs attention',
+        next: 'Inspect the saved batch. OFF or blocked work does not resume through this review.',
+        tool: 'schedule',
+      };
+    if (campaign && campaign.effective_status !== 'ACTIVE')
       return {
         label: 'Campaign needs attention',
-        next: 'Open campaign controls to inspect expiry, account access and the exact approved limits.',
+        next: 'Open this campaign to inspect expiry, account access and the exact approved limits.',
         tool: 'campaign',
       };
-    if (s.local_work?.effective_status !== 'ACTIVE' && s.local_work)
+    if (s.monitor && s.monitor.effective_status !== 'ACTIVE')
+      return {
+        label: 'Campaign monitoring is not active',
+        next: 'Open this monitor to inspect its saved conditions, expiry and remaining allowances.',
+        tool: 'monitor',
+      };
+    if (s.local_work && s.local_work.effective_status !== 'ACTIVE')
       return {
         label: 'Local work needs attention',
         next:
@@ -986,21 +1140,41 @@ const WMMAgreement = (() => {
           'Open local scope controls to inspect its current status and approval.',
         tool: 'agreement',
       };
-    if (s.schedule?.effective_status !== 'ACTIVE' && s.schedule)
-      return {
-        label: 'Schedule needs attention',
-        next: 'Inspect the saved batch. OFF or blocked work does not resume through this review.',
-        tool: 'campaign',
-      };
     return {
       label: 'Selected scopes reviewed',
       next: 'Watch saved work and delivery receipts. This review starts no execution.',
       tool: null,
     };
   }
+  function recoveryButton(guide, summary) {
+    if (guide.tool === 'monitor' && summary.monitor?.id)
+      return button(
+        'Open this monitor',
+        'campaign-monitor-status',
+        'data-id="' + esc(summary.monitor.id) + '"',
+        'primary',
+      );
+    if (guide.tool === 'schedule' && summary.schedule?.id)
+      return button(
+        'Open this schedule',
+        'campaign-schedule-status',
+        'data-batch="' + esc(summary.schedule.id) + '"',
+        'primary',
+      );
+    if (guide.tool === 'campaign' && summary.campaign?.id)
+      return button(
+        'Open this campaign',
+        'campaign-status',
+        'data-id="' + esc(summary.campaign.id) + '"',
+        'primary',
+      );
+    return guide.tool === 'agreement'
+      ? button('Inspect local scope', 'goal-repair', 'data-tool="agreement"', 'primary')
+      : '';
+  }
   function overview(s) {
     const guide = guidance(s),
-      families = [s.local_work, s.campaign, s.schedule].filter(Boolean).length;
+      families = [s.local_work, s.campaign, s.schedule, s.monitor].filter(Boolean).length;
     return (
       '<section class="panel"><h3>' +
       esc(guide.label) +
@@ -1017,14 +1191,7 @@ const WMMAgreement = (() => {
           : 'No campaign selected',
       ) +
       '</dd></div></dl>' +
-      (guide.tool
-        ? button(
-            'Inspect ' + (guide.tool === 'campaign' ? 'campaign receipts' : 'local scope'),
-            'goal-repair',
-            'data-tool="' + guide.tool + '"',
-            'primary',
-          )
-        : '') +
+      recoveryButton(guide, s) +
       '</section>'
     );
   }
@@ -1177,6 +1344,36 @@ const WMMAgreement = (() => {
       ...fingerprintLabels(a).map(([label, values]) => label + ': ' + fingerprintValue(values)),
     ];
   }
+  function monitorReportNotes(m) {
+    if (!m) return [];
+    return [
+      `Monitor ${m.id} · ${m.effective_status} · campaign ${m.scope_id}`,
+      'Protective pause conditions: ' +
+        (m.conditions.map(monitorRuleName).join('; ') || 'None approved; read and reconcile only'),
+      ...(m.conditions.length ? [monitorPauseEvidence] : []),
+      `Checks every ${m.cadence_seconds} seconds · next due ${m.next_due_at || 'Not scheduled'} · expires ${m.expires_at}`,
+      ...(m.check_in_progress ? ['A check is already queued or running.'] : []),
+      ...(m.check_allowance_exhausted
+        ? ['No further checks: the check or provider allowance is used up.']
+        : []),
+      `Checks ${m.runs}/${m.max_runs} · provider units ${m.provider_units}/${m.max_provider_units} · pause attempts ${m.pause_attempts}/${m.max_pause_attempts}`,
+      ...m.targets.map(
+        ({ intent_id, request_hash }) => `Exact intent ${intent_id} · request ${request_hash}`,
+      ),
+    ];
+  }
+  function monitorMarkup(m) {
+    if (!m) return '<p>No monitor selected in this review.</p>';
+    return (
+      '<section class="panel"><h3>Campaign monitoring and protective pause</h3><ul>' +
+      monitorReportNotes(m)
+        .map((note) => '<li>' + esc(note) + '</li>')
+        .join('') +
+      '</ul><p>Monitoring has its own approval and OFF control.</p>' +
+      button('Open this monitor', 'campaign-monitor-status', 'data-id="' + esc(m.id) + '"') +
+      '</section>'
+    );
+  }
   function markup(data) {
     const s = data.summary,
       l = s.local_work,
@@ -1255,6 +1452,7 @@ const WMMAgreement = (() => {
           b.items.map((i) => scheduledMarkup(i, c?.approval)).join('') +
           '</section>'
         : '<p>No batch selected.</p>') +
+      monitorMarkup(s.monitor) +
       '<p>Stop rules: ' +
       esc(s.stop_rules.join('; ')) +
       '</p><p>' +
@@ -1320,7 +1518,7 @@ const WMMAgreement = (() => {
       metrics: [
         {
           label: 'Selected scope families',
-          value: [s.local_work, c, s.schedule].filter(Boolean).length,
+          value: [s.local_work, c, s.schedule, s.monitor].filter(Boolean).length,
           unit: 'count',
           source: 'Current owner agreement snapshot',
         },
@@ -1345,6 +1543,7 @@ const WMMAgreement = (() => {
         'No approval or execution authority issued; underlying scope controls remain separate.',
         ...localWorkReportNotes(s.local_work),
         ...(c ? campaignReportNotes(c) : ['No campaign']),
+        ...monitorReportNotes(s.monitor),
         s.schedule ? 'Batch ' + s.schedule.id + ' ' + s.schedule.effective_status : 'No batch',
         ...(s.schedule?.items || []).map(
           (i) =>
@@ -1403,6 +1602,8 @@ export {
   goalProofIllustration,
   startHerePanel,
   goalOverview,
+  submitLaunchCheck,
+  submitLaunchDeclaration,
   goalAction,
   WMMGoalReadiness,
   WMMAgreement,

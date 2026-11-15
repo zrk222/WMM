@@ -86,7 +86,15 @@ async function nextAnswer() {
   );
 }
 
-function measuredPostEvidence(link, destination, pubs, workspace, scopes = [], tracked = null) {
+function measuredPostEvidence(
+  link,
+  destination,
+  pubs,
+  workspace,
+  scopes = [],
+  tracked = null,
+  approvedLinkHash = null,
+) {
   if (!destination)
     return { delivery: false, ambiguous: false, queued: false, approved: false, coverage: null };
   const channel = link.study.source;
@@ -103,7 +111,8 @@ function measuredPostEvidence(link, destination, pubs, workspace, scopes = [], t
       ? (workspace.jobs || []).filter(
           (row) =>
             row.action === 'campaign_post' &&
-            row.data?.request?.link === link.url &&
+            (row.data?.request?.link === link.url ||
+              (approvedLinkHash && row.data?.approved_link_sha256 === approvedLinkHash)) &&
             (row.result?.page_id != null
               ? row.result.page_id === destination
               : scopes?.some(
@@ -293,6 +302,7 @@ async function firstMeasuredPost(offset = 0) {
             state.workspace,
             campaigns?.scopes ?? null,
             campaigns?.tracked_posts,
+            linkHash,
           );
           output.querySelector('#first-post-progress').textContent = !selected.destination
             ? 'Choose a destination to check delivery.'

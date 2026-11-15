@@ -439,9 +439,23 @@
     };
   }
 
+  function launchNote(launch) {
+    if (!launch) return '';
+    if (launch.store_metric_applicability === 'NOT_APPLICABLE_YET')
+      return 'App Store launch: not live yet. Store installs, retention, CAC, ROAS and revenue are not applicable yet. Web observations remain separate.';
+    if (launch.status === 'REMOVED')
+      return 'App Store launch: removed from sale. Earlier measurements remain part of the historical record.';
+    if (launch.status === 'LIVE')
+      return 'App Store launch: live in a verified storefront. Availability alone does not establish installs or revenue.';
+    return 'App Store launch: availability unknown. Check Apple before interpreting store-dependent results.';
+  }
+
   /** Explain provenance, units and row truncation without claiming verified outcomes. */
   function reportNotes(state) {
     return [
+      ...(state.view === 'results' && state.workspace.app_launch_status
+        ? [launchNote(state.workspace.app_launch_status)]
+        : []),
       'Counts describe loaded local evidence and history, not verified growth. Missing sources stay unavailable.',
       'Loaded time is not provider freshness. Original source dates and completeness require review in the source panels.',
       'This report excludes credentials, credential and draft form inputs, raw records and detail-dialog contents. It grants no approval or execution authority.',

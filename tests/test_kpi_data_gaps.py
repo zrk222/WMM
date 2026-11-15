@@ -1,6 +1,7 @@
 """Required metrics cannot silently disappear or lose their repair contract."""
 
 import json
+import re
 import unittest
 from pathlib import Path
 
@@ -8,6 +9,22 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class KpiDataGapTests(unittest.TestCase):
+    def test_documented_coverage_matches_the_machine_register(self) -> None:
+        matrix = json.loads((ROOT / "specs/kpi-report-coverage.json").read_text(encoding="utf-8"))
+        machine = {
+            metric["id"]: (
+                metric["current_coverage"] + f"; LIVE_GAP={metric['gap']}"
+                if metric.get("gap") and metric["current_coverage"].startswith("PARTIAL_SUPPLIED")
+                else metric["current_coverage"]
+            )
+            for metric in matrix["requirements"]
+        }
+        report = (ROOT / "docs/WMM-KPI-COVERAGE.md").read_text(encoding="utf-8")
+        table = report.split("## Required metrics\n", 1)[1].split("\n## Explicit gaps", 1)[0]
+        rows = re.findall(r"^\| ([A-Z][A-Z0-9_]+) \| ([^|]+?) \|", table, re.MULTILINE)
+        self.assertEqual(len(rows), len(machine))
+        self.assertEqual(dict(rows), machine)
+
     def test_every_registered_metric_has_specific_inputs_action_and_evidence(self) -> None:
         matrix = json.loads((ROOT / "specs/kpi-report-coverage.json").read_text(encoding="utf-8"))
         metrics = matrix["requirements"]

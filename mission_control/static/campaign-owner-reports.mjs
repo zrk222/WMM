@@ -31,11 +31,15 @@ const WMMOwnerReports = (() => {
       end = new Date(values.ends_at);
     if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start >= end)
       throw Error('Choose a positive review window.');
+    const receipt = values.outcome_receipt_sha256?.trim();
+    if (receipt && !/^[a-f0-9]{64}$/.test(receipt))
+      throw Error('Paste the complete 64-character fingerprint from your saved outcome receipt.');
     return {
       scope_id: scope,
       monitor_id: monitor?.id || null,
       experiment_id: experiment,
       measurement_window: { starts_at: start.toISOString(), ends_at: end.toISOString() },
+      ...(receipt ? { outcome_receipt_sha256: receipt } : {}),
     };
   }
   async function open() {
@@ -87,7 +91,9 @@ const WMMOwnerReports = (() => {
           experiments
             .map((e) => '<option value="' + esc(e.id) + '">' + esc(e.name || e.id) + '</option>')
             .join('') +
-          '</select></label><label class="field">Review window starts (local time)<input type="datetime-local" name="starts_at" required></label><label class="field">Review window ends (local time)<input type="datetime-local" name="ends_at" required></label><label class="field">Report timing<select name="mode"><option value="capture">Save one report now</option><option value="schedule">Review a finite recurring report plan</option></select></label><details><summary>Recurring report limits</summary><label class="field">Interval in seconds<input name="cadence_seconds" type="number" min="30" max="86400" value="86400"></label><label class="field">Maximum reports<input name="max_reports" type="number" min="1" max="100" value="7"></label><label class="field">Plan expiry (local time)<input type="datetime-local" name="expires_at"></label><p>At most seven days. WMM must remain running. Reports stay in this private workspace; nothing is emailed or published.</p></details><p id="owner-report-error" role="alert"></p><button type="submit" class="button primary">Continue with exact sources</button>' +
+          '</select></label><label class="field">Review window starts (local time)<input type="datetime-local" name="starts_at" required></label><label class="field">Review window ends (local time)<input type="datetime-local" name="ends_at" required></label>' +
+          '<label class="field">Outcome receipt fingerprint (optional)<input name="outcome_receipt_sha256" maxlength="64" autocomplete="off" spellcheck="false" aria-describedby="owner-outcome-help"></label><p id="owner-outcome-help">Use a saved outcome receipt from the same approved campaign and review window.</p>' +
+          '<label class="field">Report timing<select name="mode"><option value="capture">Save one report now</option><option value="schedule">Review a finite recurring report plan</option></select></label><details><summary>Recurring report limits</summary><label class="field">Interval in seconds<input name="cadence_seconds" type="number" min="30" max="86400" value="86400"></label><label class="field">Maximum reports<input name="max_reports" type="number" min="1" max="100" value="7"></label><label class="field">Plan expiry (local time)<input type="datetime-local" name="expires_at"></label><p>At most seven days. WMM must remain running. Reports stay in this private workspace; nothing is emailed or published.</p></details><p id="owner-report-error" role="alert"></p><button type="submit" class="button primary">Continue with exact sources</button>' +
           button('Cancel', 'close') +
           '</form><section class="modal-content"><h3>Saved report plans</h3>' +
           (history.plans
@@ -205,6 +211,9 @@ const WMMOwnerReports = (() => {
       esc(p.selection.measurement_window.starts_at) +
       ' to ' +
       esc(p.selection.measurement_window.ends_at) +
+      (p.selection.outcome_receipt_sha256
+        ? '</p><p>Outcome receipt ' + esc(p.selection.outcome_receipt_sha256)
+        : '') +
       '</p><p>Reports dispatched ' +
       esc(data.reports_dispatched) +
       ' · last job ' +
@@ -243,8 +252,78 @@ const WMMOwnerReports = (() => {
   }
   function measurementNextStep(report) {
     // Keep measurement guidance visible when the saved next action is an authority reminder.
+    const primary = report.primary_outcome;
+    if (primary) {
+      if (primary.status === 'OBSERVED_DESCRIPTIVE') return '';
+      if (primary.status === 'PARTIAL_COVERAGE')
+        return 'Collect the rest of the approved observation window before comparing conversion.';
+      if (primary.status === 'NO_ELIGIBLE_FIRST_OPENS')
+        return 'No eligible first opens were observed. Check traffic and tracking before comparing conversion.';
+      return 'Verify the approved metric and denominator against a matching source before judging this campaign.';
+    }
     if (report.experiment) return '';
     return 'Campaign outcome is unknown. Choose a primary outcome and connect a study with matching dates before judging this campaign. App-wide measurements do not show what this campaign did.';
+  }
+  function outcomeRows(report) {
+    const counts = report.first_party_outcomes?.report?.counts;
+    if (!counts) return [];
+    const rows = [
+      ['INSTALL', 'Attributed first opens'],
+      ['ACTIVATION', 'Activated users'],
+      ['TRIAL_START', 'Trial starts'],
+      ['PURCHASE', 'Paid subscriptions after trial'],
+      ['RENEWAL', 'Renewals'],
+    ].map(([key, label]) => ({
+      label,
+      value: counts[key] ?? null,
+      unit: 'people',
+      source: 'Saved first-party campaign receipt',
+    }));
+    const primary = report.primary_outcome;
+    if (primary) {
+      rows.unshift({
+        label:
+          primary.metric === 'activation_rate'
+            ? 'Activation per attributed first open'
+            : primary.metric === 'paid_conversion'
+              ? 'Paid subscriptions after trial per attributed first open'
+              : 'Approved primary outcome',
+        value: primary.value,
+        unit: 'fraction',
+        source: 'Exact campaign and window; source-declared coverage',
+      });
+    }
+    return rows;
+  }
+  function outcomeNote(report) {
+    const outcome = report.first_party_outcomes?.report;
+    if (!outcome) return '';
+    const primary = report.primary_outcome;
+    const sample =
+      primary && Number.isInteger(primary.numerator) && Number.isInteger(primary.denominator_count)
+        ? ` Sample: ${primary.numerator} matching outcomes from ${primary.denominator_count} attributed first opens.`
+        : '';
+    return (
+      (outcome.coverage === 'DECLARED_COMPLETE'
+        ? 'Submitted sources declare full window coverage.'
+        : 'Partial coverage. Other outcomes may be missing.') +
+      ' The source data has not been verified against provider accounts. First opens measure app opens, and the counts do not estimate lift.' +
+      sample
+    );
+  }
+  function deliveryNote(report) {
+    switch (report.delivery_evidence?.status) {
+      case 'EXACT_TAGGED_POST_READBACK':
+        return 'One approved post has a saved provider readback for this exact campaign link. This connects the evidence; it does not prove the post caused the outcome.';
+      case 'MULTIPLE_POSTS_SHARE_TAG':
+        return 'Several posts share the same tag. The results cannot be assigned to one creative.';
+      case 'DELIVERY_OUTSIDE_ACQUISITION_WINDOW':
+        return 'The saved post is outside the acquisition window.';
+      case 'NO_EXACT_DELIVERY_RECEIPT':
+        return 'No exact post readback matches this campaign receipt. Treat this as campaign-level evidence only.';
+      default:
+        return '';
+    }
   }
   function model(saved, base) {
     const r = saved.report;
@@ -256,6 +335,7 @@ const WMMOwnerReports = (() => {
       next_step: r.next_action,
       cohorts: [],
       metrics: [
+        ...outcomeRows(r),
         {
           label: 'Retained media commitment',
           value: r.campaign.retained_commitment_minor,
@@ -289,6 +369,8 @@ const WMMOwnerReports = (() => {
           r.selection.measurement_window.ends_at,
         'Source windows retained; app-wide source observations are not filtered to the requested window.',
         coverageText(r.kpi_coverage),
+        ...(outcomeNote(r) ? [outcomeNote(r)] : []),
+        ...(deliveryNote(r) ? [deliveryNote(r)] : []),
         ...(measurementNextStep(r) ? [measurementNextStep(r)] : []),
         'Saved provider readback: ' +
           r.campaign.provider_readback +
@@ -323,7 +405,20 @@ const WMMOwnerReports = (() => {
       '<h3>Your next useful decision</h3><p>' +
       esc(r.next_action) +
       '</p>' +
+      (outcomeNote(r)
+        ? '<section aria-label="First-party campaign outcomes"><h3>Attributed campaign outcomes</h3><p>' +
+          esc(outcomeNote(r)) +
+          '</p><dl>' +
+          outcomeRows(r)
+            .map(
+              (row) =>
+                '<dt>' + esc(row.label) + '</dt><dd>' + esc(row.value ?? 'Unknown') + '</dd>',
+            )
+            .join('') +
+          '</dl></section>'
+        : '') +
       (measurementNextStep(r) ? '<p>' + esc(measurementNextStep(r)) + '</p>' : '') +
+      (deliveryNote(r) ? '<p>' + esc(deliveryNote(r)) + '</p>' : '') +
       '<p>Saved ' +
       esc(r.observed_at) +
       ' · ' +

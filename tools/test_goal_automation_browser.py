@@ -2,7 +2,7 @@
 
 import json
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -12,6 +12,43 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 
+def saved_review_monitor(path: str | Path, principal: str) -> str:
+    from mission_control.campaign_monitor import SCHEMA
+    from mission_control.common import canonical, digest
+    from mission_control.db import connection
+
+    monitor = "88888888-8888-4888-8888-888888888888"
+    stamp = datetime.now(timezone.utc)
+    with connection(path) as db:
+        db.executescript(SCHEMA)
+        scope = db.execute("SELECT scope_id FROM campaign_schedule_batches WHERE app_id='sample-one'").fetchone()[0]
+        proposal = dict(
+            scope_id=scope,
+            targets=[dict(intent_id=monitor, request_hash="b" * 64)],
+            cadence_seconds=90,
+            expires_at=(stamp + timedelta(minutes=10)).isoformat(),
+            max_runs=4,
+            max_provider_units=20,
+            max_pause_attempts=1,
+            protective_conditions=["active_after_end"],
+        )
+        summary = dict(app_id="sample-one", owner=principal, source={}, proposal=proposal)
+        db.execute(
+            "INSERT INTO campaign_monitors VALUES(?,?,?,?,?,'DRAFT',1,?,0,0,0,NULL,?,?)",
+            (
+                monitor,
+                "sample-one",
+                principal,
+                canonical(summary),
+                digest(summary),
+                stamp.timestamp(),
+                stamp.isoformat(),
+                stamp.isoformat(),
+            ),
+        )
+    return monitor
+
+
 def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
     from mission_control.db import connection
     from mission_control.operator_client import ClientError, OperatorClient
@@ -19,7 +56,7 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
     from mission_control.store import Store
     from mission_control.worker import jobs
     from tests.test_campaign_access import CampaignGatewayTests
-    from tests.test_verified_review import OWNER_TOKEN
+    from tests.test_verified_review import OWNER, OWNER_TOKEN
 
     class BrowserCampaignFixture(CampaignGatewayTests):
         # GrantTests.setUp supplies these concrete attributes through setUp_base.
@@ -82,6 +119,25 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         assert not posts
         page.locator("#navigation > [data-view=activity]").click()
         expect(page.locator("[data-live-worker]")).to_contain_text("Worker starting")
+        supervision = f.server.runner.supervision
+        refresh = page.get_by_role("button", name="Refresh progress", exact=True)
+        with supervision.lock:
+            supervision.status = "RUNNING"
+            supervision.last_success = None
+        refresh.press("Enter")
+        expect(page.locator("[data-live-worker]")).to_contain_text("activity is unconfirmed")
+        with supervision.lock:
+            supervision.last_success = (datetime.now(timezone.utc) - timedelta(minutes=3)).isoformat()
+        refresh.press("Enter")
+        expect(page.locator("[data-live-worker]")).to_contain_text("has not confirmed a healthy check")
+        expect(refresh).to_be_focused()
+        stale_html = page.locator("#main .page-heading, #workflow-monitor").evaluate_all(
+            "(nodes) => nodes.map(node => node.outerHTML).join('')"
+        )
+        with supervision.lock:
+            supervision.last_success = datetime.now(timezone.utc).isoformat()
+        refresh.press("Enter")
+        expect(page.locator("[data-live-worker]")).to_contain_text("Worker reported healthy")
         f.server.runner.supervision.attempt("queue", lambda: 1 / 0)
         f.server.runner.supervision.finish()
         page.get_by_role("button", name="Refresh progress", exact=True).click()
@@ -104,6 +160,12 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
             + "</style><main>"
             + html
             + "</main></html>",
+            encoding="utf-8",
+        )
+        (out / f"worker-stale-{width}.html").write_text(
+            '<!doctype html><html lang="en"><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width, initial-scale=1">'
+            "<title>Watch the work</title><style>" + styles + "</style><main>" + stale_html + "</main></html>",
             encoding="utf-8",
         )
         host.press("Enter")
@@ -226,7 +288,8 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         assert f.wire.posts == 0
         assert not jobs(f.store, "sample-one")
         page.get_by_role("button", name="Approve exact batch and schedule", exact=True).click()
-        expect(page.locator("#campaign-schedule-progress")).to_contain_text("ACTIVE")
+        expect(page.locator("#schedule-batch-state")).to_have_text("Scheduled")
+        expect(page.locator("#schedule-live-stage")).to_contain_text("WMM must remain running")
         page.screenshot(path=str(out / f"schedule-{width}.png"))
         (out / f"schedule-{width}.html").write_text(page.content(), encoding="utf-8")
         with page.expect_popup() as report_info:
@@ -248,13 +311,21 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         page.locator("#navigation [data-view=connections]").click()
         page.get_by_role("button", name="Review campaign automation", exact=True).click()
         page.get_by_role("button", name="Inspect scheduled batch", exact=True).click()
-        expect(page.locator("#campaign-schedule-progress")).to_contain_text("OFF")
+        expect(page.locator("#schedule-batch-state")).to_have_text("Schedule off")
+        expect(page.locator("#schedule-live-stage")).to_contain_text("No new items will start")
         page.locator("#close-modal").click()
         page.locator("#navigation > [data-view=overview]").click()
         page.locator("#goal-advanced > summary").click()
-        page.get_by_role("button", name="Review combined automation agreement", exact=True).click()
+        monitor_id = saved_review_monitor(f.store.path, OWNER["principal"])
+        with page.expect_response("**/api/apps/sample-one/campaign-monitor/history", timeout=10000) as history:
+            page.get_by_role("button", name="Review combined automation agreement", exact=True).click()
+        assert history.value.ok, ("monitor history", history.value.status)
+        assert monitor_id in [item["id"] for item in history.value.json()["monitors"]]
         form = page.locator("#agreement-form")
-        form.locator("[name=schedule_batch_id]").select_option(index=1)
+        selected_batch = form.locator("[name=schedule_batch_id]").select_option(index=1)[0]
+        monitor_selector = form.locator("[name=campaign_monitor_id]")
+        expect(monitor_selector).to_have_accessible_name("Campaign monitor")
+        monitor_selector.select_option(monitor_id, timeout=5000)
         form.get_by_role("button", name="Review combined agreement", exact=True).click()
         expect(page.locator("#agreement-summary")).to_contain_text("No execution authority is issued")
         expect(page.locator("#agreement-summary")).to_contain_text(f.message)
@@ -264,6 +335,11 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         assert page.locator("#modal").evaluate("(modal) => modal.scrollWidth <= modal.clientWidth")
         expect(page.locator("#agreement-summary")).to_contain_text("Scheduled executor when the batch is active")
         expect(page.locator("#agreement-summary")).to_contain_text("WMM background worker")
+        expect(page.locator("#agreement-summary")).to_contain_text(
+            "Pause if the campaign is still active after its approved end"
+        )
+        expect(page.locator("#agreement-summary")).to_contain_text("pause attempts 0/1")
+        expect(page.get_by_role("button", name="Open this monitor", exact=True)).to_be_visible()
         page.screenshot(path=str(out / f"agreement-{width}.png"))
         (out / f"agreement-{width}.html").write_text(page.content(), encoding="utf-8")
         with page.expect_popup() as agreement_info:
@@ -272,7 +348,16 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         expect(agreement.locator("body")).to_contain_text("Combined automation agreement")
         exported = agreement.locator("body").inner_text()
         assert f.message not in exported and link not in exported and OWNER_TOKEN not in exported
+        assert "Pause if the campaign is still active after its approved end" in exported
         agreement.close()
+        with page.expect_request("**/api/apps/sample-one/campaigns/schedule-status") as exact_schedule:
+            page.get_by_role("button", name="Open this schedule", exact=True).press("Enter")
+        selected_payload = exact_schedule.value.post_data_json
+        assert isinstance(selected_payload, dict)
+        batch_id = selected_payload["batch_id"]
+        assert batch_id == selected_batch
+        expect(page.locator("#schedule-batch-state")).to_have_text("Schedule off")
+        expect(page.locator("#campaign-schedule-progress")).to_contain_text(batch_id)
         assert f.wire.posts == 0
         assert not jobs(f.store, "sample-one")
         saved_runs = (
@@ -302,6 +387,7 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
             width=width,
             campaign_plan_and_both_exports_without_writes=True,
             live_worker_and_private_host_guidance=True,
+            stale_and_missing_worker_health_recovers=True,
             personal_agent_without_profile=True,
             explicit_grant_and_revocation=True,
             managed_readiness_guards=True,
@@ -310,6 +396,8 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
             exact_draft_link_before_activation=True,
             exact_meta_request_ceiling=70,
             exact_schedule_review=True,
+            exact_schedule_recovery_link=True,
+            exact_monitor_conditions_and_report=True,
             exact_post_link_visible_in_private_review=True,
             no_effect_before_due=True,
             off=True,
