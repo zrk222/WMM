@@ -74,7 +74,6 @@ class WeeklyRuleExceptionTests(unittest.TestCase):
         self.assertIn("owner access changed", issue["reason"])
         self.assertEqual(self.fixture.required()["status"], "ACTIVE")
 
-
     def test_expired_and_exhausted_active_rows_stay_quiet_even_with_corrupt_definition(self) -> None:
         expired = (fixtures.START - timedelta(days=1)).isoformat()
         active = (fixtures.START + timedelta(days=1)).isoformat()
@@ -85,7 +84,9 @@ class WeeklyRuleExceptionTests(unittest.TestCase):
                     (expiry, count, "PRIVATE_RULE_TEXT", self.app),
                 )
                 self.assertEqual(
-                    db.execute("SELECT status FROM automation_rule_schedules WHERE app_id=?", (self.app,)).fetchone()[0],
+                    db.execute("SELECT status FROM automation_rule_schedules WHERE app_id=?", (self.app,)).fetchone()[
+                        0
+                    ],
                     "ACTIVE",
                 )
             self.assertEqual(self.cards(self.owner), [])
