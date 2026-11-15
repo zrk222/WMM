@@ -1,19 +1,21 @@
 """Synthetic authenticated owner plus real loopback gateway and transactional quota tests."""
 
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
 import json
 import tempfile
 import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import cast
 from unittest.mock import patch
-from urllib.request import Request, urlopen
 from urllib.error import HTTPError
+from urllib.request import Request, urlopen
+
 from mission_control.agent_grants import Grants, token_digest
 from mission_control.common import Invalid, digest
 from mission_control.db import connection
-from mission_control.operator_client import OperatorClient, ClientError
+from mission_control.operator_client import ClientError, OperatorClient
 from mission_control.server import Server
 from mission_control.store import Store
 from tests import test_verified_review as identity_fixture
@@ -53,26 +55,39 @@ class GrantTests(unittest.TestCase):
         self.mock.stop()
         self.tmp.cleanup()
 
+    def request(self, *args: object, **kwargs: object) -> dict[str, object]:
+        value = self.owner.request(*args, **kwargs)
+        if value is None:
+            raise AssertionError("Expected an HTTP response")
+        return cast(dict[str, object], value)
+
+    def grant_rows(self) -> list[dict[str, object]]:
+        value = self.grants.list("sample-one", identity_fixture.OWNER)
+        return cast(list[dict[str, object]], value["grants"])
+
     def test_first_owner_confirmation_rejects_changed_account_and_manifest(self):
         path = "/api/apps/sample-two/access/bootstrap"
         reviewed = dict(confirm_owner=True, expected_principal=identity_fixture.OWNER["principal"], manifest_version=1)
         with self.assertRaises(ClientError) as incomplete:
-            self.owner.request("POST", path, {"confirm_owner": True})
+            self.request("POST", path, {"confirm_owner": True})
         self.assertEqual(incomplete.exception.status, 400)
-        self.owner.request("POST", "/api/identity/login", {"token": identity_fixture.CHECKER_TOKEN})
+        self.request("POST", "/api/identity/login", {"token": identity_fixture.CHECKER_TOKEN})
         with self.assertRaises(ClientError) as changed:
-            self.owner.request("POST", path, reviewed)
+            self.request("POST", path, reviewed)
         self.assertEqual(changed.exception.status, 400)
-        self.assertFalse(self.owner.request("GET", "/api/apps/sample-two")["access"]["configured"])
-        self.owner.request("POST", "/api/identity/login", {"token": identity_fixture.OWNER_TOKEN})
+        access = cast(dict[str, object], self.request("GET", "/api/apps/sample-two")["access"])
+        self.assertFalse(access["configured"])
+        self.request("POST", "/api/identity/login", {"token": identity_fixture.OWNER_TOKEN})
         original = self.store.app("sample-two")
         self.store.save_app("sample-two", dict(original["data"], name="Changed fixture"), original["version"])
         with self.assertRaises(ClientError) as stale:
-            self.owner.request("POST", path, reviewed)
+            self.request("POST", path, reviewed)
         self.assertEqual(stale.exception.status, 400)
-        self.assertFalse(self.owner.request("GET", "/api/apps/sample-two")["access"]["configured"])
-        saved = self.owner.request("POST", path, dict(reviewed, manifest_version=2))
-        self.assertEqual([row["principal"] for row in saved["members"]], [identity_fixture.OWNER["principal"]])
+        access = cast(dict[str, object], self.request("GET", "/api/apps/sample-two")["access"])
+        self.assertFalse(access["configured"])
+        saved = self.request("POST", path, dict(reviewed, manifest_version=2))
+        members = cast(list[dict[str, object]], saved["members"])
+        self.assertEqual([row["principal"] for row in members], [identity_fixture.OWNER["principal"]])
 
     def body(self, operations=None, max_calls=10):
         return dict(
@@ -83,8 +98,11 @@ class GrantTests(unittest.TestCase):
             max_calls=max_calls,
         )
 
-    def issue(self, operations=None, max_calls=10):
-        return self.owner.request("POST", "/api/apps/sample-one/agent-grants/issue", self.body(operations, max_calls))
+    def issue(self, operations=None, max_calls=10) -> dict[str, object]:
+        return cast(
+            dict[str, object],
+            self.owner.request("POST", "/api/apps/sample-one/agent-grants/issue", self.body(operations, max_calls)),
+        )
 
     def envelope(self, operation="growth.history", body=None, app_id="sample-one"):
         return dict(app_id=app_id, operation=operation, input=body or {})
@@ -98,7 +116,10 @@ class GrantTests(unittest.TestCase):
         issued = self.issue()
         token = issued["token"]
         self.assertEqual(issued["token_delivery"], "ONCE_ONLY")
-        rows = self.owner.request("POST", "/api/apps/sample-one/agent-grants/list", {})["grants"]
+        rows = cast(
+            list[dict[str, object]],
+            self.request("POST", "/api/apps/sample-one/agent-grants/list", {})["grants"],
+        )
         self.assertNotIn(token, json.dumps(rows))
         self.assertNotIn("token_hash", rows[0])
         with connection(self.store.path) as db:
@@ -118,19 +139,20 @@ class GrantTests(unittest.TestCase):
 
     def test_gateway_executes_actual_service_without_cookie_bootstrap(self):
         issued = self.issue()
-        client = OperatorClient(self.origin, grant_token=issued["token"])
+        client = OperatorClient(self.origin, grant_token=cast(str, issued["token"]))
         sessions = len(self.server.sessions)
-        saved = client.call(self.envelope("growth.save", self.listing_body()))
-        history = client.call(self.envelope())
-        self.assertEqual(saved["hash"], history["history"][0]["hash"])
+        saved = cast(dict[str, object], client.call(self.envelope("growth.save", self.listing_body())))
+        history = cast(dict[str, object], client.call(self.envelope()))
+        history_rows = cast(list[dict[str, object]], history["history"])
+        self.assertEqual(saved["hash"], history_rows[0]["hash"])
         self.assertEqual(len(self.server.sessions), sessions)
         self.assertEqual(len(client.cookies), 0)
         self.assertIsNone(client.csrf)
-        self.assertEqual(self.grants.list("sample-one", identity_fixture.OWNER)["grants"][0]["used"], 2)
+        self.assertEqual(self.grant_rows()[0]["used"], 2)
 
     def test_cross_app_and_operation_scope_fail_without_fallback(self):
         issued = self.issue(["growth.history"])
-        client = OperatorClient(self.origin, grant_token=issued["token"])
+        client = OperatorClient(self.origin, grant_token=cast(str, issued["token"]))
         for body in (self.envelope(app_id="sample-two"), self.envelope("growth.save", self.listing_body())):
             with self.assertRaises(ClientError) as error:
                 client.call(body)
@@ -139,14 +161,14 @@ class GrantTests(unittest.TestCase):
             client.call(self.envelope("human.approve"))
         with self.assertRaises(Invalid):
             client.request("POST", "/api/identity/login", {})
-        self.assertEqual(self.grants.list("sample-one", identity_fixture.OWNER)["grants"][0]["used"], 0)
+        self.assertEqual(self.grant_rows()[0]["used"], 0)
 
     def test_quota_is_atomic_under_racing_admissions(self):
         issued = self.issue(["growth.history"], max_calls=1)
 
         def attempt(_):
             try:
-                self.grants.admit(issued["token"], self.envelope())
+                self.grants.admit(cast(str, issued["token"]), self.envelope())
                 return True
             except PermissionError:
                 return False
@@ -154,15 +176,16 @@ class GrantTests(unittest.TestCase):
         with ThreadPoolExecutor(max_workers=8) as pool:
             results = list(pool.map(attempt, range(8)))
         self.assertEqual(sum(results), 1)
-        self.assertEqual(self.grants.list("sample-one", identity_fixture.OWNER)["grants"][0]["used"], 1)
+        self.assertEqual(self.grant_rows()[0]["used"], 1)
 
     def test_revocation_exact_revision_blocks_new_admission(self):
         issued = self.issue()
-        body = dict(id=issued["grant"]["id"], version=1)
-        revoked = self.owner.request("POST", "/api/apps/sample-one/agent-grants/revoke", body)
+        grant = cast(dict[str, object], issued["grant"])
+        body = dict(id=grant["id"], version=1)
+        revoked = self.request("POST", "/api/apps/sample-one/agent-grants/revoke", body)
         self.assertEqual(revoked["version"], 2)
         with self.assertRaises(ClientError):
-            self.owner.request("POST", "/api/apps/sample-one/agent-grants/revoke", body)
+            self.request("POST", "/api/apps/sample-one/agent-grants/revoke", body)
         with self.assertRaises(PermissionError):
             self.grants.admit(issued["token"], self.envelope())
 
@@ -189,16 +212,18 @@ class GrantTests(unittest.TestCase):
             anonymous.request("POST", "/api/apps/sample-one/agent-grants/issue", self.body())
         self.assertEqual(error.exception.status, 403)
         with self.assertRaises(ClientError):
-            self.owner.request(
+            self.request(
                 "POST",
                 "/api/apps/sample-one/agent-grants/issue",
                 dict(self.body(), principal=identity_fixture.OWNER["principal"]),
             )
-        with patch(
-            "mission_control.operator_identity.github_read", side_effect=Invalid("Synthetic identity unavailable")
+        with (
+            patch(
+                "mission_control.operator_identity.github_read", side_effect=Invalid("Synthetic identity unavailable")
+            ),
+            self.assertRaises(ClientError),
         ):
-            with self.assertRaises(ClientError):
-                self.issue()
+            self.issue()
         self.assertEqual(self.grants.list("sample-one", identity_fixture.OWNER)["grants"], [])
 
     def test_grant_validation_denies_invalid_limits_operations_and_ambiguous_json(self):
@@ -206,14 +231,18 @@ class GrantTests(unittest.TestCase):
             dict(max_calls=True),
             dict(max_calls=0),
             dict(max_calls=10001),
+            dict(operations="growth.read"),
+            dict(operations=[]),
+            dict(operations=[1]),
+            dict(operations=["growth.read", ["growth.read"]]),
             dict(operations=["human.approve"]),
             dict(operations=["growth.read", "growth.read"]),
             dict(manifest_version=True),
             dict(expires=(datetime.now(timezone.utc) + timedelta(days=2)).isoformat()),
         ):
             with self.assertRaises(ClientError):
-                self.owner.request("POST", "/api/apps/sample-one/agent-grants/issue", dict(self.body(), **updates))
-        token = self.issue()["token"]
+                self.request("POST", "/api/apps/sample-one/agent-grants/issue", dict(self.body(), **updates))
+        token = cast(str, self.issue()["token"])
         for raw in (b'{"app_id":"sample-one","app_id":"sample-two"}', b'{"x":NaN}'):
             request = Request(
                 self.origin + "/api/agent-operations/call",
@@ -233,7 +262,7 @@ class GrantTests(unittest.TestCase):
 
     def test_business_failure_consumes_attempt_without_saved_write(self):
         issued = self.issue(max_calls=1)
-        client = OperatorClient(self.origin, grant_token=issued["token"])
+        client = OperatorClient(self.origin, grant_token=cast(str, issued["token"]))
         bad = dict(self.listing_body(), manifest_version=99)
         with self.assertRaises(ClientError) as error:
             client.call(self.envelope("growth.save", bad))
@@ -241,17 +270,19 @@ class GrantTests(unittest.TestCase):
         with self.assertRaises(ClientError) as error:
             client.call(self.envelope())
         self.assertEqual(error.exception.status, 403)
-        self.assertEqual(self.owner.call(self.envelope())["history"], [])
+        history = cast(dict[str, object], self.owner.call(self.envelope()))
+        self.assertEqual(history["history"], [])
 
     def test_owner_only_monitoring_cannot_be_granted_or_admitted_from_tampered_scope(self):
         for operation in ("experiment.schedule", "experiment.schedule-run"):
             with self.assertRaises(ClientError):
                 self.issue([operation])
         issued = self.issue(["growth.read"])
+        grant = cast(dict[str, object], issued["grant"])
         with connection(self.store.path) as db:
             db.execute(
                 "UPDATE agent_grants SET operations=? WHERE id=?",
-                (json.dumps(["experiment.schedule", "experiment.schedule-run"]), issued["grant"]["id"]),
+                (json.dumps(["experiment.schedule", "experiment.schedule-run"]), grant["id"]),
             )
         for operation, body in (
             ("experiment.schedule", dict(enabled=False, interval_hours=1, version=1)),

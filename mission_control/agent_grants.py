@@ -29,7 +29,7 @@ class ReviewPolicy(Protocol):
     def operations(self, db: sqlite3.Connection, grant_id: str) -> object: ...
 
 
-REVIEW_POLICY = cast(ReviewPolicy, agent_review_policy)
+REVIEW_POLICY: ReviewPolicy = agent_review_policy
 
 
 class GrantPublic(TypedDict):
@@ -236,7 +236,7 @@ def _capture_standing_batch(db: sqlite3.Connection, result: dict[str, object], d
     from . import authority_expiry, automation_execution, ios_agent_media
 
     expiry = cast(Callable[..., Mapping[str, object]], vars(authority_expiry)["effective_expiry"])
-    base_fn = cast(Callable[..., datetime], vars(authority_expiry)["initial_base"])
+    base_fn = cast(Callable[..., str], vars(authority_expiry)["initial_base"])
     deadline_fn = cast(Callable[..., datetime], vars(automation_execution)["execution_deadline"])
     row_fn = cast(Callable[..., Mapping[str, object]], vars(automation_execution)["execution_row"])
     hash_fn = cast(Callable[[Mapping[str, object]], str], vars(ios_agent_media)["execution_hash"])
@@ -269,7 +269,7 @@ def capture_batch_authority(
     """Capture finite, secret-free provenance only from an exact protected admission."""
     from . import operation_authority
 
-    check_fn = cast(Callable[..., None], vars(operation_authority)["check"])
+    check_fn = cast(Callable[..., object], vars(operation_authority)["check"])
     observed = datetime.now(timezone.utc)
     deadline = iso_time(expires)
     context, envelope = _batch_envelope(store, app_id, operation, plan_hash, expires)
@@ -351,7 +351,7 @@ def check_batch_authority(db: sqlite3.Connection, store: Store, app_id: str, ref
         identities_type = cast(type[object], vars(ios_host)["NativeIdentities"])
         protected = cast(ContextValue, vars(operation_authority)["PROTECTED"])
         identity = cast(Callable[[Store], object], vars(operation_authority)["store_identity"])
-        check_fn = cast(Callable[..., None], vars(operation_authority)["check"])
+        check_fn = cast(Callable[..., object], vars(operation_authority)["check"])
         host = cast(Mapping[str, object] | None, protected.get())
         if (
             not host
@@ -500,7 +500,7 @@ def issue_in_db(
     identity = uid()
     from . import authority_expiry
 
-    record = cast(Callable[..., None], vars(authority_expiry)["record_initial"])
+    record = cast(Callable[..., object], vars(authority_expiry)["record_initial"])
     requested = iso_time(body["expires"]).astimezone(timezone.utc)
     base = min(requested, observed + timedelta(hours=24))
     row = cast(
