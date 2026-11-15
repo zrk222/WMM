@@ -80,12 +80,19 @@ def campaign_job_preview(job):
     return job
 
 
+def _job_list_view(row):
+    if row["action"] == "campaign_owner_report":
+        public_fields = ("id", "app_id", "action", "status", "created", "updated", "attempts")
+        return {**{key: row[key] for key in public_fields}, "data": {}, "result": None}
+    return campaign_job_preview(json_job(row))
+
+
 def jobs(store, app_id):
     """Return bounded recent runs for one workspace."""
     store.app(app_id)
     with connection(store.path) as db:
         return [
-            campaign_job_preview(json_job(r))
+            _job_list_view(r)
             for r in db.execute(
                 "SELECT * FROM jobs WHERE app_id=? AND action!='drive_import' ORDER BY created DESC LIMIT 100",
                 (app_id,),
@@ -304,7 +311,8 @@ def process_special(store, job, stop):
     if job["action"] == "campaign_owner_report":
         from .campaign_owner_reports import execute
 
-        return execute(store, job)
+        execute(store, job)
+        return {"status": "PRIVATE_REPORT_SAVED"}
     if job["action"] == "campaign_monitor":
         from .campaign_monitor import execute
 

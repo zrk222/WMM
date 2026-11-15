@@ -456,6 +456,8 @@ class Service:
             target = db.execute("SELECT action FROM jobs WHERE id=? AND app_id=?", (job_id, app_id)).fetchone()
             if target and target["action"] == "drive_import":
                 raise PermissionError("Use the owner-authorized Drive import cancellation control")
+            if target and target["action"] == "campaign_owner_report":
+                raise PermissionError("Stop scheduled private reports in Private campaign outcomes")
             changed = db.execute(
                 "UPDATE jobs SET status='CANCELLED',updated=? WHERE id=? AND app_id=? AND status IN ('QUEUED','RUNNING')",
                 (now(), job_id, app_id),

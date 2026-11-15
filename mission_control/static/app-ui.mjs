@@ -757,6 +757,14 @@ function providerResult(result) {
 
 function openJob(id) {
   const job = state.workspace.jobs.find((j) => j.id === id);
+  if (job?.action === 'campaign_owner_report') {
+    modal(
+      'Private campaign report run',
+      `<div class="modal-content">${status(job.status)}<p class="app-mono">${esc(id)}</p><p>Read saved reports or stop the plan in Private campaign outcomes.</p></div><div class="modal-actions">${button('Close', 'close')}</div>`,
+      'RUN HISTORY',
+    );
+    return;
+  }
   const reportWaiting =
     job?.action === 'sync' &&
     job.status === 'SUCCEEDED' &&
