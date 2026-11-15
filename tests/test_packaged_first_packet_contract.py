@@ -111,58 +111,58 @@ class PackagedFirstPacketTests(unittest.TestCase):
     def test_document_module_failure_and_bootstrap_failure_are_both_rejected(self):
         import json
         import tempfile
-        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-        from threading import Thread
+        from socket import socket
 
-        class Fixture(BaseHTTPRequestHandler):
-            def do_GET(self):
-                code, kind, body = {
+        from playwright.sync_api import Route
+
+        for module_fails in (True, False):
+            with (
+                self.subTest(module_fails=module_fails),
+                tempfile.TemporaryDirectory() as folder,
+                socket() as unused_listener,
+                patch.object(harness, "STARTUP_TIMEOUT_MS", 2_000),
+            ):
+                # Reserve a private origin without listening. Inject exact HTTP
+                # responses after the real request guard, so a socket failure
+                # cannot replace the intentional module or bootstrap error.
+                unused_listener.bind(("127.0.0.1", 0))
+                origin = f"http://127.0.0.1:{unused_listener.getsockname()[1]}"
+                responses = {
                     "/": (200, "text/html", b'<script type="module" src="/dashboard.mjs"></script>'),
                     "/dashboard.mjs": (200, "text/javascript", b"import '/app.mjs'; fetch('/api/bootstrap');"),
                     "/app.mjs": (503, "text/plain", b"fixture module failure")
                     if module_fails
                     else (200, "text/javascript", b"export {};"),
                     "/api/bootstrap": (503, "application/json", b"{}"),
-                }.get(self.path, (404, "text/plain", b"not found"))
-                self.send_response(code)
-                self.send_header("Content-Type", kind)
-                self.end_headers()
-                self.wfile.write(body)
+                }
 
-            def log_message(self, format, *args):
-                pass
+                def fixture_response(route: Route, origin=origin, responses=responses) -> None:
+                    url = route.request.url
+                    self.assertTrue(url.startswith(origin + "/"))
+                    code, kind, body = responses.get(url.removeprefix(origin), (404, "text/plain", b"not found"))
+                    route.fulfill(status=code, content_type=kind, body=body)
 
-        for module_fails in (True, False):
-            with (
-                self.subTest(module_fails=module_fails),
-                tempfile.TemporaryDirectory() as folder,
-                ThreadingHTTPServer(("127.0.0.1", 0), Fixture) as server,
-                patch.object(harness, "STARTUP_TIMEOUT_MS", 2_000),
-            ):
-                thread = Thread(target=server.serve_forever, daemon=True)
-                thread.start()
-                try:
-                    message = "Dashboard bootstrap request failed" if not module_fails else "Timeout"
-                    with self.assertRaisesRegex(Exception, message):
-                        harness.verify_packet_browser(f"http://127.0.0.1:{server.server_port}", folder)
-                    report = json.loads((Path(folder) / "failure-1440.json").read_text())
-                    self.assertIs(report["readiness"]["dashboard_declared"], True)
-                    self.assertIs(report["readiness"]["workspace_rendered"], False)
-                    if module_fails:
-                        self.assertEqual(report["api_boundaries"], [])
-                        self.assertIn(
-                            dict(path="/app.mjs", kind="script", event="response", status=503, mime="other"),
-                            report["asset_failures"],
-                        )
-                    else:
-                        self.assertEqual(report["asset_failures"], [])
-                        self.assertIn(
-                            dict(path="/api/bootstrap", method="GET", event="response", status=503),
-                            report["api_boundaries"],
-                        )
-                finally:
-                    server.shutdown()
-                    thread.join()
+                message = "Timeout" if module_fails else "Dashboard bootstrap request failed"
+                with (
+                    patch.object(Route, "continue_", fixture_response),
+                    self.assertRaisesRegex(Exception, message),
+                ):
+                    harness.verify_packet_browser(origin, folder)
+                report = json.loads((Path(folder) / "failure-1440.json").read_text())
+                self.assertIs(report["readiness"]["dashboard_declared"], True)
+                self.assertIs(report["readiness"]["workspace_rendered"], False)
+                if module_fails:
+                    self.assertEqual(report["api_boundaries"], [])
+                    self.assertIn(
+                        dict(path="/app.mjs", kind="script", event="response", status=503, mime="other"),
+                        report["asset_failures"],
+                    )
+                else:
+                    self.assertEqual(report["asset_failures"], [])
+                    self.assertIn(
+                        dict(path="/api/bootstrap", method="GET", event="response", status=503),
+                        report["api_boundaries"],
+                    )
 
     def test_packet_binding_rejects_foreign_stale_and_wrong_subset(self):
         expected = dict(app_id="sample-one", version=1, source_hash="source")
