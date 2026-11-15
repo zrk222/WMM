@@ -15,6 +15,7 @@ mission_control/authority_expiry.py
 mission_control/automation_agreement.py
 mission_control/automation_execution.py
 mission_control/automation_health.py
+mission_control/automation_http.py
 mission_control/automation_policy.py
 mission_control/automation_proposal_schedule.py
 mission_control/automation_proposals.py
