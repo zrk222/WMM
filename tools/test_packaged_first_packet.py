@@ -65,6 +65,7 @@ def exact_app_creation(request, origin, app_id, fields):
         (
             "currency",
             "website",
+            "setup_source_url",
             "brand_voice",
             "brand_visual",
             "brand_source",
@@ -306,7 +307,14 @@ def verify_packet_browser(origin, output_dir, storage_dir=None, expected_initial
                         route.continue_()
                     else:
                         violations.append("blocked request")  # noqa: B023 -- context is closed before the next viewport
-                        route.abort()
+                        if request.method == "POST" and request.url == origin + "/api/apps":
+                            route.fulfill(
+                                status=422,
+                                content_type="application/json",
+                                body='{"error":"Setup test denied a request outside its declared fixture."}',
+                            )
+                        else:
+                            route.abort()
 
                 context.route("**/*", guard)
                 page = context.new_page()
