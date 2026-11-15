@@ -62,5 +62,31 @@
   "media_spend_minor": 0,
   "campaign_outcome": null,
   "marketing_lift": null,
-  "elapsed_time_scope": "Automated loopback packet export only; not a manual comparison or full campaign cycle."
+  "elapsed_time_scope": "Automated loopback packet export only; not a manual comparison or full campaign cycle.",
+  "e14_fixed_window_recheck": {
+    "observed_at": "2026-11-15T09:22:58.982234+00:00",
+    "window": {
+      "start_at": "2026-11-07T13:48:46.754Z",
+      "end_at": "2026-11-09T13:48:46.754Z"
+    },
+    "marketing_lift": null,
+    "new_publications": 0,
+    "media_spend_minor": 0,
+    "state": "OBSERVED",
+    "source": "analytics_external_web_traffic_events",
+    "transaction_read_only": true,
+    "tls_verified": true,
+    "aggregate_only": true,
+    "query_sha256": "89344a1b6ef3d4752d2c00d38515c033ffa05c2f10b1f05de15064b2d448ec5c",
+    "earlier_receipt_sha256": "28fd9e963fbcd7b31ba917a919de793e84a864d823bd5898a9ddedf90d0ca0b5",
+    "counts": {
+      "eligible_page_view_events": 29,
+      "e14_tagged_page_view_events": 0,
+      "confirmed_registration_events": 0,
+      "e14_confirmed_registration_events": 0
+    },
+    "same_counts_as_earlier": true,
+    "conversion_rate": null,
+    "decision": "RETAIN_INCONCLUSIVE"
+  }
 }
