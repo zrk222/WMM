@@ -1051,6 +1051,55 @@ const WMMAgreement = (() => {
         .join('')
     );
   }
+  const histories = [
+    [
+      'Local workflow scope',
+      'workflow_policy_id',
+      '/agent-grants/automation-status',
+      'policies',
+      'id',
+      'workflow scopes',
+    ],
+    [
+      'Campaign scope',
+      'campaign_scope_id',
+      '/campaigns/history',
+      'scopes',
+      'scope_id',
+      'campaign scopes',
+    ],
+    [
+      'Scheduled batch',
+      'schedule_batch_id',
+      '/campaigns/schedule-history',
+      'batches',
+      'id',
+      'scheduled batches',
+    ],
+    [
+      'Campaign monitor',
+      'campaign_monitor_id',
+      '/campaign-monitor/history',
+      'monitors',
+      'id',
+      'monitors',
+    ],
+  ];
+  function historyField(history, rows) {
+    const [label, name, , , key, plural] = history;
+    if (rows === null)
+      return '<p><strong>' + label + ':</strong> Saved ' + plural + ' could not be read.</p>';
+    if (!rows.length) return '<p><strong>' + label + ':</strong> None saved for this app.</p>';
+    return (
+      '<label class="field">' +
+      label +
+      '<select name="' +
+      name +
+      '">' +
+      options(rows, key) +
+      '</select></label>'
+    );
+  }
   async function open() {
     const saved = scope();
     modal(
@@ -1058,44 +1107,40 @@ const WMMAgreement = (() => {
       '<div id="agreement-loading" class="modal-content"><p role="status">Reading your saved scopes…</p></div>',
     );
     const ticket = (active = { scope: saved, node: $('#agreement-loading') });
-    try {
-      const [local, campaign, batches, monitoring] = await Promise.all([
-        api('/api/apps/' + saved.app + '/agent-grants/automation-status', {}),
-        api('/api/apps/' + saved.app + '/campaigns/history', {}),
-        api('/api/apps/' + saved.app + '/campaigns/schedule-history', {}),
-        api(
-          '/api/apps/' + saved.app + '/campaign-monitor/history',
-          {},
-          {
-            signal: globalThis.AbortSignal.timeout(10000),
-          },
-        ).catch(() => null),
-      ]);
-      if (!valid(ticket)) return;
-      modal(
-        'Choose your automation agreement',
-        '<form id="agreement-form" class="modal-content"><p>Review local work, campaign effects and schedules together. Their existing approvals remain separate; this review activates nothing.</p><label class="field">Local workflow scope<select name="workflow_policy_id">' +
-          options(local.policies, 'id') +
-          '</select></label><label class="field">Campaign scope<select name="campaign_scope_id">' +
-          options(campaign.scopes, 'scope_id') +
-          '</select></label><label class="field">Scheduled batch<select name="schedule_batch_id">' +
-          options(batches.batches, 'id') +
-          '</select></label>' +
-          (Array.isArray(monitoring?.monitors)
-            ? '<label class="field"><span id="agreement-monitor-label">Campaign monitor</span><select name="campaign_monitor_id" aria-labelledby="agreement-monitor-label">' +
-              options(monitoring.monitors, 'id') +
-              '</select></label>'
-            : '<p>Saved monitors could not be read. You can still review the other scopes.</p>') +
-          '<p>A batch or monitor includes its linked campaign. Select that same campaign or leave the campaign field empty.</p><p id="agreement-error" role="alert"></p><button class="button" type="submit">Review combined agreement</button>' +
-          button('Cancel', 'close') +
-          '</form>',
-      );
-      active = { scope: saved, node: $('#agreement-form'), pending: false };
-    } catch (e) {
-      if (valid(ticket))
-        ticket.node.textContent =
-          e.message + ' Sign in as the app owner and reconnect required scopes.';
-    }
+    const signal = globalThis.AbortSignal.timeout(10000);
+    const reads = await Promise.allSettled(
+      histories.map(([, , route]) => api('/api/apps/' + saved.app + route, {}, { signal })),
+    );
+    if (!valid(ticket)) return;
+    const rows = reads.map((read, i) => {
+      const list = read.status === 'fulfilled' ? read.value?.[histories[i][3]] : null;
+      const key = histories[i][4];
+      return Array.isArray(list) &&
+        list.every((row) => row && typeof row[key] === 'string' && row[key])
+        ? list
+        : null;
+    });
+    const unavailable = rows.includes(null);
+    const canReview = rows.some((list) => list?.some((row) => !row.evidence_unavailable));
+    modal(
+      'Choose your automation agreement',
+      '<form id="agreement-form" class="modal-content"><p>Review local work, campaign effects and schedules together. Their existing approvals remain separate; this review activates nothing.</p>' +
+        (unavailable
+          ? '<p role="status">' +
+            (canReview
+              ? 'Some saved work could not be read. Retry the lists, or review the scopes that loaded.'
+              : 'No saved scopes are available to review. Retry loading saved work.') +
+            '</p>'
+          : '') +
+        histories.map((history, i) => historyField(history, rows[i])).join('') +
+        '<p>A batch or monitor includes its linked campaign. Select that same campaign or leave the campaign field empty.</p><p id="agreement-error" role="alert"></p><button class="button" type="submit"' +
+        (canReview ? '' : ' disabled') +
+        '>Review combined agreement</button>' +
+        (unavailable ? button('Retry loading saved work', 'goal-agreement') : '') +
+        button('Cancel', 'close') +
+        '</form>',
+    );
+    active = { scope: saved, node: $('#agreement-form'), pending: false };
   }
   function guidance(s) {
     const schedule = s.schedule;

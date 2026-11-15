@@ -577,6 +577,57 @@ test('unavailable monitor history keeps the other agreement selections usable', 
   assert.match(html, /<option value="policy">policy · ACTIVE/);
 });
 
+test('partial agreement history preserves healthy choices and never exposes raw provider errors', async () => {
+  const h = interactive();
+  const paths = [];
+  const signals = [];
+  h.c.button = (title, action) => `<button type="button" data-action="${action}">${title}</button>`;
+  h.c.api = async (url, body, options) => {
+    paths.push(url);
+    signals.push(options.signal);
+    if (url.endsWith('/campaigns/history')) throw new Error('PRIVATE_FIXTURE_ERROR');
+    return { policies: [{ id: 'policy', status: 'ACTIVE' }], batches: [], monitors: null };
+  };
+  await h.a.open();
+  const { html } = h.requests.at(-1);
+  assert.equal(paths.length, 4);
+  assert.ok(paths.every((url) => url.startsWith('/api/apps/one/')));
+  assert.equal(new Set(signals).size, 1);
+  assert.ok(signals[0] instanceof AbortSignal);
+  assert.match(html, /Saved campaign scopes could not be read/);
+  assert.match(html, /Scheduled batch:<\/strong> None saved for this app/);
+  assert.match(html, /Saved monitors could not be read/);
+  assert.match(html, /<option value="policy">policy · ACTIVE/);
+  assert.match(html, /type="submit">Review combined agreement/);
+  assert.match(html, /data-action="goal-agreement">Retry loading saved work/);
+  assert.doesNotMatch(html, /PRIVATE_FIXTURE_ERROR/);
+});
+
+test('agreement retry recovers after all histories failed without granting or dispatching', async () => {
+  const h = interactive();
+  const paths = [];
+  h.c.api = async (url) => {
+    paths.push(url);
+    throw new Error('fixture');
+  };
+  await h.a.open();
+  assert.match(h.requests.at(-1).html, /type="submit" disabled>Review combined agreement/);
+  h.c.api = async (url) => {
+    paths.push(url);
+    return {
+      policies: [],
+      scopes: [{ scope_id: 'recovered', status: 'ACTIVE' }],
+      batches: [],
+      monitors: [],
+    };
+  };
+  await h.a.open();
+  assert.match(h.requests.at(-1).html, /<option value="recovered">recovered · ACTIVE/);
+  assert.doesNotMatch(h.requests.at(-1).html, /Retry loading saved work|could not be read/);
+  assert.equal(paths.length, 8);
+  assert.ok(paths.every((url) => !/approve|activate|execute|publish/.test(url)));
+});
+
 test('agreement distinguishes exact recovery routes for expired, uncertain and standalone campaign scope', () => {
   const a = fixture(),
     campaign = { id: 'scope', effective_status: 'BLOCKED' };
