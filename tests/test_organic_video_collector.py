@@ -120,6 +120,13 @@ class CollectorTests(unittest.TestCase):
         complete = self.agent_call("organic-video.submit", request, submit)
         self.assertEqual(complete["status"], "SUBMITTED")
         self.assertEqual(complete["result"]["collection_verification"], "REQUIRED")
+        shortlist = complete["creative_shortlist"]
+        self.assertEqual(len(shortlist), 1)
+        self.assertEqual(
+            shortlist[0]["candidate_hash"], complete["result"]["items"][0]["qualification"]["candidate_hash"]
+        )
+        self.assertEqual(shortlist[0]["adaptation"], "ORIGINAL_ASSETS_ONLY")
+
         self.assertEqual(self.agent_call("organic-video.submit", request, submit), complete)
         changed = copy.deepcopy(request)
         changed["result"]["read_count"] = 2

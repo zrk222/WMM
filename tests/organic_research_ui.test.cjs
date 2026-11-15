@@ -507,3 +507,30 @@ test('suggested search uses the selected app and remains within the input contra
   assert.deepEqual(custom.policy.platforms, ['linkedin']);
   assert.equal(custom.policy.max_reads, 30);
 });
+
+
+test('creative shortlist links to the exact existing review and keeps unqualified patterns read only', async () => {
+  const task = await saved(),
+    item = task.result.items[0],
+    source = task.submission.candidates[0].candidate;
+  task.creative_shortlist = [
+    {
+      candidate_hash: item.qualification.candidate_hash,
+      post_id: source.post_id,
+      platform: source.platform,
+      tier: 'VIRAL_BY_REPORTED_COUNTS',
+    },
+  ];
+  assert.match(ui.taskHTML(task, s()), /Creative angles to test/);
+  assert.match(ui.taskHTML(task, s()), /Review this angle/);
+  task.creative_shortlist[0].tier = 'PROMISING_PATTERN';
+  item.status = 'INSUFFICIENT_BASELINE';
+  item.qualification.qualification = 'INSUFFICIENT_BASELINE';
+  const html = ui.taskHTML(task, s());
+  assert.match(html, /Promising pattern · does not qualify as viral/);
+  assert.doesNotMatch(html, /Review this angle/);
+  const wrongAppRevision = s();
+  wrongAppRevision.workspace.app.version += 1;
+  item.status = 'COLLECTION_REVIEW_REQUIRED';
+  assert.doesNotMatch(ui.taskHTML(task, wrongAppRevision), /Review this angle/);
+});
