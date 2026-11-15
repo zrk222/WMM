@@ -370,8 +370,6 @@ class Handler(BaseHTTPRequestHandler):
             "/packaging-ui.js",
             "/funnel-model.js",
             "/funnel-ui.js",
-        )
-        scripts += (
             "/dashboard.mjs",
             "/feature-apis.mjs",
             "/publication.mjs",
@@ -380,6 +378,7 @@ class Handler(BaseHTTPRequestHandler):
             "/operation-feedback.js",
             "/app-ui.mjs",
             "/app-money.mjs",
+            "/apple-ads-acquisition-table.mjs",
             "/currency-profile.mjs",
             "/app-production.mjs",
             "/app-install.mjs",

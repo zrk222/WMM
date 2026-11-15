@@ -1,6 +1,6 @@
-# Automation logic: facts → rules → proposals
+# Automation logic: saved facts, rules and actions
 
-Status: **Saved rule previews, persistent recommendations and finite local schedules are implemented. Rule evaluation produces recommendations for review.**
+Status: **Saved rule previews, persistent recommendations and finite local schedules are implemented. A scheduled rule can save a private campaign report when the owner opts in.**
 
 ## Principle
 
@@ -174,6 +174,25 @@ than replaying missed checks. **Turn off reviews** stops future checks.
 Changed app or owner authority stops the schedule and asks for a fresh
 review. The worker and manual review don't contact providers, grant access,
 publish or spend. The inbox remains private to the selected app and owner.
+
+## Save a private report automatically
+
+Save one private campaign report for this app. Under **Saved rule versions**,
+choose a version in `AUTO_WITHIN_GRANT` mode with an enabled rule requesting
+`review_result` through `reports.read` with `OWNER_REVIEW`. In **Review
+schedule**, select that report instead of **Save a recommendation only**.
+
+WMM reuses the selected source definitions and dates. A qualifying open
+recommendation creates one report in the app's private campaign report history.
+The evaluation receipt shows the report ID and fingerprint, and the schedule
+keeps that receipt visible after later runs. Each schedule approval saves at
+most one report for its selected template; existing open recommendations can
+run after cooldown. Dismissals still apply. If you select a study, use a
+report with the same dates. Stop future checks with **Turn off reviews**.
+
+The report uses current retained evidence within the approved window. It does
+not fetch fresh provider data, alter a campaign or send a message. Publish and
+spend authority are unchanged.
 
 ## Delivery phases
 

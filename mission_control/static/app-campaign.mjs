@@ -1,4 +1,8 @@
-import { proposalInboxMarkup } from './automation-proposal-inbox.mjs';
+import {
+  proposalInboxMarkup,
+  proposalScheduleMarkup,
+  reportTemplates,
+} from './automation-proposal-inbox.mjs';
 import { WMMPublicationUI } from './publication.mjs';
 import { status } from './app.mjs';
 import { WMMCampaignPlan } from './feature-apis.mjs';
@@ -28,7 +32,7 @@ function campaignPlanOpen() {
       );
   modal(
     'Campaign plan',
-    `<div class="modal-content"><div class="section-heading"><div><p class="eyebrow">MARKETING PLAN</p><h2>${esc(state.workspace?.app?.data?.name || state.app)}</h2></div>${status(value.status)}</div><p><strong>${esc(value.objective.metric)}</strong> for <strong>${esc(value.positioning.audience || 'your audience')}</strong>${value.channels.pilot ? ` via <strong>${esc(value.channels.pilot)}</strong>` : ''}.</p><p class="description">Agent-proposed draft. You edit and approve; this plan does not publish or spend.</p>${missing}<h3>Objective</h3><p><strong>${esc(value.objective.metric)}</strong> · baseline ${esc(value.objective.baseline)}</p><p class="description">${esc(value.objective.baseline_reason)}</p><h3>Audience and hypothesis</h3><p><strong>${esc(value.positioning.audience || 'Audience not supplied')}</strong> · ${esc(value.positioning.job || 'User job not supplied')}</p><p>${esc(value.positioning.hypothesis)}</p><h3>Pilot channel</h3><p><strong>${esc(value.channels.pilot || 'Not selected')}</strong>${value.channels.alternatives.length ? ` · alternatives ${esc(value.channels.alternatives.join(', '))}` : ''}</p><p class="description">${esc(value.channels.basis)}</p><h3>Proof to verify</h3><p>Saved claims ${value.proof.claims} · screens/assets ${value.proof.assets} · readiness ${value.proof.readiness} · store ${value.proof.store} · first-value routes ${value.proof.route}</p><p class="description">Counts are saved evidence, not current approval or public availability.</p><h3>Measurement and guardrails</h3><p><strong>Next:</strong> ${esc(value.measurement.next_action)}</p><p>Window: ${esc(value.measurement.window)}</p><p>Stop: ${esc(value.measurement.stop_rule)}</p><p>Rollback: ${esc(value.measurement.rollback)}</p><h3>Budget</h3><p>${esc(value.distribution.budget_minor)} ${esc(value.distribution.currency || '')} · ${esc(value.distribution.mode)} · no spend authorized</p><details><summary>Boundaries</summary><ul>${value.boundaries.map((item) => `<li>${esc(item)}</li>`).join('')}</ul></details><div class="modal-actions">${button('Download Markdown', 'campaign-plan-download-md')}${button('Download JSON', 'campaign-plan-download-json')}${button('Close', 'close')}</div></div>`,
+    `<div class="modal-content"><div class="section-heading"><div><p class="eyebrow">MARKETING PLAN</p><h2>${esc(state.workspace?.app?.data?.name || state.app)}</h2></div>${status(value.status)}</div><p><strong>${esc(value.objective.metric)}</strong> for <strong>${esc(value.positioning.audience || 'your audience')}</strong>${value.channels.pilot ? ` via <strong>${esc(value.channels.pilot)}</strong>` : ''}.</p><p class="description">Agent-proposed draft. You edit and approve; this plan does not publish or spend.</p>${missing}<h3>Objective</h3><p><strong>${esc(value.objective.metric)}</strong> Â· baseline ${esc(value.objective.baseline)}</p><p class="description">${esc(value.objective.baseline_reason)}</p><h3>Audience and hypothesis</h3><p><strong>${esc(value.positioning.audience || 'Audience not supplied')}</strong> Â· ${esc(value.positioning.job || 'User job not supplied')}</p><p>${esc(value.positioning.hypothesis)}</p><h3>Pilot channel</h3><p><strong>${esc(value.channels.pilot || 'Not selected')}</strong>${value.channels.alternatives.length ? ` Â· alternatives ${esc(value.channels.alternatives.join(', '))}` : ''}</p><p class="description">${esc(value.channels.basis)}</p><h3>Proof to verify</h3><p>Saved claims ${value.proof.claims} Â· screens/assets ${value.proof.assets} Â· readiness ${value.proof.readiness} Â· store ${value.proof.store} Â· first-value routes ${value.proof.route}</p><p class="description">Counts are saved evidence, not current approval or public availability.</p><h3>Measurement and guardrails</h3><p><strong>Next:</strong> ${esc(value.measurement.next_action)}</p><p>Window: ${esc(value.measurement.window)}</p><p>Stop: ${esc(value.measurement.stop_rule)}</p><p>Rollback: ${esc(value.measurement.rollback)}</p><h3>Budget</h3><p>${esc(value.distribution.budget_minor)} ${esc(value.distribution.currency || '')} Â· ${esc(value.distribution.mode)} Â· no spend authorized</p><details><summary>Boundaries</summary><ul>${value.boundaries.map((item) => `<li>${esc(item)}</li>`).join('')}</ul></details><div class="modal-actions">${button('Download Markdown', 'campaign-plan-download-md')}${button('Download JSON', 'campaign-plan-download-json')}${button('Close', 'close')}</div></div>`,
     'CAMPAIGN PLAN',
   );
 }
@@ -69,15 +73,15 @@ async function nextAnswer() {
   const approvalRows = [
     ...packets.map(
       (row) =>
-        `<p><strong>Manual review packet</strong> ${esc(row.id)} · expires ${esc(row.expires || 'saved expiry')} · hash ${esc((row.hash || '').slice(0, 16))}…</p>`,
+        `<p><strong>Manual review packet</strong> ${esc(row.id)} Â· expires ${esc(row.expires || 'saved expiry')} Â· hash ${esc((row.hash || '').slice(0, 16))}â€¦</p>`,
     ),
     ...authorities.map(
       (row) =>
-        `<p><strong>${esc(row.status === 'APPROVED' ? 'Approved publication' : 'Prepared publication')}</strong> ${esc(row.id)} · hash ${esc((row.review_hash || '').slice(0, 16))}…</p>`,
+        `<p><strong>${esc(row.status === 'APPROVED' ? 'Approved publication' : 'Prepared publication')}</strong> ${esc(row.id)} Â· hash ${esc((row.review_hash || '').slice(0, 16))}â€¦</p>`,
     ),
     ...intents.map(
       (row) =>
-        `<p><strong>Publication result</strong> ${esc(row.id || 'saved receipt')} · ${esc(row.status || 'unknown state')}</p>`,
+        `<p><strong>Publication result</strong> ${esc(row.id || 'saved receipt')} Â· ${esc(row.status || 'unknown state')}</p>`,
     ),
   ].join('');
   modal(
@@ -178,7 +182,7 @@ async function firstMeasuredPost(offset = 0) {
   if (!context) throw new Error('Sign in again to review your study and its saved receipts.');
   modal(
     'Your first measured post',
-    '<div class="modal-content" id="first-post-panel"><p role="status">Loading saved studies…</p></div>',
+    '<div class="modal-content" id="first-post-panel"><p role="status">Loading saved studiesâ€¦</p></div>',
     'GUIDED PATH',
   );
   const panel = $('#first-post-panel');
@@ -218,7 +222,7 @@ async function firstMeasuredPost(offset = 0) {
         study_id: row.study_id,
         study_hash: row.study_hash,
       };
-      output.textContent = 'Preparing the study link…';
+      output.textContent = 'Preparing the study linkâ€¦';
       try {
         const url = `/api/apps/${encodeURIComponent(app)}`;
         const link = await api(url + '/observational-campaign/link', binding);
@@ -307,7 +311,7 @@ async function firstMeasuredPost(offset = 0) {
           );
           output.querySelector('#first-post-progress').textContent = !selected.destination
             ? 'Choose a destination to check delivery.'
-            : `Publication: ${e.ambiguous ? 'Multiple delivered posts share this tag; keep results at study level' : e.delivery ? 'Delivered · provider verified' : e.queued ? 'Queued · delivery pending' : e.approved ? 'Approved · not queued' : e.historyAvailable ? 'No matching receipt in recent history' : 'Delivery history unavailable; reopen this guide to retry'}. Install export: ${e.coverage === 'COMPLETE' ? 'Matching window covered' : e.coverage ? 'Matching export · coverage incomplete' : 'Unknown'}.`;
+            : `Publication: ${e.ambiguous ? 'Multiple delivered posts share this tag; keep results at study level' : e.delivery ? 'Delivered Â· provider verified' : e.queued ? 'Queued Â· delivery pending' : e.approved ? 'Approved Â· not queued' : e.historyAvailable ? 'No matching receipt in recent history' : 'Delivery history unavailable; reopen this guide to retry'}. Install export: ${e.coverage === 'COMPLETE' ? 'Matching window covered' : e.coverage ? 'Matching export Â· coverage incomplete' : 'Unknown'}.`;
         });
       } catch (error) {
         if (valid()) output.textContent = error.message;
@@ -432,7 +436,7 @@ function automationRulesResult(value, example = false) {
   const results = value.results
     .map(
       (row) =>
-        `<li>${esc(row.rule_id)}: <strong>${esc(labels.get(row.status) || row.status)}</strong>${row.missing?.length ? ` · Missing: ${esc(row.missing.join(', '))}` : ''}${row.incompatible?.length ? ` · Incompatible: ${esc(row.incompatible.join(', '))}` : ''}${row.proposal_status === 'SUPPRESSED_BY_HIGHER_PRIORITY' ? ' · A higher priority rule already suggested the same action.' : ''}</li>`,
+        `<li>${esc(row.rule_id)}: <strong>${esc(labels.get(row.status) || row.status)}</strong>${row.missing?.length ? ` Â· Missing: ${esc(row.missing.join(', '))}` : ''}${row.incompatible?.length ? ` Â· Incompatible: ${esc(row.incompatible.join(', '))}` : ''}${row.proposal_status === 'SUPPRESSED_BY_HIGHER_PRIORITY' ? ' Â· A higher priority rule already suggested the same action.' : ''}</li>`,
     )
     .join('');
   const empty = value.results.some((row) => row.status === 'UNKNOWN')
@@ -446,7 +450,7 @@ function automationRulesResult(value, example = false) {
   const facts = value.fact_snapshot;
   const study = facts?.values?.study;
   const studyStatus = study
-    ? `<p><strong>Observed:</strong> Window ${study.window.state === 'ENDED' ? 'ended' : 'still open'} · ${study.coverage === 'COMPLETE' ? 'collector coverage complete' : 'collector coverage incomplete'}.</p><p>Collector-reported evidence. A linked registration rate describes the recorded visits; it does not verify individual identities or establish lift.</p>`
+    ? `<p><strong>Observed:</strong> Window ${study.window.state === 'ENDED' ? 'ended' : 'still open'} Â· ${study.coverage === 'COMPLETE' ? 'collector coverage complete' : 'collector coverage incomplete'}.</p><p>Collector-reported evidence. A linked registration rate describes the recorded visits; it does not verify individual identities or establish lift.</p>`
     : '';
   const evidence = Object.entries(facts?.values || {})
     .flatMap(([group, fields]) =>
@@ -456,7 +460,7 @@ function automationRulesResult(value, example = false) {
       ),
     )
     .join('');
-  return `<h3>Preview complete</h3><p>${source}${value.observed_at ? ` · ${esc(savedWhen(value.observed_at))}` : ''}</p>${studyStatus}${proposals || `<p>${empty}</p>`}
+  return `<h3>Preview complete</h3><p>${source}${value.observed_at ? ` Â· ${esc(savedWhen(value.observed_at))}` : ''}</p>${studyStatus}${proposals || `<p>${empty}</p>`}
     <details><summary>Rule results</summary><ul>${results}</ul></details>
     ${
       evidence
@@ -538,7 +542,7 @@ async function runAutomationRulePreview(node) {
     binding === JSON.stringify(experimentScheduleIdentity()) &&
     ruleStudySelection() === study;
   node.disabled = true;
-  target.textContent = 'Checking saved evidence…';
+  target.textContent = 'Checking saved evidenceâ€¦';
   try {
     const result = await api(`/api/apps/${encodeURIComponent(app)}/automation/evaluate`, payload);
     if (!stillHere()) return;
@@ -596,7 +600,7 @@ async function showAutomationVersions(node) {
       ? `<ul>${saved.versions
           .map(
             (row) =>
-              `<li>Version ${esc(row.version)} · ${esc(savedWhen(row.created))} · ${esc(row.hash.slice(0, 12))}…
+              `<li>Version ${esc(row.version)} Â· ${esc(savedWhen(row.created))} Â· ${esc(row.hash.slice(0, 12))}â€¦
       ${button(`Preview saved version ${row.version}`, 'automation-rules-run', `data-version="${esc(row.version)}" data-hash="${esc(row.hash)}"`)}
       ${button('Run and save recommendations', 'automation-proposals-run', `data-rule-version="${esc(row.version)}" data-rule-hash="${esc(row.hash)}"`)}
       ${button('Review schedule', 'automation-proposals-prepare', `data-rule-version="${esc(row.version)}" data-rule-hash="${esc(row.hash)}"`)}</li>`,
@@ -671,7 +675,7 @@ async function manageAutomationRules(node, action) {
       }
       input.value = JSON.stringify(saved.document, null, 2);
     }
-    status.textContent = `${saving ? 'Saved' : 'Loaded'} version ${saved.version} · ${saved.hash.slice(0, 16)}…${saving && input.value !== original ? ' Your newer draft has not been saved.' : ''}`;
+    status.textContent = `${saving ? 'Saved' : 'Loaded'} version ${saved.version} Â· ${saved.hash.slice(0, 16)}â€¦${saving && input.value !== original ? ' Your newer draft has not been saved.' : ''}`;
   } catch (error) {
     if (stillHere())
       status.textContent = `Could not ${saving ? 'save' : 'load'} rules. ${error.message}`;
@@ -697,7 +701,7 @@ async function manageRuleProposals(node, action) {
   const saved = { version: Number(node.dataset.ruleVersion), hash: node.dataset.ruleHash };
   panel.dataset.proposalsBusy = 'true';
   node.disabled = true;
-  message.textContent = 'Checking saved recommendations…';
+  message.textContent = 'Checking saved recommendationsâ€¦';
   let actionSaved = false;
   try {
     if (action === 'automation-proposals-run') {
@@ -736,6 +740,7 @@ async function manageRuleProposals(node, action) {
         message.textContent = 'Check the review interval, dates and run limit.';
         return;
       }
+      const template = review.reports[panel.querySelector('#proposal-report-template')?.value];
       await api(path + '/schedule', {
         enabled: true,
         version: node.dataset.version ? Number(node.dataset.version) : null,
@@ -745,6 +750,9 @@ async function manageRuleProposals(node, action) {
         interval_hours: interval.valueAsNumber,
         expires_at: new Date(Date.now() + days.valueAsNumber * 86400000).toISOString(),
         max_runs: count.valueAsNumber,
+        ...(template
+          ? { report_integration: { report_id: template.id, report_hash: template.hash } }
+          : {}),
       });
     }
     actionSaved = [
@@ -753,7 +761,14 @@ async function manageRuleProposals(node, action) {
       'automation-proposals-off',
       'automation-proposals-start',
     ].includes(action);
-    const value = await api(path);
+    const [value, history] = await Promise.all([
+      api(path),
+      action === 'automation-proposals-prepare'
+        ? api('/api/apps/' + encodeURIComponent(app) + '/campaign-owner-reports/history', {}).catch(
+            () => null,
+          )
+        : null,
+    ]);
     if (!stillHere() || value.app_id !== app) return;
     target.innerHTML = proposalInboxMarkup(value, {
       appVersion: state.workspace?.app?.version,
@@ -762,21 +777,17 @@ async function manageRuleProposals(node, action) {
       savedWhen,
     });
     if (action === 'automation-proposals-prepare') {
+      const reports = reportTemplates(history, state.workspace.app.version);
       panel.proposalScheduleReview = {
         appVersion: state.workspace.app.version,
         identity,
         study: selected?.binding ?? null,
         saved,
+        reports,
       };
-      const attrs = `data-rule-version="${esc(saved.version)}" data-rule-hash="${esc(saved.hash)}" data-version="${esc(value.schedule?.version ?? '')}"`;
       target.insertAdjacentHTML(
         'afterbegin',
-        `<fieldset><legend>Schedule local review for rule version ${esc(saved.version)}</legend>
-        <p>WMM will save recommendations from local evidence while it runs. It will not post, spend, or contact providers. ${value.schedule?.status === 'ACTIVE' ? 'Starting replaces the existing schedule.' : ''}</p>
-        <div class="form-grid"><label class="field">Hours between reviews<input id="proposal-interval" type="number" min="1" max="24" value="24" required></label>
-        <label class="field">End after days<input id="proposal-days" type="number" min="2" max="7" value="7" required></label>
-        <label class="field">Maximum reviews<input id="proposal-count" type="number" min="1" max="30" value="6" required></label></div>
-        ${button('Start scheduled reviews', 'automation-proposals-start', attrs)}</fieldset>`,
+        proposalScheduleMarkup(saved, value.schedule, reports, { esc, button, savedWhen }),
       );
       target.querySelector('#proposal-interval')?.focus();
     }

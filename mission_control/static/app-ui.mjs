@@ -1,5 +1,6 @@
 import { status } from './app.mjs';
 import { money } from './app-money.mjs';
+import { appleAcquisitionTable } from './apple-ads-acquisition-table.mjs';
 import {
   $,
   api,
@@ -751,7 +752,7 @@ function providerResult(result) {
         : `<tr><td>${esc(search ? r.metadata.searchTermText : keyword ? r.metadata.text : r.metadata.name || r.metadata.id)}${keyword || search ? `<small>Campaign ${esc(r.metadata.campaignId)} Â· ${esc(keyword ? r.metadata.matchType : r.metadata.keyword?.text || 'No targeting keyword supplied')}</small>` : ''}</td><td>${esc(r.totalMetrics.taps ?? 'Unavailable')}</td><td>${esc(r.totalMetrics.totalInstalls ?? 'Unavailable')}</td><td>${esc(r.totalMetrics.localSpend?.amount ?? 'Unavailable')} ${esc(r.totalMetrics.localSpend?.currency || '')}</td></tr>`,
     )
     .join('');
-  return `${status(result.coverage)}${notice(result.interpretation, result.coverage === 'PARTIAL' ? 'warning' : 'info')}<p>${result.rows.length} observed rows Â· ${result.pages} fetched pages${result.reporting_timezone ? ` Â· ${esc(result.reporting_timezone)}` : ''}</p>${result.rows.length ? `<div class="table-wrap"><table class="result-table"><thead><tr>${review ? '<th>Rating</th><th>Unverified public complaint</th>' : `<th>${search ? 'Observed search term' : keyword ? 'Targeting keyword' : 'Campaign'}</th><th>Taps</th><th>Provider-attributed installs</th><th>Reported spend</th>`}</tr></thead><tbody>${rows}</tbody></table></div>` : notice('No matching provider rows were returned. This does not prove that the product is healthy or the campaign effective.')}<details><summary>Inspect dates, source hashes and exact observed data</summary><pre>${json(result)}</pre></details>`;
+  return `${status(result.coverage)}${notice(result.interpretation, result.coverage === 'PARTIAL' ? 'warning' : 'info')}<p>${result.rows.length} observed rows Â· ${result.pages} fetched pages${result.reporting_timezone ? ` Â· ${esc(result.reporting_timezone)}` : ''}</p>${appleAcquisitionTable(result, { money, esc })}${result.rows.length ? `<div class="table-wrap"><table class="result-table"><thead><tr>${review ? '<th>Rating</th><th>Unverified public complaint</th>' : `<th>${search ? 'Observed search term' : keyword ? 'Targeting keyword' : 'Campaign'}</th><th>Taps</th><th>Provider-attributed installs</th><th>Reported spend</th>`}</tr></thead><tbody>${rows}</tbody></table></div>` : notice('No matching provider rows were returned. This does not prove that the product is healthy or the campaign effective.')}<details><summary>Inspect dates, source hashes and exact observed data</summary><pre>${json(result)}</pre></details>`;
 }
 
 function openJob(id) {

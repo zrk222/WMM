@@ -7,6 +7,7 @@ from sqlite3 import Connection, Row
 from typing import cast
 
 from .automation_proposals import RuleRef, duration, evaluate_in_snapshot, version_matches
+from .automation_rule_report_integration import integrate, prepare, saved_action
 from .automation_rules import _study_facts
 from .automation_store import version_in_snapshot
 from .common import Invalid, canonical, digest, iso_time, now, safe_data
@@ -36,7 +37,7 @@ def view(row: Row) -> dict[str, object]:
         "latest_receipt_id": row["receipt_id"],
         "reason": row["stopped_reason"],
         "binding": binding,
-        "mode": "PROPOSE_ONLY",
+        "mode": "SAVE_PRIVATE_REPORT" if binding and "report_integration" in binding else "PROPOSE_ONLY",
     }
 
 
@@ -60,7 +61,16 @@ def read(store: Store, app_id: str, owner: str) -> dict[str, object] | None:
         db.execute("BEGIN")
         member(db, app_id, owner, "OWNER")
         row = schedule_row(db, app_id)
-        return view(row) if row is not None and row["owner"] == owner else None
+        if row is None or row["owner"] != owner:
+            return None
+        result = view(row)
+        binding = cast(dict | None, result["binding"])
+        if binding and "report_integration" in binding:
+            try:
+                result["saved_report"] = saved_action(db, app_id, owner, binding["report_integration"]["capture_key"])
+            except Invalid:
+                result["saved_report"] = None
+        return result
 
 
 def configure(
@@ -78,7 +88,7 @@ def configure(
         role = member(db, app_id, owner, "OWNER")
         row = exact_schedule(db, app_id, owner, expected)
         if enabled:
-            save_enabled(db, app_id, owner, role["version"], body, stamp)
+            save_enabled(db, store, app_id, owner, role["version"], body, stamp)
         elif row is None:
             raise Invalid("There is no rule schedule to turn off")
         else:
@@ -95,7 +105,8 @@ def configure(
 def validated_request(body: dict) -> tuple[bool, int | None]:
     safe_data(body)
     enabled = body.get("enabled")
-    if type(enabled) is not bool or set(body) != (ENABLED_FIELDS if enabled else {"enabled", "version"}):
+    allowed = (ENABLED_FIELDS, ENABLED_FIELDS | {"report_integration"}) if enabled else ({"enabled", "version"},)
+    if type(enabled) is not bool or set(body) not in allowed:
         raise Invalid("Choose the exact schedule fields")
     expected = body["version"]
     if expected is not None and (type(expected) is not int or expected < 1):
@@ -112,7 +123,9 @@ def exact_schedule(db: Connection, app_id: str, owner: str, expected: int | None
     return row
 
 
-def save_enabled(db: Connection, app_id: str, owner: str, owner_version: int, body: dict, stamp: datetime) -> None:
+def save_enabled(
+    db: Connection, store: Store, app_id: str, owner: str, owner_version: int, body: dict, stamp: datetime
+) -> None:
     version_matches(db, app_id, body["app_version"])
     saved = version_in_snapshot(db, app_id, body["saved"])
     interval, max_runs = body["interval_hours"], body["max_runs"]
@@ -126,9 +139,11 @@ def save_enabled(db: Connection, app_id: str, owner: str, owner_version: int, bo
         raise Invalid("The saved rule version is unavailable")
     for rule in saved["document"]["rules"]:
         duration(rule["cooldown"])
-    if body["study"] is not None:
-        _study_facts(db, app_id, body["study"], stamp.isoformat(timespec="microseconds"))
+    timestamp = stamp.isoformat(timespec="microseconds")
+    study = _study_facts(db, app_id, body["study"], timestamp) if body["study"] is not None else None
     definition = {**body, "expires_at": expiry.isoformat(timespec="microseconds")}
+    if "report_integration" in body:
+        definition["report_integration"] = prepare(db, store, app_id, owner, body, saved["document"], study)
     db.execute(
         """INSERT INTO automation_rule_schedules VALUES(?,?,?,?,?,?,?,?,?,?,?,'ACTIVE',NULL,NULL)
            ON CONFLICT(app_id) DO UPDATE SET
@@ -192,6 +207,8 @@ def evaluate_due(store: Store, app_id: str, clock: datetime | None = None) -> No
                 study=definition["study"],
                 slot=digest([row["version"], row["next_due"]]),
             )
+            if "report_integration" in definition:
+                integrate(db, store, app_id, row["owner"], definition["report_integration"], receipt)
             finished = clock if clock is not None else iso_time(now()).astimezone(timezone.utc)
             if finished >= expires:
                 db.execute("ROLLBACK TO rule_due")
@@ -199,7 +216,12 @@ def evaluate_due(store: Store, app_id: str, clock: datetime | None = None) -> No
                 return
         except (Invalid, PermissionError, KeyError, ValueError, TypeError):
             db.execute("ROLLBACK TO rule_due")
-            stop(db, row, "BLOCKED", "Review the current app, owner, saved rules and study before starting again.")
+            stop(
+                db,
+                row,
+                "BLOCKED",
+                "Review the app, saved rules, study and any selected private report before starting again.",
+            )
             return
         finally:
             db.execute("RELEASE rule_due")

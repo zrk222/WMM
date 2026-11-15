@@ -20,6 +20,7 @@ mission_control/static/app-results.mjs
 mission_control/static/app-ui.mjs
 mission_control/static/app-weekly.mjs
 mission_control/static/app.mjs
+mission_control/static/apple-ads-acquisition-table.mjs
 mission_control/static/apple-analytics.js
 mission_control/static/attribution.mjs
 mission_control/static/audit-runtime.mjs
@@ -90,6 +91,7 @@ mission_control/static/workflow-automation.mjs
 mission_control/static/workflow-telemetry.js
 tests/activity_timeline_ui.test.cjs
 tests/analytics_inventory.test.mjs
+tests/apple_ads_acquisition_ui.test.cjs
 tests/automation_agreement_ui.test.cjs
 tests/campaign_monitor_ui.test.cjs
 tests/campaign_owner_report_ui.test.cjs

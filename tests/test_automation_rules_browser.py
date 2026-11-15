@@ -3,8 +3,11 @@
 import json
 import os
 import unittest
+from datetime import datetime, timedelta, timezone
 
+from mission_control.automation_proposal_schedule import evaluate_due
 from tests import test_agent_grants as fixture
+from tests import test_automation_rule_report_integration as report_fixture
 
 
 @unittest.skipUnless(os.environ.get("WMM_BROWSER_TEST_PROFILE") == "1", "Enable the WMM browser profile")
@@ -102,3 +105,58 @@ class AutomationRulesBrowserTests(unittest.TestCase):
         self.assertTrue(page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
         self.assertFalse(errors, errors)
         self.assertFalse(external, external)
+
+    def test_owner_selects_a_real_private_report_and_reads_the_worker_receipt(self) -> None:
+        from playwright._impl._api_structures import SetCookieParam
+        from playwright.sync_api import expect, sync_playwright
+
+        trial = report_fixture.RuleReportIntegrationTests(
+            "test_match_saves_one_private_report_with_receipt_and_survives_restart"
+        )
+        self.addCleanup(trial.doCleanups)
+        trial.setUp()
+        host = trial.fixture.fixture
+        origin = "http://127.0.0.1:" + str(host.server.server_port)
+        with sync_playwright() as runtime:
+            browser = runtime.chromium.launch(executable_path=os.environ.get("WMM_TEST_CHROMIUM_PATH"))
+            with browser.new_context(viewport={"width": 390, "height": 900}) as session:
+                cookies: list[SetCookieParam] = [
+                    SetCookieParam(name=c.name, value=c.value or "", domain="127.0.0.1", path=c.path or "/")
+                    for c in host.client.cookies
+                ]
+                session.add_cookies(cookies)
+                session.add_init_script("localStorage.setItem('growth-app','sample')")
+                session.route(
+                    "**/*",
+                    lambda route: route.continue_() if route.request.url.startswith(origin + "/") else route.abort(),
+                )
+                page = session.new_page()
+                page.goto(origin)
+                nav = page.locator('[data-view="results"]')
+                if not nav.is_visible():
+                    page.locator("details").filter(has=nav).locator("summary").first.click()
+                nav.click()
+                section = page.get_by_role("region", name="Automation rule preview")
+                section.get_by_text("Automation rules", exact=True).press("Enter")
+                section.get_by_text("Saved rule versions", exact=True).press("Enter")
+                section.get_by_role("button", name="Show saved versions").click()
+                section.get_by_role("button", name="Review schedule").click()
+                inbox = section.locator("#automation-proposal-inbox")
+                chooser = inbox.get_by_label("When a Results review is ready")
+                expect(chooser).to_have_value("")
+                chooser.select_option(index=1)
+                inbox.get_by_role("button", name="Start scheduled reviews").click()
+                expect(inbox).to_contain_text("This schedule can save one private report")
+                evaluate_due(trial.store, trial.app, datetime.now(timezone.utc) + timedelta(hours=25))
+                section.get_by_role("button", name="View saved recommendations").click()
+                expect(inbox).to_contain_text("Private report saved.")
+                expect(inbox.get_by_role("button", name="Open private campaign reports")).to_be_visible()
+                section.get_by_role("button", name="Review schedule").click()
+                chooser.select_option(index=1)
+                inbox.get_by_role("button", name="Start scheduled reviews").click()
+                expect(inbox).to_contain_text("This schedule can save one private report")
+                expect(inbox).not_to_contain_text("Private report saved.")
+                self.assertEqual(len(trial.receipts()), 2)
+                self.assertTrue(page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
+                inbox.get_by_role("button", name="Turn off reviews").click()
+                expect(inbox).to_contain_text("Off")
