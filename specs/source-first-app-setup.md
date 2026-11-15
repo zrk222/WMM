@@ -8,6 +8,7 @@ Status: draft
 - When the inspected source is an official Apple listing, the system shall return its exact app ID as a proposed field through `official_listing_identity`.
 - If a source is invalid or the selected app changes, the system shall reject the link or stale screen transition through `recover_without_overwrite`.
 - The system shall display the existing manual no-link form and reject unapproved field changes through `manual_fallback`.
+- When a public setup source has a validated URL path of at most 2048 characters, the system shall store its URL without changing the campaign website through `separate_website`.
 
 ### Acceptance criteria (Gherkin)
 ```gherkin
@@ -31,6 +32,10 @@ Scenario: manual_fallback
  Given an operator without a public link
  When the full manual setup is saved
  Then the existing goal entry opens
+Scenario: separate_website
+ Given an App Store setup link and a different campaign website
+ When the app details are read from the saved setup source
+ Then the campaign website is unchanged
 ```
 
 ## SHOULD - Technical

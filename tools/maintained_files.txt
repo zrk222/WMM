@@ -81,6 +81,7 @@ mission_control/release_readiness.py
 mission_control/review_access.py
 mission_control/server.py
 mission_control/service.py
+mission_control/setup_discovery.py
 mission_control/setup_parse.py
 mission_control/social_renewal.py
 mission_control/store.py

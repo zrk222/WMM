@@ -451,11 +451,11 @@ async function saveLinkedApp(form) {
   try {
     const data = new FormData(form);
     const name = String(data.get('name') ?? '').trim();
-    const website = String(data.get('website') ?? '').trim();
-    if (!name || !website.startsWith('https://'))
+    const source = String(data.get('setup_source_url') ?? '').trim();
+    if (!name || !source.startsWith('https://'))
       throw new Error('Enter an app name and a public link that starts with https://.');
     const id = await saveApp(
-      { id: '', name, website },
+      { id: '', name, setup_source_url: source },
       true,
       form,
       () => currentForm() && state.app === selected,
