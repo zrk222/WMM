@@ -4,6 +4,7 @@ import json
 import threading
 import time
 from contextlib import nullcontext
+from typing import cast
 from urllib.error import HTTPError, URLError
 
 from .automation_health import Supervision
@@ -570,9 +571,9 @@ def run_once(store, stop=None):
     with tracking as children:
         try:
             guard_owned(store, job)
-            from .automation_execution import job_execution
+            from .automation_execution import WorkerLease, job_execution
 
-            with job_execution(store, job):
+            with job_execution(store, cast(WorkerLease, job)):
                 from .workflow_telemetry import emit
 
                 emit(store, job, "STARTED")
