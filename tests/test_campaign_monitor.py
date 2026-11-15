@@ -222,6 +222,86 @@ class CampaignMonitorTests(unittest.TestCase):
             )
         service.run_pause.assert_not_called()
 
+    def test_mixed_scope_pauses_paid_target_and_skips_page_post(self):
+        target = {"countries": ["CA"]}
+        message = "A synthetic mixed-scope Page update"
+        content = digest({"message": message, "link": None})
+        mixed = {
+            **self.fixture.body,
+            "ad_account_id": "456",
+            "max_campaigns": 2,
+            "max_campaign_minor": 100,
+            "max_total_minor": 200,
+            "approved_content_hashes": [self.fixture.content, content],
+            "approved_targeting_hashes": [digest(target)],
+            "billing_acknowledged": True,
+            "ordinary_ad_attestation": True,
+        }
+        draft = self.fixture.service.prepare_scope("sample", "owner", mixed)
+        scope = self.fixture.service.activate_scope("sample", "owner", draft["scope_id"], draft["approval_hash"])
+        post = self.fixture.service.run_post(
+            "sample",
+            "owner",
+            scope["scope_id"],
+            dict(
+                request_id="55555555-5555-4555-8555-555555555555",
+                message=message,
+                link=None,
+                content_hash=content,
+                rights_hash=self.fixture.rights,
+            ),
+        )
+        ad = self.fixture.service.run_ad(
+            "sample",
+            "owner",
+            scope["scope_id"],
+            {
+                **self.fixture.adbody,
+                "request_id": "66666666-6666-4666-8666-666666666666",
+                "content_hash": content,
+                "targeting_hash": digest(target),
+                "targeting": target,
+            },
+        )
+        with self.owner():
+            saved = self.monitors.prepare(
+                "sample",
+                self.body(
+                    scope_id=scope["scope_id"],
+                    targets=[
+                        dict(intent_id=ad["id"], request_hash=ad["request_hash"]),
+                        dict(intent_id=post["id"], request_hash=post["request_hash"]),
+                    ],
+                ),
+            )
+            monitor = self.monitors.activate("sample", saved["id"], saved["summary_hash"])
+        self.assertEqual(core.tick(self.store), 1)
+        job = claim(self.store)
+        assert job is not None
+        self.wire.objects[ad["ids"]["adset"]]["lifetime_budget"] = 999
+        statuses = []
+        original = self.wire.set_paid_status
+
+        def status(kind, identity, value, token, secret, alive):
+            statuses.append((kind, value))
+            return original(kind, identity, value, token, secret, alive)
+
+        def preflight(service, app, actor, scope_id, action, active=True):
+            service._alive(app, actor, scope_id, action, active)
+            return (service.get_scope(app, scope_id), "synthetic-secret", "synthetic-token")
+
+        with (
+            patch.object(self.wire, "set_paid_status", side_effect=status),
+            patch.object(CampaignExecutionService, "_preflight", preflight),
+        ):
+            result = core.execute(self.store, job, self.wire)
+        self.assertEqual(result["status"], "OBSERVED")
+        self.assertEqual(statuses, [("campaign", "PAUSED")])
+        self.assertEqual(result["observations"][0]["protective_pause"], "PAUSED_campaign")
+        self.assertNotIn("protective_pause", result["observations"][1])
+        with self.owner():
+            self.assertEqual(self.monitors.status("sample", monitor["id"])["pause_attempts"], 1)
+
     def test_organic_only_pause_is_rejected_before_saving(self):
         post = self.fixture.service.list_intents("sample", self.fixture.scope["scope_id"])[0]
         body = self.body(
