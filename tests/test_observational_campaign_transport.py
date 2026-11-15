@@ -1,7 +1,7 @@
 """Exercise the study through the owner route and the scoped agent gateway."""
 
-from datetime import datetime, timedelta, timezone
 import unittest
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from mission_control.agent_mcp import execute_tool
@@ -37,14 +37,31 @@ class ObservationalCampaignTransportTests(unittest.TestCase):
                 landing_event="page_view",
                 registration_event="registration_completed",
                 attribution_model="FIRST_TOUCH",
+                collector_source_id="owned-events",
             ),
         )
         owner = self.fixture.owner
         saved = owner.request("POST", self.base + "register", registration)
+        assert isinstance(saved, dict)
         binding = dict(study_id=saved["study_id"], study_hash=saved["study_hash"], manifest_version=self.version)
         url = owner.request("POST", self.base + "link", binding)
+        assert isinstance(url, dict)
         self.assertIn("utm_campaign=" + saved["study_id"], url["url"])
+        handoff = url["collector_setup"]
+        self.assertEqual(handoff["schema"], "wmm.observational-collector-setup.v1")
+        self.assertEqual(handoff["status"], "DECLARED_NOT_VERIFIED")
+        self.assertEqual(handoff["app_id"], "sample-one")
+        self.assertEqual(handoff["app_version"], self.version)
+        self.assertEqual(handoff["study_id"], binding["study_id"])
+        self.assertEqual(handoff["study_hash"], binding["study_hash"])
+        self.assertEqual(handoff["tagged_url"], url["url"])
+        self.assertEqual(handoff["source_id"], "owned-events")
+        self.assertEqual(handoff["event_names"], {"LANDING": "page_view", "REGISTRATION": "registration_completed"})
+        self.assertEqual(datetime.fromisoformat(handoff["starts_at"]), start)
+        self.assertEqual(datetime.fromisoformat(handoff["ends_at"]), start + timedelta(days=1))
+        self.assertTrue(handoff["post_close_coverage_required"])
         owner_report = owner.request("POST", self.base + "report", binding)
+        assert isinstance(owner_report, dict)
         self.assertIsNone(owner_report["landing_subjects"])
         self.assertIsNone(owner_report["linked_registration_subjects"])
         grant = owner.request(
@@ -52,6 +69,7 @@ class ObservationalCampaignTransportTests(unittest.TestCase):
             "/api/apps/sample-one/agent-grants/issue",
             dict(self.fixture.body(["observational-campaign.link"]), manifest_version=self.version),
         )
+        assert isinstance(grant, dict)
         token = grant["token"]
         args = dict(app_id="sample-one", input=binding)
         agent_result = execute_tool(self.fixture.origin, "wmm_observational-campaign_link", args, token)
