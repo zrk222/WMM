@@ -6,6 +6,7 @@ mission_control/agent_review_policy.py
 mission_control/agent_tasks.py
 mission_control/app_launch_history.py
 mission_control/app_launch_status.py
+mission_control/apple_ads_economics.py
 mission_control/apple_storefront.py
 mission_control/architecture.py
 mission_control/attribution_adservices.py
@@ -103,6 +104,7 @@ tests/test_agent_control_ui.py
 tests/test_agent_review_dispatch.py
 tests/test_analytics_read_indexes.py
 tests/test_app_launch_status.py
+tests/test_apple_ads_economics.py
 tests/test_architecture_gates.py
 tests/test_automation_agreement.py
 tests/test_batch_authority.py

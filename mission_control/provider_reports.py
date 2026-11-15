@@ -8,6 +8,7 @@ from typing import Any
 from urllib.parse import urlencode, urlsplit
 
 from .ads_reports import REPORT_PATHS, read_keywords
+from .apple_ads_economics import campaign_costs
 from .apple_analytics import DISCOVERY, DOWNLOADS, read_analytics
 from .apple_analytics import identity as analytics_identity
 from .apple_metrics import parse_partitions
@@ -263,13 +264,20 @@ def read_report(binding, app_id, options, connection_id=None, connection_version
     else:
         verify_campaigns(reader, binding, options["campaign_ids"])
         report = read_keywords(reader, binding, options, query_body, report_pagination)
+    if not isinstance(report, dict):
+        raise Invalid("Provider report has an invalid result envelope")
+    observed_at, source_hash = now(), digest(reader.hashes)
+    if options["operation"] == "campaign_report":
+        report["campaign_acquisition"] = campaign_costs(
+            report, app_id, store_id, numeric_scope(binding, "account_id"), options, observed_at, source_hash
+        )
     return dict(
         report,
         provider=binding["provider"],
         app_id=app_id,
         store_app_id=store_id,
-        observed_at=now(),
-        source_hash=digest(reader.hashes),
+        observed_at=observed_at,
+        source_hash=source_hash,
         page_source_hashes=reader.hashes,
         request=options,
         external_writes=False,
