@@ -14,11 +14,12 @@ export function proposalInboxMarkup(value, { appVersion, esc, button, savedWhen 
   const result = savedReport
     ? `<p><strong>Private report saved.</strong> Read it in your private campaign reports.</p>
         ${button('Open private campaign reports', 'owner-report-open')}
-        <details><summary>Report receipt</summary><p>Report ${esc(savedReport.report_id)}</p><p>Fingerprint ${esc(savedReport.report_hash)}</p></details>`
+        <details><summary>Latest report receipt</summary><p>Report ${esc(savedReport.report_id)}</p><p>Fingerprint ${esc(savedReport.report_hash)}</p></details>`
     : '';
+  const template = schedule?.binding?.report_integration;
   const integration =
-    schedule?.status === 'ACTIVE' && schedule.mode === 'SAVE_PRIVATE_REPORT'
-      ? `<p>This schedule can save one private report. Template: ${esc(schedule.binding.report_integration.report_id.slice(0, 8))}.</p>`
+    schedule?.mode === 'SAVE_PRIVATE_REPORT' && template
+      ? `<p>Private reports saved: ${esc(schedule.saved_report_count ?? (savedReport ? 1 : 0))} of ${esc(template.max_reports ?? 1)}. Template: ${esc(template.report_id.slice(0, 8))}.</p>`
       : '';
   const outcomes = (value.latest_run?.results || []).filter((row) => row.status === 'UNKNOWN');
   const unknown = outcomes.length
@@ -71,8 +72,73 @@ export function proposalScheduleMarkup(saved, schedule, reports, { esc, button, 
       options
         ? `<label class="field">When a Results review is ready<select id="proposal-report-template">
     <option value="">Save a recommendation only</option>${options}</select></label>
-    <p>Starting approves one local save for this exact template. Reuses its sources and dates. If a study is selected, its dates must match. The report stays in this app’s private history.</p>`
+    <div id="proposal-report-settings" hidden>
+      <label class="field">Maximum private report saves<input id="proposal-report-count" type="number" min="1" max="6" step="1" value="1" aria-describedby="proposal-report-help" required disabled></label>
+      <p id="proposal-report-help">Starting approves up to this many private saves for this app and the exact template’s sources and dates. If a study is selected, its dates must match. The first report saves when the evidence meets the saved rules. Each later save also needs a new revision of the evidence WMM has retained. Reports stay in this app’s private history.</p>
+    </div>`
         : '<p>To save reports from this schedule, first save a private campaign report for this app or selected study.</p>'
     }
     ${button('Start scheduled reviews', 'automation-proposals-start', attrs)}</fieldset>`;
+}
+
+export function proposalScheduleRequest(
+  panel,
+  message,
+  reports,
+  { version, appVersion, saved, study },
+) {
+  const interval = panel.querySelector('#proposal-interval');
+  const count = panel.querySelector('#proposal-count');
+  const days = panel.querySelector('#proposal-days');
+  if (![interval, count, days].every((field) => field.reportValidity())) {
+    message.textContent = 'Check the review interval, dates and run limit.';
+    return;
+  }
+  const template = reports[panel.querySelector('#proposal-report-template')?.value];
+  const reportCount = panel.querySelector('#proposal-report-count');
+  if (template) {
+    reportCount.max = String(count.valueAsNumber);
+    if (!reportCount.reportValidity()) {
+      message.textContent =
+        'Choose a whole number of private report saves from 1 to Maximum reviews.';
+      return;
+    }
+  }
+  return {
+    enabled: true,
+    version: version ? Number(version) : null,
+    app_version: appVersion,
+    saved,
+    study,
+    interval_hours: interval.valueAsNumber,
+    expires_at: new Date(Date.now() + days.valueAsNumber * 86400000).toISOString(),
+    max_runs: count.valueAsNumber,
+    ...(template
+      ? {
+          report_integration: {
+            report_id: template.id,
+            report_hash: template.hash,
+            max_reports: reportCount.valueAsNumber,
+          },
+        }
+      : {}),
+  };
+}
+
+export function bindReportScheduleFields(target, reports) {
+  const template = target.querySelector('#proposal-report-template');
+  if (template) {
+    const settings = target.querySelector('#proposal-report-settings');
+    const reportCount = target.querySelector('#proposal-report-count');
+    const count = target.querySelector('#proposal-count');
+    const updateMax = () => {
+      reportCount.max = String(count.validity.valid ? count.valueAsNumber : 1);
+    };
+    count.addEventListener('input', updateMax);
+    template.addEventListener('change', () => {
+      reportCount.value = '1';
+      settings.hidden = reportCount.disabled = !reports[template.value];
+      updateMax();
+    });
+  }
 }

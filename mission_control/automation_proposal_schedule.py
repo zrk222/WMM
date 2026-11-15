@@ -7,7 +7,7 @@ from sqlite3 import Connection, Row
 from typing import cast
 
 from .automation_proposals import RuleRef, duration, evaluate_in_snapshot, version_matches
-from .automation_rule_report_integration import integrate, prepare, saved_action
+from .automation_rule_report_integration import capture_count, integrate, prepare, saved_action
 from .automation_rules import _study_facts
 from .automation_store import version_in_snapshot
 from .common import Invalid, canonical, digest, iso_time, now, safe_data
@@ -67,7 +67,14 @@ def read(store: Store, app_id: str, owner: str) -> dict[str, object] | None:
         binding = cast(dict | None, result["binding"])
         if binding and "report_integration" in binding:
             try:
-                result["saved_report"] = saved_action(db, app_id, owner, binding["report_integration"]["capture_key"])
+                approved = binding["report_integration"]
+                key = approved["capture_key"]
+                recurring = approved.get("max_reports", 1) > 1
+                latest = saved_action(db, app_id, owner, key, recurring=recurring)
+                result["saved_report"] = latest
+                result["saved_report_count"] = (
+                    capture_count(db, app_id, owner, key) if recurring else int(latest is not None)
+                )
             except Invalid:
                 result["saved_report"] = None
         return result

@@ -57,6 +57,7 @@ mission_control/hypit_jobs.py
 mission_control/insights.py
 mission_control/install_attribution.py
 mission_control/integrity_drill.py
+mission_control/ios_reports.py
 mission_control/ledger.py
 mission_control/linux_vault.py
 mission_control/managed_media_http.py
