@@ -199,7 +199,7 @@ class AutomationProfilesBrowserTests(unittest.TestCase):
             browser.close()
         self.assertEqual(schedules.get(apple.APP), before)
 
-    def test_watch_stopped_rule_review_is_owner_only_and_read_only(self):
+    def test_watch_stopped_rule_review_is_owner_only_and_read_only(self) -> None:
         from playwright.sync_api import expect, sync_playwright
 
         class FixtureServer(fixture.Server):
