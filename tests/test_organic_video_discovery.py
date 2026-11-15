@@ -83,7 +83,7 @@ def bundle(task_value, count=10, collected=None):
 
 
 class DiscoveryContractTests(unittest.TestCase):
-    def test_shortlist_prioritizes_qualified_evidence_and_distinct_creators(self):
+    def test_shortlist_prioritizes_qualified_evidence_and_distinct_creators(self) -> None:
         contract = task()
         submitted = bundle(contract)
         original = copy.deepcopy(submitted["candidates"][0])

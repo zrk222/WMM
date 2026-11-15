@@ -1,5 +1,6 @@
 """Recommend creative patterns from WMM's validated app-scoped research evidence."""
 
+from collections.abc import Iterator, Mapping
 from fractions import Fraction
 
 from .common import Invalid, iso_time
@@ -34,11 +35,21 @@ def _rank(entry, row):
     return score, source, proof, qualified
 
 
-def creative_shortlist(submission, result) -> list[dict[str, str]]:
+def _rows(submission: Mapping[str, object], result: Mapping[str, object]) -> Iterator[tuple[object, object]]:
+    """Match the two integrity-checked saved arrays without silently truncating either."""
+    candidates, evaluated = submission["candidates"], result["items"]
+    if not isinstance(candidates, list) or not isinstance(evaluated, list):
+        raise Invalid("Saved creative research evidence has an invalid shape")
+    return zip(candidates, evaluated, strict=True)
+
+
+def creative_shortlist(
+    submission: Mapping[str, object] | None, result: Mapping[str, object] | None
+) -> list[dict[str, str]]:
     """Rank reported app fit without treating missing evidence as viral proof."""
     if not submission or not result:
         return []
-    ranked = [_rank(entry, row) for entry, row in zip(submission["candidates"], result["items"], strict=True)]
+    ranked = [_rank(entry, row) for entry, row in _rows(submission, result)]
     shortlist: list[dict[str, str]] = []
     creators = set()
     for _, source, proof, qualified in sorted((pick for pick in ranked if pick is not None), key=lambda row: row[0]):
