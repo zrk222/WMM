@@ -42,7 +42,13 @@ class DistributionTextEncodingTests(unittest.TestCase):
                 distribution.check()
 
     def test_synthetic_screenshots_require_current_manifest_and_known_path(self):
-        for name in ("overview.png", "sample-workflow.png", "agent-task-setup.png", "goal-to-proof.png"):
+        for name in (
+            "overview.png",
+            "sample-workflow.png",
+            "agent-task-setup.png",
+            "goal-to-proof.png",
+            "wmm-console.webp",
+        ):
             with self.subTest(name=name):
                 self.check_synthetic_screenshot(name)
 
@@ -51,7 +57,11 @@ class DistributionTextEncodingTests(unittest.TestCase):
             root = Path(folder)
             image = root / "docs/images" / name
             image.parent.mkdir(parents=True)
-            data = b"\x89PNG\r\n\x1a\nsynthetic-test"
+            data = (
+                b"RIFF\x0e\x00\x00\x00WEBPsynthetic-test"
+                if image.suffix == ".webp"
+                else b"\x89PNG\r\n\x1a\nsynthetic-test"
+            )
             image.write_bytes(data)
             manifest = image.parent / "provenance.json"
             manifest.write_text(json.dumps({"synthetic": True, "images": {name: hashlib.sha256(data).hexdigest()}}))
@@ -63,7 +73,7 @@ class DistributionTextEncodingTests(unittest.TestCase):
                 manifest.unlink()
                 with self.assertRaisesRegex(SystemExit, "provenance"):
                     distribution.check()
-            private = root / "private.png"
+            private = root / f"private{image.suffix}"
             private.write_bytes(data)
             with (
                 patch.object(distribution, "ROOT", root),
