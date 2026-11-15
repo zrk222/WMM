@@ -1,12 +1,18 @@
 """Owner-scoped rules and recommendation routes over the local runtime."""
 
+from __future__ import annotations
+
 import re
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from .common import Invalid
 
+if TYPE_CHECKING:
+    from .server import Handler
 
-def get(handler, app_id: str, route: list[str]) -> None:
+
+def get(handler: Handler, app_id: str, route: list[str]) -> None:
     query = urlparse(handler.path).query
     if route not in (["proposals"], ["rules"], ["rules", "history"]):
         raise KeyError("Unknown automation route")
@@ -32,7 +38,7 @@ def get(handler, app_id: str, route: list[str]) -> None:
     return handler.send(200, result)
 
 
-def post(handler, parts: list[str], data: object) -> None:
+def post(handler: Handler, parts: list[str], data: object) -> None:
     """Preview or save local owner-authored rules without granting action authority."""
     if len(parts) == 6 and parts[4] == "proposals" and not urlparse(handler.path).query:
         return post_proposals(handler, parts[2], parts[5], data)
@@ -66,7 +72,7 @@ def post(handler, parts: list[str], data: object) -> None:
     return handler.send(200, result)
 
 
-def post_proposals(handler, app_id: str, operation: str, data: object) -> None:
+def post_proposals(handler: Handler, app_id: str, operation: str, data: object) -> None:
     """Save or dismiss recommendations, or configure a proposal-only schedule."""
     user, recheck = handler.automation_owner_session()
     store = handler.server.service.store
