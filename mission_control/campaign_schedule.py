@@ -22,7 +22,7 @@ class VideoStatusLike(Protocol):
 
 
 class CampaignServiceLike(Protocol):
-    def _row(self, db: Connection, app_id: str, scope_id: str) -> Row: ...
+    def _row(self, db: Connection, app_id: str, scope_id: str) -> Row | None: ...
 
     def _check(
         self,
@@ -39,14 +39,13 @@ class CampaignServiceLike(Protocol):
     def run_ad(self, app_id: str, actor: str, scope_id: str, body: Mapping[str, object]) -> object: ...
 
 
-def _scope_view(db: Connection, row: Row) -> Mapping[str, object]:
+def _scope_view(db: Connection, row: Row | None) -> Mapping[str, object]:
     from . import campaign_execution
 
-    value = cast(
-        Callable[[Connection, Row], Mapping[str, object]],
+    return cast(
+        Callable[[Connection, Row | None], Mapping[str, object]],
         vars(campaign_execution).get("scope_view"),
     )(db, row)
-    return value
 
 
 def _saved_pause_receipt(db: Connection, intent: Mapping[str, object]) -> Mapping[str, object] | None:
@@ -94,13 +93,12 @@ def _service_check(
     action: str,
 ) -> None:
     check = cast(
-        Callable[
-            [CampaignServiceLike, Connection, str, str, Mapping[str, object], str],
-            None,
-        ],
-        vars(type(service)).get("_check"),
+        Callable[..., None] | None,
+        getattr(service, _CHECK, None),
     )
-    check(service, db, app_id, actor, scope, action)
+    if check is None:
+        raise RuntimeError("Campaign schedule authority check is unavailable")
+    check(db, app_id, actor, scope, action)
 
 
 def _check_deadline(summary: Mapping[str, object], expires_at: object) -> None:
@@ -122,6 +120,8 @@ def _bound(store: Store, job: Row) -> AbstractContextManager[None]:
 
 
 MAX_ITEMS = 20
+_ROW = "_row"
+_CHECK = "_check"
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS campaign_schedule_batches (
  id TEXT PRIMARY KEY, app_id TEXT NOT NULL, owner TEXT NOT NULL, scope_id TEXT NOT NULL,
@@ -162,10 +162,12 @@ def checked_scope(
     scope_id: str,
 ) -> Mapping[str, object]:
     row_fn = cast(
-        Callable[[CampaignServiceLike, Connection, str, str], Row],
-        vars(type(service)).get("_row"),
+        Callable[[Connection, str, str], Row | None] | None,
+        getattr(service, _ROW, None),
     )
-    row = row_fn(service, db, app_id, scope_id)
+    if row_fn is None:
+        raise RuntimeError("Campaign schedule row reader is unavailable")
+    row = row_fn(db, app_id, scope_id)
     scope = _scope_view(db, row)
     if scope["owner_principal"] != actor:
         raise PermissionError("Campaign scope belongs to another owner")
@@ -666,12 +668,15 @@ def due_payload(row: Row) -> tuple[str, dict[str, Any]]:
     body = retained_object(row["body"], row["body_hash"])
     summary = retained_object(row["summary"], row["summary_hash"])
     operation = cast(str, body.get("operation", "campaign.publish"))
-    items = cast(list[object], summary["items"])
     if (
         operation not in ("campaign.publish", "campaign.ad-launch", "organic-video.intent-execute")
         or not isinstance(body["request"], dict)
         or not isinstance(summary["items"], list)
-        or body not in items
+    ):
+        raise Invalid("Retained schedule inputs changed")
+    items = cast(list[object], summary["items"])
+    if (
+        body not in items
         or body["item_id"] != row["id"]
         or (summary["batch_id"], summary["app_id"], summary["scope_id"])
         != (row["batch_id"], row["app_id"], row["scope_id"])
