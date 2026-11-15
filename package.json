@@ -4,7 +4,7 @@
   "devDependencies": {
     "eslint": "10.14.0",
     "prettier": "3.10.1",
-    "pyright": "1.1.414",
+    "pyright": "1.1.407",
     "typescript": "7.0.2"
   }
 }
