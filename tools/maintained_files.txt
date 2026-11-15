@@ -128,6 +128,7 @@ tests/test_measurement_economics.py
 tests/test_meta_windowed_spend.py
 tests/test_migrations.py
 tests/test_native_workspace_credential_isolation.py
+tests/test_new_public_annotations.py
 tests/test_observational_campaign_contract.py
 tests/test_operation_docs.py
 tests/test_operation_feedback_browser.py
@@ -175,6 +176,7 @@ tools/check_distribution.py
 tools/check_evidence_budget.py
 tools/check_format.py
 tools/check_layering.py
+tools/check_new_public_annotations.py
 tools/check_schedule_mutations.py
 tools/check_types.py
 tools/ci_host_user.py

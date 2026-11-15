@@ -66,6 +66,7 @@ when you take ownership of its formatting and types.
 ```sh
 python tools/check_format.py   # Ruff, Prettier, node --check and ESLint (app scripts)
 python tools/check_types.py    # Pyright basic on maintained Python + row types
+python tools/check_new_public_annotations.py --base origin/main --head HEAD  # new public functions need annotations
 python tools/check_layering.py # import cycles, storage/portable/HTTP edges, docs rows
 python tools/query_budget.py   # SQL statement budgets; --update only lowers
 ```
@@ -109,6 +110,7 @@ python -m pip install --require-hashes -r docs/requirements-dev.txt
 npm ci --ignore-scripts
 python tools/check_format.py
 python tools/check_types.py
+python tools/check_new_public_annotations.py --base origin/main --head HEAD
 python tools/check_layering.py
 python tools/generate_schema_types.py --check
 python tools/generate_operation_docs.py --check
