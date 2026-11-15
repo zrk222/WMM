@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -13,6 +14,28 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ("mission_control/static", "mission_control/sdk")
 MIGRATIONS = "mission_control/migrations"
 SEEDS = ("app-profiles.json", "research-ledger.json", "acquisition-profiles.json")
+PUBLIC_CONFIG = ROOT / ".factory/desktop-config/public-config.json"
+
+
+def public_device_client(*, required: bool = False) -> str:
+    """Validate the publisher setting and reject recognizable GitHub credentials."""
+    value = os.environ.get("WMM_GITHUB_DEVICE_CLIENT_ID", "")
+    if (required and not value) or (
+        value
+        and (
+            not re.fullmatch(r"[A-Za-z0-9_]{10,64}", value)
+            or value.lower().startswith(("ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_"))
+        )
+    ):
+        raise ValueError("Set a valid public GitHub device Client ID before packaging")
+    return value
+
+
+def write_public_config() -> None:
+    """Freeze one allowlisted public identifier, never runtime secrets or the environment."""
+    value = public_device_client()
+    PUBLIC_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    PUBLIC_CONFIG.write_text(json.dumps({"github_device_client_id": value}) + "\n", encoding="utf-8")
 
 
 def command():
@@ -59,6 +82,7 @@ def command():
     # Windows users launch the terminal-free .vbs shortcut supplied alongside it.
     for path in DATA:
         argv += ["--add-data", str(ROOT / path) + ":" + path]
+    argv += ["--add-data", str(PUBLIC_CONFIG) + ":mission_control"]
     argv += ["--add-data", str(ROOT / MIGRATIONS / "*.sql") + ":" + MIGRATIONS]
     for name in SEEDS:
         argv += ["--add-data", str(ROOT / "package" / name) + ":package"]
@@ -100,6 +124,7 @@ def main():
     if args.plan:
         print(json.dumps(dict(command=argv, operational_data_included=False, native_window=args.native_window)))
         return
+    write_public_config()
     subprocess.run(argv, cwd=ROOT, check=True)
     folder = ROOT / "dist/desktop/WMM"
     binary = build_native_window(folder) if args.native_window else ("WMM.exe" if sys.platform == "win32" else "WMM")

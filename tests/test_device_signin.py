@@ -1,19 +1,18 @@
 """Device sign-in tests with a synthetic GitHub transport and real loopback sessions."""
 
-from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 
 from mission_control.common import Invalid
-from mission_control.device_signin import DeviceSignIns, VERIFY_URL, request
+from mission_control.device_signin import VERIFY_URL, DeviceSignIns, request
 from mission_control.operator_client import ClientError, OperatorClient
 from mission_control.operator_identity import Identities
 from tests import test_agent_grants as grant
 from tests import test_verified_review as identity
-
 
 CLIENT = "synthetic_device_client"
 DEVICE = "synthetic_hidden_device_code"
@@ -152,29 +151,37 @@ class DeviceRouteTests(unittest.TestCase):
         client.bootstrap()
         prefix = "/api/identity/device/"
         binding = dict(app_id="sample-one", app_version=1)
+
+        def read(path: str) -> dict:
+            value = client.request("GET", path)
+            assert isinstance(value, dict)
+            return value
+
         with (
             patch("mission_control.device_signin.request", side_effect=[CODE, TOKEN]),
             patch("mission_control.device_signin.github_read", return_value=identity.OWNER),
         ):
             result = client.request("POST", prefix + "begin", binding)
+            assert isinstance(result, dict)
             check = dict(binding, flow_id=result["flow_id"])
             with self.assertRaises(ClientError) as error:
                 client.request("POST", prefix + "poll", dict(check, app_id="sample-two"))
             self.assertEqual(error.exception.status, 403)
             self.now = 5
             verified = client.request("POST", prefix + "poll", check)
-            self.assertEqual(client.request("GET", "/api/bootstrap")["identity"]["status"], "SIGNED_OUT")
+            assert isinstance(verified, dict)
+            self.assertEqual(read("/api/bootstrap")["identity"]["status"], "SIGNED_OUT")
             client.request("POST", prefix + "confirm", dict(check, principal=verified["principal"]))
-        self.assertEqual(client.request("GET", "/api/bootstrap")["identity"]["principal"], identity.OWNER["principal"])
-        workspace = client.request("GET", "/api/apps/sample-one")
+        self.assertEqual(read("/api/bootstrap")["identity"]["principal"], identity.OWNER["principal"])
+        workspace = read("/api/apps/sample-one")
         self.assertTrue(workspace["device_signin_available"])
         self.assertNotIn(identity.OWNER_TOKEN, json.dumps(workspace))
         self.assertEqual([r["role"] for r in workspace["access"]["members"]], ["OWNER"])
         client.request("POST", "/api/identity/logout", {})
-        self.assertEqual(client.request("GET", "/api/bootstrap")["identity"]["status"], "SIGNED_OUT")
+        self.assertEqual(read("/api/bootstrap")["identity"]["status"], "SIGNED_OUT")
 
     @unittest.skipUnless(os.environ.get("WMM_BROWSER_TEST_PROFILE") == "1", "Requires Chromium")
-    def test_browser_journey_shows_code_and_requires_exact_account_confirmation(self):
+    def test_browser_journey_shows_code_and_requires_exact_account_confirmation(self) -> None:
         from playwright.sync_api import expect, sync_playwright
 
         with (
@@ -191,9 +198,9 @@ class DeviceRouteTests(unittest.TestCase):
                     page.goto(self.fixture.origin)
                     expect(page.locator("#app-select")).to_have_value("sample-one")
                     page.locator('#navigation > [data-view="activity"]').click()
-                    authority = page.get_by_role("region", name="Automation authority")
-                    expect(authority.get_by_role("button", name="Open automation controls")).to_be_disabled()
-                    authority.get_by_role("button", name="Sign in with GitHub", exact=True).press("Enter")
+                    sign_in = page.get_by_role("button", name="Sign in for verified review", exact=True)
+                    expect(page.get_by_role("button", name="Assign a reviewer", exact=True)).to_have_count(0)
+                    sign_in.press("Enter")
                     page.get_by_role("button", name="Start GitHub sign-in").click()
                     expect(page.get_by_text(CODE["user_code"], exact=True)).to_be_visible()
                     expect(page.locator("#modal input[type=password]")).to_have_count(0)
@@ -201,9 +208,10 @@ class DeviceRouteTests(unittest.TestCase):
                     self.now = 5
                     page.get_by_role("button", name="Check GitHub sign-in").click()
                     expect(page.get_by_text("GitHub verified fixture-owner", exact=False)).to_be_visible()
+                    expect(page.get_by_role("button", name="Assign a reviewer", exact=True)).to_have_count(0)
                     page.get_by_role("button", name="Confirm this account").click()
                     expect(page.get_by_role("button", name="Sign out of review session")).to_be_visible()
-                    expect(authority.get_by_role("button", name="Open automation controls")).to_be_enabled()
+                    expect(page.get_by_role("button", name="Assign a reviewer", exact=True)).to_be_enabled()
                     self.assertTrue(page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
                     evidence = os.environ.get("WMM_OWNER_BROWSER_EVIDENCE")
                     if evidence:
