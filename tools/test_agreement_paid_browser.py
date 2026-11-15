@@ -47,7 +47,10 @@ def run(browser, width):
         # changes. The agreement must show its existing repair instruction.
         with connection(fixture.store.path) as db:
             db.execute("UPDATE agent_connections SET version=version+1")
-        local_work = fixture.preview()["summary"]["local_work"]
+        expected_summary = fixture.preview()["summary"]
+        local_work = expected_summary["local_work"]
+        scheduled = expected_summary["schedule"]
+        scheduled_item = scheduled["items"][0]
         local_usage = local_work["usage"]
         server = Server(("127.0.0.1", 0), fixture.store)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -142,6 +145,13 @@ def run(browser, width):
             "Owner " + OWNER["principal"],
             "Batch " + BATCH,
             "Campaign scope " + SCOPE,
+            "Schedule approval expires " + scheduled["permission_expires_at"],
+            "Saved batch fingerprint " + scheduled["summary_hash"],
+            "approved request " + scheduled_item["input_hash"],
+            "local job paid-job (SUCCEEDED) · provider intent paid-intent (PENDING_ACTIVATE_campaign)",
+            "Stop rule: Uncertain dispatch: reconcile before retry",
+            "Stopping work: Use each scope OFF control",
+            "Next step: Inspect saved campaign receipts before any retry",
             "Local policy " + local_work["id"] + " " + local_work["effective_status"],
             "local-work agent " + local_work["summary"]["inventory"]["selection"]["agent_id"],
             "Local-work permitted operations " + ", ".join(local_work["summary"]["operations"]),
@@ -198,6 +208,7 @@ def run(browser, width):
             fingerprint_details_keyboard_toggle=True,
             local_repair_visible=True,
             stop_rules_visible=True,
+            report_stop_rules_and_receipt_references=True,
             pdf_privacy=True,
             exact_destinations_on_screen_and_report=True,
             report_responsive_styles_loaded=True,
