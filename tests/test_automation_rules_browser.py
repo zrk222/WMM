@@ -6,6 +6,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from mission_control.automation_proposal_schedule import evaluate_due
+from mission_control.db import connection
 from tests import test_agent_grants as fixture
 from tests import test_automation_rule_report_integration as report_fixture
 
@@ -106,7 +107,7 @@ class AutomationRulesBrowserTests(unittest.TestCase):
         self.assertFalse(errors, errors)
         self.assertFalse(external, external)
 
-    def test_owner_selects_a_real_private_report_and_reads_the_worker_receipt(self) -> None:
+    def test_owner_approves_two_private_saves_and_reads_the_latest_worker_receipt(self) -> None:
         from playwright._impl._api_structures import SetCookieParam
         from playwright.sync_api import expect, sync_playwright
 
@@ -115,6 +116,8 @@ class AutomationRulesBrowserTests(unittest.TestCase):
         )
         self.addCleanup(trial.doCleanups)
         trial.setUp()
+        trial.document["rules"][1]["cooldown"] = ""
+        version = trial.save_rules()["version"]
         host = trial.fixture.fixture
         origin = "http://127.0.0.1:" + str(host.server.server_port)
         with sync_playwright() as runtime:
@@ -140,23 +143,68 @@ class AutomationRulesBrowserTests(unittest.TestCase):
                 section.get_by_text("Automation rules", exact=True).press("Enter")
                 section.get_by_text("Saved rule versions", exact=True).press("Enter")
                 section.get_by_role("button", name="Show saved versions").click()
-                section.get_by_role("button", name="Review schedule").click()
+                rule = (
+                    section.locator("#automation-rules-history")
+                    .get_by_role("listitem")
+                    .filter(has_text=f"Version {version}")
+                )
+                review = rule.get_by_role("button", name="Review schedule")
+                review.click()
                 inbox = section.locator("#automation-proposal-inbox")
                 chooser = inbox.get_by_label("When a Results review is ready")
+                report_count = inbox.get_by_label("Maximum private report saves")
+                start = inbox.get_by_role("button", name="Start scheduled reviews")
+                refresh = section.get_by_role("button", name="View saved recommendations")
                 expect(chooser).to_have_value("")
+                expect(report_count).to_be_hidden()
                 chooser.select_option(index=1)
-                inbox.get_by_role("button", name="Start scheduled reviews").click()
-                expect(inbox).to_contain_text("This schedule can save one private report")
-                evaluate_due(trial.store, trial.app, datetime.now(timezone.utc) + timedelta(hours=25))
-                section.get_by_role("button", name="View saved recommendations").click()
+                expect(report_count).to_be_visible()
+                expect(report_count).to_have_value("1")
+                report_count.fill("7")
+                start.click()
+                expect(section.locator("#automation-proposal-status")).to_contain_text(
+                    "Choose a whole number of private report saves from 1 to Maximum reviews."
+                )
+                expect(inbox).to_contain_text("Scheduled reviews are off.")
+                report_count.fill("2")
+                start.click()
+                expect(inbox).to_contain_text("Private reports saved: 0 of 2")
+                due = datetime.now(timezone.utc) + timedelta(hours=25)
+                evaluate_due(trial.store, trial.app, due)
+                refresh.click()
+                expect(inbox).to_contain_text("Private reports saved: 1 of 2")
                 expect(inbox).to_contain_text("Private report saved.")
                 expect(inbox.get_by_role("button", name="Open private campaign reports")).to_be_visible()
-                section.get_by_role("button", name="Review schedule").click()
-                chooser.select_option(index=1)
-                inbox.get_by_role("button", name="Start scheduled reviews").click()
-                expect(inbox).to_contain_text("This schedule can save one private report")
-                expect(inbox).not_to_contain_text("Private report saved.")
+                first = trial.receipts()[-1]
+                evaluate_due(trial.store, trial.app, due + timedelta(days=1))
+                refresh.click()
+                expect(inbox).to_contain_text("2 of 6 reviews")
+                expect(inbox).to_contain_text("Private reports saved: 1 of 2")
                 self.assertEqual(len(trial.receipts()), 2)
+
+                # Retain a changed campaign receipt in the test database without any provider call.
+                with connection(trial.store.path, write=True) as db:
+                    db.execute(
+                        "UPDATE campaign_paid_intents SET status='PENDING_ACTIVE_campaign' WHERE id=?",
+                        (trial.fixture.fixture.intent["id"],),
+                    )
+                evaluate_due(trial.store, trial.app, due + timedelta(days=2))
+                refresh.click()
+                expect(inbox).to_contain_text("Private reports saved: 2 of 2")
+                reports = trial.receipts()
+                self.assertEqual(len(reports), 3)
+                inbox.get_by_text("Latest report receipt", exact=True).click()
+                expect(inbox.get_by_text(f"Report {reports[-1]['id']}", exact=True)).to_be_visible()
+                expect(inbox.get_by_text(f"Fingerprint {reports[-1]['hash']}", exact=True)).to_be_visible()
+                expect(inbox).not_to_contain_text(first["id"])
+
+                review.click()
+                chooser.select_option(index=1)
+                expect(report_count).to_have_value("1")
+                start.click()
+                expect(inbox).to_contain_text("Private reports saved: 0 of 1")
+                expect(inbox).not_to_contain_text("Private report saved.")
+                self.assertEqual(len(trial.receipts()), 3)
                 self.assertTrue(page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
                 inbox.get_by_role("button", name="Turn off reviews").click()
                 expect(inbox).to_contain_text("Off")

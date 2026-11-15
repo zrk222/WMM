@@ -42,19 +42,27 @@ def snapshot(db, store, app_id, observed, *, include_handoffs=True, include_work
     This helper neither authenticates nor promotes its caller to owner.
     """
     import json
-    from .common import iso_time
-    from .store import decode
-    from .ledger import report
-    from .insights import decoded as insight_decode
-    from .apple_metrics_store import KEY_FIELDS, read_partition
+
     from .agent_handoffs import report_summary
+    from .apple_metrics_store import KEY_FIELDS, read_partition
     from .apple_readiness_report import summary as apple_readiness
+    from .common import iso_time
+    from .insights import decoded as insight_decode
+    from .ledger import report
+    from .store import decode
 
     app = db.execute("SELECT * FROM apps WHERE id=?", (app_id,)).fetchone()
     if app is None:
         raise Invalid("Report app is unavailable")
     app = decode(app)
-    records = [decode(r) for r in db.execute("SELECT * FROM records WHERE app_id=? ORDER BY updated,id", (app_id,))]
+    # Private captures compare numbered metrics across runs. A no-op edit must
+    # not renumber their cohorts; native report presentation keeps recency order.
+    query = (
+        "SELECT * FROM records WHERE app_id=? ORDER BY updated,id"
+        if include_workflows
+        else "SELECT * FROM records WHERE app_id=? ORDER BY id"
+    )
+    records = [decode(r) for r in db.execute(query, (app_id,))]
     cohorts = [
         json.loads(r["data"])
         for r in db.execute("SELECT data FROM growth_cohorts WHERE app_id=? ORDER BY id", (app_id,))
@@ -146,8 +154,8 @@ def batch_summary(db, app_id):
 
 
 def read(store, app_id, *, include_handoffs=True):
-    from .db import connection
     from .common import now
+    from .db import connection
 
     with connection(store.path) as db:
         db.execute("BEGIN IMMEDIATE")

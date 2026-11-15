@@ -526,7 +526,9 @@ def report_view(row):
     )
 
 
-def save_report(db, store, app_id, owner, chosen, key, plan_id=None):
+def save_report(
+    db, store, app_id, owner, chosen, key, plan_id=None, *, prepared: tuple[dict[str, Any], str] | None = None
+):
     old = db.execute(
         "SELECT * FROM campaign_owner_reports WHERE app_id=? AND owner=? AND capture_key=?",
         (app_id, owner, key),
@@ -536,8 +538,10 @@ def save_report(db, store, app_id, owner, chosen, key, plan_id=None):
         if value["report"]["selection"] != chosen:
             raise Invalid("Report request identity was reused with different sources")
         return value
-    value, comparison_key = build(db, store, app_id, owner, chosen)
-    if binding(db, store, app_id, owner, chosen) != value["source"]:
+    value, comparison_key = prepared if prepared is not None else build(db, store, app_id, owner, chosen)
+    if (value["app_id"], value["owner"], value["selection"]) != (app_id, owner, chosen) or binding(
+        db, store, app_id, owner, chosen
+    ) != value["source"]:
         raise PermissionError("Report source authority changed before storage")
     identity = uid()
     stamp = now()

@@ -741,6 +741,15 @@ async function manageRuleProposals(node, action) {
         return;
       }
       const template = review.reports[panel.querySelector('#proposal-report-template')?.value];
+      const reportCount = panel.querySelector('#proposal-report-count');
+      if (template) {
+        reportCount.max = String(count.valueAsNumber);
+        if (!reportCount.reportValidity()) {
+          message.textContent =
+            'Choose a whole number of private report saves from 1 to Maximum reviews.';
+          return;
+        }
+      }
       await api(path + '/schedule', {
         enabled: true,
         version: node.dataset.version ? Number(node.dataset.version) : null,
@@ -751,7 +760,13 @@ async function manageRuleProposals(node, action) {
         expires_at: new Date(Date.now() + days.valueAsNumber * 86400000).toISOString(),
         max_runs: count.valueAsNumber,
         ...(template
-          ? { report_integration: { report_id: template.id, report_hash: template.hash } }
+          ? {
+              report_integration: {
+                report_id: template.id,
+                report_hash: template.hash,
+                max_reports: reportCount.valueAsNumber,
+              },
+            }
           : {}),
       });
     }
@@ -789,6 +804,21 @@ async function manageRuleProposals(node, action) {
         'afterbegin',
         proposalScheduleMarkup(saved, value.schedule, reports, { esc, button, savedWhen }),
       );
+      const template = target.querySelector('#proposal-report-template');
+      if (template) {
+        const settings = target.querySelector('#proposal-report-settings');
+        const reportCount = target.querySelector('#proposal-report-count');
+        const count = target.querySelector('#proposal-count');
+        const updateMax = () => {
+          reportCount.max = String(count.validity.valid ? count.valueAsNumber : 1);
+        };
+        count.addEventListener('input', updateMax);
+        template.addEventListener('change', () => {
+          reportCount.value = '1';
+          settings.hidden = reportCount.disabled = !reports[template.value];
+          updateMax();
+        });
+      }
       target.querySelector('#proposal-interval')?.focus();
     }
     message.textContent =

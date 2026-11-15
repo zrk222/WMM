@@ -16,9 +16,11 @@ from mission_control.automation_proposals import RuleRef, dismiss, inbox, run
 from mission_control.automation_store import save
 from mission_control.common import Invalid
 from mission_control.db import connection
+from mission_control.service import Service
 from mission_control.store import Store
 from tests import test_campaign_owner_reports as fixtures
 from tests.test_automation_rules import EXAMPLE
+from tests.test_ledger import cohort as event_cohort
 
 START = datetime(2026, 11, 15, 7, tzinfo=timezone.utc)
 
@@ -202,6 +204,71 @@ class RuleReportIntegrationTests(unittest.TestCase):
         self.assertEqual(
             status["saved_report"], {"report_id": self.receipts()[-1]["id"], "report_hash": self.receipts()[-1]["hash"]}
         )
+
+    def test_repeating_schedule_saves_distinct_evidence_up_to_the_owner_limit(self) -> None:
+        self.fixture.cohort(activated=40)
+        self.fixture.cohort(activated=25, identity="second-cohort")
+        Service(self.store).cohort(self.app, event_cohort())
+        self.document["rules"][1]["when"]["value"] = 2
+        self.document["rules"][1]["cooldown"] = ""
+        self.enable(
+            saved=self.save_rules(),
+            max_runs=6,
+            report_integration={**self.report_ref, "max_reports": 2},
+        )
+
+        def tick(hours: int) -> None:
+            stamp = START + timedelta(hours=hours)
+            reopened = Store(Path(self.store.path), seed=False)
+            with patch("mission_control.campaign_owner_reports.now", return_value=stamp.isoformat()):
+                schedules.evaluate_due(reopened, self.app, stamp)
+
+        tick(1)
+        self.assertEqual(len(self.receipts()), 2)
+        self.fixture.cohort(activated=40)  # Same evidence, new record version and timestamp.
+        tick(2)
+        self.assertEqual(len(self.receipts()), 2)
+        self.fixture.cohort(activated=60)
+        tick(3)
+        reports = self.receipts()
+        self.assertEqual(len(reports), 3)
+        saved = integration.report_view(reports[-1])
+        self.assertEqual(
+            next(
+                row["observed"]
+                for row in saved["report"]["kpis"]["rows"]
+                if row["metric"] == "Cohort 1: activation_rate"
+            ),
+            "0.6",
+        )
+        self.assertEqual(saved["report"]["comparison"]["previous_id"], reports[-2]["id"])
+        latest = inbox(self.store, self.app, self.owner)["latest_run"]
+        assert latest is not None
+        self.assertEqual((latest.get("integration") or {}).get("report_hash"), saved["hash"])
+        tick(3)
+        self.fixture.cohort(activated=70)
+        tick(4)
+        self.assertEqual(len(self.receipts()), 3)
+        status = schedules.read(self.store, self.app, self.owner)
+        assert status is not None
+        self.assertEqual(status["saved_report_count"], 2)
+        self.assertEqual(status["saved_report"], {"report_id": saved["id"], "report_hash": saved["hash"]})
+
+    def test_repeating_schedule_does_not_recapture_an_older_revision(self) -> None:
+        self.fixture.cohort(activated=40)
+        self.document["rules"][1]["when"]["value"] = 1
+        self.document["rules"][1]["cooldown"] = ""
+        self.enable(saved=self.save_rules(), max_runs=4, report_integration={**self.report_ref, "max_reports": 4})
+        for hour, activations in enumerate((40, 60, 40), start=1):
+            self.fixture.cohort(activated=activations)
+            schedules.evaluate_due(self.store, self.app, START + timedelta(hours=hour))
+        self.assertEqual(len(self.receipts()), 3)
+
+    def test_report_limit_requires_exact_bounded_integer(self) -> None:
+        for invalid in (None, True, 0, 3, 1.5, "2"):
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(Invalid, "private report limit"):
+                self.enable(report_integration={**self.report_ref, "max_reports": invalid})
+        self.assertIsNone(schedules.read(self.store, self.app, self.owner))
 
     def test_partial_match_with_missing_branch_does_not_save(self) -> None:
         self.document["rules"][1]["when"] = {
