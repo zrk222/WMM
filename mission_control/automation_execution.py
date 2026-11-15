@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 import time
-from collections.abc import Iterator
-from contextlib import contextmanager
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import AbstractContextManager, contextmanager
 from contextvars import ContextVar
+from datetime import datetime
 from pathlib import Path
 from sqlite3 import Connection, Row
-from typing import TYPE_CHECKING, NotRequired, TypedDict
+from typing import TYPE_CHECKING, NotRequired, Protocol, TypedDict, cast
 
 from .common import Invalid, digest, iso_time
 
@@ -29,6 +30,10 @@ class WorkerLease(TypedDict):
     attempts: int
 
 
+class ServiceLike(Protocol):
+    store: Store
+
+
 ACTIVE: ContextVar[StandingExecutionContext | None] = ContextVar("wmm_standing_execution", default=None)
 
 
@@ -40,16 +45,55 @@ def execution_row(db: Connection, identity: str) -> Row:
     return row
 
 
-def capture_deadline(db, identity, policy, grant):
-    """Freeze the parent permission clocks at admission in the same transaction."""
-    from .authority_expiry import effective_expiry, initial_base
+def _checked_policy(
+    db: Connection, policy_id: object, observed: datetime
+) -> tuple[Mapping[str, object], Mapping[str, object]]:
+    from . import complete_automation
 
-    proposal = json.loads(policy["proposal"])
-    base = initial_base(proposal["limits"]["expires"], policy["created"], proposal.get("extended_expiry_consent"))
-    policy_proof = effective_expiry(db, "AUTOMATION", policy, base)
-    grant_proof = effective_expiry(db, "AGENT_GRANT", grant, grant["expires"])
+    check = cast(
+        Callable[
+            [Connection, object, datetime],
+            tuple[Mapping[str, object], Mapping[str, object]],
+        ],
+        vars(complete_automation).get("checked_policy"),
+    )
+    return check(db, policy_id, observed)
+
+
+def _verify_access(store: Store, app_id: str, identity: str) -> None:
+    from . import complete_automation
+
+    verify = cast(
+        Callable[[object, str, str], None],
+        vars(complete_automation).get("verify_access"),
+    )
+    verify(store, app_id, identity)
+
+
+def capture_deadline(
+    db: Connection,
+    identity: str,
+    policy: Mapping[str, object],
+    grant: Mapping[str, object],
+) -> None:
+    """Freeze the parent permission clocks at admission in the same transaction."""
+    from . import authority_expiry
+
+    proposal = cast(dict[str, object], json.loads(cast(str, policy["proposal"])))
+    limits = cast(Mapping[str, object], proposal["limits"])
+    initial_base = cast(
+        Callable[[object, object, object], str],
+        vars(authority_expiry)["initial_base"],
+    )
+    base = initial_base(
+        limits["expires"],
+        policy["created"],
+        proposal.get("extended_expiry_consent"),
+    )
+    policy_proof = authority_expiry.effective_expiry(db, "AUTOMATION", policy, base)
+    grant_proof = authority_expiry.effective_expiry(db, "AGENT_GRANT", grant, grant["expires"])
     expiry = min(iso_time(policy_proof["expires"]), iso_time(grant_proof["expires"])).isoformat()
-    data = dict(
+    data: dict[str, object] = dict(
         execution_id=identity,
         permission_expires_at=expiry,
         policy_revision=policy_proof["revision"],
@@ -61,13 +105,16 @@ def capture_deadline(db, identity, policy, grant):
     db.execute("INSERT INTO automation_execution_authority VALUES (?,?,?,?,?,?,?)", tuple(data.values()))
 
 
-def execution_deadline(db, execution):
+def execution_deadline(db: Connection, execution: Row) -> datetime:
     """Legacy work keeps its original clipped clocks; new work keeps its captured clock."""
     saved = db.execute(
         "SELECT * FROM automation_execution_authority WHERE execution_id=?", (execution["id"],)
     ).fetchone()
     if saved:
-        data = {key: saved[key] for key in saved.keys() if key != "record_hash"}  # noqa: SIM118 - sqlite3.Row
+        data = cast(
+            dict[str, object],
+            {key: saved[key] for key in saved.keys() if key != "record_hash"},  # noqa: SIM118 - sqlite3.Row
+        )
         if digest(data) != saved["record_hash"]:
             raise PermissionError("Standing execution authority changed")
         return iso_time(saved["permission_expires_at"])
@@ -75,15 +122,16 @@ def execution_deadline(db, execution):
     grant = db.execute("SELECT expires FROM agent_grants WHERE id=?", (execution["grant_id"],)).fetchone()
     if not policy or not grant:
         raise PermissionError("Standing execution original authority is unavailable")
-    return min(iso_time(json.loads(policy["summary"])["stops_at"]), iso_time(grant["expires"]))
+    summary = cast(Mapping[str, object], json.loads(cast(str, policy["summary"])))
+    return min(iso_time(summary["stops_at"]), iso_time(grant["expires"]))
 
 
-def check_execution_deadline(db, execution, observed):
+def check_execution_deadline(db: Connection, execution: Row, observed: datetime) -> None:
     if execution_deadline(db, execution) <= observed:
         raise PermissionError("Standing execution approval expired; prepare new work")
 
 
-def job_hash(job):
+def job_hash(job: Mapping[str, object]) -> str:
     """Bind immutable job intent separately from its changing status and lease."""
     return digest({key: job[key] for key in ("app_id", "action", "data", "request_key")})
 
@@ -95,10 +143,10 @@ def guard_connection(path: str | Path, db: Connection, committing: bool = False)
         return
     if str(Path(path).resolve()) != context["store"]:
         raise PermissionError("Standing execution cannot cross its local datastore")
-    from .complete_automation import checked_policy, utc
+    from .complete_automation import utc
 
     row = execution_row(db, context["id"])
-    policy, _ = checked_policy(db, row["policy_id"], utc())
+    policy, _ = _checked_policy(db, row["policy_id"], utc())
     check_execution_deadline(db, row, utc())
     if policy["version"] != row["policy_version"]:
         raise PermissionError("Standing approval revision changed before commit")
@@ -131,26 +179,34 @@ def check_job(db: Connection, context: StandingExecutionContext, execution: Row)
         or row["lease"] <= time.time()
     ):
         raise PermissionError("Standing job is cancelled or its worker lease changed")
-    value = dict(row)
-    value["data"] = json.loads(value["data"])
+    value = cast(dict[str, object], dict(row))
+    value["data"] = json.loads(cast(str, value["data"]))
     if row["request_hash"] != job_hash(value):
         raise PermissionError("Standing job input changed after admission")
-    data = value["data"]
+    data = cast(Mapping[str, object], value["data"])
     if data.get("native_runtime") == "IOS_LOCAL_V1":
-        from .ios_jobs import require_native_sources, source_hash
+        from . import ios_jobs
 
+        source_hash = cast(
+            Callable[[Connection, str], str],
+            vars(ios_jobs).get("source_hash"),
+        )
+        require_native_sources = cast(
+            Callable[[Connection, str], None],
+            vars(ios_jobs).get("require_native_sources"),
+        )
         app = db.execute("SELECT version,data FROM apps WHERE id=?", (row["app_id"],)).fetchone()
         if (
             app is None
             or app["version"] != data.get("manifest_version")
-            or digest(json.loads(app["data"])) != data.get("manifest_hash")
+            or digest(json.loads(cast(str, app["data"]))) != data.get("manifest_hash")
             or source_hash(db, row["app_id"]) != data.get("source_hash")
         ):
             raise PermissionError("Standing native job sources changed before commit")
         require_native_sources(db, row["app_id"])
 
 
-def attach_job(db, job, created):
+def attach_job(db: Connection, job: Mapping[str, object], created: bool) -> None:
     """Attach new owned jobs or retain an exact same-policy idempotent queue result."""
     context = ACTIVE.get()
     if context is None:
@@ -183,16 +239,16 @@ def bound(store: Store, identity: str, job: WorkerLease | None = None) -> Iterat
         ACTIVE.reset(token)
 
 
-def start(store, admission, envelope):
+def start(store: Store, admission: Mapping[str, object], envelope: Mapping[str, object]) -> str:
     """Linearize dispatch against OFF and reject intent substitution or replay."""
-    from .complete_automation import checked_policy, utc
+    from .complete_automation import utc
     from .db import connection
 
-    identity = admission["automation_execution_id"]
+    identity = cast(str, admission["automation_execution_id"])
     with connection(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
         row = execution_row(db, identity)
-        checked_policy(db, row["policy_id"], utc())
+        _checked_policy(db, row["policy_id"], utc())
         check_execution_deadline(db, row, utc())
         if (
             row["grant_id"] != admission["grant_id"]
@@ -207,7 +263,12 @@ def start(store, admission, envelope):
     return identity
 
 
-def finish(store, identity, result=None, error=None):
+def finish(
+    store: Store,
+    identity: str,
+    result: object = None,
+    error: BaseException | None = None,
+) -> None:
     """Persist outcome outside domain authority; partial failures stay uncertain."""
     from .complete_automation import utc
     from .db import connection
@@ -228,7 +289,7 @@ def finish(store, identity, result=None, error=None):
         )
 
 
-def execution_outcome(row, error):
+def execution_outcome(row: Row, error: BaseException | None) -> str:
     """Separate known success, cancelled work and partial-write uncertainty decisions."""
     from .operation_outcome import EffectUncertain
 
@@ -243,17 +304,33 @@ def execution_outcome(row, error):
     return "UNKNOWN"
 
 
-def execute_admitted(service, envelope, admission):
+def execute_admitted(
+    service: ServiceLike,
+    envelope: Mapping[str, object],
+    admission: Mapping[str, object],
+) -> object:
     """Use the fixed dispatcher with admitted context; legacy grants remain intact."""
+    from . import operation_runtime, video_edit_projects
     from .operation_authority import bound_agent
-    from .operation_runtime import execute
-    from .video_edit_projects import admitted_caller
 
+    dispatcher = cast(
+        Callable[[ServiceLike, Mapping[str, object]], object],
+        vars(operation_runtime).get("execute"),
+    )
+    admitted_caller = cast(
+        Callable[[Mapping[str, object]], AbstractContextManager[None]],
+        vars(video_edit_projects).get("admitted_caller"),
+    )
     with bound_agent(service.store, envelope, admission), admitted_caller(admission):
-        return dispatch_admitted(service, envelope, admission, execute)
+        return dispatch_admitted(service, envelope, admission, dispatcher)
 
 
-def dispatch_admitted(service, envelope, admission, execute):
+def dispatch_admitted(
+    service: ServiceLike,
+    envelope: Mapping[str, object],
+    admission: Mapping[str, object],
+    execute: Callable[[ServiceLike, Mapping[str, object]], object],
+) -> object:
     """Retain exact admission and standing-write guards within the caller context."""
     if "automation_execution_id" not in admission:
         return execute(service, envelope)
@@ -269,22 +346,32 @@ def dispatch_admitted(service, envelope, admission, execute):
 
 
 @contextmanager
-def job_execution(store, job):
+def job_execution(store: Store, job: Mapping[str, object] | None) -> Iterator[None]:
     """Workers inherit only their durable exact job scope, never ambient credentials."""
-    from .complete_automation import checked_policy, utc, verify_access
+    from .complete_automation import utc
     from .db import connection
 
+    lease = cast(WorkerLease, job)
     with connection(store.path) as db:
-        row = db.execute("SELECT execution_id FROM automation_job_scopes WHERE job_id=?", (job["id"],)).fetchone()
+        row = db.execute(
+            "SELECT execution_id FROM automation_job_scopes WHERE job_id=?",
+            (lease["id"],),
+        ).fetchone()
         if row is not None:
             execution = execution_row(db, row["execution_id"])
-            policy, summary = checked_policy(db, execution["policy_id"], utc())
+            policy, summary = _checked_policy(db, execution["policy_id"], utc())
             check_execution_deadline(db, execution, utc())
-            verify_access(store, policy["app_id"], summary["inventory"]["selection"]["agent_connection_id"])
+            inventory = cast(Mapping[str, object], summary["inventory"])
+            selection = cast(Mapping[str, object], inventory["selection"])
+            _verify_access(
+                store,
+                cast(str, policy["app_id"]),
+                cast(str, selection["agent_connection_id"]),
+            )
     if row is None:
         yield
         return
-    with bound(store, row["execution_id"], job):
+    with bound(store, cast(str, row["execution_id"]), lease):
         with connection(store.path):
             pass
         yield

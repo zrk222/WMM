@@ -76,11 +76,11 @@ const WMMPublicationUI = (() => {
   function valid(state, value, panel) {
     return Boolean(
       value &&
-        state.app === value.app &&
-        state.workspace?.app?.id === value.app &&
-        version(state) === value.version &&
-        owner(state) === value.principal &&
-        (!panel || panel.isConnected !== false),
+      state.app === value.app &&
+      state.workspace?.app?.id === value.app &&
+      version(state) === value.version &&
+      owner(state) === value.principal &&
+      (!panel || panel.isConnected !== false),
     );
   }
   function currentContext(state) {

@@ -6,6 +6,7 @@
     "mission_control/http_body.py",
     "mission_control/agent_grants.py",
     "mission_control/operation_authority.py",
+    "mission_control/automation_execution.py",
     "mission_control/campaign_schedule.py"
   ],
   "extraPaths": [

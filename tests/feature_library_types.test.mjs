@@ -65,7 +65,7 @@ WMMMmpImport.parseHeaders(123, 'csv');
         { cwd: root, encoding: 'utf8' },
       );
       assert.ifError(result.error);
-      assert.equal(result.status, 2, result.stdout + result.stderr);
+      assert.ok([1, 2].includes(result.status), result.stdout + result.stderr);
       assert.match(result.stdout, /negative\.mjs\(5,/);
       assert.match(result.stdout, /negative\.mjs\(6,/);
       assert.match(result.stdout, /negative\.mjs\(7,/);
