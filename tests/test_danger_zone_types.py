@@ -64,6 +64,54 @@ class DangerZoneTypesTests(unittest.TestCase):
         self.assertIn("mission_control/agent_grants.py", strict)
         self.assertIn("mission_control/operation_authority.py", strict)
         self.assertIn("mission_control/automation_execution.py", strict)
+        self.assertIn("mission_control/campaign_schedule.py", strict)
+        self.assertIn("mission_control/agent_tasks.py", strict)
+
+    def test_agent_task_boundary_names_remain_patchable(self) -> None:
+        from mission_control import (
+            agent_api,
+            agent_context,
+            agent_contract,
+            agent_native,
+            agent_registry,
+            agent_tasks,
+            agent_usage,
+            draft_recipes,
+            worker,
+        )
+
+        upstream = (
+            (agent_api, "request"),
+            (agent_context, "snapshot"),
+            (agent_contract, "bounded_text"),
+            (agent_contract, "draft"),
+            (agent_contract, "exact"),
+            (agent_contract, "output_contract"),
+            (agent_contract, "prompt"),
+            (agent_native, "run"),
+            (agent_usage, "observation"),
+            (draft_recipes, "recipe"),
+            (draft_recipes, "validate"),
+            (worker, "json_job"),
+        )
+        for module, name in upstream:
+            self.assertTrue(callable(getattr(module, name)), name)
+        self.assertIsNotNone(agent_registry.REGISTRY)
+        for name in (
+            "api_run",
+            "snapshot",
+            "bounded_text",
+            "draft",
+            "exact",
+            "output_contract",
+            "prompt",
+            "native_run",
+            "usage_observation",
+            "recipe",
+            "validate_recipe",
+            "json_job",
+        ):
+            self.assertTrue(callable(getattr(agent_tasks, name)), name)
 
     def test_generated_rows_reject_wrong_grant_and_role_fields(self):
         if not (ROOT / "node_modules/pyright").is_dir():
