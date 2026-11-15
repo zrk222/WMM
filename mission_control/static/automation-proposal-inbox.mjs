@@ -18,7 +18,7 @@ export function proposalInboxMarkup(value, { appVersion, esc, button, savedWhen 
     : '';
   const template = schedule?.binding?.report_integration;
   const integration =
-    schedule?.status === 'ACTIVE' && schedule.mode === 'SAVE_PRIVATE_REPORT' && template
+    schedule?.mode === 'SAVE_PRIVATE_REPORT' && template
       ? `<p>Private reports saved: ${esc(schedule.saved_report_count ?? (savedReport ? 1 : 0))} of ${esc(template.max_reports ?? 1)}. Template: ${esc(template.report_id.slice(0, 8))}.</p>`
       : '';
   const outcomes = (value.latest_run?.results || []).filter((row) => row.status === 'UNKNOWN');
