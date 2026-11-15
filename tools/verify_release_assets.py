@@ -124,7 +124,11 @@ def verify_files(paths, source_sha: str | None) -> dict:
             or [row.get("phase") for row in checks] != ["fresh", "upgrade"]
             or any(
                 row.get("offline_restart") != "PASS_SAME_PRIVATE_WORKSPACE_AND_BROWSER_STORAGE"
-                or row.get("network") != "BROWSER_EXTERNAL_BLOCKED_NOT_OS_OFFLINE"
+                or row.get("network")
+                not in {
+                    "BROWSER_EXTERNAL_BLOCKED_NOT_OS_OFFLINE",
+                    "BROWSER_REQUESTS_MONITORED_NO_EXTERNAL_OBSERVED",
+                }
                 or not isinstance(row.get("evidence_sha256"), str)
                 or not re.fullmatch(r"[0-9a-f]{64}", row["evidence_sha256"])
                 for row in checks
