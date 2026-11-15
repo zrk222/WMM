@@ -5,9 +5,9 @@ import json
 import re
 import secrets
 import sqlite3
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta, timezone
-from typing import TypedDict, cast
+from typing import Protocol, TypedDict, cast
 
 from . import agent_review_policy
 from .common import Invalid, canonical, digest, iso_time, uid
@@ -15,7 +15,21 @@ from .db import connection
 from .operation_catalog import OPERATIONS, exact_keys, path_segment, request_data
 from .review_access import exact_role, member
 from .schema_types import AgentGrantsRow, AppsRow, AutomationPoliciesRow
-from .store import audit
+from .store import Store, audit
+
+
+class ContextValue(Protocol):
+    def get(self) -> object: ...
+
+
+class ReviewPolicy(Protocol):
+    def validate(self, body: Mapping[str, object]) -> list[str]: ...
+    def save(self, db: sqlite3.Connection, grant_id: str, body: Mapping[str, object]) -> None: ...
+    def ordinary_dispatch(self, db: sqlite3.Connection, grant_id: str, operation: str) -> object: ...
+    def operations(self, db: sqlite3.Connection, grant_id: str) -> object: ...
+
+
+REVIEW_POLICY = cast(ReviewPolicy, agent_review_policy)
 
 
 class GrantPublic(TypedDict):
@@ -36,6 +50,16 @@ class GrantPublic(TypedDict):
     operations: list[str]
 
 
+class IssuedGrant(GrantPublic):
+    review_operations: list[str]
+
+
+class GrantIssue(TypedDict):
+    grant: IssuedGrant
+    token: str
+    token_delivery: str
+
+
 class GrantAdmission(TypedDict):
     grant_id: str
     agent_id: str
@@ -50,15 +74,16 @@ def token_digest(token: object) -> str:
 
 
 def validate_grant_operations(names: object) -> None:
-    if (
-        not isinstance(names, list)
-        or not names
-        or any(not isinstance(name, str) or name not in OPERATIONS for name in names)
-    ):
+    if not isinstance(names, list) or not names:
         raise Invalid("Select only fixed local operation names")
-    if set(names) & {"experiment.schedule", "experiment.schedule-run"}:
+    names = cast(list[object], names)
+    for name in names:
+        if not isinstance(name, str) or name not in OPERATIONS:
+            raise Invalid("Select only fixed local operation names")
+    typed = cast(list[str], names)
+    if set(typed) & {"experiment.schedule", "experiment.schedule-run"}:
         raise Invalid("Experiment monitoring requires a verified owner")
-    if len(names) != len(set(names)):
+    if len(typed) != len(set(typed)):
         raise Invalid("Grant operations must be unique")
 
 
@@ -72,8 +97,9 @@ def issue_data(body: object, observed: datetime) -> None:
     body = cast(dict[str, object], body)
     path_segment(body["agent_id"])
     validate_grant_operations(body["operations"])
-    agent_review_policy.validate(body)
-    if type(body["max_calls"]) is not int or not 1 <= cast(int, body["max_calls"]) <= 10000:
+    REVIEW_POLICY.validate(body)
+    calls = body["max_calls"]
+    if type(calls) is not int or not 1 <= calls <= 10000:
         raise Invalid("Use a call ceiling from 1 through 10000")
     if "extended_expiry_consent" in body and type(body["extended_expiry_consent"]) is not bool:
         raise Invalid("Expiry consent must be an explicit boolean")
@@ -166,10 +192,12 @@ def consume(
     return {"grant_id": row["id"], "agent_id": row["agent_id"], "attempt": row["used"] + 1}
 
 
-def _batch_input(body, operation, plan_hash):
+def _batch_input(body: object, operation: str, plan_hash: str | None) -> None:
+    if not isinstance(body, dict):
+        raise PermissionError("Batch plan or expiry differs from the admitted request")
+    body = cast(dict[str, object], body)
     if (
         operation != "creative.batch.create"
-        or not isinstance(body, dict)
         or set(body) != {"plan", "plan_hash", "request_key"}
         or not isinstance(body["plan"], str)
         or body["plan_hash"] != plan_hash
@@ -177,31 +205,33 @@ def _batch_input(body, operation, plan_hash):
         raise PermissionError("Batch plan or expiry differs from the admitted request")
 
 
-def _batch_request(envelope, operation, plan_hash, expires):
-    body = envelope.get("input")
+def _batch_request(envelope: Mapping[str, object], operation: str, plan_hash: str | None, expires: object) -> None:
+    body = cast(dict[str, object], envelope.get("input"))
     _batch_input(body, operation, plan_hash)
     from .operator_client import strict_json
 
     try:
-        plan = strict_json(body["plan"].encode("utf-8"))
+        plan = strict_json(cast(str, body["plan"]).encode("utf-8"))
     except (Invalid, UnicodeError):
         raise PermissionError("Batch plan is not canonical JSON") from None
-    if (
-        not isinstance(plan, dict)
-        or canonical(plan) != body["plan"]
-        or digest(plan) != plan_hash
-        or plan.get("expires") != expires
-    ):
+    if not isinstance(plan, dict):
+        raise PermissionError("Batch plan or expiry differs from the admitted request")
+    plan = cast(dict[str, object], plan)
+    if canonical(plan) != body["plan"] or digest(plan) != plan_hash or plan.get("expires") != expires:
         raise PermissionError("Batch plan or expiry differs from the admitted request")
 
 
-def _batch_envelope(store, app_id, operation, plan_hash, expires):
-    from .operation_authority import PROTECTED, store_identity
+def _batch_envelope(
+    store: Store, app_id: str, operation: str, plan_hash: str | None, expires: object
+) -> tuple[Mapping[str, object], Mapping[str, object]]:
+    from . import operation_authority
 
-    context = PROTECTED.get()
-    if not context or context.get("store") != store_identity(store):
+    protected = cast(ContextValue, vars(operation_authority)["PROTECTED"])
+    identity = cast(Callable[[Store], object], vars(operation_authority)["store_identity"])
+    context = cast(Mapping[str, object] | None, protected.get())
+    if not context or context.get("store") != identity(store):
         raise PermissionError("Protected batch admission is required")
-    envelope = json.loads(cast(str, context["envelope"]))
+    envelope = cast(Mapping[str, object], json.loads(cast(str, context["envelope"])))
     if (
         envelope["app_id"] != app_id
         or envelope["operation"] != operation
@@ -212,38 +242,51 @@ def _batch_envelope(store, app_id, operation, plan_hash, expires):
     return context, envelope
 
 
-def _capture_standing_batch(db, result, deadline):
-    from .authority_expiry import effective_expiry, initial_base
-    from .automation_execution import execution_deadline, execution_row
-    from .ios_agent_media import execution_hash
+def _capture_standing_batch(db: sqlite3.Connection, result: dict[str, object], deadline: datetime) -> None:
+    from . import authority_expiry, automation_execution, ios_agent_media
 
-    row = execution_row(db, result["execution_id"])
-    if deadline > execution_deadline(db, row):
+    base_fn = cast(Callable[[object, str, object], str], vars(authority_expiry)["initial_base"])
+    deadline_fn = cast(
+        Callable[[sqlite3.Connection, sqlite3.Row], datetime], vars(automation_execution)["execution_deadline"]
+    )
+    row_fn = cast(Callable[[sqlite3.Connection, object], sqlite3.Row], vars(automation_execution)["execution_row"])
+    hash_fn = cast(Callable[[sqlite3.Row], str], vars(ios_agent_media)["execution_hash"])
+    row = row_fn(db, result["execution_id"])
+    if deadline > deadline_fn(db, row):
         raise PermissionError("Batch deadline exceeds its standing execution")
     policy = cast(
         AutomationPoliciesRow,
         db.execute("SELECT * FROM automation_policies WHERE id=?", (row["policy_id"],)).fetchone(),
     )
-    proposal = json.loads(policy["proposal"])
-    base = initial_base(proposal["limits"]["expires"], policy["created"], proposal.get("extended_expiry_consent"))
-    proof = effective_expiry(db, "AUTOMATION", policy, base)
+    proposal = cast(dict[str, object], json.loads(policy["proposal"]))
+    limits = cast(dict[str, object], proposal["limits"])
+    base = base_fn(limits["expires"], policy["created"], proposal.get("extended_expiry_consent"))
+    proof = authority_expiry.effective_expiry(db, "AUTOMATION", policy, base)
     if deadline > iso_time(proof["expires"]):
         raise PermissionError("Batch deadline exceeds standing approval")
     result["policy_consent_revision"] = proof["revision"]
     result["policy_consent_hash"] = proof["receipt_hash"]
-    result["execution_hash"] = execution_hash(row)
+    result["execution_hash"] = hash_fn(row)
 
 
-def capture_batch_authority(db, store, app_id, operation, plan_hash, expires):
+def capture_batch_authority(
+    db: sqlite3.Connection,
+    store: Store,
+    app_id: str,
+    operation: str,
+    plan_hash: str | None,
+    expires: object,
+) -> dict[str, object]:
     """Capture finite, secret-free provenance only from an exact protected admission."""
-    from .operation_authority import check
+    from . import operation_authority
 
+    check_fn = cast(Callable[[sqlite3.Connection, Mapping[str, object]], str], vars(operation_authority)["check"])
     observed = datetime.now(timezone.utc)
     deadline = iso_time(expires)
     context, envelope = _batch_envelope(store, app_id, operation, plan_hash, expires)
     if not observed < deadline:
         raise Invalid("Batch authority must have a future expiry")
-    check(db, context)
+    check_fn(db, context)
     version, app_hash = app_scope(db, app_id)
     result: dict[str, object] = dict(
         schema="growth.batch-authority.v1",
@@ -287,14 +330,16 @@ def capture_batch_authority(db, store, app_id, operation, plan_hash, expires):
     return result
 
 
-def check_batch_authority(db, store, app_id, reference, plan_hash):
+def check_batch_authority(db: sqlite3.Connection, store: Store, app_id: str, reference: object, plan_hash: str) -> None:
     """Recheck retained owner, grant, checkpoint and standing scope without reviving a session."""
     from .review_access import exact_role
 
     observed = datetime.now(timezone.utc)
+    if not isinstance(reference, dict):
+        raise PermissionError("Batch authority changed or expired")
+    reference = cast(dict[str, object], reference)
     if (
-        not isinstance(reference, dict)
-        or reference.get("schema") != "growth.batch-authority.v1"
+        reference.get("schema") != "growth.batch-authority.v1"
         or reference.get("app_id") != app_id
         or reference.get("plan_hash") != plan_hash
         or iso_time(reference.get("expires")) <= observed
@@ -302,7 +347,7 @@ def check_batch_authority(db, store, app_id, reference, plan_hash):
     ):
         raise PermissionError("Batch authority changed or expired")
     if reference.get("kind") == "OWNER":
-        exact_role(db, app_id, reference["principal"], reference["role_version"], "OWNER")
+        exact_role(db, app_id, cast(str, reference["principal"]), cast(int, reference["role_version"]), "OWNER")
         return
     if reference.get("kind") != "AGENT":
         raise PermissionError("Unknown batch authority")
@@ -314,90 +359,123 @@ def check_batch_authority(db, store, app_id, reference, plan_hash):
         raise PermissionError("Batch source grant changed")
     current(db, row, dict(app_id=app_id, operation=reference["operation"]), observed, check_quota=False)
     if reference.get("native_host_required"):
-        from .ios_host import NativeIdentities
-        from .operation_authority import PROTECTED, check, store_identity
+        from . import ios_host, operation_authority
 
-        host = PROTECTED.get()
+        identities_type = cast(type[object], vars(ios_host)["NativeIdentities"])
+        protected = cast(ContextValue, vars(operation_authority)["PROTECTED"])
+        identity = cast(Callable[[Store], object], vars(operation_authority)["store_identity"])
+        check_fn = cast(Callable[[sqlite3.Connection, Mapping[str, object]], str], vars(operation_authority)["check"])
+        host = cast(Mapping[str, object] | None, protected.get())
         if (
             not host
-            or not isinstance(host.get("identities"), NativeIdentities)
-            or host.get("store") != store_identity(store)
+            or not isinstance(host.get("identities"), identities_type)
+            or host.get("store") != identity(store)
             or host.get("principal") != row["owner"]
-            or json.loads(cast(str, host["envelope"])).get("app_id") != app_id
+            or cast(dict[str, object], json.loads(cast(str, host["envelope"]))).get("app_id") != app_id
         ):
             raise PermissionError("Fresh native owner and host verification are required")
-        check(db, host)
-    if type(reference.get("attempt")) is not int or not 1 <= reference["attempt"] <= row["used"]:
+        check_fn(db, host)
+    if type(reference.get("attempt")) is not int or not 1 <= cast(int, reference["attempt"]) <= row["used"]:
         raise PermissionError("Batch source admission is unavailable")
     review = reference.get("review")
     if review is None:
-        agent_review_policy.ordinary_dispatch(db, row["id"], reference["operation"])
+        REVIEW_POLICY.ordinary_dispatch(db, row["id"], cast(str, reference["operation"]))
     else:
-        from .agent_checkpoints import current as checkpoint_current
-        from .agent_checkpoints import read_row
-        from .agent_review_dispatch import saved_request
+        from . import agent_checkpoints, agent_review_dispatch
 
-        request = saved_request(db, app_id, review["id"])
-        checkpoint = read_row(db, app_id, review["id"])
+        review = cast(dict[str, object], review)
+        current_fn = cast(Callable[..., None], vars(agent_checkpoints)["current"])
+        read_fn = cast(Callable[..., Mapping[str, object]], vars(agent_checkpoints)["read_row"])
+        request_fn = cast(Callable[..., Mapping[str, object]], vars(agent_review_dispatch)["saved_request"])
+        request = request_fn(db, app_id, review["id"])
+        checkpoint = read_fn(db, app_id, review["id"])
         if (
             request["grant_id"] != row["id"]
             or request["input_hash"] != review["input_hash"]
             or digest(request["envelope"]) != reference["envelope_hash"]
             or checkpoint["state"] != "SUCCEEDED"
             or checkpoint["hash"] != review["packet_hash"]
-            or checkpoint["packet"]["input_hash"] != request["input_hash"]
-            or checkpoint["packet"]["agent_id"] != row["agent_id"]
         ):
             raise PermissionError("Batch review is no longer current")
-        checkpoint_current(db, checkpoint, observed)
+        raw_packet = checkpoint.get("packet")
+        if not isinstance(raw_packet, dict):
+            raise PermissionError("Batch review is no longer current")
+        packet = cast(Mapping[str, object], raw_packet)
+        if packet.get("input_hash") != request["input_hash"] or packet.get("agent_id") != row["agent_id"]:
+            raise PermissionError("Batch review is no longer current")
+        current_fn(db, checkpoint, observed)
     identity = reference.get("execution_id")
-    policy = db.execute("SELECT id FROM automation_policies WHERE grant_id=?", (row["id"],)).fetchone()
+    policy = cast(
+        Mapping[str, object] | None,
+        db.execute("SELECT id FROM automation_policies WHERE grant_id=?", (row["id"],)).fetchone(),
+    )
     if identity:
-        from .automation_execution import execution_row
-        from .complete_automation import ACCESS_VERIFIER, checked_policy
-        from .ios_agent_media import execution_hash
+        from . import automation_execution, complete_automation, ios_agent_media
 
-        if reference.get("native_host_required") and not callable(ACCESS_VERIFIER.get()):
+        access = cast(ContextValue, vars(complete_automation)["ACCESS_VERIFIER"])
+        verifier = access.get
+        if reference.get("native_host_required") and not callable(verifier()):
             raise PermissionError("Fresh native protected-access verification is required")
-        execution = execution_row(db, identity)
+        execution = cast(
+            Callable[[sqlite3.Connection, object], sqlite3.Row], vars(automation_execution)["execution_row"]
+        )(db, identity)
         if (
             not policy
             or policy["id"] != execution["policy_id"]
             or execution["status"] != "SUCCEEDED"
             or execution["grant_id"] != row["id"]
-            or execution_hash(execution) != reference.get("execution_hash")
+            or cast(
+                Callable[[sqlite3.Row], str],
+                vars(ios_agent_media)["execution_hash"],
+            )(execution)
+            != reference.get("execution_hash")
         ):
             raise PermissionError("Batch standing execution requires reconciliation")
-        checked, _ = checked_policy(db, execution["policy_id"], observed)
+        checked, _ = cast(
+            Callable[..., tuple[Mapping[str, object], object]],
+            vars(complete_automation)["checked_policy"],
+        )(db, execution["policy_id"], observed)
         if checked["version"] != execution["policy_version"]:
             raise PermissionError("Batch standing authority changed")
     elif policy:
         raise PermissionError("Batch standing execution provenance is unavailable")
 
 
-def _batch_review_pending(db, reference):
+def _batch_review_pending(db: sqlite3.Connection, reference: dict[str, object]) -> bool:
     review = reference.get("review")
     if isinstance(review, dict):
-        row = db.execute(
-            "SELECT data FROM agent_checkpoints WHERE app_id=? AND id=?", (reference.get("app_id"), review.get("id"))
-        ).fetchone()
+        review = cast(dict[str, object], review)
+        row = cast(
+            Mapping[str, object] | None,
+            db.execute(
+                "SELECT data FROM agent_checkpoints WHERE app_id=? AND id=?",
+                (reference.get("app_id"), review.get("id")),
+            ).fetchone(),
+        )
         if row:
             try:
-                if json.loads(row["data"]).get("state") == "RUNNING":
+                state = cast(dict[str, object], json.loads(cast(str, row["data"]))).get("state")
+                if state == "RUNNING":
                     return True
             except (ValueError, TypeError, AttributeError):
                 pass
     identity = reference.get("execution_id")
     if identity:
-        row = db.execute("SELECT status FROM automation_executions WHERE id=?", (identity,)).fetchone()
+        row = cast(
+            Mapping[str, object] | None,
+            db.execute("SELECT status FROM automation_executions WHERE id=?", (identity,)).fetchone(),
+        )
         if row and row["status"] == "DISPATCHED":
             return True
     return False
 
 
-def batch_authority_pending(db, reference):
+def batch_authority_pending(db: sqlite3.Connection, reference: object) -> bool:
     """Defer a queued child while its exact parent is still completing; grants no authority."""
-    if not isinstance(reference, dict) or reference.get("kind") != "AGENT":
+    if not isinstance(reference, dict):
+        return False
+    reference = cast(dict[str, object], reference)
+    if reference.get("kind") != "AGENT":
         return False
     try:
         if iso_time(reference.get("expires")) <= datetime.now(timezone.utc):
@@ -413,26 +491,37 @@ def batch_authority_pending(db, reference):
     try:
         from .authority_expiry import effective_expiry
 
-        if iso_time(effective_expiry(db, "AGENT_GRANT", grant, grant["expires"])["expires"]) <= datetime.now(
-            timezone.utc
-        ):
+        proof = effective_expiry(db, "AGENT_GRANT", grant, grant["expires"])
+        if iso_time(proof["expires"]) <= datetime.now(timezone.utc):
             return False
     except (Invalid, TypeError, ValueError):
         return False
     return _batch_review_pending(db, reference)
 
 
-def issue_in_db(db, app_id, user, body, observed, token):
+def issue_in_db(
+    db: sqlite3.Connection,
+    app_id: str,
+    user: Mapping[str, object],
+    body: object,
+    observed: datetime,
+    token: str,
+) -> GrantIssue:
     """Issue inside an existing owner transaction, allowing atomic policy attachment."""
     issue_data(body, observed)
-    owner = member(db, app_id, user["principal"], "OWNER")
+    body = cast(dict[str, object], body)
+    owner = member(db, app_id, cast(str, user["principal"]), "OWNER")
     version, app_hash = app_scope(db, app_id)
     if type(body["manifest_version"]) is not int or body["manifest_version"] != version:
         raise Invalid("App version changed before grant issuance")
     stamp = observed.isoformat()
     identity = uid()
-    from .authority_expiry import record_initial
+    from . import authority_expiry
 
+    record = cast(
+        Callable[[sqlite3.Connection, str, AgentGrantsRow, str, str, str, int, Mapping[str, object], datetime], object],
+        vars(authority_expiry)["record_initial"],
+    )
     requested = iso_time(body["expires"]).astimezone(timezone.utc)
     base = min(requested, observed + timedelta(hours=24))
     row = cast(
@@ -440,15 +529,15 @@ def issue_in_db(db, app_id, user, body, observed, token):
         dict(
             id=identity,
             app_id=app_id,
-            agent_id=body["agent_id"],
-            owner=user["principal"],
+            agent_id=cast(str, body["agent_id"]),
+            owner=cast(str, user["principal"]),
             owner_version=owner["version"],
             app_version=version,
             app_hash=app_hash,
-            operations=canonical(sorted(body["operations"])),
+            operations=canonical(sorted(cast(list[str], body["operations"]))),
             token_hash=token_digest(token),
             expires=base.isoformat(),
-            max_calls=body["max_calls"],
+            max_calls=cast(int, body["max_calls"]),
             used=0,
             status="ACTIVE",
             version=1,
@@ -457,21 +546,26 @@ def issue_in_db(db, app_id, user, body, observed, token):
         ),
     )
     db.execute("INSERT INTO agent_grants VALUES(" + ",".join("?" for _ in row) + ")", tuple(row.values()))
-    agent_review_policy.save(db, identity, body)
-    record_initial(
+    REVIEW_POLICY.save(db, identity, body)
+    record(
         db,
         "AGENT_GRANT",
         row,
         row["expires"],
         requested.isoformat(),
-        user["principal"],
+        cast(str, user["principal"]),
         owner["version"],
         body,
         observed,
     )
-    audit(db, app_id, "agent_grant.issued", dict(grant_id=identity, agent_id=body["agent_id"], owner=user["principal"]))
+    audit(
+        db,
+        app_id,
+        "agent_grant.issued",
+        dict(grant_id=identity, agent_id=cast(str, body["agent_id"]), owner=cast(str, user["principal"])),
+    )
     return {
-        "grant": dict(public(row), expires=requested.isoformat(), review_operations=agent_review_policy.validate(body)),
+        "grant": {**public(row), "expires": requested.isoformat(), "review_operations": REVIEW_POLICY.validate(body)},
         "token": token,
         "token_delivery": "ONCE_ONLY",
     }
@@ -480,11 +574,11 @@ def issue_in_db(db, app_id, user, body, observed, token):
 class Grants:
     """Serialize delegation changes and admissions without granting human identity."""
 
-    def __init__(self, store, clock=None):
+    def __init__(self, store: Store, clock: Callable[[], datetime] | None = None) -> None:
         self.store = store
-        self.clock = clock or (lambda: datetime.now(timezone.utc))
+        self.clock: Callable[[], datetime] = clock or (lambda: datetime.now(timezone.utc))
 
-    def issue(self, app_id, user, body):
+    def issue(self, app_id: str, user: Mapping[str, object], body: object) -> GrantIssue:
         """The HTTP adapter must supply its freshly verified owner, never a body identity."""
         observed = self.clock()
         issue_data(body, observed)
@@ -494,32 +588,33 @@ class Grants:
             result = issue_in_db(db, app_id, user, body, self.clock(), token)
         return result
 
-    def list(self, app_id, user):
+    def list(self, app_id: str, user: Mapping[str, object]) -> dict[str, object]:
         """Owner-only operational metadata; snapshot imports cannot create grants."""
         with connection(self.store.path) as db:
-            member(db, app_id, user["principal"], "OWNER")
+            member(db, app_id, cast(str, user["principal"]), "OWNER")
             from .authority_expiry import effective_expiry
 
-            grants = []
+            grants: list[dict[str, object]] = []
             for row in db.execute("SELECT * FROM agent_grants WHERE app_id=? ORDER BY created,id", (app_id,)):
                 row = cast(AgentGrantsRow, row)
                 try:
                     proof = effective_expiry(db, "AGENT_GRANT", row, row["expires"])
+                    permitted_until, revision = proof["expires"], proof["revision"]
                 except PermissionError:
-                    proof = dict(expires=None, revision=None)
+                    permitted_until, revision = None, None
                 grants.append(
                     dict(
                         public(row),
-                        permission_expires_at=proof["expires"],
-                        consent_revision=proof["revision"],
-                        review_operations=agent_review_policy.operations(db, row["id"]),
+                        permission_expires_at=permitted_until,
+                        consent_revision=revision,
+                        review_operations=REVIEW_POLICY.operations(db, row["id"]),
                     )
                 )
-                if proof["expires"] is not None:
-                    grants[-1]["expires"] = proof["expires"]
+                if permitted_until is not None:
+                    grants[-1]["expires"] = permitted_until
             return dict(grants=grants)
 
-    def authority_status(self, grant_id, app_id):
+    def authority_status(self, grant_id: str, app_id: str) -> dict[str, object]:
         """Return current, secret-free grant facts after an authenticated admission."""
         from .authority_expiry import effective_expiry
 
@@ -528,7 +623,7 @@ class Grants:
             row = cast(AgentGrantsRow | None, row)
             if not row:
                 raise PermissionError("Agent grant is unavailable")
-            names = json.loads(row["operations"])
+            names = cast(list[str], json.loads(row["operations"]))
             if not names:
                 raise PermissionError("Agent grant has no operations")
             current(db, row, dict(app_id=app_id, operation=names[0]), self.clock(), check_quota=False)
@@ -542,12 +637,13 @@ class Grants:
                 consent_revision=proof["revision"],
             )
 
-    def revoke(self, app_id, user, body):
+    def revoke(self, app_id: str, user: Mapping[str, object], body: object) -> GrantPublic:
         """Block future admissions with exact optimistic revision; do not claim cancellation."""
         exact_keys(body, ("id", "version"))
+        body = cast(dict[str, object], body)
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
-            member(db, app_id, user["principal"], "OWNER")
+            member(db, app_id, cast(str, user["principal"]), "OWNER")
             row = db.execute("SELECT * FROM agent_grants WHERE app_id=? AND id=?", (app_id, body["id"])).fetchone()
             row = cast(AgentGrantsRow | None, row)
             if not row or type(body["version"]) is not int or row["version"] != body["version"]:
@@ -559,14 +655,19 @@ class Grants:
             audit(db, app_id, "agent_grant.revoked", dict(grant_id=body["id"], owner=user["principal"]))
             return public(db.execute("SELECT * FROM agent_grants WHERE id=?", (body["id"],)).fetchone())
 
-    def admit(self, token, envelope):
+    def admit(self, token: object, envelope: object) -> dict[str, object]:
         """Consume one attempt atomically; a later business failure does not refund it."""
+        request = cast(Mapping[str, object], envelope)
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
-            row = authenticated(db, token, envelope, self.clock())
-            agent_review_policy.ordinary_dispatch(db, row["id"], envelope["operation"])
-            from .complete_automation import reserve
+            row = authenticated(db, token, request, self.clock())
+            REVIEW_POLICY.ordinary_dispatch(db, row["id"], cast(str, request["operation"]))
+            from . import complete_automation
 
-            execution = reserve(db, self.store, row, envelope, self.clock())
-            result = consume(db, row, envelope, self.clock())
-            return dict(result, automation_execution_id=execution) if execution else result
+            reserve_fn = cast(Callable[..., str | None], vars(complete_automation)["reserve"])
+            execution = reserve_fn(db, self.store, row, request, self.clock())
+            result = consume(db, row, request, self.clock())
+            return cast(
+                dict[str, object],
+                dict(result, automation_execution_id=execution) if execution else result,
+            )
