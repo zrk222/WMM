@@ -300,6 +300,12 @@ test('damaged review metadata opens the existing queue rather than a synthetic m
 test('rule schedule recovery is same-app, owner matched, and opens the read-only Results action', async () => {
   const first = src.indexOf('async function weeklyAction(');
   const end = src.indexOf('function ', first + 10);
+  const guided = fs.readFileSync(
+    path.join(__dirname, '../mission_control/static/guided-workflow.mjs'),
+    'utf8',
+  );
+  const open = guided.indexOf('function guidedOpenRuleReviews(');
+  const next = guided.indexOf('function guidedOpenTool(', open);
   for (const scenario of ['valid', 'wrong version', 'owner changed', 'foreign']) {
     const calls = [];
     const review = { focus: () => calls.push('focus'), click: () => calls.push('read inbox') };
@@ -332,6 +338,7 @@ test('rule schedule recovery is same-app, owner matched, and opens the read-only
       },
     };
     vm.createContext(context);
+    vm.runInContext(guided.slice(open, next), context);
     vm.runInContext(src.slice(first, end), context);
     const action = context.weeklyAction({
       dataset: {

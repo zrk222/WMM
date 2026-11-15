@@ -32,6 +32,7 @@ from .provider_reports import report_options
 from .release_readiness import readiness as release_readiness
 from .review_access import Access
 from .signed_payments import Payments
+from .store import AppView
 from .storekit_ingestion import Notifications
 from .subscription_readiness import readiness as catalog_readiness
 from .subscription_readiness import validate_catalog_scope
@@ -156,22 +157,27 @@ class Service:
         finally:
             db.close()
 
-    def _workflow_exceptions(self, app):
+    def _workflow_exceptions(self, app: AppView, viewer: str | None) -> list[dict]:
         """Project only exact current-source exceptions into guided workflow UI."""
         from .apple_readiness_report import summary as apple_readiness
+        from .weekly_rule_exception import watch_rule_schedule_exception
 
         store_app_id = app.get("data", {}).get("store_app_id")
-        if not isinstance(store_app_id, str) or not store_app_id.isdigit():
+        apple = isinstance(store_app_id, str) and store_app_id.isdigit()
+        if not apple and not viewer:
             return []
         with connection(self.store.path) as db:
             db.execute("BEGIN")
             revision = db.execute("SELECT version FROM apps WHERE id=?", (app["id"],)).fetchone()
             if revision is None or revision["version"] != app["version"]:
                 return []
-            health = apple_readiness(db, app["id"], store_app_id, now())
+            rule = watch_rule_schedule_exception(db, dict(app), viewer) if viewer else None
+            health = apple_readiness(db, app["id"], store_app_id, now()) if apple else None
+        exceptions = [rule] if rule is not None else []
         if not isinstance(health, dict) or health.get("read") != "WAITING_FOR_REPORTS":
-            return []
+            return exceptions
         return [
+            *exceptions,
             dict(
                 state="WAITING_FOR_REPORTS",
                 source="App Store Connect",
@@ -180,10 +186,10 @@ class Service:
                 reason="Apple has not supplied report rows for this verified scheduled read. This does not mean zero activity.",
                 next_action=health.get("next_action"),
                 repair_route="apple-analytics",
-            )
+            ),
         ]
 
-    def workspace(self, app_id):
+    def workspace(self, app_id, *, viewer: str | None = None):
         """Assemble the selected app dashboard from its own records and runs."""
         from .aeo_workflows import Checks
         from .attribution_ingestion import Observations
@@ -209,7 +215,7 @@ class Service:
 
         cloud_connection = CloudConnections(self.store).current(app_id)
         workflow = guide(app, records, evaluated, ledger, catalog, release)
-        workflow["exceptions"] = self._workflow_exceptions(app)
+        workflow["exceptions"] = self._workflow_exceptions(app, viewer)
         automation = recommend(app, records, ledger, workflow)
         preparation = cast(dict[str, object], prepare(app, records, ledger, catalog, release))
         preparation["release_inventory"] = release

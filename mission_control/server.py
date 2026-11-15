@@ -577,13 +577,11 @@ class Handler(BaseHTTPRequestHandler):
         if parts[3:] == ["activity", "history"]:
             return self.get_activity(app_id)
         if len(parts) == 3:
+            identity = self.server.identities.public(self.session())
+            viewer = identity.get("principal") if identity["status"] == "AUTHENTICATED" else None
+            workspace = self.server.service.workspace(app_id, viewer=viewer)
             return self.send(
-                200,
-                dict(
-                    self.server.service.workspace(app_id),
-                    identity=self.server.identities.public(self.session()),
-                    device_signin_available=self.server.device_signins.available,
-                ),
+                200, dict(workspace, identity=identity, device_signin_available=self.server.device_signins.available)
             )
         if len(parts) == 6 and parts[3:5] == ["social-access", "flows"]:
             return self.get_social_progress(app_id, parts[5])

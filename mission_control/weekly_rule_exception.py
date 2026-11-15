@@ -4,7 +4,31 @@ from sqlite3 import Connection
 
 from .automation_proposal_schedule import checked_definition, schedule_row
 from .common import Invalid, iso_time, now
+from .review_access import member
 from .weekly_exception_card import exception_card
+
+
+def watch_rule_schedule_exception(db: Connection, app: dict, principal: str) -> dict[str, str] | None:
+    """Watch shows a repair route, not the weekly card's private identifiers or evidence."""
+    try:
+        owner = member(db, app["id"], principal, "OWNER")
+    except PermissionError:
+        return None
+    card = rule_schedule_exception(db, app, principal, owner["version"])
+    if card is None:
+        return None
+    unavailable = card["state"] == "SOURCE_UNAVAILABLE"
+    return {
+        "state": "RULE_SCHEDULE_UNAVAILABLE" if unavailable else "RULE_SCHEDULE_BLOCKED",
+        "source": "Saved Results reviews",
+        "reason": card["reason"],
+        "next_action": (
+            "Open saved recommendations to inspect what is available, or refresh Watch to retry."
+            if unavailable
+            else "Open saved recommendations, review the app and rule version, then decide whether to start a new schedule."
+        ),
+        "repair_route": "rule-reviews",
+    }
 
 
 def rule_schedule_exception(db: Connection, app: dict, principal: str, owner_revision: int) -> dict | None:

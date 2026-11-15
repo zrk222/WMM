@@ -12,7 +12,7 @@
   "modules": {
     "mission_control/campaign_execution.py": 1247,
     "mission_control/onesignal_setup.py": 1003,
-    "mission_control/server.py": 1823,
+    "mission_control/server.py": 1821,
     "mission_control/weekly_inbox.py": 1015
   }
 }

@@ -83,6 +83,18 @@ const WMMExceptionGuidance = (() => {
       action: 'Repair the listed connection or scope, then review it again.',
       tool: 'connections',
     },
+    RULE_SCHEDULE_BLOCKED: {
+      headline: 'Scheduled reviews need attention',
+      reason: 'WMM cannot continue the saved Results reviews.',
+      action: 'Open the saved reviews to check what needs attention.',
+      tool: 'rule-reviews',
+    },
+    RULE_SCHEDULE_UNAVAILABLE: {
+      headline: 'Scheduled reviews unavailable',
+      reason: 'WMM could not read the saved Results reviews.',
+      action: 'Open the saved reviews to try again.',
+      tool: 'rule-reviews',
+    },
     WAITING_FOR_REPORTS: {
       headline: 'Report rows are not available yet',
       reason:
@@ -113,6 +125,8 @@ const WMMExceptionGuidance = (() => {
   ]);
   function repairButton(tool) {
     if (tool === 'apple-analytics') return button('Review Apple analytics', 'apple-analytics-open');
+    if (tool === 'rule-reviews')
+      return button('Review scheduled rules', 'goal-repair', 'data-tool="rule-reviews"');
     return button(`Open ${tool} controls`, 'goal-repair', `data-tool="${esc(tool)}"`);
   }
   function normalize(row) {
@@ -129,7 +143,10 @@ const WMMExceptionGuidance = (() => {
       : typeof row.evidence_ref === 'string'
         ? [row.evidence_ref]
         : [];
-    const tool = allowedTools.has(row.repair_route) ? row.repair_route : definition.tool;
+    const tool =
+      definition.tool !== 'rule-reviews' && allowedTools.has(row.repair_route)
+        ? row.repair_route
+        : definition.tool;
     return {
       status,
       headline: definition.headline,
@@ -225,6 +242,15 @@ function guidedNavigate(view, anchor = null) {
     target.scrollIntoView({ block: 'start' });
     target.focus?.();
   }
+}
+
+function guidedOpenRuleReviews() {
+  guidedNavigate('results');
+  const rules = document.querySelector('[aria-label="Automation rule preview"] > details');
+  if (!rules) return;
+  rules.open = true;
+  rules.querySelector('summary')?.focus();
+  rules.querySelector('[data-action="automation-proposals-view"]')?.click();
 }
 
 function guidedOpenTool(identity) {
@@ -1056,6 +1082,18 @@ const WMMGoalReadiness = (() => {
       return standing(t.scope);
     }
     active = null;
+    if (tool === 'rule-reviews') {
+      const workspace = state.workspace;
+      if (
+        !state.app ||
+        workspace?.app?.id !== state.app ||
+        workspace.identity?.status !== 'AUTHENTICATED' ||
+        !workspace.identity.principal ||
+        !owner()
+      )
+        throw new Error('Sign in as the current app owner to review scheduled rules.');
+      return guidedOpenRuleReviews();
+    }
     if (tool === 'campaign') return campaignOpen();
     if (tool === 'social-accounts') return guidedNavigate('connections', '#social-heading');
     if (tool === 'combined-agreement') return WMMAgreement.open();
@@ -1756,6 +1794,7 @@ export {
   guidedStageJourney,
   guidedWorker,
   guidedNavigate,
+  guidedOpenRuleReviews,
   guidedOpenTool,
   guidedAction,
   WMMGoalJourney,
