@@ -24,3 +24,14 @@ returned unchanged on retry.
 `tests/test_first_party_outcomes.py` covers each outstanding paid acknowledgment
 with otherwise interpretable evidence, missing or unusable metrics, and exact
 receipt selection. The advice is read-only and cannot renew permission or dispatch.
+
+
+New first-party receipts (v2) also report observed first opens followed by a
+payment, observed trial starters, and observed trial starters who later paid
+in the same cohort. Activation is not a prerequisite for these supplemental
+measurements. Trial must start at or after the first open and before the first
+payment, if a payment was observed. A same-time trial and payment do not
+establish ordering. The rate is unavailable until the whole cohort window is
+declared covered and there is an eligible trial starter. The connection is
+at subject level; the input does not prove the same offer or estimate lift.
+The approved sequential funnel and historical v1 receipts stay unchanged.

@@ -28,3 +28,37 @@ test('pause readback survives projection with explicit effective uncertainty and
  assert.doesNotMatch(a.markup(saved),/<script>/);assert.match(a.markup(saved),/&lt;script>/);
  delete receipt.pause_readback; assert.match(a.markup(saved),/Local status alone does not establish provider confirmation/); assert.match(JSON.stringify(a.model(saved,{})),/Saved provider pause readback is unavailable/);
 });
+
+test('subscription observations are displayed separately from the approved funnel', () => {
+  const a = fixture().a;
+  const report = {
+    selection: { measurement_window: {} },
+    campaign: { receipts: [] },
+    monitor: {},
+    kpis: { rows: [] },
+    kpi_coverage: { available_rows: 0, unknown_rows: 0 },
+    comparison: { changes: [] },
+    first_party_outcomes: {
+      report: {
+        counts: { INSTALL: 6, TRIAL_START: 0, PURCHASE: 0 },
+        subscription_observations: {
+          paid_first_opens: 3,
+          trial_starters: 2,
+          trial_to_paid: 1,
+          trial_to_paid_rate: 0.5,
+          definition: 'FIRST_OBSERVED_EVENTS_SAME_SUBJECT_NOT_OFFER_LINEAGE',
+        },
+      },
+    },
+  };
+  const saved = { report };
+  const find = label => a.model(saved, {}).metrics.find(metric => metric.label === label);
+  assert.equal(find('Paid subscriptions after trial').value, 0);
+  assert.equal(find('First opens followed by a payment').value, 3);
+  assert.equal(find('Trial starters who later paid').value, 0.5);
+  assert.match(a.markup(saved), /same person, offer unverified/);
+  report.first_party_outcomes.report.subscription_observations.trial_to_paid_rate = null;
+  assert.equal(find('Trial starters who later paid').value, null);
+  delete report.first_party_outcomes.report.subscription_observations;
+  assert.equal(find('Trial starters who later paid'), undefined);
+});
