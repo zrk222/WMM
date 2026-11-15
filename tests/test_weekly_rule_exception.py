@@ -1,5 +1,6 @@
 """Operational recovery reports exceptions from the exact saved rule schedule."""
 
+import sqlite3
 import unittest
 from datetime import timedelta
 from unittest.mock import patch
@@ -72,3 +73,40 @@ class WeeklyRuleExceptionTests(unittest.TestCase):
         (issue,) = self.cards(self.owner)
         self.assertIn("owner access changed", issue["reason"])
         self.assertEqual(self.fixture.required()["status"], "ACTIVE")
+
+
+    def test_expired_and_exhausted_active_rows_stay_quiet_even_with_corrupt_definition(self) -> None:
+        expired = (fixtures.START - timedelta(days=1)).isoformat()
+        active = (fixtures.START + timedelta(days=1)).isoformat()
+        for expiry, count in ((expired, 0), (active, self.fixture.body["max_runs"])):
+            with self.subTest(expiry=expiry, count=count), connection(self.store.path, write=True) as db:
+                db.execute(
+                    "UPDATE automation_rule_schedules SET expires=?,run_count=?,definition=? WHERE app_id=?",
+                    (expiry, count, "PRIVATE_RULE_TEXT", self.app),
+                )
+                self.assertEqual(
+                    db.execute("SELECT status FROM automation_rule_schedules WHERE app_id=?", (self.app,)).fetchone()[0],
+                    "ACTIVE",
+                )
+            self.assertEqual(self.cards(self.owner), [])
+
+    def test_rule_source_failure_preserves_other_cards_and_redacts_details(self) -> None:
+        app = self.store.app(self.app)
+        other_card = {"category": "agent_review"}
+        with (
+            patch("mission_control.weekly_inbox._agent_review_cards", return_value=[other_card]),
+            patch(
+                "mission_control.weekly_rule_exception.schedule_row",
+                side_effect=sqlite3.OperationalError("PRIVATE_TABLE_DETAILS"),
+            ) as schedule_read,
+        ):
+            cards = operation_exceptions(self.store, app, {"principal": self.owner})
+            self.assertIn(other_card, cards)
+            (issue,) = [card for card in cards if card["category"] == "rule_schedule"]
+            self.assertEqual(issue["state"], "SOURCE_UNAVAILABLE")
+            self.assertEqual(issue["evidence"], {"status": "SOURCE_UNAVAILABLE"})
+            self.assertTrue(issue["owner_only"])
+            self.assertEqual(issue["owner_principal"], self.owner)
+            self.assertNotIn("PRIVATE_", str(issue))
+            self.assertEqual(self.cards("another-owner"), [])
+            schedule_read.assert_called_once()
