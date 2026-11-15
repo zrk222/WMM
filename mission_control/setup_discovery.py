@@ -1,15 +1,15 @@
 """Expiring app-bound setup proposals; public observations never approve themselves."""
 
-from datetime import timedelta
 import hashlib
 import json
+from datetime import timedelta
+
+from .aeo_inspection import inspect_page
+from .aeo_transport import AGENT, PublicReader, public_url, text
 from .common import Invalid, canonical, digest, iso_time, now, uid
 from .db import connection
-from .store import audit
-from .aeo_transport import PublicReader, public_url, text, AGENT
-from .aeo_inspection import inspect_page
 from .setup_parse import extract
-
+from .store import audit
 
 COMPARE_FIELDS = ("name", "job", "audience", "locale", "store_app_id", "android_package", "android_track")
 
@@ -37,14 +37,14 @@ def binding(app, body):
     if not isinstance(body, dict) or set(body) != {"app_id", "app_version", "app_hash", "confirm_read"}:
         raise Invalid("Review the current app setup discovery request")
     if body["confirm_read"] is not True or type(body["app_version"]) is not int:
-        raise Invalid("Approve the read of this app public website")
+        raise Invalid("Approve the read of this app's public setup source")
     if body["app_id"] != app["id"] or body["app_version"] != app["version"] or body["app_hash"] != digest(app["data"]):
         raise Invalid("App setup changed; refresh and review discovery again")
     return dict(
         app_id=app["id"],
         app_version=app["version"],
         app_hash=digest(app["data"]),
-        website=app["data"].get("website") or "",
+        website=app["data"].get("setup_source_url") or app["data"].get("website") or "",
     )
 
 
@@ -195,11 +195,8 @@ class SetupDiscovery:
             external_writes=False,
             authority="NO_EXECUTION_AUTHORITY",
         )
-        state = (
-            "PENDING"
-            if observed["projection"] and any(observed["projection"]["fields"].values())
-            else "NEEDS_RESOLUTION"
-        )
+        projection = observed["projection"]
+        state = "PENDING" if isinstance(projection, dict) and any(projection["fields"].values()) else "NEEDS_RESOLUTION"
         row = dict(
             app_id=app_id,
             id=uid(),
@@ -236,6 +233,7 @@ class SetupDiscovery:
             app_version=app["version"],
             app_hash=digest(app["data"]),
             website=app["data"].get("website") or "",
+            source_url=app["data"].get("setup_source_url") or app["data"].get("website") or "",
             proposals=[brief(app, row) for row in rows],
             capacity=64,
             authority="NO_EXECUTION_AUTHORITY",
