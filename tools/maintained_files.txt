@@ -123,6 +123,7 @@ tests/test_batch_authority.py
 tests/test_campaign_execution.py
 tests/test_campaign_monitor.py
 tests/test_campaign_monitor_polish.py
+tests/test_campaign_owner_reports_integration.py
 tests/test_campaign_report_pause_guidance.py
 tests/test_campaign_schedule_progress.py
 tests/test_check_distribution.py
