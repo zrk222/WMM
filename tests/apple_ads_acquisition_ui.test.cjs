@@ -3,9 +3,8 @@ const assert = require('node:assert/strict');
 
 async function renderer() {
   const { money } = await import('../mission_control/static/app-money.mjs');
-  const { appleAcquisitionTable } = await import(
-    '../mission_control/static/apple-ads-acquisition-table.mjs'
-  );
+  const { appleAcquisitionTable } =
+    await import('../mission_control/static/apple-ads-acquisition-table.mjs');
   return (result) =>
     appleAcquisitionTable(result, {
       money: (value, unit) => money(value, unit, 'en-US'),
