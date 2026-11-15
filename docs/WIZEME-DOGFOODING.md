@@ -1,6 +1,6 @@
 # WizeMe dogfooding: operations with receipts
 
-**Evidence review: November 14, 2026 (UTC).** We are using Wize Marketing Machine on
+**Evidence review: November 15, 2026 (UTC).** We are using Wize Marketing Machine on
 WizeMe.APP to prove the working marketing loop: connect a real app, collect
 evidence, make one approved change, then measure what happened.
 
@@ -11,6 +11,8 @@ WMM verified delivery of one owner-approved, zero-spend Facebook post with the e
 On November 13, the automated Windows and Ubuntu package run at source `4ac6587c1edd60019706053cd67d677a840aa0e4` passed install, upgrade, removal and isolated first-packet/restart checks. This is engineering acceptance, not an outside-founder session, publisher signing or marketing impact. [Package run](https://github.com/zrk222/WMM/actions/runs/43371264849).
 
 [Desktop Preview 10](https://github.com/zrk222/WMM/releases/tag/v0.1.0-preview.10) shipped on November 13 from commit f80234b. Both installer lifecycles and all six artifact attestations passed the [release checks](https://github.com/zrk222/WMM/actions/runs/43455759453). The Windows installer is unsigned. Independent first-use, agent-host operation on the released installer and a measured tagged-campaign result are still awaiting verification.
+
+On November 15, both WizeMe and SUDHĪ opened separate private app workspaces and exported all four goal packets in WMM. The installed Windows runtime also completed first-packet and restart checks in a fresh synthetic profile. The private-workspace check used an isolated read-only copy and made no provider requests. WizeMe's Apple schedule was paused and its saved Apple and Facebook credentials could not be opened on this host; the prior Facebook delivery receipt is still retained. SUDHĪ had no saved Facebook destination in its own workspace. The next step is to restore app-scoped access, then verify the destination and measurement source before scheduling the next zero-spend post. [November 15 receipt](evidence/dogfood-continuity-2026-11-15.json).
 
 ## Retained operations
 
@@ -36,6 +38,7 @@ On November 13, the automated Windows and Ubuntu package run at source `4ac6587c
 | Nov 11, 11:58 | Matched an internal tagged landing visit against its prior readback receipt. | The landing tag was observed. The internal visit is excluded from campaign measurement. Registration linkage and campaign impact remain unverified. | V01 |
 | Nov 11, 15:57 | Checked the installed workspace's saved schedule, delivery and private owner report. | One successful scheduled job matched one verified post and one hash-verified owner report. The report establishes no attribution. No fresh provider read occurred. | V02 |
 | Nov 14, 12:21 | Verified the tracking repair on the live WizeMe web and API deployment. | One landing and one new server-confirmed registration shared a fresh internal tag. Both were excluded from external metrics. No new post or paid activity. | [V04](evidence/wizeme-e14-tracking-repair-2026-11-14.json) |
+| Nov 15, 09:13–09:18 | Exported WizeMe and SUDHĪ goal packets, checked saved connection readiness, and ran the installed Windows first-packet flow on synthetic data. | Eight app-scoped drafts exported. Both synthetic viewport runs retained their packets across restart. The Facebook re-check stopped before any provider call; no post or outcome was recorded in this run. | [V05](evidence/dogfood-continuity-2026-11-15.json) |
 
 The delivered change can be inspected on the public Page. [Published WizeMe.APP post](https://www.facebook.com/122102679789533699/posts/122102676339533699)
 

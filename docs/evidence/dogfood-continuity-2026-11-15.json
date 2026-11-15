@@ -1,0 +1,66 @@
+{
+  "schema": "wmm.dogfood-continuity.v1",
+  "id": "V05",
+  "observed_at": "2026-11-15T09:17:20.183240+00:00",
+  "classification": "PRIVATE_APP_READBACK_AND_SYNTHETIC_INSTALL_CHECK",
+  "private_artifacts_sha256": {
+    "packet_readback": "7a1ec8868de07cfd7955d7cb9f1a8f437c8cbcea1803443a54d15312e3c0200b",
+    "readiness": "10381095ed2f951e97cf237304e43a3de323ce11f725731b6ae7f84b82c1067d",
+    "installed_first_use": "c0076ff6ccbf13501c7c5a3f106fd394d867d50d8b5e8ae7b46880094cab5d80"
+  },
+  "app_workspaces": [
+    {
+      "app": "WizeMe.APP",
+      "viewport_px": 1440,
+      "goal_packets": [
+        "research",
+        "creative",
+        "campaign",
+        "measurement"
+      ],
+      "browser_elapsed_seconds": 3.7,
+      "apple_credential": "RECONNECT_REQUIRED",
+      "apple_schedule": "PAUSED",
+      "apple_retained_inventory": "WAITING_FOR_REPORTS",
+      "retained_apple_report_families": 5,
+      "facebook_check": "PROTECTED_ACCESS_UNAVAILABLE",
+      "retained_verified_facebook_intents": 1,
+      "queued_or_running_jobs": 0
+    },
+    {
+      "app": "SUDHĪ",
+      "viewport_px": 390,
+      "goal_packets": [
+        "research",
+        "creative",
+        "campaign",
+        "measurement"
+      ],
+      "browser_elapsed_seconds": 3.23,
+      "apple_credential": "NO_SAVED_CONNECTION",
+      "apple_schedule": null,
+      "apple_retained_inventory": null,
+      "retained_apple_report_families": 0,
+      "facebook_check": "NO_SAVED_DESTINATION",
+      "retained_verified_facebook_intents": 0,
+      "queued_or_running_jobs": 0
+    }
+  ],
+  "installed_windows": {
+    "classification": "INSTALLED_WINDOWS_SYNTHETIC_NO_OWNER_WORKSPACE",
+    "viewports_px": [
+      1440,
+      390
+    ],
+    "goal_packets_per_viewport": 4,
+    "same_app_bindings_after_restart": true,
+    "read_only_on_restart": true,
+    "first_time_human_acceptance": "NOT_RUN"
+  },
+  "fresh_provider_requests": 0,
+  "publications": 0,
+  "media_spend_minor": 0,
+  "campaign_outcome": null,
+  "marketing_lift": null,
+  "elapsed_time_scope": "Automated loopback packet export only; not a manual comparison or full campaign cycle."
+}
