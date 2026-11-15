@@ -69,6 +69,18 @@ class ObservationalCampaignBrowserTests(unittest.TestCase):
         page.get_by_role("button", name="Save study").click()
         page.get_by_role("button", name="Preview tagged link").click()
         expect(page.locator("#observational-campaign-receipt")).to_contain_text("utm_campaign=")
+        import json
+        from pathlib import Path
+
+        preview = json.loads(page.locator("#observational-campaign-receipt").inner_text())
+        with page.expect_download() as download:
+            page.get_by_role("button", name="Download collector setup", exact=True).press("Enter")
+        setup = json.loads(Path(download.value.path()).read_text(encoding="utf-8"))
+        self.assertEqual(setup, preview["collector_setup"])
+        self.assertEqual(setup["source_id"], "synthetic-collector")
+        self.assertEqual(setup["tagged_url"], preview["url"])
+        self.assertEqual(setup["status"], "DECLARED_NOT_VERIFIED")
+        expect(page.get_by_role("status").filter(has_text="Setup downloaded")).to_contain_text("before publishing")
         page.get_by_role("button", name="Read results").click()
         expect(page.get_by_role("status").filter(has_text="Linked registrations")).to_contain_text("Unavailable")
         with page.expect_popup() as pdf:
