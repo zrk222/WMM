@@ -81,6 +81,7 @@ mission_control/release_readiness.py
 mission_control/review_access.py
 mission_control/server.py
 mission_control/service.py
+mission_control/setup_parse.py
 mission_control/social_renewal.py
 mission_control/store.py
 mission_control/storekit_ingestion.py
@@ -172,6 +173,7 @@ tests/test_schedule_pause_evidence.py
 tests/test_schedules.py
 tests/test_schema_types.py
 tests/test_social_connections.py
+tests/test_source_first_setup.py
 tests/test_source_ratchet.py
 tests/test_sqlite_tuning.py
 tests/test_static_etag.py

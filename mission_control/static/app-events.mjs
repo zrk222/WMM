@@ -106,7 +106,7 @@ import { playAction, playRetry, playSubmit } from './google-play.mjs';
 import { rankingAction } from './creative-ranking.mjs';
 import { renderingAction } from './creative-rendering.mjs';
 import { saveJourneyFields } from './journey-readiness.mjs';
-import { setupAction } from './setup-discovery.mjs';
+import { setupAction, setupHome } from './setup-discovery.mjs';
 import { socialAction, socialSubmit } from './social-access.mjs';
 import { spiraAction } from './spira-workflow.mjs';
 import { spyTokAction } from './spytok-workflow.mjs';
@@ -160,6 +160,10 @@ function cohortPayload(values) {
 async function formSubmit(event) {
   const form = event.target;
   const formId = form.getAttribute('id');
+  if (form.isConnected && formId === 'app-link-setup-form') {
+    event.preventDefault();
+    return saveLinkedApp(form);
+  }
   if (formId?.startsWith('publication-')) {
     event.preventDefault();
     return WMMPublicationUI.submit(form, event, growthReviewServices());
@@ -436,7 +440,37 @@ async function formSubmit(event) {
   }
 }
 
-async function saveApp(data, isNew, form) {
+async function saveLinkedApp(form) {
+  const selected = state.app;
+  const submit = form.querySelector('button[type=submit]');
+  const error = form.querySelector('#app-link-error');
+  const currentForm = () => form.isConnected && $('#modal').open;
+  if (!currentForm() || submit.disabled) return;
+  submit.disabled = true;
+  error.textContent = '';
+  try {
+    const data = new FormData(form);
+    const name = String(data.get('name') ?? '').trim();
+    const website = String(data.get('website') ?? '').trim();
+    if (!name || !website.startsWith('https://'))
+      throw new Error('Enter an app name and a public link that starts with https://.');
+    const id = await saveApp(
+      { id: '', name, website },
+      true,
+      form,
+      () => currentForm() && state.app === selected,
+    );
+    if (!currentForm() || state.app !== id) return;
+    await initialize();
+    if (currentForm() && state.app === id && currentWorkspace()) setupHome();
+  } catch (failure) {
+    if (currentForm()) error.textContent = failure.message;
+  } finally {
+    if (form.isConnected) submit.disabled = false;
+  }
+}
+
+async function saveApp(data, isNew, form, stillHere = () => true) {
   let id = data.id.trim();
   if (isNew && !id) {
     const base =
@@ -460,8 +494,11 @@ async function saveApp(data, isNew, form) {
     data: { ...previous, ...data },
     version: isNew ? null : Number(form.dataset.manifestVersion),
   });
-  state.app = id;
-  if (isNew) state.view = 'overview';
+  if (stillHere()) {
+    state.app = id;
+    if (isNew) state.view = 'overview';
+  }
+  return id;
 }
 
 async function saveEvidence(data, form) {

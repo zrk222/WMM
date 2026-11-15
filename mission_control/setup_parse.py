@@ -1,10 +1,11 @@
 """Public metadata produces review candidates, never verified product or account identity."""
 
-from html.parser import HTMLParser
 import re
+from html.parser import HTMLParser
 from urllib.parse import parse_qs, urlsplit
-from .common import Invalid
+
 from .aeo_transport import public_url
+from .common import Invalid
 from .play_contract import PACKAGE
 
 MAX_BYTES = 1048576
@@ -177,6 +178,9 @@ def extract(html, source_url) -> dict:
         raise Invalid("Public setup metadata exceeds the one MiB source limit")
     source = public_url(source_url)
     parser = Candidates()
+    found = official_link(source)
+    if found:
+        parser.add(found[0], found[1], "OBSERVED_OFFICIAL_LISTING_URL", found[2])
     parser.feed(html)
     parser.close()
     if not parser.fields["name"]:
