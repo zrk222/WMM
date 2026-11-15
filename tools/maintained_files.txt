@@ -91,7 +91,9 @@ mission_control/weekly_inbox.py
 mission_control/weekly_plan_status.py
 mission_control/worker.py
 tests/campaign_paid_schedule_browser.py
+tests/dashboard_fixture.py
 tests/test_agent_context_tasks.py
+tests/test_agent_control_ui.py
 tests/test_agent_review_dispatch.py
 tests/test_analytics_read_indexes.py
 tests/test_app_launch_status.py
@@ -109,6 +111,7 @@ tests/test_ci_runner.py
 tests/test_creative_analysis.py
 tests/test_creative_learning.py
 tests/test_creative_toolchain.py
+tests/test_customer_workflow_ui_http.py
 tests/test_danger_zone_types.py
 tests/test_dependency_freshness.py
 tests/test_desktop_entry.py
@@ -118,6 +121,8 @@ tests/test_experiments.py
 tests/test_feedback_reuse.py
 tests/test_first_party_outcomes.py
 tests/test_format_ratchet.py
+tests/test_funnel_ui_http.py
+tests/test_growth_review_ui_http.py
 tests/test_host_service_contract.py
 tests/test_http.py
 tests/test_http_benchmark.py
@@ -144,6 +149,7 @@ tests/test_organic_research_http.py
 tests/test_organic_video_collector.py
 tests/test_organic_video_discovery.py
 tests/test_packaged_first_packet_contract.py
+tests/test_packaging_ui_http.py
 tests/test_page_reporting_http.py
 tests/test_parser_properties.py
 tests/test_pre_registration.py
@@ -170,10 +176,14 @@ tests/test_source_ratchet.py
 tests/test_sqlite_tuning.py
 tests/test_static_etag.py
 tests/test_static_wiring.py
+tests/test_subscription_authoring_http.py
 tests/test_subscription_journey.py
 tests/test_type_ratchet.py
+tests/test_ui_stories_http.py
 tests/test_verify_release_assets.py
+tests/test_video_editor_http.py
 tests/test_weekly_operation_exceptions.py
+tests/test_workflow_telemetry.py
 tools/benchmark_http.py
 tools/branch_hygiene.py
 tools/build_desktop.py

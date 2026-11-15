@@ -4,6 +4,7 @@ import re
 import unittest
 
 from tests import test_http
+from tests.dashboard_fixture import assert_dashboard_entry
 
 
 class GrowthReviewUIHTTPTests(unittest.TestCase):
@@ -18,8 +19,7 @@ class GrowthReviewUIHTTPTests(unittest.TestCase):
         self.assertIn("WMMGrowthReview", script)
         self.assertIn("text/javascript", headers["Content-Type"])
         html = self.request("/")[1].decode("utf-8")
-        self.assertEqual(re.findall(r'<script\b[^>]*src="([^"]+)"', html), ["/dashboard.mjs"])
-        self.assertIn('type="module" src="/dashboard.mjs"', html)
+        assert_dashboard_entry(self, html)
         code, adapter, headers = self.request("/feature-apis.mjs")
         self.assertEqual(code, 200)
         self.assertIn("text/javascript", headers["Content-Type"])
