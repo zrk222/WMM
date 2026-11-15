@@ -68,9 +68,10 @@ class GroundedTaskTests(unittest.TestCase):
     def test_missing_approved_context_rejects_even_rehashed_envelope(self):
         self.ready()
         queued = self.approve("campaign_plan")
-        data = queued["data"]
-        del data["envelope"]["context"]
-        data["envelope_hash"] = digest(data["envelope"])
+        data = cast(dict[str, object], queued["data"])
+        envelope = cast(dict[str, object], data["envelope"])
+        del envelope["context"]
+        data["envelope_hash"] = digest(envelope)
         with connection(self.store.path) as db:
             db.execute("UPDATE jobs SET data=? WHERE id=?", (canonical(data), queued["id"]))
         with patch("mission_control.agent_tasks.api_run") as run:
@@ -106,9 +107,10 @@ class GroundedTaskTests(unittest.TestCase):
     def test_expired_task_does_not_mark_healthy_connection_broken(self):
         self.ready()
         queued = self.approve("campaign_plan")
-        data = queued["data"]
-        data["envelope"]["expires_at"] = "2020-01-01T00:00:00+00:00"
-        data["envelope_hash"] = digest(data["envelope"])
+        data = cast(dict[str, object], queued["data"])
+        envelope = cast(dict[str, object], data["envelope"])
+        envelope["expires_at"] = "2020-01-01T00:00:00+00:00"
+        data["envelope_hash"] = digest(envelope)
         with connection(self.store.path) as db:
             db.execute("UPDATE jobs SET data=? WHERE id=?", (canonical(data), queued["id"]))
         with patch("mission_control.agent_tasks.api_run") as run:
