@@ -731,7 +731,7 @@ class PaidTests(CampaignFixture):
     def test_stale_pause_readback_cannot_replace_a_newer_delivery_observation(self):
         intent = self.service.run_ad("sample", "owner", self.paid_scope["scope_id"], self.adbody)
         scope_id = self.paid_scope["scope_id"]
-        with patch("mission_control.campaign_execution.now", return_value="2026-11-15T00:00:00+00:00"):
+        with patch("mission_control.campaign_pause_receipts.now", return_value="2026-11-15T00:00:00+00:00"):
             self.service.run_pause("sample", "owner", scope_id, intent["id"])
         campaign_id = intent["ids"]["campaign"]
         campaign = self.transport.objects[campaign_id]
@@ -747,7 +747,7 @@ class PaidTests(CampaignFixture):
             return stale
 
         with (
-            patch("mission_control.campaign_execution.now", return_value="2026-11-15T00:00:00+00:00"),
+            patch("mission_control.campaign_pause_receipts.now", return_value="2026-11-15T00:00:00+00:00"),
             patch.object(self.transport, "read_paid", side_effect=delayed),
             patch.object(self.transport, "set_paid_status", wraps=self.transport.set_paid_status) as writes,
             self.assertRaisesRegex(Invalid, "Campaign verification state changed"),

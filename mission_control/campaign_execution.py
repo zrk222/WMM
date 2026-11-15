@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from .campaign_contract import ad_data, post_data, scope_data
 from .campaign_destination import check_destination
 from .campaign_locks import CampaignLockBusy, paid_lock
-from .campaign_pause_receipts import pause_receipt_data
+from .campaign_pause_receipts import confirm_paid_transition, pause_revision
 from .campaign_pause_receipts import saved_pause_receipt as saved_pause_receipt
 from .campaign_transport import MetaTransport, Unconfirmed
 from .common import Invalid, canonical, digest, iso_time, now, uid
@@ -961,68 +961,10 @@ class CampaignExecutionService:
             db.close()
 
     def _confirm_paid(self, app_id, intent_id, expected, status, readback=None, *, pause_snapshot=None):
-        """Record readback for an acknowledged effect or a previously confirmed pause."""
-        permitted = {
-            ("ACK_ACTIVE_adset", "ACTIVE_adset"),
-            ("ACK_ACTIVE_ad", "ACTIVE_ad"),
-            ("ACK_ACTIVE_campaign", "ACTIVE_campaign"),
-            ("ACK_PAUSED_campaign", "PAUSED_campaign"),
-            ("PAUSED_campaign", "PAUSED_campaign"),
-        }
-        if (expected, status) not in permitted:
-            raise Invalid("Invalid campaign confirmation transition")
-        db = sqlite3.connect(str(self.store.path), timeout=15)
-        db.row_factory = sqlite3.Row
-        try:
-            db.execute("BEGIN IMMEDIATE")
-            receipt = None
-            if status == "PAUSED_campaign":
-                intent = db.execute(
-                    "SELECT * FROM campaign_paid_intents WHERE app_id=? AND id=?", (app_id, intent_id)
-                ).fetchone()
-                if intent is None:
-                    raise Invalid("Paid campaign intent was not found")
-                receipt = pause_receipt_data(intent, readback)
-            updated, observed_revision = pause_snapshot if pause_snapshot is not None else (None, None)
-            changed = db.execute(
-                "UPDATE campaign_paid_intents SET status=?,updated=? WHERE app_id=? AND id=? AND status=? "
-                "AND (? IS NULL OR updated=?) AND (? IS NULL OR ?=(SELECT COALESCE(MAX(rowid),0) "
-                "FROM campaign_pause_receipts WHERE app_id=? AND intent_id=?))",
-                (
-                    status,
-                    now(),
-                    app_id,
-                    intent_id,
-                    expected,
-                    updated,
-                    updated,
-                    observed_revision,
-                    observed_revision,
-                    app_id,
-                    intent_id,
-                ),
-            ).rowcount
-            if not changed:
-                raise Invalid("Campaign verification state changed")
-            if receipt is not None:
-                db.execute(
-                    "INSERT INTO campaign_pause_receipts VALUES(?,?,?,?,?)",
-                    (app_id, intent_id, digest(receipt), canonical(receipt), receipt["observed_at"]),
-                )
-            result = paid_view(
-                db.execute(
-                    "SELECT * FROM campaign_paid_intents WHERE app_id=? AND id=?", (app_id, intent_id)
-                ).fetchone()
-            )
-            if receipt is not None:
-                result["pause_readback"] = dict(receipt, sha256=digest(receipt))
-            db.commit()
-            return result
-        except BaseException:
-            db.rollback()
-            raise
-        finally:
-            db.close()
+        saved, receipt = confirm_paid_transition(
+            self.store.path, app_id, intent_id, expected, status, readback, pause_snapshot
+        )
+        return dict(paid_view(saved), pause_readback=receipt) if receipt is not None else paid_view(saved)
 
     def _paid_create(self, app_id, actor, scope, intent, kind, fields, token, secret):
         step = "CREATE_" + kind
@@ -1276,10 +1218,7 @@ class CampaignExecutionService:
                     (app_id, scope_id, intent_id),
                 ).fetchone()
             )
-            observed_revision = db.execute(
-                "SELECT COALESCE(MAX(rowid),0) FROM campaign_pause_receipts WHERE app_id=? AND intent_id=?",
-                (app_id, intent_id),
-            ).fetchone()[0]
+            observed_revision = pause_revision(db, app_id, intent_id)
         if not intent["ids"].get("campaign"):
             raise Invalid("No saved campaign ID is available to pause")
         current = self._paid_read(
