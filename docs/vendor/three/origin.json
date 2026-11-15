@@ -1,0 +1,26 @@
+{
+  "version": "0.187.0",
+  "tarball": "https://registry.npmjs.org/three/-/three-0.187.0.tgz",
+  "integrity": "sha512-Qiu7R+Cmh8CstZsY1uJOSWnVlfo7ZtNLV7mF8Jltk3LB3AtDu9cRZlcnRKkAk8Y4z6KKw35z7Y7Urd7jWY8etA==",
+  "upstream_files": {
+    "three.module.js": {
+      "bytes": 658900,
+      "sha256": "104f56145899722094556490d787aae0617cc2fc3382f31df02d724ea1aee341"
+    },
+    "three.core.js": {
+      "bytes": 1474799,
+      "sha256": "613e370f76638fdef83926642bf256dc9615684922de1ce1f63a8583e5d78578"
+    },
+    "LICENSE": {
+      "bytes": 1081,
+      "sha256": "8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc"
+    }
+  },
+  "bundle": {
+    "path": "three-wmm.mjs",
+    "bundler": "esbuild@0.25.12",
+    "bytes": 570319,
+    "sha256": "4dee3524196904d64c2f39c7dea6cc59ce7927b2ce2d92be579ddce4da21c273",
+    "command": "esbuild docs/vendor/three/bundle-entry.mjs --bundle --minify --format=esm --legal-comments=inline --outfile=docs/vendor/three/three-wmm.mjs"
+  }
+}

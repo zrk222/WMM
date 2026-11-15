@@ -8,7 +8,8 @@
     "results.png": "e46e440b18c33d91fe1ce4cd2795ab50434cf896fd4217f7de956253bed72d58",
     "sample-workflow.png": "e3fe342f7d901e4782b976d5d9566b9b5f732832a7d46f832eabbc43940b9b60",
     "agent-task-setup.png": "cad3721275d32a646ddd460ed9f5c7dc7da0f32d2e97d3053c711d212d20b8c3",
-    "goal-to-proof.png": "9d528775572d39aaa3582aff363e83480bd77f0e9bf7c8bf39bb5e3d5f916c51"
+    "goal-to-proof.png": "9d528775572d39aaa3582aff363e83480bd77f0e9bf7c8bf39bb5e3d5f916c51",
+    "wmm-console.webp": "7b684328d1da77fbf817d8f2e96a514a4b9fb42d3b965945a6d83f93f72fcb13"
   },
   "additional_captures": {
     "goal-to-proof.png": {
@@ -41,6 +42,13 @@
       "captured_at": "2026-11-15T06:39:48.052098+00:00",
       "viewport_width": 1280,
       "synthetic": true
+    },
+    "wmm-console.webp": {
+      "source": "Chromium capture of the decorative Three.js overview scene on loopback, without any app or account data.",
+      "captured_at": "2026-11-15T08:04:47.653265+00:00",
+      "viewport_width": 1440,
+      "synthetic": true,
+      "scene_sha256": "2d8f763b495a15ba9f36513e9a680d75191717d2068bd651d360f9f3171ccb8c"
     }
   }
 }

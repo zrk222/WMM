@@ -1,4 +1,7 @@
 # Automatically enrolled source; entries only grow.
+docs/vendor/three/bundle-entry.mjs
+docs/vendor/three/three-wmm.mjs
+docs/wmm-hero.mjs
 eslint.config.mjs
 mission_control/static/acquisition.mjs
 mission_control/static/aeo.mjs
@@ -102,6 +105,7 @@ tests/organic_research_ui.test.cjs
 tests/page_reporting.test.cjs
 tests/publication_ui.test.cjs
 tests/weekly_operation_ui.test.cjs
+tests/wmm_hero_vendor.test.mjs
 tests/workflow_telemetry.test.cjs
 tools/check_es_modules.mjs
 tools/check_js_types.mjs
