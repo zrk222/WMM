@@ -1632,6 +1632,30 @@ const WMMAgreement = (() => {
       'Local-work spend limit ' + (l.spend_limit_minor ?? 'Unavailable') + ' minor',
     ];
   }
+  function scheduleReportNotes(schedule, approval) {
+    if (!schedule) return ['No batch'];
+    return [
+      'Batch ' + schedule.id + ' ' + schedule.effective_status,
+      'Schedule approval expires ' + (schedule.permission_expires_at || 'Unavailable'),
+      'Saved batch fingerprint ' + (schedule.summary_hash || 'Unavailable'),
+      ...schedule.items.flatMap((item) => scheduleItemReportNotes(item, approval)),
+    ];
+  }
+  function scheduleItemReportNotes(item, approval) {
+    const operation = item.operation || 'campaign.publish';
+    const id = item.item_id || 'Unknown';
+    const notes = [
+      `Item ${id} ${operation} · due ${item.due_at || 'Unknown'} · Scope destination ${scopeDestination(operation, approval)} · ${item.effective_status || 'Unknown'}`,
+      `Item ${id} evidence: approved request ${item.input_hash || 'Unavailable'} · local job ${item.job_id || 'Not recorded'} (${item.job_status || 'Unknown'}) · provider intent ${item.intent?.id || 'Not recorded'} (${item.intent?.status || 'Unknown'})`,
+    ];
+    if (operation === 'campaign.ad-launch') {
+      const ids = Object.entries(item.intent?.ids || {}).map(([key, value]) => key + ': ' + value);
+      notes.push(
+        `Media budget ${item.request.lifetime_budget_minor} minor ${approval?.currency || 'Unknown'} · held ${item.intent?.commitment ?? 'Not yet recorded'} · ends ${item.request.end_time} · saved provider IDs ${ids.join('; ') || 'Not recorded'}`,
+      );
+    }
+    return notes;
+  }
   function reportModel(data, base) {
     const s = data.summary,
       c = s.campaign;
@@ -1668,34 +1692,10 @@ const WMMAgreement = (() => {
         ...localWorkReportNotes(s.local_work),
         ...(c ? campaignReportNotes(c) : ['No campaign']),
         ...monitorReportNotes(s.monitor),
-        s.schedule ? 'Batch ' + s.schedule.id + ' ' + s.schedule.effective_status : 'No batch',
-        ...(s.schedule?.items || []).map(
-          (i) =>
-            'Item ' +
-            (i.item_id || 'Unknown') +
-            ' ' +
-            (i.operation || 'campaign.publish') +
-            ' · due ' +
-            (i.due_at || 'Unknown') +
-            ' · Scope destination ' +
-            scopeDestination(i.operation || 'campaign.publish', c?.approval) +
-            ' · ' +
-            (i.effective_status || 'Unknown') +
-            (i.operation === 'campaign.ad-launch'
-              ? ' · media budget ' +
-                i.request.lifetime_budget_minor +
-                ' minor ' +
-                (c?.approval.currency || 'Unknown') +
-                ' · held ' +
-                (i.intent?.commitment ?? 'Not yet recorded') +
-                ' · ends ' +
-                i.request.end_time +
-                ' · saved provider IDs ' +
-                Object.entries(i.intent?.ids || {})
-                  .map(([k, v]) => k + ': ' + v)
-                  .join('; ')
-              : ''),
-        ),
+        ...scheduleReportNotes(s.schedule, c?.approval),
+        'Next step: ' + guidance(s).next,
+        ...(s.stop_rules || []).map((rule) => 'Stop rule: ' + rule),
+        ...(s.revocation ? ['Stopping work: ' + s.revocation] : []),
         'Private content, rights prose and credentials are excluded. Business improvement is not established.',
       ],
     };

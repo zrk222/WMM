@@ -120,6 +120,9 @@ test('agreement report projects states and excludes private post and credential 
       summary: {
         app: { id: 'one', version: 1 },
         blocked: false,
+        dispatch_uncertain: true,
+        stop_rules: ['Uncertain dispatch: reconcile before retry'],
+        revocation: 'Use each scope OFF control; incurred charges remain recorded.',
         local_work: null,
         campaign: {
           id: 'scope',
@@ -133,15 +136,50 @@ test('agreement report projects states and excludes private post and credential 
         },
         schedule: {
           id: 'batch',
-          effective_status: 'ACTIVE',
-          items: [{ request: { message: 'PRIVATE_COPY' } }],
+          effective_status: 'BLOCKED',
+          permission_expires_at: '2026-11-15T12:00:00Z',
+          summary_hash: 'a'.repeat(64),
+          items: [
+            {
+              item_id: 'saved-item',
+              effective_status: 'NEEDS_RECONCILIATION',
+              input_hash: 'b'.repeat(64),
+              job_id: 'saved-job',
+              job_status: 'SUCCEEDED',
+              intent: {
+                id: 'saved-intent',
+                status: 'PENDING',
+                details: 'PRIVATE_INTENT',
+                remote_id: 'PRIVATE_REMOTE',
+              },
+              request: { message: 'PRIVATE_COPY' },
+            },
+          ],
         },
       },
     };
   const model = a.reportModel(data, { notes: [], cohorts: [] });
-  assert.doesNotMatch(JSON.stringify(model), /PRIVATE_COPY|DRAFT_COPY|PRIVATE_TAG|SECRET/);
+  assert.doesNotMatch(
+    JSON.stringify(model),
+    /PRIVATE_COPY|DRAFT_COPY|PRIVATE_TAG|PRIVATE_INTENT|PRIVATE_REMOTE|SECRET/,
+  );
   assert.equal(model.metrics[0].value, 2);
   assert.match(model.notes.join(' '), /No approval/);
+  assert.ok(model.notes.includes('Schedule approval expires 2026-11-15T12:00:00Z'));
+  assert.ok(model.notes.includes('Saved batch fingerprint ' + 'a'.repeat(64)));
+  assert.ok(model.notes.some((note) => note.includes('approved request ' + 'b'.repeat(64))));
+  assert.ok(
+    model.notes.some((note) =>
+      note.includes('local job saved-job (SUCCEEDED) · provider intent saved-intent (PENDING)'),
+    ),
+  );
+  assert.ok(model.notes.includes('Stop rule: Uncertain dispatch: reconcile before retry'));
+  assert.ok(
+    model.notes.some((note) => note.startsWith('Stopping work: Use each scope OFF control')),
+  );
+  assert.ok(
+    model.notes.some((note) => note.startsWith('Next step: Inspect saved campaign receipts')),
+  );
 });
 
 test('owner report includes exact local-work identity, scope, expiry, call quota and zero spend only', () => {
