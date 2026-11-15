@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # All backend tests and native/package jobs are retained; Windows uses duration-based assignment.
 # One Ubuntu shard also runs the isolated native Secret Service acceptance.
 BASELINES = {
-    ".github/workflows/checks.yml": "c36ebb7c4ac636b4b0b7df121036c29a31c51848ff614ec6a902f20bfd233d51",
+    ".github/workflows/checks.yml": "e17530b08625e2fed876fa8ec83436dd83521061a00d975774328237bea97f5f",
     ".github/workflows/platform-checks.yml": "8f2b207e65ac21434b6476c18d7c8d1e4da90315f8f6fd9f64eb6ca59cb2eb2a",
     ".github/workflows/desktop-packages.yml": "f4b3dacc042207682a6513b21d22719e9a0f888972662a0f2612ad524a8738d6",
 }
@@ -49,6 +49,7 @@ class CurrentCandidateCITests(unittest.TestCase):
             browser,
         )
         self.assertIn("python -m unittest tests.test_automation_rules_browser -v", browser)
+        self.assertIn("python -m unittest tests.test_source_first_setup -v", browser)
         self.assertIn("name: publication-browser-evidence", browser)
         self.assertIn("path: .factory/multichannel/browser/", browser)
         self.assertIn("retention-days: 3", browser)
