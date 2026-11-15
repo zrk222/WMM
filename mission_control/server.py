@@ -9,15 +9,16 @@ import re
 import secrets
 import socket
 import sys
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Protocol, TypeAlias, TypedDict, cast
+from typing import cast
 from urllib.parse import parse_qs, unquote, urlparse
 
 from .common import Invalid, canonical, digest
 from .db import connection
+from .http_types import AppVersionRow, DesktopProof, DomainPost, JsonObject, Webhook, WorkerHealthHook
 from .operation_outcome import EffectUncertain
 from .operator_identity import Identities
 from .service import Service
@@ -25,15 +26,6 @@ from .store import Store
 from .worker import Runner
 
 STATIC = Path(__file__).resolve().parent / "static"
-
-JsonObject: TypeAlias = dict[str, object]
-DomainPost: TypeAlias = Callable[["Handler", list[str]], None]
-Webhook: TypeAlias = Callable[[str], None]
-DesktopProof: TypeAlias = Callable[[str], str]
-
-
-class AppVersionRow(TypedDict):
-    version: int
 
 
 def media_range(value: str, size: int) -> tuple[int, int]:
@@ -80,10 +72,6 @@ def owner_domain_post(parts: list[str]) -> DomainPost | None:
     return cast(DomainPost, import_module("." + module, __package__).post)
 
 
-class WorkerHealthHook(Protocol):
-    worker_health: Callable[[], dict[str, object]]
-
-
 class Server(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = os.name != "nt"
@@ -91,23 +79,13 @@ class Server(ThreadingHTTPServer):
     # stdlib default of five pending connections can refuse individual scripts.
     request_queue_size = 32
 
-    sessions: dict[str, str]
-    runtime_mode: str
-    studio_shutdown_result: Mapping[str, object] | None
-    desktop_proof: DesktopProof | None
-
     def server_bind(self) -> None:
         if os.name == "nt":
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         super().server_bind()
 
     def __init__(
-        self,
-        address: tuple[str, int],
-        store: Store,
-        operator: str = "local-operator",
-        *,
-        runtime_mode: str = "SERVER",
+        self, address: tuple[str, int], store: Store, operator: str = "local-operator", *, runtime_mode: str = "SERVER"
     ) -> None:
         if address[0] != "127.0.0.1":
             raise Invalid("Mission Control may bind only to 127.0.0.1")
@@ -124,7 +102,7 @@ class Server(ThreadingHTTPServer):
                 if path.is_file()
             }
         )
-        self.sessions = {}
+        self.sessions: dict[str, str] = {}
         self.identities = Identities()
         from .device_signin import DeviceSignIns
 
@@ -133,12 +111,12 @@ class Server(ThreadingHTTPServer):
         from .audit_worker import AuditWorker
 
         self.audit_runner = AuditWorker(store)
-        self.runtime_mode = runtime_mode if runtime_mode in ("DESKTOP", "HEADLESS", "SERVER") else "UNKNOWN"
+        self.runtime_mode: str = runtime_mode if runtime_mode in ("DESKTOP", "HEADLESS", "SERVER") else "UNKNOWN"
         cast(WorkerHealthHook, self.service).worker_health = lambda: dict(
             self.runner.health, runtime_mode=self.runtime_mode
         )
-        self.studio_shutdown_result = None
-        self.desktop_proof = None
+        self.studio_shutdown_result: Mapping[str, object] | None = None
+        self.desktop_proof: DesktopProof | None = None
 
     def server_close(self) -> None:
         """Retain native cleanup outcome separately from listening-socket closure."""
@@ -152,7 +130,6 @@ class Server(ThreadingHTTPServer):
 class Handler(BaseHTTPRequestHandler):
     # Server.__init__ always constructs this handler with the local Server subclass.
     server: Server  # pyright: ignore[reportIncompatibleVariableOverride]
-    new_cookie: str | None = None
 
     def log_message(self, format: str, *args: object) -> None:
         """Avoid logging request paths or sensitive provider references to console."""
@@ -941,10 +918,7 @@ class Handler(BaseHTTPRequestHandler):
             raise Invalid("Reload the current workspace before retrying automation")
         with connection(self.server.service.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
-            row = cast(
-                AppVersionRow | None,
-                db.execute("SELECT version FROM apps WHERE id=?", (data["app_id"],)).fetchone(),
-            )
+            row = cast(AppVersionRow | None, db.execute("SELECT version FROM apps WHERE id=?", (data["app_id"],)).fetchone())  # fmt: skip
             if row is None or row["version"] != data["manifest_version"]:
                 raise Invalid("App setup changed; refresh saved work before retrying automation")
             result = self.server.runner.retry_failed()
