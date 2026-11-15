@@ -28,6 +28,7 @@ mission_control/campaign_transport.py
 mission_control/cloud_connection.py
 mission_control/common.py
 mission_control/connection_setup.py
+mission_control/creative_intelligence.py
 mission_control/creative_learning.py
 mission_control/creative_rendering.py
 mission_control/creative_toolchain.py

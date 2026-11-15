@@ -445,16 +445,45 @@
       );
     return fit + ' Kept as a candidate; it has not met the viral qualification checks.';
   }
+  function creativeAngles(saved, state) {
+    const shortlist = saved.creative_shortlist;
+    if (!Array.isArray(shortlist) || !shortlist.length) return '';
+    const picks = shortlist
+      .map((pick) => {
+        const index = (saved.result?.items || []).findIndex(
+          (item) => item.qualification?.candidate_hash === pick.candidate_hash,
+        );
+        const entry = saved.submission?.candidates[index],
+          row = saved.result?.items[index];
+        if (
+          !entry ||
+          row.candidate_id !== pick.post_id ||
+          entry.candidate.platform !== pick.platform
+        )
+          return '';
+        const obs = entry.candidate,
+          url = safeURL(obs.url),
+          tier =
+            pick.tier === 'VIRAL_BY_REPORTED_COUNTS'
+              ? 'Meets viral thresholds by reported counts'
+              : 'Promising pattern · does not qualify as viral';
+        return `<li><strong>${m.esc(CHANNEL_NAMES[obs.platform] || obs.platform)} · ${m.esc(obs.creator_id)}</strong><p>${m.esc(tier)}. ${m.esc(selectionSummary(entry, row.qualification))}</p><p>Try the pattern with your app’s own footage and claims. Check the source before treating it as evidence.</p><div class="button-row">${url ? `<a href="${m.esc(url)}" target="_blank" rel="noopener noreferrer">Inspect reference</a>` : ''}${adoptable(saved, row, entry, state) ? button('Review this angle', 'adopt', pick.candidate_hash) : ''}</div></li>`;
+      })
+      .filter(Boolean);
+    if (!picks.length) return '';
+    return `<section class="panel" aria-label="Creative angles"><h3>Creative angles to test</h3><p>Up to three app-relevant references from different creators. These are starting points for original briefs.</p><ol>${picks.join('')}</ol></section>`;
+  }
   function taskHTML(saved, state) {
     const c = counts(saved),
       policy = saved.task.policy;
+    const featured = new Set((saved.creative_shortlist || []).map((pick) => pick.candidate_hash));
     const cards = (saved.result?.items || [])
       .map((row, index) => {
         const entry = saved.submission.candidates[index],
           obs = entry.candidate,
           url = safeURL(obs.url),
           q = row.qualification;
-        return `<article class="panel"><h3>${m.esc(obs.creator_id)} · ${m.esc(label(obs.platform))}</h3><p>${url ? `<a href="${m.esc(url)}" target="_blank" rel="noopener noreferrer">Inspect original source</a>` : 'Source link unavailable'}</p><p>Observed views: ${m.esc(obs.views ?? 'Unavailable')} · observed ${m.esc(obs.observed_at)} · Post ID ${m.esc(obs.post_id)}</p><p>Qualification: ${m.esc(label(q.qualification))} · comparable baseline posts: ${m.esc(q.baseline_count ?? 'Not required for UGC')}</p><p><strong>Why it was selected:</strong> ${m.esc(selectionSummary(entry, q))}</p><p>App relevance: ${m.esc(label(entry.relevance))} · collector's rights claim: ${m.esc(label(entry.rights))}. Reuse permission remains unestablished.</p><p>${m.esc((q.reasons || []).map(label).join('; '))}</p>${adoptable(saved, row, entry, state) ? button('Review this research idea', 'adopt', q.candidate_hash) : '<p>Keep as a candidate until the reported evidence, app relevance and current review requirements are satisfied. Bring owned UGC through the media library.</p>'}</article>`;
+        return `<article class="panel"><h3>${m.esc(obs.creator_id)} · ${m.esc(label(obs.platform))}</h3><p>${url ? `<a href="${m.esc(url)}" target="_blank" rel="noopener noreferrer">Inspect original source</a>` : 'Source link unavailable'}</p><p>Observed views: ${m.esc(obs.views ?? 'Unavailable')} · observed ${m.esc(obs.observed_at)} · Post ID ${m.esc(obs.post_id)}</p><p>Qualification: ${m.esc(label(q.qualification))} · comparable baseline posts: ${m.esc(q.baseline_count ?? 'Not required for UGC')}</p><p><strong>Why it was selected:</strong> ${m.esc(selectionSummary(entry, q))}</p><p>App relevance: ${m.esc(label(entry.relevance))} · collector's rights claim: ${m.esc(label(entry.rights))}. Reuse permission remains unestablished.</p><p>${m.esc((q.reasons || []).map(label).join('; '))}</p>${adoptable(saved, row, entry, state) ? (featured.has(q.candidate_hash) ? '<p>Review this reference in Creative angles to test above.</p>' : button('Review this research idea', 'adopt', q.candidate_hash)) : '<p>Keep as a candidate until the reported evidence, app relevance and current review requirements are satisfied. Bring owned UGC through the media library.</p>'}</article>`;
       })
       .join('');
     return `<p><strong>${m.esc(label(saved.status))}</strong> · ${m.esc(saved.task.query.genre)} · ${m.esc(saved.task.query.app_type)}</p><p>Search: ${m.esc(saved.task.query.search_terms)}</p><p>${m.esc(policy.platforms.join(', '))} · access ${m.esc(label(policy.access))} · expires ${m.esc(policy.expires)}</p><p>Limits: ${policy.max_candidates} candidates, ${policy.max_reads} source reads, ${policy.max_seconds} collection seconds. Collector access is externally configured and not independently verified by this receipt.</p><dl>${Object.entries(
@@ -469,7 +498,7 @@
             .map((row) => `<li>${m.esc(row)}</li>`)
             .join('')}</ul>`
         : ''
-    }${cards}<h3>Source failures</h3>${(saved.result?.source_failures || []).map((f) => `<p>${m.esc(f.source)} · ${m.esc(label(f.code))}</p>`).join('') || '<p>No source failures recorded. A ready task with no submission has no collection coverage.</p>'}<h3>Saved research approvals</h3>${saved.intakes.map((r) => `<p>Research card saved: ${m.esc(r.id)}. Source ${m.esc(r.data.source.id)} · collection ${m.esc(r.data.collection.id)}. </p>${saved.task.app.version === state.workspace.app.version ? button('Prepare original brief', 'brief', r.id) : '<p>This card belongs to an earlier app version. Start a fresh search to use current app proof.</p>'}${button('Plan or inspect a local render', 'render-start', r.id) + button('Render a local Hypit video', 'hypit-local', r.id)}`).join('') || '<p>No research candidate adopted yet.</p>'}<p>Research approval creates a source card and proposed experiment. It grants no foreign-media reuse, production execution, publication or measured app sales.</p><div class="button-row">${button('Refresh saved task', 'read', saved.id)}${button('Report / Save PDF', 'pdf')}${button('Download report JSON', 'json')}${button('Back to tasks', 'open')}</div>`;
+    }${creativeAngles(saved, state)}${cards}<h3>Source failures</h3>${(saved.result?.source_failures || []).map((f) => `<p>${m.esc(f.source)} · ${m.esc(label(f.code))}</p>`).join('') || '<p>No source failures recorded. A ready task with no submission has no collection coverage.</p>'}<h3>Saved research approvals</h3>${saved.intakes.map((r) => `<p>Research card saved: ${m.esc(r.id)}. Source ${m.esc(r.data.source.id)} · collection ${m.esc(r.data.collection.id)}. </p>${saved.task.app.version === state.workspace.app.version ? button('Prepare original brief', 'brief', r.id) : '<p>This card belongs to an earlier app version. Start a fresh search to use current app proof.</p>'}${button('Plan or inspect a local render', 'render-start', r.id) + button('Render a local Hypit video', 'hypit-local', r.id)}`).join('') || '<p>No research candidate adopted yet.</p>'}<p>Research approval creates a source card and proposed experiment. It grants no foreign-media reuse, production execution, publication or measured app sales.</p><div class="button-row">${button('Refresh saved task', 'read', saved.id)}${button('Report / Save PDF', 'pdf')}${button('Download report JSON', 'json')}${button('Back to tasks', 'open')}</div>`;
   }
   function details(t, saved) {
     const next = show(
@@ -1523,6 +1552,7 @@
         source: 'Saved research task ' + saved.id,
       })),
       cohorts: reportedRows(saved),
+      creative_shortlist: saved.creative_shortlist || [],
       notes: [
         'Task ' + saved.id + ' / ' + saved.task_hash,
         'Collection and counters are external-agent reports requiring inspection.',
