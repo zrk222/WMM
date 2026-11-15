@@ -64,6 +64,8 @@ class DangerZoneTypesTests(unittest.TestCase):
         self.assertIn("mission_control/agent_grants.py", strict)
         self.assertIn("mission_control/operation_authority.py", strict)
         self.assertIn("mission_control/automation_execution.py", strict)
+        self.assertIn("mission_control/campaign_schedule.py", strict)
+        self.assertIn("mission_control/agent_tasks.py", strict)
 
     def test_generated_rows_reject_wrong_grant_and_role_fields(self):
         if not (ROOT / "node_modules/pyright").is_dir():

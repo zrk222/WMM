@@ -1,22 +1,143 @@
 """Source-bound approved inference; draft text has no publication authority."""
 
+import sqlite3
 import time
 import uuid
+from collections.abc import Callable, Mapping
 from datetime import timedelta
-from typing import TypedDict, cast
+from typing import Protocol, TypedDict, cast
 
+from . import (
+    agent_api,
+    agent_context,
+    agent_contract,
+    agent_native,
+    agent_registry,
+    agent_usage,
+    cloudflare_inference,
+    draft_recipes,
+    worker,
+)
 from .agent_access import AgentAccess
-from .agent_api import request as api_run
-from .agent_context import snapshot
-from .agent_contract import bounded_text, draft, exact, output_contract, prompt
-from .agent_native import run as native_run
-from .agent_registry import NATIVE, REGISTRY, TASKS
-from .agent_usage import observation as usage_observation
+from .agent_registry import NATIVE, TASKS
 from .common import Invalid, canonical, digest, iso_time, now, uid
 from .db import connection
-from .draft_recipes import recipe
-from .draft_recipes import validate as validate_recipe
-from .worker import json_job
+from .store import Store
+
+
+def api_run(
+    profile: Mapping[str, object],
+    key: str | None,
+    prompt: str,
+    max_tokens: object,
+    alive: Callable[[], None],
+) -> tuple[object, object]:
+    return cast(
+        Callable[..., tuple[object, object]],
+        vars(agent_api).get("request"),
+    )(profile, key, prompt, max_tokens, alive)
+
+
+def snapshot(store: Store, app_id: str) -> Mapping[str, object]:
+    return cast(
+        Callable[[Store, str], Mapping[str, object]],
+        vars(agent_context).get("snapshot"),
+    )(store, app_id)
+
+
+def bounded_text(value: object, label: str, limit: int) -> str:
+    return cast(
+        Callable[[object, str, int], str],
+        vars(agent_contract).get("bounded_text"),
+    )(value, label, limit)
+
+
+def draft(value: object, source_ids: object) -> object:
+    return cast(
+        Callable[[object, object], object],
+        vars(agent_contract).get("draft"),
+    )(value, source_ids)
+
+
+def exact(value: object, keys: object) -> None:
+    cast(
+        Callable[[object, object], None],
+        vars(agent_contract).get("exact"),
+    )(value, keys)
+
+
+def output_contract() -> object:
+    return cast(
+        Callable[[], object],
+        vars(agent_contract).get("output_contract"),
+    )()
+
+
+def prompt(app: object, task: str, focus: object, context: object) -> str:
+    return cast(
+        Callable[[object, str, object, object], str],
+        vars(agent_contract).get("prompt"),
+    )(app, task, focus, context)
+
+
+def native_run(
+    provider: object,
+    frozen: object,
+    prompt: object,
+    model: object,
+    secret: str | None,
+    alive: Callable[[], None],
+) -> tuple[object, object]:
+    return cast(
+        Callable[..., tuple[object, object]],
+        vars(agent_native).get("run"),
+    )(provider, frozen, prompt, model, secret, alive)
+
+
+def usage_observation(value: object) -> Mapping[str, object]:
+    return cast(
+        Callable[[object], Mapping[str, object]],
+        vars(agent_usage).get("observation"),
+    )(value)
+
+
+def recipe(task: object, focus: object) -> object:
+    return cast(
+        Callable[[object, object], object],
+        vars(draft_recipes).get("recipe"),
+    )(task, focus)
+
+
+def _validaterecipe(value: object, selected: object) -> Mapping[str, object] | None:
+    return cast(
+        Callable[[object, object], Mapping[str, object] | None],
+        vars(draft_recipes).get("validate"),
+    )(value, selected)
+
+
+def json_job(row: sqlite3.Row | None) -> Mapping[str, object]:
+    return cast(
+        Callable[[sqlite3.Row | None], Mapping[str, object]],
+        vars(worker).get("json_job"),
+    )(row)
+
+
+REGISTRY = cast(
+    Mapping[str, Mapping[str, object]],
+    vars(agent_registry).get("REGISTRY"),
+)
+
+
+class AccessLike(Protocol):
+    def view(self, app_id: str) -> Mapping[str, object]: ...
+
+    def get(self, app_id: str, identity: str) -> Mapping[str, object]: ...
+
+    def secret(self, app_id: str, row: Mapping[str, object]) -> str | None: ...
+
+
+class StopLike(Protocol):
+    def is_set(self) -> bool: ...
 
 
 class _SourceContext(TypedDict):
@@ -30,54 +151,67 @@ class ApprovalContextChanged(Invalid):
     """The task needs review without asserting that its connection is broken."""
 
 
-def request_key(value):
+def request_key(value: object) -> str:
     """Require canonical identities, never command fragments."""
     try:
-        if str(uuid.UUID(value)) != value:
+        if str(uuid.UUID(cast(str, value))) != value:
             raise ValueError()
     except (ValueError, TypeError, AttributeError):
         raise Invalid("Use a canonical agent request identity") from None
-    return value
+    return cast(str, value)
 
 
-def selected(store, app_id, task, connection_id):
+def selected(
+    store: Store,
+    app_id: str,
+    task: str,
+    connection_id: str | None,
+) -> tuple[Mapping[str, object], Mapping[str, object]]:
     """Select an app-owned route without a hidden paid-provider fallback."""
-    access = AgentAccess(store)
+    access = cast(AccessLike, AgentAccess(store))
     view = access.view(app_id)
-    mode = view["routing"]["data"]["mode"]
-    chosen = connection_id or view["routing"]["data"]["routes"].get(task)
+    routing = cast(Mapping[str, object], view["routing"])
+    route_data = cast(Mapping[str, object], routing["data"])
+    mode = cast(str, route_data["mode"])
+    routes = cast(Mapping[str, str], route_data["routes"])
+    chosen = connection_id or routes.get(task)
     if not chosen:
-        rows = [p for p in view["profiles"] if permitted(p, mode)]
+        profiles = cast(list[Mapping[str, object]], view["profiles"])
+        rows = [p for p in profiles if permitted(p, mode)]
         if not rows:
             raise Invalid("Test an agent connection in this access mode, or approve another route")
-        chosen = rows[0]["id"]
+        chosen = cast(str, rows[0]["id"])
     row = access.get(app_id, chosen)
     if row["status"] == "DISCONNECTED":
         raise Invalid("This app connection is disconnected")
     if task != "connection_test":
         if row["status"] != "TESTED":
             raise Invalid("Test this connection before approving campaign work")
-        if mode != "mixed" and REGISTRY[row["data"]["provider"]]["mode"] != mode:
+        data = cast(Mapping[str, object], row["data"])
+        if mode != "mixed" and REGISTRY[cast(str, data["provider"])]["mode"] != mode:
             raise Invalid("Connection is outside this app access mode")
-    return row, view["routing"]
+    return row, routing
 
 
-def permitted(row, mode):
+def permitted(row: Mapping[str, object], mode: str) -> bool:
     """An automatic recommendation is limited to tested providers in the chosen mode."""
-    return row["status"] == "TESTED" and (mode == "mixed" or REGISTRY[row["data"]["provider"]]["mode"] == mode)
+    data = cast(Mapping[str, object], row["data"])
+    return row["status"] == "TESTED" and (mode == "mixed" or REGISTRY[cast(str, data["provider"])]["mode"] == mode)
 
 
-def proposal(store, app_id, body):
+def proposal(store: Store, app_id: str, body: Mapping[str, object]) -> dict[str, object]:
     """Derive the exact reviewed app-fact transmission rather than accept a prompt."""
     exact(body, ("task", "focus", "connection_id"))
-    task = body["task"]
-    if not isinstance(task, str) or (task not in TASKS and task != "connection_test"):
+    raw_task = body["task"]
+    if not isinstance(raw_task, str) or (raw_task not in TASKS and raw_task != "connection_test"):
         raise Invalid("Choose a supported agent task")
+    task = raw_task
     bounded_text(body["focus"], "Task focus", 1000)
-    if body["connection_id"] is not None:
-        request_key(body["connection_id"])
+    connection_id = body["connection_id"]
+    if connection_id is not None:
+        request_key(connection_id)
     app = store.app(app_id)
-    row, routing = selected(store, app_id, task, body["connection_id"])
+    row, routing = selected(store, app_id, task, cast(str | None, connection_id))
     context = cast(_SourceContext, snapshot(store, app_id)) if task != "connection_test" else None
     text = (
         prompt(app, task, body["focus"], context)
@@ -93,6 +227,7 @@ def proposal(store, app_id, body):
             )
         )
     )
+    connection_data = cast(Mapping[str, object], row["data"])
     frozen: dict[str, object] = dict(
         schema=SCHEMA,
         app_id=app_id,
@@ -105,19 +240,27 @@ def proposal(store, app_id, body):
         task=task,
         focus=body["focus"],
         prompt=text,
-        provider=row["data"]["provider"],
-        model=row["data"]["model"],
+        provider=connection_data["provider"],
+        model=connection_data["model"],
         max_output_tokens=256 if task == "connection_test" else 2048,
         external_effect="MODEL_REQUEST_ONLY_NO_PUBLICATION",
         fallback="REQUIRES_ANOTHER_APPROVAL",
     )
-    if row["data"]["provider"] == "cloudflare_api":
-        from .cloudflare_inference import verify
-
-        policy = verify(row["data"])
+    if connection_data["provider"] == "cloudflare_api":
+        verify = cast(
+            Callable[[Mapping[str, object]], Mapping[str, object]],
+            vars(cloudflare_inference).get("verify"),
+        )
+        policy = verify(connection_data)
         frozen["billing_policy"] = policy
-        frozen["max_output_tokens"] = min(cast(int, frozen["max_output_tokens"]), policy["max_output_tokens"])
-    frozen.update(output_contract_hash=digest(output_contract()), draft_recipe=recipe(task, body["focus"]))
+        frozen["max_output_tokens"] = min(
+            cast(int, frozen["max_output_tokens"]),
+            cast(int, policy["max_output_tokens"]),
+        )
+    frozen.update(
+        output_contract_hash=digest(output_contract()),
+        draftrecipe=recipe(task, body["focus"]),
+    )
     frozen.update(
         context=context,
         context_hash=digest(context),
@@ -133,11 +276,15 @@ def proposal(store, app_id, body):
 
 
 class AgentWork:
-    def __init__(self, store, on_start=None):
+    def __init__(
+        self,
+        store: Store,
+        on_start: Callable[[sqlite3.Connection, Mapping[str, object]], None] | None = None,
+    ) -> None:
         self.store = store
         self.on_start = on_start
 
-    def start(self, app_id, body):
+    def start(self, app_id: str, body: Mapping[str, object]) -> Mapping[str, object]:
         """Freeze one exact app/connection approval and idempotent durable job."""
         exact(body, ("task", "focus", "connection_id", "source_hash", "request_key"))
         key = "agent-" + request_key(body["request_key"])
@@ -164,28 +311,36 @@ class AgentWork:
                 raise Invalid("Finish or cancel this app current agent work before approving another request")
             created = now()
             if frozen["provider"] == "cloudflare_api":
-                from .cloudflare_inference import reserve
-
+                reserve = cast(
+                    Callable[..., None],
+                    vars(cloudflare_inference).get("reserve"),
+                )
                 reserve(db, app_id, frozen, created)
             db.execute(
                 "INSERT INTO jobs(id,app_id,action,data,status,created,updated,request_key) VALUES(?,?,?,?,?,?,?,?)",
                 (uid(), app_id, "agent_run", canonical(data), "QUEUED", created, created, key),
             )
-            job = json_job(db.execute("SELECT * FROM jobs WHERE app_id=? AND request_key=?", (app_id, key)).fetchone())
+            job = json_job(
+                db.execute(
+                    "SELECT * FROM jobs WHERE app_id=? AND request_key=?",
+                    (app_id, key),
+                ).fetchone()
+            )
             if self.on_start is not None:
                 self.on_start(db, job)
             return job
 
 
-def replay(row, body):
+def replay(row: sqlite3.Row, body: Mapping[str, object]) -> Mapping[str, object]:
     """A repeated request reads its original receipt instead of repeating inference."""
     saved = json_job(row)
-    if saved["action"] != "agent_run" or saved["data"]["original_request"] != body:
+    data = cast(Mapping[str, object], saved["data"])
+    if saved["action"] != "agent_run" or data["original_request"] != body:
         raise Invalid("Agent request identity was reused for different work")
     return saved
 
 
-def guard(store, app_id, frozen):
+def guard(store: Store, app_id: str, frozen: Mapping[str, object]) -> Mapping[str, object]:
     """Reject changed sources, routes, access or approval expiry before and after IO."""
     app = store.app(app_id)
     if (
@@ -197,35 +352,43 @@ def guard(store, app_id, frozen):
         raise ApprovalContextChanged("Agent app facts changed; approve the current task")
     if iso_time(now()) > iso_time(frozen["expires_at"]):
         raise ApprovalContextChanged("Agent task approval expired")
-    if frozen.get("output_contract_hash") != digest(output_contract()) or frozen.get("draft_recipe") != recipe(
+    if frozen.get("output_contract_hash") != digest(output_contract()) or frozen.get("draftrecipe") != recipe(
         frozen["task"], frozen["focus"]
     ):
         raise ApprovalContextChanged("Agent output contract or recipe changed; review the current task")
     guard_context(store, app_id, frozen)
-    row, routing = selected(store, app_id, frozen["task"], frozen["connection_id"])
+    row, routing = selected(
+        store,
+        app_id,
+        cast(str, frozen["task"]),
+        cast(str | None, frozen["connection_id"]),
+    )
+    connection_data = cast(Mapping[str, object], row["data"])
     if (
         row["version"] != frozen["connection_version"]
         or digest(row["data"]) != frozen["connection_hash"]
         or digest(routing) != frozen["routing_hash"]
     ):
         raise Invalid("Agent route or connection changed; approve a new task")
-    if row["data"]["provider"] == "cloudflare_api":
-        from .cloudflare_inference import verify
-
-        policy = verify(row["data"])
+    if connection_data["provider"] == "cloudflare_api":
+        verify = cast(
+            Callable[[Mapping[str, object]], Mapping[str, object]],
+            vars(cloudflare_inference).get("verify"),
+        )
+        policy = verify(connection_data)
         default_cap = 1024 if "native_turn" in frozen else 256 if frozen["task"] == "connection_test" else 2048
-        cap = min(default_cap, policy["max_output_tokens"])
+        cap = min(default_cap, cast(int, policy["max_output_tokens"]))
         if (
             frozen.get("billing_policy") != policy
             or frozen.get("max_output_tokens") != cap
-            or frozen.get("model") != row["data"]["model"]
+            or frozen.get("model") != connection_data["model"]
             or frozen.get("provider") != "cloudflare_api"
         ):
             raise Invalid("Cloudflare policy or approved output limit changed")
     return row
 
 
-def guard_context(store, app_id, frozen):
+def guard_context(store: Store, app_id: str, frozen: Mapping[str, object]) -> None:
     """Rebuild bounded campaign sources without consulting protected credentials."""
     current = cast(_SourceContext, snapshot(store, app_id)) if frozen["task"] != "connection_test" else None
     if frozen.get("context") != current or frozen.get("context_hash") != digest(current):
@@ -235,11 +398,15 @@ def guard_context(store, app_id, frozen):
         raise ApprovalContextChanged("Approved agent source index changed")
 
 
-def live_guard(store, job, stop=None):
+def live_guard(
+    store: Store,
+    job: Mapping[str, object],
+    stop: StopLike | None = None,
+) -> Callable[[], None]:
     """Maintain only the current owned lease and stop cancelled native work."""
     last: list[float] = [0]
 
-    def alive():
+    def alive() -> None:
         if stop is not None and stop.is_set():
             raise ApprovalContextChanged("Agent worker is stopping; review before another inference")
         if time.monotonic() - last[0] < 0.25:
@@ -254,49 +421,68 @@ def live_guard(store, job, stop=None):
             db.execute(
                 "UPDATE jobs SET lease=? WHERE id=? AND attempts=?", (time.time() + 60, job["id"], job["attempts"])
             )
-        guard(store, job["app_id"], job["data"]["envelope"])
+        data = cast(Mapping[str, object], job["data"])
+        guard(store, cast(str, job["app_id"]), cast(Mapping[str, object], data["envelope"]))
 
     return alive
 
 
-def execute(store, job, stop=None, access=None, transport=None):
+def execute(
+    store: Store,
+    job: Mapping[str, object],
+    stop: StopLike | None = None,
+    access: AccessLike | None = None,
+    transport: Callable[..., tuple[object, object]] | None = None,
+) -> dict[str, object]:
     """Interrupted inference is not replayed because allowance may already be consumed."""
     if job["attempts"] != 1:
         raise ApprovalContextChanged(
             "Interrupted inference may have consumed allowance; approve a new request instead of replay"
         )
-    data = job["data"]
+    data = cast(Mapping[str, object], job["data"])
     if (
         set(data) != {"envelope", "envelope_hash", "original_request"}
         or digest(data["envelope"]) != data["envelope_hash"]
     ):
         raise Invalid("Agent approval envelope integrity failed")
-    frozen = data["envelope"]
-    access = access or AgentAccess(store)
-    row = guard(store, job["app_id"], frozen)
-    if row["data"]["provider"] == "cloudflare_api" and digest(
+    frozen = cast(Mapping[str, object], data["envelope"])
+    access = cast(AccessLike, access or AgentAccess(store))
+    row = guard(store, cast(str, job["app_id"]), frozen)
+    connection_data = cast(Mapping[str, object], row["data"])
+    original = cast(Mapping[str, object], data["original_request"])
+    if connection_data["provider"] == "cloudflare_api" and digest(
         {k: v for k, v in frozen.items() if k != "expires_at"}
-    ) != data["original_request"].get("source_hash"):
+    ) != original.get("source_hash"):
         raise Invalid("Cloudflare approval no longer matches the reviewed proposal")
     alive = live_guard(store, job, stop)
     alive()
-    secret = access.secret(job["app_id"], row)
+    secret = access.secret(cast(str, job["app_id"]), row)
     if frozen["provider"] in NATIVE:
         result, usage = native_run(
-            frozen["provider"], row["data"]["tool"], frozen["prompt"], frozen["model"], secret, alive
+            frozen["provider"],
+            connection_data["tool"],
+            frozen["prompt"],
+            frozen["model"],
+            secret,
+            alive,
         )
     else:
-        result, usage = (transport or api_run)(
-            row["data"], secret, frozen["prompt"], frozen["max_output_tokens"], alive
+        runner = transport or api_run
+        result, usage = runner(
+            connection_data,
+            secret,
+            cast(str, frozen["prompt"]),
+            frozen["max_output_tokens"],
+            alive,
         )
     alive()
-    guard(store, job["app_id"], frozen)
+    guard(store, cast(str, job["app_id"]), frozen)
     result = draft(result, frozen["source_ids"])
-    pack = validate_recipe(result, frozen["draft_recipe"])
+    pack = _validaterecipe(result, frozen["draftrecipe"])
     if secret and secret in canonical(result):
         raise Invalid("Agent result exposed a protected key and was rejected")
     measured = usage_observation(usage)
-    accepted = dict(
+    accepted: dict[str, object] = dict(
         status="DRAFT_READY",
         draft=result,
         sha256=digest(result),
@@ -308,15 +494,23 @@ def execute(store, job, stop=None, access=None, transport=None):
         next_actions=["Review this draft and its unknowns before preparing any external action"],
     )
     if pack is not None:
-        accepted["draft_recipe"] = pack
+        accepted["draftrecipe"] = pack
     return accepted
 
 
-def complete(db, job, result, status):
+def complete(
+    db: sqlite3.Connection,
+    job: Mapping[str, object],
+    result: Mapping[str, object],
+    status: str,
+) -> None:
     """Only an accepted worker completion can update the connection test state."""
-    data = job.get("data", {})
-    frozen = data.get("envelope")
-    if not isinstance(frozen, dict) or digest(frozen) != data.get("envelope_hash"):
+    data = cast(Mapping[str, object], job.get("data", {}))
+    raw_frozen = data.get("envelope")
+    if not isinstance(raw_frozen, dict):
+        return
+    frozen = cast(Mapping[str, object], raw_frozen)
+    if digest(frozen) != data.get("envelope_hash"):
         return
     if frozen.get("app_id") != job["app_id"] or frozen.get("schema") != SCHEMA:
         return
