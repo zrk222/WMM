@@ -508,7 +508,6 @@ test('suggested search uses the selected app and remains within the input contra
   assert.equal(custom.policy.max_reads, 30);
 });
 
-
 test('creative shortlist links to the exact existing review and keeps unqualified patterns read only', async () => {
   const task = await saved(),
     item = task.result.items[0],
