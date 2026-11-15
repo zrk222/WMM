@@ -432,13 +432,13 @@
   function verified(saved, body, scope = null) {
     return Boolean(
       saved?.id &&
-        saved?.hash &&
-        (!scope || (saved.data?.app_id === scope.app && saved.data?.owner === scope.principal)) &&
-        saved.data?.owner_version === body.owner_version &&
-        m.equal(saved.data?.page, body.page_binding) &&
-        saved.data?.app_version === body.manifest_version &&
-        saved.data?.app_hash === body.app_hash &&
-        m.equal(normalize(saved.data?.policy || {}), normalize(body.policy)),
+      saved?.hash &&
+      (!scope || (saved.data?.app_id === scope.app && saved.data?.owner === scope.principal)) &&
+      saved.data?.owner_version === body.owner_version &&
+      m.equal(saved.data?.page, body.page_binding) &&
+      saved.data?.app_version === body.manifest_version &&
+      saved.data?.app_hash === body.app_hash &&
+      m.equal(normalize(saved.data?.policy || {}), normalize(body.policy)),
     );
   }
   async function details(t, id) {
