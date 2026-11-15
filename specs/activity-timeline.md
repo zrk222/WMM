@@ -10,12 +10,12 @@ purpose is to let one operator reconstruct prepared, approved, executed and
 observed work without opening each domain surface.
 
 ### Requirements (EARS)
-- The system shall project, for one app, the closed kinds `AUDIT`, `JOB`,
+- The system shall return, for one app, the closed kinds `AUDIT`, `JOB`,
   `APPROVAL`, `VERIFIED_REVIEW`, `PROVIDER_ACTION`, `AGENT_GRANT` and
   `SOURCE_READ` from their existing tables through `activity_timeline`.
-- The system shall order events newest first by stored creation time and event
+- The system shall return events newest first by stored creation time and event
   identity, without rewriting any stored timestamp.
-- The system shall include for each event only a closed schema: identity, kind,
+- The system shall return for each event only a closed schema: identity, kind,
   action, nullable status, creation time, a receipt reference with the source
   table identity and a lowercase SHA-256 when the source stores one, and an
   explicit `caused_by` list.
@@ -29,13 +29,16 @@ observed work without opening each domain surface.
   provider effects and unrecorded links are not inferred.
 - The system shall never return stored payloads, job results, review packets,
   grant token hashes or audit detail beyond the fields above.
-- The system shall expose the first page in the owner workspace as
+- The system shall return the first page in the owner workspace as
   `activity_timeline` and one filtered, paged owner read at
   `/api/apps/{app}/activity/history` accepting only `kind`, `status`, `cursor`
   and `limit`.
 - The system shall expose the same read as `activity.history` in the fixed
   operation catalog for CLI and MCP, marked read-only, carrying only those four
   optional fields and requiring a current scoped grant or owner session.
+- When Watch the work opens, the system shall display current workflow exceptions before the activity history through `exception_priority`.
+- If the app, signed-in owner, view or record filter changes during a history read, the system shall discard the prior response through `current_history`.
+- When the owner loads older records, the system shall use the applied filter for that page through `current_history`.
 
 ### Acceptance criteria (Gherkin)
 ```gherkin
@@ -68,4 +71,14 @@ Scenario: activity_privacy
   When the timeline is read
   Then the event contains only the closed schema
   And no payload, result, packet or token hash is disclosed
+
+Scenario: exception_priority
+  Given saved workflow exceptions for the current app
+  When the owner opens Watch the work
+  Then exception actions appear before the timeline
+
+Scenario: current_history
+  Given an activity history read is pending for one app
+  When the owner switches to another app before the response arrives
+  Then the first app history does not render for the second app
 ```
