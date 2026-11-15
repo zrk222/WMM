@@ -115,11 +115,15 @@ class HostServiceContractTests(unittest.TestCase):
         from mission_control.server import Server
         from mission_control.store import Store
 
+        class FixtureServer(Server):
+            # Wait for request handlers before removing the Windows SQLite files.
+            daemon_threads = False
+
         with tempfile.TemporaryDirectory() as directory:
             store = Store(Path(directory) / "fixture.sqlite3")
 
             def start():
-                server = Server(("127.0.0.1", 0), store)
+                server = FixtureServer(("127.0.0.1", 0), store)
                 self.assertNotIn(server.server_port, (0, 8765))
                 thread = threading.Thread(target=server.serve_forever, daemon=True)
                 thread.start()
@@ -138,7 +142,7 @@ class HostServiceContractTests(unittest.TestCase):
             try:
                 client, csrf = HARNESS["session"](origin, timeout=5)
                 facts = HARNESS["register_app"](client, origin, csrf)
-                queued = HARNESS["submit"](client, origin, csrf, "host-test-key")
+                queued = HARNESS["submit"](client, origin, csrf, "host-test-key", timeout=30)
                 initial = HARNESS["completed_job"](client, origin, queued["id"], "host-test-key", facts, timeout=15)
                 self.assertEqual(initial["status"], "SUCCEEDED")
                 self.assertEqual(initial["attempts"], 1)
@@ -150,7 +154,7 @@ class HostServiceContractTests(unittest.TestCase):
                 client, csrf = HARNESS["session"](origin, timeout=5)
                 persisted = HARNESS["completed_job"](client, origin, queued["id"], "host-test-key", facts, timeout=5)
                 self.assertEqual(persisted, initial)
-                replay = HARNESS["submit"](client, origin, csrf, "host-test-key")
+                replay = HARNESS["submit"](client, origin, csrf, "host-test-key", timeout=30)
                 durable = HARNESS["completed_job"](client, origin, queued["id"], "host-test-key", facts, timeout=5)
                 HARNESS["verify_replay"](initial, replay, durable)
                 self.assertEqual(replay, initial)

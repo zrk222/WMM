@@ -414,13 +414,14 @@ def assert_service_output_private(output, canary):
         raise AssertionError("Expected private output from both service invocations")
 
 
-def submit(client, origin, csrf, key):
+def submit(client, origin, csrf, key, *, timeout: int = 2):
     row = request_json(
         client,
         origin,
         f"/api/apps/{APP}/jobs",
         {"action": "pipeline", "data": {"stage": STAGE}, "request_key": key},
         csrf,
+        timeout=timeout,
     )
     if (
         not isinstance(row, dict)
