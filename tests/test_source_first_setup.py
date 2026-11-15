@@ -121,6 +121,7 @@ class SourceFirstBrowserTests(unittest.TestCase):
                 trigger = page.locator("#add-app" if width >= 900 else '[data-action="add-app"]')
                 trigger.press("Enter")
                 modal = page.get_by_role("dialog", name="Add your app")
+                expect(modal.get_by_label("Task guide")).to_contain_text("or add your app details manually")
                 expect(modal.locator("#app-form")).to_be_visible()
                 modal.get_by_text("Start with an App Store link or public website", exact=True).press("Enter")
                 form = modal.locator("#app-link-setup-form")

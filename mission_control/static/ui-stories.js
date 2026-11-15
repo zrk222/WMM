@@ -193,6 +193,12 @@
     'Enter the current release and audience, then save the setup.',
   );
   define(
+    'app-link-setup-form',
+    'Start an app draft from a public link.',
+    'Saving keeps the name and link in this workspace. WMM reads the page only when you choose to.',
+    'Review the saved source, or use the manual form if you do not have a suitable link.',
+  );
+  define(
     'setup-review',
     'Turn the discovered app information into a setup you have checked.',
     'Your confirmed choices become the app facts used by this workspace.',
@@ -698,7 +704,7 @@
   function dialog(title, markup) {
     if (title === 'Approve your campaign scope') return ''; // The exact decision summary is the guide.
     if (title === 'Add your app')
-      return '<aside class="notice" aria-label="Task guide"><p>Tell WMM who uses your app and what they do first. Save to choose a marketing goal and open your first packet.</p></aside>';
+      return '<aside class="notice" aria-label="Task guide"><p>Start with a public link or add your app details manually. Then choose a marketing goal and open your first packet.</p></aside>';
     const research = {
       'Your agent research':
         'Choose a marketing question, assign a bounded search and inspect the returned evidence here.',
