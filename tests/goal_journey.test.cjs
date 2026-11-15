@@ -93,6 +93,17 @@ test('source labels are escaped and connected state is never execution authority
   assert.equal((html.match(/data-action="goal-next"/g) || []).length, 1);
   assert.equal(h.calls.length, 0);
 });
+test('the campaign goal exposes organic measurement setup without starting work', () => {
+  const h = fixture();
+  const campaign = h.g.view(h.state.workspace, 'campaign', escape);
+  assert.match(campaign, /data-action="observational-campaign-open">Plan a tracked organic post/);
+  assert.match(campaign, /before you publish/);
+  assert.match(campaign, /No channel connection is saved for this app/);
+  for (const goal of ['research', 'creative', 'measurement']) {
+    assert.doesNotMatch(h.g.view(h.state.workspace, goal, escape), /Plan a tracked organic post/);
+  }
+  assert.deepEqual(h.calls, []);
+});
 test('next action opens existing controls only after explicit user choice', () => {
   for (const [id, expected] of [
     ['campaign', 'connections'],

@@ -1,8 +1,8 @@
 """Synthetic desktop and mobile owner browser acceptance for campaign attribution."""
 
-from datetime import datetime, timedelta
 import os
 import unittest
+from datetime import datetime, timedelta
 
 from tests import test_observational_campaign_transport as fixtures
 from tests.test_verified_review import OWNER_TOKEN
@@ -18,7 +18,7 @@ class ObservationalCampaignBrowserTests(unittest.TestCase):
         self.addCleanup(self.fixture.doCleanups)
         playwright = sync_playwright().start()
         self.addCleanup(playwright.stop)
-        self.browser = playwright.chromium.launch()
+        self.browser = playwright.chromium.launch(channel=os.environ.get("WMM_BROWSER_CHANNEL") or None)
         self.addCleanup(self.browser.close)
 
     def test_private_study_and_report(self):
@@ -26,10 +26,10 @@ class ObservationalCampaignBrowserTests(unittest.TestCase):
             with self.subTest(width=width):
                 self.exercise_study(width)
 
-    def exercise_study(self, width):
+    def exercise_study(self, width: int) -> None:
         from playwright.sync_api import expect
 
-        page = self.browser.new_page(viewport=dict(width=width, height=900))
+        page = self.browser.new_page(viewport={"width": width, "height": 900})
         self.addCleanup(page.close)
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
@@ -41,8 +41,21 @@ class ObservationalCampaignBrowserTests(unittest.TestCase):
         page.get_by_role("button", name="Verify my identity", exact=True).click()
         expect(page.get_by_role("button", name="Sign out of review session")).to_be_visible()
         page.locator("#navigation > [data-view=overview]").click()
-        page.locator("#goal-advanced > summary").click()
-        page.get_by_role("button", name="Measure one organic post", exact=True).click()
+        page.get_by_role("button", name="Run an approved campaign", exact=True).press("Enter")
+        goal = page.get_by_role("region", name="Your selected goal", exact=True)
+        expect(goal.get_by_role("button", name="Plan a tracked organic post", exact=True)).to_be_visible()
+        page.get_by_role("button", name="Open your first packet", exact=True).press("Enter")
+        packet = page.get_by_role("dialog", name="Run an approved campaign — evidence packet")
+        expect(packet).to_contain_text("keeps its evidence requirements")
+        previous = self.fixture.fixture.owner.request("POST", self.fixture.base + "history", {"offset": 0})
+        assert isinstance(previous, dict)
+        with page.expect_response(
+            lambda response: response.url.endswith("/api/apps/sample-one/observational-campaign/history")
+        ) as history_read:
+            packet.get_by_role("button", name="Plan a tracked organic post", exact=True).press("Enter")
+        self.assertTrue(history_read.value.ok)
+        self.assertEqual(history_read.value.json()["records"], previous["records"])
+        expect(page.get_by_role("dialog", name="Measure one organic post", exact=True)).to_be_visible()
         page.get_by_text("Register a study", exact=True).click()
         page.get_by_label("Study name").fill(f"Synthetic {width}")
         page.get_by_label("What will you learn?").fill("Observe tagged registrations")
@@ -56,6 +69,18 @@ class ObservationalCampaignBrowserTests(unittest.TestCase):
         page.get_by_role("button", name="Save study").click()
         page.get_by_role("button", name="Preview tagged link").click()
         expect(page.locator("#observational-campaign-receipt")).to_contain_text("utm_campaign=")
+        import json
+        from pathlib import Path
+
+        preview = json.loads(page.locator("#observational-campaign-receipt").inner_text())
+        with page.expect_download() as download:
+            page.get_by_role("button", name="Download collector setup", exact=True).press("Enter")
+        setup = json.loads(Path(download.value.path()).read_text(encoding="utf-8"))
+        self.assertEqual(setup, preview["collector_setup"])
+        self.assertEqual(setup["source_id"], "synthetic-collector")
+        self.assertEqual(setup["tagged_url"], preview["url"])
+        self.assertEqual(setup["status"], "DECLARED_NOT_VERIFIED")
+        expect(page.get_by_role("status").filter(has_text="Setup downloaded")).to_contain_text("before publishing")
         page.get_by_role("button", name="Read results").click()
         expect(page.get_by_role("status").filter(has_text="Linked registrations")).to_contain_text("Unavailable")
         with page.expect_popup() as pdf:

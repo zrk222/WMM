@@ -96,20 +96,26 @@ def check():
             "docs/images/sample-workflow.png",
             "docs/images/agent-task-setup.png",
             "docs/images/goal-to-proof.png",
+            "docs/images/wmm-console.webp",
         }:
             try:
                 manifest = json.loads((ROOT / "docs/images/provenance.json").read_text(encoding="utf-8"))
                 data = path.read_bytes()
+                header_valid = (
+                    data.startswith(b"RIFF") and data[8:12] == b"WEBP" and len(data) < 20_000
+                    if path.suffix == ".webp"
+                    else data.startswith(b"\x89PNG\r\n\x1a\n")
+                )
                 if (
                     manifest.get("synthetic") is not True
-                    or not data.startswith(b"\x89PNG\r\n\x1a\n")
+                    or not header_valid
                     or manifest["images"][path.name] != hashlib.sha256(data).hexdigest()
                 ):
                     raise ValueError("Screenshot provenance mismatch")
             except (OSError, ValueError, KeyError, AssertionError):
                 issues.append(str(rel) + ": missing or mismatched synthetic screenshot provenance")
             continue
-        if path.suffix in (".sqlite", ".sqlite3", ".db", ".png", ".jpeg", ".jpg", ".zip", ".pyc"):
+        if path.suffix in (".sqlite", ".sqlite3", ".db", ".png", ".jpeg", ".jpg", ".webp", ".zip", ".pyc"):
             issues.append(str(rel) + ": operational/binary file")
             continue
         try:

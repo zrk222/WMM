@@ -167,6 +167,7 @@ class ObservationalCampaignTests(unittest.TestCase):
         link = self.invoke("link", self.scoped(receipt, "link"))
         self.assertEqual(link["url"].count("&") + 1, 4)
         self.assertIn("utm_campaign=" + receipt["study_id"], link["url"])
+        self.assertIsNone(link["collector_setup"])
 
     def test_no_context_rejected_and_wrong_app_or_action_context_rejected(self):
         with self.assertRaises(PermissionError):

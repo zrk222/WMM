@@ -1,4 +1,7 @@
 # Automatically enrolled source; entries only grow.
+docs/vendor/three/bundle-entry.mjs
+docs/vendor/three/three-wmm.mjs
+docs/wmm-hero.mjs
 eslint.config.mjs
 mission_control/static/acquisition.mjs
 mission_control/static/aeo.mjs
@@ -74,6 +77,7 @@ mission_control/static/social-access.mjs
 mission_control/static/social-callback.js
 mission_control/static/spira-workflow.mjs
 mission_control/static/spytok-workflow.mjs
+mission_control/static/startup-recovery.js
 mission_control/static/storekit.mjs
 mission_control/static/studio-controls.js
 mission_control/static/subscription-authoring.js
@@ -89,6 +93,7 @@ tests/campaign_monitor_ui.test.cjs
 tests/campaign_plan.test.mjs
 tests/campaign_schedule_ui.test.cjs
 tests/currency_display.test.cjs
+tests/es_module_graph.test.cjs
 tests/feature_library_types.test.mjs
 tests/goal_journey.test.cjs
 tests/goal_readiness_ui.test.cjs
@@ -100,6 +105,7 @@ tests/organic_research_ui.test.cjs
 tests/page_reporting.test.cjs
 tests/publication_ui.test.cjs
 tests/weekly_operation_ui.test.cjs
+tests/wmm_hero_vendor.test.mjs
 tests/workflow_telemetry.test.cjs
 tools/check_es_modules.mjs
 tools/check_js_types.mjs

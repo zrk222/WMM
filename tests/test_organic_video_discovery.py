@@ -5,6 +5,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from mission_control.common import Invalid, digest
+from mission_control.creative_intelligence import creative_shortlist
 from mission_control.operation_catalog import catalog
 from mission_control.organic_video_discovery import (
     collection_coverage,
@@ -82,6 +83,42 @@ def bundle(task_value, count=10, collected=None):
 
 
 class DiscoveryContractTests(unittest.TestCase):
+    def test_shortlist_prioritizes_qualified_evidence_and_distinct_creators(self) -> None:
+        contract = task()
+        submitted = bundle(contract)
+        original = copy.deepcopy(submitted["candidates"][0])
+        for name, creator, views, relevance in (
+            ("duplicate-creator", "CREATOR-ONE", 150000, "MATCH"),
+            ("pattern-only", "creator-two", 80000, "MATCH"),
+            ("qualified-other", "creator-three", 120000, "MATCH"),
+            ("no-match", "creator-four", 220000, "MISMATCH"),
+        ):
+            entry = copy.deepcopy(original)
+            candidate = entry["candidate"]
+            candidate.update(
+                post_id=name, creator_id=creator, views=views, url="https://www.tiktok.com/@creator/video/" + name
+            )
+            for item in entry["history"]:
+                item["creator_id"] = creator
+            for observation, proof in zip([candidate, *entry["history"]], entry["evidence"], strict=True):
+                proof.update(
+                    post_id=observation["post_id"], url=observation["url"], observation_hash=digest(observation)
+                )
+            entry["relevance"] = relevance
+            submitted["candidates"].append(entry)
+        result = qualify_submission(contract, submitted)
+        shortlist = creative_shortlist(submitted, result)
+        self.assertEqual(
+            [entry["post_id"] for entry in shortlist], ["duplicate-creator", "qualified-other", "pattern-only"]
+        )
+        self.assertEqual(shortlist[2]["tier"], "PROMISING_PATTERN")
+        self.assertEqual(shortlist[2]["next_action"], "INSPECT_PATTERN_ONLY")
+        self.assertTrue(all(item["adaptation"] == "ORIGINAL_ASSETS_ONLY" for item in shortlist))
+        self.assertEqual(result["publication"], "NOT_RUN")
+        self.assertEqual(creative_shortlist(None, None), [])
+        submitted["candidates"].reverse()
+        self.assertEqual(creative_shortlist(submitted, qualify_submission(contract, submitted)), shortlist)
+
     def test_market_search_and_manifests_share_exact_ontology(self):
         from mission_control.marketing_ontology import filter_term, ontology
 
