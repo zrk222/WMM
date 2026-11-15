@@ -6,9 +6,16 @@ from typing import cast
 
 from .agent_grants import app_scope, current
 from .common import Invalid, canonical, digest, iso_time, now, required, safe_data, uid
+from .creative_intelligence import creative_shortlist
 from .db import connection
 from .operation_authority import PROTECTED, check, store_identity
-from .organic_video_discovery import channel_search_plan, collection_coverage, discovery_task, exact, qualify_submission
+from .organic_video_discovery import (
+    channel_search_plan,
+    collection_coverage,
+    discovery_task,
+    exact,
+    qualify_submission,
+)
 from .review_access import exact_role
 from .store import audit
 
@@ -98,6 +105,7 @@ def _view(row):
         ):
             raise Invalid("Discovery submission or result integrity changed")
     value["channel_coverage"] = collection_coverage(value["task"], submission)
+    value["creative_shortlist"] = creative_shortlist(submission, value["result"])
     return value
 
 

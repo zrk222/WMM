@@ -2,19 +2,23 @@
 
 import re
 import unittest
-from mission_control.operator_client import ClientError
+
+from mission_control.operator_client import ClientError, OperatorClient
 from tests import test_agent_grants as grants
+from tests.dashboard_fixture import assert_dashboard_entry
 
 
 class FunnelUIHTTPTests(unittest.TestCase):
+    origin: str
+    owner: OperatorClient
+
     setUp = grants.GrantTests.setUp
     tearDown = grants.GrantTests.tearDown
 
     def test_named_ui_modules_are_served_and_shell_load_order_is_explicit(self):
         with self.owner.opener.open(self.origin + "/") as response:
             html = response.read().decode()
-        self.assertEqual(re.findall(r'<script\b[^>]*src="([^"]+)"', html), ["/dashboard.mjs"])
-        self.assertIn('type="module" src="/dashboard.mjs"', html)
+        assert_dashboard_entry(self, html)
         with self.owner.opener.open(self.origin + "/feature-apis.mjs") as response:
             self.assertEqual(response.status, 200)
             self.assertIn("text/javascript", response.headers["Content-Type"])

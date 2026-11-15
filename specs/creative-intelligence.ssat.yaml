@@ -1,0 +1,23 @@
+{
+  "name": "creative-intelligence",
+  "language": "python",
+  "modules": [
+    {
+      "name": "creative_intelligence",
+      "path": "mission_control/creative_intelligence.py",
+      "language": "python",
+      "functions": [
+        {
+          "name": "creative_shortlist",
+          "args": [
+            "submission",
+            "result"
+          ],
+          "returns": "object"
+        }
+      ]
+    }
+  ],
+  "dependencies": [],
+  "invariants": []
+}

@@ -102,6 +102,10 @@ jobs:
         env:
           WMM_BROWSER_TEST_PROFILE: '1'
         run: python -m unittest tests.test_automation_rules_browser -v
+      - name: Verify public-link and manual app setup on phone and desktop
+        env:
+          WMM_BROWSER_TEST_PROFILE: '1'
+        run: python -m unittest tests.test_source_first_setup -v
       - name: Retain synthetic publication review evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

@@ -64,10 +64,11 @@ def app_data(data):
                 raise Invalid(field + ": use text up to 2000 characters")
             result[field] = value.strip()
     result["authorized_spend_minor"] = 0
-    if result.get("website"):
-        from .aeo_transport import public_url
+    for field in ("website", "setup_source_url"):
+        if result.get(field):
+            from .aeo_transport import public_url
 
-        result["website"] = public_url(result["website"])
+            result[field] = public_url(result[field])
     if "social_callback_base_url" in result:
         from .social_contract import relay_base
 

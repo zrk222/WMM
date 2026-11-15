@@ -451,18 +451,39 @@ class ObservationalCampaign:
             app = _app(db, app_id)
             _manifest(body, app)
             study = _study(db, app_id, body["study_id"], body["study_hash"], app)
-            url = contract.tagged_url(app["data"].get("website"), study["data"])
+            data = study["data"]
+            url = contract.tagged_url(app["data"].get("website"), data)
+            collector = data.get("collector_source_id")
+            handoff = (
+                {
+                    "schema": "wmm.observational-collector-setup.v1",
+                    "status": "DECLARED_NOT_VERIFIED",
+                    "app_id": app_id,
+                    "app_version": app["version"],
+                    "study_id": study["id"],
+                    "study_hash": study["hash"],
+                    "source_id": collector,
+                    "tagged_url": url,
+                    "starts_at": data["starts_at"],
+                    "ends_at": data["ends_at"],
+                    "event_names": {"LANDING": data["landing_event"], "REGISTRATION": data["registration_event"]},
+                    "post_close_coverage_required": True,
+                }
+                if collector
+                else None
+            )
             return {
                 "study_id": study["id"],
                 "study_hash": study["hash"],
                 "url": url,
                 "url_sha256": __import__("hashlib").sha256(url.encode()).hexdigest(),
                 "status": "LOCAL_LINK_PREPARED",
+                "collector_setup": handoff,
                 "study": {
                     key: study["data"][key]
                     for key in ("name", "hypothesis", "source", "creative_id", "starts_at", "ends_at")
                 }
-                | {"collector_source_id": study["data"].get("collector_source_id")},
+                | {"collector_source_id": collector},
             }
 
     def ingest(self, app_id, body):
