@@ -108,7 +108,7 @@ def recipe(task: object, focus: object) -> object:
     )(task, focus)
 
 
-def _validaterecipe(value: object, selected: object) -> Mapping[str, object] | None:
+def validate_recipe(value: object, selected: object) -> Mapping[str, object] | None:
     return cast(
         Callable[[object, object], Mapping[str, object] | None],
         vars(draft_recipes).get("validate"),
@@ -259,7 +259,7 @@ def proposal(store: Store, app_id: str, body: Mapping[str, object]) -> dict[str,
         )
     frozen.update(
         output_contract_hash=digest(output_contract()),
-        draftrecipe=recipe(task, body["focus"]),
+        draft_recipe=recipe(task, body["focus"]),
     )
     frozen.update(
         context=context,
@@ -352,7 +352,7 @@ def guard(store: Store, app_id: str, frozen: Mapping[str, object]) -> Mapping[st
         raise ApprovalContextChanged("Agent app facts changed; approve the current task")
     if iso_time(now()) > iso_time(frozen["expires_at"]):
         raise ApprovalContextChanged("Agent task approval expired")
-    if frozen.get("output_contract_hash") != digest(output_contract()) or frozen.get("draftrecipe") != recipe(
+    if frozen.get("output_contract_hash") != digest(output_contract()) or frozen.get("draft_recipe") != recipe(
         frozen["task"], frozen["focus"]
     ):
         raise ApprovalContextChanged("Agent output contract or recipe changed; review the current task")
@@ -478,7 +478,7 @@ def execute(
     alive()
     guard(store, cast(str, job["app_id"]), frozen)
     result = draft(result, frozen["source_ids"])
-    pack = _validaterecipe(result, frozen["draftrecipe"])
+    pack = validate_recipe(result, frozen["draft_recipe"])
     if secret and secret in canonical(result):
         raise Invalid("Agent result exposed a protected key and was rejected")
     measured = usage_observation(usage)
@@ -494,7 +494,7 @@ def execute(
         next_actions=["Review this draft and its unknowns before preparing any external action"],
     )
     if pack is not None:
-        accepted["draftrecipe"] = pack
+        accepted["draft_recipe"] = pack
     return accepted
 
 

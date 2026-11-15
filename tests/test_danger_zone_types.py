@@ -67,6 +67,25 @@ class DangerZoneTypesTests(unittest.TestCase):
         self.assertIn("mission_control/campaign_schedule.py", strict)
         self.assertIn("mission_control/agent_tasks.py", strict)
 
+    def test_agent_task_boundary_names_remain_patchable(self) -> None:
+        from mission_control import agent_tasks
+
+        for name in (
+            "api_run",
+            "snapshot",
+            "bounded_text",
+            "draft",
+            "exact",
+            "output_contract",
+            "prompt",
+            "native_run",
+            "usage_observation",
+            "recipe",
+            "validate_recipe",
+            "json_job",
+        ):
+            self.assertTrue(callable(getattr(agent_tasks, name)), name)
+
     def test_generated_rows_reject_wrong_grant_and_role_fields(self):
         if not (ROOT / "node_modules/pyright").is_dir():
             self.skipTest("Pinned Pyright is installed by maintainability CI")
