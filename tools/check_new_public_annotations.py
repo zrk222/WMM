@@ -7,7 +7,6 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-LIST = ROOT / "tools/maintained_files.txt"
 
 
 def maintained(root: Path) -> set[str]:
@@ -53,12 +52,16 @@ def missing_annotations(name: str, node: ast.FunctionDef | ast.AsyncFunctionDef)
 
 
 def check_sources(path: str, before: str, after: str) -> list[str]:
-    """Fail only for public functions introduced by the candidate, not legacy gaps."""
+    """Fail for new public functions and annotations removed from complete ones."""
     old = public_functions(before)
     new = public_functions(after)
-    return [
+    errors = [
         f"{path}: {error}" for name in sorted(set(new) - set(old)) for error in missing_annotations(name, new[name])
     ]
+    for name in sorted(set(new) & set(old)):
+        if not missing_annotations(name, old[name]) and missing_annotations(name, new[name]):
+            errors.extend(f"{path}: {error}" for error in missing_annotations(name, new[name]))
+    return errors
 
 
 def git(root: Path, *args: str) -> bytes:

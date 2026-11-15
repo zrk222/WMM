@@ -157,7 +157,9 @@ def check_signature(
 
 def check(root: Path) -> list[str]:
     """Fail if a named boundary loses annotations or the file disappears."""
-    errors: list[str] = []
+    errors: list[str] = [
+        f"Missing danger-zone function registry: {name}" for name in sorted(set(METHODS) - set(FUNCTIONS))
+    ]
     for name, functions in FUNCTIONS.items():
         path = root / "mission_control" / name
         if not path.is_file():

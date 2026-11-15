@@ -49,6 +49,22 @@ class NewPublicAnnotationsTests(unittest.TestCase):
             ],
         )
 
+    def test_annotation_removal_or_new_parameter_is_rejected(self) -> None:
+        before = "def read(value: object) -> str:\n    return str(value)\n"
+        self.assertEqual(
+            checker.check_sources("sample.py", before, "def read(value):\n    return value\n"),
+            [
+                "sample.py: Missing parameter annotation: read.value",
+                "sample.py: Missing return annotation: read",
+            ],
+        )
+        self.assertEqual(
+            checker.check_sources(
+                "sample.py", before, "def read(value: object, extra) -> str:\n    return str(value)\n"
+            ),
+            ["sample.py: Missing parameter annotation: read.extra"],
+        )
+
     def test_new_private_functions_do_not_gain_a_new_requirement(self) -> None:
         self.assertEqual(checker.check_sources("sample.py", "", "def _read(value):\n    return value\n"), [])
 

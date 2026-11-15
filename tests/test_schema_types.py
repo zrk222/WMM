@@ -5,7 +5,7 @@ import sys
 import unittest
 from pathlib import Path
 
-from mission_control import schema_types
+from mission_control import http_types, schema_types
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -22,6 +22,12 @@ class SchemaTypeTests(unittest.TestCase):
         self.assertEqual(schema_types.JobsRow.__annotations__["attempts"], int)
         rows = [name for name in vars(schema_types) if name.endswith("Row")]
         self.assertGreater(len(rows), 100)
+
+    def test_http_version_projection_matches_generated_apps_row(self) -> None:
+        self.assertEqual(
+            http_types.AppVersionRow.__annotations__["version"],
+            schema_types.AppsRow.__annotations__["version"],
+        )
 
 
 if __name__ == "__main__":
