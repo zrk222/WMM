@@ -120,11 +120,13 @@ class MigrationLedgerTests(unittest.TestCase):
             db.execute("DROP TABLE schema_migrations")
             db.execute("DROP INDEX IF EXISTS audit_app")
             db.execute("DROP INDEX IF EXISTS workflow_events_job")
+            db.execute("DROP INDEX IF EXISTS install_attribution_public_tag")
         initialize(self.path)
         with connection(self.path) as db:
-            self.assertEqual([row["version"] for row in migrations.applied(db)], [0, 1])
+            expected = [0, *(version for version, _, _ in migrations.discovered())]
+            self.assertEqual([row["version"] for row in migrations.applied(db)], expected)
             indexes = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='index'")}
-            self.assertTrue({"audit_app", "workflow_events_job"} <= indexes)
+            self.assertTrue({"audit_app", "workflow_events_job", "install_attribution_public_tag"} <= indexes)
             self.assertEqual(migrations.apply(db), [])
 
     def test_concurrent_initializers_apply_each_version_once(self):
@@ -160,7 +162,8 @@ class MigrationLedgerTests(unittest.TestCase):
                     "SELECT version,count(*) FROM schema_migrations GROUP BY version ORDER BY version"
                 )
             ]
-            self.assertEqual(rows, [(0, 1), (1, 1)])
+            expected = [(0, 1), *((version, 1) for version, _, _ in migrations.discovered())]
+            self.assertEqual(rows, expected)
             self.assertIsNotNone(
                 db.execute("SELECT 1 FROM sqlite_master WHERE type='index' AND name='audit_app'").fetchone()
             )
