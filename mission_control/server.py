@@ -384,6 +384,7 @@ class Handler(BaseHTTPRequestHandler):
             "/app-production.mjs",
             "/app-install.mjs",
             "/app-campaign.mjs",
+            "/automation-proposal-inbox.mjs",
             "/app-results.mjs",
             "/app-connections.mjs",
             "/app-research.mjs",
