@@ -17,7 +17,7 @@ import { WMMCampaignMonitor } from './campaign-monitor.mjs';
 import { WMMOwnerReports } from './campaign-owner-reports.mjs';
 import { campaignOpen, campaignScheduleStatus, campaignStatus } from './campaign-execution.mjs';
 import { growthReviewServices } from './app-results.mjs';
-import { guidedNavigate, guidedOpenTool } from './guided-workflow.mjs';
+import { guidedNavigate, guidedOpenRuleReviews, guidedOpenTool } from './guided-workflow.mjs';
 import { WMMAgentControl, WMMPageReports } from './feature-apis.mjs';
 ('use strict');
 
@@ -165,15 +165,7 @@ async function weeklyAction(node) {
       currentWorkspace() &&
       state.workspace.identity?.principal === principal;
     if (!current()) return;
-    if (ruleRecovery) {
-      guidedNavigate('results');
-      const rules = document.querySelector('[aria-label="Automation rule preview"] > details');
-      if (!rules) return;
-      rules.open = true;
-      rules.querySelector('summary')?.focus();
-      rules.querySelector('[data-action="automation-proposals-view"]')?.click();
-      return;
-    }
+    if (ruleRecovery) return guidedOpenRuleReviews();
     if (tool === 'agent_review') {
       return WMMAgentControl.action(
         {

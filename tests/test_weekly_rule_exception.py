@@ -7,7 +7,9 @@ from unittest.mock import patch
 
 from mission_control.automation_proposal_schedule import evaluate_due
 from mission_control.db import connection
+from mission_control.service import Service
 from mission_control.weekly_inbox import operation_exceptions
+from mission_control.weekly_rule_exception import watch_rule_schedule_exception
 from tests import test_automation_proposal_schedule as fixtures
 
 
@@ -111,3 +113,48 @@ class WeeklyRuleExceptionTests(unittest.TestCase):
             self.assertNotIn("PRIVATE_", str(issue))
             self.assertEqual(self.cards("another-owner"), [])
             schedule_read.assert_called_once()
+
+    def test_watch_reads_only_current_owner_schedule_and_returns_only_repair_fields(self) -> None:
+        app = self.store.app(self.app)
+        with connection(self.store.path, write=True) as db:
+            db.execute(
+                "UPDATE automation_rule_schedules SET status='BLOCKED',stopped_reason=? WHERE app_id=?",
+                ("PRIVATE_SCHEDULE_TEXT", self.app),
+            )
+        with patch(
+            "mission_control.weekly_rule_exception.schedule_row", side_effect=AssertionError("No schedule read")
+        ):
+            with connection(self.store.path) as db:
+                self.assertIsNone(watch_rule_schedule_exception(db, dict(app), "foreign-owner"))
+            self.assertEqual(Service(self.store)._workflow_exceptions(app, None), [])
+            self.assertEqual(
+                Service(self.store)._workflow_exceptions({**app, "version": app["version"] - 1}, self.owner), []
+            )
+        before = self.fixture.required()
+        (view,) = Service(self.store)._workflow_exceptions(app, self.owner)
+        self.assertEqual(set(view), {"state", "source", "reason", "next_action", "repair_route"})
+        self.assertEqual((view["state"], view["repair_route"]), ("RULE_SCHEDULE_BLOCKED", "rule-reviews"))
+        self.assertNotIn("PRIVATE_", str(view))
+        self.assertEqual(self.fixture.required(), before)
+        with connection(self.store.path, write=True) as db:
+            db.execute("UPDATE operator_roles SET role='MAKER' WHERE app_id=? AND principal=?", (self.app, self.owner))
+        with (
+            connection(self.store.path) as db,
+            patch("mission_control.weekly_rule_exception.schedule_row", side_effect=AssertionError("No schedule read")),
+        ):
+            self.assertIsNone(watch_rule_schedule_exception(db, dict(app), self.owner))
+
+    def test_watch_keeps_apple_evidence_when_rules_storage_is_unavailable(self) -> None:
+        app = self.store.app(self.app)
+        with (
+            patch(
+                "mission_control.weekly_rule_exception.schedule_row",
+                side_effect=sqlite3.OperationalError("PRIVATE_TABLE_DETAILS"),
+            ),
+            patch("mission_control.apple_readiness_report.summary", return_value={"read": "WAITING_FOR_REPORTS"}),
+        ):
+            rows = Service(self.store)._workflow_exceptions(
+                {**app, "data": {**app["data"], "store_app_id": "12345"}}, self.owner
+            )
+        self.assertEqual([row["state"] for row in rows], ["RULE_SCHEDULE_UNAVAILABLE", "WAITING_FOR_REPORTS"])
+        self.assertNotIn("PRIVATE_", str(rows))
