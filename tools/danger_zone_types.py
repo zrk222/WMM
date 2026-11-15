@@ -49,6 +49,18 @@ FUNCTIONS = {
     },
     "agent_grants.py": {"token_digest", "issue_data", "public", "app_scope", "current", "authenticated", "consume"},
     "review_access.py": {"member", "exact_role", "member_body"},
+    "operation_authority.py": {
+        "utc",
+        "store_identity",
+        "bound_agent",
+        "bound_owner",
+        "check_agent",
+        "check_standing",
+        "check_review",
+        "check",
+        "guard_connection",
+        "protected",
+    },
     "server.py": {"media_range", "owner_domain_post"},
 }
 

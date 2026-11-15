@@ -2,6 +2,7 @@
 
 import json
 import re
+from typing import cast
 
 from .common import Invalid
 from .db import connection
@@ -27,7 +28,7 @@ def identity(store, app_id):
     context = REQUEST.get()
     if context is None or PROTECTED.get() is not context or context["store"] != store_identity(store):
         raise PermissionError("Current protected campaign authority is required")
-    if json.loads(context["envelope"])["app_id"] != app_id:
+    if json.loads(cast(str, context["envelope"]))["app_id"] != app_id:
         raise PermissionError("Campaign authority belongs to another app")
     with connection(store.path) as db:
         actor = check(db, context)

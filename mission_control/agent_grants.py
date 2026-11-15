@@ -301,7 +301,11 @@ def capture_batch_authority(
     if "grant_id" not in context:
         if deadline > observed + timedelta(hours=24):
             raise Invalid("Owner batch authority remains limited to 24 hours")
-        result.update(kind="OWNER", principal=context["principal"], role_version=context["role_version"])
+        result.update(
+            kind="OWNER",
+            principal=cast(str, context["principal"]),
+            role_version=cast(int, context["role_version"]),
+        )
         return result
     grant = cast(AgentGrantsRow, db.execute("SELECT * FROM agent_grants WHERE id=?", (context["grant_id"],)).fetchone())
     from .authority_expiry import effective_expiry
@@ -314,9 +318,9 @@ def capture_batch_authority(
         grant_id=grant["id"],
         grant_version=grant["version"],
         agent_id=grant["agent_id"],
-        attempt=context["attempt"],
-        review=context["review"],
-        execution_id=context.get("execution_id"),
+        attempt=cast(int, context["attempt"]),
+        review=cast(Mapping[str, object] | None, context["review"]),
+        execution_id=cast(str | None, context.get("execution_id")),
         native_host_required=context.get("host_check") is not None,
         grant_consent_revision=grant_proof["revision"],
         grant_consent_hash=grant_proof["receipt_hash"],
