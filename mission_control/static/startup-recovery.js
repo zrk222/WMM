@@ -1,7 +1,13 @@
 /* Recover a failed dashboard module fetch before any workspace code runs. */
 (() => {
   const retryKey = 'wmm-dashboard-load-retried';
-  const entryId = 'workspace-entry';
+  function isEntry(target) {
+    return (
+      target?.tagName === 'SCRIPT' &&
+      target.type === 'module' &&
+      target.getAttribute('src') === '/dashboard.mjs'
+    );
+  }
   function clearRetry() {
     try {
       globalThis.sessionStorage.removeItem(retryKey);
@@ -25,7 +31,7 @@
   document.addEventListener(
     'error',
     (event) => {
-      if (event.target?.id !== entryId) return;
+      if (!isEntry(event.target)) return;
       try {
         if (globalThis.sessionStorage.getItem(retryKey) !== '1') {
           globalThis.sessionStorage.setItem(retryKey, '1');
@@ -44,7 +50,7 @@
   document.addEventListener(
     'load',
     (event) => {
-      if (event.target?.id === entryId) clearRetry();
+      if (isEntry(event.target)) clearRetry();
     },
     true,
   );

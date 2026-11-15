@@ -12,10 +12,7 @@ test('dashboard graph has explicit dependencies and a single entry', async () =>
   assert.ok(result.modules >= 45);
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   assert.equal((html.match(/<script\b/g) || []).length, 2);
-  assert.match(
-    html,
-    /<script src="\/startup-recovery.js"><\/script>\s*<script id="workspace-entry" type="module"/,
-  );
+  assert.match(html, /<script src="\/startup-recovery.js"><\/script>\s*<script type="module"/);
   assert.match(html, /id="workspace-boot-retry"[^>]+href="\/"/);
   assert.match(html, /type="module" src="\/dashboard.mjs"/);
 });
@@ -84,7 +81,10 @@ test('dashboard asset errors retry at most once and leave a manual recovery path
       location: { reload: () => reloads++ },
     });
     return {
-      emit: (type, id = 'workspace-entry') => listeners.get(type)({ target: { id } }),
+      emit: (type, src = '/dashboard.mjs') =>
+        listeners.get(type)({
+          target: { tagName: 'SCRIPT', type: 'module', getAttribute: () => src },
+        }),
       heading,
       link,
     };
