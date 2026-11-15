@@ -2,12 +2,46 @@
 
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def public_signin_smoke(binary: Path, folder: str) -> dict[str, object]:
+    """Check the frozen workspace without inheriting the build-time Client ID."""
+    import runpy
+    from urllib.request import urlopen
+
+    expected = json.loads((ROOT / ".factory/desktop-config/public-config.json").read_text(encoding="utf-8"))
+    environment = dict(os.environ)
+    for key in ("WMM_GITHUB_DEVICE_CLIENT_ID", "PYTHONPATH", "WMM_AGENT_GRANT"):
+        environment.pop(key, None)
+    harness = runpy.run_path(str(ROOT / "tools/test_packaged_first_packet.py"))
+    harness["preflight"](environment)
+    with tempfile.TemporaryDirectory(prefix="wmm-public-signin-") as private:
+        environment.update(LOCALAPPDATA=private, XDG_DATA_HOME=private, HOME=private, USERPROFILE=private)
+        child = harness["_start"](binary, folder, environment)
+        try:
+            with urlopen(harness["ORIGIN"] + "/api/apps/sample-one", timeout=10) as response:  # noqa: S310 - fixed loopback fixture
+                value = json.load(response)
+            assert value["device_signin_available"] is bool(expected["github_device_client_id"]), (
+                "Frozen sign-in readiness does not match the packaged public configuration"
+            )
+            assert value["identity"]["status"] == "SIGNED_OUT"
+        finally:
+            harness["_stop"](child)
+    evidence: dict[str, object] = dict(
+        status="PASS",
+        device_signin_available=value["device_signin_available"],
+        build_environment_removed=True,
+        provider_access="NONE",
+        source_sha=os.environ.get("GITHUB_SHA"),
+    )
+    print(json.dumps(dict(public_signin=evidence)))
+    return evidence
 
 
 def first_packet_smoke(binary, folder, env=None, label="runtime", profile_dir=None):
@@ -33,20 +67,24 @@ async def mcp_smoke(binary, folder, config=None, env=None):
         env=env,
     )
     with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as diagnostics, anyio.fail_after(45):
-        async with stdio_client(params, errlog=diagnostics) as (reader, writer):
-            async with ClientSession(reader, writer) as client:
-                initialized = await client.initialize()
-                assert initialized.serverInfo.name == "wmm-local-operations"
-                tools = (await client.list_tools()).tools
-                assert any(tool.name == "wmm_catalog" for tool in tools)
-                assert len(tools) > 1
-                await client.send_ping()
-                result = await client.call_tool("wmm_catalog", {})
-                assert not result.isError
-                assert result.structuredContent["data"]["catalog_sha256"]
-                failure = await client.call_tool("wmm_workspace_read", dict(app_id="sample-one", input={}))
-                assert failure.isError
-                assert "TRANSPORT_UNAVAILABLE" in failure.content[0].text
+        async with (
+            stdio_client(params, errlog=diagnostics) as (reader, writer),
+            ClientSession(reader, writer) as client,
+        ):
+            initialized = await client.initialize()
+            assert initialized.serverInfo.name == "wmm-local-operations"
+            tools = (await client.list_tools()).tools
+            assert any(tool.name == "wmm_catalog" for tool in tools)
+            assert len(tools) > 1
+            await client.send_ping()
+            result = await client.call_tool("wmm_catalog", {})
+            assert not result.isError
+            assert result.structuredContent is not None
+            assert result.structuredContent["data"]["catalog_sha256"]
+            failure = await client.call_tool("wmm_workspace_read", dict(app_id="sample-one", input={}))
+            assert failure.isError
+            assert failure.content[0].type == "text"
+            assert "TRANSPORT_UNAVAILABLE" in failure.content[0].text
         diagnostics.seek(0)
         assert not diagnostics.read(1), "Healthy MCP session emitted stderr; shutdown was not clean"
     print(
@@ -146,6 +184,7 @@ def main():
 
         anyio.run(mcp_smoke, binary, folder)
         setup_smoke(binary, folder)
+        public_signin_smoke(binary, folder)
         first_packet_smoke(binary, folder, label="bundle")
 
 

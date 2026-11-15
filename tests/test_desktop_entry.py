@@ -376,7 +376,8 @@ class DesktopEntryTests(unittest.TestCase):
         command = runpy.run_path(str(Path(__file__).resolve().parents[1] / "tools/build_desktop.py"))["command"]
         argv = command()
         data = [argv[i + 1] for i, value in enumerate(argv) if value == "--add-data"]
-        self.assertEqual(len(data), 9)
+        self.assertEqual(len(data), 10)
+        self.assertIn(str(command.__globals__["PUBLIC_CONFIG"]) + ":mission_control", data)
         self.assertIn(
             str(Path(__file__).resolve().parents[1] / "licenses/Apache-2.0.txt") + ":licenses",
             data,
