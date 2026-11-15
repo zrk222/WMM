@@ -738,6 +738,9 @@ class Runner:
         from .campaign_owner_reports import tick as owner_reports_tick
 
         self.supervision.attempt("owner_reports", lambda: owner_reports_tick(self.store), 1)
+        from .automation_proposal_schedule import tick as rule_proposals_tick
+
+        self.supervision.attempt("rule_proposals", lambda: rule_proposals_tick(self.store), 15)
         self.supervision.attempt("followup", lambda: Followup(self.store).tick(), 1)
         from .social_renewal import Renewal
 

@@ -14,7 +14,10 @@ mission_control/audit_runtime.py
 mission_control/authority_expiry.py
 mission_control/automation_agreement.py
 mission_control/automation_execution.py
+mission_control/automation_health.py
 mission_control/automation_policy.py
+mission_control/automation_proposal_schedule.py
+mission_control/automation_proposals.py
 mission_control/campaign_access.py
 mission_control/campaign_contract.py
 mission_control/campaign_execution.py
@@ -83,6 +86,7 @@ mission_control/reconciliation.py
 mission_control/release_inventory.py
 mission_control/release_readiness.py
 mission_control/review_access.py
+mission_control/schema_types.py
 mission_control/server.py
 mission_control/service.py
 mission_control/setup_discovery.py
@@ -105,6 +109,9 @@ tests/test_analytics_read_indexes.py
 tests/test_app_launch_status.py
 tests/test_architecture_gates.py
 tests/test_automation_agreement.py
+tests/test_automation_proposal_schedule.py
+tests/test_automation_proposals.py
+tests/test_automation_rules_browser.py
 tests/test_batch_authority.py
 tests/test_campaign_execution.py
 tests/test_campaign_monitor.py

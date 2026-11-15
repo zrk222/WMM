@@ -1,8 +1,9 @@
 """Fixed local component supervision; no exception bodies or effect authority."""
 
-from copy import deepcopy
 import threading
 import time
+from copy import deepcopy
+
 from .common import now
 
 COMPONENTS = (
@@ -15,6 +16,7 @@ COMPONENTS = (
     "campaign_schedule",
     "campaign_monitor",
     "owner_reports",
+    "rule_proposals",
     "queue",
 )
 
@@ -46,7 +48,7 @@ class Supervision:
                 return False
         try:
             result = callback()
-        except Exception:
+        except Exception:  # noqa: BLE001 - isolate failures in each supervised component
             with self.lock:
                 row["failures"] += 1
                 row["status"] = "PAUSED" if row["failures"] >= 3 else "RECOVERING"

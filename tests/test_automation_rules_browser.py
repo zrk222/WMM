@@ -13,7 +13,8 @@ class AutomationRulesBrowserTests(unittest.TestCase):
         from playwright.sync_api import expect, sync_playwright
 
         with sync_playwright() as runtime:
-            browser = runtime.chromium.launch()
+            executable = os.environ.get("WMM_TEST_CHROMIUM_PATH")
+            browser = runtime.chromium.launch(executable_path=executable)
             for width in (390, 1440):
                 with self.subTest(width=width):
                     host = fixture.GrantTests()
@@ -43,7 +44,10 @@ class AutomationRulesBrowserTests(unittest.TestCase):
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(host.origin)
-        page.wait_for_function("(context) => {const state=context.state;return (() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one')(context.original);}", arg={'state': page.evaluate_handle("async () => (await import('/app.mjs')).state"), 'original': None})
+        page.wait_for_function(
+            "(context) => {const state=context.state;return (() => typeof state !== 'undefined' && state.workspace?.app?.id === 'sample-one')(context.original);}",
+            arg={"state": page.evaluate_handle("async () => (await import('/app.mjs')).state"), "original": None},
+        )
         nav = page.locator('[data-view="results"]')
         if not nav.is_visible():
             page.locator("details").filter(has=nav).locator("summary").first.click()
@@ -74,6 +78,27 @@ class AutomationRulesBrowserTests(unittest.TestCase):
         expect(result.get_by_role("rowheader", name="metrics.cohort_count")).to_be_visible()
         expect(result).to_contain_text("Preview fingerprint")
         self.assertFalse(json.loads(editor.input_value())["rules"][0]["enabled"])
+        history = section.locator("#automation-rules-history")
+        first_version = history.get_by_role("listitem").filter(has_text="Version 1")
+        page.route(
+            "**/automation/proposals", lambda route: route.fulfill(status=503, json={"error": "fixture"}), times=1
+        )
+        first_version.get_by_role("button", name="Run and save recommendations").click()
+        expect(section.locator("#automation-proposal-status")).to_contain_text("Your change was saved")
+        section.get_by_role("button", name="View saved recommendations").click()
+        inbox = section.locator("#automation-proposal-inbox")
+        expect(inbox).to_contain_text("Ready for review")
+        expect(inbox).to_contain_text("review measurement setup")
+        self.assertTrue(page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
+        inbox.get_by_role("button", name="Dismiss recommendation").click()
+        expect(inbox).to_contain_text("Dismissed")
+        first_version.get_by_role("button", name="Review schedule").click()
+        expect(inbox.get_by_role("group", name="Schedule local review for rule version 1")).to_be_visible()
+        inbox.get_by_role("button", name="Start scheduled reviews").click()
+        expect(inbox).to_contain_text("Rule version 1")
+        expect(inbox).to_contain_text("Scheduled")
+        inbox.get_by_role("button", name="Turn off reviews").click()
+        expect(inbox).to_contain_text("Off")
         self.assertTrue(page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
         self.assertFalse(errors, errors)
         self.assertFalse(external, external)

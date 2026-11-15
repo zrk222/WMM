@@ -1,6 +1,6 @@
 # Automation logic: facts → rules → proposals
 
-Status: **P0 evaluator, P1 fact projection/simulation UI and immutable rule versions implemented; persistent proposal inbox, cooldowns across runs and scheduling are not.**
+Status: **Saved rule previews, persistent recommendations and finite local schedules are implemented. Rule evaluation produces recommendations for review.**
 
 ## Principle
 
@@ -154,11 +154,32 @@ The preview checks the current local owner session and checks app membership in 
 
 The result identifies the draft or exact saved version, the observed facts and their sources, missing or incompatible values, and fingerprints for the rule set, facts and evaluation. Local job state counts are not evidence of provider delivery. A response is discarded if its panel, app or session changes. Preview does not call providers, read credentials, save a rule, or create approval. Saving writes only a new rule version.
 
+## Saved recommendations and schedules
+
+In **Review results → Automation rules → Saved rule versions**, choose an exact
+version and select **Run and save recommendations**. Select **View saved
+recommendations** to return later. WMM explains why each item appeared and
+identifies the saved rule and evaluation receipt. Dismiss an item when you
+have made a decision; dismissing never executes the proposed work. Unchanged
+evidence does not reopen a recommendation. Changed facts are eligible again
+after the rule's cooldown. For new runs, use a supported duration such as
+`PT15M`, `PT6H`, or `P1D`, or leave cooldown empty. Older labels can still
+be previewed.
+
+Choose **Review schedule** next to a saved version, then confirm the interval,
+run limit and expiry. WMM evaluates the same version over current local facts
+while the worker is running. Saving a newer rule version does not switch the
+schedule. After downtime WMM checks once and resumes the interval, rather
+than replaying missed checks. **Turn off reviews** stops future checks.
+Changed app or owner authority stops the schedule and asks for a fresh
+review. The worker and manual review don't contact providers, grant access,
+publish or spend. The inbox remains private to the selected app and owner.
+
 ## Delivery phases
 
 1. **P0 (implemented):** deterministic evaluator + validation + simulation + tests.
-2. **P1 (projection and simulation UI implemented; inbox pending):** typed fact projection, owner rule simulation and proposal inbox.
-3. **P2 (rule versions implemented; inbox/schedule pending):** scheduled evaluation, proposal inbox, cooldown store and deduplication across runs.
+2. **P1 (implemented):** typed fact projection, owner rule simulation and proposal inbox.
+3. **P2 (implemented):** scheduled evaluation, proposal inbox, cooldown store and deduplication across runs.
 4. **P3:** agent-suggested rules and explanations, never auto-activation.
 
 This design preserves the validation-first scope in [ADR 0002](adr/0002-stay-narrow.md).
