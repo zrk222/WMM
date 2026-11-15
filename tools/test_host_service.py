@@ -115,7 +115,7 @@ def session(origin=ORIGIN, timeout=45):
     raise RuntimeError("Service did not serve bootstrap before timeout")
 
 
-def request_json(client, origin, path, body=None, csrf=None, *, canary=None):
+def request_json(client, origin, path, body=None, csrf=None, *, canary=None, timeout=2):
     headers = {"Origin": origin}
     data = None
     if body is not None:
@@ -124,7 +124,7 @@ def request_json(client, origin, path, body=None, csrf=None, *, canary=None):
     if not re.fullmatch(r"http://127\.0\.0\.1:[1-9][0-9]{0,4}", origin) or not path.startswith("/api/"):
         raise ValueError("Expected an API path on the exact loopback origin")
     try:
-        response = client.open(Request(origin + path, data=data, headers=headers), timeout=2)  # noqa: S310
+        response = client.open(Request(origin + path, data=data, headers=headers), timeout=timeout)  # noqa: S310
     except HTTPError as exc:
         if canary is None:
             raise
@@ -286,11 +286,22 @@ def submit(client, origin, csrf, key):
     return row
 
 
+def job_history_reads(client, origin, timeout):
+    """Retry only a transport timeout on this read, within the original polling budget."""
+    deadline = time.monotonic() + timeout
+    while (remaining := deadline - time.monotonic()) > 0:
+        try:
+            rows = request_json(client, origin, f"/api/apps/{APP}/jobs", timeout=min(2, remaining))
+        except TimeoutError:
+            pass
+        else:
+            yield rows
+        time.sleep(min(0.25, max(0, deadline - time.monotonic())))
+
+
 def completed_job(client, origin, job_id, key, expected_facts, timeout=45):
     """Find exactly one request-key row and require a real successful result."""
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        rows = request_json(client, origin, f"/api/apps/{APP}/jobs")
+    for rows in job_history_reads(client, origin, timeout):
         if not isinstance(rows, list):
             raise AssertionError("Job history is not a list")
         matches = [row for row in rows if isinstance(row, dict) and row.get("request_key") == key]
@@ -336,7 +347,6 @@ def completed_job(client, origin, job_id, key, expected_facts, timeout=45):
             return row
         if row.get("status") not in ("QUEUED", "RUNNING"):
             raise AssertionError(f"Job ended without success: {row.get('status')}")
-        time.sleep(min(0.25, max(0, deadline - time.monotonic())))
     raise RuntimeError("Job did not complete before timeout")
 
 
