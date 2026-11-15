@@ -694,6 +694,70 @@ class PaidTests(CampaignFixture):
         self.assertIsNone(retained["pause_readback"])
         self.assertEqual(retained["commitment"], 80)
 
+    def test_acknowledged_pause_retry_after_restart_reads_only(self):
+        intent = self.service.run_ad("sample", "owner", self.paid_scope["scope_id"], self.adbody)
+        scope_id = self.paid_scope["scope_id"]
+        campaign = self.transport.objects[intent["ids"]["campaign"]]
+        read = self.transport.read_paid
+        calls = []
+
+        def interrupted(kind, identity, token, secret, alive):
+            calls.append(kind)
+            if len(calls) == 2:
+                raise Unconfirmed("Synthetic interruption after provider acknowledgement")
+            return read(kind, identity, token, secret, alive)
+
+        with patch.object(self.transport, "read_paid", side_effect=interrupted), self.assertRaises(Unconfirmed):
+            self.service.run_pause("sample", "owner", scope_id, intent["id"])
+        self.assertEqual(campaign["status"], "PAUSED")
+        self.assertEqual(self.service.list_intents("sample", scope_id)[-1]["status"], "ACK_PAUSED_campaign")
+        reopened = CampaignExecutionService(self.store, self.service.policy_checker, self.transport)
+        with (
+            patch.object(reopened, "_credentials", self.service._credentials),
+            patch.object(self.transport, "set_paid_status", wraps=self.transport.set_paid_status) as writes,
+        ):
+            campaign["status"] = "ACTIVE"
+            with self.assertRaisesRegex(Unconfirmed, "Meta acknowledged the pause"):
+                reopened.run_pause("sample", "owner", scope_id, intent["id"])
+            campaign.update(status="PAUSED", effective_status="PAUSED")
+            paused = reopened.run_pause("sample", "owner", scope_id, intent["id"])
+            repeat = reopened.run_pause("sample", "owner", scope_id, intent["id"])
+        writes.assert_not_called()
+        for result in (paused, repeat):
+            self.assertEqual(result["status"], "PAUSED_campaign")
+            self.assertEqual(result["pause_readback"]["effective_status"], "PAUSED")
+            self.assertEqual(result["commitment"], 80)
+
+    def test_stale_pause_readback_cannot_replace_a_newer_delivery_observation(self):
+        intent = self.service.run_ad("sample", "owner", self.paid_scope["scope_id"], self.adbody)
+        scope_id = self.paid_scope["scope_id"]
+        with patch("mission_control.campaign_execution.now", return_value="2026-11-15T00:00:00+00:00"):
+            self.service.run_pause("sample", "owner", scope_id, intent["id"])
+        campaign_id = intent["ids"]["campaign"]
+        campaign = self.transport.objects[campaign_id]
+        original = self.transport.read_paid
+        newest = []
+
+        def delayed(kind, identity, token, secret, alive):
+            stale = original(kind, identity, token, secret, alive)
+            campaign["effective_status"] = "ACTIVE"
+            with patch.object(self.transport, "read_paid", side_effect=original):
+                fresh = self.service.run_pause("sample", "owner", scope_id, intent["id"])
+            newest.append(fresh["pause_readback"]["sha256"])
+            return stale
+
+        with (
+            patch("mission_control.campaign_execution.now", return_value="2026-11-15T00:00:00+00:00"),
+            patch.object(self.transport, "read_paid", side_effect=delayed),
+            patch.object(self.transport, "set_paid_status", wraps=self.transport.set_paid_status) as writes,
+            self.assertRaisesRegex(Invalid, "Campaign verification state changed"),
+        ):
+            self.service.run_pause("sample", "owner", scope_id, intent["id"])
+        writes.assert_not_called()
+        retained = self.service.list_intents("sample", scope_id)[-1]["pause_readback"]
+        self.assertEqual([retained["sha256"]], newest)
+        self.assertEqual(retained["effective_status"], "ACTIVE")
+
     def test_pause_receipt_storage_failure_rolls_back_confirmation(self):
         intent = self.service.run_ad("sample", "owner", self.paid_scope["scope_id"], self.adbody)
         with connection(self.store.path) as db:

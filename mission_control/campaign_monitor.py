@@ -183,6 +183,15 @@ def target_row(db, app_id, scope_id, target):
     raise PermissionError("Monitor target changed or is outside its campaign scope")
 
 
+def bound_targets(db, app_id, scope_id, targets):
+    """Validate every exact target and report whether any paid intent is present."""
+    paid = False
+    for target in targets:
+        _, is_paid = target_row(db, app_id, scope_id, target)
+        paid = paid or is_paid
+    return paid
+
+
 def retained_summary(row):
     """Reject unreadable or changed approval evidence before using any fields."""
     try:
@@ -209,9 +218,28 @@ def checked(db, row):
     current, _ = source(db, row["app_id"], row["owner"], summary["proposal"]["scope_id"])
     if current != summary["source"]:
         raise PermissionError("Monitor source revisions changed")
-    for target in summary["proposal"]["targets"]:
-        target_row(db, row["app_id"], summary["proposal"]["scope_id"], target)
+    paid = bound_targets(db, row["app_id"], summary["proposal"]["scope_id"], summary["proposal"]["targets"])
+    if summary["proposal"]["protective_conditions"] and not paid:
+        raise PermissionError(
+            "Saved monitor requests protective pause without a paid campaign target; Page posts are read-only."
+        )
     return summary
+
+
+def pause_ineligible(db, row, summary):
+    """Identify an otherwise-current monitor whose only issue is organic-only pause."""
+    plan = summary["proposal"]
+    if not plan["protective_conditions"]:
+        return False
+    if iso_time(plan["expires_at"]).timestamp() <= time.time():
+        return False
+    try:
+        current, _ = source(db, row["app_id"], row["owner"], plan["scope_id"])
+        if current != summary["source"]:
+            return False
+        return not bound_targets(db, row["app_id"], plan["scope_id"], plan["targets"])
+    except (Invalid, PermissionError, ValueError, KeyError):
+        return False
 
 
 def monitor_attention(row, proposal, effective, observation):
@@ -274,6 +302,9 @@ def view(db, row):
         except (Invalid, PermissionError, ValueError, KeyError):
             effective = "BLOCKED"
     observation = last_observation(db, row, summary)
+    attention = monitor_attention(row, summary["proposal"], effective, observation)
+    if effective == "BLOCKED" and attention == "CHECK_APPROVAL" and pause_ineligible(db, row, summary):
+        attention = "REVIEW_PAUSE_ELIGIBILITY"
     return dict(
         id=row["id"],
         version=row["version"],
@@ -286,7 +317,7 @@ def view(db, row):
         pause_attempts=row["pauses"],
         last_job=row["last_job"],
         last_observation=observation,
-        attention=monitor_attention(row, summary["proposal"], effective, observation),
+        attention=attention,
         next_due=row["due"],
     )
 
@@ -430,8 +461,9 @@ class Monitors:
             expiry = iso_time(chosen["expires_at"]).timestamp()
             if not time.time() < expiry <= iso_time(scope["permission_expires_at"]).timestamp():
                 raise Invalid("Monitor expiry must be future and within campaign expiry")
-            for target in chosen["targets"]:
-                target_row(db, app_id, chosen["scope_id"], target)
+            paid = bound_targets(db, app_id, chosen["scope_id"], chosen["targets"])
+            if chosen["protective_conditions"] and not paid:
+                raise Invalid("Protective pause requires a selected paid campaign intent; Page posts are read-only.")
             identity = uid()
             summary = dict(
                 schema="wmm.campaign-monitor.v1",
@@ -670,7 +702,7 @@ def execute(store, job, transport=None):
                         recovery=result.get("recovery"),
                     )
                 )
-                paused = protect(store, job, service, capability, result)
+                paused = protect(store, job, service, capability, result, target)
                 if paused is not None:
                     results[-1]["protective_pause"] = paused["status"]
                     results[-1]["pause_effective_status"] = paused["pause_readback"]["effective_status"]
@@ -690,7 +722,7 @@ def execute(store, job, transport=None):
             )
 
 
-def protect(store, job, service, capability, result):
+def protect(store, job, service, capability, result, target):
     if result.get("recovery") == "IN_FLIGHT":
         return
     if result.get("recovery") in ("OWNER_UNVERIFIED", "LEASE_STATE_CONFLICT"):
@@ -705,6 +737,9 @@ def protect(store, job, service, capability, result):
             raise PermissionError("Campaign dispatch requires owner reconciliation")
         return
     with connection(store.path) as db:
+        _, paid = target_row(db, job["app_id"], capability["scope_id"], target)
+        if not paid:
+            return
         db.execute("BEGIN IMMEDIATE")
         row = db.execute("SELECT * FROM campaign_monitors WHERE id=?", (job["data"]["monitor_id"],)).fetchone()
         checked(db, row)

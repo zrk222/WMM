@@ -839,7 +839,19 @@ class CampaignExecutionService:
                 db.execute("SELECT * FROM campaign_paid_intents WHERE app_id=? AND id=?", (app_id, identity)).fetchone()
             ), True
 
-    def _mark_paid(self, app_id, actor, scope_id, intent_id, step, owner_token, action="RUN_AD", active=True):
+    def _mark_paid(
+        self,
+        app_id,
+        actor,
+        scope_id,
+        intent_id,
+        step,
+        owner_token,
+        action="RUN_AD",
+        active=True,
+        *,
+        pause_snapshot=None,
+    ):
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
             scope = row_scope(self._row(db, app_id, scope_id))
@@ -850,6 +862,10 @@ class CampaignExecutionService:
             ).fetchone()
             if row is None or row["status"].startswith("PENDING_"):
                 raise Invalid("Campaign has another unresolved provider operation")
+            if step == "PAUSED_campaign" and (
+                pause_snapshot != (row["status"], row["updated"]) or row["status"] == "ACK_PAUSED_campaign"
+            ):
+                raise Invalid("Campaign pause changed; check its saved status before trying again")
             stopped = db.execute(
                 "SELECT 1 FROM campaign_stop_requests WHERE app_id=? AND intent_id=?", (app_id, intent_id)
             ).fetchone()
@@ -944,13 +960,14 @@ class CampaignExecutionService:
         finally:
             db.close()
 
-    def _confirm_paid(self, app_id, intent_id, expected, status, readback=None):
-        """Record only a readback following a saved provider acknowledgment."""
+    def _confirm_paid(self, app_id, intent_id, expected, status, readback=None, *, pause_snapshot=None):
+        """Record readback for an acknowledged effect or a previously confirmed pause."""
         permitted = {
             ("ACK_ACTIVE_adset", "ACTIVE_adset"),
             ("ACK_ACTIVE_ad", "ACTIVE_ad"),
             ("ACK_ACTIVE_campaign", "ACTIVE_campaign"),
             ("ACK_PAUSED_campaign", "PAUSED_campaign"),
+            ("PAUSED_campaign", "PAUSED_campaign"),
         }
         if (expected, status) not in permitted:
             raise Invalid("Invalid campaign confirmation transition")
@@ -966,9 +983,24 @@ class CampaignExecutionService:
                 if intent is None:
                     raise Invalid("Paid campaign intent was not found")
                 receipt = pause_receipt_data(intent, readback)
+            updated, observed_revision = pause_snapshot if pause_snapshot is not None else (None, None)
             changed = db.execute(
-                "UPDATE campaign_paid_intents SET status=?,updated=? WHERE app_id=? AND id=? AND status=?",
-                (status, now(), app_id, intent_id, expected),
+                "UPDATE campaign_paid_intents SET status=?,updated=? WHERE app_id=? AND id=? AND status=? "
+                "AND (? IS NULL OR updated=?) AND (? IS NULL OR ?=(SELECT COALESCE(MAX(rowid),0) "
+                "FROM campaign_pause_receipts WHERE app_id=? AND intent_id=?))",
+                (
+                    status,
+                    now(),
+                    app_id,
+                    intent_id,
+                    expected,
+                    updated,
+                    updated,
+                    observed_revision,
+                    observed_revision,
+                    app_id,
+                    intent_id,
+                ),
             ).rowcount
             if not changed:
                 raise Invalid("Campaign verification state changed")
@@ -1062,7 +1094,17 @@ class CampaignExecutionService:
         identity = intent["id"]
         owner_token = uid()
         with paid_lock(self.store, app_id, identity):
-            self._mark_paid(app_id, actor, scope["scope_id"], identity, step, owner_token, action, active)
+            self._mark_paid(
+                app_id,
+                actor,
+                scope["scope_id"],
+                identity,
+                step,
+                owner_token,
+                action,
+                active,
+                pause_snapshot=(intent["status"], intent["updated"]) if step == "PAUSED_campaign" else None,
+            )
             try:
                 self.transport.set_paid_status(
                     kind,
@@ -1227,12 +1269,17 @@ class CampaignExecutionService:
     def _pause(self, app_id, actor, scope_id, intent_id, action):
         scope, secret, token = self._protective_credentials(app_id, scope_id)
         with connection(self.store.path) as db:
+            db.execute("BEGIN")
             intent = paid_view(
                 db.execute(
                     "SELECT * FROM campaign_paid_intents WHERE app_id=? AND scope_id=? AND id=?",
                     (app_id, scope_id, intent_id),
                 ).fetchone()
             )
+            observed_revision = db.execute(
+                "SELECT COALESCE(MAX(rowid),0) FROM campaign_pause_receipts WHERE app_id=? AND intent_id=?",
+                (app_id, intent_id),
+            ).fetchone()[0]
         if not intent["ids"].get("campaign"):
             raise Invalid("No saved campaign ID is available to pause")
         current = self._paid_read(
@@ -1240,6 +1287,18 @@ class CampaignExecutionService:
         )
         if str(current.get("account_id")) != scope["ad_account_id"]:
             raise Unconfirmed("Saved campaign account readback differs from approved account")
+        state = intent["status"]
+        if state in ("ACK_PAUSED_campaign", "PAUSED_campaign") and current.get("status") == "PAUSED":
+            return self._confirm_paid(
+                app_id,
+                intent["id"],
+                state,
+                "PAUSED_campaign",
+                current,
+                pause_snapshot=(intent["updated"], observed_revision),
+            )
+        if state == "ACK_PAUSED_campaign":
+            raise Unconfirmed("Meta acknowledged the pause; check the saved campaign before sending another pause")
         intent = self._paid_status(app_id, actor, scope, intent, "campaign", "PAUSED", token, secret, action, False)
         current = self._paid_read(
             app_id, actor, scope, "campaign", intent["ids"]["campaign"], token, secret, action, False
