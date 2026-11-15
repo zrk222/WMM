@@ -88,5 +88,64 @@
     "same_counts_as_earlier": true,
     "conversion_rate": null,
     "decision": "RETAIN_INCONCLUSIVE"
+  },
+  "installed_owner_workspace_readback": {
+    "observed_at": "2026-11-15T09:47:33.496613+00:00",
+    "classification": "INSTALLED_WINDOWS_OWNER_WORKSPACE_HEADLESS",
+    "apps": [
+      {
+        "app": "WizeMe.APP",
+        "loaded": true,
+        "saved_jobs": 36,
+        "owner_session_signed_in": false
+      },
+      {
+        "app": "SUDHĪ",
+        "loaded": true,
+        "saved_jobs": 0,
+        "owner_session_signed_in": false
+      }
+    ],
+    "historical_campaign_job_attempts": 1,
+    "historical_verified_post_count": 1,
+    "duplicate_intents_created": false,
+    "credential_migration": false,
+    "live_delivery_reverified": false,
+    "new_publications": 0,
+    "media_spend_minor": 0,
+    "private_receipt_sha256": "75d039942d7c4c4173846f0d1075fb8b748eff797c01ecf3731de4c4459e0b1e"
+  },
+  "installed_ui_campaign_review": {
+    "observed_at": "2026-11-15T09:49:22.416058+00:00",
+    "workflows": [
+      {
+        "app": "WizeMe.APP",
+        "selected_goal": "campaign",
+        "opened_goal_packet": true,
+        "download_button_clicked": true,
+        "packet_classification": "LOCAL_DRAFT_NO_AUTHORITY",
+        "missing_stage_inputs": [
+          4,
+          6
+        ]
+      },
+      {
+        "app": "SUDHĪ",
+        "selected_goal": "campaign",
+        "opened_goal_packet": true,
+        "download_button_clicked": true,
+        "packet_classification": "LOCAL_DRAFT_NO_AUTHORITY",
+        "missing_stage_inputs": [
+          4,
+          6
+        ],
+        "own_social_connection": "NOT_CONFIGURED",
+        "app_selection_isolated": true
+      }
+    ],
+    "private_receipt_sha256": "6d74a984f16a07bccfeb187daef6732e09a5ccf7b4381e4eb2714bd1934b3c1a",
+    "evidence_boundary": "Observed installed UI and clicked download; downloaded file path was not supplied by the browser tool.",
+    "new_publications": 0,
+    "media_spend_minor": 0
   }
 }
