@@ -2,6 +2,8 @@
 
 import re
 import unittest
+
+from tests.dashboard_fixture import assert_dashboard_entry
 from tests.test_http import HTTPTests
 
 
@@ -14,8 +16,7 @@ class PackagingStaticTests(unittest.TestCase):
         code, body, headers = self.request("/")
         self.assertEqual(code, 200)
         shell = body.decode("utf-8")
-        self.assertEqual(re.findall(r'<script\b[^>]*src="([^"]+)"', shell), ["/dashboard.mjs"])
-        self.assertIn('type="module" src="/dashboard.mjs"', shell)
+        assert_dashboard_entry(self, shell)
         code, adapter, response_headers = self.request("/feature-apis.mjs")
         self.assertEqual(code, 200)
         self.assertIn("text/javascript", response_headers["Content-Type"])

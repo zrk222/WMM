@@ -9,6 +9,8 @@ import unittest
 from pathlib import Path
 from typing import Protocol, cast
 
+from tests.dashboard_fixture import assert_dashboard_entry
+
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "mission_control/static"
 SCREEN_LIMIT = 800
@@ -41,8 +43,7 @@ class StaticWiringTests(unittest.TestCase):
 
     def test_dashboard_entry_links_shell_and_screen_modules(self):
         html = (STATIC / "index.html").read_text(encoding="utf-8")
-        self.assertEqual(scripts(html), ["dashboard.mjs"])
-        self.assertRegex(html, r'<script type="module" src="/dashboard\.mjs"></script>')
+        assert_dashboard_entry(self, html)
         entry = (STATIC / "dashboard.mjs").read_text(encoding="utf-8")
         self.assertRegex(entry, r"import\s*\{\s*startApplication\s*\}\s*from\s*['\"]\./app\.mjs['\"];?")
         self.assertIn("startApplication()", entry)
@@ -80,6 +81,7 @@ class StaticWiringTests(unittest.TestCase):
         host.setUp()
         try:
             files = {p.name for p in STATIC.glob("*.mjs")}
+            files.add("startup-recovery.js")
             files.update(re.findall(r"import\s*['\"]\./([^'\"]+)['\"]", (STATIC / "feature-apis.mjs").read_text()))
             # Frozen hosts must not depend on registry MIME mappings.
             for mapping in (("application/octet-stream", None), (None, None)):

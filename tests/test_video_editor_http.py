@@ -1,13 +1,17 @@
 """Exact delivery of the fixed human editor asset and load order."""
 
-from pathlib import Path
-from urllib.request import urlopen
 import re
 import unittest
+from pathlib import Path
+from urllib.request import urlopen
+
 from tests import test_agent_grants as fixture
+from tests.dashboard_fixture import assert_dashboard_entry
 
 
 class VideoEditorHTTPTests(unittest.TestCase):
+    origin: str
+
     setUp = fixture.GrantTests.setUp
     tearDown = fixture.GrantTests.tearDown
 
@@ -19,8 +23,7 @@ class VideoEditorHTTPTests(unittest.TestCase):
             )
         with urlopen(self.origin, timeout=15) as response:
             text = response.read().decode()
-            self.assertEqual(re.findall(r'<script\b[^>]*src="([^"]+)"', text), ["/dashboard.mjs"])
-            self.assertIn('type="module" src="/dashboard.mjs"', text)
+            assert_dashboard_entry(self, text)
         with urlopen(self.origin + "/feature-apis.mjs", timeout=15) as response:
             self.assertEqual(response.headers.get_content_type(), "text/javascript")
             imports = re.findall(r"^import ['\"]([^'\"]+)['\"];", response.read().decode(), re.M)

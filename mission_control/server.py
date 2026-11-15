@@ -390,7 +390,7 @@ class Handler(BaseHTTPRequestHandler):
             "/app-weekly.mjs",
             "/app-events.mjs",
         )
-        if path in scripts:
+        if path in scripts or path == "/startup-recovery.js":
             return self.send_asset(STATIC / path[1:], "text/javascript; charset=utf-8")
         files = {
             "/packaging.css": "packaging.css",
