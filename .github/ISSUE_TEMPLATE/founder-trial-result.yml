@@ -20,16 +20,30 @@ body:
       label: What happened?
       options:
         - Installation blocked
-        - Stopped before reviewing or exporting a plan
-        - Reviewed or exported a plan with help
-        - Reviewed or exported a plan without help
+        - Stopped before opening a draft
+        - Opened only the first research packet
+        - Reviewed or exported a campaign plan with help
+        - Reviewed or exported a campaign plan without help
+        - Not sure which draft I opened
+    validations:
+      required: true
+  - type: dropdown
+    id: measured-next-step
+    attributes:
+      label: Did you find how to prepare a first measured post?
+      options:
+        - Did not try
+        - Looked, did not find it
+        - Found it after help
+        - Found it without help
+        - Not sure
     validations:
       required: true
   - type: textarea
     id: attempt
     attributes:
       label: Starting point, time spent, and what happened
-      description: Include the generic app category, the exact blocked step or button label, and any help you received. Say whether you used a real account (yes or no only). Leave out secrets and exports.
+      description: Include the generic app category, the exact screen or button label where you finished or stopped, and any help you received. Say whether you used a real account (yes or no only). Leave out secrets and exports.
     validations:
       required: true
   - type: textarea
