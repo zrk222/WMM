@@ -1,6 +1,8 @@
 import {
+  bindReportScheduleFields,
   proposalInboxMarkup,
   proposalScheduleMarkup,
+  proposalScheduleRequest,
   reportTemplates,
 } from './automation-proposal-inbox.mjs';
 import { WMMPublicationUI } from './publication.mjs';
@@ -733,42 +735,14 @@ async function manageRuleProposals(node, action) {
           'The app, study or rule selection changed. Review the schedule again.';
         return;
       }
-      const interval = panel.querySelector('#proposal-interval');
-      const count = panel.querySelector('#proposal-count');
-      const days = panel.querySelector('#proposal-days');
-      if (![interval, count, days].every((field) => field.reportValidity())) {
-        message.textContent = 'Check the review interval, dates and run limit.';
-        return;
-      }
-      const template = review.reports[panel.querySelector('#proposal-report-template')?.value];
-      const reportCount = panel.querySelector('#proposal-report-count');
-      if (template) {
-        reportCount.max = String(count.valueAsNumber);
-        if (!reportCount.reportValidity()) {
-          message.textContent =
-            'Choose a whole number of private report saves from 1 to Maximum reviews.';
-          return;
-        }
-      }
-      await api(path + '/schedule', {
-        enabled: true,
-        version: node.dataset.version ? Number(node.dataset.version) : null,
-        app_version: state.workspace.app.version,
+      const body = proposalScheduleRequest(panel, message, review.reports, {
+        version: node.dataset.version,
+        appVersion: state.workspace.app.version,
         saved,
         study: selected?.binding ?? null,
-        interval_hours: interval.valueAsNumber,
-        expires_at: new Date(Date.now() + days.valueAsNumber * 86400000).toISOString(),
-        max_runs: count.valueAsNumber,
-        ...(template
-          ? {
-              report_integration: {
-                report_id: template.id,
-                report_hash: template.hash,
-                max_reports: reportCount.valueAsNumber,
-              },
-            }
-          : {}),
       });
+      if (!body) return;
+      await api(path + '/schedule', body);
     }
     actionSaved = [
       'automation-proposals-run',
@@ -804,21 +778,7 @@ async function manageRuleProposals(node, action) {
         'afterbegin',
         proposalScheduleMarkup(saved, value.schedule, reports, { esc, button, savedWhen }),
       );
-      const template = target.querySelector('#proposal-report-template');
-      if (template) {
-        const settings = target.querySelector('#proposal-report-settings');
-        const reportCount = target.querySelector('#proposal-report-count');
-        const count = target.querySelector('#proposal-count');
-        const updateMax = () => {
-          reportCount.max = String(count.validity.valid ? count.valueAsNumber : 1);
-        };
-        count.addEventListener('input', updateMax);
-        template.addEventListener('change', () => {
-          reportCount.value = '1';
-          settings.hidden = reportCount.disabled = !reports[template.value];
-          updateMax();
-        });
-      }
+      bindReportScheduleFields(target, reports);
       target.querySelector('#proposal-interval')?.focus();
     }
     message.textContent =

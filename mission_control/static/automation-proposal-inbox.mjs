@@ -80,3 +80,65 @@ export function proposalScheduleMarkup(saved, schedule, reports, { esc, button, 
     }
     ${button('Start scheduled reviews', 'automation-proposals-start', attrs)}</fieldset>`;
 }
+
+export function proposalScheduleRequest(
+  panel,
+  message,
+  reports,
+  { version, appVersion, saved, study },
+) {
+  const interval = panel.querySelector('#proposal-interval');
+  const count = panel.querySelector('#proposal-count');
+  const days = panel.querySelector('#proposal-days');
+  if (![interval, count, days].every((field) => field.reportValidity())) {
+    message.textContent = 'Check the review interval, dates and run limit.';
+    return;
+  }
+  const template = reports[panel.querySelector('#proposal-report-template')?.value];
+  const reportCount = panel.querySelector('#proposal-report-count');
+  if (template) {
+    reportCount.max = String(count.valueAsNumber);
+    if (!reportCount.reportValidity()) {
+      message.textContent =
+        'Choose a whole number of private report saves from 1 to Maximum reviews.';
+      return;
+    }
+  }
+  return {
+    enabled: true,
+    version: version ? Number(version) : null,
+    app_version: appVersion,
+    saved,
+    study,
+    interval_hours: interval.valueAsNumber,
+    expires_at: new Date(Date.now() + days.valueAsNumber * 86400000).toISOString(),
+    max_runs: count.valueAsNumber,
+    ...(template
+      ? {
+          report_integration: {
+            report_id: template.id,
+            report_hash: template.hash,
+            max_reports: reportCount.valueAsNumber,
+          },
+        }
+      : {}),
+  };
+}
+
+export function bindReportScheduleFields(target, reports) {
+  const template = target.querySelector('#proposal-report-template');
+  if (template) {
+    const settings = target.querySelector('#proposal-report-settings');
+    const reportCount = target.querySelector('#proposal-report-count');
+    const count = target.querySelector('#proposal-count');
+    const updateMax = () => {
+      reportCount.max = String(count.validity.valid ? count.valueAsNumber : 1);
+    };
+    count.addEventListener('input', updateMax);
+    template.addEventListener('change', () => {
+      reportCount.value = '1';
+      settings.hidden = reportCount.disabled = !reports[template.value];
+      updateMax();
+    });
+  }
+}
