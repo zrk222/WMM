@@ -25,10 +25,12 @@ hash. Agents cannot approve or replace the frozen input.
    checkpoint for `pipeline.prepare` proves job submission only. `QUEUED` is not
    completed preparation. Inspect the job's eventual status, result and outputs.
    The local pipeline produces artifacts; it never publishes or spends.
-5. Cancel an active job with `job.cancel`, its `resource_id` and empty input.
-   Cancellation records local job status. Inspect running work and its receipt;
-   cancellation does not prove an external effect was stopped. Terminal jobs
-   cannot be cancelled again. No automatic uncertain-write replay is provided.
+5. Cancel an ordinary local run with `job.cancel`, its `resource_id` and empty
+   input. For scheduled posts or ads, the owner stops the batch in **Connections
+   → Campaign automation → Saved schedules**. For monitors, the owner uses
+   **Watch the work → Monitor approved campaigns**. Scheduled private reports
+   stop in **Private campaign outcomes**. A local stop does not pause a live ad
+   or undo a delivered post. Inspect the receipt before taking further action.
 
 CLI example, with the scoped token supplied in the process environment:
 

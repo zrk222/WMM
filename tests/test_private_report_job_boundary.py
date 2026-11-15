@@ -11,6 +11,35 @@ from tests import test_campaign_owner_reports as fixtures
 
 
 class PrivateReportJobBoundaryTests(unittest.TestCase):
+    def test_campaign_run_must_use_its_owner_stop_control(self) -> None:
+        fixture = fixtures.CampaignOwnerReportsTests(
+            "test_finite_plan_hash_activation_tick_restart_and_local_job_idempotency"
+        )
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        origin = fixture.fixture.client.origin
+        ordinary = OperatorClient(origin)
+        ordinary.bootstrap()
+
+        created = "2026-01-01T00:00:00+00:00"
+        for action in ("campaign_post", "campaign_ad", "campaign_monitor"):
+            for status in ("QUEUED", "RUNNING"):
+                with self.subTest(action=action, status=status):
+                    job_id = f"{action}-{status}"
+                    with connection(fixture.store.path) as db:
+                        db.execute(
+                            """INSERT INTO jobs(id,app_id,action,data,status,created,updated,request_key)
+                            VALUES(?, 'sample', ?, '{}', ?, ?, ?, ?)""",
+                            (job_id, action, status, created, created, job_id),
+                        )
+                    with self.assertRaises(ClientError) as denied:
+                        ordinary.request("POST", f"/api/apps/sample/jobs/{job_id}/cancel", {})
+                    self.assertEqual(denied.exception.status, 403)
+                    self.assertEqual(denied.exception.code, "ACCESS_DENIED")
+                    with connection(fixture.store.path) as db:
+                        row = db.execute("SELECT status,updated FROM jobs WHERE id=?", (job_id,)).fetchone()
+                    self.assertEqual(tuple(row), (status, created))
+
     def test_scheduled_report_remains_private_across_worker_and_http_reads(self) -> None:
         fixture = fixtures.CampaignOwnerReportsTests(
             "test_finite_plan_hash_activation_tick_restart_and_local_job_idempotency"
