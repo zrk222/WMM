@@ -18,14 +18,14 @@ A founder can reach a useful, evidence-bound campaign plan without developer ass
 
 ## Session (45 minutes, no coaching)
 
-1. **Consent and setup (5 min).** Explain that this is a product test, not a marketing result. Use their own app facts or a supplied synthetic app. Do not enter real provider credentials unless they explicitly choose a disposable test account.
-2. **Task (25 min).** Ask: “Using WMM, prepare one marketing experiment you could actually review, with a clear outcome and the evidence still missing.”
+1. **Consent and setup (5 min).** Explain that this is a product test, not a marketing result. Assign an exact release tag and installer for the participant’s usual supported OS. Record both and the start time. Use their own app facts or a supplied synthetic app; neither requires provider credentials. Save any installation stop as part of the first attempt.
+2. **Task (25 min).** Ask: “Using WMM, prepare one marketing experiment you could actually review, with a clear outcome and the evidence still missing. Then find where you would go to measure one post from that experiment. Stop once you find it.”
    - They must add or inspect app facts.
    - They must reach **Build your campaign plan** and export or review it. The
      research packet under **Open your first packet** alone does not meet this
      task. The observer records which draft actually opened, without naming
      either control before the participant tries.
-   - They must find the first measured-post path and explain what approval is still needed.
+   - Count reaching either **Your first measured post** or the direct **Measure one organic post** setup. Do not reveal the screen names or show the result form until the attempt ends. Finding a path does not require registration, connection setup, or publishing. Record the participant’s explanation of what approval is still needed as a separate signal.
 3. **Think-aloud capture (5 min).** Note where they hesitate, what they misread, and every dead end. Do not answer product questions until the task ends.
 4. **Debrief (10 min).** Ask what the product does in one sentence, what they would do next, and whether they would use it again for this app. Record verbatim quotes with permission.
 
@@ -45,7 +45,7 @@ A pass on plan creation does not establish measured value. A failure is retained
 For each participant, keep:
 
 - anonymous participant ID and date;
-- starting state and app category;
+- starting state, exact release tag and installer, platform, and app category;
 - task completion time;
 - exact blocked step and UI label;
 - the exact resulting screen or exported artifact kind: research packet,

@@ -11,7 +11,7 @@ Use the [official releases page](https://github.com/zrk222/WMM/releases) for the
 ## The 45-minute session
 
 1. **Consent and setup (5 min).** Use synthetic app facts or non-sensitive facts about your own app. This tests first use, and no real provider credentials are needed.
-2. **Task (25 min).** Using WMM, prepare one marketing experiment you could actually review, with a clear outcome and the evidence still missing.
+2. **Task (25 min).** Using WMM, prepare one marketing experiment you could actually review, with a clear outcome and the evidence still missing. Then find where you would go to measure one post from that experiment. Stop once you find it.
 3. **Think aloud (5 min).** Say where you hesitated, misread something, or got stuck. The observer will record these without answering product questions during the task.
 4. **Debrief (10 min).** In one sentence, say what WMM does, what you would do next, and whether you would use it again for this app. Quotes are optional and only recorded with permission.
 
