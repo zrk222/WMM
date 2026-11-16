@@ -10,6 +10,7 @@ import sys
 import tempfile
 import time
 import unittest
+from contextlib import nullcontext
 from pathlib import Path
 from queue import Queue
 from threading import Thread
@@ -106,13 +107,11 @@ class DesktopSidecarTests(unittest.TestCase):
                         if child.poll() is None:
                             child.kill()
 
-    def test_sidecar_uses_the_relay_port_or_a_working_private_fallback(self):
+    def test_sidecar_uses_the_relay_port_or_a_working_private_fallback(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             for occupied in (True, False):
-                with self.subTest(occupied=occupied), socket.socket(socket.AF_INET, socket.SOCK_STREAM) as blocker:
-                    if occupied:
-                        blocker.bind(("127.0.0.1", 8765))
-                        blocker.listen(1)
+                blocker = socket.create_server(("127.0.0.1", 8765)) if occupied else nullcontext()
+                with self.subTest(occupied=occupied), blocker:
                     with self.start_child(folder) as child:
                         frame_line, stderr = child.communicate(NONCE + b"\n", timeout=15)
                     self.assertEqual(child.returncode, 0, stderr)

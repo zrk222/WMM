@@ -6,6 +6,7 @@ import socket
 import tempfile
 import time
 import unittest
+from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import cast
 from unittest.mock import patch
@@ -27,7 +28,7 @@ from tests.test_social_setup import body
 
 
 @contextmanager
-def desktop_fixture(directory: str):
+def desktop_fixture(directory: str) -> Iterator[fixtures.HTTPTests]:
     runtime = DesktopRuntime(directory)
     try:
         browser = fixtures.HTTPTests()
@@ -164,7 +165,7 @@ class SocialHTTPTests(unittest.TestCase):
             )
             self.assertEqual(self.request(base + "/" + saved["id"] + "/disconnect", {"version": 1})[0], 200)
 
-    def test_desktop_fallback_refuses_relay_before_creating_a_flow(self):
+    def test_desktop_fallback_refuses_relay_before_creating_a_flow(self) -> None:
         FakeVault.values = {}
         self.server.runtime_mode = "DESKTOP"
         self.assertNotEqual(self.server.server_port, 8765)
@@ -191,7 +192,7 @@ class SocialHTTPTests(unittest.TestCase):
             self.server.runtime_mode = "SERVER"
             self.assertEqual(self.request(base + "/start", {"provider": "facebook", "version": 1})[0], 200)
 
-    def test_moved_direct_callback_requires_the_current_port_before_minting_state(self):
+    def test_moved_direct_callback_requires_the_current_port_before_minting_state(self) -> None:
         FakeVault.values = {}
         store = self.server.service.store
         port = self.server.server_port
@@ -213,19 +214,16 @@ class SocialHTTPTests(unittest.TestCase):
                 uri = parse_qs(urlsplit(authorization_url).query)["redirect_uri"]
                 self.assertEqual(uri, [f"http://127.0.0.1:{current_port}/social/callback/tiktok"])
 
-    def test_fallback_setup_survives_restart_and_retries_without_resaving(self):
+    def test_fallback_setup_survives_restart_and_retries_without_resaving(self) -> None:
         FakeVault.values = {}
         base = "/api/apps/sample-one/social-access"
         headers = {"Content-Type": "application/json"}
         command = {"provider": "facebook", "version": 1}
         with tempfile.TemporaryDirectory() as folder, patch("mission_control.social_secrets.Vault", FakeVault):
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as blocker:
-                blocker.bind(("127.0.0.1", 8765))
-                blocker.listen(1)
-                with desktop_fixture(folder) as browser:
-                    self.assertNotEqual(browser.server.server_port, 8765)
-                    self.assertEqual(browser.request(base + "/save", body(), headers)[0], 200)
-                    self.assertEqual(browser.request(base + "/start", command, headers)[0], 400)
+            with socket.create_server(("127.0.0.1", 8765)), desktop_fixture(folder) as browser:
+                self.assertNotEqual(browser.server.server_port, 8765)
+                self.assertEqual(browser.request(base + "/save", body(), headers)[0], 200)
+                self.assertEqual(browser.request(base + "/start", command, headers)[0], 400)
             with desktop_fixture(folder) as browser:
                 self.assertEqual(browser.server.server_port, 8765)
                 view = browser.request("/api/apps/sample-two")[1]
