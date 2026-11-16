@@ -57,7 +57,7 @@ class ReleaseProvenanceTests(unittest.TestCase):
         self.assertFalse(kwargs["check"])
         return subprocess.CompletedProcess(args, 0, self.output(Path(args[3])), "")
 
-    def test_eight_official_verifier_calls_bind_exact_repo_signer_source_and_digests(self):
+    def test_eight_official_verifier_calls_bind_exact_repo_signer_source_and_digests(self) -> None:
         with patch.object(provenance.subprocess, "run", side_effect=self.successful_verifier):
             receipt = provenance.verify(self.folder, SHA, self.receipt)
         self.assertEqual(len(self.calls), 8)
