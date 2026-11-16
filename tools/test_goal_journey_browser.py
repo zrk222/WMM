@@ -101,6 +101,30 @@ def run(browser, width, out):
             expect(page.get_by_role("button", name="Open your first packet", exact=True)).to_be_focused()
         assert not writes, writes
         nav = page.locator("#navigation")
+        page.get_by_role("button", name="Check what you can measure", exact=True).press("Enter")
+        evidence_heading = page.get_by_role("heading", name="What you can answer now", exact=True)
+        expect(evidence_heading).to_be_focused()
+        analytics = page.get_by_role("region", name="Analytics overview", exact=True)
+        expect(analytics).to_contain_text("Saved analytics evidence and the next useful action")
+        expect(analytics).to_contain_text("A missing source stays unknown")
+        expect(analytics.get_by_role("button", name="Add cohort evidence", exact=True).first).to_be_visible()
+        expect(packet).to_be_hidden()
+        assert not writes, writes
+        snapshot = page.evaluate(r"""() => {
+            const styles = Array.from(document.styleSheets).flatMap(sheet => {
+                try { return Array.from(sheet.cssRules).map(rule => rule.cssText); }
+                catch { return []; }
+            }).join(String.fromCharCode(10));
+            const html = document.documentElement.cloneNode(true);
+            html.querySelectorAll('script,link[rel="stylesheet"]').forEach(node => node.remove());
+            const style = document.createElement('style');
+            style.textContent = styles;
+            html.querySelector('head').append(style);
+            return '<!doctype html>' + html.outerHTML;
+        }""")
+        (out / f"measurement-readiness-{width}.html").write_text(snapshot, encoding="utf-8")
+        page.screenshot(path=str(out / f"measurement-readiness-{width}.png"))
+        nav.get_by_role("button", name="Set your goal", exact=True).click()
         expect(nav.get_by_role("button", name="Watch the work", exact=True)).to_be_visible()
         advanced = nav.locator("details")
         summary = advanced.locator("summary")
@@ -226,6 +250,7 @@ def run(browser, width, out):
             reload_retains_choice=True,
             pdf_preview=True,
             stale_worker_snapshot_with_live_route=True,
+            measurement_readiness_without_agent_setup=True,
             no_mutations=True,
             javascript_errors=errors,
         )
