@@ -374,6 +374,7 @@ test('agreement and owner report show per-campaign cap and exact approved finger
         commitment_held_minor: 0,
         approval: {
           page_id: '123',
+          ad_account_id: '456',
           max_campaign_minor: 50,
           max_total_minor: 100,
           currency: 'CAD',
@@ -395,7 +396,10 @@ test('agreement and owner report show per-campaign cap and exact approved finger
     report = a.reportModel(data, { notes: [] }),
     notes = report.notes.join(' ');
   assert.match(html, /Per-campaign media cap 50 minor CAD/);
-  assert.match(html, /maximum total media commitment 100 minor CAD/);
+  assert.match(html, /maximum total media commitment 100 minor CAD \(approved ceiling\)/);
+  assert.match(html, /Held by this approval: 0 minor CAD/);
+  assert.match(html, /Other commitments on the same Meta ad account and in the same currency/);
+  assert.doesNotMatch(html, /remaining balance|100 minor CAD available/);
   assert.match(html, /Exact approved content, rights and targeting hashes/);
   for (const hash of [content, rights, targeting]) {
     assert.ok(html.includes(hash));
@@ -403,6 +407,10 @@ test('agreement and owner report show per-campaign cap and exact approved finger
   }
   assert.match(notes, /Per-campaign media cap 50 minor CAD/);
   assert.match(notes, /Maximum total media commitment 100 minor CAD/);
+  assert.match(notes, /Other commitments on the same Meta ad account and in the same currency/);
+  assert.ok(
+    report.metrics.some((metric) => metric.label === 'Held by this approval' && metric.value === 0),
+  );
   assert.equal(JSON.stringify(report).includes('PRIVATE_RIGHTS_PROSE'), false);
   assert.equal(JSON.stringify(report).includes('PRIVATE_COPY'), false);
 });
