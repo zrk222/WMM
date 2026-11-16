@@ -1,16 +1,47 @@
 """Synthetic receipt-integrity fixtures are not native acceptance evidence."""
 
+import copy
 import importlib.util
 import json
-from pathlib import Path
 import tempfile
 import unittest
-import copy
+from pathlib import Path
+from typing import TypedDict
 
 path = Path(__file__).resolve().parents[1] / "tools/check_platform_receipts.py"
 spec = importlib.util.spec_from_file_location("platform_receipts", path)
+if spec is None or spec.loader is None:
+    raise RuntimeError("Native platform receipt checker is unavailable")
 checker = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(checker)
+
+
+class FixtureObservation(TypedDict):
+    requirement: str
+    status: str
+    artifacts: list[str]
+
+
+class FixtureProfile(TypedDict):
+    family: str
+    physical: bool
+    companion_offline: bool
+    device_model: str
+    os_version: str
+    xcode_version: str
+    sdk_version: str
+    python_version: str
+    bundle_id: str
+    signing_identity: str
+    observed_at: str
+    observations: list[FixtureObservation]
+
+
+class FixtureReceipt(TypedDict):
+    schema: str
+    candidate_sha256: str
+    artifacts: list[dict[str, str]]
+    profiles: list[FixtureProfile]
 
 
 class NativeCIContractTests(unittest.TestCase):
@@ -46,13 +77,20 @@ class NativeCIContractTests(unittest.TestCase):
         self.assertEqual(self.check(self.value)["state"], "INCOMPLETE")
 
     def test_native_trigger_cannot_omit_bundled_engine_changes(self):
-        for path in ("ios/**", "mission_control/**", "package/**"):
+        for path in ("ios/**", "mission_control/**/*.py", "mission_control/migrations/**", "package/**"):
             value = copy.deepcopy(self.value)
             value["on"]["pull_request"]["paths"].remove(path)
             with self.subTest(path=path):
                 result = self.check(value)
                 self.assertEqual(result["state"], "INCOMPLETE")
                 self.assertTrue(any("bundled shared engine" in error for error in result["errors"]))
+
+    def test_native_trigger_cannot_add_desktop_assets_or_exclude_engine(self) -> None:
+        for pattern in ("mission_control/**", "mission_control/static/**", "!mission_control/core.py"):
+            value = copy.deepcopy(self.value)
+            value["on"]["pull_request"]["paths"].append(pattern)
+            with self.subTest(pattern=pattern):
+                self.assertEqual(self.check(value)["state"], "INCOMPLETE")
 
     def test_native_families_are_independent_mandatory_and_keep_distinct_evidence(self):
         for mutation in ("missing-family", "fail-fast", "wrong-command", "same-artifact"):
@@ -152,9 +190,29 @@ class NativeReceiptTests(unittest.TestCase):
             "\n".join("identified by `" + r + "`" for r in self.requirements)
         )
 
-    def receipt(self):
+    def test_bundled_migration_changes_receipt_identity_but_desktop_script_does_not(self) -> None:
+        folder = self.root / "mission_control/migrations"
+        folder.mkdir()
+        migration = folder / "0001_initial.sql"
+        migration.write_text("SELECT 1;")
+        first = checker.source_inventory(self.root)
+        self.assertIn({"path": "mission_control/migrations/0001_initial.sql", "sha256": checker.sha(migration)}, first)
+        desktop = self.root / "mission_control/static"
+        desktop.mkdir()
+        (desktop / "app.mjs").write_text("export const value = 1")
+        self.assertEqual(checker.source_inventory(self.root), first)
+        migration.write_text("SELECT 2;")
+        self.assertNotEqual(checker.source_inventory(self.root), first)
+
+    def receipt(self) -> FixtureReceipt:
         candidate = checker.check(self.root, self.evidence)["candidate_sha256"]
-        value = dict(schema="wmm.ios-acceptance.v1", candidate_sha256=candidate, artifacts=[], profiles=[])
+        assert isinstance(candidate, str)
+        value: FixtureReceipt = {
+            "schema": "wmm.ios-acceptance.v1",
+            "candidate_sha256": candidate,
+            "artifacts": [],
+            "profiles": [],
+        }
         for family in ("iphone", "ipad"):
             ids = []
             for kind in checker.KINDS:
@@ -165,25 +223,20 @@ class NativeReceiptTests(unittest.TestCase):
                 value["artifacts"].append(
                     dict(id=identity, path=identity, sha256=checker.sha(file), family=family, kind=kind)
                 )
-            profile = dict(
-                family=family,
-                physical=True,
-                companion_offline=True,
-                **{
-                    key: "synthetic"
-                    for key in (
-                        "device_model",
-                        "os_version",
-                        "xcode_version",
-                        "sdk_version",
-                        "python_version",
-                        "bundle_id",
-                        "signing_identity",
-                        "observed_at",
-                    )
-                },
-                observations=[dict(requirement=r, status="PASS", artifacts=ids) for r in self.requirements],
-            )
+            profile: FixtureProfile = {
+                "family": family,
+                "physical": True,
+                "companion_offline": True,
+                "device_model": "synthetic",
+                "os_version": "synthetic",
+                "xcode_version": "synthetic",
+                "sdk_version": "synthetic",
+                "python_version": "synthetic",
+                "bundle_id": "synthetic",
+                "signing_identity": "synthetic",
+                "observed_at": "synthetic",
+                "observations": [{"requirement": r, "status": "PASS", "artifacts": ids} for r in self.requirements],
+            }
             value["profiles"].append(profile)
         return value
 
