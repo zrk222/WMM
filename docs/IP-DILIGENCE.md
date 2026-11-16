@@ -1,11 +1,11 @@
 # WMM rights and relicensing checklist
 
-**Status: component inventory complete; ownership and relicensing review open.**
+**Status: source inventory recorded; release contents, ownership and relicensing review open.**
 This is a review checklist, not a chain-of-title opinion or a grant of rights.
 
-The reproducible component/license inventory is [IP-INVENTORY.md](IP-INVENTORY.md)
-and [ip-inventory.json](ip-inventory.json). It covers shipped and build/test
-components, declared licenses and open evidence gaps. Legal ownership,
+The source component/license inventory is [IP-INVENTORY.md](IP-INVENTORY.md)
+and [ip-inventory.json](ip-inventory.json). It records candidate installer and build inputs, declared host dependencies,
+and open evidence gaps. Actual release contents have not been reconciled. Legal ownership,
 contributor permission, exact release binding and the open items in that file
 still require human review.
 

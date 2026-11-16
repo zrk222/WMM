@@ -1,55 +1,36 @@
-﻿# IP component inventory
+# IP component inventory
 
-**Status: component inventory complete; ownership and relicensing review open.**
+**Status: source inventory recorded; release contents, ownership and relicensing review open.**
 This is not a chain-of-title opinion, trademark clearance or commercial
 relicensing permission.
 
-Machine-readable inventory: [`ip-inventory.json`](ip-inventory.json)  
-Inventory SHA-256: `dbfacd34bcedfb0c498e6c2354bbe027abdd2b2e27846ad75930a5c640c994cc`  
+Machine-readable inventory: [`ip-inventory.json`](ip-inventory.json)
+Inventory SHA-256 (UTF-8, LF): `98e43d3a2409efcc5da9b089750d8e972171747303781762e4fd2d5d1e06bf3e`
 Components: **538** (418 Rust crates, 101 npm build/test packages, 8 Python/runtime
 entries, 7 system/build entries, 3 first-party entries and 1 vendored JS library).
 
 ## Shipment model
 
-The desktop payload contains:
+This source inventory distinguishes candidate installer contents, required host
+packages, build tools and separately published documentation. The installer
+build inputs are WMM source and static assets, CPython and selected Python
+dependencies, and the Rust launcher and window dependencies.
 
-- WMM Python source, static assets and migrations, compiled by PyInstaller.
-- CPython 3.11 plus PyInstaller, tzdata, truststore and platform storage packages.
-- On Linux, system packages including WebKitGTK 4.1, DejaVu fonts and optional
-  FFmpeg.
-- On Windows, the system Microsoft Edge WebView2 Runtime and the Tauri launcher.
-- Rust crates from `desktop/src-tauri/Cargo.lock` and
-  `desktop/launcher/Cargo.lock`.
-- The vendored Three.js bundle used by the public overview page.
-- Synthetic screenshots and a Remotion-rendered preview video.
+- The Ubuntu installer declares fourteen host packages in
+  [its base control file](../packaging/linux/control), including FFmpeg, DejaVu
+  fonts, GNOME Keyring and D-Bus. The native desktop package adds
+  `libwebkit2gtk-4.1-0` when the native launcher is present. Both lists are in
+  the JSON; installed versions and license receipts remain to be reconciled.
+- WebKitGTK is a Linux build/runtime input; Microsoft Edge WebView2 is
+  system-provided on Windows. Neither is listed as a bundled file.
+- The vendored Three.js bundle, synthetic screenshots and preview video are
+  reviewed as public documentation assets. Build and test tools such as npm,
+  Playwright, Remotion and Inno Setup are separate from the installed payload.
 
-npm packages in `package-lock.json` are build/test tooling and are marked
-`shipped: false`. Inno Setup, Playwright and Remotion are build or documentation
-tools, not part of the desktop payload.
-
-## Shipped license families
-
-| Family | Count |
-| --- | ---: |
-| MIT | 303 |
-| Apache-2.0 | 37 |
-| Zlib | 19 |
-| Unicode-3.0 | 18 |
-| MIT/Apache-2.0 variants | 22 |
-| Unlicense / MIT / 0BSD | 12 |
-| BSD-3-Clause variants | 8 |
-| MPL-2.0 | 5 |
-| PSF-2.0 | 1 |
-| LGPL-2.1-or-later (WebKitGTK) | 1 |
-| GPL-2.0-or-later (FFmpeg build-dependent) | 1 |
-| Microsoft WebView2 terms | 1 |
-| First-party WMM license/asset claims | 3 |
-| Bitstream Vera / DejaVu | 1 |
-
-Review the exact machine inventory for every component, version, source and
-evidence path. The largest obligation clusters are MPL-2.0 file-level copyleft,
-LGPL WebKitGTK dynamic linking, build-dependent FFmpeg terms, and the
-PyInstaller bootloader exception.
+Use the machine inventory for declared license values and evidence paths. Its
+counts describe the source inventory's classifications. Check the actual
+installers and separately distributed assets before calling that inventory
+complete or making an IP clearance decision.
 
 ## Open items
 
@@ -65,11 +46,12 @@ PyInstaller bootloader exception.
 8. **Exact release binding:** bind this inventory to the release candidate SBOM
    and shipped payload hashes. A build-environment SBOM alone is insufficient.
 
-## Reproduction
+## Updating this source inventory
 
 1. Generate Cargo metadata for both manifests with `--locked`.
 2. Read `package-lock.json` for npm build/test packages.
 3. Read `requirements.txt`, `docs/requirements-mcp.txt` and the desktop package
    workflow for Python/runtime packages.
-4. Rebuild `ip-inventory.json`, recompute its SHA-256, and update the release
-   clearance receipt only after human review.
+4. Review the classification of each entry and reconcile it against the
+   actual release. Update `ip-inventory.json` and recompute its UTF-8 LF SHA-256.
+   This is a review procedure, not a byte-for-byte inventory generator.
