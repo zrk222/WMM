@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from playwright.sync_api import Browser, expect, sync_playwright
+from playwright.sync_api import Browser, Page, Route, expect, sync_playwright
 from test_goal_journey_browser import rendered_page
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,6 +48,45 @@ def saved_review_monitor(path: str | Path, principal: str) -> str:
             ),
         )
     return monitor
+
+
+def verify_changed_schedule(page: Page, width: int, out: Path) -> None:
+    """Send changed, correctly hashed copy to the real local schedule route."""
+    from mission_control.common import digest
+
+    address = "**/api/apps/sample-one/campaigns/schedule-prepare"
+    form = page.locator("#campaign-schedule-form")
+    submit = form.get_by_role("button", name="Review exact scheduled batch", exact=True)
+    text = "Synthetic draft after the approval"
+
+    def change_copy(route: Route) -> None:
+        body = route.request.post_data_json
+        assert isinstance(body, dict)
+        item = body["items"][0]["request"]
+        item.update(message=text, content_hash=digest({"message": text, "link": item["link"]}))
+        route.continue_(post_data=json.dumps(body))
+
+    page.route(address, change_copy, times=1)
+    with page.expect_response(address) as rejected:
+        submit.press("Enter")
+    assert rejected.value.status == 403
+    alert = form.get_by_role("alert")
+    expect(alert).to_contain_text("The saved campaign approval does not cover this post")
+    expect(alert).to_contain_text("review the exact post and its rights")
+    expect(alert).not_to_contain_text(text)
+    expect(alert).to_be_focused()
+    expect(submit).to_be_enabled()
+    page.keyboard.press("Tab")
+    expect(submit).to_be_focused()
+    expect(page.locator("#campaign-schedule-review")).to_have_count(0)
+    (out / f"schedule-review-required-{width}.html").write_text(rendered_page(page), encoding="utf-8")
+    overflow = page.locator("#modal").evaluate(
+        """modal => [...modal.querySelectorAll('*')].flatMap(el => {
+            const {right} = el.getBoundingClientRect();
+            return right > modal.getBoundingClientRect().right + 1 ? [[el.tagName, el.getAttribute('name')]] : [];
+        }).slice(0, 10)"""
+    )
+    assert page.locator("#modal").evaluate("(modal) => modal.scrollWidth <= modal.clientWidth"), (width, overflow)
 
 
 def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
@@ -284,6 +323,8 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         page.get_by_role("button", name="Schedule approved posts", exact=True).click()
         form = page.locator("#campaign-schedule-form")
         form.locator("[name=due_0]").fill((datetime.now() + timedelta(minutes=2)).strftime("%Y-%m-%dT%H:%M"))
+        verify_changed_schedule(page, width, out)
+        assert f.wire.posts == 0 and not jobs(f.store, "sample-one")
         form.get_by_role("button", name="Review exact scheduled batch", exact=True).click()
         expect(page.locator("#campaign-schedule-review")).to_contain_text(f.message)
         assert f.wire.posts == 0
@@ -477,6 +518,7 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
             durable_reload=True,
             campaign_reuse_requires_new_approval_and_tracking=True,
             report_privacy=True,
+            changed_schedule_needs_exact_owner_review=True,
             saved_campaign_runs_have_distinct_labels=True,
             campaign_does_not_select_agent=True,
             javascript_errors=errors,

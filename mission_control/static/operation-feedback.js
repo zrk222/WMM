@@ -156,6 +156,15 @@
   );
   define(
     [
+      'Scheduled post is outside campaign approval',
+      'Post content or rights attestation is outside the approved scope',
+    ],
+    'CAMPAIGN_REVIEW_REQUIRED',
+    'The saved campaign approval does not cover this post.',
+    'Return to the campaign scope and ask the app owner to review the exact post and its rights before continuing.',
+  );
+  define(
+    [
       'Campaign content, rights or targeting is outside scope',
       'Campaign budget exceeds the approved per-campaign amount',
       'Advertising account currency differs from scope',

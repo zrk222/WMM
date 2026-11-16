@@ -116,6 +116,12 @@
 
 .campaign-review-copy { white-space: pre-wrap; overflow-wrap: anywhere; }
 .campaign-review-link { overflow-wrap: anywhere; }
+#campaign-schedule-form input[type="datetime-local"] { min-inline-size: 0; }
+@media (max-width: 380px) {
+  #campaign-schedule-form { padding-inline: 12px; }
+  #campaign-schedule-form .panel { padding-inline: 8px; }
+  #campaign-schedule-form input[type="datetime-local"] { padding-inline: 8px; }
+}
 .campaign-review-facts { display: grid; gap: 12px 20px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); }
 .campaign-review-facts dt { font-weight: 600; }
 .campaign-review-facts dd { margin: 0; overflow-wrap: anywhere; }

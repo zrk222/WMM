@@ -295,6 +295,19 @@ class JSONDepthTests(unittest.TestCase):
             (403, "/ordinary", b'{"error":"Reload the current campaign session"}', "SESSION_REFRESH_REQUIRED"),
             (403, "/ordinary", b'{"error":"private-provider-detail"}', "ACCESS_DENIED"),
             (403, "/api/agent-operations/call", b'{"error":"private-provider-detail"}', "AGENT_ACCESS_DENIED"),
+            (403, "/ordinary", b'{"error":"Scheduled post is outside campaign approval"}', "ACCESS_DENIED"),
+            (
+                403,
+                "/api/apps/sample-one/campaigns/schedule-prepare",
+                b'{"error":"Scheduled post is outside campaign approval","detail":"private-provider-detail"}',
+                "ACCESS_DENIED",
+            ),
+            (
+                403,
+                "/api/agent-operations/call",
+                b'{"error":"Post content or rights attestation is outside the approved scope"}',
+                "AGENT_ACCESS_DENIED",
+            ),
         ):
             stream = io.BytesIO(raw)
             error = HTTPError("http://127.0.0.1:1", status, "", headers, stream)
