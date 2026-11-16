@@ -269,9 +269,10 @@ class ReleaseTests(unittest.TestCase):
             self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.11"))
             self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.11.1"))
             self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.11.1.1"))
+            self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.11.1.2"))
             for tag in (
                 "v0.1.0-preview.10",
-                "v0.1.0-preview.11.1.2",
+                "v0.1.0-preview.11.1.3",
                 "v0.1.0-preview.11.2",
                 "v0.1.0-preview.12",
                 "v0.1.0",
