@@ -30,6 +30,8 @@ Agents should inspect saved status and reconcile within their agreed call/time b
 
 ## Evidence limits
 
+A temporary GitHub outage can stop fresh owner verification before an action starts. If your WMM sign-in is still within its original session window, retry the explicit action when GitHub is reachable. WMM does not replay it, extend the session, or use saved identity in place of fresh verification. An expired or rejected sign-in still needs reconnection.
+
 Local tests exercise the actual owner/agent HTTP gates, budgets, locks, failure recovery and UI with synthetic provider responses. They do not establish live Meta entitlement, approval, delivery, billing accuracy or marketing improvement. Native iOS provider onboarding and signed-device behavior require their own acceptance; a shared catalog does not prove every desktop provider setup is available on-device. Growth, installs and sales are measured outcomes, not guarantees.
 
 Implementation compatibility reference: the official [Meta AdsInsights SDK](https://github.com/facebook/facebook-python-business-sdk/blob/main/facebook_business/adobjects/adsinsights.py) lists `maximum` as an insights date preset. The spend adapter uses that bounded available-history request; it does not send the unsupported `lifetime` preset or infer an all-time billing total.

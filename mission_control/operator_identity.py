@@ -16,6 +16,16 @@ from .common import Invalid, now
 from .providers import NoRedirect
 
 
+class IdentityTemporarilyUnavailable(Invalid):
+    """No decision was made about the existing credential."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "GitHub identity verification is unavailable; saved work is preserved. "
+            "Try this action again once GitHub is reachable. No new approval was granted."
+        )
+
+
 def _identity_trust_context():
     """Use native Windows certificate verification without global SSL changes."""
     if sys.platform == "win32":
@@ -57,8 +67,14 @@ def github_read(path, token):
         with opener.open(request, timeout=15) as response:
             raw = response.read(65537)
     except HTTPError as exc:
+        if exc.code == 429 or 500 <= exc.code < 600:
+            raise IdentityTemporarilyUnavailable() from exc
         raise Invalid(f"GitHub identity verification returned HTTP {exc.code}; sign in again or check access") from exc
-    except (URLError, ssl.SSLError, TimeoutError) as exc:
+    except (URLError, TimeoutError) as exc:
+        if isinstance(exc, URLError) and isinstance(exc.reason, ssl.SSLError):
+            raise Invalid("GitHub identity verification is unavailable; saved work is preserved") from exc
+        raise IdentityTemporarilyUnavailable() from exc
+    except ssl.SSLError as exc:
         raise Invalid("GitHub identity verification is unavailable; saved work is preserved") from exc
     if len(raw) > 65536:
         raise Invalid("GitHub identity response exceeds the supported size")
@@ -124,6 +140,10 @@ class Identities:
                 raise PermissionError("Sign in with GitHub before changing verified access or reviews")
             try:
                 user = github_read("/user", row["token"])
+            except IdentityTemporarilyUnavailable:
+                # This protected request must still fail. Keep its existing deadline and
+                # generation so the owner can retry without repeating sign-in.
+                raise
             except Exception:
                 self.sessions.pop(session, None)
                 raise
