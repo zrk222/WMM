@@ -5,18 +5,18 @@ empty instance is never interpreted as zero. Hash linkage checks consistency of
 supplied provenance, not authenticity of a provider or the supplied bytes.
 """
 
-from collections import Counter
 import base64
 import binascii
-from copy import deepcopy
-from datetime import date
 import hashlib
 import json
 import re
+from collections import Counter
+from copy import deepcopy
+from datetime import date
 
+from .apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY, METRIC_REPORTS
+from .apple_analytics_parser import EVENTS, MAX_COMPRESSED, MAX_DECOMPRESSED, MAX_ROWS, MAX_SEGMENTS, TYPES
 from .common import Invalid
-from .apple_analytics import DISCOVERY, METRIC_REPORTS
-from .apple_analytics_parser import EVENTS, MAX_ROWS, MAX_SEGMENTS, MAX_COMPRESSED, MAX_DECOMPRESSED, TYPES
 
 STANDARD_DIMENSIONS = frozenset(
     ("app name", "app version", "device", "platform version", "source type", "page type", "pre-order", "territory")
@@ -158,6 +158,12 @@ def _row(row, key, processing_date, sources):
         _integer(row["unique_count"], 0, row["count"])
     dimensions = row["dimensions"]
     allowed = DISCOVERY_DIMENSIONS if discovery else STANDARD_DIMENSIONS
+    if key["report_family"] == CAMPAIGN_DOWNLOADS:
+        allowed = frozenset(("territory", "campaign_sha256"))
+        if type(dimensions) is not dict or set(dimensions) != allowed:
+            raise Invalid("Invalid Apple campaign dimensions")
+        if dimensions.get("campaign_sha256"):
+            _hash(dimensions["campaign_sha256"], 64)
     if type(dimensions) is not dict or not set(dimensions).issubset(allowed):
         raise Invalid("Invalid Apple metrics dimensions")
     for name, value in dimensions.items():

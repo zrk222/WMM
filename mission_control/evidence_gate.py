@@ -9,6 +9,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 from .aeo_transport import ReadError, public_url
+from .apple_campaign_links import campaign_parts
 from .common import Invalid, digest, iso_time, required
 
 PLAN_FIELDS = (
@@ -61,8 +62,8 @@ def has_campaign_tag(url: object, campaign: str) -> bool:
     if not isinstance(url, str) or len(url) > 4096:
         return False
     try:
-        return campaign in parse_qs(urlsplit(url).query, max_num_fields=256).get("utm_campaign", [])
-    except ValueError:
+        return tracking_campaign_tag(url) == campaign.casefold()
+    except (Invalid, ValueError):
         return False
 
 
@@ -71,7 +72,11 @@ def tracking_campaign_tag(link: str | None) -> str | None:
     if link is None:
         return None
     try:
-        tags = parse_qs(urlsplit(link).query, keep_blank_values=True, max_num_fields=256).get("utm_campaign")
+        parts = urlsplit(link)
+        apple = campaign_parts(parts)
+        if apple is not None:
+            return apple[1].casefold()
+        tags = parse_qs(parts.query, keep_blank_values=True, max_num_fields=256).get("utm_campaign")
     except ValueError:
         raise Invalid("Use a valid, bounded campaign tracking link") from None
     if tags is None:
@@ -79,6 +84,15 @@ def tracking_campaign_tag(link: str | None) -> str | None:
     if len(tags) != 1 or not tags[0].strip():
         raise Invalid("Use exactly one nonempty campaign tag in the tracking link")
     return tags[0].casefold()
+
+
+def scoped_tracking_tag(db: sqlite3.Connection, app_id: str, link: str | None) -> str | None:
+    """Never submit an Apple campaign link under a different WMM app."""
+    if link and (apple := campaign_parts(urlsplit(link))) is not None:
+        app = db.execute("SELECT json_extract(data,'$.store_app_id') FROM apps WHERE id=?", (app_id,)).fetchone()
+        if app is None or app[0] != apple[0]:
+            raise Invalid("Apple campaign link must target this app's App Store listing")
+    return tracking_campaign_tag(link)
 
 
 def assert_fresh_campaign_tag(db: sqlite3.Connection, app_id: str, tag: str | None, *, scope_id: str = "") -> None:
@@ -103,10 +117,10 @@ def assert_fresh_campaign_tag(db: sqlite3.Connection, app_id: str, tag: str | No
         raise Invalid(message)
     for link in saved_tracking_links(db, app_id, scope_id):
         try:
-            previous = parse_qs(urlsplit(link).query, max_num_fields=256).get("utm_campaign", [])
-        except ValueError:
+            previous = tracking_campaign_tag(link)
+        except (Invalid, ValueError):
             continue
-        if any(value.casefold() == tag for value in previous):
+        if previous == tag:
             raise Invalid(message)
 
 

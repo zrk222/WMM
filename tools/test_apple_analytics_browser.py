@@ -3,17 +3,19 @@
 Identity and provider responses are synthetic; this never accesses a real account.
 """
 
-from pathlib import Path
 import json
 import sys
+from pathlib import Path
+from typing import Any
 from unittest.mock import patch
+
 from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 # Standalone tool: resolve this checkout before importing its application/fixtures.
-from mission_control.apple_analytics import DISCOVERY  # noqa: E402
+from mission_control.apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY  # noqa: E402
 from mission_control.apple_metrics_schedule import AppleMetricsSchedules  # noqa: E402
 from mission_control.common import digest, now  # noqa: E402
 from mission_control.worker import run_once  # noqa: E402
@@ -22,7 +24,21 @@ from tests.test_apple_metrics_http_route import AppleMetricsRouteTests  # noqa: 
 OUT = ROOT / ".factory/apple-analytics-ui/browser"
 
 
-def journey(browser, width, height):
+def campaign_downloads(root: Any) -> None:
+    """Exercise the actual controls and authenticated route without Apple network access."""
+    root.get_by_text("Measure App Store campaign downloads", exact=True).click()
+    form = root.locator("#apple-campaign-form")
+    form.get_by_label("Apple campaign link").fill("https://apps.apple.com/app/apple-store/id123?pt=456&ct=pilot&mt=8")
+    form.get_by_label("Storefront country code (two letters)").fill("ca")
+    form.get_by_label("Start date").fill("2026-01-01")
+    form.get_by_label("End date (included)").fill("2026-01-02")
+    form.get_by_role("button", name="Review saved downloads").click()
+    expect(root.locator("#apple-campaign-results")).to_contain_text("Unknown")
+    expect(root.locator("#apple-analytics-status")).to_contain_text("Saved Apple campaign results reviewed.")
+    root.get_by_text("Measure App Store campaign downloads", exact=True).click()
+
+
+def journey(browser: Any, width: int, height: int) -> dict[str, Any]:
     fixture = AppleMetricsRouteTests("test_owner_can_queue_observe_and_pause_without_provider_calls")
     fixture.setUp()
     origin = "http://127.0.0.1:" + str(fixture.server.server_port)
@@ -47,7 +63,10 @@ def journey(browser, width, height):
         page.locator("#identity-token").fill("synthetic_owner_identity_token")
         dialog.get_by_role("button", name="Verify my identity", exact=True).click()
         expect(dialog).not_to_be_visible()
-        page.wait_for_function("(state) => state.workspace?.identity?.status === 'AUTHENTICATED'", arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"))
+        page.wait_for_function(
+            "(state) => state.workspace?.identity?.status === 'AUTHENTICATED'",
+            arg=page.evaluate_handle("async () => (await import('/app.mjs')).state"),
+        )
         page.locator('[data-action="apple-analytics-open"]').click()
         root = page.locator("#apple-analytics-root")
         expect(root).to_contain_text("No saved refresh schedule")
@@ -65,6 +84,12 @@ def journey(browser, width, height):
             reports=[
                 dict(id="report-1", name="App Downloads Standard", coverage="COMPLETE", instances=[]),
                 dict(id="discovery-1", name=DISCOVERY, coverage="COMPLETE", instances=[]),
+                dict(
+                    id="campaign-report-1",
+                    name=CAMPAIGN_DOWNLOADS,
+                    coverage="COMPLETE",
+                    instances=[dict(id="campaign-instance-1", granularity="DAILY", processing_date="2026-01-02")],
+                ),
             ],
         )
         with patch("mission_control.worker.read_report", return_value=result) as provider:
@@ -74,6 +99,7 @@ def journey(browser, width, height):
         expect(root).to_contain_text("0 report instances")
         expect(root).to_contain_text("Missing metrics remain unknown")
         expect(root).to_contain_text("Unique counts can overlap")
+        campaign_downloads(root)
         control = root.get_by_role("button", name="Collect store impressions", exact=True)
         control.focus()
         page.keyboard.press("Enter")
@@ -108,7 +134,7 @@ def journey(browser, width, height):
         form.get_by_role("button", name="Enable refresh", exact=True).click()
         expect(root).to_contain_text("ENABLED")
         saved = AppleMetricsSchedules(fixture.store).get("sample-one")
-        assert saved["enabled"] and saved["interval_hours"] == 48
+        assert saved is not None and saved["enabled"] and saved["interval_hours"] == 48
         assert saved["last_success"] is None
         # A queued read and saved schedule are not fabricated numeric evidence.
         expect(root).to_contain_text("Last metrics collected: Not recorded")
@@ -128,7 +154,8 @@ def journey(browser, width, height):
         root.get_by_role("button", name="Pause refresh", exact=True).focus()
         page.keyboard.press("Enter")
         expect(root).to_contain_text("PAUSED")
-        assert AppleMetricsSchedules(fixture.store).get("sample-one")["enabled"] is False
+        paused = AppleMetricsSchedules(fixture.store).get("sample-one")
+        assert paused is not None and paused["enabled"] is False
         # Report uses actual inventory counts and its caveats, not synthetic app metrics.
         reports = []
         page.on("popup", lambda popup: reports.append(popup))
@@ -155,6 +182,7 @@ def journey(browser, width, height):
             inventory="SYNTHETIC_HTTP_VERIFIED",
             schedule_save_pause="VERIFIED",
             impressions="OWNER_QUEUE_AND_UNKNOWN_IF_NO_DAILY_REPORT",
+            apple_campaign_downloads="OWNER_READ_AND_UNKNOWN_WITHOUT_MATCHING_ROWS",
             pdf_report="PRINTABLE_REPORT_VERIFIED",
             app_isolation="VERIFIED",
             overflow=False,
@@ -171,7 +199,7 @@ def journey(browser, width, height):
         fixture.doCleanups()
 
 
-def main():
+def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as runtime:
         browser = runtime.chromium.launch()

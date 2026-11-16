@@ -1,16 +1,17 @@
 """Offline validation of complete Apple standard analytics report instances."""
 
 import csv
-from collections import Counter
-from datetime import date
 import gzip
 import hashlib
 import io
 import re
 import zlib
+from collections import Counter
+from datetime import date
 
-from .apple_analytics import DISCOVERY, DOWNLOADS, METRIC_REPORTS
-from .common import Invalid, canonical
+from .apple_analytics import CAMPAIGN_DOWNLOADS, DISCOVERY, DOWNLOADS, METRIC_REPORTS
+from .apple_campaign_links import campaign_token
+from .common import Invalid, canonical, digest
 
 MAX_SEGMENTS = 50
 MAX_COMPRESSED = 16777216
@@ -64,6 +65,9 @@ def _name(value):
 def _rows(data, app_id, budget, report_family):
     discovery = report_family == DISCOVERY
     required = DISCOVERY_REQUIRED if discovery else REQUIRED
+    detailed = report_family == CAMPAIGN_DOWNLOADS
+    if detailed:
+        required = required | {"campaign", "territory"}
     try:
         reader = csv.reader(io.StringIO(data.decode("utf-8-sig"), newline=""), delimiter="\t", strict=True)
         headers = next(reader)
@@ -74,7 +78,7 @@ def _rows(data, app_id, budget, report_family):
         for values in reader:
             if len(values) != len(names) or len(rows) >= budget:
                 raise Invalid("Apple report row shape or count exceeds its limit")
-            row = dict(zip(names, values))
+            row = dict(zip(names, values, strict=True))
             if row["app apple identifier"] != app_id:
                 raise Invalid("Apple report belongs to another app")
             day = _day(row["date"])
@@ -92,6 +96,8 @@ def _rows(data, app_id, budget, report_family):
                 count=int(count),
                 dimensions={key: value for key, value in row.items() if key not in required},
             )
+            if detailed:
+                observation["dimensions"] = detailed_dimensions(row)
             if discovery:
                 unique = row["unique counts"]
                 if not re.fullmatch(r"[0-9]{1,15}", unique) or int(unique) > int(count):
@@ -101,6 +107,13 @@ def _rows(data, app_id, budget, report_family):
         return rows
     except (UnicodeError, csv.Error, StopIteration):
         raise Invalid("Malformed Apple report CSV") from None
+
+
+def detailed_dimensions(row: dict[str, str]) -> dict[str, str]:
+    """Keep only the territory and a matchable hash; discard raw campaign/referrer fields."""
+    value = row["campaign"]
+    territory = row["territory"]
+    return {"territory": territory, "campaign_sha256": digest(value) if campaign_token(value) else ""}
 
 
 def _segment_identity(segment, identities):

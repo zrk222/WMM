@@ -13,6 +13,7 @@ from .campaign_pause_receipts import saved_pause_receipt as saved_pause_receipt
 from .campaign_transport import MetaTransport, Unconfirmed
 from .common import Invalid, canonical, digest, iso_time, now, uid
 from .db import connection
+from .evidence_gate import assert_fresh_campaign_tag, assert_ready, scoped_tracking_tag
 from .review_access import member
 from .social_connections import Connections
 from .social_profiles import facebook, selected_page
@@ -438,8 +439,6 @@ class CampaignExecutionService:
         return dict(scope, pause_results=pauses)
 
     def _reserve_post(self, app_id, actor, scope_id, post, destination_check=None):
-        from .evidence_gate import assert_fresh_campaign_tag, tracking_campaign_tag
-
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
             scope = row_scope(self._row(db, app_id, scope_id))
@@ -467,7 +466,7 @@ class CampaignExecutionService:
             ).fetchone()[0]
             if count >= scope["max_posts"]:
                 raise PermissionError("Approved post count is exhausted")
-            tag = tracking_campaign_tag(post["link"])
+            tag = scoped_tracking_tag(db, app_id, post["link"])
             assert_fresh_campaign_tag(db, app_id, tag, scope_id=scope_id)
             retained = {"destination_check": destination_check} if destination_check else {}
             if tag is not None:
@@ -541,11 +540,10 @@ class CampaignExecutionService:
 
     def run_post(self, app_id, actor, scope_id, body):
         post = post_data(body)
-        from .evidence_gate import assert_ready
-
         scope = self.get_scope(app_id, scope_id)
         with connection(self.store.path) as db:
             self._check(db, app_id, actor, scope, "RUN_POST")
+            scoped_tracking_tag(db, app_id, post["link"])
         if scope.get("measurement_plan"):
             assert_ready(self.store, app_id, scope, request=post)
         scope, secret, token = self._preflight(app_id, actor, scope_id, "RUN_POST")

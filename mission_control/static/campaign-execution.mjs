@@ -30,6 +30,16 @@ async function campaignHash(value) {
   return Array.from(new Uint8Array(bytes), (x) => x.toString(16).padStart(2, '0')).join('');
 }
 
+function campaignTrackingTag(url) {
+  if (!url) return '';
+  const parsed = new URL(url);
+  return (
+    parsed.searchParams.get(
+      parsed.hostname === 'apps.apple.com' && parsed.searchParams.has('pt') ? 'ct' : 'utm_campaign',
+    ) || ''
+  );
+}
+
 function campaignBound(form) {
   if (
     form.isConnected === false ||
@@ -97,7 +107,7 @@ async function campaignOpen(source = null, study = null, reuse = null) {
     const samePage = accounts.find(
       (row) => row.id === prior.connection_id && row.data.destination.id === prior.page_id,
     );
-    const tag = reuse.link ? new URL(reuse.link).searchParams.get('utm_campaign') : '';
+    const tag = campaignTrackingTag(reuse.link);
     scopeForm.elements.posts.value = reuse.messages.join('\n---\n');
     scopeForm.elements.link.value = tag ? '' : reuse.link || '';
     scopeForm.elements.connection_id.value = samePage?.id || '';
@@ -281,7 +291,7 @@ async function campaignSubmit(form) {
     if (form.dataset.requireMeasurement === 'true' && !anyPlan)
       throw new Error('Set a new measurement window and campaign tag for this run.');
     if (form.dataset.originalCampaignTag) {
-      const tag = link && new URL(link).searchParams.get('utm_campaign');
+      const tag = campaignTrackingTag(link);
       if (!tag || tag.toLowerCase() === form.dataset.originalCampaignTag.toLowerCase())
         throw new Error('Add a tracking link with a new campaign tag for this run.');
     }

@@ -13,7 +13,7 @@ from .campaign_contract import ad_data, post_data
 from .campaign_execution import CampaignExecutionService
 from .common import Invalid, canonical, digest, iso_time, now, uid
 from .db import connection
-from .evidence_gate import assert_fresh_campaign_tag, tracking_campaign_tag
+from .evidence_gate import assert_fresh_campaign_tag, scoped_tracking_tag
 from .review_access import member
 from .store import Store
 
@@ -403,7 +403,7 @@ class CampaignSchedules:
                 operation = cast(str, item.get("operation", "campaign.publish"))
                 request = cast(Mapping[str, object], item["request"])
                 if operation == "campaign.publish":
-                    tag = tracking_campaign_tag(cast(str | None, request.get("link")))
+                    tag = scoped_tracking_tag(db, app_id, cast(str | None, request.get("link")))
                     if tag is not None and tag not in tags:
                         assert_fresh_campaign_tag(db, app_id, tag, scope_id=cast(str, row["scope_id"]))
                         tags.add(tag)

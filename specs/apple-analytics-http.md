@@ -48,3 +48,23 @@ Scenario: privacy
 
 ## Authorized parameters
 MAX_INVENTORY_JOBS = 1000
+
+## App Store campaign download acceptance
+
+In **Connections → Apple analytics**, refresh the inventory, open **Measure App Store
+campaign downloads**, and paste the campaign link generated in App Store Connect.
+Choose an available daily Detailed file to collect. After the job completes, reuse
+the link and select a two-letter storefront and up to 31 calendar days. Processing
+date selects the file; the dates in the results are the dates of the downloads.
+
+- Accept Apple tracking parameters only on an official HTTPS product link for the
+  selected app. Publishing preflight must preserve both the product and query.
+- Collect only a complete Detailed report's selected daily instance through the
+  existing app/source-bound worker. Store the campaign name as a hash, and discard
+  the optional referrer and other Detailed dimensions.
+- Count only Apple-reported first-time downloads matching the campaign, storefront
+  and day. A reported zero stays zero. An absent row stays unknown, including
+  when Apple suppresses small counts. Standard report rows, website visits,
+  first opens and paid subscriptions are separate measurements.
+- Each numeric row links to the fingerprint of its retained source. The view
+  provides counts, not an estimate of incremental lift.

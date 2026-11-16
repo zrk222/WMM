@@ -5,8 +5,9 @@ a future lease/attempt/app/connection/schedule/authority-fenced transaction. It 
 not routed to a worker, HTTP handler, operation, import, or snapshot restore.
 """
 
-from datetime import datetime, timedelta
 import json
+from datetime import datetime, timedelta
+from sqlite3 import Connection
 
 from .apple_metrics_contract import complete_instance, observation_fingerprint, partition
 from .common import Invalid, canonical, digest, now
@@ -25,7 +26,10 @@ KEY_FIELDS = (
     "granularity",
     "event_date",
 )
-_WHERE = " AND ".join(field + "=?" for field in KEY_FIELDS)
+_WHERE = (
+    "WHERE app_id=? AND store_app_id=? AND connection_id=? AND connection_version=? "
+    "AND report_id=? AND report_family=? AND granularity=? AND event_date=?"
+)
 
 
 def ingest(*args, **kwargs):
@@ -40,38 +44,43 @@ def ingest(*args, **kwargs):
 
 def read_partition(path, key):
     """Read one exact local partition; this grants no API access authority."""
-    key = partition(key)
     with connection(path) as db:
-        row = db.execute(
-            "SELECT data,ingested_at,processing_date,fingerprint,source_hash,byte_count "
-            "FROM apple_metric_partitions WHERE " + _WHERE,
-            tuple(key[field] for field in KEY_FIELDS),
-        ).fetchone()
-        if row is None:
-            return None
-        try:
-            size = len(row["data"].encode("utf-8"))
-            if size > MAX_PARTITION_BYTES or size != row["byte_count"]:
-                raise ValueError()
-            instance = complete_instance(key, json.loads(row["data"]))
-            timestamp = datetime.fromisoformat(row["ingested_at"])
-            if (
-                timestamp.utcoffset() != timedelta(0)
-                or timestamp.isoformat() != row["ingested_at"]
-                or instance["processing_date"] != row["processing_date"]
-                or observation_fingerprint(instance["rows"]) != row["fingerprint"]
-                or _source_hash(instance) != row["source_hash"]
-            ):
-                raise ValueError()
-        except (Invalid, ValueError, TypeError, AttributeError, OverflowError):
-            raise Invalid("Stored Apple metrics partition failed integrity validation") from None
-        return dict(
-            partition=key,
-            instance=instance,
-            ingested_at=row["ingested_at"],
-            transport_completeness="SUPPLIED_COMPLETE",
-            event_data_finality="UNKNOWN",
-        )
+        return read_in_snapshot(db, key)
+
+
+def read_in_snapshot(db: Connection, key: dict) -> dict | None:
+    """Verify one saved partition inside the caller's existing snapshot."""
+    key = partition(key)
+    row = db.execute(
+        "SELECT data,ingested_at,processing_date,fingerprint,source_hash,byte_count "
+        "FROM apple_metric_partitions " + _WHERE,
+        tuple(key[field] for field in KEY_FIELDS),
+    ).fetchone()
+    if row is None:
+        return None
+    try:
+        size = len(row["data"].encode("utf-8"))
+        if size > MAX_PARTITION_BYTES or size != row["byte_count"]:
+            raise ValueError()
+        instance = complete_instance(key, json.loads(row["data"]))
+        timestamp = datetime.fromisoformat(row["ingested_at"])
+        if (
+            timestamp.utcoffset() != timedelta(0)
+            or timestamp.isoformat() != row["ingested_at"]
+            or instance["processing_date"] != row["processing_date"]
+            or observation_fingerprint(instance["rows"]) != row["fingerprint"]
+            or _source_hash(instance) != row["source_hash"]
+        ):
+            raise ValueError()
+    except (Invalid, ValueError, TypeError, AttributeError, OverflowError):
+        raise Invalid("Stored Apple metrics partition failed integrity validation") from None
+    return dict(
+        partition=key,
+        instance=instance,
+        ingested_at=row["ingested_at"],
+        transport_completeness="SUPPLIED_COMPLETE",
+        event_data_finality="UNKNOWN",
+    )
 
 
 def _reconcile(db, key, instance):
@@ -93,7 +102,8 @@ def _reconcile(db, key, instance):
         raise Invalid("Apple metrics partition storage limit reached")
     values = tuple(key[field] for field in KEY_FIELDS)
     current = db.execute(
-        "SELECT processing_date,fingerprint,source_hash,byte_count FROM apple_metric_partitions WHERE " + _WHERE, values
+        "SELECT processing_date,fingerprint,source_hash,byte_count FROM apple_metric_partitions " + _WHERE,  # noqa: S608 - static WHERE; values are bound
+        values,
     ).fetchone()
     fingerprint = observation_fingerprint(instance["rows"])
     source_hash = _source_hash(instance)
