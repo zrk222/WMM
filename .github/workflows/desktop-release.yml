@@ -42,10 +42,10 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write('sha=' + sha + '\n')
           PY
-      - name: Require independent review, IP and signing clearance
+      - name: Check eligible release reviewer is configured
         env:
-          CANDIDATE: ${{ inputs.candidate_sha }}
-        run: python tools/check_release_clearance.py --sha "$CANDIDATE"
+          REVIEWER_ID: ${{ vars.WMM_RELEASE_REVIEWER_ID }}
+        run: python -c 'import os; r=os.environ["REVIEWER_ID"]; assert r.isascii() and r.isdigit() and int(r)>0 and int(r)!=int(os.environ["GITHUB_ACTOR_ID"]), "Configure an independent release reviewer distinct from the dispatch actor"'
       - name: Require publisher browser sign-in configuration
         env:
           WMM_GITHUB_DEVICE_CLIENT_ID: ${{ vars.WMM_GITHUB_DEVICE_CLIENT_ID }}
@@ -61,21 +61,22 @@ jobs:
           validate(os.environ.get('WMM_WINDOWS_SIGNER_THUMBPRINT'), os.environ.get('WMM_WINDOWS_TIMESTAMP_URL'))
           PY
       - name: Release protocol unit checks
-        run: python -m unittest tests.test_desktop_release tests.test_release_provenance tests.test_verify_release_assets tests.test_release_attestation_assets -v
+        run: python -m unittest tests.test_desktop_release tests.test_release_provenance tests.test_verify_release_assets tests.test_release_attestation_assets tests.test_release_clearance -v
   packages:
     needs: validate
     uses: ./.github/workflows/desktop-packages.yml
     with:
       candidate_sha: ${{ needs.validate.outputs.sha }}
       require_signed_windows: true
-  publish:
+  prepare:
     needs: [validate, packages]
     runs-on: ubuntu-24.04
-    environment: release
     permissions:
-      contents: write
+      contents: read
       id-token: write
       attestations: write
+    outputs:
+      digest: ${{ steps.prepared.outputs.digest }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -105,6 +106,48 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
+      - name: Bind signed assets and approval instructions
+        id: prepared
+        env:
+          CANDIDATE: ${{ needs.validate.outputs.sha }}
+          TAG: ${{ inputs.tag }}
+          WMM_WINDOWS_SIGNER_THUMBPRINT: ${{ vars.WMM_WINDOWS_SIGNER_THUMBPRINT }}
+        run: python tools/check_release_clearance.py prepare --folder release-assets --sha "$CANDIDATE" --tag "$TAG"
+      - name: Upload immutable reviewed payloads
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: WMM-prepared-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-assets
+          if-no-files-found: error
+          retention-days: 7
+  publish:
+    needs: [validate, prepare]
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ needs.validate.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: WMM-prepared-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-assets
+      - name: Verify the independent approval of the exact signed release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE: ${{ needs.validate.outputs.sha }}
+          TAG: ${{ inputs.tag }}
+          PREPARED: ${{ needs.prepare.outputs.digest }}
+          WMM_RELEASE_REVIEWER_ID: ${{ vars.WMM_RELEASE_REVIEWER_ID }}
+          WMM_WINDOWS_SIGNER_THUMBPRINT: ${{ vars.WMM_WINDOWS_SIGNER_THUMBPRINT }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/approvals" > "$RUNNER_TEMP/release-approvals.json"
+          gh api "repos/$GITHUB_REPOSITORY/commits/$CANDIDATE" > "$RUNNER_TEMP/release-candidate.json"
+          python tools/check_release_clearance.py verify --folder release-assets --sha "$CANDIDATE" --tag "$TAG" --expected "$PREPARED" --candidate-metadata "$RUNNER_TEMP/release-candidate.json" --reviews "$RUNNER_TEMP/release-approvals.json"
       - name: Verify both receipts, publish prerelease, verify anonymous downloads
         env:
           GH_TOKEN: ${{ github.token }}

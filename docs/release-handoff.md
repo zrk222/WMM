@@ -12,6 +12,9 @@ exact current main commit SHA and a new version tag such as
 `v0.1.0-preview.1`. The workflow reruns the Windows and Ubuntu installer checks,
 records the tested installer hashes, and publishes only when both jobs pass.
 Only the final publication job receives repository contents write permission.
+The [release clearance procedure](release-clearances/README.md) requires an
+eligible independent reviewer to approve the fingerprint of the already signed
+and attested files. The publication job rechecks and uploads those exact files.
 Pull requests cannot trigger publication.
 
 The publisher creates a draft prerelease, uploads the two native installers,
@@ -87,7 +90,7 @@ Before distribution, run the [Windows installer lifecycle check](../tools/test_w
 against that exact installer in a disposable Windows environment, and verify
 the installed uninstaller with `signtool verify /pa /all /tw`, checking its
 signer against the expected certificate. Retain those results with the exact
-artifact hash. The hosted preview workflow remains unsigned; a valid signature
+artifact hash. Build-only package runs remain unsigned; a valid signature
 does not establish SmartScreen reputation or independent first-use acceptance.
 
 ## Related

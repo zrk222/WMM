@@ -19,6 +19,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           AUTHOR: ${{ github.event.pull_request.user.login }}
           HEAD: ${{ github.event.pull_request.head.sha }}
+          REVIEWER_ID: ${{ vars.WMM_RELEASE_REVIEWER_ID }}
         run: |
           python - <<'PY'
           import json
@@ -30,6 +31,10 @@ jobs:
           pr = os.environ["PR"]
           author = os.environ["AUTHOR"]
           head = os.environ["HEAD"]
+          configured = os.environ["REVIEWER_ID"]
+          if not configured.isascii() or not configured.isdigit() or int(configured) < 1:
+              raise SystemExit("Configure WMM_RELEASE_REVIEWER_ID for the independent human reviewer")
+          reviewer_id = int(configured)
 
           output = subprocess.check_output(
               [
@@ -37,7 +42,7 @@ jobs:
                   "api",
                   "--paginate",
                   "--jq",
-                  ".[] | {login: .user.login, type: .user.type, state: .state, commit_id: .commit_id, submitted_at: .submitted_at}",
+                  ".[] | {login: .user.login, id: .user.id, type: .user.type, state: .state, commit_id: .commit_id, submitted_at: .submitted_at}",
                   f"repos/{repo}/pulls/{pr}/reviews?per_page=100",
               ],
               text=True,
@@ -49,7 +54,7 @@ jobs:
                   continue
               review = json.loads(line)
               login = review.get("login")
-              if login and login != author:
+              if login and login.casefold() != author.casefold() and review.get("id") == reviewer_id:
                   latest[login] = review
 
           approved = [
