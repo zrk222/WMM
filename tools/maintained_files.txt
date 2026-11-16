@@ -107,6 +107,7 @@ mission_control/storekit_ingestion.py
 mission_control/subscription_journey.py
 mission_control/video_project_http.py
 mission_control/viral_policy.py
+mission_control/weekly_active_work.py
 mission_control/weekly_exception_card.py
 mission_control/weekly_inbox.py
 mission_control/weekly_plan_status.py
