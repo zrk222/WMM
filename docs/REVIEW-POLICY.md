@@ -2,9 +2,10 @@
 
 ## Requirement
 
-Every security-sensitive change needs **owner review** and green CI before merge.
-The repository owner is the reviewer. A separate non-author reviewer is not
-required and is not a merge blocker.
+Every change to `main` needs **independent human review** and green CI before
+merge. The reviewer must be a human who did not author or direct the change. The
+author cannot approve their own pull request. Agent reviews, agent personas, CI
+and owner self-review are evidence only; none counts as independent review.
 
 Security-sensitive paths:
 
@@ -30,13 +31,13 @@ Use `.github/pull_request_template.md` to record the check.
 
 ## Enforcement
 
-Green CI is required. Do **not** enable “require approvals” while the owner is
-also the only author: GitHub does not allow self-approval, so it would block work
-without adding a reviewer.
+Green CI, a code-owner approval and the `Independent human review` check are
+required. Branch protection must require approvals and code-owner review; the
+workflow fails when no non-author human has approved the exact PR head.
 
-If a second human becomes available later, CODEOWNERS and required approvals can
-be added as an optional strengthening. That is a future choice, not a current
-blocker.
+The author cannot merge around a missing review. If no second human is available,
+the change waits. `docs/OWNERSHIP.md` records the bus-factor gap and the required
+second-maintainer onboarding.
 
 ## Residual risk and expansion gate
 

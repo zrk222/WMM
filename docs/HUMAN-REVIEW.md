@@ -14,4 +14,4 @@ Findings or unrun checks:
 Disposition: Approve / Request changes / Needs evidence
 ~~~
 
-An independent reviewer is a human who did not author or direct the change. CI, agent feedback and owner self-review are useful evidence with separate labels. The [owner review policy](REVIEW-POLICY.md) still applies, including its independent security review requirement for expansion. Never include credentials, private analytics, or customer records in a PR.
+An independent reviewer is a human who did not author or direct the change. Agent reviews, agent personas, CI and owner self-review are useful evidence with separate labels, but none is an approval. Submit an approving review for the exact current head SHA; an approval of an older SHA does not count. The [review policy](REVIEW-POLICY.md) applies to every change to `main`. Never include credentials, private analytics, or customer records in a PR.

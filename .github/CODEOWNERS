@@ -1,0 +1,10 @@
+# Every production change requires a human code owner review.
+# The author cannot approve their own pull request.
+* @zrk222
+
+# Security and release paths need the owner as code owner.
+/.github/ @zrk222
+/mission_control/ @zrk222
+/packaging/ @zrk222
+/tools/ @zrk222
+/docs/ @zrk222

@@ -1,0 +1,71 @@
+name: Independent human review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+  pull_request_review:
+    types: [submitted, dismissed]
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  require-non-author-human-approval:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require a non-author human approval at the current head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+
+          repo = os.environ["REPO"]
+          pr = os.environ["PR"]
+          author = os.environ["AUTHOR"]
+          head = os.environ["HEAD"]
+
+          output = subprocess.check_output(
+              [
+                  "gh",
+                  "api",
+                  "--paginate",
+                  "--jq",
+                  ".[] | {login: .user.login, type: .user.type, state: .state, commit_id: .commit_id, submitted_at: .submitted_at}",
+                  f"repos/{repo}/pulls/{pr}/reviews?per_page=100",
+              ],
+              text=True,
+          )
+
+          latest = {}
+          for line in output.splitlines():
+              if not line.strip():
+                  continue
+              review = json.loads(line)
+              login = review.get("login")
+              if login and login != author:
+                  latest[login] = review
+
+          approved = [
+              login
+              for login, review in latest.items()
+              if review.get("type") == "User"
+              and review.get("state") == "APPROVED"
+              and review.get("commit_id") == head
+          ]
+          if not approved:
+              print(
+                  "No non-author human approval exists for the current head. "
+                  "Agent review, CI and owner self-review do not count. "
+                  "See docs/HUMAN-REVIEW.md.",
+                  file=sys.stderr,
+              )
+              raise SystemExit(1)
+          print("Independent human approval: " + ", ".join(sorted(approved)))
+          PY

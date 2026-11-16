@@ -14,7 +14,7 @@
 | Evidence | <!-- CI run or receipt for that SHA, with environment --> |
 | Untested | <!-- Skips, live checks not run, and known limits --> |
 
-**Independent review:** Pending <!-- Replace only with a link to a human review of this exact SHA. -->
+**Independent review:** Pending <!-- Required: link to a non-author human approving this exact head SHA. Agent/self review does not count. -->
 
 Reviewers: [review steps and copyable response](https://github.com/zrk222/WMM/blob/main/docs/HUMAN-REVIEW.md).
 
