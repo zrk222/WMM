@@ -1079,7 +1079,7 @@ async function campaignScheduleStatus(batch, source = null, isCurrent = () => tr
       ) +
       button('Turn scheduled batch OFF', 'campaign-schedule-off') +
       button('Report / Save PDF', 'campaign-schedule-report') +
-      '<p id="schedule-reuse-help" role="status">' +
+      '<p id="schedule-reuse-help">' +
       esc(campaignScheduleReuseHelp(data, canReuse)) +
       '</p><div id="schedule-reuse-action"' +
       (canReuse ? '' : ' hidden') +
