@@ -1,43 +1,116 @@
 """Protected operational access profiles, separated from marketing evidence exports."""
 
-import json, time
-from .common import Invalid, canonical, digest, now, uid, identifier
+import json
+import sqlite3
+import time
+from collections.abc import Callable, Mapping
+from typing import Protocol, cast
+
+from . import (
+    agent_native,
+    agent_registry,
+    credential_vault,
+)
+from . import (
+    draft_recipes as draft_recipes_module,
+)
+from .agent_contract import exact, profile
+from .agent_registry import KEYED, NATIVE, TASKS
+from .common import Invalid, canonical, identifier, now, uid
+from .credential_vault import Vault
 from .db import connection
-from .credential_vault import Vault, namespace
-from .agent_registry import catalog, REGISTRY, TASKS, KEYED, NATIVE
-from .agent_contract import profile, exact
-from .agent_native import locate
-from .draft_recipes import catalog as draft_recipes
+from .store import Store
 
 
-def target(store, app_id, reference):
+class VaultLike(Protocol):
+    def put(self, key: str, value: Mapping[str, object]) -> None: ...
+
+    def get(self, key: str) -> Mapping[str, object] | None: ...
+
+    def delete(self, key: str) -> None: ...
+
+
+REGISTRY = cast(
+    Mapping[str, Mapping[str, object]],
+    vars(agent_registry)["REGISTRY"],
+)
+
+
+def catalog() -> list[Mapping[str, object]]:
+    return cast(
+        Callable[[], list[Mapping[str, object]]],
+        vars(agent_registry)["catalog"],
+    )()
+
+
+def draft_recipes() -> list[Mapping[str, object]]:
+    return cast(
+        Callable[[], list[Mapping[str, object]]],
+        vars(draft_recipes_module)["catalog"],
+    )()
+
+
+def locate(provider: str) -> Mapping[str, object]:
+    return cast(
+        Callable[[str], Mapping[str, object]],
+        vars(agent_native)["locate"],
+    )(provider)
+
+
+def namespace(database: object) -> str:
+    return cast(
+        Callable[[object], str],
+        vars(credential_vault)["namespace"],
+    )(database)
+
+
+def target(store: Store, app_id: str, reference: str) -> str:
     """A profile can address only its own local credential namespace."""
     identifier(app_id)
     identifier(reference)
     return "AgentGrowth/" + namespace(store.path) + "/" + app_id + "/" + reference
 
 
-def decoded(row):
+def decoded(row: sqlite3.Row | None) -> dict[str, object]:
     """Operational rows contain public configuration and opaque references only."""
     if row is None:
         raise Invalid("Agent connection does not belong to this app")
     value = dict(row)
-    value["data"] = json.loads(value["data"])
+    value["data"] = json.loads(cast(str, value["data"]))
     return value
 
 
-def queue_retirement(db, app_id, reference, delay=0):
+def queue_retirement(
+    db: sqlite3.Connection,
+    app_id: str,
+    reference: str | None,
+    delay: float = 0,
+) -> None:
     """Persist an opaque cleanup reference, never the protected key itself."""
     if reference:
-        db.execute("INSERT OR REPLACE INTO agent_retirements VALUES(?,?,?)", (app_id, reference, time.time() + delay))
+        db.execute(
+            "INSERT OR REPLACE INTO agent_retirements VALUES(?,?,?)",
+            (app_id, reference, time.time() + delay),
+        )
 
 
 class AgentAccess:
-    def __init__(self, store, vault_factory=None):
+    def __init__(
+        self,
+        store: Store,
+        vault_factory: Callable[[], VaultLike] | None = None,
+    ) -> None:
         self.store = store
         self.vault_factory = vault_factory
 
-    def get(self, app_id, identity):
+    def _vault(self) -> VaultLike:
+        factory = self.vault_factory or cast(
+            Callable[[], VaultLike],
+            Vault,
+        )
+        return factory()
+
+    def get(self, app_id: str, identity: str) -> dict[str, object]:
         """Never find a connection by ID without its selected app scope."""
         self.store.app(app_id)
         with connection(self.store.path) as db:
@@ -45,23 +118,35 @@ class AgentAccess:
                 db.execute("SELECT * FROM agent_connections WHERE app_id=? AND id=?", (app_id, identity)).fetchone()
             )
 
-    def view(self, app_id):
+    def view(self, app_id: str) -> dict[str, object]:
         """Refresh without invoking native tools, networking or reading secret values."""
         self.store.app(app_id)
         with connection(self.store.path) as db:
             profiles = [
                 decoded(r)
-                for r in db.execute("SELECT * FROM agent_connections WHERE app_id=? ORDER BY created", (app_id,))
+                for r in db.execute(
+                    "SELECT * FROM agent_connections WHERE app_id=? ORDER BY created",
+                    (app_id,),
+                )
             ]
             route = db.execute("SELECT * FROM agent_routes WHERE app_id=?", (app_id,)).fetchone()
-            cleanup = db.execute("SELECT COUNT(*) FROM agent_retirements WHERE app_id=?", (app_id,)).fetchone()[0]
+            cleanup = cast(
+                int,
+                db.execute(
+                    "SELECT COUNT(*) FROM agent_retirements WHERE app_id=?",
+                    (app_id,),
+                ).fetchone()[0],
+            )
         for row in profiles:
-            tool = row["data"].pop("tool", None)
+            data = cast(dict[str, object], row["data"])
+            tool = data.pop("tool", None)
             if tool:
-                row["data"]["tool_identity"] = dict(
-                    fingerprint=tool["fingerprint"], version=tool.get("package_version")
+                tool_data = cast(Mapping[str, object], tool)
+                data["tool_identity"] = dict(
+                    fingerprint=tool_data["fingerprint"],
+                    version=tool_data.get("package_version"),
                 )
-            row["data"]["protected_key"] = bool(row["data"].pop("credential_ref", None))
+            data["protected_key"] = bool(data.pop("credential_ref", None))
         return dict(
             providers=catalog(),
             tasks=TASKS,
@@ -73,15 +158,16 @@ class AgentAccess:
             cleanup_pending=cleanup,
         )
 
-    def save(self, app_id, body):
+    def save(self, app_id: str, body: Mapping[str, object]) -> dict[str, object]:
         """Stage a protected key before optimistic commit; failed saves retire only the stage."""
         self.store.app(app_id)
         data = profile(body)
         previous = self.previous(app_id, body)
-        identity = previous["id"] if previous else uid()
-        if data["provider"] in NATIVE:
-            data["tool"] = locate(data["provider"])
-        reference = self.stage(app_id, body["api_key"]) if data["provider"] in KEYED and body["api_key"] else None
+        identity = cast(str, previous["id"]) if previous else uid()
+        provider = cast(str, data["provider"])
+        if provider in NATIVE:
+            data["tool"] = locate(provider)
+        reference = self.stage(app_id, cast(str, body["api_key"])) if provider in KEYED and body["api_key"] else None
         if reference:
             data["credential_ref"] = reference
         try:
@@ -91,30 +177,44 @@ class AgentAccess:
                 self.retire(app_id, {"data": {"credential_ref": reference}})
             raise
         cleanup = self.retire(app_id, previous)
-        return dict(connection=self.get(app_id, identity)["id"], status="CONFIGURED_UNTESTED", cleanup=cleanup)
+        return dict(
+            connection=self.get(app_id, identity)["id"],
+            status="CONFIGURED_UNTESTED",
+            cleanup=cleanup,
+        )
 
-    def stage(self, app_id, key):
+    def stage(self, app_id: str, key: object) -> str:
         """Register crash recovery before touching protected storage."""
         reference = uid()
         with connection(self.store.path) as db:
             queue_retirement(db, app_id, reference, 300)
         try:
-            (self.vault_factory or Vault)().put(target(self.store, app_id, reference), {"api_key": key})
+            self._vault().put(
+                target(self.store, app_id, reference),
+                {"api_key": key},
+            )
         except Exception:
             self.retire(app_id, {"data": {"credential_ref": reference}})
             raise
         return reference
 
-    def previous(self, app_id, body):
+    def previous(self, app_id: str, body: Mapping[str, object]) -> Mapping[str, object] | None:
         """Resolve only the selected app version before staging a replacement key."""
-        previous = self.get(app_id, body["id"]) if body["id"] else None
+        identity = cast(str | None, body["id"])
+        previous = self.get(app_id, identity) if identity else None
         if previous and previous["version"] != body["version"]:
             raise Invalid("Connection changed; reload before editing")
         if not previous and body["version"] is not None:
             raise Invalid("New connection must not supply a version")
         return previous
 
-    def commit(self, app_id, identity, data, previous):
+    def commit(
+        self,
+        app_id: str,
+        identity: str,
+        data: Mapping[str, object],
+        previous: Mapping[str, object] | None,
+    ) -> None:
         """Compare the same app-owned version inside the SQLite writer transaction."""
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
@@ -127,8 +227,9 @@ class AgentAccess:
                 raise Invalid("Connection identity already exists")
             self.activate_stage(db, app_id, data)
             if previous:
-                queue_retirement(db, app_id, previous["data"].get("credential_ref"))
-            version = previous["version"] + 1 if previous else 1
+                previous_data = cast(Mapping[str, object], previous["data"])
+                queue_retirement(db, app_id, cast(str | None, previous_data.get("credential_ref")))
+            version = cast(int, previous["version"]) + 1 if previous else 1
             db.execute(
                 "INSERT OR REPLACE INTO agent_connections VALUES(?,?,?,?,?,?,?,?)",
                 (
@@ -143,21 +244,24 @@ class AgentAccess:
                 ),
             )
 
-    def activate_stage(self, db, app_id, data):
+    def activate_stage(self, db: sqlite3.Connection, app_id: str, data: Mapping[str, object]) -> None:
         """Serialize active-key attachment against cleanup of an expired stage."""
-        reference = data.get("credential_ref")
+        reference = cast(str | None, data.get("credential_ref"))
         if not reference:
             return
         staged = db.execute(
-            "SELECT 1 FROM agent_retirements WHERE app_id=? AND reference=?", (app_id, reference)
+            "SELECT 1 FROM agent_retirements WHERE app_id=? AND reference=?",
+            (app_id, reference),
         ).fetchone()
-        if not staged or not (self.vault_factory or Vault)().get(target(self.store, app_id, reference)):
+        if not staged or not self._vault().get(target(self.store, app_id, reference)):
             raise Invalid("Protected key stage expired; save this connection again")
         db.execute("DELETE FROM agent_retirements WHERE app_id=? AND reference=?", (app_id, reference))
 
-    def retire(self, app_id, previous):
+    def retire(self, app_id: str, previous: Mapping[str, object] | None) -> str:
         """Local removal does not imply revocation of a provider account or other tool."""
-        reference = previous["data"].get("credential_ref") if previous else None
+        reference = (
+            cast(str | None, cast(Mapping[str, object], previous["data"]).get("credential_ref")) if previous else None
+        )
         if not reference:
             return "NO_PRIOR_KEY"
         with connection(self.store.path) as db:
@@ -168,7 +272,7 @@ class AgentAccess:
         except Invalid:
             return "LOCAL_KEY_CLEANUP_REQUIRED"
 
-    def clean_one(self, app_id, reference):
+    def clean_one(self, app_id: str, reference: str) -> None:
         """Delete only queued retired keys; never remove an active app connection."""
         with connection(self.store.path) as db:
             db.execute("BEGIN IMMEDIATE")
@@ -183,10 +287,10 @@ class AgentAccess:
             ).fetchone()
             if active:
                 raise Invalid("Cleanup cannot remove an active provider key")
-            (self.vault_factory or Vault)().delete(target(self.store, app_id, reference))
+            self._vault().delete(target(self.store, app_id, reference))
             db.execute("DELETE FROM agent_retirements WHERE app_id=? AND reference=?", (app_id, reference))
 
-    def cleanup(self, app_id):
+    def cleanup(self, app_id: str) -> dict[str, object]:
         """Retry app-owned stale-key cleanup after storage recovery or process restart."""
         self.store.app(app_id)
         with connection(self.store.path) as db:
@@ -201,7 +305,7 @@ class AgentAccess:
             self.clean_one(app_id, reference)
         return dict(remaining=self.view(app_id)["cleanup_pending"], provider_revocation="NOT_PERFORMED")
 
-    def disconnect(self, app_id, identity, body):
+    def disconnect(self, app_id: str, identity: str, body: Mapping[str, object]) -> dict[str, object]:
         """Disable execution first, keeping unrelated provider sessions signed in."""
         exact(body, ("version",))
         row = self.get(app_id, identity)
@@ -215,16 +319,17 @@ class AgentAccess:
             ).rowcount
             if not changed:
                 raise Invalid("Connection changed during disconnect")
-            queue_retirement(db, app_id, row["data"].get("credential_ref"))
+            row_data = cast(Mapping[str, object], row["data"])
+            queue_retirement(db, app_id, cast(str | None, row_data.get("credential_ref")))
         return dict(status="DISCONNECTED", cleanup=self.retire(app_id, row), provider_revocation="NOT_PERFORMED")
 
-    def routes(self, app_id, body):
+    def routes(self, app_id: str, body: Mapping[str, object]) -> object:
         """Pin app-owned routes; no implicit API fallback, purchase or provider swap."""
         exact(body, ("version", "mode", "routes"))
         if (
             body["mode"] not in ("subscription", "byok", "local", "mixed")
             or not isinstance(body["routes"], dict)
-            or set(body["routes"]) - set(TASKS)
+            or set(cast(dict[object, object], body["routes"])) - set(TASKS)
         ):
             raise Invalid("Choose subscription, BYOK or mixed task routing")
         self.validate_routes(app_id, body)
@@ -235,39 +340,59 @@ class AgentAccess:
             version = current["version"] if current else 0
             if type(body["version"]) is not int or body["version"] != version:
                 raise Invalid("Routes changed; reload before saving")
+            routes = cast(Mapping[str, object], body["routes"])
             db.execute(
                 "INSERT OR REPLACE INTO agent_routes VALUES(?,?,?,?)",
-                (app_id, version + 1, canonical({"mode": body["mode"], "routes": body["routes"]}), now()),
+                (
+                    app_id,
+                    version + 1,
+                    canonical({"mode": body["mode"], "routes": routes}),
+                    now(),
+                ),
             )
         return self.view(app_id)["routing"]
 
-    def validate_routes(self, app_id, body):
+    def validate_routes(self, app_id: str, body: Mapping[str, object]) -> None:
         """Validate each chosen app-owned provider without introducing a fallback."""
-        for identity in body["routes"].values():
+        routes = cast(Mapping[str, str], body["routes"])
+        for identity in routes.values():
             if not identity:
                 continue
             row = self.get(app_id, identity)
             if row["status"] == "DISCONNECTED":
                 raise Invalid("Reconnect this route before selecting it")
-            if body["mode"] != "mixed" and REGISTRY[row["data"]["provider"]]["mode"] != body["mode"]:
+            row_data = cast(Mapping[str, object], row["data"])
+            provider = cast(str, row_data["provider"])
+            if body["mode"] != "mixed" and REGISTRY[provider]["mode"] != body["mode"]:
                 raise Invalid("Selected connection is outside the chosen access mode")
 
-    def secret(self, app_id, row):
+    def secret(self, app_id: str, row: Mapping[str, object]) -> object | None:
         """Resolve only the selected connection's protected key just before use."""
-        reference = row["data"].get("credential_ref")
+        data = cast(Mapping[str, object], row["data"])
+        reference = cast(str | None, data.get("credential_ref"))
         if not reference:
             return None
-        value = (self.vault_factory or Vault)().get(target(self.store, app_id, reference))
+        value = self._vault().get(target(self.store, app_id, reference))
         if not value or set(value) != {"api_key"}:
             raise Invalid("Protected provider key is unavailable; reconnect this app profile")
         return value["api_key"]
 
 
-def detect(provider):
+def detect(provider: object) -> dict[str, object]:
     """Explicit official status inspection returns no credential or executable paths."""
-    from .agent_native import identity
-
     if not isinstance(provider, str) or provider not in NATIVE:
         raise Invalid("Choose a supported native adapter")
-    found = identity(provider)
-    return {key: found[key] for key in ("version", "fingerprint", "login_state", "quota", "account_identity")}
+    found = cast(
+        Callable[[str], Mapping[str, object]],
+        vars(agent_native)["identity"],
+    )(provider)
+    return {
+        key: found[key]
+        for key in (
+            "version",
+            "fingerprint",
+            "login_state",
+            "quota",
+            "account_identity",
+        )
+    }
