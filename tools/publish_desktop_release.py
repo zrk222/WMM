@@ -155,9 +155,9 @@ def require_windows_signature(folder, expected_thumbprint):
 
 
 def windows_release_notice(folder, tag):
-    if os.environ.get("WMM_UNSIGNED_WINDOWS_PREVIEW10") == "true":
-        if tag != "v0.1.0-preview.10":
-            raise ValueError("Unsigned Windows publication is limited to Preview 10")
+    if os.environ.get("WMM_UNSIGNED_WINDOWS_PREVIEW11") == "true":
+        if tag != "v0.1.0-preview.11":
+            raise ValueError("Unsigned Windows publication is limited to Preview 11")
         lifecycle = json.loads((Path(folder) / "Windows.json").read_text(encoding="utf-8"))["lifecycle"]
         if lifecycle.get("publisher_signature") is not None:
             raise ValueError("Expected an unsigned Windows lifecycle receipt")

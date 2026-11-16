@@ -10,6 +10,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const libraries = [
   ['analytics-inventory', 'WMMAnalyticsInventory'],
   ['campaign-plan', 'WMMCampaignPlan'],
+  ['campaign-plan', 'WMMCampaignReuse'],
   ['mmp-import-model', 'WMMMmpImport'],
 ];
 
@@ -25,7 +26,7 @@ test('native libraries export APIs without installing compatibility globals', as
 });
 
 test(
-  'maintained checkJs rejects wrong inputs for all three libraries',
+  'maintained checkJs rejects invalid library calls and reuse draft types',
   {
     skip:
       !fs.existsSync(path.join(root, 'node_modules/typescript/bin/tsc')) &&
@@ -46,12 +47,16 @@ import { WMMMmpImport } from '../mission_control/static/mmp-import-model.mjs';
 WMMAnalyticsInventory.summary({metrics: {cohorts: 4}});
 WMMCampaignPlan.build({app: {version: 'wrong'}});
 WMMMmpImport.parseHeaders(123, 'csv');
+import { WMMCampaignReuse } from '../mission_control/static/campaign-plan.mjs';
+const draft = WMMCampaignReuse.draft({});
+if (draft) draft.link = 123;
 `,
       );
       const result = spawnSync(
         process.execPath,
         [
           path.join(root, 'node_modules/typescript/bin/tsc'),
+          '--ignoreConfig',
           '--allowJs',
           '--checkJs',
           '--noEmit',
@@ -69,6 +74,7 @@ WMMMmpImport.parseHeaders(123, 'csv');
       assert.match(result.stdout, /negative\.mjs\(5,/);
       assert.match(result.stdout, /negative\.mjs\(6,/);
       assert.match(result.stdout, /negative\.mjs\(7,/);
+      assert.match(result.stdout, /negative\.mjs\(10,/);
     } finally {
       fs.rmSync(folder, { recursive: true, force: true });
     }

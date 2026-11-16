@@ -191,6 +191,7 @@ tests/test_packaged_first_packet_contract.py
 tests/test_packaging_ui_http.py
 tests/test_page_reporting_http.py
 tests/test_parser_properties.py
+tests/test_platform_receipts.py
 tests/test_pre_registration.py
 tests/test_private_report_job_boundary.py
 tests/test_property_profiles.py
@@ -239,6 +240,7 @@ tools/check_evidence_budget.py
 tools/check_format.py
 tools/check_layering.py
 tools/check_new_public_annotations.py
+tools/check_platform_receipts.py
 tools/check_schedule_mutations.py
 tools/check_types.py
 tools/ci_host_user.py

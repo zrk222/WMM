@@ -264,14 +264,15 @@ class ReleaseTests(unittest.TestCase):
             with self.subTest(thumbprint=thumbprint, timestamp=timestamp), self.assertRaises(ValueError):
                 release.validate_signing_config(thumbprint, timestamp)
 
-    def test_unsigned_preview_10_is_explicit_and_scoped(self):
-        with patch.dict(os.environ, WMM_UNSIGNED_WINDOWS_PREVIEW10="true"):
-            self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.10"))
-            with self.assertRaisesRegex(ValueError, "limited to Preview 10"):
-                release.windows_release_notice(self.folder, "v0.1.0-preview.11")
+    def test_unsigned_preview_11_is_explicit_and_scoped(self) -> None:
+        with patch.dict(os.environ, WMM_UNSIGNED_WINDOWS_PREVIEW11="true"):
+            self.assertIn("unsigned", release.windows_release_notice(self.folder, "v0.1.0-preview.11"))
+            for tag in ("v0.1.0-preview.10", "v0.1.0-preview.12", "v0.1.0"):
+                with self.subTest(tag=tag), self.assertRaisesRegex(ValueError, "limited to Preview 11"):
+                    release.windows_release_notice(self.folder, tag)
             self.mark_signed_fixture()
             with self.assertRaisesRegex(ValueError, "unsigned Windows lifecycle receipt"):
-                release.windows_release_notice(self.folder, "v0.1.0-preview.10")
+                release.windows_release_notice(self.folder, "v0.1.0-preview.11")
 
     def test_signed_release_requires_exact_publisher_and_bytes(self):
         with self.assertRaisesRegex(ValueError, "Configure"):

@@ -1,5 +1,6 @@
 import { $, api, button, esc, notice, state } from './app.mjs';
 import { modal } from './app-ui.mjs';
+import { WMMCampaignReuse } from './campaign-plan.mjs';
 import { WMMPageReports } from './feature-apis.mjs';
 ('use strict');
 /* Owner scope is authority; this view cannot issue authority for an agent. */
@@ -978,44 +979,6 @@ function campaignScheduleReviewItem(item, scope) {
     '</p></section>'
   );
 }
-function campaignScheduleReuse(data) {
-  if (
-    data.evidence_unavailable ||
-    !['DELIVERY_VERIFIED', 'OFF', 'APPROVAL_EXPIRED', 'APPROVAL_INACTIVE'].includes(
-      data.progress,
-    ) ||
-    !data.scope_id ||
-    !data.summary?.scope_hash ||
-    data.summary.kind === 'ADMITTED_ORGANIC_VIDEO_V1' ||
-    !Array.isArray(data.items) ||
-    !Array.isArray(data.summary.items) ||
-    !data.items?.length ||
-    data.items.length > 20 ||
-    data.items.length !== data.summary.items.length ||
-    data.items.some((item) => !['VERIFIED', 'BLOCKED', 'CANCELLED'].includes(item.effective_status))
-  )
-    return null;
-  const items = data.summary.items;
-  if (
-    items.some(
-      ({ operation, request }) =>
-        (operation && operation !== 'campaign.publish') ||
-        typeof request?.message !== 'string' ||
-        /\r?\n---\r?\n/.test(request.message) ||
-        request.link !== items[0].request?.link,
-    )
-  )
-    return null;
-  const messages = items.map(({ request }) => request.message);
-  if (messages.join('\n---\n').length > 50000) return null;
-  return {
-    scopeId: data.scope_id,
-    scopeHash: data.summary.scope_hash,
-    messages,
-    link: items[0].request.link,
-  };
-}
-
 function campaignScheduleCopy(data) {
   const copy = {
     DELIVERY_VERIFIED: [
@@ -1105,7 +1068,7 @@ async function campaignScheduleStatus(batch, source = null, isCurrent = () => tr
       button('Turn scheduled batch OFF', 'campaign-schedule-off') +
       button('Report / Save PDF', 'campaign-schedule-report') +
       '<div id="schedule-reuse-action"' +
-      (campaignScheduleReuse(data) ? '' : ' hidden') +
+      (WMMCampaignReuse.draft(data) ? '' : ' hidden') +
       '>' +
       button('Reuse posts in a new campaign', 'campaign-schedule-reuse') +
       '</div>' +
@@ -1164,7 +1127,7 @@ function campaignScheduleWatch(panel) {
           .join('');
         panel.querySelector('#schedule-live-stage').textContent = data.repair || explanation;
         const reuse = panel.querySelector('#schedule-reuse-action');
-        if (reuse) reuse.hidden = !campaignScheduleReuse(data);
+        if (reuse) reuse.hidden = !WMMCampaignReuse.draft(data);
       }
     } catch {
       failures++;
@@ -1321,7 +1284,7 @@ async function campaignScheduleAction(node) {
     if (action === 'campaign-schedule-report')
       return WMMPageReports.openReport(campaignScheduleReport(data), window);
     if (action === 'campaign-schedule-reuse') {
-      const reuse = campaignScheduleReuse(data);
+      const reuse = WMMCampaignReuse.draft(data);
       if (!reuse) throw new Error('Check delivery receipts before reusing this batch.');
       return await campaignOpen(panel, null, reuse);
     }
@@ -1369,7 +1332,6 @@ export {
   campaignScheduleOpen,
   campaignScheduleSubmit,
   campaignScheduleReviewItem,
-  campaignScheduleReuse,
   campaignScheduleStatus,
   campaignScheduleWatch,
   campaignScheduleProgressItem,

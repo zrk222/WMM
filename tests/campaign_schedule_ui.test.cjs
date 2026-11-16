@@ -4,6 +4,7 @@ const { test } = require('node:test'),
   vm = require('node:vm'),
   path = require('node:path'),
   { webcrypto } = require('node:crypto');
+const { WMMCampaignReuse } = require('../mission_control/static/campaign-plan.mjs');
 const src = fs.readFileSync(
   path.join(__dirname, '../mission_control/static/campaign-execution.mjs'),
   'utf8',
@@ -36,6 +37,7 @@ function fixture() {
     },
     api: async (...a) => calls.push(a),
     WMMPageReports: { model: () => ({}), openReport: (x) => x },
+    WMMCampaignReuse,
     window: {},
   };
   vm.createContext(c);
@@ -70,15 +72,18 @@ const values = {
 };
 const clock = Date.parse('2026-11-02T12:00:00Z');
 test('reuse extracts draft copy only from a settled organic batch', () => {
-  const { c } = fixture();
   const settled = {
+    id: 'prior-batch',
     scope_id: 'prior-scope',
     progress: 'DELIVERY_VERIFIED',
-    items: [{ effective_status: 'VERIFIED' }],
+    items: [{ item_id: '1', effective_status: 'VERIFIED' }],
     summary: {
-      scope_hash: 'prior-hash',
+      batch_id: 'prior-batch',
+      scope_id: 'prior-scope',
+      scope_hash: '1'.repeat(64),
       items: [
         {
+          item_id: '1',
           operation: 'campaign.publish',
           request: {
             message: 'Original text',
@@ -90,16 +95,19 @@ test('reuse extracts draft copy only from a settled organic batch', () => {
       ],
     },
   };
-  assert.deepEqual(JSON.parse(JSON.stringify(c.campaignScheduleReuse(settled))), {
+  assert.deepEqual(WMMCampaignReuse.draft(settled), {
     scopeId: 'prior-scope',
-    scopeHash: 'prior-hash',
+    scopeHash: '1'.repeat(64),
     messages: ['Original text'],
     link: 'https://example.test/',
   });
   for (const progress of ['SCHEDULED', 'RUNNING', 'NEEDS_RECONCILIATION', 'NEEDS_REPAIR'])
-    assert.equal(c.campaignScheduleReuse({ ...settled, progress }), null);
+    assert.equal(WMMCampaignReuse.draft({ ...settled, progress }), null);
   for (const effective_status of ['RUNNING', 'QUEUED', 'NEEDS_RECONCILIATION'])
-    assert.equal(c.campaignScheduleReuse({ ...settled, items: [{ effective_status }] }), null);
+    assert.equal(
+      WMMCampaignReuse.draft({ ...settled, items: [{ item_id: '1', effective_status }] }),
+      null,
+    );
   const mismatches = [
     { ...settled.summary, kind: 'ADMITTED_ORGANIC_VIDEO_V1' },
     {
@@ -108,7 +116,24 @@ test('reuse extracts draft copy only from a settled organic batch', () => {
     },
   ];
   for (const summary of mismatches)
-    assert.equal(c.campaignScheduleReuse({ ...settled, summary }), null);
+    assert.equal(WMMCampaignReuse.draft({ ...settled, summary }), null);
+  assert.equal(WMMCampaignReuse.draft(null), null);
+  assert.equal(WMMCampaignReuse.draft({ ...settled, id: 'foreign-batch' }), null);
+  assert.equal(WMMCampaignReuse.draft({ ...settled, scope_id: 'foreign-scope' }), null);
+  const item = settled.summary.items[0];
+  const withItem = (item) =>
+    WMMCampaignReuse.draft({
+      ...settled,
+      summary: { ...settled.summary, items: [item] },
+    });
+  assert.equal(withItem({ ...item, item_id: 'foreign-receipt' }), null);
+  for (const link of [
+    123,
+    undefined,
+    'https://test:password@example.test/',
+    'http://example.test/',
+  ])
+    assert.equal(withItem({ ...item, request: { ...item.request, link } }), null);
 });
 test('scheduled post times remain finite and within scope', () => {
   const h = fixture(),
