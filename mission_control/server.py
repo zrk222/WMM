@@ -21,7 +21,7 @@ from .db import connection
 from .device_signin import DeviceSignIns
 from .http_types import AppVersionRow, DesktopProof, DomainPost, JsonObject, Webhook, WorkerHealthHook
 from .operation_outcome import EffectUncertain
-from .operator_identity import Identities
+from .operator_identity import AutomationOwnerSession, Identities, local_owner_session
 from .service import Service
 from .store import Store
 from .worker import Runner
@@ -1206,17 +1206,8 @@ class Handler(BaseHTTPRequestHandler):
         result = record_batch(store, parts[2], user, normalized, preview_id=data["preview_id"])
         return self.send(201, dict(result=result, checklist=checklist))
 
-    def automation_owner_session(self) -> tuple[Mapping[str, object], Callable[[], object]]:
-        """Pin the local session without touching a provider or the credential vault."""
-        session = self.session()
-        identities = self.server.identities
-        public = identities.public(session)
-        if public.get("status") != "AUTHENTICATED":
-            raise PermissionError("Sign in as this app's owner to use automation rules")
-        user = identities.local(session, public["principal"])
-        return cast(Mapping[str, object], user), lambda: identities.local(
-            session, user["principal"], user["session_generation"]
-        )
+    def automation_owner_session(self) -> AutomationOwnerSession:
+        return local_owner_session(self.session(), self.server.identities)
 
     def post_automation(self, parts: list[str], data: JsonObject) -> object:
         from .automation_http import post
