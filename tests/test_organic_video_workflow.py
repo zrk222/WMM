@@ -192,7 +192,7 @@ class VerticalWorkflowTests(unittest.TestCase):
             dict(request_id=uid(), policy=policy),
             lambda body: Policies(self.store).create(self.app, body),
         )
-        self.body = dict(
+        self.body: dict[str, Any] = dict(
             request_id=uid(),
             intake_id=self.intake["id"],
             intake_hash=self.intake["hash"],
@@ -231,8 +231,12 @@ class VerticalWorkflowTests(unittest.TestCase):
         )
 
     def render(self, reservation):
-        def runtime(folder, scene, alive, submitted, sources, *, download_qr):
-            self.assertEqual(download_qr["url"], f"https://apps.apple.com/app/id{self.STORE_APP_ID}")
+        def runtime(folder, scene, alive, submitted, sources, *, download_qr=None):
+            if reservation["data"]["render_input"].get("include_download_qr") is False:
+                self.assertIsNone(download_qr)
+            else:
+                assert isinstance(download_qr, dict)
+                self.assertEqual(download_qr["url"], f"https://apps.apple.com/app/id{self.STORE_APP_ID}")
             self.assertEqual(sources[0], b"synthetic-owned-footage")
             alive()
             submitted("bld_WORKFLOW_00000001")
@@ -257,6 +261,7 @@ class VerticalWorkflowTests(unittest.TestCase):
         return job, HypitRenders(self.store).list(self.app)["items"][0]
 
     def test_submitted_source_to_real_local_records_and_fake_reel_recovery(self):
+        self.body["render_input"]["include_download_qr"] = False
         plan = self.plan()
         self.assertEqual(plan, self.plan())
         self.assertEqual(plan["data"]["publication"], "NOT_RUN")

@@ -69,6 +69,7 @@ mission_control/http_body.py
 mission_control/http_types.py
 mission_control/hypit_authoring.py
 mission_control/hypit_jobs.py
+mission_control/hypit_preflight.py
 mission_control/hypit_runtime.py
 mission_control/insights.py
 mission_control/install_attribution.py

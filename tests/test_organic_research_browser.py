@@ -257,8 +257,23 @@ class OrganicResearchBrowserTests(unittest.TestCase):
         expect(render.locator('[name="renderer"]')).to_have_value("HYPIT_LOCAL")
         expect(render.locator('[name="brief_id"]')).to_have_value(revised["id"])
         render.locator('[name="shape"]').select_option("PORTRAIT")
+        qr = render.get_by_role("checkbox", name="Add an app download QR code")
+        expect(qr).to_be_checked()
+        renderer = render.locator('[name="renderer"]')
+        renderer.select_option("NATIVE_FFMPEG")
+        expect(qr).to_be_hidden()
+        renderer.select_option("HYPIT_LOCAL")
+        expect(qr).to_be_checked()
+        if width == 390:
+            qr.press("Space")
+            expect(qr).not_to_be_checked()
+        self.snapshot(page, width, "studio-qr-choice")
         render.get_by_role("button", name="Queue local render").press("Enter")
-        expect(page.locator("#hypit-plan")).to_contain_text("This preflight starts no build.")
+        plan = page.locator("#hypit-plan")
+        expect(plan).to_contain_text("This preflight starts no build.")
+        expect(plan).to_contain_text(
+            "App download QR code: " + ("off." if width == 390 else "store ID needed to add it.")
+        )
         with connection(self.f.store.path) as db:
             self.assertEqual(db.execute("SELECT count(*) FROM jobs").fetchone()[0], 0)
         self.assertEqual(errors, [])
@@ -322,6 +337,10 @@ class OrganicResearchBrowserTests(unittest.TestCase):
             modal.get_by_role("button", name="Review this local render").click()
             expect(modal.get_by_role("alert")).to_contain_text("Add at least one approved clip")
             modal.get_by_label("Approved clip for scene 1").select_option(str(workflow.source["id"]))
+            qr = modal.get_by_role("checkbox", name="Add an app download QR code")
+            expect(qr).to_be_checked()
+            if lose_responses:
+                qr.uncheck()
             if not lose_responses:
                 modal.get_by_role("button", name="Review this local render").click()
                 expect(modal.get_by_role("alert")).to_contain_text("Install the optional Hypit CLI.")
@@ -329,6 +348,7 @@ class OrganicResearchBrowserTests(unittest.TestCase):
                 readiness["remediation"].clear()
             modal.get_by_role("button", name="Review this local render").click()
             expect(modal.get_by_role("heading", name="Review this exact local render")).to_be_visible()
+            expect(modal).to_contain_text(f"App download QR code: {'off' if lose_responses else 'on'}.")
             self.snapshot(page, width, "exact-render")
             with connection(workflow.store.path) as db:
                 self.assertEqual(
@@ -376,6 +396,7 @@ class OrganicResearchBrowserTests(unittest.TestCase):
             self.assertEqual(set(retained), {"intake", "version", "lookup", "reserve", "inputs_hash"})
             self.assertNotIn("Exact synthetic app demo", stored[0])
             self.assertNotIn(client.csrf, stored[0])
+            self.assertIs(retained["reserve"]["render_input"]["include_download_qr"], not lose_responses)
             self.approve_finished_render(workflow, client, context, page, modal, width, retained, lose_once)
             with connection(workflow.store.path) as db:
                 self.assertEqual(

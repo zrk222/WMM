@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 
 from mission_control.common import Invalid, canonical
-from mission_control.video_download_qr import download_target, require_download_qr, stamp_download_qr
+from mission_control.video_download_qr import download_target, stamp_download_qr, verify_download_qr
 
 
 class DownloadQrTests(unittest.TestCase):
@@ -33,16 +33,20 @@ class DownloadQrTests(unittest.TestCase):
             self.assertEqual(apple["url"], "https://apps.apple.com/app/id123456789")
             self.assertEqual(android["url"], "https://play.google.com/store/apps/details?id=example.synthetic.sample")
             artifact = {"inputs": {"download_qr": apple}, "receipt": {"download_qr": apple}}
-            self.assertEqual(require_download_qr(db, "apple", artifact), apple)
+            self.assertEqual(verify_download_qr(db, "apple", artifact), apple)
+            disabled = {"inputs": {"download_qr": False}, "receipt": {}}
+            self.assertIsNone(verify_download_qr(db, "not-ready", disabled))
+            with self.assertRaisesRegex(Invalid, "saved video choice"):
+                verify_download_qr(db, "apple", dict(disabled, receipt={"download_qr": apple}))
             with self.assertRaisesRegex(Invalid, "App setup"):
-                require_download_qr(db, "not-ready", artifact)
+                verify_download_qr(db, "not-ready", artifact)
             with self.assertRaisesRegex(Invalid, "render|Render"):
-                require_download_qr(db, "android", artifact)
+                verify_download_qr(db, "android", artifact)
             with self.assertRaisesRegex(Invalid, "render|Render"):
-                require_download_qr(db, "apple", {"inputs": {"download_qr": apple}, "receipt": {}})
+                verify_download_qr(db, "apple", {"inputs": {"download_qr": apple}, "receipt": {}})
             db.execute("UPDATE apps SET data=? WHERE id='apple'", (canonical({"store_app_id": "987654321"}),))
             with self.assertRaisesRegex(Invalid, "render|Render"):
-                require_download_qr(db, "apple", artifact)
+                verify_download_qr(db, "apple", artifact)
 
     @unittest.skipUnless(shutil.which("ffmpeg"), "requires FFmpeg")
     def test_qr_persists_to_last_encoded_frame(self) -> None:

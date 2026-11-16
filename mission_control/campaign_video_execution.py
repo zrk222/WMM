@@ -143,7 +143,7 @@ def _bound(db, store, app_id, row, context, *, recovery=False, historical=False,
         raise Invalid("Reel Page or source rights changed")
     if not recovery and not historical:
         from .hypit_jobs import artifact_file, current_inputs, saved
-        from .video_download_qr import require_download_qr
+        from .video_download_qr import verify_download_qr
 
         if heartbeat:
             artifact = saved(
@@ -153,7 +153,7 @@ def _bound(db, store, app_id, row, context, *, recovery=False, historical=False,
             )["data"]
         else:
             _, artifact = artifact_file(store, app_id, output["artifact_id"])
-        require_download_qr(db, app_id, artifact)
+        verify_download_qr(db, app_id, artifact)
         if digest(artifact) != admission["data"]["artifact_record_hash"]:
             raise Invalid("Admitted Reel artifact record changed")
         if not heartbeat:

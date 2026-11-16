@@ -693,7 +693,7 @@
             ['PORTRAIT', 'Portrait'],
             ['LANDSCAPE', 'Landscape'],
           ],
-        )}${sceneFields}<button type="submit" class="button">Review this local render</button></form>${button('Back to research card', 'render-back')}`,
+        )}<label><input type="checkbox" name="include_download_qr" checked> Add an app download QR code</label>${sceneFields}<button type="submit" class="button">Review this local render</button></form>${button('Back to research card', 'render-back')}`,
         { saved: t.data.saved, intake: t.data.intake, choice, clips },
         t.scope,
       );
@@ -724,6 +724,7 @@
       brief_id: brief.id,
       brief_hash: brief.current.hash,
       shape: fd.get('shape'),
+      include_download_qr: fd.get('include_download_qr') === 'on',
       footage,
     };
     const body = {
@@ -765,6 +766,8 @@
         throw new Error('The local production plan changed. Review the current inputs again.');
       if (preflight.readiness.remediation.length)
         throw new Error(preflight.readiness.remediation.join(' '));
+      if (input.include_download_qr && !preflight.download_qr)
+        throw new Error('Add this app’s store ID in App setup, or turn off the download QR code.');
       const lookup = {
         policy_id: policy.id,
         policy_hash: policy.hash,
@@ -790,7 +793,7 @@
         t.d,
         'Review this exact local render',
         'render-confirm',
-        `<h3>${m.esc(brief.current.data.definition.objective)}</h3><p>${m.esc(template.caption)}</p><p>${scene.width} × ${scene.height} · ${scene.duration_seconds} seconds · one local render slot · zero model-service spending</p><ul>${rows}</ul><p>Hypit checks its compiler and browser when you start the render. Publication requires its own approval.</p><div class="button-row">${button('Reserve this local render', 'render-reserve', '', true)}${button('Back to research card', 'render-back')}</div>`,
+        `<h3>${m.esc(brief.current.data.definition.objective)}</h3><p>${m.esc(template.caption)}</p><p>${scene.width} × ${scene.height} · ${scene.duration_seconds} seconds · one local render slot · zero model-service spending</p><p>App download QR code: ${input.include_download_qr ? 'on' : 'off'}.</p><ul>${rows}</ul><p>Hypit checks its compiler and browser when you start the render. Publication requires its own approval.</p><div class="button-row">${button('Reserve this local render', 'render-reserve', '', true)}${button('Back to research card', 'render-back')}</div>`,
         { saved, record },
         t.scope,
       );
@@ -952,7 +955,7 @@
         '/hypit-renders/' +
         encodeURIComponent(job.render_id);
       const fixed = record.admission;
-      const html = `<form id="oresearch-artifact-form"><video class="render-preview" controls playsinline preload="metadata" src="${url}/preview" aria-label="Exact local Hypit video"></video><p id="oresearch-video-error" role="status"></p><p><a href="${url}/download" download>Download this MP4</a></p><h3>Facebook Page ${m.esc(rules.page_id)}</h3><p>${m.esc(template.caption)}</p><details><summary>Video SHA-256</summary><code>${m.esc(job.artifact_sha256)}</code></details><p>Saving approval holds one post slot and the provider calls you choose. It starts no delivery or paid campaign.</p>
+      const html = `<form id="oresearch-artifact-form"><video class="render-preview" controls playsinline preload="metadata" src="${url}/preview" aria-label="Exact local Hypit video"></video><p id="oresearch-video-error" role="status"></p><p><a href="${url}/download" download>Download this MP4</a></p><p>App download QR code: ${reservation.data.render_input.include_download_qr === false ? 'off' : 'on'}.</p><h3>Facebook Page ${m.esc(rules.page_id)}</h3><p>${m.esc(template.caption)}</p><details><summary>Video SHA-256</summary><code>${m.esc(job.artifact_sha256)}</code></details><p>Saving approval holds one post slot and the provider calls you choose. It starts no delivery or paid campaign.</p>
         ${field('calls', 'Provider calls to hold (up to ' + available.calls + ')', fixed?.calls ?? '', 'number', `min="1" max="${available.calls}" step="1" required ${fixed ? 'readonly' : ''}`)}
         ${check('previewed', 'I reviewed this exact video and caption.')}<button type="submit" class="button">Save artifact approval</button></form>${button('Back to render status', 'render-inspect')}`;
       const next = show(

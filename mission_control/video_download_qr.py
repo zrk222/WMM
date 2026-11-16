@@ -35,19 +35,20 @@ def download_target(db: Connection, app_id: str) -> DownloadQR | None:
     return {"schema": "wmm.video-download-qr.v1", "url": url}
 
 
-def require_download_qr(db: Connection, app_id: str, render: Mapping[str, object]) -> DownloadQR:
-    """Only a worker's retained render receipt for this exact app may publish."""
+def verify_download_qr(db: Connection, app_id: str, render: Mapping[str, object]) -> DownloadQR | None:
+    """Check a retained app-bound QR or the explicit no-QR render choice."""
+    inputs, receipt = render.get("inputs"), render.get("receipt")
+    if not isinstance(inputs, dict) or not isinstance(receipt, dict):
+        raise Invalid("Render and review a new video with your download QR code choice before publishing")
+    if inputs.get("download_qr") is False:
+        if receipt.get("download_qr") is not None:
+            raise Invalid("Rendered download QR does not match the saved video choice")
+        return None
     target = download_target(db, app_id)
     if target is None:
-        raise Invalid("Add this app's App Store ID or Android package in App setup before publishing video")
-    inputs, receipt = render.get("inputs"), render.get("receipt")
-    if (
-        not isinstance(inputs, dict)
-        or not isinstance(receipt, dict)
-        or inputs.get("download_qr") != target
-        or receipt.get("download_qr") != target
-    ):
-        raise Invalid("Render and review a new video with this app's download QR code before publishing")
+        raise Invalid("Add this app's store ID in App setup or render again without a download QR code")
+    if inputs.get("download_qr") != target or receipt.get("download_qr") != target:
+        raise Invalid("Render and review a new video with your download QR code choice before publishing")
     return target
 
 

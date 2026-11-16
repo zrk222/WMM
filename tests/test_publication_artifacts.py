@@ -30,11 +30,14 @@ META = dict(
 
 
 class PublicationArtifactTests(unittest.TestCase):
-    def setUp(self):
+    def setUp(self, include_qr: bool = True):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.store = Store(Path(self.tmp.name) / "state.sqlite")
-        _, self.request = prepared_render(self.store, store_app_id="123456789")
+        _, request = prepared_render(self.store, store_app_id="123456789")
+        self.request: dict[str, Any] = request.copy()
+        if not include_qr:
+            self.request["include_download_qr"] = False
         self.renders = HypitRenders(self.store)
         self.brief_hash = self.request["brief_hash"]
         with patch(
@@ -42,7 +45,8 @@ class PublicationArtifactTests(unittest.TestCase):
         ):
             self.job = self.renders.queue(APP, {"data": self.request, "request_key": "publication-fixture"})
 
-        def render(folder, scene, alive, submitted, sources=None, *, download_qr):
+        def render(folder, scene, alive, submitted, sources=None, *, download_qr=None):
+            self.assertEqual(download_qr is not None, include_qr)
             alive()
             submitted("bld_20261024_TEST1234")
             (folder / "video.mp4").write_bytes(RAW)
@@ -103,6 +107,21 @@ class PublicationArtifactTests(unittest.TestCase):
         self.assertEqual(loaded["fps"], 24.0)
         with self.assertRaises(Invalid):
             describe(self.store, "sample-two", self.render_id)
+
+    def test_explicit_opt_out_still_loads_exact_reviewed_video(self) -> None:
+        fixture = PublicationArtifactTests()
+        fixture.setUp(include_qr=False)
+        self.addCleanup(fixture.doCleanups)
+        draft = fixture.draft()
+        info = describe(fixture.store, APP, fixture.render_id)
+        self.assertIsNone(info["download_qr"])
+        with connection(fixture.store.path) as db:
+            self.assertEqual(verify(fixture.store, db, APP, draft)["artifact_sha256"], draft["artifact"]["sha256"])
+        with (
+            patch("mission_control.hypit_media.probe", return_value={"fixture": True}),
+            patch("mission_control.hypit_media.metadata", return_value=META),
+        ):
+            self.assertEqual(load(fixture.store, APP, draft)["raw"], RAW)
 
     def test_legacy_video_can_be_read_back_but_cannot_start_a_new_upload(self) -> None:
         draft = self.draft()

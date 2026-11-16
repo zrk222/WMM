@@ -7,7 +7,7 @@ import re
 from .common import Invalid, digest
 from .db import connection
 from .publication_contract import validate_draft
-from .video_download_qr import require_download_qr
+from .video_download_qr import verify_download_qr
 
 
 def _hashes(db, store, app_id, data):
@@ -87,7 +87,7 @@ def _resolve(store, app_id, draft, *, verify_bytes, require_qr: bool = False):
         if _app_version(db, app_id) != draft["manifest_version"]:
             raise Invalid("Publication workspace revision changed")
         if require_qr:
-            require_download_qr(db, app_id, data)
+            verify_download_qr(db, app_id, data)
         rights, sources = _hashes(db, store, app_id, data)
     if data.get("renderer") != "HYPIT_LOCAL" or data.get("publication") != "NOT_RUN":
         raise Invalid("Saved video is not an eligible unpublished Hypit render")
@@ -158,7 +158,7 @@ def describe(store, app_id, artifact_id):
         from .hypit_jobs import current_inputs
 
         current_inputs(db, store, app_id, data["inputs"])
-        download_qr = require_download_qr(db, app_id, data)
+        download_qr = verify_download_qr(db, app_id, data)
         rights, sources = _hashes(db, store, app_id, data)
     metadata = data.get("artifact", {}).get("metadata")
     if not isinstance(metadata, dict):

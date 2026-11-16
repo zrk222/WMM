@@ -384,10 +384,10 @@ def _admission_artifact(db, store, app_id, output, reservation, reservation_row)
     from .hypit_jobs import artifact_file, current_inputs
     from .hypit_jobs import saved as hypit_saved
     from .hypit_runtime import local_graph, source_current
-    from .video_download_qr import require_download_qr
+    from .video_download_qr import verify_download_qr
 
     _, artifact = artifact_file(store, app_id, output["artifact_id"])
-    require_download_qr(db, app_id, artifact)
+    verify_download_qr(db, app_id, artifact)
     receipt = artifact.get("receipt", {})
     plan = receipt.get("local_plan")
     if (
