@@ -1,5 +1,6 @@
 """Synthetic release protocol tests. No builds, credentials or network calls."""
 
+import hashlib
 import importlib.util
 import io
 import json
@@ -115,6 +116,31 @@ class ReleaseTests(unittest.TestCase):
                     )
                 )
             )
+            (self.folder / ("wmm-release-sbom-" + platform + ".cdx.json")).write_text(
+                json.dumps(
+                    dict(
+                        bomFormat="CycloneDX",
+                        specVersion="1.5",
+                        version=1,
+                        metadata=dict(
+                            component=dict(
+                                type="application",
+                                name="wmm",
+                                version=SHA,
+                                properties=[
+                                    dict(name="wmm:platform", value=platform),
+                                    dict(name="wmm:inventory_scope", value="shipped_components"),
+                                    dict(
+                                        name="wmm:ip_inventory_sha256",
+                                        value=hashlib.sha256(b"inventory").hexdigest(),
+                                    ),
+                                ],
+                            )
+                        ),
+                        components=[dict(type="library", name="example", version="1")],
+                    )
+                )
+            )
 
     def test_receipt_rejects_same_commit_proof_from_different_executable(self):
         proof = self.folder / "windows-fresh" / "evidence.json"
@@ -134,7 +160,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_both_passed_assets_and_manifest(self):
         paths = release.validate_assets(self.folder, SHA)
-        self.assertEqual(len(paths), 7)
+        self.assertEqual(len(paths), 9)
         manifest = (self.folder / "SHA256SUMS.txt").read_text()
         for name in release.ASSETS.values():
             self.assertIn(release.digest(self.folder / name) + "  " + name, manifest)
@@ -360,7 +386,7 @@ class ReleaseTests(unittest.TestCase):
             patch.object(release, "urlopen", download),
         ):
             release.publish(self.folder, SHA, TAG)
-        self.assertEqual(len(urls), 9)
+        self.assertEqual(len(urls), 11)
         self.assertTrue(all(url.startswith("https://github.com/zrk222/WMM/releases/download/") for url in urls))
         self.assertTrue(any(c[:2] == ("release", "edit") for c in self.calls))
 

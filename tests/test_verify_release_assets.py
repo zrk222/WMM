@@ -39,7 +39,7 @@ class VerifyReleaseTests(unittest.TestCase):
     def test_complete_folder_passes_for_exact_source(self):
         value = verify_release.verify(self.folder, SHA)
         self.assertEqual(value["status"], "PASS")
-        self.assertEqual(value["files"], 6)
+        self.assertEqual(value["files"], 8)
 
     def test_changed_installer_and_missing_coverage_are_rejected(self):
         (self.folder / "WMM-Setup.exe").write_bytes(b"changed")

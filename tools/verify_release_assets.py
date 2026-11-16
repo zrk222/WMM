@@ -12,7 +12,8 @@ from pathlib import Path
 EXPECTED = {"Windows": "WMM-Setup.exe", "Linux": "wize-marketing-machine_0.1.0_amd64.deb"}
 RECEIPTS = {platform + ".json" for platform in EXPECTED}
 SBOMS = {"sbom-" + platform + ".json" for platform in EXPECTED}
-PAYLOADS = set(EXPECTED.values()) | RECEIPTS | SBOMS
+RELEASE_SBOMS = {"wmm-release-sbom-" + platform + ".cdx.json" for platform in EXPECTED}
+PAYLOADS = set(EXPECTED.values()) | RECEIPTS | SBOMS | RELEASE_SBOMS
 PROVENANCE = {"release-attestation.sigstore.json", "release-provenance.json"}
 LINE = re.compile(r"([0-9a-f]{64})  ([A-Za-z0-9._-]+)")
 
@@ -159,6 +160,32 @@ def verify_files(paths, source_sha: str | None) -> dict:
             raise ValueError("SBOM mismatch: " + platform)
         if component.get("version") != source_sha:
             raise ValueError("SBOM source SHA mismatch: " + platform)
+        release_sbom = object_json(entries["wmm-release-sbom-" + platform + ".cdx.json"])
+        release_metadata = release_sbom.get("metadata")
+        release_component = release_metadata.get("component") if isinstance(release_metadata, dict) else None
+        release_properties = release_component.get("properties") if isinstance(release_component, dict) else None
+        if not isinstance(release_component, dict) or not isinstance(release_properties, list):
+            raise ValueError("Release SBOM component properties are invalid: " + platform)
+        release_map = {
+            row["name"]: row.get("value")
+            for row in release_properties
+            if isinstance(row, dict) and isinstance(row.get("name"), str)
+        }
+        if (
+            release_sbom.get("bomFormat") != "CycloneDX"
+            or release_sbom.get("specVersion") != "1.5"
+            or release_map.get("wmm:platform") != platform
+            or release_map.get("wmm:inventory_scope") != "shipped_components"
+            or not re.fullmatch(
+                r"[a-f0-9]{64}",
+                str(release_map.get("wmm:ip_inventory_sha256")),
+            )
+            or not isinstance(release_sbom.get("components"), list)
+            or not release_sbom["components"]
+        ):
+            raise ValueError("Release SBOM mismatch: " + platform)
+        if release_component.get("version") != source_sha:
+            raise ValueError("Release SBOM source SHA mismatch: " + platform)
     if included_provenance:
         verify_provenance(entries, listed, source_sha)
     return {
