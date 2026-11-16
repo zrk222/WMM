@@ -289,6 +289,7 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         assert not jobs(f.store, "sample-one")
         page.get_by_role("button", name="Approve exact batch and schedule", exact=True).click()
         expect(page.locator("#schedule-batch-state")).to_have_text("Scheduled")
+        expect(page.get_by_role("button", name="Reuse posts in a new campaign")).to_have_count(0)
         expect(page.locator("#schedule-live-stage")).to_contain_text("WMM must remain running")
         page.screenshot(path=str(out / f"schedule-{width}.png"))
         (out / f"schedule-{width}.html").write_text(page.content(), encoding="utf-8")
@@ -313,6 +314,37 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
         page.get_by_role("button", name="Inspect scheduled batch", exact=True).click()
         expect(page.locator("#schedule-batch-state")).to_have_text("Schedule off")
         expect(page.locator("#schedule-live-stage")).to_contain_text("No new items will start")
+        page.get_by_role("button", name="Reuse posts in a new campaign", exact=True).press("Enter")
+        form = page.locator("#campaign-scope-form")
+        expect(form.get_by_role("status")).to_contain_text("No approval, budget or schedule was copied")
+        expect(form.get_by_label("Approved post copy", exact=True)).to_have_value(f.message)
+        expect(form.get_by_label("App or landing-page link", exact=True)).to_have_value("")
+        expect(form.get_by_label("Rights and claims evidence", exact=True)).to_have_value("")
+        expect(form.locator("[name=connection_id]")).to_have_value(f.connection)
+        expect(form.locator("[name=budget]")).to_have_value("0")
+        expect(form.locator("[name=expires_at]")).to_have_value("")
+        (out / f"campaign-reuse-{width}.html").write_text(page.content(), encoding="utf-8")
+        overflow = page.locator("#modal").evaluate(
+            """(modal) => [...modal.querySelectorAll('*')].flatMap(el => {
+                const {right, width} = el.getBoundingClientRect();
+                return width && right > modal.getBoundingClientRect().right + 1
+                    ? [[el.tagName, el.getAttribute('name'), Math.round(width)]] : [];
+            }).slice(0, 10)"""
+        )
+        assert page.locator("#modal").evaluate("(modal) => modal.scrollWidth <= modal.clientWidth"), overflow
+        form.get_by_label("Rights and claims evidence", exact=True).fill("New rights evidence")
+        form.get_by_label("App or landing-page link", exact=True).fill(link)
+        form.get_by_role("button", name="Review exact automation scope", exact=True).click()
+        expect(form.get_by_role("alert")).to_contain_text("new campaign tag")
+        form.get_by_label("App or landing-page link", exact=True).fill(
+            "https://example.test/app?utm_campaign=fresh-run"
+        )
+        form.get_by_role("button", name="Review exact automation scope", exact=True).click()
+        expect(page.locator("#campaign-review")).to_contain_text("does not publish, schedule, or spend now")
+        with connection(f.store.path) as db:
+            assert sorted(row[0] for row in db.execute("SELECT status FROM campaign_scopes")) == ["ACTIVE", "DRAFT"]
+            assert db.execute("SELECT status FROM campaign_schedule_batches").fetchone()[0] == "OFF"
+        assert f.wire.posts == 0 and not jobs(f.store, "sample-one")
         page.locator("#close-modal").click()
         page.locator("#navigation > [data-view=overview]").click()
         page.locator("#goal-advanced > summary").click()
@@ -402,6 +434,7 @@ def run(browser: Browser, width: int, out: Path) -> dict[str, object]:
             no_effect_before_due=True,
             off=True,
             durable_reload=True,
+            campaign_reuse_requires_new_approval_and_tracking=True,
             report_privacy=True,
             saved_campaign_runs_have_distinct_labels=True,
             campaign_does_not_select_agent=True,

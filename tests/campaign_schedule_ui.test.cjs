@@ -69,6 +69,47 @@ const values = {
   name: 'Approved promotion',
 };
 const clock = Date.parse('2026-11-02T12:00:00Z');
+test('reuse extracts draft copy only from a settled organic batch', () => {
+  const { c } = fixture();
+  const settled = {
+    scope_id: 'prior-scope',
+    progress: 'DELIVERY_VERIFIED',
+    items: [{ effective_status: 'VERIFIED' }],
+    summary: {
+      scope_hash: 'prior-hash',
+      items: [
+        {
+          operation: 'campaign.publish',
+          request: {
+            message: 'Original text',
+            link: 'https://example.test/',
+            request_id: 'old-request',
+            rights_hash: 'old-rights',
+          },
+        },
+      ],
+    },
+  };
+  assert.deepEqual(JSON.parse(JSON.stringify(c.campaignScheduleReuse(settled))), {
+    scopeId: 'prior-scope',
+    scopeHash: 'prior-hash',
+    messages: ['Original text'],
+    link: 'https://example.test/',
+  });
+  for (const progress of ['SCHEDULED', 'RUNNING', 'NEEDS_RECONCILIATION', 'NEEDS_REPAIR'])
+    assert.equal(c.campaignScheduleReuse({ ...settled, progress }), null);
+  for (const effective_status of ['RUNNING', 'QUEUED', 'NEEDS_RECONCILIATION'])
+    assert.equal(c.campaignScheduleReuse({ ...settled, items: [{ effective_status }] }), null);
+  const mismatches = [
+    { ...settled.summary, kind: 'ADMITTED_ORGANIC_VIDEO_V1' },
+    {
+      ...settled.summary,
+      items: [{ ...settled.summary.items[0], operation: 'campaign.ad-launch' }],
+    },
+  ];
+  for (const summary of mismatches)
+    assert.equal(c.campaignScheduleReuse({ ...settled, summary }), null);
+});
 test('scheduled post times remain finite and within scope', () => {
   const h = fixture(),
     p = { request_id: 'fixed' };

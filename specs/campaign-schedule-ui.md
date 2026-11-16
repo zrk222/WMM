@@ -38,5 +38,6 @@ Scenario: no_paid_claim
 ```
 
 ## SHOULD - Technical
+- Owners can reuse settled Facebook text batches as new drafts. Keep the previous delivery receipts; copy no request IDs, authority, schedules, rights approval or paid commitments. Unknown or running delivery must be reconciled first. When a previous link used a campaign tag, require a new tag; when the previous campaign required measurement, require a fresh measurement plan.
 - Reuse same protected campaign owner dispatcher and finite schedule capability. No new generic operation, provider transport, authority or worker engine.
 - Default scheduling disabled. No credentials in forms or reports. Expiry within existing campaign scope.
