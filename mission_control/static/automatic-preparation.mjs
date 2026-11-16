@@ -153,7 +153,7 @@ const WMMGoalPacket = (() => {
       visited.add(id);
       for (const dependency of step.dependency_needs || [])
         visit(Number(dependency.match(/^Finish stage (\d+): /)?.[1]));
-      const need = step.direct_needs?.[0] || step.critical_findings?.[0];
+      const need = step.primary_need;
       if (need && step.primary?.id && step.primary?.title) repairs.push({ step, need });
     }
     for (const { stage, output } of m.outputs) if (output?.status === 'BLOCKED') visit(stage);
@@ -187,9 +187,9 @@ const WMMGoalPacket = (() => {
       '</section>'
     );
   }
-  function view(m, showRepairs = false) {
+  function view(m, showRepairs = false, allowTracking = true) {
     const tracking =
-      m.goal === 'campaign'
+      allowTracking && m.goal === 'campaign'
         ? notice(
             'The full campaign plan below keeps its evidence requirements. For one organic post, set up the tagged link and measurement source before requesting publication approval.',
           ) + button('Plan a tracked organic post', 'observational-campaign-open')
@@ -241,7 +241,7 @@ const WMMGoalPacket = (() => {
       p && (p.source_hash !== m.source_hash || p.manifest_version !== m.manifest_version);
     modal(
       m.title + ' — saved packet',
-      `<div class="modal-content"><p role="status">${p ? (historical ? 'Historical snapshot — app or evidence changed. Open the current packet before taking a new action.' : 'Saved local draft — current source matches.') : ['QUEUED', 'RUNNING'].includes(row.status) ? 'Preparing a local draft. Refresh this saved run to inspect its result.' : 'Packet was not saved. Review the run, then explicitly save from current evidence.'}</p><p>Packet ID: ${esc(id)} · requested ${esc(row.created)}</p>${p ? `<p>Snapshot prepared ${esc(p.created_at)}</p>${view({ ...p, title: m.title, purpose: m.purpose })}` : `<p>${esc(row.result?.error || 'No completed packet output is available yet.')}</p>`}</div><div class="modal-actions">${button('Refresh saved packet', 'automatic-goal-saved-refresh', a)}${p ? button('Download saved packet JSON', 'automatic-goal-saved-json', a) + button('Report / Save PDF', 'automatic-goal-saved-pdf', a) : ''}${button('Open current packet', 'automatic-goal-open', attributes(m))}${button('Close', 'close')}</div>`,
+      `<div class="modal-content"><p role="status">${p ? (historical ? 'Historical snapshot — app or evidence changed. Open the current packet before taking a new action.' : 'Saved local draft — current source matches.') : ['QUEUED', 'RUNNING'].includes(row.status) ? 'Preparing a local draft. Refresh this saved run to inspect its result.' : 'Packet was not saved. Review the run, then explicitly save from current evidence.'}</p><p>Packet ID: ${esc(id)} · requested ${esc(row.created)}</p>${p ? `<p>Snapshot prepared ${esc(p.created_at)}</p>${view({ ...p, title: m.title, purpose: m.purpose }, false, !historical)}` : `<p>${esc(row.result?.error || 'No completed packet output is available yet.')}</p>`}</div><div class="modal-actions">${button('Refresh saved packet', 'automatic-goal-saved-refresh', a)}${p ? button('Download saved packet JSON', 'automatic-goal-saved-json', a) + button('Report / Save PDF', 'automatic-goal-saved-pdf', a) : ''}${button('Open current packet', 'automatic-goal-open', attributes(m))}${button('Close', 'close')}</div>`,
       'SAVED LOCAL PREPARATION',
     );
   }

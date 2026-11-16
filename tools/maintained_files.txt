@@ -53,6 +53,7 @@ mission_control/experiment_tracking.py
 mission_control/first_party_outcomes.py
 mission_control/first_party_receipts.py
 mission_control/funnel_http.py
+mission_control/guided_workflow.py
 mission_control/http_body.py
 mission_control/http_types.py
 mission_control/hypit_jobs.py
@@ -150,6 +151,7 @@ tests/test_first_party_outcomes.py
 tests/test_format_ratchet.py
 tests/test_funnel_ui_http.py
 tests/test_growth_review_ui_http.py
+tests/test_guided_workflow.py
 tests/test_host_service_contract.py
 tests/test_http.py
 tests/test_http_benchmark.py

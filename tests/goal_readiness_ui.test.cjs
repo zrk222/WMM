@@ -474,7 +474,8 @@ test('current campaign packet opens only a matched upstream input and leaves sav
   const diagnostics = [
     [3, 'measurement', 'Add current measurement evidence'],
     [4, 'cohort', 'Add current cohort evidence', [3]],
-    [7, 'distribution', null, [4]],
+    [6, 'findings', 'Add current experiment evidence'],
+    [7, 'distribution', null, [4, 6]],
   ];
   h.state.workspace.workflow = {
     steps: diagnostics.map(([id, tool, need, dependencies]) => ({
@@ -483,7 +484,8 @@ test('current campaign packet opens only a matched upstream input and leaves sav
       local_status: 'NEEDS_INPUT',
       direct_needs: need ? [need] : [],
       dependency_needs: (dependencies || []).map((parent) => 'Finish stage ' + parent + ': input'),
-      critical_findings: [],
+      critical_findings: id === 6 ? ['Confirmed broken signup'] : [],
+      primary_need: id === 6 ? 'Resolve critical finding: Confirmed broken signup' : need,
       primary: { id: tool, title: tool },
     })),
   };
@@ -504,6 +506,12 @@ test('current campaign packet opens only a matched upstream input and leaves sav
   assert.match(current, /What needs attention first/);
   assert.match(current, /Connect measurement/);
   assert.match(current, /Other inputs to review/);
+  assert.match(
+    current,
+    /Resolve critical finding: Confirmed broken signup<\/p><button[^>]+data-tool="findings"/,
+  );
+  assert.doesNotMatch(current, /Add current experiment evidence/);
+  assert.match(current, /observational-campaign-open/);
   const node = {
     dataset: {
       app: 'one',
@@ -523,4 +531,27 @@ test('current campaign packet opens only a matched upstream input and leaves sav
   node.dataset.sourceHash = 'old';
   assert.throws(() => packet.action(node), /evidence changed/i);
   assert.deepEqual(h.calls, ['measurement']);
+
+  const historical = { ...model, source_hash: 'previous', created_at: 'then' };
+  h.state.workspace.jobs = [
+    {
+      id: 'saved-run',
+      app_id: 'one',
+      action: 'pipeline',
+      status: 'SUCCEEDED',
+      created: 'then',
+      data: { goal_packet: { goal: 'campaign', manifest_version: 1, source_hash: 'previous' } },
+      result: { goal_packet: historical },
+    },
+  ];
+  Object.assign(node.dataset, {
+    action: 'automatic-goal-reopen',
+    sourceHash: 'exact',
+    job: 'saved-run',
+  });
+  packet.action(node);
+  const saved = h.calls.at(-1).body;
+  assert.match(saved, /Historical snapshot/);
+  assert.match(saved, /Open current packet/);
+  assert.doesNotMatch(saved, /observational-campaign-open|automatic-goal-repair/);
 });

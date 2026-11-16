@@ -1,15 +1,18 @@
 """Actual current stage behavior, isolation and side-effect-free operator guidance."""
 
+import tempfile
+import time
+import unittest
 from copy import deepcopy
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-import tempfile, time, unittest
 from unittest.mock import patch
-from mission_control.common import Invalid, now, digest
+
+from mission_control.common import Invalid, digest, now
 from mission_control.db import connection
-from mission_control.guided_workflow import guide, tool, primary, step, TOOLS, STEP_TOOLS
-from mission_control.pipeline import evaluate, current
+from mission_control.guided_workflow import STEP_TOOLS, TOOLS, guide, primary, tool
 from mission_control.packets import creative
+from mission_control.pipeline import current, evaluate
 from mission_control.service import Service
 from mission_control.store import Store
 
@@ -166,6 +169,22 @@ class GuidedWorkflowTests(unittest.TestCase):
         stage = evaluate(self.app, [])[3]
         self.assertEqual(primary(stage, ["Reconcile the latest event cohort"], [])["id"], "results")
 
+    def test_primary_tool_keeps_the_exact_diagnostic_when_gaps_coexist(self):
+        stage = dict(id=5, inputs=["claim", "asset"])
+        asset = "Add current asset evidence: screenshot"
+        claim = "Add current claim evidence: proof"
+        release = "Verify selected App Store release: exact version"
+        catalog = "Verify App Store subscription catalog: missing"
+        for needs, findings, expected in (
+            ([asset, release, claim], ["Synthetic P0"], ("findings", "Resolve critical finding: Synthetic P0")),
+            ([asset, release, claim], [], ("release", release)),
+            ([asset, catalog, claim], [], ("subscriptions", catalog)),
+            ([asset, claim], [], ("claim", claim)),
+        ):
+            with self.subTest(expected=expected):
+                chosen = primary(stage, needs, findings)
+                self.assertEqual((chosen["id"], chosen["need"]), expected)
+
     def test_foreign_or_malformed_context_rejects(self):
         rows = complete_records(self.app)
         rows[0]["app_id"] = "sample-two"
@@ -190,10 +209,7 @@ class GuidedWorkflowTests(unittest.TestCase):
     def test_saved_read_only_service_and_performance(self):
         def inventory():
             with connection(self.store.path) as db:
-                return {
-                    r[0]: db.execute('SELECT count(*) FROM "' + r[0] + '"').fetchone()[0]
-                    for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")
-                }
+                return tuple(sorted(db.iterdump()))
 
         before = inventory()
         with patch("urllib.request.urlopen", side_effect=AssertionError("No network")):

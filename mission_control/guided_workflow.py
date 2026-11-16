@@ -1,9 +1,9 @@
 """Read-only operator guidance over the existing authoritative readiness checks."""
 
-from .common import Invalid, digest
-from .pipeline import evaluate, missing_evidence, critical_findings
 from .automatic_preparation import check_scope
 from .catalog import stages
+from .common import Invalid, digest
+from .pipeline import critical_findings, evaluate, missing_evidence
 
 TOOLS = {
     "app": ("App identity and release", "app"),
@@ -80,17 +80,27 @@ def tool(identity):
 
 def primary(stage, direct, critical):
     """Resolve a real missing input before unrelated advanced tools."""
+
+    def choice(identity, need):
+        return dict(tool(identity), need=need)
+
     if critical:
-        return tool("findings")
-    if any(message.startswith("Verify selected App Store release:") for message in direct):
-        return tool("release")
-    if any(message.startswith("Verify App Store subscription catalog:") for message in direct):
-        return tool("subscriptions")
+        return choice("findings", "Resolve critical finding: " + critical[0])
+    if stage["id"] == 1 and direct:
+        return choice("app", direct[0])
+    for prefix, identity in (
+        ("Verify selected App Store release:", "release"),
+        ("Verify App Store subscription catalog:", "subscriptions"),
+    ):
+        need = next((message for message in direct if message.startswith(prefix)), None)
+        if need:
+            return choice(identity, need)
     if direct and direct[0].startswith("Reconcile "):
-        return tool("results")
+        return choice("results", direct[0])
     for kind in stage["inputs"]:
-        if any(message.startswith("Add current " + kind + " evidence") for message in direct):
-            return tool("upload" if kind == "asset" else kind)
+        need = next((message for message in direct if message.startswith("Add current " + kind + " evidence")), None)
+        if need:
+            return choice("upload" if kind == "asset" else kind, need)
     return tool(STEP_TOOLS[stage["id"]][0])
 
 
@@ -98,6 +108,8 @@ def step(stage, app, records, reports, catalog=None, release=None):
     """Keep direct gaps, dependent stages and critical findings distinct."""
     direct = missing_evidence(stage, app, records, reports, catalog, release)
     critical = critical_findings(records) if stage["id"] in (5, 6, 7, 11) else []
+    action = primary(stage, direct, critical)
+    primary_need = action.pop("need", None)
     return {
         "id": stage["id"],
         "title": stage["title"],
@@ -106,7 +118,8 @@ def step(stage, app, records, reports, catalog=None, release=None):
         "direct_needs": direct,
         "dependency_needs": [r for r in stage["missing"] if r.startswith("Finish stage ")],
         "critical_findings": critical,
-        "primary": primary(stage, direct, critical),
+        "primary": action,
+        "primary_need": primary_need,
         "tools": [tool(identity) for identity in STEP_TOOLS[stage["id"]]],
         "record_ids": [r["id"] for r in records if r["kind"] in stage["inputs"]],
         "deliverable": stage["operations"]["deliverable"],
