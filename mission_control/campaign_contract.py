@@ -1,9 +1,11 @@
 """Closed, finite inputs for an owner-reviewed campaign scope."""
 
+import json
 import re
 from collections.abc import Iterable
 from datetime import datetime, timezone
-from typing import NotRequired, TypedDict, cast
+from sqlite3 import Row
+from typing import Any, NotRequired, TypedDict, cast
 from urllib.parse import urlsplit
 
 from .common import Invalid, digest, iso_time, required, safe_data
@@ -283,3 +285,51 @@ def ad_data(body: object) -> AdRequest:
     result["end_time"] = deadline.isoformat()
     result["name"] = required(body["name"], "Campaign name", 100)
     return cast(AdRequest, result)
+
+
+def row_intent(row: Row | None) -> dict[str, object]:
+    if row is None:
+        raise Invalid("Campaign intent was not found")
+    return {
+        key: row[key]
+        for key in (
+            "id",
+            "scope_id",
+            "request_id",
+            "request_hash",
+            "content_hash",
+            "rights_hash",
+            "page_id",
+            "status",
+            "remote_id",
+            "created",
+            "updated",
+        )
+    } | {"result": json.loads(row["result"]) if row["result"] else None}
+
+
+def paid_view(row: Row | None) -> dict[str, Any]:
+    if row is None:
+        raise Invalid("Paid campaign intent was not found")
+    value = {
+        key: row[key]
+        for key in (
+            "id",
+            "scope_id",
+            "request_id",
+            "request_hash",
+            "account_id",
+            "currency",
+            "commitment",
+            "status",
+            "created",
+            "updated",
+        )
+    }
+    value.update(
+        kind="AD",
+        data=json.loads(row["data"]),
+        ids=json.loads(row["ids"]),
+        result=json.loads(row["result"]) if row["result"] else None,
+    )
+    return value

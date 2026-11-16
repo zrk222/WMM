@@ -56,11 +56,24 @@ def measurement_plan(value: Any, *, retained: bool = False) -> dict[str, Any]:
     return dict(value, starts_at=starts.isoformat(), ends_at=ends.isoformat(), utm_campaign=tag)
 
 
+def has_campaign_tag(url: object, campaign: str) -> bool:
+    """Read retained destination evidence without fetching or exposing its URL."""
+    if not isinstance(url, str) or len(url) > 4096:
+        return False
+    try:
+        return campaign in parse_qs(urlsplit(url).query, max_num_fields=256).get("utm_campaign", [])
+    except ValueError:
+        return False
+
+
 def tracking_campaign_tag(link: str | None) -> str | None:
     """Normalize a single organization-controlled attribution tag, when present."""
     if link is None:
         return None
-    tags = parse_qs(urlsplit(link).query, keep_blank_values=True).get("utm_campaign")
+    try:
+        tags = parse_qs(urlsplit(link).query, keep_blank_values=True, max_num_fields=256).get("utm_campaign")
+    except ValueError:
+        raise Invalid("Use a valid, bounded campaign tracking link") from None
     if tags is None:
         return None
     if len(tags) != 1 or not tags[0].strip():
@@ -90,7 +103,7 @@ def assert_fresh_campaign_tag(db: sqlite3.Connection, app_id: str, tag: str | No
         raise Invalid(message)
     for link in saved_tracking_links(db, app_id, scope_id):
         try:
-            previous = parse_qs(urlsplit(link).query).get("utm_campaign", [])
+            previous = parse_qs(urlsplit(link).query, max_num_fields=256).get("utm_campaign", [])
         except ValueError:
             continue
         if any(value.casefold() == tag for value in previous):

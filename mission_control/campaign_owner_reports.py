@@ -4,7 +4,6 @@ import secrets
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from urllib.parse import parse_qs, urlsplit
 
 from .campaign_execution import saved_pause_receipt, scope_view
 from .campaign_metric_definitions import definitions, historical_measurement, joined_outcome_advice, object_data
@@ -12,6 +11,7 @@ from .campaign_monitor import actor, last_observation, whole
 from .campaign_report_pause import pause_guidance
 from .common import Invalid, canonical, digest, identifier, iso_time, now, uid
 from .db import connection
+from .evidence_gate import has_campaign_tag
 from .experiments import lookup as lookup_experiment
 from .first_party_outcomes import normalized_batch
 from .first_party_receipts import HASH, for_campaign, primary_outcome, retain
@@ -473,16 +473,6 @@ def matched_post(db, app_id, scope_id, approved, outcome):
         delivery_sha256=digest(result),
         outcome_sha256=outcome["receipt_sha256"],
     )
-
-
-def has_campaign_tag(url: object, campaign: str) -> bool:
-    """Read retained destination evidence without fetching or exposing its URL."""
-    if not isinstance(url, str) or len(url) > 4096:
-        return False
-    try:
-        return campaign in parse_qs(urlsplit(url).query, max_num_fields=256).get("utm_campaign", [])
-    except ValueError:
-        return False
 
 
 def next_action(campaign, monitor, experiment, delivery=None, outcome=None, advice=None):

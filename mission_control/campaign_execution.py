@@ -5,7 +5,7 @@ import sqlite3
 from contextvars import ContextVar
 from datetime import datetime, timezone
 
-from .campaign_contract import ad_data, post_data, scope_data
+from .campaign_contract import ad_data, paid_view, post_data, row_intent, scope_data
 from .campaign_destination import check_destination
 from .campaign_locks import CampaignLockBusy, paid_lock
 from .campaign_pause_receipts import confirm_paid_transition, pause_revision
@@ -135,54 +135,6 @@ def check_ad_limits(db, row, scope, body):
     if budget > scope["max_campaign_minor"]:
         raise PermissionError("Campaign budget exceeds the approved per-campaign amount")
     return budget
-
-
-def row_intent(row):
-    if row is None:
-        raise Invalid("Campaign intent was not found")
-    return {
-        key: row[key]
-        for key in (
-            "id",
-            "scope_id",
-            "request_id",
-            "request_hash",
-            "content_hash",
-            "rights_hash",
-            "page_id",
-            "status",
-            "remote_id",
-            "created",
-            "updated",
-        )
-    } | {"result": json.loads(row["result"]) if row["result"] else None}
-
-
-def paid_view(row):
-    if row is None:
-        raise Invalid("Paid campaign intent was not found")
-    value = {
-        key: row[key]
-        for key in (
-            "id",
-            "scope_id",
-            "request_id",
-            "request_hash",
-            "account_id",
-            "currency",
-            "commitment",
-            "status",
-            "created",
-            "updated",
-        )
-    }
-    value.update(
-        kind="AD",
-        data=json.loads(row["data"]),
-        ids=json.loads(row["ids"]),
-        result=json.loads(row["result"]) if row["result"] else None,
-    )
-    return value
 
 
 class CampaignExecutionService:
