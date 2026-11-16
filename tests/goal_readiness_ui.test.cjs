@@ -129,6 +129,19 @@ test('nonowner opens only an actionable owner setup explanation', () => {
     false,
   );
 });
+test('measurement readiness opens current saved evidence without requiring an owner or agent', () => {
+  const h = fixture();
+  h.state.goalChoice.id = 'measurement';
+  h.state.workspace.access.members = [];
+  h.c.guidedNavigate = (...args) => h.calls.push(args);
+  h.w.open();
+  assert.deepEqual(h.calls, [['results', '#analytics-overview-heading']]);
+
+  h.state.app = 'other';
+  assert.throws(() => h.w.open(), /selected app to finish loading/);
+  assert.equal(h.calls.length, 1);
+});
+
 test('campaign setup offers all implemented organic channels with no effect or automatic selection', () => {
   const h = fixture();
   h.w.open();

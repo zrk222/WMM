@@ -81,6 +81,13 @@ Missing measurements stay unknown. Growth and time savings are not guaranteed.
   work, you approve a specific publish, and only a connected source can show
   what happened.
 
+## Check what you can measure
+
+Choose **Understand app results** → **Check what you can measure**. WMM opens
+the saved evidence for this app and shows what to add next. You do not need to
+set up an agent to see this checklist. Connecting a provider still needs the
+right account, and missing measurements stay unknown.
+
 ## When you are ready to run an approved campaign
 
 1. In **Set your goal**, choose **Run an approved campaign**, then
