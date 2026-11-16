@@ -40,6 +40,7 @@ import {
   WMMGrowthReview,
   WMMPageReports,
   WMMSubscriptionAuthoring,
+  WMMTelemetry,
 } from './feature-apis.mjs';
 ('use strict');
 
@@ -208,6 +209,23 @@ function experimentIterationPanel(e) {
     <p class="description">This recommendation does not approve, publish, or spend.</p></section>`;
 }
 
+function experimentWorkerSnapshot(worker) {
+  const current = WMMTelemetry.workerState(
+    worker?.status,
+    worker?.observed_at,
+    worker?.last_success,
+  );
+  const message =
+    current === 'RUNNING'
+      ? 'Worker reported healthy when WMM saved this check.'
+      : WMMTelemetry.workerMessage(current);
+  return `<div class="next-step"><p><strong>Saved local worker check</strong></p>
+    <p>${esc(message)}</p>
+    <p class="description">Last healthy check: ${esc(savedWhen(worker?.last_success))}</p>
+    <button class="button outline" type="button" data-view="activity">Check live worker status</button>
+    ${worker?.last_error ? notice(worker.last_error, 'error') : ''}</div>`;
+}
+
 function experimentResults() {
   const tests = state.workspace.experiments || [];
   const cards = tests
@@ -217,8 +235,7 @@ function experimentResults() {
       return `<section class="panel experiment-panel"><div class="section-heading"><h3>${esc(e.data.name)}</h3>${status(e.state)}</div><p>${esc(e.data.hypothesis)}</p><p class="description">${esc(label(e.data.primary_metric))} Â· ${esc(e.data.assignment_method)} Â· analysis ${esc(new Date(e.data.analysis_at).toLocaleString())}</p><p>Approximate sample: ${e.data.sample_plan.control} control / ${e.data.sample_plan.treatment} treatment installs</p>${latest ? `<p>Latest assessment: ${status(latest.data.status)} Â· decision ${status(e.decision_status)}</p>${latest.data.issues.map((i) => notice(i, 'warning')).join('')}` : notice('No assessment recorded. Exposure and the fixed analysis date are required.')}${decision ? `<p>Recorded decision: ${esc(label(decision.data.decision))}</p>` : ''}${WMMPageReports.sectionsHTML(WMMPageReports.measurementSections({ experiments: [e] }), 3)}${experimentIterationPanel(e)}${button('Inspect experiment', 'experiment-open', `data-id="${esc(e.id)}"`)}</section>`;
     })
     .join('');
-  const worker = state.workspace.worker || { status: 'NOT_STARTED' };
-  return `<div class="section-heading"><h2>Experiments with a fixed learning window</h2>${button('Plan an experiment', 'experiment-create')}</div>${notice('Pre-register before acquisition begins. Compare supplied observations; launch, random assignment, publication and spending are separate actions.')}<p class="description">Local analysis worker: ${esc(label(worker.status))}${worker.last_success ? ` Â· last healthy poll ${esc(new Date(worker.last_success).toLocaleString())}` : ''}</p>${worker.last_error ? notice(worker.last_error, 'error') : ''}${tests.length ? cards : empty('Turn a hypothesis into a bounded test', 'Choose two comparable event cohorts and reviewed creatives, declare the outcome, sample, dates and guardrails, then track exposure and decisions.', button('Register your first test', 'experiment-create'))}`;
+  return `<div class="section-heading"><h2>Experiments with a fixed learning window</h2>${button('Plan an experiment', 'experiment-create')}</div>${notice('Pre-register before acquisition begins. Compare supplied observations; launch, random assignment, publication and spending are separate actions.')}${experimentWorkerSnapshot(state.workspace.worker)}${tests.length ? cards : empty('Turn a hypothesis into a bounded test', 'Choose two comparable event cohorts and reviewed creatives, declare the outcome, sample, dates and guardrails, then track exposure and decisions.', button('Register your first test', 'experiment-create'))}`;
 }
 
 function experimentSelect(name, title, choices) {

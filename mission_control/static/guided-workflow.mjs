@@ -823,6 +823,8 @@ const WMMGoalReadiness = (() => {
       return ['Review organic publication', 'organic-publication'];
     if (blockers.has('EXACT_OWNER_CAMPAIGN_SCOPE_REQUIRED'))
       return ['Review campaign scope', 'campaign'];
+    if (blockers.has('LOCAL_MEDIA_RUNTIME_VERIFICATION_REQUIRED'))
+      return ['Review local video tools', 'video-tools'];
     if (inventory.scope_status === 'READY_FOR_SCOPE_REVIEW' && !credentials.length)
       return ['Review automation agreement', 'combined-agreement'];
     return null;
@@ -1096,6 +1098,7 @@ const WMMGoalReadiness = (() => {
     }
     if (tool === 'campaign') return campaignOpen();
     if (tool === 'social-accounts') return guidedNavigate('connections', '#social-heading');
+    if (tool === 'video-tools') return guidedNavigate('research', '#creative-rendering-heading');
     if (tool === 'combined-agreement') return WMMAgreement.open();
     if (tool === 'agreement')
       return WMMCompleteAutomation.action(

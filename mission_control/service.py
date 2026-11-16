@@ -250,7 +250,10 @@ class Service:
             "attribution": Observations(self.store).list(app_id),
             "experiments": Experiments(self.store).list(app_id),
             "schedules": schedules,
-            "worker": getattr(self, "worker_health", lambda: {"status": "NOT_STARTED"})(),
+            "worker": dict(
+                getattr(self, "worker_health", lambda: {"status": "NOT_STARTED"})(),
+                observed_at=now(),
+            ),
             "references": Library(self.store).list(app_id),
             "analyses": Analyses(self.store).list(app_id),
             "briefs": Briefs(self.store).list(app_id),

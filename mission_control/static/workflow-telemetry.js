@@ -283,5 +283,16 @@
     };
     poll();
   }
-  return { panel, markup, mount, clear, openResult, nextAction, waitingResultMarkup, POLL_MS };
+  return {
+    panel,
+    markup,
+    mount,
+    clear,
+    openResult,
+    nextAction,
+    waitingResultMarkup,
+    workerState,
+    workerMessage,
+    POLL_MS,
+  };
 });
