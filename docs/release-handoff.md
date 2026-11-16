@@ -35,8 +35,9 @@ The installer and installed uninstaller must pass Windows signature verification
 under that identity before the release can publish. Preview 11 and its review patch have a scoped
 unsigned Windows option controlled by the explicit `unsigned_windows_preview11`
 input (off by default), limited to `v0.1.0-preview.11`,
-`v0.1.0-preview.11.1`, `v0.1.0-preview.11.1.1` (Update 1) and
-`v0.1.0-preview.11.1.2` (Update 2). Each update has its own checksums and
+`v0.1.0-preview.11.1`, `v0.1.0-preview.11.1.1` (Update 1),
+`v0.1.0-preview.11.1.2` (Update 2) and `v0.1.0-preview.11.1.3` (Update 3).
+Each update has its own checksums and
 attestations. The earlier published tags and assets stay intact.
 Preview 12 and later require signing. Build-only runs stay unsigned.
 Signing does not install trust roots, bypass TLS, or prove human first-use acceptance. The SBOM is a build-environment package inventory, not
