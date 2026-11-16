@@ -32,7 +32,12 @@ import { pmfOpen } from './pmf-workflow.mjs';
 import { publicStoreOpen } from './public-store-readback.mjs';
 import { rankingPanel } from './creative-ranking.mjs';
 import { renderForm } from './creative-rendering.mjs';
-import { WMMAgentControl, WMMCompleteAutomation, WMMPageReports } from './feature-apis.mjs';
+import {
+  WMMAgentControl,
+  WMMAppleAnalytics,
+  WMMCompleteAutomation,
+  WMMPageReports,
+} from './feature-apis.mjs';
 ('use strict');
 
 function guidedButton(tool, cls = 'outline') {
@@ -504,6 +509,20 @@ const WMMGoalJourney = (() => {
     if (account.status === 'CONNECTED_READ_TESTED') return 'Read check recorded';
     return 'Check connection';
   }
+  function applePath(workspace, goal) {
+    const app = workspace?.app;
+    if (
+      !['campaign', 'measurement'].includes(goal) ||
+      typeof app?.data?.store_app_id !== 'string' ||
+      !/^[0-9]{1,30}$/.test(app.data.store_app_id)
+    )
+      return null;
+    const hasSavedPage = (workspace.social_access?.accounts || []).some(
+      (account) =>
+        account.provider === 'facebook' && savedConnectionStatus(account) === 'Read check recorded',
+    );
+    return { hasSavedPage };
+  }
   function model(workspace, id) {
     const goal = choices[fixed(id)];
     return {
@@ -511,6 +530,7 @@ const WMMGoalJourney = (() => {
       version: workspace.app.version,
       objective: workspace.app.data.job || '',
       goal: goal ? { id, ...goal } : null,
+      apple: applePath(workspace, id),
       accounts: (workspace.social_access?.accounts || [])
         .filter((a) => Object.hasOwn(channels, a.provider))
         .map((a) => ({
@@ -553,8 +573,13 @@ const WMMGoalJourney = (() => {
       g?.id === 'campaign'
         ? '<p>For one organic post, set up measurement before you publish. Your app website, tagged link and measurement source belong to this app.</p><button type="button" class="button outline" data-action="observational-campaign-open">Plan a tracked organic post</button>'
         : '';
+    const appleButton = (mode, label) =>
+      `<button type="button" class="button outline" data-action="goal-next" data-goal="${g.id}" data-mode="${mode}" data-app="${html(m.app_id)}" data-version="${m.version}">${label}</button>`;
+    const apple = m.apple
+      ? `<section aria-label="App Store campaign downloads"><h3>App Store campaign downloads</h3><p>Use this app’s Apple campaign link and check its report access. Missing counts stay unknown.${g.id === 'campaign' ? ' Then review one organic Facebook post with no media spend.' : ''}</p><div class="toolbar">${appleButton('apple-analytics', 'Review Apple download tracking')}${g.id === 'campaign' ? appleButton('apple-facebook', m.apple.hasSavedPage ? 'Review Facebook campaign scope' : 'Connect Facebook for this app') : ''}</div></section>`
+      : '';
     const next = g
-      ? `<section class="panel" aria-label="Your selected goal"><h2>${html(g.title)}</h2><p>${html(g.description)}</p><p><strong>Bring:</strong> ${html(g.need)}.</p>${accounts}<p>Account setup is not execution approval. Existing workflow and campaign checks still apply.</p><div class="toolbar"><button type="button" class="button" data-action="goal-next" data-goal="${g.id}" data-app="${html(m.app_id)}" data-version="${m.version}">${html(g.next)}</button><button type="button" class="button outline" data-action="goal-readiness">${html(g.readiness?.label || 'Check connections for this goal')}</button><button type="button" class="button outline" data-view="agents">Connect your agent</button></div>${g.readiness ? '<details><summary>Advanced readiness options</summary><p>Check specific agent permissions and connections only if you want WMM to manage the work.</p><button type="button" class="button outline" data-action="goal-readiness" data-mode="managed">Check managed automation</button></details>' : ''}${tracking}</section>`
+      ? `<section class="panel" aria-label="Your selected goal"><h2>${html(g.title)}</h2><p>${html(g.description)}</p><p><strong>Bring:</strong> ${html(g.need)}.</p>${accounts}<p>Account setup is not execution approval. Existing workflow and campaign checks still apply.</p><div class="toolbar"><button type="button" class="button" data-action="goal-next" data-goal="${g.id}" data-app="${html(m.app_id)}" data-version="${m.version}">${html(g.next)}</button><button type="button" class="button outline" data-action="goal-readiness">${html(g.readiness?.label || 'Check connections for this goal')}</button><button type="button" class="button outline" data-view="agents">Connect your agent</button></div>${g.readiness ? '<details><summary>Advanced readiness options</summary><p>Check specific agent permissions and connections only if you want WMM to manage the work.</p><button type="button" class="button outline" data-action="goal-readiness" data-mode="managed">Check managed automation</button></details>' : ''}${apple}${tracking}</section>`
       : '<p>Choose one goal to see the relevant tools. This selection starts no work and grants no permission.</p>';
     return `<section class="panel" aria-label="Choose your marketing goal" id="goal-journey"><h2>What would you like to accomplish?</h2><p>Start with one useful result. Your agent and you use the same saved app facts, tools and approval checks.</p><p><strong>Your app purpose:</strong> ${html(m.objective || 'Add the problem your app solves in App setup.')}</p><div class="goal-choice-grid" role="group" aria-label="Marketing goals">${cards}</div><p id="goal-message" role="status" aria-live="polite"></p></section>${next}`;
   }
@@ -565,7 +590,7 @@ const WMMGoalJourney = (() => {
       return null;
     }
   }
-  return { read, save, model, view, choices, browserStorage };
+  return { read, save, model, view, choices, browserStorage, applePath };
 })();
 
 function goalProofIllustration() {
@@ -755,6 +780,16 @@ function goalAction(node) {
     return;
   }
   if (node.dataset.action !== 'goal-next') throw new Error('Unknown goal action.');
+  if (node.dataset.mode) {
+    const apple = WMMGoalJourney.applePath(state.workspace, id);
+    if (apple && node.dataset.mode === 'apple-analytics')
+      return WMMAppleAnalytics.open(growthReviewServices());
+    if (apple && id === 'campaign' && node.dataset.mode === 'apple-facebook')
+      return apple.hasSavedPage
+        ? campaignOpen(node)
+        : guidedNavigate('connections', '#social-heading');
+    throw new Error('Choose an available App Store setup action for this app.');
+  }
   if (id === 'campaign') return guidedNavigate('connections');
   if (id === 'creative') return guidedNavigate('research');
   if (id === 'research') return guidedOpenTool('sources');
